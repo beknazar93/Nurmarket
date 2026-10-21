@@ -14,21 +14,60 @@
          (nurcrm.kg/catalog/…) и заказы NurCRM (api/main/orders) — см. ShowcaseApiService. Строки
          списка и карточка заказа собираются в коде (цвета — из темы). -->
     <Window.Styles>
+        <!-- 2026-10-19, этап О10 (аудит: серые залитые кнопки, выбранный фильтр жёлтый, «Обновить» жёлтая при автообновлении):
+             обычная кнопка — обводкой (как sec-outline), выбранный фильтр (active) — тёмно-синий (как sec-seg), жёлтая (accent) —
+             только главное действие с заказом («Принять в работу», «Готов к выдаче», «Выдан покупателю»). -->
         <Style Selector="Button.period">
             <Setter Property="Padding" Value="14,7"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
-            <Setter Property="CornerRadius" Value="8"/>
-        </Style>
-        <Style Selector="Button.period.accent, Button.period.active">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
-        <Style Selector="Button.period.accent /template/ ContentPresenter#PART_ContentPresenter, Button.period.active /template/ ContentPresenter#PART_ContentPresenter">
+        <Style Selector="Button.period:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.period:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+        <Style Selector="Button.period:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.period:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+        <Style Selector="Button.period.active">
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style Selector="Button.period.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.period.accent">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style Selector="Button.period.accent /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         </Style>
-        <Style Selector="Button.period.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.period.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Style Selector="Button.period.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         </Style>
@@ -51,13 +90,15 @@
         <Style Selector="Border.orderRow:pointerover">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         </Style>
+        <!-- 2026-10-19, этап О10: новый заказ — чуть заметнее рамкой (метка «Новый» есть и так), выбранный — тёмная рамка, как
+             выбранная тема в Маркетплейсе (был жёлтый фон с жёлтой рамкой). -->
         <Style Selector="Border.orderRow.isNew">
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
             <Setter Property="BorderThickness" Value="1,1,1,1"/>
         </Style>
         <Style Selector="Border.orderRow.selected">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
             <Setter Property="BorderThickness" Value="2"/>
         </Style>
         <Style Selector="TextBlock.soft">
@@ -89,19 +130,24 @@
                            Foreground="{DynamicResource BrushTextSoft}"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button x:Name="RefreshButton" Classes="period accent" Click="Refresh_Click"/>
+                <!-- 2026-10-19, этап О10: список обновляется сам — «Обновить» обводкой, не главная. -->
+                <Button x:Name="RefreshButton" Classes="period" Click="Refresh_Click"/>
                 <Button IsCancel="True" x:Name="CloseButton" Classes="period" Click="Close_Click"/>
             </StackPanel>
         </Grid>
 
-        <!-- Витрина: подключена ли, ссылка, куда уходит заказ покупателя. -->
+        <!-- Витрина: подключена ли, ссылка, куда уходит заказ покупателя.
+             2026-10-21 (пакет 4, п. 123): когда витрина работает — короткая полоса (ссылка + одна строка), без повтора блока
+             «Витрина работает · товаров…» из «Настроек сайта»; подробности — в подсказке. Ссылка нажимается (раньше была
+             подчёркнута, но не открывалась). -->
         <Border Grid.Row="1" Classes="card" Margin="0,0,0,12">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <Border x:Name="ShowcaseStateDot" Width="10" Height="10" CornerRadius="5" VerticalAlignment="Top" Margin="0,6,12,0"
                         Background="{DynamicResource BrushTextSoft}"/>
-                <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,12,0">
+                <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,12,0" VerticalAlignment="Center">
                     <TextBlock x:Name="ShowcaseStateText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
-                    <TextBlock x:Name="ShowcaseLinkText" FontSize="13" FontWeight="Medium" TextDecorations="Underline" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="ShowcaseLinkText" FontSize="13" FontWeight="Medium" TextDecorations="Underline" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"
+                               Cursor="Hand" HorizontalAlignment="Left" PointerPressed="ShowcaseLink_PointerPressed"/>
                     <TextBlock x:Name="ShowcaseHowText" Classes="soft"/>
                 </StackPanel>
                 <WrapPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" MaxWidth="460">

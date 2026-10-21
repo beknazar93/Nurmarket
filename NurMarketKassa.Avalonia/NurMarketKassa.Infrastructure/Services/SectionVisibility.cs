@@ -42,11 +42,15 @@ public static class SectionVisibility
         ("warehouse", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor")),
         ("calculator", Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya")),
         ("restock", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar")),
-        ("sales", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar")),
-        ("finance", Tr.T("Финансы", "Каржы", "Finance", "Finans", "Moliya")),
+        // 2026-10-18: «Продажи» и «Финансы» — один пункт «Продажи и финансы»; ключи прежние, теперь это его части
+        // (скрыта одна — пункт открывает другую, скрыты обе — пункта нет; OwnerShellWindow.SalesFinance.cs).
+        ("sales", Tr.T("Продажи и финансы — часть «Продажи»", "Сатуулар жана каржы — «Сатуулар» бөлүгү", "Sales & finance — the “Sales” part", "Satışlar ve finans — «Satışlar» bölümü", "Sotuvlar va moliya — «Sotuvlar» qismi")),
+        ("finance", Tr.T("Продажи и финансы — часть «Финансы»", "Сатуулар жана каржы — «Каржы» бөлүгү", "Sales & finance — the “Finance” part", "Satışlar ve finans — «Finans» bölümü", "Sotuvlar va moliya — «Moliya» qismi")),
         ("analytics", Tr.T("Аналитика", "Талдоо", "Analytics", "Analiz", "Analitika")),
         ("abc", Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil")),
         ("profitcash", Tr.T("Прибыль и деньги", "Пайда жана акча", "Profit & cash", "Kâr ve nakit", "Foyda va pul")),
+        // 2026-10-20, этап П1: раздел «Поставщики» (список с долгом и карточка).
+        ("suppliers", Tr.T("Поставщики", "Жеткирүүчүлөр", "Suppliers", "Tedarikçiler", "Yetkazib beruvchilar")),
         ("supplierreturns", Tr.T("Возвраты поставщикам", "Жеткирүүчүлөргө кайтаруулар", "Returns to suppliers", "Tedarikçiye iadeler", "Yetkazib beruvchilarga qaytarishlar")),
         ("branches", Tr.T("Филиалы", "Филиалдар", "Branches", "Şubeler", "Filiallar")),
         ("losssales", Tr.T("Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar")),
@@ -78,8 +82,9 @@ public static class SectionVisibility
         ("kassa.timesheet", Tr.T("Табель сотрудников", "Кызматкерлердин табели", "Staff timesheet", "Personel puantajı", "Xodimlar tabeli")),
         ("kassa.warehouse", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor")),
         ("kassa.restock", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar")),
-        ("kassa.sales", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar")),
-        ("kassa.finance", Tr.T("Финансы", "Каржы", "Finance", "Finans", "Moliya")),
+        // 2026-10-18: в меню кассы тоже один пункт «Продажи и финансы» (MainWindow.NavigateFinance).
+        ("kassa.sales", Tr.T("Продажи и финансы — часть «Продажи»", "Сатуулар жана каржы — «Сатуулар» бөлүгү", "Sales & finance — the “Sales” part", "Satışlar ve finans — «Satışlar» bölümü", "Sotuvlar va moliya — «Sotuvlar» qismi")),
+        ("kassa.finance", Tr.T("Продажи и финансы — часть «Финансы»", "Сатуулар жана каржы — «Каржы» бөлүгү", "Sales & finance — the “Finance” part", "Satışlar ve finans — «Finans» bölümü", "Sotuvlar va moliya — «Moliya» qismi")),
         ("kassa.salary", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi")),
         ("kassa.clients", Tr.T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar")),
         ("kassa.crm", "NurCRM"),

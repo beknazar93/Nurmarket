@@ -19,10 +19,39 @@ public enum PrintMode
 public sealed class EmployeeAccessCode
 {
     public string Name { get; set; } = "";
+
+    // 2026-10-18, аудит: открытые коды больше не хранятся — только что введённый код лежит здесь до
+    // ближайшего сохранения настроек, затем превращается в хэш (EmployeeAccessGate.SecureStoredCodes).
+    // Поля оставлены для чтения старого user-settings.json и старого облачного поля (кассы 1.17.58).
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? CartDeleteCode { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? WarehouseDeleteCode { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ProductEditCode { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ProductAddCode { get; set; }
+    /// <summary>2026-10-18: код на приём оплаты долга (действие debtPayment, включается в «Оплате долга»).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DebtPaymentCode { get; set; }
+
+    /// <summary>2026-10-18: хэши личных кодов (PBKDF2-SHA256 со случайной солью, см. EmployeeAccessGate) —
+    /// только они хранятся на диске и уходят в облако.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CartDeleteCodeHash { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? WarehouseDeleteCodeHash { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProductEditCodeHash { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProductAddCodeHash { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DebtPaymentCodeHash { get; set; }
+
+    /// <summary>2026-10-18, решение владельца (коды — 6 цифр): действия, у которых заданный код короче/не из 6 цифр
+    /// (заданы до правила). Такие коды продолжают работать, у карточки — пометка «замените на 6 цифр».</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? ShortCodes { get; set; }
 
     /// <summary>2026-09-08: id сотрудника на app.nurcrm.kg, если карточка появилась из
     /// "Загрузить с сайта" или "Добавить сотрудника" (создан через API) — нужен, чтобы кнопка
@@ -34,10 +63,11 @@ public sealed class EmployeeAccessCode
     /// через кассу или при "Загрузить с сайта".</summary>
     public string? Email { get; set; }
 
-    /// <summary>2026-09-08: пароль, который сервер сам сгенерировал при создании сотрудника
-    /// через кассу (владелец попросил его сохранять — сервер показывает его только один раз,
-    /// в самом ответе на создание, и больше никогда не отдаёт). Null для сотрудников, загруженных
-    /// через "Загрузить с сайта" — сервер не отдаёт существующие пароли, только свежесозданные.</summary>
+    /// <summary>2026-09-08: пароль, который сервер сам сгенерировал при создании сотрудника.
+    /// 2026-10-18, аудит: пароль больше НЕ хранится (ни на диске, ни в облаке — облачные настройки
+    /// компании читает любой сотрудник). Его показывают один раз в окне «Логин сотрудника»; поле
+    /// оставлено только чтобы прочитать и стереть пароли, сохранённые прежними версиями.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? LoginPassword { get; set; }
 }
 
@@ -450,6 +480,24 @@ public sealed class UserPreferences
     /// — не проверялось. Владелец включает сам, отсканировав тестовый QR парой приложений.</summary>
     public bool DynamicPaymentQrEnabled { get; set; }
 
+    /// <summary>2026-10-16, редизайн (этап 1): «слепой пересчёт» при закрытии смены (Настройки → Операции).
+    /// Включено — кассир сначала вводит пересчитанные наличные и нажимает «Пересчитал», и только потом видит
+    /// сумму по системе и расхождение (CloseShiftDialog). По умолчанию выключено — прежний вид.</summary>
+    public bool BlindCashCount { get; set; }
+
+    /// <summary>2026-10-17, ревью этапа 1: первый слепой пересчёт, после которого окно закрытия смены
+    /// закрыли отменой («ввёл любое число → увидел ожидаемое → отмена → ввёл показанное»). Формат
+    /// "дата-время ISO|введено|по системе" (инвариантная культура); очищается после закрытия смены.</summary>
+    public string? BlindCountFirstAttempt { get; set; }
+
+    /// <summary>2026-10-17, редизайн (этап 4, «Контроль удалений»): спрашивать причину, когда из чека убирают
+    /// строку на сумму от <see cref="CartRemovalReasonThreshold"/> (Настройки → Операции). По умолчанию выключено —
+    /// кассир удаляет как раньше; журнал «Удалено из чека» пишется всегда (CartRemovalLogStore).</summary>
+    public bool AskCartRemovalReason { get; set; }
+
+    /// <summary>2026-10-17, этап 4: порог суммы строки (сом) для вопроса о причине удаления.</summary>
+    public double CartRemovalReasonThreshold { get; set; } = 1000;
+
     /// <summary>Телеграм-бот владельца: вечерняя сводка по смене приходит ему в телефон.
     /// Токен в памяти лежит открытым, а НА ДИСК пишется через DPAPI (см. SaveToDisk) — файл
     /// настроек читает любой, у кого доступ к этому компьютеру, а токен позволяет писать
@@ -543,6 +591,22 @@ public sealed class UserPreferences
     public List<string> VisibleBankNames { get; set; } = new();
 
     public List<EmployeeAccessCode> EmployeeAccessCodes { get; set; } = new();
+
+    /// <summary>2026-10-18, повторное ревью: версия списка сотрудников с кодами (время последней правки, мс UTC) —
+    /// облачный список новее локального применяется целиком (удалённые на другой кассе не «воскресают»).</summary>
+    public long EmployeeAccessCodesVersion { get; set; }
+
+    /// <summary>2026-10-18, 5-й круг: компания, для которой получен список сотрудников с кодами (вход в другой магазин
+    /// на этом ПК не должен ни проверять, ни отправлять чужой список). Пусто — касса до обновления.</summary>
+    public string? EmployeeAccessCodesCompanyId { get; set; }
+
+    /// <summary>2026-10-18, владелец: общие настройки «Оплата долга» (способы в кассе и у владельца, код сотрудника) —
+    /// последние полученные с сервера (api/main/app-settings/nurmarket-kassa/, см. DebtPaymentSettings). null — ещё не
+    /// получены: действуют значения по умолчанию (касса — только наличные, владелец — всё, код не нужен).</summary>
+    public DebtPaymentOptions? DebtPaymentOptions { get; set; }
+
+    /// <summary>2026-10-18: компания, для которой получены <see cref="DebtPaymentOptions"/> (у другой компании на этом ПК не действуют).</summary>
+    public string? DebtPaymentOptionsCompanyId { get; set; }
 
     /// <summary>Бонусная программа (AI-фичи 2026-09-04) — баланс хранится ЛОКАЛЬНО на этой кассе
     /// (см. ClientLoyaltyStore), т.к. в API клиентов NurCRM пока нет поля для баллов. По умолчанию
@@ -684,6 +748,19 @@ public sealed class UserPreferences
     /// <summary>2026-10-06, владелец: «займись редизайном и удобством админки». Свёрнутые группы меню программы
     /// владельца — ключи через запятую (products, sales, reports…).</summary>
     public string? OwnerNavCollapsedGroups { get; set; }
+    /// <summary>2026-10-18, владелец: вид меню программы владельца — "new" (тёмная колонка групп и колонка пунктов, по умолчанию),
+    /// "burger" (меню спрятано, кнопка ☰ открывает его поверх раздела) или "old" (как до редизайна). Личная настройка.</summary>
+    public string? OwnerMenuStyle { get; set; }
+    /// <summary>2026-10-19, владелец: «так же и в кассе сделай старое/новое для выбора» — вид меню ☰ кассы: null/"old" — как
+    /// в выпуске 1.17.58 (по умолчанию, у кассиров ничего не меняется), "new" — по макету KassaMenus (две колонки групп,
+    /// все пункты сразу). Личная настройка.</summary>
+    public string? KassaMenuStyle { get; set; }
+    /// <summary>2026-10-19, владелец: «Выплатить» в «Зарплате» — касса компании, из которой выплачивалась зарплата в прошлый
+    /// раз (id кассы NurCRM). Личная настройка; касса другой компании в списке не найдётся — выберется касса по умолчанию.</summary>
+    public string? SalaryPayoutCashboxId { get; set; }
+    /// <summary>2026-10-19, пятая проверка выплаты зарплаты: id категории расходов «Зарплата» по компаниям («компания=id;…») —
+    /// чтобы после перезапуска не создать на сервере вторую «Зарплата». Личная настройка.</summary>
+    public string? SalaryCategoryIds { get; set; }
     /// <summary>2026-10-06, владелец: «при загрузке и создании товаров из накладной надо сразу ставить маржу минимум 20%».
     /// Минимальная наценка ИИ при приходе по накладной и создании товара (процентов).</summary>
     public double AiMinMarkupPercent { get; set; } = 20;
@@ -889,6 +966,7 @@ public sealed class UserPreferences
         p.ReceiptEnabled = rp.Enabled;
         p.ReceiptRetryCount = rp.RetryCount;
 
+        var securedEmployeeCodes = false;
         try
         {
             var settingsPath = FindExistingSettingsFile();
@@ -1153,6 +1231,14 @@ public sealed class UserPreferences
                 p.ToolsPanelExpanded = fromFile.ToolsPanelExpanded.Value;
             if (fromFile.DynamicPaymentQrEnabled is not null)
                 p.DynamicPaymentQrEnabled = fromFile.DynamicPaymentQrEnabled.Value;
+            if (fromFile.BlindCashCount is not null)
+                p.BlindCashCount = fromFile.BlindCashCount.Value;
+            if (!string.IsNullOrWhiteSpace(fromFile.BlindCountFirstAttempt))
+                p.BlindCountFirstAttempt = fromFile.BlindCountFirstAttempt;
+            if (fromFile.AskCartRemovalReason is not null)
+                p.AskCartRemovalReason = fromFile.AskCartRemovalReason.Value;
+            if (fromFile.CartRemovalReasonThreshold is { } removalThreshold && removalThreshold >= 0)
+                p.CartRemovalReasonThreshold = removalThreshold;
             if (!string.IsNullOrWhiteSpace(fromFile.TelegramBotTokenProtected))
                 p.TelegramBotToken = WindowsDpapiHelper.UnprotectFromBase64(fromFile.TelegramBotTokenProtected);
             if (!string.IsNullOrWhiteSpace(fromFile.TelegramChatId))
@@ -1213,7 +1299,16 @@ public sealed class UserPreferences
             if (fromFile.VisibleBankNames != null)
                 p.VisibleBankNames = fromFile.VisibleBankNames;
             if (fromFile.EmployeeAccessCodes != null)
+            {
                 p.EmployeeAccessCodes = fromFile.EmployeeAccessCodes;
+                // 2026-10-18: открытые коды и пароли прежних версий — в хэш / стереть; файл перепишется в конце загрузки.
+                securedEmployeeCodes = EmployeeAccessGate.SecureStoredCodes(p.EmployeeAccessCodes);
+                p.EmployeeAccessCodesVersion = fromFile.EmployeeAccessCodesVersion ?? 0;
+                p.EmployeeAccessCodesCompanyId = fromFile.EmployeeAccessCodesCompanyId;
+            }
+            // 2026-10-18: общие настройки «Оплата долга» (последние с сервера).
+            p.DebtPaymentOptions = fromFile.DebtPaymentOptions;
+            p.DebtPaymentOptionsCompanyId = fromFile.DebtPaymentOptionsCompanyId;
             if (fromFile.LoyaltyEnabled is not null)
                 p.LoyaltyEnabled = fromFile.LoyaltyEnabled.Value;
             if (fromFile.ShowQuickProducts is not null)
@@ -1282,6 +1377,10 @@ public sealed class UserPreferences
             if (fromFile.LastFilterOnlyFavorite.HasValue) p.LastFilterOnlyFavorite = fromFile.LastFilterOnlyFavorite.Value;
             if (fromFile.OwnerSidebarCollapsed.HasValue) p.OwnerSidebarCollapsed = fromFile.OwnerSidebarCollapsed.Value;
             p.OwnerNavCollapsedGroups = fromFile.OwnerNavCollapsedGroups;
+            p.OwnerMenuStyle = fromFile.OwnerMenuStyle;
+            p.KassaMenuStyle = fromFile.KassaMenuStyle;
+            p.SalaryPayoutCashboxId = fromFile.SalaryPayoutCashboxId;
+            p.SalaryCategoryIds = fromFile.SalaryCategoryIds;
             if (fromFile.AiMinMarkupPercent is > 0) p.AiMinMarkupPercent = fromFile.AiMinMarkupPercent.Value;
             if (fromFile.LastFilterSearchQuery is not null) p.LastFilterSearchQuery = fromFile.LastFilterSearchQuery;
             if (!string.IsNullOrWhiteSpace(fromFile.LastFilterCatalogKind)) p.LastFilterCatalogKind = fromFile.LastFilterCatalogKind;
@@ -1317,6 +1416,10 @@ public sealed class UserPreferences
                 fromFile.CustomerDisplay.Normalize();
                 p.CustomerDisplay = fromFile.CustomerDisplay;
             }
+
+            // 2026-10-18: коды сотрудников переведены в хэш — сразу убрать открытые коды/пароли из файла.
+            if (securedEmployeeCodes)
+                p.SaveToDisk();
         }
         catch (Exception ex)
         {
@@ -1325,6 +1428,16 @@ public sealed class UserPreferences
         finally
         {
             ApplyPublishedDefaults(p);
+        }
+
+        // 2026-10-18, ревью безопасности: старые файлы настроек на этом ПК (NurCrmKassa; файл кассы, который читает
+        // программа владельца, и наоборот) — без открытых кодов и паролей сотрудников. Свой файл чистит SaveToDisk.
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        foreach (var folder in new[] { "NurMarketKassa", "NurMarketOwner", "NurCrmKassa" })
+        {
+            var path = Path.Combine(appData, folder, "user-settings.json");
+            if (!string.Equals(Path.GetFullPath(path), Path.GetFullPath(FilePath), StringComparison.OrdinalIgnoreCase))
+                EmployeeAccessGate.ScrubSettingsFile(path, hashCodes: folder != "NurCrmKassa"); // 2026-10-18: старая программа хэши не понимает
         }
     }
 
@@ -1352,8 +1465,17 @@ public sealed class UserPreferences
         }
     }
 
+    /// <summary>2026-10-19: стенд снимков (без экрана) выставляет true отражением ДО создания окон — SaveToDisk ничего не пишет
+    /// (19.10 окно «Настроек» в стенде записало настройки по умолчанию в настоящий файл кассы). Как _persistenceDisabled
+    /// у LabelScaleStore. В программе всегда false.</summary>
+#pragma warning disable CS0649 // выставляется стендом отражением
+    private static bool _persistenceDisabled;
+#pragma warning restore CS0649
+
     public void SaveToDisk()
     {
+        if (_persistenceDisabled)
+            return;
         try
         {
             var dir = Path.GetDirectoryName(FilePath);
@@ -1458,6 +1580,10 @@ public sealed class UserPreferences
                 ScaleBarcodeAmountUnit = ScaleBarcodeAmountUnit,
                 ToolsPanelExpanded = ToolsPanelExpanded,
                 DynamicPaymentQrEnabled = DynamicPaymentQrEnabled,
+                BlindCashCount = BlindCashCount,
+                BlindCountFirstAttempt = BlindCountFirstAttempt,
+                AskCartRemovalReason = AskCartRemovalReason,
+                CartRemovalReasonThreshold = CartRemovalReasonThreshold,
                 // Токен шифруется DPAPI под текущего пользователя Windows: файл, скопированный
                 // на другой компьютер, расшифровать нельзя.
                 TelegramBotTokenProtected = WindowsDpapiHelper.ProtectToBase64(TelegramBotToken),
@@ -1485,7 +1611,13 @@ public sealed class UserPreferences
                 BankLogoPaths = BankLogoPaths,
                 CustomBankNames = CustomBankNames,
                 VisibleBankNames = VisibleBankNames,
-                EmployeeAccessCodes = EmployeeAccessCodes,
+                // 2026-10-18, ревью безопасности: на диск — очищенная копия (коды только хэшем, без паролей);
+                // живые объекты не меняем — их правит карточка сотрудника на UI-потоке.
+                EmployeeAccessCodes = EmployeeAccessGate.ToDiskCopy(EmployeeAccessCodes),
+                EmployeeAccessCodesVersion = EmployeeAccessCodesVersion,
+                EmployeeAccessCodesCompanyId = EmployeeAccessCodesCompanyId,
+                DebtPaymentOptions = DebtPaymentOptions,
+                DebtPaymentOptionsCompanyId = DebtPaymentOptionsCompanyId,
                 LoyaltyEnabled = LoyaltyEnabled,
                 ShowQuickProducts = ShowQuickProducts,
                 UpsellEnabled = UpsellEnabled,
@@ -1522,6 +1654,10 @@ public sealed class UserPreferences
                 LastFilterOnlyFavorite = LastFilterOnlyFavorite,
                 OwnerSidebarCollapsed = OwnerSidebarCollapsed,
                 OwnerNavCollapsedGroups = OwnerNavCollapsedGroups,
+                OwnerMenuStyle = OwnerMenuStyle,
+                KassaMenuStyle = KassaMenuStyle,
+                SalaryPayoutCashboxId = SalaryPayoutCashboxId,
+                SalaryCategoryIds = SalaryCategoryIds,
                 AiMinMarkupPercent = AiMinMarkupPercent,
                 LastFilterSearchQuery = LastFilterSearchQuery,
                 LastFilterCatalogKind = LastFilterCatalogKind,
@@ -1747,6 +1883,10 @@ public sealed class UserPreferences
         public string? ScaleBarcodeAmountUnit { get; set; }
         public bool? ToolsPanelExpanded { get; set; }
         public bool? DynamicPaymentQrEnabled { get; set; }
+        public bool? BlindCashCount { get; set; }
+        public string? BlindCountFirstAttempt { get; set; }
+        public bool? AskCartRemovalReason { get; set; }
+        public double? CartRemovalReasonThreshold { get; set; }
         public string? TelegramBotTokenProtected { get; set; }
         public string? TelegramChatId { get; set; }
         public string? TelegramChatTitle { get; set; }
@@ -1773,6 +1913,10 @@ public sealed class UserPreferences
         public Dictionary<string, string>? BankLogoPaths { get; set; }
         public List<string>? CustomBankNames { get; set; }
         public List<EmployeeAccessCode>? EmployeeAccessCodes { get; set; }
+        public long? EmployeeAccessCodesVersion { get; set; }
+        public string? EmployeeAccessCodesCompanyId { get; set; }
+        public DebtPaymentOptions? DebtPaymentOptions { get; set; }
+        public string? DebtPaymentOptionsCompanyId { get; set; }
         public bool? LoyaltyEnabled { get; set; }
         public bool? ShowQuickProducts { get; set; }
         public bool? UpsellEnabled { get; set; }
@@ -1810,6 +1954,10 @@ public sealed class UserPreferences
         public bool? LastFilterOnlyFavorite { get; set; }
         public bool? OwnerSidebarCollapsed { get; set; }
         public string? OwnerNavCollapsedGroups { get; set; }
+        public string? OwnerMenuStyle { get; set; }
+        public string? KassaMenuStyle { get; set; }
+        public string? SalaryPayoutCashboxId { get; set; }
+        public string? SalaryCategoryIds { get; set; }
         public double? AiMinMarkupPercent { get; set; }
         public string? LastFilterSearchQuery { get; set; }
         public string? LastFilterCatalogKind { get; set; }
@@ -1878,6 +2026,10 @@ public static class MarketSpheres
 
     public static bool IsClothing => UserPreferences.Instance.MarketSphere == Clothing;
     public static bool IsServices => UserPreferences.Instance.MarketSphere == Services;
+
+    /// <summary>2026-10-20, владелец: «добавь возможность проката во всех видах магазина» — прокат есть в любой сфере
+    /// (было только «Одежда» и «Услуги»). Убрать — галочкой в «Показывать разделы» (kassa.rental / rentals).</summary>
+    public static bool HasRentals => true;
 
     /// <summary>Сфера сменилась в настройках — окна, которые от неё зависят, перестраиваются сразу.</summary>
     public static event Action? Changed;

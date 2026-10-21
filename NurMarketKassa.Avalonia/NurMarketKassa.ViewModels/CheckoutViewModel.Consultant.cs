@@ -221,7 +221,8 @@ namespace NurMarketKassa.ViewModels
             }
         }
 
-        public string ConsultantTitleText => Tr.T("КОНСУЛЬТАНТ", "КОНСУЛЬТАНТ", "CONSULTANT", "DANIŞMAN", "MASLAHATCHI");
+        // 2026-10-19, К1 (аудит 19.10, проблема 7): подпись обычным регистром, без ЗАГЛАВНЫХ.
+        public string ConsultantTitleText => Tr.T("Консультант", "Консультант", "Consultant", "Danışman", "Maslahatchi");
         public string ConsultantToggleText => Tr.T("Указать консультанта", "Консультантты көрсөтүү", "Specify a consultant",
             "Danışman belirt", "Maslahatchini ko'rsatish");
         public string ConsultantHintText => Tr.T(

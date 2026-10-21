@@ -60,6 +60,44 @@ public partial class NewOperationDialog : Window
             return;
         }
 
+        // 2026-10-21 (пакет 5, п. 42): причина обязательна и для внесения, и для изъятия — живой аудит 20.10: внесение
+        // сохранилось с пустой «Причиной», в отчёте смены потом не понять, откуда деньги.
+        if (string.IsNullOrWhiteSpace(ReasonBox.Text))
+        {
+            PosMessageBox.Show(this,
+                Tr.T("Укажите причину операции — она попадёт в отчёт смены.",
+                    "Операциянын себебин жазыңыз — ал сменанын отчётуна кирет.",
+                    "Enter the reason for the operation — it goes into the shift report.",
+                    "İşlemin nedenini yazın — vardiya raporuna girecek.",
+                    "Operatsiya sababini kiriting — u smena hisobotiga tushadi."),
+                Tr.T("Новая операция", "Жаңы операция", "New operation", "Yeni işlem", "Yangi operatsiya"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            ReasonBox.Focus();
+            return;
+        }
+
+        // 2026-10-21 (пакет 5, п. 42): внесение — тоже с подтверждением суммы и того, сколько станет в кассе
+        // (как у изъятия): ошибка в сумме (лишний ноль) иначе сразу уходила в смену и на сервер.
+        if (_isDeposit)
+        {
+            var confirm = CashWithdrawalGuard.DrawerCash() is { } cashNow
+                ? Tr.T(
+                    $"Внести {amount:0.00} сом в кассу? В кассе станет {cashNow + amount:0.00} сом.",
+                    $"Кассага {amount:0.00} сом салынсынбы? Кассада {cashNow + amount:0.00} сом болот.",
+                    $"Put {amount:0.00} som into the till? The till will have {cashNow + amount:0.00} som.",
+                    $"Kasaya {amount:0.00} som girilsin mi? Kasada {cashNow + amount:0.00} som olacak.",
+                    $"Kassaga {amount:0.00} so'm kiritilsinmi? Kassada {cashNow + amount:0.00} so'm bo'ladi.")
+                : Tr.T(
+                    $"Внести {amount:0.00} сом в кассу?",
+                    $"Кассага {amount:0.00} сом салынсынбы?",
+                    $"Put {amount:0.00} som into the till?",
+                    $"Kasaya {amount:0.00} som girilsin mi?",
+                    $"Kassaga {amount:0.00} so'm kiritilsinmi?");
+            if (!PosDialogs.ConfirmYesNo(this, confirm,
+                    Tr.T("Внесение", "Акча салуу", "Cash in", "Para girişi", "Kirim")))
+                return;
+        }
+
         // 2026-10-04, ТЗ 1.17.48 P0-2: изъятие не больше наличных в кассе и с подтверждением «станет».
         if (!_isDeposit)
         {

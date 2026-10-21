@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Веб — бонусы и сертификаты</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="WebLoyalty"><div style="min-height: 900px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-wrap: wrap;">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex;"><div class="sc-host" data-sc-name="WebNav"><nav aria-label="Разделы веб-админки" style="width: 100%; min-height: 900px; height: 100%; box-sizing: border-box; font-family: Montserrat, system-ui, sans-serif; display: flex;">
+  
+  <div style="width: 68px; flex-shrink: 0; background: rgb(11, 42, 60); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 0px 12px;">
+    <span style="width: 38px; height: 38px; border-radius: 10px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-weight: 800; margin-bottom: 8px;">N</span>
+    
+      
+      
+        <button type="button" aria-label="Главная" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Главная</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Товары" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Товары</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Продажи" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2 12h11l2-8H7M9 20h.01M17 20h.01"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Продажи</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Отчёты" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Отчёты</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Сайт" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Сайт</span></span></button>
+      
+    
+      
+        <button type="button" aria-label="Клиенты" aria-current="true" style="width: 64px; border: 0px; border-radius: 12px; background: rgba(255, 214, 0, 0.16); color: rgb(255, 214, 0); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21a7 7 0 0 1 14 0M17 11a3 3 0 1 0 0-6M22 21a6 6 0 0 0-4-5.6"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Клиенты</span></span></button>
+      
+      
+    
+      
+      
+        <button type="button" aria-label="Управление" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12l2-1-1-3-2 .5-1.5-1.5.5-2-3-1-1 2h-2l-1-2-3 1 .5 2L6 8.5 4 8l-1 3 2 1v2l-2 1 1 3 2-.5L7.5 18 7 20l3 1 1-2h2l1 2 3-1-.5-2 1.5-1.5 2 .5 1-3-2-1z"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Управление</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Помощь" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Помощь</span></span></button>
+      
+    
+    <span style="flex-grow: 1;"></span>
+    <button type="button" aria-label="Нурлан Абдыкадыров, администратор — профиль и выход" style="width: 36px; height: 36px; border: 0px; border-radius: 18px; background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-family: inherit; font-size: 12px; font-weight: 800;">НА</button>
+  </div>
+  <div style="flex-grow: 1; min-width: 0px; background: rgb(255, 255, 255); border-right: 1px solid rgb(229, 231, 235); display: flex; flex-direction: column; gap: 2px; padding: 16px 10px 12px;">
+    <span style="display: flex; flex-direction: column; gap: 4px; padding: 0px 6px 10px;"><b style="font-size: 15px; color: rgb(11, 42, 60);">NBS</b><span style="font-size: 11.5px; color: rgb(102, 112, 133);">Администратор</span><button type="button" aria-label="Филиал" style="align-self: flex-start; height: 28px; padding: 0px 8px; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-family: inherit; font-size: 11.5px; font-weight: 700;">Все филиалы ▾</button></span>
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(102, 112, 133); letter-spacing: 0.05em; padding: 4px 8px;"><span class="sc-interp">КЛИЕНТЫ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; color: rgb(71, 84, 103); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">Клиенты</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+    
+      
+        <a href="#" aria-current="page" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; background: rgb(255, 247, 204); box-shadow: rgb(255, 214, 0) 3px 0px 0px inset; color: rgb(11, 42, 60); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">Бонусы и сертификаты</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; color: rgb(71, 84, 103); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">Телеграм-бот</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; color: rgb(71, 84, 103); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">WhatsApp</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; color: rgb(71, 84, 103); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">Воронка</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+    
+    <span style="flex-grow: 1;"></span>
+    <label style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0px 8px; border-radius: 10px; background: rgb(242, 244, 247); color: rgb(102, 112, 133); font-size: 12.5px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input type="text" placeholder="Раздел" aria-label="Найти раздел (Ctrl+K)" style="border: 0px; outline: 0px; background: transparent; font-family: inherit; font-size: 12.5px; width: 60px; min-width: 0px; flex-grow: 1; color: rgb(17, 24, 39);"><span style="font-size: 10.5px; color: rgb(71, 84, 103); border: 1px solid rgb(208, 213, 221); border-radius: 6px; padding: 1px 4px; white-space: nowrap;">Ctrl+K</span></label>
+  </div></nav></div></div>
+  <main style="flex: 999 1 560px; min-width: 0px; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px;">
+
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+      <span style="display: flex; flex-direction: column; flex-grow: 1;"><b style="font-size: 24px; font-weight: 800;">Бонусы и сертификаты</b><span style="font-size: 13px; color: rgb(102, 112, 133);">Одна программа на все кассы, сайт и бота</span></span>
+      <button type="button" class="b2">Акция «бонусы × 2»</button><button type="button" class="b1">+ Сертификат</button>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0px, 1fr)); gap: 12px;">
+      <div class="kpi"><span>Участников</span><b>1&nbsp;284</b><span style="font-weight: 500; color: rgb(71, 84, 103);">все клиенты магазина</span></div>
+      <div class="kpi"><span>Покупки с картой клиента</span><b>41&nbsp;%</b><span style="font-weight: 500; color: rgb(71, 84, 103);">за месяц, 01.10–12.10</span></div>
+      <div class="kpi"><span>Бонусов на счетах</span><b style="white-space: nowrap;">64&nbsp;300</b><span style="font-weight: 500; color: rgb(71, 84, 103);">за месяц: +18&nbsp;400 / −11&nbsp;900</span></div>
+      <div class="kpi"><span>Сертификаты не погашены</span><b style="white-space: nowrap;">23&nbsp;000&nbsp;сом</b><span style="font-weight: 500; color: rgb(71, 84, 103);">14 сертификатов</span></div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start;">
+      <section class="card" style="flex: 999 1 520px; gap: 2px;">
+        <b style="font-size: 15px; padding-bottom: 6px;">Подарочные сертификаты</b>
+        <span style="font-size: 12px; color: rgb(71, 84, 103); padding-bottom: 8px; line-height: 17px;">Сертификаты и списание бонусов — только онлайн: код гасится на сервере сразу на всех кассах; без связи касса их не принимает (иначе один код можно потратить дважды).</span>
+        <div class="lbl" style="display: grid; grid-template-columns: minmax(0px, 1.3fr) 80px 80px 150px; gap: 10px; padding: 0px 10px 6px;"><span>КОД</span><span style="text-align: right;">НОМИНАЛ, СОМ</span><span style="text-align: right;">ОСТАТОК, СОМ</span><span>СТАТУС</span></div>
+        <div style="display: grid; grid-template-columns: minmax(0px, 1.3fr) 80px 80px 150px; gap: 10px; align-items: center; padding: 10px; font-size: 13px; border-bottom: 1px solid rgb(242, 244, 247);"><span style="font-family: Consolas, monospace;">NBS-7K4Q-2M9X</span><b style="text-align: right;">2&nbsp;000</b><b style="text-align: right;">1&nbsp;350</b><span><span class="tag" style="background: rgb(238, 244, 255); color: rgb(53, 56, 205);">частично</span></span></div><div style="display: grid; grid-template-columns: minmax(0px, 1.3fr) 80px 80px 150px; gap: 10px; align-items: center; padding: 10px; font-size: 13px; border-bottom: 1px solid rgb(242, 244, 247);"><span style="font-family: Consolas, monospace;">NBS-3P8D-QQ1A</span><b style="text-align: right;">5&nbsp;000</b><b style="text-align: right;">5&nbsp;000</b><span><span class="tag" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58);">активен</span></span></div><div style="display: grid; grid-template-columns: minmax(0px, 1.3fr) 80px 80px 150px; gap: 10px; align-items: center; padding: 10px; font-size: 13px; border-bottom: 1px solid rgb(242, 244, 247);"><span style="font-family: Consolas, monospace;">NBS-9W2E-L4K7</span><b style="text-align: right;">1&nbsp;000</b><b style="text-align: right;">0</b><span><span class="tag" style="background: rgb(242, 244, 247); color: rgb(71, 84, 103);">погашен</span></span></div><div style="display: grid; grid-template-columns: minmax(0px, 1.3fr) 80px 80px 150px; gap: 10px; align-items: center; padding: 10px; font-size: 13px; border-bottom: 1px solid rgb(242, 244, 247);"><span style="font-family: Consolas, monospace;">NBS-1Z6R-H8N3</span><b style="text-align: right;">2&nbsp;000</b><b style="text-align: right;">2&nbsp;000</b><span><span class="tag" style="background: rgb(254, 243, 226); color: rgb(181, 71, 8);">истекает через 9 дней</span></span></div>
+        <b style="font-size: 15px; padding-top: 14px;">Лучшие клиенты</b>
+        <div class="rl" style="padding: 8px 4px; border-bottom: 1px solid rgb(242, 244, 247);"><span>Нургуль Алиева · <span class="tag" style="background: rgb(255, 247, 204); color: rgb(122, 90, 0);">Золото</span></span><span style="white-space: nowrap;">84&nbsp;200&nbsp;сом за год · <b>1&nbsp;920</b> бонусов</span></div><div class="rl" style="padding: 8px 4px; border-bottom: 1px solid rgb(242, 244, 247);"><span>Эльмира Токтогулова · <span class="tag" style="background: rgb(255, 247, 204); color: rgb(122, 90, 0);">Золото</span></span><span style="white-space: nowrap;">61&nbsp;050&nbsp;сом за год · <b>860</b> бонусов</span></div><div class="rl" style="padding: 8px 4px; border-bottom: 1px solid rgb(242, 244, 247);"><span>Мирлан Жумалиев · <span class="tag" style="background: rgb(238, 244, 255); color: rgb(53, 56, 205);">Серебро</span></span><span style="white-space: nowrap;">38&nbsp;400&nbsp;сом за год · <b>1&nbsp;140</b> бонусов</span></div>
+      </section>
+      <aside class="card" style="flex: 1 1 300px; max-width: 380px;">
+        <b style="font-size: 15px;">Сгорят в этом месяце</b>
+        <div class="rl"><span>4&nbsp;200 бонусов · 37 клиентов</span></div>
+        <button type="button" class="b2">Напомнить в WhatsApp · 37…</button>
+        <span style="font-size: 12px; line-height: 17px; color: rgb(71, 84, 103);">Массово — только через WhatsApp Business API (платно, шаблон одобряет Meta); перед отправкой — предпросмотр и счётчик «37 сообщений». С личного номера — по одному, открыть чат.</span>
+        <b style="font-size: 15px; padding-top: 8px;">Уровни</b>
+        <div class="rl"><span><span class="tag" style="background: rgb(242, 244, 247); color: rgb(71, 84, 103);">Базовый</span></span><b>1&nbsp;040 клиентов</b></div><div class="rl"><span><span class="tag" style="background: rgb(238, 244, 255); color: rgb(53, 56, 205);">Серебро</span></span><b>196 клиентов</b></div><div class="rl"><span><span class="tag" style="background: rgb(255, 247, 204); color: rgb(122, 90, 0);">Золото</span></span><b>48 клиентов</b></div>
+        <span style="font-size: 12px; line-height: 17px; color: rgb(102, 112, 133);">Бонусы на счетах — обязательство магазина: 64&nbsp;300 бонусов (1 бонус = 1 сом) могут прийти в оплату.</span>
+      </aside>
+    </div>
+
+  </main></div></div></div>
+
+
+
+</body></html>

@@ -96,9 +96,11 @@ public static class ShiftBalanceHelper
         return openCount == 1 ? firstOpenAnyCashbox : null;
     }
 
+    // 2026-10-19, К1: «12 450,00 сом» (MoneyText) — одним видом с чеком и программой владельца; только показ
+    // (шапка «Касса: …», окна открытия и закрытия смены).
     public static string FormatBalance(decimal? balance) =>
         balance.HasValue
-            ? $"{balance.Value.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}"
+            ? MoneyText.Som(balance.Value)
             : "—";
 
     /// <summary>2026-09-12, по просьбе пользователя ("сделай так же как в вебе") — детальная

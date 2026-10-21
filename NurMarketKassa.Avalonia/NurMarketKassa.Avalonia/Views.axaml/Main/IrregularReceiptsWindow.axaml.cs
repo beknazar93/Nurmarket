@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
@@ -44,10 +45,40 @@ public partial class IrregularReceiptsWindow : Window
     /// (например, товар успели удалить на сайте), навсегда оставался в статусе failed — деньги
     /// в кассе, продажи в NurCRM нет. Повтор сделан кнопкой, а не автоматикой: сервер уже сказал
     /// «нет», и молча повторять это в цикле — прямой путь к дублям.</summary>
-    private void Retry_Click(object? sender, RoutedEventArgs e)
+    private async void Retry_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
+            // 2026-10-20 (живой аудит кассы, К11): было одно нажатие без вопроса — а в списке висел чек на 387 378,89,
+            // который сервер уже отклонил. Теперь — какие чеки уйдут, на какую сумму и почему сервер отказал в прошлый раз.
+            var failed = OfflinePendingSalesStore.LoadAll()
+                .Where(s => string.Equals(s.Status, OfflineSaleEntry.Failed, System.StringComparison.OrdinalIgnoreCase))
+                .OrderBy(s => s.CreatedAt)
+                .ToList();
+            if (failed.Count > 0)
+            {
+                var list = string.Join("\n", failed.Take(6).Select(s =>
+                {
+                    var (reason, _) = ReceiptHistoryService.DescribeUploadError(s.LastError);
+                    reason ??= s.LastError;
+                    if (reason is { Length: > 140 })
+                        reason = reason[..140] + "…";
+                    return $"• {s.CreatedAt.LocalDateTime:dd.MM HH:mm} — {TryComputeTotalText(s.CartJson)}"
+                           + (string.IsNullOrWhiteSpace(reason) ? "" : "\n   " + Tr.T("Сервер ответил: ", "Сервер жооп берди: ", "Server said: ", "Sunucu yanıtı: ", "Server javobi: ") + reason);
+                }));
+                if (failed.Count > 6)
+                    list += "\n…";
+                if (await PosMessageBox.ShowModalAsync(this,
+                        Tr.T($"Отправить на сервер повторно чеков: {failed.Count}?\n\n{list}\n\nСервер уже отказал им один раз. Отправляйте, только если сумма верная и причина отказа устранена.",
+                            $"Серверге кайра жөнөтүлө турган чектер: {failed.Count}?\n\n{list}\n\nСервер аларды бир жолу четке каккан. Сумма туура болсо жана себеби жоюлса гана жөнөтүңүз.",
+                            $"Resend {failed.Count} receipt(s) to the server?\n\n{list}\n\nThe server has already rejected them once. Send only if the amount is right and the reason is fixed.",
+                            $"{failed.Count} fiş sunucuya yeniden gönderilsin mi?\n\n{list}\n\nSunucu bunları bir kez reddetti. Yalnızca tutar doğruysa ve neden giderildiyse gönderin.",
+                            $"{failed.Count} ta chek serverga qayta yuborilsinmi?\n\n{list}\n\nServer ularni bir marta rad etgan. Faqat summa to'g'ri va sabab bartaraf etilgan bo'lsa yuboring."),
+                        Tr.T("Отправить повторно", "Кайра жөнөтүү", "Resend", "Yeniden gönder", "Qayta yuborish"),
+                        MessageBoxButton.YesNo, MessageBoxImage.Warning).ConfigureAwait(true) != MessageBoxResult.Yes)
+                    return;
+            }
+
             var count = OfflinePendingSalesStore.RequeueFailed();
             ShowMessage(count > 0
                 ? Tr.T($"Возвращено в очередь: {count}. Касса отправит их при ближайшей синхронизации.",
@@ -81,11 +112,16 @@ public partial class IrregularReceiptsWindow : Window
 
         foreach (var entry in IrregularReceiptsStore.LoadAll())
         {
+            // 2026-10-20 (живой аудит кассы, К1): сервер записал возврат больше положенного — своя строка состояния.
+            var overpaid = entry.Tag == IrregularReceiptEntry.ReturnOverpaid;
             rows.Add(new RowVm
             {
                 CreatedAt = entry.CreatedAt,
-                IsInsufficientStock = true,
-                StatusText = Tr.T("Не хватило остатка", "Калдык жетпей калды", "Not enough stock", "Stok yetersiz", "Qoldiq yetarli emas"),
+                IsInsufficientStock = !overpaid,
+                IsError = overpaid,
+                StatusText = overpaid
+                    ? Tr.T("Возврат больше положенного", "Кайтаруу тийиштүүдөн көп", "Return above the due amount", "İade gerekenden fazla", "Qaytarish keragidan ko'p")
+                    : Tr.T("Не хватило остатка", "Калдык жетпей калды", "Not enough stock", "Stok yetersiz", "Qoldiq yetarli emas"),
                 Note = entry.Note ?? "",
                 TotalText = FormatMoney(entry.Total),
             });
@@ -120,8 +156,8 @@ public partial class IrregularReceiptsWindow : Window
 
     private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
 
-    private static string FormatMoney(double value) =>
-        value.ToString("0.##", CultureInfo.InvariantCulture) + " " + Som;
+    // 2026-10-20 (живой аудит кассы, К18): «387 378,89 сом» (MoneyText) вместо «387378.89 сом» и «931 сом» без копеек.
+    private static string FormatMoney(double value) => MoneyText.Som(value);
 
     /// <summary>Сумма чека для строки грида — считаем из уже сохранённого локального CartJson
     /// (тот же разбор, что и в SalesWindow.ShowReceiptDetailsByIdAsync), сеть не нужна.</summary>
@@ -137,7 +173,7 @@ public partial class IrregularReceiptsWindow : Window
                 if (decimal.TryParse(totalStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var lineTotal))
                     total += lineTotal;
             }
-            return total.ToString("0.##", CultureInfo.InvariantCulture) + " " + Som;
+            return MoneyText.Som(total);
         }
         catch
         {

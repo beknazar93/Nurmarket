@@ -1,15 +1,21 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PayDebtDialog"
         Title="{DynamicResource csh.menu.payDebt}"
-        Width="860" Height="780" MinWidth="680" MinHeight="600"
+        Width="912" Height="780" MinWidth="680" MinHeight="520"
         WindowStartupLocation="CenterOwner"
+        CanResize="True"
         FontFamily="Segoe UI, Inter, Noto Sans"
-        Background="{DynamicResource BrushInputAlt}"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="-1">
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
 
+    <!-- 2026-10-19, К1 (аудит 19.10, проблема 5: «старый вид окна, 4 жёлтые кнопки, 64500.00 без разрядов, даты обрезаны»):
+         общая оболочка ModalShell, как «Принять оплату долга» у владельца и остальные окна кассы — заголовок и ✕ сверху,
+         «Закрыть» (обводка, Esc) снизу справа. Жёлтая — одна: «Погасить» одной суммой; «Оплатить» у строки, «Сменить»,
+         вкладки — обводкой / тёмно-синим сегментом. ТОЛЬКО ВИД: имена элементов, привязки и обработчики прежние
+         (PayDebtDialog.axaml.cs / .Method.cs / .OneSum.cs, DebtPaymentRunner/DebtPaymentFlow не менялись). -->
     <Window.Styles>
         <Style Selector="TextBox">
             <Setter Property="CornerRadius" Value="8"/>
@@ -21,47 +27,8 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
 
-        <Style Selector="Button.WindowControlButton">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-            <Setter Property="Width" Value="36"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.WindowControlButton:pointerover">
+        <Style Selector="Button.ClientDropdownItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-        </Style>
-        <Style Selector="Button.WindowCloseButton:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
-        </Style>
-
-        <Style Selector="Button.PayButton">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
-        <Style Selector="Button.ClientDropdownItem:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
-        </Style>
-
-        <Style Selector="Button.TabButton">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Padding" Value="14,8"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.TabButton.Active">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
 
@@ -79,67 +46,55 @@
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Padding" Value="12,10"/>
         </Style>
+        <!-- Строка под курсором — мягкий фон, текст цветом текста (был белый текст на светлом фоне). -->
         <Style Selector="DataGridRow:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         </Style>
         <Style Selector="DataGridRow:selected, DataGridRow:pointerover">
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="DataGridCell">
+            <Setter Property="FontSize" Value="14"/>
         </Style>
     </Window.Styles>
 
-    <Grid x:Name="RootGrid" Margin="16,12,16,16" x:CompileBindings="False">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+    <dlg:ModalShell x:Name="Shell" Margin="16" x:CompileBindings="False"
+                    Title="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                    ContentScroll="Disabled">
+        <dlg:ModalShell.Footer>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button IsCancel="True" x:Name="CloseWindowButton" Classes="modal-cancel"
+                        Content="{DynamicResource common.close}" Click="CloseButton_Click"/>
+            </StackPanel>
+        </dlg:ModalShell.Footer>
 
-        <Border Grid.Row="0"
-                Background="{DynamicResource BrushPanel}"
-                CornerRadius="14"
-                Padding="16,10"
-                Margin="0,0,0,14"
-                BoxShadow="0 2 8 0 #0F000000">
-            <DockPanel LastChildFill="True">
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <Button x:Name="MinimizeButton" Classes="WindowControlButton" Click="MinimizeButton_Click">
-                        <TextBlock Text="🗕" FontSize="12"/>
-                    </Button>
-                    <Button IsCancel="True" x:Name="CloseWindowButton" Classes="WindowControlButton WindowCloseButton" Click="CloseButton_Click">
-                        <TextBlock Text="✕" FontSize="13"/>
-                    </Button>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="8" Padding="8">
-                        <TextBlock Text="📒" FontSize="18"/>
-                    </Border>
-                    <TextBlock x:Name="HeaderTitleText" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-                </StackPanel>
-            </DockPanel>
-        </Border>
+        <Grid x:Name="RootGrid" Margin="0" x:CompileBindings="False" RowDefinitions="Auto,Auto,*">
 
-        <Border Grid.Row="1"
-                Background="{DynamicResource BrushPanel}"
-                CornerRadius="14"
-                Padding="16"
-                Margin="0,0,0,14"
-                BoxShadow="0 2 8 0 #0F000000">
-            <StackPanel Spacing="10">
-                <TextBlock x:Name="ClientLabelText" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource BrushTextSoft}"/>
+            <!-- Прежняя шапка окна: заголовок теперь в ModalShell, «свернуть» не нужна модалке. Элементы оставлены
+                 скрытыми — код окна задаёт им тексты и подсказки (PayDebtDialog.axaml.cs). -->
+            <Panel Grid.Row="0" IsVisible="False">
+                <TextBlock x:Name="HeaderTitleText"/>
+                <Button x:Name="MinimizeButton" Click="MinimizeButton_Click"/>
+            </Panel>
+
+            <StackPanel Grid.Row="1" Spacing="10" Margin="0,0,0,14">
+                <TextBlock x:Name="ClientLabelText" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
 
                 <!-- Выбранный клиент: компактная плашка вместо списка — освобождает место под
                      таблицу долгов ниже, чтобы её не приходилось лишний раз прокручивать. -->
                 <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasSelectedClient}">
                     <Border Grid.Column="0"
-                            Background="{DynamicResource BrushAccentSoft}"
-                            BorderBrush="{DynamicResource BrushAccent}"
+                            Background="{DynamicResource BrushPanelSoft}"
+                            BorderBrush="{DynamicResource BrushBorder}"
                             BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="10,8">
-                        <TextBlock Text="{Binding SelectedClientName}" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                            CornerRadius="10"
+                            Padding="12,10">
+                        <TextBlock Text="{Binding SelectedClientName}" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
                     </Border>
-                    <Button Grid.Column="1" Classes="SecondaryButton" Margin="8,0,0,0"
+                    <Button Grid.Column="1" Classes="modal-secondary" Margin="8,0,0,0"
                             Content="{DynamicResource payDebt.changeClientButton}"
+                            IsEnabled="{Binding CanChangeClient}"
                             Click="ChangeClientButton_Click"/>
                 </Grid>
 
@@ -155,21 +110,31 @@
                             BorderThickness="1"
                             CornerRadius="8"
                             IsVisible="{Binding HasClientSearchResults}">
-                        <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
+                        <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding ClientSearchResults}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
+                                        <!-- 2026-10-21 (пакет 6, п. 13 аудита кассы): справа — долг клиента (должники — первыми),
+                                             кассиру не нужно знать должника заранее. -->
                                         <Button Classes="ClientDropdownItem"
-                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                Padding="12,9"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                Padding="12,0" MinHeight="44"
+                                                VerticalContentAlignment="Center"
                                                 Background="Transparent"
                                                 Foreground="{DynamicResource BrushText}"
                                                 BorderThickness="0"
                                                 CornerRadius="0"
                                                 Cursor="Hand"
-                                                Content="{ReflectionBinding DisplayName}"
                                                 Command="{Binding DataContext.SelectClientCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}"/>
+                                                CommandParameter="{Binding}">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="{ReflectionBinding DisplayName}" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{ReflectionBinding DebtText}" Classes="num"
+                                                           Margin="12,0,0,0" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource BrushDanger}"/>
+                                            </Grid>
+                                        </Button>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -177,26 +142,82 @@
                     </Border>
                 </StackPanel>
 
+                <!-- Долг — красным (правило 4: красный — для долга), крупнее. -->
                 <TextBlock Text="{Binding TotalOwedText}"
-                           FontSize="15" FontWeight="Bold"
-                           Foreground="{DynamicResource BrushDanger}"
+                           FontSize="18" FontWeight="Bold" Classes="num"
+                           Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap"
                            IsVisible="{Binding HasSelectedClient}"/>
 
                 <!-- 2026-09-28: погашение одной суммой (POST clients/{id}/pay-debt/, BE-12) — сервер
                      сам раскладывает сумму от старых долгов к новым, одним запросом вместо десятков
                      взносов по одному (~15 с). Тексты — в коде (PayDebtDialog.OneSum.cs). -->
                 <StackPanel Spacing="4" IsVisible="{Binding ShowPayAllBlock}">
-                    <Grid x:Name="PayAllGrid" ColumnDefinitions="Auto,160,Auto">
+                    <Grid x:Name="PayAllGrid" ColumnDefinitions="Auto,160,Auto" IsEnabled="{Binding CanEditPayment}">
                         <TextBlock x:Name="PayAllLabelText" Grid.Column="0" Text="{Binding PayAllLabel}" VerticalAlignment="Center"
                                    FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,10,0"/>
                         <TextBox Grid.Column="1" x:Name="PayAllAmountBox" Text="{Binding PayAllAmountText, Mode=TwoWay}"
-                                 FontWeight="Bold"/>
-                        <Button Grid.Column="2" x:Name="PayAllButton" Classes="PayButton" Margin="8,0,0,0"
-                                MinHeight="40" Content="{Binding PayAllButtonLabel}" Click="PayAll_Click"/>
+                                 FontWeight="Bold" MinHeight="46"/>
+                        <Button Grid.Column="2" x:Name="PayAllButton" Classes="modal-primary" Margin="8,0,0,0"
+                                Content="{Binding PayAllButtonLabel}" Click="PayAll_Click"
+                                IsEnabled="{Binding CanPayAll}"/>
                     </Grid>
-                    <TextBlock Text="{Binding PayAllHint}" FontSize="12" TextWrapping="Wrap"
+                    <!-- 2026-10-18, девятый круг: по части чеков точный остаток не получен — «одной суммой» закрыта. -->
+                    <TextBlock Text="{Binding RemainingUnknownHint}" FontSize="12.5" TextWrapping="Wrap" FontWeight="SemiBold"
+                               IsVisible="{Binding HasRemainingUnknown}" Foreground="{DynamicResource BrushDanger}"/>
+                    <TextBlock Text="{Binding PayAllHint}" FontSize="12.5" TextWrapping="Wrap"
                                Foreground="{DynamicResource BrushTextSoft}"/>
                 </StackPanel>
+
+                <!-- 2026-10-18: способ оплаты долга — по общим настройкам «Оплата долга» (PayDebtDialog.Method.cs). Разрешён
+                     один способ — выбора нет (по умолчанию только наличные, как раньше). Действует и на «Оплатить» у строки. -->
+                <Grid x:Name="MethodGrid" ColumnDefinitions="Auto,*" IsVisible="{Binding ShowMethodChoice}" IsEnabled="{Binding CanEditPayment}">
+                    <TextBlock Grid.Column="0" Text="{Binding MethodLabel}" VerticalAlignment="Center"
+                               FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,10,0"/>
+                    <Grid Grid.Column="1" ColumnDefinitions="*,*" MaxWidth="460" HorizontalAlignment="Left">
+                        <RadioButton Grid.Column="0" x:Name="MethodCashRadio" GroupName="DebtPayMethod" Classes="modal-seg"
+                                     Margin="0,0,4,0" Focusable="False" MinWidth="220"
+                                     Content="{Binding CashMethodLabel}" IsChecked="{Binding IsCashMethod, Mode=TwoWay}"/>
+                        <RadioButton Grid.Column="1" x:Name="MethodTransferRadio" GroupName="DebtPayMethod" Classes="modal-seg"
+                                     Margin="4,0,0,0" Focusable="False" MinWidth="220"
+                                     Content="{Binding TransferMethodLabel}" IsChecked="{Binding IsTransferMethod, Mode=TwoWay}"/>
+                    </Grid>
+                </Grid>
+                <TextBlock Text="{Binding TransferHint}" FontSize="12" TextWrapping="Wrap"
+                           IsVisible="{Binding ShowTransferHint}" Foreground="{DynamicResource BrushTextSoft}"/>
+
+                <!-- 2026-10-18, ревью (деньги): ответ на оплату не дошёл — сумма, способ, чек и смена клиента закрыты; выход —
+                     «Повторить» (тот же ключ, сервер не проведёт дважды) или «Оплата есть / нет на сайте» после проверки (пятый круг ревью). -->
+                <Border IsVisible="{Binding HasUnknownPayment}" Background="{DynamicResource BrushDangerSoft}"
+                        CornerRadius="10" Padding="12,10">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{Binding UnknownPaymentText}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushDangerOnSoft}"/>
+                        <WrapPanel Orientation="Horizontal">
+                            <Button x:Name="RetryUnknownButton" Classes="modal-primary" Margin="0,0,8,8"
+                                    IsEnabled="{Binding CanRetryUnknown}"
+                                    Content="{Binding UnknownRetryLabel}" Click="RetryUnknown_Click"/>
+                            <!-- 2026-10-18, пятый круг: два решения после проверки на сайте NurCRM (оба — с подтверждением и кодом). -->
+                            <Button x:Name="PaidOnSiteButton" Classes="modal-secondary" Margin="0,0,8,8"
+                                    IsEnabled="{Binding CanUseUnknownButtons}"
+                                    Content="{Binding UnknownPaidOnSiteLabel}" Click="PaidOnSite_Click"/>
+                            <Button x:Name="UnlockUnknownButton" Classes="modal-secondary danger" Margin="0,0,0,8"
+                                    IsEnabled="{Binding CanUseUnknownButtons}"
+                                    Content="{Binding UnknownUnlockLabel}" Click="NotOnSite_Click"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 2026-10-18, девятый круг (п.7): предупреждение к успеху (другая смена, не записано в смену) — жёлтая плашка,
+                     не стирается следующим действием; закрывает кассир («Понятно») или закрытие окна. -->
+                <Border IsVisible="{Binding HasWarning}" Background="{DynamicResource BrushWarningSoft}"
+                        BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1" CornerRadius="10" Padding="12,10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding WarningMessage}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                        <Button Grid.Column="1" Classes="modal-secondary" MinHeight="36" Margin="10,0,0,0"
+                                Content="{Binding WarningCloseLabel}" Click="CloseWarning_Click"/>
+                    </Grid>
+                </Border>
 
                 <TextBlock Text="{Binding ErrorMessage}"
                            Foreground="{DynamicResource BrushDanger}"
@@ -211,53 +232,63 @@
                            IsVisible="{Binding !!SuccessMessage}"
                            TextWrapping="Wrap"/>
             </StackPanel>
-        </Border>
 
-        <Border Grid.Row="2"
-                Background="{DynamicResource BrushPanel}"
-                CornerRadius="14"
-                Padding="16"
-                BoxShadow="0 2 8 0 #0F000000"
-                IsVisible="{Binding HasSelectedClient}">
-            <Grid RowDefinitions="Auto,Auto,*">
-                <TextBlock x:Name="DebtSalesTitleText" Grid.Row="0" FontSize="14" FontWeight="Bold"
-                           Foreground="{DynamicResource BrushText}" Margin="0,0,0,10"/>
+            <Grid Grid.Row="2" RowDefinitions="Auto,Auto,*" IsVisible="{Binding HasSelectedClient}">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                    <TextBlock x:Name="DebtSalesTitleText" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
+                               Foreground="{DynamicResource BrushText}"/>
+                    <!-- Вкладки — сегменты: выбранная тёмно-синяя (правило 2), как у владельца. -->
+                    <Border Grid.Column="1" Classes="sec-segment">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <Button x:Name="UnpaidTabButton" Classes="sec-seg"
+                                    Classes.active="{Binding ShowUnpaid}"
+                                    Content="{Binding UnpaidTabLabel}"
+                                    Click="ShowUnpaidTab_Click"/>
+                            <Button x:Name="HistoryTabButton" Classes="sec-seg"
+                                    Classes.active="{Binding ShowHistory}"
+                                    Content="{Binding HistoryTabLabel}"
+                                    Click="ShowHistoryTab_Click"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
 
-                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,0,0,10">
-                    <Button x:Name="UnpaidTabButton" Classes="TabButton"
-                            Classes.Active="{Binding ShowUnpaid}"
-                            Content="{Binding UnpaidTabLabel}"
-                            Click="ShowUnpaidTab_Click"/>
-                    <Button x:Name="HistoryTabButton" Classes="TabButton"
-                            Classes.Active="{Binding ShowHistory}"
-                            Content="{Binding HistoryTabLabel}"
-                            Click="ShowHistoryTab_Click"/>
-                </StackPanel>
-
+                <!-- 2026-10-18, восьмой круг (п.4): таблица листается и при замке; закрыты только поля суммы и «Оплатить». -->
+                <!-- 2026-10-19, К1: дата 160 (было 140 — «18:0(» обрезалось), «Оплатить» у строки — обводкой. -->
                 <DataGrid x:Name="UnpaidGrid" Grid.Row="2"
                           IsVisible="{Binding ShowUnpaid}"
                           ItemsSource="{Binding DebtSales}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
-                          RowHeight="52">
+                          RowHeight="54">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="{DynamicResource common.date}" Width="140" Binding="{ReflectionBinding DateDisplay}"/>
+                        <DataGridTextColumn Header="{DynamicResource common.date}" Width="160" Binding="{ReflectionBinding DateDisplay}"/>
                         <DataGridTextColumn Header="{DynamicResource common.product}" Width="*" Binding="{ReflectionBinding FirstItemName}"/>
                         <DataGridTemplateColumn Header="{DynamicResource payDebt.colAmountDue}" Width="150">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBox Text="{Binding AmountToPayText, Mode=TwoWay}"
+                                    <!-- 2026-10-18, девятый круг: точного остатка нет — «остаток уточняется» вместо суммы, «Оплатить» скрыта. -->
+                                    <Panel>
+                                    <TextBlock Text="{Binding RemainingUnknownLabel}" IsVisible="{Binding RemainingUnknown}"
+                                               VerticalAlignment="Center" FontStyle="Italic" Foreground="{DynamicResource BrushWarning}"/>
+                                    <!-- 2026-10-21 (ревью денег, A2): долг без продажи — сумма без поля и без «Оплатить» (только «одной суммой»). -->
+                                    <TextBlock Text="{Binding AmountDisplay}" IsVisible="{Binding IsNoSale}" VerticalAlignment="Center" FontWeight="Bold"/>
+                                    <TextBox Text="{Binding AmountToPayText, Mode=TwoWay}" IsVisible="{Binding CanPayByReceipt}"
+                                             IsEnabled="{Binding DataContext.CanEditPayment, RelativeSource={RelativeSource AncestorType=Window}}"
                                              FontWeight="Bold"
-                                             MinHeight="34"
+                                             MinHeight="38"
                                              Padding="8,4"
                                              Margin="0,4"/>
+                                    </Panel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="" Width="120">
+                        <DataGridTemplateColumn Header="" Width="130">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button Classes="PayButton" FontSize="13"
+                                    <Button Classes="modal-secondary" FontSize="13" IsVisible="{Binding CanPayByReceipt}"
+                                            MinWidth="0" MinHeight="38" Padding="12,0" Margin="6,0"
+                                            HorizontalAlignment="Stretch"
+                                            IsEnabled="{Binding DataContext.CanEditPayment, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Content="{Binding DataContext.PayButtonLabel, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Click="PayDebt_Click" Tag="{Binding}"/>
                                 </DataTemplate>
@@ -271,11 +302,11 @@
                           ItemsSource="{Binding DebtHistory}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
-                          RowHeight="52">
+                          RowHeight="54">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="{DynamicResource common.date}" Width="140" Binding="{ReflectionBinding DateDisplay}"/>
+                        <DataGridTextColumn Header="{DynamicResource common.date}" Width="160" Binding="{ReflectionBinding DateDisplay}"/>
                         <DataGridTextColumn Header="{DynamicResource common.product}" Width="*" Binding="{ReflectionBinding FirstItemName}"/>
-                        <DataGridTemplateColumn Header="{DynamicResource payDebt.colPaid}" Width="150">
+                        <DataGridTemplateColumn Header="{DynamicResource payDebt.colPaid}" Width="170">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -288,6 +319,6 @@
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>
-        </Border>
-    </Grid>
+        </Grid>
+    </dlg:ModalShell>
 </Window>

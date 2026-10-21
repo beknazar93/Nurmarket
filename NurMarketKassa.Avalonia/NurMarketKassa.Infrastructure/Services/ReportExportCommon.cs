@@ -18,7 +18,18 @@ public sealed record ReportMeta(
 {
     public static ReportMeta Create(string title, string? company, string? period) =>
         new(title, Clean(company), Clean(period), DateTime.Now,
-            Clean(PosApp.CurrentUserDisplayName), Clean(PosApp.PosCashboxDisplayName));
+            Clean(PosApp.CurrentUserDisplayName), OwnerSafeCashbox());
+
+    /// <summary>2026-10-20, аудит программы владельца: «Кассир: Nur Test · Касса: Nur Test» — у программы владельца своей
+    /// кассы нет, при входе в «кассу» записывается имя человека (App.ApplyAuthenticatedSession). Такое «название кассы»
+    /// в шапку не пишем; настоящее название (касса выбрала свою) — как было.</summary>
+    private static string? OwnerSafeCashbox()
+    {
+        var cashbox = Clean(PosApp.PosCashboxDisplayName);
+        return AppMode.IsOwner && string.Equals(cashbox, Clean(PosApp.CurrentUserDisplayName), StringComparison.OrdinalIgnoreCase)
+            ? null
+            : cashbox;
+    }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 

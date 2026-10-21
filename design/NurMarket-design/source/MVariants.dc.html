@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — размеры, сетка, набор, накладная</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:12px;flex-shrink:0;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:12px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:10px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:15px;color:#0B2A3C}
+.b2{white-space:nowrap;height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{white-space:nowrap;height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.chip{height:44px;padding:0 14px;border-radius:22px;white-space:nowrap;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.g{display:grid;grid-template-columns:90px repeat(4,minmax(0,1fr));gap:4px;font-size:12px;align-items:center}
+.g input{height:44px;box-sizing:border-box;border-radius:8px;border:1px solid #D0D5DD;text-align:center;font-family:inherit;font-size:13px;font-weight:700;width:100%}
+.ln{display:flex;align-items:center;gap:8px;min-height:44px;box-sizing:border-box;padding:4px 10px;white-space:nowrap;border-radius:10px;background:#F9FAFB;font-size:12px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: 640px 640px; justify-content: center; gap: 24px; align-items: start">
+  <!-- 2026-10-17: окна 640, цели 44 px; товар из примера одежды (Джинсы мужские прямые); в приёмке только выбранные размеры 44–50; набор с ценой; в накладной новый товар — действительно новый (Сок «Добрый»), закупка → продажа -->
+
+  <section class="m" role="dialog" aria-label="Размеры и цвета товара">
+    <div class="mh"><div class="mt"><b>Размеры и цвета · Джинсы мужские прямые</b><span>У каждого варианта свой остаток и штрихкод</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <span class="lbl">РАЗМЕРЫ</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip on">44</button><button type="button" class="chip on">46</button><button type="button" class="chip on">48</button><button type="button" class="chip on">50</button><button type="button" class="chip">52</button><button type="button" class="chip" style="border-style: dashed">+ свой</button><button type="button" class="chip" style="border-style: dashed">Сетка S–XL</button></div>
+      <span class="lbl">ЦВЕТА</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip on">Чёрный</button><button type="button" class="chip on">Синий</button><button type="button" class="chip">Белый</button><button type="button" class="chip" style="border-style: dashed">+ цвет</button></div>
+      <div class="ln"><span style="flex-grow: 1">Будет вариантов: <b>8</b> (4 размера × 2 цвета)</span><button type="button" class="b2">Создать штрихкоды</button></div>
+    </div>
+    <div class="mf"><button type="button" class="b2">Этикетки размеров</button><span style="flex-grow: 1"></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Приёмка сеткой">
+    <div class="mh"><div class="mt"><b>Сколько пришло каждого размера</b><span>Джинсы мужские прямые · приёмка · размеры 44–50</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="g"><span></span><b style="text-align: center">44</b><b style="text-align: center">46</b><b style="text-align: center">48</b><b style="text-align: center">50</b>
+        <b>Чёрный</b><input type="text" value="2" aria-label="44 чёрный"><input type="text" value="3" aria-label="46 чёрный"><input type="text" value="3" aria-label="48 чёрный"><input type="text" value="2" aria-label="50 чёрный">
+        <b>Синий</b><input type="text" value="1" aria-label="44 синий"><input type="text" value="2" aria-label="46 синий"><input type="text" value="2" aria-label="48 синий"><input type="text" value="" aria-label="50 синий" style="border: 2px solid #0B2A3C; box-shadow: 0 0 0 4px rgba(255,214,0,.45)">
+      </div>
+      <span style="font-size: 12px; color: #667085">Tab — к следующей клетке · пустая клетка = 0</span>
+    </div>
+    <div class="mf"><span class="tot">Всего: <b>15 шт</b> (чёрный 10 · синий 5)</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">В приёмку</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Набор">
+    <div class="mh"><div class="mt"><b>Набор из товаров</b><span>Продаётся одной строкой, списывает каждый товар</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <input type="text" value="Набор «Спагетти + Кола»" placeholder="Название набора" aria-label="Название набора" style="height: 44px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D0D5DD; padding: 0 12px; font-family: inherit; font-size: 14px">
+      <div class="ln"><span style="flex-grow: 1; font-weight: 700">Макароны «Макфа» спагетти 450г</span><span>× 2</span><span>170&nbsp;сом</span></div>
+      <div class="ln"><span style="flex-grow: 1; font-weight: 700">Кока-Кола (ПЭТ) 2л</span><span>× 1</span><span>170&nbsp;сом</span></div>
+      <button type="button" class="b2" style="border-style: dashed">+ Добавить товар</button>
+    </div>
+    <div class="mf"><span class="tot">По отдельности 340 · <b>цена набора 320&nbsp;сом</b> (−20)</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Накладная по фото">
+    <div class="mh"><div class="mt"><b>Накладная по фото</b><span>Нур Советник прочитал 3 строки — проверьте</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px; padding: 12px 20px">
+      <span style="height: 180px; border-radius: 10px; background: #EEF0F3; display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; font-size: 12px; color: #667085"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>фото 1 из 1</span>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div class="ln"><span style="flex-grow: 1; font-weight: 700">Mars</span><span>+24 шт</span><span>30 → 39&nbsp;сом</span></div>
+        <div class="ln"><span style="flex-grow: 1; font-weight: 700">Салфетки</span><span>+20 шт</span><span>32 → 45&nbsp;сом</span></div>
+        <div class="ln" style="background: #FFF7CC"><span style="flex-grow: 1; font-weight: 700">Сок «Добрый» апельсиновый 1л</span><span style="font-size: 11px; font-weight: 700; color: #B54708">новый</span><span>12 шт</span><span>75 → 98&nbsp;сом</span></div>
+        <span style="font-size: 11px; color: #667085; white-space: normal">Закупка → продажа. У старых товаров цена продажи своя; новому — наценка 30 %, округлено до сома</span>
+      </div>
+    </div>
+    <div class="mf"><button type="button" class="b2">✎ Отредактировать</button><span style="flex-grow: 1"></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Провести приход</button></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

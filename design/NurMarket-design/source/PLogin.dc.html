@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Вход и выбор магазина</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.lbl{font-size:12px;font-weight:700;color:#667085}
+.in{height:52px;box-sizing:border-box;border-radius:14px;border:1px solid #D0D5DD;padding:0 14px;font-family:inherit;font-size:16px;width:100%;background:#FFFFFF}
+.lg{flex:1 1 0;min-width:0;height:44px;border-radius:10px;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:#344054;white-space:nowrap}
+.lg.on{background:#0B2A3C;color:#FFFFFF}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#F4F5F7}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <section style="background: #0B2A3C; color: #FFFFFF; padding: 32px 24px 24px; border-radius: 0 0 28px 28px; display: flex; flex-direction: column; gap: 10px">
+    <span style="width: 52px; height: 52px; border-radius: 16px; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 24px">N</span>
+    <b style="font-size: 24px; font-weight: 800">NurMarket</b>
+    <span style="font-size: 13px; color: #C7D2DB">Тот же вход, что на кассе и в вебе</span>
+  </section>
+  <!-- 2026-10-17: шаг 1 — язык + логин/пароль NurCRM. Список магазинов — только шаг 2 после проверки пароля; PIN кассира — только на уже привязанном телефоне -->
+  <main style="flex-grow: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px">
+    <span class="lbl">Язык</span>
+    <div role="group" aria-label="Язык" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC"><button type="button" class="lg on" aria-pressed="true">Рус</button><button type="button" class="lg">Кыр</button><button type="button" class="lg">Eng</button><button type="button" class="lg">Tür</button><button type="button" class="lg">O'zb</button></div>
+    <label class="lbl" for="l1" style="padding-top: 4px">Логин или телефон</label>
+    <input id="l1" class="in" type="text" value="aigerim.nbs">
+    <label class="lbl" for="l2">Пароль NurCRM</label>
+    <span style="position: relative; display: block">
+      <input id="l2" class="in" type="password" value="password" style="padding-right: 56px">
+      <button type="button" aria-label="Показать пароль" style="position: absolute; right: 2px; top: 2px; width: 48px; height: 48px; border: 0; background: transparent; color: #475467; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+    </span>
+    <a href="#" style="align-self: flex-end; min-height: 44px; display: flex; align-items: center; font-size: 14px; font-weight: 700">Забыли пароль?</a>
+    <span style="font-size: 12px; line-height: 17px; color: #667085">Шаг 1 из 2. После входа — выбор магазина и филиала, если их несколько. Вход по PIN кассира — только на телефоне, уже привязанном к магазину.</span>
+  </main>
+  <div style="padding: 0 20px 4px; display: flex; flex-direction: column; gap: 10px">
+    <button type="button" style="height: 56px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 17px; font-weight: 800">Войти</button>
+    <button type="button" style="height: 48px; border-radius: 14px; border: 1.5px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 14px; font-weight: 700; white-space: nowrap">Войти по QR с экрана кассы</button>
+  </div>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

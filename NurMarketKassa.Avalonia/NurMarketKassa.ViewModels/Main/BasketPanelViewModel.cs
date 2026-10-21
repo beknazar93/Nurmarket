@@ -146,7 +146,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         PayCommand = new AsyncRelayCommand(PayAsync, () => HasItems && !IsBusy);
         DeferCartCommand = new AsyncRelayCommand(DeferCartAsync, () => HasItems && !IsBusy);
         HoldReceiptCommand = DeferCartCommand;
-        DeleteReceiptCommand = new RelayCommand(DeleteActiveReceipt, CanDeleteActiveReceiptCore);
+        DeleteReceiptCommand = new AsyncRelayCommand(DeleteActiveReceiptAsync, CanDeleteActiveReceiptCore);
         ClearCartCommand = new AsyncRelayCommand(ClearCartAsync, () => HasItems && !IsBusy);
         NewReceiptCommand = new RelayCommand(CreateNewReceipt);
         SelectReceiptTabCommand = new RelayCommand<ReceiptTabVm>(SelectReceiptTab, tab => tab != null && !tab.IsActive);
@@ -222,6 +222,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
     /// <summary>Оплата прошла (на UI-потоке). Окно кассы по нему подтягивает остаток смены.</summary>
     public event EventHandler? CheckoutSucceeded;
+
+    /// <summary>2026-10-18, ревью этапа 6: последняя проведённая продажа (для плашки «Продажа прошла» и «Печать
+    /// копии»). Заполняется на UI-потоке прямо перед <see cref="CheckoutSucceeded"/>.</summary>
+    public LastSaleInfo? LastSale { get; private set; }
 
     /// <summary>2026-10-04: оплата проведена, корзина уже новая — состояние кассы нужно записать на диск
     /// немедленно (вызывается на UI-потоке, раньше окна «Платёж принят»).</summary>
@@ -332,10 +336,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         private set => SetProperty(ref _totalQuantity, value);
     }
 
-    public string SubtotalDisplay => $"{Subtotal.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
-    public string DiscountDisplay => $"{Discount.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
-    public string TotalDisplay => $"{Total.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
-    public string TotalAmount => Total.ToString("0.00", CultureInfo.InvariantCulture);
+    // 2026-10-19, К1: суммы на экране — одним видом «1 234,50» (MoneyText), как у владельца; только показ.
+    public string SubtotalDisplay => MoneyText.Som(Subtotal);
+    public string DiscountDisplay => MoneyText.Som(Discount);
+    public string TotalDisplay => MoneyText.Som(Total);
+    public string TotalAmount => MoneyText.Amount(Total);
     public string PayButtonText =>
         Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash");
 
@@ -345,12 +350,41 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         set
         {
             if (!SetProperty(ref _cartMessage, value ?? ""))
+            {
+                // 2026-10-21: то же сообщение ещё раз (второй «+ Новый чек» на пустом чеке) — снова показываем полный срок.
+                ScheduleCartMessageClear(_cartMessage);
                 return;
+            }
             OnPropertyChanged(nameof(HasCartMessage));
+            ScheduleCartMessageClear(_cartMessage);
         }
     }
 
     public bool HasCartMessage => !string.IsNullOrWhiteSpace(CartMessage);
+
+    /// <summary>2026-10-21 (пакет 6, п. 15): строка под чеком гаснет сама — «Операция проведена, но чек не напечатался…»
+    /// висела в панели часами. Короткие подсказки — 12 с, длинные (с объяснением, что делать) — 45 с.</summary>
+    private CancellationTokenSource? _cartMessageCts;
+
+    private void ScheduleCartMessageClear(string message)
+    {
+        _cartMessageCts?.Cancel();
+        _cartMessageCts = null;
+        if (string.IsNullOrWhiteSpace(message))
+            return;
+        var cts = _cartMessageCts = new CancellationTokenSource();
+        var delay = TimeSpan.FromSeconds(message.Length > 70 ? 45 : 12);
+        _ = Task.Delay(delay, cts.Token).ContinueWith(t =>
+        {
+            if (t.IsCanceled)
+                return;
+            _dispatcher.Post(() =>
+            {
+                if (!cts.IsCancellationRequested && ReferenceEquals(_cartMessage, message))
+                    CartMessage = "";
+            });
+        }, TaskScheduler.Default);
+    }
 
     public bool IsBusy
     {
@@ -364,7 +398,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             (OpenDeferredCartsCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
             (ApplyOrderDiscountCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
             (ReturnPreviousReceiptCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
-            (DeleteReceiptCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (DeleteReceiptCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+            // 2026-10-20, живая проверка: в «1С» «Очистить» оставалась серой при товарах в чеке — после скана
+            // (IsBusy → false) её доступность не пересчитывалась.
+            (ClearCartCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         }
     }
 
@@ -411,6 +448,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     /// <summary>Окно выбора другого размера/цвета для строки — ставит главное окно кассы.</summary>
     public Func<CartLineItemVm, Task>? ChangeVariantLine { get; set; }
 
+    /// <summary>2026-10-17, этап 4 («Контроль удалений»): окно «Убрать из чека?» с причиной — ставит главное окно
+    /// кассы. null-ответ — кассир нажал «Оставить», строка остаётся. Спрашивается только при включённой
+    /// настройке и сумме строки от порога (UserPreferences.AskCartRemovalReason / CartRemovalReasonThreshold).</summary>
+    public Func<CartRemovalReasonRequest, Task<CartRemovalReasonAnswer?>>? AskRemovalReason { get; set; }
+
     /// <summary>2026-10-06 (О-03): строка чека меняется на другой размер/цвет того же товара с тем же количеством.
     /// Скидка строки не переносится — цена у другого варианта может быть своя.</summary>
     public void ReplaceLineVariant(CartLineItemVm line, CatalogProductTileVm product, double unitPrice, string variantId, string label, string? size, string? color)
@@ -423,8 +465,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             var qty = line.Quantity > 0 ? line.Quantity : 1;
             _cart.RemoveItem(line.ItemId);
             _cart.AddVariantItem(product, qty, unitPrice, variantId, label, size, color);
-            SyncLinesFromCart();
-            UpdateCartTotals();
+            SyncLinesAndTotals();
             CartMessage = Tr.T("Размер заменён.", "Өлчөм алмаштырылды.", "Size changed.", "Beden değiştirildi.", "O'lcham almashtirildi.");
             PosLogger.Log($"CART: строка {line.ItemId} ({line.Title}) заменена на вариант {variantId} ({label}).", "CART");
         }
@@ -498,18 +539,18 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
         ActiveReceiptTitle = active.BaseName;
         ApplySessionToCart(active);
-        SyncLinesFromCart();
-        UpdateCartTotals();
+        SyncLinesAndTotals();
         CartMessage = "";
         RaiseCartCommands();
     }
     public void RefreshFromCart()
     {
-        SyncLinesFromCart();
-        UpdateCartTotals();
+        SyncLinesAndTotals();
     }
 
-    public bool ApplyOrderDiscount(string? mode, string? value, bool clear = false)
+    /// <param name="refresh">2026-10-20 (живой аудит кассы, К5): false — скидка записана в чек, но экран кассы и экран
+    /// покупателя не обновлены (окно кассы сначала спросит «Продажа в убыток… применить?», потом RefreshFromCart).</param>
+    public bool ApplyOrderDiscount(string? mode, string? value, bool clear = false, bool refresh = true)
     {
         if (!_cart.HasCart || _cart.LineCount == 0)
         {
@@ -590,7 +631,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         var percent = !clear && string.Equals(mode, "percent", StringComparison.OrdinalIgnoreCase) ? value : null;
         var total = !clear && !string.Equals(mode, "percent", StringComparison.OrdinalIgnoreCase) ? value : null;
         ReceiptSnapshotCartEditor.PatchOrderDiscount(_cart, percent, total);
-        RefreshFromCart();
+        if (refresh)
+            RefreshFromCart();
         // 2026-10-04: убыток проверяет окно кассы (LossWarningText) — подтверждение «Я знаю что делаю»
         // или откат к прежней скидке (RestoreOrderDiscount).
         return true;
@@ -608,10 +650,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         return (Num(_cart.Root, "order_discount_percent"), Num(_cart.Root, "order_discount_total"));
     }
 
-    public void RestoreOrderDiscount(string? percent, string? total)
+    /// <param name="refresh">2026-10-20 (К5): false — откат скидки, которую экран ещё не показывал (обновлять нечего).</param>
+    public void RestoreOrderDiscount(string? percent, string? total, bool refresh = true)
     {
         ReceiptSnapshotCartEditor.PatchOrderDiscount(_cart, percent, total);
-        RefreshFromCart();
+        if (refresh)
+            RefreshFromCart();
     }
 
     // ------------------------------------------------------------------ продажа в убыток
@@ -803,14 +847,68 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         RememberWholesaleModeLines();
     }
 
-    private double UnitCostOf(CartLineItemVm line)
+    private double UnitCostOf(CartLineItemVm line) => UnitCostOf(line.ProductId, line.SalePackageId);
+
+    private double UnitCostOf(string? productId, string? salePackageId)
     {
-        if (string.IsNullOrWhiteSpace(line.ProductId) || _catalogLookup?.Invoke(line.ProductId) is not { } tile || tile.PurchasePrice <= 0)
+        if (string.IsNullOrWhiteSpace(productId) || _catalogLookup?.Invoke(productId) is not { } tile || tile.PurchasePrice <= 0)
             return 0;
-        if (!string.IsNullOrWhiteSpace(line.SalePackageId) && tile.PieceOption is { QuantityInPackage: > 0 } piece
-            && string.Equals(piece.Id, line.SalePackageId, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(salePackageId) && tile.PieceOption is { QuantityInPackage: > 0 } piece
+            && string.Equals(piece.Id, salePackageId, StringComparison.OrdinalIgnoreCase))
             return tile.PurchasePrice / piece.QuantityInPackage;
         return tile.PurchasePrice;
+    }
+
+    /// <summary>2026-10-20 (живой аудит кассы, К5): тот же расчёт убытка, что LossWarningText, но прямо по чеку (корзине), а не по
+    /// строкам экрана. Окно кассы записывает скидку в чек БЕЗ обновления экрана и экрана покупателя, спрашивает «Продажа в
+    /// убыток… применить?» по этому тексту и только после «Да» показывает скидку (раньше покупатель видел её до ответа).
+    /// null — убытка нет.</summary>
+    public string? LossWarningTextFromCart()
+    {
+        try
+        {
+            if (!_cart.HasCart || _cart.Root.ValueKind != JsonValueKind.Object)
+                return null;
+            var root = _cart.Root;
+            var items = CartDisplayHelper.EnumerateItems(root).ToList();
+            static double TotalOf(JsonElement it) =>
+                double.TryParse(CartDisplayHelper.LineTotal(it), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0;
+            var orderDiscount = CartTotalsCalculator.Calculate(root).OrderDiscount;
+            var gross = items.Sum(it => Math.Max(0, TotalOf(it)));
+            var share = gross > 0 ? Math.Clamp(orderDiscount / gross, 0, 1) : 0;
+            var loss = new List<(string Title, double Loss)>();
+            foreach (var it in items)
+            {
+                var cost = UnitCostOf(CartDisplayHelper.TryProductId(it), CartDisplayHelper.SalePackageId(it));
+                var qty = CartDisplayHelper.LineQuantity(it);
+                var lineTotal = TotalOf(it);
+                var hasDiscount = CartDisplayHelper.EffectiveLineDiscount(it) > 1e-6
+                                  || lineTotal + 1e-6 < CartDisplayHelper.UnitPrice(it) * qty;
+                if (cost <= 0 || !(hasDiscount || share > 0))
+                    continue;
+                var net = Math.Max(0, lineTotal) * (1 - share);
+                var value = Math.Round(Math.Max(0, cost * qty - net), 2);
+                if (value > 0.005)
+                    loss.Add((CartDisplayHelper.ItemName(it), value));
+            }
+            if (loss.Count == 0)
+                return null;
+            var total = loss.Sum(l => l.Loss);
+            var lossWord = Tr.T("убыток", "зыян", "loss", "zarar", "zarar");
+            var list = string.Join("\n", loss.Take(5).Select(l => $"• {l.Title}: {lossWord} {MoneyText.Som(l.Loss)}"));
+            PosLogger.Log($"Скидка в убыток: {total:0.00} сом по {loss.Count} поз. (до применения).", "CART");
+            return Tr.T(
+                $"Со скидкой товар продаётся дешевле закупки — убыток {total:0.00} сом.\n{list}",
+                $"Арзандатуу менен товар сатып алуу баасынан арзан сатылат — зыян {total:0.00} сом.\n{list}",
+                $"With this discount the item sells below cost — loss {total:0.00} som.\n{list}",
+                $"Bu indirimle ürün alış fiyatının altında satılıyor — zarar {total:0.00} som.\n{list}",
+                $"Chegirma bilan mahsulot xarid narxidan arzon sotilmoqda — zarar {total:0.00} so'm.\n{list}");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Убыток по чеку до применения скидки не посчитан: {ex.Message}", "WARNING");
+            return null;
+        }
     }
 
     /// <summary>Скидка увела чек в убыток — предупреждение кассиру (после скидки на чек или на позицию).</summary>
@@ -840,30 +938,61 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             $"Chegirma bilan mahsulot xarid narxidan arzon sotilmoqda — zarar {total:0.00} so'm.\n{list}");
     }
 
-    /// <summary>Оплаченный чек с убытком — в журнал для программы владельца (LossSalesStore).</summary>
-    private void RecordLossSale(string? saleId)
+    /// <summary>2026-10-15: снимок убыточных строк чека ДО оплаты. Раньше журнал убытков писался после
+    /// CheckoutAsync(...).ConfigureAwait(false): UpdateLossMarks правил свойства строк не с UI-потока
+    /// («Call from invalid thread» глотался try/catch — запись терялась), а _cart.Root к тому моменту
+    /// уже новая пустая корзина — скидка на весь чек терялась, убыток занижался. Вызывать на UI-потоке;
+    /// строки не меняет. <paramref name="orderDiscount"/> — скидка на чек из окна оплаты (с бонусами).</summary>
+    private List<LossSaleLine> CaptureLossLines(double orderDiscount)
+    {
+        var result = new List<LossSaleLine>();
+        try
+        {
+            var gross = Lines.Sum(l => Math.Max(0, l.LineTotal));
+            var share = gross > 0 ? Math.Clamp(orderDiscount / gross, 0, 1) : 0;
+            foreach (var line in Lines)
+            {
+                var cost = UnitCostOf(line);
+                if (cost <= 0 || !(line.HasDiscount || share > 0))
+                    continue;
+                var net = Math.Max(0, line.LineTotal) * (1 - share);
+                var loss = Math.Round(Math.Max(0, cost * line.Quantity - net), 2);
+                if (loss <= 0.005)
+                    continue;
+                result.Add(new LossSaleLine
+                {
+                    Title = line.Title,
+                    Quantity = line.Quantity,
+                    Unit = line.Unit,
+                    UnitPrice = line.UnitPrice,
+                    UnitCost = cost,
+                    Net = Math.Round(cost * line.Quantity - loss, 2),
+                    Loss = loss,
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Убыток по чеку не посчитан: {ex.Message}", "WARNING");
+        }
+        return result;
+    }
+
+    /// <summary>Оплаченный чек с убытком — в журнал для программы владельца (LossSalesStore).
+    /// 2026-10-15: пишет из снимка <see cref="CaptureLossLines"/>, снятого до оплаты, — UI не трогает,
+    /// можно вызывать с любого потока.</summary>
+    private static void RecordLossSale(string? saleId, IReadOnlyList<LossSaleLine>? lossLines)
     {
         try
         {
-            UpdateLossMarks();
-            var loss = Lines.Where(l => l.HasLoss).ToList();
-            if (loss.Count == 0)
+            if (lossLines is not { Count: > 0 })
                 return;
             LossSalesStore.Append(new LossSaleRecord
             {
                 At = DateTimeOffset.Now,
                 SaleId = saleId,
                 Cashier = PosApp.CurrentUserDisplayName ?? "",
-                Lines = loss.Select(l => new LossSaleLine
-                {
-                    Title = l.Title,
-                    Quantity = l.Quantity,
-                    Unit = l.Unit,
-                    UnitPrice = l.UnitPrice,
-                    UnitCost = l.UnitCost,
-                    Net = Math.Round(l.UnitCost * l.Quantity - l.LossAmount, 2),
-                    Loss = l.LossAmount,
-                }).ToList(),
+                Lines = lossLines.ToList(),
             });
         }
         catch (Exception ex)
@@ -885,8 +1014,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 _cart.AddItem(product, qty);
             else
                 _cart.AddItem(product, qty, lineNameOverride);
-            SyncLinesFromCart();
-            UpdateCartTotals();
+            SyncLinesAndTotals();
             // Количество всегда сбрасывается на 1 после добавления — иначе следующий товар
             // (в том числе штучный после весового или после упаковки) молча добавится с чужим
             // количеством вместо ожидаемой 1 штуки.
@@ -915,8 +1043,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         {
             EnsureCartInitialized();
             _cart.AddItem(product, quantity, unitPriceOverride, salePackageId);
-            SyncLinesFromCart();
-            UpdateCartTotals();
+            SyncLinesAndTotals();
             CartMessage = Tr.T("Товар добавлен.", "Товар кошулду.", "Product added.", "Ürün eklendi.", "Mahsulot qo'shildi.");
         }
         catch (Exception ex)
@@ -937,8 +1064,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         {
             EnsureCartInitialized();
             _cart.AddVariantItem(product, quantity, unitPrice, variantId, label, size, color);
-            SyncLinesFromCart();
-            UpdateCartTotals();
+            SyncLinesAndTotals();
             CartMessage = Tr.T("Товар добавлен.", "Товар кошулду.", "Product added.", "Ürün eklendi.", "Mahsulot qo'shildi.");
         }
         catch (Exception ex)
@@ -961,8 +1087,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             EnsureCartInitialized();
             var qty = ParseQuantity(quantity.ToString(CultureInfo.InvariantCulture), product.MustWeigh);
             _cart.AddItem(product, qty);
-            SyncLinesFromCart();
-            UpdateCartTotals();
+            SyncLinesAndTotals();
             CartMessage = Tr.T($"Голосом добавлено: {product.Title}.", $"Үн менен кошулду: {product.Title}.",
                 $"Added by voice: {product.Title}.", $"Sesle eklendi: {product.Title}.", $"Ovoz orqali qo'shildi: {product.Title}.");
         }
@@ -1000,14 +1125,15 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         ActiveReceiptTitle = session.BaseName;
 
         _cart.ResetForNewReceipt();
-        SyncLinesFromCart();
-        UpdateCartTotals();
+        SyncLinesAndTotals();
         CartMessage = Tr.T($"Открыт «{session.BaseName}».", $"«{session.BaseName}» ачылды.",
             $"Opened “{session.BaseName}”.", $"«{session.BaseName}» açıldı.", $"«{session.BaseName}» ochildi.");
         RaiseCartCommands();
     }
 
-    public void ClearAfterShiftClose()
+    /// <param name="closedShiftId">2026-10-17, этап 4: id закрытой смены — для журнала «Удалено из чека»
+    /// (к этому моменту PosApp.ActiveShiftId уже пуст).</param>
+    public void ClearAfterShiftClose(string? closedShiftId = null)
     {
         // 2026-10-06, стресс-тест перед 1.17.54: «Отложить чек» с 27.09 оставляет чек вкладкой «Отложен ЧЧ:ММ», а закрытие
         // смены стирало все вкладки — отложенный чек пропадал молча (предупреждение спрашивает только про текущий чек).
@@ -1015,6 +1141,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         var kept = _sessions
             .Where(s => s.Id != _activeSessionId && GetSessionSummary(s.CartJson).Lines > 0)
             .ToList();
+        // 2026-10-17, этап 4: неоплаченные строки текущего чека, стёртые закрытием смены, — в журнал удалений.
+        LogCartRemovals(CurrentCartItems(), CartRemovalLogStore.KindShiftClose, shiftId: closedShiftId);
         _cart.Clear();
         _sessions.Clear();
         EnsurePrimarySession();
@@ -1024,8 +1152,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             RenameReceiptSessions();
             PosLogger.Log($"SHIFT: после закрытия смены сохранены вкладки с товарами: {kept.Count}.", "SHIFT");
         }
-        SyncLinesFromCart();
-        UpdateCartTotals();
+        SyncLinesAndTotals();
         CartMessage = kept.Count > 0
             ? Tr.T($"Отложенные чеки сохранены: {kept.Count}.", $"Калтырылган чектер сакталды: {kept.Count}.", $"Held receipts kept: {kept.Count}.",
                 $"Bekleyen fişler korundu: {kept.Count}.", $"Kutishdagi cheklar saqlandi: {kept.Count}.")
@@ -1068,8 +1195,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         }
         ActiveReceiptTitle = target.BaseName;
         ApplySessionToCart(target);
-        SyncLinesFromCart();
-        UpdateCartTotals();
+        SyncLinesAndTotals();
         CartMessage = wasHeld
             ? Tr.T("Отложенный чек снова открыт.", "Калтырылган чек кайра ачылды.", "The held receipt is open again.",
                 "Bekleyen fiş yeniden açıldı.", "Kutishdagi chek qayta ochildi.")
@@ -1388,13 +1514,22 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
     private async Task<BarcodeServerLookup> TryFindProductOnServerAsync(string barcode)
     {
-        if (string.IsNullOrWhiteSpace(barcode) || PosApp.CatalogApi is null)
+        // 2026-10-15: намеренный автономный режим (UseLocalOperations) — товары и так создаются
+        // локально (ProductEditDialog), сервер не спрашиваем: сразу «не найдено» → предложение
+        // добавить товар, как было до 1.17.58. Проверяем раньше CatalogApi: в автономном
+        // запуске API может быть не создан, и это не повод блокировать добавление товара.
+        // 2026-10-16: и раньше IsServerOutage — при автономном входе без интернета монитор аварии
+        // тоже уходит в Outage, и скан незнакомого кода говорил «сервер недоступен» вместо
+        // предложения добавить товар локально.
+        if (OfflineModeHelper.UseLocalOperations)
+            return new(null, false);
+
+        // 2026-10-15: авария сервера (временная) — «сервер недоступен», новый товар не создаём:
+        // иначе после восстановления связи появится дубль товара, который уже есть на сайте.
+        if (OfflineModeHelper.IsServerOutage)
             return new(null, true);
 
-        // 2026-10-04, стенд «сбои сервера»: сервер не отвечает или касса работает без интернета —
-        // сервер не спрашиваем, сразу «не найдено» (предложение добавить товар). Раньше каждый скан
-        // незнакомого кода в аварии ждал таймаут поиска (4 с).
-        if (OfflineModeHelper.SellLocally)
+        if (string.IsNullOrWhiteSpace(barcode) || PosApp.CatalogApi is null)
             return new(null, true);
 
         if (_serverBarcodeMissCache.TryGetValue(barcode, out var missedAt) &&
@@ -1441,6 +1576,15 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     /// старым количеством). Во время оплаты поздние правки количества про склад не спрашивают.</summary>
     private async Task PayAsync()
     {
+        // 2026-10-18, аудит доступов: продажа/оплата — только с доступом «Продажа» (владельца/админа и компании без
+        // выставленных доступов не запирает — см. PermissionService). Сам чек не трогаем.
+        if (_permissions is not null && !_permissions.HasPermission(PosPermissions.Sale))
+        {
+            PosLogger.Log($"Permission denied: {PosPermissions.Sale}", "WARNING");
+            _prompts.ShowWarning(NurMarketKassa.Services.PermissionService.CashierWorkDeniedMessage(PosPermissions.Sale));
+            return;
+        }
+
         if (!_stockOffersOpen.IsEmpty)
         {
             CartMessage = Tr.T(
@@ -1479,8 +1623,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         if (ReceiptSnapshotCartEditor.RefreshPromotionRules(_cart))
         {
             PosLogger.Log("PAY: акции товаров в чеке обновлены по каталогу перед оплатой.", "PAYMENT");
-            SyncLinesFromCart();
-            UpdateCartTotals();
+            SyncLinesAndTotals();
         }
 
         // 2026-09-21, живой баг владельца: чек из одной «Доп. услуги» типа «Расход» (без единого
@@ -1601,6 +1744,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 paymentStatusActive = true;
             }
 
+            // 2026-10-15: убыточные строки — снимком ДО оплаты и на UI-потоке: после CheckoutAsync корзина
+            // уже новая (скидка на чек потеряна), а мы — на потоке пула. Скидка на чек — из окна оплаты.
+            List<LossSaleLine>? lossLines = null;
+            var lossOrderDiscount = checkoutVm.OrderDiscountAmount + checkoutVm.PointsRedeemed;
+            await RunOnUiThreadAsync(() => lossLines = CaptureLossLines(lossOrderDiscount)).ConfigureAwait(false);
+
             var result = await _checkout.CheckoutAsync(new PosCheckoutRequest
             {
                 PaymentMethod = checkoutVm.PaymentMethod,
@@ -1617,6 +1766,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 // оплаты сверяет итог запроса/серверной корзины перед отправкой.
                 ExpectedTotal = checkoutVm.EffectiveTotalDue,
                 DebtSchedule = checkoutVm.DebtScheduleForApi,
+                // 2026-10-20, владелец (долг Д5): клиент — в чек продажи «в долг» (имя и телефон маской).
+                ClientNameForReceipt = checkoutVm.IsDebtMode ? checkoutVm.SelectedClient?.Name : null,
+                ClientPhoneForReceipt = checkoutVm.IsDebtMode ? checkoutVm.SelectedClient?.Phone : null,
             }).ConfigureAwait(false);
 
             if (!result.IsSuccess)
@@ -1629,8 +1781,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 // обновиться данными серверной корзины — экран показывает то, что реально в чеке.
                 await RunOnUiThreadAsync(() =>
                 {
-                    SyncLinesFromCart();
-                    UpdateCartTotals();
+                    SyncLinesAndTotals();
                 }).ConfigureAwait(false);
                 if (LooksLikeShiftNotOpenError(error))
                     ShiftDesyncDetected?.Invoke(this, EventArgs.Empty);
@@ -1654,7 +1805,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
             LogPendingInsufficientStockOverrideIfAny(result);
             RecordSoldLineItemsForHistory(TryReadSaleId(result));
-            RecordLossSale(TryReadSaleId(result));
+            RecordLossSale(TryReadSaleId(result), lossLines);
             CreditOrRedeemLoyaltyPoints(checkoutVm, result);
             // 2026-10-04, стресс-тест на Android: касса, закрытая сразу после оплаты (сбой, разряд, смахнули из
             // недавних), при запуске восстанавливала ОПЛАЧЕННЫЙ чек с товарами — риск продать их второй раз.
@@ -1722,11 +1873,32 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                     _lastChangeDueForDisplay = null;
                 }
 
-                _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Success, Tr.T("Спасибо за покупку!", "Сатып алганыңыз үчүн рахмат!", "Thank you for your purchase!", "Alışverişiniz için teşekkürler!", "Xaridingiz uchun rahmat!"));
+                // 2026-10-20, владелец (долг Д5): продажа «в долг» — покупатель видит, сколько в долг и до какого числа.
+                var thanks = Tr.T("Спасибо за покупку!", "Сатып алганыңыз үчүн рахмат!", "Thank you for your purchase!", "Alışverişiniz için teşekkürler!", "Xaridingiz uchun rahmat!");
+                if (checkoutVm.IsDebtMode && checkoutVm.DebtScheduleForApi is { } debtPlan)
+                {
+                    var debtSum = MoneyText.Som(debtPlan.Payments.Sum(p => p.Amount));
+                    var dueText = debtPlan.LastDueDate.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+                    thanks += "\n" + Tr.T($"В долг {debtSum} — до {dueText}", $"Карызга {debtSum} — {dueText} чейин", $"On credit {debtSum} — until {dueText}",
+                        $"Veresiye {debtSum} — {dueText} tarihine kadar", $"Qarzga {debtSum} — {dueText} gacha");
+                }
+                _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Success, thanks);
                 // 2026-10-04: чек оплачен — клиент QR остаётся у этого покупателя, а не переходит к следующему.
                 ForgetReceiptClient(paidSessionId);
-                SyncLinesFromCart();
-                UpdateCartTotals();
+                SyncLinesAndTotals();
+                // 2026-10-18, ревью этапа 6: что реально проведено — для плашки «Продажа прошла» и копии именно этого чека.
+                LastSale = new LastSaleInfo(
+                    result.TotalAmount,
+                    checkoutVm.PaymentMethod,
+                    _lastCashReceivedForDisplay,
+                    cashReceived,
+                    _lastChangeDueForDisplay,
+                    result.SavedOffline,
+                    TryReadSaleId(result),
+                    result.CartJsonSnapshot,
+                    DateTime.Now,
+                    // 2026-10-21 (ревью денег, п. 1): безналичная часть — для журнала возвратов.
+                    checkoutVm.NonCashReceivedForApi);
                 CheckoutSucceeded?.Invoke(this, EventArgs.Empty);
                 CartMessage = result.SavedOffline
                     ? result.InfoMessage ?? Tr.T("Оплата сохранена локально.", "Төлөм локалдык түрдө сакталды.", "Payment saved locally.", "Ödeme yerel olarak kaydedildi.", "To'lov shu kompyuterda saqlandi.")
@@ -2134,8 +2306,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 // 2026-10-04: чек ушёл в «Отложенные» без клиента QR — вкладка теперь для нового покупателя.
                 ForgetReceiptClient(_activeSessionId);
                 PersistActiveSessionSnapshot();
-                SyncLinesFromCart();
-                UpdateCartTotals();
+                SyncLinesAndTotals();
                 CartMessage = Tr.T($"Отложено: «{result.Label}». Текущий чек очищен.", $"Калтырылды: «{result.Label}». Учурдагы чек тазаланды.",
                     $"Held: “{result.Label}”. Current receipt cleared.", $"Beklemeye alındı: «{result.Label}». Mevcut fiş temizlendi.",
                     $"Kutishga qo'yildi: «{result.Label}». Joriy chek tozalandi.");
@@ -2189,8 +2360,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 // 2026-10-04: во вкладке теперь чек другого покупателя — клиента QR с неё снимаем.
                 ForgetReceiptClient(_activeSessionId);
 
-                SyncLinesFromCart();
-                UpdateCartTotals();
+                SyncLinesAndTotals();
                 CartMessage = currentHasItems
                     ? Tr.T("Чеки обменяны с последним отложенным.", "Чектер акыркы калтырылган менен алмаштырылды.", "Receipts swapped with the last held one.", "Mevcut fiş, son bekletilen fişle yer değiştirdi.", "Cheklar oxirgi kutishdagi chek bilan almashtirildi.")
                     : Tr.T($"Возвращён отложенный чек «{latest.Label}».", $"Калтырылган «{latest.Label}» чеги кайтарылды.",
@@ -2214,11 +2384,59 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
     private bool CanDeleteActiveReceiptCore() => _sessions.Count > 1 && !IsBusy;
 
-    private void DeleteActiveReceipt()
+    /// <summary>2026-10-18, владелец: «Удалить чек» (вкладку с товарами) — тот же личный код доступа CartDelete, что у
+    /// «Очистить чек», если код задан в настройках (Сотрудники / сайт); без кода — как раньше, сразу.</summary>
+    private async Task DeleteActiveReceiptAsync()
     {
         var active = GetActiveSession();
         if (active is null)
             return;
+        string? confirmedBy = null;
+        if (_sessions.Count > 1 && CurrentCartItems().Any())
+        {
+            // 2026-10-20 (живой аудит кассы, К11): вкладка с товарами удалялась одним нажатием (без кода CartDelete — вовсе без
+            // вопроса). Теперь — как «Очистить корзину»: сначала вопрос, потом (если задан) код.
+            var count = CurrentCartItems().Count();
+            if (!await _prompts.ConfirmAsync(Tr.T(
+                    $"Удалить «{active.BaseName}» вместе с товарами (позиций: {count})?",
+                    $"«{active.BaseName}» товарлары менен өчүрүлсүнбү (позиция: {count})?",
+                    $"Delete “{active.BaseName}” with its items ({count})?",
+                    $"«{active.BaseName}» ürünleriyle birlikte silinsin mi ({count} kalem)?",
+                    $"«{active.BaseName}» mahsulotlari bilan o'chirilsinmi (pozitsiyalar: {count})?")).ConfigureAwait(false))
+                return;
+            // 2026-10-18, ревью: как у «Очистить чек» (аудит 16.09) — без права удалять позиции вкладку с товарами не удалить.
+            if (!DemandPermission(PosPermissions.DeleteCartItem))
+                return;
+            if (!await DemandEmployeeAccessCodeAsync(
+                    NurMarketKassa.Services.EmployeeAccessGate.CartDelete,
+                    Tr.T("Удаление чека", "Чекти өчүрүү", "Deleting the receipt", "Fiş silme", "Chekni o'chirish"),
+                    Tr.T($"Введите свой код доступа, чтобы удалить «{active.BaseName}» с товарами.",
+                        $"«{active.BaseName}» товарлары менен өчүрүү үчүн жеке кодуңузду киргизиңиз.",
+                        $"Enter your access code to delete “{active.BaseName}” with its items.",
+                        $"«{active.BaseName}» fişini ürünleriyle silmek için erişim kodunuzu girin.",
+                        $"«{active.BaseName}»ni mahsulotlari bilan o'chirish uchun kirish kodingizni kiriting."))
+                    .ConfigureAwait(false))
+                return;
+            confirmedBy = _lastAccessCodeOwner;
+        }
+        await _dispatcher.InvokeAsync(() => DeleteActiveReceipt(active.Id, confirmedBy));
+    }
+
+    private void DeleteActiveReceipt(string expectedSessionId, string? confirmedBy)
+    {
+        var active = GetActiveSession();
+        if (active is null)
+            return;
+        // 2026-10-18: пока спрашивали код, активной стала другая вкладка — её не удаляем (и говорим об этом).
+        if (!string.Equals(active.Id, expectedSessionId, StringComparison.Ordinal))
+        {
+            CartMessage = Tr.T("Чек не удалён — открыта другая вкладка. Откройте нужный чек и удалите снова.",
+                "Чек өчүрүлгөн жок — башка өтмөк ачык. Керектүү чекти ачып, кайра өчүрүңүз.",
+                "Receipt not deleted — another tab is open. Open the receipt and delete it again.",
+                "Fiş silinmedi — başka bir sekme açık. Fişi açıp yeniden silin.",
+                "Chek o'chirilmadi — boshqa varaq ochiq. Kerakli chekni ochib, qayta o'chiring.");
+            return;
+        }
 
         if (_sessions.Count <= 1)
         {
@@ -2230,6 +2448,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         if (index < 0)
             return;
 
+        // 2026-10-17, этап 4: строки удаляемой вкладки (это текущий чек) — в журнал «Удалено из чека».
+        LogCartRemovals(CurrentCartItems(), CartRemovalLogStore.KindReceipt, confirmedBy: confirmedBy);
         _sessions.RemoveAt(index);
         RenameReceiptSessions();
         var nextIndex = Math.Clamp(index - 1, 0, _sessions.Count - 1);
@@ -2237,8 +2457,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         _activeSessionId = next.Id;
         ActiveReceiptTitle = next.BaseName;
         ApplySessionToCart(next);
-        SyncLinesFromCart();
-        UpdateCartTotals();
+        SyncLinesAndTotals();
         CartMessage = Tr.T($"Чек удалён. Активен «{next.BaseName}».", $"Чек өчүрүлдү. «{next.BaseName}» активдүү.",
             $"Receipt deleted. Active: “{next.BaseName}”.", $"Fiş silindi. Etkin: «{next.BaseName}».", $"Chek o'chirildi. Faol: «{next.BaseName}».");
         RaiseCartCommands();
@@ -2250,8 +2469,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         // 2026-10-04: чек очищен — и клиент QR с него снимается.
         ForgetReceiptClient(_activeSessionId);
         PersistActiveSessionSnapshot();
-        SyncLinesFromCart();
-        UpdateCartTotals();
+        SyncLinesAndTotals();
         CartMessage = "";
         RaiseCartCommands();
     }
@@ -2281,7 +2499,14 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 .ConfigureAwait(false))
             return;
 
-        await _dispatcher.InvokeAsync(ClearReceipt).ConfigureAwait(false);
+        // 2026-10-17, этап 4: кто подтвердил кодом — снимаем сразу, до следующего вопроса о коде.
+        var confirmedBy = _lastAccessCodeOwner;
+        await _dispatcher.InvokeAsync(() =>
+        {
+            // 2026-10-17, этап 4: каждая строка очищенного чека — в журнал «Удалено из чека» (одно действие — один BatchId).
+            LogCartRemovals(CurrentCartItems(), CartRemovalLogStore.KindClear, confirmedBy: confirmedBy);
+            ClearReceipt();
+        }).ConfigureAwait(false);
         _prompts.ShowToast(Tr.T("Корзина очищена.", "Себет тазаланды.", "Cart cleared.", "Sepet temizlendi.", "Savat tozalandi."));
     }
 
@@ -2291,6 +2516,19 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             return;
         if (!DemandPermission(PosPermissions.DeleteCartItem))
             return;
+
+        // 2026-10-17, этап 4 («Контроль удалений», макет MCancelled): при включённой настройке и строке от порога —
+        // окно «Убрать из чека?» с причиной; «Оставить» (Esc) — строка остаётся. По умолчанию выключено.
+        CartRemovalReasonAnswer? reason = null;
+        if (NeedsRemovalReason(line))
+        {
+            var request = new CartRemovalReasonRequest(line.Title, line.Quantity, line.Unit, line.LineTotal,
+                CanRemoveOne: !line.IsWeight && line.Quantity > 1 + 1e-6);
+            reason = await AskRemovalReason!(request).ConfigureAwait(true);
+            if (reason is null || !IsLineInCart(line))
+                return;
+        }
+
         if (!await DemandEmployeeAccessCodeAsync(
                 NurMarketKassa.Services.EmployeeAccessGate.CartDelete,
                 Tr.T("Удаление товара", "Товарды өчүрүү", "Removing an item", "Ürün silme", "Mahsulotni o'chirish"),
@@ -2302,10 +2540,102 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 .ConfigureAwait(false))
             return;
 
+        // 2026-10-17, этап 4: снимок строки до удаления — для журнала «Удалено из чека».
+        var removed = CurrentCartItems().FirstOrDefault(item => string.Equals(item.Id, line.ItemId, StringComparison.Ordinal));
+        if (reason is { OnlyOne: true } && removed is { MustWeigh: false, Quantity: > 1 })
+        {
+            // «Только 1 шт» — то же, что «−» у строки (DecreaseQuantity): количество на одну меньше.
+            // 2026-10-17, ревью этапа 4: в журнал — на сколько реально уменьшилась сумма строки (при скидке строки
+            // суммой это не средняя цена со скидкой).
+            var totalBefore = (double)removed.LineTotal;
+            _cart.UpdateQuantity(line.ItemId, Math.Round(removed.Quantity - 1, 0));
+            var after = CurrentCartItems().FirstOrDefault(item => string.Equals(item.Id, line.ItemId, StringComparison.Ordinal));
+            double? oneTotal = after is null ? null : Math.Round(totalBefore - (double)after.LineTotal, 2);
+            LogCartRemovals(new[] { removed }, CartRemovalLogStore.KindOne, reason, _lastAccessCodeOwner, onlyOne: true,
+                oneLineTotal: oneTotal);
+            RefreshChangedLine(line);
+            return;
+        }
+
         _cart.RemoveItem(line.ItemId);
-        SyncLinesFromCart();
-        UpdateCartTotals();
+        if (removed is not null)
+            LogCartRemovals(new[] { removed }, CartRemovalLogStore.KindLine, reason, _lastAccessCodeOwner);
+        SyncLinesAndTotals();
         RaiseCartCommands();
+    }
+
+    /// <summary>2026-10-17, этап 4: спрашивать ли причину удаления этой строки. Понятия «пречек» (печать чека до
+    /// оплаты) в кассе нет, поэтому условие — только сумма строки от порога.</summary>
+    private bool NeedsRemovalReason(CartLineItemVm line)
+    {
+        var prefs = UserPreferences.Instance;
+        return AskRemovalReason != null
+               && prefs.AskCartRemovalReason
+               && line.LineTotal + 0.005 >= Math.Max(0, prefs.CartRemovalReasonThreshold);
+    }
+
+    /// <summary>2026-10-17, этап 4: строки текущего чека (снимок) — пустой список, если корзины нет.</summary>
+    private IReadOnlyList<CartItem> CurrentCartItems()
+    {
+        try
+        {
+            return _cart.HasCart ? _cart.Items.ToList() : Array.Empty<CartItem>();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Журнал удалений: строки чека не прочитаны: {ex.Message}", "WARNING");
+            return Array.Empty<CartItem>();
+        }
+    }
+
+    /// <summary>2026-10-17, этап 4 («Контроль удалений»): убранные из текущего чека строки — в журнал
+    /// «Удалено из чека» (CartRemovalLogStore, запись в фоне). Ошибка здесь удаление не отменяет.</summary>
+    private void LogCartRemovals(IReadOnlyList<CartItem> items, string kind, CartRemovalReasonAnswer? reason = null,
+        string? confirmedBy = null, bool onlyOne = false, string? shiftId = null, double? oneLineTotal = null)
+    {
+        try
+        {
+            if (items.Count == 0)
+                return;
+            var at = DateTimeOffset.Now;
+            var batchId = items.Count > 1 ? Guid.NewGuid().ToString("N") : null;
+            var receipt = GetActiveSession()?.BaseName;
+            var records = items.Select(item =>
+            {
+                var quantity = onlyOne ? 1 : item.Quantity;
+                var lineTotal = onlyOne && oneLineTotal is { } one && one >= 0
+                    ? one
+                    : onlyOne && item.Quantity > 0
+                    ? Math.Round((double)item.LineTotal / item.Quantity, 2)
+                    : (double)item.LineTotal;
+                return new CartRemovalRecord
+                {
+                    At = at,
+                    Kind = kind,
+                    BatchId = batchId,
+                    ShiftId = shiftId ?? PosApp.ActiveShiftId,
+                    CashboxId = PosApp.PosCashboxId,
+                    CompanyId = CompanyInfoService.LastCompany?.Id,
+                    Cashier = PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId ?? "",
+                    CartId = _cart.CartId,
+                    Receipt = receipt,
+                    ProductId = item.ProductId,
+                    Title = item.Name,
+                    Quantity = quantity,
+                    Unit = Lines.FirstOrDefault(l => string.Equals(l.ItemId, item.Id, StringComparison.Ordinal))?.Unit,
+                    UnitPrice = (double)item.UnitPrice,
+                    LineTotal = lineTotal,
+                    Reason = reason?.Reason,
+                    Note = string.IsNullOrWhiteSpace(reason?.Note) ? null : reason!.Note!.Trim(),
+                    ConfirmedBy = confirmedBy,
+                };
+            }).ToList();
+            CartRemovalLogStore.Append(records);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Журнал удалений: запись не поставлена: {ex.Message}", "WARNING");
+        }
     }
 
     private static bool CanChangeLineQuantity(CartLineItemVm? line) =>
@@ -2577,12 +2907,24 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     /// владелец не впишет хотя бы один код в Настройки → Сотрудники.</summary>
     private async Task<bool> DemandEmployeeAccessCodeAsync(string action, string title, string message)
     {
+        // 2026-10-17, этап 4: чей код подошёл — для журнала «Удалено из чека» (null — код не спрашивали).
+        _lastAccessCodeOwner = null;
         if (!NurMarketKassa.Services.EmployeeAccessGate.IsActiveFor(action, _permissions))
             return true;
 
         return await _prompts.ConfirmWithCodeAsync(title, message,
-            entered => NurMarketKassa.Services.EmployeeAccessGate.TryValidate(action, entered)).ConfigureAwait(false);
+            entered =>
+            {
+                // 2026-10-18, ревью: проверка и «чей код» — один расчёт PBKDF2.
+                if (!NurMarketKassa.Services.EmployeeAccessGate.TryValidate(action, entered, out var matchedBy))
+                    return false;
+                _lastAccessCodeOwner = matchedBy;
+                return true;
+            }).ConfigureAwait(false);
     }
+
+    /// <summary>2026-10-17, этап 4: последний подошедший код доступа (имя сотрудника или «код с сайта»).</summary>
+    private string? _lastAccessCodeOwner;
 
     private void IncreaseManualQuantity()
     {
@@ -2773,8 +3115,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         _activeSessionId = target.Id;
         ActiveReceiptTitle = target.BaseName;
         ApplySessionToCart(target);
-        SyncLinesFromCart();
-        UpdateCartTotals();
+        SyncLinesAndTotals();
         RaiseCartCommands();
     }
 
@@ -2840,12 +3181,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         }
     }
 
+    // 2026-10-19, К1 (аудит 19.10, проблема 8: «Основной чек • 6 тов. • 1517....» обрезалось): вкладка — «Основной чек ·
+    // 1 517,96» (MoneyText, без «сом» и без числа позиций — оно видно в самом чеке), чтобы сумма была видна целиком во
+    // всех раскладках и на 1024. lineCount оставлен в подписи метода — его передают прежние вызовы.
     private static string FormatTabTitle(string baseName, int lineCount, double total) =>
-        Tr.T($"{baseName} • {lineCount} тов. • {total.ToString("0.00", CultureInfo.InvariantCulture)} сом",
-            $"{baseName} • {lineCount} товар • {total.ToString("0.00", CultureInfo.InvariantCulture)} сом",
-            $"{baseName} • Items: {lineCount} • {total.ToString("0.00", CultureInfo.InvariantCulture)} som",
-            $"{baseName} • {lineCount} ürün • {total.ToString("0.00", CultureInfo.InvariantCulture)} som",
-            $"{baseName} • {lineCount} ta mahsulot • {total.ToString("0.00", CultureInfo.InvariantCulture)} so'm");
+        $"{baseName} · {MoneyText.Amount(total)}";
 
     private void EnsureCartInitialized()
     {
@@ -2873,12 +3213,36 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             : unit;
     }
 
+    /// <summary>2026-10-20, живая проверка (большой чек медленный): строки и итог одним вызовом. Строки больше не
+    /// сохраняют снимок, не перестраивают вкладки и не обновляют экран покупателя — сразу за ними это делает
+    /// UpdateCartTotals уже с новым итогом (раньше всё делалось дважды, первый раз — со старым итогом).</summary>
+    private void SyncLinesAndTotals()
+    {
+        _totalsFollowLines = true;
+        try
+        {
+            SyncLinesFromCart();
+        }
+        finally
+        {
+            _totalsFollowLines = false;
+        }
+        UpdateCartTotals();
+    }
+
+    private bool _totalsFollowLines;
+
     private void SyncLinesFromCart()
     {
         _suppressTabRebuild = true;
         try
         {
-            Lines.Clear();
+            // 2026-10-20, живая проверка: строки стирались и создавались заново на каждый скан (при 275 строках —
+            // сотни событий списка и пересоздание всех строк на экране, ~1 с до нового итога). Теперь новые строки
+            // собираются отдельно, а в Lines меняется только то, что отличается (ObservableListPatch): содержимое
+            // то же, что раньше. Лимиты остатка в пакете LookupBatch считаются один раз на товар.
+            using var lookups = LookupBatch.Begin();
+            var fresh = new List<CartLineItemVm>();
             var itemNumber = 1;
             // 2026-10-03: строки по оптовой цене (is_wholesale в строке чека).
             var wholesaleIds = new HashSet<string>(StringComparer.Ordinal);
@@ -2891,7 +3255,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 // Insert at the top: the cashier scans items in sequence and wants the most
                 // recently added one visible without scrolling, not buried at the bottom.
                 // ItemNumber still follows scan order (#1 = first item), only the row position flips.
-                Lines.Insert(0, new CartLineItemVm
+                fresh.Insert(0, new CartLineItemVm
                 {
                     ItemNumber = Math.Min(itemNumber++, 99999),
                     ItemId = item.Id ?? "",
@@ -2926,6 +3290,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                     SetQuantityCommand = SetQuantityCommand,
                 });
             }
+            ObservableListPatch.Apply(Lines, fresh, SameLine);
         }
         finally
         {
@@ -2935,10 +3300,36 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         UpdateLossMarks();
         ApplyWholesaleModeToNewLines();
         RaiseCartCommands();
+        if (_totalsFollowLines)
+            return;
         PersistActiveSessionSnapshot();
         RebuildReceiptTabs();
         PushCustomerDisplay();
     }
+
+    /// <summary>2026-10-20: строка чека не изменилась — все данные, из которых она собрана, те же (в списке остаётся
+    /// старый объект). Убыток/опт строки пересчитывает UpdateLossMarks после каждой перестройки.</summary>
+    private static bool SameLine(CartLineItemVm a, CartLineItemVm b) =>
+        a.ItemNumber == b.ItemNumber
+        && a.ItemId == b.ItemId
+        && a.ProductId == b.ProductId
+        && a.Barcode == b.Barcode
+        && a.Code == b.Code
+        && a.Title == b.Title
+        && a.Unit == b.Unit
+        && a.UnitPrice.Equals(b.UnitPrice)
+        && a.IsWeight == b.IsWeight
+        && a.SalePackageId == b.SalePackageId
+        && Nullable.Equals(a.MaxStockQuantity, b.MaxStockQuantity)
+        && a.Quantity.Equals(b.Quantity)
+        && a.LineTotal.Equals(b.LineTotal)
+        && a.DiscountAmount.Equals(b.DiscountAmount)
+        && Nullable.Equals(a.DiscountPercent, b.DiscountPercent)
+        && Nullable.Equals(a.FixedDiscountAmount, b.FixedDiscountAmount)
+        && Nullable.Equals(a.PromoBasePrice, b.PromoBasePrice)
+        && a.IsWholesale == b.IsWholesale
+        && a.VariantId == b.VariantId
+        && a.QuantityInput == b.QuantityInput;
 
     private void UpdateCartTotals()
     {
@@ -3051,7 +3442,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         (OpenDeferredCartsCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (ApplyOrderDiscountCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (ReturnPreviousReceiptCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
-        (DeleteReceiptCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (DeleteReceiptCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (ClearCartCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (IncreaseQuantityCommand as RelayCommand<CartLineItemVm>)?.RaiseCanExecuteChanged();
         (DecreaseQuantityCommand as RelayCommand<CartLineItemVm>)?.RaiseCanExecuteChanged();
@@ -3110,8 +3501,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         {
             EnsureCartInitialized();
             _cart.AddCustomItem(title, isExpense ? -price : price, quantity);
-            SyncLinesFromCart();
-            UpdateCartTotals();
+            SyncLinesAndTotals();
             CartMessage = isExpense
                 ? Tr.T("Расход добавлен в чек.", "Чыгаша чекке кошулду.", "Expense added to the receipt.", "Gider fişe eklendi.", "Xarajat chekka qo'shildi.")
                 : Tr.T("Услуга добавлена в чек.", "Кызмат чекке кошулду.", "Service added to the receipt.", "Hizmet fişe eklendi.", "Xizmat chekka qo'shildi.");
@@ -3147,7 +3537,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
     /// <summary>2026-10-02, владелец: «прокат — в кассе тоже внутри добавь». Кнопка «Прокат» в меню
     /// «Ещё» у чека — в сферах «Одежда» и «Услуги».</summary>
-    public bool ShowRental => MarketSpheres.IsClothing || MarketSpheres.IsServices;
+    // 2026-10-20: прокат во всех сферах (было «Одежда»/«Услуги»); скрыт в «Показывать разделы» — пункта нет.
+    public bool ShowRental => MarketSpheres.HasRentals && !SectionVisibility.IsHidden("kassa.rental");
 
     /// <summary>2026-10-02: «Оформить как прокат» из окна оплаты — главное окно открывает «Новый прокат» с
     /// вещами чека и клиентом; возвращает созданный прокат и стоимость проката (null — отменили).</summary>
@@ -3211,8 +3602,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             AddCustomItem(c.Name, Math.Abs(c.Price), c.Qty, c.Price < 0);
         if (done.Total > 0)
             AddCustomItem(line, done.Total, 1, false);
-        SyncLinesFromCart();
-        UpdateCartTotals();
+        SyncLinesAndTotals();
         PosLogger.Log($"Прокат №{r.Number} из чека: {items.Count} вещ., стоимость {done.Total:0.00}.", "RENTAL");
         CartMessage = Tr.T($"Прокат №{r.Number} оформлен. Номер — на чеке, по нему закроете прокат при возврате.",
             $"Прокат №{r.Number} түзүлдү. Номери — чекте, кайтарганда ушул номер боюнча жабасыз.",

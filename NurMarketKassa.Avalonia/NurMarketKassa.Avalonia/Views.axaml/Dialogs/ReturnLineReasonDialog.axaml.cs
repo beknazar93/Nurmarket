@@ -67,11 +67,18 @@ public partial class ReturnLineReasonDialog : Window
     private void BuildQuickReasons()
     {
         // 2026-10-06, владелец: «главное не трогай продуктовый» — в «Продуктах» окно как было: без кнопок причин и «Брака».
+        // 2026-10-21 (пакет 6, п. 35, живой аудит кассы: «нет быстрых причин»): в «Продуктах» — частые причины кнопками,
+        // но без «Брака» и его отметки: возврат на склад работает как раньше.
         if (!MarketSpheres.IsClothing)
         {
-            QuickReasonsPanel.IsVisible = false;
-            Height = 420;
-            MinHeight = 360;
+            DefectCheck.IsVisible = false;
+            foreach (var text in new[]
+                     {
+                         Tr.T("Передумал", "Оюн өзгөрттү", "Changed mind", "Vazgeçti", "Fikridan qaytdi"),
+                         Tr.T("Ошибка кассира", "Кассирдин катасы", "Cashier error", "Kasiyer hatası", "Kassir xatosi"),
+                         Tr.T("Не тот товар", "Башка товар", "Wrong item", "Yanlış ürün", "Boshqa mahsulot"),
+                     })
+                QuickReasonsWrap.Children.Add(MakeReasonChip(text, defect: false));
             return;
         }
         DefectCheck.Content = Tr.T("Брак — товар не вернётся в продажу (на склад не возвращается)",
@@ -87,25 +94,27 @@ public partial class ReturnLineReasonDialog : Window
             (Tr.T("Брак", "Бузук", "Defective", "Kusurlu", "Nuqsonli"), true),
         };
         foreach (var (text, defect) in reasons)
+            QuickReasonsWrap.Children.Add(MakeReasonChip(text, defect));
+    }
+
+    /// <summary>Кнопка частой причины (2026-10-21: вынесено, чтобы и «Продукты» брали тот же вид).</summary>
+    private Button MakeReasonChip(string text, bool defect)
+    {
+        // 2026-10-17, этап 3: вид чипа — общий стиль модалок modal-chip (44 px, PosDialogStyles.axaml).
+        var chip = new Button
         {
-            var chip = new Button
-            {
-                Content = text, Margin = new Avalonia.Thickness(0, 0, 8, 8), Padding = new Avalonia.Thickness(14, 6), MinHeight = 36,
-                CornerRadius = new Avalonia.CornerRadius(18), BorderThickness = new Avalonia.Thickness(1), FontSize = 13, Focusable = false,
-            };
-            chip.Bind(Button.BackgroundProperty, this.GetResourceObservable("BrushPanel"));
-            chip.Bind(Button.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
-            chip.Bind(Button.ForegroundProperty, this.GetResourceObservable("BrushText"));
-            chip.Click += (_, _) =>
-            {
-                ReasonBox.Text = text;
-                ReasonBox.CaretIndex = text.Length;
-                if (defect)
-                    DefectCheck.IsChecked = true;
-                ReasonBox.Focus();
-            };
-            QuickReasonsWrap.Children.Add(chip);
-        }
+            Content = text, Margin = new Avalonia.Thickness(0, 0, 8, 8), FontSize = 13, Focusable = false,
+            Classes = { "modal-chip" },
+        };
+        chip.Click += (_, _) =>
+        {
+            ReasonBox.Text = text;
+            ReasonBox.CaretIndex = text.Length;
+            if (defect)
+                DefectCheck.IsChecked = true;
+            ReasonBox.Focus();
+        };
+        return chip;
     }
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);

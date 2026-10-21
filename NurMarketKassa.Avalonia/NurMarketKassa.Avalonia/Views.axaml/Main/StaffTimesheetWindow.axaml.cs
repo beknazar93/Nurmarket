@@ -22,6 +22,8 @@ public partial class StaffTimesheetWindow : Window
     {
         InitializeComponent();
         TimesheetGrid.ItemsSource = _rows;
+        // 2026-10-20 (живой аудит кассы, К18): окно стало шире (столбцы не обрезаются) — на маленьком экране кассы ужимается до него.
+        Opened += (_, _) => NurMarketKassa.AvaloniaHost.Views.Dialogs.DialogScreenFit.FitToKassaScreen(this);
     }
 
     public static void Open(Window? owner)

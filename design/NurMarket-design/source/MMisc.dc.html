@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — клавиатура, зарплата, без интернета</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit;flex-shrink:0}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:10px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#667085}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054;white-space:nowrap}
+.b1{height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C;white-space:nowrap}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:15px;width:100%}
+.row{display:flex;align-items:center;gap:12px;min-height:44px;font-size:13px}
+.row span{flex-grow:1}
+.tg{width:44px;height:26px;border-radius:13px;background:#0B2A3C;position:relative;flex-shrink:0}
+.tg::after{content:"";position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:10px;background:#FFD600}
+.tg.off{background:#D0D5DD}
+.tg.off::after{left:3px;right:auto;background:#FFFFFF}
+.opt{height:44px;border-radius:12px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:700;color:#344054;white-space:nowrap}
+.opt.on{border:2px solid #0B2A3C;background:#0B2A3C;color:#FFFFFF}
+.d{font-size:12px;color:#475467;line-height:18px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: flex; justify-content: center; gap: 30px; align-items: flex-start">
+  <!-- 2026-10-17: своя экранная клавиатура убрана (правило владельца — только системная osk.exe); окна 640 / 480; схемы зарплаты — 6, как в SalarySchemeDialog; «Без связи» — подробности из метки в шапке (не всплывает само); плейсхолдеры заполнены -->
+
+  <section class="m" role="dialog" aria-label="Экранная клавиатура" style="width: 640px">
+    <div class="mh"><span style="width: 44px; height: 44px; border-radius: 12px; background: #EEF0F3; color: #344054; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0">⌨</span><div class="mt"><b>Экранная клавиатура</b><span>Клавиатура Windows (osk.exe) — своей клавиатуры в программе нет</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="row"><span>Открывать клавиатуру Windows при касании поля ввода<br><small style="color: #667085">для сенсорных моноблоков; мышью и сканером — не открывается</small></span><i class="tg" role="switch" aria-checked="true"></i></div>
+      <div class="row"><span>Кнопка «⌨» в шапке кассы<br><small style="color: #667085">также ☰ → Экран → «Клавиатура Windows»</small></span><i class="tg" role="switch" aria-checked="true"></i></div>
+      <div class="row"><span>Закрывать клавиатуру после оплаты</span><i class="tg off" role="switch" aria-checked="false"></i></div>
+      <div style="border-radius: 14px; background: #F4F5F7; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+        <span class="lbl">КАК ЭТО ВЫГЛЯДИТ</span>
+        <input class="in" type="text" value="мака" aria-label="Поиск товара" style="border: 2px solid #0B2A3C; box-shadow: 0 0 0 4px rgba(255,214,0,.45); font-weight: 700">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 44px; border-radius: 12px; border: 1px dashed #98A2B3; background: #FFFFFF; padding: 0 14px; font-size: 13px; color: #344054"><span style="font-size: 18px">⌨</span><span style="flex-grow: 1">Внизу экрана открылась клавиатура Windows — её можно перетащить, если закрывает чек</span></div>
+      </div>
+      <span class="d">Кыргызские буквы ң ө ү: добавьте в Windows раскладку «Кыргызча» (Параметры → Время и язык → Язык), переключение — Win + Пробел; клавиатура Windows покажет её сама.</span>
+    </div>
+    <div class="mf"><span class="tot">Применяется сразу · Win + Ctrl + O — тоже открывает</span><button type="button" class="b1">Открыть клавиатуру Windows</button></div>
+  </section>
+
+  <div style="width: 480px; display: flex; flex-direction: column; gap: 24px">
+    <section class="m" role="dialog" aria-label="Схема зарплаты">
+      <div class="mh"><div class="mt"><b>Зарплата по продажам · Кассир Тест</b><span>Считается сама по продажам и табелю</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <span class="lbl">СХЕМА НАЧИСЛЕНИЯ</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><button type="button" class="opt">Оклад</button><button type="button" class="opt">% от продаж</button><button type="button" class="opt on">Оклад + %</button><button type="button" class="opt">За товар</button><button type="button" class="opt">Оклад + за товар</button><button type="button" class="opt">% + за товар</button></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="sa0">ОКЛАД В МЕСЯЦ, СОМ</label><input id="sa0" class="in" type="text" value="15 000" style="font-weight: 800"></span>
+          <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="sa1">ПРОЦЕНТ ОТ ЛИЧНЫХ ПРОДАЖ</label><input id="sa1" class="in" type="text" value="1 %" style="font-weight: 800; border: 2px solid #0B2A3C; box-shadow: 0 0 0 4px rgba(255,214,0,.45)"></span>
+        </div>
+        <span class="d">Личные продажи — где сотрудник кассир или консультант чека.</span>
+      </div>
+      <div class="mf"><span class="tot">Продажи 2&nbsp;860 → +28,60&nbsp;сом к&nbsp;окладу</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить</button></div>
+    </section>
+
+    <section class="m" role="dialog" aria-label="Без связи">
+      <div class="mh"><span style="width: 40px; height: 40px; border-radius: 12px; background: #FEF3E2; color: #B54708; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0">!</span><div class="mt"><b>Работа без связи</b><span>Открыто из метки «Нет связи» в шапке — само не всплывает</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">Чеков ждут отправки</span><b style="white-space: nowrap">3 (№ 1707–1709)</b></div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">Каталог сохранён</span><b style="white-space: nowrap">307 товаров</b></div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">Последняя связь</span><b style="white-space: nowrap">сегодня 14:21 · попытка 14:33</b></div>
+        <span style="font-size: 12px; color: #475467">Долг, QR и бонусы без интернета недоступны — только наличные и карта. Чеки уйдут на сервер сами.</span>
+      </div>
+      <div class="mf"><span class="tot">Esc — закрыть</span><button type="button" class="b2">Проверить связь</button></div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

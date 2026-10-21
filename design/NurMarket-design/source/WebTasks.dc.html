@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб — задачи и календарь</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#0B2A3C;color:#FFFFFF}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+.bo{height:34px;padding:0 12px;border-radius:10px;border:1.5px solid #0B2A3C;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:800;color:#0B2A3C;white-space:nowrap;flex-shrink:0}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Задачи и календарь" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Задачи и календарь</b><span style="font-size: 13px; color: #667085">Поручения сотрудникам, просьбы от них и напоминания себе</span></span>
+      <button type="button" class="b2" style="display: flex; align-items: center; gap: 6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"></path></svg>Напоминание себе</button><button type="button" class="b1">+ Задача сотруднику</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px">
+      <div class="kpi"><span>Сегодня</span><b>5</b></div><div class="kpi"><span>Просрочено</span><b style="color: #C0362C">1</b></div><div class="kpi"><span>Ждут проверки</span><b>2</b></div><div class="kpi"><span>Сделано за неделю</span><b>18</b></div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 560px">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><b style="font-size: 15px; flex-grow: 1">12–18 октября 2026</b><div class="sg"><button type="button" class="seg" style="height: 32px; padding: 0 12px">День</button><button type="button" class="seg on" style="height: 32px; padding: 0 12px">Неделя</button><button type="button" class="seg" style="height: 32px; padding: 0 12px">Месяц</button></div></div>
+        <!-- 2026-10-16: тип события — значок + цвет + подпись в легенде (не только цвет). -->
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px">
+          <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+            <div style="min-height: 210px; border-radius: 12px; padding: 6px; display: flex; flex-direction: column; gap: 5px; background: {{d.bg}}; border: {{d.border}}"><b style="font-size: 12px">{{d.name}}</b>
+              <sc-for list="{{d.ev}}" as="e" hint-placeholder-count="2">
+                <span aria-label="{{e.aria}}" style="font-size: 11px; line-height: 14px; padding: 4px 5px; border-radius: 8px; background: {{e.bg}}; color: {{e.fg}}; overflow-wrap: break-word; display: flex; flex-direction: column; gap: 2px"><span style="display: flex; align-items: center; gap: 4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{e.icon}}"></path></svg><b>{{e.time}}</b></span>{{e.text}}</span>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 14px; font-size: 12px; color: #475467; flex-wrap: wrap; align-items: center">
+          <sc-for list="{{legend}}" as="l" hint-placeholder-count="3"><span style="display: flex; align-items: center; gap: 6px"><span class="tag" style="display: flex; align-items: center; gap: 4px; background: {{l.bg}}; color: {{l.fg}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{l.icon}}"></path></svg>{{l.name}}</span>{{l.note}}</span></sc-for>
+        </div>
+        <span style="font-size: 12px; color: #667085">Задачи сейчас хранятся на ПК кассы (OpsStore) — для веба и телефона нужен сервер NurCRM (задачи + push).</span>
+      </section>
+      <aside class="card" style="flex: 1 1 350px; max-width: 380px">
+        <div class="sg"><button type="button" class="seg on" style="height: 32px">Я поручил</button><button type="button" class="seg" style="height: 32px">Мне</button><button type="button" class="seg" style="height: 32px">Себе</button></div>
+        <span class="lbl" style="padding-top: 2px">ЖДУТ ПРОВЕРКИ · 2</span>
+        <sc-for list="{{review}}" as="t" hint-placeholder-count="2">
+          <div class="row" style="flex-direction: column; align-items: stretch; gap: 8px"><span style="display: flex; align-items: flex-start; gap: 10px"><span style="width: 20px; height: 20px; border-radius: 6px; background: #0B2A3C; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"></path></svg></span><span style="flex-grow: 1; min-width: 0"><b>{{t.title}}</b><br><span style="font-size: 11px; color: #475467">{{t.who}}</span></span></span><span style="display: flex; align-items: center; gap: 8px; padding-left: 30px"><span role="img" aria-label="{{t.photoAria}}" style="width: 56px; height: 40px; border-radius: 8px; background: {{t.photo}}; border: 1px solid #D0D5DD; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #475467"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path></svg></span><span style="flex-grow: 1; font-size: 11.5px; color: #475467">фото-отчёт</span><button type="button" class="bo">Проверить</button></span></div>
+        </sc-for>
+        <span class="lbl" style="padding-top: 2px">В РАБОТЕ · ПРОСРОЧЕНО</span>
+        <div class="row"><span style="width: 20px; height: 20px; border-radius: 6px; border: 2px solid #D0D5DD; flex-shrink: 0; box-sizing: border-box"></span><span style="flex-grow: 1; min-width: 0"><b>Обновить ценники на молочке</b><br><span style="font-size: 11px; color: #475467">Бекзат Осмонов · срок вчера</span></span><span class="tag" style="background: #FDECEA; color: #B42318">просрочено</span></div>
+        <span class="lbl" style="padding-top: 2px">ОТ СОТРУДНИКОВ · 2</span>
+        <div class="row" style="flex-direction: column; align-items: stretch; background: #FFF7CC"><span><b>Закончились пакеты</b> — нужно заказать<br><span style="font-size: 11px; color: #475467">Кассир Тест · 10 мин назад · срочно</span></span><span style="display: flex; gap: 6px"><button type="button" class="bo">В закупки</button><button type="button" class="chip">Ответить</button></span></div>
+        <div class="row" style="flex-direction: column; align-items: stretch"><span><b>Отгул в субботу 17.10</b><br><span style="font-size: 11px; color: #475467">Айгерим Садыкова · сегодня 11:20</span></span><span style="display: flex; gap: 6px"><button type="button" class="bo">Разрешить</button><button type="button" class="chip">Отказать</button></span></div>
+      </aside>
+    </div>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: у каждого типа события — свой значок, цвет и подпись. Даты и поставщики — как в «Закупках» (Шоро сегодня, Бишкек Дистрибьюшн 14.10).
+    const T = {
+      task: { name: 'задача', note: 'сотруднику', bg: '#EEF4FF', fg: '#3538CD', icon: 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' },
+      rem: { name: 'напоминание', note: 'себе', bg: '#FFF7CC', fg: '#7A5A00', icon: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0' },
+      sup: { name: 'поставка', note: 'из закупок', bg: '#E7F6EC', fg: '#0E7A3A', icon: 'M3 6h11v10H3zM14 9h4l3 3v4h-7M6.5 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17.5 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z' }
+    };
+    const e = (type, time, text) => Object.assign({}, T[type], { time, text, aria: T[type].name + ', ' + time + ': ' + text });
+    const day = (name, ev, today) => ({ name, ev, bg: today ? '#FFFFFF' : '#F9FAFB', border: today ? '2px solid #0B2A3C' : '1px solid #EAECF0' });
+    return {
+      days: [
+        day('Пн 12 · сегодня', [e('task', '09:00', 'Пересчёт напитков'), e('sup', '15:00', 'Приёмка «Шоро», заказ №16'), e('rem', '18:00', 'Напомнить Арслану о долге')], true),
+        day('Вт 13', [e('task', '12:00', 'Обновить ценники')]),
+        day('Ср 14', [e('sup', '10:00', 'Приёмка напитков, заказ №17')]),
+        day('Чт 15', [e('rem', '12:00', 'Оплата поставщику 2\u00a0000\u00a0сом (№15)'), e('rem', '15:00', 'Позвонить бухгалтеру')]),
+        day('Пт 16', [e('task', '09:00', 'Ревизия склада'), e('rem', '17:00', 'Зарплата за 1–15.10')]),
+        day('Сб 17', []),
+        day('Вс 18', [])
+      ],
+      legend: [T.task, T.rem, T.sup],
+      review: [
+        { title: 'Пересчитать напитки', who: 'Кассир Тест · сделано 09:40, фото', photo: '#E7EEF3', photoAria: 'Фото отчёта: полка с напитками' },
+        { title: 'Выложить поставку «Шоро»', who: 'Айгерим Садыкова · сделано 13:10, фото', photo: '#E7F6EC', photoAria: 'Фото отчёта: выложенный товар' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -43,6 +43,18 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
 
     private const string StartArticleId = "продажи-как-создать-продажу";
 
+    /// <summary>2026-10-21: в программе владельца (--owner) база открывается на его темах — «Программа владельца», затем склад,
+    /// отчёты, товары, сотрудники, клиенты; темы кассира — ниже (пакет 3, п. 142). Id статей одинаковые во всех языках.</summary>
+    private const string OwnerStartArticleId = "программа-владельца-что-такое-nurmarket-владелец-и-где-его-н";
+    private static readonly string[] OwnerSectionOrder =
+        { "программа-владельца-", "склад-", "отчёты-и-аналитика-", "товары-", "сотрудники-", "клиенты-и-долги-" };
+
+    private static int OwnerRank(string id)
+    {
+        var rank = Array.FindIndex(OwnerSectionOrder, prefix => id.StartsWith(prefix, StringComparison.Ordinal));
+        return rank < 0 ? OwnerSectionOrder.Length : rank;
+    }
+
     private readonly List<KbArticle> _articles = new();
     private readonly Dictionary<string, Button> _navButtons = new();
 
@@ -56,7 +68,7 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
     {
         InitializeComponent();
         SearchBox.TextChanged += (_, _) => BuildNav(SearchBox.Text);
-        ApplyLanguage(StartArticleId);
+        ApplyLanguage(AppMode.IsOwner ? OwnerStartArticleId : StartArticleId); // 2026-10-21: пакет 3, п. 142
         Tr.LanguageChanged += OnLanguageChanged;
         Closed += (_, _) => Tr.LanguageChanged -= OnLanguageChanged;
     }
@@ -93,6 +105,14 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
                 }).ToList(),
                 RussianSearch = article.Title + " " + string.Join(" ", article.Keywords),
             });
+        }
+
+        if (AppMode.IsOwner)
+        {
+            // 2026-10-21: разделы владельца — сверху; внутри раздела порядок прежний (сортировка устойчивая) (пакет 3, п. 142).
+            var ordered = _articles.OrderBy(a => OwnerRank(a.Id)).ToList();
+            _articles.Clear();
+            _articles.AddRange(ordered);
         }
 
         BuildNav(SearchBox.Text);
@@ -188,6 +208,7 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
             Grid.SetColumn(arrow, 2);
             header.Children.Add(arrow);
             var sectionButton = new Button { Content = header, Classes = { "kbSection" } };
+            Avalonia.Automation.AutomationProperties.SetName(sectionButton, sectionName); // 2026-10-21: имя для экранного диктора (пакет 3, п. 142)
             if (isOpen)
                 sectionButton.Classes.Add("open");
             sectionButton.Click += (_, _) =>
@@ -210,10 +231,26 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
                     NavPanel.Children.Add(new TextBlock { Text = article.Group, Classes = { "navGroup" } });
                 lastGroup = article.Group;
 
-                var label = new TextBlock { Text = article.Title };
+                // 2026-10-21: значок «есть видео/снимок» — отдельно справа и крупнее (был мелким хвостом названия) (пакет 3, п. 142).
+                Control label = new TextBlock { Text = article.Title };
                 if (article.Images.Count > 0)
-                    label.Text = article.Title + (article.Images.Any(i => i.File.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)) ? "  🎬" : "  📷");
+                {
+                    var hasVideo = article.Images.Any(i => i.File.EndsWith(".gif", StringComparison.OrdinalIgnoreCase));
+                    var mark = new TextBlock
+                    {
+                        Text = hasVideo ? "🎬" : "📷",
+                        FontSize = 16,
+                        Margin = new Thickness(8, 0, 0, 0),
+                        VerticalAlignment = VerticalAlignment.Top,
+                    };
+                    ToolTip.SetTip(mark, hasVideo
+                        ? Tr.T("В статье есть видео", "Макалада видео бар", "The article has a video", "Makalede video var", "Maqolada video bor")
+                        : Tr.T("В статье есть снимки экрана", "Макалада скриншоттор бар", "The article has screenshots", "Makalede ekran görüntüleri var", "Maqolada skrinshotlar bor"));
+                    Grid.SetColumn(mark, 1);
+                    label = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { label, mark } };
+                }
                 var button = new Button { Content = label, Classes = { "kbItem" } };
+                Avalonia.Automation.AutomationProperties.SetName(button, article.Title); // 2026-10-21: имя для экранного диктора (пакет 3, п. 142)
                 if (ReferenceEquals(article, _current))
                     button.Classes.Add("active");
                 var target = article;

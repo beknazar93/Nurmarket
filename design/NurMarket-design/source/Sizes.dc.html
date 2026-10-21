@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Размеры и цвета</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <!-- 2026-10-16: раздел есть только у вида «Одежда и обувь» (MarketSpheres.IsClothing) — доска показана на магазине-одежде -->
+  <dc-import name="OwnerNav" group="reports" active="Размеры и цвета" shop="Бутик «Айсулуу»" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Размеры и цвета</span><span style="font-size: 13px; color: #667085">Бутик «Айсулуу» · вид «Одежда и обувь» · у NBS (Продукты) раздела нет</span></span>
+      <span style="font-size: 13px; color: #667085; white-space: nowrap">06.10–12.10.2026 · 64 чека</span>
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Сегодня</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Вчера</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Неделя</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Месяц</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Даты…</button>
+      </div>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: flex; gap: 16px">
+      <section style="flex-grow: 1; min-width: 0; background: #FFFFFF; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 16px; font-weight: 800">Продано: размер × цвет · 61 шт</span><button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 600; color: #344054">Футболка базовая хлопок ▾</button></span>
+        <!-- 2026-10-16: колонки — размеры выбранного товара из данных (S–XXL, у обуви 36–46), не зашитые 42–52 -->
+        <div style="display: grid; grid-template-columns: 1.2fr repeat({{ncols}}, minmax(0, 1fr)); gap: 6px">
+          <span></span>
+          <sc-for list="{{sizes}}" as="s" hint-placeholder-count="6"><span style="text-align: center; font-size: 13px; font-weight: 800; color: #475467; padding: 6px 0">{{s}}</span></sc-for>
+          <sc-for list="{{grid}}" as="row" hint-placeholder-count="4">
+            <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700"><span style="width: 14px; height: 14px; border-radius: 4px; background: {{row.dot}}; border: 1px solid #D0D5DD"></span>{{row.color}}</span>
+            <sc-for list="{{row.cells}}" as="c" hint-placeholder-count="6"><span style="height: 52px; border-radius: 10px; background: {{c.bg}}; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: {{c.fg}}">{{c.v}}</span></sc-for>
+          </sc-for>
+        </div>
+        <span style="font-size: 12px; color: #667085">Темнее — продаётся лучше. Числа — проданные штуки за период. Колонки — размеры из карточки товара: у одежды S–XXL, у обуви 36–46.</span>
+      </section>
+      <aside style="width: 320px; flex-shrink: 0; background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 16px; font-weight: 800">Заканчиваются размеры</span>
+        <sc-for list="{{low}}" as="l" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #F9FAFB"><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700">{{l.name}}</span><span style="font-size: 12px; color: #667085">{{l.variant}}</span></span><span style="padding: 3px 9px; border-radius: 999px; background: {{l.bg}}; color: {{l.fg}}; font-size: 12px; font-weight: 700; white-space: nowrap">{{l.left}}</span></div>
+        </sc-for>
+        <button type="button" style="margin-top: auto; height: 46px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">В заявку поставщику</button>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: размеры — из карточки выбранного товара (у обуви было бы 36–46); числа — проданные штуки за неделю.
+    // Светлая клетка — #475467 на #F2F4F7 (контраст), а не #98A2B3.
+    const sizes = ['S', 'M', 'L', 'XL', 'XXL'];
+    const shades = [['#F2F4F7', '#475467'], ['#FFF7CC', '#0B2A3C'], ['#FFE680', '#0B2A3C'], ['#0B2A3C', '#FFD600']];
+    const sold = { 'Чёрный': [2, 6, 9, 5, 1], 'Белый': [3, 7, 6, 2, 0], 'Синий': [1, 4, 5, 3, 1], 'Красный': [0, 2, 3, 1, 0] };
+    const dots = { 'Чёрный': '#111827', 'Белый': '#FFFFFF', 'Синий': '#1D4ED8', 'Красный': '#B42318' };
+    const shade = (n) => shades[n === 0 ? 0 : n <= 3 ? 1 : n <= 6 ? 2 : 3];
+    const grid = Object.keys(sold).map((color) => ({ color, dot: dots[color], cells: sold[color].map((n) => ({ v: String(n), bg: shade(n)[0], fg: shade(n)[1] })) }));
+    // Остаток: 0 — красный «нет», не больше мин. остатка — оранжевый «мало».
+    const NO = ['#FDE8E8', '#B42318'], LOW = ['#FEF3E2', '#B54708'];
+    const low = [
+      { name: 'Футболка базовая хлопок', variant: 'L · Чёрный · продано 9', left: '1 шт · мало', c: LOW },
+      { name: 'Футболка базовая хлопок', variant: 'M · Белый · продано 7', left: '2 шт · мало', c: LOW },
+      { name: 'Джинсы прямые', variant: '32 · Синий · продано 4', left: 'нет', c: NO },
+      { name: 'Кроссовки беговые', variant: '41 · Белый · продано 3', left: '1 шт · мало', c: LOW }
+    ].map((l) => ({ ...l, bg: l.c[0], fg: l.c[1] }));
+    return { sizes, ncols: sizes.length, grid, low };
+  }
+}
+</script>
+</body>
+</html>

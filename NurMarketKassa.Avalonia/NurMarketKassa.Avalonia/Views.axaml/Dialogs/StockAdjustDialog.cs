@@ -33,17 +33,18 @@ public sealed class StockAdjustDialog : Window
     {
         _product = product;
         Title = T("Изменить остаток", "Калдыкты өзгөртүү", "Change stock", "Stoğu değiştir", "Qoldiqni o'zgartirish");
-        Width = 520;
+        // 2026-10-20, аудит программы владельца: было окно с системной рамкой Windows (бирюзовая полоса, «свернуть/развернуть»),
+        // остальные диалоги — без рамки, в общей оболочке ModalShell (заголовок и ✕ сверху, кнопки снизу). Теперь так же.
+        Width = 552;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Use(this, BackgroundProperty, "BrushDialogPanel");
+        SystemDecorations = SystemDecorations.None;
+        Bind(BackgroundProperty, this.GetResourceObservable("DialogWindowBackground"));
+        Bind(TransparencyLevelHintProperty, this.GetResourceObservable("DialogTransparencyHint"));
         KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(false); };
 
-        var root = new StackPanel { Margin = new Thickness(22, 18), Spacing = 10 };
-        var title = new TextBlock { Text = Title, FontSize = 20, FontWeight = FontWeight.Bold };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
-        root.Children.Add(title);
+        var root = new StackPanel { Spacing = 10 };
         var name = new TextBlock { Text = product.Title, FontSize = 15, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
         Use(name, TextBlock.ForegroundProperty, "BrushText");
         root.Children.Add(name);
@@ -71,15 +72,15 @@ public sealed class StockAdjustDialog : Window
         Use(_error, TextBlock.ForegroundProperty, "BrushDanger");
         root.Children.Add(_error);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 6, 0, 0) };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
         var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        cancel.IsCancel = true; // ✕ оболочки нажимает кнопку с IsCancel
         cancel.Click += (_, _) => Close(false);
         _apply = UiKit.Primary(this, T("Провести", "Өткөрүү", "Apply", "Uygula", "O'tkazish"));
         _apply.Click += async (_, _) => await ApplyAsync().ConfigureAwait(true);
         buttons.Children.Add(cancel);
         buttons.Children.Add(_apply);
-        root.Children.Add(buttons);
-        Content = root;
+        Content = new ModalShell { Margin = new Thickness(16), Title = Title, Footer = buttons, Content = root };
 
         BuildModes();
         Opened += (_, _) => { _qty.Focus(); _qty.SelectAll(); };

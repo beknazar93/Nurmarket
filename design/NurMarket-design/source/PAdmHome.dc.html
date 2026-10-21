@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Администратор — главная</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:#FFFFFF;border-top:1px solid #EAECF0;padding:6px 4px 2px}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:#667085;text-decoration:none;padding:6px 0}
+.nav a.on{color:#0B2A3C;font-weight:800}
+.nav a.on span{background:#FFD600}
+.nav span{width:44px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+.kpi{background:#FFFFFF;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:11px;color:#667085;font-weight:600}
+.kpi b{font-size:18px;font-weight:800;color:#0B2A3C;white-space:nowrap}
+.kpi small{font-size:11px;font-weight:700;white-space:nowrap}
+.qa{border:0;border-radius:16px;background:#FFFFFF;padding:10px 4px;min-height:88px;display:flex;flex-direction:column;align-items:center;gap:6px;font-family:inherit;font-size:12px;font-weight:700;color:#0B2A3C;text-align:center}
+.role{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#E7EEF3;color:#0B2A3C;white-space:nowrap}
+.qa i{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-style:normal}
+.al{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;background:#FFFFFF;border:0;font-family:inherit;text-align:left;width:100%}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#FFFFFF}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 10px">
+    <button type="button" style="flex-grow: 1; min-width: 0; height: 52px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; display: flex; align-items: center; gap: 10px; padding: 0 12px; text-align: left">
+      <span style="width: 28px; height: 28px; border-radius: 8px; background: #0B2A3C; color: #FFD600; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px">N</span>
+      <span style="flex-grow: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px"><b style="font-size: 14px; white-space: nowrap">NBS · все филиалы</b><span class="role">Администратор</span></span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <!-- 2026-10-17: колокольчик → «Уведомления» (Т24), счётчик непрочитанных; аватар — Нурлан Абдыкадыров (администратор) -->
+    <button type="button" aria-label="Уведомления, 3 непрочитанных" style="position: relative; width: 48px; height: 48px; flex-shrink: 0; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg><span style="position: absolute; top: 4px; right: 4px; min-width: 18px; height: 18px; border-radius: 9px; background: #B42318; color: #FFFFFF; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center">3</span></button>
+    <span style="width: 48px; height: 48px; flex-shrink: 0; border-radius: 24px; background: #0B2A3C; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px">НА</span>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+    <section style="border-radius: 20px; background: #0B2A3C; color: #FFFFFF; padding: 16px; display: flex; flex-direction: column; gap: 6px">
+      <span style="font-size: 12px; color: #C7D2DB">Выручка сегодня · обновлено в 14:35</span>
+      <span style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap"><b style="font-size: 30px; font-weight: 800; color: #FFD600; white-space: nowrap">4&nbsp;300&nbsp;сом</b><span style="font-size: 12px; font-weight: 700; color: #4ADE80; white-space: nowrap">▲ 10&nbsp;% к вчера на это время</span></span>
+      <span style="font-size: 12px; color: #C7D2DB">В кассах сейчас: 3&nbsp;265&nbsp;сом · открыто смен: 3</span>
+    </section>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+      <!-- 2026-10-17: суммы в плитках не переносятся; от 1 000 000 — сокращение «1,2 млн сом» -->
+      <div class="kpi"><span>Чеков</span><b>47</b><small style="color: #0E7A3A">▲ 5</small></div>
+      <div class="kpi"><span>Средний чек</span><b>91&nbsp;сом</b><small style="color: #B42318">▼ 2&nbsp;%</small></div>
+      <div class="kpi"><span>Валовая прибыль</span><b>910&nbsp;сом</b><small style="color: #0E7A3A">▲ 11&nbsp;%</small></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+      <button type="button" class="qa"><i style="background: #FFD600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></i>Умная камера</button>
+      <button type="button" class="qa"><i style="background: #F2F4F7"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></i>Новый товар</button>
+      <button type="button" class="qa"><i style="background: #F2F4F7"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5"></path></svg></i>Приёмка</button>
+      <button type="button" class="qa"><i style="background: #F2F4F7"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></svg></i>Деньги в&nbsp;кассе</button>
+    </div>
+
+    <span style="font-size: 12px; font-weight: 700; color: #667085">ЖДЁТ ВНИМАНИЯ</span>
+    <button type="button" class="al"><span style="width: 36px; height: 36px; border-radius: 10px; background: #FEF3E2; color: #B54708; display: flex; align-items: center; justify-content: center; font-weight: 800">!</span><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">Заканчиваются товары</b><span style="font-size: 12px; color: #667085">4 позиции · заказать поставщику</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+    <button type="button" class="al"><span style="width: 36px; height: 36px; border-radius: 10px; background: #E7EEF3; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800">₸</span><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">Долги клиентов</b><span style="font-size: 12px; color: #667085">17 клиентов · 811&nbsp;889&nbsp;сом</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+    <button type="button" class="al"><span style="width: 36px; height: 36px; border-radius: 10px; background: #E7F6EC; color: #0E7A3A; display: flex; align-items: center; justify-content: center; font-weight: 800">@</span><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">Заказы с сайта</b><span style="font-size: 12px; color: #667085">1 новый · №10 Умар · 530&nbsp;сом</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+    <button type="button" class="al"><span style="width: 36px; height: 36px; border-radius: 10px; background: #F2F4F7; color: #0B2A3C; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">Приёмка на проверку</b><span style="font-size: 12px; color: #667085">Айгерим · 3 товара, 48 шт · указать цены</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+  </main>
+
+  <nav class="nav" aria-label="Разделы администратора">
+    <a href="#" class="on" aria-current="page"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg></span>Главная</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path><circle cx="9" cy="19.5" r="1.5"></circle><circle cx="17" cy="19.5" r="1.5"></circle></svg></span>Продажа</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg></span>Товары</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></span>Отчёты</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg></span>Ещё</a>
+  </nav>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

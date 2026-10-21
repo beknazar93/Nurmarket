@@ -120,6 +120,12 @@ public partial class App : Application
             return;
 
         var display = UserPreferences.Instance.CustomerDisplay;
+        // 2026-10-20, аудит программы владельца: «Лесная» → «Классическая» меняла CustomerDisplay.AccentColor #FACC15 → #F7D617
+        // (акцент классической темы ≠ цвету по умолчанию экрана), исходный цвет не возвращался. С 2026-09-28 у экрана
+        // покупателя выбор UseThemeColors: true — цвета и так берутся из темы (RefreshStyle), false — свои цвета владельца,
+        // их тема трогать не должна. Перезаписываем акцент только у старых настроек без этого выбора (null).
+        if (display.UseThemeColors is not null)
+            return;
         if (string.Equals(display.AccentColor, swatchHex, StringComparison.OrdinalIgnoreCase))
             return;
 
@@ -155,6 +161,8 @@ public partial class App : Application
         ServerLoyalty.ApiProvider = () => AppHost?.Services.GetService<NurMarketApiClient>();
         // 2026-10-05: настройки аккаунта — на сервере, подтягиваются на любом устройстве (SettingsCloudSync).
         SettingsCloudSync.ApiProvider = () => AppHost?.Services.GetService<NurMarketApiClient>();
+        // 2026-10-18, аудит: личный код сотрудника подходит только вошедшему кассиру (EmployeeAccessGate).
+        EmployeeAccessGate.CurrentUserProvider = () => AppHost?.Services.GetService<NurMarketApiClient>()?.UserPayload ?? default;
         // 2026-10-06: срок долга, названный клиентом, — на сервер после продажи «В долг».
         DebtDueDateSync.ApiProvider = () => AppHost?.Services.GetService<NurMarketApiClient>();
         // Смена компании = смена набора локальных данных. Подписка здесь, один раз на запуск:
@@ -230,7 +238,7 @@ public partial class App : Application
             var closed = shifts.Where(s => s.ClosedAt is not null).OrderByDescending(s => s.ClosedAt).Take(10).ToList();
             var sb = new System.Text.StringBuilder("АРХИВ СМЕН (Z-отчёты, последние закрытые смены с сервера NurCRM):\n");
             foreach (var s in closed)
-                sb.Append($"• Смена {s.ShiftNumber}, кассир {s.Cashier}: открыта {s.OpenedAt:dd.MM.yyyy HH:mm}, закрыта {s.ClosedAt:dd.MM.yyyy HH:mm}; выручка {s.Revenue:0.##} сом"
+                sb.Append($"• Смена {s.ShiftNumber}, кассир {AiPseudonyms.Staff(s.Cashier)}: открыта {s.OpenedAt:dd.MM.yyyy HH:mm}, закрыта {s.ClosedAt:dd.MM.yyyy HH:mm}; выручка {s.Revenue:0.##} сом"
                           + (s.CashSales is { } cash ? $" (наличные {cash:0.##}" + (s.NonCashSales is { } nc ? $", безнал {nc:0.##})" : ")") : "")
                           + (s.SalesCount is { } n ? $", чеков {n}" : "")
                           + (s.OpeningCash is { } op ? $", в кассе на начало {op:0.##}" : "")
@@ -238,12 +246,42 @@ public partial class App : Application
             if (closed.Count == 0)
                 sb.Append("Закрытых смен на сервере нет.\n");
             foreach (var open in shifts.Where(s => s.ClosedAt is null && s.OpenedAt is not null))
-                sb.Append($"Открыта сейчас: смена {open.ShiftNumber}, кассир {open.Cashier}, с {open.OpenedAt:dd.MM.yyyy HH:mm}, выручка {open.Revenue:0.##} сом.\n");
+                sb.Append($"Открыта сейчас: смена {open.ShiftNumber}, кассир {AiPseudonyms.Staff(open.Cashier)}, с {open.OpenedAt:dd.MM.yyyy HH:mm}, выручка {open.Revenue:0.##} сом.\n");
             return sb.ToString();
         };
         // 2026-10-07, владелец: «ИИ сам собирает информацию и выводит таблицей» — чеки за период по вопросу.
         TelegramAiChat.SalesDetailMatcher = OwnerSalesData.LooksLikeQuestion;
         TelegramAiChat.SalesDetailProvider = async (question, token) => (await OwnerSalesData.BuildAsync(question, token).ConfigureAwait(false)).Table;
+        // 2026-10-21 (бот, К2): выручка в боте (/segodnya, /nedelya, /mesyac и сводка ИИ бота) — тот же расчёт сервера, что «Сводка» и
+        // Нур Советник (OwnerPeriodStats); местная история кассы — только запасной путь бота с пометкой.
+        TelegramReportBuilder.ServerRevenueProvider = async (period, token) =>
+        {
+            var snap = await OwnerPeriodStats.GetAsync(token).ConfigureAwait(false);
+            if (snap?.Get(period) is not { } p)
+                return null;
+            static string Pct(double? v) => v is { } d ? (d >= 0 ? "▲ +" : "▼ −") + Math.Abs(d).ToString("0.#", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) + " %" : "—";
+            string? note = period switch
+            {
+                "today" when snap.Get("yesterday") is { } y => Tr.T("Вчера: ", "Кечээ: ", "Yesterday: ", "Dün: ", "Kecha: ") + OwnerPeriodStats.Money(y.Revenue),
+                "week" when snap.Compare("week_vs_prev") is { } c => Tr.T("7 полных дней к прошлым 7: ", "7 толук күн мурунку 7ге: ", "Last 7 full days vs previous 7: ",
+                    "Son 7 tam gün önceki 7'ye göre: ", "Oxirgi 7 to'liq kun oldingi 7 ga: ") + Pct(c.RevenueDeltaPercent),
+                "month" when snap.Compare("month_vs_prev") is { } c => Tr.T("К тем же дням прошлого месяца: ", "Өткөн айдын ошол күндөрүнө: ", "Vs the same days last month: ",
+                    "Geçen ayın aynı günlerine göre: ", "O'tgan oyning shu kunlariga: ") + Pct(c.RevenueDeltaPercent),
+                _ => null,
+            };
+            return new TelegramReportBuilder.ServerRevenue(p.Revenue, p.Checks, p.AvgCheck, p.Profit, note);
+        };
+        TelegramReportBuilder.ServerRevenueAiTextProvider = async token => (await OwnerPeriodStats.GetAsync(token).ConfigureAwait(false))?.ToAiText();
+        // 2026-10-21, «Нур Советник до 10» (О2): бот владельцу (/dolgi) — те же точные долги, что «Сводка» и «Долги клиентов».
+        // (О5) в табеле и архиве смен для ИИ — кассиры кодами [С1] (AiPseudonyms), имена подставляются на этом ПК.
+        TelegramBotPollingService.ExactDebtorsProvider = async token =>
+        {
+            var facts = await OwnerShopFacts.GetDebtsAsync(token, TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+            return facts.Exact
+                ? facts.Debtors.Select(d => new NurMarketKassa.Services.Api.DebtorInfo(d.ClientId, d.Name, d.Phone.Length > 0 ? d.Phone : null, null, d.Amount, d.Checks,
+                    d.Oldest.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))).ToList()
+                : null;
+        };
         TelegramAiChat.TimesheetProvider = async (from, to, token) =>
         {
             var shifts = await LoadShiftsCachedAsync(token).ConfigureAwait(false);
@@ -251,12 +289,12 @@ public partial class App : Application
             static string H(TimeSpan t) => $"{(int)t.TotalHours} ч {t.Minutes:00} мин";
             var sb = new System.Text.StringBuilder($"ТАБЕЛЬ (смены кассы {from:dd.MM}–{to:dd.MM}; часы — по закрытым сменам):\n");
             foreach (var r in rows)
-                sb.Append($"• {r.Cashier}: смен {r.ShiftCount}, дней {r.DaysWorked}, отработано {H(r.TotalWorked)} (в среднем {H(r.AverageShift)} за смену), "
+                sb.Append($"• {AiPseudonyms.Staff(r.Cashier)}: смен {r.ShiftCount}, дней {r.DaysWorked}, отработано {H(r.TotalWorked)} (в среднем {H(r.AverageShift)} за смену), "
                           + $"выручка смен {r.TotalRevenue:0.##} сом, первая смена {r.FirstShift:dd.MM HH:mm}, последняя {r.LastShift:dd.MM HH:mm}\n");
             if (rows.Count == 0)
                 sb.Append("За этот период закрытых смен нет.\n");
             foreach (var open in shifts.Where(s => s.ClosedAt is null && s.OpenedAt is not null))
-                sb.Append($"Сейчас на смене: {open.Cashier} с {open.OpenedAt:dd.MM HH:mm}.\n");
+                sb.Append($"Сейчас на смене: {AiPseudonyms.Staff(open.Cashier)} с {open.OpenedAt:dd.MM HH:mm}.\n");
             return sb.ToString();
         };
         ProductActions.RequestCatalogRefresh = () => AppHost?.Services.GetService<SyncService>()?.RequestCatalogSyncNow();
@@ -306,6 +344,9 @@ public partial class App : Application
             // оставшийся источник «database disk image is malformed».
             desktop.ShutdownRequested += (_, _) =>
             {
+                // 2026-10-17, ревью этапа 4: дописать очередь журнала «Удалено из чека» (не дольше 2 с).
+                try { NurMarketKassa.Services.CartRemovalLogStore.FlushAsync().Wait(TimeSpan.FromSeconds(2)); }
+                catch { /* журнал удалений не должен мешать выключению */ }
                 try { NurMarketKassa.Services.DatabaseService.CheckpointWal(); }
                 catch (Exception ex) { NurMarketKassa.Services.PosLogger.Log($"WAL checkpoint (shutdown) failed: {ex.Message}", "WARNING"); }
             };
@@ -319,6 +360,8 @@ public partial class App : Application
             desktop.Exit += (_, _) =>
             {
                 ShutdownCts.Cancel();
+                try { NurMarketKassa.Services.CartRemovalLogStore.FlushAsync().Wait(TimeSpan.FromSeconds(2)); }
+                catch { /* журнал удалений не должен мешать выходу */ }
                 try { NurMarketKassa.Services.Lan.LanSyncService.Instance.Stop(); }
                 catch { /* соседи сами перестанут ждать это место через 45 секунд */ }
                 // Сливает WAL в основной файл БД при штатном закрытии — без этого несколько раз

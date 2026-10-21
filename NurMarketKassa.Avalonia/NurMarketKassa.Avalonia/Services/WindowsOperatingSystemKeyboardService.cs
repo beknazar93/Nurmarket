@@ -18,21 +18,31 @@ public sealed class WindowsOperatingSystemKeyboardService : IOperatingSystemKeyb
     {
         try
         {
-            foreach (var running in Process.GetProcessesByName("osk"))
+            // 2026-10-15: объекты Process освобождаются — вызов идёт при каждом касании поля (до раза в 700 мс), без Dispose копились дескрипторы.
+            var runningProcesses = Process.GetProcessesByName("osk");
+            try
             {
-                var handle = running.MainWindowHandle;
-                if (handle != IntPtr.Zero)
+                foreach (var running in runningProcesses)
                 {
-                    ShowWindow(handle, SW_SHOWNOACTIVATE);
-                    SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-                    PosLogger.Log("OSK: клавиатура уже запущена — окно поднято наверх", "UI");
-                    return;
+                    var handle = running.MainWindowHandle;
+                    if (handle != IntPtr.Zero)
+                    {
+                        ShowWindow(handle, SW_SHOWNOACTIVATE);
+                        SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                        PosLogger.Log("OSK: клавиатура уже запущена — окно поднято наверх", "UI");
+                        return;
+                    }
                 }
+            }
+            finally
+            {
+                foreach (var running in runningProcesses)
+                    running.Dispose();
             }
 
             var system32 = Environment.GetFolderPath(Environment.SpecialFolder.System);
             var path = Path.Combine(system32, "osk.exe");
-            Process.Start(new ProcessStartInfo
+            using var started = Process.Start(new ProcessStartInfo
             {
                 FileName = File.Exists(path) ? path : "osk.exe",
                 UseShellExecute = true,
@@ -44,6 +54,51 @@ public sealed class WindowsOperatingSystemKeyboardService : IOperatingSystemKeyb
             PosLogger.Log($"OSK launch failed: {ex.Message}", "UI");
         }
     }
+
+    /// <summary>2026-10-21 (пакет 6, п. 58): клавиатура Windows открыта и видна (не свёрнута) — закрыть её (WM_CLOSE).
+    /// true — закрыли; false — её нет или она свёрнута (тогда её надо показать, а не закрыть).</summary>
+    public static bool TryCloseVisible()
+    {
+        var closed = false;
+        try
+        {
+            var running = Process.GetProcessesByName("osk");
+            try
+            {
+                foreach (var p in running)
+                {
+                    var handle = p.MainWindowHandle;
+                    if (handle == IntPtr.Zero || !IsWindowVisible(handle) || IsIconic(handle))
+                        continue;
+                    PostMessage(handle, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                    closed = true;
+                }
+            }
+            finally
+            {
+                foreach (var p in running)
+                    p.Dispose();
+            }
+            if (closed)
+                PosLogger.Log("OSK: повторное нажатие «Клавиатура» — клавиатура закрыта", "UI");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"OSK close failed: {ex.Message}", "UI");
+        }
+        return closed;
+    }
+
+    private const uint WM_CLOSE = 0x0010;
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     private const int SW_SHOWNOACTIVATE = 4;
     private static readonly IntPtr HWND_TOPMOST = new(-1);

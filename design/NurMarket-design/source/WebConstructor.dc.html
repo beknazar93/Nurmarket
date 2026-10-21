@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Маркетплейс — по филиалам (веб)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Маркетплейс" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px">
+    <!-- 2026-10-16: это вкладка «По филиалам» раздела «Маркетплейс»; список функций и цены — те же, что во вкладке «Функции и подписка» (WebSettings). -->
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Маркетплейс</b><span style="font-size: 13px; color: #667085">Свой набор функций у каждого филиала · платите только за включённое · всего в месяц <b style="color: #0B2A3C; white-space: nowrap">{{grand}}</b></span></span>
+      <button type="button" class="b2">Шаблоны</button><button type="button" class="b1">Сохранить</button>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+      <div role="tablist" aria-label="Маркетплейс" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" role="tab" aria-selected="false" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">Функции и подписка</button>
+        <button type="button" role="tab" aria-selected="true" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap">По филиалам</button>
+        <button type="button" role="tab" aria-selected="false" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">Темы</button>
+      </div>
+      <span style="font-size: 12.5px; color: #475467">Цены и тариф — во вкладке <a href="#" style="font-weight: 700">«Функции и подписка»</a></span>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 560px; padding: 4px 4px; gap: 0">
+        <div class="lbl" style="display: grid; grid-template-columns: minmax(0, 1fr) 76px repeat(3, 124px); align-items: end; padding: 8px 12px; border-bottom: 1px solid #EAECF0"><span>ФУНКЦИЯ</span><span>ЦЕНА</span><sc-for list="{{branches}}" as="br" hint-placeholder-count="3"><span style="text-align: center; line-height: 14px">{{br}}</span></sc-for></div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="18">
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 76px repeat(3, 124px); align-items: center; padding: 5px 12px; border-bottom: 1px solid #F2F4F7; font-size: 13px"><b style="font-weight: 700">{{r.name}}</b><span style="color: #667085; white-space: nowrap">{{r.price}}</span><sc-for list="{{r.cells}}" as="c" hint-placeholder-count="3"><span style="justify-self: center; display: flex; align-items: center; gap: 6px"><span role="switch" aria-checked="{{c.checked}}" aria-label="{{c.label}}" style="display: inline-block; width: 40px; height: 22px; border-radius: 11px; flex-shrink: 0; position: relative; background: {{c.track}}"><span style="position: absolute; top: 3px; left: {{c.knob}}; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.25)"></span></span><span style="width: 30px; font-size: 11px; font-weight: 700; color: {{c.color}}">{{c.text}}</span></span></sc-for></div>
+        </sc-for>
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 76px repeat(3, 124px); align-items: center; padding: 9px 12px; background: #F9FAFB; border-radius: 0 0 12px 12px; font-size: 13px"><b>Итого в месяц</b><span></span><sc-for list="{{totals}}" as="t" hint-placeholder-count="3"><b style="text-align: center; color: #0B2A3C; white-space: nowrap">{{t}}</b></sc-for></div>
+      </section>
+      <aside class="card" style="flex: 1 1 260px; max-width: 320px">
+        <b style="font-size: 15px">Подсказки</b>
+        <div class="row" style="background: #FFF7CC; font-size: 12.5px; line-height: 18px">«Офис Кубанычбека»: в боте 18 вопросов о наличии за неделю, а «Сайт-витрина» там выключена</div>
+        <div class="row" style="font-size: 12.5px; line-height: 18px">«Домашний»: приёмок не было 2 недели — «Склад» можно выключить (−500&nbsp;сом)</div>
+        <div class="row" style="background: #EEF4FF; font-size: 12.5px; line-height: 18px">Включили — пункт появляется в меню филиала сразу; выключили — пропадает из меню (не «заблокирован»)</div>
+        <span style="font-size: 12px; color: #667085; line-height: 17px">Свой набор у филиала — нужен сервер NurCRM (флаги функций по филиалу; сейчас тариф различается только названием).</span>
+      </aside>
+    </div>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: тот же список и цены, что в «Функции и подписка» (WebSettings). Филиалы — как в SPEC; «Склад» не филиал.
+    const sp = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' сом';
+    const branches = ['NBS — главный', 'Офис Кубанычбека', 'Домашний'];
+    // [название, цена, главный, офис, домашний]
+    const list = [
+      ['Касса', 990, 1, 1, 1], ['Склад', 500, 1, 1, 1], ['Закупки', 300, 1, 1, 0], ['Пополнение и сроки', 300, 1, 1, 0],
+      ['Долги клиентов', 400, 1, 1, 1], ['Рассрочка', 300, 1, 0, 0], ['Прокат', 400, 1, 0, 0], ['Сайт-витрина', 700, 1, 0, 0],
+      ['Телеграм-бот', 400, 1, 0, 0], ['Бонусы и сертификаты', 400, 1, 1, 0], ['WhatsApp', 300, 1, 0, 0], ['Воронка', 300, 1, 0, 0],
+      ['Зарплата', 400, 1, 1, 0], ['ЭСФ и ККМ', 600, 1, 0, 0], ['Нур Советник', 600, 1, 0, 0], ['Задачи и календарь', 200, 1, 1, 0],
+      ['Размеры и цвета', 400, 0, 0, 0], ['Экран покупателя', 200, 0, 0, 0]
+    ];
+    const rows = list.map(([name, price, ...on]) => ({
+      name, price: sp(price),
+      cells: on.map((v, i) => ({
+        checked: v ? 'true' : 'false', label: name + ' — ' + branches[i] + (v ? ': включена' : ': выключена'),
+        track: v ? '#0E7A3A' : '#D0D5DD', knob: v ? '21px' : '3px', text: v ? 'вкл' : 'выкл', color: v ? '#0E7A3A' : '#667085'
+      }))
+    }));
+    const sums = branches.map((_, i) => list.reduce((s, x) => s + (x[2 + i] ? x[1] : 0), 0)); // 7 090 · 3 490 · 1 890
+    return { branches, rows, totals: sums.map(sp), grand: sp(sums.reduce((a, b) => a + b, 0)) }; // 12 470
+  }
+}
+</script>
+</body>
+</html>

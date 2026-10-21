@@ -151,17 +151,28 @@ public partial class AccountView : UserControl
 
         CompanyNameText.Text = string.IsNullOrWhiteSpace(company.Name) ? Tr.T("Без названия", "Аталышы жок", "Untitled", "Adsız", "Nomsiz") : company.Name;
         CompanyInnText.Text = string.IsNullOrWhiteSpace(company.Inn) ? "" : $"{Tr.T("ИНН", "ИНН", "TIN", "VKN", "STIR")}: {company.Inn}";
+        // 2026-10-21: компания теперь строкой карточки «Вход» — пустой ИНН не оставляет пустую строку (пакет 3, п. 141).
+        CompanyInnText.IsVisible = CompanyInnText.Text.Length > 0;
 
         PlanNameText.Text = string.IsNullOrWhiteSpace(company.SubscriptionPlanName)
             ? Tr.T("Не определён", "Аныкталган эмес", "Not defined", "Tanımlanmamış", "Aniqlanmagan")
             : company.SubscriptionPlanName;
         PlanPriceText.Text = string.IsNullOrWhiteSpace(company.SubscriptionPlanPrice)
             ? ""
-            : $"{company.SubscriptionPlanPrice} {Tr.T("сом / мес.", "сом / ай", "som / mo.", "som / ay", "so'm / oy")}";
+            // 2026-10-20, живая проверка: «3500.00 сом / мес.» — сумма видом кассы: «3 500,00 сом / мес.».
+            : $"{PlanPriceShown(company.SubscriptionPlanPrice)} {Tr.T("/ мес.", "/ ай", "/ mo.", "/ ay", "/ oy")}";
+        PlanPriceText.IsVisible = PlanPriceText.Text.Length > 0; // 2026-10-21: без цены — без пустой строки в карточке (пакет 3, п. 141)
 
         RenderExpiry(company.StartDate, company.EndDate);
         RenderServices(company);
         RenderPlanCompare(company.SubscriptionPlanName);
+    }
+
+    /// <summary>2026-10-20: цена тарифа «3 500,00 сом»; не число с сервера — как пришло, с «сом».</summary>
+    private static string PlanPriceShown(string price)
+    {
+        var shown = MoneyText.SomFromText(price);
+        return shown == price.Trim() ? $"{shown} {MoneyText.Currency}" : shown;
     }
 
     /// <summary>2026-10-05, владелец: «добавь в тарифе Старт описание Стандарта и сравнение в аккаунте». Строки — те же
@@ -311,10 +322,12 @@ public partial class AccountView : UserControl
         }
 
         ExpiryStatusBadge.IsVisible = true;
-        ExpiryStatusBadge.Background = ThemeBrush(bgKey, Brushes.LightGray);
-        ExpiryStatusBadge.BorderBrush = ThemeBrush(borderKey, Brushes.Gray);
+        // 2026-10-21: «Активна» была серой — кисть искалась до показа раздела (у ещё не показанного окна нет светлой/тёмной
+        // темы, ThemeBrush давал запасной серый). Теперь кисти — ресурсами темы, как DynamicResource (пакет 3, п. 141).
+        ExpiryStatusBadge.Bind(Border.BackgroundProperty, ExpiryStatusBadge.GetResourceObservable(bgKey));
+        ExpiryStatusBadge.Bind(Border.BorderBrushProperty, ExpiryStatusBadge.GetResourceObservable(borderKey));
         ExpiryStatusText.Text = statusText;
-        ExpiryStatusText.Foreground = ThemeBrush(fgKey, Brushes.Black);
+        ExpiryStatusText.Bind(TextBlock.ForegroundProperty, ExpiryStatusText.GetResourceObservable(fgKey));
     }
 
     private void RenderServices(CompanyDto company)
@@ -357,8 +370,11 @@ public partial class AccountView : UserControl
     private static string FormatDate(DateTimeOffset? dt) =>
         dt?.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) ?? "—";
 
-    private IBrush ThemeBrush(string key, IBrush fallback) =>
-        Avalonia.Application.Current?.TryFindResource(key, ActualThemeVariant, out var value) == true
+    // 2026-10-21: светлая/тёмная — по приложению: у ещё не показанного раздела своей нет, и цвета успеха/текста
+    // (словари Light/Dark) не находились — таблица «Старт/Стандарт» и «Активна» выходили запасными серыми (пакет 3, п. 141).
+    private static IBrush ThemeBrush(string key, IBrush fallback) =>
+        Avalonia.Application.Current is { } app
+        && app.TryFindResource(key, app.ActualThemeVariant, out var value)
         && value is IBrush brush
             ? brush
             : fallback;

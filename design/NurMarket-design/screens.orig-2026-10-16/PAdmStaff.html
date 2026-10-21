@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Сотрудники и права</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.emp{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#FFFFFF;border:0;font-family:inherit;text-align:left;width:100%}
+.av{width:38px;height:38px;border-radius:19px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0}
+.role{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.tg{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #F2F4F7;font-size:13px}
+.sw{width:44px;height:26px;border-radius:13px;position:relative;flex-shrink:0}
+.sw i{position:absolute;top:3px;width:20px;height:20px;border-radius:10px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.dev{flex-grow:1;height:38px;border-radius:10px;font-family:inherit;font-size:12px;font-weight:700}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="PAdmStaff"><div style="width: 390px; height: 844px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-direction: column;">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px;">
+    <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(52, 64, 84); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <b style="font-size: 18px; font-weight: 800; flex-grow: 1;">Сотрудники и права</b>
+    <button type="button" aria-label="Пригласить сотрудника" style="width: 44px; height: 44px; border-radius: 14px; border: 0px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0px 16px 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
+    <button type="button" class="emp"><span class="av" style="background: rgb(11, 42, 60); color: rgb(255, 255, 255);">АД</span><span style="flex-grow: 1; font-size: 14px; font-weight: 700;">Администратор</span><span class="role" style="background: rgb(231, 238, 243); color: rgb(11, 42, 60);">Админ</span></button>
+
+    <section style="background: rgb(255, 255, 255); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; border: 2px solid rgb(11, 42, 60);">
+      <div style="display: flex; align-items: center; gap: 10px; padding-bottom: 8px;"><span class="av" style="background: rgb(255, 214, 0); color: rgb(11, 42, 60);">КТ</span><span style="flex-grow: 1; display: flex; flex-direction: column;"><b style="font-size: 14px;">Кассир Тест</b><span style="font-size: 12px; color: rgb(102, 112, 133);">в смене сейчас</span></span><span class="role" style="background: rgb(255, 247, 204); color: rgb(11, 42, 60);">Кассир</span></div>
+      
+        <div class="tg"><span style="flex-grow: 1;"><span class="sc-interp">Продажа и оплата</span></span><span class="sw" role="img" aria-label="Включено" style="background: rgb(22, 163, 74);"><i style="left: 21px;"></i></span></div>
+      
+        <div class="tg"><span style="flex-grow: 1;"><span class="sc-interp">Возврат и обмен</span></span><span class="sw" role="img" aria-label="Выключено" style="background: rgb(208, 213, 221);"><i style="left: 3px;"></i></span></div>
+      
+        <div class="tg"><span style="flex-grow: 1;"><span class="sc-interp">Скидка больше [N] %</span></span><span class="sw" role="img" aria-label="Выключено" style="background: rgb(208, 213, 221);"><i style="left: 3px;"></i></span></div>
+      
+        <div class="tg"><span style="flex-grow: 1;"><span class="sc-interp">Приёмка и ревизия</span></span><span class="sw" role="img" aria-label="Включено" style="background: rgb(22, 163, 74);"><i style="left: 21px;"></i></span></div>
+      
+        <div class="tg"><span style="flex-grow: 1;"><span class="sc-interp">Видеть закупочные цены</span></span><span class="sw" role="img" aria-label="Выключено" style="background: rgb(208, 213, 221);"><i style="left: 3px;"></i></span></div>
+      
+        <div class="tg"><span style="flex-grow: 1;"><span class="sc-interp">Отчёты и все чеки</span></span><span class="sw" role="img" aria-label="Выключено" style="background: rgb(208, 213, 221);"><i style="left: 3px;"></i></span></div>
+      
+      <span style="font-size: 11px; font-weight: 700; color: rgb(102, 112, 133); letter-spacing: 0.03em; padding: 10px 0px 6px;">ГДЕ МОЖНО ВХОДИТЬ</span>
+      <div style="display: flex; gap: 6px;"><button type="button" class="dev" style="border: 2px solid rgb(11, 42, 60); background: rgb(255, 247, 204); color: rgb(11, 42, 60);">Касса</button><button type="button" class="dev" style="border: 2px solid rgb(11, 42, 60); background: rgb(255, 247, 204); color: rgb(11, 42, 60);">Телефон</button><button type="button" class="dev" style="border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84);">Веб</button></div>
+    </section>
+
+    <button type="button" class="emp"><span class="av" style="background: rgb(242, 244, 247); color: rgb(11, 42, 60);">[ИФ]</span><span style="flex-grow: 1; font-size: 14px; font-weight: 700;">[Сотрудник]</span><span class="role" style="background: rgb(255, 247, 204); color: rgb(11, 42, 60);">Кассир</span></button>
+  </main></div></div></div>
+
+
+
+</body></html>

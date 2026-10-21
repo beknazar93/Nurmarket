@@ -37,6 +37,8 @@
             <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="Margin" Value="0,0,0,6"/>
+            <!-- 2026-10-19, О9: длинная подпись (ky на 1024) переносится, а не обрезается. -->
+            <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
         <Style Selector="TextBlock.hint">
             <Setter Property="FontSize" Value="12"/>
@@ -80,26 +82,35 @@
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
+        <!-- 2026-10-19, этап О9 (аудит 19.10, проблема 1): «выбрано» — тёмно-синим, как во всей программе (вкладка и способ
+             расчёта были жёлтыми, чипы налога и округления — бледно-жёлтыми); чипы — обводкой, выбранный тёмно-синий. -->
+        <Style Selector="Button.seg.active">
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
         <Style Selector="Button.seg.active /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
         </Style>
         <Style Selector="Button.chip">
-            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Margin" Value="0,0,6,6"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
         </Style>
         <Style Selector="Button.chip.active /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="Button.primary">
             <Setter Property="Padding" Value="16,9"/>
@@ -109,12 +120,21 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
+        <!-- 2026-10-19, О9: второстепенная — обводкой (была серая заливка). -->
         <Style Selector="Button.ghost">
             <Setter Property="Padding" Value="14,8"/>
             <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="Border.result">
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
@@ -164,6 +184,29 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="GridLinesVisibility" Value="Horizontal"/>
             <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BrushBorder}"/>
+        </Style>
+        <!-- 2026-10-21 (пакет 1, п. 111): заголовки столбцов были мелкими серыми — 13, полужирные, цветом текста. -->
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <!-- В тёмной теме у Fluent шапка — чёрная полоса; цветом карточки, как в «Пополнении». -->
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <!-- Длинный заголовок (ky на 1024: «Сатып алу», «Чыгымды») — переносится по словам; место под значок сортировки
+             Fluent (32 px справа) отдано тексту, как в «Складе». -->
+        <Style Selector="DataGridColumnHeader TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="3"/>
+            <Setter Property="LineHeight" Value="15"/>
+            <Setter Property="Margin" Value="0,0,-24,0"/>
+        </Style>
+        <!-- Знак у поля («%», «сом») — справа внутри поля (пакет 1, п. 111: «30» без «%»). -->
+        <Style Selector="TextBlock.unit">
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
         </Style>
     </Window.Styles>
 
@@ -266,7 +309,7 @@
             </ScrollViewer>
 
             <!-- ================= 2. Себестоимость партии ================= -->
-            <Grid x:Name="BatchPage" IsVisible="False" RowDefinitions="Auto,*,Auto">
+            <Grid x:Name="BatchPage" IsVisible="False" RowDefinitions="Auto,Auto,*,Auto">
                 <Border Classes="card" Margin="0,0,0,12">
                     <Grid ColumnDefinitions="*,12,*,12,*,12,Auto">
                         <StackPanel>
@@ -276,6 +319,7 @@
                         <StackPanel Grid.Column="2">
                             <TextBlock x:Name="RateLabel" Classes="label"/>
                             <TextBox x:Name="RateBox" Text="1" TextChanged="Batch_Changed"/>
+                            <TextBlock x:Name="RateHint" Classes="hint" Margin="2,6,0,0"/>
                         </StackPanel>
                         <StackPanel Grid.Column="4">
                             <TextBlock x:Name="BatchMarkupLabel" Classes="label"/>
@@ -293,11 +337,15 @@
                         </StackPanel>
                     </Grid>
                 </Border>
-                <Border Grid.Row="1" Classes="card" Padding="10">
+                <!-- 2026-10-21 (пакет 1, п. 74): пустая таблица без подсказки, что делать. -->
+                <Border Grid.Row="1" Classes="result" Margin="0,0,0,12">
+                    <TextBlock x:Name="BatchHint" Classes="hint" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                </Border>
+                <Border Grid.Row="2" Classes="card" Padding="10">
                     <DataGrid x:Name="BatchGrid" AutoGenerateColumns="False" CanUserSortColumns="False"
                               CellEditEnded="BatchGrid_CellEditEnded" RowHeight="40">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Width="2*" Binding="{Binding Name}"/>
+                            <DataGridTextColumn Width="1.5*" Binding="{Binding Name}"/>
                             <DataGridTextColumn Width="*" Binding="{Binding QuantityText}"/>
                             <DataGridTextColumn Width="*" Binding="{Binding PriceText}"/>
                             <DataGridTextColumn Width="*" Binding="{Binding WeightText}"/>
@@ -307,9 +355,10 @@
                         </DataGrid.Columns>
                     </DataGrid>
                 </Border>
-                <Grid Grid.Row="2" Margin="0,12,0,0" ColumnDefinitions="Auto,Auto,*">
+                <Grid Grid.Row="3" Margin="0,12,0,0" ColumnDefinitions="Auto,Auto,*">
                     <Button x:Name="AddRowButton" Classes="primary" Click="AddBatchRow_Click"/>
-                    <Button Grid.Column="1" x:Name="RemoveRowButton" Classes="ghost" Margin="8,0,0,0" Click="RemoveBatchRow_Click"/>
+                    <!-- 2026-10-21 (пакет 1, п. 111): «Удалить строку» стояла вплотную к «+ Строка» — отступ 24. -->
+                    <Button Grid.Column="1" x:Name="RemoveRowButton" Classes="ghost" Margin="24,0,0,0" Click="RemoveBatchRow_Click"/>
                     <TextBlock Grid.Column="2" x:Name="BatchTotalsText" Classes="hint" FontSize="13.5"
                                Foreground="{DynamicResource BrushText}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
@@ -323,7 +372,7 @@
                     <Border Grid.Column="4" Classes="card"><StackPanel><TextBlock x:Name="StockProfitLabel" Classes="rLabel"/><TextBlock x:Name="StockProfitValue" Classes="rValue" Text="—"/></StackPanel></Border>
                     <Border Grid.Column="6" Classes="card"><StackPanel><TextBlock x:Name="StockMarginLabel" Classes="rLabel"/><TextBlock x:Name="StockMarginValue" Classes="rValue" Text="—"/></StackPanel></Border>
                 </Grid>
-                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10">
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,10">
                     <WrapPanel x:Name="AuditFilters" VerticalAlignment="Center"/>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0">
                         <TextBlock x:Name="ThresholdLabel" Classes="hint" VerticalAlignment="Center"/>
@@ -332,6 +381,8 @@
                     <TextBox Grid.Column="2" x:Name="AuditSearchBox" Width="260" TextChanged="Audit_Changed"/>
                     <!-- 2026-10-01, «проверка товаров не обновляется, выдаёт старые данные»: явное обновление с сервера. -->
                     <Button Grid.Column="3" x:Name="AuditRefreshButton" Classes="ghost" Margin="10,0,0,0" Click="AuditRefresh_Click"/>
+                    <!-- 2026-10-21 (пакет 1, п. 111): «Обновить · 14:53» не походило на кнопку — время отдельно. -->
+                    <TextBlock Grid.Column="4" x:Name="AuditStampText" Classes="hint" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </Grid>
                 <Border Grid.Row="2" Classes="card" Padding="10">
                     <DataGrid x:Name="AuditGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="38">
@@ -364,6 +415,8 @@
                                 <StackPanel Grid.Column="2"><TextBlock x:Name="OtherCostsLabel" Classes="label"/><TextBox x:Name="OtherBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
                             </Grid>
                             <Border Height="1" Background="{DynamicResource BrushBorder}" Margin="0,4"/>
+                            <!-- 2026-10-21 (пакет 1, п. 111): 9 полей подряд — три группы с заголовками. -->
+                            <TextBlock x:Name="SalesFiguresTitle" Classes="h"/>
                             <Grid ColumnDefinitions="*,12,*">
                                 <StackPanel><TextBlock x:Name="AvgMarginLabel" Classes="label"/><TextBox x:Name="AvgMarginBox" Text="25" TextChanged="BreakEven_Changed"/></StackPanel>
                                 <StackPanel Grid.Column="2"><TextBlock x:Name="BeTaxLabel" Classes="label"/><TextBox x:Name="BeTaxBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
@@ -372,6 +425,8 @@
                                 <StackPanel><TextBlock x:Name="AvgCheckLabel" Classes="label"/><TextBox x:Name="AvgCheckBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
                                 <StackPanel Grid.Column="2"><TextBlock x:Name="WorkDaysLabel" Classes="label"/><TextBox x:Name="WorkDaysBox" Text="30" TextChanged="BreakEven_Changed"/></StackPanel>
                             </Grid>
+                            <Border Height="1" Background="{DynamicResource BrushBorder}" Margin="0,4"/>
+                            <TextBlock x:Name="GoalTitle" Classes="h"/>
                             <StackPanel><TextBlock x:Name="GoalLabel" Classes="label"/><TextBox x:Name="GoalBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
                             <Button x:Name="FillFromSalesButton" Classes="ghost" Click="FillFromSales_Click"/>
                             <TextBlock x:Name="FillFromSalesHint" Classes="hint"/>

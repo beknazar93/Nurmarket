@@ -25,7 +25,7 @@ public partial class PosAlertDialog : Window
     {
         InitializeComponent();
         Title = title;
-        TitleText.Text = title;
+        Shell.Title = title; // 2026-10-16: заголовок — в шапке оболочки ModalShell
         MessageText.Text = message;
         _title = title;
         _message = message;
@@ -40,11 +40,9 @@ public partial class PosAlertDialog : Window
         OkButton.Content = isErrorOrWarning ? Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish") : buttonText ?? Tr.T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli");
         DeferButton.IsVisible = isErrorOrWarning;
 
+        // 2026-10-16: красная главная кнопка — класс danger оболочки (тот же #DC2626, но с наведением).
         if (kind == PosAlertKind.Error)
-        {
-            OkButton.Background = new SolidColorBrush(Color.Parse("#DC2626"));
-            OkButton.Foreground = Brushes.White;
-        }
+            OkButton.Classes.Add("danger");
     }
 
     public static void Show(Window? owner, string title, string message, PosAlertKind kind = PosAlertKind.Info, string? buttonText = null)

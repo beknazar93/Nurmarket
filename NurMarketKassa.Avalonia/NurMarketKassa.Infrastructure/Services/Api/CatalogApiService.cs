@@ -712,6 +712,24 @@ public sealed class CatalogApiService : ICatalogApiService
             new Dictionary<string, string> { ["type"] = "suppliers", ["page_size"] = "500" },
             ct);
 
+    // 2026-10-20: тело — как у «+ Создать поставщика» в форме товара сайта (full_name, phone, type=suppliers).
+    // 2026-10-20, этап П1 (раздел «Поставщики»): + реквизиты (email, llc, inn, okpo, score, bik, address) — как «Новый поставщик» сайта,
+    // только заполненные; без них тело прежнее.
+    public Task<JsonElement> CreateSupplierAsync(string fullName, string phone, CancellationToken ct = default,
+        IReadOnlyDictionary<string, string>? requisites = null)
+    {
+        var body = new Dictionary<string, string>
+        {
+            ["full_name"] = fullName.Trim(),
+            ["phone"] = phone.Trim(),
+            ["type"] = "suppliers",
+        };
+        foreach (var (key, value) in requisites ?? new Dictionary<string, string>())
+            if (!body.ContainsKey(key) && !string.IsNullOrWhiteSpace(value))
+                body[key] = value.Trim();
+        return _client.RequestAsync(HttpMethod.Post, "api/main/clients/", body, null, ct);
+    }
+
     public Task<JsonElement> CreateSupplierReceiptAsync(string supplierId, object body, CancellationToken ct = default) =>
         _client.RequestAsync(
             HttpMethod.Post, $"api/main/suppliers/{Uri.EscapeDataString(supplierId.Trim())}/receipt/", body, null, ct);
@@ -793,6 +811,9 @@ public sealed class CatalogApiService : ICatalogApiService
         // 2026-10-11: минимальный остаток — только если окно товара его прочитало или вписали (null — не трогаем на сервере).
         if (r.MinimumQuantity is { } minimum)
             body["minimum_quantity"] = minimum.ToString("0.###", CultureInfo.InvariantCulture);
+        // 2026-10-20: поставщик товара — «client» (id поставщика или null), как в buildProductPayload сайта; только если выбран в окне.
+        if (r.SupplierId is { } supplierId)
+            body["client"] = supplierId.Trim().Length == 0 ? null : supplierId.Trim();
 
         if (r.IsNew)
         {

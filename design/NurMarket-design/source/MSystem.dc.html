@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — системные</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit;flex-shrink:0}
+.hint{flex-grow:1;font-size:12px;color:#667085}
+.cap{font-size:12px;font-weight:700;color:#475467;letter-spacing:.04em}
+.mb{padding:16px 20px 18px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.mf{display:flex;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.b1,.b2,.bd{white-space:nowrap}
+.ic{width:40px;height:40px;flex-shrink:0;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800}
+.t{font-size:18px;font-weight:800}
+.d{font-size:14px;color:#475467;line-height:21px}
+.b2{height:44px;padding:0 16px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:14px;font-weight:700;color:#344054}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.bd{height:44px;padding:0 18px;border-radius:12px;border:0;background:#B42318;font-family:inherit;font-size:14px;font-weight:800;color:#FFFFFF}
+.in{height:46px;box-sizing:border-box;border-radius:12px;border:2px solid #0B2A3C;padding:0 14px;font-family:inherit;font-size:18px;letter-spacing:.3em;font-weight:800;width:100%}
+.toast{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;background:#0B2A3C;color:#FFFFFF;box-shadow:0 12px 30px rgba(11,42,60,.25);font-size:14px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 32px 40px; display: flex; justify-content: center; gap: 40px; align-items: flex-start">
+  <!-- 2026-10-16: у всех окон заголовок слева и ✕ 44 px справа; «Нет связи» — не окно (Enter сканера закрыл бы его), а метка в шапке + плашка; тост на каждый скан убран — только «Строка удалена · Отменить» -->
+  <div style="width: 480px; display: flex; flex-direction: column; gap: 24px">
+    <section class="m" role="alertdialog" aria-label="Удалить чек">
+      <div class="mh"><span class="ic" style="background: #FDE8E8; color: #B42318">✕</span><div class="mt"><b>Удалить чек № 1710?</b><span>Ctrl+F1 · 5 позиций · 650 сом</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb"><span class="d">Все 5 позиций (10 шт) на 650 сом будут убраны из чека. Это нельзя отменить.</span></div>
+      <div class="mf"><span class="hint">Esc — отмена</span><button type="button" class="b2">Отмена</button><button type="button" class="bd">Удалить чек</button></div>
+    </section>
+
+    <section class="m" role="dialog" aria-label="Пароль владельца">
+      <div class="mh"><span class="ic" style="background: #F2F4F7; color: #0B2A3C"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg></span><div class="mt"><b>Нужен пароль владельца</b><span>Возврат по чеку № 1698 · смена № 41 закрыта</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb" style="align-items: stretch"><span class="d">Возврат после закрытия смены разрешён только владельцу (Нурбек Т.) или администратору.</span><label for="pw" style="font-size: 12px; font-weight: 700; color: #667085">ПИН ИЛИ ПАРОЛЬ</label><input id="pw" class="in" type="password" value="1234" style="box-shadow: 0 0 0 4px rgba(255,214,0,.45)"></div>
+      <div class="mf"><span class="hint">Enter — подтвердить</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Подтвердить</button></div>
+    </section>
+
+    <section class="m" role="alertdialog" aria-label="Выход">
+      <div class="mh"><span class="ic" style="background: #F2F4F7; color: #0B2A3C"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v9"></path><path d="M6.3 7.3a8 8 0 1 0 11.4 0"></path></svg></span><div class="mt"><b>Выйти на рабочий стол?</b><span>Касса 1 · смена № 42 открыта</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb"><span class="d">Смена останется открытой, 3 отложенных чека сохранятся. Вход при следующем запуске — без пароля.</span></div>
+      <div class="mf"><span class="hint">Esc — остаться</span><button type="button" class="b2">Остаться</button><button type="button" class="b1">Выйти</button></div>
+    </section>
+  </div>
+
+  <div style="width: 480px; display: flex; flex-direction: column; gap: 10px">
+    <span class="cap">НЕТ СВЯЗИ — НЕ ОКНО: МЕТКА В ШАПКЕ + ПЛАШКА</span>
+    <div role="presentation" style="border-radius: 14px; background: #0B2A3C; height: 60px; padding: 0 14px; display: flex; align-items: center; gap: 10px; color: #FFFFFF; font-size: 13px; box-shadow: 0 12px 30px rgba(11,42,60,.25)">
+      <b style="font-size: 15px">NurMarket</b><span style="color: #C7D2DB; white-space: nowrap">Касса 1</span><span style="flex-grow: 1"></span>
+      <span role="status" style="height: 32px; padding: 0 12px; border-radius: 16px; background: #FEF3E2; color: #B54708; font-weight: 800; display: flex; align-items: center; gap: 6px; white-space: nowrap"><span style="width: 8px; height: 8px; border-radius: 4px; background: #F59E0B"></span>Нет связи · 3 чека ждут</span>
+    </div>
+    <section role="status" aria-label="Нет связи с сервером" style="background: #FFFFFF; border-radius: 14px; border-left: 6px solid #F59E0B; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 12px 30px rgba(11,42,60,.18)">
+      <b style="font-size: 15px">Нет связи с сервером NurCRM</b>
+      <span class="d">Продажи сохраняются на этом компьютере и уйдут на сервер сами, когда появится интернет. Продолжайте работу — сканер и Enter работают как обычно.</span>
+      <div style="display: flex; align-items: center; gap: 8px"><span style="flex-grow: 1; font-size: 12px; color: #475467">В очереди 3 чека (№ 1707–1709) · последняя попытка 14:33</span><button type="button" class="b2">Подробнее</button><button type="button" class="x" aria-label="Скрыть плашку">✕</button></div>
+    </section>
+    <span style="font-size: 12px; color: #475467; line-height: 18px">Плашку можно скрыть — метка в шапке остаётся, пока чеки не уйдут. Окно с «Понятно» не показываем: Enter сканера закрыл бы его вместо добавления товара.</span>
+
+    <span class="cap" style="margin-top: 18px">ВСПЛЫВАЮЩАЯ ПОЛОСА — ТОЛЬКО ДЛЯ ОТМЕНЫ УДАЛЕНИЯ</span>
+    <div class="toast" role="status"><span style="width: 24px; height: 24px; border-radius: 12px; background: #F2F4F7; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0">↶</span><span style="flex-grow: 1">Строка «Mars 50г × 5» удалена из чека</span><button type="button" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #FFD600; background: transparent; color: #FFD600; font-family: inherit; font-weight: 700">Отменить</button></div>
+    <span style="font-size: 12px; color: #475467; line-height: 18px">Полоса внизу на 3 секунды. На каждый скан полосу «Товар добавлен» не показываем — товар и так виден в чеке.</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

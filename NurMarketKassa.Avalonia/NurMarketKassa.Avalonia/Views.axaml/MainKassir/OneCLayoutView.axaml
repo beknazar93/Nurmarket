@@ -145,7 +145,8 @@
                 </TextBox>
                 <Button Grid.Column="1" Content="−" Classes="onec-step" Margin="8,0,0,0"
                         Command="{Binding Basket.DecreaseManualQuantityCommand}"/>
-                <Border Grid.Column="2" Background="White" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                <!-- 2026-10-20 (живой аудит кассы, К18): фон количества — кисть поля ввода темы; белый фон в тёмной теме прятал цифру. -->
+                <Border Grid.Column="2" Background="{DynamicResource BrushInput}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                         CornerRadius="7" Margin="6,0">
                     <TextBlock Text="{Binding Basket.ManualQuantity}" FontSize="16" FontWeight="Bold"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -176,7 +177,7 @@
                                     <StackPanel Spacing="1">
                                         <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold"
                                                    MaxWidth="150" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding PriceLine}" FontSize="11"
+                                        <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}, ConverterParameter=som}" FontSize="11"
                                                    Foreground="{DynamicResource BrushCatalogPrice}"/>
                                     </StackPanel>
                                 </Button>
@@ -241,7 +242,8 @@
                                                TextWrapping="Wrap" Foreground="{DynamicResource BrushSuccess}"/>
                                     <TextBlock Text="{Binding Code}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Border Background="White" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                        <!-- 2026-10-20 (живой аудит кассы, К18): фон количества — кисть поля ввода темы; белый фон в тёмной теме прятал цифру. -->
+                                        <Border Background="{DynamicResource BrushInput}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                                                 CornerRadius="7" Padding="10,4">
                                             <TextBlock Text="{Binding QuantityDisplay}" FontSize="16" FontWeight="SemiBold"/>
                                         </Border>
@@ -273,7 +275,8 @@
                     <!-- Шапка колонок чека (ширины = колонкам строки ниже) -->
                     <Border Grid.Row="2" Background="{DynamicResource BrushPanelSoft}"
                             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,1" Padding="12,7,26,7">
-                        <Grid ColumnDefinitions="90,*,110,140,90">
+                        <!-- 2026-10-20, живая проверка: «Сумма» с «сом» («1 575,00 сом») не помещалась в 90 — колонка 120. -->
+                        <Grid ColumnDefinitions="90,*,110,140,120">
                             <TextBlock Grid.Column="0" Classes="onec-colhead" Text="{DynamicResource onecLayout.colCode}"/>
                             <TextBlock Grid.Column="1" Classes="onec-colhead" Text="{DynamicResource onecLayout.colName}"/>
                             <TextBlock Grid.Column="2" Classes="onec-colhead" Text="{DynamicResource onecLayout.colPrice}"/>
@@ -286,7 +289,7 @@
                     <ListBox Grid.Row="3" x:Name="ReceiptList" ItemsSource="{Binding Basket.Lines}" SelectionMode="Single">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:CartLineItemVm">
-                                <Grid ColumnDefinitions="90,*,110,140,90">
+                                <Grid ColumnDefinitions="90,*,110,140,120">
                                     <TextBlock Grid.Column="0" Text="{Binding Code}" FontSize="13"
                                                VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="19"
@@ -334,11 +337,13 @@
                         <TextBlock Grid.Column="1" Text="{Binding Basket.DiscountDisplay}" FontSize="14"/>
                     </Grid>
                     <Border Grid.Row="2" Height="1" Background="{DynamicResource BrushBorder}" Margin="0,12"/>
-                    <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
-                        <TextBlock Grid.Column="0" Text="{DynamicResource onecLayout.totalLabel}" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="{Binding Basket.TotalDisplay}" FontSize="26" FontWeight="Bold"
+                    <!-- 2026-10-19, К1: подпись «Итого» строкой выше суммы — «1 332,96 сом» налезала на «Жыйынтык» в узкой колонке. -->
+                    <StackPanel Grid.Row="3" Spacing="2">
+                        <TextBlock Text="{DynamicResource onecLayout.totalLabel}" FontSize="18" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding Basket.TotalDisplay}" FontSize="26" FontWeight="Bold" HorizontalAlignment="Right"
+                                   TextWrapping="Wrap" TextAlignment="Right"
                                    Foreground="{DynamicResource BrushCatalogPrice}"/>
-                    </Grid>
+                    </StackPanel>
                     <!-- 2026-10-01: подсказка допродажи «С этим часто берут» над кнопкой оплаты. -->
                     <ctl:UpsellBannerView Grid.Row="4" DataContext="{Binding Basket}" VerticalAlignment="Bottom" Margin="0,0,0,10"/>
                     <Button Grid.Row="5" Content="{Binding Basket.PayButtonText}" FontSize="18" FontWeight="Bold"

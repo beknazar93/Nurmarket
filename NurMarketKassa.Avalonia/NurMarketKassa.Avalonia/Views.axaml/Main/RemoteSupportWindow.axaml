@@ -11,8 +11,8 @@
     <!-- 2026-09-08: переделаны отступы всего окна (владелец: "переделать все отступы... для
          красоты") + кнопка теперь не даёт тексту прятаться (владелец: "текст отчётливо читался
          а не прятался") — было Height=46 без явного FontSize/MinHeight у ContentPresenter, из-за
-         чего эмодзи+длинный текст на некоторых языках (например "AnyDesk запустить" на русском
-         короче, но "AnyDesk’ni ishga tushirish" на узбекском заметно длиннее) мог обрезаться;
+         чего эмодзи+длинный текст на некоторых языках (на узбекском и кыргызском подписи заметно
+         длиннее русских) мог обрезаться;
          теперь высота больше, явный FontSize, TextWrapping разрешён вместо жёсткого обрезания. -->
     <Window.Styles>
         <Style Selector="Button.PrimaryActionButton">
@@ -33,6 +33,12 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <!-- 2026-10-21: выключенная главная (нет связи с сервером поддержки) — серая, не жёлтая (пакет 3, п. 143). -->
+        <Style Selector="Button.PrimaryActionButton:disabled">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
+            <Setter Property="Cursor" Value="Arrow" />
         </Style>
         <Style Selector="Button.SecondaryActionButton">
             <Setter Property="Height" Value="44" />
@@ -58,7 +64,10 @@
         </Style>
     </Window.Styles>
 
-    <Grid x:Name="RootGrid" Margin="28" Background="{DynamicResource BrushPanel}" RowDefinitions="Auto,Auto,*,Auto,Auto">
+    <!-- 2026-10-16: сторонняя программа удалённого доступа убрана (кнопки запуска и скачивания). Единственный способ
+         удалённой помощи — блок «Нур Поддержка» (RemoteSupportWindow.NurSupport.cs), он встраивается в строку 2 над
+         StatusText; строка 2 прижата к верху — без пустого места между вступлением и блоком. -->
+    <Grid x:Name="RootGrid" Margin="28" Background="{DynamicResource BrushPanel}" RowDefinitions="Auto,Auto,*,Auto">
         <StackPanel Grid.Row="0" x:Name="TitlePanel" Orientation="Horizontal" Spacing="14">
             <Border Width="44" Height="44" CornerRadius="12" Background="{DynamicResource BrushAccentSoft}"
                     BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
@@ -68,25 +77,26 @@
                        VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
         </StackPanel>
 
-        <TextBlock Grid.Row="1" x:Name="IntroText" Text="{DynamicResource remoteSupport.intro}" FontSize="13"
+        <!-- 2026-10-21: текст вступления — в коде (RemoteSupportWindow.axaml.cs: «экран кассы» / у владельца «экран этого
+             компьютера»), пакет 3, п. 143. -->
+        <TextBlock Grid.Row="1" x:Name="IntroText" FontSize="13"
                    Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" LineHeight="20" Margin="0,20,0,0"/>
 
-        <StackPanel Grid.Row="2" VerticalAlignment="Center" Spacing="12" Margin="0,20,0,0">
-            <TextBlock x:Name="StatusText" FontSize="13" TextWrapping="Wrap" LineHeight="19"
-                       Foreground="{DynamicResource BrushTextSoft}"/>
-        </StackPanel>
-
-        <Button Grid.Row="3" x:Name="LaunchButton" Content="{DynamicResource remoteSupport.launchButton}"
-                Classes="PrimaryActionButton" Click="LaunchButton_Click" Margin="0,0,0,14"/>
+        <!-- 2026-10-16: прокрутка — если вопрос оператора с кнопками не помещается на невысоком экране, он не наезжает на
+             кнопки внизу окна. -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,20,0,14">
+            <StackPanel VerticalAlignment="Top" Spacing="12">
+                <TextBlock x:Name="StatusText" FontSize="13" TextWrapping="Wrap" LineHeight="19"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
+        </ScrollViewer>
 
         <!-- 2026-10-05, владелец: «кнопку "скопировать информацию об устройстве" — чтобы легче было адаптировать под
-             такие устройства». Текст об аппарате и экране — в буфер обмена (DeviceInfoReport). На Android — главная кнопка
-             окна (AnyDesk там не запускается). WrapPanel — на узком экране кнопки переносятся. -->
-        <WrapPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center">
+             такие устройства». Текст об аппарате и экране — в буфер обмена (DeviceInfoReport). На Android и Linux — главная
+             кнопка окна (своей удалённой помощи там нет, 2026-10-16). WrapPanel — на узком экране кнопки переносятся. -->
+        <WrapPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center">
             <Button x:Name="CopyDeviceInfoButton" Content="{DynamicResource remoteSupport.copyDeviceInfo}"
                     Classes="SecondaryActionButton" Click="CopyDeviceInfo_Click" Margin="0,0,12,8"/>
-            <Button x:Name="DownloadButton" Content="{DynamicResource remoteSupport.downloadButton}"
-                    Classes="SecondaryActionButton" IsVisible="False" Click="DownloadButton_Click" Margin="0,0,12,8"/>
             <Button IsCancel="True" x:Name="CloseButton" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click" Margin="0,0,0,8"/>
         </WrapPanel>
     </Grid>

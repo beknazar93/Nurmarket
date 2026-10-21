@@ -181,6 +181,65 @@ public static class StockSyncService
         return expected;
     }
 
+    /// <summary>2026-10-20 (живой аудит кассы, К8): после возврата остаток в каталоге не возвращался до «Обновить каталог»
+    /// (продажа уменьшает сразу — ApplySoldItemsDecrement). Возвращённое количество (в единицах остатка каталога) —
+    /// сразу на плитки и в базу. Возвращает ожидаемый остаток после возврата — для сверки с сервером
+    /// (RefreshReturnedItemsStockAsync).</summary>
+    public static IReadOnlyDictionary<string, double> ApplyReturnedItemsIncrement(IReadOnlyDictionary<string, double> returned)
+    {
+        var expected = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (productId, qty) in returned)
+        {
+            if (string.IsNullOrWhiteSpace(productId) || qty <= 0)
+                continue;
+            var id = productId.Trim();
+            foreach (var vm in CatalogCacheService.Products)
+            {
+                if (!string.Equals(vm.Id, id, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var next = vm.Quantity + qty;
+                expected[id] = next;
+                ApplyQuantityToTileOnUi(vm, next, vm.MustWeigh);
+                CatalogCacheService.PersistProductStock(id, next, vm.MustWeigh);
+                break;
+            }
+        }
+        PosLogger.Log($"Остаток после возврата увеличен сразу: товаров {expected.Count}.", "STOCK");
+        return expected;
+    }
+
+    /// <summary>2026-10-20 (К8): сверка остатка вернувшихся товаров с сервером. Сервер мог ещё не учесть возврат и отдать
+    /// старое (меньшее) число — тогда оставляем увеличенный остаток, как при продаже.</summary>
+    public static async Task RefreshReturnedItemsStockAsync(IReadOnlyDictionary<string, double> expectedMin, CancellationToken ct = default)
+    {
+        foreach (var (productId, min) in expectedMin)
+        {
+            try
+            {
+                var detail = await PosApp.CatalogApi.ProductsDetailAsync(productId, ct).ConfigureAwait(false);
+                if (detail is not { } el)
+                    continue;
+                var tile = CatalogCacheService.Products.FirstOrDefault(p =>
+                    string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+                var mustWeigh = tile?.MustWeigh ?? CartDisplayHelper.ProductMustWeigh(el);
+                var qty = ResolveStockQuantity(el, mustWeigh);
+                if (qty < min - 1e-6)
+                {
+                    PosLogger.Log($"RefreshReturnedItemsStock: stale server qty for {productId} ({qty} < expected {min}) — keeping optimistic value", "STOCK");
+                    continue;
+                }
+
+                if (tile != null)
+                    UiDispatcherHolder.Post(() => ApplyQuantityCore(tile, qty, tile.MustWeigh));
+                CatalogCacheService.PersistProductStock(productId, qty, mustWeigh);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"RefreshReturnedItemsStock failed for {productId}: {ex.Message}", "STOCK");
+            }
+        }
+    }
+
     /// <param name="alreadyDecremented">2026-10-04: остаток уже уменьшен ApplySoldItemsDecrement — здесь только
     /// сверка с сервером (значения — ожидаемый остаток после продажи).</param>
     public static async Task RefreshSoldItemsStockAsync(JsonElement cart, CancellationToken ct = default,

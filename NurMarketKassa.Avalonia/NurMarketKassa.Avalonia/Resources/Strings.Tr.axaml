@@ -16,6 +16,7 @@
   <x:String x:Key="csh.menu.cashOperation">Para girişi / çıkışı</x:String>
   <x:String x:Key="csh.menu.finance">Finans</x:String>
   <x:String x:Key="csh.menu.sales">Satışlar</x:String>
+  <x:String x:Key="csh.menu.salesFinance">Satışlar ve finans</x:String>
   <x:String x:Key="csh.menu.abc">ABC analizi</x:String>
   <x:String x:Key="csh.menu.clients">Müşteriler</x:String>
   <x:String x:Key="csh.menu.payDebt">Borç ödeme</x:String>
@@ -24,6 +25,7 @@
   <x:String x:Key="csh.menu.marketplace">Pazaryeri</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
   <x:String x:Key="csh.menu.errorLogs">Günlükler ve hatalar</x:String>
+  <x:String x:Key="csh.menu.cartRemovals">Fişten çıkarılanlar</x:String>
   <x:String x:Key="csh.menu.remoteSupport">NurCRM destek</x:String>
   <x:String x:Key="csh.menu.knowledgeBase">NurMarket bilgi bankası</x:String>
   <x:String x:Key="csh.menu.restock">Stok yenileme ve son kullanma</x:String>
@@ -41,9 +43,9 @@
   <x:String x:Key="restock.reorderEmpty">Tahmin için henüz satış geçmişi yok. "Sunucudan geçmişi çek" butonuna basın veya birkaç gün bekleyin — kasa her satıştan sonra kendi verisini biriktirir.</x:String>
   <x:String x:Key="restock.backfillButton">Sunucudan geçmişi çek</x:String>
   <x:String x:Key="restock.tabExpiry">Son kullanma tarihleri</x:String>
-  <x:String x:Key="restock.expirySubtitle">Son kullanma tarihi — ürün kategorisine göre bir tahmindir (AI anahtarı olmadan gerçek internet araması yapılmaz, ayarlara bakın). Giriş tarihi — ürünün bu kasada ilk kez stoğa girdiği tarihtir.</x:String>
+  <x:String x:Key="restock.expirySubtitle">Buradaki tarih yaklaşıktır: program yalnızca ürünün bu kasaya ne zaman geldiğini ve kategorisinin olağan raf ömrünü bilir (süt ürünleri ≈ 7 gün, ekmek ≈ 3 gün). Düşmeden veya satıştan kaldırmadan önce gerçek tarihi ambalajdan kontrol edin.</x:String>
   <x:String x:Key="restock.colIntakeDate">Giriş tarihi</x:String>
-  <x:String x:Key="restock.colExpiryDate">Son kullanma</x:String>
+  <x:String x:Key="restock.colExpiryDate">Yaklaşık son tarih</x:String>
   <x:String x:Key="restock.expiryEmpty">Giriş tarihi bilinen ürün henüz yok — tarih, ürün stoğa girer girmez otomatik olarak kaydedilir.</x:String>
   <x:String x:Key="posSettings.operations.loyaltyTitle">Sadakat programı</x:String>
   <x:String x:Key="posSettings.operations.loyaltySubtitle">Bakiye bu kasada yerel olarak saklanır — NurCRM'de henüz müşteri puan alanı yok.</x:String>
@@ -122,7 +124,7 @@
   <x:String x:Key="mainWindow.windowTitle">Kasa — Nur Market</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Geri</x:String>
   <x:String x:Key="printSettings.findButton">Bul</x:String>
-  <x:String x:Key="printSettings.lptWatermark">LPT portu veya yazıcı yolu</x:String>
+  <x:String x:Key="printSettings.lptWatermark">Port veya yazıcı yolu (bulunamazsa)</x:String>
   <x:String x:Key="printSettings.testButton">Test</x:String>
   <x:String x:Key="posSettings.print.cashDrawerTitle">Para çekmecesi</x:String>
   <x:String x:Key="posSettings.print.cashDrawerEnable">Nakit ödemede açılsın</x:String>
@@ -130,7 +132,7 @@
   <x:String x:Key="printSettings.cashDrawerPin2">Pin 2 (genelde)</x:String>
   <x:String x:Key="printSettings.cashDrawerPin5">Pin 5</x:String>
   <x:String x:Key="printSettings.cashDrawerTestButton">Aç</x:String>
-  <x:String x:Key="printSettings.lptNotFound">Sistemde LPT bulunamadı</x:String>
+  <x:String x:Key="printSettings.lptNotFound">Bu adreste yazıcı bulunamadı</x:String>
   <x:String x:Key="printSettings.previewTextReceipt">Metin fişi önizlemesi</x:String>
   <x:String x:Key="printSettings.qrHeader">QR kodu</x:String>
   <x:String x:Key="printSettings.uploadQr">QR yükle</x:String>
@@ -156,6 +158,7 @@
   <x:String x:Key="scaleSettings.comNotFound">COM portu bulunamadı</x:String>
   <x:String x:Key="scaleSettings.testButton">Tartıyı test et</x:String>
   <x:String x:Key="operations.bankQrDesc">Nakitsiz ödeme için banka QR kodları ve logoları</x:String>
+  <x:String x:Key="operations.pageSubtitle">Mağaza türü, vardiya kapanışı, fişten silme, Telegram ve QR ödeme</x:String>
   <x:String x:Key="operations.qrNotLoaded">QR yüklenmedi</x:String>
   <x:String x:Key="operations.qrLoaded">QR yüklendi</x:String>
   <x:String x:Key="csh.cart.customService">Ek hizmet</x:String>
@@ -177,8 +180,8 @@
   <!-- Ödeme penceresi -->
   <x:String x:Key="csh.checkout.title">Ödeme</x:String>
   <x:String x:Key="csh.checkout.subtitle">Ödeme yöntemini seçin ve tutarı onaylayın</x:String>
-  <x:String x:Key="csh.checkout.totalDue">ÖDENECEK TUTAR</x:String>
-  <x:String x:Key="csh.checkout.paymentMethod">ÖDEME YÖNTEMİ</x:String>
+  <x:String x:Key="csh.checkout.totalDue">Ödenecek tutar</x:String>
+  <x:String x:Key="csh.checkout.paymentMethod">Ödeme yöntemi</x:String>
   <x:String x:Key="csh.checkout.cash">Nakit</x:String>
   <x:String x:Key="csh.checkout.transfer">Nakitsiz</x:String>
   <x:String x:Key="csh.checkout.cashReceived">Alınan nakit</x:String>
@@ -202,6 +205,8 @@
   <x:String x:Key="csh.checkout.rental">Kiralama olarak düzenle</x:String>
   <x:String x:Key="csh.checkout.mixedCash">Nakit</x:String>
   <x:String x:Key="csh.checkout.mixedNonCash">Nakitsiz</x:String>
+  <!-- 2026-10-17, редизайн (этап 2): быстрая сумма «без сдачи» в окне оплаты (ExactCashCommand). -->
+  <x:String x:Key="csh.checkout.exact">Tam tutar</x:String>
   <x:String x:Key="csh.checkout.paidNow">Şimdi alınan (0 — tüm borç)</x:String>
   <x:String x:Key="csh.checkout.loyaltyRedeemWatermark">Puan kullan (som)</x:String>
 
@@ -250,14 +255,14 @@
   <!-- Müşteri ekranı (ikinci monitör) -->
   <x:String x:Key="csh.customer.title">Müşteri ekranı</x:String>
   <x:String x:Key="csh.customer.tagline">Alışverişiniz — hızlı ve kolay</x:String>
-  <x:String x:Key="csh.customer.receiptEyebrow">FİŞİNİZ</x:String>
+  <x:String x:Key="csh.customer.receiptEyebrow">Fişiniz</x:String>
   <x:String x:Key="csh.customer.receiptTitle">Alışveriş listesi</x:String>
   <x:String x:Key="csh.customer.adPlaceholder">QR kodu&#x0a;veya reklam alanı</x:String>
-  <x:String x:Key="csh.customer.subtotal">ARA TOPLAM</x:String>
-  <x:String x:Key="csh.customer.discount">İNDİRİM</x:String>
+  <x:String x:Key="csh.customer.subtotal">Ara toplam</x:String>
+  <x:String x:Key="csh.customer.discount">İndirim</x:String>
   <x:String x:Key="csh.customer.received">ALINAN</x:String>
   <x:String x:Key="csh.customer.change">PARA ÜSTÜ</x:String>
-  <x:String x:Key="csh.customer.totalDue">ÖDENECEK</x:String>
+  <x:String x:Key="csh.customer.totalDue">Ödenecek</x:String>
 
   <!-- Ortak ifadeler -->
   <x:String x:Key="common.yes">Evet</x:String>
@@ -269,7 +274,7 @@
   <x:String x:Key="common.confirm">Onayla</x:String>
   <x:String x:Key="common.close">Kapat</x:String>
   <x:String x:Key="staffTimesheet.title">Personel çizelgesi</x:String>
-  <x:String x:Key="staffTimesheet.description">Saatler ve vardiyalar, kasada açılıp kapatılmış vardiyaların verilerinden hesaplanır — yalnızca seçilen dönemdeki KAPATILMIŞ vardiyalar sayılır. Şu anda açık olan vardiya, kapatılana kadar çizelgeye dahil edilmez.</x:String>
+  <x:String x:Key="staffTimesheet.description">Saatler ve vardiyalar, kasada açılıp kapatılmış vardiyaların verilerinden hesaplanır — yalnızca seçilen dönemdeki kapatılmış vardiyalar sayılır. Şu anda açık olan vardiya, kapatılana kadar çizelgeye dahil edilmez.</x:String>
   <x:String x:Key="staffTimesheet.periodLabel">Dönem:</x:String>
   <x:String x:Key="staffTimesheet.fromWatermark">Başlangıç tarihi…</x:String>
   <x:String x:Key="staffTimesheet.toWatermark">Bitiş tarihi…</x:String>
@@ -322,9 +327,8 @@
   <x:String x:Key="logs.empty">Uyarı veya hata yok.</x:String>
 
   <!-- NurCRM destek -->
-  <x:String x:Key="remoteSupport.intro">Uzaktan yardım için AnyDesk kullanılır. Aşağıdaki düğmeye basın — AnyDesk bir bağlantı adresi (ID) ile açılacaktır. Bu adresi telefonda veya WhatsApp'ta destek görevlisine bildirin.</x:String>
-  <x:String x:Key="remoteSupport.launchButton">AnyDesk'i başlat</x:String>
-  <x:String x:Key="remoteSupport.downloadButton">AnyDesk'i indir</x:String>
+  <!-- 2026-10-16: удалённая помощь — только своя «Nur Destek» -->
+  <x:String x:Key="remoteSupport.intro">Uzaktan yardım — «Nur Destek»: NurMarket operatörü kasanın ekranını görür ve sorunu çözmenize yardımcı olur. Destek hattını arayın veya WhatsApp'tan yazın: +996 559 340 032, ardından «Destek için kod al» düğmesine basın ve kodu ve PIN'i operatöre söyleyin.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Cihaz bilgilerini kopyala</x:String>
 
@@ -363,7 +367,7 @@
   <x:String x:Key="kb.q.logsQ">Arıza sırasında ne olduğunu nereden görebilirim?</x:String>
   <x:String x:Key="kb.q.logsA">Yan menü → "Günlükler ve hatalar" — son zamandaki uyarıları, hataları ve sunucu bağlantı kesintilerini gösterir. "Günlük klasörünü aç" düğmesi ayrıntılı teknik dosyaların bulunduğu klasörü açar — bunları desteğe gönderebilirsiniz.</x:String>
   <x:String x:Key="kb.q.remoteSupportQ">NurCRM desteğinden uzaktan yardım nasıl alınır?</x:String>
-  <x:String x:Key="kb.q.remoteSupportA">Yan menü → "NurCRM destek" → "AnyDesk'i başlat". Bir bağlantı adresi (ID) görünecektir — bilgisayarınıza bağlanıp yardımcı olması için bunu telefonda veya WhatsApp'ta destek görevlisine bildirin.</x:String>
+  <x:String x:Key="kb.q.remoteSupportA">Yan menü → "NurCRM destek" → "Nur Destek" bölümü → "Destek için kod al". Kodu ve PIN'i telefonda veya WhatsApp'ta destek görevlisine bildirin (+996 559 340 032); erişim istediğinde "İzin ver" veya "Yalnızca izle" düğmesine basın. İzniniz olmadan kimse bağlanamaz.</x:String>
   <x:String x:Key="kb.q.printerQ">Kasa, USB ile bağlı fiş yazıcısını görmüyor — ne yapmalıyım?</x:String>
   <x:String x:Key="kb.q.printerA">Ayarlar → Yazdırma bölümünde tekrar "Bul"a basın (liste kendiliğinden yenilenmez). Yazıcı Zadig ile kurulduysa ve hâlâ görünmüyorsa — yeniden bağlayıp tekrar deneyin veya "NurCRM destek" üzerinden desteğe başvurun.</x:String>
   <x:String x:Key="common.comment">Açıklama</x:String>
@@ -417,6 +421,9 @@
   <x:String x:Key="closeShift.nonCashSalesLabel">Nakitsiz</x:String>
   <x:String x:Key="openShift.instructions">Vardiya başlangıcındaki kasa nakit tutarını girin.</x:String>
   <x:String x:Key="openShift.openingAmountLabel">Açılış tutarı</x:String>
+  <!-- 2026-10-16, редизайн: подсказка слева на строке кнопок модалки (ModalShell.Hint);
+       неразрывные пробелы — строка переносится только между «Enter…» и «Esc…». -->
+  <x:String x:Key="modal.hintEnter">Enter&#160;—&#160;onayla · Esc&#160;—&#160;iptal</x:String>
   <x:String x:Key="shiftNotClosed.title">Vardiya kapatılmadı</x:String>
   <x:String x:Key="shiftNotClosed.message">Açık bir vardiyanız var.&#x0a;Çıkmadan önce kapatılsın mı?</x:String>
   <x:String x:Key="shiftNotClosed.logoutOnly">Vardiyayı kapatmadan çık</x:String>
@@ -509,6 +516,15 @@
   <x:String x:Key="priceTagBulk.selectNone">Seçimi kaldır</x:String>
   <x:String x:Key="priceTagBulk.copiesEachLabel">Ürün başına kopya</x:String>
   <x:String x:Key="priceTagBulk.printButton">Yazdır</x:String>
+  <!-- 2026-10-20, этап О9б: окна ценников и этикеток (ModalShell, пустой список, настройка принтера). -->
+  <x:String x:Key="priceTag.subtitle">Şablon ve yazıcı seçin — solda etiketin nasıl basılacağı görünür.</x:String>
+  <x:String x:Key="priceTagBulk.subtitle">Ürünleri işaretleyin, şablon ve yazıcı seçin.</x:String>
+  <x:String x:Key="priceTagBulk.notFound">Hiçbir şey bulunamadı. Aramayı değiştirin — ad ve barkoda göre aranır.</x:String>
+  <x:String x:Key="priceTagBulk.noProducts">Henüz ürün yok: katalog yüklenmedi. Pencereyi kapatıp bir dakika sonra yeniden açın.</x:String>
+  <x:String x:Key="labelPrint.subtitle">Barkodlu etiket — etiket yazıcısında basılır.</x:String>
+  <x:String x:Key="labelEditor.printerSetup">Yazıcı ayarı</x:String>
+  <x:String x:Key="labelEditor.zoomOut">Uzaklaştır</x:String>
+  <x:String x:Key="labelEditor.zoomIn">Yakınlaştır</x:String>
   <x:String x:Key="discount.title">İndirim</x:String>
   <x:String x:Key="discount.applyToSelected">Seçili ürüne uygula</x:String>
   <x:String x:Key="discount.modeAmountLabel">İndirim modu: Tutar (som)</x:String>
@@ -546,9 +562,9 @@
   <x:String x:Key="returnSale.title">Fişe göre iade</x:String>
   <x:String x:Key="returnSale.header">Fişten ürün iadesi</x:String>
   <x:String x:Key="returnSale.instructions">"Seç" düğmesiyle bir fiş seçin. Aşağıda içeriği görünür: ürünleri işaretleyin ve "Seçilenleri iade et"e basın veya "Tüm fişi iade et"i kullanın.</x:String>
-  <x:String x:Key="returnSale.step1">1. Satış fişleri</x:String>
+  <x:String x:Key="returnSale.step1">1. Müşterinin fişini bulun</x:String>
   <x:String x:Key="returnSale.colReceiptNo">Fiş no</x:String>
-  <x:String x:Key="returnSale.step2">2. Seçilen fişin içeriği</x:String>
+  <x:String x:Key="returnSale.step2">2. İade edilenleri işaretleyin</x:String>
   <x:String x:Key="returnSale.clearSelection">Temizle</x:String>
   <x:String x:Key="returnSale.returnSelected">Seçilenleri iade et</x:String>
   <x:String x:Key="returnSale.returnWholeReceipt">Tüm fişi iade et</x:String>
@@ -606,9 +622,9 @@
 
   <!-- Yan menü -->
   <x:String x:Key="sideMenu.shiftLabel">Vardiya</x:String>
-  <x:String x:Key="sideMenu.sectionWork">ÇALIŞMA</x:String>
-  <x:String x:Key="sideMenu.sectionInfoClients">BİLGİ VE MÜŞTERİLER</x:String>
-  <x:String x:Key="sideMenu.sectionSystem">SİSTEM</x:String>
+  <x:String x:Key="sideMenu.sectionWork">Çalışma</x:String>
+  <x:String x:Key="sideMenu.sectionInfoClients">Bilgi ve müşteriler</x:String>
+  <x:String x:Key="sideMenu.sectionSystem">Sistem</x:String>
 
   <!-- Yönetici desteği, CRM tarayıcısı, vardiya geçmişi -->
   <x:String x:Key="adminSupport.title">Destek — Nur Market</x:String>
@@ -639,7 +655,7 @@
   <x:String x:Key="employees.addButton">+ Personel ekle</x:String>
   <x:String x:Key="employees.loadFromWeb">Siteden yükle</x:String>
   <x:String x:Key="employees.rolesTitle">Roller</x:String>
-  <x:String x:Key="employees.rolesSubtitle">Şirket rolleri (app.nurcrm.kg) — yeni personel oluşturmak için gerekli (her personel için rol zorunlu).</x:String>
+  <x:String x:Key="employees.rolesSubtitle">NurCRM sitesindeki roller — her personelin bir rolü olmalı (kasiyer, yönetici…).</x:String>
   <x:String x:Key="employees.addRoleButton">+ Rol ekle</x:String>
   <x:String x:Key="employees.saveHint">Personelin kodu boşsa, ilgili işlem onun için engellenir.</x:String>
   <x:String x:Key="employees.saved">Kaydedildi.</x:String>
@@ -734,7 +750,7 @@
   <x:String x:Key="posSettings.screen.groupCashierLang">Kasa ve dil</x:String>
   <x:String x:Key="posSettings.screen.groupScaleLayout">Ölçek ve düzen</x:String>
   <x:String x:Key="posSettings.screen.fullscreen">Tam ekran modu</x:String>
-  <x:String x:Key="posSettings.screen.trueFullscreen">Gerçek tam ekran modu</x:String>
+  <x:String x:Key="posSettings.screen.trueFullscreen">Windows görev çubuğunu gizle</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Windows görev çubuğunu tamamen gizler. Yalnızca tam ekran modu ile birlikte çalışır.</x:String>
   <x:String x:Key="posSettings.screen.quickProducts">Boş fişte hızlı ürünler</x:String>
   <x:String x:Key="posSettings.screen.quickProductsDesc">Favori ürünler (katalogda ★) «Sepet boş» yazısının altında. Gerekmiyorsa kapatın.</x:String>
@@ -804,13 +820,15 @@
   <x:String x:Key="posSettings.print.tapeWidth">Kâğıt genişliği</x:String>
   <x:String x:Key="posSettings.print.charsPerLine">Satır başına karakter</x:String>
   <x:String x:Key="posSettings.print.widthHint">Noktalı veya kesik çizgiler ya da tutarlar fişin kenarından taşıyorsa azaltın: 58 mm — 32'den 30'a, 80 mm — 48'den 42'ye (grafik: 576 → 512 nokta). Her kâğıt genişliği kendi değerini saklar. Deneme baskısı düğmesiyle kontrol edin.</x:String>
-  <x:String x:Key="posSettings.print.graphicsDots">Grafik (nokta)</x:String>
+  <x:String x:Key="posSettings.print.graphicsDots">Baskı genişliği, nokta</x:String>
   <x:String x:Key="posSettings.print.printMode">Yazdırma modu</x:String>
   <x:String x:Key="posSettings.print.modeText">Metin</x:String>
   <x:String x:Key="posSettings.print.modeGraphics">Grafik</x:String>
-  <x:String x:Key="posSettings.print.escPosParams">ESC/POS parametreleri</x:String>
+  <x:String x:Key="posSettings.print.escPosParams">Metin fişi</x:String>
+  <x:String x:Key="posSettings.print.advancedPrinter">Gelişmiş: yazıcı komutları (teknisyen için)</x:String>
   <x:String x:Key="posSettings.print.encoding">Kodlama</x:String>
-  <x:String x:Key="posSettings.print.escTable">ESC t tablosu</x:String>
+  <x:String x:Key="posSettings.print.escTable">Kod sayfası (ESC t)</x:String>
+  <x:String x:Key="posSettings.print.escR">Ülke karakter seti (ESC R, 0–255)</x:String>
   <x:String x:Key="posSettings.print.auto">Otomatik</x:String>
   <x:String x:Key="posSettings.print.receiptSettings">Fiş ayarları</x:String>
   <x:String x:Key="posSettings.print.enableLayout">Yerleşimi etkinleştir</x:String>
@@ -826,7 +844,7 @@
 
   <!-- Ayarlar: Monitör sekmesi -->
   <x:String x:Key="posSettings.monitor.title">Müşteri monitörü</x:String>
-  <x:String x:Key="posSettings.monitor.subtitle">İkinci ekranı, içeriğini ve müşteri ekranı penceresinin görünümünü ayarlayın</x:String>
+  <x:String x:Key="posSettings.monitor.subtitle">Müşteri için ikinci ekran: ne gösterir ve nasıl görünür</x:String>
   <x:String x:Key="posSettings.monitor.mainSettingsTitle">Ana ayarlar</x:String>
   <x:String x:Key="posSettings.monitor.useCustomerDisplay">Müşteri monitörünü kullan</x:String>
   <x:String x:Key="posSettings.monitor.keepOnTop">Dış monitörde pencerelerin üstünde tut</x:String>
@@ -935,7 +953,7 @@
   <x:String x:Key="posSettings.updates.diagnosticsDesc">Uygulama ve çalışma dizini hakkında teknik bilgiler:</x:String>
 
   <!-- Müşteriler penceresi -->
-  <x:String x:Key="clients.title">Müşteri veritabanı</x:String>
+  <x:String x:Key="clients.title">Müşteriler</x:String>
   <x:String x:Key="clients.newClientHeader">Yeni müşteri</x:String>
   <x:String x:Key="clients.nameWatermark">Ad / ad soyad</x:String>
   <x:String x:Key="clients.emailOptionalWatermark">E-posta (isteğe bağlı)</x:String>
@@ -946,15 +964,15 @@
   <x:String x:Key="clients.telegramHeader">Telegram botu</x:String>
   <x:String x:Key="clients.telegramCopyLink">Bağlantıyı kopyala</x:String>
   <x:String x:Key="clients.telegramExplain">Bu bağlantıyı müşteriye gönderin — WhatsApp, SMS ile ya da fişe yazdırarak. Müşteri bağlantıyı açıp Başlat'a bastığında kasa ona borç hatırlatmaları ve kampanya mesajları gönderebilir. Telegram, telefon numarasıyla kişiye ilk mesajı yazmaya izin vermez: ilk adımı müşteri atmalıdır.</x:String>
-  <x:String x:Key="clients.addButton">+ Ekle</x:String>
+  <x:String x:Key="clients.addButton">+ Müşteri</x:String>
   <x:String x:Key="clients.refreshButton">Yenile</x:String>
-  <x:String x:Key="clients.colFullName">Ad soyad</x:String>
+  <x:String x:Key="clients.colFullName">Müşteri</x:String>
   <x:String x:Key="clients.colAdded">Eklenme tarihi</x:String>
   <x:String x:Key="clients.colLoyalty">Puanlar</x:String>
   <x:String x:Key="clients.cardHeader">Müşteri kartı</x:String>
   <x:String x:Key="clients.saveButton">Kaydet</x:String>
   <x:String x:Key="clients.deleteButton">Sil</x:String>
-  <x:String x:Key="clients.hint">Müşteri kartını açmak için listedeki bir satıra tıklayın</x:String>
+  <x:String x:Key="clients.hint">Kartı açmak için müşteriye tıklayın: bilgiler, alışverişler, borç ve bonuslar.</x:String>
 
   <!-- Ürün düzenleme penceresi -->
   <x:String x:Key="product.addTitle">Yeni ürün</x:String>
@@ -1072,7 +1090,8 @@
   <x:String x:Key="sales.toColon">Bitiş:</x:String>
   <x:String x:Key="sales.colReceipt">Fiş</x:String>
   <x:String x:Key="sales.additionalMetrics">Ek göstergeler</x:String>
-  <x:String x:Key="sales.netProfit">Net kâr</x:String>
+  <!-- 2026-10-19, этап О10: здесь всегда выручка − закупка (сервер gross_profit) — «Валовая», как на Сводке. -->
+  <x:String x:Key="sales.netProfit">Brüt kâr</x:String>
   <x:String x:Key="sales.marginPercent">Kâr marjı %</x:String>
   <x:String x:Key="sales.top10Title">Ciroya göre en çok satan 10 ürün</x:String>
   <x:String x:Key="sales.colQty">Adet</x:String>
@@ -1111,7 +1130,7 @@
   <x:String x:Key="warehouse.colActions">İşlemler</x:String>
   <x:String x:Key="warehouse.deleteButton">Sil</x:String>
   <x:String x:Key="warehouse.photoButton">Fotoğraf</x:String>
-  <x:String x:Key="warehouse.tabRevision">Sayım (Envanter)</x:String>
+  <x:String x:Key="warehouse.tabRevision">Sayım</x:String>
   <x:String x:Key="warehouse.tabReceiving">Mal kabul</x:String>
   <x:String x:Key="warehouse.receivingHint">İrsaliyedeki ürünleri normal bir barkod okuyucuyla okutun. Depodaki ürün kendi fiyatlarıyla, CRM ortak veritabanındaki ürün adıyla, bilinmeyen barkod ise yeni satır olarak gelir — adını yazın. Miktar, alış ve satış fiyatı doğrudan tabloda düzeltilebilir. «Stoğa al» yeni ürünleri oluşturur, stoğu artırır ve fiyatları alım geçmişine yazar.</x:String>
   <x:String x:Key="warehouse.receivingScanHint">Barkodu okutun veya yazın…</x:String>
@@ -1177,9 +1196,9 @@
   <x:String x:Key="warehouse.movementsWriteOff">Düşüm</x:String>
   <x:String x:Key="warehouse.tabLabelEditor">Etiket editörü</x:String>
   <x:String x:Key="warehouse.labelEditorTabTitle">Etiket editörü</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Etikette barkod, ad, fiyat, stok kodu, birim ve mağaza adının yerleşimi — her öğeyi sürükleyerek ve ayarlayarak. Ücretli özellik: seri numarasıyla açılır.</x:String>
+  <x:String x:Key="warehouse.labelEditorTabDescription">Etikette barkod, ad, fiyat, stok kodu, birim ve mağaza adının yerleşimi — her öğeyi sürükleyerek ve ayarlayarak. Ürün satırından basılan etiketler (⋯ → Etiket yazdır) bu şablonu kullanır.</x:String>
   <x:String x:Key="warehouse.labelEditorTabButton">Editörü aç</x:String>
-  <x:String x:Key="warehouse.analyticsSkuCountLabel">Toplam ürün (SKU)</x:String>
+  <x:String x:Key="warehouse.analyticsSkuCountLabel">Katalogdaki ürünler</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Stokta yok</x:String>
   <x:String x:Key="warehouse.analyticsLowStockLabel">Düşük stok</x:String>
   <x:String x:Key="warehouse.analyticsPurchaseValueLabel">Alış fiyatına göre stok değeri</x:String>
@@ -1190,7 +1209,7 @@
   <x:String x:Key="warehouse.analyticsSkuColumn">Adet</x:String>
   <x:String x:Key="warehouse.writeOffTitle">Düşüm tutanağı</x:String>
   <x:String x:Key="warehouse.writeOffHistoryTitle">Düşüm geçmişi</x:String>
-  <x:String x:Key="warehouse.writeOffHistoryExpandButton">Tamamını aç ⤢</x:String>
+  <x:String x:Key="warehouse.writeOffHistoryExpandButton">Tüm geçmiş</x:String>
   <x:String x:Key="warehouse.writeOffHistorySearchWatermark">Ürün, sebep veya kasiyere göre ara…</x:String>
   <x:String x:Key="warehouse.writeOffHistoryEmpty">Henüz düşüm yapılmadı.</x:String>
   <x:String x:Key="warehouse.findProductLabel">Ada göre ürün bul</x:String>
@@ -1323,8 +1342,10 @@
     <x:String x:Key="loc.owner.sales.metricsTab">Göstergeler</x:String>
     <x:String x:Key="loc.owner.finance.excelTip">Seçilen dönemin analizini grafikler ve ABC analiziyle Excel'e aktar.</x:String>
     <x:String x:Key="loc.owner.finance.wordTip">Aynı rapor Word'de — tablolar, grafikler ve ABC analizi.</x:String>
-    <x:String x:Key="loc.owner.finance.expenses">Giderler (para çıkışları)</x:String>
-    <x:String x:Key="loc.owner.finance.profitAfterExpenses">Giderler düşüldükten sonra kâr</x:String>
+    <!-- 2026-10-20, аудит владельца: расходы теперь из NurCRM (pnl), а не изъятия кассы -->
+    <x:String x:Key="loc.owner.finance.expenses">Giderler</x:String>
+    <!-- 2026-10-19, этап О10: валовая − расходы — «Чистая прибыль» (одни слова во всех отчётах). -->
+    <x:String x:Key="loc.owner.finance.profitAfterExpenses">Net kâr</x:String>
     <x:String x:Key="loc.owner.zeroMoney">0,00 som</x:String>
     <x:String x:Key="loc.owner.voice.title">Sesli kontrol testi</x:String>
     <x:String x:Key="loc.owner.voice.howTo">Nasıl kullanılır</x:String>
@@ -1498,12 +1519,12 @@
   <x:String x:Key="scaleSetup.btn.check">Bağlantıyı kontrol et</x:String>
   <x:String x:Key="scaleSetup.btn.find">Ağda bul…</x:String>
   <x:String x:Key="scaleSetup.btn.settings">Tartı ayarları…</x:String>
-  <x:String x:Key="scaleSetup.btn.send">Ürünleri gönder →</x:String>
+  <x:String x:Key="scaleSetup.btn.send">Ürünleri gönder</x:String>
   <x:String x:Key="scaleSetup.barcode.open">Ağırlık / tutar →</x:String>
   <x:String x:Key="scaleSetup.barcode.title">Kasa tartı etiketindeki barkodu nasıl okur</x:String>
   <x:String x:Key="scaleSetup.barcode.desc">Tartı barkodu 13 hanedir: 20–29 öneki, ürün kodu, ağırlık veya tutar ve kontrol hanesi. Düzeni ve modu şirket NurCRM sitesinde belirler (Tartılar → Ayarlar), kasa bunları girişte alır.</x:String>
   <x:String x:Key="scaleSetup.wizard.title">Etiketten ayarla</x:String>
-  <x:String x:Key="scaleSetup.wizard.desc">Fişteki tutar etiketle uyuşmuyor mu? Basılı etiketteki barkodu okutun (veya 13 hane girin) — kasa iki okuma gösterir: AĞIRLIK ve TUTAR. Etiketle eşleşene basın — kasa bunu önek için hatırlar ve hemen böyle okur.</x:String>
+  <x:String x:Key="scaleSetup.wizard.desc">Fişteki tutar etiketle uyuşmuyor mu? Basılı etiketteki barkodu okutun (veya 13 hane girin) — kasa iki okuma gösterir: «ağırlık» ve «tutar». Etiketle eşleşene basın — kasa bunu önek için hatırlar ve hemen böyle okur.</x:String>
   <x:String x:Key="scaleSetup.wizard.parse">Çöz</x:String>
   <x:String x:Key="scaleSetup.wizard.open">Etiketten ayarla…</x:String>
   <x:String x:Key="scaleSetup.rules.title">Tartı barkoda ne basar</x:String>

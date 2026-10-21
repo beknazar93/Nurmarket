@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Воронка</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="clients" active="Воронка" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Воронка продаж</span><span style="font-size: 13px; color: #667085">Перетащите карточку в нужный этап или нажмите ◀ ▶</span></span>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">+ Новая сделка</button>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{cols}}" as="c" hint-placeholder-count="4">
+        <section style="background: #EEF0F3; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px">
+          <span style="display: flex; justify-content: space-between; align-items: center; padding: 2px 4px"><span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{c.dot}}"></span>{{c.name}}</span><span style="font-size: 12px; font-weight: 700; color: #667085">{{c.count}}</span></span>
+          <sc-if value="{{c.empty}}" hint-placeholder-val="{{false}}">
+            <span style="border: 1.5px dashed #D0D5DD; border-radius: 12px; padding: 16px; font-size: 12px; color: #667085; line-height: 18px">Сделки появятся из WhatsApp и бота, или нажмите «Новая сделка»</span>
+          </sc-if>
+          <sc-for list="{{c.deals}}" as="d" hint-placeholder-count="2">
+            <article style="background: #FFFFFF; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 2px rgba(16,24,40,0.06)">
+              <span style="font-size: 13px; font-weight: 800">{{d.client}}</span>
+              <span style="font-size: 12px; color: #667085">{{d.what}}</span>
+              <span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 13px; font-weight: 800; color: #0B2A3C">[сумма]</span><span style="padding: 2px 8px; border-radius: 6px; background: #F2F4F7; font-size: 11px; font-weight: 700; color: #475467">{{d.src}}</span></span>
+              <span style="display: flex; gap: 6px"><button type="button" aria-label="Назад" style="flex-grow: 1; height: 30px; border-radius: 8px; border: 1px solid #E5E7EB; background: #FFFFFF">◀</button><button type="button" aria-label="Дальше" style="flex-grow: 1; height: 30px; border-radius: 8px; border: 0; background: #0B2A3C; color: #FFFFFF">▶</button></span>
+            </article>
+          </sc-for>
+        </section>
+      </sc-for>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const d = (client, what, src) => ({ client, what, src });
+    const cols = [
+      { name: 'Новые', dot: '#FFD600', deals: [] },
+      { name: 'В работе', dot: '#1D4ED8', deals: [d('Мирлан', 'Спросил цену картошки', 'Бот'), d('[клиент]', '[что хочет]', 'WhatsApp')] },
+      { name: 'Ждём оплату', dot: '#F59E0B', deals: [d('Умар', 'Заказ №10', 'Бот')] },
+      { name: 'Закрыто', dot: '#16A34A', deals: [d('[клиент]', '[что купил]', 'Instagram')] }
+    ].map((c) => ({ ...c, count: c.deals.length, empty: c.deals.length === 0 }));
+    return { cols };
+  }
+}
+</script>
+</body>
+</html>

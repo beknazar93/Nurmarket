@@ -12,6 +12,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Microsoft.Extensions.DependencyInjection;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
 using NurMarketKassa.ViewModels;
@@ -26,6 +27,8 @@ public sealed class DebtSaleRow
     /// при загрузке списка через ClientDealGetAsync, поэтому не init-only.</summary>
     public string DealId { get; set; } = "";
     public string DateDisplay { get; init; } = "";
+    /// <summary>2026-10-18: номер чека («number» продажи) — для окна «Принять оплату» программы владельца.</summary>
+    public string Number { get; init; } = "";
     /// <summary>2026-09-28: момент продажи — запасной путь «Погасить одной суммой» гасит от
     /// старых долгов к новым, как и сервер (DateDisplay как строка по дате не сортируется).</summary>
     public DateTimeOffset CreatedAt { get; init; }
@@ -36,17 +39,8 @@ public sealed class DebtSaleRow
     public string AmountDisplay { get; set; } = "";
     public double Amount { get; set; }
 
-    /// <summary>ID конкретного взноса (installment) из графика платежей сделки — оплата в
-    /// NurCRM всегда идёт по конкретному взносу, а не по сделке в целом (см. PosPayDebtAsync).
-    /// Первый непогашенный взнос из <see cref="UnpaidInstallmentIds"/>, для обратной совместимости.</summary>
-    public string? InstallmentId { get; set; }
-
-    /// <summary>2026-09-15, живой баг ("долг полностью не закрывается, а всего лишь
-    /// уменьшается") — сделка может иметь НЕСКОЛЬКО непогашенных взносов одновременно (график
-    /// платежей), а не один на всю сумму продажи; погашение только первого взноса уменьшает
-    /// remaining_debt лишь на его часть. Полное закрытие строки требует погасить ВСЕ взносы
-    /// по очереди — список заполняется при загрузке через ClientDealGetAsync.</summary>
-    public List<string> UnpaidInstallmentIds { get; set; } = new();
+    // 2026-10-18, шестой круг ревью: InstallmentId / UnpaidInstallmentIds убраны — старый путь по взносам берёт график сделки
+    // свежим запросом перед оплатой (FindUnpaidInstallments), список их больше не хранит.
 
     /// <summary>Исходная сумма долга (для истории — сколько было оплачено всего).</summary>
     public string OriginalAmountDisplay { get; set; } = "";
@@ -54,6 +48,31 @@ public sealed class DebtSaleRow
     /// <summary>Редактируемая сумма к оплате — по умолчанию весь долг, но кассир может
     /// уменьшить для частичного погашения.</summary>
     public string AmountToPayText { get; set; } = "";
+
+    /// <summary>2026-10-18, девятый круг ревью (деньги): точный остаток по сделке (remaining_debt) НЕ получен — Amount лишь
+    /// сумма продажи. Принцип «точный остаток или отказ»: оплату этой строки и «одной суммой» окна не дают.</summary>
+    public bool RemainingUnknown { get; set; }
+
+    /// <summary>2026-10-18, живая проверка: остаток самой продажи (debt_remaining, иначе debt_amount, иначе total). Точный, если
+    /// у продажи НЕТ сделки (оплат через сделку тогда нет) — как в 1.17.58.</summary>
+    public double SaleRemaining { get; set; }
+
+    /// <summary>2026-10-21 (ревью денег, мелочь): SaleRemaining пришёл полем debt_remaining (а не взят из debt_amount/total).</summary>
+    public bool SaleRemainingFromServer { get; set; }
+
+    public bool RemainingKnown => !RemainingUnknown;
+
+    /// <summary>2026-10-21 (ревью денег, A2): «Долг без продажи» (записан в «Клиентах») — сделка клиента без чека. Id — «deal:…»,
+    /// оплатить «по чеку» нельзя (адрес оплаты — по продаже), только «одной суммой»: сервер гасит его вместе с чеками.</summary>
+    public bool IsNoSale { get; init; }
+
+    /// <summary>2026-10-21 (ревью денег, A2): у строки есть поле суммы и «Оплатить» (точный остаток и это чек, а не долг без продажи).</summary>
+    public bool CanPayByReceipt => RemainingKnown && !IsNoSale;
+
+    public string RemainingUnknownLabel => Tr.T("остаток уточняется", "калдык такталууда", "balance being checked", "bakiye kontrol ediliyor", "qoldiq aniqlanmoqda");
+
+    /// <summary>Как назвать чек в тексте: «№123» или дата.</summary>
+    public string Label => Number.Length > 0 ? "№" + Number : DateDisplay;
 }
 
 /// <summary>Оплата ранее оформленных продаж «в долг» (полностью или частично): выбор клиента,
@@ -105,7 +124,8 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     /// долгов вместо колонки «Товар» — дата, сумма и «Оплатить»; без кнопки «свернуть».</summary>
     private void ApplyNarrowLayout(bool narrow)
     {
-        RootGrid.Margin = narrow ? new Avalonia.Thickness(8, 6, 8, 8) : new Avalonia.Thickness(16, 12, 16, 16);
+        // 2026-10-19, К1: поля задаёт оболочка ModalShell — у сетки внутри своих полей нет.
+        RootGrid.Margin = default;
         MinimizeButton.IsVisible = !narrow;
         if (narrow)
         {
@@ -130,18 +150,32 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             Grid.SetColumn(PayAllButton, 2);
         }
 
+        // 2026-10-18: способ оплаты — на телефоне подпись строкой выше кнопок «Наличные / Безнал».
+        MethodGrid.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "Auto,*");
+        MethodGrid.RowDefinitions = narrow ? new RowDefinitions("Auto,6,Auto") : new RowDefinitions();
+        if (MethodGrid.Children.Count > 1)
+        {
+            Grid.SetRow(MethodGrid.Children[1], narrow ? 2 : 0);
+            Grid.SetColumn(MethodGrid.Children[1], narrow ? 0 : 1);
+            if (MethodGrid.Children[1] is Grid methodButtons)
+                methodButtons.HorizontalAlignment = narrow ? Avalonia.Layout.HorizontalAlignment.Stretch : Avalonia.Layout.HorizontalAlignment.Left;
+        }
+        MethodCashRadio.MinWidth = narrow ? 0 : 220;
+        MethodTransferRadio.MinWidth = narrow ? 0 : 220;
+
         // Непогашенные: Дата, Товар, К оплате, «Оплатить». История: Дата, Товар, Оплачено.
         if (UnpaidGrid.Columns.Count >= 4)
         {
-            UnpaidGrid.Columns[0].Width = new DataGridLength(narrow ? 138 : 140);
+            // 2026-10-19, К1: дата 160 (на 140 «18:0(» обрезалось), кнопка 130.
+            UnpaidGrid.Columns[0].Width = new DataGridLength(narrow ? 138 : 160);
             UnpaidGrid.Columns[1].IsVisible = !narrow;
             UnpaidGrid.Columns[2].Width = narrow ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(150);
-            UnpaidGrid.Columns[3].Width = new DataGridLength(narrow ? 96 : 120);
+            UnpaidGrid.Columns[3].Width = new DataGridLength(narrow ? 96 : 130);
         }
         if (HistoryGrid.Columns.Count >= 3)
         {
-            HistoryGrid.Columns[0].Width = new DataGridLength(narrow ? 138 : 140);
-            HistoryGrid.Columns[2].Width = new DataGridLength(narrow ? 112 : 150);
+            HistoryGrid.Columns[0].Width = new DataGridLength(narrow ? 138 : 160);
+            HistoryGrid.Columns[2].Width = new DataGridLength(narrow ? 112 : 170);
         }
     }
 
@@ -178,7 +212,25 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         SelectClientCommand = new RelayCommand<ClientOption>(SelectClient);
         // 2026-09-28: блок «Погасить одной суммой» (PayDebtDialog.OneSum.cs).
         InitOneSumPayment();
+        // 2026-10-18: способ оплаты по общим настройкам «Оплата долга» и перечитывание при оплате в другой программе.
+        InitMethodChoice();
         Opened += async (_, _) => await EnsureClientsLoadedAsync().ConfigureAwait(true);
+        // 2026-10-21 (пакет 6, п. 47): Enter больше не «ничего не делает» — в поиске выбирает первого клиента списка,
+        // в сумме «Погасить одной суммой» — нажимает «Погасить» (с подтверждением, см. PayAll_Click).
+        ClientSearchBox.AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key != Avalonia.Input.Key.Enter || ClientSearchResults.Count == 0)
+                return;
+            e.Handled = true;
+            SelectClient(ClientSearchResults[0]);
+        }, RoutingStrategies.Tunnel);
+        PayAllAmountBox.AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key != Avalonia.Input.Key.Enter || _paying || !CanPayAll)
+                return;
+            e.Handled = true;
+            PayAll_Click(PayAllButton, new RoutedEventArgs());
+        }, RoutingStrategies.Tunnel);
         // 2026-10-04: фоновая догрузка клиентов останавливается вместе с окном.
         Closed += (_, _) => _closedCts.Cancel();
     }
@@ -223,9 +275,12 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     public string SelectedClientName => _selectedClient?.DisplayName ?? "";
     public bool HasClientSearchResults => ClientSearchResults.Count > 0;
 
+    /// <remarks>2026-10-18, десятый круг (п.6): итог — только по точным остаткам; «уточняется» — отдельной припиской.</remarks>
     public string TotalOwedText =>
         $"{Tr.T("Итого к оплате", "Жалпы төлөнө турган сумма", "Total due", "Ödenecek toplam", "Jami to'lanadigan summa")}: " +
-        $"{DebtSales.Sum(s => s.Amount).ToString("0.00", CultureInfo.InvariantCulture)}" + Tr.T(" сом", " сом", " som", " som", " so'm");
+        // 2026-10-19, К1: сумма — «64 500,00 сом» (MoneyText), как у владельца; сама сумма та же.
+        MoneyText.Som(DebtSales.Where(s => !s.RemainingUnknown).Sum(s => s.Amount))
+        + DebtPaymentFlow.CheckingSuffix(DebtSales.Count(s => s.RemainingUnknown));
 
     public string ErrorMessage
     {
@@ -255,6 +310,10 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
 
     private void ChangeClientButton_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-10-18, восьмой круг (п.4): замок клиента смене клиента не мешает; во время своей операции — нельзя.
+        if (_paying)
+            return;
+        _debtLoadGen++; // 2026-10-18: недогруженный список прежнего клиента не появится у нового
         SelectedClient = null;
         DebtSales.Clear();
         DebtHistory.Clear();
@@ -286,6 +345,8 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             ApplyClientFilter();
             if (hasNext)
                 _ = LoadRemainingClientsAsync(_closedCts.Token);
+            // 2026-10-21 (пакет 6, п. 13 аудита кассы): суммы долга в списке — фоном, окно ими не блокируется.
+            _ = LoadDebtorsAsync(_closedCts.Token);
         }
         catch (ServerNotAnsweringException ex)
         {
@@ -357,18 +418,37 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         }
     }
 
-    private async Task LoadDebtSalesAsync(string clientId)
+    /// <summary>2026-10-18: номер загрузки долгов — ответ прежней загрузки (две подряд: оплата и оповещение из другой
+    /// кассы) не добавляет строки второй раз.</summary>
+    private int _debtLoadGen;
+
+    /// <param name="keepInput">2026-10-18, ревью: перечитывание «со стороны» (оплата в другой кассе, у владельца, проверка
+    /// остатка) — сообщения не стираются, прежний список виден до прихода нового, введённые суммы сохраняются (больше нового
+    /// остатка — уменьшаются до него, с пояснением). true — список получен.</param>
+    private async Task<bool> LoadDebtSalesAsync(string clientId, bool keepInput = false)
     {
-        ErrorMessage = "";
-        SuccessMessage = "";
-        DebtSales.Clear();
-        DebtHistory.Clear();
-        OnPropertyChanged(nameof(TotalOwedText));
+        var gen = ++_debtLoadGen;
+        // 2026-10-18, шестой/восьмой круг: версия долга клиента (общая, PosDataEvents) на момент НАЧАЛА загрузки.
+        var startSeq = PosDataEvents.DebtVersionOf(clientId);
+        // 2026-10-18, второй круг ревью: «введённым» считается только то, что кассир правил руками; сумма по умолчанию
+        // (весь долг / остаток чека) просто пересчитывается в новый остаток, без красной ошибки.
+        var enteredAll = PayAllAmountText != _payAllDefault ? PayAllAmountText : null;
+        var enteredRows = DebtSales
+            .Where(r => r.AmountToPayText != r.Amount.ToString("0.00", CultureInfo.InvariantCulture))
+            .GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.First().AmountToPayText);
+        if (!keepInput)
+        {
+            ErrorMessage = "";
+            SuccessMessage = "";
+            DebtSales.Clear();
+            DebtHistory.Clear();
+            OnPropertyChanged(nameof(TotalOwedText));
+        }
         // 2026-10-04: сервер уже признан лежащим — не ждём его ещё раз.
         if (OfflineModeHelper.IsServerOutage)
         {
             ErrorMessage = ServerDownMessage(null);
-            return;
+            return false;
         }
 
         try
@@ -377,23 +457,30 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             // без ответа сервера (окно отсчитывается заново после каждого ответа), сбой — авария и
             // текст. Раньше — до 55 с на каждый запрос. Не дождались остатков — список не показываем:
             // суммы продаж без уточнения по сделке завышены (уже внесённые платежи в них не видны).
-            var rows = await ServerAnswerWait.FirstPortionAsync(DebtContext, async ct =>
-            {
-                var raw = await _salesApi.PosDebtSalesAsync(clientId, ct).ConfigureAwait(true);
-                var list = raw.Select(ToDebtSaleRow).OrderByDescending(r => r.DateDisplay).ToList();
+            var rows = await ServerAnswerWait.FirstPortionAsync(DebtContext,
+                ct => LoadDebtRowsAsync(_salesApi, clientId, ct), _closedCts.Token).ConfigureAwait(true);
 
-                // Сервер не обновляет status самой продажи после оплаты через сделку (deal) —
-                // продажа может годами висеть как "debt", хотя реально уже полностью погашена.
-                // Уточняем остаток напрямую по сделке: непогашенные остаются в основном списке,
-                // а полностью оплаченные переезжают в историю вместо того чтобы просто исчезать.
-                await Task.WhenAll(list.Select(r => ResolveRealRemainingDebtAsync(clientId, r, ct))).ConfigureAwait(true);
-                ct.ThrowIfCancellationRequested();
-                return list;
-            }, _closedCts.Token).ConfigureAwait(true);
-
+            // 2026-10-18: пока ждали сервер, началась другая загрузка (или выбран другой клиент) — её строки главнее.
+            if (gen != _debtLoadGen)
+                return false;
+            _loadedSeq = startSeq; // это последняя загрузка (номер проверен выше) — её версия
+            var lowered = false;
+            DebtSales.Clear();
+            DebtHistory.Clear();
             foreach (var row in rows)
             {
-                if (row.Amount > 0.005)
+                // 2026-10-18, ревью: при перечитывании «со стороны» введённая у строки сумма остаётся (не больше остатка).
+                if (keepInput && row.Amount > 0.005 && enteredRows.TryGetValue(row.Id, out var typed)
+                    && CashAmountInput.TryParse(typed, out var typedDec) && (double)typedDec is var typedAmount && typedAmount > 0)
+                {
+                    if (typedAmount <= row.Amount + 0.005)
+                        row.AmountToPayText = typed;
+                    else
+                        lowered = true;
+                }
+                // 2026-10-18, ревью после живой проверки (п.3, деньги): неуточнённая строка — среди долгов (не в «Истории»), даже с
+                // нулевой суммой продажи: она участвует в OneSumRule (старый неуточнённый чек закрывает «одной суммой»).
+                if (row.Amount > 0.005 || row.RemainingUnknown)
                     DebtSales.Add(row);
                 else
                     DebtHistory.Add(row);
@@ -401,10 +488,33 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(TotalOwedText));
             // 2026-09-28: сумма «Погасить одной суммой» — весь долг по умолчанию.
             OnDebtSalesReloaded();
+            // 2026-10-18, ревью: введённая «одной суммой» сумма не затирается полным долгом; больше нового остатка — до него.
+            if (keepInput && CashAmountInput.TryParse(enteredAll, out var typedAllDec) && (double)typedAllDec is var typedAll && typedAll > 0)
+            {
+                // 2026-10-18, ревью после живой проверки (п.2): «одной суммой» — не больше суммы ТОЧНЫХ остатков (OneSum.Limit).
+                var total = OneSum.Limit;
+                if (typedAll <= total + 0.005)
+                    PayAllAmountText = enteredAll;
+                else if (total > 0.005)
+                    lowered = true;
+            }
+            if (lowered)
+            {
+                var owedText = OneSum.Limit.ToString("0.00", CultureInfo.InvariantCulture);
+                ErrorMessage = Tr.T(
+                    $"Остаток долга изменился — введённая сумма больше него и заменена остатком ({owedText} сом). Проверьте сумму.",
+                    $"Карыздын калдыгы өзгөрдү — киргизилген сумма андан чоң, калдык менен алмаштырылды ({owedText} сом). Сумманы текшериңиз.",
+                    $"The remaining debt changed — the entered amount was larger and was replaced with the balance ({owedText} som). Check the amount.",
+                    $"Kalan borç değişti — girilen tutar daha büyüktü ve bakiye ile değiştirildi ({owedText} som). Tutarı kontrol edin.",
+                    $"Qarz qoldig'i o'zgardi — kiritilgan summa undan katta edi va qoldiq bilan almashtirildi ({owedText} so'm). Summani tekshiring.");
+            }
+            return true;
         }
+        // 2026-10-18, ревью: ошибка устаревшей загрузки (началась новая) сообщение новой не перезаписывает.
         catch (ServerNotAnsweringException ex)
         {
-            ErrorMessage = ServerDownMessage(ex);
+            if (gen == _debtLoadGen)
+                ErrorMessage = ServerDownMessage(ex);
         }
         catch (OperationCanceledException) when (_closedCts.IsCancellationRequested)
         {
@@ -412,46 +522,200 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         }
         catch (ApiException ex)
         {
-            ErrorMessage = ex.Message;
+            if (gen == _debtLoadGen)
+                ErrorMessage = ex.Message;
         }
         catch (Exception ex)
         {
-            ErrorMessage = Tr.T("Не удалось загрузить долги клиента: ", "Клиенттин карызын жүктөө мүмкүн болгон жок: ", "Could not load the client's debts: ", "Müşteri borçları yüklenemedi: ", "Mijozning qarzlarini yuklab bo'lmadi: ") + ex.Message;
+            if (gen == _debtLoadGen)
+                ErrorMessage = Tr.T("Не удалось загрузить долги клиента: ", "Клиенттин карызын жүктөө мүмкүн болгон жок: ", "Could not load the client's debts: ", "Müşteri borçları yüklenemedi: ", "Mijozning qarzlarini yuklab bo'lmadi: ") + ex.Message;
             PosLogger.Log($"PayDebt sales load failed: {ex}", "WARNING");
         }
+        return false;
+    }
+
+    /// <summary>2026-10-18: долги клиента с точным остатком по сделкам (remaining_debt) — общий загрузчик окна кассы и
+    /// окна «Принять оплату» программы владельца (раньше был телом LoadDebtSalesAsync). Строки — от новых к старым;
+    /// полностью погашенные — с Amount 0 (окно кассы кладёт их в «Историю»).</summary>
+    internal static async Task<List<DebtSaleRow>> LoadDebtRowsAsync(ISalesApiService salesApi, string clientId, CancellationToken ct)
+    {
+        var rows = await LoadDebtRowsAsync(salesApi, clientId, await salesApi.PosDebtSalesAsync(clientId, ct).ConfigureAwait(true), ct).ConfigureAwait(true);
+        // 2026-10-21 (ревью денег, A2): и «Долг без продажи» — окна оплаты видели только pos/sales/?status=debt и писали «Долгов
+        // нет», а «одной суммой» сервер мог погасить сначала этот долг (план в подтверждении был неверным).
+        var noSale = await LoadNoSaleDebtRowsAsync(clientId, rows, ct).ConfigureAwait(true);
+        if (noSale.Count == 0)
+            return rows;
+        rows.AddRange(noSale);
+        return rows.OrderByDescending(r => r.CreatedAt).ToList();
+    }
+
+    /// <summary>2026-10-21 (ревью денег, A2): сделки клиента без продажи с остатком долга (GET clients/{id}/deals/ — у сделки
+    /// продажи есть поле sale; сделки уже найденных чеков исключаются по deal_id). Не получилось — пусто, как раньше (WARNING).</summary>
+    private static async Task<List<DebtSaleRow>> LoadNoSaleDebtRowsAsync(string clientId, IReadOnlyList<DebtSaleRow> saleRows, CancellationToken ct)
+    {
+        var result = new List<DebtSaleRow>();
+        // Сделка неуточнённого чека неизвестна — её нельзя отличить от долга без продажи (иначе долг посчитался бы дважды).
+        if (saleRows.Any(r => r.RemainingUnknown && string.IsNullOrWhiteSpace(r.DealId)))
+        {
+            PosLogger.Log("Оплата долга: долги без продажи не проверены — есть чек без известной сделки.", "WARNING");
+            return result;
+        }
+        var knownDeals = new HashSet<string>(saleRows.Select(r => r.DealId).Where(d => !string.IsNullOrWhiteSpace(d)), StringComparer.OrdinalIgnoreCase);
+        static bool Linked(JsonElement deal, string key) => deal.TryGetProperty(key, out var v)
+            && (v.ValueKind is JsonValueKind.Number or JsonValueKind.Object
+                || (v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString())));
+        try
+        {
+            var api = App.GetRequiredService<NurMarketApiClient>();
+            var data = await api.RequestAsync(System.Net.Http.HttpMethod.Get, $"api/main/clients/{Uri.EscapeDataString(clientId.Trim())}/deals/", null,
+                new Dictionary<string, string> { ["page_size"] = "500" }, ct).ConfigureAwait(true);
+            foreach (var deal in NurMarketApiClient.UnwrapList(data))
+            {
+                if (deal.ValueKind != JsonValueKind.Object)
+                    continue;
+                var id = TryGetString(deal, "id") ?? (TryGetDouble(deal, "id") is { } n ? n.ToString("0", CultureInfo.InvariantCulture) : null);
+                if (string.IsNullOrWhiteSpace(id) || knownDeals.Contains(id) || Linked(deal, "sale") || Linked(deal, "sale_id"))
+                    continue;
+                if (string.Equals(TryGetString(deal, "kind"), "prepayment", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (TryGetDouble(deal, "remaining_debt") is not { } remaining || remaining <= 0.005)
+                    continue;
+                DateTimeOffset.TryParse(TryGetString(deal, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var created);
+                var original = TryGetDouble(deal, "debt_amount") is { } da && da > 0 ? da : TryGetDouble(deal, "amount") ?? remaining;
+                var note = (TryGetString(deal, "note") ?? TryGetString(deal, "comment") ?? "").Trim();
+                result.Add(new DebtSaleRow
+                {
+                    Id = "deal:" + id,
+                    DealId = id,
+                    IsNoSale = true,
+                    CreatedAt = created,
+                    DateDisplay = created == default ? "" : created.LocalDateTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
+                    FirstItemName = Tr.T("Долг без продажи", "Сатуусуз карыз", "Debt without a sale", "Satışsız borç", "Sotuvsiz qarz") + (note.Length > 0 ? " — " + note : ""),
+                    Amount = remaining,
+                    AmountDisplay = MoneyText.Som(remaining),
+                    AmountToPayText = remaining.ToString("0.00", CultureInfo.InvariantCulture),
+                    SaleRemaining = remaining,
+                    OriginalAmountDisplay = MoneyText.Som(original),
+                });
+            }
+            if (result.Count > 0)
+                PosLogger.Log($"Оплата долга: у клиента {clientId} долгов без продажи: {result.Count} на {result.Sum(r => r.Amount):0.00} сом.", "INFO");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Оплата долга: долги без продажи не получены ({ErrorCode(ex)}) — показаны только чеки.", "WARNING");
+        }
+        return result;
+    }
+
+    /// <summary>2026-10-18, девятый круг (п.3): то же по уже полученному списку продаж в долг (раздел «Долги клиентов» строит
+    /// карточку клиента по точному остатку сделок, не запрашивая список второй раз).</summary>
+    /// <param name="throttle">2026-10-18, десятый круг: ограничение одновременных запросов уточнения (раздел «Долги клиентов»).</param>
+    internal static async Task<List<DebtSaleRow>> LoadDebtRowsAsync(ISalesApiService salesApi, string clientId, IReadOnlyList<JsonElement> raw, CancellationToken ct,
+        SemaphoreSlim? throttle = null)
+    {
+        // 2026-10-18, восьмой круг (п.6): по дате, а не по строке «dd.MM.yyyy HH:mm» (она сортировала по дню месяца).
+        var list = raw.Select(ToDebtSaleRow).OrderByDescending(r => r.CreatedAt).ToList();
+
+        // Сервер не обновляет status самой продажи после оплаты через сделку (deal) —
+        // продажа может годами висеть как "debt", хотя реально уже полностью погашена.
+        // Уточняем остаток напрямую по сделке: непогашенные остаются в основном списке,
+        // а полностью оплаченные переезжают в историю вместо того чтобы просто исчезать.
+        await Task.WhenAll(list.Select(async r =>
+        {
+            if (throttle is null)
+            {
+                await ResolveRealRemainingDebtAsync(salesApi, clientId, r, ct).ConfigureAwait(true);
+                return;
+            }
+            await throttle.WaitAsync(ct).ConfigureAwait(true);
+            try
+            {
+                await ResolveRealRemainingDebtAsync(salesApi, clientId, r, ct).ConfigureAwait(true);
+            }
+            finally
+            {
+                throttle.Release();
+            }
+        })).ConfigureAwait(true);
+        ct.ThrowIfCancellationRequested();
+        return list;
     }
 
     /// <summary>Догружает deal_id (если не пришёл со списком) и подставляет реальный
     /// remaining_debt по сделке вместо исходной суммы продажи. При любой ошибке (сеть,
     /// сделка не найдена и т.п.) оставляет строку как есть — она просто ведёт себя
     /// по-старому и покажет ошибку сервера при попытке оплаты, а не исчезнет молча.</summary>
-    private async Task ResolveRealRemainingDebtAsync(string clientId, DebtSaleRow row, CancellationToken ct = default)
+    /// <remarks>2026-10-18, девятый круг (п.2): точный остаток не получен — RemainingUnknown = true. 2026-10-18, живая проверка
+    /// NBS: в WARNING — причина (без данных клиента); у продажи БЕЗ сделки остаток продажи точный (оплат через сделку нет).</remarks>
+    private static async Task ResolveRealRemainingDebtAsync(ISalesApiService salesApi, string clientId, DebtSaleRow row, CancellationToken ct = default)
     {
+        row.RemainingUnknown = true;
+        string? reason = null;
         try
         {
-            var dealId = row.DealId;
-            if (string.IsNullOrWhiteSpace(dealId))
+            var dealId = string.IsNullOrWhiteSpace(row.DealId) ? null : row.DealId;
+            if (dealId is null)
             {
-                var saleDetail = await _salesApi.PosSaleGetAsync(row.Id, ct).ConfigureAwait(true);
-                dealId = saleDetail.ValueKind == JsonValueKind.Object
-                    && saleDetail.TryGetProperty("deal_id", out var dealIdEl)
-                    && dealIdEl.ValueKind == JsonValueKind.String
-                        ? dealIdEl.GetString()
-                        : null;
-                if (string.IsNullOrWhiteSpace(dealId))
+                JsonElement sale;
+                try
+                {
+                    sale = await salesApi.PosSaleGetAsync(row.Id, ct).ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    reason = "ошибка запроса продажи (" + ErrorCode(ex) + ")";
                     return;
+                }
+                if (sale.ValueKind != JsonValueKind.Object)
+                {
+                    reason = "ответ продажи не объект";
+                    return;
+                }
+                dealId = DealIdOf(sale);
+                if (dealId is null)
+                {
+                    // Сделки нет (deal_id пуст / null / нет поля) — гасить долг через сделку нельзя, остаток продажи и есть точный.
+                    // 2026-10-21 (ревью денег, мелочь): остаток — из свежей карточки продажи (debt_remaining), если в списке его не
+                    // было: debt_amount/total не знают частичных оплат и завышали «Весь долг».
+                    if (!row.SaleRemainingFromServer)
+                    {
+                        if (TryGetDouble(sale, "debt_remaining") is { } fresh)
+                            row.SaleRemaining = Math.Max(0, fresh);
+                        else
+                            PosLogger.Log($"Оплата долга: у чека {row.Id} нет сделки и нет debt_remaining — остаток по сумме продажи ({row.SaleRemaining:0.00}); проверить на сервере.", "WARNING");
+                    }
+                    SetAmount(row, row.SaleRemaining);
+                    row.RemainingUnknown = false;
+                    return;
+                }
                 row.DealId = dealId;
             }
 
-            var deal = await _salesApi.ClientDealGetAsync(clientId, dealId, ct).ConfigureAwait(true);
+            JsonElement deal;
+            try
+            {
+                deal = await salesApi.ClientDealGetAsync(clientId, dealId, ct).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                reason = "ошибка запроса сделки (" + ErrorCode(ex) + ")";
+                return;
+            }
             if (deal.ValueKind != JsonValueKind.Object)
+            {
+                reason = "ответ сделки не объект";
                 return;
-
-            row.UnpaidInstallmentIds = FindUnpaidInstallmentIds(deal);
-            row.InstallmentId = row.UnpaidInstallmentIds.Count > 0 ? row.UnpaidInstallmentIds[0] : null;
-
+            }
             if (!deal.TryGetProperty("remaining_debt", out var remainingEl))
+            {
+                reason = "в сделке нет remaining_debt";
                 return;
+            }
 
             var remainingText = remainingEl.ValueKind switch
             {
@@ -461,32 +725,95 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             };
             if (remainingText is null
                 || !double.TryParse(remainingText, NumberStyles.Any, CultureInfo.InvariantCulture, out var remaining))
+            {
+                reason = "remaining_debt не число (" + remainingEl.ValueKind + ")";
                 return;
+            }
 
-            row.Amount = remaining;
-            row.AmountDisplay = remaining.ToString("0.00", CultureInfo.InvariantCulture) + Tr.T(" сом", " сом", " som", " som", " so'm");
-            row.AmountToPayText = remaining.ToString("0.00", CultureInfo.InvariantCulture);
+            SetAmount(row, remaining);
+            row.RemainingUnknown = false;
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"PayDebt remaining-debt resolve skipped for sale {row.Id}: {ex.GetType().Name}", "DEBUG");
+            reason = "ошибка " + ex.GetType().Name;
         }
+        finally
+        {
+            if (row.RemainingUnknown)
+                PosLogger.Log($"Оплата долга: точный остаток по чеку {row.Id} не получен ({reason ?? "?"}) — оплата этого чека закрыта; «Обновить» запросит снова.", "WARNING");
+        }
+    }
+
+    private static void SetAmount(DebtSaleRow row, double remaining)
+    {
+        row.Amount = remaining;
+        row.AmountDisplay = MoneyText.Som(remaining);
+        row.AmountToPayText = remaining.ToString("0.00", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Код ошибки для журнала — без текста ответа (в нём могут быть данные клиента).</summary>
+    private static string ErrorCode(Exception ex) => ex switch
+    {
+        ApiException api => "HTTP " + (api.StatusCode?.ToString(CultureInfo.InvariantCulture) ?? "?"),
+        OperationCanceledException => "таймаут/отмена",
+        System.Net.Http.HttpRequestException http => "сеть" + (http.StatusCode is { } code ? " " + (int)code : ""),
+        _ => ex.GetType().Name,
+    };
+
+    /// <summary>deal_id из карточки продажи (строка или число); пусто / null / нет поля — null (сделки нет).</summary>
+    private static string? DealIdOf(JsonElement sale)
+    {
+        if (!sale.TryGetProperty("deal_id", out var dealIdEl))
+            return null;
+        var dealId = dealIdEl.ValueKind switch
+        {
+            JsonValueKind.String => dealIdEl.GetString(),
+            JsonValueKind.Number => dealIdEl.GetRawText(),
+            _ => null,
+        };
+        return string.IsNullOrWhiteSpace(dealId) ? null : dealId;
+    }
+
+    /// <summary>2026-10-18, девятый круг (п.10): deal_id продажи — из строки списка или из карточки продажи (значение строкой
+    /// или числом). Одна реализация для уточнения остатка и для старого пути по взносам. null — сделки нет.</summary>
+    internal static async Task<string?> ResolveDealIdAsync(ISalesApiService salesApi, DebtSaleRow row, CancellationToken ct = default)
+    {
+        if (!string.IsNullOrWhiteSpace(row.DealId))
+            return row.DealId;
+        var saleDetail = await salesApi.PosSaleGetAsync(row.Id, ct).ConfigureAwait(true);
+        if (saleDetail.ValueKind != JsonValueKind.Object || DealIdOf(saleDetail) is not { } dealId)
+            return null;
+        row.DealId = dealId;
+        return dealId;
     }
 
     private async void PayDebt_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: DebtSaleRow row } button)
+        if (sender is not Button { Tag: DebtSaleRow row } button || _paying)
             return;
 
         ErrorMessage = "";
         SuccessMessage = "";
+        // 2026-10-18, девятый круг (деньги): «точный остаток или отказ» — по этой строке остаток не получен.
+        if (row.RemainingUnknown)
+        {
+            ErrorMessage = DebtPaymentFlow.RemainingUnknownText(new[] { row }, owner: false);
+            return;
+        }
+        // 2026-10-21 (ревью денег, A2): долг без продажи — только «одной суммой» (оплата «по чеку» идёт по продаже).
+        if (row.IsNoSale)
+        {
+            ErrorMessage = DebtPaymentFlow.NoSaleByReceiptText;
+            return;
+        }
 
-        var raw = (row.AmountToPayText ?? "").Trim().Replace(',', '.');
-        if (!double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var amount) || amount <= 0)
+        // 2026-10-18, третий круг ревью: разбор суммы — как у владельца (CashAmountInput: запятая/точка, пробелы).
+        if (!CashAmountInput.TryParse(row.AmountToPayText, out var amountDec) || amountDec <= 0m)
         {
             ErrorMessage = Tr.T("Укажите сумму оплаты.", "Төлөм суммасын көрсөтүңүз.", "Enter the payment amount.", "Ödeme tutarını belirtin.", "To'lov summasini ko'rsating.");
             return;
         }
+        var amount = (double)Math.Round(amountDec, 2);
 
         if (amount > row.Amount + 0.005)
         {
@@ -499,166 +826,180 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             return;
         }
 
-        button.IsEnabled = false;
+        // 2026-10-18, пятый круг (п.10): защита, замок, код, способ, ошибки — общая обёртка RunPaymentAsync.
+        await RunPaymentAsync(async method =>
+        {
+            // 2026-10-18, десятый круг (п.3): «Оплатить» у строки — ВСЕГДА оплата этого чека (pos/sales/{id}/pay-debt/, запись с
+            // SaleId), даже если строка одна. Раньше (2026-09-28) при одном долге шли «одной суммой» — тогда ещё не было адреса
+            // по чеку (BE-12). «Одной суммой» осталось только запасным: сервер без адреса по чеку и строка одна (как 1.17.58);
+            // дальше — старый путь по взносам.
+            if (await TryPaySaleViaServerAsync(row, amount, method).ConfigureAwait(true))
+                return;
+            if (DebtSales.Count == 1 && _serverSalePayMissing && await TryPayViaServerAsync(amount, method).ConfigureAwait(true))
+                return;
+
+            if (RefuseLegacyForNonCash(method))
+                return;
+            // Старый путь: события смены и LAN — по каждому оплаченному взносу сразу (п.6); список перечитывается всегда.
+            double? legacyPaid = null;
+            var reloaded = false;
+            try
+            {
+                legacyPaid = await PayRowLegacyAsync(row, amount, button).ConfigureAwait(true);
+            }
+            finally
+            {
+                var legacyNote = ErrorMessage;
+                if (_selectedClient != null)
+                    reloaded = await LoadDebtSalesAsync(_selectedClient.Id).ConfigureAwait(true);
+                if (!string.IsNullOrEmpty(legacyNote))
+                    ErrorMessage = legacyNote;
+            }
+            if (legacyPaid is { } paid && paid > 0.005)
+            {
+                // 2026-10-18, десятый круг (п.10): общий текст успеха; остаток — по перечитанному списку (неточный — не пишем).
+                var fresh = DebtSales.FirstOrDefault(r => r.Id == row.Id);
+                double? left = !reloaded ? null : fresh is null ? 0 : fresh.RemainingUnknown ? null : fresh.Amount;
+                SuccessMessage = DebtPaymentRunner.SuccessText(paid, left, bySale: true, owner: false);
+            }
+        }, $"sale {row.Id}").ConfigureAwait(true);
+    }
+
+    /// <summary>Старый путь оплаты одной строки долга — по взносам сделки (сервер без pay-debt). null — оплата не начиналась,
+    /// причина уже в ErrorMessage; иначе — оплаченная сумма для показа. 2026-10-18, шестой круг ревью: все взносы прошли — в
+    /// смену вся введённая сумма одним событием (как 1.17.58); прервано (ошибка/лимит 20 с / 30 взносов) — по каждому оплаченному
+    /// взносу его сумма, только если она есть в графике; неизвестна — в смену не пишется, кассиру — проверить сайт и Z-отчёт.</summary>
+    private async Task<double?> PayRowLegacyAsync(DebtSaleRow row, double amount, Button button)
+    {
+        // Список долгов (GET .../sales/?status=debt) не отдаёт deal_id в каждой строке — только одиночная карточка продажи.
+        var dealId = await ResolveDealIdAsync(_salesApi, row).ConfigureAwait(true);
+
+        if (string.IsNullOrWhiteSpace(dealId))
+        {
+            ErrorMessage = Tr.T(
+                "У этой продажи нет привязанной сделки — оплата долга недоступна.",
+                "Бул сатууга байланган келишим жок — карызды төлөө мүмкүн эмес.",
+                "This sale has no linked deal — debt payment is unavailable.",
+                "Bu satışa bağlı bir anlaşma yok — borç ödemesi yapılamaz.",
+                "Bu sotuvga bog'langan bitim yo'q — qarzni to'lash mumkin emas.");
+            return null;
+        }
+
+        if (_selectedClient is not { } client)
+            return null;
+
+        // Взносы с суммами — из графика сделки (одним запросом перед оплатой).
+        var deal = await _salesApi.ClientDealGetAsync(client.Id, dealId).ConfigureAwait(true);
+        var installments = FindUnpaidInstallments(deal);
+
+        // Записать один оплаченный взнос: в смену (наличные — старый путь гасит в кассу) и соседям по LAN.
+        void RecordPaid(string part, double sum)
+        {
+            var operationKey = ShiftEventsStore.OperationKey(dealId + ":" + part);
+            ShiftEventsStore.Record(ShiftEventsStore.KindDebtPayment, PosApp.ActiveShiftId, operationKey, sum, client.DisplayName);
+            AnnouncePaid("legacy:" + operationKey, client, sum, -1, DebtPaymentSettings.MethodCash); // 2026-10-18: остаток неизвестен (< 0)
+        }
+
+        var isFullPayment = amount >= row.Amount - 0.005;
+        if (!isFullPayment || installments.Count == 0)
+        {
+            // Частичная оплата — первый взнос с явной суммой; нет графика — одним вызовом без суммы (весь остаток).
+            var firstInstallmentId = installments.Count > 0 ? installments[0].Id : null;
+            await _salesApi.PosPayDebtAsync(client.Id, dealId, firstInstallmentId, isFullPayment ? null : amount).ConfigureAwait(true);
+            RecordPaid(firstInstallmentId ?? "all", amount);
+            return amount;
+        }
+
+        // Полное закрытие — все непогашенные взносы по очереди (без суммы, как в подтверждённом рабочем вызове), не больше
+        // 30 за нажатие и 20 с.
+        const int maxInstallmentsPerClick = 30;
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        var paidCount = 0;
+        var paidInstallments = new List<(string Id, double? Sum)>();
+        Exception? failure = null;
         try
         {
-            // 2026-09-28: у клиента один долг — гасим одной суммой через сервер (BE-12, один
-            // запрос вместо взносов по одному). При нескольких долгах сервер гасит от старых к
-            // новым, а кассир нажал «Оплатить» у конкретной строки, — поэтому там старый путь,
-            // а общая сумма — кнопкой «Погасить» над таблицей. Сервер без этого адреса — тоже
-            // старый путь (TryPayViaServerAsync вернёт false).
-            if (DebtSales.Count == 1 && _selectedClient is { } onlyDebtClient
-                && await TryPayViaServerAsync(onlyDebtClient, amount, button).ConfigureAwait(true))
-                return;
-
-            // 2026-10-05: долг одной продажи — одним запросом pos/sales/{id}/pay-debt/ (сервер починил, ТЗ ч.12, п. 2.3);
-            // сервер без этого адреса — старый путь по взносам.
-            if (await TryPaySaleViaServerAsync(row, amount, button).ConfigureAwait(true))
-                return;
-
-            if (!await PayRowLegacyAsync(row, amount, button).ConfigureAwait(true))
-                return;
-
-            // Перегружаем с сервера, а не правим локально — сумма частичной оплаты
-            // и статус (может стать "paid") должны отражать серверную истину.
-            if (_selectedClient != null)
-                await LoadDebtSalesAsync(_selectedClient.Id).ConfigureAwait(true);
-
-            var paidText = amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
-            SuccessMessage = Tr.T($"Оплачено {paidText} сом.", $"{paidText} сом төлөндү.", $"Paid {paidText} som.",
-                $"{paidText} som ödendi.", $"{paidText} so'm to'landi.");
-        }
-        catch (ApiException ex)
-        {
-            ErrorMessage = ex.Message;
-            PosLogger.Log($"Pay-debt failed for sale {row.Id}: {ex}", "PAYMENT");
+            foreach (var (id, sum) in installments.Take(maxInstallmentsPerClick))
+            {
+                if (DateTime.UtcNow > deadline)
+                    break;
+                button.Content = Tr.T(
+                    $"Оплата {paidCount + 1}/{installments.Count}…",
+                    $"Төлөм {paidCount + 1}/{installments.Count}…",
+                    $"Paying {paidCount + 1}/{installments.Count}…",
+                    $"Ödeniyor {paidCount + 1}/{installments.Count}…",
+                    $"To'lanmoqda {paidCount + 1}/{installments.Count}…");
+                await _salesApi.PosPayDebtAsync(client.Id, dealId, id, null).ConfigureAwait(true);
+                paidCount++;
+                paidInstallments.Add((id, sum));
+            }
         }
         catch (Exception ex)
         {
-            ErrorMessage = Tr.T("Не удалось оплатить долг: ", "Карызды төлөө мүмкүн болгон жок: ", "Could not pay the debt: ", "Borç ödenemedi: ", "Qarzni to'lab bo'lmadi: ") + ex.Message;
-            PosLogger.Log($"Pay-debt failed for sale {row.Id}: {ex}", "PAYMENT");
+            failure = ex;
+            PosLogger.Log($"Pay-debt (старый путь): остановка на взносе {paidCount + 1} из {installments.Count} сделки {dealId}: {ex.Message}", "PAYMENT");
         }
         finally
         {
-            button.IsEnabled = true;
+            // 2026-10-18, седьмой круг (п.9): у каждой кнопки своя привязка надписи — «Погасить» (PayAllButtonLabel, DataContext
+            // окна) и «Оплатить» у строки таблицы (PayButtonLabel через окно-предка).
+            if (ReferenceEquals(button, PayAllButton))
+                button[!ContentControl.ContentProperty] = new Avalonia.Data.Binding(nameof(PayAllButtonLabel));
+            else
+                button[!ContentControl.ContentProperty] = new Avalonia.Data.Binding("DataContext.PayButtonLabel")
+                {
+                    RelativeSource = new Avalonia.Data.RelativeSource(Avalonia.Data.RelativeSourceMode.FindAncestor) { AncestorType = typeof(Window) },
+                };
         }
-    }
 
-    /// <summary>Старый путь оплаты одной строки долга — по взносам сделки (до 2026-09-28 был
-    /// телом PayDebt_Click; вынесен без изменений, чтобы им же пользовался запасной путь кнопки
-    /// «Погасить» одной суммой). false — оплата не состоялась, причина уже в ErrorMessage.</summary>
-    private async Task<bool> PayRowLegacyAsync(DebtSaleRow row, double amount, Button button)
-    {
+        // 2026-10-18, шестой круг ревью (деньги): суммы взносов в графике (amount/sum) живым захватом НЕ подтверждены —
+        // поведение не хуже 1.17.58. Все взносы оплачены без ошибки — в смену вся введённая сумма одним событием, как было.
+        if (failure is null && paidCount == installments.Count)
         {
-            // Список долгов (GET .../sales/?status=debt) не отдаёт deal_id в каждой
-            // строке — только одиночная карточка продажи его содержит. Догружаем лениво,
-            // только когда реально нужно платить, а не для каждой строки списка.
-            var dealId = row.DealId;
-            if (string.IsNullOrWhiteSpace(dealId))
+            RecordPaid("all", amount);
+            return amount;
+        }
+        // Первый же взнос не прошёл — ничего не оплачено: ошибка как обычно.
+        if (paidCount == 0 && failure is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+        // Прервано (ошибка или лимит): в смену — только взносы с известной суммой.
+        var paid = 0.0;
+        var unknownSums = 0;
+        foreach (var (id, sum) in paidInstallments)
+        {
+            if (sum is { } s && s > 0.005)
             {
-                var saleDetail = await _salesApi.PosSaleGetAsync(row.Id).ConfigureAwait(true);
-                dealId = saleDetail.ValueKind == JsonValueKind.Object
-                    && saleDetail.TryGetProperty("deal_id", out var dealIdEl)
-                    && dealIdEl.ValueKind == JsonValueKind.String
-                        ? dealIdEl.GetString()
-                        : null;
-            }
-
-            if (string.IsNullOrWhiteSpace(dealId))
-            {
-                ErrorMessage = Tr.T(
-                    "У этой продажи нет привязанной сделки — оплата долга недоступна.",
-                    "Бул сатууга байланган келишим жок — карызды төлөө мүмкүн эмес.",
-                    "This sale has no linked deal — debt payment is unavailable.",
-                    "Bu satışa bağlı bir anlaşma yok — borç ödemesi yapılamaz.",
-                    "Bu sotuvga bog'langan bitim yo'q — qarzni to'lash mumkin emas.");
-                return false;
-            }
-
-            if (_selectedClient is null)
-                return false;
-
-            // Обычно UnpaidInstallmentIds уже подтянут заранее в ResolveRealRemainingDebtAsync
-            // (при загрузке списка) — но если dealId только что догрузился лениво выше (row.DealId
-            // изначально был пуст), сделку по нему мы ещё не запрашивали.
-            var unpaidInstallmentIds = row.UnpaidInstallmentIds;
-            if (unpaidInstallmentIds.Count == 0)
-            {
-                var deal = await _salesApi.ClientDealGetAsync(_selectedClient.Id, dealId).ConfigureAwait(true);
-                unpaidInstallmentIds = FindUnpaidInstallmentIds(deal);
-            }
-
-            // 2026-09-15, живой баг ("долг полностью не закрывается, а всего лишь уменьшается") —
-            // у сделки может быть НЕСКОЛЬКО непогашенных взносов (график платежей), а не один на
-            // всю сумму продажи; погашение только первого взноса уменьшало remaining_debt лишь на
-            // его часть. "К оплате" по умолчанию предзаполнено полным остатком (row.Amount) — клик
-            // на "Оплатить" без ручного уменьшения суммы означает "закрыть полностью", и тогда
-            // гасим ВСЕ непогашенные взносы по очереди (каждый — отдельным вызовом без amount,
-            // как в подтверждённом живым захватом рабочем примере). При настоящей частичной оплате
-            // (сумма уменьшена вручную) по-прежнему гасим только первый взнос с явной суммой —
-            // этот случай живым захватом не подтверждён.
-            //
-            // 2026-09-15, живой баг ("зависает при оплате") — у старых тестовых сделок (со многими
-            // прошлыми частичными оплатами) взносов оказалось МНОГО; последовательный await по
-            // каждому без ограничения по времени/количеству выглядел как настоящее зависание
-            // диалога на давних продажах. Теперь — жёсткий предел по количеству и общему времени:
-            // если не успели за отведённое время, честно сообщаем, сколько погашено, а не висим
-            // молча дальше.
-            // Погашение долга в итогах смены на сервере не отражается — записываем сами,
-            // одной записью на весь платёж, а не по каждому взносу (см. ShiftEventsStore).
-
-            var isFullPayment = amount >= row.Amount - 0.005;
-            if (isFullPayment && unpaidInstallmentIds.Count > 0)
-            {
-                const int maxInstallmentsPerClick = 30;
-                var deadline = DateTime.UtcNow.AddSeconds(20);
-                var paidCount = 0;
-                foreach (var id in unpaidInstallmentIds.Take(maxInstallmentsPerClick))
-                {
-                    if (DateTime.UtcNow > deadline)
-                        break;
-                    button.Content = Tr.T(
-                        $"Оплата {paidCount + 1}/{unpaidInstallmentIds.Count}…",
-                        $"Төлөм {paidCount + 1}/{unpaidInstallmentIds.Count}…",
-                        $"Paying {paidCount + 1}/{unpaidInstallmentIds.Count}…",
-                        $"Ödeniyor {paidCount + 1}/{unpaidInstallmentIds.Count}…",
-                        $"To'lanmoqda {paidCount + 1}/{unpaidInstallmentIds.Count}…");
-                    await _salesApi.PosPayDebtAsync(_selectedClient.Id, dealId, id, null).ConfigureAwait(true);
-                    paidCount++;
-                }
-                button.Content = PayButtonLabel;
-
-                if (paidCount < unpaidInstallmentIds.Count)
-                {
-                    ErrorMessage = Tr.T(
-                        $"Погашено {paidCount} из {unpaidInstallmentIds.Count} взносов — слишком много для одного клика. Нажмите «Оплатить» ещё раз для остальных.",
-                        $"{unpaidInstallmentIds.Count} төлөмдүн {paidCount} төлөндү — бир басуу үчүн өтө көп. Калгандары үчүн «Төлөө» баскычын дагы бир жолу басыңыз.",
-                        $"Paid off {paidCount} of {unpaidInstallmentIds.Count} installments — too many for one click. Click “Pay” again for the rest.",
-                        $"{unpaidInstallmentIds.Count} taksitten {paidCount} tanesi ödendi — tek seferde ödenemeyecek kadar çok. Kalanlar için «Öde»ye tekrar basın.",
-                        $"{unpaidInstallmentIds.Count} ta to'lovdan {paidCount} tasi to'landi — bir bosishga bu juda ko'p. Qolganlari uchun «To'lash»ni yana bosing.");
-                }
+                paid += s;
+                RecordPaid(id, s);
             }
             else
-            {
-                var firstInstallmentId = unpaidInstallmentIds.Count > 0 ? unpaidInstallmentIds[0] : null;
-                await _salesApi.PosPayDebtAsync(
-                    _selectedClient.Id, dealId, firstInstallmentId, isFullPayment ? null : amount).ConfigureAwait(true);
-            }
-            // Погашение долга в итогах смены на сервере не отражается — записываем сами, одной
-            // записью на весь платёж, а не по каждому взносу.
-            //
-            // 2026-09-23: запись перенесена СЮДА, после фактической оплаты. Раньше она стояла до
-            // вызовов PosPayDebtAsync: если сеть отваливалась, в Z-отчёте всё равно значилось
-            // «Оплата долгов: N», а денег в кассе не было. И передавался row.DealId вместо
-            // реально использованного dealId, который выше мог быть догружен лениво.
-            ShiftEventsStore.Record(
-                ShiftEventsStore.KindDebtPayment,
-                PosApp.ActiveShiftId,
-                ShiftEventsStore.OperationKey(dealId),
-                amount,
-                _selectedClient?.DisplayName);
-            return true;
+                unknownSums++;
         }
+        var wantText = DebtPaymentFlow.Money(amount);
+        if (unknownSums > 0)
+        {
+            PosLogger.Log($"Pay-debt (старый путь): оплачено {paidCount} из {installments.Count} взносов сделки {dealId}, у {unknownSums} сумма в графике неизвестна — " +
+                          $"в смену записано {paid:0.00} из {amount:0.00}; проверить долг на сайте и Z-отчёт.", "WARNING");
+            ErrorMessage = Tr.T(
+                    $"Оплачено {paidCount} из {installments.Count} взносов, сумма части неизвестна — проверьте долг клиента на сайте NurCRM и Z-отчёт.",
+                    $"{installments.Count} төлөмдүн {paidCount} төлөндү, бир бөлүгүнүн суммасы белгисиз — кардардын карызын NurCRM сайтынан жана Z-отчётту текшериңиз.",
+                    $"Paid {paidCount} of {installments.Count} installments, part of the amount is unknown — check the client's debt on the NurCRM site and the Z-report.",
+                    $"{installments.Count} taksitten {paidCount} tanesi ödendi, bir kısmının tutarı bilinmiyor — müşterinin borcunu NurCRM sitesinde ve Z raporunda kontrol edin.",
+                    $"{installments.Count} ta to'lovdan {paidCount} tasi to'landi, bir qismining summasi noma'lum — mijoz qarzini NurCRM saytida va Z-hisobotda tekshiring.")
+                + (failure is not null ? " " + failure.Message : "");
+        }
+        else
+        {
+            var paidText = DebtPaymentFlow.Money(paid);
+            ErrorMessage = Tr.T(
+                    $"Оплачено {paidText} из {wantText} ({paidCount} из {installments.Count} взносов) — нажмите «Оплатить» ещё раз для остатка.",
+                    $"{wantText} ичинен {paidText} төлөндү ({installments.Count} төлөмдүн {paidCount}) — калдыгы үчүн «Төлөө» баскычын дагы басыңыз.",
+                    $"Paid {paidText} of {wantText} ({paidCount} of {installments.Count} installments) — click “Pay” again for the rest.",
+                    $"{wantText} tutarın {paidText} kadarı ödendi ({installments.Count} taksitten {paidCount}) — kalan için «Öde»ye tekrar basın.",
+                    $"{wantText} dan {paidText} to'landi ({installments.Count} ta to'lovdan {paidCount}) — qolgani uchun «To'lash»ni yana bosing.")
+                + (failure is not null ? " " + failure.Message : "");
+        }
+        return paid;
     }
 
     private void ApplyClientFilter()
@@ -668,10 +1009,50 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         IEnumerable<ClientOption> source = _allClients;
         if (query.Length > 0)
             source = source.Where(c => c.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+        // 2026-10-21 (пакет 6, п. 13 аудита кассы): должники — первыми (больший долг выше), остальные — по алфавиту.
+        if (_debtByClient.Count > 0)
+            source = source.OrderByDescending(c => _debtByClient.TryGetValue(c.Id, out var d) ? d : 0);
 
         foreach (var client in source.Take(30))
-            ClientSearchResults.Add(client);
+            ClientSearchResults.Add(new DebtClientOption
+            {
+                Id = client.Id,
+                DisplayName = client.DisplayName,
+                DebtText = _debtByClient.TryGetValue(client.Id, out var debt) ? MoneyText.Som(debt) : "",
+            });
         OnPropertyChanged(nameof(HasClientSearchResults));
+    }
+
+    /// <summary>2026-10-21 (пакет 6, п. 13 аудита кассы): строка списка клиентов — с суммой долга справа.</summary>
+    public sealed class DebtClientOption : ClientOption
+    {
+        public string DebtText { get; init; } = "";
+    }
+
+    /// <summary>id клиента → долг по сводке сервера (GET clients/debtors/); пусто — сводки нет, список как раньше.</summary>
+    private Dictionary<string, double> _debtByClient = new(StringComparer.OrdinalIgnoreCase);
+
+    private async Task LoadDebtorsAsync(CancellationToken ct)
+    {
+        try
+        {
+            if (App.AppHost?.Services.GetService<ClientDebtsApiService>() is not { } api)
+                return;
+            var debtors = await api.GetDebtorsAsync(0.01, ct).ConfigureAwait(true);
+            if (ct.IsCancellationRequested)
+                return;
+            _debtByClient = debtors.Where(d => d.DebtTotal > 0.005 && !string.IsNullOrWhiteSpace(d.ClientId))
+                .GroupBy(d => d.ClientId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.Sum(d => d.DebtTotal), StringComparer.OrdinalIgnoreCase);
+            ApplyClientFilter();
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Оплата долга: суммы долгов для списка клиентов не получены: {ex.Message}", "WARNING");
+        }
     }
 
     private static ClientOption ToClientOption(JsonElement element)
@@ -694,46 +1075,46 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         return new DebtSaleRow
         {
             Id = TryGetString(element, "id") ?? "",
+            // 2026-10-18: номер чека — сервер отдаёт строкой или числом.
+            Number = TryGetString(element, "number") ?? (TryGetDouble(element, "number") is { } n ? n.ToString("0", CultureInfo.InvariantCulture) : ""),
             DealId = TryGetString(element, "deal_id") ?? "",
             DateDisplay = created == default ? "" : created.LocalDateTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
             CreatedAt = created,
             FirstItemName = TryGetString(element, "first_item_name") ?? "",
             Amount = amount,
-            AmountDisplay = amountText + Tr.T(" сом", " сом", " som", " som", " so'm"),
+            // 2026-10-19, К1: подписи сумм — «14 000,00 сом» (MoneyText); AmountToPayText (поле ввода) — прежнее «0.00».
+            AmountDisplay = MoneyText.Som(amount),
             AmountToPayText = amountText,
-            OriginalAmountDisplay = amountText + Tr.T(" сом", " сом", " som", " som", " so'm"),
+            SaleRemaining = TryGetDouble(element, "debt_remaining") ?? amount,
+            SaleRemainingFromServer = TryGetDouble(element, "debt_remaining") is not null,
+            OriginalAmountDisplay = MoneyText.Som(amount),
         };
     }
 
-    /// <summary>2026-09-15: подтверждено живым захватом DevTools реального успешного платежа
-    /// (200 OK) в веб-CRM — долг в NurCRM хранится как график ПЛАТЕЖЕЙ-ВЗНОСОВ (installments)
-    /// внутри сделки, и оплата всегда идёт по конкретному installment_id, а не "по сделке в
-    /// целом". Возвращает id ВСЕХ ещё не погашенных взносов (paid_on пуст), в порядке графика —
-    /// живой баг ("долг уменьшается, но не закрывается") показал, что у одной сделки таких
-    /// взносов может быть несколько, и для полного закрытия нужно погасить их все по очереди.</summary>
-    private static List<string> FindUnpaidInstallmentIds(JsonElement deal)
+    /// <summary>Непогашенные взносы сделки (paid_on пуст) в порядке графика — 2026-09-15: подтверждено живым захватом DevTools,
+    /// что долг в NurCRM — график взносов внутри сделки и оплата идёт по installment_id (id и paid_on подтверждены). 2026-10-18,
+    /// пятый/шестой круг ревью: с суммой к оплате (amount/sum минус paid_amount; эти поля живым захватом НЕ подтверждены — нет
+    /// суммы → null), чтобы при прерванной оплате записать в смену только взносы с известной суммой.</summary>
+    private static List<(string Id, double? Sum)> FindUnpaidInstallments(JsonElement deal)
     {
-        var result = new List<string>();
-        if (deal.ValueKind != JsonValueKind.Object
-            || !deal.TryGetProperty("installments", out var installments)
+        var result = new List<(string, double?)>();
+        if (deal.ValueKind != JsonValueKind.Object || !deal.TryGetProperty("installments", out var installments)
             || installments.ValueKind != JsonValueKind.Array)
             return result;
-
         foreach (var installment in installments.EnumerateArray())
         {
             if (installment.ValueKind != JsonValueKind.Object)
                 continue;
-
-            if (installment.TryGetProperty("paid_on", out var paidOn)
-                && paidOn.ValueKind == JsonValueKind.String
+            if (installment.TryGetProperty("paid_on", out var paidOn) && paidOn.ValueKind == JsonValueKind.String
                 && !string.IsNullOrWhiteSpace(paidOn.GetString()))
                 continue;
-
-            if (installment.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String
-                && !string.IsNullOrWhiteSpace(idEl.GetString()))
-                result.Add(idEl.GetString()!);
+            if (!installment.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String
+                || string.IsNullOrWhiteSpace(idEl.GetString()))
+                continue;
+            var full = TryGetDouble(installment, "amount") ?? TryGetDouble(installment, "sum");
+            double? sum = full is { } f ? Math.Max(0, Math.Round(f - (TryGetDouble(installment, "paid_amount") ?? 0), 2)) : null;
+            result.Add((idEl.GetString()!, sum));
         }
-
         return result;
     }
 

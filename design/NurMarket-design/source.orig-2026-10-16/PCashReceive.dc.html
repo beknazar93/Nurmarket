@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Кассир — приёмка сканером</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.line{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#FFFFFF}
+.st{width:34px;height:34px;border-radius:17px;font-family:inherit;font-size:18px;display:flex;align-items:center;justify-content:center}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 18px; font-weight: 800">Приёмка</b><span style="font-size: 12px; color: #667085">Поставщик: [поставщик]</span></span>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <button type="button" style="height: 120px; border-radius: 20px; border: 2px dashed #0B2A3C; background: #FFFFFF; font-family: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #0B2A3C"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path><path d="M8 9v6M12 9v6M16 9v6"></path></svg><b style="font-size: 15px">Сканировать товар</b><span style="font-size: 12px; color: #667085">Каждый скан — +1 штука</span></button>
+    <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; padding: 6px 2px 0"><span>Принято</span><span style="color: #667085; font-weight: 500">3 товара · 48 шт</span></div>
+    <div class="line"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 13px">Mars</b><span style="font-size: 12px; color: #667085">было [N] шт</span></span><span style="display: flex; align-items: center; gap: 6px"><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="min-width: 24px; text-align: center">24</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></span></div>
+    <div class="line"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 13px">Кока-Кола (ПЭТ) 2л</b><span style="font-size: 12px; color: #667085">было [N] шт</span></span><span style="display: flex; align-items: center; gap: 6px"><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="min-width: 24px; text-align: center">12</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></span></div>
+    <div class="line"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 13px">Сок Gracio яблочный 1л</b><span style="font-size: 12px; color: #667085">было 2 шт</span></span><span style="display: flex; align-items: center; gap: 6px"><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="min-width: 24px; text-align: center">12</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></span></div>
+    <div class="line" style="background: #FEF3E2"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 13px; color: #93370D">Неизвестный штрихкод</b><span style="font-size: 12px; color: #93370D">[штрихкод] · администратор получит его и заведёт товар</span></span></div>
+  </main>
+
+  <div style="padding: 10px 16px 22px; display: flex; gap: 8px; background: #FFFFFF; border-top: 1px solid #EAECF0">
+    <button type="button" style="height: 54px; padding: 0 16px; border-radius: 16px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Отложить</button>
+    <button type="button" style="flex-grow: 1; height: 54px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 16px; font-weight: 800">Провести · 48 шт</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

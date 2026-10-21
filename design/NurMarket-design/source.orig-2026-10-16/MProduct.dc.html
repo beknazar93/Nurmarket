@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — товар, размеры, ценники</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:36px;height:36px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:10px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:13px;color:#475467}
+.tot b{font-size:16px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px}
+.st{border-radius:10px;background:#F9FAFB;padding:10px;display:flex;flex-direction:column;gap:2px;text-align:center}
+.st span{font-size:11px;color:#667085}
+.st b{font-size:16px}
+.sz{height:52px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.sz b{font-size:15px}
+.sz span{font-size:11px;color:#667085}
+.sz.on{border:2px solid #0B2A3C;background:#FFF7CC}
+.sz.off{opacity:.45}
+.chip{height:34px;padding:0 12px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 36px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px; align-items: start">
+
+  <section class="m" role="dialog" aria-label="Карточка товара">
+    <div class="mh"><div class="mt"><b>Sprite Мохито</b><span>Напитки · код 0078</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <span style="height: 150px; border-radius: 14px; background: #E7F6EC; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; color: #0B2A3C">SM</span>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><div class="st"><span>Цена</span><b>80 сом</b></div><div class="st"><span>Закупка</span><b>40 сом</b></div><div class="st"><span>Остаток</span><b>49 985</b></div></div>
+      <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 8px 0; border-bottom: 1px solid #F2F4F7"><span style="color: #475467">Штрихкод</span><b>5449000345059</b></div>
+      <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 8px 0; border-bottom: 1px solid #F2F4F7"><span style="color: #475467">Наценка</span><b>100 %</b></div>
+    </div>
+    <div class="mf"><button type="button" class="b2">Ценник</button><span style="flex-grow: 1"></span><button type="button" class="b2">Изменить</button><button type="button" class="b1">В чек</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Выбор размера">
+    <div class="mh"><div class="mt"><b>[товар одежды]</b><span>Выберите размер и цвет · [цена]</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <span class="lbl">ЦВЕТ</span>
+      <div style="display: flex; gap: 6px"><button type="button" class="chip on">Чёрный</button><button type="button" class="chip">Синий</button><button type="button" class="chip">Белый</button></div>
+      <span class="lbl">РАЗМЕР · ОСТАТОК</span>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <button type="button" class="sz"><b>44</b><span>[N] шт</span></button>
+        <button type="button" class="sz on"><b>46</b><span>[N] шт</span></button>
+        <button type="button" class="sz"><b>48</b><span>[N] шт</span></button>
+        <button type="button" class="sz off" disabled=""><b>50</b><span>нет</span></button>
+        <button type="button" class="sz"><b>52</b><span>[N] шт</span></button>
+        <button type="button" class="sz off" disabled=""><b>54</b><span>нет</span></button>
+      </div>
+      <span style="font-size: 12px; color: #667085">Скан этикетки размера сразу добавит нужный вариант</span>
+    </div>
+    <div class="mf"><span class="tot">46 · Чёрный</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">В чек</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Печать ценников">
+    <div class="mh"><div class="mt"><b>Печать ценников</b><span>3 товара выбрано</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <span class="lbl">ШАБЛОН</span>
+      <div style="display: flex; gap: 6px"><button type="button" class="chip on">Ценник 58×40</button><button type="button" class="chip">Этикетка 40×30</button><button type="button" class="chip">Крупный A6</button></div>
+      <div style="border-radius: 12px; background: #F2F4F7; padding: 16px; display: flex; justify-content: center">
+        <div style="width: 220px; background: #FFFFFF; border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 8px rgba(16,24,40,.1)"><span style="font-size: 12px; font-weight: 700">Макароны «Макфа» спагетти 450г</span><span style="font-size: 28px; font-weight: 800; color: #0B2A3C">85 сом</span><span style="height: 26px; background: repeating-linear-gradient(90deg,#111827 0 2px,#FFFFFF 2px 4px)"></span><span style="font-size: 10px; color: #667085">4702154000047 · NBS</span></div>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center"><label class="lbl" for="pt1">КОПИЙ КАЖДОГО</label><input id="pt1" class="in" type="text" value="1" style="width: 70px"></div>
+    </div>
+    <div class="mf"><span class="tot">3 ценника · [принтер]</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Печать</button></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

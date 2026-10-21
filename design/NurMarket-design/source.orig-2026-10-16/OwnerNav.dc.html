@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Меню программы владельца</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 308px; height: 900px; display: flex; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <nav aria-label="Группы разделов" style="width: 76px; background: #0B2A3C; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 0">
+    <div style="width: 44px; height: 44px; border-radius: 12px; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; margin-bottom: 14px">N</div>
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="8">
+      <sc-if value="{{g.active}}" hint-placeholder-val="{{false}}">
+        <button type="button" aria-label="{{g.title}}" style="width: 60px; border-radius: 14px; border: 0; background: rgba(255,214,0,0.16); color: #FFD600; padding: 8px 0; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 4px">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{g.icon}}"></path></svg>
+          <span style="font-size: 10px; font-weight: 700">{{g.short}}</span></button>
+      </sc-if>
+      <sc-if value="{{g.idle}}" hint-placeholder-val="{{true}}">
+        <button type="button" aria-label="{{g.title}}" style="width: 60px; border-radius: 14px; border: 0; background: transparent; color: #C7D2DB; padding: 8px 0; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 4px">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{g.icon}}"></path></svg>
+          <span style="font-size: 10px; font-weight: 600">{{g.short}}</span></button>
+      </sc-if>
+    </sc-for>
+    <div style="flex-grow: 1"></div>
+    <div style="width: 40px; height: 40px; border-radius: 20px; background: #FFFFFF; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">NT</div>
+  </nav>
+  <aside style="width: 232px; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E5E7EB; padding: 22px 14px; display: flex; flex-direction: column; gap: 4px">
+    <span style="font-size: 18px; font-weight: 800; padding: 0 10px">NBS</span>
+    <span style="font-size: 12px; color: #667085; padding: 2px 10px 0">Тариф «Стандарт»</span>
+    <span style="font-size: 12px; color: #667085; padding: 0 10px 16px">оплачен до 01.10.2027</span>
+    <span style="font-size: 11px; font-weight: 700; color: #98A2B3; letter-spacing: 0.06em; padding: 0 12px 6px">{{groupTitle}}</span>
+    <sc-for list="{{items}}" as="m" hint-placeholder-count="5">
+      <sc-if value="{{m.active}}" hint-placeholder-val="{{false}}">
+        <a href="#" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border-radius: 10px; background: #FFF7CC; color: #0B2A3C; font-size: 14px; font-weight: 700; text-decoration: none"><span>{{m.name}}</span><span style="width: 4px; height: 18px; border-radius: 2px; background: #FFD600"></span></a>
+      </sc-if>
+      <sc-if value="{{m.idle}}" hint-placeholder-val="{{true}}">
+        <a href="#" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border-radius: 10px; color: #475467; font-size: 14px; font-weight: 600; text-decoration: none"><span>{{m.name}}</span><span style="font-size: 12px; font-weight: 700; color: #B54708">{{m.badge}}</span></a>
+      </sc-if>
+    </sc-for>
+    <div style="flex-grow: 1"></div>
+    <label style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 10px; background: #F2F4F7; color: #667085; font-size: 13px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+      <input type="text" placeholder="Найти раздел" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 13px; width: 120px"><span style="margin-left: auto; font-size: 11px; border: 1px solid #D0D5DD; border-radius: 6px; padding: 1px 5px">Ctrl+K</span></label>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"group":{"editor":"enum","options":["home","goods","sales","reports","site","clients","manage","help"],"default":"home"},"active":{"editor":"text","default":"Сводка"},"$preview":{"width":308,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const all = {
+      home: ['Главная', 'Главн.', 'M3 10.5 12 3l9 7.5V21H3z', [['Сводка', ''], ['Нур Советник', '']]],
+      goods: ['Товары', 'Товары', 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8', [['Склад', ''], ['Калькуляция', ''], ['Пополнение и сроки', '2'], ['Возвраты поставщикам', ''], ['Филиалы', '']]],
+      sales: ['Продажи', 'Продажи', 'M3 4h2l2 12h11l2-8H7M9 20h.01M17 20h.01', [['Продажи', ''], ['Долги клиентов', '17'], ['Прокат', '3']]],
+      reports: ['Отчёты', 'Отчёты', 'M4 20V10M10 20V4M16 20v-7M22 20H2', [['Финансы', ''], ['Аналитика', ''], ['ABC-анализ', ''], ['Прибыль и деньги', ''], ['Продажи в убыток', ''], ['Размеры и цвета', '']]],
+      site: ['Сайт', 'Сайт', 'M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18', [['Заказы с сайта', '1'], ['Редактор сайта', ''], ['Настройки сайта', ''], ['Магазин в приложении', '']]],
+      clients: ['Клиенты', 'Клиенты', 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21a7 7 0 0 1 14 0M17 11a3 3 0 1 0 0-6M22 21a6 6 0 0 0-4-5.6', [['Клиенты', ''], ['Телеграм-бот', ''], ['WhatsApp', ''], ['Воронка', '']]],
+      manage: ['Управление', 'Управл.', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12l2-1-1-3-2 .5-1.5-1.5.5-2-3-1-1 2h-2l-1-2-3 1 .5 2L6 8.5 4 8l-1 3 2 1v2l-2 1 1 3 2-.5L7.5 18 7 20l3 1 1-2h2l1 2 3-1-.5-2 1.5-1.5 2 .5 1-3-2-1z', [['Зарплата', ''], ['Функции и абонплата', ''], ['Маркетплейс', ''], ['Настройки', '']]],
+      help: ['Помощь', 'Помощь', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01', [['База знаний', ''], ['Тех. поддержка', ''], ['Журнал ошибок', '']]]
+    };
+    const group = this.props.group ?? 'home';
+    const active = this.props.active ?? 'Сводка';
+    const groups = Object.entries(all).map(([key, g]) => ({ title: g[0], short: g[1], icon: g[2], active: key === group, idle: key !== group }));
+    const cur = all[group] ?? all.home;
+    const items = cur[3].map(([name, badge]) => ({ name, badge, active: name === active, idle: name !== active }));
+    return { groups, items, groupTitle: cur[0].toUpperCase() };
+  }
+}
+</script>
+</body>
+</html>

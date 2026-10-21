@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Телеграм-бот</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="clients" active="Телеграм-бот" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Телеграм-бот @kssirBot</span><span style="font-size: 13px; color: #667085">Работает на сервере NurCRM круглые сутки · отвечает на языке покупателя (русский / кыргызский)</span></span>
+      <!-- 2026-10-16: настройки бота — только здесь; в «Настройках» — ссылка сюда (ревью B: было два места) -->
+      <span style="font-size: 12px; color: #667085; text-align: right; line-height: 16px">Приветствие, ИИ, сводки<br>владельцу — только здесь</span>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054; white-space: nowrap">Настройки бота</button>
+    </div>
+    <div style="display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; font-weight: 600; color: #0E7A3A">
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 4px; background: #16A34A"></span>Бот на сервере</span>
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 4px; background: #16A34A"></span>ИИ отвечает · проверено 11.10</span>
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 4px; background: #16A34A"></span>Связь с Telegram</span>
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 4px; background: #16A34A"></span>Сводки приходят владельцу</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #667085">Сегодня · до 14:35</span><span style="font-size: 26px; font-weight: 800; color: #0B2A3C">3</span><span style="font-size: 12px; color: #667085">сообщения · 1 человек · заказ №10 (Умар)</span></div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #667085">Неделя · 06–12.10</span><span style="font-size: 26px; font-weight: 800; color: #0B2A3C">16</span><span style="font-size: 12px; color: #667085">сообщений · 3 человека · 2 заказа</span></div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #667085">30 дней · 13.09–12.10</span><span style="font-size: 26px; font-weight: 800; color: #0B2A3C">80</span><span style="font-size: 12px; color: #667085">сообщений · 8 человек · 9 заказов</span></div>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: flex; gap: 14px">
+      <section style="width: 380px; flex-shrink: 0; background: #FFFFFF; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 15px; font-weight: 800; padding-bottom: 4px">Покупатели · 30 дней</span>
+        <sc-for list="{{people}}" as="p" hint-placeholder-count="8">
+          <div style="display: flex; justify-content: space-between; padding: 9px 10px; border-radius: 10px; background: {{p.bg}}"><span style="font-size: 13px; font-weight: 700">{{p.name}}</span><span style="font-size: 12px; color: #667085">{{p.meta}}</span></div>
+        </sc-for>
+      </section>
+      <section style="flex-grow: 1; min-width: 0; background: #FFFFFF; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden">
+        <span style="font-size: 15px; font-weight: 800">Последние обращения</span>
+        <sc-for list="{{msgs}}" as="m" hint-placeholder-count="4">
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: #F9FAFB">
+            <span style="display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #667085"><span>{{m.at}} · <span style="font-weight: 700; color: #111827">{{m.who}}</span> · {{m.lang}}</span><span style="font-weight: 700; color: {{m.tagColor}}; white-space: nowrap">{{m.tag}}</span></span>
+            <span style="align-self: flex-start; max-width: 80%; padding: 8px 12px; border-radius: 12px 12px 12px 4px; background: #FFFFFF; border: 1px solid #E5E7EB; font-size: 13px">{{m.text}}</span>
+            <span style="align-self: flex-end; max-width: 80%; padding: 8px 12px; border-radius: 12px 12px 4px 12px; background: #0B2A3C; color: #FFFFFF; font-size: 13px; line-height: 18px">{{m.reply}}</span>
+          </div>
+        </sc-for>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: единые данные NBS — сегодня в 13:52 Умар оформил через бота заказ №10 (530 сом, самовывоз, оплата при получении).
+    // 30 дней: 5+20+11+15+9+7+11+2 = 80 сообщений, заказов 1+2+3+1+2 = 9, 8 человек.
+    const people = [
+      ['Умар', '11 сообщ. · 2 заказа · сегодня'], ['Санжар Санжар', '5 · 09.10'], ['Мирлан', '20 · 1 заказ · 08.10'],
+      ['Без имени', '15 · 3 заказа · 03.10'], ['Хузайфа', '9 · 01.10'], ['Alma', '7 · 1 заказ · 01.10'], ['Тёма', '11 · 2 заказа · 01.10'], ['Syimyk', '2 · 01.10']
+    ].map(([name, meta], i) => ({ name, meta, bg: i % 2 ? '#FFFFFF' : '#F9FAFB' }));
+    // Ответы бота заполнены: владелец проверяет, что ответил ИИ (ревью B).
+    const msgs = [
+      { at: 'сегодня 13:52', who: 'Умар', lang: 'кыргызча', tag: '→ Заказ №10 · Новый', tagColor: '#0B2A3C',
+        text: 'Макфа макарон 2, кока-кола 2л 1, алма шире 1, нан 2. Өзүм алып кетем',
+        reply: 'Буйрутма №10 кабыл алынды — 530 сом: макарон ×2 170, Кока-Кола 2л ×1 170, Gracio алма шире ×1 120, нан ×2 70. Токтогул к. 112ден алып кетесиз, төлөм — алганда. Даяр болгондо жазабыз.' },
+      { at: '09.10 15:03', who: 'Санжар Санжар', lang: 'русский', tag: 'нет товара → замена', tagColor: '#B54708',
+        text: 'Пепси 2л',
+        reply: 'Пепси 2 л сейчас нет. Есть Кока-Кола (ПЭТ) 2 л — 170 сом, осталась 1 шт. Оформить?' },
+      { at: '09.10 15:04', who: 'Санжар Санжар', lang: 'русский', tag: 'ждём имя', tagColor: '#475467',
+        text: 'Оформи',
+        reply: 'Хорошо! Напишите, как вас зовут и во сколько заберёте — соберём заказ на Токтогула 112 (10:00–17:00).' },
+      { at: '08.10 00:13', who: 'Мирлан', lang: 'кыргызча', tag: 'нет в продаже', tagColor: '#B54708',
+        text: 'Бир килограмм картошка канча сом?',
+        reply: 'Кечириңиз, картошка азыр сатыкта жок. Нан 35 сом, сүт 1л 95 сом бар. Дүкөн эртең 10:00дө ачылат.' }
+    ];
+    return { people, msgs };
+  }
+}
+</script>
+</body>
+</html>

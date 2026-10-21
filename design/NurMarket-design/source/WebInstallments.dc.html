@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб — рассрочка</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.kpi b span{font-size:inherit;font-weight:inherit;color:inherit}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Рассрочка" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Рассрочка</b><span style="font-size: 13px; color: #667085">Договоры клиентов, платежи и просрочки</span></span>
+      <button type="button" class="b2">Настройки рассрочки</button>
+      <button type="button" class="b1">+ Новая рассрочка</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px">
+      <div class="kpi"><span>Клиенты должны по рассрочке</span><b style="white-space: nowrap">{{kOwe}}</b></div>
+      <div class="kpi"><span>Ждём до конца октября</span><b style="white-space: nowrap">{{kMonth}}</b></div>
+      <div class="kpi"><span>Просрочено · 1 клиент</span><b style="color: #B42318; white-space: nowrap">{{kLate}}</b></div>
+      <div class="kpi"><span>Доход от наценки</span><b style="color: #0E7A3A; white-space: nowrap">{{kFee}}</b></div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px"><button type="button" class="chip on">Активные · 5</button><button type="button" class="chip">Платёж на этой неделе · 1</button><button type="button" class="chip">Просрочены · 1</button><button type="button" class="chip">Погашены</button><button type="button" class="chip">Расторгнуты</button></div>
+    <section style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden">
+      <div style="overflow-x: auto"><div style="min-width: 820px">
+        <div style="display: grid; grid-template-columns: 1.4fr 1.4fr 1fr 1.6fr 1.1fr 1fr; gap: 8px; padding: 12px 14px; font-size: 12px; font-weight: 700; color: #667085; border-bottom: 1px solid #EAECF0"><span>Клиент</span><span>Товар</span><span>Сумма</span><span>Оплачено</span><span>Следующий платёж</span><span>Статус</span></div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+          <div style="display: grid; grid-template-columns: 1.4fr 1.4fr 1fr 1.6fr 1.1fr 1fr; gap: 8px; padding: 12px 14px; font-size: 13px; align-items: center; border-bottom: 1px solid #F2F4F7">
+            <b style="font-weight: 600">{{r.client}}</b><span>{{r.item}}</span><b style="color: #0B2A3C; white-space: nowrap">{{r.sum}}</b>
+            <span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #475467"><b style="color: #0B2A3C; white-space: nowrap">{{r.paid}}</b> · {{r.parts}}</span><span style="height: 6px; border-radius: 3px; background: #E4E7EC; overflow: hidden"><span style="display: block; height: 6px; width: {{r.w}}; background: {{r.bar}}"></span></span></span>
+            <span>{{r.next}}</span>
+            <span class="tag" style="justify-self: start; background: {{r.sbg}}; color: {{r.sfg}}">{{r.st}}</span>
+          </div>
+        </sc-for>
+      </div></div>
+    </section>
+    <!-- 2026-10-16: пример посчитан как в телефоне (PInstNew): первый взнос отдельно, последний взнос — остаток. -->
+    <span style="font-size: 12.5px; color: #475467; line-height: 18px">Как считается (Бектур Жумабаев): телефон 50&nbsp;000&nbsp;сом − первый взнос 10&nbsp;000 (20&nbsp;%) = 40&nbsp;000 + наценка 6&nbsp;% за 6 мес 2&nbsp;400 = 42&nbsp;400 → 6 взносов: 7&nbsp;070 × 5 + последний 7&nbsp;050. Всего клиент заплатит 52&nbsp;400&nbsp;сом.</span>
+    <span style="font-size: 12px; color: #667085">Рассрочку можно строить на долгах NurCRM (сделки со взносами) — отдельная сущность на сервере не нужна. Рассрочка ≠ долг по чекам: это разные разделы.</span>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ok = { st: 'платит', sbg: '#E7F6EC', sfg: '#0E7A3A', bar: '#16A34A' };
+    const late = { st: 'просрочка', sbg: '#FDE2E1', sfg: '#B42318', bar: '#C0362C' };
+    const soon = { st: 'платёж скоро', sbg: '#FEF3E2', sfg: '#B54708', bar: '#F79009' };
+    const done = { st: 'погашена', sbg: '#F2F4F7', sfg: '#475467', bar: '#98A2B3' };
+    // 2026-10-16: «Активные» — без погашенных. Взносы посчитаны: (цена − первый взнос) × (1 + наценка) / срок, последний — остаток.
+    const sp = (v) => String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' сом';
+    const r = (client, item, sum, paid, parts, w, next, s) => Object.assign({ client, item, sum: sp(sum), paid: sp(paid), parts, w, next }, s);
+    const rows = [
+      r('Бектур Жумабаев', 'Телефон Samsung Galaxy A35', 52400, 24140, 'первый взнос + 2 из 6', '46%', '7 070 сом · 10.10, просрочено 2 дня', late),
+      r('Гульнара Осмонова', 'Холодильник Atlant', 32160, 17640, 'первый взнос + 4 из 9', '55%', '2 910 сом · завтра, 13.10', soon),
+      r('Эрмек Алиев', 'Стиральная машина LG', 24000, 12000, 'первый взнос + 1 из 3', '50%', '6 000 сом · 05.11', ok),
+      r('Асель Токтосунова', 'Ноутбук Lenovo', 65760, 56800, 'первый взнос + 10 из 12', '86%', '4 480 сом · 20.10', ok),
+      r('Тимур Кадыров', 'Телевизор Artel', 36680, 21850, 'первый взнос + 3 из 6', '60%', '4 950 сом · 25.10', ok)
+    ];
+    // Осталось: 28 260 + 14 520 + 12 000 + 8 960 + 14 830 = 78 570. До конца октября: 2 910 + 4 480 + 4 950 = 12 340.
+    // Наценка: 2 400 + 2 160 + 0 + 5 760 + 1 680 = 12 000.
+    return { rows, kOwe: sp(78570), kMonth: sp(12340), kLate: sp(7070), kFee: sp(12000) };
+  }
+}
+</script>
+</body>
+</html>

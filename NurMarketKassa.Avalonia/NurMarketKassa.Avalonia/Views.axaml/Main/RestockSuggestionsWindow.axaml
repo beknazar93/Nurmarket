@@ -45,6 +45,16 @@
             </Setter>
         </Style>
 
+        <!-- 2026-10-19, О9: шапка таблицы — цветом панели во всех темах (у Fluent в тёмной теме — чёрная полоса), как в «Продажах». -->
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <!-- 2026-10-21 (пакет 1): длинный заголовок (ky на 1024) — на 2 строки, а не «Күнүнө сатыла». -->
+        <Style Selector="DataGridColumnHeader TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+        </Style>
         <Style Selector="DataGrid.ModernGrid">
             <Setter Property="Background" Value="#00FFFFFF" />
             <Setter Property="BorderThickness" Value="0" />
@@ -75,40 +85,98 @@
         <Style Selector="Border.StatusBadge.soon TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
         </Style>
+        <!-- 2026-10-19, этап О9 (правило 4): запаса хватает — нейтрально (было жёлтым), цвет только у «скоро» и «срочно». -->
         <Style Selector="Border.StatusBadge.ok">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         </Style>
         <Style Selector="Border.StatusBadge.ok TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
         </Style>
 
         <Style Selector="TabControl">
             <Setter Property="Background" Value="Transparent"/>
         </Style>
+        <!-- 2026-10-19, О9 (аудит, проблема 9): вкладки — как в «Складе» и «Отчётах» (был 4-й вид: крупный тонкий текст Fluent). -->
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="MinHeight" Value="40"/>
+        </Style>
+        <Style Selector="TabItem:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="TabItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
 
         <!-- 2026-09-08: раньше неактивная кнопка была совсем без фона/рамки — выглядела как
              обычный текст, а не кнопка (владелец: "не понятно клиентам есть ли кнопка или нет").
              Теперь у неё видимая рамка и подсветка при наведении, как у обычных кнопок в кассе. -->
+        <!-- 2026-10-19, этап О9 (аудит, проблема 9): «Неделя / Месяц» — сегменты в рамке sec-segment, выбранный тёмно-синий
+             (был бледно-жёлтым с рыжей рамкой), как период в «Продажах». Класс Active ставит код, как раньше. -->
         <Style Selector="Button.PeriodToggle">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Padding" Value="12,4"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        <Style Selector="Button.PeriodToggle:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        <Style Selector="Button.PeriodToggle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="Button.PeriodToggle.Active">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style Selector="Button.PeriodToggle.Active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+        </Style>
+
+        <!-- 2026-10-21: кнопка в строке таблицы — «Заказать N» и «Списать» (пакет 1, п. 112, 113): обводкой,
+             «уже в заказе» — тёмно-синим, как выбранное во всей программе. -->
+        <Style Selector="Button.RowAction">
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="Padding" Value="10,3"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.RowAction:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.RowAction.ordered /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+        </Style>
+        <Style Selector="TextBlock.CellMain">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="TextBlock.CellSub">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
     </Window.Styles>
 
@@ -116,35 +184,73 @@
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
             <TextBlock Grid.Column="0" x:Name="TitleText" Text="{DynamicResource csh.menu.restock}"
                        FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button x:Name="BackfillButton" Content="{DynamicResource restock.backfillButton}" Classes="SecondaryActionButton"
-                        Margin="0,0,10,0" Click="Backfill_Click"/>
-                <Button x:Name="RefreshButton" Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
-                        Margin="0,0,10,0" Click="Refresh_Click"/>
-                <Button IsCancel="True" x:Name="CloseButton" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
+            <!-- 2026-10-19, этап О9 (аудит, проблема 9): все действия — обводкой (sec-outline; «Подтянуть историю» была серой,
+                 «Обновить» — жёлтой без главного действия на экране, как «Обновить» в «Зарплате»). -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button x:Name="BackfillButton" Content="{DynamicResource restock.backfillButton}" Classes="sec-outline"
+                        Click="Backfill_Click"/>
+                <Button x:Name="RefreshButton" Content="{DynamicResource common.refresh}" Classes="sec-outline"
+                        Click="Refresh_Click"/>
+                <Button IsCancel="True" x:Name="CloseButton" Content="{DynamicResource common.close}" Classes="sec-outline" Click="Close_Click"/>
             </StackPanel>
         </Grid>
 
         <TabControl Grid.Row="1" x:Name="Tabs">
             <TabItem Header="{DynamicResource restock.tabReorder}">
-                <Grid RowDefinitions="Auto,Auto,*">
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
-                        <TextBlock Text="{DynamicResource restock.lookbackLabel}" FontSize="12"
-                                   Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <Button x:Name="LookbackWeekButton" Content="{DynamicResource common.week}"
-                                Classes="PeriodToggle" Tag="7" Click="Lookback_Click"/>
-                        <Button x:Name="LookbackMonthButton" Content="{DynamicResource common.month}"
-                                Classes="PeriodToggle Active" Tag="30" Click="Lookback_Click"/>
-                    </StackPanel>
+                <!-- 2026-10-21 (пакет 1, п. 112): «сколько заказать» на выбранный запас, поиск по товару и поставщику,
+                     поставщик под названием, единицы у чисел; «Заказать N» собирает заказ — внизу его можно скопировать текстом. -->
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                        <WrapPanel Grid.Column="0" Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,18,6">
+                                <TextBlock Text="{DynamicResource restock.lookbackLabel}" FontSize="12.5"
+                                           Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <Border Classes="sec-segment">
+                                    <StackPanel Orientation="Horizontal" Spacing="2">
+                                        <Button x:Name="LookbackWeekButton" Content="{DynamicResource common.week}"
+                                                Classes="PeriodToggle" Tag="7" Click="Lookback_Click"/>
+                                        <!-- 2026-10-20, аудит программы владельца: «Месяц» здесь = 30 дней (а не с 1-го числа) — подпись «30 дней» (в коде, 5 языков). -->
+                                        <Button x:Name="LookbackMonthButton"
+                                                Classes="PeriodToggle Active" Tag="30" Click="Lookback_Click"/>
+                                    </StackPanel>
+                                </Border>
+                                <!-- 2026-10-20, проверка фильтров: за какие дни считается средняя продажа («21.09–20.10»). -->
+                                <TextBlock x:Name="LookbackPeriodText" FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"
+                                           VerticalAlignment="Center" Margin="4,0,0,0"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,18,6">
+                                <TextBlock x:Name="CoverLabel" FontSize="12.5"
+                                           Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <Border Classes="sec-segment">
+                                    <StackPanel Orientation="Horizontal" Spacing="2">
+                                        <Button x:Name="Cover7Button" Classes="PeriodToggle" Tag="7" Click="Cover_Click"/>
+                                        <Button x:Name="Cover14Button" Classes="PeriodToggle Active" Tag="14" Click="Cover_Click"/>
+                                        <Button x:Name="Cover30Button" Classes="PeriodToggle" Tag="30" Click="Cover_Click"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </WrapPanel>
+                        <TextBox Grid.Column="1" x:Name="ReorderSearchBox" Width="260" VerticalAlignment="Top" Margin="12,0,0,6"
+                                 TextChanged="ReorderSearch_TextChanged"/>
+                    </Grid>
                     <TextBlock Grid.Row="1" x:Name="ReorderSubtitle" Text="{DynamicResource restock.reorderSubtitle}"
                                Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,8,0,12" TextWrapping="Wrap"/>
                     <Grid Grid.Row="2">
-                        <DataGrid x:Name="ReorderGrid" Classes="ModernGrid" AutoGenerateColumns="False" IsReadOnly="True">
+                        <DataGrid x:Name="ReorderGrid" Classes="ModernGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="52">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" Binding="{ReflectionBinding ProductName}"/>
+                                <DataGridTemplateColumn Header="{DynamicResource common.product}" Width="3*" MinWidth="200">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Margin="12,0,8,0" Spacing="1">
+                                                <TextBlock Classes="CellMain" Text="{ReflectionBinding ProductName}" ToolTip.Tip="{ReflectionBinding ProductName}"/>
+                                                <TextBlock Classes="CellSub" Text="{ReflectionBinding SupplierText}" IsVisible="{ReflectionBinding HasSupplier}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="{DynamicResource csh.catalog.colStock}" Width="1*" Binding="{ReflectionBinding StockText}"/>
-                                <DataGridTextColumn Header="{DynamicResource restock.colDailyRate}" Width="1*" Binding="{ReflectionBinding DailyRateText}"/>
-                                <DataGridTemplateColumn Header="{DynamicResource restock.colDaysLeft}" Width="1.4*">
+                                <DataGridTextColumn Header="{DynamicResource restock.colDailyRate}" Width="1.1*" Binding="{ReflectionBinding DailyRateText}"/>
+                                <DataGridTemplateColumn Header="{DynamicResource restock.colDaysLeft}" Width="1.1*">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Border Classes="StatusBadge" Classes.urgent="{ReflectionBinding IsUrgent}"
@@ -154,12 +260,36 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Width="1.5*" MinWidth="150">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Panel VerticalAlignment="Center">
+                                                <Button x:Name="OrderRowButton" Classes="RowAction" Classes.ordered="{ReflectionBinding InOrder}"
+                                                        Content="{ReflectionBinding OrderButtonText}" Tag="{Binding}"
+                                                        IsVisible="{ReflectionBinding HasRecommendation}" Click="OrderRow_Click"/>
+                                                <TextBlock Text="{ReflectionBinding EnoughText}" IsVisible="{ReflectionBinding NoRecommendation}"
+                                                           FontSize="12.5" Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"/>
+                                            </Panel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBlock x:Name="ReorderEmptyText" IsVisible="False" Text="{DynamicResource restock.reorderEmpty}"
                                    Foreground="{DynamicResource BrushTextSoft}" FontSize="14" TextWrapping="Wrap" MaxWidth="480"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Grid>
+                    <!-- 2026-10-21 (пакет 1, п. 112): собранный заказ — сколько позиций и у скольких поставщиков; текст заказа
+                         копируется (вставить в WhatsApp/Telegram поставщику). -->
+                    <Border Grid.Row="3" x:Name="OrderBar" IsVisible="False" Margin="0,10,0,0" Padding="14,10"
+                            Background="{DynamicResource BrushPanelSoft}" CornerRadius="12">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBlock x:Name="OrderSummaryText" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"
+                                       VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            <Button Grid.Column="1" x:Name="ClearOrderButton" Classes="sec-outline" Margin="12,0,8,0" Click="ClearOrder_Click"/>
+                            <Button Grid.Column="2" x:Name="CopyOrderButton" Classes="PrimaryActionButton" Click="CopyOrder_Click"/>
+                        </Grid>
+                    </Border>
                 </Grid>
             </TabItem>
 
@@ -167,20 +297,55 @@
                 <Grid RowDefinitions="Auto,*">
                     <TextBlock Grid.Row="0" Text="{DynamicResource restock.expirySubtitle}"
                                Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,8,0,12" TextWrapping="Wrap"/>
+                    <!-- 2026-10-21 (пакет 1, п. 113): дата — догадка по категории, поэтому «≈ дата» и «обычно N дн.» под ней,
+                         категория переносится (на 1024 обрезалась), у того, что скоро истечёт, — «Списать» (вкладка «Списание» склада). -->
                     <Grid Grid.Row="1">
-                        <DataGrid x:Name="ExpiryGrid" Classes="ModernGrid" AutoGenerateColumns="False" IsReadOnly="True">
+                        <DataGrid x:Name="ExpiryGrid" Classes="ModernGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="52">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="{DynamicResource common.product}" Width="2.5*" Binding="{ReflectionBinding ProductName}"/>
-                                <DataGridTextColumn Header="{DynamicResource product.categoryLabel}" Width="1.5*" Binding="{ReflectionBinding CategoryLabel}"/>
+                                <DataGridTemplateColumn Header="{DynamicResource common.product}" Width="2.5*" MinWidth="180">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Classes="CellMain" Text="{ReflectionBinding ProductName}" ToolTip.Tip="{ReflectionBinding ProductName}"
+                                                       VerticalAlignment="Center" Margin="12,0,8,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="{DynamicResource product.categoryLabel}" Width="1.5*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding CategoryLabel}" FontSize="13" Foreground="{DynamicResource BrushText}"
+                                                       TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center" Margin="12,0,8,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="{DynamicResource restock.colIntakeDate}" Width="1*" Binding="{ReflectionBinding IntakeDateText}"/>
-                                <DataGridTextColumn Header="{DynamicResource restock.colExpiryDate}" Width="1*" Binding="{ReflectionBinding ExpiryDateText}"/>
-                                <DataGridTemplateColumn Header="{DynamicResource restock.colDaysLeft}" Width="1.4*">
+                                <DataGridTemplateColumn Header="{DynamicResource restock.colExpiryDate}" Width="1.2*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Margin="12,0,8,0" Spacing="1">
+                                                <TextBlock Text="{ReflectionBinding ApproxDateText}" FontSize="13.5" Foreground="{DynamicResource BrushText}"/>
+                                                <TextBlock Classes="CellSub" Text="{ReflectionBinding ShelfLifeText}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="{DynamicResource restock.colDaysLeft}" Width="1.3*">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Border Classes="StatusBadge" Classes.urgent="{ReflectionBinding IsUrgent}"
                                                     Classes.soon="{ReflectionBinding IsSoon}" Classes.ok="{ReflectionBinding IsOk}">
                                                 <TextBlock Text="{ReflectionBinding DaysLeftText}"/>
                                             </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Width="Auto" MinWidth="110">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button x:Name="WriteOffRowButton" Classes="RowAction" Margin="0,0,12,0"
+                                                    Content="{ReflectionBinding WriteOffText}" Tag="{Binding}"
+                                                    IsVisible="{ReflectionBinding CanWriteOff}" Click="WriteOffRow_Click"/>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>

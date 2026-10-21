@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб в телефоне — чек и оплата</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:#FFFFFF;border-top:1px solid #EAECF0;padding:6px 4px 2px;flex-shrink:0}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;min-height:48px;font-size:11.5px;font-weight:600;color:#475467;text-decoration:none;padding:4px 0}
+.nav a.on{color:#0B2A3C;font-weight:800}
+.nav a.on span{background:#FFD600}
+.nav span{width:44px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#FFFFFF}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+.hd{height:60px;flex-shrink:0;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #EAECF0;display:flex;align-items:center;gap:10px;padding:0 16px}
+.hd b{font-size:18px;font-weight:800}
+.hb{width:44px;height:44px;border-radius:12px;border:0;background:#F2F4F7;color:#0B2A3C;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chip{height:44px;padding:0 14px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:14px;font-weight:600;color:#344054;white-space:nowrap;flex-shrink:0}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:3px;flex-shrink:0}
+.sg button{flex:1 1 0;height:44px;border-radius:9px;border:0;background:transparent;color:#475467;font-family:inherit;font-size:14px;font-weight:600;white-space:nowrap;padding:0 4px}
+.sg button.on{background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.srch{height:48px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:12px;border:1px solid #D0D5DD;background:#FFFFFF;flex-shrink:0}
+.srch input{border:0;outline:0;background:transparent;font-family:inherit;font-size:16px;width:100%;min-width:0;color:#111827}
+.ln{display:flex;align-items:center;gap:8px;min-height:60px;border-bottom:1px solid #F2F4F7}
+.st{width:44px;height:44px;border-radius:22px;font-family:inherit;font-size:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ac{flex:1 1 0;height:48px;border-radius:12px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#0B2A3C;white-space:nowrap;padding:0 4px}
+.q{flex:1 1 0;height:44px;border-radius:12px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:14px;font-weight:700;color:#344054;white-space:nowrap}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; position: relative; overflow: hidden">
+  <header class="hd"><b>Веб-касса</b></header>
+  <div style="padding: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px"><span style="height: 150px; border-radius: 16px; background: #FFFFFF"></span><span style="height: 150px; border-radius: 16px; background: #FFFFFF"></span></div>
+  <div style="position: absolute; inset: 0; background: rgba(11,42,60,.45)"></div>
+
+  <section role="dialog" aria-label="Чек и оплата" style="position: absolute; left: 0; right: 0; bottom: 0; height: 760px; background: #FFFFFF; border-radius: 24px 24px 0 0; display: flex; flex-direction: column">
+    <span style="align-self: center; width: 40px; height: 4px; border-radius: 2px; background: #D0D5DD; margin-top: 8px"></span>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 6px 16px"><b style="font-size: 18px; flex-grow: 1">Чек · 2 позиции</b><button type="button" aria-label="Свернуть" class="hb">✕</button></div>
+    <div style="padding: 0 16px; display: flex; flex-direction: column">
+      <div class="ln"><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Макароны «Макфа» спагетти 450г</span><span style="font-size: 13px; color: #475467">85 × 2 = <b style="color: #0B2A3C">170 сом</b></span></span><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="min-width: 20px; text-align: center">2</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></div>
+      <div class="ln"><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 600">Mars 50г</span><span style="font-size: 13px; color: #475467">39 × 1 = <b style="color: #0B2A3C">39 сом</b></span></span><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="min-width: 20px; text-align: center">1</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></div>
+    </div>
+    <div style="padding: 10px 16px 0; display: flex; gap: 6px"><button type="button" class="ac">% Скидка</button><button type="button" class="ac">Клиент</button><button type="button" class="ac">Отложить</button><button type="button" class="ac" style="color: #B42318">Удалить</button></div>
+    <div style="padding: 12px 16px 0; display: flex; flex-direction: column; gap: 8px">
+      <div class="sg"><button type="button" class="on">Наличные</button><button type="button">Карта</button><button type="button">QR</button><button type="button">В долг</button></div>
+      <span style="font-size: 12.5px; color: #475467">Карта — подтвердите на терминале вручную · «В долг» — только с выбранным клиентом · «Разделить оплату» — в «Ещё»</span>
+      <label for="got" style="font-size: 13px; font-weight: 700; color: #475467">Получено</label>
+      <input id="got" type="text" value="500" inputmode="numeric" style="height: 52px; box-sizing: border-box; border-radius: 14px; border: 2px solid #0B2A3C; padding: 0 14px; font-family: inherit; font-size: 22px; font-weight: 800">
+      <div style="display: flex; gap: 6px"><button type="button" class="q">Без сдачи</button><button type="button" class="q">250</button><button type="button" class="q">500</button><button type="button" class="q">1000</button></div>
+      <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 15px; font-weight: 700">Сдача</span><b style="font-size: 24px; color: #0E7A3A">291 сом</b></div>
+    </div>
+    <span style="flex-grow: 1"></span>
+    <div style="padding: 10px 16px 6px; border-top: 1px solid #EAECF0; display: flex; flex-direction: column; gap: 6px">
+      <span style="font-size: 12.5px; color: #475467">Без связи кнопка станет серой «Нет связи — продажа остановлена»: чек останется, продать дважды нельзя.</span>
+      <button type="button" style="height: 56px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 17px; font-weight: 800; white-space: nowrap">Оплатить 209&nbsp;сом</button>
+    </div>
+    <div class="gest" aria-hidden="true"><i></i></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

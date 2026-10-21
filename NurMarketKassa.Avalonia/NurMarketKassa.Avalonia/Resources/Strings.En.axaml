@@ -16,6 +16,7 @@
   <x:String x:Key="csh.menu.cashOperation">Cash in / cash out</x:String>
   <x:String x:Key="csh.menu.finance">Finance</x:String>
   <x:String x:Key="csh.menu.sales">Sales</x:String>
+  <x:String x:Key="csh.menu.salesFinance">Sales &amp; finance</x:String>
   <x:String x:Key="csh.menu.abc">ABC analysis</x:String>
   <x:String x:Key="csh.menu.clients">Clients</x:String>
   <x:String x:Key="csh.menu.payDebt">Pay debt</x:String>
@@ -24,6 +25,7 @@
   <x:String x:Key="csh.menu.marketplace">Marketplace</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
   <x:String x:Key="csh.menu.errorLogs">Logs and errors</x:String>
+  <x:String x:Key="csh.menu.cartRemovals">Removed from receipt</x:String>
   <x:String x:Key="csh.menu.remoteSupport">NurCRM support</x:String>
   <x:String x:Key="csh.menu.knowledgeBase">NurMarket knowledge base</x:String>
   <x:String x:Key="csh.menu.restock">Restock and expiry</x:String>
@@ -41,9 +43,9 @@
   <x:String x:Key="restock.reorderEmpty">Not enough sales history for a forecast yet. Click "Pull history from server" or wait a few days — the till collects data automatically after every sale.</x:String>
   <x:String x:Key="restock.backfillButton">Pull history from server</x:String>
   <x:String x:Key="restock.tabExpiry">Expiry dates</x:String>
-  <x:String x:Key="restock.expirySubtitle">Expiry date is estimated from the product category (no real web search without an AI key, see Settings). Intake date is when the product first had stock on this till.</x:String>
+  <x:String x:Key="restock.expirySubtitle">This date is approximate: the app only knows when the product arrived at this till and the usual shelf life of its category (dairy ≈ 7 days, bread ≈ 3 days). Check the real date on the package before writing it off or taking it off sale.</x:String>
   <x:String x:Key="restock.colIntakeDate">Received</x:String>
-  <x:String x:Key="restock.colExpiryDate">Expires on</x:String>
+  <x:String x:Key="restock.colExpiryDate">Approx. until</x:String>
   <x:String x:Key="restock.expiryEmpty">No products with a known intake date yet — it is recorded automatically as soon as a product has stock.</x:String>
   <x:String x:Key="posSettings.operations.loyaltyTitle">Loyalty program</x:String>
   <x:String x:Key="posSettings.operations.loyaltySubtitle">The balance is stored locally on this till — NurCRM doesn't have a points field for clients yet.</x:String>
@@ -122,7 +124,7 @@
   <x:String x:Key="mainWindow.windowTitle">POS — Nur Market</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Back</x:String>
   <x:String x:Key="printSettings.findButton">Find</x:String>
-  <x:String x:Key="printSettings.lptWatermark">LPT port or printer path</x:String>
+  <x:String x:Key="printSettings.lptWatermark">Port or printer path (if not found)</x:String>
   <x:String x:Key="printSettings.testButton">Test</x:String>
   <x:String x:Key="posSettings.print.cashDrawerTitle">Cash drawer</x:String>
   <x:String x:Key="posSettings.print.cashDrawerEnable">Open on cash payment</x:String>
@@ -130,7 +132,7 @@
   <x:String x:Key="printSettings.cashDrawerPin2">Pin 2 (standard)</x:String>
   <x:String x:Key="printSettings.cashDrawerPin5">Pin 5</x:String>
   <x:String x:Key="printSettings.cashDrawerTestButton">Open</x:String>
-  <x:String x:Key="printSettings.lptNotFound">No LPT port found</x:String>
+  <x:String x:Key="printSettings.lptNotFound">No printer found at this address</x:String>
   <x:String x:Key="printSettings.previewTextReceipt">Preview text receipt</x:String>
   <x:String x:Key="printSettings.qrHeader">QR code</x:String>
   <x:String x:Key="printSettings.uploadQr">Upload QR</x:String>
@@ -156,6 +158,7 @@
   <x:String x:Key="scaleSettings.comNotFound">COM port not found</x:String>
   <x:String x:Key="scaleSettings.testButton">Test scales</x:String>
   <x:String x:Key="operations.bankQrDesc">Bank QR codes and logos for cashless payment</x:String>
+  <x:String x:Key="operations.pageSubtitle">Store type, shift closing, receipt deletions, Telegram and QR payments</x:String>
   <x:String x:Key="operations.qrNotLoaded">QR not uploaded</x:String>
   <x:String x:Key="operations.qrLoaded">QR uploaded</x:String>
   <x:String x:Key="csh.cart.customService">Extra service</x:String>
@@ -177,8 +180,8 @@
   <!-- Checkout dialog -->
   <x:String x:Key="csh.checkout.title">Payment</x:String>
   <x:String x:Key="csh.checkout.subtitle">Choose a payment method and confirm the amount</x:String>
-  <x:String x:Key="csh.checkout.totalDue">TOTAL DUE</x:String>
-  <x:String x:Key="csh.checkout.paymentMethod">PAYMENT METHOD</x:String>
+  <x:String x:Key="csh.checkout.totalDue">Total due</x:String>
+  <x:String x:Key="csh.checkout.paymentMethod">Payment method</x:String>
   <x:String x:Key="csh.checkout.cash">Cash</x:String>
   <x:String x:Key="csh.checkout.transfer">Cashless</x:String>
   <x:String x:Key="csh.checkout.cashReceived">Cash received</x:String>
@@ -202,6 +205,8 @@
   <x:String x:Key="csh.checkout.rental">Make it a rental</x:String>
   <x:String x:Key="csh.checkout.mixedCash">Cash</x:String>
   <x:String x:Key="csh.checkout.mixedNonCash">Cashless</x:String>
+  <!-- 2026-10-17, редизайн (этап 2): быстрая сумма «без сдачи» в окне оплаты (ExactCashCommand). -->
+  <x:String x:Key="csh.checkout.exact">Exact</x:String>
   <x:String x:Key="csh.checkout.paidNow">Paid now (0 — all on credit)</x:String>
   <x:String x:Key="csh.checkout.loyaltyRedeemWatermark">Redeem points (som)</x:String>
 
@@ -250,14 +255,14 @@
   <!-- Customer display (second monitor) -->
   <x:String x:Key="csh.customer.title">Customer display</x:String>
   <x:String x:Key="csh.customer.tagline">Your purchases — fast and convenient</x:String>
-  <x:String x:Key="csh.customer.receiptEyebrow">YOUR RECEIPT</x:String>
+  <x:String x:Key="csh.customer.receiptEyebrow">Your receipt</x:String>
   <x:String x:Key="csh.customer.receiptTitle">Purchase list</x:String>
   <x:String x:Key="csh.customer.adPlaceholder">Space for a QR code&#x0a;or an ad banner</x:String>
-  <x:String x:Key="csh.customer.subtotal">SUBTOTAL</x:String>
-  <x:String x:Key="csh.customer.discount">DISCOUNT</x:String>
+  <x:String x:Key="csh.customer.subtotal">Subtotal</x:String>
+  <x:String x:Key="csh.customer.discount">Discount</x:String>
   <x:String x:Key="csh.customer.received">RECEIVED</x:String>
   <x:String x:Key="csh.customer.change">CHANGE</x:String>
-  <x:String x:Key="csh.customer.totalDue">TOTAL DUE</x:String>
+  <x:String x:Key="csh.customer.totalDue">Total due</x:String>
 
   <!-- Common / generic (reused across many windows) -->
   <x:String x:Key="common.yes">Yes</x:String>
@@ -269,7 +274,7 @@
   <x:String x:Key="common.confirm">Confirm</x:String>
   <x:String x:Key="common.close">Close</x:String>
   <x:String x:Key="staffTimesheet.title">Staff timesheet</x:String>
-  <x:String x:Key="staffTimesheet.description">Hours and shifts are calculated from shifts on this till — only CLOSED shifts in the selected period count. A shift that is open right now is not included until it is closed.</x:String>
+  <x:String x:Key="staffTimesheet.description">Hours and shifts are calculated from shifts on this till — only closed shifts in the selected period count. A shift that is open right now is not included until it is closed.</x:String>
   <x:String x:Key="staffTimesheet.periodLabel">Period:</x:String>
   <x:String x:Key="staffTimesheet.fromWatermark">From date…</x:String>
   <x:String x:Key="staffTimesheet.toWatermark">To date…</x:String>
@@ -322,9 +327,8 @@
   <x:String x:Key="logs.empty">No warnings or errors.</x:String>
 
   <!-- NurCRM support -->
-  <x:String x:Key="remoteSupport.intro">Remote help uses AnyDesk. Click the button below and AnyDesk will open with a connection address (ID). Read this address to the support agent by phone or on WhatsApp.</x:String>
-  <x:String x:Key="remoteSupport.launchButton">Launch AnyDesk</x:String>
-  <x:String x:Key="remoteSupport.downloadButton">Download AnyDesk</x:String>
+  <!-- 2026-10-16: удалённая помощь — только своя «Nur Support» -->
+  <x:String x:Key="remoteSupport.intro">Remote help — “Nur Support”: a NurMarket operator sees the till's screen and helps you sort things out. Call support or message us on WhatsApp: +996 559 340 032, then click “Get a code for support” and read the code and PIN to the operator.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Copy device information</x:String>
 
@@ -363,7 +367,7 @@
   <x:String x:Key="kb.q.logsQ">Where can I see what happened during a failure?</x:String>
   <x:String x:Key="kb.q.logsA">Side menu → "Logs and errors" shows recent warnings, errors and server disconnects. The "Open logs folder" button opens the folder with detailed technical files, which you can send to support.</x:String>
   <x:String x:Key="kb.q.remoteSupportQ">How do I get remote help from NurCRM support?</x:String>
-  <x:String x:Key="kb.q.remoteSupportA">Side menu → "NurCRM support" → "Launch AnyDesk". A connection address (ID) will appear — read it to the support agent by phone or on WhatsApp so they can connect to your computer and help.</x:String>
+  <x:String x:Key="kb.q.remoteSupportA">Side menu → "NurCRM support" → "Nur Support" block → "Get a code for support". Read the code and PIN to the support agent by phone or on WhatsApp (+996 559 340 032), and when they ask for access, click "Allow" or "View only". Nobody can connect without your permission.</x:String>
   <x:String x:Key="kb.q.printerQ">The till doesn't see a receipt printer connected via USB — what should I do?</x:String>
   <x:String x:Key="kb.q.printerA">In Settings → Printing, click "Find" again (the list doesn't refresh on its own). If the printer was set up with Zadig and still doesn't appear, reconnect it and try again, or contact support via "NurCRM support".</x:String>
   <x:String x:Key="common.comment">Comment</x:String>
@@ -417,6 +421,9 @@
   <x:String x:Key="closeShift.nonCashSalesLabel">Cashless</x:String>
   <x:String x:Key="openShift.instructions">Enter the amount of cash in the till at the start of the shift.</x:String>
   <x:String x:Key="openShift.openingAmountLabel">Opening amount</x:String>
+  <!-- 2026-10-16, редизайн: подсказка слева на строке кнопок модалки (ModalShell.Hint);
+       неразрывные пробелы — строка переносится только между «Enter…» и «Esc…». -->
+  <x:String x:Key="modal.hintEnter">Enter&#160;—&#160;confirm · Esc&#160;—&#160;cancel</x:String>
   <x:String x:Key="shiftNotClosed.title">Shift not closed</x:String>
   <x:String x:Key="shiftNotClosed.message">You have an open shift.&#x0a;Close it before logging out?</x:String>
   <x:String x:Key="shiftNotClosed.logoutOnly">Log out without closing the shift</x:String>
@@ -509,6 +516,15 @@
   <x:String x:Key="priceTagBulk.selectNone">Clear selection</x:String>
   <x:String x:Key="priceTagBulk.copiesEachLabel">Copies per product</x:String>
   <x:String x:Key="priceTagBulk.printButton">Print</x:String>
+  <!-- 2026-10-20, этап О9б: окна ценников и этикеток (ModalShell, пустой список, настройка принтера). -->
+  <x:String x:Key="priceTag.subtitle">Choose a template and a printer — the left side shows how the price tag will print.</x:String>
+  <x:String x:Key="priceTagBulk.subtitle">Tick the products, choose a template and a printer.</x:String>
+  <x:String x:Key="priceTagBulk.notFound">Nothing found. Change the search — it looks by name and barcode.</x:String>
+  <x:String x:Key="priceTagBulk.noProducts">No products yet: the catalog hasn't loaded. Close the window and open it again in a minute.</x:String>
+  <x:String x:Key="labelPrint.subtitle">A barcode label — printed on the label printer.</x:String>
+  <x:String x:Key="labelEditor.printerSetup">Printer setup</x:String>
+  <x:String x:Key="labelEditor.zoomOut">Zoom out</x:String>
+  <x:String x:Key="labelEditor.zoomIn">Zoom in</x:String>
   <x:String x:Key="discount.title">Discount</x:String>
   <x:String x:Key="discount.applyToSelected">Apply to selected product</x:String>
   <x:String x:Key="discount.modeAmountLabel">Discount mode: amount (som)</x:String>
@@ -546,9 +562,9 @@
   <x:String x:Key="returnSale.title">Return by receipt</x:String>
   <x:String x:Key="returnSale.header">Return items from a receipt</x:String>
   <x:String x:Key="returnSale.instructions">Pick a receipt with the "Select" button. Its contents will appear below: select the items and click "Return selected", or click "Return whole receipt".</x:String>
-  <x:String x:Key="returnSale.step1">1. Sales receipts</x:String>
+  <x:String x:Key="returnSale.step1">1. Find the customer's receipt</x:String>
   <x:String x:Key="returnSale.colReceiptNo">Receipt #</x:String>
-  <x:String x:Key="returnSale.step2">2. Contents of the selected receipt</x:String>
+  <x:String x:Key="returnSale.step2">2. Mark what is returned</x:String>
   <x:String x:Key="returnSale.clearSelection">Clear</x:String>
   <x:String x:Key="returnSale.returnSelected">Return selected</x:String>
   <x:String x:Key="returnSale.returnWholeReceipt">Return whole receipt</x:String>
@@ -606,9 +622,9 @@
 
   <!-- Side menu -->
   <x:String x:Key="sideMenu.shiftLabel">Shift</x:String>
-  <x:String x:Key="sideMenu.sectionWork">WORK</x:String>
-  <x:String x:Key="sideMenu.sectionInfoClients">INFO AND CLIENTS</x:String>
-  <x:String x:Key="sideMenu.sectionSystem">SYSTEM</x:String>
+  <x:String x:Key="sideMenu.sectionWork">Work</x:String>
+  <x:String x:Key="sideMenu.sectionInfoClients">Info and clients</x:String>
+  <x:String x:Key="sideMenu.sectionSystem">System</x:String>
 
   <!-- Admin support, CRM webview, shift history window -->
   <x:String x:Key="adminSupport.title">Support — Nur Market</x:String>
@@ -639,7 +655,7 @@
   <x:String x:Key="employees.addButton">+ Add employee</x:String>
   <x:String x:Key="employees.loadFromWeb">Load from website</x:String>
   <x:String x:Key="employees.rolesTitle">Roles</x:String>
-  <x:String x:Key="employees.rolesSubtitle">Company roles from app.nurcrm.kg — required to create a new employee (every employee needs a role).</x:String>
+  <x:String x:Key="employees.rolesSubtitle">Roles from the NurCRM website — every employee needs a role (cashier, administrator…).</x:String>
   <x:String x:Key="employees.addRoleButton">+ Add role</x:String>
   <x:String x:Key="employees.saveHint">If an employee's code is empty, that action is blocked for them.</x:String>
   <x:String x:Key="employees.saved">Saved.</x:String>
@@ -734,7 +750,7 @@
   <x:String x:Key="posSettings.screen.groupCashierLang">Till and language</x:String>
   <x:String x:Key="posSettings.screen.groupScaleLayout">UI scale and layout</x:String>
   <x:String x:Key="posSettings.screen.fullscreen">Fullscreen mode</x:String>
-  <x:String x:Key="posSettings.screen.trueFullscreen">True fullscreen mode</x:String>
+  <x:String x:Key="posSettings.screen.trueFullscreen">Hide the Windows taskbar</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Hides the Windows taskbar completely. Works only together with fullscreen mode.</x:String>
   <x:String x:Key="posSettings.screen.quickProducts">Quick products in an empty receipt</x:String>
   <x:String x:Key="posSettings.screen.quickProductsDesc">Favourite products (★ in the catalog) under “Cart is empty”. Turn off if you don’t need them.</x:String>
@@ -804,13 +820,15 @@
   <x:String x:Key="posSettings.print.tapeWidth">Paper width</x:String>
   <x:String x:Key="posSettings.print.charsPerLine">Characters per line</x:String>
   <x:String x:Key="posSettings.print.widthHint">If dotted or dashed lines or amounts run past the edge of the receipt, reduce it: 58 mm — from 32 to 30, 80 mm — from 48 to 42 (graphics: 576 → 512 dots). Each paper width keeps its own value. Check with the test print button.</x:String>
-  <x:String x:Key="posSettings.print.graphicsDots">Graphics (dots)</x:String>
+  <x:String x:Key="posSettings.print.graphicsDots">Print width, dots</x:String>
   <x:String x:Key="posSettings.print.printMode">Print mode</x:String>
   <x:String x:Key="posSettings.print.modeText">Text</x:String>
   <x:String x:Key="posSettings.print.modeGraphics">Graphics</x:String>
-  <x:String x:Key="posSettings.print.escPosParams">ESC/POS parameters</x:String>
+  <x:String x:Key="posSettings.print.escPosParams">Text receipt</x:String>
+  <x:String x:Key="posSettings.print.advancedPrinter">Advanced: printer commands (for a technician)</x:String>
   <x:String x:Key="posSettings.print.encoding">Encoding</x:String>
-  <x:String x:Key="posSettings.print.escTable">ESC t table</x:String>
+  <x:String x:Key="posSettings.print.escTable">Code page (ESC t)</x:String>
+  <x:String x:Key="posSettings.print.escR">Country character set (ESC R, 0–255)</x:String>
   <x:String x:Key="posSettings.print.auto">Auto</x:String>
   <x:String x:Key="posSettings.print.receiptSettings">Receipt settings</x:String>
   <x:String x:Key="posSettings.print.enableLayout">Enable layout</x:String>
@@ -826,7 +844,7 @@
 
   <!-- POS settings: Monitor tab -->
   <x:String x:Key="posSettings.monitor.title">Customer monitor</x:String>
-  <x:String x:Key="posSettings.monitor.subtitle">Configure the second screen, its content and the look of the customer display window</x:String>
+  <x:String x:Key="posSettings.monitor.subtitle">Second screen for the customer: what it shows and how it looks</x:String>
   <x:String x:Key="posSettings.monitor.mainSettingsTitle">Main settings</x:String>
   <x:String x:Key="posSettings.monitor.useCustomerDisplay">Use customer monitor</x:String>
   <x:String x:Key="posSettings.monitor.keepOnTop">Keep on top on the external monitor</x:String>
@@ -935,7 +953,7 @@
   <x:String x:Key="posSettings.updates.diagnosticsDesc">Technical information about the app and the working directory:</x:String>
 
   <!-- Clients window -->
-  <x:String x:Key="clients.title">Client database</x:String>
+  <x:String x:Key="clients.title">Clients</x:String>
   <x:String x:Key="clients.newClientHeader">New client</x:String>
   <x:String x:Key="clients.nameWatermark">Name / full name</x:String>
   <x:String x:Key="clients.emailOptionalWatermark">Email (optional)</x:String>
@@ -946,15 +964,15 @@
   <x:String x:Key="clients.telegramHeader">Telegram bot</x:String>
   <x:String x:Key="clients.telegramCopyLink">Copy link</x:String>
   <x:String x:Key="clients.telegramExplain">Send this link to the client via WhatsApp or SMS, or print it on the receipt. Once they open it and press "Start", the till can send them debt reminders and promotional messages. Telegram does not allow messaging a person by phone number: the client has to make the first move.</x:String>
-  <x:String x:Key="clients.addButton">+ Add</x:String>
+  <x:String x:Key="clients.addButton">+ Client</x:String>
   <x:String x:Key="clients.refreshButton">Refresh</x:String>
-  <x:String x:Key="clients.colFullName">Full name</x:String>
+  <x:String x:Key="clients.colFullName">Client</x:String>
   <x:String x:Key="clients.colAdded">Added</x:String>
   <x:String x:Key="clients.colLoyalty">Points</x:String>
   <x:String x:Key="clients.cardHeader">Client card</x:String>
   <x:String x:Key="clients.saveButton">Save</x:String>
   <x:String x:Key="clients.deleteButton">Delete</x:String>
-  <x:String x:Key="clients.hint">Click a row in the list to open the client card</x:String>
+  <x:String x:Key="clients.hint">Click a client to open the card: details, purchases, debt and bonuses.</x:String>
 
   <!-- Product edit dialog -->
   <x:String x:Key="product.addTitle">New product</x:String>
@@ -1072,7 +1090,8 @@
   <x:String x:Key="sales.toColon">To:</x:String>
   <x:String x:Key="sales.colReceipt">Receipt</x:String>
   <x:String x:Key="sales.additionalMetrics">Additional metrics</x:String>
-  <x:String x:Key="sales.netProfit">Net profit</x:String>
+  <!-- 2026-10-19, этап О10: здесь всегда выручка − закупка (сервер gross_profit) — «Валовая», как на Сводке. -->
+  <x:String x:Key="sales.netProfit">Gross profit</x:String>
   <x:String x:Key="sales.marginPercent">Margin %</x:String>
   <x:String x:Key="sales.top10Title">Top 10 products by revenue</x:String>
   <x:String x:Key="sales.colQty">Qty</x:String>
@@ -1111,7 +1130,7 @@
   <x:String x:Key="warehouse.colActions">Actions</x:String>
   <x:String x:Key="warehouse.deleteButton">Delete</x:String>
   <x:String x:Key="warehouse.photoButton">Photo</x:String>
-  <x:String x:Key="warehouse.tabRevision">Stocktake (inventory)</x:String>
+  <x:String x:Key="warehouse.tabRevision">Stocktake</x:String>
   <x:String x:Key="warehouse.tabReceiving">Receiving</x:String>
   <x:String x:Key="warehouse.receivingHint">Scan the items from the delivery note with a regular scanner. A product already in stock is added with its prices, a product from the shared CRM database with its name, and an unknown barcode as a new line — type in its name. Quantity, purchase price and selling price can be edited right in the table. "Receive" creates new products, adds the stock and records the prices in the purchase history.</x:String>
   <x:String x:Key="warehouse.receivingScanHint">Scan or type a barcode…</x:String>
@@ -1177,9 +1196,9 @@
   <x:String x:Key="warehouse.movementsWriteOff">Write-off</x:String>
   <x:String x:Key="warehouse.tabLabelEditor">Label editor</x:String>
   <x:String x:Key="warehouse.labelEditorTabTitle">Label editor</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Position the barcode, name, price, SKU, unit and store name on the label — drag and configure each element. Paid feature: unlocked with a serial number.</x:String>
+  <x:String x:Key="warehouse.labelEditorTabDescription">Position the barcode, name, price, SKU, unit and store name on the label — drag and configure each element. Labels printed from a product row (⋯ → Print label) use this template.</x:String>
   <x:String x:Key="warehouse.labelEditorTabButton">Open editor</x:String>
-  <x:String x:Key="warehouse.analyticsSkuCountLabel">Total products (SKUs)</x:String>
+  <x:String x:Key="warehouse.analyticsSkuCountLabel">Products in catalog</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Out of stock</x:String>
   <x:String x:Key="warehouse.analyticsLowStockLabel">Low stock</x:String>
   <x:String x:Key="warehouse.analyticsPurchaseValueLabel">Stock value at purchase price</x:String>
@@ -1190,7 +1209,7 @@
   <x:String x:Key="warehouse.analyticsSkuColumn">Qty</x:String>
   <x:String x:Key="warehouse.writeOffTitle">Write-off form</x:String>
   <x:String x:Key="warehouse.writeOffHistoryTitle">Write-off history</x:String>
-  <x:String x:Key="warehouse.writeOffHistoryExpandButton">Expand ⤢</x:String>
+  <x:String x:Key="warehouse.writeOffHistoryExpandButton">Full history</x:String>
   <x:String x:Key="warehouse.writeOffHistorySearchWatermark">Search by product, reason or cashier…</x:String>
   <x:String x:Key="warehouse.writeOffHistoryEmpty">No write-offs yet.</x:String>
   <x:String x:Key="warehouse.findProductLabel">Find product by name</x:String>
@@ -1323,8 +1342,10 @@
     <x:String x:Key="loc.owner.sales.metricsTab">Metrics</x:String>
     <x:String x:Key="loc.owner.finance.excelTip">Export analytics for the selected period to Excel, with charts and ABC analysis.</x:String>
     <x:String x:Key="loc.owner.finance.wordTip">The same report in Word — tables, charts and ABC analysis.</x:String>
-    <x:String x:Key="loc.owner.finance.expenses">Expenses (cash out)</x:String>
-    <x:String x:Key="loc.owner.finance.profitAfterExpenses">Profit after expenses</x:String>
+    <!-- 2026-10-20, аудит владельца: расходы теперь из NurCRM (pnl), а не изъятия кассы -->
+    <x:String x:Key="loc.owner.finance.expenses">Expenses</x:String>
+    <!-- 2026-10-19, этап О10: валовая − расходы — «Чистая прибыль» (одни слова во всех отчётах). -->
+    <x:String x:Key="loc.owner.finance.profitAfterExpenses">Net profit</x:String>
     <x:String x:Key="loc.owner.zeroMoney">0.00 som</x:String>
     <x:String x:Key="loc.owner.voice.title">Voice control test</x:String>
     <x:String x:Key="loc.owner.voice.howTo">How to use</x:String>
@@ -1498,12 +1519,12 @@
   <x:String x:Key="scaleSetup.btn.check">Check connection</x:String>
   <x:String x:Key="scaleSetup.btn.find">Find on network…</x:String>
   <x:String x:Key="scaleSetup.btn.settings">Scale settings…</x:String>
-  <x:String x:Key="scaleSetup.btn.send">Send goods →</x:String>
+  <x:String x:Key="scaleSetup.btn.send">Send goods</x:String>
   <x:String x:Key="scaleSetup.barcode.open">Weight / amount →</x:String>
   <x:String x:Key="scaleSetup.barcode.title">How the till reads the scale label barcode</x:String>
   <x:String x:Key="scaleSetup.barcode.desc">A weight barcode has 13 digits: prefix 20–29, item code, weight or amount and a check digit. The company sets the layout and mode on the NurCRM website (Scales → Settings); the till receives them at login.</x:String>
   <x:String x:Key="scaleSetup.wizard.title">Set up from a label</x:String>
-  <x:String x:Key="scaleSetup.wizard.desc">The amount on the receipt does not match the label? Scan the barcode from a printed label (or type 13 digits) — the till shows two readings: as WEIGHT and as AMOUNT. Press the one that matches the label — the till remembers it for the prefix and reads that way at once.</x:String>
+  <x:String x:Key="scaleSetup.wizard.desc">The amount on the receipt does not match the label? Scan the barcode from a printed label (or type 13 digits) — the till shows two readings: as “weight” and as “amount”. Press the one that matches the label — the till remembers it for the prefix and reads that way at once.</x:String>
   <x:String x:Key="scaleSetup.wizard.parse">Read</x:String>
   <x:String x:Key="scaleSetup.wizard.open">Set up from a label…</x:String>
   <x:String x:Key="scaleSetup.rules.title">What the scale prints in the barcode</x:String>

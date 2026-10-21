@@ -33,8 +33,16 @@ public static class PriceTagTemplateStore
         return LabelTemplate.CreateDefault();
     }
 
+    /// <summary>2026-10-20, этап О9б: стенд снимков (без экрана) выставляет true отражением ДО создания окон — Save ничего
+    /// не пишет на диск (как _persistenceDisabled у UserPreferences и LabelScaleStore). В программе всегда false.</summary>
+#pragma warning disable CS0649 // выставляется стендом отражением
+    private static bool _persistenceDisabled;
+#pragma warning restore CS0649
+
     public static void Save(LabelTemplate template)
     {
+        if (_persistenceDisabled)
+            return;
         try
         {
             var dir = Path.GetDirectoryName(FilePath);

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Телефон — приёмка по заказу</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.ln{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#FFFFFF}
+.st{width:34px;height:34px;border-radius:17px;font-family:inherit;font-size:18px;display:flex;align-items:center;justify-content:center}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 18px; font-weight: 800">Приёмка по заказу [№]</b><span style="font-size: 12px; color: #667085">[поставщик] · 4 позиции</span></span>
+    <button type="button" aria-label="Сканировать" style="width: 44px; height: 44px; border-radius: 14px; border: 0; background: #0B2A3C; color: #FFD600; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path><path d="M8 9v6M12 9v6M16 9v6"></path></svg></button>
+  </header>
+  <main style="flex-grow: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+      <div class="ln" style="box-shadow: inset 4px 0 0 {{r.bar}}">
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 13px">{{r.name}}</b><span style="font-size: 12px; color: {{r.c}}; font-weight: 700">заказано {{r.ord}} · {{r.note}}</span></span>
+        <span style="display: flex; align-items: center; gap: 6px"><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="min-width: 24px; text-align: center">{{r.got}}</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></span>
+      </div>
+    </sc-for>
+    <div style="display: flex; align-items: center; gap: 10px; border-radius: 14px; background: #FEF3E2; padding: 12px; font-size: 12px; color: #93370D; margin-top: 4px"><span style="flex-grow: 1"><b>Салфетки не пришли.</b> Оставить в заказе до допоставки?</span><button type="button" style="height: 34px; padding: 0 10px; border-radius: 10px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700">Да</button></div>
+  </main>
+  <div style="padding: 10px 16px 22px; display: flex; flex-direction: column; gap: 8px; background: #FFFFFF; border-top: 1px solid #EAECF0">
+    <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #475467">Принято 3 из 4 · в долг поставщику</span><b style="color: #0B2A3C">[сумма]</b></div>
+    <button type="button" style="height: 54px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 16px; font-weight: 800">Провести приход</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const r = (name, ord, got, note, c, bar) => ({ name, ord, got, note, c, bar });
+    return {
+      rows: [
+        r('Кока-Кола (ПЭТ) 2л', '12', '12', 'совпало', '#0E7A3A', '#16A34A'),
+        r('Mars', '24', '22', 'меньше на 2', '#B54708', '#F79009'),
+        r('Сок Gracio яблочный 1л', '12', '12', 'совпало', '#0E7A3A', '#16A34A'),
+        r('Салфетки', '20', '0', 'не пришло', '#B42318', '#C0362C')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

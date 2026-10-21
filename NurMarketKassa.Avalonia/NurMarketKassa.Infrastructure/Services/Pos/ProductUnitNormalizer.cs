@@ -40,6 +40,15 @@ public static class ProductUnitNormalizer
         return unit is "кг" or "kg" or "г" or "g";
     }
 
+    /// <summary>2026-10-19: единица из накладной (ИИ) — килограммы в любом написании: «кг», «Кг.», «kg», «килограмм», «kilogram», «кило».
+    /// Граммы («г», «гр») весовыми не считаются: в накладной это вес упаковки штучного товара, а весовой товар кассы — в кг.</summary>
+    public static bool IsKilogramWord(string? rawUnit)
+    {
+        var unit = new string((rawUnit ?? string.Empty).ToLowerInvariant().Where(c => !char.IsWhiteSpace(c) && c != '.').ToArray());
+        return unit is "кг" or "kg" or "kgs" or "kг" or "кило" or "kilo" or "kilogram" or "kilograms" or "kilogramme"
+            || unit.StartsWith("килограм", StringComparison.Ordinal);
+    }
+
     public static ProductUnitKind Classify(string? rawUnit, bool apiMustWeigh = false) =>
         IsWeightCatalogTab(rawUnit, apiMustWeigh)
             ? ProductUnitKind.Kilogram

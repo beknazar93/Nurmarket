@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>ЭСФ — выписать, входящий в приёмку, сверка ЭСФ 2.0</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; align-items: start">
+
+  <section class="m" role="dialog" aria-label="Выписать ЭСФ">
+    <div class="mh"><div class="mt"><b>Выписать ЭСФ</b><span>Продажа юрлицу · чек [№]</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <label class="lbl" for="e1">ИНН ПОКУПАТЕЛЯ</label><input id="e1" class="in" type="text" value="[ИНН]">
+      <div class="row" style="background: #E7F6EC"><span style="flex-grow: 1"><b>ОсОО «[покупатель]»</b><br><span style="font-size: 11px; color: #667085">найден в базе налоговой · плательщик НДС</span></span></div>
+      <span class="lbl">ФОРМА ОПЛАТЫ</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip">Наличная</button><button type="button" class="chip on">Безналичная</button><button type="button" class="chip">Товарообмен</button><button type="button" class="chip">Безвозмездная</button></div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px"><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><label class="lbl" for="e2">ДАТА ПОСТАВКИ</label><input id="e2" class="in" type="text" value="[дата]"></span><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><label class="lbl" for="e3">ДОГОВОР</label><input id="e3" class="in" type="text" value="[№] от [дата]"></span></div>
+      <div class="rl"><span>5 позиций · коды ГКЭД подставлены</span><b>18 400</b></div>
+      <div class="rl"><span>НДС 12 %</span><b>[сумма]</b></div>
+    </div>
+    <div class="mf"><button type="button" class="b2">Черновик</button><span class="tot"></span><button type="button" class="b1">Отправить в налоговую</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Входящий ЭСФ">
+    <div class="mh"><div class="mt"><b>Входящий ЭСФ → приёмка</b><span>[поставщик] · ЭСФ [№] · 7 886</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="row"><span style="flex-grow: 1">Кока-Кола (ПЭТ) 2л × 24</span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">найден</span></div>
+      <div class="row"><span style="flex-grow: 1">Сок Gracio яблочный 1л × 12</span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">найден</span></div>
+      <div class="row"><span style="flex-grow: 1">Mars × 48</span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">найден</span></div>
+      <div class="row"><span style="flex-grow: 1">Макароны «Макфа» 450г × 20</span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">найден</span></div>
+      <div class="row" style="background: #FEF3E2"><span style="flex-grow: 1">Салфетки «Мягкие» 100 шт × 10</span><button type="button" class="chip on">Создать товар</button></div>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: #0B2A3C">Подтвердить ЭСФ в налоговой после приёмки</label>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: #0B2A3C">Обновить закупочные цены</label>
+    </div>
+    <div class="mf"><span class="tot"><b>5 позиций · 7 886</b></span><button type="button" class="b2">Отклонить</button><button type="button" class="b1">Принять на склад</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Сверка остатков ЭСФ 2.0">
+    <div class="mh"><div class="mt"><b>Сверка с ЭСФ 2.0</b><span>Товары с прослеживаемостью</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="lbl" style="display: grid; grid-template-columns: 1fr 64px 64px 60px; gap: 6px"><span>ТОВАР</span><span>У ВАС</span><span>В ГНС</span><span></span></div>
+      <div style="display: grid; grid-template-columns: 1fr 64px 64px 60px; gap: 6px; align-items: center; font-size: 13px; padding: 8px 0; border-bottom: 1px solid #EAECF0"><span>Холодильник [модель]</span><b>4</b><b>4</b><span class="tag" style="background: #E7F6EC; color: #0E7A3A">ок</span></div>
+      <div style="display: grid; grid-template-columns: 1fr 64px 64px 60px; gap: 6px; align-items: center; font-size: 13px; padding: 8px 0; border-bottom: 1px solid #EAECF0"><span>Телевизор [модель]</span><b>7</b><b style="color: #C0362C">9</b><span class="tag" style="background: #FDECEA; color: #C0362C">−2</span></div>
+      <div class="row" style="background: #FEF3E2; font-size: 12px; line-height: 17px">2 телевизора проданы без ЭСФ или списаны без документа. Выберите, что сделать — касса подготовит документ.</div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip on">Найти продажи</button><button type="button" class="chip">Оформить списание</button></div>
+    </div>
+    <div class="mf"><button type="button" class="b2">Excel</button><span class="tot"></span><button type="button" class="b1">Готово</button></div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

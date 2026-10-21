@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Заказы с сайта</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.chip{height:44px;padding:0 14px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.or{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:#FFFFFF;border:0;font-family:inherit;text-align:left;width:100%}
+.rl{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.rl b{white-space:nowrap}
+.or{min-height:60px;box-sizing:border-box;flex-shrink:0}
+.chip{flex-shrink:0}
+.bd{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.role{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#E7EEF3;color:#0B2A3C;white-space:nowrap}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#F4F5F7}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <button type="button" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <b style="font-size: 18px; font-weight: 800; flex-grow: 1">Заказы с сайта</b>
+      <span class="role">Администратор</span>
+    </div>
+    <!-- 2026-10-17: одна машина статусов SPEC: Новый → Собираем → Готов к выдаче → Выдан; отмена — с причиной -->
+    <div style="display: flex; gap: 6px; overflow-x: auto"><button type="button" class="chip on" aria-pressed="true">Новые · 1</button><button type="button" class="chip">Собираем</button><button type="button" class="chip">Готовы к выдаче · 1</button><button type="button" class="chip">Выданы</button><button type="button" class="chip">Отменённые</button></div>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 8px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <section style="background: #FFFFFF; border: 2px solid #FFD600; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><b style="font-size: 15px">Заказ №10 · Умар</b><span class="bd" style="background: #FEF3E2; color: #B54708">Новый · 13:52</span></div>
+      <span style="display: flex; flex-wrap: wrap; gap: 6px"><span class="bd" style="background: #E7EEF3; color: #0B2A3C">Телеграм-бот</span><span class="bd" style="background: #F2F4F7; color: #344054">самовывоз</span><span class="bd" style="background: #F2F4F7; color: #344054">оплата при получении</span></span>
+      <div class="rl"><span>Макароны «Макфа» спагетти 450г × 2</span><b>170</b></div>
+      <div class="rl"><span>Кока-Кола (ПЭТ) 2л × 1</span><b>170</b></div>
+      <div class="rl"><span>Сок Gracio яблочный 1л × 1</span><b>120</b></div>
+      <div class="rl"><span>Хлеб белый × 2</span><b>70</b></div>
+      <div class="rl" style="border-top: 1px dashed #D0D5DD; padding-top: 8px; font-size: 15px"><b>Итого</b><b style="color: #0B2A3C">530&nbsp;сом</b></div>
+      <div style="display: flex; gap: 8px; padding-top: 4px"><button type="button" style="height: 48px; padding: 0 14px; border-radius: 12px; border: 1.5px solid #F4B8B2; background: #FFFFFF; color: #B42318; font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap">Отменить заказ…</button><button type="button" style="flex-grow: 1; height: 48px; border-radius: 12px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 15px; font-weight: 800; white-space: nowrap">Собрать заказ</button></div>
+      <span style="font-size: 12px; color: #667085">Дальше: «Заказ собран» → «Готов к выдаче»; оплата — при выдаче на кассе. Отмена — с причиной.</span>
+    </section>
+    <button type="button" class="or"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px"><b style="font-size: 14px">Заказ №9 · Айпери</b><span style="display: flex; flex-wrap: wrap; gap: 6px"><span class="bd" style="background: #E7F6EC; color: #0E7A3A">Готов к выдаче · с 11.10 18:20</span><span class="bd" style="background: #F2F4F7; color: #344054">оплачен онлайн</span></span></span><b style="color: #0B2A3C; white-space: nowrap">340&nbsp;сом</b></button>
+    <button type="button" class="or"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px"><b style="font-size: 14px">Заказ №8 · Бакыт</b><span><span class="bd" style="background: #F2F4F7; color: #344054">Выдан · 11.10</span></span></span></button>
+    <button type="button" class="or"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px"><b style="font-size: 14px">Заказ №7</b><span><span class="bd" style="background: #FDE2E1; color: #B42318">Отменён · нет товара</span></span></span></button>
+    <span style="font-size: 12px; color: #667085; text-align: center; padding-top: 2px">Сервер хранит статус заказа; сборка по строкам, замены и код выдачи — нужен сервер NurCRM</span>
+  </main>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

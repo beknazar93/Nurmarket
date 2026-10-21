@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Размеры и цвета</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="reports" active="Размеры и цвета" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Размеры и цвета</span><span style="font-size: 13px; color: #667085">05.10–11.10 · 298 чеков</span></span>
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">7 дней</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">30 дней</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">90 дней</button>
+      </div>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: flex; gap: 16px">
+      <section style="flex-grow: 1; min-width: 0; background: #FFFFFF; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 16px; font-weight: 800">Продано: размер × цвет</span><button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 600; color: #344054">[товар / категория] ▾</button></span>
+        <div style="display: grid; grid-template-columns: 1.2fr repeat(6, minmax(0, 1fr)); gap: 6px">
+          <span></span>
+          <sc-for list="{{sizes}}" as="s" hint-placeholder-count="6"><span style="text-align: center; font-size: 13px; font-weight: 800; color: #475467; padding: 6px 0">{{s}}</span></sc-for>
+          <sc-for list="{{grid}}" as="row" hint-placeholder-count="4">
+            <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700"><span style="width: 14px; height: 14px; border-radius: 4px; background: {{row.dot}}; border: 1px solid #D0D5DD"></span>{{row.color}}</span>
+            <sc-for list="{{row.cells}}" as="c" hint-placeholder-count="6"><span style="height: 52px; border-radius: 10px; background: {{c.bg}}; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: {{c.fg}}">{{c.v}}</span></sc-for>
+          </sc-for>
+        </div>
+        <span style="font-size: 12px; color: #667085">Темнее — продаётся лучше. Числа — проданные штуки за период.</span>
+      </section>
+      <aside style="width: 320px; flex-shrink: 0; background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 16px; font-weight: 800">Заканчиваются размеры</span>
+        <sc-for list="{{low}}" as="l" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #F9FAFB"><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700">[товар]</span><span style="font-size: 12px; color: #667085">{{l}}</span></span><span style="padding: 3px 9px; border-radius: 999px; background: #FDE8E8; color: #B42318; font-size: 12px; font-weight: 700">[N] шт</span></div>
+        </sc-for>
+        <button type="button" style="margin-top: auto; height: 46px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">В заявку поставщику</button>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const sizes = ['42', '44', '46', '48', '50', '52'];
+    const shades = [['#F2F4F7', '#98A2B3'], ['#FFF7CC', '#0B2A3C'], ['#FFE680', '#0B2A3C'], ['#0B2A3C', '#FFD600']];
+    const pattern = [[0, 1, 2, 3, 2, 1], [1, 2, 3, 3, 1, 0], [0, 1, 2, 2, 1, 0], [0, 0, 1, 1, 0, 0]];
+    const colors = [['Чёрный', '#111827'], ['Синий', '#1D4ED8'], ['Белый', '#FFFFFF'], ['Красный', '#C0362C']];
+    const grid = colors.map(([color, dot], i) => ({ color, dot, cells: pattern[i].map((k) => ({ v: '[N]', bg: shades[k][0], fg: shades[k][1] })) }));
+    return { sizes, grid, low: ['46 · Чёрный', '48 · Синий', '44 · Белый', '50 · Чёрный'] };
+  }
+}
+</script>
+</body>
+</html>

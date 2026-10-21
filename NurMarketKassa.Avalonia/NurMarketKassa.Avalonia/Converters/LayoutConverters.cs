@@ -68,18 +68,11 @@ public sealed class TileColorConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>Сумма для таблиц и итогов раскладок: «1 234.50» — разряды через узкий пробел, копейки
-/// через точку, как везде в кассе. Принимает число или строку-число ("1234.50").</summary>
+/// <summary>Сумма для таблиц и итогов раскладок: «1 234,50» (MoneyText — 2026-10-19, К1: как у владельца и в
+/// «Классике»; было «1 234.50»). Принимает число или строку-число ("1234.50").</summary>
 public sealed class MoneyConverter : IValueConverter
 {
     public static readonly MoneyConverter Instance = new();
-
-    private static readonly NumberFormatInfo Format = new()
-    {
-        NumberDecimalSeparator = ".",
-        NumberGroupSeparator = " ",
-        NumberGroupSizes = [3],
-    };
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
@@ -94,7 +87,7 @@ public sealed class MoneyConverter : IValueConverter
             default: return value?.ToString() ?? "";
         }
 
-        return amount.ToString("#,0.00", Format);
+        return NurMarketKassa.Services.MoneyText.Amount(amount);
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>

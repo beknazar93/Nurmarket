@@ -6,6 +6,20 @@ namespace NurMarketKassa.Services;
 
 public static class ReceiptPrintService
 {
+    /// <summary>2026-10-15: одна очередь на чековый принтер — фоновая печать чеков (PosCheckoutService)
+    /// и импульс ящика после продажи. Раньше импульс шёл мимо очереди: две наличные продажи подряд —
+    /// импульс первой попадал в печать второго чека, порт занят, ящик не открывался (только запись в журнале).
+    /// Не реентерабелен: внутри удержания нельзя вызывать то, что берёт его снова.
+    /// 2026-10-16: это очередь ПОРЯДКА, не защита порта. Возврат/обмен (OperationReceiptPrinter), повторная печать из
+    /// «Продаж», этикетки и keep-alive его не берут — и не должны: каждая запись на порт и так идёт по одной через
+    /// блокировку порта в PrinterPortService.SendRawBytes (15 с, затем ошибка «принтер занят»). Порядок блокировок
+    /// всегда PrinterGate → порт, обратного нет — взаимной блокировки нет.</summary>
+    internal static readonly SemaphoreSlim PrinterGate = new(1, 1);
+
+    /// <summary>2026-10-15: сколько импульс ящика ждёт очередь принтера (зависший принтер не должен держать ящик
+    /// закрытым навсегда — по истечении импульс уходит всё равно).</summary>
+    private static readonly TimeSpan DrawerGateTimeout = TimeSpan.FromSeconds(20);
+
     public static void PrintText(ReceiptPrinterSettings cfg, string text, int? charWidth = null)
     {
         ArgumentNullException.ThrowIfNull(cfg);
@@ -119,7 +133,33 @@ public static class ReceiptPrintService
                     // Принтер дорезает и выдаёт чек — короткая пауза, чтобы импульс не попал в хвост печати.
                     await Task.Delay(400).ConfigureAwait(false);
                 }
-                OpenCashDrawer(null, null, afterSale: true);
+
+                // 2026-10-15: импульс — через ту же очередь, что и печать чеков (PrinterGate): чек следующей продажи
+                // мог уже печататься, и импульс в занятый порт терялся. Очередь берётся только здесь, уже ПОСЛЕ
+                // ожидания afterPrint (тот сам берёт и отпускает очередь) — пока ждём чек, очередь не держим,
+                // взаимной блокировки нет. Не дождались очереди за 20 с — импульс всё равно отправляем.
+                var gateTaken = await PrinterGate.WaitAsync(DrawerGateTimeout).ConfigureAwait(false);
+                if (!gateTaken)
+                    PosLogger.Log("Денежный ящик: очередь принтера занята дольше 20 с — импульс без очереди.", "PRINTER");
+                try
+                {
+                    try
+                    {
+                        OpenCashDrawer(null, null, afterSale: true);
+                    }
+                    catch (Exception first)
+                    {
+                        // 2026-10-15: порт занят/не ответил — одна короткая повторная попытка.
+                        PosLogger.Log($"Денежный ящик: первая попытка не удалась ({first.Message}) — повтор через 0,7 с.", "PRINTER");
+                        await Task.Delay(700).ConfigureAwait(false);
+                        OpenCashDrawer(null, null, afterSale: true);
+                    }
+                }
+                finally
+                {
+                    if (gateTaken)
+                        PrinterGate.Release();
+                }
             }
             catch (Exception ex)
             {

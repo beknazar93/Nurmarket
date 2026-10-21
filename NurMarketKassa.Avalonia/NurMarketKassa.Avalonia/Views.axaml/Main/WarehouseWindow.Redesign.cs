@@ -65,11 +65,8 @@ public partial class WarehouseWindow
         };
         StockFilterPanel.Children.Clear();
         _stockFilterButtons.Clear();
-        StockFilterPanel.Children.Add(new TextBlock
-        {
-            Text = T("Наличие", "Бар-жогу", "Stock", "Stok", "Mavjudlik"), VerticalAlignment = VerticalAlignment.Center, FontSize = 12, Margin = new Thickness(0, 0, 4, 0),
-        });
-        ((TextBlock)StockFilterPanel.Children[0]).Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        // 2026-10-19, О9: подпись — перед рамкой сегментов (в разметке), кнопки — сегменты sec-seg (выбранный тёмно-синий).
+        StockFilterLabel.Text = T("Наличие", "Бар-жогу", "Stock", "Stok", "Mavjudlik");
         foreach (var (key, text) in new[]
                  {
                      ("all", T("Все", "Баары", "All", "Tümü", "Hammasi")),
@@ -78,7 +75,7 @@ public partial class WarehouseWindow
                      ("expiry", T("Срок годности", "Жарактуулук мөөнөтү", "Expiry", "Son kullanma", "Yaroqlilik muddati")),
                  })
         {
-            var radio = new RadioButton { GroupName = "WarehouseStockFilter", Classes = { "SaleUnitPill" }, Content = text, IsChecked = key == _viewModel.StockFilter };
+            var radio = new RadioButton { GroupName = "WarehouseStockFilter", Classes = { "sec-seg" }, Content = text, IsChecked = key == _viewModel.StockFilter };
             var k = key;
             // По смене отметки, а не по Click — так срабатывает и с клавиатуры.
             radio.IsCheckedChanged += (_, _) =>
@@ -116,6 +113,7 @@ public partial class WarehouseWindow
         WarehouseTabs.SelectedItem = ProductsTabItem;
         if (_viewModel.StockFilter != "all")
             SetStockFilter("all");
+        ResetSaleUnitFilter();
         ProductSearchBox.Text = product.Title;
         Activate();
     }
@@ -142,6 +140,7 @@ public partial class WarehouseWindow
         WarehouseTabs.SelectedItem = ProductsTabItem;
         if (_viewModel.StockFilter != "all")
             SetStockFilter("all");
+        ResetSaleUnitFilter();
         ProductSearchBox.Text = "";
         _viewModel.SetChangedFilter(keys);
         if (_changedBanner is null)
@@ -161,6 +160,14 @@ public partial class WarehouseWindow
             "Tüm ürünleri göstermek için tıklayın", "Bosing — barcha mahsulotlarni ko'rsatish"));
         _changedBanner.IsVisible = true;
         Activate();
+    }
+
+    /// <summary>2026-10-20: проверка фильтров — «открыть товар» (голос/ИИ) сбрасывал только «Наличие»: при выбранных «Весовых»
+    /// штучный товар не находился. Теперь и «Единица продажи» — «Все» (отметка и фильтр вместе).</summary>
+    private void ResetSaleUnitFilter()
+    {
+        SaleUnitAllRadio.IsChecked = true;
+        _viewModel.SetSaleUnitFilter("all");
     }
 
     private void HideChanged()
@@ -261,7 +268,6 @@ public partial class WarehouseWindow
         var filter = _viewModel.StockFilter;
 
         WarehouseKpiPanel.Children.Clear();
-        WarehouseKpiPanel.ColumnDefinitions.Clear();
         var cards = new List<Control>
         {
             Card(T("Товаров", "Товарлар", "Products", "Ürünler", "Mahsulotlar"), count.ToString("N0", RuCulture),
@@ -288,29 +294,30 @@ public partial class WarehouseWindow
                     : T("загружаю с сервера…", "серверден жүктөлүүдө…", "loading from the server…", "sunucudan yükleniyor…", "serverdan yuklanmoqda…"),
                 expired > 0 ? "BrushDanger" : expiring > 0 ? "BrushWarning" : null, "expiry"),
         };
-        for (var i = 0; i < cards.Count; i++)
-        {
-            WarehouseKpiPanel.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
-            Grid.SetColumn(cards[i], i);
-            cards[i].Margin = new Thickness(i == 0 ? 0 : 6, 0, i == cards.Count - 1 ? 0 : 6, 0);
-            WarehouseKpiPanel.Children.Add(cards[i]);
-        }
+        // 2026-10-19, этап О9 (аудит, проблема 4): плитки — общие sec-kpi в KpiTileGrid (лишние — вторым рядом, ряды ровные),
+        // сумма уменьшается Viewbox'ом целиком, подпись и пояснение переносятся (было «65 087 с…», «нажмите, что…»).
+        // Выбранный фильтр — тёмная рамка (была жёлтая); цвет числа — только «мало» (оранжевый) и «нет / просрочено» (красный).
+        foreach (var card in cards)
+            WarehouseKpiPanel.Children.Add(card);
 
         Control Card(string label, string value, string sub, string? accent, string? filterKey)
         {
             var active = filterKey != null && filter == filterKey;
-            var border = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 10), BorderThickness = new Thickness(active ? 2 : 1), MinHeight = 82 };
-            border.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
-            border.Bind(Border.BorderBrushProperty, this.GetResourceObservable(active ? "BrushAccent" : "BrushBorder"));
+            var border = new Border { Classes = { "sec-kpi", "compact" } };
+            if (active)
+            {
+                border.BorderThickness = new Thickness(2);
+                border.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushText"));
+            }
             var stack = new StackPanel { Spacing = 3 };
-            var l = new TextBlock { Text = label, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis };
-            l.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-            var v = new TextBlock { Text = value, FontSize = 20, FontWeight = FontWeight.Bold, TextTrimming = TextTrimming.CharacterEllipsis };
-            v.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(accent ?? "BrushText"));
-            var s = new TextBlock { Text = sub, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis };
+            var l = new TextBlock { Text = label, Classes = { "sec-kpi-label" } };
+            var v = new TextBlock { Text = value, Classes = { "sec-kpi-value" }, FontSize = 20 };
+            if (accent != null)
+                v.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(accent));
+            var s = new TextBlock { Text = sub, FontSize = 11.5, TextWrapping = TextWrapping.Wrap };
             s.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
             stack.Children.Add(l);
-            stack.Children.Add(v);
+            stack.Children.Add(new Viewbox { Classes = { "sec-kpi-fit" }, Child = v });
             stack.Children.Add(s);
             border.Child = stack;
             ToolTip.SetTip(border, label + ": " + value + "\n" + sub);

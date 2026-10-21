@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Настройки</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="manage" active="Настройки" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; gap: 20px">
+    <nav aria-label="Разделы настроек" style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 24px; font-weight: 800; padding-bottom: 14px">Настройки</span>
+      <span style="font-size: 11px; font-weight: 700; color: #98A2B3; letter-spacing: 0.06em; padding: 4px 12px">МАГАЗИН</span>
+      <a href="#" style="padding: 11px 12px; border-radius: 10px; color: #475467; font-size: 14px; font-weight: 600; text-decoration: none">Аккаунт и компания</a>
+      <a href="#" style="padding: 11px 12px; border-radius: 10px; color: #475467; font-size: 14px; font-weight: 600; text-decoration: none">Сотрудники и права</a>
+      <a href="#" style="padding: 11px 12px; border-radius: 10px; background: #FFFFFF; color: #0B2A3C; font-size: 14px; font-weight: 700; text-decoration: none; box-shadow: 0 1px 2px rgba(16,24,40,0.06)">Операции</a>
+      <a href="#" style="padding: 11px 12px; border-radius: 10px; color: #475467; font-size: 14px; font-weight: 600; text-decoration: none">Чек и печать</a>
+      <span style="font-size: 11px; font-weight: 700; color: #98A2B3; letter-spacing: 0.06em; padding: 14px 12px 4px">ОБОРУДОВАНИЕ КАССЫ</span>
+      <a href="#" style="padding: 11px 12px; border-radius: 10px; color: #475467; font-size: 14px; font-weight: 600; text-decoration: none">Весы</a>
+      <a href="#" style="padding: 11px 12px; border-radius: 10px; color: #475467; font-size: 14px; font-weight: 600; text-decoration: none">Экран покупателя</a>
+      <a href="#" style="padding: 11px 12px; border-radius: 10px; color: #475467; font-size: 14px; font-weight: 600; text-decoration: none">Принтер и ящик</a>
+      <span style="font-size: 11px; font-weight: 700; color: #98A2B3; letter-spacing: 0.06em; padding: 14px 12px 4px">ПРОГРАММА</span>
+      <a href="#" style="padding: 11px 12px; border-radius: 10px; color: #475467; font-size: 14px; font-weight: 600; text-decoration: none">Вид и язык</a>
+      <a href="#" style="padding: 11px 12px; border-radius: 10px; color: #475467; font-size: 14px; font-weight: 600; text-decoration: none">Обновления</a>
+    </nav>
+    <section style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden">
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+        <span style="font-size: 16px; font-weight: 800">Вид магазина</span>
+        <span style="font-size: 13px; color: #667085">Касса подстроится: весы для продуктов, размеры и обмен для одежды, прокат для услуг.</span>
+        <div style="display: flex; gap: 10px">
+          <button type="button" style="flex: 1 1 0; height: 64px; border-radius: 14px; border: 2px solid #0B2A3C; background: #FFF7CC; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Продукты</button>
+          <button type="button" style="flex: 1 1 0; height: 64px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600; color: #344054">Одежда и обувь</button>
+          <button type="button" style="flex: 1 1 0; height: 64px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600; color: #344054">Услуги</button>
+        </div>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <span style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 16px; font-weight: 800">Телеграм-бот</span><span style="padding: 5px 10px; border-radius: 999px; background: #E7F6EC; color: #0E7A3A; font-size: 12px; font-weight: 700">@kssirBot · на сервере, отвечает всегда</span></span>
+        <sc-for list="{{toggles}}" as="t" hint-placeholder-count="3">
+          <label style="display: flex; align-items: center; gap: 14px; padding: 4px 0">
+            <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">{{t.title}}</span><span style="font-size: 12px; color: #667085">{{t.note}}</span></span>
+            <input type="checkbox" checked="" style="width: 44px; height: 24px; accent-color: #0B2A3C">
+          </label>
+        </sc-for>
+        <div style="display: flex; gap: 10px"><button type="button" style="height: 42px; padding: 0 14px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054">Проверить ИИ на сервере</button><button type="button" style="height: 42px; padding: 0 14px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054">Пробное сообщение</button></div>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 20px; display: flex; gap: 20px">
+        <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px"><label for="exDays" style="font-size: 14px; font-weight: 700">Срок обмена и возврата, дней</label><span style="font-size: 12px; color: #667085">После него касса предупредит кассира</span><input id="exDays" type="text" value="14" style="width: 120px; height: 44px; box-sizing: border-box; border-radius: 12px; border: 1px solid #D0D5DD; padding: 0 14px; font-family: inherit; font-size: 15px; font-weight: 700"></span>
+        <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px"><label for="penalty" style="font-size: 14px; font-weight: 700">Штраф за просрочку проката, сом в день</label><span style="font-size: 12px; color: #667085">Добавится в чек при возврате</span><input id="penalty" type="text" value="[сумма]" style="width: 160px; height: 44px; box-sizing: border-box; border-radius: 12px; border: 1px solid #D0D5DD; padding: 0 14px; font-family: inherit; font-size: 15px; font-weight: 700"></span>
+      </div>
+      <div style="margin-top: auto; display: flex; align-items: center; gap: 12px; background: #FFFFFF; border-radius: 16px; padding: 14px 20px; box-shadow: 0 -4px 16px rgba(11,42,60,0.06)">
+        <span style="flex-grow: 1; font-size: 13px; color: #667085">Есть несохранённые изменения · действуют на всех кассах компании</span>
+        <button type="button" style="height: 44px; padding: 0 18px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Отменить</button>
+        <button type="button" style="height: 44px; padding: 0 18px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Сохранить</button>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const toggles = [
+      { title: 'Сводка при закрытии смены', note: 'Выручка, чеки, наличные — владельцу в Telegram' },
+      { title: 'ИИ-консультант для покупателей', note: 'Отвечает о товарах, ценах и наличии, принимает заказы' },
+      { title: 'Напоминания должникам', note: 'Бот напоминает о сроке взноса' }
+    ];
+    return { toggles };
+  }
+}
+</script>
+</body>
+</html>

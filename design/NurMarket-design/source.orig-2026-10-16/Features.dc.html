@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Функции и абонплата</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="manage" active="Функции и абонплата" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Функции и абонплата</span><span style="font-size: 13px; color: #667085">Касса входит всегда · каждая функция 7 дней бесплатно, потом по своей цене</span></span>
+      <span style="font-size: 13px; font-weight: 600; color: #475467">Ваш магазин:</span>
+      <div role="group" aria-label="Вид магазина" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Продукты</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Одежда</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Услуги</button>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; overflow: hidden">
+      <sc-for list="{{features}}" as="f" hint-placeholder-count="18">
+        <label style="background: #FFFFFF; border-radius: 14px; border: {{f.border}}; padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start">
+          <input type="checkbox" checked="{{f.on}}" style="width: 20px; height: 20px; margin-top: 2px; accent-color: #0B2A3C">
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 14px; font-weight: 800">{{f.name}}</span><span style="font-size: 12px; color: #667085; line-height: 16px">{{f.desc}}</span><span style="font-size: 11px; font-weight: 700; color: {{f.statusColor}}">{{f.status}}</span></span>
+          <span style="font-size: 14px; font-weight: 800; color: #0B2A3C; white-space: nowrap">{{f.fee}}</span>
+        </label>
+      </sc-for>
+    </div>
+    <div style="margin-top: auto; display: flex; align-items: center; gap: 14px; background: #0B2A3C; border-radius: 16px; padding: 14px 20px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 13px; color: #C7D2DB">Абонплата в месяц · касса 990 + 8 функций</span><span style="font-size: 26px; font-weight: 800; color: #FFD600">4 090 сом</span></span>
+      <button type="button" style="height: 46px; padding: 0 18px; border-radius: 12px; border: 1.5px solid #3B5566; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: #FFFFFF">Отменить</button>
+      <button type="button" style="height: 46px; padding: 0 20px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Сохранить</button>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const data = [
+      ['Склад', 'Приёмка (в т. ч. в валюте), ревизия, списание, перемещение', 500, true],
+      ['Калькуляция', 'Цена и наценка, проверка цен, безубыточность, валюта', 300, true],
+      ['Пополнение и сроки', 'Что заказать, сроки годности', 300, true],
+      ['Возвраты поставщикам', 'Возврат товара поставщику', 200, true],
+      ['Филиалы', 'Несколько магазинов и складов', 500, false],
+      ['Долги клиентов', 'Продажа в долг, рассрочка, напоминания', 400, true],
+      ['Прокат и аренда', 'Выдача в прокат, сроки возврата', 400, false],
+      ['Аналитика и финансы', 'Финансы, аналитика, ABC, прибыль', 500, true],
+      ['Размеры и цвета', 'Одежда и обувь: размеры, цвета, отчёт', 400, false],
+      ['Сайт-витрина', 'Свой сайт, заказы, магазин в приложении', 700, false],
+      ['Клиенты и бонусы', 'База клиентов, баллы, история покупок', 300, false],
+      ['Телеграм-бот', 'Отчёты и ответы покупателям', 400, false],
+      ['WhatsApp', 'Рассылки и напоминания', 300, false],
+      ['Воронка продаж', 'Сделки и этапы продаж', 300, false],
+      ['Зарплата и табель', 'Зарплата сотрудников, табель смен', 400, false],
+      ['Нур Советник (ИИ)', 'Советы по магазину, голос, фото накладной', 600, true],
+      ['Весы и этикетки', 'Весы на кассе, весы с печатью этикеток', 300, true],
+      ['Экран покупателя', 'Второй экран для покупателя', 200, false]
+    ];
+    const features = data.map(([name, desc, fee, on]) => ({
+      name, desc, on, fee: fee + ' сом',
+      status: on ? 'Бесплатно до 18.10.2026' : 'Не подключена',
+      statusColor: on ? '#0E7A3A' : '#98A2B3',
+      border: on ? '2px solid #FFD600' : '1px solid #E5E7EB'
+    }));
+    return { features };
+  }
+}
+</script>
+</body>
+</html>

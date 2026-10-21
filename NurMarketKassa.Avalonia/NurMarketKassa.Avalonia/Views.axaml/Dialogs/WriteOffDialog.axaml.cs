@@ -39,8 +39,9 @@ public partial class WriteOffDialog : Window
         DataContext = _vm;
 
         Title = Tr.T("Списание товара", "Товарды эсептен чыгаруу", "Write off a product", "Ürün düşümü", "Mahsulotni hisobdan chiqarish");
-        HeaderText.Text = Title;
-        HintText.Text = Tr.T(
+        // 2026-10-17, этап 3: заголовок и пояснение — в шапке общей оболочки модалки (ModalShell).
+        Shell.Title = Title;
+        Shell.Subtitle = Tr.T(
             "Отсканируйте товар, найдите его по названию или выберите из текущего чека. Остаток уменьшится на складе сразу.",
             "Товарды сканерлеңиз, аталышы боюнча табыңыз же учурдагы чектен тандаңыз. Калдык кампада дароо азаят.",
             "Scan the product, find it by name, or pick it from the current receipt. Stock is reduced right away.",
@@ -57,7 +58,7 @@ public partial class WriteOffDialog : Window
 
         foreach (var product in cartProducts.Where(p => !string.IsNullOrEmpty(p.Id)).GroupBy(p => p.Id).Select(g => g.First()))
         {
-            var chip = new Button { Classes = { "pick" }, Content = product.Title, Tag = product };
+            var chip = new Button { Classes = { "modal-chip" }, Content = product.Title, Tag = product, Margin = new Avalonia.Thickness(0, 0, 8, 8) };
             chip.Click += (_, _) => Select(product);
             CartItemsPanel.Children.Add(chip);
         }
@@ -65,7 +66,8 @@ public partial class WriteOffDialog : Window
 
         foreach (var reason in WarehouseViewModel.WriteOffReasons)
         {
-            var radio = new RadioButton { Classes = { "reason" }, GroupName = "writeoff-reason", Content = reason };
+            // 2026-10-17, этап 3: причины — сегментами модалки (44 px, выбранная залита), PosDialogStyles.axaml.
+            var radio = new RadioButton { Classes = { "modal-seg" }, GroupName = "writeoff-reason", Content = reason, Margin = new Avalonia.Thickness(0, 0, 8, 8) };
             _reasonButtons.Add(radio);
             ReasonsPanel.Children.Add(radio);
         }

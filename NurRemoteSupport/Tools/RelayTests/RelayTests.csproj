@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Сквозная проверка и нагрузочный тест ретранслятора (2026-09-29).
+       Это обычная консольная программа, а не тестовый проект: поднимает свой сервер на 127.0.0.1 с временной папкой данных,
+       в боевые базы не ходит. Запуск: см. Program.cs (режимы e2e и load) -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>NurRemoteSupport.RelayTests</RootNamespace>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+  </PropertyGroup>
+
+</Project>

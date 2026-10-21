@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Конструктор — о функции, зависимость, выключение</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; align-items: start">
+
+  <section class="m" role="dialog" aria-label="О функции">
+    <div class="mh"><div class="mt"><b>Подарочные сертификаты</b><span>200 сом / мес · 7 дней бесплатно</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <span class="lbl">ЧТО ПОЯВИТСЯ</span>
+      <div class="row"><span style="flex-grow: 1">На кассе — кнопка «Сертификат» и оплата сертификатом</span></div>
+      <div class="row"><span style="flex-grow: 1">В вебе — раздел «Бонусы и сертификаты»</span></div>
+      <div class="row"><span style="flex-grow: 1">В отчётах — продано и погашено</span></div>
+      <div class="row"><span style="flex-grow: 1">В боте — сертификат клиента</span></div>
+      <span class="lbl">НУЖНО</span>
+      <div class="row" style="background: #E7F6EC"><span style="flex-grow: 1">Клиенты и бонусы</span><span class="tag" style="background: #E7F6EC; color: #0E7A3A; white-space: nowrap">уже включено</span></div>
+      <span class="lbl">НАСТРОИТЬ ПОСЛЕ ВКЛЮЧЕНИЯ</span>
+      <span style="font-size: 13px; color: #475467">Номиналы и срок действия · 1 минута</span>
+    </div>
+    <div class="mf"><button type="button" class="b2">Отмена</button><span class="tot"></span><button type="button" class="b1">Включить</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Нужна другая функция">
+    <div class="mh" style="background: #EEF4FF"><div class="mt"><b>ЭСФ 2.0 работает вместе с ККМ</b><span>Включить обе функции?</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="row"><span style="flex-grow: 1"><b>ЭСФ и ЭСФ 2.0</b><br><span style="font-size: 11px; color: #667085">то, что вы включаете</span></span><b>400</b></div>
+      <div class="row" style="background: #FFF7CC; border: 2px solid #0B2A3C"><span style="flex-grow: 1"><b>ККМ и электронный чек</b><br><span style="font-size: 11px; color: #667085">нужна для сверки продаж с налоговой</span></span><b>500</b></div>
+      <div class="rl" style="font-size: 15px; border-top: 1px solid #EAECF0; padding-top: 8px"><b>Добавится в месяц</b><b>900</b></div>
+    </div>
+    <div class="mf"><button type="button" class="b2">Не включать</button><span class="tot"></span><button type="button" class="b1">Включить обе</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Выключить функцию">
+    <div class="mh" style="background: #FEF3E2"><div class="mt"><b>Выключить «Долги и рассрочка»?</b><span>Сейчас: 12 должников · 3 рассрочки</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="row"><span style="flex-grow: 1">Продажа в долг и новые рассрочки исчезнут с кассы</span></div>
+      <div class="row"><span style="flex-grow: 1">Старые долги и графики сохранятся, их можно погашать</span><span class="tag" style="background: #E7F6EC; color: #0E7A3A; white-space: nowrap">данные целы</span></div>
+      <div class="row"><span style="flex-grow: 1">Напоминания должникам в WhatsApp остановятся</span><span class="tag" style="background: #FEF3E2; color: #B54708; white-space: nowrap">внимание</span></div>
+      <span style="font-size: 12.5px; color: #475467">Включите снова в любой момент — всё вернётся как было.</span>
+    </div>
+    <div class="mf"><button type="button" class="b2">Оставить</button><span class="tot"></span><button type="button" class="bd">Выключить</button></div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

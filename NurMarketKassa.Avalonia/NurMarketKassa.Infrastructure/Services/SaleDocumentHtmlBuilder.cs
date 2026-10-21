@@ -83,7 +83,25 @@ public static class SaleDocumentHtmlBuilder
             sb.Append("<tr><td class=\"r\">").Append(E(Tr.T("Скидка", "Арзандатуу", "Discount", "İndirim", "Chegirma"))).Append(":</td><td class=\"r\">−").Append(M(linesTotal - due)).Append("</td></tr>");
         }
         sb.Append("<tr><td class=\"r\"><b>").Append(E(Tr.T("Итого", "Жыйынтык", "Total", "Toplam", "Jami"))).Append(":</b></td><td class=\"r\" style=\"width:35mm\"><b>")
-          .Append(M(due)).Append(' ').Append(E(Tr.T("сом", "сом", "som", "som", "so'm"))).Append("</b></td></tr></table>");
+          .Append(M(due)).Append(' ').Append(E(Tr.T("сом", "сом", "som", "som", "so'm"))).Append("</b></td></tr>");
+        // 2026-10-20, владелец (долг Д5): продажа «в долг» — оплачено, в долг, вернуть до / график (журнал кассы SaleReturnLedger).
+        if (string.Equals(Str(sale, "payment_method"), "debt", StringComparison.OrdinalIgnoreCase))
+        {
+            var ledger = SaleReturnLedger.Get(Str(sale, "id"));
+            var paid = ledger is { Total: > 0m } ? ledger.PaidCash + ledger.PaidNonCash
+                : decimal.TryParse(Str(sale, "cash_received"), NumberStyles.Any, CultureInfo.InvariantCulture, out var cr) ? cr : 0m;
+            void Row(string label, string value) =>
+                sb.Append("<tr><td class=\"r\">").Append(E(label)).Append(":</td><td class=\"r\">").Append(E(value)).Append("</td></tr>");
+            if (paid > 0.005m)
+                Row(Tr.T("Оплачено", "Төлөндү", "Paid", "Ödenen", "To'landi"), M(paid));
+            Row(Tr.T("В долг", "Карызга", "On credit", "Veresiye", "Qarzga"), M(Math.Max(0m, due - paid)));
+            if (ledger is { DebtSchedule.Count: > 1 })
+                foreach (var p in ledger.DebtSchedule)
+                    Row(Tr.T("Платёж до ", "Төлөм ", "Payment by ", "Ödeme ", "To'lov ") + p.Date.ToString("dd.MM.yyyy", Ru), M(p.Amount));
+            else if (ledger?.DebtDueDate is { } dd)
+                Row(Tr.T("Вернуть до", "Кайтаруу мөөнөтү", "Repay by", "Son ödeme", "Qaytarish muddati"), dd.ToString("dd.MM.yyyy", Ru));
+        }
+        sb.Append("</table>");
         sb.Append("<div class=\"small\">").Append(E(Tr.T($"Всего наименований {n}, на сумму {M(due)} сом.", $"Бардыгы {n} аталыш, {M(due)} сомго.",
             $"{n} items in total, {M(due)} som.", $"Toplam {n} kalem, {M(due)} som.", $"Jami {n} nom, {M(due)} so'm."))).Append("</div>");
 

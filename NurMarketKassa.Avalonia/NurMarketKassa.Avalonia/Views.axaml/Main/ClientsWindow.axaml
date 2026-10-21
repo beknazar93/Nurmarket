@@ -1,61 +1,37 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:NurMarketKassa.AvaloniaHost.Views"
+        xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Controls"
         x:Class="NurMarketKassa.AvaloniaHost.Views.ClientsWindow"
         Title="{DynamicResource clients.title}"
-        Height="720" Width="980" MinHeight="480" MinWidth="720"
+        Height="720" Width="1040" MinHeight="480" MinWidth="720"
         WindowStartupLocation="CenterOwner"
         FontFamily="Segoe UI, Inter, Noto Sans"
-        Background="{DynamicResource BrushInputAlt}"
+        Background="{DynamicResource BrushWindowBackdrop}"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
         Loaded="Window_Loaded">
 
+    <!-- 2026-10-19, этап О8 (редизайн «Клиентов», аудит 19.10: 5,4 / 5,3): формы «Новый клиент» сверху больше нет — кнопка
+         «+ Клиент» (единственная жёлтая) открывает окно ModalShell; плитки sec-kpi (клиентов, должников, сколько должны, бонусы);
+         поиск, сортировка сегментами (выбранная тёмно-синяя) и «Только должники»; список — строками-кнопками (Tab/Enter, UIA
+         Invoke), столбец «Долг, сом» (красным только долг); пустое состояние с подсказкой; карточка клиента — с долгом и
+         «Принять оплату» (у владельца). Запросы к серверу и сохранение клиента не менялись; долги — тот же быстрый список,
+         что у «Сводки» (DebtsView, один запрос). -->
     <Window.Styles>
         <Style Selector="TextBox">
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="MinHeight" Value="42"/>
-            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Padding" Value="12,8"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
-            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="FocusAdorner" Value="{x:Null}"/>
         </Style>
         <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
-        </Style>
-
-        <Style Selector="Button.PrimaryButton">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="18,10"/>
-            <Setter Property="Focusable" Value="False"/>
-        </Style>
-        <Style Selector="Button.PrimaryButton:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushWarning}"/>
-        </Style>
-        <Style Selector="Button.PrimaryButton:disabled">
-            <Setter Property="Opacity" Value="0.6"/>
-        </Style>
-
-        <Style Selector="Button.SecondaryButton">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="14,8"/>
-            <Setter Property="Focusable" Value="False"/>
-        </Style>
-        <Style Selector="Button.SecondaryButton:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
         </Style>
 
         <Style Selector="Button.WindowControlButton">
@@ -78,49 +54,87 @@
             <Setter Property="Foreground" Value="#FFFFFF"/>
         </Style>
 
-        <Style Selector="DataGrid">
-            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
-            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BrushBorder}"/>
+        <!-- Шапка таблицы и ячейки строк. -->
+        <Style Selector="TextBlock.th">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
         </Style>
-        <Style Selector="DataGridColumnHeader">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+        <Style Selector="TextBlock.td">
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+        </Style>
+        <!-- Цвет ячеек — классами: цвет, заданный прямо у TextBlock в шаблоне строки, перебивался стилем td (снимки 19.10). -->
+        <Style Selector="TextBlock.td.debt">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="12,10"/>
-            <Setter Property="SeparatorBrush" Value="{DynamicResource BrushBorder}"/>
         </Style>
-        <Style Selector="DataGridRow">
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Margin" Value="2,1"/>
+        <Style Selector="TextBlock.td.muted">
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
         </Style>
-        <Style Selector="DataGridRow:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        <Style Selector="TextBlock.sub">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,2,12,0"/>
         </Style>
-        <Style Selector="DataGridRow:selected, DataGridRow:pointerover">
-            <Setter Property="Foreground" Value="White"/>
+        <Style Selector="TextBlock.cardLabel">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+
+        <!-- Строка клиента — кнопка во всю ширину: щелчок, Tab + Enter и UIA (Invoke) открывают карточку. -->
+        <Style Selector="Button.client-row">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="16,9,4,9"/>
+            <Setter Property="MinHeight" Value="52"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.client-row /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        </Style>
+        <Style Selector="Button.client-row:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        </Style>
+        <Style Selector="Button.client-row:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+        </Style>
+        <Style Selector="Button.client-row:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <!-- Только что добавленный клиент — подсвечен, пока не обновили список. -->
+        <Style Selector="Button.client-row.fresh /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
         </Style>
     </Window.Styles>
 
-    <Grid x:Name="RootGrid" Margin="16,12,16,16" x:CompileBindings="False">
+    <Grid x:Name="RootGrid" Margin="16,12,16,16" x:CompileBindings="False" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
         <!-- Полоска загрузки, пока данные идут с сервера (2026-09-25, просьба владельца). -->
         <ProgressBar x:Name="LoadingBar" Grid.Row="0" Margin="0,-8,0,0" IsVisible="False" IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" VerticalAlignment="Top" IsHitTestVisible="False" ZIndex="100" Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
 
-        <!-- Шапка окна -->
+        <!-- Шапка окна (в кассе; в программе владельца скрыта — название уже над разделом) -->
         <Border x:Name="WindowHeaderBorder" Grid.Row="0"
                 Background="{DynamicResource BrushPanel}"
                 CornerRadius="14"
                 Padding="16,10"
-                Margin="0,0,0,16"
+                Margin="0,0,0,12"
                 BoxShadow="0 2 8 0 #0F000000">
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -133,7 +147,7 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="8" Padding="8">
+                    <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8" Padding="8">
                         <TextBlock Text="👥" FontSize="18" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Text="{DynamicResource clients.title}" FontSize="18" FontWeight="Bold"
@@ -142,104 +156,167 @@
             </DockPanel>
         </Border>
 
-        <!-- Панель добавления клиента -->
-        <Border Grid.Row="1"
-                Background="{DynamicResource BrushPanel}"
-                CornerRadius="14"
-                Padding="16"
-                Margin="0,0,0,16"
-                BoxShadow="0 2 8 0 #0F000000">
-            <StackPanel Spacing="10">
-                <TextBlock Text="{DynamicResource clients.newClientHeader}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-                <Grid ColumnDefinitions="*,*,*,*,Auto" >
-                    <TextBox Grid.Column="0" Margin="0,0,8,0" Watermark="{DynamicResource clients.nameWatermark}" Text="{Binding NewClientName}"/>
-                    <TextBox Grid.Column="1" Margin="0,0,8,0" Watermark="{DynamicResource common.phone}" Text="{Binding NewClientPhone}"/>
-                    <TextBox Grid.Column="2" Margin="0,0,8,0" Watermark="{DynamicResource clients.addressOptionalWatermark}" Text="{Binding NewClientAddress}"/>
-                    <TextBox Grid.Column="3" Margin="0,0,8,0" Watermark="{DynamicResource clients.emailOptionalWatermark}" Text="{Binding NewClientEmail}"/>
-                    <Button Grid.Column="4" x:Name="AddClientButton" Classes="PrimaryButton" Content="{DynamicResource clients.addButton}"
-                            Click="AddClientButton_Click"/>
-                </Grid>
-                <TextBlock Text="{Binding ErrorMessage}"
-                           Foreground="{DynamicResource BrushDanger}"
-                           FontSize="13"
-                           IsVisible="{Binding !!ErrorMessage}"
-                           TextWrapping="Wrap"/>
+        <!-- Подсказка и действия: «Обновить» — обводкой, «+ Клиент» — единственная жёлтая кнопка экрана.
+             2026-10-21: у владельца слева вкладки «Клиенты / Документы» (КП, счета, накладные — ClientsWindow.Docs.cs). -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+            <Border Grid.Column="0" x:Name="ClientsTabs" Classes="sec-segment" IsVisible="False" Margin="0,0,16,0" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <Button x:Name="TabClientsButton" Classes="sec-seg active"/>
+                    <Button x:Name="TabDocsButton" Classes="sec-seg"/>
+                </StackPanel>
+            </Border>
+            <TextBlock Grid.Column="1" x:Name="ClientsHint" Text="{DynamicResource clients.hint}" FontSize="12.5" TextWrapping="Wrap"
+                       VerticalAlignment="Center" Margin="0,0,16,0" Foreground="{DynamicResource BrushTextSoft}"/>
+            <StackPanel Grid.Column="2" x:Name="ClientsActions" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button x:Name="RefreshButton" Classes="sec-outline" Content="{DynamicResource clients.refreshButton}" Click="RefreshButton_Click"/>
+                <Button x:Name="AddClientButton" Classes="sec-primary" Content="{DynamicResource clients.addButton}" Click="AddClientButton_Click"/>
             </StackPanel>
-        </Border>
+        </Grid>
 
-        <!-- Список клиентов -->
-        <Border Grid.Row="2"
-                Background="{DynamicResource BrushPanel}"
-                CornerRadius="14"
-                Padding="16"
-                BoxShadow="0 2 8 0 #0F000000">
+        <!-- Итоги: клиентов, должников, сколько должны (красным только долг), бонусы на счетах. -->
+        <ctl:KpiTileGrid Grid.Row="2" x:Name="ClientsKpis" MinTileWidth="170" Spacing="8" Margin="0,0,0,12">
+            <Border Classes="sec-kpi">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="KpiClientsLabel" Classes="sec-kpi-label"/>
+                    <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="KpiClientsValue" Classes="sec-kpi-value"/></Viewbox>
+                </StackPanel>
+            </Border>
+            <Border Classes="sec-kpi" x:Name="KpiDebtorsTile">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="KpiDebtorsLabel" Classes="sec-kpi-label"/>
+                    <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="KpiDebtorsValue" Classes="sec-kpi-value"/></Viewbox>
+                </StackPanel>
+            </Border>
+            <Border Classes="sec-kpi" x:Name="KpiDebtTile">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="KpiDebtLabel" Classes="sec-kpi-label"/>
+                    <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="KpiDebtValue" Classes="sec-kpi-value"/></Viewbox>
+                    <TextBlock x:Name="KpiDebtNote" FontSize="11.5" TextWrapping="Wrap" IsVisible="False"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+            </Border>
+            <Border Classes="sec-kpi">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="KpiBonusLabel" Classes="sec-kpi-label"/>
+                    <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="KpiBonusValue" Classes="sec-kpi-value"/></Viewbox>
+                </StackPanel>
+            </Border>
+        </ctl:KpiTileGrid>
+
+        <!-- Поиск, порядок (сегменты: выбранный тёмно-синий) и «Только должники». -->
+        <Grid Grid.Row="3" x:Name="ClientsFilterRow" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12">
+            <TextBox Grid.Column="0" x:Name="SearchBox" MinWidth="200" Watermark="{DynamicResource csh.checkout.clientSearchWatermark}"
+                     Text="{Binding SearchText}" KeyDown="SearchBox_KeyDown"/>
+            <Border Grid.Column="1" Classes="sec-segment" Margin="10,0,0,0" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <Button x:Name="SortNewButton" Classes="sec-seg active" Click="SortNew_Click"/>
+                    <Button x:Name="SortNameButton" Classes="sec-seg" Click="SortName_Click"/>
+                    <Button x:Name="SortDebtButton" Classes="sec-seg" Click="SortDebt_Click"/>
+                </StackPanel>
+            </Border>
+            <Button Grid.Column="2" x:Name="OnlyDebtorsButton" Classes="sec-chip" Margin="10,0,0,0" VerticalAlignment="Stretch"
+                    VerticalContentAlignment="Center" CornerRadius="10" Padding="16,0"
+                    Click="OnlyDebtors_Click"/>
+        </Grid>
+
+        <!-- Список клиентов — карточкой. Шапка и строки — одни и те же колонки. -->
+        <Border Grid.Row="4" x:Name="ClientsListCard" Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="{DynamicResource SettingsCardRadius}" ClipToBounds="True">
             <Grid RowDefinitions="Auto,*">
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12">
-                    <TextBox Grid.Column="0" Watermark="{DynamicResource csh.checkout.clientSearchWatermark}" Text="{Binding SearchText}"/>
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding CountText}"
-                               VerticalAlignment="Center"
-                               Margin="12,0"
-                               Foreground="{DynamicResource BrushTextSoft}"
-                               FontSize="13"/>
-                    <Button Grid.Column="2" x:Name="RefreshButton" Classes="SecondaryButton" Content="{DynamicResource clients.refreshButton}" Click="RefreshButton_Click"/>
-                </Grid>
+                <Border Grid.Row="0" Padding="16,10,16,10" Background="{DynamicResource BrushPanelSoft}"
+                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
+                    <Grid ColumnDefinitions="2.3*,1.4*,1.1*,0.9*,0.9*">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource clients.colFullName}" Classes="th"/>
+                        <TextBlock Grid.Column="1" Text="{DynamicResource common.phone}" Classes="th"/>
+                        <TextBlock Grid.Column="2" x:Name="HeadDebt" Classes="th" TextAlignment="Right"/>
+                        <TextBlock Grid.Column="3" x:Name="HeadBonus" Classes="th" TextAlignment="Right"/>
+                        <TextBlock Grid.Column="4" Text="{DynamicResource clients.colAdded}" Classes="th"/>
+                    </Grid>
+                </Border>
 
-                <!-- Колонки по тому, зачем в этот список вообще заходят: найти человека и
-                     позвонить ему. Имя занимает всё свободное место, телефон и адрес — рядом;
-                     Email ушёл в конец и сузился: у большинства клиентов он пустой. -->
-                <DataGrid Grid.Row="1"
-                          ItemsSource="{Binding FilteredClients}"
-                          SelectedItem="{Binding SelectedClient}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          CanUserResizeColumns="True"
-                          CanUserSortColumns="True"
-                          GridLinesVisibility="Horizontal"
-                          RowHeight="46">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="{DynamicResource clients.colFullName}" Width="2*" Binding="{ReflectionBinding FullName}"/>
-                        <DataGridTextColumn Header="{DynamicResource common.phone}" Width="170" Binding="{ReflectionBinding Phone}"/>
-                        <DataGridTextColumn Header="{DynamicResource clients.addressLabel}" Width="1.4*" Binding="{ReflectionBinding Address}"/>
-                        <DataGridTextColumn Header="{DynamicResource clients.colAdded}" Width="130" Binding="{ReflectionBinding CreatedAtDisplay}"/>
-                        <DataGridTextColumn Header="{DynamicResource clients.colLoyalty}" Width="120" Binding="{ReflectionBinding LoyaltyBalanceDisplay}"/>
-                        <DataGridTextColumn Header="Email" Width="180" Binding="{ReflectionBinding Email}"/>
-                    </DataGrid.Columns>
-                </DataGrid>
+                <ScrollViewer Grid.Row="1" x:Name="ClientsScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="ClientsList" ItemsSource="{Binding FilteredClients}" Margin="0,0,12,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Classes="client-row" Classes.fresh="{Binding IsNew}" Click="ClientRow_Click"
+                                        AutomationProperties.Name="{Binding AutomationName}">
+                                    <Grid ColumnDefinitions="2.3*,1.4*,1.1*,0.9*,0.9*">
+                                        <!-- Клиент: имя (до двух строк, дальше «…») и второй строкой метка «новый», адрес / почта.
+                                             Ширина — по колонке (DockPanel), иначе длинное имя не переносится. -->
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                                            <TextBlock Text="{Binding FullName}" Classes="td" FontSize="14" FontWeight="SemiBold"
+                                                       MaxLines="2" TextTrimming="CharacterEllipsis" Margin="0"/>
+                                            <DockPanel IsVisible="{Binding HasSecondLine}" Margin="0,2,0,0">
+                                                <Border DockPanel.Dock="Left" IsVisible="{Binding IsNew}" CornerRadius="8" Padding="7,1" Margin="0,0,8,0"
+                                                        VerticalAlignment="Center" Background="{DynamicResource BrushText}">
+                                                    <TextBlock Text="{Binding NewBadgeText}" FontSize="11" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource BrushPanel}"/>
+                                                </Border>
+                                                <TextBlock Text="{Binding SubLine}" Classes="sub" Margin="0" VerticalAlignment="Center"
+                                                           MaxLines="1" TextTrimming="CharacterEllipsis"/>
+                                            </DockPanel>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding PhoneDisplay}" Classes="td"/>
+                                        <!-- Долг: красным только если он есть, иначе «—» серым -->
+                                        <TextBlock Grid.Column="2" Text="{Binding DebtText}" Classes="td" Classes.debt="{Binding HasDebt}"
+                                                   Classes.muted="{Binding !HasDebt}" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding BonusText}" Classes="td" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="4" Text="{Binding CreatedAtDisplay}" Classes="td muted"/>
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
 
-                <TextBlock Grid.Row="1"
-                           Text="{DynamicResource clients.hint}"
-                           VerticalAlignment="Bottom"
-                           Margin="4,0,0,4"
-                           FontSize="12"
-                           Foreground="{DynamicResource BrushTextSoft}"/>
+                <!-- Пустое состояние: что значит и что сделать. -->
+                <StackPanel Grid.Row="1" x:Name="EmptyBox" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            MaxWidth="520" Spacing="6" Margin="16,24">
+                    <TextBlock x:Name="EmptyTitle" HorizontalAlignment="Center" TextAlignment="Center" FontSize="16" FontWeight="SemiBold"
+                               TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock x:Name="EmptyText" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" FontSize="13"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
             </Grid>
         </Border>
 
-        <!-- Карточка клиента (оверлей).
-             Раньше это был StackPanel в рамке с MaxHeight: он не прокручивается, поэтому всё,
-             что не поместилось — кнопка истории покупок, ссылка на бота, «Сохранить» — просто
-             вылезало за край карточки поверх списка. Теперь карточка устроена как окно: шапка
-             и кнопки закреплены, а середина прокручивается, сколько бы полей в ней ни было. -->
-        <Border Grid.Row="0" Grid.RowSpan="3"
+        <!-- 2026-10-21: вкладка «Документы» (у владельца) — на месте плиток, фильтров и списка клиентов. -->
+        <ContentControl Grid.Row="2" Grid.RowSpan="3" x:Name="DocsHost" IsVisible="False"/>
+
+        <Border Grid.Row="5" Margin="0,10,0,0" Padding="10" Background="{DynamicResource BrushDangerSoft}" CornerRadius="8"
+                IsVisible="{Binding HasError}">
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource BrushDangerOnSoft}" TextWrapping="Wrap"/>
+        </Border>
+
+        <!-- Карточка клиента (поверх списка). Шапка и кнопки закреплены, середина прокручивается. -->
+        <Border Grid.Row="0" Grid.RowSpan="6"
                 IsVisible="{Binding HasSelectedClient}"
                 Background="#66000000">
-            <Border Width="520"
-                    MaxHeight="640"
+            <Border Width="580"
+                    MaxHeight="660"
+                    Margin="12"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Background="{DynamicResource BrushPanel}"
-                    CornerRadius="14"
+                    CornerRadius="16"
                     BoxShadow="0 8 24 0 #33000000">
                 <Grid RowDefinitions="Auto,*,Auto">
 
-                    <!-- Шапка -->
-                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="20,16,14,12">
-                        <TextBlock Text="{DynamicResource clients.cardHeader}"
-                                   FontSize="17" FontWeight="Bold"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource BrushText}"/>
-                        <Button Grid.Column="1" Classes="WindowControlButton" Click="CloseCardButton_Click">
+                    <!-- Шапка: имя клиента и с какого числа он в базе -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="22,16,14,12">
+                        <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CardTitle}" FontSize="18" FontWeight="Bold" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{Binding CardSubtitle}" FontSize="12.5" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" x:Name="CloseCardButton" Classes="WindowControlButton" Focusable="True" VerticalAlignment="Top"
+                                Click="CloseCardButton_Click">
                             <TextBlock Text="✕" FontSize="13"/>
                         </Button>
                     </Grid>
@@ -247,96 +324,112 @@
                     <Border Grid.Row="0" Height="1" VerticalAlignment="Bottom"
                             Background="{DynamicResource BrushBorder}"/>
 
-                    <!-- Середина: прокручивается -->
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20,14,20,14">
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="22,14,22,14">
                         <StackPanel Spacing="12">
 
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="{DynamicResource clients.nameWatermark}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                                <TextBox Text="{Binding EditName}"/>
-                            </StackPanel>
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="{DynamicResource common.phone}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                                <TextBox Text="{Binding EditPhone}"/>
-                            </StackPanel>
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="{DynamicResource clients.addressLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                                <TextBox Text="{Binding EditAddress}"/>
-                            </StackPanel>
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Email" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                                <TextBox Text="{Binding EditEmail}"/>
-                            </StackPanel>
+                            <!-- Поля — по два в ряд: карточка короче, кнопки внизу видны сразу. -->
+                            <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,Auto">
+                                <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4" Margin="0,0,0,10">
+                                    <TextBlock x:Name="CardNameLabel" Classes="cardLabel"/>
+                                    <TextBox Text="{Binding EditName}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="0" Grid.Column="2" Spacing="4" Margin="0,0,0,10">
+                                    <TextBlock x:Name="CardPhoneLabel" Classes="cardLabel"/>
+                                    <TextBox Text="{Binding EditPhone}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4">
+                                    <TextBlock Text="{DynamicResource clients.addressLabel}" Classes="cardLabel"/>
+                                    <TextBox Text="{Binding EditAddress}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4">
+                                    <TextBlock Text="Email" Classes="cardLabel"/>
+                                    <TextBox Text="{Binding EditEmail}"/>
+                                </StackPanel>
+                            </Grid>
 
-                            <!-- Бонусы и покупки — одним блоком: обе строки отвечают на один
-                                 вопрос, сколько этот человек для магазина значит. -->
-                            <Border Background="{DynamicResource BrushSurfaceSubtle}"
+                            <!-- Долг: сумма (красным, только если есть), чеки и с какого числа; «Принять оплату» (у владельца)
+                                 и «Записать долг без продажи» — обводкой. Заполняет ClientsWindow.Debt.cs. -->
+                            <Border x:Name="CardDebtBox"
+                                    Background="{DynamicResource BrushSurfaceSubtle}"
                                     BorderBrush="{DynamicResource BrushBorder}"
                                     BorderThickness="1"
                                     CornerRadius="10"
-                                    Padding="12,10">
+                                    Padding="14,12">
                                 <StackPanel Spacing="8">
-                                    <!-- Бонус отдельной подписанной строкой: без подписи «2,7 сом»
-                                         рядом с покупками читалось как ещё одна сумма покупок. -->
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Text="{DynamicResource clients.colLoyalty}"
-                                                   FontSize="12" FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource BrushTextSoft}"/>
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding SelectedClient.LoyaltyBalanceDisplay}"
-                                                   FontSize="16" FontWeight="Bold"
-                                                   Foreground="{DynamicResource BrushAccentStrong}"/>
+                                        <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock x:Name="CardDebtLabel" Classes="cardLabel"/>
+                                            <TextBlock x:Name="CardDebtDetail" FontSize="12" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" x:Name="CardDebtValue" FontSize="20" FontWeight="Bold"
+                                                   VerticalAlignment="Center" Margin="12,0,0,0" FontFeatures="{DynamicResource TabularNumbers}"/>
                                     </Grid>
-
-                                    <Border Height="1" Background="{DynamicResource BrushBorder}" Opacity="0.6"/>
-
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Text="{DynamicResource clients.purchasesHeader}"
-                                                   FontSize="12" FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource BrushTextSoft}"/>
-                                    </Grid>
-                                    <TextBlock Text="{Binding PurchasesSummary}"
-                                               FontSize="12"
-                                               TextWrapping="Wrap"
-                                               Foreground="{DynamicResource BrushTextMuted}"/>
-                                    <!-- Список «дата — сумма» из карточки убран: по нему нельзя
-                                         было найти сам чек. Полная история с номерами чеков и их
-                                         составом — в отдельном окне, где для неё есть место. -->
-                                    <Button x:Name="PurchasesButton"
-                                            Classes="SecondaryButton"
-                                            HorizontalAlignment="Stretch"
-                                            Content="{DynamicResource clients.openPurchases}"
-                                            Click="PurchasesButton_Click"/>
-                                    <!-- 2026-10-06, ТЗ ч.12, п. 3.2: долг без продажи (старый долг из тетради и т. п.); надпись — в коде (5 языков). -->
-                                    <Button x:Name="AddDebtButton"
-                                            Classes="SecondaryButton"
-                                            HorizontalAlignment="Stretch"
-                                            Click="AddDebtButton_Click"/>
+                                    <WrapPanel Orientation="Horizontal">
+                                        <Button x:Name="PayDebtButton" Classes="sec-outline" Margin="0,0,8,0" Click="PayDebtButton_Click"/>
+                                        <!-- 2026-10-06, ТЗ ч.12, п. 3.2: долг без продажи (старый долг из тетради и т. п.); надпись — в коде (5 языков). -->
+                                        <Button x:Name="AddDebtButton" Classes="sec-outline" Click="AddDebtButton_Click"/>
+                                    </WrapPanel>
                                 </StackPanel>
                             </Border>
 
-                            <!-- Персональная ссылка на бота. Telegram не позволяет написать
-                                 человеку по номеру телефона — он должен сам нажать «Старт».
-                                 Ссылку копируют и отправляют клиенту, и после перехода касса
-                                 сможет слать ему напоминания о долге и об акциях. -->
+                            <!-- 2026-10-21: документы клиента (у владельца) — КП, счета, накладные; заполняет ClientsWindow.Docs.cs. -->
+                            <Border x:Name="CardDocsBox"
+                                    IsVisible="False"
+                                    Background="{DynamicResource BrushSurfaceSubtle}"
+                                    BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="14,12">
+                                <StackPanel Spacing="8">
+                                    <TextBlock x:Name="CardDocsLabel" Classes="cardLabel"/>
+                                    <TextBlock x:Name="CardDocsDetail" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+                                    <WrapPanel x:Name="CardDocsButtons" Orientation="Horizontal"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Покупки и бонусы — сколько этот человек для магазина значит. -->
                             <Border Background="{DynamicResource BrushSurfaceSubtle}"
                                     BorderBrush="{DynamicResource BrushBorder}"
                                     BorderThickness="1"
                                     CornerRadius="10"
-                                    Padding="12,10">
+                                    Padding="14,12">
                                 <StackPanel Spacing="8">
-                                    <TextBlock Text="{DynamicResource clients.telegramHeader}"
-                                               FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource BrushTextSoft}"/>
-                                    <!-- Кнопка без объяснения непонятна: владелец спросил, зачем
-                                         она вообще нужна. Пишем это прямо в карточке. -->
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{DynamicResource clients.purchasesHeader}" Classes="cardLabel"/>
+                                            <TextBlock Text="{Binding PurchasesSummary}" FontSize="12.5" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource BrushText}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="2" Margin="12,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{DynamicResource clients.colLoyalty}" Classes="cardLabel" HorizontalAlignment="Right"/>
+                                            <TextBlock Text="{Binding SelectedClient.BonusCardText}" FontSize="16" FontWeight="Bold"
+                                                       HorizontalAlignment="Right" Foreground="{DynamicResource BrushText}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Полная история с номерами чеков и их составом — в отдельном окне. -->
+                                    <Button x:Name="PurchasesButton"
+                                            Classes="sec-outline"
+                                            HorizontalAlignment="Left"
+                                            Content="{DynamicResource clients.openPurchases}"
+                                            Click="PurchasesButton_Click"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Персональная ссылка на бота. Telegram не позволяет написать человеку по номеру телефона —
+                                 он должен сам нажать «Старт». После перехода касса сможет слать ему напоминания. -->
+                            <Border Background="{DynamicResource BrushSurfaceSubtle}"
+                                    BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="14,12">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="{DynamicResource clients.telegramHeader}" Classes="cardLabel"/>
                                     <TextBlock Text="{DynamicResource clients.telegramExplain}"
-                                               FontSize="11.5" TextWrapping="Wrap" LineHeight="17"
+                                               FontSize="12" TextWrapping="Wrap" LineHeight="17"
                                                Foreground="{DynamicResource BrushTextMuted}"/>
-                                    <Button x:Name="TelegramInviteButton" Classes="SecondaryButton"
-                                            HorizontalAlignment="Stretch"
+                                    <Button x:Name="TelegramInviteButton" Classes="sec-outline"
+                                            HorizontalAlignment="Left"
                                             Content="{DynamicResource clients.telegramCopyLink}"
                                             Click="TelegramInviteButton_Click"/>
                                     <TextBlock x:Name="TelegramInviteHint" FontSize="12" TextWrapping="Wrap"
@@ -355,15 +448,17 @@
                     <Border Grid.Row="2" Height="1" VerticalAlignment="Top"
                             Background="{DynamicResource BrushBorder}"/>
 
-                    <!-- Кнопки закреплены внизу: до них не надо прокручивать. -->
-                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="20,14,20,16">
-                        <Button Grid.Column="0" x:Name="DeleteClientButton" Classes="SecondaryButton"
+                    <!-- Кнопки закреплены внизу: «Удалить» — слева красной обводкой, «Сохранить» — единственная жёлтая. -->
+                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="22,14,22,16">
+                        <Button Grid.Column="0" x:Name="DeleteClientButton" Classes="sec-outline danger"
                                 Content="{DynamicResource clients.deleteButton}"
-                                Foreground="{DynamicResource BrushDanger}"
                                 Click="DeleteClientButton_Click"/>
-                        <Button Grid.Column="2" x:Name="SaveClientButton" Classes="PrimaryButton"
-                                Content="{DynamicResource clients.saveButton}"
-                                Click="SaveClientButton_Click"/>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="CancelCardButton" Classes="sec-outline" Click="CloseCardButton_Click"/>
+                            <Button x:Name="SaveClientButton" Classes="sec-primary"
+                                    Content="{DynamicResource clients.saveButton}"
+                                    Click="SaveClientButton_Click"/>
+                        </StackPanel>
                     </Grid>
                 </Grid>
             </Border>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Маркетплейс — функции и подписка (веб)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.sn a{display:block;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:600;color:#344054;text-decoration:none}
+.sn a.on{background:#FFFFFF;color:#0B2A3C;font-weight:800;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.fr{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid #E5E7EB;font-size:13px}
+.fr.on{border:2px solid #FFD600;background:#FFFCEB}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.dv{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F2F4F7;font-size:13px}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Маркетплейс" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <!-- 2026-10-16: функции включаются только здесь (Маркетплейс → «Функции и подписка»); «По филиалам» — вкладка того же раздела (WebConstructor). -->
+    <span style="display: flex; flex-direction: column; gap: 2px"><b style="font-size: 24px; font-weight: 800">Маркетплейс</b><span style="font-size: 13px; color: #667085">Единственное место, где включаются функции и оплачивается подписка</span></span>
+    <div role="tablist" aria-label="Маркетплейс" style="display: flex; align-self: flex-start; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+      <button type="button" role="tab" aria-selected="true" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap">Функции и подписка</button>
+      <button type="button" role="tab" aria-selected="false" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">По филиалам</button>
+      <button type="button" role="tab" aria-selected="false" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">Темы</button>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 560px">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-radius: 12px; background: #0B2A3C; color: #FFFFFF; padding: 14px 16px">
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #C7D2DB">Тариф «Стандарт» · оплачен до 01.10.2027 · филиал «NBS — главный»</span><b style="font-size: 18px; white-space: nowrap">В месяц: <span style="color: #FFD600">{{total}}</span></b><span style="font-size: 12px; color: #C7D2DB">Все 3 филиала — {{allTotal}} · свой набор у филиала — вкладка «По филиалам»</span></span>
+          <button type="button" class="b1">Оплатить</button>
+        </div>
+        <span style="font-size: 12.5px; color: #475467; line-height: 18px"><b style="color: #0B2A3C">Правило:</b> выключенная функция скрыта из меню у всех сотрудников (не «заблокирована», а нет пункта). Включили — пункт появляется в меню сразу.</span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+          <sc-for list="{{features}}" as="f" hint-placeholder-count="18">
+            <label class="fr" style="border: {{f.border}}; background: {{f.bg}}; padding: 8px 12px">
+              <input type="checkbox" checked="{{f.on}}" aria-label="{{f.name}}" style="width: 18px; height: 18px; accent-color: #0B2A3C; flex-shrink: 0">
+              <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><b>{{f.name}}</b><span style="font-size: 12px; color: #667085">{{f.note}}</span></span>
+              <b style="color: #0B2A3C; white-space: nowrap">{{f.price}}</b>
+            </label>
+          </sc-for>
+        </div>
+        <span style="font-size: 12px; color: #667085">Свой набор функций у филиала — нужен сервер NurCRM (сейчас тариф различается только названием).</span>
+      </section>
+
+      <aside class="card" style="flex: 1 1 260px; max-width: 320px">
+        <b style="font-size: 15px">Подключённые устройства</b>
+        <sc-for list="{{devices}}" as="d" hint-placeholder-count="4">
+          <div class="dv"><span style="width: 8px; height: 8px; border-radius: 4px; flex-shrink: 0; background: {{d.dot}}"></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span>{{d.name}}</span><span style="font-size: 11.5px; color: {{d.stColor}}">{{d.status}}</span></span><button type="button" aria-label="{{d.off}}" style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 12px; font-weight: 700; white-space: nowrap">Отключить</button></div>
+        </sc-for>
+        <span style="font-size: 12px; color: #667085; line-height: 17px">Отключённое устройство выходит из учётной записи; открытая смена на нём сначала закрывается.</span>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: тот же список и те же цены, что во вкладке «По филиалам» (WebConstructor); названия — как пункты меню.
+    // У NBS включено всё, что видно в меню; выключенные («Размеры и цвета», «Экран покупателя») в меню не показываются.
+    const sp = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' сом';
+    const list = [
+      ['Касса', 'всегда включена: продажи и смены', 990, true],
+      ['Склад', 'приёмка, ревизия, перемещение', 500, true],
+      ['Закупки', 'заказ поставщику, долги поставщикам', 300, true],
+      ['Пополнение и сроки', 'что заказать, сроки годности', 300, true],
+      ['Долги клиентов', 'продажа в долг, напоминания', 400, true],
+      ['Рассрочка', 'график взносов', 300, true],
+      ['Прокат', 'выдача, залог, просрочка', 400, true],
+      ['Сайт-витрина', 'Заказы с сайта, Редактор сайта', 700, true],
+      ['Телеграм-бот', 'заказы и ответы покупателям', 400, true],
+      ['Бонусы и сертификаты', 'баллы, уровни, подарочные карты', 400, true],
+      ['WhatsApp', 'напоминания должникам', 300, true],
+      ['Воронка', 'сделки и этапы продаж', 300, true],
+      ['Зарплата', 'табель и расчёт', 400, true],
+      ['ЭСФ и ККМ', 'фискальные чеки, ЭСФ', 600, true],
+      ['Нур Советник', 'ИИ: отчёты и команды голосом', 600, true],
+      ['Задачи и календарь', 'поручения сотрудникам', 200, true],
+      ['Размеры и цвета', 'вид «Одежда» · выкл. — нет в меню', 400, false],
+      ['Экран покупателя', 'второй экран · выкл. — нет в меню', 200, false]
+    ];
+    const features = list.map(([name, note, p, on]) => ({ name, note, on, price: sp(p), border: on ? '2px solid #FFD600' : '1px solid #E5E7EB', bg: on ? '#FFFCEB' : '#FFFFFF' }));
+    const total = list.filter((x) => x[3]).reduce((s, x) => s + x[2], 0); // 7 090
+    // Филиалы: NBS — главный 7 090 + Офис Кубанычбека 3 490 + Домашний 1 890 = 12 470 (как в «По филиалам»).
+    const dv = (name, who, online, when) => ({ name, status: who + ' · ' + (online ? 'в сети, ' : 'не в сети, ') + when, dot: online ? '#16A34A' : '#98A2B3', stColor: online ? '#0E7A3A' : '#667085', off: 'Отключить: ' + name + ' (' + who + ')' });
+    return {
+      total: sp(total),
+      allTotal: sp(total + 3490 + 1890),
+      features,
+      devices: [
+        dv('Касса 1 · Windows', 'Кассир Тест', true, 'сейчас'),
+        dv('Телефон · Android', 'Айгерим Садыкова', true, 'сейчас'),
+        dv('Веб-касса · Chrome', 'Нурлан Абдыкадыров', true, 'сейчас'),
+        dv('Касса · Linux', 'Офис Кубанычбека', false, '08.10 18:02')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

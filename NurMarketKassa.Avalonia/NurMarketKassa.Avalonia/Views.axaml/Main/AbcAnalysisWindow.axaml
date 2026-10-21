@@ -10,41 +10,9 @@
         Background="{DynamicResource BrushWindowBackdrop}"
         Loaded="Window_Loaded">
 
-    <Window.Styles>
-        <Style Selector="Button.period">
-            <Setter Property="Padding" Value="14,7"/>
-            <Setter Property="Margin" Value="0,0,8,0"/>
-            <Setter Property="CornerRadius" Value="8"/>
-        </Style>
-
-        <!-- Выбранный период. Раньше все четыре кнопки выглядели одинаково, и понять, за какой
-             срок сейчас цифры, можно было только по датам в календарях ниже. Отсюда же и
-             «не работает Месяц»: он ставит те же 30 дней, что уже стояли, и без подсветки
-             нажатие выглядело как будто ничего не произошло. -->
-        <Style Selector="Button.period.accent">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-        </Style>
-        <Style Selector="Button.period.accent /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-        </Style>
-
-        <Style Selector="Button.period.active">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-        </Style>
-        <Style Selector="Button.period.active /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-        </Style>
-        <Style Selector="Button.period.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-        </Style>
-    </Window.Styles>
+    <!-- 2026-10-18, этап О3 (правила аудита 1–2): свои стили Button.period / .accent / .active убраны. Период — сегменты
+         (sec-seg; выбранный — класс active, тёмно-синий, как период «Сводки»; раньше — жёлтая заливка), «Обновить» — одна
+         главная (sec-primary), Excel / Word / «Закрыть» — обводкой (sec-outline). Стили — PosDialogStyles.axaml. -->
 
     <Grid x:Name="RootGrid" Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto">
         <!-- Полоска загрузки, пока данные идут с сервера (2026-09-25, просьба владельца). -->
@@ -55,24 +23,26 @@
                 <TextBlock x:Name="TitleText"
                            FontSize="26" FontWeight="Bold"
                            Foreground="{DynamicResource BrushText}"/>
-                <TextBlock x:Name="SubtitleText"
+                <TextBlock x:Name="SubtitleText" TextWrapping="Wrap"
                            FontSize="12" Margin="0,2,0,0"
                            Foreground="{DynamicResource BrushTextSoft}"/>
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button x:Name="ExcelButton" Content="Excel" Classes="period" Click="ExportExcel_Click"/>
-                <Button x:Name="WordButton" Content="Word" Classes="period" Click="ExportWord_Click"/>
-                <Button x:Name="RefreshButton" Classes="period accent" Click="Refresh_Click"/>
-                <Button IsCancel="True" x:Name="CloseButton" Classes="period" Click="Close_Click"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                <Button x:Name="ExcelButton" Content="Excel" Classes="sec-outline" Click="ExportExcel_Click"/>
+                <Button x:Name="WordButton" Content="Word" Classes="sec-outline" Click="ExportWord_Click"/>
+                <Button x:Name="RefreshButton" Classes="sec-primary" Click="Refresh_Click"/>
+                <Button IsCancel="True" x:Name="CloseButton" Classes="sec-outline" Click="Close_Click"/>
             </StackPanel>
         </Grid>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-            <Button x:Name="TodayButton" Classes="period" Click="Today_Click"/>
-            <Button x:Name="WeekButton" Classes="period" Click="Week_Click"/>
-            <Button x:Name="MonthButton" Classes="period" Click="Month_Click"/>
-            <Button x:Name="QuarterButton" Classes="period" Click="Quarter_Click"/>
-        </StackPanel>
+        <Border Grid.Row="1" Classes="sec-segment" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <Button x:Name="TodayButton" Classes="sec-seg" Click="Today_Click"/>
+                <Button x:Name="WeekButton" Classes="sec-seg" Click="Week_Click"/>
+                <Button x:Name="MonthButton" Classes="sec-seg" Click="Month_Click"/>
+                <Button x:Name="QuarterButton" Classes="sec-seg" Click="Quarter_Click"/>
+            </StackPanel>
+        </Border>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10" Spacing="8">
             <CalendarDatePicker x:Name="FromPicker" Width="160" SelectedDateChanged="Period_Changed"/>

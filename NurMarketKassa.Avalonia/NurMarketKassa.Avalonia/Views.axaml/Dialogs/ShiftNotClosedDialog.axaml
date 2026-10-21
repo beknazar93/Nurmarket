@@ -1,8 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ShiftNotClosedDialog"
         Title="{DynamicResource shiftNotClosed.title}"
-        Width="440" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -10,77 +11,35 @@
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
 
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="28,24">
-    <StackPanel HorizontalAlignment="Stretch">
+  <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 480 — заголовок и ✕ сверху
+       (✕ = Esc = «Отмена»), «Отмена» (обводка) и «Закрыть смену» (акцент темы, Enter) снизу справа;
+       третье действие «Только выйти» — кнопкой с обводкой под текстом. Результаты окна прежние. -->
+  <dlg:ModalShell Margin="16"
+                  Title="{DynamicResource shiftNotClosed.title}"
+                  Hint="{DynamicResource modal.hintEnter}">
+    <dlg:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button IsCancel="True"
+                Classes="modal-cancel" MaxWidth="200"
+                Content="{DynamicResource common.cancel}"
+                Click="CancelButton_Click"/>
+        <!-- Надпись «Закрыть смену» вместо голого «Закрыть» (макет MShift): та же кнопка, тот же результат. -->
+        <Button Classes="modal-primary" MaxWidth="200"
+                Content="{DynamicResource csh.toolbar.closeShift}"
+                IsDefault="True"
+                Click="CloseShiftButton_Click"/>
+      </StackPanel>
+    </dlg:ModalShell.Footer>
 
-      <!-- Заголовок отцентрирован -->
-      <TextBlock Text="{DynamicResource shiftNotClosed.title}"
-                 FontSize="18" FontWeight="Bold"
-                 Foreground="{DynamicResource BrushText}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 Margin="0,0,0,12"/>
-
-      <!-- Текст предупреждения отцентрирован -->
+    <StackPanel Spacing="16">
       <TextBlock Text="{DynamicResource shiftNotClosed.message}"
                  FontSize="14" TextWrapping="Wrap"
-                 Foreground="{DynamicResource BrushTextSoft}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 Margin="0,0,0,22"/>
+                 Foreground="{DynamicResource BrushTextSoft}"/>
 
-      <!-- Кнопки управления -->
-      <StackPanel Spacing="10">
-        <Button Content="{DynamicResource shiftNotClosed.logoutOnly}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Background="{DynamicResource BrushPanel}"
-                Foreground="{DynamicResource BrushText}"
-                BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1.5"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Cursor="Hand"
-                Click="LogoutOnlyButton_Click"/>
-
-        <Grid ColumnDefinitions="*,12,*">
-          <Button IsCancel="True" Grid.Column="0"
-                  Content="{DynamicResource common.cancel}"
-                  Height="46"
-                  HorizontalAlignment="Stretch"
-                  HorizontalContentAlignment="Center"
-                  VerticalContentAlignment="Center"
-                  Background="{DynamicResource BrushPanel}"
-                  Foreground="{DynamicResource BrushText}"
-                  BorderBrush="{DynamicResource BrushBorder}"
-                  BorderThickness="1.5"
-                  FontWeight="SemiBold"
-                  CornerRadius="10"
-                  Cursor="Hand"
-                  Click="CancelButton_Click"/>
-
-          <Button Grid.Column="2"
-                  Content="{DynamicResource common.close}"
-                  Height="46"
-                  HorizontalAlignment="Stretch"
-                  HorizontalContentAlignment="Center"
-                  VerticalContentAlignment="Center"
-                  Background="{DynamicResource BrushAccent}"
-                  Foreground="{DynamicResource BrushAccentForeground}"
-                  FontWeight="SemiBold"
-                  CornerRadius="10"
-                  IsDefault="True"
-                  Cursor="Hand"
-                  Click="CloseShiftButton_Click"/>
-        </Grid>
-      </StackPanel>
-
+      <Button Classes="modal-secondary"
+              Content="{DynamicResource shiftNotClosed.logoutOnly}"
+              HorizontalAlignment="Stretch"
+              Click="LogoutOnlyButton_Click"/>
     </StackPanel>
-  </Border>
+  </dlg:ModalShell>
 </Window>

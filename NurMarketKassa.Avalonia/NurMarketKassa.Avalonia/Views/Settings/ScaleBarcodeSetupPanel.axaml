@@ -14,6 +14,19 @@
     <UserControl.Styles>
         <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
 
+        <!-- 2026-10-21 (пакет 5, п. 63): как на странице «Весы» — пояснения 13,5 и не длиннее трёх строк (полный текст —
+             в подсказке), заголовки карточек 16, пояснения к вариантам 12,5 (были 11). Панель есть и в окне «Весы». -->
+        <Style Selector="TextBlock.SettingsCardBody">
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="LineHeight" Value="19"/>
+            <Setter Property="MaxLines" Value="3"/>
+            <Setter Property="TextTrimming" Value="WordEllipsis"/>
+            <Setter Property="ToolTip.Tip" Value="{Binding $self.Text}"/>
+        </Style>
+        <Style Selector="TextBlock.SettingsCardTitle">
+            <Setter Property="FontSize" Value="16"/>
+        </Style>
+
         <!-- Крупный вариант прочтения этикетки -->
         <Style Selector="Button.ReadOption">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
@@ -27,9 +40,10 @@
             <Setter Property="VerticalAlignment" Value="Stretch"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
+        <!-- 2026-10-19, этап О7: наведение — мягкий фон и тёмная рамка (было жёлтое). -->
         <Style Selector="Button.ReadOption:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="Button.ReadOption.current">
             <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
@@ -51,12 +65,12 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
         <Style Selector="TextBlock.optDetail">
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
         <Style Selector="TextBlock.optNote">
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
@@ -68,8 +82,8 @@
             <Setter Property="Margin" Value="0,0,6,0"/>
             <Setter Property="Template">
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="pill" Background="{DynamicResource BrushPanelSoft}"
-                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1.5"
+                    <Border x:Name="pill" Background="{DynamicResource BrushPanel}"
+                            BorderBrush="{DynamicResource BrushBorderStrong}" BorderThickness="1.5"
                             CornerRadius="8" Padding="18,6" MinHeight="40" MinWidth="84">
                         <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center" HorizontalAlignment="Center"
                                           TextElement.Foreground="{TemplateBinding Foreground}"/>
@@ -80,19 +94,23 @@
         <Style Selector="RadioButton.RulePill">
             <Setter Property="FontSize" Value="14"/>
         </Style>
+        <!-- 2026-10-19, этап О7: выбранное правило «Вес / Сумма» — тёмно-синее, как sec-seg (было бледно-жёлтое и серое). -->
         <Style Selector="RadioButton.RulePill:pointerover /template/ Border#pill">
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="RadioButton.RulePill:checked /template/ Border#pill">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="RadioButton.RulePill:checked">
             <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
         </Style>
 
+        <!-- 2026-10-19, этап О7: обводкой, без серой заливки; «Разобрать» / «Настроить по этикетке…» — тёмная обводка
+             (жёлтая на странице одна — «Сохранить»). -->
         <Style Selector="Button.ScaleSecondary">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
@@ -105,16 +123,21 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.ScalePrimary">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Padding" Value="16,6"/>
             <Setter Property="MinHeight" Value="42"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ScaleSecondary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.ScalePrimary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="Border.NoteBlock">
             <Setter Property="CornerRadius" Value="8"/>
@@ -134,7 +157,7 @@
         <!-- 1. Мастер «Настроить по этикетке» -->
         <Border x:Name="WizardCard" Classes="SettingsCard" Padding="14">
             <StackPanel Spacing="10">
-                <TextBlock Text="{DynamicResource scaleSetup.wizard.title}" Classes="SettingsCardTitle" FontSize="15"/>
+                <TextBlock Text="{DynamicResource scaleSetup.wizard.title}" Classes="SettingsCardTitle"/>
                 <TextBlock Text="{DynamicResource scaleSetup.wizard.desc}" Classes="SettingsCardBody"/>
 
                 <Grid ColumnDefinitions="*,10,Auto">
@@ -182,7 +205,7 @@
         <!-- 2. Правила по префиксам -->
         <Border Classes="SettingsCard" Padding="14">
             <StackPanel Spacing="10">
-                <TextBlock Text="{DynamicResource scaleSetup.rules.title}" Classes="SettingsCardTitle" FontSize="14"/>
+                <TextBlock Text="{DynamicResource scaleSetup.rules.title}" Classes="SettingsCardTitle"/>
                 <TextBlock x:Name="RulesDescText" Classes="SettingsCardBody"/>
                 <StackPanel x:Name="RulesGrid"/>
                 <WrapPanel Margin="0,2,-8,-8">
@@ -199,10 +222,10 @@
         <!-- 3. Как касса читает штрих-код (раскладка компании) -->
         <Border x:Name="CompanyCard" Classes="SettingsCard" Padding="14">
             <StackPanel Spacing="10">
-                <TextBlock Text="{DynamicResource scaleSetup.barcode.title}" Classes="SettingsCardTitle" FontSize="14"/>
+                <TextBlock Text="{DynamicResource scaleSetup.barcode.title}" Classes="SettingsCardTitle"/>
                 <TextBlock Text="{DynamicResource scaleSetup.barcode.desc}" Classes="SettingsCardBody"/>
                 <WrapPanel x:Name="ExampleSegments"/>
-                <TextBlock x:Name="ExampleText" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                <TextBlock x:Name="ExampleText" TextWrapping="Wrap" FontSize="13.5" Foreground="{DynamicResource BrushText}"/>
                 <TextBlock x:Name="CompanyFormatText" Classes="SettingsCardBody"/>
                 <WrapPanel x:Name="OnScaleRow" Margin="0,2,-8,-8">
                     <Button x:Name="OnScaleButton" Classes="ScaleSecondary" Click="OnScale_Click"/>

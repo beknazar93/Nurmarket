@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Заказы с сайта</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="site" active="Заказы с сайта" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="font-size: 24px; font-weight: 800; flex-grow: 1">Заказы с сайта</span>
+      <span style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: #E7F6EC; color: #0E7A3A; font-size: 13px; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 4px; background: #16A34A"></span>Витрина работает · 337 товаров</span>
+      <a href="#" style="font-size: 13px; font-weight: 700">market.nurcrm.kg ›</a>
+    </div>
+    <div style="display: flex; gap: 8px">
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Новые · [N]</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Собираем · [N]</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Готов к выдаче · [N]</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Выданы</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Отменены</button>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: flex; gap: 14px">
+      <section style="width: 440px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{orders}}" as="o" hint-placeholder-count="4">
+          <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 14px; border: {{o.border}}; padding: 14px 16px; font-family: inherit; display: flex; flex-direction: column; gap: 6px">
+            <span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 14px; font-weight: 800; color: #0B2A3C">Заказ №{{o.no}}</span><span style="padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; background: {{o.stBg}}; color: {{o.stFg}}">{{o.status}}</span></span>
+            <span style="font-size: 13px; color: #475467">{{o.client}} · {{o.sum}}</span>
+            <span style="font-size: 12px; font-weight: 600; color: {{o.ageColor}}">{{o.age}}</span>
+          </button>
+        </sc-for>
+      </section>
+      <section style="flex-grow: 1; min-width: 0; background: #FFFFFF; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <span style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 18px; font-weight: 800">Заказ №10</span><span style="padding: 4px 12px; border-radius: 999px; background: #FFF7CC; color: #0B2A3C; font-size: 12px; font-weight: 800">Новый</span></span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <span style="border-radius: 12px; background: #F9FAFB; padding: 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #667085">Клиент</span><span style="font-size: 14px; font-weight: 700">Умар · @BigHero02</span></span>
+          <span style="border-radius: 12px; background: #F9FAFB; padding: 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #667085">Откуда</span><span style="font-size: 14px; font-weight: 700">Телеграм-бот · 06.10 15:31</span></span>
+        </div>
+        <span style="font-size: 12px; font-weight: 700; color: #667085">ТОВАРЫ</span>
+        <span style="display: flex; justify-content: space-between; font-size: 14px; padding: 10px 0; border-bottom: 1px solid #F2F4F7"><span>[товар] · [кол-во]</span><span style="font-weight: 700">[сумма]</span></span>
+        <span style="display: flex; justify-content: space-between; font-size: 14px; padding: 10px 0; border-bottom: 1px solid #F2F4F7"><span>[товар] · [кол-во]</span><span style="font-weight: 700">[сумма]</span></span>
+        <span style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 15px; font-weight: 700">Итого</span><span style="font-size: 22px; font-weight: 800; color: #0B2A3C">[сумма]</span></span>
+        <div style="margin-top: auto; display: flex; gap: 10px">
+          <button type="button" style="height: 46px; padding: 0 18px; border-radius: 12px; border: 1.5px solid #FDE2E1; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #C0362C">Отменить</button>
+          <button type="button" style="flex-grow: 1; height: 46px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Написать клиенту</button>
+          <button type="button" style="flex-grow: 1; height: 46px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Принять → Собираем</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const orders = [
+      { no: '10', status: 'Новый', client: 'Умар', sum: '[сумма]', age: 'из Телеграм-бота · 06.10', ageColor: '#667085', stBg: '#FFF7CC', stFg: '#0B2A3C', border: '2px solid #0B2A3C' },
+      { no: '[N]', status: 'Готов к выдаче', client: '[клиент]', sum: '[сумма]', age: '⚠ ждёт выдачи 11 дней — с 01.10', ageColor: '#B42318', stBg: '#E3F2FD', stFg: '#1D4ED8', border: '1px solid #FDE2E1' },
+      { no: '[N]', status: 'Собираем', client: '[клиент]', sum: '[сумма]', age: '[дата]', ageColor: '#667085', stBg: '#FEF3E2', stFg: '#B54708', border: '1px solid #E5E7EB' },
+      { no: '[N]', status: 'Новый', client: '[клиент]', sum: '[сумма]', age: '[дата]', ageColor: '#667085', stBg: '#FFF7CC', stFg: '#0B2A3C', border: '1px solid #E5E7EB' }
+    ];
+    return { orders };
+  }
+}
+</script>
+</body>
+</html>

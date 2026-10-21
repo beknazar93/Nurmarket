@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — отчёты</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:12px;flex-shrink:0;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:10px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:13px;color:#475467}
+.b2{height:44px;white-space:nowrap;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:44px;white-space:nowrap;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%}
+.chip{height:44px;padding:0 16px;border-radius:22px;white-space:nowrap;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.row{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:8px 0;border-bottom:1px solid #F2F4F7}
+.row b{white-space:nowrap}
+.hint{flex-grow:1;font-size:12px;color:#667085}
+.per{display:flex;gap:2px;padding:3px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;align-self:flex-start}
+.per button{height:44px;padding:0 14px;border-radius:9px;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:#344054;white-space:nowrap}
+.per button.on{background:#0B2A3C;color:#FFFFFF}
+.row span{color:#475467}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center;font-size:12px}
+.cal span{height:44px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 20px 40px; display: flex; flex-direction: column; align-items: center; gap: 20px">
+  <!-- 2026-10-16: «Период» — 880 px, единый переключатель «Сегодня · Вчера · Неделя · Месяц · Даты…» (SPEC §6), «Неделя» = 7 дней 06–12.10 с подписью; смена — Касса 1 из набора (31 чек, 2 860, ср. 92); история кассы без плейсхолдеров -->
+  <section class="m" role="dialog" aria-label="Период" style="width: 880px">
+    <div class="mh"><div class="mt"><b>Период отчёта</b><span>Применится ко всем разделам отчётов</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb" style="flex-direction: row; gap: 24px; align-items: flex-start">
+      <div class="cal" style="width: 332px; flex-shrink: 0">
+        <sc-for list="{{wd}}" as="w" hint-placeholder-count="7"><span style="height: 20px; color: #667085; font-weight: 700">{{w}}</span></sc-for>
+        <sc-for list="{{days}}" as="d" hint-placeholder-count="34"><span style="background: {{d.bg}}; color: {{d.fg}}; font-weight: {{d.fw}}">{{d.n}}</span></sc-for>
+      </div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 12px">
+        <div class="per" role="group" aria-label="Период"><button type="button">Сегодня</button><button type="button">Вчера</button><button type="button" class="on">Неделя</button><button type="button">Месяц</button><button type="button">Даты…</button></div>
+        <span style="font-size: 13px; color: #475467">7 дней: 06.10–12.10.2026 · сегодня, понедельник 12.10, — неполный день</span>
+        <div style="display: flex; align-items: center; gap: 8px"><button type="button" class="b2" aria-label="Сентябрь" style="width: 44px; padding: 0">‹</button><b style="flex-grow: 1; text-align: center; font-size: 15px">Октябрь 2026</b><button type="button" class="b2" aria-label="Ноябрь" style="width: 44px; padding: 0">›</button></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px"><span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="r1">С</label><input id="r1" class="in" type="text" value="06.10.2026"></span><span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="r2">ПО</label><input id="r2" class="in" type="text" value="12.10.2026"></span></div>
+      </div>
+    </div>
+    <div class="mf"><span class="tot">Неделя 06–12.10 · выручка 45&nbsp;260 сом</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Показать</button></div>
+  </section>
+
+  <div style="display: flex; gap: 40px; align-items: flex-start">
+    <section class="m" role="dialog" aria-label="Смена" style="width: 640px">
+      <div class="mh"><div class="mt"><b>Смена № 42 · Кассир Тест</b><span>Касса 1 · открыта 12.10.2026 в 08:55 · X-отчёт на 14:35</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb" style="gap: 8px">
+        <div style="border-radius: 14px; background: #0B2A3C; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center"><span style="font-size: 13px; color: #C7D2DB">Выручка · 31 чек · средний чек 92 сом</span><span style="font-size: 24px; font-weight: 800; color: #FFD600; white-space: nowrap">2&nbsp;860 сом</span></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px">
+          <div class="row"><span>Наличные</span><b>1&nbsp;545 сом</b></div><div class="row"><span>Карта</span><b>1&nbsp;035 сом</b></div>
+          <div class="row"><span>QR</span><b>280 сом</b></div><div class="row"><span>Возвраты</span><b>0 сом</b></div>
+          <div class="row" style="border: 0"><span>Размен</span><b>1&nbsp;000 сом</b></div><div class="row" style="border: 0"><span>В ящике по программе</span><b>2&nbsp;545 сом</b></div>
+        </div>
+        <span style="border-radius: 10px; background: #F2F4F7; padding: 8px 10px; font-size: 12px; color: #475467">Весь магазин сегодня: 47 чеков · 4&nbsp;300 сом · средний чек 91 сом (Касса 1 + телефон + веб-касса)</span>
+      </div>
+      <div class="mf"><button type="button" class="b2">Все чеки смены</button><span class="hint"></span><button type="button" class="b1">Печать X-отчёта</button></div>
+    </section>
+
+    <section class="m" role="dialog" aria-label="История кассы" style="width: 480px">
+      <div class="mh"><div class="mt"><b>Деньги в кассе</b><span>Внесения и изъятия · смена № 42</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb" style="gap: 8px">
+        <div style="display: flex; gap: 8px"><button type="button" class="chip on">Все</button><button type="button" class="chip">Внесения</button><button type="button" class="chip">Изъятия</button></div>
+        <div style="border-radius: 12px; border: 1.5px dashed #D0D5DD; padding: 10px 14px; font-size: 13px; color: #475467"><b style="color: #111827">За смену № 42 движений не было.</b> Внести или изъять — кнопка ниже.</div>
+        <span class="lbl">ПРОШЛЫЕ СМЕНЫ</span>
+        <div class="row"><span>10.10 · смена № 41 · изъятие · инкассация</span><b style="color: #B42318">−5&nbsp;000 сом</b></div>
+        <div class="row" style="border: 0"><span>09.10 · смена № 40 · внесение · размен</span><b style="color: #0E7A3A">+500 сом</b></div>
+      </div>
+      <div class="mf"><span class="hint"></span><button type="button" class="b2">Закрыть</button><button type="button" class="b1">Внести / изъять</button></div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const wd = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    const days = [];
+    for (let i = 0; i < 3; i++) days.push({ n: '', bg: 'transparent', fg: '#111827', fw: 400 });
+    for (let d = 1; d <= 31; d++) {
+      // 2026-10-16: «Неделя» = 7 дней 06–12.10 (12.10.2026 — понедельник), подпись диапазона рядом
+      const inRange = d >= 6 && d <= 12;
+      const edge = d === 6 || d === 12;
+      days.push({ n: String(d), bg: edge ? '#0B2A3C' : inRange ? '#FFF7CC' : 'transparent', fg: edge ? '#FFFFFF' : '#111827', fw: inRange ? 700 : 400 });
+    }
+    return { wd, days };
+  }
+}
+</script>
+</body>
+</html>

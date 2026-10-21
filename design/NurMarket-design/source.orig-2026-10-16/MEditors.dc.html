@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — редакторы</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:36px;height:36px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#667085}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:38px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 10px;font-family:inherit;font-size:13px;width:100%}
+.tool{height:40px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:700;color:#344054;text-align:left;padding:0 10px}
+.sw{width:30px;height:30px;border-radius:8px;border:2px solid #FFFFFF;box-shadow:0 0 0 1px #D0D5DD}
+.sw.on{box-shadow:0 0 0 2px #0B2A3C}
+.chip{height:32px;padding:0 10px;border-radius:16px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 32px; display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start">
+
+  <section class="m" role="dialog" aria-label="Редактор этикетки" style="height: 836px">
+    <div class="mh"><div class="mt"><b>Шаблон этикетки</b><span>58 × 40 мм · «Ценник с штрихкодом»</span></div><button type="button" class="b2" style="height: 36px">Пример печати</button><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div style="flex-grow: 1; display: flex; min-height: 0">
+      <div style="width: 180px; box-sizing: border-box; padding: 14px; border-right: 1px solid #EAECF0; display: flex; flex-direction: column; gap: 6px">
+        <span class="lbl">ДОБАВИТЬ</span>
+        <button type="button" class="tool">Название товара</button><button type="button" class="tool">Цена</button><button type="button" class="tool">Штрихкод</button><button type="button" class="tool">Размер и цвет</button><button type="button" class="tool">Название магазина</button><button type="button" class="tool">Дата</button><button type="button" class="tool">Свой текст</button><button type="button" class="tool">Линия</button>
+      </div>
+      <div style="flex-grow: 1; background: #F2F4F7; display: flex; align-items: center; justify-content: center; position: relative">
+        <div style="width: 464px; height: 320px; background: #FFFFFF; border-radius: 6px; box-shadow: 0 6px 20px rgba(16,24,40,.12); position: relative; padding: 18px; box-sizing: border-box">
+          <div style="font-size: 18px; font-weight: 700; padding: 4px; border: 1px dashed transparent">Макароны «Макфа» спагетти 450г</div>
+          <div style="margin-top: 10px; display: inline-block; font-size: 64px; font-weight: 800; color: #0B2A3C; padding: 2px 6px; border: 2px solid #1D4ED8; border-radius: 4px; position: relative">85 сом<span style="position: absolute; right: -6px; bottom: -6px; width: 10px; height: 10px; background: #1D4ED8; border-radius: 2px"></span></div>
+          <div style="position: absolute; left: 18px; right: 18px; bottom: 34px; height: 46px; background: repeating-linear-gradient(90deg,#111827 0 3px,#FFFFFF 3px 5px)"></div>
+          <div style="position: absolute; left: 18px; bottom: 12px; font-size: 12px; color: #475467">4702154000047 · NBS</div>
+        </div>
+        <span style="position: absolute; bottom: 14px; font-size: 12px; color: #667085">Перетаскивайте элементы мышью · стрелки — сдвиг на 1 мм</span>
+      </div>
+      <div style="width: 230px; box-sizing: border-box; padding: 14px; border-left: 1px solid #EAECF0; display: flex; flex-direction: column; gap: 8px">
+        <span class="lbl">ВЫБРАН: ЦЕНА</span>
+        <label class="lbl" for="e1">РАЗМЕР ШРИФТА</label><input id="e1" class="in" type="text" value="64">
+        <span class="lbl">ЖИРНОСТЬ</span>
+        <div style="display: flex; gap: 6px"><button type="button" class="chip">Обычный</button><button type="button" class="chip on">Жирный</button></div>
+        <span class="lbl">ВЫРАВНИВАНИЕ</span>
+        <div style="display: flex; gap: 6px"><button type="button" class="chip on">Слева</button><button type="button" class="chip">Центр</button></div>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 12px"><input type="checkbox" checked="" style="accent-color: #0B2A3C">Добавлять «сом»</label>
+        <button type="button" class="b2" style="margin-top: auto; color: #C0362C; border-color: #FDE2E1">Убрать элемент</button>
+      </div>
+    </div>
+    <div class="mf"><span class="tot">Шаблон один для всех касс компании</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить шаблон</button></div>
+  </section>
+
+  <div style="display: flex; flex-direction: column; gap: 24px">
+    <section class="m" role="dialog" aria-label="Тема кассы">
+      <div class="mh"><div class="mt"><b>Своя тема кассы</b><span>Цвета экрана кассира</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div style="padding: 14px 20px; display: flex; flex-direction: column; gap: 10px">
+        <span class="lbl">ГЛАВНЫЙ ЦВЕТ</span>
+        <div style="display: flex; gap: 8px"><span class="sw on" style="background: #FFD600"></span><span class="sw" style="background: #16A34A"></span><span class="sw" style="background: #1D4ED8"></span><span class="sw" style="background: #C0362C"></span><span class="sw" style="background: #6D28D9"></span></div>
+        <span class="lbl">ФОН</span>
+        <div style="display: flex; gap: 6px"><button type="button" class="chip on">Светлый</button><button type="button" class="chip">Тёмный</button><button type="button" class="chip">Своя картинка</button></div>
+        <div style="height: 90px; border-radius: 12px; background: #F4F5F7; padding: 8px; box-sizing: border-box; display: flex; gap: 6px"><span style="width: 16px; border-radius: 4px; background: #FFFFFF"></span><span style="flex-grow: 1; border-radius: 6px; background: #FFFFFF"></span><span style="width: 60px; border-radius: 6px; background: #FFFFFF; display: flex; align-items: flex-end; padding: 4px; box-sizing: border-box"><span style="width: 100%; height: 12px; border-radius: 4px; background: #FFD600"></span></span></div>
+      </div>
+      <div class="mf"><span class="tot"></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Применить</button></div>
+    </section>
+    <section class="m" role="dialog" aria-label="Экран покупателя">
+      <div class="mh"><div class="mt"><b>Экран покупателя</b><span>Второй монитор: что видит покупатель</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div style="padding: 14px 20px; display: flex; flex-direction: column; gap: 10px">
+        <div style="height: 120px; border-radius: 12px; background: #0B2A3C; padding: 12px; box-sizing: border-box; display: flex; gap: 10px"><span style="flex-grow: 1; border-radius: 8px; background: rgba(255,255,255,.08); display: flex; flex-direction: column; gap: 6px; padding: 8px; box-sizing: border-box"><span style="height: 8px; width: 70%; border-radius: 4px; background: rgba(255,255,255,.5)"></span><span style="height: 8px; width: 55%; border-radius: 4px; background: rgba(255,255,255,.5)"></span></span><span style="width: 110px; display: flex; flex-direction: column; justify-content: flex-end"><span style="font-size: 11px; color: #C7D2DB">Итого</span><span style="font-size: 22px; font-weight: 800; color: #FFD600">290 сом</span></span></div>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px"><input type="checkbox" checked="" style="accent-color: #0B2A3C">Показывать QR для оплаты</label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px"><input type="checkbox" checked="" style="accent-color: #0B2A3C">Реклама, когда чек пустой</label>
+      </div>
+      <div class="mf"><span class="tot">Монитор 2 · [разрешение]</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить</button></div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

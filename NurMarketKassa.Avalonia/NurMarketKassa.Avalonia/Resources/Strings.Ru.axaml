@@ -16,6 +16,7 @@
   <x:String x:Key="csh.menu.cashOperation">Внесение / изъятие</x:String>
   <x:String x:Key="csh.menu.finance">Финансы</x:String>
   <x:String x:Key="csh.menu.sales">Продажи</x:String>
+  <x:String x:Key="csh.menu.salesFinance">Продажи и финансы</x:String>
   <x:String x:Key="csh.menu.abc">ABC-анализ</x:String>
   <x:String x:Key="csh.menu.clients">Клиенты</x:String>
   <x:String x:Key="csh.menu.payDebt">Оплата долга</x:String>
@@ -24,6 +25,7 @@
   <x:String x:Key="csh.menu.marketplace">Маркетплейс</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
   <x:String x:Key="csh.menu.errorLogs">Логи и ошибки</x:String>
+  <x:String x:Key="csh.menu.cartRemovals">Удалено из чека</x:String>
   <x:String x:Key="csh.menu.remoteSupport">Тех поддержка NurCRM</x:String>
   <x:String x:Key="csh.menu.knowledgeBase">База знаний NurMarket</x:String>
   <x:String x:Key="csh.menu.restock">Пополнение и сроки</x:String>
@@ -41,9 +43,9 @@
   <x:String x:Key="restock.reorderEmpty">Пока нет истории продаж для прогноза. Нажмите «Подтянуть историю с сервера» или подождите несколько дней — касса сама копит данные после каждой продажи.</x:String>
   <x:String x:Key="restock.backfillButton">Подтянуть историю с сервера</x:String>
   <x:String x:Key="restock.tabExpiry">Сроки годности</x:String>
-  <x:String x:Key="restock.expirySubtitle">Срок годности — оценка по категории товара (нет реального интернет-поиска без ИИ-ключа, см. настройки). Дата поступления — когда у товара впервые появился остаток на этой кассе.</x:String>
+  <x:String x:Key="restock.expirySubtitle">Срок здесь примерный: программа знает только, когда товар поступил на эту кассу, и обычный срок хранения его категории (молочное ≈ 7 дней, хлеб ≈ 3 дня). Настоящую дату смотрите на упаковке — прежде чем списать или снять с продажи.</x:String>
   <x:String x:Key="restock.colIntakeDate">Поступил</x:String>
-  <x:String x:Key="restock.colExpiryDate">Срок годен до</x:String>
+  <x:String x:Key="restock.colExpiryDate">Примерно до</x:String>
   <x:String x:Key="restock.expiryEmpty">Пока нет товаров с известной датой поступления — она фиксируется автоматически, как только у товара появится остаток.</x:String>
   <x:String x:Key="posSettings.operations.loyaltyTitle">Бонусная программа</x:String>
   <x:String x:Key="posSettings.operations.loyaltySubtitle">Баланс хранится локально на этой кассе — в NurCRM пока нет поля для баллов клиента.</x:String>
@@ -51,7 +53,7 @@
   <x:String x:Key="posSettings.operations.loyaltyEarnPercent">Процент начисления от суммы чека</x:String>
   <x:String x:Key="csh.menu.logout">Выход</x:String>
   <x:String x:Key="csh.menu.exitApp">Выйти на рабочий стол</x:String>
-  <x:String x:Key="csh.menu.newBadge">New</x:String>
+  <x:String x:Key="csh.menu.newBadge">Новое</x:String>
 
   <!-- Catalog -->
   <x:String x:Key="csh.catalog.searchWatermark">Поиск товара…</x:String>
@@ -122,7 +124,7 @@
   <x:String x:Key="mainWindow.windowTitle">Касса — Nur Market</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Назад</x:String>
   <x:String x:Key="printSettings.findButton">Найти</x:String>
-  <x:String x:Key="printSettings.lptWatermark">LPT-порт или путь к принтеру</x:String>
+  <x:String x:Key="printSettings.lptWatermark">Порт или путь к принтеру (если не нашёлся)</x:String>
   <x:String x:Key="printSettings.testButton">Тест</x:String>
   <x:String x:Key="posSettings.print.cashDrawerTitle">Денежный ящик</x:String>
   <x:String x:Key="posSettings.print.cashDrawerEnable">Открывать при оплате наличными</x:String>
@@ -130,7 +132,7 @@
   <x:String x:Key="printSettings.cashDrawerPin2">Контакт 2 (обычно)</x:String>
   <x:String x:Key="printSettings.cashDrawerPin5">Контакт 5</x:String>
   <x:String x:Key="printSettings.cashDrawerTestButton">Открыть</x:String>
-  <x:String x:Key="printSettings.lptNotFound">LPT не найден в системе</x:String>
+  <x:String x:Key="printSettings.lptNotFound">Принтер по этому адресу не найден</x:String>
   <x:String x:Key="printSettings.previewTextReceipt">Предпросмотр текстового чека</x:String>
   <x:String x:Key="printSettings.qrHeader">QR-код</x:String>
   <x:String x:Key="printSettings.uploadQr">Загрузить QR</x:String>
@@ -156,6 +158,7 @@
   <x:String x:Key="scaleSettings.comNotFound">COM-порт не найден</x:String>
   <x:String x:Key="scaleSettings.testButton">Проверить весы</x:String>
   <x:String x:Key="operations.bankQrDesc">QR-коды и логотипы банков для безналичной оплаты</x:String>
+  <x:String x:Key="operations.pageSubtitle">Вид магазина, закрытие смены, удаления из чека, Telegram и оплата по QR</x:String>
   <x:String x:Key="operations.qrNotLoaded">QR не загружен</x:String>
   <x:String x:Key="operations.qrLoaded">QR загружен</x:String>
   <x:String x:Key="csh.cart.customService">Доп. услуга</x:String>
@@ -177,8 +180,8 @@
   <!-- Checkout dialog -->
   <x:String x:Key="csh.checkout.title">Оплата покупки</x:String>
   <x:String x:Key="csh.checkout.subtitle">Выберите способ оплаты и подтвердите сумму</x:String>
-  <x:String x:Key="csh.checkout.totalDue">ИТОГ К ОПЛАТЕ</x:String>
-  <x:String x:Key="csh.checkout.paymentMethod">СПОСОБ ОПЛАТЫ</x:String>
+  <x:String x:Key="csh.checkout.totalDue">Итог к оплате</x:String>
+  <x:String x:Key="csh.checkout.paymentMethod">Способ оплаты</x:String>
   <x:String x:Key="csh.checkout.cash">Наличные</x:String>
   <x:String x:Key="csh.checkout.transfer">Безналичные</x:String>
   <x:String x:Key="csh.checkout.cashReceived">Получено наличными</x:String>
@@ -202,6 +205,8 @@
   <x:String x:Key="csh.checkout.rental">Оформить как прокат (аренда)</x:String>
   <x:String x:Key="csh.checkout.mixedCash">Наличными</x:String>
   <x:String x:Key="csh.checkout.mixedNonCash">Безналично</x:String>
+  <!-- 2026-10-17, редизайн (этап 2): быстрая сумма «без сдачи» в окне оплаты (ExactCashCommand). -->
+  <x:String x:Key="csh.checkout.exact">Без сдачи</x:String>
   <x:String x:Key="csh.checkout.paidNow">Получено сейчас (0 — весь долг)</x:String>
   <x:String x:Key="csh.checkout.loyaltyRedeemWatermark">Списать бонусов (сом)</x:String>
 
@@ -250,14 +255,14 @@
   <!-- Customer display (second monitor) -->
   <x:String x:Key="csh.customer.title">Экран покупателя</x:String>
   <x:String x:Key="csh.customer.tagline">Ваши покупки — быстро и удобно</x:String>
-  <x:String x:Key="csh.customer.receiptEyebrow">ВАШ ЧЕК</x:String>
+  <x:String x:Key="csh.customer.receiptEyebrow">Ваш чек</x:String>
   <x:String x:Key="csh.customer.receiptTitle">Список покупок</x:String>
   <x:String x:Key="csh.customer.adPlaceholder">Место для QR-кода&#x0a;или рекламного баннера</x:String>
-  <x:String x:Key="csh.customer.subtotal">ПРОМЕЖУТОЧНЫЙ ИТОГ</x:String>
-  <x:String x:Key="csh.customer.discount">СКИДКА</x:String>
+  <x:String x:Key="csh.customer.subtotal">Промежуточный итог</x:String>
+  <x:String x:Key="csh.customer.discount">Скидка</x:String>
   <x:String x:Key="csh.customer.received">ПОЛУЧЕНО</x:String>
   <x:String x:Key="csh.customer.change">СДАЧА</x:String>
-  <x:String x:Key="csh.customer.totalDue">К ОПЛАТЕ</x:String>
+  <x:String x:Key="csh.customer.totalDue">К оплате</x:String>
 
   <!-- Common / generic (reused across many windows) -->
   <x:String x:Key="common.yes">Да</x:String>
@@ -269,7 +274,7 @@
   <x:String x:Key="common.confirm">Подтвердить</x:String>
   <x:String x:Key="common.close">Закрыть</x:String>
   <x:String x:Key="staffTimesheet.title">Табель сотрудников</x:String>
-  <x:String x:Key="staffTimesheet.description">Часы и смены считаются по данным уже открытых/закрытых смен на кассе — только по ЗАКРЫТЫМ сменам за выбранный период. Открытая прямо сейчас смена в табель не входит, пока не закрыта.</x:String>
+  <x:String x:Key="staffTimesheet.description">Часы и смены считаются по данным уже открытых/закрытых смен на кассе — только по закрытым сменам за выбранный период. Открытая прямо сейчас смена в табель не входит, пока не закрыта.</x:String>
   <x:String x:Key="staffTimesheet.periodLabel">Период:</x:String>
   <x:String x:Key="staffTimesheet.fromWatermark">С даты…</x:String>
   <x:String x:Key="staffTimesheet.toWatermark">По дату…</x:String>
@@ -322,9 +327,8 @@
   <x:String x:Key="logs.empty">Предупреждений и ошибок нет.</x:String>
 
   <!-- Тех поддержка NurCRM (этап 4 бэклога "Доработки") -->
-  <x:String x:Key="remoteSupport.intro">Для удалённой помощи используется программа AnyDesk. Нажмите кнопку ниже — откроется AnyDesk с адресом (ID) для подключения. Продиктуйте этот адрес оператору поддержки по телефону или в WhatsApp.</x:String>
-  <x:String x:Key="remoteSupport.launchButton">Запустить AnyDesk</x:String>
-  <x:String x:Key="remoteSupport.downloadButton">Скачать AnyDesk</x:String>
+  <!-- 2026-10-16: удалённая помощь — только своя «Нур Поддержка»; ключи кнопок запуска и скачивания сторонней программы удалены -->
+  <x:String x:Key="remoteSupport.intro">Удалённая помощь — «Нур Поддержка»: оператор NurMarket видит экран кассы и помогает разобраться. Позвоните в поддержку или напишите в WhatsApp: +996 559 340 032, затем нажмите «Получить код для поддержки» и продиктуйте оператору код и PIN.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Скопировать информацию об устройстве</x:String>
 
@@ -363,7 +367,7 @@
   <x:String x:Key="kb.q.logsQ">Где посмотреть, что случилось при сбое?</x:String>
   <x:String x:Key="kb.q.logsA">Боковое меню → «Логи и ошибки» — показывает предупреждения, ошибки и разрывы связи с сервером за последнее время. Кнопка «Открыть папку с логами» откроет папку с подробными техническими файлами — их можно отправить в поддержку.</x:String>
   <x:String x:Key="kb.q.remoteSupportQ">Как получить удалённую помощь от поддержки NurCRM?</x:String>
-  <x:String x:Key="kb.q.remoteSupportA">Боковое меню → «Тех поддержка NurCRM» → «Запустить AnyDesk». Появится адрес (ID) подключения — продиктуйте его оператору поддержки по телефону или WhatsApp, чтобы он подключился к вашему компьютеру и помог разобраться.</x:String>
+  <x:String x:Key="kb.q.remoteSupportA">Боковое меню → «Тех поддержка NurCRM» → блок «Нур Поддержка» → «Получить код для поддержки». Продиктуйте оператору поддержки код и PIN по телефону или WhatsApp (+996 559 340 032), а когда он попросит доступ — нажмите «Разрешить» или «Только просмотр». Без вашего разрешения никто не подключится.</x:String>
   <x:String x:Key="kb.q.printerQ">Касса не видит чековый принтер, подключённый по USB — что делать?</x:String>
   <x:String x:Key="kb.q.printerA">В Настройки → Печать нажмите «Найти» ещё раз (список не обновляется сам). Если принтер был настроен через Zadig и всё равно не появляется — переподключите его и попробуйте снова, либо обратитесь в поддержку через «Тех поддержка NurCRM».</x:String>
   <x:String x:Key="common.comment">Комментарий</x:String>
@@ -417,6 +421,9 @@
   <x:String x:Key="closeShift.nonCashSalesLabel">Безналичными</x:String>
   <x:String x:Key="openShift.instructions">Укажите сумму наличных в кассе на начало смены.</x:String>
   <x:String x:Key="openShift.openingAmountLabel">Сумма на открытие</x:String>
+  <!-- 2026-10-16, редизайн: подсказка слева на строке кнопок модалки (ModalShell.Hint);
+       неразрывные пробелы — строка переносится только между «Enter…» и «Esc…». -->
+  <x:String x:Key="modal.hintEnter">Enter&#160;—&#160;подтвердить · Esc&#160;—&#160;отмена</x:String>
   <x:String x:Key="shiftNotClosed.title">Смена не закрыта</x:String>
   <x:String x:Key="shiftNotClosed.message">У вас осталась открытая смена.&#x0a;Закрыть её перед выходом?</x:String>
   <x:String x:Key="shiftNotClosed.logoutOnly">Выйти без закрытия смены</x:String>
@@ -509,6 +516,15 @@
   <x:String x:Key="priceTagBulk.selectNone">Снять всё</x:String>
   <x:String x:Key="priceTagBulk.copiesEachLabel">Копий на каждый товар</x:String>
   <x:String x:Key="priceTagBulk.printButton">Печать</x:String>
+  <!-- 2026-10-20, этап О9б: окна ценников и этикеток (ModalShell, пустой список, настройка принтера). -->
+  <x:String x:Key="priceTag.subtitle">Выберите шаблон и принтер — слева видно, как ценник напечатается.</x:String>
+  <x:String x:Key="priceTagBulk.subtitle">Отметьте товары галочкой, выберите шаблон и принтер.</x:String>
+  <x:String x:Key="priceTagBulk.notFound">Ничего не найдено. Измените запрос — ищется по названию и штрихкоду.</x:String>
+  <x:String x:Key="priceTagBulk.noProducts">Товаров пока нет: каталог ещё не загрузился. Закройте окно и откройте снова через минуту.</x:String>
+  <x:String x:Key="labelPrint.subtitle">Этикетка со штрихкодом — печатается на принтере этикеток.</x:String>
+  <x:String x:Key="labelEditor.printerSetup">Настройка принтера</x:String>
+  <x:String x:Key="labelEditor.zoomOut">Уменьшить</x:String>
+  <x:String x:Key="labelEditor.zoomIn">Увеличить</x:String>
   <x:String x:Key="discount.title">Скидка</x:String>
   <x:String x:Key="discount.applyToSelected">Применить к выбранному товару</x:String>
   <x:String x:Key="discount.modeAmountLabel">Режим скидки: Сумма (сом)</x:String>
@@ -546,9 +562,9 @@
   <x:String x:Key="returnSale.title">Возврат по чеку</x:String>
   <x:String x:Key="returnSale.header">Возврат товаров по чеку</x:String>
   <x:String x:Key="returnSale.instructions">Выберите чек кнопкой «Выбрать». Ниже появится его состав: отметьте товары и нажмите «Вернуть выбранные» или оформите «Вернуть весь чек».</x:String>
-  <x:String x:Key="returnSale.step1">1. Чеки продаж</x:String>
+  <x:String x:Key="returnSale.step1">1. Найдите чек покупателя</x:String>
   <x:String x:Key="returnSale.colReceiptNo">№ чека</x:String>
-  <x:String x:Key="returnSale.step2">2. Содержимое выбранного чека</x:String>
+  <x:String x:Key="returnSale.step2">2. Отметьте, что возвращают</x:String>
   <x:String x:Key="returnSale.clearSelection">Снять</x:String>
   <x:String x:Key="returnSale.returnSelected">Вернуть выбранные</x:String>
   <x:String x:Key="returnSale.returnWholeReceipt">Вернуть весь чек</x:String>
@@ -606,9 +622,9 @@
 
   <!-- Side menu -->
   <x:String x:Key="sideMenu.shiftLabel">Кассовая смена</x:String>
-  <x:String x:Key="sideMenu.sectionWork">РАБОТА</x:String>
-  <x:String x:Key="sideMenu.sectionInfoClients">ИНФОРМАЦИЯ И КЛИЕНТЫ</x:String>
-  <x:String x:Key="sideMenu.sectionSystem">СИСТЕМНЫЕ</x:String>
+  <x:String x:Key="sideMenu.sectionWork">Работа</x:String>
+  <x:String x:Key="sideMenu.sectionInfoClients">Информация и клиенты</x:String>
+  <x:String x:Key="sideMenu.sectionSystem">Система</x:String>
 
   <!-- Admin support, CRM webview, shift history window -->
   <x:String x:Key="adminSupport.title">Поддержка — Nur Market</x:String>
@@ -639,7 +655,7 @@
   <x:String x:Key="employees.addButton">+ Добавить сотрудника</x:String>
   <x:String x:Key="employees.loadFromWeb">Загрузить с сайта</x:String>
   <x:String x:Key="employees.rolesTitle">Роли</x:String>
-  <x:String x:Key="employees.rolesSubtitle">Роли компании с app.nurcrm.kg — нужны, чтобы создать нового сотрудника (у каждого сотрудника обязательна роль).</x:String>
+  <x:String x:Key="employees.rolesSubtitle">Роли с сайта NurCRM — у каждого сотрудника должна быть роль (кассир, администратор…).</x:String>
   <x:String x:Key="employees.addRoleButton">+ Добавить роль</x:String>
   <x:String x:Key="employees.saveHint">Пустой код у сотрудника — соответствующее действие для него заблокировано.</x:String>
   <x:String x:Key="employees.saved">Сохранено.</x:String>
@@ -734,7 +750,7 @@
   <x:String x:Key="posSettings.screen.groupCashierLang">Касса и язык</x:String>
   <x:String x:Key="posSettings.screen.groupScaleLayout">Масштаб и раскладка</x:String>
   <x:String x:Key="posSettings.screen.fullscreen">Полноэкранный режим</x:String>
-  <x:String x:Key="posSettings.screen.trueFullscreen">Настоящий полноэкранный режим</x:String>
+  <x:String x:Key="posSettings.screen.trueFullscreen">Скрывать панель задач Windows</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Скрывает панель задач Windows полностью. Работает только вместе с полноэкранным режимом.</x:String>
   <x:String x:Key="posSettings.screen.quickProducts">Быстрые товары в пустом чеке</x:String>
   <x:String x:Key="posSettings.screen.quickProductsDesc">Избранные товары (★ в каталоге) под надписью «Корзина пуста». Выключите, если они не нужны.</x:String>
@@ -804,13 +820,15 @@
   <x:String x:Key="posSettings.print.tapeWidth">Ширина ленты</x:String>
   <x:String x:Key="posSettings.print.charsPerLine">Символов в строке</x:String>
   <x:String x:Key="posSettings.print.widthHint">Если линии из точек и чёрточек или суммы уходят за край чека — уменьшите: 58 мм — с 32 до 30, 80 мм — с 48 до 42 (графика: 576 → 512 точек). Для каждой ширины ленты своё значение. Проверьте кнопкой пробной печати.</x:String>
-  <x:String x:Key="posSettings.print.graphicsDots">Графика (точки)</x:String>
+  <x:String x:Key="posSettings.print.graphicsDots">Ширина печати, точек</x:String>
   <x:String x:Key="posSettings.print.printMode">Режим печати</x:String>
   <x:String x:Key="posSettings.print.modeText">Текст</x:String>
   <x:String x:Key="posSettings.print.modeGraphics">Графика</x:String>
-  <x:String x:Key="posSettings.print.escPosParams">Параметры ESC/POS</x:String>
+  <x:String x:Key="posSettings.print.escPosParams">Текстовый чек</x:String>
+  <x:String x:Key="posSettings.print.advancedPrinter">Дополнительно: команды принтера (для специалиста)</x:String>
   <x:String x:Key="posSettings.print.encoding">Кодировка</x:String>
-  <x:String x:Key="posSettings.print.escTable">Таблица ESC t</x:String>
+  <x:String x:Key="posSettings.print.escTable">Кодовая страница (ESC t)</x:String>
+  <x:String x:Key="posSettings.print.escR">Набор символов страны (ESC R, 0–255)</x:String>
   <x:String x:Key="posSettings.print.auto">Авто</x:String>
   <x:String x:Key="posSettings.print.receiptSettings">Настройки чека</x:String>
   <x:String x:Key="posSettings.print.enableLayout">Включить макет</x:String>
@@ -826,7 +844,7 @@
 
   <!-- POS settings: Monitor tab -->
   <x:String x:Key="posSettings.monitor.title">Монитор покупателя</x:String>
-  <x:String x:Key="posSettings.monitor.subtitle">Настройка второго экрана, состава данных и внешнего вида CustomerDisplayWindow</x:String>
+  <x:String x:Key="posSettings.monitor.subtitle">Второй экран для покупателя: что на нём показывать и как он выглядит</x:String>
   <x:String x:Key="posSettings.monitor.mainSettingsTitle">Основные настройки</x:String>
   <x:String x:Key="posSettings.monitor.useCustomerDisplay">Использовать монитор покупателя</x:String>
   <x:String x:Key="posSettings.monitor.keepOnTop">Закреплять поверх окон на внешнем мониторе</x:String>
@@ -935,7 +953,7 @@
   <x:String x:Key="posSettings.updates.diagnosticsDesc">Техническая информация приложения и рабочей директории:</x:String>
 
   <!-- Clients window -->
-  <x:String x:Key="clients.title">Клиентская база</x:String>
+  <x:String x:Key="clients.title">Клиенты</x:String>
   <x:String x:Key="clients.newClientHeader">Новый клиент</x:String>
   <x:String x:Key="clients.nameWatermark">Имя / ФИО</x:String>
   <x:String x:Key="clients.emailOptionalWatermark">Email (необязательно)</x:String>
@@ -946,20 +964,20 @@
   <x:String x:Key="clients.telegramHeader">Telegram-бот</x:String>
   <x:String x:Key="clients.telegramCopyLink">Скопировать ссылку</x:String>
   <x:String x:Key="clients.telegramExplain">Отправьте эту ссылку клиенту — в WhatsApp, СМС или распечатайте на чеке. Когда он откроет её и нажмёт «Старт», касса сможет присылать ему напоминания о долге и сообщения об акциях. Сам Telegram написать человеку по номеру телефона не позволяет: первый шаг должен сделать клиент.</x:String>
-  <x:String x:Key="clients.addButton">+ Добавить</x:String>
+  <x:String x:Key="clients.addButton">+ Клиент</x:String>
   <x:String x:Key="clients.refreshButton">Обновить</x:String>
-  <x:String x:Key="clients.colFullName">ФИО</x:String>
+  <x:String x:Key="clients.colFullName">Клиент</x:String>
   <x:String x:Key="clients.colAdded">Добавлен</x:String>
   <x:String x:Key="clients.colLoyalty">Бонусы</x:String>
   <x:String x:Key="clients.cardHeader">Карточка клиента</x:String>
   <x:String x:Key="clients.saveButton">Сохранить</x:String>
   <x:String x:Key="clients.deleteButton">Удалить</x:String>
-  <x:String x:Key="clients.hint">Нажмите на строку в списке, чтобы открыть карточку клиента</x:String>
+  <x:String x:Key="clients.hint">Нажмите на клиента — откроется карточка: данные, покупки, долг и бонусы.</x:String>
 
   <!-- Product edit dialog -->
   <x:String x:Key="product.addTitle">Новый товар</x:String>
   <x:String x:Key="product.editTitle">Редактирование товара</x:String>
-  <x:String x:Key="product.addButton">+ Создать Товар</x:String>
+  <x:String x:Key="product.addButton">+ Создать товар</x:String>
   <x:String x:Key="product.editRowButton">Изменить</x:String>
   <x:String x:Key="product.nameLabel">Наименование</x:String>
   <x:String x:Key="product.nameWatermark">Например, «Хлеб белый»</x:String>
@@ -1072,7 +1090,8 @@
   <x:String x:Key="sales.toColon">До:</x:String>
   <x:String x:Key="sales.colReceipt">Чек</x:String>
   <x:String x:Key="sales.additionalMetrics">Дополнительные показатели</x:String>
-  <x:String x:Key="sales.netProfit">Чистая прибыль</x:String>
+  <!-- 2026-10-19, этап О10: здесь всегда выручка − закупка (сервер gross_profit) — «Валовая», как на Сводке. -->
+  <x:String x:Key="sales.netProfit">Валовая прибыль</x:String>
   <x:String x:Key="sales.marginPercent">Маржа %</x:String>
   <x:String x:Key="sales.top10Title">Топ-10 товаров по выручке</x:String>
   <x:String x:Key="sales.colQty">Кол‑во</x:String>
@@ -1111,7 +1130,7 @@
   <x:String x:Key="warehouse.colActions">Действия</x:String>
   <x:String x:Key="warehouse.deleteButton">Удалить</x:String>
   <x:String x:Key="warehouse.photoButton">Фото</x:String>
-  <x:String x:Key="warehouse.tabRevision">Ревизия (Инвентаризация)</x:String>
+  <x:String x:Key="warehouse.tabRevision">Ревизия</x:String>
   <x:String x:Key="warehouse.tabReceiving">Приёмка</x:String>
   <x:String x:Key="warehouse.receivingHint">Сканируйте товары накладной обычным сканером. Товар со склада встанет с его ценами, товар из общей базы CRM — с названием, неизвестный штрихкод — новой строкой: впишите название. Количество, цену закупки и цену продажи можно поправить прямо в таблице. «Оприходовать» создаст новые товары, прибавит остаток и запишет цены в историю закупок.</x:String>
   <x:String x:Key="warehouse.receivingScanHint">Отсканируйте или введите штрихкод…</x:String>
@@ -1134,7 +1153,7 @@
   <x:String x:Key="warehouse.colActualQty">Фактический остаток</x:String>
   <x:String x:Key="warehouse.colDifference">Разница</x:String>
   <x:String x:Key="warehouse.commitRevisionButton">Зафиксировать ревизию</x:String>
-  <x:String x:Key="warehouse.tabWriteOff">Списание товара</x:String>
+  <x:String x:Key="warehouse.tabWriteOff">Списание</x:String>
   <x:String x:Key="warehouse.tabAnalytics">Аналитика</x:String>
   <x:String x:Key="warehouse.tabMovements">Перемещение</x:String>
   <x:String x:Key="warehouse.transfersDocs">Документы</x:String>
@@ -1177,9 +1196,9 @@
   <x:String x:Key="warehouse.movementsWriteOff">Списание</x:String>
   <x:String x:Key="warehouse.tabLabelEditor">Редактор этикетки</x:String>
   <x:String x:Key="warehouse.labelEditorTabTitle">Редактор этикетки</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Расположение штрих-кода, названия, цены, артикула, единицы измерения и магазина на этикетке — с перетаскиванием и настройкой каждого элемента. Платная функция: открывается серийным номером.</x:String>
+  <x:String x:Key="warehouse.labelEditorTabDescription">Расположение штрих-кода, названия, цены, артикула, единицы измерения и магазина на этикетке — перетаскиванием, с настройкой каждого элемента. По этому шаблону печатаются этикетки из строки товара (⋯ → Печать этикетки).</x:String>
   <x:String x:Key="warehouse.labelEditorTabButton">Открыть редактор</x:String>
-  <x:String x:Key="warehouse.analyticsSkuCountLabel">Всего товаров (SKU)</x:String>
+  <x:String x:Key="warehouse.analyticsSkuCountLabel">Товаров в каталоге</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Нет в наличии</x:String>
   <x:String x:Key="warehouse.analyticsLowStockLabel">Низкий остаток</x:String>
   <x:String x:Key="warehouse.analyticsPurchaseValueLabel">Остаток по закупке</x:String>
@@ -1190,7 +1209,7 @@
   <x:String x:Key="warehouse.analyticsSkuColumn">Кол-во</x:String>
   <x:String x:Key="warehouse.writeOffTitle">Оформление акта списания</x:String>
   <x:String x:Key="warehouse.writeOffHistoryTitle">История списаний</x:String>
-  <x:String x:Key="warehouse.writeOffHistoryExpandButton">Открыть полностью ⤢</x:String>
+  <x:String x:Key="warehouse.writeOffHistoryExpandButton">Вся история</x:String>
   <x:String x:Key="warehouse.writeOffHistorySearchWatermark">Поиск по товару, причине или кассиру…</x:String>
   <x:String x:Key="warehouse.writeOffHistoryEmpty">Списаний пока не было.</x:String>
   <x:String x:Key="warehouse.findProductLabel">Найти товар по названию</x:String>
@@ -1323,8 +1342,10 @@
     <x:String x:Key="loc.owner.sales.metricsTab">Показатели</x:String>
     <x:String x:Key="loc.owner.finance.excelTip">Выгрузить аналитику за выбранный период в Excel с графиками и ABC-анализом.</x:String>
     <x:String x:Key="loc.owner.finance.wordTip">Тот же отчёт в Word — таблицы, графики и ABC-анализ.</x:String>
-    <x:String x:Key="loc.owner.finance.expenses">Расходы (изъятия)</x:String>
-    <x:String x:Key="loc.owner.finance.profitAfterExpenses">Прибыль за вычетом расходов</x:String>
+    <!-- 2026-10-20, аудит владельца: расходы теперь из NurCRM (pnl), а не изъятия кассы -->
+    <x:String x:Key="loc.owner.finance.expenses">Расходы</x:String>
+    <!-- 2026-10-19, этап О10: валовая − расходы — «Чистая прибыль» (одни слова во всех отчётах). -->
+    <x:String x:Key="loc.owner.finance.profitAfterExpenses">Чистая прибыль</x:String>
     <x:String x:Key="loc.owner.zeroMoney">0,00 сом</x:String>
     <x:String x:Key="loc.owner.voice.title">Проверка голосового управления</x:String>
     <x:String x:Key="loc.owner.voice.howTo">Как пользоваться</x:String>
@@ -1498,12 +1519,12 @@
   <x:String x:Key="scaleSetup.btn.check">Проверить связь</x:String>
   <x:String x:Key="scaleSetup.btn.find">Найти в сети…</x:String>
   <x:String x:Key="scaleSetup.btn.settings">Настройки весов…</x:String>
-  <x:String x:Key="scaleSetup.btn.send">Отправить товары →</x:String>
+  <x:String x:Key="scaleSetup.btn.send">Отправить товары</x:String>
   <x:String x:Key="scaleSetup.barcode.open">Вес / сумма →</x:String>
   <x:String x:Key="scaleSetup.barcode.title">Как касса читает штрих-код с этикетки весов</x:String>
   <x:String x:Key="scaleSetup.barcode.desc">Весовой штрих-код — 13 цифр: префикс 20–29, код товара, вес или сумма и контрольная цифра. Раскладку и режим задаёт компания на сайте NurCRM (Весы → Настройки), касса получает их при входе.</x:String>
   <x:String x:Key="scaleSetup.wizard.title">Настроить по этикетке</x:String>
-  <x:String x:Key="scaleSetup.wizard.desc">Сумма в чеке не совпадает с этикеткой? Отсканируйте штрих-код с напечатанной этикетки (или введите 13 цифр) — касса покажет два прочтения: как ВЕС и как СУММУ. Нажмите то, что совпадает с этикеткой, — касса запомнит это для префикса и сразу начнёт так читать.</x:String>
+  <x:String x:Key="scaleSetup.wizard.desc">Сумма в чеке не совпадает с этикеткой? Отсканируйте штрих-код с напечатанной этикетки (или введите 13 цифр) — касса покажет два прочтения: как «вес» и как «сумму». Нажмите то, что совпадает с этикеткой, — касса запомнит это для префикса и сразу начнёт так читать.</x:String>
   <x:String x:Key="scaleSetup.wizard.parse">Разобрать</x:String>
   <x:String x:Key="scaleSetup.wizard.open">Настроить по этикетке…</x:String>
   <x:String x:Key="scaleSetup.rules.title">Что печатают весы в штрих-коде</x:String>

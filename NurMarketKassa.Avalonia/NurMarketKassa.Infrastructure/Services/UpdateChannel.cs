@@ -18,6 +18,10 @@ public static class UpdateChannel
 {
     private const string TesterCodeSha256 = "e1c603f329be5e74dd11488cbc8570acd6cebaf7b6241964b05b69232f20b18e";
 
+    // 2026-10-21, просьба владельца «дай ключ для тестеров»: прежний код нигде не записан — добавлен второй код
+    // (старый продолжает работать у тех, кто его уже ввёл).
+    private const string TesterCodeSha256V2 = "f1f5c106873e707eb4f2b7d44529410e2250e9de207c473de9e3df444a4f36f4";
+
     /// <summary>Касса в тестовом канале — код введён и верный.</summary>
     public static bool IsTester => IsValid(UserPreferences.Instance.UpdateTesterCode);
 
@@ -47,6 +51,7 @@ public static class UpdateChannel
             return false;
 
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
-        return string.Equals(hash, TesterCodeSha256, StringComparison.OrdinalIgnoreCase);
+        return string.Equals(hash, TesterCodeSha256, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(hash, TesterCodeSha256V2, StringComparison.OrdinalIgnoreCase);
     }
 }

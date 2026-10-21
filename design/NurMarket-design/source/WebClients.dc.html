@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Клиенты и долги — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.seg{height:38px;padding:0 16px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700}
+.tr{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.2fr) minmax(0,.9fr) minmax(0,1.2fr) 236px;gap:8px;padding:9px 14px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.sm{height:32px;padding:0 10px;border-radius:8px;border:1.5px solid #D0D5DD;background:#FFFFFF;color:#0B2A3C;font-family:inherit;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Клиенты" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Клиенты</b><span style="font-size: 13px; color: #667085">Пункт меню «Долги клиентов» открывает вкладку «Должники»</span></span>
+      <span role="tablist" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E5E7EB"><button type="button" role="tab" class="seg" style="background: transparent; color: #475467; white-space: nowrap">Все клиенты · 1&nbsp;284</button><button type="button" role="tab" aria-selected="true" class="seg" style="background: #0B2A3C; color: #FFFFFF; white-space: nowrap">Должники · 17</button></span>
+      <button type="button" class="b2">+ Клиент</button>
+    </div>
+    <!-- 2026-10-16: долги по давности (SPEC п. 4); красный — только у просрочки больше 30 дней -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px">
+      <div class="kpi"><span>Всего долгов · 17 клиентов</span><b style="color: #0B2A3C">811&nbsp;889 сом</b></div>
+      <div class="kpi"><span>До 7 дней · 3 клиента</span><b style="color: #0B2A3C">12&nbsp;400 сом</b></div>
+      <div class="kpi"><span>8–30 дней · 6 клиентов</span><b style="color: #0B2A3C">148&nbsp;230 сом</b></div>
+      <div class="kpi"><span>Больше 30 дней · 8 клиентов</span><b style="color: #B42318">651&nbsp;259 сом</b></div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start">
+    <section style="flex: 999 1 600px; min-width: 0; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden">
+      <div style="padding: 12px 14px; border-bottom: 1px solid #EAECF0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+        <label style="flex: 1 1 220px; height: 40px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 10px; border: 1px solid #E5E7EB; background: #F9FAFB"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><input type="text" placeholder="Имя или телефон" aria-label="Поиск клиента" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 13px; width: 100%"></label>
+        <button type="button" class="b2" style="height: 40px; white-space: nowrap">Напомнить просроченным (7)…</button>
+        <!-- 2026-10-16: массовая рассылка — только WhatsApp Business API (SPEC п. 8); перед отправкой — подтверждение с предпросмотром и счётчиком -->
+        <span style="flex: 1 1 100%; font-size: 12px; color: #667085; line-height: 1.4">Массово — только через WhatsApp Business API (платно, шаблоны одобряет Meta): перед отправкой покажем текст и «7 сообщений». С личного номера — по одному, кнопкой «WhatsApp» в строке. Умару не отправим — нет номера.</span>
+      </div>
+      <div style="overflow-x: auto"><div style="min-width: 700px">
+        <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span>Клиент</span><span>Телефон</span><span>Долг</span><span>Давность</span><span></span></div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+          <div class="tr" style="background: {{r.bg}}">
+            <span style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; border-radius: 16px; background: #E7EEF3; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; flex-shrink: 0">{{r.ini}}</span><span style="display: flex; flex-direction: column"><b style="font-weight: 600">{{r.name}}</b><span style="font-size: 12px; color: #667085">{{r.checks}}</span></span></span>
+            <span style="color: {{r.pc}}">{{r.phone}}</span>
+            <b style="color: #0B2A3C; white-space: nowrap">{{r.debt}}</b>
+            <span style="font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; justify-self: start; white-space: nowrap; background: {{r.dbg}}; color: {{r.dc}}">{{r.age}}</span>
+            <span style="display: flex; gap: 6px; justify-content: flex-end">
+              <button type="button" class="sm">Принять оплату</button>
+              <sc-if value="{{r.wa}}" hint-placeholder-val="{{true}}"><button type="button" class="sm" aria-label="Напомнить в WhatsApp"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z"></path></svg>WhatsApp</button></sc-if>
+              <sc-if value="{{r.nowa}}" hint-placeholder-val="{{false}}"><button type="button" class="sm" disabled style="color: #667085; border-color: #EAECF0">нет номера</button></sc-if>
+            </span>
+          </div>
+        </sc-for>
+        <div style="padding: 10px 14px; font-size: 12px; color: #667085">Показано 5 из 17 · сортировка: давность ▼</div>
+      </div></div>
+    </section>
+
+    <!-- 2026-10-16: «Принять оплату» — деньги по правилу SPEC п. 7 (наличные только через открытую смену) -->
+    <aside class="card" style="flex: 1 1 300px; max-width: 340px; gap: 10px">
+      <span style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 16px">Принять оплату · Умар</b><button type="button" aria-label="Закрыть" style="width: 32px; height: 32px; border: 0; background: transparent; font-size: 16px; color: #475467">✕</button></span>
+      <span style="font-size: 12px; color: #667085">Долг 64&nbsp;500 сом · 6 чеков · с 31.08.2026 (42 дня)</span>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: #475467">Сумма<input type="text" value="10 000 сом" style="height: 42px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D0D5DD; padding: 0 12px; font-family: inherit; font-size: 15px; font-weight: 700; color: #0B2A3C"></label>
+      <div role="radiogroup" aria-label="Способ оплаты" style="display: flex; flex-direction: column; gap: 6px">
+        <sc-for list="{{ways}}" as="w" hint-placeholder-count="3">
+          <label style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border-radius: 10px; border: {{w.border}}; font-size: 13px; font-weight: 600"><span style="width: 16px; height: 16px; border-radius: 8px; box-sizing: border-box; border: {{w.radio}}; flex-shrink: 0"></span>{{w.name}}</label>
+        </sc-for>
+      </div>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: #475467">Касса и смена<button type="button" style="min-height: 42px; text-align: left; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF; padding: 6px 12px; font-family: inherit; font-size: 13px; font-weight: 600; color: #0B2A3C; line-height: 1.35">Касса 1 · смена Кассир Тест открыта с 08:55 ▾</button></label>
+      <span style="font-size: 12px; color: #667085; line-height: 1.4">Наличные проходят только через открытую смену — так касса сходится. Кассир подтвердит в своей смене.</span>
+      <span style="display: flex; gap: 8px"><button type="button" class="b2" style="flex: 1 1 0">Отмена</button><button type="button" class="b1" style="flex: 2 1 0; white-space: nowrap">Отправить на кассу</button></span>
+      <span style="font-size: 11px; color: #667085; line-height: 1.4">Сервер гасит долг по чекам по одному (до 15 с на 6 чеков) — нужен запрос «погасить N сом» на сервере NurCRM.</span>
+    </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: единые демо-данные NBS: должники по давности (сегодня 12.10.2026). Красный — только больше 30 дней.
+    const late = { dc: '#B42318', dbg: '#FDE2E1' };
+    const mid = { dc: '#B54708', dbg: '#FEF3E2' };
+    const ok = { dc: '#344054', dbg: '#F2F4F7' };
+    const r = (ini, name, checks, phone, debt, age, s, sel) => Object.assign({
+      ini, name, checks, phone: phone || 'нет номера', pc: phone ? '#475467' : '#B54708', debt, age,
+      wa: !!phone, nowa: !phone, bg: sel ? '#FFFCEB' : '#FFFFFF'
+    }, s);
+    const rows = [
+      r('У', 'Умар', '6 чеков', '', '64 500 сом', '42 дня · с 31.08', late, true),
+      r('А', 'Арслан', '4 чека', '+996 555 41-27-09', '38 200 сом', '33 дня · с 09.09', late),
+      r('Б', 'Бакыт', '3 чека', '+996 707 55-30-18', '21 750 сом', '18 дней · с 24.09', mid),
+      r('А', 'Айпери', '2 чека', '+996 550 77-04-12', '9 800 сом', '5 дней · с 07.10', ok),
+      r('М', 'Медер', '1 чек', '+996 552 64-01-17', '3 100 сом', '2 дня · с 10.10', ok)
+    ];
+    const on = { border: '2px solid #0B2A3C', radio: '5px solid #0B2A3C' }, off = { border: '1px solid #E5E7EB', radio: '1.5px solid #98A2B3' };
+    const ways = [
+      Object.assign({ name: 'Наличными — через кассу' }, on),
+      Object.assign({ name: 'Картой или QR' }, off),
+      Object.assign({ name: 'Переводом' }, off)
+    ];
+    return { rows, ways };
+  }
+}
+</script>
+</body>
+</html>

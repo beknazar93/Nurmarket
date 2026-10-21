@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Журнал ошибок</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="help" active="Журнал ошибок" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Журнал ошибок</span><span style="font-size: 13px; color: #667085">Что происходило в программе — простыми словами</span></span>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Открыть папку</button>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Отправить поддержке</button>
+    </div>
+    <div style="display: flex; gap: 8px">
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Всё</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #B42318; font-family: inherit; font-size: 13px; font-weight: 700">Ошибки · 0</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #B54708; font-family: inherit; font-size: 13px; font-weight: 700">Предупреждения</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Оплата</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Склад</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Сеть</button>
+    </div>
+    <section style="flex-grow: 1; min-height: 0; background: #FFFFFF; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+        <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 16px; border-bottom: 1px solid #F2F4F7">
+          <span style="width: 10px; height: 10px; border-radius: 5px; background: {{r.dot}}; margin-top: 6px; flex-shrink: 0"></span>
+          <span style="width: 64px; flex-shrink: 0; font-size: 13px; font-weight: 700; color: #475467">{{r.time}}</span>
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">{{r.text}}</span><span style="font-size: 11px; color: #98A2B3; font-family: Consolas, monospace">{{r.raw}}</span></span>
+          <span style="padding: 3px 9px; border-radius: 6px; background: #F2F4F7; font-size: 11px; font-weight: 700; color: #475467">{{r.tag}}</span>
+        </div>
+      </sc-for>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const r = (time, text, raw, tag, dot) => ({ time, text, raw, tag, dot });
+    return { rows: [
+      r('15:19', 'Склады сохранены и отправлены на сервер для всех касс', 'Настройки на сервере: main — WarehouseZonesJson', 'Склад', '#16A34A'),
+      r('10:07', 'Открыт раздел «Редактор сайта»', 'Owner app: раздел «Редактор сайта» открыт.', 'Программа', '#98A2B3'),
+      r('10:02', 'Сервер не отдал 3-ю страницу продаж — показаны все 43 чека', 'Список продаж: страница 3 за концом списка (чеков 43) — сервер ответил ошибкой, считаю концом.', 'Сеть', '#F59E0B'),
+      r('09:54', 'Оплата переводом — денежный ящик не открывался', 'Денежный ящик: оплата «transfer» без наличных — не открываю.', 'Оплата', '#98A2B3'),
+      r('09:54', 'Чек №1709 оплачен за 0,5 с', 'PAY quick OK за 497 мс: number=1709, total=120.00', 'Оплата', '#16A34A'),
+      r('09:43', 'Каталог обновлён: 306 товаров', 'CATALOG refresh done: localWas=True, online=True, success=True, count=306', 'Склад', '#16A34A'),
+      r('09:43', 'Найдена программа владельца на этом ПК', 'LAN: найден сосед на этом ПК: Программа владельца · DESKTOP-0VH65NL (порт 47811).', 'Сеть', '#98A2B3'),
+      r('09:35', 'Компания загружена', 'Company loaded. INNConfigured=False, AddressConfigured=True', 'Программа', '#98A2B3')
+    ] };
+  }
+}
+</script>
+</body>
+</html>

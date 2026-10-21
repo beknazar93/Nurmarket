@@ -8,10 +8,13 @@
   <UserControl.Styles>
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
 
+    <!-- 2026-10-19, этап О7: жёлтая (main) — «Проверить обновления» / «Установить»; тестовые версии, откат, программа
+         владельца — обводкой (было 4–5 жёлтых). -->
     <Style Selector="Button.UpdateGoldButton">
-      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Padding" Value="16,6"/>
       <Setter Property="Height" Value="38"/>
@@ -21,9 +24,25 @@
       <Setter Property="CornerRadius" Value="6"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
+    <!-- 2026-10-19, О7: выключенная — бледная обводка, не серая заливка Fluent. -->
+    <Style Selector="Button.UpdateGoldButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
     <Style Selector="Button.UpdateGoldButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.UpdateGoldButton.main">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+    <Style Selector="Button.UpdateGoldButton.main:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
     </Style>
   </UserControl.Styles>
 
@@ -69,7 +88,7 @@
                  турецком и узбекском ещё длиннее, поэтому ширину задаём снизу, а не намертво. -->
             <Button x:Name="CheckUpdateButton" x:FieldModifier="public"
                     Content="{DynamicResource updates.checkButton}"
-                    Classes="UpdateGoldButton"
+                    Classes="UpdateGoldButton main"
                     MinWidth="220"
                     HorizontalAlignment="Left"/>
 
@@ -77,7 +96,7 @@
                  и ставит обновление прямо в кассе, без похода кассира в браузер. -->
             <Button x:Name="UpdateNowButton" x:FieldModifier="public"
                     Content="{DynamicResource updates.installButton}"
-                    Classes="UpdateGoldButton"
+                    Classes="UpdateGoldButton main"
                     MinWidth="220"
                     HorizontalAlignment="Left"
                     IsVisible="False"/>
@@ -136,7 +155,8 @@
         </Border>
 
         <!-- Тестовые версии (2026-09-24): код тестировщика включает канал с pre-release. -->
-        <Border Classes="SettingsCard" Padding="14">
+        <!-- 2026-10-21: у программы владельца блок скрыт (UpdatesSettingsView.axaml.cs, пакет 3, п. 141). -->
+        <Border x:Name="TesterCard" Classes="SettingsCard" Padding="14">
           <StackPanel Spacing="10">
             <TextBlock Text="{DynamicResource updates.testerTitle}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock Text="{DynamicResource updates.testerDesc}"

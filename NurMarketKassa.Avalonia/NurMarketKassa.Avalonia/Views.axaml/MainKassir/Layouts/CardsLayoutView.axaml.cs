@@ -24,6 +24,7 @@ public partial class CardsLayoutView : KassaLayoutBase
     {
         InitializeComponent();
         RegisterProductList(CardsList);
+        FitTilesToRow(CardsList, 172, 12);
         SearchBox = ProductSearchBox;
         DataContextChanged += (_, _) => HookCatalog();
         AttachedToVisualTree += (_, _) => HookCatalog();
@@ -110,19 +111,25 @@ public partial class CardsLayoutView : KassaLayoutBase
             return;
 
         _activeCategory = tag.Length == 0 ? null : tag;
-        _catalog.ApplyAdvancedFilter(new CatalogFilterCriteria(
-            SearchText: _catalog.SearchText,
+        // 2026-10-20: проверка фильтров — чип категории сбрасывал вид, бренд, цену и «Только в наличии» из окна «Фильтр»;
+        // теперь меняет только категорию.
+        var current = _catalog.AdvancedFilter ?? new CatalogFilterCriteria(
+            SearchText: "",
             Kind: "",
-            Category: _activeCategory,
+            Category: null,
             Brand: null,
             PriceMin: null,
             PriceMax: null,
-            OnlyInStock: false));
+            OnlyInStock: false);
+        _catalog.ApplyAdvancedFilter(current with { SearchText = _catalog.SearchText, Category = _activeCategory });
         RefreshActiveChip();
     }
 
     private void RefreshActiveChip()
     {
+        // 2026-10-20: категорию могли выбрать в окне «Фильтр» — подсвечен чип той категории, а не «Все категории».
+        if (_catalog is not null)
+            _activeCategory = string.IsNullOrEmpty(_catalog.AdvancedFilter?.Category) ? null : _catalog.AdvancedFilter!.Category;
         foreach (var chip in CategoryChipsPanel.Children.OfType<Button>())
         {
             var tag = chip.Tag as string ?? "";

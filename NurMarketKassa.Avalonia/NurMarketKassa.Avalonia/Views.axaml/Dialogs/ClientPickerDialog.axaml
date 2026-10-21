@@ -1,16 +1,18 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:NurMarketKassa.ViewModels"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ClientPickerDialog"
         x:DataType="vm:CheckoutViewModel"
         x:CompileBindings="False"
         Title="{DynamicResource csh.checkout.chooseClient}"
-        Width="480" Height="580" MinWidth="380" MinHeight="420"
+        Width="512" Height="720" MinWidth="380" MinHeight="420"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         SystemDecorations="None"
         FontFamily="Segoe UI"
-        Background="{DynamicResource BrushPanel}">
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
 
     <Window.Styles>
         <Style Selector="Button.ClientRow:pointerover /template/ ContentPresenter">
@@ -21,39 +23,42 @@
         </Style>
     </Window.Styles>
 
-    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-            Background="{DynamicResource BrushPanel}"
-            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-            BoxShadow="0 16 40 0 #33101828"
-            Padding="24">
-
-        <Grid RowDefinitions="Auto,*">
-
-            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
-                <TextBlock Grid.Column="0" Text="{DynamicResource csh.checkout.chooseClient}"
-                           FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-                <Button IsCancel="True" Grid.Column="1" Content="✕" Width="32" Height="32" Padding="0"
-                        Background="Transparent" BorderThickness="0"
-                        Foreground="{DynamicResource BrushTextMuted}"
-                        Cursor="Hand" Click="Close_Click"/>
-            </Grid>
+    <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 480 (окно 512 × 600, не выше 85 %
+         экрана) — заголовок и ✕ сверху, «Закрыть» (обводка, Esc — как прежний ✕) внизу справа. Список клиентов
+         прокручивается сам (ContentScroll="Disabled"), поиск над ним на месте. Клиент выбирается касанием строки. -->
+    <dlg:ModalShell Margin="16"
+                    Title="{DynamicResource csh.checkout.chooseClient}"
+                    ContentScroll="Disabled">
+        <dlg:ModalShell.Footer>
+            <Button IsCancel="True"
+                    Classes="modal-cancel" MaxWidth="200"
+                    Content="{DynamicResource common.close}"
+                    Click="Close_Click"/>
+        </dlg:ModalShell.Footer>
 
             <!-- 2026-09-24, редизайн по просьбе владельца: вместо плашек с переносом — обычный
                  список. Слева кружок с инициалами, имя крупно, телефон под ним; поиск прижат
                  сверху, «Новый клиент» раскрывается отдельно внизу и не отнимает место у списка. -->
-            <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto">
+            <Grid x:Name="PickerGrid" RowDefinitions="Auto,Auto,*,Auto,Auto">
                 <TextBox Grid.Row="0" Text="{Binding ClientSearchText}"
                          Watermark="{DynamicResource csh.checkout.clientSearchWatermark}"
-                         Height="44" FontSize="15" Margin="0,0,0,10"/>
+                         Height="46" FontSize="15" Margin="0,0,0,10" VerticalContentAlignment="Center"/>
 
                 <TextBlock Grid.Row="1" Text="{DynamicResource csh.checkout.loadingClients}"
                            IsVisible="{Binding IsLoadingClients}"
                            FontSize="12" Margin="2,0,0,8"
                            Foreground="{DynamicResource BrushTextSoft}"/>
 
-                <Border Grid.Row="2" CornerRadius="10"
+                <!-- 2026-10-21 (пакет 6, п. 26): окно 720 (было 600 — видно 4 строки), раскрытый «Новый клиент» больше не сжимает
+                     список в полоску — пока форма открыта, список скрыт (ClientPickerDialog.OnNewClientExpanded); пустой поиск — «не найдено» (NotFoundText, текст в коде). -->
+                <Border x:Name="ClientListBorder" Grid.Row="2" CornerRadius="10" MinHeight="112"
                         BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                         ClipToBounds="True">
+                    <Grid>
+                    <TextBlock x:Name="NotFoundText" IsVisible="False" Margin="16"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextAlignment="Center" TextWrapping="Wrap" FontSize="13.5"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <ItemsControl ItemsSource="{Binding ClientSearchResults}">
                             <ItemsControl.ItemTemplate>
@@ -61,7 +66,7 @@
                                     <Button Classes="ClientRow"
                                             HorizontalAlignment="Stretch"
                                             HorizontalContentAlignment="Stretch"
-                                            Padding="12,9"
+                                            Padding="12,9" MinHeight="56"
                                             CornerRadius="0"
                                             Background="Transparent"
                                             BorderBrush="{DynamicResource BrushBorder}"
@@ -76,7 +81,8 @@
                                                 <TextBlock Text="{ReflectionBinding Initials}"
                                                            FontSize="14" FontWeight="Bold"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource BrushAccentStrong}"/>
+                                                           Foreground="{DynamicResource BrushText}"/>
+                                                <!-- 2026-10-17: буквы цветом текста — жёлтые по светло-жёлтому кружку у «NurMarket» не читались. -->
                                             </Border>
                                             <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center" Spacing="2">
                                                 <TextBlock Text="{ReflectionBinding Name}"
@@ -97,6 +103,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
+                    </Grid>
                 </Border>
 
                 <!-- 2026-10-04: имена — для скана QR клиента NurCRM: окно открывается сразу на «Новом клиенте»
@@ -127,6 +134,5 @@
                            Margin="0,8,0,0"
                            IsVisible="{Binding !!ErrorMessage}"/>
             </Grid>
-        </Grid>
-    </Border>
+    </dlg:ModalShell>
 </Window>

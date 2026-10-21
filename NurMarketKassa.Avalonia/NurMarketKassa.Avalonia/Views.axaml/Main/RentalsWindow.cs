@@ -28,8 +28,10 @@ public sealed class RentalsWindow : Window
     private readonly StackPanel _tabs = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
     private readonly StackPanel _list = new() { Spacing = 10 };
     private readonly TextBlock _status = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap };
-    /// <summary>2026-10-02, редизайн: счётчики плитками (на руках, просрочено, залоги деньгами).</summary>
-    private readonly Grid _stats = new() { ColumnDefinitions = new ColumnDefinitions("*,12,*,12,*"), Margin = new Thickness(0, 4, 0, 16) };
+    /// <summary>2026-10-02, редизайн: счётчики плитками (на руках, просрочено, залоги деньгами).
+    /// 2026-10-18, этап О4: общие плитки разделов (KpiTileGrid + UiKit.Kpi) — сумма залогов уменьшается целиком, а не обрезается,
+    /// цифры цветом текста (красный — только просрочка), без цветных значков.</summary>
+    private readonly NurMarketKassa.AvaloniaHost.Views.Controls.KpiTileGrid _stats = new() { MinTileWidth = 170, Spacing = 8, Margin = new Thickness(0, 4, 0, 16) };
     private string _tab = "active";
     /// <summary>2026-10-05: окно уже 700 точек (телефон) — см. NarrowLayout в конструкторе.</summary>
     private bool _narrow;
@@ -54,7 +56,8 @@ public sealed class RentalsWindow : Window
 
         var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto") };
         head.Classes.Add("no-reflow"); // 2026-10-05: на телефоне перестраивается здесь же (NarrowLayout ниже)
-        var title = new TextBlock { Text = T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"), FontSize = 24, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
+        // 2026-10-18, этап О4: в программе владельца название уже в полосе над разделом — второго крупного заголовка нет.
+        var title = new TextBlock { Text = T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"), FontSize = 24, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center, IsVisible = !_readOnly };
         Use(title, TextBlock.ForegroundProperty, "BrushText");
         head.Children.Add(title);
         // 2026-10-02, владелец: «когда приносит обратно — по этому чеку закрывали прокат». Номер проката
@@ -63,6 +66,7 @@ public sealed class RentalsWindow : Window
         find.Width = 190;
         find.Margin = new Thickness(0, 0, 10, 0);
         find.IsVisible = !_readOnly;
+        Avalonia.Automation.AutomationProperties.SetName(find, find.Watermark); // 2026-10-18, этап О4: имя поля для доступности
         find.KeyDown += async (_, e) =>
         {
             if (e.Key != Key.Enter)
@@ -86,16 +90,32 @@ public sealed class RentalsWindow : Window
 
         Use(_status, TextBlock.ForegroundProperty, "BrushTextSoft");
         _status.Margin = new Thickness(0, 6, 0, 14);
-        Grid.SetRow(_status, 1);
-        root.Children.Add(_status);
+        if (_readOnly)
+        {
+            // 2026-10-18, этап О4: в программе владельца заголовка нет — пояснение «Выдача и приём возврата — в кассе» стоит
+            // в строке шапки слева от «Обновить», а не отдельной строкой под пустой шапкой.
+            _status.Margin = new Thickness(0, 0, 16, 0);
+            _status.VerticalAlignment = VerticalAlignment.Center;
+            head.Children.Add(_status);
+            head.Margin = new Thickness(0, 0, 0, 14);
+        }
+        else
+        {
+            Grid.SetRow(_status, 1);
+            root.Children.Add(_status);
+        }
 
         Grid.SetRow(_stats, 2);
         root.Children.Add(_stats);
 
         // 2026-10-05, снимок владельца с телефона: «Возвращены 19» уходила за край — вкладки листаются вбок.
+        // 2026-10-18, этап О4 (правило аудита 2): «На руках / Просрочены / Возвращены» — сегменты в рамке (выбранный тёмно-синий),
+        // как период в отчётах, а не отдельные чипы.
+        var tabsSegment = UiKit.Segment(_tabs);
+        tabsSegment.HorizontalAlignment = HorizontalAlignment.Left;
         var tabsScroll = new ScrollViewer
         {
-            Content = _tabs,
+            Content = tabsSegment,
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
             Margin = new Thickness(0, 0, 0, 14),
@@ -182,35 +202,13 @@ public sealed class RentalsWindow : Window
     private void RenderStats(int active, int overdue, double money, int documents)
     {
         _stats.Children.Clear();
-        AddStat(0, T("На руках", "Колдо", "Out", "Dışarıda", "Qo'lda"), active.ToString(CultureInfo.InvariantCulture), "BrushText", Icons.Hanger);
-        AddStat(2, T("Просрочено", "Мөөнөтү өткөн", "Overdue", "Gecikmiş", "Muddati o'tgan"), overdue.ToString(CultureInfo.InvariantCulture),
-            overdue > 0 ? "BrushDanger" : "BrushText", Icons.Clock);
-        AddStat(4, T("Залоги деньгами", "Акчалай күрөө", "Cash deposits", "Nakit depozito", "Naqd garov"), Money(money), "BrushCatalogPrice", Icons.Cash,
-            documents > 0 ? T($"+ документов: {documents}", $"+ документтер: {documents}", $"+ documents: {documents}", $"+ belgeler: {documents}", $"+ hujjatlar: {documents}") : null);
-    }
-
-    private void AddStat(int column, string label, string value, string valueBrush, string icon, string? sub = null)
-    {
-        var card = new Border { CornerRadius = new CornerRadius(14), Padding = new Thickness(16, 12), BorderThickness = new Thickness(1) };
-        Use(card, Border.BackgroundProperty, "BrushPanel");
-        Use(card, Border.BorderBrushProperty, "BrushBorder");
-        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
-        var circle = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(20), Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center };
-        Use(circle, Border.BackgroundProperty, "BrushAccentSoft");
-        var path = new Avalonia.Controls.Shapes.Path { Data = Geometry.Parse(icon), Width = 20, Height = 20, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        Use(path, Avalonia.Controls.Shapes.Shape.FillProperty, "BrushAccentStrong");
-        circle.Child = path;
-        g.Children.Add(circle);
-        var texts = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
-        texts.Children.Add(Text(label, 12.5, FontWeight.SemiBold, "BrushTextSoft"));
-        texts.Children.Add(Text(value, 22, FontWeight.Bold, valueBrush));
-        if (sub != null)
-            texts.Children.Add(Text(sub, 12, FontWeight.Normal, "BrushTextSoft"));
-        Grid.SetColumn(texts, 1);
-        g.Children.Add(texts);
-        card.Child = g;
-        Grid.SetColumn(card, column);
-        _stats.Children.Add(card);
+        _stats.Children.Add(UiKit.Kpi(T("На руках", "Колдо", "Out", "Dışarıda", "Qo'lda"), active.ToString(CultureInfo.InvariantCulture)));
+        _stats.Children.Add(UiKit.Kpi(T("Просрочено", "Мөөнөтү өткөн", "Overdue", "Gecikmiş", "Muddati o'tgan"), overdue.ToString(CultureInfo.InvariantCulture), danger: overdue > 0));
+        var deposits = UiKit.Kpi(T("Залоги деньгами", "Акчалай күрөө", "Cash deposits", "Nakit depozito", "Naqd garov"), Money(money));
+        if (documents > 0 && deposits.Child is StackPanel tile)
+            tile.Children.Add(Text(T($"+ документов: {documents}", $"+ документтер: {documents}", $"+ documents: {documents}", $"+ belgeler: {documents}", $"+ hujjatlar: {documents}"),
+                12, FontWeight.Normal, "BrushTextSoft", wrap: true));
+        _stats.Children.Add(deposits);
     }
 
     /// <summary>Пиктограммы (Material Design Icons, свободная лицензия).</summary>
@@ -231,21 +229,40 @@ public sealed class RentalsWindow : Window
         AddTab("overdue", T("Просрочены", "Мөөнөтү өткөн", "Overdue", "Gecikmiş", "Muddati o'tgan"), overdue.Count);
         AddTab("returned", T("Возвращены", "Кайтарылган", "Returned", "İade edildi", "Qaytarilgan"), _returned.Count);
 
+        // 2026-10-21 (пакет 5, п. 52): «Возвращены» — строго по порядку: последний возврат сверху, без даты возврата —
+        // по дате создания, при равенстве — больший номер выше (живой аудит 20.10: №22, 25, 21, 24… — у возвратов одного
+        // дня порядок выглядел случайным). «Просрочены» — как «На руках», по сроку возврата.
         var rows = _tab switch
         {
-            "overdue" => overdue,
-            "returned" => _returned.OrderByDescending(r => r.ReturnedAt).ToList(),
-            _ => _active.OrderBy(r => r.DateTo).ToList(),
+            "overdue" => overdue.OrderBy(r => r.DateTo ?? DateTime.MaxValue).ThenBy(r => r.Number).ToList(),
+            "returned" => _returned.OrderByDescending(r => r.ReturnedAt ?? r.CreatedAt ?? DateTimeOffset.MinValue)
+                .ThenByDescending(r => r.Number).ToList(),
+            _ => _active.OrderBy(r => r.DateTo ?? DateTime.MaxValue).ThenBy(r => r.Number).ToList(),
         };
         _list.Children.Clear();
         if (rows.Count == 0)
         {
             var empty = new TextBlock
             {
-                Text = T("Здесь пока пусто. Нажмите «+ Новый прокат», чтобы выдать вещь клиенту.", "Азырынча бош. Кардарга буюм берүү үчүн «+ Жаңы прокат» басыңыз.",
+                // 2026-10-18, этап О4: в программе владельца кнопки «+ Новый прокат» нет — без отсылки к ней.
+                // Доводка О4: пусто — по вкладке и с подсказкой, что делать.
+                Text = _tab == "overdue"
+                    ? T("Просроченных нет — все вещи возвращают вовремя.", "Мөөнөтү өткөн жок — бардык буюмдар убагында кайтарылууда.", "Nothing overdue — everything comes back on time.",
+                        "Gecikmiş yok — her şey zamanında iade ediliyor.", "Muddati o'tganlar yo'q — hammasi o'z vaqtida qaytarilmoqda.")
+                    : _tab == "returned"
+                        ? T("Возвратов пока нет. Когда клиент вернёт вещь, прокат появится здесь.", "Азырынча кайтаруу жок. Кардар буюмду кайтарганда прокат ушул жерде көрүнөт.",
+                            "No returns yet. When a client brings an item back, the rental appears here.", "Henüz iade yok. Müşteri ürünü iade edince kiralama burada görünür.",
+                            "Hozircha qaytarishlar yo'q. Mijoz buyumni qaytarganda prokat shu yerda ko'rinadi.")
+                        : _readOnly
+                            ? T("Сейчас на руках ничего нет. Выдать вещь в прокат можно в кассе: меню → «Прокат».", "Азыр колдо эч нерсе жок. Буюмду прокатка кассада берсе болот: меню → «Прокат».",
+                                "Nothing is out right now. Rent out an item in the till: menu → “Rentals”.", "Şu an dışarıda ürün yok. Kiralamayı kasada yapın: menü → «Kiralama».",
+                                "Hozir qo'lda hech narsa yo'q. Buyumni prokatga kassada berish mumkin: menyu → «Prokat».")
+                            : T("Здесь пока пусто. Нажмите «+ Новый прокат», чтобы выдать вещь клиенту.", "Азырынча бош. Кардарга буюм берүү үчүн «+ Жаңы прокат» басыңыз.",
                     "Nothing here yet. Press “+ New rental” to give an item to a client.", "Henüz boş. Müşteriye ürün vermek için «+ Yeni kiralama»ya basın.",
                     "Hozircha bo'sh. Mijozga buyum berish uchun «+ Yangi prokat»ni bosing."),
-                FontSize = 15, Margin = new Thickness(4, 30, 4, 0), TextWrapping = TextWrapping.Wrap,
+                // 2026-10-18, доводка О4: по центру, как пустые таблицы других разделов.
+                FontSize = 14, Margin = new Thickness(24, 56, 24, 0), TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 520,
             };
             Use(empty, TextBlock.ForegroundProperty, "BrushTextSoft");
             _list.Children.Add(empty);
@@ -257,7 +274,7 @@ public sealed class RentalsWindow : Window
 
     private void AddTab(string key, string text, int count)
     {
-        var b = UiKit.Chip(this, $"{text}  {count}", _tab == key);
+        var b = UiKit.Seg($"{text}  {count}", _tab == key);
         b.Click += (_, _) => { _tab = key; Render(); };
         _tabs.Children.Add(b);
     }
@@ -267,17 +284,20 @@ public sealed class RentalsWindow : Window
         // 2026-10-02, редизайн: цветная полоса статуса, вещи — плашками, даты и залог — с пиктограммами.
         // 2026-10-02: срок сегодня или завтра — оранжевая полоса и отметка («уведомление о приближении срока»).
         var due = RentalDueNotifier.Kind(r);
+        // 2026-10-18, этап О4 (правило аудита 4): цвет — только у того, что требует внимания (просрочка — красный, срок сегодня/
+        // завтра и повреждение — оранжевый); обычный прокат «на руках» — нейтральный, без зелёного. Рамка карточки — обычная.
         var statusBrush = r.IsOverdue ? "BrushDanger" : due is RentalDueNotifier.DueKind.Today or RentalDueNotifier.DueKind.Tomorrow ? "BrushWarning"
-            : r.IsActive ? "BrushSuccess" : r.Condition == "damaged" ? "BrushWarning" : "BrushBorderStrong";
+            : !r.IsActive && r.Condition == "damaged" ? "BrushWarning" : "BrushBorderStrong";
         var card = new Border { CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1), ClipToBounds = true };
         Use(card, Border.BackgroundProperty, "BrushPanel");
-        Use(card, Border.BorderBrushProperty, r.IsOverdue ? "BrushDanger" : "BrushBorder");
+        Use(card, Border.BorderBrushProperty, "BrushBorder");
         var outer = new Grid { ColumnDefinitions = new ColumnDefinitions("6,*") };
         var strip = new Border();
         Use(strip, Border.BackgroundProperty, statusBrush);
         outer.Children.Add(strip);
 
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(16, 14, 16, 14) };
+        // 2026-10-18, доводка О4: колонки — вещи · срок · залог · «Принять возврат» (раньше середина карточки пустовала).
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"), Margin = new Thickness(16, 14, 16, 14) };
         grid.Classes.Add("no-reflow"); // 2026-10-05: карточка на телефоне — в две строки (_narrow ниже)
         Grid.SetColumn(grid, 1);
         outer.Children.Add(grid);
@@ -293,7 +313,7 @@ public sealed class RentalsWindow : Window
         else if (due == RentalDueNotifier.DueKind.Tomorrow)
             head.Children.Add(Badge(T("вернуть завтра", "эртең кайтаруу", "due tomorrow", "yarın iade", "ertaga qaytarish"), "BrushWarning"));
         else if (r.IsActive)
-            head.Children.Add(Badge(T("на руках", "колдо", "out", "dışarıda", "qo'lda"), "BrushSuccess"));
+            head.Children.Add(Badge(T("на руках", "колдо", "out", "dışarıda", "qo'lda"), "BrushTextSoft"));
         else
             head.Children.Add(Badge(r.Condition == "damaged"
                 ? T("возвращено, повреждено", "кайтарылды, бузулган", "returned, damaged", "iade, hasarlı", "qaytarildi, shikastlangan")
@@ -311,16 +331,44 @@ public sealed class RentalsWindow : Window
         left.Children.Add(items);
 
         var dates = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        dates.Children.Add(Icon(Icons.Calendar, r.IsOverdue ? "BrushDanger" : "BrushTextSoft"));
-        dates.Children.Add(Text($"{D(r.DateFrom)} — {D(r.DateTo)}" + (string.IsNullOrWhiteSpace(r.Note) ? "" : " · " + r.Note), 13, FontWeight.Normal,
-            r.IsOverdue ? "BrushDanger" : "BrushTextSoft", wrap: true));
+        // 2026-10-18, доводка О4: колонка срока — только у владельца (в кассе на 1024 рядом с «Принять возврат» ей тесно).
+        var withTerm = _readOnly && !_narrow;
+        dates.Children.Add(Icon(Icons.Calendar, r.IsOverdue && !withTerm ? "BrushDanger" : "BrushTextSoft"));
+        // 2026-10-18, доводка О4: у владельца срок — отдельной колонкой; здесь — когда выдано и на сколько суток.
+        var term = TermDays(r);
+        // 2026-10-21 (пакет 5, п. 52): в кассе у возвращённого — и когда вернули: список «Возвращены» идёт по этому времени.
+        var datesText = !withTerm
+            ? $"{D(r.DateFrom)} — {D(r.DateTo)}" + (!r.IsActive && r.ReturnedAt is { } backAt
+                ? " · " + T("возвращено", "кайтарылды", "returned", "iade", "qaytarildi") + " " + backAt.LocalDateTime.ToString("dd.MM HH:mm", Ru)
+                : "")
+            : T($"выдано {D(r.DateFrom)}", $"берилди {D(r.DateFrom)}", $"given {D(r.DateFrom)}", $"verildi {D(r.DateFrom)}", $"berildi {D(r.DateFrom)}")
+              + (term > 0 ? " · " + T($"на {term} сут.", $"{term} суткага", $"for {term} d", $"{term} gün", $"{term} sutkaga") : "");
+        dates.Children.Add(Text(datesText + (string.IsNullOrWhiteSpace(r.Note) ? "" : " · " + r.Note), 13, FontWeight.Normal,
+            r.IsOverdue && !withTerm ? "BrushDanger" : "BrushTextSoft", wrap: true));
         left.Children.Add(dates);
         grid.Children.Add(left);
+        if (withTerm)
+        {
+            var termBlock = new StackPanel { Spacing = 2, MinWidth = 150, Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            termBlock.Children.Add(Text(r.IsActive
+                ? T("Вернуть до", "Кайтаруу мөөнөтү", "Return by", "İade tarihi", "Qaytarish muddati")
+                : T("Возвращено", "Кайтарылды", "Returned", "İade edildi", "Qaytarildi"), 12, FontWeight.SemiBold, "BrushTextSoft"));
+            // 2026-10-21 (пакет 5, п. 52): у возвращённых — и время возврата: по нему видно, почему порядок такой.
+            termBlock.Children.Add(Text(r.IsActive ? D(r.DateTo) : r.ReturnedAt is { } back ? back.LocalDateTime.ToString("dd.MM.yyyy HH:mm", Ru) : "—",
+                14.5, FontWeight.Bold, r.IsOverdue ? "BrushDanger" : "BrushText"));
+            // Сколько осталось — только у обычного проката: у просроченного и «сегодня / завтра» это уже сказано отметкой.
+            if (r.IsActive && !r.IsOverdue && due is not (RentalDueNotifier.DueKind.Today or RentalDueNotifier.DueKind.Tomorrow)
+                && r.DateTo is { } to && (to.Date - DateTime.Today).Days is var left2 and > 1)
+                termBlock.Children.Add(Text(T($"через {left2} дн.", $"{left2} күндөн кийин", $"in {left2} days", $"{left2} gün sonra", $"{left2} kundan keyin"), 12, FontWeight.Normal, "BrushTextSoft"));
+            Grid.SetColumn(termBlock, 1);
+            grid.Children.Add(termBlock);
+        }
 
-        var deposit = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 10), Margin = new Thickness(16, 0, 16, 0), VerticalAlignment = VerticalAlignment.Center, MinWidth = 210, MaxWidth = 280 };
+        // 2026-10-18, доводка О4: у владельца (без «Принять возврат») залог — вплотную к правому краю карточки.
+        var deposit = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 10), Margin = new Thickness(16, 0, _readOnly ? 0 : 16, 0), VerticalAlignment = VerticalAlignment.Center, MinWidth = 210, MaxWidth = 280 };
         Use(deposit, Border.BackgroundProperty, "BrushPanelSoft");
         var depGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
-        var depIcon = Icon(r.IsDocumentDeposit ? Icons.IdCard : Icons.Cash, "BrushAccentStrong");
+        var depIcon = Icon(r.IsDocumentDeposit ? Icons.IdCard : Icons.Cash, "BrushTextSoft"); // 2026-10-18, этап О4: значок без жёлтого
         depIcon.Margin = new Thickness(0, 2, 10, 0);
         depIcon.VerticalAlignment = VerticalAlignment.Top;
         depGrid.Children.Add(depIcon);
@@ -338,7 +386,7 @@ public sealed class RentalsWindow : Window
         Grid.SetColumn(depText, 1);
         depGrid.Children.Add(depText);
         deposit.Child = depGrid;
-        Grid.SetColumn(deposit, 1);
+        Grid.SetColumn(deposit, 2);
         grid.Children.Add(deposit);
         if (_narrow)
         {
@@ -356,10 +404,11 @@ public sealed class RentalsWindow : Window
 
         if (r.IsActive && !_readOnly)
         {
-            var ret = UiKit.Primary(this, T("Принять возврат", "Кайтарууну кабыл алуу", "Take back", "İadeyi al", "Qaytarishni qabul qilish"));
+            // 2026-10-18, этап О4 (правило аудита 1): жёлтая на экране одна — «+ Новый прокат»; «Принять возврат» в строках — обводкой.
+            var ret = UiKit.Ghost(this, T("Принять возврат", "Кайтарууну кабыл алуу", "Take back", "İadeyi al", "Qaytarishni qabul qilish"));
             ret.VerticalAlignment = VerticalAlignment.Center;
             ret.Click += async (_, _) => await ReturnAsync(r).ConfigureAwait(true);
-            Grid.SetColumn(ret, _narrow ? 1 : 2);
+            Grid.SetColumn(ret, _narrow ? 1 : 3);
             Grid.SetRow(ret, _narrow ? 2 : 0);
             grid.Children.Add(ret);
         }
@@ -441,6 +490,9 @@ public sealed class RentalsWindow : Window
         await LoadAsync().ConfigureAwait(true);
     }
 
+    /// <summary>2026-10-18, доводка О4: на сколько суток выдано (по датам проката, без запросов).</summary>
+    private static int TermDays(RentalDto r) => r.DateFrom is { } from && r.DateTo is { } to ? Math.Max(0, (to.Date - from.Date).Days) : 0;
+
     private static int OverdueDays(RentalDto r) => r.DateTo is { } to ? Math.Max(1, (DateTime.Today - to.Date).Days) : 1;
     internal static string D(DateTime? d) => d?.ToString("dd.MM.yyyy", Ru) ?? "—";
     internal static string Money(double v) => v.ToString("N2", Ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm");
@@ -452,11 +504,21 @@ public sealed class RentalsWindow : Window
         return t;
     }
 
+    /// <summary>2026-10-18, этап О4 (правило аудита 4): отметка мягкой плашкой — белый текст на оранжевой/зелёной заливке
+    /// читался плохо; красная — только просрочка, оранжевая мягкая — срок/повреждение, остальное — нейтральное.</summary>
     private Border Badge(string text, string brush)
     {
+        var (bg, fg) = brush switch
+        {
+            "BrushDanger" => ("BrushDangerSoft", "BrushDangerOnSoft"),
+            "BrushWarning" => ("BrushWarningSoft", "BrushText"),
+            _ => ("BrushPanelSoft", brush),
+        };
         var b = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(8, 2), VerticalAlignment = VerticalAlignment.Center };
-        Use(b, Border.BackgroundProperty, brush);
-        b.Child = new TextBlock { Text = text, FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Brushes.White };
+        Use(b, Border.BackgroundProperty, bg);
+        var t = new TextBlock { Text = text, FontSize = 12, FontWeight = FontWeight.Bold };
+        Use(t, TextBlock.ForegroundProperty, fg);
+        b.Child = t;
         return b;
     }
 
@@ -467,6 +529,10 @@ public sealed class RentalsWindow : Window
 /// <summary>Общие кнопки окон проката — в цветах темы, как в окне выбора размера.</summary>
 internal static class UiKit
 {
+    // 2026-10-18, этап О3 (правила аудита 1–2): цвета кнопок UiKit — общими классами PosDialogStyles.axaml, а не
+    // кистями на месте: главная — sec-primary (акцент темы, у «NurMarket» жёлтая), остальные — sec-outline (обводка
+    // цветом рамки, без заливки), чип — sec-chip, выбранный чип — active (тёмно-синий, как период «Сводки»). Так у
+    // них есть и наведение по теме (раньше Fluent красил наведённую кнопку серым). Размеры — прежние.
     public static Button Primary(Control host, string text)
     {
         var b = new Button
@@ -474,8 +540,7 @@ internal static class UiKit
             Content = text, Height = 46, Padding = new Thickness(20, 0), CornerRadius = new CornerRadius(12), FontWeight = FontWeight.Bold, FontSize = 14.5,
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Focusable = false,
         };
-        b.Bind(Button.BackgroundProperty, host.GetResourceObservable("BrushAccent"));
-        b.Bind(Button.ForegroundProperty, host.GetResourceObservable("BrushAccentForeground"));
+        b.Classes.Add("sec-primary");
         return b;
     }
 
@@ -486,9 +551,7 @@ internal static class UiKit
             Content = text, Height = 46, Padding = new Thickness(18, 0), CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), FontSize = 14,
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Focusable = false,
         };
-        b.Bind(Button.BackgroundProperty, host.GetResourceObservable("BrushPanel"));
-        b.Bind(Button.BorderBrushProperty, host.GetResourceObservable("BrushBorder"));
-        b.Bind(Button.ForegroundProperty, host.GetResourceObservable("BrushText"));
+        b.Classes.Add("sec-outline");
         return b;
     }
 
@@ -497,13 +560,128 @@ internal static class UiKit
         var b = new Button
         {
             Content = text, MinHeight = 40, Padding = new Thickness(16, 6), CornerRadius = new CornerRadius(20), FontSize = 14,
-            FontWeight = selected ? FontWeight.Bold : FontWeight.Normal, BorderThickness = new Thickness(selected ? 2 : 1), Focusable = false,
+            BorderThickness = new Thickness(1), Focusable = false,
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
         };
-        b.Bind(Button.BackgroundProperty, host.GetResourceObservable(selected ? "BrushAccentSoft" : "BrushPanel"));
-        b.Bind(Button.BorderBrushProperty, host.GetResourceObservable(selected ? "BrushAccentStrong" : "BrushBorder"));
-        b.Bind(Button.ForegroundProperty, host.GetResourceObservable("BrushText"));
+        b.Classes.Add("sec-chip");
+        SetActive(b, selected);
         return b;
+    }
+
+    /// <summary>2026-10-18, этап О3: выбранный чип или сегмент (класс active) — для окон, которые переключают его на месте,
+    /// а не пересоздают (сортировка в «Долгах»).</summary>
+    public static void SetActive(Button b, bool active)
+    {
+        b.Classes.Set("active", active);
+        b.FontWeight = active ? FontWeight.Bold : FontWeight.Normal;
+    }
+
+    /// <summary>2026-10-18, этап О3: сегмент выбора (период, фильтр) — Button.sec-seg, выбранный — active; группу оборачивает
+    /// <see cref="Segment"/>. Вид — как период «Сводки» и modal-seg кассы.</summary>
+    public static Button Seg(string text, bool active)
+    {
+        // 2026-10-18, ревью О3: сегмент доступен с клавиатуры — Tab, Enter/Пробел выбирают период (вид прежний).
+        var b = new Button { Content = text };
+        b.Classes.Add("sec-seg");
+        b.Classes.Set("active", active);
+        Avalonia.Automation.AutomationProperties.SetName(b, text);
+        return b;
+    }
+
+    /// <summary>2026-10-20, проверка фильтров: даты выбранного периода рядом с сегментами («01.10–20.10», PeriodRange.Label) —
+    /// видно, за какие дни список. Подпись обновляет окно при смене периода.</summary>
+    public static Control WithPeriodLabel(Control segment, TextBlock label)
+    {
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.Margin = new Thickness(10, 0, 0, 0);
+        label.FontSize = 13;
+        // Окно пересобирает ряд фильтров (Филиалы) — подпись переезжает из прежнего ряда.
+        (label.Parent as Panel)?.Children.Remove(label);
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushTextSoft"));
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        row.Children.Add(segment);
+        row.Children.Add(label);
+        return row;
+    }
+
+    /// <summary>2026-10-18, этап О3: рамка группы сегментов (Border.sec-segment) вокруг готовой панели или кнопок.</summary>
+    public static Border Segment(Panel items)
+    {
+        if (items is StackPanel stack)
+            stack.Spacing = 2;
+        var border = new Border { Child = items };
+        border.Classes.Add("sec-segment");
+        return border;
+    }
+
+    /// <summary>2026-10-18, этап О3 (правило аудита 3): плитка показателя — подпись переносится, сумма уменьшается
+    /// целиком (Viewbox), а не обрезается «…»; красный — только для долга/убытка (danger). Плитки кладут в KpiTileGrid.</summary>
+    public static Border Kpi(string label, string value, bool danger = false)
+    {
+        var caption = new TextBlock { Text = label };
+        caption.Classes.Add("sec-kpi-label");
+        var number = new TextBlock { Text = value };
+        number.Classes.Add("sec-kpi-value");
+        if (danger)
+            number.Classes.Add("danger");
+        var fit = new Viewbox { Child = number };
+        fit.Classes.Add("sec-kpi-fit");
+        var tile = new Border { Child = new StackPanel { Spacing = 4, Children = { caption, fit } } };
+        tile.Classes.Add("sec-kpi");
+        return tile;
+    }
+
+    /// <summary>2026-10-18, доводка О4: подсказка «пусто — что делать» поверх пустой таблицы (в той же ячейке сетки, что и
+    /// таблица). Показывается только после того, как список хотя бы раз изменился (загрузка прошла), — пока данные идут,
+    /// её нет. Таблицу переносят в другое место (встроенные «Продажи») — подсказка переезжает следом.</summary>
+    public static void EmptyHint(DataGrid grid, string text)
+    {
+        var hint = new TextBlock
+        {
+            Text = text, FontSize = 14, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, MaxWidth = 460,
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(24, 72, 24, 0),
+            IsVisible = false, IsHitTestVisible = false,
+        };
+        hint.Bind(TextBlock.ForegroundProperty, grid.GetResourceObservable("BrushTextSoft"));
+        System.Collections.Specialized.INotifyCollectionChanged? watched = null;
+        var changed = false;
+
+        void Place()
+        {
+            if (grid.Parent is not Grid host || ReferenceEquals(hint.Parent, host))
+                return;
+            (hint.Parent as Panel)?.Children.Remove(hint);
+            Grid.SetRow(hint, Grid.GetRow(grid));
+            Grid.SetColumn(hint, Grid.GetColumn(grid));
+            host.Children.Add(hint);
+        }
+
+        void Update() => hint.IsVisible = changed && grid.ItemsSource is System.Collections.IEnumerable items && !items.GetEnumerator().MoveNext();
+
+        void OnChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            changed = true;
+            Avalonia.Threading.Dispatcher.UIThread.Post(Update);
+        }
+
+        void Watch()
+        {
+            if (watched != null)
+                watched.CollectionChanged -= OnChanged;
+            watched = grid.ItemsSource as System.Collections.Specialized.INotifyCollectionChanged;
+            if (watched != null)
+                watched.CollectionChanged += OnChanged;
+            Update();
+        }
+
+        grid.PropertyChanged += (_, e) =>
+        {
+            // У DataGrid своё свойство ItemsSource (он не ItemsControl) — сравниваем по имени.
+            if (e.Property.Name == nameof(DataGrid.ItemsSource))
+                Watch();
+        };
+        grid.AttachedToVisualTree += (_, _) => Place();
+        Watch();
     }
 
     public static TextBox Input(Control host, string watermark, double height = 44)

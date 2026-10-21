@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Филиалы — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.br{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.m{display:flex;flex-direction:column;gap:2px}
+.m span{font-size:11px;font-weight:600;color:#667085}
+.m b{font-size:16px;font-weight:800;color:#0B2A3C}
+.dev{display:flex;align-items:center;gap:6px;font-size:12px;color:#344054;white-space:nowrap}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.b2{height:40px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Филиалы" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Филиалы</b><span style="font-size: 13px; color: #667085">Каждый филиал — свои кассы, склад и сотрудники; товары общие · свои цены в филиале: выкл. (нужен сервер NurCRM)</span></span>
+      <button type="button" class="b2" style="height: 44px">Перемещение товара</button>
+      <button type="button" class="b1">+ Филиал</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px">
+      <sc-for list="{{branches}}" as="b" hint-placeholder-count="3">
+        <section class="br">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 42px; height: 42px; border-radius: 12px; background: {{b.icbg}}; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800">{{b.ini}}</span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><b style="font-size: 16px">{{b.name}} <span style="font-size: 11px; font-weight: 700; color: #0B2A3C; background: {{b.tagbg}}; border-radius: 6px; padding: 2px 6px; vertical-align: middle">{{b.tag}}</span></b><span style="font-size: 12px; color: #667085">{{b.addr}}</span></span><span style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: {{b.sbg}}; color: {{b.sfg}}; white-space: nowrap">{{b.state}}</span></div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; background: #F9FAFB; border-radius: 12px; padding: 12px">
+            <span class="m"><span>Выручка*</span><b style="font-size: 16px; font-weight: 800; color: #0B2A3C; white-space: nowrap">{{b.rev}}</b></span>
+            <span class="m"><span>В кассах</span><b style="font-size: 16px; font-weight: 800; color: #0B2A3C; white-space: nowrap">{{b.cash}}</b></span>
+            <span class="m"><span>Товаров</span><b style="font-size: 16px; font-weight: 800; color: #0B2A3C">{{b.goods}}</b></span>
+          </div>
+          <span style="font-size: 12px; color: #475467">Склад: <b>{{b.stock}}</b></span>
+          <div style="display: flex; flex-wrap: wrap; gap: 12px">
+            <span class="dev">{{b.d1}}</span><span class="dev">{{b.d2}}</span><span class="dev">{{b.d3}}</span>
+          </div>
+          <div style="display: flex; gap: 8px"><button type="button" class="b2" style="flex-grow: 1">Подробнее</button><button type="button" class="b2" style="flex-grow: 1">Склад филиала</button></div>
+        </section>
+      </sc-for>
+    </div>
+    <section style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px">
+      <b style="font-size: 15px">Перемещения</b>
+      <div style="display: flex; gap: 12px; font-size: 13px; align-items: center"><span style="flex-grow: 1">№14 · Главный склад → Офис Кубанычбека · Макароны «Макфа» спагетти 450г × 10, Mars 50г × 12</span><span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #FFF7CC; color: #0B2A3C">В пути</span></div>
+      <div style="display: flex; gap: 12px; font-size: 13px; align-items: center"><span style="flex-grow: 1">№13 · Главный склад → Домашний · Хлеб белый × 10 · 10.10</span><span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #E7F6EC; color: #0E7A3A">Доставлено</span></div>
+      <span style="font-size: 12px; color: #667085">* Выручка по филиалу — нужен разрез продаж по филиалу на сервере NurCRM; сейчас считается по кассам филиала.</span>
+    </section>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: филиалы NBS из единых данных; устройства — словами «есть / нет», без цвета-только
+    const b = (ini, name, tag, addr, stock, rev, cash, goods, d, open) => ({ ini, name, tag, addr, stock, rev, cash, goods,
+      d1: (d[0] ? '✓ ' : '✕ ') + 'Касса' + (d[0] ? ' · ' + d[0] : ''), d2: (d[1] ? '✓ ' : '✕ ') + 'Телефоны' + (d[1] ? ' · ' + d[1] : ''), d3: (d[2] ? '✓ ' : '✕ ') + 'Веб-касса',
+      icbg: tag ? '#FFD600' : '#F2F4F7', tagbg: tag ? '#FFF7CC' : 'transparent', state: open ? 'смена открыта' : 'смен нет', sbg: open ? '#E7F6EC' : '#F2F4F7', sfg: open ? '#0E7A3A' : '#475467' });
+    return { branches: [
+      b('N', 'NBS — главный', 'Главный', 'Бишкек, ул. Токтогула 112', 'Главный склад', '4 300 сом', '3 265 сом', '307', [1, 1, 1], true),
+      b('ОК', 'Офис Кубанычбека', '', 'Бишкек, мкр Джал 23', 'Офис Кубанычбека', '0 сом', '0 сом', '48', [1, 0, 0], false),
+      b('Д', 'Домашний', '', 'Кант, ул. Ленина 5', 'Домашний', '0 сом', '0 сом', '12', [0, 1, 0], false)
+    ] };
+  }
+}
+</script>
+</body>
+</html>

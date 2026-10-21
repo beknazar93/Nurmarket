@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2026-10-13: экран запуска — логотип NurMarket на тёмном фоне (раньше при первом старте был белый экран). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@android:color/black" />
+    <item android:width="160dp" android:height="160dp" android:gravity="center" android:drawable="@drawable/splash_logo" />
+</layer-list>

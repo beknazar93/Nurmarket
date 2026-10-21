@@ -196,7 +196,22 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // 2026-10-05, владелец: «убери кастомизацию из настроек» — вкладка (обои, «стекло», размытие) скрыта;
             // код вкладки оставлен, вернуть — убрать эту строку.
             NavCustomization.IsVisible = false;
-            NavigateTo(0);
+            // 2026-10-20, аудит программы владельца (п. 11): у программы владельца своя папка настроек (%APPDATA%\NurMarketOwner),
+            // касса берёт свои — весы, принтер чеков и экран покупателя здесь кассу не меняют. Вкладки железа скрыты,
+            // сверху подпись, окно — «Настройки»; первая вкладка — «Экран» (язык, масштаб, вид меню, «Оплата долга»).
+            // В кассе всё как было.
+            if (NurMarketKassa.Services.AppMode.IsOwner)
+            {
+                NavScales.IsVisible = false;
+                NavPrint.IsVisible = false;
+                NavMonitor.IsVisible = false;
+                Classes.Add("owner-mode");
+                OwnerHardwareHint.IsVisible = true;
+                ApplyOwnerModeTexts();
+                NavigateTo(2);
+            }
+            else
+                NavigateTo(0);
             // 2026-09-29, владелец: «настройки таб меню сделай» — вкладки сверху; ряд пересчитывается
             // при смене ширины окна (масштаб, 800×600, раздел владельца) и языка (подписи другой длины).
             NavBar.SizeChanged += (_, e) =>
@@ -206,6 +221,21 @@ namespace NurMarketKassa.AvaloniaHost.Views
             };
             Tr.LanguageChanged += OnNavLanguageChanged;
             Closed += (_, _) => Tr.LanguageChanged -= OnNavLanguageChanged;
+            // 2026-10-20 (живой аудит кассы, К17): подсказка обещала «Применяется сразу, без перезапуска кассы», а язык
+            // менялся только после «Сохранить». Теперь — сразу по нажатию (и запоминается); «Сохранить» ничего не ломает.
+            foreach (var (radio, language) in LanguageRadios())
+            {
+                radio.IsCheckedChanged += (_, _) =>
+                {
+                    var prefs = UserPreferences.Instance;
+                    if (radio.IsChecked != true || prefs.Language == language)
+                        return;
+                    prefs.Language = language;
+                    LocalizationManager.Apply(language);
+                    prefs.SaveToDisk();
+                    PosLogger.Log($"Язык кассы изменён в настройках сразу: {language}.", "SETTINGS");
+                };
+            }
             // 2026-09-30, владелец: «оптимизация экрана настроек к каждому экрану» — на узкой странице
             // строки в несколько колонок встают столбиком (Views/Settings/SettingsReflow.cs).
             ContentHost.SizeChanged += (_, e) =>
@@ -503,7 +533,25 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private void SidebarClose_Click(object? sender, RoutedEventArgs e) => Close(false);
 
-        private void OnNavLanguageChanged() => Dispatcher.UIThread.Post(UpdateNavColumns, DispatcherPriority.Loaded);
+        private void OnNavLanguageChanged()
+        {
+            ApplyOwnerModeTexts();
+            Dispatcher.UIThread.Post(UpdateNavColumns, DispatcherPriority.Loaded);
+        }
+
+        /// <summary>2026-10-20, аудит программы владельца (п. 11): название окна и подпись про железо кассы — только у владельца.</summary>
+        private void ApplyOwnerModeTexts()
+        {
+            if (!NurMarketKassa.Services.AppMode.IsOwner)
+                return;
+            Title = Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar");
+            OwnerHardwareHint.Text = Tr.T(
+                "Настройки железа кассы (весы, принтер, экран покупателя) меняются в самой кассе.",
+                "Кассанын жабдууларынын жөндөөлөрү (тараза, принтер, сатып алуучунун экраны) кассанын өзүндө өзгөртүлөт.",
+                "Till hardware settings (scales, printer, customer display) are changed in the till itself.",
+                "Kasa donanımı ayarları (terazi, yazıcı, müşteri ekranı) kasanın kendisinde değiştirilir.",
+                "Kassa uskunalari sozlamalari (tarozi, printer, xaridor ekrani) kassaning o'zida o'zgartiriladi.");
+        }
 
         /// <summary>2026-09-29, владелец: «настройки таб меню сделай». Сколько вкладок в ряд —
         /// по самой широкой подписи (на кыргызском «Ыңгайлаштыруу», на узбекском «Yangilanishlar»

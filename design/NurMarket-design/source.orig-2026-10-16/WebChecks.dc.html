@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Чеки и смены — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.dd{height:40px;padding:0 12px;border-radius:10px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054}
+.seg{height:38px;padding:0 16px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700}
+.tr{display:grid;grid-template-columns:.8fr 1fr 1.4fr 1fr 1fr .9fr;gap:8px;padding:11px 14px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.rl{display:flex;justify-content:space-between;font-size:13px}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Чеки и смены" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <b style="font-size: 24px; font-weight: 800; flex-grow: 1">Чеки и смены</b>
+      <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC"><button type="button" class="seg" style="background: #FFFFFF; color: #0B2A3C">Чеки</button><button type="button" class="seg" style="background: transparent; color: #475467">Смены</button></span>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <button type="button" class="dd">Сегодня ▾</button><button type="button" class="dd">Все устройства ▾</button><button type="button" class="dd">Все кассиры ▾</button><button type="button" class="dd">Любая оплата ▾</button>
+      <label style="flex: 1 1 220px; height: 40px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><input type="text" placeholder="Номер чека, товар, клиент" aria-label="Поиск чека" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 13px; width: 100%"></label>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section style="flex: 999 1 560px; min-width: 0; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden">
+        <div style="overflow-x: auto"><div style="min-width: 680px">
+          <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span>Чек</span><span>Время</span><span>Где</span><span>Кассир</span><span>Оплата</span><span style="text-align: right">Сумма</span></div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+            <div class="tr" style="background: {{r.bg}}"><span style="font-weight: 700">[№]</span><span style="color: #475467">[время]</span><span>{{r.where}}</span><span>{{r.who}}</span><span style="color: #475467">{{r.pay}}</span><b style="text-align: right; color: {{r.c}}">{{r.sum}}</b></div>
+          </sc-for>
+        </div></div>
+      </section>
+
+      <aside class="card" style="flex: 1 1 300px; max-width: 360px">
+        <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 16px">Чек [№]</b><span style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #E7F6EC; color: #0E7A3A">на сервере</span></div>
+        <span style="font-size: 12px; color: #667085">Телефон · Кассир Тест · [время]</span>
+        <span style="border-top: 1px dashed #D0D5DD"></span>
+        <div class="rl"><span>Макароны «Макфа» 450г × 2</span><b>170</b></div>
+        <div class="rl"><span>Mars × 1</span><b>39</b></div>
+        <span style="border-top: 1px dashed #D0D5DD"></span>
+        <div class="rl" style="font-size: 16px"><b>Итого</b><b style="color: #0B2A3C">209 сом</b></div>
+        <div class="rl" style="color: #475467"><span>Наличные</span><span>500 · сдача 291</span></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 4px"><button type="button" class="b2">Печать</button><button type="button" class="b2">WhatsApp</button><button type="button" class="b2" style="grid-column: span 2; color: #B42318; border-color: #FDE2E1">Возврат</button></div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const r = (where, who, pay, sum, sel, ret) => ({ where, who, pay, sum, bg: sel ? '#FFFCEB' : '#FFFFFF', c: ret ? '#B42318' : '#0B2A3C' });
+    return {
+      rows: [
+        r('Телефон', 'Кассир Тест', 'Наличные', '209 сом', true),
+        r('Касса на компьютере', '[Сотрудник]', 'Карта', '170 сом'),
+        r('Веб-касса', '[Сотрудник]', 'QR', '117 сом'),
+        r('Сайт-витрина', '—', 'Карта', '340 сом'),
+        r('Касса на компьютере', '[Сотрудник]', 'В долг', '85 сом'),
+        r('Телефон', 'Кассир Тест', 'Наличные', '−39 сом', false, true),
+        r('Касса на компьютере', '[Сотрудник]', 'Смешанная', '[сумма]')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

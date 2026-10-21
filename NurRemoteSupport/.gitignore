@@ -1,0 +1,11 @@
+# Сборка
+bin/
+obj/
+# Данные и настройки сервера (операторы, журнал, ключ токенов) — не в репозиторий
+data/
+deploy/data/
+deploy/.env
+relay.json
+Server/appsettings.json
+Server/appsettings.*.json
+!Server/appsettings.example.json

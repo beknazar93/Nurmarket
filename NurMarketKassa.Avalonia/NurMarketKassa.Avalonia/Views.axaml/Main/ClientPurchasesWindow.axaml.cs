@@ -53,6 +53,11 @@ public sealed class ClientPurchasesWindow : Window
     private readonly StackPanel _rentals = new() { Spacing = 6 };
     private CancellationTokenSource? _cts;
 
+    // 2026-10-21, документы клиента: «Накладная по чеку» — выбранная продажа (у владельца).
+    private System.Text.Json.JsonElement? _currentSale;
+    private string? _currentReceipt;
+    private readonly Button _waybillButton = new() { IsVisible = false };
+
     public ClientPurchasesWindow(string clientId, string clientName)
     {
         _clientId = clientId ?? "";
@@ -87,6 +92,23 @@ public sealed class ClientPurchasesWindow : Window
             Foreground = this.FindResource("BrushText") as IBrush ?? Brushes.Black,
         });
         right.Children.Add(new ScrollViewer { Content = _receipt, Height = 470 });
+        // 2026-10-21, владелец: «из продажи/чека клиента — накладная по чеку» — строки чека в новую накладную (редактор документа).
+        if (AppMode.IsOwner)
+        {
+            _waybillButton.Content = Tr.T("Накладная по чеку", "Чек боюнча накладной", "Waybill from receipt", "Fişten irsaliye", "Chek bo'yicha yuk xati");
+            _waybillButton.Classes.Add("sec-outline");
+            _waybillButton.Height = 40;
+            _waybillButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+            _waybillButton.HorizontalContentAlignment = HorizontalAlignment.Center;
+            _waybillButton.Click += (_, _) =>
+            {
+                if (_currentSale is not { } sale)
+                    return;
+                var buyer = ClientDocsUi.BuyersCached().FirstOrDefault(b => b.Id == _clientId) ?? new ClientDocsUi.Buyer(_clientId, clientName, "", "", "", "");
+                ClientDocsUi.Open(this, ClientDocsUi.WaybillFromSale(sale, _currentReceipt, buyer), isNew: true);
+            };
+            right.Children.Add(_waybillButton);
+        }
 
         var body = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         body.Children.Add(left);
@@ -320,6 +342,8 @@ public sealed class ClientPurchasesWindow : Window
     {
         if (_grid.SelectedItem is not PurchaseVm row || string.IsNullOrWhiteSpace(row.SaleId))
         {
+            _currentSale = null;
+            _waybillButton.IsVisible = false;
             _receipt.Text = "";
             return;
         }
@@ -327,6 +351,9 @@ public sealed class ClientPurchasesWindow : Window
         try
         {
             var sale = await App.SalesApi.PosSaleGetAsync(row.SaleId).ConfigureAwait(true);
+            _currentSale = sale;
+            _currentReceipt = row.ReceiptText == "—" ? ClientDocEditorWindow.ReceiptNumber(sale) : row.ReceiptText;
+            _waybillButton.IsVisible = AppMode.IsOwner;
             _receipt.Text = SaleReceiptTextBuilder.Build(
                 sale,
                 row.ReceiptText == "—" ? null : row.ReceiptText,

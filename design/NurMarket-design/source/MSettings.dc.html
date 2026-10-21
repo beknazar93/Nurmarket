@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — настройки</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:12px;flex-shrink:0;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#667085}
+.b2{white-space:nowrap;height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{white-space:nowrap;height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%}
+.hk{display:flex;align-items:center;gap:10px;min-height:44px;box-sizing:border-box;padding:4px 10px;border-radius:10px;font-size:13px}
+.hk:nth-child(odd){background:#F9FAFB}
+.key{min-width:44px;height:30px;padding:0 8px;box-sizing:border-box;border-radius:8px;border:1px solid #D0D5DD;border-bottom-width:3px;background:#FFFFFF;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#0B2A3C}
+.bank{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border-radius:12px;border:1px solid #E5E7EB;font-family:inherit;background:#FFFFFF;text-align:left}
+.bank.on{border:2px solid #0B2A3C;background:#0B2A3C;color:#FFFFFF}
+.bank small{font-size:11px;font-weight:600;color:#667085}
+.bank.on small{color:#C7D2DB}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 24px 40px; display: flex; justify-content: center; gap: 30px; align-items: flex-start">
+  <!-- 2026-10-17: клавиши — ровно 8 действий PosHotkeyService (Enter, Ctrl+Enter, Num±, Ctrl+D, Ctrl+M, Ctrl+F, Ctrl+F1), F1–F12 — только группы; банк QR без плейсхолдеров и с честной подписью про подтверждение; ключ — тариф «Стандарт»; окна 640 / 480 -->
+
+  <section class="m" role="dialog" aria-label="Горячие клавиши" style="width: 640px">
+    <div class="mh"><div class="mt"><b>Горячие клавиши</b><span>Нажмите на клавишу, чтобы сменить · Del — снять клавишу</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb" style="gap: 2px">
+      <sc-for list="{{keys}}" as="k" hint-placeholder-count="9">
+        <div class="hk" style="background: {{k.bg}}"><span style="flex-grow: 1">{{k.what}}</span><span class="key" style="border-color: {{k.border}}">{{k.key}}</span></div>
+      </sc-for>
+    </div>
+    <div style="margin: 0 20px 12px; border-radius: 10px; background: #FEF3E2; padding: 10px 12px; font-size: 12px; color: #93370D; line-height: 17px">F1–F12 без Ctrl заняты группами быстрых товаров. Без Ctrl или Alt можно только Enter, Num +, Num −, Num *, Num /, Insert, Home, End, PageUp, PageDown.</div>
+    <div class="mf"><button type="button" class="b2">Как было</button><span style="flex-grow: 1"></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить</button></div>
+  </section>
+
+  <div style="width: 480px; display: flex; flex-direction: column; gap: 24px">
+  <section class="m" role="dialog" aria-label="Банк для QR">
+    <div class="mh"><div class="mt"><b>Банк для оплаты по QR</b><span>Покупатель платит со своего телефона</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <span class="lbl">БАНК</span>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px"><button type="button" class="bank on"><b style="font-size: 13px">MBANK</b><small>ELQR</small></button><button type="button" class="bank"><b style="font-size: 13px">Optima Bank</b><small>ELQR</small></button><button type="button" class="bank"><b style="font-size: 13px">O!Bank</b><small>ELQR</small></button><button type="button" class="bank"><b style="font-size: 13px">Другой…</b></button></div>
+      <span class="lbl">QR-КОД С ВАШЕЙ ТАБЛИЧКИ</span>
+      <div style="height: 116px; border-radius: 12px; background: #E4E7EC; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center"><span style="width: 100px; height: 100px; box-sizing: border-box; border: 3px solid #0B2A3C; outline: 3px solid #FFD600; border-radius: 8px; background: #FFFFFF; display: flex; align-items: center; justify-content: center"><i aria-label="QR-код" style="width: 72px; height: 72px; background: repeating-conic-gradient(#0B2A3C 0 25%, #FFFFFF 0 50%) 0 0/18px 18px"></i></span></div>
+      <span style="font-size: 12px; color: #475467; line-height: 17px">Сфотографируйте табличку банка и обведите рамкой только код. QR с таблички: оплату подтверждает кассир («Оплата пришла», в журнал). Касса узнаёт об оплате сама — только через API банка (нужен договор с банком).</span>
+    </div>
+    <div class="mf"><button type="button" class="b2">Загрузить фото</button><span style="flex-grow: 1"></span><button type="button" class="b1">Сохранить</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Ключ активации">
+    <div class="mh"><div class="mt"><b>Ключ активации</b><span>Открывает купленный тариф или функцию</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <label class="lbl" for="k1">КЛЮЧ</label>
+      <input id="k1" class="in" type="text" value="NMK-7F3K-Q9LD-2XWA" style="border: 2px solid #0B2A3C; box-shadow: 0 0 0 4px rgba(255,214,0,.45); height: 48px; font-size: 16px; font-weight: 800; letter-spacing: .06em">
+      <div style="display: flex; align-items: center; gap: 10px; border-radius: 12px; background: #E7F6EC; padding: 12px 14px"><span style="width: 24px; height: 24px; border-radius: 12px; background: #16A34A; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px">✓</span><span style="font-size: 13px; font-weight: 700; color: #0E7A3A">Ключ подходит: тариф «Стандарт» до 01.10.2027</span></div>
+      <span style="font-size: 12px; color: #667085; line-height: 18px">Ключ выдаёт поддержка после оплаты.</span>
+    </div>
+    <div class="mf"><span class="tot">Enter — активировать</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Активировать</button></div>
+  </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const list = [['Оплата', 'Enter'], ['Оплата из любого поля', 'Ctrl + Enter'], ['Добавить товар в чек', 'Num +'], ['Убавить / убрать товар', 'Num −'], ['Скидка на чек', 'Ctrl + D'], ['Быстрый поиск товара', 'нажмите…'], ['Экран покупателя', 'Ctrl + M'], ['Очистить корзину', 'Ctrl + F1'], ['Группы быстрых товаров', 'F1–F12']];
+    const keys = list.map(([what, key], i) => ({ what, key, bg: i === 5 ? '#FFF7CC' : (i % 2 ? '#FFFFFF' : '#F9FAFB'), border: i === 5 ? '#0B2A3C' : '#D0D5DD' }));
+    return { keys };
+  }
+}
+</script>
+</body>
+</html>

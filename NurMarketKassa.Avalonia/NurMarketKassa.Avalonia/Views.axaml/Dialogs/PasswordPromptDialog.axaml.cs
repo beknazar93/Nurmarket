@@ -22,7 +22,7 @@ public partial class PasswordPromptDialog : Window
         InitializeComponent();
         _expectedPassword = expectedPassword;
         Title = title;
-        TitleText.Text = title;
+        Shell.Title = title; // 2026-10-17, этап 3: заголовок — в шапке ModalShell
         MessageText.Text = message;
         Opened += (_, _) => PasswordBox.Focus();
     }
@@ -36,7 +36,7 @@ public partial class PasswordPromptDialog : Window
         _expectedPassword = "";
         _validator = validator;
         Title = title;
-        TitleText.Text = title;
+        Shell.Title = title; // 2026-10-17, этап 3: заголовок — в шапке ModalShell
         MessageText.Text = message;
         Opened += (_, _) => PasswordBox.Focus();
     }

@@ -5,6 +5,7 @@
         Title="{DynamicResource bulkImport.title}"
         Height="720" Width="960" MinHeight="480" MinWidth="700"
         WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
         FontFamily="Segoe UI, Inter, Noto Sans"
         Background="{DynamicResource BrushInputAlt}">
 
@@ -35,20 +36,36 @@
             <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="GridLinesVisibility" Value="Horizontal"/>
         </Style>
+        <!-- 2026-10-19, О9: заголовок переносится и занимает место значка сортировки (как в «Складе»): «№», «Кол-во» обрезались. -->
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="DataGridColumnHeader TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+            <Setter Property="Margin" Value="0,0,-24,0"/>
+        </Style>
     </Window.Styles>
 
+    <!-- 2026-10-19, этап О9 (аудит, проблема 2): кнопки — общие sec-outline / sec-primary (были серые залитые), значок без
+         жёлтого фона; пустой предпросмотр — подсказка «что делать» (текст — в коде). Загрузка и сохранение не менялись. -->
+    <!-- 2026-10-20, аудит программы владельца: без системной рамки Windows (бирюзовая полоса, «свернуть/развернуть») — как
+         остальные окна: своя шапка с «Закрыть» уже есть, окно двигается за шапку (Header_PointerPressed), тонкая рамка. -->
+    <Border BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
     <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto">
 
         <!-- Заголовок -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12" Background="Transparent"
+              PointerPressed="Header_PointerPressed">
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="8" Padding="8">
+                <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8" Padding="8">
                     <TextBlock Text="📥" FontSize="18" VerticalAlignment="Center"/>
                 </Border>
                 <TextBlock Text="{DynamicResource bulkImport.title}" FontSize="20" FontWeight="Bold"
                            Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
             </StackPanel>
-            <Button IsCancel="True" Grid.Column="1" Content="{DynamicResource common.close}" Classes="SecondaryButton" Click="Close_Click"/>
+            <Button IsCancel="True" Grid.Column="1" Content="{DynamicResource common.close}" Classes="sec-outline" Click="Close_Click"/>
         </Grid>
 
         <TextBlock Grid.Row="1" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,12"
@@ -56,28 +73,48 @@
 
         <!-- Панель действий -->
         <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,0,0,12">
-            <Button Grid.Column="0" Content="{DynamicResource bulkImport.downloadTemplate}" Classes="SecondaryButton" Click="DownloadTemplate_Click"/>
-            <Button Grid.Column="1" Content="{DynamicResource bulkImport.pickFile}" Classes="SecondaryButton" Margin="8,0,0,0" Click="PickFile_Click"/>
+            <Button Grid.Column="0" Content="{DynamicResource bulkImport.downloadTemplate}" Classes="sec-outline" Click="DownloadTemplate_Click"/>
+            <Button Grid.Column="1" Content="{DynamicResource bulkImport.pickFile}" Classes="sec-outline" Margin="8,0,0,0" Click="PickFile_Click"/>
             <TextBlock Grid.Column="3" x:Name="FileNameText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
         </Grid>
 
         <!-- Предпросмотр -->
         <DataGrid Grid.Row="3" x:Name="PreviewGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="36">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="№" Width="50" Binding="{Binding RowNumber}"/>
-                <DataGridTextColumn Header="{DynamicResource bulkImport.colName}" Width="2*" Binding="{Binding Name}"/>
-                <DataGridTextColumn Header="{DynamicResource csh.catalog.colBarcode}" Width="140" Binding="{Binding Barcode}"/>
-                <DataGridTextColumn Header="{DynamicResource bulkImport.colQty}" Width="80" Binding="{Binding QuantityText}"/>
-                <DataGridTextColumn Header="{DynamicResource csh.catalog.colPrice}" Width="80" Binding="{Binding PriceText}"/>
-                <DataGridTextColumn Header="{DynamicResource bulkImport.colStatus}" Width="1.3*" Binding="{Binding StatusText}"/>
+                <DataGridTextColumn Width="50" Binding="{Binding RowNumber}">
+                    <DataGridTextColumn.Header><TextBlock Text="№"/></DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTextColumn Width="2*" Binding="{Binding Name}">
+                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource bulkImport.colName}"/></DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTextColumn Width="140" Binding="{Binding Barcode}">
+                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource csh.catalog.colBarcode}"/></DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTextColumn Width="80" Binding="{Binding QuantityText}">
+                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource bulkImport.colQty}"/></DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTextColumn Width="80" Binding="{Binding PriceText}">
+                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource csh.catalog.colPrice}"/></DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTextColumn Width="1.3*" Binding="{Binding StatusText}">
+                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource bulkImport.colStatus}"/></DataGridTextColumn.Header>
+                </DataGridTextColumn>
             </DataGrid.Columns>
         </DataGrid>
+        <StackPanel Grid.Row="3" x:Name="EmptyHintPanel" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460" Spacing="6"
+                    IsHitTestVisible="False" IsVisible="{Binding #PreviewGrid.ItemsSource, Converter={x:Static ObjectConverters.IsNull}}">
+            <TextBlock x:Name="EmptyHintTitle" FontSize="15" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushText}"/>
+            <TextBlock x:Name="EmptyHintText" FontSize="13" TextAlignment="Center" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+        </StackPanel>
 
         <!-- Действия и итог -->
         <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
             <TextBlock Grid.Column="0" x:Name="SummaryText" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
-            <Button Grid.Column="1" x:Name="StartImportButton" Content="{DynamicResource bulkImport.startButton}" Classes="PrimaryButton"
+            <Button Grid.Column="1" x:Name="StartImportButton" Content="{DynamicResource bulkImport.startButton}" Classes="sec-primary"
                     IsEnabled="False" Click="StartImport_Click"/>
         </Grid>
     </Grid>
+    </Border>
 </Window>

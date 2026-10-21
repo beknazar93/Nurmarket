@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Возврат и обмен</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.ln{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;background:#FFFFFF;font-size:13px}
+.chip{height:44px;padding:0 14px;border-radius:22px;white-space:nowrap;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.seg{flex:1 1 0;min-width:0;height:44px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;white-space:nowrap}
+.st{width:44px;height:44px;border-radius:22px;font-family:inherit;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pm{flex:1 1 0;min-width:0;min-height:52px;border-radius:12px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:700;color:#344054;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px}
+.pm.on{border-color:#0B2A3C;background:#0B2A3C;color:#FFFFFF}
+.role{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#E7EEF3;color:#0B2A3C;white-space:nowrap}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#FFFFFF}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <button type="button" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 18px; font-weight: 800">Возврат по чеку №1697</b><span style="font-size: 12px; color: #667085">сегодня 13:22 · Айгерим Садыкова · наличные</span><span><span class="role">Администратор</span></span></span>
+    </div>
+    <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC"><button type="button" class="seg" aria-pressed="true" style="background: #0B2A3C; color: #FFFFFF">Возврат денег</button><button type="button" class="seg" style="background: transparent; color: #475467">Обмен на другой</button></span>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 8px; display: flex; flex-direction: column; gap: 8px">
+    <span class="lbl">ЧТО ВОЗВРАЩАЮТ</span>
+    <!-- 2026-10-17: можно вернуть часть количества (1 из 3), а не только строку целиком -->
+    <div class="ln" style="border: 2px solid #0B2A3C"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px">Mars 50г</b><span style="color: #667085">в чеке 3 × 39 = 117&nbsp;сом</span></span><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="font-size: 15px; white-space: nowrap; text-align: center">1 из 3</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></div>
+    <span class="lbl" style="padding-top: 6px">ПРИЧИНА</span>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px"><button type="button" class="chip on">Брак</button><button type="button" class="chip">Не подошёл</button><button type="button" class="chip">Ошибка кассира</button><button type="button" class="chip">Другое</button></div>
+    <label style="display: flex; align-items: center; gap: 10px; min-height: 40px; font-size: 14px; color: #344054"><input type="checkbox" style="width: 22px; height: 22px; accent-color: #0B2A3C">Вернуть товар на склад</label>
+    <span style="font-size: 12px; color: #667085">Брак на склад не возвращается — уйдёт в списание</span>
+    <!-- 2026-10-17: способ возврата — как при оплате; наличные только через открытую смену (кассир подтвердит) -->
+    <span class="lbl" style="padding-top: 6px">КАК ВЕРНУТЬ ДЕНЬГИ · КАК ПРИ ОПЛАТЕ</span>
+    <div style="display: flex; gap: 6px"><button type="button" class="pm on" aria-pressed="true">Наличными<span style="font-weight: 600; font-size: 11px">через смену</span></button><button type="button" class="pm">На карту<span style="font-weight: 600; font-size: 11px; color: #667085">терминал</span></button><button type="button" class="pm">QR банка<span style="font-weight: 600; font-size: 11px; color: #667085">через банк</span></button></div>
+    <button type="button" style="min-height: 48px; border-radius: 12px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; color: #111827; display: flex; align-items: center; gap: 8px; padding: 6px 12px; text-align: left"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #667085; font-weight: 700">КАССА И СМЕНА</span><b style="font-size: 13px">Телефон · смена Айгерим, с 09:00</b></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+    <span style="font-size: 12px; color: #667085">Наличные проходят только через открытую смену — так касса сходится</span>
+  </main>
+
+  <div style="padding: 10px 16px 8px; display: flex; flex-direction: column; gap: 8px; background: #FFFFFF; border-top: 1px solid #EAECF0">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 14px"><span style="color: #475467">Вернуть наличными · кассир выдаст</span><b style="font-size: 20px; color: #B42318; white-space: nowrap">39&nbsp;сом</b></div>
+    <button type="button" style="height: 54px; border-radius: 16px; border: 0; background: #B42318; color: #FFFFFF; font-family: inherit; font-size: 16px; font-weight: 800; white-space: nowrap">Отправить возврат на кассу</button>
+  </div>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

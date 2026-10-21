@@ -15,14 +15,16 @@
             CornerRadius="12"
             Padding="10,8"
             Margin="0,6,0,0">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+        <!-- 2026-10-20, живая проверка: в узкой колонке («1С») кнопки сжимали текст до «С …» — при ширине
+             меньше 420 кнопки переходят на вторую строку (UpsellBannerView.axaml.cs). -->
+        <Grid x:Name="BannerGrid" ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
             <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Margin="0,0,10,0"
                     Background="{DynamicResource BrushAccent}" VerticalAlignment="Center">
                 <Path Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource BrushAccentForeground}"
                       HorizontalAlignment="Center" VerticalAlignment="Center"
                       Data="M12,2A7,7 0 0,1 19,9C19,11.38 17.81,13.47 16,14.74V17A1,1 0 0,1 15,18H9A1,1 0 0,1 8,17V14.74C6.19,13.47 5,11.38 5,9A7,7 0 0,1 12,2M9,21V20H15V21A1,1 0 0,1 14,22H10A1,1 0 0,1 9,21Z"/>
             </Border>
-            <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+            <StackPanel x:Name="BannerTextPanel" Grid.Column="1" Spacing="1" VerticalAlignment="Center">
                 <TextBlock Text="{DynamicResource csh.upsell.title}"
                            FontSize="11"
                            Foreground="{DynamicResource BrushTextSoft}"/>
@@ -36,16 +38,20 @@
                            Foreground="{DynamicResource BrushTextMuted}"
                            TextTrimming="CharacterEllipsis"/>
             </StackPanel>
-            <Button Grid.Column="2" Margin="6,0,0,0" CornerRadius="10" FontWeight="Bold"
+            <!-- 2026-10-20, живая проверка: «рядом две жёлтые кнопки» (эта и «Оплатить») — «Добавить» обводкой,
+                 жёлтая на экране одна — «Оплатить». -->
+            <Button x:Name="AcceptButton" Grid.Column="2" Margin="6,0,0,0" CornerRadius="10" FontWeight="Bold"
                     Focusable="False"
                     MinHeight="36"
                     Padding="12,4"
                     VerticalAlignment="Center"
-                    Background="{DynamicResource BrushAccent}"
-                    Foreground="{DynamicResource BrushAccentForeground}"
+                    Background="{DynamicResource BrushPanel}"
+                    BorderBrush="{DynamicResource BrushBorderStrong}"
+                    BorderThickness="1"
+                    Foreground="{DynamicResource BrushText}"
                     Command="{Binding AcceptUpsellCommand}"
                     Content="{DynamicResource csh.upsell.add}"/>
-            <Button Grid.Column="3" Margin="6,0,0,0" CornerRadius="10"
+            <Button x:Name="SkipButton" Grid.Column="3" Margin="6,0,0,0" CornerRadius="10"
                     Focusable="False"
                     MinHeight="36"
                     Padding="10,4"

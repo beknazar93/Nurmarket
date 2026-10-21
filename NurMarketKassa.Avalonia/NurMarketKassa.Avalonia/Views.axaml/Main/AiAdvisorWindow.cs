@@ -19,8 +19,14 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// сегодня и за неделю, лучшие товары, что заканчивается, товары из вопроса) и цифр не выдумывает
 /// (<see cref="TelegramAiChat.AskOwnerAppAsync"/>). Без ключа ничего никуда не уходит — раздел просит ключ.
 /// </summary>
-public sealed class AiAdvisorWindow : Window, IOwnerSection
+// 2026-10-21, «доведи Нур Советника до 10»: partial — ответ (этапы, плитки цифр, «откуда цифра», кнопки действий, проверка И10)
+// в AiAdvisorWindow.Answer.cs, сцены для снимков дизайна — в AiAdvisorWindow.Preview.cs.
+public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSectionKeepAlive
 {
+    /// <summary>2026-10-20, память программы владельца: пока советник отвечает, идёт звонок или запись голоса, оболочка
+    /// не закрывает раздел при уходе из него (иначе оборвался бы звонок). Разговор при закрытии сохраняется в историю.</summary>
+    public bool KeepAliveWhenHidden => _busy || _live is not null || _recorder is not null || _liveBar.IsVisible;
+
     // 2026-10-05, владелец: «начни редизайн окна чата с ИИ». Как в современных чатах: слева — история разговоров
     // («＋ Новый разговор», по дням), справа — заголовок с подключёнными моделями, лента по центру (вопрос — пузырь справа,
     // ответ ИИ — со значком ✦ и кнопками «Копировать» / «Озвучить»), пустой чат — приветствие и готовые вопросы
@@ -137,16 +143,22 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         keyStack.Children.Add(keyTitle);
         var keyHint = new TextBlock
         {
+            // 2026-10-21 (О5): честно — что именно уходит в Google и что остаётся на этом компьютере.
             Text = T("Откройте aistudio.google.com → «Get API key», скопируйте ключ и вставьте ниже (карта не нужна). Тот же ключ использует ИИ Telegram-бота. "
-                     + "Сводка магазина уходит в Google только по этому ключу; на бесплатном уровне Google может использовать запросы для улучшения своих продуктов.",
+                     + "Что уходит в Google: вопрос и цифры магазина — продажи, прибыль, склад с закупочными ценами, ABC, итоги долгов. Должники и сотрудники — только кодами "
+                     + "[Д1], [С1]: имена, телефоны и зарплаты по именам остаются на этом компьютере. На бесплатном уровне Google может использовать запросы для улучшения своих продуктов.",
                 "aistudio.google.com → «Get API key» ачып, ачкычты көчүрүп, төмөнгө чаптаңыз (карта керек эмес). Ушул эле ачкычты Telegram-боттун ИИси колдонот. "
-                + "Дүкөндүн жыйынтыгы Google'га ушул ачкыч менен гана кетет; акысыз деңгээлде Google суроолорду өз продукттарын жакшыртуу үчүн колдонушу мүмкүн.",
+                + "Google'га эмне кетет: суроо жана дүкөндүн сандары — сатуу, пайда, сатып алуу баалары менен кампа, ABC, карыздардын жыйынтыгы. Карыздарлар жана кызматкерлер — коддор менен гана "
+                + "[Д1], [С1]: аттары, телефондору жана айлыктары ушул компьютерде калат. Акысыз деңгээлде Google суроолорду өз продукттарын жакшыртуу үчүн колдонушу мүмкүн.",
                 "Open aistudio.google.com → “Get API key”, copy the key and paste it below (no card needed). The Telegram bot's AI uses the same key. "
-                + "The shop summary goes to Google only with this key; on the free tier Google may use requests to improve its products.",
+                + "What goes to Google: the question and shop figures — sales, profit, stock with purchase prices, ABC, debt totals. Debtors and staff only as codes "
+                + "[Д1], [С1]: names, phones and salaries by name stay on this computer. On the free tier Google may use requests to improve its products.",
                 "aistudio.google.com → «Get API key» açın, anahtarı kopyalayıp aşağıya yapıştırın (kart gerekmez). Telegram botunun yapay zekâsı aynı anahtarı kullanır. "
-                + "Mağaza özeti Google'a yalnızca bu anahtarla gider; ücretsiz seviyede Google istekleri ürünlerini geliştirmek için kullanabilir.",
+                + "Google'a ne gider: soru ve mağaza rakamları — satışlar, kâr, alış fiyatlı stok, ABC, borç toplamları. Borçlular ve çalışanlar yalnızca kodla "
+                + "[Д1], [С1]: adlar, telefonlar ve isimli maaşlar bu bilgisayarda kalır. Ücretsiz seviyede Google istekleri ürünlerini geliştirmek için kullanabilir.",
                 "aistudio.google.com → «Get API key» ni oching, kalitni nusxalab pastga joylang (karta kerak emas). Telegram botining SI xuddi shu kalitdan foydalanadi. "
-                + "Do'kon xulosasi Google'ga faqat shu kalit bilan ketadi; bepul darajada Google so'rovlardan o'z mahsulotlarini yaxshilash uchun foydalanishi mumkin."),
+                + "Google'ga nima ketadi: savol va do'kon raqamlari — savdo, foyda, xarid narxlari bilan ombor, ABC, qarzlar jami. Qarzdorlar va xodimlar faqat kodlar bilan "
+                + "[Д1], [С1]: ismlar, telefonlar va ism bo'yicha maoshlar shu kompyuterda qoladi. Bepul darajada Google so'rovlardan o'z mahsulotlarini yaxshilash uchun foydalanishi mumkin."),
             FontSize = 13, TextWrapping = TextWrapping.Wrap,
         };
         Use(keyHint, TextBlock.ForegroundProperty, "BrushTextSoft");
@@ -182,43 +194,58 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         // Ключ Gemini и «Модели ИИ» — друг под другом в одной строке разметки.
         BuildModelsCard();
         BuildHistoryCard();
-        var topCards = new StackPanel { Children = { _keyCard, _modelsCard } };
-        Grid.SetRow(topCards, 1);
-        _root.Children.Add(topCards);
+        // 2026-10-21 (О10): карточки ключей — внутри ленты, над приветствием (раньше отдельной строкой над лентой: без ключа они
+        // занимали пол-экрана и приветствие уезжало под строку ввода на 1024 и 1366).
+        var topCards = new StackPanel { MaxWidth = 860, Margin = new Thickness(4, 8, 12, 0), Children = { _keyCard, _modelsCard } };
 
         // Разговор: лента по центру, без рамки.
-        _scroll.Content = _messages;
+        _scroll.Content = new StackPanel { Children = { topCards, _messages } };
         _scroll.VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto;
         _scroll.HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
         Grid.SetRow(_scroll, 2);
         _root.Children.Add(_scroll);
 
         // Готовые вопросы.
-        foreach (var q in new[]
+        // 2026-10-21, «дизайн 10» (исследование, раздел 2: пустой чат — 4–6 готовых вопросов по делу): ровно 6 карточек (3 × 2 или 2 × 3,
+        // без одинокой седьмой), у каждой — вопрос и подпись, что посчитает советник. Поиск фото — по просьбе в строке ввода.
+        foreach (var (q, hint) in new[]
                  {
-                     T("Как прошла неделя?", "Жума кандай өттү?", "How did the week go?", "Hafta nasıl geçti?", "Hafta qanday o'tdi?"),
-                     T("Что срочно заказать?", "Эмнени шашылыш заказ кылуу керек?", "What should I order urgently?", "Acilen ne sipariş etmeliyim?", "Nimani zudlik bilan buyurtma qilish kerak?"),
-                     T("Как поднять продажи?", "Сатууну кантип көбөйтүү керек?", "How can I grow sales?", "Satışları nasıl artırırım?", "Savdoni qanday oshirish mumkin?"),
-                     T("Какие товары продаются лучше всего?", "Кайсы товарлар эң жакшы сатылат?", "Which products sell best?", "En çok hangi ürünler satılıyor?", "Qaysi mahsulotlar eng yaxshi sotiladi?"),
-                     T("Где я теряю деньги?", "Акчаны кайда жоготуп жатам?", "Where am I losing money?", "Nerede para kaybediyorum?", "Qayerda pul yo'qotyapman?"),
+                     (T("Как прошёл вчерашний день?", "Кечээки күн кандай өттү?", "How did yesterday go?", "Dün nasıl geçti?", "Kechagi kun qanday o'tdi?"),
+                      T("Выручка и прибыль к позавчера", "Киреше жана пайда мурдагы күнгө карата", "Revenue and profit vs the day before", "Önceki güne göre ciro ve kâr", "Tushum va foyda oldingi kunga nisbatan")),
+                     (T("Сравни эту неделю с прошлой", "Бул жуманы өткөн жума менен салыштыр", "Compare this week with last week", "Bu haftayı geçen haftayla karşılaştır", "Bu haftani o'tgan hafta bilan solishtir"),
+                      T("7 дней к прошлым 7, в процентах", "7 күн мурунку 7 күнгө карата, пайыз менен", "Last 7 days vs previous 7, in %", "Son 7 gün önceki 7 güne göre, %", "7 kun oldingi 7 kunga nisbatan, foizda")),
+                     (T("Что срочно заказать?", "Эмнени шашылыш заказ кылуу керек?", "What should I order urgently?", "Acilen ne sipariş etmeliyim?", "Nimani zudlik bilan buyurtma qilish kerak?"),
+                      T("Закончилось и заканчивается", "Түгөнгөн жана түгөнүп жаткан", "Sold out and running low", "Tükenen ve azalan", "Tugagan va tugayotgan")),
+                     (T("Кто должен больше всех?", "Ким эң көп карыз?", "Who owes the most?", "En çok kim borçlu?", "Kim eng ko'p qarzdor?"),
+                      T("Долги клиентов и просрочка", "Кардарлардын карызы жана мөөнөтү өткөнү", "Customer debts and overdue", "Müşteri borçları ve gecikme", "Mijozlar qarzi va muddati o'tgani")),
+                     (T("Где я теряю деньги?", "Акчаны кайда жоготуп жатам?", "Where am I losing money?", "Nerede para kaybediyorum?", "Qayerda pul yo'qotyapman?"),
+                      T("Залежавшийся товар, низкая наценка", "Жатып калган товар, төмөн үстөк", "Dead stock, low markup", "Bekleyen stok, düşük kâr payı", "Turib qolgan tovar, past ustama")),
                      // 2026-10-05, владелец: «чтобы он смог предлагать назначить акции на проблемные товары».
-                     T("Какие акции запустить?", "Кайсы акцияларды баштоо керек?", "Which promotions should I run?", "Hangi kampanyaları başlatmalıyım?", "Qanday aksiyalar boshlash kerak?"),
-                     // 2026-10-05, владелец: «загрузи фото к товарам, которых нет фото».
-                     T("Найди фото в интернете для товаров без фото", "Интернеттен сүрөтсүз товарларга сүрөт тап", "Find photos online for products without one", "Fotoğrafı olmayan ürünler için internette fotoğraf bul", "Rasmi yo'q mahsulotlar uchun internetdan rasm top"),
+                     (T("Какие акции запустить?", "Кайсы акцияларды баштоо керек?", "Which promotions should I run?", "Hangi kampanyaları başlatmalıyım?", "Qanday aksiyalar boshlash kerak?"),
+                      T("Скидки не ниже закупки + 5 %", "Арзандатуу сатып алуу + 5 %дан төмөн эмес", "Discounts not below cost + 5%", "İndirim alış + %5'in altında değil", "Chegirma xarid + 5 % dan past emas")),
                  })
         {
             var chip = UiKit.Chip(this, q, false);
-            chip.Content = new TextBlock { Text = q, TextWrapping = TextWrapping.Wrap, FontSize = 13.5 };
+            var qText = new TextBlock { Text = q, TextWrapping = TextWrapping.Wrap, FontSize = 14, FontWeight = FontWeight.SemiBold };
+            Use(qText, TextBlock.ForegroundProperty, "BrushText");
+            var hText = new TextBlock { Text = hint, TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new Thickness(0, 3, 0, 0) };
+            Use(hText, TextBlock.ForegroundProperty, "BrushTextSoft");
+            chip.Content = new StackPanel { Children = { qText, hText } };
             chip.Tag = q;
+            Avalonia.Automation.AutomationProperties.SetName(chip, q);
             chip.Width = 252;
-            chip.MinHeight = 58;
+            chip.MinHeight = 84;
             chip.CornerRadius = new CornerRadius(14);
             chip.Padding = new Thickness(14, 10);
             chip.HorizontalContentAlignment = HorizontalAlignment.Left;
+            chip.VerticalContentAlignment = VerticalAlignment.Top;
             chip.Margin = new Thickness(0, 0, 10, 10);
             chip.Click += async (_, _) => await SendAsync(q).ConfigureAwait(true);
             _quick.Children.Add(chip);
         }
+        // 2026-10-21: карточки-вопросы — одной высоты (по самой длинной): по-кыргызски вопрос и подпись переносятся на 2 строки
+        // у одних карточек и нет у соседних — ряды были «ступеньками» 82/90/98 (пакет 7, хвост Советника).
+        _quick.LayoutUpdated += (_, _) => EqualizeQuickChips();
 
         // Поле ввода.
         // 2026-10-06, владелец (снимок строки ввода): «сделай расположение нормальным, профессиональным, дизайнерским». Поле без своей
@@ -232,17 +259,24 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _input.Background = Brushes.Transparent;
         _input.VerticalContentAlignment = VerticalAlignment.Center;
         _input.Padding = new Thickness(0, 8, 8, 8);
-        foreach (var key in new[] { "TextControlBackgroundFocused", "TextControlBackgroundPointerOver", "TextControlBorderBrushFocused", "TextControlBorderBrushPointerOver" })
+        // 2026-10-21 («дизайн 10»): и в выключенном виде (пока советник отвечает) — без серой заливки «поле в поле».
+        foreach (var key in new[] { "TextControlBackgroundFocused", "TextControlBackgroundPointerOver", "TextControlBorderBrushFocused", "TextControlBorderBrushPointerOver",
+                     "TextControlBackgroundDisabled", "TextControlBorderBrushDisabled" })
             _input.Resources[key] = Brushes.Transparent;
         _input.GotFocus += (_, _) => Use(composer, Border.BorderBrushProperty, "BrushAccentStrong");
         _input.LostFocus += (_, _) => Use(composer, Border.BorderBrushProperty, "BrushBorder");
-        _input.KeyDown += async (_, e) =>
+        // 2026-10-21 (удобство): Shift+Enter — новая строка (длинный вопрос по пунктам), Enter — отправить.
+        _input.AcceptsReturn = true;
+        _input.TextWrapping = TextWrapping.Wrap;
+        _input.MaxHeight = 140;
+        Avalonia.Automation.AutomationProperties.SetName(_input, T("Вопрос советнику", "Кеңешчиге суроо", "Question to the advisor", "Danışmana soru", "Maslahatchiga savol"));
+        _input.AddHandler(KeyDownEvent, async (_, e) =>
         {
-            if (e.Key != Key.Enter)
+            if (e.Key != Key.Enter || (e.KeyModifiers & KeyModifiers.Shift) != 0)
                 return;
             e.Handled = true;
             await SendAsync(_input.Text).ConfigureAwait(true);
-        };
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         inputRow.Children.Add(_input);
         AddHandler(KeyDownEvent, ScanKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         if (VoiceChatRecorder.IsSupported)
@@ -254,10 +288,19 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 "Sesle sor: basın, konuşun, tekrar basın — yanıt sesli okunur",
                 "Ovoz bilan so'rash: bosing, gapiring, yana bosing — javob ovoz bilan o'qiladi"));
             _mic.Click += async (_, _) => await ToggleVoiceAsync().ConfigureAwait(true);
+            // 2026-10-21 (О10): имя для экранного диктора (было «Avalonia.Controls.Shapes.Path»).
+            Avalonia.Automation.AutomationProperties.SetName(_mic, T("Спросить голосом", "Үн менен суроо", "Ask by voice", "Sesle sor", "Ovoz bilan so'rash"));
             Grid.SetColumn(_mic, 2);
             inputRow.Children.Add(_mic);
-            _talk = RoundButton(WaveGlyph("BrushText"), accent: false);
+            // 2026-10-21 («дизайн 10»): «Разговор» — со словом рядом со значком: приветствие ссылается на кнопку «Разговор», а на экране
+            // была безымянная «волна».
+            var talkLabel = new TextBlock { Text = T("Разговор", "Маек", "Talk", "Sohbet", "Suhbat"), FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            Use(talkLabel, TextBlock.ForegroundProperty, "BrushText");
+            _talk = RoundButton(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { WaveGlyph("BrushText"), talkLabel } }, accent: false);
+            _talk.Width = double.NaN;
+            _talk.Padding = new Thickness(12, 0, 14, 0);
             _talk.Margin = new Thickness(6, 0, 0, 0);
+            Avalonia.Automation.AutomationProperties.SetName(_talk, T("Разговор голосом", "Үн менен маек", "Voice conversation", "Sesli sohbet", "Ovozli suhbat"));
             ToolTip.SetTip(_talk, T("Разговор голосом, как по телефону: говорите — советник сразу отвечает голосом и снова слушает",
                 "Үн менен маек, телефондогудай: сүйлөңүз — кеңешчи дароо үн менен жооп берип, кайра угат",
                 "Voice conversation, like a phone call: speak — the advisor answers by voice right away and listens again",
@@ -269,6 +312,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         }
         _send = RoundButton(SendGlyph(stop: false), accent: true);
         _send.Margin = new Thickness(6, 0, 0, 0);
+        Avalonia.Automation.AutomationProperties.SetName(_send, T("Спросить", "Суроо", "Ask", "Sor", "So'rash"));
         _send.Click += async (_, _) =>
         {
             if (_busy)
@@ -293,6 +337,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             "Fotoğraf ekle: tedarikçi faturası — yapay zekâ ürünleri kâr payıyla stoğa alır; ürün fotoğrafı — tanımlar ve kartı doldurur",
             "Surat biriktirish: yetkazib beruvchi yuk xati — SI mahsulotlarni ustama bilan kirim qiladi; mahsulot surati — tavsiflab, kartani to'ldiradi"));
         attach.Click += async (_, _) => await PickPhotoAsync().ConfigureAwait(true);
+        Avalonia.Automation.AutomationProperties.SetName(attach, T("Приложить фото или PDF", "Сүрөт же PDF тиркөө", "Attach a photo or PDF", "Fotoğraf veya PDF ekle", "Surat yoki PDF biriktirish"));
         Grid.SetColumn(attach, 1);
         inputRow.Children.Add(attach);
         _attachRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(4, 6, 0, 2), IsVisible = false };
@@ -322,7 +367,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _sidebar.IsVisible = false;
         _sidebar.Width = 320;
         _sidebar.HorizontalAlignment = HorizontalAlignment.Right;
-        _sidebar.Margin = new Thickness(0, 64, 16, 16);
+        // 2026-10-21 («дизайн 10»): панель истории не закрывает строку ввода (на снимках «было» перекрывала микрофон и «отправить»).
+        _sidebar.Margin = new Thickness(0, 64, 16, 96);
         _sidebar.CornerRadius = new CornerRadius(14);
         _sidebar.BorderThickness = new Thickness(1);
         _sidebar.BoxShadow = BoxShadows.Parse("0 8 28 0 #50000000");
@@ -355,6 +401,12 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         RefreshKeyCard();
         ShowWelcome();
         RefreshHistoryList();
+        // 2026-10-21 (О4): менять товары через советника — только с правом «Склад» (и в боте владельца этой программы).
+        ProductActionPlan.ChangesAllowed = () => CurrentAccess().Products;
+        // 2026-10-21 (И3): утренний отчёт — карточкой, как только готов.
+        Action<OwnerMorningReport.Report> onMorning = r => Dispatcher.UIThread.Post(() => OnMorningReport(r));
+        OwnerMorningReport.ReportReady += onMorning;
+        Closed += (_, _) => OwnerMorningReport.ReportReady -= onMorning;
 
         // В программе владельца своя локальная история продаж — подтягиваем свежие чеки с сервера, чтобы
         // сводка для советника (выручка, лучшие товары) была по сегодняшним данным.
@@ -362,6 +414,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         {
             try
             {
+                // 2026-10-21 (О3): сроки годности — заранее, пока владелец печатает вопрос.
+                _ = ProductExpiryIndex.RefreshAsync(false, CancellationToken.None);
                 await SalesHistoryBackfill.RunAsync().ConfigureAwait(false);
                 // 2026-10-05: сводку для ИИ — заранее, чтобы первый вопрос (особенно голосом) не ждал её сборки.
                 await Dispatcher.UIThread.InvokeAsync(() => _ = GetSummaryAsync());
@@ -401,6 +455,9 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _send.IsEnabled = TelegramAiChat.IsConfigured || _busy;
         _send.Content = SendGlyph(stop: _busy);
         ToolTip.SetTip(_send, _busy
+            ? T("Остановить", "Токтотуу", "Stop", "Durdur", "To'xtatish")
+            : T("Спросить", "Суроо", "Ask", "Sor", "So'rash"));
+        Avalonia.Automation.AutomationProperties.SetName(_send, _busy
             ? T("Остановить", "Токтотуу", "Stop", "Durdur", "To'xtatish")
             : T("Спросить", "Суроо", "Ask", "Sor", "So'rash"));
         RefreshStatus();
@@ -624,23 +681,57 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             }
             return;
         }
-        var thinking = AddBubble(T("Думаю…", "Ойлонуп жатам…", "Thinking…", "Düşünüyorum…", "O'ylayapman…"), fromOwner: false);
+        // 2026-10-21, «доведи Нур Советника до 10»: права пользователя (О4) — без права ИИ даже не спрашиваем; телефоны клиентов —
+        // таблицей прямо из программы, в ИИ не уходят (О5); этапы ответа на экране и время каждого этапа в журнале (О3).
+        var access = CurrentAccess();
+        if (image is null && (DeniedAnswer(question, access) ?? FutureDateAnswer(question)) is { } denied)
+        {
+            AddBubble(denied, fromOwner: false);
+            PosLogger.Log("ИИ-советник: ответ без ИИ (нет доступа к разделу или будущая дата).", "INFO");
+            _busy = false;
+            RefreshKeyCard();
+            SaveCurrentChat();
+            return;
+        }
+        var (thinking, setStage) = AddStageBubble();
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
+        var token = _cts.Token;
         try
         {
+            if (image is null && await TryLocalClientsListAsync(question, access, token).ConfigureAwait(true) is { } localList)
+            {
+                if (gen != _gen)
+                    return;
+                thinking.Text = localList;
+                AddAnswerExtras(thinking, question, localList, Array.Empty<AiSection>(), localOnly: true);
+                SaveCurrentChat();
+                return;
+            }
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            var (summary, debtorNames) = await GetSummaryAsync().ConfigureAwait(true);
+            var (sections, debtorNames) = await GetSummaryAsync().ConfigureAwait(true);
             var summaryMs = watch.ElapsedMilliseconds;
+            var shop = sections.ToList();
+            if (access.Products && image is null && await OwnerAiContext.QuestionProductsSectionAsync(question, token).ConfigureAwait(true) is { } qp)
+                shop.Add(qp);
+            if (image is null && await PeriodRevenueSectionAsync(question, token).ConfigureAwait(true) is { } pr)
+                shop.Add(pr);
+            var questionMs = watch.ElapsedMilliseconds - summaryMs;
             // 2026-10-05, владелец: «голос очень сильно тормозит» — на вопрос голосом ответ короткий: быстрее и пишется,
             // и озвучивается (длинный ответ на 8–10 предложений звучал полминуты и готовился долго).
             var askText = (speak
                 ? question + "\n(Вопрос задан голосом, ответ будет озвучен: ответь коротко — 2–3 предложения, без списков и таблиц.)"
-                : question) + pagesNote;
-            var (answer, error, webSources) = await TelegramAiChat.AskOwnerAppWithDetailsAsync(askText, summary, _cts.Token, attachments.Select(a => (a.Data, a.Mime)).ToList()).ConfigureAwait(true);
+                : TelegramAiChat.LooksLikeListRequest(question) && image is null
+                    // 2026-10-21 (О6): «выведи список» — таблица, а не карточка действий.
+                    ? question + "\n(Владелец просит ПОКАЗАТЬ список: выведи таблицей все подходящие строки из данных; строки «ТОВАР:» не пиши, ничего не меняй.)"
+                    : question) + pagesNote;
+            var result = await TelegramAiChat.AskOwnerAppAsync(askText, shop, access, token, attachments.Select(a => (a.Data, a.Mime)).ToList(),
+                stage => Dispatcher.UIThread.Post(() => setStage(stage)), forceFull: ForceSections(question)).ConfigureAwait(true);
+            var answer = result.Answer;
+            var error = result.Error;
             if (gen != _gen)
                 return;
-            PosLogger.Log($"ИИ-советник: сводка {summaryMs} мс, ответ ИИ {watch.ElapsedMilliseconds - summaryMs} мс{(speak ? " (голосом)" : "")}.", "INFO");
+            PosLogger.Log($"ИИ-советник: этапы — сводка {summaryMs} мс (кэш {(summaryMs < 50 ? "да" : "нет")}), товары из вопроса {questionMs} мс, {result.Timings}{(speak ? " (голосом)" : "")}.", "INFO");
             Dictionary<string, bool>? botChange = null;
             Dictionary<string, object?>? scenario = null;
             // 2026-10-06, владелец: «к ИИ дай полный доступ к товарам» — строки «ТОВАР: {…}» → карточка «Выполнить».
@@ -651,25 +742,42 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             {
                 (answer, botChange) = ExtractBotChange(answer);
                 (answer, scenario) = ExtractScenario(answer);
+                // 2026-10-19, ревью: подсказка поставщика — от накладной: заменяется новой строкой «ПОСТАВЩИК» или новым фото
+                // (другая накладная), а ответ без неё («поставь наценку 25 %») прежнюю подсказку не стирает.
+                if (ProductActionPlan.SupplierHint(answer) is var hint && (hint.Name is not null || hint.Inn is not null || attachments.Count > 0))
+                    _invoiceSupplierHint = hint;
                 (answer, productSteps, skippedItems) = ProductActionPlan.Extract(answer, question);
                 (answer, debtReminders) = ExtractDebtReminders(answer);
+                // 2026-10-21 (О6): просили ПОКАЗАТЬ список, а ИИ ответил действиями без таблицы (история 08.10: «выведи список всех 21» —
+                // 4 раза «подготовил… подтвердите») — показываем таблицу этих товаров, карточку действий не показываем.
+                if (TelegramAiChat.LooksLikeListRequest(question) && image is null && productSteps.Count > 0 && !HasTable(answer)
+                    && !ProductActionPlan.LooksLikeAction(System.Text.RegularExpressions.Regex.Replace(question.ToLowerInvariant(), @"выведи\w*|покажи\w*|список\w*|таблиц\w*", " ")))
+                {
+                    answer = (answer.Trim().Length > 0 ? answer.Trim() + "\n\n" : "") + ListFromSteps(productSteps);
+                    productSteps = new List<ProductActionPlan.Step>();
+                }
                 if (answer.Length == 0 && productSteps.Count > 0)
                     answer = T("Предлагаю изменения — подтвердите:", "Өзгөртүүлөрдү сунуштайм — ырастаңыз:", "I suggest these changes — please confirm:",
                         "Şu değişiklikleri öneriyorum — onaylayın:", "Quyidagi o'zgarishlarni taklif qilaman — tasdiqlang:");
                 // 2026-10-07, владелец: «перестань выдавать фото из базы NurCRM» — фото склада под ответом больше не подставляются
                 // (находили «Нан» внутри «бананды»); фото — только поиском в интернете по просьбе.
             }
-            thinking.Text = answer is { Length: > 0 }
-                ? OwnerAiContext.RevealDebtors(TelegramAiChat.ToPlainText(answer), debtorNames)
-                : T("Не получилось ответить: ", "Жооп берүү мүмкүн болгон жок: ", "Couldn't answer: ", "Yanıt verilemedi: ", "Javob berib bo'lmadi: ") + (error ?? "нет ответа");
+            if (answer is { Length: > 0 })
+            {
+                thinking.Text = OwnerAiContext.RevealCodes(TelegramAiChat.ToPlainText(answer), debtorNames);
+                AddAnswerExtras(thinking, question, thinking.Text ?? "", result.Included, localOnly: false, fallback: result.Fallback);
+            }
+            else
+                ShowFriendlyError(thinking, error, question);
             // 2026-10-05, владелец: «включи поиск по интернету для ИИ» — если ИИ искал в интернете, источники ссылками.
             // 2026-10-07: Gemini сам ищет в Google и по вопросам о магазине (по старым репликам разговора) — ссылки показываем,
             // только если владелец просил поиск или сведения о товаре.
+            var webSources = result.Sources;
             if (answer is { Length: > 0 } && webSources.Count > 0
                 && (ProductInfoResearch.LooksLikeInfoRequest(question)
                     || new[] { "интернет", "найди", "поищи", "google", "гугл", "сайт", "internet", "интернеттен" }.Any(question.ToLowerInvariant().Contains)))
                 AddWebSources(webSources);
-            else if (TelegramAiChat.WebSearchUnavailable && !AiProviders.HasGroq && !_webSearchNoteShown)
+            else if (ProductActionPlan.IsExplicitWebSearchRequest(question) && TelegramAiChat.WebSearchUnavailable && !AiProviders.HasGroq && !_webSearchNoteShown)
             {
                 _webSearchNoteShown = true;
                 _modelsCard.IsVisible = true;
@@ -684,16 +792,27 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                         "Bepul Google Gemini kaliti internetda qidira olmaydi. SI internetda bepul qidirishi uchun Groq kalitini qo'shing: "
                             + "yuqoridagi «Internetda qidirish» bloki → «Kalit olish» (bepul, karta kerak emas). Hozircha do'kon ma'lumotlari bo'yicha javob beraman."), fromOwner: false);
             }
+            // 2026-10-21 (О4): изменения — только с правом на них; без права карточки нет, а владелец видит почему.
             if (botChange is { Count: > 0 })
-                AddBotChangeCard(botChange);
-            if (scenario is not null)
+            {
+                if (access.Settings)
+                    AddBotChangeCard(botChange);
+                else
+                    AddBubble(NoAccessText(T("настройкам Телеграм-бота", "Телеграм-боттун жөндөөлөрүнө", "the Telegram bot settings", "Telegram botu ayarlarına", "Telegram bot sozlamalariga"), "Настройки"), fromOwner: false);
+            }
+            if (scenario is not null && access.Settings)
                 AddScenarioCard(scenario);
             if (productSteps is { Count: > 0 })
-                ShowProductSteps(productSteps, question);
-            if (debtReminders is { Count: > 0 })
+            {
+                if (access.Products)
+                    ShowProductSteps(productSteps, question);
+                else
+                    AddBubble(NoAccessText(T("складу и изменению товаров", "кампага жана товарларды өзгөртүүгө", "the warehouse and product changes", "depoya ve ürün değişikliklerine", "omborga va mahsulotlarni o'zgartirishga"), "Склад"), fromOwner: false);
+            }
+            if (debtReminders is { Count: > 0 } && access.Clients)
                 AddDebtReminderCard(debtReminders);
             // 2026-10-06: строки, которые не стали действиями, — не молча, а списком (раньше накладная на 20 позиций давала «ничего»).
-            if (skippedItems.Count > 0)
+            if (skippedItems.Count > 0 && access.Products)
                 AddBubble(T("Не нашёл в каталоге и не смог разобрать: ", "Каталогдон таппадым жана ажырата алган жокмун: ", "Not found in the catalog and couldn't parse: ",
                     "Katalogda bulunamadı ve ayrıştırılamadı: ", "Katalogda topilmadi va ajratib bo'lmadi: ") + string.Join(", ", skippedItems)
                     + T(". Напишите, что с ними сделать (например, «создай как новые товары»).", ". Алар менен эмне кылууну жазыңыз (мисалы, «жаңы товар катары түз»).",
@@ -704,12 +823,16 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         }
         catch (OperationCanceledException)
         {
-            return;
+            // 2026-10-21 (О8): не «The operation was canceled.», а понятный текст (если это не «■ Стоп» владельца).
+            if (gen == _gen)
+                ShowFriendlyError(thinking, "timeout", question);
+            else
+                return;
         }
         catch (Exception ex)
         {
-            thinking.Text = T("Не получилось ответить: ", "Жооп берүү мүмкүн болгон жок: ", "Couldn't answer: ", "Yanıt verilemedi: ", "Javob berib bo'lmadi: ") + ex.Message;
-            PosLogger.Log($"ИИ-советник: ошибка ответа ({ex.Message}).", "WARNING");
+            ShowFriendlyError(thinking, ex is System.Net.Http.HttpRequestException ? "нет связи" : "internal", question);
+            PosLogger.Log($"ИИ-советник: ошибка ответа ({ex.GetType().Name}: {ex.Message}).", "WARNING");
         }
         finally
         {
@@ -827,7 +950,10 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private void RefreshHistoryList()
     {
         _historyList.Children.Clear();
-        var chats = LoadChats();
+        // 2026-10-21 («удобство 10»): поиск по разговорам — по названию и тексту реплик.
+        var query = (_historySearch?.Text ?? "").Trim();
+        var chats = LoadChats().Where(c => query.Length == 0 || c.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                                           || c.Lines.Any(l => l.Text.Contains(query, StringComparison.CurrentCultureIgnoreCase))).ToList();
         if (chats.Count == 0)
         {
             var empty = new TextBlock
@@ -870,6 +996,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             };
             Use(open, Button.BackgroundProperty, current ? "BrushAccentSoft" : "BrushPanel");
             ToolTip.SetTip(open, $"{chat.At:dd.MM.yyyy HH:mm} · {chat.Title}");
+            Avalonia.Automation.AutomationProperties.SetName(open, chat.Title);
             open.Click += (_, _) => OpenChat(chat);
             row.Children.Add(open);
             var delete = new Button
@@ -881,11 +1008,25 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             Use(delete, Button.BackgroundProperty, "BrushPanel");
             Use(delete, Button.ForegroundProperty, "BrushTextSoft");
             ToolTip.SetTip(delete, T("Удалить разговор", "Маекти өчүрүү", "Delete chat", "Sohbeti sil", "Suhbatni o'chirish"));
-            delete.Click += (_, _) =>
+            Avalonia.Automation.AutomationProperties.SetName(delete, T("Удалить разговор", "Маекти өчүрүү", "Delete chat", "Sohbeti sil", "Suhbatni o'chirish") + ": " + chat.Title);
+            // 2026-10-21 (О10): удаление — только после подтверждения (раньше ✕ удалял сразу, без отмены).
+            delete.Click += async (_, _) =>
             {
+                // 2026-10-21: окно с понятными кнопками «Удалить» (красная) и «Отменить» вместо «Да/Нет» (пакет 7, п. 157).
+                var sure = await Dialogs.PosConfirmDialog.ShowModalAsync(this,
+                    T("Удалить разговор", "Маекти өчүрүү", "Delete chat", "Sohbeti sil", "Suhbatni o'chirish"),
+                    T($"Удалить разговор «{chat.Title}»? Вернуть его будет нельзя.", $"«{chat.Title}» маегин өчүрөлүбү? Кайра калыбына келтирүүгө болбойт.",
+                        $"Delete the chat “{chat.Title}”? It can't be restored.", $"«{chat.Title}» sohbeti silinsin mi? Geri alınamaz.",
+                        $"«{chat.Title}» suhbati o'chirilsinmi? Uni qaytarib bo'lmaydi."),
+                    confirmText: T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"),
+                    cancelText: T("Отменить", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+                    accent: Dialogs.PosConfirmAccent.Danger).ConfigureAwait(true);
+                if (!sure)
+                    return;
                 var all = LoadChats();
                 all.RemoveAll(c => c.Id == chat.Id);
                 StoreChats(all);
+                PosLogger.Log("ИИ-советник: разговор удалён владельцем (после подтверждения).", "INFO");
                 RefreshHistoryList();
             };
             Grid.SetColumn(delete, 1);
@@ -894,6 +1035,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             _historyList.Children.Add(row);
         }
     }
+
+    private TextBox? _historySearch;
 
     /// <summary>Боковая панель: «＋ Новый разговор» и история.</summary>
     private void BuildSidebar()
@@ -913,9 +1056,16 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         head.Children.Add(close);
         var list = new ScrollViewer { Content = _historyList, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         _historyList.Spacing = 2;
-        var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
-        Grid.SetRow(list, 1);
+        // 2026-10-21 («удобство 10»): поиск по прошлым разговорам.
+        _historySearch = UiKit.Input(this, T("Найти разговор…", "Маекти табуу…", "Find a chat…", "Sohbet bul…", "Suhbatni topish…"), 36);
+        _historySearch.Margin = new Thickness(2, 0, 2, 8);
+        Avalonia.Automation.AutomationProperties.SetName(_historySearch, T("Поиск по разговорам", "Маектерден издөө", "Search chats", "Sohbetlerde ara", "Suhbatlardan qidirish"));
+        _historySearch.TextChanged += (_, _) => RefreshHistoryList();
+        var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*") };
+        Grid.SetRow(_historySearch, 1);
+        Grid.SetRow(list, 2);
         grid.Children.Add(head);
+        grid.Children.Add(_historySearch);
         grid.Children.Add(list);
         _sidebar.Child = grid;
     }
@@ -949,19 +1099,46 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 RefreshHistoryList();
         };
         buttons.Children.Add(_menuButton);
-        var newChat = UiKit.Primary(this, T("＋  Новый разговор", "＋  Жаңы маек", "＋  New chat", "＋  Yeni sohbet", "＋  Yangi suhbat"));
+        // 2026-10-21: «Новый разговор» — обычной кнопкой, как «История»: жёлтая на экране одна — «Сохранить» ключ без ключа,
+        // ➤ «Спросить» с ключом (было две-три жёлтых рядом) (пакет 7, п. 155).
+        var newChat = UiKit.Ghost(this, T("＋  Новый разговор", "＋  Жаңы маек", "＋  New chat", "＋  Yeni sohbet", "＋  Yangi suhbat"));
         newChat.Height = 40;
         newChat.CornerRadius = new CornerRadius(20);
         newChat.Click += (_, _) => ResetChat();
+        // 2026-10-21: имена для диктора без значков (на узком экране на кнопках только «🕘» и «＋») (пакет 7, п. 156).
+        Avalonia.Automation.AutomationProperties.SetName(_menuButton, T("История разговоров", "Маектердин тарыхы", "Chat history", "Sohbet geçmişi", "Suhbatlar tarixi"));
+        Avalonia.Automation.AutomationProperties.SetName(newChat, T("Новый разговор", "Жаңы маек", "New chat", "Yeni sohbet", "Yangi suhbat"));
         buttons.Children.Add(newChat);
         var models = RoundButton(new TextBlock { Text = "⚙", FontSize = 17, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }, accent: false);
         ToolTip.SetTip(models, T("Модели ИИ и поиск в интернете", "ИИ моделдери жана интернеттен издөө", "AI models and web search", "Yapay zekâ modelleri ve internet araması", "SI modellari va internetda qidirish"));
-        models.Click += (_, _) =>
+        Avalonia.Automation.AutomationProperties.SetName(models, T("Настройки советника", "Кеңешчинин жөндөөлөрү", "Advisor settings", "Danışman ayarları", "Maslahatchi sozlamalari"));
+        // 2026-10-21 (И3, И9): ⚙ — меню: ключи и модели ИИ, утренний отчёт, напоминания должникам.
+        var gearMenu = new MenuFlyout();
+        void Item(string text, Action action)
+        {
+            // 2026-10-21: пункт с именем для диктора (без значка ☀/✉) и с «Нажать» (Invoke) в UIA — раньше экранный диктор и
+            // автоматизация пункт видели, но нажать не могли (пакет 7, хвост Советника).
+            var mi = new InvokableMenuItem { Header = text };
+            Avalonia.Automation.AutomationProperties.SetName(mi, text.TrimStart('☀', '✉', ' '));
+            mi.Click += (_, _) =>
+            {
+                gearMenu.Hide();
+                try { action(); }
+                catch (Exception ex) { PosLogger.Log($"ИИ-советник: пункт «{text}» не открылся ({ex.Message}).", "WARNING"); }
+            };
+            gearMenu.Items.Add(mi);
+        }
+        Item(T("Модели ИИ и ключи", "ИИ моделдери жана ачкычтар", "AI models and keys", "Yapay zekâ modelleri ve anahtarlar", "SI modellari va kalitlar"), () =>
         {
             var show = !(_modelsCard.IsVisible && _routerSection.IsVisible);
             _modelsCard.IsVisible = show;
             _routerSection.IsVisible = show;
-        };
+            if (show)
+                _scroll.Offset = new Vector(0, 0);
+        });
+        Item("☀ " + T("Утренний отчёт…", "Эртең мененки отчёт…", "Morning report…", "Sabah raporu…", "Ertalabki hisobot…"), () => _ = MorningReportSettingsWindow.ShowAsync(this));
+        Item("✉ " + T("Напоминания должникам…", "Карыздарга эскертүүлөр…", "Debt reminders…", "Borç hatırlatmaları…", "Qarz eslatmalari…"), OpenDebtReminders);
+        models.Flyout = gearMenu;
         buttons.Children.Add(models);
         Grid.SetColumn(buttons, 1);
         header.Children.Add(buttons);
@@ -985,18 +1162,22 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             _status.Text = T("Нужен ключ ИИ — блок ниже", "ИИ ачкычы керек — төмөнкү блок", "An AI key is needed — see below", "Yapay zekâ anahtarı gerekli — aşağıya bakın", "SI kaliti kerak — pastdagi blok");
             return;
         }
+        // 2026-10-21 («дизайн 10»): вместо технических имён моделей — понятная строка; модели — в подсказке и по ⚙.
         var parts = new List<string> { "Google Gemini" };
         if (AiProviders.HasGroq)
             parts.Add(T("поиск в интернете: Groq", "интернеттен издөө: Groq", "web search: Groq", "internet araması: Groq", "internetda qidirish: Groq"));
         if (AiProviders.HasOpenRouter)
             parts.Add(T("запасная модель: OpenRouter", "запастагы модель: OpenRouter", "backup model: OpenRouter", "yedek model: OpenRouter", "zaxira model: OpenRouter"));
-        _status.Text = "● " + string.Join(" · ", parts);
+        _status.Text = "● " + T("Готов отвечать по данным вашего магазина", "Дүкөнүңүздүн маалыматы боюнча жооп берүүгө даярмын", "Ready to answer from your shop's data",
+            "Mağazanızın verileriyle yanıtlamaya hazır", "Do'koningiz ma'lumotlari bo'yicha javob berishga tayyor");
+        ToolTip.SetTip(_status, string.Join(" · ", parts));
     }
 
-    /// <summary>Пустой чат: значок, «Чем помочь?», что умеет советник, готовые вопросы карточками.</summary>
+    /// <summary>Пустой чат: значок, «Чем помочь?», что умеет советник, готовые вопросы карточками.
+    /// 2026-10-21 (И3): под вопросами — утренний отчёт за сегодня, если он уже собран.</summary>
     private void ShowWelcome()
     {
-        var panel = new StackPanel { Spacing = 10, Margin = new Thickness(0, 28, 0, 0), HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 800 };
+        var panel = new StackPanel { Spacing = 10, Margin = new Thickness(0, 18, 0, 0), HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 800 };
         var avatar = AiAvatar(56);
         avatar.HorizontalAlignment = HorizontalAlignment.Center;
         panel.Children.Add(avatar);
@@ -1009,16 +1190,12 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         panel.Children.Add(hello);
         var intro = new TextBlock
         {
-            Text = T("Спросите про продажи, остатки, закупки или как поднять выручку — отвечу по данным вашего магазина и не выдумаю цифр. "
-                     + "Можно голосом — кнопка микрофона, а поговорить вживую, как по телефону, — кнопка «Разговор» рядом.",
-                "Сатуу, калдыктар, сатып алуулар же кирешени кантип көбөйтүү жөнүндө сураңыз — дүкөнүңүздүн маалыматы боюнча жооп берем, сандарды ойлоп чыгарбайм. "
-                + "Үн менен да болот — микрофон баскычы, ал эми телефондогудай жандуу сүйлөшүү — жанындагы «Маек» баскычы.",
-                "Ask about sales, stock, purchasing or how to grow revenue — I answer from your shop's data and never make numbers up. "
-                + "You can ask by voice — the microphone button, or talk live like on the phone — the “Conversation” button next to it.",
-                "Satışlar, stok, alımlar veya ciroyu nasıl artıracağınız hakkında sorun — mağazanızın verileriyle yanıtlarım, rakam uydurmam. "
-                + "Sesle sorabilirsiniz — mikrofon düğmesi; telefondaki gibi canlı konuşmak için yanındaki «Sohbet» düğmesi.",
-                "Savdo, qoldiqlar, xaridlar yoki tushumni qanday oshirish haqida so'rang — do'koningiz ma'lumotlari bo'yicha javob beraman, raqam o'ylab topmayman. "
-                + "Ovoz bilan so'rash — mikrofon tugmasi, telefondagidek jonli gaplashish — yonidagi «Suhbat» tugmasi."),
+            // 2026-10-21 («дизайн 10»): вступление — одна-две строки (было 3–4).
+            Text = T("Отвечаю по цифрам вашего магазина и показываю, откуда они. Можно голосом — 🎤 или «Разговор».",
+                "Дүкөнүңүздүн сандары боюнча жооп берем жана алар кайдан экенин көрсөтөм. Үн менен да болот — 🎤 же «Маек».",
+                "I answer from your shop's numbers and show where they come from. Voice works too — 🎤 or “Talk”.",
+                "Mağazanızın rakamlarıyla yanıtlar ve kaynağını gösteririm. Sesle de olur — 🎤 veya «Sohbet».",
+                "Do'koningiz raqamlari bo'yicha javob beraman va manbasini ko'rsataman. Ovoz bilan ham — 🎤 yoki «Suhbat»."),
             FontSize = 14, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, MaxWidth = 620,
         };
         Use(intro, TextBlock.ForegroundProperty, "BrushTextSoft");
@@ -1029,9 +1206,66 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _quick.Margin = new Thickness(0, 14, 0, 0);
         _quick.MaxWidth = 800;
         panel.Children.Add(_quick);
+        // 2026-10-21 (И3): утренний отчёт за сегодня — сразу на пустом экране (как «For you» у лучших помощников).
+        if (OwnerMorningReport.Latest is { } morning && morning.BuiltAt.Date == DateTime.Today)
+        {
+            var card = MorningReportCard.Build(morning, OpenSectionSafe, () => _ = MorningReportSettingsWindow.ShowAsync(this));
+            card.Margin = new Thickness(0, 6, 0, 0);
+            card.HorizontalAlignment = HorizontalAlignment.Stretch;
+            panel.Children.Add(card);
+            _morningShownFor = morning.BuiltAt;
+        }
+        if (DebtReminderBanner() is { } remind)
+            panel.Children.Add(remind);
         _welcome = panel;
         _messages.Children.Add(panel);
         RefreshKeyCard();
+    }
+
+    private DateTime? _morningShownFor;
+
+    /// <summary>2026-10-21: всем карточкам-вопросам — высота самой высокой (по естественной высоте содержимого, поэтому при смене
+    /// ширины или языка высота и уменьшается) (пакет 7).</summary>
+    private void EqualizeQuickChips()
+    {
+        var chips = _quick.Children.OfType<Button>().Where(b => b.IsVisible).ToList();
+        if (chips.Count < 2)
+            return;
+        double max = 84;
+        foreach (var chip in chips)
+        {
+            if (chip.Content is not Control content || !content.IsMeasureValid)
+                return;
+            max = Math.Max(max, content.DesiredSize.Height + chip.Padding.Top + chip.Padding.Bottom + chip.BorderThickness.Top + chip.BorderThickness.Bottom);
+        }
+        max = Math.Ceiling(max);
+        foreach (var chip in chips)
+            if (Math.Abs(chip.MinHeight - max) > 0.5)
+                chip.MinHeight = max;
+    }
+
+    /// <summary>2026-10-21 (И3): готов новый утренний отчёт — на пустом экране обновить приветствие, в разговоре — карточкой в ленту.</summary>
+    private void OnMorningReport(OwnerMorningReport.Report r)
+    {
+        if (_morningShownFor == r.BuiltAt)
+            return;
+        if (_welcome is not null)
+        {
+            _messages.Children.Remove(_welcome);
+            _welcome = null;
+            ShowWelcome();
+            return;
+        }
+        _morningShownFor = r.BuiltAt;
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        var avatar = AiAvatar(30);
+        avatar.Margin = new Thickness(0, 2, 12, 0);
+        row.Children.Add(avatar);
+        var card = MorningReportCard.Build(r, OpenSectionSafe, () => _ = MorningReportSettingsWindow.ShowAsync(this));
+        Grid.SetColumn(card, 1);
+        row.Children.Add(card);
+        _messages.Children.Add(row);
+        ScrollToEnd();
     }
 
     /// <summary>Значок ИИ: круг с ✦.</summary>
@@ -1118,7 +1352,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 Child = body,
                 Tag = new MessageTag(true, body),
             };
-            Use(bubble, Border.BackgroundProperty, "BrushAccentSoft");
+            UseOwnerBubble(bubble);
             _messages.Children.Add(bubble);
             ScrollToEnd();
             return body;
@@ -1175,7 +1409,28 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
 
     private static readonly System.Text.RegularExpressions.Regex TableLine = new(@"^\s*\|.*\|\s*$");
     private static readonly System.Text.RegularExpressions.Regex TableSeparator = new(@"^\s*\|?(\s*:?-{2,}:?\s*\|)+\s*(:?-{2,}:?\s*)?$");
+    private static readonly System.Text.RegularExpressions.Regex DateCell = new(@"^\d{1,2}\.\d{1,2}(\.\d{2,4})?$");
     private static readonly System.Text.RegularExpressions.Regex NumericCell = new(@"^[−\-+]?[\d\s  .,]+(%|\s*(сом|шт|ч|мин|дн\.?|кг|л))?$");
+
+    /// <summary>2026-10-21: ячейки строки «Итого | 87 589,23 |» / «| A | B» без пустых краёв (пакет 7, п. 160).</summary>
+    private static string[] StrayCells(string line) =>
+        line.Trim().Trim('|').Split('|').Select(c => c.Trim().Replace("**", "")).ToArray();
+
+    /// <summary>Строка с «|», которую ИИ прислал вне таблицы или без «|» по краям: две и больше непустых ячеек.</summary>
+    private static bool IsStrayRow(string line) =>
+        line.Contains('|') && !TableSeparator.IsMatch(line) && StrayCells(line).Count(c => c.Length > 0) >= 2;
+
+    private static bool IsTotalRow(string line) =>
+        StrayCells(line) is { Length: > 0 } cells && TotalWords.Any(w => cells[0].StartsWith(w, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Строка с «палками» вне таблицы — обычным текстом: «Итого: 87 589,23», три и больше ячеек — через «·».</summary>
+    private static string TidyStrayRow(string line)
+    {
+        if (!IsStrayRow(line))
+            return line;
+        var cells = StrayCells(line).Where(c => c.Length > 0).ToArray();
+        return cells.Length == 2 ? cells[0].TrimEnd(':') + ": " + cells[1] : string.Join(" · ", cells);
+    }
 
     /// <summary>Ответ с таблицей Markdown: текст до/после — абзацами, таблица — сеткой (заголовок, разделители, числа справа,
     /// широкая — с прокруткой). Исходный текст остаётся в скрытом body — для «Копировать» и «Озвучить».</summary>
@@ -1184,7 +1439,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         if (content.Children.OfType<StackPanel>().FirstOrDefault(p => Equals(p.Tag, "tables")) is { } old)
             content.Children.Remove(old);
         var lines = (body.Text ?? "").Replace("\r\n", "\n").Split('\n');
-        if (!lines.Any(l => TableSeparator.IsMatch(l)))
+        // 2026-10-21: строка «Итого | 87 589,23 |» без таблицы (или оторванная от неё) — тоже без «палок» (пакет 7, п. 160).
+        if (!lines.Any(l => TableSeparator.IsMatch(l)) && !lines.Any(IsStrayRow))
         {
             body.IsVisible = true;
             return;
@@ -1193,7 +1449,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var buf = new List<string>();
         void FlushText()
         {
-            var t = string.Join("\n", buf).Trim();
+            var t = string.Join("\n", buf.Select(TidyStrayRow)).Trim();
             buf.Clear();
             if (t.Length == 0)
                 return;
@@ -1204,14 +1460,19 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         static string[] Cells(string line) => line.Trim().Trim('|').Split('|').Select(c => c.Trim().Replace("**", "")).ToArray();
         for (var i = 0; i < lines.Length;)
         {
-            if (i + 1 < lines.Length && TableLine.IsMatch(lines[i]) && TableSeparator.IsMatch(lines[i + 1]))
+            if (i + 1 < lines.Length && (TableLine.IsMatch(lines[i]) || IsStrayRow(lines[i])) && TableSeparator.IsMatch(lines[i + 1]))
             {
                 FlushText();
                 var header = Cells(lines[i]);
                 i += 2;
                 var rows = new List<string[]>();
-                while (i < lines.Length && TableLine.IsMatch(lines[i]))
+                // 2026-10-21: строка таблицы и без «|» в начале/конце («Итого | 87 589,23 |»), итог — и после одной пустой строки
+                // (раньше такая строка выпадала из таблицы и показывалась текстом с «палками») (пакет 7, п. 160).
+                bool Row(int k) => k < lines.Length && (TableLine.IsMatch(lines[k]) || IsStrayRow(lines[k]));
+                while (Row(i) || (i + 1 < lines.Length && lines[i].Trim().Length == 0 && Row(i + 1) && IsTotalRow(lines[i + 1])))
                 {
+                    if (lines[i].Trim().Length == 0)
+                        i++;
                     var cells = Cells(lines[i++]);
                     // ИИ иногда ставит «| | Имя | …» — лишняя пустая ячейка сдвигает строку вправо.
                     while (cells.Length > header.Length && cells.Length > 0 && cells[0].Length == 0)
@@ -1231,6 +1492,14 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private Control BuildTable(string[] header, List<string[]> rows)
     {
         var cols = Math.Max(header.Length, rows.Count > 0 ? rows.Max(r => r.Length) : 0);
+        // 2026-10-21 («дизайн 10»): числовая колонка — вправо целиком, вместе с заголовком; даты (14.10) — числом не считаются.
+        var numericCol = new bool[cols];
+        for (var c = 0; c < cols; c++)
+        {
+            var cells = rows.Where(r => !(r.Length > 0 && TotalWords.Any(w => r[0].Trim().StartsWith(w, StringComparison.OrdinalIgnoreCase))))
+                .Select(r => c < r.Length ? r[c].Trim() : "").Where(t => t.Length > 0 && t != "-" && t != "—").ToList();
+            numericCol[c] = cells.Count > 0 && cells.All(t => NumericCell.IsMatch(t) && !DateCell.IsMatch(t));
+        }
         var grid = new Grid();
         for (var c = 0; c < cols; c++)
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
@@ -1242,7 +1511,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             {
                 Text = text, FontSize = 13.5, TextWrapping = TextWrapping.NoWrap,
                 FontWeight = head || total ? FontWeight.SemiBold : FontWeight.Normal,
-                HorizontalAlignment = !head && NumericCell.IsMatch(text) ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+                HorizontalAlignment = c < numericCol.Length && numericCol[c] ? HorizontalAlignment.Right : HorizontalAlignment.Left,
             };
             Use(tb, TextBlock.ForegroundProperty, head ? "BrushTextSoft" : "BrushText");
             var cell = new Border { Padding = new Thickness(12, 7), BorderThickness = new Thickness(0, 0, 0, r < rows.Count ? 1 : 0), Child = tb };
@@ -1257,7 +1526,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             Cell(0, c, c < header.Length ? header[c] : "", head: true, total: false);
         for (var r = 0; r < rows.Count; r++)
         {
-            var total = rows[r].Length > 0 && rows[r][0].StartsWith("Итого", StringComparison.OrdinalIgnoreCase);
+            // 2026-10-21 («дизайн 10»): строка итога — на любом языке (было только «Итого»: ky «Жыйынтык» не выделялась).
+            var total = rows[r].Length > 0 && TotalWords.Any(w => rows[r][0].Trim().StartsWith(w, StringComparison.OrdinalIgnoreCase));
             for (var c = 0; c < cols; c++)
                 Cell(r + 1, c, c < rows[r].Length ? rows[r][c] : "", head: false, total);
         }
@@ -1449,40 +1719,45 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private static ServerBotSettings? _botCache;
     private static DateTime _botCacheAt;
 
-    private Task<(string Summary, IReadOnlyDictionary<int, string> Names)>? _summaryTask;
+    private Task<(IReadOnlyList<AiSection> Sections, IReadOnlyDictionary<int, string> Names)>? _summaryTask;
     private DateTime _summaryAtUtc = DateTime.MinValue;
+    private AiAccess? _summaryAccess;
 
     /// <summary>2026-10-05, владелец: «голос очень сильно тормозит». Сводка магазина для ИИ — одна задача на минуту:
     /// запускается заранее (при открытии раздела и как только нажали микрофон — пока владелец говорит), части
-    /// собираются одновременно, а не по очереди.</summary>
-    private Task<(string Summary, IReadOnlyDictionary<int, string> Names)> GetSummaryAsync()
+    /// собираются одновременно, а не по очереди.
+    /// 2026-10-21 (О1): сводка — частями по важности (AiSection), а не одной строкой; без прав — без этих частей (О4).</summary>
+    private Task<(IReadOnlyList<AiSection> Sections, IReadOnlyDictionary<int, string> Names)> GetSummaryAsync()
     {
-        if (_summaryTask is { IsFaulted: false, IsCanceled: false } && DateTime.UtcNow - _summaryAtUtc < TimeSpan.FromMinutes(1))
+        var access = CurrentAccess();
+        if (_summaryTask is { IsFaulted: false, IsCanceled: false } && DateTime.UtcNow - _summaryAtUtc < TimeSpan.FromMinutes(1) && Equals(_summaryAccess, access))
             return _summaryTask;
         _summaryAtUtc = DateTime.UtcNow;
-        return _summaryTask = BuildSummaryAsync();
+        _summaryAccess = access;
+        return _summaryTask = BuildSummaryAsync(access);
     }
 
-    private static async Task<(string Summary, IReadOnlyDictionary<int, string> Names)> BuildSummaryAsync()
+    private static async Task<(IReadOnlyList<AiSection> Sections, IReadOnlyDictionary<int, string> Names)> BuildSummaryAsync(AiAccess access)
     {
         var ct = CancellationToken.None;
-        // 2026-10-05, владелец: «дай доступ ко всему для ИИ … к складу, к товарам» — цифры «Сводки» и склад.
-        var warehouse = Task.Run(OwnerAiContext.BuildWarehouse);
-        // «Я должен кому-то или мне должны?» — обезличенные итоги долгов клиентов и поставщиков.
-        var debts = OwnerAiContext.BuildDebtTotalsAsync(ct);
-        // «Дай список клиентов-должников»: должники под кодами [Д1]…, имена и телефоны подставляются здесь.
-        var debtors = OwnerAiContext.BuildDebtorsPseudonymousAsync(ct);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        // 2026-10-21 (И5): сравнение периодов считает программа (тот же отчёт сервера, что «Сводка»).
+        var periods = OwnerPeriodStats.GetAsync(ct);
+        // «Я должен кому-то или мне должны?» — итоги долгов клиентов (точно, как «Сводка», О2) и поставщиков.
+        var debts = OwnerAiContext.DebtTotalsSectionAsync(ct);
+        // «Дай список клиентов-должников»: должники под кодами [Д1]… — только с правом «Клиенты» (О4).
+        var debtors = access.Clients ? OwnerAiContext.DebtorsSectionAsync(ct) : Task.FromResult<(AiSection?, IReadOnlyDictionary<int, string>)>((null, new Dictionary<int, string>()));
         // 2026-10-05, владелец: «дай доступ к ABC-анализу ИИ».
-        var abc = OwnerAiContext.BuildAbcAsync(ct);
+        var abc = OwnerAiContext.AbcSectionAsync(ct);
         // 2026-10-05, владелец: «анализ продаж, склада, клиентов, заказов — чтобы предлагать акции на проблемные товары».
-        var analysis = OwnerAiContext.BuildAnalysisAsync(ct);
+        var analysis = access.Products ? OwnerAiContext.AnalysisSectionsAsync(ct) : Task.FromResult(new List<AiSection>());
         // 2026-10-05, владелец: «добавь возможность ИИ управлять ботом» — состояние функций бота на сервере.
-        var bot = BuildBotStateAsync(ct);
+        var bot = access.Settings ? BuildBotStateAsync(ct) : Task.FromResult("");
         // 2026-10-05, ТЗ часть 7: итоги допродажи по всем кассам компании (сервер выложил 05.10).
         var upsell = BuildUpsellAsync(ct);
         // 2026-10-06, лог владельца (23:10, сервер не отвечал после запуска): одна упавшая часть роняла всю сводку — ИИ
         // оставался без данных магазина. Теперь упавшая часть пропускается, остальные идут в сводку.
-        static async Task<string> Part(Task<string> task, string name)
+        static async Task<T?> Part<T>(Task<T> task, string name) where T : class
         {
             try
             {
@@ -1491,25 +1766,45 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             catch (Exception ex)
             {
                 PosLogger.Log($"ИИ-советник: часть сводки «{name}» не собрана ({ex.Message}).", "WARNING");
-                return "";
+                return null;
             }
         }
-        var parts = await Task.WhenAll(Part(bot, "бот"), Part(upsell, "допродажа"), Part(debts, "долги"), Part(analysis, "анализ"),
-            Part(abc, "ABC"), Part(warehouse, "склад")).ConfigureAwait(false);
-        string debtorsText;
-        IReadOnlyDictionary<int, string> names;
+        var list = new List<AiSection>();
+        // Цифры «Сводки» (выбранный там период, выручка по дням, лучшие товары) — всегда.
+        if (OwnerOverviewSnapshot.Text is { Length: > 0 } overview)
+            list.Add(new AiSection("overview", "Сводка программы", 0, overview, SourceSection: "overview", SourceLabel: "Сводка (сервер NurCRM)"));
+        if (await Part(periods, "сравнение периодов").ConfigureAwait(false) is { } snap)
+            list.Add(new AiSection("periods", "Сравнение периодов", 0, snap.ToAiText(), SourceSection: "overview",
+                SourceLabel: $"Сводка (сервер NurCRM), периоды на {snap.BuiltAtLocal:dd.MM HH:mm}"));
+        if (await Part(debts, "долги").ConfigureAwait(false) is { } d)
+            list.Add(d);
+        if (access.Products)
+        {
+            list.Add(OwnerAiContext.WarehouseTotalsSection());
+            list.Add(OwnerAiContext.WarehouseListSection());
+        }
+        if (await Part(abc, "ABC").ConfigureAwait(false) is { } a)
+            list.Add(a);
+        if (await Part(analysis, "анализ").ConfigureAwait(false) is { } an)
+            list.AddRange(an);
+        IReadOnlyDictionary<int, string> names = new Dictionary<int, string>();
         try
         {
-            (debtorsText, names) = await debtors.ConfigureAwait(false);
+            var (section, n) = await debtors.ConfigureAwait(false);
+            if (section is not null)
+                list.Add(section);
+            names = n;
         }
         catch (Exception ex)
         {
             PosLogger.Log($"ИИ-советник: часть сводки «должники» не собрана ({ex.Message}).", "WARNING");
-            (debtorsText, names) = ("", new Dictionary<int, string>());
         }
-        var summary = string.Join("\n", new[] { OwnerOverviewSnapshot.Text, parts[0], parts[1], parts[2], debtorsText, parts[3], parts[4], parts[5] }
-            .Where(x => !string.IsNullOrWhiteSpace(x)));
-        return (summary, names);
+        if (await Part(bot, "бот").ConfigureAwait(false) is { Length: > 0 } b)
+            list.Add(new AiSection("bot", "Телеграм-бот", 9, b, SourceSection: "telegrambot", SourceLabel: "Телеграм-бот"));
+        if (await Part(upsell, "допродажа").ConfigureAwait(false) is { Length: > 0 } u)
+            list.Add(new AiSection("upsell", "Допродажа", 9, u));
+        PosLogger.Log($"ИИ-советник: сводка по частям ({list.Count}) за {watch.ElapsedMilliseconds} мс.", "INFO");
+        return (list, names);
     }
 
     private static async Task<string> BuildUpsellAsync(CancellationToken ct)
@@ -1872,6 +2167,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private Action? _pendingProductCancel;
     // 2026-10-06: «поставь наценку 25 %» даёт новую карточку — прежняя гаснет, иначе два «Выполнить» создали бы товары дважды.
     private Action? _pendingProductSupersede;
+    // 2026-10-19: поставщик, которого ИИ прочитал в последней накладной (ProductActionPlan.SupplierHint), — подсказка окну закупки.
+    private (string? Name, string? Inn) _invoiceSupplierHint;
 
     /// <summary>2026-10-06, владелец: «открывать товар на складе голосом». «Открыть» — сразу, остальное — карточкой с подтверждением.</summary>
     /// <summary>2026-10-07, владелец: «открывай вкладки только после команды открыть что-то из программы». Явное «открой / перейди /
@@ -1910,8 +2207,14 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private int _scanFastRun;
     private TextBox? _scanFocusBox;
     private string? _scanFocusText;
+    private int _scanFocusCaret;
     private const int ScanInterkeyMs = 40;
 
+    // 2026-10-15: прежде с 3-го быстрого символа нажатия глушились (e.Handled) в расчёте на Enter сканера. Без Enter символы
+    // пропадали: автоповтор клавиши (~33 мс) превращал «100000» в «10», быстрый набор терял буквы; Shift сбрасывал буфер (буквы
+    // сканера в верхнем регистре терялись), суффикс Tab не принимался. Теперь символы НЕ глушатся — печатаются, куда стоит курсор;
+    // только когда быстрая серия закончилась Enter или Tab, это скан: поле с курсором возвращается к тексту до серии, а код уходит
+    // в поле штрихкода. Серия из одной и той же клавиши (автоповтор) сканом не считается; Shift буфер не сбрасывает.
     private void ScanKeyDown(object? sender, KeyEventArgs e)
     {
         if (_scanTargets is not { Count: > 0 } targets || (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta)) != 0)
@@ -1919,19 +2222,29 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var focused = FocusManager?.GetFocusedElement();
         if (focused is TextBox fb && targets.Contains(fb))
             return; // курсор в поле штрихкода — скан печатается прямо туда, Enter — к следующему полю
+        if (e.Key is Key.LeftShift or Key.RightShift or Key.CapsLock)
+            return; // 2026-10-15: Shift перед заглавной буквой сканера — часть скана, буфер не сбрасываем
         var now = Environment.TickCount64;
         var fast = _scanBuf.Length > 0 && now - _scanLastTick is >= 0 and <= ScanInterkeyMs;
-        if (e.Key == Key.Enter)
+        if (e.Key is Key.Enter or Key.Tab)
         {
             var code = _scanBuf;
-            var isScan = fast && code.Length >= 4 && _scanFastRun >= code.Length - 1;
+            var isScan = fast && code.Length >= 4 && _scanFastRun >= code.Length - 1 && code.Distinct().Count() > 1;
+            var leaked = _scanFocusBox;
+            var before = _scanFocusText;
+            var caret = _scanFocusCaret;
             _scanBuf = "";
             _scanFastRun = 0;
+            _scanFocusBox = null;
             if (!isScan)
                 return;
             e.Handled = true;
-            if (_scanFocusBox is { } leaked)
-                leaked.Text = _scanFocusText; // первые 1–2 символа скана успели попасть в поле вопроса — вернуть как было
+            if (leaked is not null && ReferenceEquals(leaked, focused))
+            {
+                // 2026-10-15: символы скана напечатались в поле с курсором (вопрос и т. п.) — вернуть его текст как был до скана.
+                leaked.Text = before;
+                leaked.CaretIndex = Math.Min(caret, (before ?? "").Length);
+            }
             if (targets.FirstOrDefault(t => t.IsEnabled && string.IsNullOrWhiteSpace(t.Text)) is { } target)
             {
                 target.Text = code;
@@ -1943,7 +2256,13 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         {
             >= Key.D0 and <= Key.D9 => (char)('0' + (e.Key - Key.D0)),
             >= Key.NumPad0 and <= Key.NumPad9 => (char)('0' + (e.Key - Key.NumPad0)),
-            >= Key.A and <= Key.Z => (char)('A' + (e.Key - Key.A)),
+            // 2026-10-15: буква — с регистром, как её прислал сканер (KeySymbol).
+            // 2026-10-16: KeySymbol идёт по текущей раскладке: при русской (или турецкой) Code128 «AB12345» приходил как «фи12345»,
+            // товар по штрихкоду не находился и создавался новый с мусорным штрихкодом. KeySymbol берём, только если это латинская
+            // буква; иначе буква — по самой клавише (e.Key не зависит от раскладки), регистр — по Shift и CapsLock.
+            >= Key.A and <= Key.Z => e.KeySymbol is { Length: 1 } sym && char.IsAsciiLetter(sym[0])
+                ? sym[0]
+                : (char)((((e.KeyModifiers & KeyModifiers.Shift) != 0) ^ (OperatingSystem.IsWindows() && Console.CapsLock) ? 'A' : 'a') + (e.Key - Key.A)),
             Key.OemMinus or Key.Subtract => '-',
             _ => null,
         };
@@ -1951,6 +2270,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         {
             _scanBuf = "";
             _scanFastRun = 0;
+            _scanFocusBox = null;
             return;
         }
         if (fast)
@@ -1961,17 +2281,26 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             _scanFastRun = 0;
             _scanFocusBox = focused as TextBox;
             _scanFocusText = _scanFocusBox?.Text;
+            _scanFocusCaret = _scanFocusBox?.CaretIndex ?? 0;
         }
         _scanBuf += ch;
         _scanLastTick = now;
-        if (_scanFastRun >= 2)
-            e.Handled = true;
     }
 
     /// <summary>2026-10-06: предложенные ИИ действия с товарами — карточкой; выполняются только по «Выполнить» (ProductActionPlan).</summary>
-    private void AddProductActionsCard(List<ProductActionPlan.Step> steps, string request)
+    /// <param name="proposedUtc">2026-10-16: когда предложена исходная карточка (у отредактированной — время исходной): карточка,
+    /// предложенная раньше выполнения такой же (в боте или здесь), не выполняется повторно (ProductActionPlan.ExecuteAllAsync).</param>
+    private void AddProductActionsCard(List<ProductActionPlan.Step> steps, string request, DateTime? proposedUtc = null)
     {
+        var proposed = proposedUtc ?? DateTime.UtcNow;
         var invoice = LooksLikeInvoiceRequest(request);
+        // 2026-10-19, владелец: «при скане накладной добавляет товар на склад напрямую, а не через закупку». Приход и новые товары
+        // с количеством — закупка у поставщика: «Провести закупку…» открывает окно закупки (InvoiceEditorWindow), черновик живёт
+        // в карточке (повтор после обрыва — те же строки и тот же ключ идемпотентности).
+        var purchase = steps.Any(ProductActionPlan.IsPurchaseStep);
+        var supplierHint = _invoiceSupplierHint;
+        InvoiceEditorWindow.PurchaseDraft? draft = null;
+        var editorOpen = false;
         var title = new TextBlock
         {
             Text = invoice
@@ -1990,8 +2319,19 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var showProductTable = invoice || steps.Any(step => step.Op is "create" or "receive");
         if (showProductTable)
         {
+            // 2026-10-21 (О10): заголовки накладной — на языке программы (были только по-русски).
             var header = invoice
-                ? new[] { "№", "Наименование товара", "Штрихкод / Артикул", "Ед. изм.", "Кол-во", "Цена закупа", "Розничная цена", "Сумма (закуп)" }
+                ? new[]
+                {
+                    T("№", "№", "No.", "No.", "№"),
+                    T("Наименование товара", "Товардын аталышы", "Product name", "Ürün adı", "Mahsulot nomi"),
+                    T("Штрихкод / Артикул", "Штрихкод / Артикул", "Barcode / SKU", "Barkod / Stok kodu", "Shtrix-kod / Artikul"),
+                    T("Ед. изм.", "Өлчөм бирд.", "Unit", "Birim", "O'lchov bir."),
+                    T("Кол-во", "Саны", "Qty", "Miktar", "Miqdor"),
+                    T("Цена закупа", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"),
+                    T("Розничная цена", "Чекене баа", "Retail price", "Perakende fiyatı", "Chakana narx"),
+                    T("Сумма (закуп)", "Сумма (сатып алуу)", "Total (purchase)", "Tutar (alış)", "Summa (xarid)"),
+                }
                 : new[]
                 {
                     T("№", "№", "No.", "No.", "№"),
@@ -2001,7 +2341,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                     T("Кол-во", "Саны", "Qty", "Miktar", "Miqdor"),
                     T("Цена закупа", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"),
                     T("Розничная цена", "Чекене баа", "Retail price", "Perakende fiyatı", "Chakana narx"),
-                    T("Штрихкод / Артикул", "Штрихкод / Артикул", "Barcode / SKU", "Barkod / Stok kodu", "Shtrix-kod / Artikул"),
+                    T("Штрихкод / Артикул", "Штрихкод / Артикул", "Barcode / SKU", "Barkod / Stok kodu", "Shtrix-kod / Artikul"),
                     T("Наценка", "Үстөк", "Markup", "Kâr payı", "Ustama"),
                 };
             var rows = steps.Select((step, index) =>
@@ -2042,6 +2382,15 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 };
             }).ToList();
             body.Children.Add(BuildTable(header, rows));
+            // 2026-10-15: в таблице у такой строки — текущая цена; почему цена накладной не поставлена — пометкой под таблицей.
+            var priceNotes = steps.Select(step => ProductActionPlan.PriceNotLoweredNote(step) is { } n ? $"• «{step.Product.Title}»: {n}" : null)
+                .Where(n => n is not null).ToList();
+            if (priceNotes.Count > 0)
+            {
+                var priceNote = new TextBlock { Text = string.Join("\n", priceNotes), FontSize = 12.5, TextWrapping = TextWrapping.Wrap, LineHeight = 19, Margin = new Thickness(2, 2, 2, 4) };
+                Use(priceNote, TextBlock.ForegroundProperty, "BrushWarning");
+                body.Children.Add(priceNote);
+            }
 
         }
         if (invoice)
@@ -2054,11 +2403,15 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 .ToList();
             var totalQuantity = unitTotals.Count == 0 ? "-" : string.Join("; ", unitTotals);
             var totalPurchase = steps.All(step => step.Qty is not null && step.Purchase is not null)
-                ? steps.Sum(step => step.Qty!.Value * step.Purchase!.Value).ToString("N2", System.Globalization.CultureInfo.CurrentCulture) + " сом"
+                ? steps.Sum(step => step.Qty!.Value * step.Purchase!.Value).ToString("N2", System.Globalization.CultureInfo.CurrentCulture) + " " + T("сом", "сом", "som", "som", "so'm")
                 : "-";
             var totals = new TextBlock
             {
-                Text = $"Всего наименований: {totalNames}\nОбщее количество единиц: {totalQuantity}\nОбщая сумма закупа: {totalPurchase}",
+                Text = T($"Всего наименований: {totalNames}\nОбщее количество единиц: {totalQuantity}\nОбщая сумма закупа: {totalPurchase}",
+                    $"Бардык аталыштар: {totalNames}\nБирдиктердин жалпы саны: {totalQuantity}\nСатып алуунун жалпы суммасы: {totalPurchase}",
+                    $"Items: {totalNames}\nTotal units: {totalQuantity}\nTotal purchase amount: {totalPurchase}",
+                    $"Kalem sayısı: {totalNames}\nToplam birim: {totalQuantity}\nToplam alış tutarı: {totalPurchase}",
+                    $"Jami nomlar: {totalNames}\nJami birliklar: {totalQuantity}\nJami xarid summasi: {totalPurchase}"),
                 FontSize = 13.5,
                 FontWeight = FontWeight.SemiBold,
                 TextWrapping = TextWrapping.Wrap,
@@ -2068,9 +2421,47 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             Use(totals, TextBlock.ForegroundProperty, "BrushText");
             body.Children.Add(totals);
         }
+        if (purchase)
+        {
+            var purchaseNote = new TextBlock
+            {
+                Text = T("Накладная проводится закупкой у поставщика (как «Приёмка» склада): нажмите «Провести закупку…», выберите поставщика и оплату.",
+                    "Накладной жеткирүүчүдөн сатып алуу менен өткөрүлөт (кампанын «Кабыл алуусу» сыяктуу): «Сатып алууну өткөрүү…» баскычын басып, жеткирүүчүнү жана төлөмдү тандаңыз.",
+                    "The invoice is posted as a purchase from a supplier (like warehouse “Receiving”): press “Post purchase…”, choose the supplier and payment.",
+                    "Fatura tedarikçiden alım olarak işlenir (depodaki «Mal kabul» gibi): «Alımı işle…»ye basın, tedarikçiyi ve ödemeyi seçin.",
+                    "Yuk xati yetkazib beruvchidan xarid sifatida o'tkaziladi (ombordagi «Qabul» kabi): «Xaridni o'tkazish…»ni bosing, yetkazib beruvchi va to'lovni tanlang."),
+                FontSize = 12.5, TextWrapping = TextWrapping.Wrap, LineHeight = 19, Margin = new Thickness(2, 0, 2, 4),
+            };
+            Use(purchaseNote, TextBlock.ForegroundProperty, "BrushTextSoft");
+            body.Children.Add(purchaseNote);
+            // 2026-10-19, ревью: часть строк этой накладной уже проведена (прежней карточкой) — показать их; в окне закупки они
+            // помечены «уже проведено» и без второго подтверждения не проводятся.
+            var alreadyPosted = steps.Where(ProductActionPlan.IsPurchaseStep)
+                .Select(st => (st, hit: InvoiceEditorWindow.PostedLines.Find(null, st.Op == "receive" ? st.Product.Id : null, new[] { st.Product.Title }, st.Qty ?? 0, st.Purchase ?? 0)))
+                .Where(x => x.hit is not null)
+                .Select(x => $"«{x.st.Product.Title}» {(x.st.Qty ?? 0).ToString("0.###", System.Globalization.CultureInfo.CurrentCulture)} — {x.hit!.At:HH:mm}")
+                .ToList();
+            if (alreadyPosted.Count > 0)
+            {
+                var postedNote = new TextBlock
+                {
+                    Text = "⚠ " + T("Уже проведено закупкой: ", "Сатып алуу менен өткөрүлгөн: ", "Already posted as a purchase: ", "Alım olarak zaten işlendi: ", "Xarid sifatida o'tkazilgan: ")
+                           + string.Join("; ", alreadyPosted),
+                    FontSize = 12.5, TextWrapping = TextWrapping.Wrap, LineHeight = 19, Margin = new Thickness(2, 0, 2, 4),
+                };
+                Use(postedNote, TextBlock.ForegroundProperty, "BrushWarning");
+                body.Children.Add(postedNote);
+            }
+        }
         // Только точное совпадение штрихкода (Find ищет и по названию — недописанный код не должен «найти» чужой товар).
         static NurMarketKassa.Models.Pos.CatalogProductTileVm? ByBarcode(string code) =>
             code.Length >= 4 && ProductActions.Find(code) is { } p && string.Equals((p.Barcode ?? "").Trim(), code, StringComparison.OrdinalIgnoreCase) ? p : null;
+        // 2026-10-15: новый товар по скану оказался товаром склада — приход к нему; цена нового товара (по наценке) ниже текущей
+        // сама не ставится, как и у прихода из разбора (ProductActionPlan.KeepCurrentPriceIfLower).
+        static ProductActionPlan.Step AsReceive(ProductActionPlan.Step st, NurMarketKassa.Models.Pos.CatalogProductTileVm existing) =>
+            ProductActionPlan.KeepCurrentPriceIfLower(st.Price, existing.PriceValue) is var (price, notLowered)
+                ? new ProductActionPlan.Step("receive", existing, st.Qty, null, null, st.Purchase, price, ExpectedStock: existing.Quantity, PriceNotLowered: notLowered)
+                : st;
         for (var i = 0; i < steps.Count; i++)
         {
             if (!showProductTable)
@@ -2106,6 +2497,9 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                         $"This barcode already belongs to “{existing.Title}” — it will be received there, no new product.",
                         $"Bu barkod zaten «{existing.Title}» ürününde — ona giriş yapılır, yeni ürün oluşturulmaz.",
                         $"Bu shtrix-kod «{existing.Title}» mahsulotida bor — unga kirim bo'ladi, yangi mahsulot yaratilmaydi.");
+                // 2026-10-15: цена склада не снижается приходом — сказать об этом здесь же.
+                if (existing is not null && ProductActionPlan.PriceNotLoweredNote(AsReceive(steps[index], existing)) is { } priceNote)
+                    note.Text += " " + priceNote;
             };
             box.KeyDown += (_, e) =>
             {
@@ -2159,34 +2553,31 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             if (!barcodeBoxes.TryGetValue(i, out var b) || (b.Box.Text ?? "").Trim() is not { Length: >= 4 } code)
                 return st;
             return ByBarcode(code) is { Id.Length: > 0 } existing
-                ? new ProductActionPlan.Step("receive", existing, st.Qty, null, null, st.Purchase, st.Price, ExpectedStock: existing.Quantity)
+                ? AsReceive(st, existing)
                 : st with { Barcode = code };
         }).ToList();
         var scanTargets = barcodeBoxes.OrderBy(kv => kv.Key).Select(kv => kv.Value.Box).ToList();
         _scanTargets = scanTargets.Count > 0 ? scanTargets : null;
 
-        var apply = UiKit.Primary(this, T("Выполнить", "Аткаруу", "Do it", "Uygula", "Bajarish"));
+        // 2026-10-21 (И10): проверка перед «Выполнить» — цена ниже закупки, наценка < 0 или > 500 %, остаток в минус, списание больше
+        // половины остатка, больше 20 товаров разом: предупреждение с цифрами в карточке и второе подтверждение.
+        var warnings = ProductActionWarnings(steps);
+        if (warnings.Count > 0)
+            body.Children.Add(WarningsPanel(warnings));
+        var apply = UiKit.Primary(this, purchase
+            ? T("Провести закупку…", "Сатып алууну өткөрүү…", "Post purchase…", "Alımı işle…", "Xaridni o'tkazish…")
+            : T($"Применить изменения ({steps.Count})", $"Өзгөртүүлөрдү колдонуу ({steps.Count})", $"Apply changes ({steps.Count})", $"Değişiklikleri uygula ({steps.Count})", $"O'zgarishlarni qo'llash ({steps.Count})"));
         apply.Height = 38;
+        Avalonia.Automation.AutomationProperties.SetName(apply, purchase ? T("Провести закупку", "Сатып алууну өткөрүү", "Post purchase", "Alımı işle", "Xaridni o'tkazish")
+            : T("Применить изменения", "Өзгөртүүлөрдү колдонуу", "Apply changes", "Değişiklikleri uygula", "O'zgarishlarni qo'llash"));
+        var confirmedTwice = warnings.Count == 0;
         var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Height = 38;
         var result = new TextBlock { FontSize = 13.5, TextWrapping = TextWrapping.Wrap, IsVisible = false, LineHeight = 20 };
         Use(result, TextBlock.ForegroundProperty, "BrushText");
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { apply, cancel } };
-        // 2026-10-11, тестировщик (иишка.md, 2): «рядом с одобрением — кнопка «Отредактировать»: подробный редактор списка, который
-        // выдаёт ИИ» (InvoiceEditorWindow). Сохранили — карточка пересобирается с исправленными строками (прежняя гаснет).
-        if (steps.Any(s => s.Op is "create" or "receive"))
-        {
-            var editButton = UiKit.Ghost(this, T("✎ Отредактировать", "✎ Түзөтүү", "✎ Edit", "✎ Düzenle", "✎ Tahrirlash"));
-            editButton.Height = 38;
-            editButton.Click += async (_, _) =>
-            {
-                var editor = new InvoiceEditorWindow(ResolveSteps());
-                var editedSteps = await editor.ShowDialog<List<ProductActionPlan.Step>?>(this).ConfigureAwait(true);
-                if (editedSteps is { Count: > 0 } && _pendingProductCancel is not null && buttons.IsVisible)
-                    AddProductActionsCard(editedSteps, request);
-            };
-            buttons.Children.Insert(1, editButton);
-        }
+        // 2026-10-11, тестировщик (иишка.md, 2): «рядом с одобрением — кнопка «Отредактировать»: подробный редактор списка».
+        // 2026-10-19: редактор накладной стал окном закупки — его открывает «Провести закупку…» (отдельная «✎ Отредактировать» не нужна).
         var card = new Border
         {
             CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 10), MaxWidth = invoice ? 900 : 680, BorderThickness = new Thickness(1),
@@ -2199,7 +2590,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var superseded = false;
         void Cancel()
         {
-            if (finished)
+            // 2026-10-19: пока открыто окно закупки, карточка не гаснет (новое предложение ниже её не отменяет).
+            if (finished || editorOpen)
                 return;
             finished = true;
             if (_pendingProductCancel == Cancel)
@@ -2213,15 +2605,93 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             result.IsVisible = true;
             foreach (var (box, _) in barcodeBoxes.Values)
                 box.IsEnabled = false;
-            result.Text = superseded
+            // 2026-10-19, ревью: замена карточки после частичного проведения — «Проведено частично: …», карточка больше не нажимается,
+            // остальные строки — в новой (там проведённые помечены по реестру InvoiceEditorWindow.PostedLines).
+            result.Text = (draft is { PostedSummaries.Count: > 0 }
+                    ? T("Проведено частично: ", "Жарым-жартылай өткөрүлдү: ", "Partly posted: ", "Kısmen işlendi: ", "Qisman o'tkazildi: ")
+                      + "\n✓ " + string.Join("\n✓ ", draft.PostedSummaries) + "\n"
+                    : "")
+                + (superseded
                 ? T("Заменено новым предложением ниже.", "Төмөнкү жаңы сунуш менен алмаштырылды.", "Replaced by the new proposal below.",
                     "Aşağıdaki yeni öneriyle değiştirildi.", "Quyidagi yangi taklif bilan almashtirildi.")
-                : T("Не меняли.", "Өзгөртүлгөн жок.", "Not changed.", "Değiştirilmedi.", "O'zgartirilmadi.");
+                : draft is { PostedSummaries.Count: > 0 }
+                    ? T("Остальные строки не проведены.", "Калган саптар өткөрүлгөн жок.", "The remaining lines were not posted.", "Kalan satırlar işlenmedi.", "Qolgan qatorlar o'tkazilmadi.")
+                    : T("Не меняли.", "Өзгөртүлгөн жок.", "Not changed.", "Değiştirilmedi.", "O'zgartirilmadi."));
+        }
+        // 2026-10-19: закупка по накладной — окно закупки; карточка завершается, когда проведены все строки.
+        async Task<string> OpenPurchase()
+        {
+            if (finished || editorOpen)
+                return "";
+            editorOpen = true;
+            try
+            {
+                if (draft is null)
+                {
+                    draft = InvoiceEditorWindow.PurchaseDraft.FromSteps(ResolveSteps(), supplierHint.Name, supplierHint.Inn);
+                    // Штрихкоды теперь правятся в окне закупки — поля карточки больше не действуют.
+                    foreach (var (box, _) in barcodeBoxes.Values)
+                        box.IsEnabled = false;
+                    if (ReferenceEquals(_scanTargets, scanTargets))
+                        _scanTargets = null;
+                }
+                await new InvoiceEditorWindow(draft).ShowDialog<string?>(this).ConfigureAwait(true);
+            }
+            finally
+            {
+                editorOpen = false;
+            }
+            if (draft.PostedSummaries.Count > 0)
+            {
+                result.IsVisible = true;
+                result.Text = "✓ " + string.Join("\n✓ ", draft.PostedSummaries)
+                    + (draft.Rows.Count > 0
+                        ? "\n⚠ " + T($"Не проведено строк: {draft.Rows.Count} — нажмите «Провести закупку…» ещё раз.", $"Өткөрүлбөгөн саптар: {draft.Rows.Count} — «Сатып алууну өткөрүү…» баскычын кайра басыңыз.",
+                            $"Lines not posted: {draft.Rows.Count} — press “Post purchase…” again.", $"İşlenmeyen satır: {draft.Rows.Count} — «Alımı işle…»ye tekrar basın.",
+                            $"O'tkazilmagan qatorlar: {draft.Rows.Count} — «Xaridni o'tkazish…»ni yana bosing.")
+                        : "");
+            }
+            if (!draft.Completed)
+            {
+                // 2026-10-19, ревью: пока окно было открыто, пришла новая карточка — эта закрывается и после частичного проведения.
+                if (superseded)
+                    Cancel();
+                return draft.PostedSummaries.Count > 0 ? result.Text ?? "" : "";
+            }
+            finished = true;
+            if (_pendingProductCancel == Cancel)
+            {
+                _pendingProductApply = null;
+                _pendingProductCancel = null;
+            }
+            buttons.IsVisible = false;
+            // Прочие шаги карточки (описание, категория…) — как раньше, после закупки.
+            var others = ResolveSteps().Where(st => !ProductActionPlan.IsPurchaseStep(st)).ToList();
+            if (others.Count > 0)
+            {
+                var done = await ProductActionPlan.ExecuteAllAsync(others, T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"), CancellationToken.None,
+                    proposed).ConfigureAwait(true);
+                result.Text += "\n" + done;
+            }
+            PosLogger.Log($"ИИ-советник: накладная проведена закупкой ({steps.Count(ProductActionPlan.IsPurchaseStep)} строк).", "INFO");
+            SaveCurrentChat();
+            ScrollToEnd();
+            return result.Text ?? "";
         }
         async Task<string> Apply()
         {
             if (finished)
                 return "";
+            // 2026-10-21 (И10): есть предупреждения — сначала второе подтверждение в карточке (голосовое «да» его не заменяет).
+            if (!confirmedTwice)
+            {
+                ShowSecondConfirm(card, warnings, () => { confirmedTwice = true; _ = Apply(); }, buttons);
+                return T("Есть предупреждения — подтвердите ещё раз кнопкой на экране.", "Эскертүүлөр бар — экрандагы баскыч менен дагы бир жолу ырастаңыз.",
+                    "There are warnings — confirm once more with the button on screen.", "Uyarılar var — ekrandaki düğmeyle bir kez daha onaylayın.",
+                    "Ogohlantirishlar bor — ekrandagi tugma bilan yana bir bor tasdiqlang.");
+            }
+            if (purchase)
+                return await OpenPurchase().ConfigureAwait(true);
             finished = true;
             if (_pendingProductCancel == Cancel)
             {
@@ -2233,7 +2703,10 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             buttons.IsVisible = false;
             result.IsVisible = true;
             result.Text = T("Выполняю…", "Аткарып жатам…", "Working…", "Uygulanıyor…", "Bajarilmoqda…");
-            var done = await ProductActionPlan.ExecuteAllAsync(ResolveSteps(), T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"), CancellationToken.None).ConfigureAwait(true);
+            // 2026-10-16: с временем карточки — такой же план, уже выполненный после её появления (в боте или новой карточкой), повторно
+            // не выполнится; кнопка и голосовое «да» (_pendingProductApply) идут сюда же.
+            var done = await ProductActionPlan.ExecuteAllAsync(ResolveSteps(), T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"), CancellationToken.None,
+                proposed).ConfigureAwait(true);
             foreach (var (box, _) in barcodeBoxes.Values)
                 box.IsEnabled = false;
             result.Text = done;
@@ -2264,17 +2737,29 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     {
         try
         {
-            var (summary, _) = await GetSummaryAsync().ConfigureAwait(true);
-            var (answer, error, webSources) = await TelegramAiChat.AskOwnerAppWithDetailsAsync(
-                utterance + "\n(Сказано голосом во время звонка. Ответь одной-двумя фразами и строками «ТОВАР:», если нужны изменения или открыть товар.)",
-                summary, CancellationToken.None).ConfigureAwait(true);
+            var (sections, _) = await GetSummaryAsync().ConfigureAwait(true);
+            var access = CurrentAccess();
+            // 2026-10-21 (О7): разбор фразы звонка — БЕЗ истории текстового чата (звонок 07.10 искал фото товаров из прошлых просьб).
+            var res = await TelegramAiChat.AskOwnerAppAsync(
+                utterance + "\n(Сказано голосом во время звонка. Ответь одной-двумя фразами и строками «ТОВАР:», если нужны изменения или открыть товар. "
+                + "Действия — только для товаров, названных в ЭТОЙ фразе.)",
+                sections, access, CancellationToken.None, useHistory: false).ConfigureAwait(true);
+            var (answer, error, webSources) = (res.Answer, res.Error, res.Sources);
             if (_live != live || answer is not { Length: > 0 })
             {
                 if (error != null)
                     PosLogger.Log($"ИИ-советник: в звонке товар не разобран ({error}).", "WARNING");
                 return;
             }
+            // 2026-10-19, ревью: в звонке фото нет — подсказку поставщика меняет только новая строка «ПОСТАВЩИК».
+            if (ProductActionPlan.SupplierHint(answer) is var liveHint && (liveHint.Name is not null || liveHint.Inn is not null))
+                _invoiceSupplierHint = liveHint;
             var (text, steps, _) = ProductActionPlan.Extract(answer, utterance);
+            // 2026-10-21 (О7): фото — только для товаров из этой фразы; без права «Склад» изменений нет (О4).
+            var named = ProductsByWords(utterance, 6).Select(p => p.Id).ToHashSet();
+            steps = steps.Where(st => st.Op != "photo" || named.Contains(st.Product.Id)).ToList();
+            if (!access.Products)
+                steps = steps.Where(st => st.Op is "open" or "open_section").ToList();
             var changes = steps.Where(st => st.Op is not ("open" or "open_section")).ToList();
             // Просили сведения (без изменений) — ответ текстом на экране, со ссылками.
             if (changes.Count == 0 && text.Length > 0 && ProductInfoResearch.LooksLikeInfoRequest(utterance))
@@ -2351,19 +2836,20 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             "◐ Tablo için veriler toplanıyor…", "◐ Jadval uchun ma'lumot yig'ilmoqda…"), fromOwner: false);
         try
         {
-            var (summary, names) = await GetSummaryAsync().ConfigureAwait(true);
-            var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(
+            var (sections, names) = await GetSummaryAsync().ConfigureAwait(true);
+            var res = await TelegramAiChat.AskOwnerAppAsync(
                 utterance + "\n(Вопрос задан голосом во время звонка. Ответь ТАБЛИЦЕЙ Markdown по данным магазина: перед таблицей одна короткая "
                 + "строка, в таблице — заголовок, строки и строка «Итого», где уместно. Без вступлений и советов. Данных нет — одной строкой честно.)",
-                summary, CancellationToken.None).ConfigureAwait(true);
+                sections, CurrentAccess(), CancellationToken.None, useHistory: false, forceFull: ForceSections(utterance)).ConfigureAwait(true);
+            var answer = res.Answer;
             if (answer is not { Length: > 0 })
             {
-                bubble.Text = T("Не получилось собрать данные: ", "Маалымат чогултулган жок: ", "Couldn't collect the data: ", "Veriler toplanamadı: ", "Ma'lumot yig'ilmadi: ")
-                              + (error ?? "нет ответа");
+                // 2026-10-21 (О8): понятный текст вместо «The operation was canceled.».
+                bubble.Text = FriendlyErrorText(res.Error);
                 return;
             }
             var (clean, _, _) = ProductActionPlan.Extract(answer, utterance);
-            var text = OwnerAiContext.RevealDebtors(TelegramAiChat.ToPlainText(clean), names);
+            var text = OwnerAiContext.RevealCodes(TelegramAiChat.ToPlainText(clean), names);
             bubble.Text = text;
             ScrollToEnd();
             PosLogger.Log($"ИИ-советник: таблица к вопросу в звонке ({text.Length} симв.).", "INFO");
@@ -2375,7 +2861,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         }
         catch (Exception ex)
         {
-            bubble.Text = T("Не получилось собрать данные: ", "Маалымат чогултулган жок: ", "Couldn't collect the data: ", "Veriler toplanamadı: ", "Ma'lumot yig'ilmadi: ") + ex.Message;
+            bubble.Text = FriendlyErrorText(ex is OperationCanceledException ? "timeout" : "internal");
+            PosLogger.Log($"ИИ-советник: таблица в звонке не собрана ({ex.GetType().Name}: {ex.Message}).", "WARNING");
         }
     }
 
@@ -2394,11 +2881,13 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     }
 
     /// <summary>2026-10-06: сводка магазина собралась после начала звонка — в память разговора, без ответа вслух.</summary>
-    private async Task SendSummaryWhenReadyAsync(Task<(string Summary, IReadOnlyDictionary<int, string> Names)> summaryTask, GeminiLiveVoice live)
+    private async Task SendSummaryWhenReadyAsync(Task<(IReadOnlyList<AiSection> Sections, IReadOnlyDictionary<int, string> Names)> summaryTask, GeminiLiveVoice live)
     {
         try
         {
-            var (summary, names) = await summaryTask.ConfigureAwait(true);
+            var (sections, names) = await summaryTask.ConfigureAwait(true);
+            // 2026-10-21 (О1): тот же построитель по важности, что у чата.
+            var summary = AiContextBudget.Compose(sections, 24000).Text;
             for (var i = 0; i < 60 && _live == live && !live.IsOpen; i++)
                 await Task.Delay(250).ConfigureAwait(true);
             if (_live != live || summary.Length == 0 || !live.IsOpen)
@@ -2563,7 +3052,9 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         // 2026-10-06, владелец (снимок звонка: «нет данных по сотрудникам», «не могу показать табель»): «исправь это, дай доступ».
         // Сотрудники, ставки, начисления и табель с начала месяца — параллельно со сводкой. Начало звонка не держим:
         // не успели — программа пришлёт их в звонок, как только будут готовы (SendStaffWhenReadyAsync).
-        var staffTask = LiveStaffContextAsync("");
+        var liveAccess = CurrentAccess();
+        // 2026-10-21 (О4): сотрудники в звонок — только с правом на зарплату.
+        var staffTask = liveAccess.Staff ? LiveStaffContextAsync("") : Task.FromResult("");
         string? staffNow = null;
         // 2026-10-06, владелец: «долгое подключение звонка» (лог 23:10: сервер не отвечал, «Подключаюсь…» ~40 с). Сводку ждём
         // не дольше 6 с; не успела — звонок начинается без неё, сводка уходит в разговор, как только соберётся.
@@ -2576,18 +3067,18 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 summaryLate = true;
                 throw new TimeoutException("сводка не готова за 6 с — дошлю в разговор");
             }
-            var (summary, debtorNames) = await summaryTask.ConfigureAwait(true);
+            var (sections, debtorNames) = await summaryTask.ConfigureAwait(true);
             names = debtorNames;
             await Task.WhenAny(staffTask, Task.Delay(1500)).ConfigureAwait(true);
             staffNow = staffTask.IsCompletedSuccessfully ? staffTask.Result : null;
-            instruction = TelegramAiChat.BuildOwnerVoiceInstruction(summary, CurrentLines().Select(l => (l.Owner, l.Text)), staffNow);
+            instruction = TelegramAiChat.BuildOwnerVoiceInstruction(sections, CurrentLines().Select(l => (l.Owner, l.Text)), staffNow, liveAccess);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"ИИ-советник: сводка для разговора не собрана ({ex.Message}).", "WARNING");
             names = new Dictionary<int, string>();
             staffNow = staffTask.IsCompletedSuccessfully ? staffTask.Result : null;
-            instruction = TelegramAiChat.BuildOwnerVoiceInstruction(null, CurrentLines().Select(l => (l.Owner, l.Text)), staffNow);
+            instruction = TelegramAiChat.BuildOwnerVoiceInstruction(Array.Empty<AiSection>(), CurrentLines().Select(l => (l.Owner, l.Text)), staffNow, liveAccess);
         }
         if (gen != _liveGen)
             return;
@@ -2706,6 +3197,12 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var spoken = _liveUserText.ToString().Trim();
         if (!interrupted && spoken.Length > 0 && _live is { } liveNow)
         {
+            // 2026-10-21 (О7): сменилась тема (фраза не про фото) — прежние «товарные цели» звонка забываются.
+            if (!new[] { "фото", "фотк", "сүрөт", "photo", "rasm", "surat", "картин", "fotoğraf" }.Any(spoken.ToLowerInvariant().Contains))
+            {
+                _liveLastPhotoTalkUtc = DateTime.MinValue;
+                _liveLastProducts = new();
+            }
             // 2026-10-06, владелец в звонке: «Да, поставь четвёртое фото по счёту» — теперь программа ставит его сама.
             if (PhotoChoiceNumber(spoken) is { } photoNumber)
                 _ = Dispatcher.UIThread.InvokeAsync(async () =>
@@ -2744,7 +3241,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 _ = LiveProductPassAsync(spoken, liveNow);
             // Сотрудники: за другой период (с начала месяца уже в звонке) или сведения ещё не дошли до звонка — программа
             // присылает данные, и советник сразу отвечает (владелец, 06.10: «почему долго??» — советник ждал, данные не приходили).
-            else if (TelegramAiChat.LooksLikeStaffQuestion(spoken) && (!_liveStaffDelivered || LiveStaffPeriodWords.Any(spoken.ToLowerInvariant().Contains)))
+            else if (TelegramAiChat.LooksLikeStaffQuestion(spoken) && CurrentAccess().Staff && (!_liveStaffDelivered || LiveStaffPeriodWords.Any(spoken.ToLowerInvariant().Contains)))
             {
                 _ = LiveStaffPassAsync(spoken, liveNow);
                 _ = LiveTablePassAsync(spoken, liveNow, speak: false);
@@ -2764,7 +3261,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             var text = _liveAiText.ToString().Trim();
             _liveAi.Text = text.Length == 0
                 ? (interrupted ? "…" : "")
-                : OwnerAiContext.RevealDebtors(TelegramAiChat.ToPlainText(text), _liveDebtors) + (interrupted ? " …" : "");
+                : OwnerAiContext.RevealCodes(TelegramAiChat.ToPlainText(text), _liveDebtors) + (interrupted ? " …" : "");
             // 2026-10-07, владелец: «перестань выдавать фото из базы NurCRM, ищи прямо в интернете» — фото склада к репликам
             // больше не подставляются (раньше «бананды» показывало товар «Нан»); просьба о фото — поиск в интернете (LivePhotoPass).
         }
@@ -2971,15 +3468,15 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             T("Поиск в интернете — бесплатный ключ Groq", "Интернеттен издөө — Groq акысыз ачкычы", "Web search — a free Groq key",
                 "İnternet araması — ücretsiz Groq anahtarı", "Internetda qidirish — bepul Groq kaliti"),
             T("Нажмите «Получить ключ» → войдите через Google → «Create API Key», скопируйте ключ (gsk_…) и вставьте ниже (карта не нужна, 1000 запросов в день). "
-              + "Для поиска в Groq уходит только вопрос. Если у Gemini кончился дневной лимит, Groq ответит сам — тогда туда уходит и сводка магазина.",
+              + "Для поиска в Groq уходит только вопрос. Если Gemini не ответил, Groq ответит сам — тогда туда уходят только обезличенные цифры магазина: без сотрудников, должников и чеков (на такие вопросы отвечает только Gemini).",
                 "«Ачкыч алуу» басыңыз → Google аркылуу кириңиз → «Create API Key», ачкычты (gsk_…) көчүрүп, төмөнгө чаптаңыз (карта керек эмес, күнүнө 1000 суроо). "
-                + "Издөө үчүн Groq'ко суроо гана кетет. Gemini'нин күндүк лимити бүтсө, Groq өзү жооп берет — анда дүкөндүн жыйынтыгы да кетет.",
+                + "Издөө үчүн Groq'ко суроо гана кетет. Gemini жооп бербесе, Groq өзү жооп берет — анда ага дүкөндүн жеке маалыматсыз сандары гана кетет: кызматкерлер, карыздарлар жана чектер жок.",
                 "Press “Get a key” → sign in with Google → “Create API Key”, copy the key (gsk_…) and paste it below (no card, 1000 requests a day). "
-                + "For search only the question goes to Groq. If Gemini's daily limit runs out, Groq answers itself — then the shop summary goes there too.",
+                + "For search only the question goes to Groq. If Gemini doesn't answer, Groq answers itself — then only depersonalised shop figures go there: no staff, debtors or receipts.",
                 "«Anahtar al»a basın → Google ile giriş yapın → «Create API Key», anahtarı (gsk_…) kopyalayıp aşağıya yapıştırın (kart gerekmez, günde 1000 istek). "
-                + "Arama için Groq'a yalnızca soru gider. Gemini'nin günlük limiti biterse Groq kendisi yanıtlar — o zaman mağaza özeti de gider.",
+                + "Arama için Groq'a yalnızca soru gider. Gemini yanıt vermezse Groq kendisi yanıtlar — o zaman yalnızca kişisel veri içermeyen mağaza rakamları gider: çalışan, borçlu ve fiş yok.",
                 "«Kalit olish» ni bosing → Google orqali kiring → «Create API Key», kalitni (gsk_…) nusxalab pastga joylang (karta kerak emas, kuniga 1000 so'rov). "
-                + "Qidiruv uchun Groq'ga faqat savol ketadi. Gemini kunlik limiti tugasa, Groq o'zi javob beradi — unda do'kon xulosasi ham ketadi."),
+                + "Qidiruv uchun Groq'ga faqat savol ketadi. Gemini javob bermasa, Groq o'zi javob beradi — unda faqat shaxsiy ma'lumotsiz do'kon raqamlari ketadi: xodimlar, qarzdorlar va cheklarsiz."),
             "gsk_…", AiProviders.HasGroq, "https://console.groq.com/keys", AiProviders.TestGroqAsync,
             key => UserPreferences.Instance.GroqApiKey = key,
             onSaved: () =>
@@ -2998,22 +3495,23 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 "Backup models — a free OpenRouter key (optional)", "Yedek modeller — ücretsiz OpenRouter anahtarı (isteğe bağlı)",
                 "Zaxira modellar — bepul OpenRouter kaliti (ixtiyoriy)"),
             T("Если у Gemini кончился дневной лимит, ответит бесплатная модель OpenRouter (50 запросов в день). Нажмите «Получить ключ» → войдите через Google → "
-              + "«Create API Key», скопируйте ключ (sk-or-…) и вставьте ниже. Вопрос и сводка магазина при этом уходят в OpenRouter.",
+              + "«Create API Key», скопируйте ключ (sk-or-…) и вставьте ниже. При этом в OpenRouter уходят вопрос и только обезличенные цифры (без сотрудников, должников и чеков); бесплатные модели OpenRouter — разных компаний, условия хранения данных у них разные.",
                 "Gemini'нин күндүк лимити бүтсө, OpenRouter'дин акысыз модели жооп берет (күнүнө 50 суроо). «Ачкыч алуу» басыңыз → Google аркылуу кириңиз → "
-                + "«Create API Key», ачкычты (sk-or-…) көчүрүп, төмөнгө чаптаңыз. Анда суроо жана дүкөндүн жыйынтыгы OpenRouter'ге кетет.",
+                + "«Create API Key», ачкычты (sk-or-…) көчүрүп, төмөнгө чаптаңыз. Анда OpenRouter'ге суроо жана жеке маалыматсыз сандар гана кетет (кызматкерлер, карыздарлар, чектер жок); акысыз моделдер ар кайсы компанияныкы.",
                 "If Gemini's daily limit runs out, a free OpenRouter model answers (50 requests a day). Press “Get a key” → sign in with Google → "
-                + "“Create API Key”, copy the key (sk-or-…) and paste it below. The question and the shop summary then go to OpenRouter.",
+                + "“Create API Key”, copy the key (sk-or-…) and paste it below. Then only the question and depersonalised figures go to OpenRouter (no staff, debtors or receipts); its free models belong to different companies with different data policies.",
                 "Gemini'nin günlük limiti biterse ücretsiz bir OpenRouter modeli yanıtlar (günde 50 istek). «Anahtar al»a basın → Google ile giriş yapın → "
-                + "«Create API Key», anahtarı (sk-or-…) kopyalayıp aşağıya yapıştırın. Soru ve mağaza özeti o zaman OpenRouter'a gider.",
+                + "«Create API Key», anahtarı (sk-or-…) kopyalayıp aşağıya yapıştırın. O zaman OpenRouter'a yalnızca soru ve kişisel veri içermeyen rakamlar gider (çalışan, borçlu, fiş yok); ücretsiz modeller farklı şirketlerindir.",
                 "Gemini kunlik limiti tugasa, OpenRouter bepul modeli javob beradi (kuniga 50 so'rov). «Kalit olish» ni bosing → Google orqali kiring → "
-                + "«Create API Key», kalitni (sk-or-…) nusxalab pastga joylang. Savol va do'kon xulosasi shunda OpenRouter'ga ketadi."),
+                + "«Create API Key», kalitni (sk-or-…) nusxalab pastga joylang. Shunda OpenRouter'ga faqat savol va shaxsiy ma'lumotsiz raqamlar ketadi (xodimlar, qarzdorlar, cheklarsiz); bepul modellar turli kompaniyalarniki."),
             "sk-or-…", AiProviders.HasOpenRouter, "https://openrouter.ai/keys", AiProviders.TestOpenRouterAsync,
             key => UserPreferences.Instance.OpenRouterApiKey = key, onSaved: null);
         stack.Children.Add(_routerSection);
         _modelsCard.Child = stack;
         // Ключа Groq нет — блок Groq виден сразу (как блок ключа Gemini), OpenRouter — по ⚙.
         _routerSection.IsVisible = false;
-        _modelsCard.IsVisible = !AiProviders.HasGroq;
+        // 2026-10-21 («дизайн 10», О10): блок необязательных ключей — только по ⚙ (раньше без ключа Groq он всегда стоял над лентой).
+        _modelsCard.IsVisible = false;
     }
 
     /// <summary>Блок одного ключа в стиле ключа Gemini: заголовок, шаги, [поле][Получить ключ][Сохранить], строка состояния.</summary>
@@ -3323,7 +3821,9 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             return false;
         var source = spoken;
         var products = ProductsByWords(source, 3);
-        if (products.Count == 0 && recentPhotoTalk)
+        // 2026-10-21 (О7): прежний товар — только если владелец явно говорит о нём же («этого», «его», «ушул»), а не всегда, когда
+        // в фразе нет названия (07.10 звонок искал фото «Патронов для степлера» вместо «Легенды клубничной»).
+        if (products.Count == 0 && recentPhotoTalk && System.Text.RegularExpressions.Regex.IsMatch(t, @"(?<!\p{L})(его|этого|этот|этому|ему|ушул|анын|it|this)(?!\p{L})"))
             products = _liveLastProducts;
         if (products.Count == 0)
         {
@@ -3341,9 +3841,13 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var names = string.Join(", ", products.Select(p => p.Title));
         _ = ShowPhotoChoicesAsync(products);
         PosLogger.Log($"ИИ-советник: в звонке поиск фото в интернете — {names}.", "INFO");
+        // 2026-10-21 (О7): советник переспрашивает «ищу фото «X» — верно?» — не тот товар владелец поправит сразу.
+        AddBubble(T($"Ищу фото: «{names}». Не тот товар — скажите название ещё раз.", $"Сүрөт издеп жатам: «{names}». Башка товар болсо — атын кайра айтыңыз.",
+            $"Searching photos for “{names}”. Wrong product? Say the name again.", $"«{names}» için fotoğraf arıyorum. Yanlış ürünse adını tekrar söyleyin.",
+            $"«{names}» uchun rasm qidiryapman. Boshqa mahsulot bo'lsa — nomini yana ayting."), fromOwner: false);
         _ = live.SendTextAsync($"[Программа] Ищу фото в интернете для: {names}. На экране крутится индикатор поиска, через несколько секунд появятся "
                                + "варианты с номерами; владелец выберет словами «поставь фото номер N». Фото из склада программы не показывай и не обещай. "
-                       + "Скажи одной фразой, что ищешь.");
+                       + $"Скажи одной фразой ровно так: «Ищу фото «{names}» — верно?». Прежние товары из разговора не ищи.");
         return true;
     }
 
@@ -3793,4 +4297,26 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
         target.Bind(property, this.GetResourceObservable(key));
+
+    /// <summary>2026-10-21: пункт меню ⚙, который экранный диктор и UIA-автоматизация могут «нажать» (Invoke) — у MenuItem в
+    /// Avalonia 11.2 этого нет (пакет 7, хвост Советника). Вид — обычного MenuItem.</summary>
+    private sealed class InvokableMenuItem : MenuItem
+    {
+        protected override Type StyleKeyOverride => typeof(MenuItem);
+
+        protected override Avalonia.Automation.Peers.AutomationPeer OnCreateAutomationPeer() => new Peer(this);
+
+        private sealed class Peer : Avalonia.Automation.Peers.MenuItemAutomationPeer, Avalonia.Automation.Provider.IInvokeProvider
+        {
+            private readonly MenuItem _item;
+
+            public Peer(MenuItem owner) : base(owner) => _item = owner;
+
+            public void Invoke()
+            {
+                if (_item.IsEffectivelyEnabled)
+                    _item.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            }
+        }
+    }
 }

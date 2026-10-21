@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Прибыль и деньги</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="reports" active="Прибыль и деньги" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Прибыль и деньги</span><span style="font-size: 13px; color: #667085">Прибыль по проданному и куда ушли деньги</span></span>
+      <!-- 2026-10-16: общий переключатель периода; раздел по умолчанию — «Месяц» -->
+      <span style="font-size: 13px; color: #667085; white-space: nowrap">01.10–12.10.2026</span>
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Сегодня</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Вчера</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Неделя</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Месяц</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Даты…</button>
+      </div>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+      <div style="min-height: 0; display: flex; flex-direction: column; gap: 16px">
+      <section style="background: #FFFFFF; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 16px; font-weight: 800; padding-bottom: 4px">Прибыль (P&amp;L)</span>
+        <sc-for list="{{pnl}}" as="p" hint-placeholder-count="8">
+          <span style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px; padding: 6px 0; border-bottom: 1px solid #F2F4F7"><span style="color: {{p.color}}; font-weight: {{p.weight}}">{{p.name}}</span><span style="font-weight: 700; white-space: nowrap">{{p.value}}</span></span>
+        </sc-for>
+        <!-- 2026-10-16: целые сомы и расшифровка расходов (данные NBS за 01–12.10) -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding: 12px 16px; border-radius: 12px; background: #FDE8E8"><span style="font-size: 15px; font-weight: 800">Операционная прибыль</span><span style="font-size: 22px; font-weight: 800; color: #B42318; white-space: nowrap">−9 220&nbsp;сом</span></div>
+        <span style="font-size: 12px; color: #475467; line-height: 18px">Минус — из-за аренды: 15 000 сом оплачены 01.10 сразу за весь октябрь. Без неё за 12 дней было бы +5 780 сом.</span>
+        <span style="font-size: 12px; color: #667085; line-height: 18px">Закупка товара прибыль не уменьшает, пока товар не продан: в прибыль идёт себестоимость проданных строк.</span>
+      </section>
+      <section style="flex-grow: 1; min-height: 0; background: #FFFFFF; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px">
+        <span style="display: flex; justify-content: space-between; align-items: center; gap: 10px"><span style="font-size: 16px; font-weight: 800">Сверка отчётов</span><span style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #FEF3E2; font-size: 12px; font-weight: 800; color: #B54708; white-space: nowrap">⚠ Есть расхождения · 1</span></span>
+        <sc-for list="{{checks}}" as="c" hint-placeholder-count="4">
+          <span style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 8px 12px; border-radius: 10px; background: #F9FAFB"><span>{{c.name}}</span><span style="font-weight: 700; color: {{c.color}}; white-space: nowrap">{{c.state}}</span></span>
+        </sc-for>
+        <span style="font-size: 12px; color: #667085; line-height: 17px">Сверку считает сервер NurCRM по своим данным. Сверка с выпиской банка — позже: нужен API банков.</span>
+        <a href="#" style="margin-top: auto; font-size: 13px; font-weight: 700">Показать чеки с расхождением ›</a>
+      </section>
+      </div>
+      <!-- 2026-10-16: «Движение денег» — как вкладка в программе (ProfitCashReconcileWindow) -->
+      <section style="background: #FFFFFF; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+        <span style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 4px"><span style="font-size: 16px; font-weight: 800">Движение денег</span><span style="font-size: 12px; color: #667085">деньги, а не прибыль</span></span>
+        <span style="font-size: 12px; font-weight: 700; color: #475467; letter-spacing: .03em; padding-top: 4px">ПРИХОД</span>
+        <sc-for list="{{inflow}}" as="f" hint-placeholder-count="4">
+          <span style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px; padding: 6px 0; border-bottom: 1px solid #F2F4F7"><span style="color: {{f.color}}; font-weight: {{f.weight}}">{{f.name}}</span><span style="font-weight: 700; white-space: nowrap">{{f.value}}</span></span>
+        </sc-for>
+        <span style="font-size: 12px; font-weight: 700; color: #475467; letter-spacing: .03em; padding-top: 10px">РАСХОД</span>
+        <sc-for list="{{outflow}}" as="f" hint-placeholder-count="6">
+          <span style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px; padding: 6px 0; border-bottom: 1px solid #F2F4F7"><span style="color: {{f.color}}; font-weight: {{f.weight}}">{{f.name}}</span><span style="font-weight: 700; white-space: nowrap">{{f.value}}</span></span>
+        </sc-for>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 12px 16px; border-radius: 12px; background: #E7F6EC"><span style="font-size: 15px; font-weight: 800">Чистое движение денег</span><span style="font-size: 22px; font-weight: 800; color: #0E7A3A; white-space: nowrap">+2 161&nbsp;сом</span></div>
+        <span style="font-size: 12px; color: #667085; line-height: 18px">Оплаты долгов — приход денег, но не выручка. Одна продажа — один доход: смешанная оплата делится по способам.</span>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: месяц 01–12.10 (SPEC): 81 240 − 64 020 = 17 220; расходы 15 000 + 9 600 + 1 200 + 640 = 26 440 → −9 220.
+    const S = ' сом';
+    const row = (name, value, strong) => ({ name, value: value + S, color: strong ? '#111827' : '#475467', weight: strong ? '800' : '500' });
+    const pnl = [
+      row('Выручка', '81 240'), row('− Себестоимость проданного', '64 020'),
+      row('Валовая прибыль · 21,2 %', '17 220', true),
+      row('− Аренда (за весь октябрь, 01.10)', '15 000'), row('− Зарплата (аванс)', '9 600'),
+      row('− Интернет и связь', '1 200'), row('− Прочее', '640'),
+      row('Операционные расходы', '26 440', true)
+    ];
+    // Движение денег за тот же период: приход 87 540, расход 85 379 → +2 161.
+    const inflow = [
+      row('Продажи наличными', '42 810'), row('Продажи безналом (карта, QR)', '38 430'),
+      row('Погашение долгов', '6 300'), row('Итого приход', '87 540', true)
+    ];
+    const outflow = [
+      row('Поставщикам', '58 900'), row('Аренда', '15 000'), row('Зарплата (аванс)', '9 600'),
+      row('Прочие расходы (связь, прочее)', '1 840'), row('Возвраты покупателям', '39'),
+      row('Итого расход', '85 379', true)
+    ];
+    const checks = [
+      { name: 'Выручка: продажи = финансы', state: '✓ сходится', color: '#0E7A3A' },
+      { name: 'Наличные: продажи = касса', state: '⚠ разница 40 сом · чек №1688', color: '#B54708' },
+      { name: 'Безнал: продажи = оплаты в NurCRM', state: '✓ сходится', color: '#0E7A3A' },
+      { name: 'Возвраты учтены', state: '✓ сходится', color: '#0E7A3A' }
+    ];
+    return { pnl, inflow, outflow, checks };
+  }
+}
+</script>
+</body>
+</html>

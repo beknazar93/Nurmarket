@@ -1,8 +1,9 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.NoStockDialog"
         Title="{DynamicResource noStock.title}"
-        Width="440" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -10,99 +11,49 @@
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
 
-    <Window.Styles>
-        <Style Selector="Button.btn-ok">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.btn-ok:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-        </Style>
-        <Style Selector="Button.btn-override">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.btn-alt">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-    </Window.Styles>
+    <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 480 — заголовок (текст — в коде)
+         и ✕ сверху, кнопки снизу справа. BtnCancel по-прежнему и Esc, и Enter: одна — главная «ОК»; если
+         можно продать сверх остатка — «Отмена» с обводкой, а главная — «Подтвердить и добавить». -->
+    <dlg:ModalShell x:Name="Shell" Margin="16" Title="{DynamicResource noStock.header}">
+        <dlg:ModalShell.Footer>
+            <StackPanel x:Name="ButtonsRow" Orientation="Horizontal" Spacing="10">
+                <Button x:Name="BtnCancel"
+                        Content="{DynamicResource common.ok}"
+                        Classes.modal-cancel="{Binding #BtnOverride.IsVisible}"
+                        Classes.modal-primary="{Binding !#BtnOverride.IsVisible}"
+                        MaxWidth="200"
+                        IsCancel="True"
+                        IsDefault="True"
+                        Click="BtnCancel_Click"/>
+                <Button x:Name="BtnOverride"
+                        Content="{DynamicResource noStock.confirmAndAdd}"
+                        Classes="modal-primary" MaxWidth="220"
+                        IsVisible="False"
+                        Click="BtnOverride_Click"/>
+            </StackPanel>
+        </dlg:ModalShell.Footer>
 
-    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-            Background="{DynamicResource BrushDialogPanel}"
-            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-            BoxShadow="0 12 32 0 #33101828"
-            Padding="28,24">
-        <StackPanel HorizontalAlignment="Center">
-            <TextBlock x:Name="TitleText"
-                       Text="{DynamicResource noStock.header}"
-                       FontWeight="Bold" FontSize="20"
-                       HorizontalAlignment="Center" Margin="0,0,0,10"/>
-
+        <StackPanel Spacing="10">
             <TextBlock x:Name="ProductNameText"
-                       TextWrapping="Wrap" TextAlignment="Center"
-                       FontSize="14" FontWeight="SemiBold"
-                       HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                       TextWrapping="Wrap"
+                       FontSize="15" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushText}"/>
 
             <TextBlock x:Name="MessageText"
-                       TextWrapping="Wrap" TextAlignment="Center"
-                       FontSize="14" Foreground="{DynamicResource BrushTextSoft}"
-                       HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                       TextWrapping="Wrap"
+                       FontSize="14" Foreground="{DynamicResource BrushTextSoft}"/>
 
             <TextBlock x:Name="AvailableText"
-                       TextAlignment="Center" FontSize="14"
-                       FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"
-                       HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                       FontSize="14" TextWrapping="Wrap"
+                       FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"/>
 
-            <StackPanel Spacing="10">
-                <StackPanel x:Name="ButtonsRow" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
-                    <Button x:Name="BtnCancel"
-                            Content="{DynamicResource common.ok}"
-                            Classes="btn-ok"
-                            Width="140"
-                            Height="40"
-                            IsCancel="True"
-                            IsDefault="True"
-                            Click="BtnCancel_Click"/>
-                    <!-- 2026-10-04, стресс-тест на Android: «Подтвердить и добави» — шрифт телефона шире Segoe UI.
-                         Не уже прежних 180, но по тексту. -->
-                    <Button x:Name="BtnOverride"
-                            Content="{DynamicResource noStock.confirmAndAdd}"
-                            Classes="btn-override"
-                            MinWidth="180"
-                            Padding="12,0"
-                            Height="40"
-                            IsVisible="False"
-                            Click="BtnOverride_Click"/>
-                </StackPanel>
-                <Button x:Name="BtnAlternatives"
-                        Content="{DynamicResource noStock.showAlternatives}"
-                        Classes="btn-alt"
-                        HorizontalAlignment="Stretch"
-                        Height="38"
-                        IsVisible="False"
-                        Click="BtnAlternatives_Click"/>
-            </StackPanel>
+            <Button x:Name="BtnAlternatives"
+                    Content="{DynamicResource noStock.showAlternatives}"
+                    Classes="modal-secondary"
+                    HorizontalAlignment="Stretch"
+                    Margin="0,4,0,0"
+                    IsVisible="False"
+                    Click="BtnAlternatives_Click"/>
         </StackPanel>
-    </Border>
+    </dlg:ModalShell>
 </Window>

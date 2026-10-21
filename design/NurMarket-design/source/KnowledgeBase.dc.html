@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>База знаний</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="help" active="База знаний" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <!-- 2026-10-16: урок = статья + видео; статьи из кассы (Assets/kb, 5 языков) не теряем (ревью B) -->
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">База знаний</span><span style="font-size: 13px; color: #667085">22 урока: статья на 5 языках + видео на русском с кыргызскими субтитрами · в поиске ещё 126 статей</span></span>
+      <label style="width: 340px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; height: 44px; box-sizing: border-box; padding: 0 14px; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input type="text" placeholder="Как сделать возврат…" aria-label="Поиск по урокам и статьям" style="border: 0; outline: 0; flex-grow: 1; min-width: 0; font-family: inherit; font-size: 14px"></label>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap">
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap">Все · 22</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">Касса · 6</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">Склад и цены · 6</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">Клиенты и бот · 4</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">Владельцу · 3</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">Виды магазинов · 3</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; overflow: hidden">
+      <sc-for list="{{lessons}}" as="l" hint-placeholder-count="16">
+        <a href="#" style="text-decoration: none; color: inherit; background: #FFFFFF; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column">
+          <span style="height: 64px; background: {{l.cover}}; display: flex; align-items: center; justify-content: center; position: relative"><span style="width: 32px; height: 32px; border-radius: 16px; background: #FFD600; display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l13-8z" fill="#0B2A3C"></path></svg></span><span style="position: absolute; left: 10px; top: 8px; font-size: 11px; font-weight: 800; color: #FFD600">{{l.no}}</span><span style="position: absolute; left: 10px; bottom: 7px; font-size: 11px; font-weight: 600; color: #FFFFFF; opacity: 0.85">{{l.cat}}</span><span style="position: absolute; right: 8px; bottom: 7px; padding: 1px 6px; border-radius: 5px; background: rgba(0,0,0,0.55); font-size: 11px; font-weight: 700; color: #FFFFFF">{{l.dur}}</span></span>
+          <span style="padding: 9px 12px 4px; font-size: 13px; font-weight: 700; line-height: 18px">{{l.title}}</span>
+          <span style="margin-top: auto; padding: 0 12px 10px; display: flex; gap: 6px; font-size: 11px; font-weight: 700; color: #475467"><span style="padding: 2px 7px; border-radius: 6px; background: #F2F4F7; white-space: nowrap">▤ Статья · 5 языков</span><span style="padding: 2px 7px; border-radius: 6px; background: #F2F4F7; white-space: nowrap">▶ Видео · ky</span></span>
+        </a>
+      </sc-for>
+    </div>
+    <button type="button" style="align-self: center; height: 40px; padding: 0 18px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054; white-space: nowrap">Показано 16 из 22 · ещё 6 уроков ↓</button>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: 22 урока по разделам (6 + 6 + 4 + 3 + 3); обложка — цвет раздела и длительность видео.
+    const cats = { k: ['Касса', '#0B2A3C'], s: ['Склад и цены', '#14532D'], c: ['Клиенты и бот', '#4A1D7A'], o: ['Владельцу', '#7A2E0E'], v: ['Виды магазинов', '#1E3A5F'] };
+    const all = [
+      ['k', 'Как продать товар', '3:40'], ['k', 'Как оформить возврат', '2:55'], ['k', 'Как открыть и закрыть смену', '4:10'],
+      ['k', 'Продажа в долг и оплата долга', '5:20'], ['k', 'Внесение и изъятие денег', '2:30'], ['k', 'Безналичная оплата и QR банков', '3:15'],
+      ['s', 'Склад и приёмка товара', '6:05'], ['s', 'Весы с этикетками', '4:45'], ['s', 'Этикетки и ценники', '3:30'],
+      ['s', 'Ревизия, списание и перемещение', '5:50'], ['s', 'Калькуляция цены и наценки', '4:20'], ['s', 'Пополнение и сроки годности', '3:05'],
+      ['c', 'Клиенты и бонусы', '4:00'], ['c', 'Телеграм-бот: заказы и сводки', '3:25'], ['c', 'WhatsApp: напоминания о долге', '2:40'], ['c', 'Заказы с сайта', '3:55'],
+      ['o', 'Сводка и Нур Советник', '4:30'], ['o', 'Прибыль, финансы и ABC-анализ', '6:20'], ['o', 'Зарплата и роли сотрудников', '5:10'],
+      ['v', 'Одежда: размеры и цвета', '4:15'], ['v', 'Прокат: выдача и залог', '3:45'], ['v', 'Продукты: весовой и штучный товар', '3:20']
+    ];
+    // На экране первые 16, остальные 6 — по кнопке «ещё 6 уроков».
+    return { lessons: all.slice(0, 16).map(([c, title, dur], i) => ({ title, dur, cat: cats[c][0], cover: cats[c][1], no: 'УРОК ' + String(i + 1).padStart(2, '0') })) };
+  }
+}
+</script>
+</body>
+</html>

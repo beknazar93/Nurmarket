@@ -38,14 +38,16 @@
     <Style Selector="Button.SettingsTab:pointerover /template/ Border#seg">
       <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
     </Style>
+    <!-- 2026-10-19, этап О7: выбранная вкладка — тёмно-синяя (цвет текста темы, надпись цветом панели), как sec-seg и
+         modal-seg; была жёлтая плитка (жёлтый — только главная кнопка). Рамка фокуса — BrushFocusRing. -->
     <Style Selector="Button.SettingsTab:focus-visible /template/ Border#seg">
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
     </Style>
     <Style Selector="Button.SettingsTab.nav-active /template/ Border#seg">
-      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushText}"/>
     </Style>
     <Style Selector="Button.SettingsTab.nav-active">
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <!-- Подпись в одну строку: сколько вкладок встанет в ряд, считает UpdateNavColumns по самой
@@ -61,6 +63,21 @@
       <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
       <Setter Property="FontSize" Value="16"/>
       <Setter Property="Margin" Value="0,0,0,4"/>
+    </Style>
+
+    <!-- 2026-10-20, аудит программы владельца: «Сохранить» (btn-primary) в программе владельца — жёлтая главная кнопка,
+         как PrimaryButton/sec-primary в остальных разделах (была синяя). Касса — без изменений (класс owner-mode только у владельца). -->
+    <Style Selector=".owner-mode Button.btn-primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+    <Style Selector=".owner-mode Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+    <Style Selector=".owner-mode Button.btn-primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentPressed}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
     </Style>
 
     <Style Selector="Button.SidebarCloseButton">
@@ -106,29 +123,37 @@
          с краем карточек). Не помещаются в один ряд (кыргызский, окно 800×600) — второй ряд
          поровну, см. UpdateNavColumns. -->
     <Grid RowDefinitions="Auto,*">
-      <Grid x:Name="NavBar" Grid.Row="0" ColumnDefinitions="*,Auto"
+      <Grid x:Name="NavBar" Grid.Row="0" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto"
             MaxWidth="{DynamicResource SettingsPageMaxWidth}" Margin="24,14,28,0">
-        <Border Classes="SettingsCard" Padding="4">
+        <!-- 2026-10-20, аудит программы владельца (п. 11): у программы владельца своя папка настроек — железо кассы
+             (весы, принтер, экран покупателя) здесь не меняется; вкладки скрыты, подпись — в коде (5 языков). -->
+        <TextBlock x:Name="OwnerHardwareHint" Grid.Row="0" Grid.ColumnSpan="2" IsVisible="False"
+                   FontSize="12" TextWrapping="Wrap" Margin="4,0,4,8" Foreground="{DynamicResource BrushTextSoft}"/>
+        <Border Grid.Row="1" Classes="SettingsCard" Padding="4">
           <UniformGrid x:Name="NavTabsGrid" Rows="1">
-            <Button x:Name="NavScales" Classes="SettingsTab nav-active" Tag="0" Click="SidebarNav_Click">
+            <Button x:Name="NavScales" Classes="SettingsTab nav-active" Tag="0" Click="SidebarNav_Click"
+                    AutomationProperties.Name="{DynamicResource posSettings.navScales}">
               <StackPanel>
                 <TextBlock Classes="mdl2" Text="&#xE9D9;"/>
                 <TextBlock Text="{DynamicResource posSettings.navScales}"/>
               </StackPanel>
             </Button>
-            <Button x:Name="NavPrint" Classes="SettingsTab" Tag="1" Click="SidebarNav_Click">
+            <Button x:Name="NavPrint" Classes="SettingsTab" Tag="1" Click="SidebarNav_Click"
+                    AutomationProperties.Name="{DynamicResource common.print}">
               <StackPanel>
                 <TextBlock Classes="mdl2" Text="&#xE749;"/>
                 <TextBlock Text="{DynamicResource common.print}"/>
               </StackPanel>
             </Button>
-            <Button x:Name="NavScreen" Classes="SettingsTab" Tag="2" Click="SidebarNav_Click">
+            <Button x:Name="NavScreen" Classes="SettingsTab" Tag="2" Click="SidebarNav_Click"
+                    AutomationProperties.Name="{DynamicResource posSettings.navScreen}">
               <StackPanel>
                 <TextBlock Classes="mdl2" Text="&#xE7F4;"/>
                 <TextBlock Text="{DynamicResource posSettings.navScreen}"/>
               </StackPanel>
             </Button>
-            <Button x:Name="NavMonitor" Classes="SettingsTab" Tag="3" Click="SidebarNav_Click">
+            <Button x:Name="NavMonitor" Classes="SettingsTab" Tag="3" Click="SidebarNav_Click"
+                    AutomationProperties.Name="{DynamicResource posSettings.navMonitor}">
               <StackPanel>
                 <Path Width="16" Height="16" Stretch="Uniform" Fill="Transparent" HorizontalAlignment="Center" Margin="0,0,0,4"
                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
@@ -137,37 +162,43 @@
                 <TextBlock Text="{DynamicResource posSettings.navMonitor}"/>
               </StackPanel>
             </Button>
-            <Button x:Name="NavUpdates" Classes="SettingsTab" Tag="4" Click="SidebarNav_Click">
+            <Button x:Name="NavUpdates" Classes="SettingsTab" Tag="4" Click="SidebarNav_Click"
+                    AutomationProperties.Name="{DynamicResource posSettings.navUpdates}">
               <StackPanel>
                 <TextBlock Classes="mdl2" Text="&#xE895;"/>
                 <TextBlock Text="{DynamicResource posSettings.navUpdates}"/>
               </StackPanel>
             </Button>
-            <Button x:Name="NavOperations" Classes="SettingsTab" Tag="5" Click="SidebarNav_Click">
+            <Button x:Name="NavOperations" Classes="SettingsTab" Tag="5" Click="SidebarNav_Click"
+                    AutomationProperties.Name="{DynamicResource posSettings.navOperations}">
               <StackPanel>
                 <TextBlock Classes="mdl2" Text="&#xE825;"/>
                 <TextBlock Text="{DynamicResource posSettings.navOperations}"/>
               </StackPanel>
             </Button>
-            <Button x:Name="NavCustomization" Classes="SettingsTab" Tag="6" Click="SidebarNav_Click">
+            <Button x:Name="NavCustomization" Classes="SettingsTab" Tag="6" Click="SidebarNav_Click"
+                    AutomationProperties.Name="{DynamicResource posSettings.navCustomization}">
               <StackPanel>
                 <TextBlock Classes="mdl2" Text="&#xE790;"/>
                 <TextBlock Text="{DynamicResource posSettings.navCustomization}"/>
               </StackPanel>
             </Button>
-            <Button x:Name="NavAccount" Classes="SettingsTab" Tag="7" Click="SidebarNav_Click">
+            <Button x:Name="NavAccount" Classes="SettingsTab" Tag="7" Click="SidebarNav_Click"
+                    AutomationProperties.Name="{DynamicResource posSettings.navAccount}">
               <StackPanel>
                 <TextBlock Classes="mdl2" Text="&#xE77B;"/>
                 <TextBlock Text="{DynamicResource posSettings.navAccount}"/>
               </StackPanel>
             </Button>
-            <Button x:Name="NavEmployees" Classes="SettingsTab" Tag="8" Click="SidebarNav_Click">
+            <Button x:Name="NavEmployees" Classes="SettingsTab" Tag="8" Click="SidebarNav_Click"
+                    AutomationProperties.Name="{DynamicResource posSettings.navEmployees}">
               <StackPanel>
                 <TextBlock Classes="mdl2" Text="&#xE716;"/>
                 <TextBlock Text="{DynamicResource posSettings.navEmployees}"/>
               </StackPanel>
             </Button>
-            <Button x:Name="NavKeys" Classes="SettingsTab" Tag="9" Click="SidebarNav_Click">
+            <Button x:Name="NavKeys" Classes="SettingsTab" Tag="9" Click="SidebarNav_Click"
+                    AutomationProperties.Name="{DynamicResource posSettings.navKeys}">
               <StackPanel>
                 <TextBlock Classes="mdl2" Text="&#xE765;"/>
                 <TextBlock Text="{DynamicResource posSettings.navKeys}"/>
@@ -176,7 +207,7 @@
           </UniformGrid>
         </Border>
 
-        <Button IsCancel="True" Grid.Column="1" x:Name="SidebarCloseButton"
+        <Button IsCancel="True" Grid.Row="1" Grid.Column="1" x:Name="SidebarCloseButton"
                 Classes="SidebarCloseButton"
                 Click="SidebarClose_Click">
           <StackPanel>

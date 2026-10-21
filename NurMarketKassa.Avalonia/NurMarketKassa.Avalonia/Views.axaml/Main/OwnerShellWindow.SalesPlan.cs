@@ -98,19 +98,30 @@ public partial class OwnerShellWindow
         var daysInMonth = DateTime.DaysInMonth(monthStart.Year, monthStart.Month);
         var dayNo = DateTime.Today.Day;
         var daysLeft = daysInMonth - dayNo + 1;
-        var percent = Math.Min(100, sold / target * 100);
+        // 2026-10-19, этап О10 (аудит: «План 100 %» при реальных 392 %): число — настоящий процент выполнения,
+        // полоса заполняется не больше чем до конца (Maximum = 100).
+        var percent = sold / target * 100;
         var expected = sold / dayNo * daysInMonth;
         var onTrack = expected >= target;
         var perDay = Math.Max(0, (target - sold) / Math.Max(1, daysLeft));
 
-        SalesPlanHost.Children.Add(Line(T5($"Продано {Money(sold)} из {Money(target)} ({percent:0} %)",
-            $"Сатылды {Money(sold)} / {Money(target)} ({percent:0} %)", $"Sold {Money(sold)} of {Money(target)} ({percent:0} %)",
-            $"Satılan {Money(sold)} / {Money(target)} (%{percent:0})", $"Sotildi {Money(sold)} / {Money(target)} ({percent:0} %)"), bold: true));
-        var bar = new ProgressBar { Minimum = 0, Maximum = 100, Value = percent, Height = 8, CornerRadius = new CornerRadius(4) };
+        // 2026-10-19, этап О10: «392 %» не разрывается переносом (неразрывный пробел перед %).
+        SalesPlanHost.Children.Add(Line(T5($"Продано {Money(sold)} из {Money(target)} ({percent:0}\u00A0%)",
+            $"Сатылды {Money(sold)} / {Money(target)} ({percent:0}\u00A0%)", $"Sold {Money(sold)} of {Money(target)} ({percent:0}\u00A0%)",
+            $"Satılan {Money(sold)} / {Money(target)} (%{percent:0})", $"Sotildi {Money(sold)} / {Money(target)} ({percent:0}\u00A0%)"), bold: true));
+        var bar = new ProgressBar { Minimum = 0, Maximum = 100, Value = Math.Min(100, percent), Height = 8, CornerRadius = new CornerRadius(4) };
+        // 2026-10-18, этап О1 (у цвета одна роль): полоса — цветом текста темы, а не синим акцентом Fluent; «успеваем/отстаём» —
+        // обычным текстом (красный/зелёный в сводке — только стрелки изменений и просрочка).
+        bar.Bind(ProgressBar.ForegroundProperty, this.GetResourceObservable("BrushText"));
         SalesPlanHost.Children.Add(bar);
         if (sold >= target)
         {
-            SalesPlanHost.Children.Add(Line(T5("✓ План выполнен", "✓ План аткарылды", "✓ Plan reached", "✓ Plan tamamlandı", "✓ Reja bajarildi"), good: true));
+            // 2026-10-19, этап О10: при перевыполнении — сколько продано сверх плана.
+            var over = sold - target;
+            SalesPlanHost.Children.Add(Line(over >= 1
+                ? T5($"✓ План выполнен: сверх плана {Money(over)}", $"✓ План аткарылды: пландан ашыкча {Money(over)}", $"✓ Plan reached: {Money(over)} above the plan",
+                    $"✓ Plan tamamlandı: planın {Money(over)} üstünde", $"✓ Reja bajarildi: rejadan {Money(over)} ortiq")
+                : T5("✓ План выполнен", "✓ План аткарылды", "✓ Plan reached", "✓ Plan tamamlandı", "✓ Reja bajarildi")));
         }
         else
         {
@@ -122,7 +133,7 @@ public partial class OwnerShellWindow
                     $"✓ On track: at this pace {Money(expected)}", $"✓ Yetişiyoruz: bu hızla {Money(expected)}", $"✓ Ulguramiz: shu sur'atda {Money(expected)}")
                 : T5($"Отстаём: при нынешнем темпе будет {Money(expected)}", $"Артта калып жатабыз: ушул темп менен {Money(expected)}",
                     $"Behind: at this pace {Money(expected)}", $"Geride: bu hızla {Money(expected)}", $"Orqada: shu sur'atda {Money(expected)}"),
-                good: onTrack, bad: !onTrack));
+                bold: !onTrack));
         }
         if (upsell is > 0)
             SalesPlanHost.Children.Add(Line(T5($"Допродажа «С этим часто берут»: {Money(upsell.Value)}", $"«Муну менен көп алышат»: {Money(upsell.Value)}",

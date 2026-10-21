@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Пополнение и сроки — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.seg{height:38px;padding:0 16px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700}
+.tr{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,.9fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1.3fr);gap:8px;padding:11px 14px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.ci{height:36px;box-sizing:border-box;border-radius:8px;border:2px solid #0B2A3C;padding:0 8px;font-family:inherit;font-size:13px;font-weight:800;width:80px}
+.ex{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F2F4F7;font-size:13px}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Пополнение и сроки" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Пополнение и сроки</b><span style="font-size: 13px; color: #667085">Сколько заказать — по продажам за 4 недели и минимальному остатку</span></span>
+      <span role="tablist" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E5E7EB"><button type="button" role="tab" aria-selected="true" class="seg" style="background: #0B2A3C; color: #FFFFFF; white-space: nowrap">Что заказать · 4</button><button type="button" role="tab" class="seg" style="background: transparent; color: #475467; white-space: nowrap">Сроки годности · 3</button></span>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section style="flex: 999 1 600px; min-width: 0; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden">
+        <div style="overflow-x: auto"><div style="min-width: 720px">
+          <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span>Товар</span><span>Осталось</span><span>В день</span><span>Хватит на</span><span>Заказать</span><span>Поставщик</span></div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+            <div class="tr">
+              <span style="font-weight: 600">{{r.name}}</span>
+              <span style="font-weight: 800; color: {{r.lc}}; white-space: nowrap">{{r.left}}</span>
+              <span style="color: #475467">{{r.rate}}</span>
+              <span style="font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; justify-self: start; white-space: nowrap; background: {{r.bg}}; color: {{r.c}}">{{r.days}}</span>
+              <input class="ci" type="text" value="{{r.order}}" aria-label="Сколько заказать, шт">
+              <span style="color: #475467">{{r.supplier}}</span>
+            </div>
+          </sc-for>
+        </div></div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 14px; background: #FCFCFD">
+          <span style="flex: 1 1 100%; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #475467"><span>Заказ на сумму <b style="color: #0B2A3C; white-space: nowrap">29&nbsp;820&nbsp;сом</b> + Кока-Кола (нет закупки — цену укажет поставщик)</span><span style="font-size: 12px; color: #667085">Черновики появятся в «Закупках» — оттуда отправите каждому поставщику отдельно</span></span>
+          <button type="button" class="b2" style="margin-left: auto">Excel</button>
+          <!-- 2026-10-16: не «Отправить в WhatsApp» одной кнопкой на всех: заказ на каждого поставщика → «Закупки» (ревью C) -->
+          <button type="button" class="b1" style="white-space: nowrap">Создать заказы поставщикам (3)</button>
+        </div>
+      </section>
+
+      <aside class="card" style="flex: 1 1 280px; max-width: 360px">
+        <!-- 2026-10-16: карточка «Скоро истекает срок» убрана — это вкладка «Сроки годности · 3» (был дубль) -->
+        <b style="font-size: 15px">Будет создано 3 заказа</b>
+        <sc-for list="{{orders}}" as="o" hint-placeholder-count="3">
+          <div class="ex"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b>{{o.sup}}</b><span style="font-size: 12px; color: #667085">{{o.items}}</span></span><b style="white-space: nowrap; color: #0B2A3C">{{o.sum}}</b></div>
+        </sc-for>
+        <span style="font-size: 12px; color: #667085; line-height: 18px">Заказать = продажи в день × 14 дней + мин. остаток − что есть. Прокатные вещи сюда не попадают.</span>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: те же 4 товара и числа, что на Складе, в меню (бейдж 7 = 4 + 3) и у Нур Советника (SPEC п. 9).
+    // Остаток — цветом и словом: 0 → «нет», ≤ мин. остатка → «мало».
+    const red = { c: '#B42318', bg: '#FDE2E1' };
+    const amber = { c: '#B54708', bg: '#FEF3E2' };
+    const r = (name, left, rate, days, order, supplier, s) => Object.assign({ name, left, rate, days, order, supplier, lc: left.startsWith('0 ') ? '#B42318' : '#B54708' }, s);
+    const rows = [
+      r('Aos Extra pover 450гр бальзам', '0 шт · нет', '11,1 шт', 'закончился', '156', 'ИП Асанов', red),
+      r('Эссе манго', '9 шт · мало', '15,8 шт', '0,6 дня', '213', 'ИП Асанов', red),
+      r('Кока-Кола (ПЭТ) 2л', '1 шт · мало', '0,8 шт', '1,2 дня', '12', 'ОсОО «Бишкек Дистрибьюшн»', amber),
+      r('Сок Gracio яблочный 1л', '2 шт · мало', '1,4 шт', '1,4 дня', '24', '«Шоро»', amber)
+    ];
+    // Суммы по закупке: Aos 156 × 35 + Эссе 213 × 104 = 27 612; Сок 24 × 92 = 2 208.
+    const orders = [
+      { sup: 'ИП Асанов', items: 'Aos, Эссе манго · 2 товара', sum: '27 612 сом' },
+      { sup: '«Шоро»', items: 'Сок Gracio · 1 товар', sum: '2 208 сом' },
+      { sup: 'ОсОО «Бишкек Дистрибьюшн»', items: 'Кока-Кола · 1 товар', sum: 'цена у поставщика' }
+    ];
+    return { rows, orders };
+  }
+}
+</script>
+</body>
+</html>

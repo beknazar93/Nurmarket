@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Возврат и обмен</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.ln{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;background:#FFFFFF;font-size:13px}
+.chip{height:36px;padding:0 12px;border-radius:18px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 18px; font-weight: 800">Возврат по чеку [№]</b><span style="font-size: 12px; color: #667085">[дата] · Кассир Тест · наличные</span></span>
+    </div>
+    <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC"><button type="button" class="seg" style="background: #FFFFFF; color: #0B2A3C">Возврат денег</button><button type="button" class="seg" style="background: transparent; color: #475467">Обмен на другой</button></span>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 8px">
+    <span class="lbl">ЧТО ВОЗВРАЩАЮТ</span>
+    <label class="ln"><input type="checkbox" style="width: 20px; height: 20px; accent-color: #0B2A3C"><span style="flex-grow: 1">Макароны «Макфа» 450г · 2 × 85</span><b>170</b></label>
+    <label class="ln" style="border: 2px solid #0B2A3C"><input type="checkbox" checked="" style="width: 20px; height: 20px; accent-color: #0B2A3C"><span style="flex-grow: 1">Mars · 1 × 39</span><b>39</b></label>
+    <span class="lbl" style="padding-top: 6px">ПРИЧИНА</span>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px"><button type="button" class="chip on">Брак</button><button type="button" class="chip">Не подошёл</button><button type="button" class="chip">Ошибка кассира</button><button type="button" class="chip">Другое</button></div>
+    <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #344054; padding-top: 6px"><input type="checkbox" style="width: 20px; height: 20px; accent-color: #0B2A3C">Вернуть товар на склад</label>
+    <span style="font-size: 12px; color: #667085">Брак на склад не возвращается — уйдёт в списание</span>
+  </main>
+
+  <div style="padding: 10px 16px 22px; display: flex; flex-direction: column; gap: 8px; background: #FFFFFF; border-top: 1px solid #EAECF0">
+    <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">Вернуть наличными</span><b style="font-size: 20px; color: #B42318">39 сом</b></div>
+    <button type="button" style="height: 54px; border-radius: 16px; border: 0; background: #C0362C; color: #FFFFFF; font-family: inherit; font-size: 16px; font-weight: 800">Оформить возврат</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

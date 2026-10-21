@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Касса — продажа</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+
+  <!-- Шапка -->
+  <header style="height: 72px; box-sizing: border-box; background: #FFFFFF; border-bottom: 1px solid #E5E7EB; display: flex; align-items: center; gap: 20px; padding: 0 24px">
+    <div style="display: flex; align-items: center; gap: 12px; min-width: 232px">
+      <div style="width: 40px; height: 40px; border-radius: 10px; background: #0B2A3C; color: #FFD600; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px">N</div>
+      <div style="display: flex; flex-direction: column">
+        <span style="font-weight: 700; font-size: 15px">NBS · Касса 1</span>
+        <span style="font-size: 12px; color: #667085">Розничная продажа</span>
+      </div>
+    </div>
+    <nav style="display: flex; gap: 6px; flex-grow: 1; justify-content: center">
+      <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; background: #FFF7CC; color: #0B2A3C; font-weight: 700; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg>Продажа</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; color: #475467; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>Чеки</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; color: #475467; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h11a5 5 0 0 1 0 10h-3"></path></svg>Возврат</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; color: #475467; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Долги</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; color: #475467; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="4"></circle><path d="M2 21a7 7 0 0 1 14 0"></path><path d="M17 11a3 3 0 1 0 0-6M22 21a6 6 0 0 0-4-5.6"></path></svg>Клиенты</a>
+    </nav>
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: #E7F6EC; color: #0E7A3A; font-size: 13px; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 4px; background: #16A34A"></span>Смена открыта · 09:12</span>
+      <span style="font-size: 13px; color: #475467; font-weight: 500">12.10.2026 · 14:35</span>
+      <div style="width: 40px; height: 40px; border-radius: 20px; background: #0B2A3C; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700">КТ</div>
+    </div>
+  </header>
+
+  <div style="flex-grow: 1; display: flex; min-height: 0">
+
+    <!-- Категории -->
+    <aside style="width: 104px; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E5E7EB; padding: 16px 12px; display: flex; flex-direction: column; gap: 8px">
+      <sc-for list="{{cats}}" as="c" hint-placeholder-count="7">
+        <sc-if value="{{c.active}}" hint-placeholder-val="{{false}}">
+          <button type="button" style="border: 0; border-radius: 14px; background: #FFD600; color: #0B2A3C; padding: 12px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 700; box-shadow: 0 6px 14px rgba(255,214,0,0.35)">
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: rgba(11,42,60,0.12); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">{{c.short}}</span>{{c.name}}</button>
+        </sc-if>
+        <sc-if value="{{c.idle}}" hint-placeholder-val="{{true}}">
+          <button type="button" style="border: 0; border-radius: 14px; background: transparent; color: #475467; padding: 12px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 600">
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: #F2F4F7; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">{{c.short}}</span>{{c.name}}</button>
+        </sc-if>
+      </sc-for>
+    </aside>
+
+    <!-- Товары -->
+    <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #667085"><span>Продажа</span><span>/</span><span style="color: #0B2A3C; font-weight: 600">Напитки</span></div>
+      <div style="display: flex; gap: 12px; align-items: center">
+        <label style="flex-grow: 1; display: flex; align-items: center; gap: 10px; height: 48px; box-sizing: border-box; padding: 0 16px; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"></path></svg>
+          <input type="text" placeholder="Сканируйте штрихкод или введите название…" style="border: 0; outline: 0; flex-grow: 1; font-family: inherit; font-size: 14px; background: transparent">
+          <span style="font-size: 12px; color: #98A2B3; border: 1px solid #E5E7EB; border-radius: 6px; padding: 2px 6px">F2</span>
+        </label>
+        <div style="display: flex; gap: 8px">
+          <button type="button" style="height: 40px; padding: 0 16px; border-radius: 20px; border: 1.5px solid #0B2A3C; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 600">Все</button>
+          <button type="button" style="height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Хиты</button>
+          <button type="button" style="height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Весовые</button>
+          <button type="button" style="height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Акции</button>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; overflow: hidden">
+        <sc-for list="{{products}}" as="p" hint-placeholder-count="12">
+          <button type="button" style="border: 0; text-align: left; background: #FFFFFF; border-radius: 16px; padding: 10px; box-shadow: 0 1px 2px rgba(16,24,40,0.06), 0 4px 12px rgba(11,42,60,0.06); display: flex; flex-direction: column; gap: 8px; font-family: inherit; cursor: pointer">
+            <span style="height: 96px; border-radius: 12px; background: {{p.tint}}; display: flex; align-items: center; justify-content: center; color: #0B2A3C; font-size: 22px; font-weight: 800; position: relative">{{p.mono}}
+              <sc-if value="{{p.low}}" hint-placeholder-val="{{false}}"><span style="position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #FFFFFF; color: #B54708">Мало: {{p.stock}}</span></sc-if>
+            </span>
+            <span style="font-size: 13px; font-weight: 600; line-height: 18px; height: 36px; overflow: hidden">{{p.name}}</span>
+            <span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 15px; font-weight: 800; color: #0B2A3C">{{p.price}}</span><span style="width: 28px; height: 28px; border-radius: 14px; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700">+</span></span>
+          </button>
+        </sc-for>
+      </div>
+    </main>
+
+    <!-- Чек -->
+    <section style="width: 400px; box-sizing: border-box; background: #FFFFFF; border-left: 1px solid #E5E7EB; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; gap: 8px; align-items: center">
+        <span style="padding: 8px 14px; border-radius: 10px; background: #0B2A3C; color: #FFFFFF; font-size: 13px; font-weight: 700">Чек №1740</span>
+        <span style="padding: 8px 14px; border-radius: 10px; background: #F2F4F7; color: #344054; font-size: 13px; font-weight: 600">Отложен · 2 тов.</span>
+        <button type="button" aria-label="Новый чек" style="margin-left: auto; width: 36px; height: 36px; border-radius: 10px; border: 1px dashed #98A2B3; background: #FFFFFF; color: #0B2A3C; font-size: 20px; font-family: inherit">+</button>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button type="button" style="flex-grow: 1; height: 44px; border-radius: 10px; border: 1px solid #E5E7EB; background: #F9FAFB; color: #475467; font-family: inherit; font-size: 13px; font-weight: 500; text-align: left; padding: 0 14px; display: flex; align-items: center; gap: 8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>Клиент — выбрать</button>
+        <button type="button" style="height: 44px; padding: 0 14px; border-radius: 10px; border: 0; background: #FFF7CC; color: #0B2A3C; font-family: inherit; font-size: 13px; font-weight: 700">Заметка</button>
+      </div>
+      <div style="font-size: 14px; font-weight: 700; display: flex; justify-content: space-between"><span>Товары в чеке</span><span style="color: #667085; font-weight: 500">3 позиции</span></div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 10px; overflow: hidden">
+        <sc-for list="{{lines}}" as="l" hint-placeholder-count="3">
+          <div style="display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: #F9FAFB">
+            <span style="width: 48px; height: 48px; border-radius: 10px; background: {{l.tint}}; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #0B2A3C; flex-shrink: 0">{{l.mono}}</span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{l.name}}</span><span style="font-size: 12px; color: #667085">{{l.unit}}</span><span style="font-size: 14px; font-weight: 800; color: #0B2A3C">{{l.sum}}</span></span>
+            <span style="display: flex; align-items: center; gap: 8px">
+              <button type="button" aria-label="Меньше" style="width: 30px; height: 30px; border-radius: 15px; border: 1px solid #D0D5DD; background: #FFFFFF; font-size: 16px; font-family: inherit">−</button>
+              <span style="min-width: 18px; text-align: center; font-weight: 700; font-size: 14px">{{l.qty}}</span>
+              <button type="button" aria-label="Больше" style="width: 30px; height: 30px; border-radius: 15px; border: 0; background: #0B2A3C; color: #FFFFFF; font-size: 16px; font-family: inherit">+</button>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <button type="button" style="height: 56px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 600; color: #344054; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="4" width="4" height="16" rx="1"></rect><rect x="15" y="4" width="4" height="16" rx="1"></rect></svg>Отложить</button>
+        <button type="button" style="height: 56px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 600; color: #344054; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M19 5 5 19"></path><circle cx="7" cy="7" r="2.5"></circle><circle cx="17" cy="17" r="2.5"></circle></svg>Скидка</button>
+        <button type="button" style="height: 56px; border-radius: 12px; border: 1px solid #FDE2E1; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 600; color: #C0362C; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>Удалить чек</button>
+      </div>
+      <div style="border-top: 1px dashed #D0D5DD; padding-top: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px">
+        <div style="display: flex; justify-content: space-between; color: #475467"><span>Сумма</span><span>290 сом</span></div>
+        <div style="display: flex; justify-content: space-between; color: #475467"><span>Скидка</span><span>0 сом</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px"><span style="font-size: 15px; font-weight: 700">Итого</span><span style="font-size: 26px; font-weight: 800; color: #0B2A3C">290 сом</span></div>
+      </div>
+      <button type="button" style="height: 60px; border-radius: 14px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 12px; box-shadow: 0 8px 20px rgba(255,214,0,0.35)">Оплатить 290 сом<span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: rgba(11,42,60,0.12)">F12</span></button>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const cats = [
+      ['Все', 'Вс'], ['Напитки', 'Нп'], ['Сладости', 'Сл'], ['Бакалея', 'Бк'], ['Молочное', 'Мл'], ['Химия', 'Хм'], ['Канцтовары', 'Кн']
+    ].map(([name, short], i) => ({ name, short, active: i === 1, idle: i !== 1 }));
+    const tints = ['#FFF4C2', '#E3F2FD', '#FDE8E8', '#E7F6EC', '#F1E8FD', '#FFEBD6'];
+    const products = [
+      ['Кока-Кола (ПЭТ) 2л', 170, 1], ['Sprite Мохито 1л', 80, 0], ['Адыгене вода 1л', 45, 0], ['Энергетик «Gorilla» 0,45л', 95, 4],
+      ['Сок Gracio яблочный 1л', 120, 0], ['Fanta апельсин 1,5л', 110, 0], ['Чай Lipton лимон 0,5л', 70, 0], ['Квас «Шоро» 1л', 60, 2],
+      ['Макароны «Макфа» спагетти 450г', 85, 0], ['Вафли «Лесной орех» 220г', 114, 7], ['Печенье «Овсяное с изюмом» 300г', 77, 0], ['Чипсы «Пир» ассорти 75г', 65, 2]
+    ].map(([name, price, low], i) => ({
+      name, price: price + ' сом', tint: tints[i % tints.length],
+      mono: name.replace(/[«»"]/g, '').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase(),
+      low: low > 0, stock: low + ' шт'
+    }));
+    const lines = [
+      { name: 'Кока-Кола (ПЭТ) 2л', unit: '170 сом × 1', sum: '170 сом', qty: 1, mono: 'КК', tint: '#FFF4C2' },
+      { name: 'Макароны «Макфа» спагетти 450г', unit: '85 сом × 1', sum: '85 сом', qty: 1, mono: 'ММ', tint: '#E7F6EC' },
+      { name: 'Патроны для степлера', unit: '35 сом × 1', sum: '35 сом', qty: 1, mono: 'ПС', tint: '#E3F2FD' }
+    ];
+    return { cats, products, lines };
+  }
+}
+</script>
+</body>
+</html>

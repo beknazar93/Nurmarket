@@ -38,6 +38,37 @@ public sealed partial class TelegramBotPollingService
     private static readonly TimeSpan DebtorsCacheForClients = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan DebtorsCacheForOwner = TimeSpan.FromSeconds(5);
 
+    /// <summary>2026-10-21, «Нур Советник до 10» (О2): точный список должников программы владельца (тот же расчёт, что «Сводка» и
+    /// «Долги клиентов»: DebtsView/OwnerShopFacts) — подставляет приложение. null — не задан или не успел (тогда как раньше).</summary>
+    public static Func<CancellationToken, Task<List<DebtorInfo>?>>? ExactDebtorsProvider { get; set; }
+
+    private static async Task<List<DebtorInfo>?> TryExactDebtorsAsync(CancellationToken ct)
+    {
+        if (ExactDebtorsProvider is not { } provider)
+            return null;
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(15));
+            return await provider(cts.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            PosLogger.Log($"Телеграм-бот: точный список долгов не получен ({ex.GetType().Name}) — по сводке сервера.", "WARNING");
+            return null;
+        }
+    }
+
+    /// <summary>Суммы — из точного расчёта, телефон и чат Telegram — из сводки сервера (по id клиента).</summary>
+    private static List<DebtorInfo> MergeExactDebtors(IReadOnlyList<DebtorInfo> exact, IReadOnlyList<DebtorInfo> server)
+    {
+        var byId = server.Where(s => !string.IsNullOrWhiteSpace(s.ClientId)).GroupBy(s => s.ClientId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        return exact.Select(e => byId.TryGetValue(e.ClientId, out var s)
+            ? e with { Phone = string.IsNullOrWhiteSpace(e.Phone) ? s.Phone : e.Phone, TelegramChatId = e.TelegramChatId ?? s.TelegramChatId }
+            : e).ToList();
+    }
+
     /// <summary>Сводка должников с сервера или null, если её получить не удалось (тогда — старый путь).</summary>
     private async Task<List<DebtorInfo>?> TryLoadServerDebtorsAsync(CancellationToken ct, TimeSpan? maxAge = null)
     {
@@ -81,47 +112,62 @@ public sealed partial class TelegramBotPollingService
     {
         var owing = debtors.Where(d => d.DebtTotal > 0.005).OrderByDescending(d => d.DebtTotal).ToList();
 
+        // 2026-10-21 (бот, идея 10): на языке владельца; в тексте для WhatsApp — название магазина (раньше без него).
         var sb = new StringBuilder();
-        sb.AppendLine("<b>Должники</b>");
+        sb.AppendLine(TelegramBotText.T("<b>Должники</b>", "<b>Карызкорлор</b>", "<b>Debtors</b>", "<b>Borçlular</b>", "<b>Qarzdorlar</b>"));
 
         if (owing.Count == 0)
         {
             sb.AppendLine();
-            sb.AppendLine("Непогашенных долгов нет.");
+            sb.AppendLine(TelegramBotText.T("Непогашенных долгов нет.", "Төлөнбөгөн карыз жок.", "No unpaid debts.", "Ödenmemiş borç yok.", "To'lanmagan qarz yo'q."));
             return sb.ToString();
         }
 
-        sb.AppendLine($"Всего: {owing.Sum(d => d.DebtTotal).ToString("N2", Ru)} сом у {owing.Count} чел.");
+        var totalText = owing.Sum(d => d.DebtTotal).ToString("N2", Ru);
+        sb.AppendLine(TelegramBotText.T($"Всего: {totalText} сом у {owing.Count} чел.", $"Бардыгы: {totalText} сом, {owing.Count} киши.",
+            $"Total: {totalText} som, {owing.Count} people.", $"Toplam: {totalText} som, {owing.Count} kişi.", $"Jami: {totalText} so'm, {owing.Count} kishi."));
         sb.AppendLine();
+        var shop = UserPreferences.Instance.StoreName;
 
         foreach (var debtor in owing.Take(25))
         {
-            var name = string.IsNullOrWhiteSpace(debtor.Name) ? "Без имени" : debtor.Name;
+            var name = string.IsNullOrWhiteSpace(debtor.Name)
+                ? TelegramBotText.T("Без имени", "Аты жок", "No name", "İsimsiz", "Ismsiz")
+                : debtor.Name;
             var amountText = debtor.DebtTotal.ToString("N2", Ru);
-            sb.AppendLine($"<b>{Escape(name)}</b> — {amountText} сом ({debtor.SalesCount} чек.)");
+            sb.AppendLine($"<b>{Escape(name)}</b> — {amountText} " + TelegramBotText.T($"сом ({debtor.SalesCount} чек.)", $"сом ({debtor.SalesCount} чек)",
+                $"som ({debtor.SalesCount} receipts)", $"som ({debtor.SalesCount} fiş)", $"so'm ({debtor.SalesCount} chek)"));
 
             var chatId = !string.IsNullOrWhiteSpace(debtor.TelegramChatId)
                 ? debtor.TelegramChatId
                 : localChatLookup(debtor.ClientId);
             if (!string.IsNullOrWhiteSpace(chatId))
             {
-                sb.AppendLine("  подписан на бота — напоминание уйдёт автоматически");
+                sb.AppendLine(TelegramBotText.T("  подписан на бота — напоминание уйдёт автоматически", "  ботко жазылган — эскертме өзү жөнөтүлөт",
+                    "  subscribed to the bot — the reminder goes automatically", "  bota abone — hatırlatma otomatik gider", "  botga obuna — eslatma o'zi yuboriladi"));
             }
             else if (!string.IsNullOrWhiteSpace(debtor.Phone) && debtor.Phone.Any(char.IsDigit))
             {
                 var digits = new string(debtor.Phone.Where(char.IsDigit).ToArray());
-                var reminder = Uri.EscapeDataString(
-                    $"Здравствуйте, {name}! Напоминаем о задолженности {amountText} сом. Спасибо!");
-                sb.AppendLine($"  <a href=\"https://wa.me/{digits}?text={reminder}\">написать в WhatsApp</a>");
+                var reminder = Uri.EscapeDataString(string.IsNullOrWhiteSpace(shop)
+                    ? $"Здравствуйте, {name}! Напоминаем о задолженности {amountText} сом. Спасибо!"
+                    : $"Здравствуйте, {name}! Магазин «{shop}» напоминает о задолженности {amountText} сом. Спасибо!");
+                sb.AppendLine($"  <a href=\"https://wa.me/{digits}?text={reminder}\">" + TelegramBotText.T("написать в WhatsApp", "WhatsApp'ка жазуу",
+                    "message on WhatsApp", "WhatsApp'tan yaz", "WhatsApp'da yozish") + "</a>");
             }
             else
             {
-                sb.AppendLine("  <i>нет телефона в карточке клиента</i>");
+                sb.AppendLine(TelegramBotText.T("  <i>нет телефона в карточке клиента</i>", "  <i>кардардын картасында телефон жок</i>",
+                    "  <i>no phone in the customer card</i>", "  <i>müşteri kartında telefon yok</i>", "  <i>mijoz kartasida telefon yo'q</i>"));
             }
         }
 
         if (owing.Count > 25)
-            sb.AppendLine($"\n<i>…и ещё {owing.Count - 25} чел.</i>");
+            sb.AppendLine(TelegramBotText.T($"\n<i>…и ещё {owing.Count - 25} чел. Весь список — «Долги клиентов» в программе.</i>",
+                $"\n<i>…жана дагы {owing.Count - 25} киши. Толук тизме — программадагы «Кардарлардын карыздары».</i>",
+                $"\n<i>…and {owing.Count - 25} more. Full list — “Customer debts” in the program.</i>",
+                $"\n<i>…ve {owing.Count - 25} kişi daha. Tam liste — programda «Müşteri borçları».</i>",
+                $"\n<i>…va yana {owing.Count - 25} kishi. To'liq ro'yxat — dasturdagi «Mijozlar qarzlari».</i>"));
 
         return sb.ToString();
     }
@@ -186,7 +232,7 @@ public sealed partial class TelegramBotPollingService
     {
         var rows = items
             .Select(p => (
-                Name: ClientDebtsApiService.ReadString(p, "name") ?? "Без названия",
+                Name: ClientDebtsApiService.ReadString(p, "name") ?? TelegramBotText.T("Без названия", "Аталышы жок", "No name", "İsimsiz", "Nomsiz"),
                 Quantity: ClientDebtsApiService.ReadDouble(p, "quantity") ?? 0,
                 Unit: ClientDebtsApiService.ReadString(p, "unit")))
             .OrderBy(r => r.Quantity)
@@ -194,12 +240,12 @@ public sealed partial class TelegramBotPollingService
             .ToList();
 
         var sb = new StringBuilder();
-        sb.AppendLine("<b>Заканчивается на складе</b>");
+        sb.AppendLine(TelegramReportBuilder.LowStockTitle());
         sb.AppendLine();
 
         if (rows.Count == 0)
         {
-            sb.AppendLine($"Товаров с остатком ниже {threshold:0.##} нет.");
+            sb.AppendLine(TelegramReportBuilder.NoLowStockText(threshold));
             return sb.ToString();
         }
 
@@ -211,7 +257,11 @@ public sealed partial class TelegramBotPollingService
 
         var total = Math.Max(count ?? rows.Count, rows.Count);
         if (total > take)
-            sb.AppendLine($"\n<i>…и ещё {total - take}. Всего с остатком до {threshold:0.##}: {total}.</i>");
+            sb.AppendLine(TelegramBotText.T($"\n<i>…и ещё {total - take}. Всего с остатком до {threshold:0.##}: {total}.</i>",
+                $"\n<i>…жана дагы {total - take}. Калдыгы {threshold:0.##} чейин: {total}.</i>",
+                $"\n<i>…and {total - take} more. Total with stock up to {threshold:0.##}: {total}.</i>",
+                $"\n<i>…ve {total - take} tane daha. Stoğu {threshold:0.##} altında toplam: {total}.</i>",
+                $"\n<i>…va yana {total - take}. Qoldig'i {threshold:0.##} gacha jami: {total}.</i>"));
 
         return sb.ToString();
     }

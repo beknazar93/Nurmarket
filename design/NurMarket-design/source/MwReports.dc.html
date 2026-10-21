@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб в телефоне — отчёты</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:#FFFFFF;border-top:1px solid #EAECF0;padding:6px 4px 2px;flex-shrink:0}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;min-height:48px;font-size:11.5px;font-weight:600;color:#475467;text-decoration:none;padding:4px 0}
+.nav a.on{color:#0B2A3C;font-weight:800}
+.nav a.on span{background:#FFD600}
+.nav span{width:44px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#FFFFFF}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+.hd{height:60px;flex-shrink:0;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #EAECF0;display:flex;align-items:center;gap:10px;padding:0 16px}
+.hd b{font-size:18px;font-weight:800}
+.hb{width:44px;height:44px;border-radius:12px;border:0;background:#F2F4F7;color:#0B2A3C;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chip{height:44px;padding:0 14px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:14px;font-weight:600;color:#344054;white-space:nowrap;flex-shrink:0}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:3px;flex-shrink:0}
+.sg button{flex:1 1 0;height:44px;border-radius:9px;border:0;background:transparent;color:#475467;font-family:inherit;font-size:14px;font-weight:600;white-space:nowrap;padding:0 4px}
+.sg button.on{background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.srch{height:48px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:12px;border:1px solid #D0D5DD;background:#FFFFFF;flex-shrink:0}
+.srch input{border:0;outline:0;background:transparent;font-family:inherit;font-size:16px;width:100%;min-width:0;color:#111827}
+.rw{display:flex;justify-content:space-between;align-items:center;min-height:44px;border-bottom:1px solid #F2F4F7;font-size:14px}
+.rw b{white-space:nowrap}
+.ab{display:flex;align-items:center;gap:10px;min-height:40px;font-size:14px}
+.ab i{font-style:normal;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header class="hd"><b style="flex-grow: 1">Прибыль и деньги</b><button type="button" class="chip" style="height: 40px">Все филиалы ▾</button></header>
+  <div style="padding: 10px 16px 4px; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; gap: 6px; overflow: hidden"><button type="button" class="chip on">Прибыль</button><button type="button" class="chip">Деньги в кассах</button><button type="button" class="chip">ABC</button><button type="button" class="chip">В убыток</button><button type="button" class="chip">Кассиры</button></div>
+    <div class="sg" role="group" aria-label="Период"><button type="button">Сегодня</button><button type="button">Неделя</button><button type="button" class="on">Месяц</button><button type="button">Даты…</button></div>
+  </div>
+  <main style="flex-grow: 1; min-height: 0; padding: 6px 16px 8px; display: flex; flex-direction: column; gap: 10px; overflow: hidden">
+    <section style="border-radius: 16px; background: #0B2A3C; color: #FFFFFF; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #C7D2DB">Валовая прибыль · 01–12.10</span><b style="font-size: 26px; color: #FFD600; white-space: nowrap">17&nbsp;220 сом</b><span style="font-size: 13px; color: #C7D2DB">21,2 % от выручки · 893 чека · ср. чек 91 сом</span></section>
+    <section style="background: #FFFFFF; border-radius: 16px; padding: 4px 14px">
+      <div class="rw"><span>Выручка</span><b>81&nbsp;240 сом</b></div>
+      <div class="rw"><span>Себестоимость</span><b>64&nbsp;020 сом</b></div>
+      <div class="rw"><span>Расходы (аренда, зарплата, связь)</span><b>26&nbsp;440 сом</b></div>
+      <div class="rw" style="border: 0"><span style="display: flex; flex-direction: column"><b>Операционная прибыль</b><span style="font-size: 12px; color: #475467">аренда за весь октябрь оплачена 01.10</span></span><b style="color: #B42318">−9&nbsp;220 сом</b></div>
+    </section>
+    <section style="background: #FFFFFF; border-radius: 16px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px">
+      <span style="display: flex; justify-content: space-between; font-size: 14px"><b>По дням, тыс. сом</b><span style="color: #475467">06–12.10</span></span>
+      <div style="height: 84px; display: flex; align-items: flex-end; gap: 6px; border-bottom: 1px solid #D0D5DD"><sc-for list="{{bars}}" as="d" hint-placeholder-count="7"><span style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 2px"><span style="font-size: 11px; font-weight: 700; color: #344054">{{d.v}}</span><span style="width: 100%; height: {{d.h}}; border-radius: 4px 4px 0 0; background: {{d.c}}"></span></span></sc-for></div>
+      <div style="display: flex; gap: 6px"><sc-for list="{{bars}}" as="d" hint-placeholder-count="7"><span style="flex: 1 1 0; text-align: center; font-size: 11px; color: #475467">{{d.d}}</span></sc-for></div>
+    </section>
+    <section style="background: #FFFFFF; border-radius: 16px; padding: 6px 14px">
+      <div class="ab"><i style="background: #0B2A3C; color: #FFFFFF">A</i><span style="flex-grow: 1">46 товаров</span><b>80 % выручки</b></div>
+      <div class="ab"><i style="background: #FFD600; color: #0B2A3C">B</i><span style="flex-grow: 1">77 товаров</span><b>15 %</b></div>
+    </section>
+  </main>
+  <!-- 2026-10-17: нижнее меню как в приложении администратора; «Ещё» = бывшее ☰ (8 групп) -->
+  <nav class="nav" aria-label="Разделы">
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg></span>Главная</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path><circle cx="9" cy="19.5" r="1.5"></circle><circle cx="17" cy="19.5" r="1.5"></circle></svg></span>Продажа</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg></span>Товары</a>
+    <a href="#" class="on" aria-current="page"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></span>Отчёты</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg></span>Ещё</a>
+  </nav>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-17: неделя NBS одной шкалой, сегодня (неполный день) — жёлтым
+    const raw = [['06', 6120], ['07', 5480], ['08', 7310], ['09', 6940], ['10', 8260], ['11', 6850], ['12', 4300]];
+    const max = 8260;
+    return { bars: raw.map(([d, v], i) => ({ d, v: (v / 1000).toFixed(1).replace('.', ','), h: Math.round(v / max * 64) + 'px', c: i === 6 ? '#FFD600' : '#0B2A3C' })) };
+  }
+}
+</script>
+</body>
+</html>

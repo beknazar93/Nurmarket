@@ -26,12 +26,13 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
     private readonly List<ClientRow> _allClients = new();
 
     private string _searchText = "";
-    private string _newClientName = "";
-    private string _newClientPhone = "";
-    private string _newClientEmail = "";
-    private string _newClientAddress = "";
+    // 2026-10-19, этап О8: формы «Новый клиент» сверху больше нет — окно NewClientDialog (поля _newClient* убраны).
     private bool _isLoading;
-    private bool _isSaving;
+    /// <summary>2026-10-19, этап О8: порядок списка — «new» (новые сверху), «name», «debt»; фильтр «Только должники».</summary>
+    private string _sort = "new";
+    private bool _onlyDebtors;
+    /// <summary>Клиенты загружены хотя бы раз (до этого пустое состояние не показываем).</summary>
+    private bool _clientsLoaded;
     private string _errorMessage = "";
     private CancellationTokenSource? _loadCts;
 
@@ -72,8 +73,10 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         });
 
         UpdateCardButtonStates();
-        UpdateAddButtonState();
+        ApplyTexts();
         InitDebtButton();
+        // 2026-10-21: вкладка «Документы» (КП, счета, накладные) — только у владельца, см. ClientsWindow.Docs.cs.
+        InitDocs();
     }
 
     private void CloseCardButton_Click(object? sender, RoutedEventArgs e) => SelectedClient = null;
@@ -151,60 +154,14 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         }
     }
 
-    public string NewClientName
-    {
-        get => _newClientName;
-        set
-        {
-            _newClientName = value;
-            OnPropertyChanged();
-            UpdateAddButtonState();
-        }
-    }
-
-    public string NewClientPhone
-    {
-        get => _newClientPhone;
-        set
-        {
-            _newClientPhone = value;
-            OnPropertyChanged();
-            UpdateAddButtonState();
-        }
-    }
-
-    public string NewClientEmail
-    {
-        get => _newClientEmail;
-        set { _newClientEmail = value; OnPropertyChanged(); }
-    }
-
-    /// <summary>Адрес — необязательное поле. Нужен прежде всего долгам: по телефону должника
-    /// не всегда получается найти, по адресу можно.</summary>
-    public string NewClientAddress
-    {
-        get => _newClientAddress;
-        set { _newClientAddress = value ?? ""; OnPropertyChanged(); }
-    }
-
-    public bool IsSaving
-    {
-        get => _isSaving;
-        private set
-        {
-            _isSaving = value;
-            OnPropertyChanged();
-            UpdateAddButtonState();
-        }
-    }
-
     public string ErrorMessage
     {
         get => _errorMessage;
-        private set { _errorMessage = value; OnPropertyChanged(); }
+        private set { _errorMessage = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasError)); }
     }
 
-    public string CountText => Tr.T($"Клиентов: {_allClients.Count}", $"Клиенттер: {_allClients.Count}", $"Clients: {_allClients.Count}", $"Müşteri sayısı: {_allClients.Count}", $"Mijozlar: {_allClients.Count}");
+    /// <summary>2026-10-19, этап О8: плашка ошибки загрузки — только когда есть текст.</summary>
+    public bool HasError => !string.IsNullOrWhiteSpace(_errorMessage);
 
     public ClientRow? SelectedClient
     {
@@ -223,13 +180,30 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
             OnPropertyChanged(nameof(EditName));
             OnPropertyChanged(nameof(EditPhone));
             OnPropertyChanged(nameof(EditEmail));
+            OnPropertyChanged(nameof(EditAddress));
             OnPropertyChanged(nameof(HasSelectedClient));
+            OnPropertyChanged(nameof(CardTitle));
+            OnPropertyChanged(nameof(CardSubtitle));
             UpdateCardButtonStates();
+            // 2026-10-19, этап О8: долг клиента в карточке; подсказка Telegram прошлого клиента — убрать.
+            UpdateCardDebt();
+            UpdateCardDocs(); // 2026-10-21: документы клиента в карточке (у владельца)
+            if (TelegramInviteHint != null)
+                TelegramInviteHint.IsVisible = false;
             _ = LoadClientPurchasesAsync(value);
         }
     }
 
     public bool HasSelectedClient => _selectedClient != null;
+
+    /// <summary>2026-10-19, этап О8: шапка карточки — имя клиента и с какого числа он в базе.</summary>
+    public string CardTitle => _selectedClient?.FullName is { Length: > 0 } name ? name : Tr.T("Карточка клиента", "Кардардын карточкасы", "Client card", "Müşteri kartı", "Mijoz kartasi");
+
+    public string CardSubtitle => _selectedClient is not { } c ? ""
+        : string.IsNullOrEmpty(c.CreatedAtDisplay)
+            ? Tr.T("Клиент магазина", "Дүкөндүн кардары", "Shop client", "Mağaza müşterisi", "Do'kon mijozi")
+            : Tr.T($"В базе с {c.CreatedAtDisplay}", $"Базада {c.CreatedAtDisplay} баштап", $"In the list since {c.CreatedAtDisplay}",
+                $"{c.CreatedAtDisplay} tarihinden beri kayıtlı", $"{c.CreatedAtDisplay} dan beri bazada");
 
     /// <summary>Покупки выбранного клиента — дата и сумма. Рядом с бонусным балансом это даёт
     /// кассиру ответ на живой вопрос «а он вообще у нас покупает и на сколько», не открывая
@@ -301,17 +275,19 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
                     DateDisplay = hasDate
                         ? when.LocalDateTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)
                         : "—",
-                    AmountDisplay = $"{amount:0.00} {Som}",
+                    AmountDisplay = $"{MoneyText.Amount(amount)} {Som}", // 2026-10-20: разделитель тысяч, как везде
                 });
             }
 
+            // 2026-10-20, аудит программы владельца: «5115,00 сом» без разделителя тысяч — общий денежный формат (MoneyText).
+            var totalText = MoneyText.Amount(total);
             PurchasesSummary = ClientPurchases.Count == 0
                 ? Tr.T("Покупок пока нет.", "Азырынча сатып алуулар жок.", "No purchases yet.", "Henüz alışveriş yok.", "Hali xaridlar yo'q.")
-                : Tr.T($"Покупок: {ClientPurchases.Count} · на сумму {total:0.00} сом",
-                    $"Сатып алуулар: {ClientPurchases.Count} · суммасы {total:0.00} сом",
-                    $"Purchases: {ClientPurchases.Count} · total {total:0.00} som",
-                    $"Alışveriş: {ClientPurchases.Count} · toplam {total:0.00} som",
-                    $"Xaridlar: {ClientPurchases.Count} · jami {total:0.00} so'm");
+                : Tr.T($"Покупок: {ClientPurchases.Count} · на сумму {totalText} сом",
+                    $"Сатып алуулар: {ClientPurchases.Count} · суммасы {totalText} сом",
+                    $"Purchases: {ClientPurchases.Count} · total {totalText} som",
+                    $"Alışveriş: {ClientPurchases.Count} · toplam {totalText} som",
+                    $"Xaridlar: {ClientPurchases.Count} · jami {totalText} so'm");
             OnPropertyChanged(nameof(HasClientPurchases));
         }
         catch (Exception ex)
@@ -381,12 +357,6 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
             DeleteClientButton.IsEnabled = !_isCardBusy && _selectedClient != null;
     }
 
-    private void UpdateAddButtonState()
-    {
-        if (AddClientButton != null)
-            AddClientButton.IsEnabled = CanAddClient();
-    }
-
     public string CardErrorMessage
     {
         get => _cardErrorMessage;
@@ -440,6 +410,9 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         if (RefreshButton != null)
             RefreshButton.IsEnabled = false;
         ErrorMessage = "";
+        UpdateEmptyState();
+        // 2026-10-19, этап О8: долги грузятся параллельно со списком (один запрос, как у «Сводки»), а не по клиенту.
+        _ = LoadDebtsAsync();
         try
         {
             var raw = await _clientsApi.GetClientsAsync(null, cts.Token).ConfigureAwait(true);
@@ -453,8 +426,9 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
                 .Where(c => !string.IsNullOrWhiteSpace(c.Id))
                 .OrderByDescending(c => c.CreatedAt));
 
+            _clientsLoaded = true;
+            ApplyDebtsToRows();
             ApplyFilter();
-            OnPropertyChanged(nameof(CountText));
         }
         catch (OperationCanceledException)
         {
@@ -475,51 +449,50 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
             LoadingBar.IsVisible = false;
             if (RefreshButton != null)
                 RefreshButton.IsEnabled = true;
+            UpdateEmptyState();
         }
     }
 
-    private bool CanAddClient() =>
-        !_isSaving
-        && !string.IsNullOrWhiteSpace(_newClientName)
-        && !string.IsNullOrWhiteSpace(_newClientPhone);
+    /// <summary>2026-10-19, этап О8: окно «Новый клиент» (ModalShell). Сохранение — прежний запрос CreateClientAsync.</summary>
+    internal Window CreateNewClientDialog() => new NurMarketKassa.AvaloniaHost.Views.Dialogs.NewClientDialog(AddClientAsync, _allClients.ToList());
 
-    private async Task AddClientAsync()
+    /// <summary>Добавляет клиента на сервере (раньше — форма над списком). Удалось — клиент первым в списке и подсвечен
+    /// («новый»), поиск и «Только должники» сброшены, чтобы его было видно; вернёт null. Не удалось — текст ошибки для окна.</summary>
+    private async Task<string?> AddClientAsync(string name, string phone, string email, string address)
     {
-        IsSaving = true;
-        ErrorMessage = "";
         try
         {
             var created = await _clientsApi
-                .CreateClientAsync(_newClientName, _newClientPhone, _newClientEmail, _newClientAddress)
+                .CreateClientAsync(name, phone, email, address)
                 .ConfigureAwait(true);
 
             var row = ToClientRow(created);
             if (string.IsNullOrWhiteSpace(row.Id))
-            {
-                ErrorMessage = Tr.T("Не удалось добавить клиента.", "Клиентти кошуу мүмкүн болгон жок.", "Could not add the client.", "Müşteri eklenemedi.", "Mijozni qo'shib bo'lmadi.");
-                return;
-            }
+                return Tr.T("Не удалось добавить клиента.", "Клиентти кошуу мүмкүн болгон жок.", "Could not add the client.", "Müşteri eklenemedi.", "Mijozni qo'shib bo'lmadi.");
 
+            foreach (var other in _allClients)
+                other.IsNew = false;
+            row.IsNew = true;
             _allClients.Insert(0, row);
+            _clientsLoaded = true;
+            _searchText = "";
+            OnPropertyChanged(nameof(SearchText));
+            _onlyDebtors = false;
+            _sort = "new";
+            UpdateFilterButtons();
+            ApplyDebtsToRows();
             ApplyFilter();
-            OnPropertyChanged(nameof(CountText));
-
-            NewClientName = "";
-            NewClientPhone = "";
-            NewClientEmail = "";
+            ClientsScroll?.ScrollToHome();
+            return null;
         }
         catch (ApiException ex)
         {
-            ErrorMessage = ex.Message;
+            return ex.Message;
         }
         catch (Exception ex)
         {
-            ErrorMessage = Tr.T("Не удалось добавить клиента: ", "Клиентти кошуу мүмкүн болгон жок: ", "Could not add the client: ", "Müşteri eklenemedi: ", "Mijozni qo'shib bo'lmadi: ") + ex.Message;
             PosLogger.Log($"Client create failed: {ex}", "WARNING");
-        }
-        finally
-        {
-            IsSaving = false;
+            return Tr.T("Не удалось добавить клиента: ", "Клиентти кошуу мүмкүн болгон жок: ", "Could not add the client: ", "Müşteri eklenemedi: ", "Mijozni qo'shib bo'lmadi: ") + ex.Message;
         }
     }
 
@@ -545,9 +518,14 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
 
     private async void AddClientButton_Click(object? sender, RoutedEventArgs e)
     {
-        if (!CanAddClient())
-            return;
-        await AddClientAsync().ConfigureAwait(true);
+        try
+        {
+            await CreateNewClientDialog().ShowDialog(this).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Окно «Новый клиент» не открылось: {ex}", "WARNING");
+        }
     }
 
     private async Task SaveClientAsync()
@@ -572,6 +550,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
             if (index >= 0)
                 _allClients[index] = row;
 
+            ApplyDebtsToRows();
             ApplyFilter();
             SelectedClient = null;
         }
@@ -609,7 +588,6 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
             await _clientsApi.DeleteClientAsync(client.Id).ConfigureAwait(true);
             _allClients.RemoveAll(c => c.Id == client.Id);
             ApplyFilter();
-            OnPropertyChanged(nameof(CountText));
             SelectedClient = null;
         }
         catch (ApiException ex)
@@ -631,14 +609,27 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
     {
         FilteredClients.Clear();
         var query = _searchText?.Trim() ?? "";
+        // 2026-10-19, этап О8: телефон ищется и по цифрам («555123» находит «+996 555 123 456»), как в «Долгах клиентов».
+        var digits = new string(query.Where(char.IsDigit).ToArray());
         IEnumerable<ClientRow> source = _allClients;
         if (query.Length > 0)
             source = source.Where(c =>
                 c.FullName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-                || c.Phone.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+                || c.Phone.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                || (digits.Length >= 3 && new string(c.Phone.Where(char.IsDigit).ToArray()).Contains(digits, StringComparison.Ordinal)));
+        if (_onlyDebtors)
+            source = source.Where(c => c.HasDebt);
+        source = _sort switch
+        {
+            "name" => source.OrderBy(c => c.FullName, StringComparer.CurrentCultureIgnoreCase),
+            "debt" => source.OrderByDescending(c => c.Debt).ThenBy(c => c.FullName, StringComparer.CurrentCultureIgnoreCase),
+            _ => source.OrderByDescending(c => c.IsNew).ThenByDescending(c => c.CreatedAt),
+        };
 
         foreach (var row in source)
             FilteredClients.Add(row);
+        UpdateKpis();
+        UpdateEmptyState();
     }
 
     private static ClientRow ToClientRow(JsonElement element)
@@ -676,13 +667,167 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         return value.ValueKind == JsonValueKind.String ? value.GetString() : null;
     }
 
+    // ── 2026-10-19, этап О8: тексты, плитки, порядок и фильтр, пустое состояние ──
+
+    private void ApplyTexts()
+    {
+        SortNewButton.Content = Tr.T("Новые", "Жаңылар", "Newest", "Yeniler", "Yangilar");
+        SortNameButton.Content = Tr.T("По имени", "Аты боюнча", "By name", "Ada göre", "Ism bo'yicha");
+        SortDebtButton.Content = Tr.T("По долгу", "Карызы боюнча", "By debt", "Borca göre", "Qarz bo'yicha");
+        OnlyDebtorsButton.Content = Tr.T("Только должники", "Карыздарлар гана", "Debtors only", "Sadece borçlular", "Faqat qarzdorlar");
+        foreach (var b in new[] { SortNewButton, SortNameButton, SortDebtButton, OnlyDebtorsButton, RefreshButton, AddClientButton })
+            Avalonia.Automation.AutomationProperties.SetName(b, b.Content as string ?? "");
+        HeadDebt.Text = Tr.T("Долг, сом", "Карыз, сом", "Debt, som", "Borç, som", "Qarz, so'm");
+        HeadBonus.Text = Tr.T("Бонусы, сом", "Бонустар, сом", "Bonuses, som", "Bonuslar, som", "Bonuslar, so'm");
+        KpiClientsLabel.Text = Tr.T("Клиентов", "Кардарлар", "Clients", "Müşteriler", "Mijozlar");
+        KpiDebtorsLabel.Text = Tr.T("Должников", "Карыздарлар", "Debtors", "Borçlular", "Qarzdorlar");
+        KpiDebtLabel.Text = Tr.T("Вам должны", "Сизге карыз", "You are owed", "Size borçlu", "Sizga qarz");
+        KpiBonusLabel.Text = Tr.T("Бонусы на счетах", "Эсептердеги бонустар", "Bonuses on accounts", "Hesaplardaki bonuslar", "Hisoblardagi bonuslar");
+        CardNameLabel.Text = Tr.T("Имя / ФИО *", "Аты / аты-жөнү *", "Name *", "Ad soyad *", "Ism / F.I.Sh. *");
+        CardPhoneLabel.Text = Tr.T("Телефон *", "Телефон *", "Phone *", "Telefon *", "Telefon *");
+        CancelCardButton.Content = Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish");
+        Avalonia.Automation.AutomationProperties.SetName(CloseCardButton, Tr.T("Закрыть карточку", "Карточканы жабуу", "Close the card", "Kartı kapat", "Kartani yopish"));
+        UpdateFilterButtons();
+        UpdateKpis();
+    }
+
+    /// <summary>Выбранный порядок — тёмно-синий сегмент; «Только должники» — тёмно-синий чип, когда включён.</summary>
+    private void UpdateFilterButtons()
+    {
+        UiKit.SetActive(SortNewButton, _sort == "new");
+        UiKit.SetActive(SortNameButton, _sort == "name");
+        UiKit.SetActive(SortDebtButton, _sort == "debt");
+        UiKit.SetActive(OnlyDebtorsButton, _onlyDebtors);
+    }
+
+    private void SetSort(string sort)
+    {
+        _sort = sort;
+        UpdateFilterButtons();
+        ApplyFilter();
+    }
+
+    private void SortNew_Click(object? sender, RoutedEventArgs e) => SetSort("new");
+
+    private void SortName_Click(object? sender, RoutedEventArgs e) => SetSort("name");
+
+    private void SortDebt_Click(object? sender, RoutedEventArgs e) => SetSort("debt");
+
+    /// <summary>Фильтр «Только должники» (для снимков и автоматики — тоже свойство).</summary>
+    public bool OnlyDebtors
+    {
+        get => _onlyDebtors;
+        set
+        {
+            _onlyDebtors = value;
+            UpdateFilterButtons();
+            ApplyFilter();
+        }
+    }
+
+    private void OnlyDebtors_Click(object? sender, RoutedEventArgs e) => OnlyDebtors = !_onlyDebtors;
+
+    /// <summary>Строка списка — кнопка: щелчок, Enter/Пробел и UIA открывают карточку клиента.</summary>
+    private void ClientRow_Click(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is ClientRow row)
+            SelectedClient = row;
+    }
+
+    /// <summary>Enter в поиске — карточка первого найденного клиента (нашёлся один — сразу он).</summary>
+    private void SearchBox_KeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (e.Key != Avalonia.Input.Key.Enter || FilteredClients.Count == 0)
+            return;
+        e.Handled = true;
+        SelectedClient = FilteredClients[0];
+    }
+
+    /// <summary>Плитки: клиентов (при поиске — «найдено из всего»), должников, сколько должны (красным, только если есть),
+    /// бонусы на счетах. Долги — из <see cref="LoadDebtsAsync"/>; тариф без долгов — их плиток нет.</summary>
+    private void UpdateKpis()
+    {
+        if (KpiClientsValue == null)
+            return;
+        var ru = CultureInfo.GetCultureInfo("ru-RU");
+        var total = _allClients.Count;
+        var shown = FilteredClients.Count;
+        KpiClientsValue.Text = !_clientsLoaded ? "…"
+            : shown == total ? total.ToString("N0", ru)
+            : Tr.T($"{shown:N0} из {total:N0}", $"{total:N0} ичинен {shown:N0}", $"{shown:N0} of {total:N0}", $"{total:N0} içinden {shown:N0}", $"{total:N0} dan {shown:N0}");
+        KpiBonusValue.Text = !_clientsLoaded ? "…" : _allClients.Sum(c => c.LoyaltyBalance).ToString("#,0.##", ru) + " " + Som;
+        var debts = TariffGate.CanUseDebts;
+        KpiDebtorsTile.IsVisible = debts;
+        KpiDebtTile.IsVisible = debts;
+        // 2026-10-20: проверка фильтров — на тарифе без долгов долги не загружаются (Debt = 0 у всех): «Только должники» давал
+        // пустой список с «Все клиенты рассчитались», «По долгу» сортировал как «По имени». Без долгов этих кнопок нет.
+        OnlyDebtorsButton.IsVisible = debts;
+        SortDebtButton.IsVisible = debts;
+        if (!debts)
+            return;
+        UpdateDebtKpis(ru);
+    }
+
+    /// <summary>Пустой список — что это значит и что сделать: клиентов ещё нет / никого не нашли / должников нет.</summary>
+    private void UpdateEmptyState()
+    {
+        if (EmptyBox == null)
+            return;
+        var empty = _clientsLoaded && FilteredClients.Count == 0 && !_isLoading;
+        EmptyBox.IsVisible = empty;
+        if (!empty)
+            return;
+        if (_allClients.Count == 0)
+        {
+            EmptyTitle.Text = Tr.T("Клиентов пока нет", "Азырынча кардарлар жок", "No clients yet", "Henüz müşteri yok", "Hozircha mijozlar yo'q");
+            EmptyText.Text = Tr.T("Нажмите «+ Клиент», чтобы добавить первого. Клиента выбирают при продаже — для бонусов и продажи в долг; здесь видно, кто сколько должен.",
+                "Биринчисин кошуу үчүн «+ Кардар» баскычын басыңыз. Кардарды сатууда тандашат — бонустар жана карызга сатуу үчүн; бул жерде ким канча карыз экени көрүнөт.",
+                "Press “+ Client” to add the first one. A client is chosen at checkout — for bonuses and selling on credit; here you see who owes how much.",
+                "İlkini eklemek için «+ Müşteri»ye basın. Müşteri satışta seçilir — bonuslar ve veresiye satış için; burada kimin ne kadar borçlu olduğu görünür.",
+                "Birinchisini qo'shish uchun «+ Mijoz» tugmasini bosing. Mijoz sotuvda tanlanadi — bonuslar va qarzga sotish uchun; bu yerda kim qancha qarzligi ko'rinadi.");
+        }
+        else if (_onlyDebtors && string.IsNullOrWhiteSpace(_searchText) && !_debtsLoaded)
+        {
+            // 2026-10-20: проверка фильтров — долги ещё грузятся или не загрузились: не «Все рассчитались», а что происходит.
+            EmptyTitle.Text = _debtsFailed
+                ? Tr.T("Долги не загружены", "Карыздар жүктөлгөн жок", "Debts not loaded", "Borçlar yüklenmedi", "Qarzlar yuklanmadi")
+                : Tr.T("Загружаю долги…", "Карыздар жүктөлүүдө…", "Loading debts…", "Borçlar yükleniyor…", "Qarzlar yuklanmoqda…");
+            EmptyText.Text = _debtsFailed
+                ? Tr.T("Нет связи с сервером. Нажмите «Обновить», чтобы попробовать ещё раз.", "Сервер менен байланыш жок. Кайра аракет кылуу үчүн «Жаңыртуу» басыңыз.",
+                    "No connection to the server. Press “Refresh” to try again.", "Sunucuyla bağlantı yok. Tekrar denemek için «Yenile»ye basın.",
+                    "Server bilan aloqa yo'q. Qayta urinish uchun «Yangilash»ni bosing.")
+                : Tr.T("Список должников появится через несколько секунд.", "Карыздарлардын тизмеси бир нече секунддан кийин чыгат.",
+                    "The list of debtors will appear in a few seconds.", "Borçlu listesi birkaç saniye içinde görünecek.", "Qarzdorlar ro'yxati bir necha soniyada chiqadi.");
+        }
+        else if (_onlyDebtors && string.IsNullOrWhiteSpace(_searchText))
+        {
+            EmptyTitle.Text = Tr.T("Должников нет", "Карыздарлар жок", "No debtors", "Borçlu yok", "Qarzdorlar yo'q");
+            EmptyText.Text = Tr.T("Все клиенты рассчитались. Нажмите «Только должники» ещё раз, чтобы увидеть всех.",
+                "Бардык кардарлар эсептешти. Баарын көрүү үчүн «Карыздарлар гана» дегенди дагы бир жолу басыңыз.",
+                "Every client has paid. Press “Debtors only” again to see everyone.",
+                "Tüm müşteriler ödedi. Herkesi görmek için «Sadece borçlular»a tekrar basın.",
+                "Barcha mijozlar to'lagan. Hammasini ko'rish uchun «Faqat qarzdorlar»ni yana bosing.");
+        }
+        else
+        {
+            EmptyTitle.Text = Tr.T("Никого не нашли", "Эч ким табылган жок", "Nobody found", "Kimse bulunamadı", "Hech kim topilmadi");
+            EmptyText.Text = Tr.T("Проверьте имя или номер телефона (можно вводить только цифры) или очистите поиск.",
+                "Атын же телефон номерин текшериңиз (сандарды гана жазса болот) же издөөнү тазалаңыз.",
+                "Check the name or phone number (digits alone are fine) or clear the search.",
+                "Adı veya telefon numarasını kontrol edin (yalnızca rakam da olur) ya da aramayı temizleyin.",
+                "Ism yoki telefon raqamini tekshiring (faqat raqamlar ham bo'ladi) yoki qidiruvni tozalang.")
+                + (_onlyDebtors ? " " + Tr.T("Включён фильтр «Только должники».", "«Карыздарлар гана» чыпкасы күйгүзүлгөн.", "The “Debtors only” filter is on.",
+                    "«Sadece borçlular» filtresi açık.", "«Faqat qarzdorlar» filtri yoqilgan.") : "");
+        }
+    }
+
     public new event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
-public sealed class ClientRow
+public sealed class ClientRow : INotifyPropertyChanged
 {
     public string Id { get; init; } = "";
     public string FullName { get; init; } = "";
@@ -699,6 +844,40 @@ public sealed class ClientRow
     /// <summary>Локальный бонусный баланс на этой кассе (AI-фичи 2026-09-04) — см. ClientLoyaltyStore.</summary>
     public double LoyaltyBalance { get; init; }
     public string LoyaltyBalanceDisplay { get; init; } = "";
+
+    // 2026-10-19, этап О8: только для вида списка — долг (из быстрого списка долгов DebtsView), «новый», вторая строка.
+
+    /// <summary>Остаток долга клиента, сом (0 — долга нет).</summary>
+    public double Debt { get; set; }
+    /// <summary>Чеков в долг и самый старый из них — для карточки.</summary>
+    public int DebtSalesCount { get; set; }
+    public DateTime? DebtSince { get; set; }
+    /// <summary>Долги ещё не получены (или тариф без долгов) — в столбце пусто, а не «—».</summary>
+    public bool DebtUnknown { get; set; } = true;
+    /// <summary>Только что добавлен в этом окне — подсвечен и с меткой «новый».</summary>
+    public bool IsNew { get; set; }
+
+    public bool HasDebt => Debt > 0.005;
+    public string DebtText => DebtUnknown ? "" : HasDebt ? Debt.ToString("N2", CultureInfo.GetCultureInfo("ru-RU")) : "—";
+    public string BonusText => LoyaltyBalance > 0.005 ? LoyaltyBalance.ToString("#,0.##", CultureInfo.GetCultureInfo("ru-RU")) : "—";
+    public string BonusCardText => LoyaltyBalance.ToString("#,0.##", CultureInfo.GetCultureInfo("ru-RU")) + " " + Tr.T("сом", "сом", "som", "som", "so'm");
+    public string PhoneDisplay => string.IsNullOrWhiteSpace(Phone) ? "—" : Phone;
+    public string SubLine => string.Join(" · ", new[] { Address, Email }.Where(x => !string.IsNullOrWhiteSpace(x)));
+    public bool HasSecondLine => IsNew || SubLine.Length > 0;
+    public string NewBadgeText => Tr.T("новый", "жаңы", "new", "yeni", "yangi");
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>2026-10-19, этап О8: долг обновился (оплата, событие другой кассы) — строка перерисовывается на месте, список не
+    /// пересобирается и не прыгает к началу.</summary>
+    public void NotifyDebt()
+    {
+        foreach (var name in new[] { nameof(Debt), nameof(HasDebt), nameof(DebtText), nameof(AutomationName) })
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+
+    /// <summary>Имя строки для экранного диктора и автоматики (UIA): имя, телефон и долг.</summary>
+    public string AutomationName => string.Join(", ", new[] { FullName, Phone, HasDebt ? Tr.T("долг ", "карыз ", "debt ", "borç ", "qarz ") + DebtText : "" }
+        .Where(x => !string.IsNullOrWhiteSpace(x)));
 }
 
 /// <summary>Одна покупка клиента для его карточки: когда и на сколько.</summary>

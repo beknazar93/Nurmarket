@@ -58,6 +58,10 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
     private string? _slug;
     private bool _locked;
     private bool _saving;
+
+    /// <summary>2026-10-20, доработка п. 9 аудита: правки уходят в черновик на сервере через 0,8 с — пока не ушли (таймер, запрос,
+    /// очередь после ошибки), раздел не закрывается ради памяти. Сохранённый черновик не теряется и при закрытии.</summary>
+    public bool? HasUnsavedChanges => _saving || _saveTimer.IsEnabled || _patch.Count > 0;
     private bool _hasUnpublished;
     private int _version;
     private string _publishedAt = "";
@@ -102,7 +106,9 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
         // 2026-10-07, владелец: «добавь смотреть сайт, адрес https://market.nurcrm.kg/catalog/nurmarket» — адрес витрины с оформлением
         // под строкой состояния, нажатие открывает сайт в браузере.
         _siteLinkText = new TextBlock { FontSize = 12.5, TextDecorations = TextDecorations.Underline };
-        Use(_siteLinkText, TextBlock.ForegroundProperty, "BrushAccentStrong");
+        // 2026-10-19, этап О10 (аудит: ссылка жёлтым текстом по светлому плохо читается; «Смотреть сайт» дважды): адрес — цветом
+        // текста с подчёркиванием, без второго «Смотреть сайт:» (кнопка с этим словом справа).
+        Use(_siteLinkText, TextBlock.ForegroundProperty, "BrushText");
         _siteLink = new Button { Content = _siteLinkText, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0, 2, 0, 0),
             Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand), IsVisible = false };
         _siteLink.Click += (_, _) =>
@@ -135,6 +141,18 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
         Grid.SetColumn(buttons, 1);
         head.Children.Add(buttons);
         _root.Children.Add(head);
+        // 2026-10-19, этап О10 (снимок 1024, ky: строка состояния в 4 строки, адрес сайта обрезан): на окне уже 1180 точек
+        // кнопки — второй строкой под состоянием, слева; шире — справа, как было.
+        head.RowDefinitions = new RowDefinitions("Auto,Auto");
+        SizeChanged += (_, e) =>
+        {
+            var narrowHead = e.NewSize.Width < 1180;
+            Grid.SetRow(buttons, narrowHead ? 1 : 0);
+            Grid.SetColumn(buttons, narrowHead ? 0 : 1);
+            Grid.SetColumnSpan(buttons, narrowHead ? 2 : 1);
+            buttons.HorizontalAlignment = narrowHead ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+            buttons.Margin = narrowHead ? new Thickness(-8, 6, 0, 0) : new Thickness(0);
+        };
 
         Use(_banner, Border.BackgroundProperty, "BrushPanel");
         Use(_banner, Border.BorderBrushProperty, "BrushWarning");
@@ -158,7 +176,17 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
         if (OperatingSystem.IsWindows())
         {
             _web = new WebView2Host();
-            _web.WebViewReady += core => _core = core;
+            _web.WebViewReady += core =>
+            {
+                _core = core;
+                // 2026-10-20 (живой аудит владельца: предпросмотр рисовал все 328 товаров ≈ 20 600 элементов, окно готово через ~50 с,
+                // дерево UIA всей программы переставало отвечать): в предпросмотре — только первые товары, остальные скрыты (display:none
+                // убирает их и из раскладки, и из дерева диктора). На самом сайте покупатели видят всё.
+                var script = PreviewLimitScript();
+                _ = core.AddScriptToExecuteOnDocumentCreatedAsync(script);
+                core.NavigationCompleted += (_, _) => _ = core.ExecuteScriptAsync(script);
+                _ = core.ExecuteScriptAsync(script);
+            };
             _web.InitializationFailed += message => Dispatcher.UIThread.Post(() => _previewBox.Child = PreviewNote(
                 T("Предпросмотр не открылся: ", "Алдын ала көрүү ачылган жок: ", "The preview didn't open: ", "Önizleme açılmadı: ", "Oldindan ko'rish ochilmadi: ") + message));
             _previewBox.Child = _web;
@@ -199,6 +227,76 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
     {
         _title.IsVisible = false;
         _root.Margin = OwnerSectionLayout.Margin;
+    }
+
+    /// <summary>2026-10-20: сколько карточек одного списка (товары, категории) показывает предпросмотр.</summary>
+    private const int PreviewItemLimit = 36;
+
+    /// <summary>2026-10-20 (аудит: 328 товаров в предпросмотре — 20 600 элементов): скрипт для страницы предпросмотра. Ищет списки,
+    /// где больше <see cref="PreviewItemLimit"/> одинаковых карточек подряд (сетка товаров), прячет лишние и пишет под списком,
+    /// сколько показано. Разметку сайта NurCRM не знаем, поэтому признак — «много детей с одним тегом»; следит за догрузкой
+    /// (MutationObserver), повторный запуск ничего не дублирует.</summary>
+    private static string PreviewLimitScript()
+    {
+        var note = JsonSerializer.Serialize(T("Предпросмотр: показаны первые {0} из {1}. Все товары — на самом сайте («Смотреть сайт»).",
+            "Алдын ала көрүү: {1} ичинен алгачкы {0} көрсөтүлдү. Бардык товарлар — сайттын өзүндө («Сайтты көрүү»).",
+            "Preview: showing the first {0} of {1}. All products are on the website itself (“View website”).",
+            "Önizleme: {1} öğeden ilk {0} gösteriliyor. Tüm ürünler sitenin kendisinde («Siteyi gör»).",
+            "Oldindan ko'rish: {1} tadan birinchi {0} tasi ko'rsatildi. Barcha mahsulotlar — saytning o'zida («Saytni ko'rish»)."));
+        return """
+            (function () {
+              if (window.__nmPreviewLimit) { window.__nmPreviewLimit(); return; }
+              var LIMIT =
+            """ + PreviewItemLimit.ToString(CultureInfo.InvariantCulture) + ", NOTE = " + note + ";" + """
+
+              var SKIP = { SELECT: 1, OPTGROUP: 1, DATALIST: 1, HEAD: 1, SCRIPT: 1, STYLE: 1, svg: 1, SVG: 1 };
+              var timer = 0;
+              function apply() {
+                timer = 0;
+                if (!document.body) return;
+                var all = document.body.getElementsByTagName('*'), total = 0;
+                for (var i = 0; i < all.length; i++) {
+                  var el = all[i];
+                  if (SKIP[el.tagName] || el.childElementCount <= LIMIT || el.namespaceURI !== 'http://www.w3.org/1999/xhtml') continue;
+                  var counts = {}, best = '', bestN = 0, kids = el.children;
+                  for (var k = 0; k < kids.length; k++) {
+                    if (kids[k].hasAttribute('data-nm-note')) continue;
+                    var t = kids[k].tagName; counts[t] = (counts[t] || 0) + 1;
+                    if (counts[t] > bestN) { bestN = counts[t]; best = t; }
+                  }
+                  if (bestN <= LIMIT || bestN < kids.length * 0.8) continue;
+                  var shown = 0;
+                  for (var k = 0; k < kids.length; k++) {
+                    var c = kids[k];
+                    if (c.tagName !== best || c.hasAttribute('data-nm-note')) continue;
+                    shown++;
+                    if (shown > LIMIT && c.style.display !== 'none') { c.style.display = 'none'; c.setAttribute('data-nm-hidden', '1'); }
+                  }
+                  if (bestN > total) total = bestN;
+                }
+                if (!total) return;
+                // Подпись — прямо в <body>, вне корня приложения сайта (React/Vue не трогают чужой узел).
+                var text = NOTE.replace('{0}', LIMIT).replace('{1}', total);
+                var n = document.getElementById('nm-preview-note');
+                if (!n) {
+                  n = document.createElement('div');
+                  n.id = 'nm-preview-note';
+                  n.setAttribute('data-nm-note', '1');
+                  n.style.cssText = 'position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:2147483647;max-width:90%;padding:8px 14px;'
+                    + 'border-radius:10px;background:rgba(17,24,39,.88);color:#fff;font:13px/1.35 sans-serif;text-align:center;pointer-events:none';
+                  document.body.appendChild(n);
+                }
+                if (n.textContent !== text) n.textContent = text;
+              }
+              function schedule() { if (!timer) timer = setTimeout(apply, 150); }
+              window.__nmPreviewLimit = schedule;
+              function start() {
+                apply();
+                new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+              }
+              if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+            })();
+            """;
     }
 
     private Control PreviewNote(string text)
@@ -299,8 +397,8 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
     {
         if (_siteLink is not null && _siteLinkText is not null && !string.IsNullOrWhiteSpace(_slug))
         {
-            _siteLinkText.Text = T("Смотреть сайт: ", "Сайтты көрүү: ", "View website: ", "Siteyi gör: ", "Saytni ko'rish: ")
-                                 + ShowcaseApiService.DesignCatalogUrl(_slug).Replace("https://", "");
+            _siteLinkText.Text = ShowcaseApiService.DesignCatalogUrl(_slug).Replace("https://", "");
+            ToolTip.SetTip(_siteLink, T("Открыть сайт в браузере", "Сайтты браузерде ачуу", "Open the website in the browser", "Siteyi tarayıcıda aç", "Saytni brauzerda ochish"));
             _siteLink.IsVisible = true;
         }
         var saving = _saving || _saveTimer.IsEnabled;
@@ -327,11 +425,12 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
     }
 
     /// <summary>Только просмотр: группы раскрываются, а поля — нет (сохранить всё равно нельзя).</summary>
-    private void LockInputs()
+    // 2026-10-20: root — группа, раскрытая впервые (свёрнутые группы в дереве окна появляются только при раскрытии).
+    private void LockInputs(Control? root = null)
     {
         if (!_locked)
             return;
-        foreach (var control in _editor.GetLogicalDescendants().OfType<Control>())
+        foreach (var control in (root ?? _editor).GetLogicalDescendants().OfType<Control>())
             if (control is Button { Tag: "swatch" } swatch)
                 swatch.Flyout = null; // цвет виден, а палитра не открывается
             else if (control is TextBox or CheckBox or Avalonia.Controls.Slider || (control is Button b && b.Tag as string != "head"))
@@ -484,12 +583,13 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             _hasUnpublished = false;
             // 2026-10-06, владелец: «редактор сайта вообще не работает» — баннер обещал «покупатели уже видят», а витрина NurCRM
             // оформление пока не читает (ТЗ фронтенду от 05.10). Пишем, что опубликовано на сервере, и почему сайт может быть прежним.
+            // 2026-10-20 (аудит: три вида адреса): адрес витрины один — market.nurcrm.kg (ShowcaseApiService.CatalogUrl), без второго nurcrm.kg/catalog.
             var site = string.IsNullOrWhiteSpace(_slug) ? ShowcaseApiService.DesignSiteBase : ShowcaseApiService.DesignCatalogUrl(_slug);
-            ShowBanner(T($"Опубликовано (версия {_version}) — новый вид на {site} («Смотреть сайт»). На nurcrm.kg/catalog оформление появится, когда NurCRM обновит и этот адрес.",
-                $"Жарыяланды (версия {_version}) — жаңы көрүнүш {site} дарегинде («Сайтты көрүү»). nurcrm.kg/catalog дарегинде NurCRM аны да жаңыртканда көрүнөт.",
-                $"Published (version {_version}) — the new look is at {site} (“View website”). On nurcrm.kg/catalog it appears once NurCRM updates that address too.",
-                $"Yayınlandı (sürüm {_version}) — yeni görünüm {site} adresinde («Siteyi gör»). nurcrm.kg/catalog adresinde NurCRM orayı da güncelleyince görünür.",
-                $"E'lon qilindi (versiya {_version}) — yangi ko'rinish {site} manzilida («Saytni ko'rish»). nurcrm.kg/catalog manzilida NurCRM uni ham yangilaganda ko'rinadi."), warning: false);
+            ShowBanner(T($"Опубликовано (версия {_version}) — новый вид на {site} («Смотреть сайт»).",
+                $"Жарыяланды (версия {_version}) — жаңы көрүнүш {site} дарегинде («Сайтты көрүү»).",
+                $"Published (version {_version}) — the new look is at {site} (“View website”).",
+                $"Yayınlandı (sürüm {_version}) — yeni görünüm {site} adresinde («Siteyi gör»).",
+                $"E'lon qilindi (versiya {_version}) — yangi ko'rinish {site} manzilida («Saytni ko'rish»)."), warning: false);
             PosLogger.Log($"Редактор сайта: опубликована версия {_version}.", "INFO");
         }
         catch (Exception ex)
@@ -1012,8 +1112,10 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
                           && (th["colors"]?["background"]?.ToString() ?? "").ToUpperInvariant() == background
                           && (th["font"]?["family"]?.ToString() ?? "") == font;
             var card = new Border { Width = 184, CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(current ? 2 : 1), Margin = new Thickness(0, 0, 8, 8), ClipToBounds = true };
-            Use(card, Border.BackgroundProperty, "BrushPanelSoft");
-            Use(card, Border.BorderBrushProperty, current ? "BrushAccentStrong" : "BrushBorder");
+            // 2026-10-19, этап О10 (аудит: 5+ жёлтых «Применить»): карточка темы белая, выбранная — тёмной рамкой (как темы
+            // Маркетплейса), «Применить» — обводкой; жёлтая на экране одна — «Опубликовать».
+            Use(card, Border.BackgroundProperty, "BrushPanel");
+            Use(card, Border.BorderBrushProperty, current ? "BrushText" : "BrushBorder");
             var stack = new StackPanel();
             try
             {
@@ -1033,7 +1135,7 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             info.Children.Add(about);
             var apply = current
                 ? UiKit.Ghost(this, T("Применена", "Колдонулду", "Applied", "Uygulandı", "Qo'llangan"))
-                : UiKit.Primary(this, T("Применить", "Колдонуу", "Apply", "Uygula", "Qo'llash"));
+                : UiKit.Ghost(this, T("Применить", "Колдонуу", "Apply", "Uygula", "Qo'llash"));
             apply.Height = 32;
             apply.Margin = new Thickness(0, 6, 0, 0);
             apply.HorizontalAlignment = HorizontalAlignment.Stretch;
@@ -1257,14 +1359,24 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             Content = headRow, Tag = "head", Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(2, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, Cursor = new Cursor(StandardCursorType.Hand),
         };
+        var stack = new StackPanel();
         head.Click += (_, _) =>
         {
+            // 2026-10-20 (живой аудит: редактор открывался ~50 с): свёрнутая группа не входит в дерево окна, пока её не раскрыли
+            // в первый раз — стили, раскладка и элементы для диктора создаются только для открытых групп.
+            if (body.Parent is null)
+            {
+                _editorReady = false; // как в BuildEditor: первая раскладка полей не считается правкой
+                stack.Children.Add(body);
+                LockInputs(body);
+                Dispatcher.UIThread.Post(() => _editorReady = true, DispatcherPriority.Background);
+            }
             body.IsVisible = !body.IsVisible;
             arrow.Text = body.IsVisible ? "▾" : "▸";
         };
-        var stack = new StackPanel();
         stack.Children.Add(head);
-        stack.Children.Add(body);
+        if (open)
+            stack.Children.Add(body);
         var card = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 10), BorderThickness = new Thickness(1), Child = stack };
         Use(card, Border.BackgroundProperty, "BrushPanel");
         Use(card, Border.BorderBrushProperty, "BrushBorder");
@@ -1300,9 +1412,10 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             Content = text, MinHeight = 34, Padding = new Thickness(12, 4), CornerRadius = new CornerRadius(17), FontSize = 13, Margin = new Thickness(0, 0, 6, 6),
             BorderThickness = new Thickness(selected ? 2 : 1), Focusable = false, FontWeight = selected ? FontWeight.SemiBold : FontWeight.Normal,
         };
-        Use(b, Button.BackgroundProperty, selected ? "BrushAccentSoft" : "BrushPanelSoft");
-        Use(b, Button.BorderBrushProperty, selected ? "BrushAccentStrong" : "BrushBorder");
-        Use(b, Button.ForegroundProperty, "BrushText");
+        // 2026-10-19, этап О10: чип выбора — общий sec-chip (обводка, выбранный тёмно-синий), был бледно-жёлтый с рыжей рамкой.
+        b.BorderThickness = new Thickness(1);
+        b.Classes.Add("sec-chip");
+        UiKit.SetActive(b, selected);
         return b;
     }
 

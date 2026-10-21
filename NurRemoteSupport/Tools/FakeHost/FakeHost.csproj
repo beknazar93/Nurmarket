@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Поддельная касса для проверки ретранслятора и консоли без NurMarketKassa (2026-09-29).
+       Только Windows: JPEG через System.Drawing из Windows Desktop. Сторонних пакетов нет.
+       Ввод оператора НЕ выполняет — только рисует его на картинке и пишет в консоль. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>NurRemoteSupport.FakeHost</RootNamespace>
+  </PropertyGroup>
+
+</Project>

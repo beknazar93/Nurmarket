@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб — товары и склад</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.pill{height:38px;padding:0 14px;border-radius:19px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054}
+.pill.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.tr{display:grid;grid-template-columns:36px 2.4fr 1.3fr 1fr .8fr .9fr .9fr;gap:8px;padding:11px 14px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.stk{font-weight:800;padding:3px 10px;border-radius:999px;justify-self:start}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Товары и склад" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+  <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+    <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Товары и склад</b><span style="font-size: 13px; color: #667085">Изменения сразу видны на всех кассах, телефонах и на сайте</span></span>
+    <button type="button" class="b2">Ценники</button>
+    <button type="button" class="b1">+ Товар</button>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+    <section style="flex: 1 1 640px; min-width: 0; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 18px; overflow: hidden">
+      <div style="padding: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #EAECF0">
+        <label style="flex: 1 1 240px; height: 42px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #F9FAFB">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+          <input type="text" placeholder="Название или штрихкод" aria-label="Поиск товара" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 14px; width: 100%">
+        </label>
+        <button type="button" class="pill on">Все склады</button><button type="button" class="pill">Продукты</button><button type="button" class="pill">Одежда и обувь</button><button type="button" class="pill">Услуги</button>
+      </div>
+      <div style="padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: #FFF7CC; font-size: 13px; color: #0B2A3C"><b>Выбрано 2</b><a href="#" style="font-weight: 700">Изменить цену</a><a href="#" style="font-weight: 700">Переместить на склад</a><a href="#" style="font-weight: 700">Напечатать ценники</a></div>
+      <div style="overflow-x: auto">
+        <div style="min-width: 760px">
+          <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span></span><span>Товар</span><span>Штрихкод</span><span>Склад</span><span>Остаток</span><span>Закупка</span><span>Цена</span></div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+            <div class="tr" style="background: {{r.bg}}">
+              <span>
+                <sc-if value="{{r.sel}}" hint-placeholder-val="{{false}}"><input type="checkbox" aria-label="Выбрать товар" checked="" style="width: 18px; height: 18px; accent-color: #0B2A3C"></sc-if>
+                <sc-if value="{{r.unsel}}" hint-placeholder-val="{{true}}"><input type="checkbox" aria-label="Выбрать товар" style="width: 18px; height: 18px; accent-color: #0B2A3C"></sc-if>
+              </span>
+              <span style="display: flex; align-items: center; gap: 10px; min-width: 0"><span style="width: 34px; height: 34px; border-radius: 9px; background: {{r.tint}}; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: #0B2A3C; flex-shrink: 0">{{r.mono}}</span><span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</span></span>
+              <span style="color: #475467">{{r.code}}</span>
+              <span style="color: #475467">{{r.zone}}</span>
+              <span class="stk" style="background: {{r.sbg}}; color: {{r.sfg}}">{{r.stock}}</span>
+              <span style="color: #475467">[цена]</span>
+              <b style="color: #0B2A3C">{{r.price}}</b>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <aside style="flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 12px">
+      <section style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+        <b style="font-size: 16px; font-weight: 800">Массовая загрузка</b>
+        <div style="border: 2px dashed #D0D5DD; border-radius: 14px; padding: 22px 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0B2A3C" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"></path></svg>
+          <b style="font-size: 14px">Перетащите файл сюда</b>
+          <span style="font-size: 12px; color: #667085">Excel, CSV или фото накладной — товары появятся списком для проверки</span>
+          <button type="button" class="b2" style="height: 38px">Выбрать файл</button>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center; border-radius: 14px; background: #0B2A3C; color: #FFFFFF; padding: 14px">
+          <span style="width: 64px; height: 64px; border-radius: 10px; background: #FFFFFF; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #0B2A3C; font-size: 11px; font-weight: 800">[QR]</span>
+          <span style="display: flex; flex-direction: column; gap: 4px"><b style="font-size: 14px">Умная камера телефона</b><span style="font-size: 12px; color: #C7D2DB">Наведите телефон на QR — снимайте полки, товары появятся здесь</span></span>
+        </div>
+      </section>
+      <section style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+        <b style="font-size: 15px">Последняя загрузка</b>
+        <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #475467">Новых товаров</span><b>2</b></div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #475467">Пополнено остатков</span><b>3</b></div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #475467">Источник</span><b>Телефон · умная камера</b></div>
+      </section>
+    </aside>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ok = { sbg: '#E7F6EC', sfg: '#0E7A3A' };
+    const low = { sbg: '#FEF3E2', sfg: '#B54708' };
+    const svc = { sbg: '#F2F4F7', sfg: '#475467' };
+    const r = (name, mono, tint, code, zone, stock, s, price, sel) => Object.assign({ name, mono, tint, code, zone, stock, price, sel, unsel: !sel, bg: sel ? '#FFFCEB' : '#FFFFFF' }, s);
+    return {
+      rows: [
+        r('Макароны «Макфа» спагетти 450г', 'Мк', '#FFF4C2', '4702154000047', 'Продукты', '49', ok, '85 сом', true),
+        r('Кока-Кола (ПЭТ) 2л', 'Кк', '#FDE8E8', '[штрихкод]', 'Продукты', '[N]', low, '170 сом', true),
+        r('Mars', 'Ms', '#F1E8FD', '[штрихкод]', 'Продукты', '[N]', ok, '39 сом', false),
+        r('Сок Gracio яблочный 1л', 'Сг', '#FFEBD6', '[штрихкод]', 'Продукты', '2', ok, '[цена]', false),
+        r('Патроны для Степлера', 'Пс', '#E3F2FD', '[штрихкод]', 'Продукты', '1160', ok, '35 сом', false),
+        r('Aos Extra pover 450гр бальзам', 'Ao', '#E7F6EC', '[штрихкод]', 'Продукты', '65', ok, '50 сом', false),
+        r('Аренда бетон мешалка', 'Аб', '#E3F2FD', '—', 'Услуги', 'услуга', svc, '150 сом', false)
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

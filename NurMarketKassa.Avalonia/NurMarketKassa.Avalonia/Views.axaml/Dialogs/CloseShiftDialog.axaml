@@ -1,8 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CloseShiftDialog"
         Title="{DynamicResource csh.toolbar.closeShift}"
-        Width="472" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -10,35 +11,35 @@
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
 
-    <Window.Styles>
-        <!-- Стиль для кнопки "Отмена" -->
-        <Style Selector="Button.btn-secondary">
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-        </Style>
+    <!-- 2026-10-16, редизайн (этап 1): общая оболочка ModalShell — заголовок и ✕ сверху, «Отмена»
+         (обводка, Esc) и главная кнопка (акцент темы, Enter) снизу справа, подсказка — снизу слева.
+         Слепой пересчёт (UserPreferences.BlindCashCount): до нажатия «Пересчитал» ожидаемая сумма,
+         разбивка и расхождение скрыты (см. CloseShiftDialog.axaml.cs). -->
+    <dlg:ModalShell x:Name="Shell" Margin="16"
+                    Title="{DynamicResource closeShift.header}"
+                    Subtitle="{DynamicResource closeShift.instructions}"
+                    Hint="{DynamicResource modal.hintEnter}">
+        <dlg:ModalShell.Footer>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button IsCancel="True" Content="{DynamicResource common.cancel}"
+                        Classes="modal-cancel" MaxWidth="200"
+                        Click="Cancel_Click"/>
 
-        <!-- Стиль для акцентной кнопки "Закрыть смену" -->
-    </Window.Styles>
+                <Button x:Name="PrimaryButton"
+                        Content="{DynamicResource csh.toolbar.closeShift}"
+                        Classes="modal-primary" MaxWidth="200"
+                        IsDefault="True"
+                        Click="Ok_Click"/>
+            </StackPanel>
+        </dlg:ModalShell.Footer>
 
-    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-            Background="{DynamicResource BrushDialogPanel}"
-            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-            BoxShadow="0 12 32 0 #33101828"
-            Padding="20">
         <StackPanel>
-            <TextBlock Text="{DynamicResource closeShift.header}" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
-            <TextBlock Text="{DynamicResource closeShift.instructions}"
-                       TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,12"/>
+            <!-- 2026-10-16: слепой пересчёт — пояснение вместо ожидаемой суммы (текст — в коде, 5 языков). -->
+            <Border x:Name="BlindNoteBorder" Padding="12" CornerRadius="8" Margin="0,0,0,12"
+                    Background="{DynamicResource BrushAccentSoft}" IsVisible="False">
+                <TextBlock x:Name="BlindNoteText" FontSize="13" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushText}"/>
+            </Border>
 
             <!-- 2026-09-12, по просьбе пользователя ("сделай так же как в вебе") — та же разбивка,
                  что в веб-диалоге "Завершение смены": начальная сумма/продажи/наличные/безналичные.
@@ -49,59 +50,76 @@
                 <StackPanel Spacing="6">
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Grid.Column="0" Text="{DynamicResource closeShift.openingCashLabel}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
-                        <TextBlock Grid.Column="1" x:Name="OpeningCashText" FontSize="13" FontWeight="SemiBold" Text="—"/>
+                        <TextBlock Grid.Column="1" x:Name="OpeningCashText" Classes="num" FontSize="13" FontWeight="SemiBold" Text="—"/>
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Grid.Column="0" Text="{DynamicResource closeShift.totalSalesLabel}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
-                        <TextBlock Grid.Column="1" x:Name="TotalSalesText" FontSize="13" FontWeight="SemiBold" Text="—"/>
+                        <TextBlock Grid.Column="1" x:Name="TotalSalesText" Classes="num" FontSize="13" FontWeight="SemiBold" Text="—"/>
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Grid.Column="0" Text="{DynamicResource closeShift.cashSalesLabel}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
-                        <TextBlock Grid.Column="1" x:Name="CashSalesText" FontSize="13" FontWeight="SemiBold" Text="—"/>
+                        <TextBlock Grid.Column="1" x:Name="CashSalesText" Classes="num" FontSize="13" FontWeight="SemiBold" Text="—"/>
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Grid.Column="0" Text="{DynamicResource closeShift.nonCashSalesLabel}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
-                        <TextBlock Grid.Column="1" x:Name="NonCashSalesText" FontSize="13" FontWeight="SemiBold" Text="—"/>
+                        <TextBlock Grid.Column="1" x:Name="NonCashSalesText" Classes="num" FontSize="13" FontWeight="SemiBold" Text="—"/>
                     </Grid>
                 </StackPanel>
             </Border>
 
-            <Border Padding="12" CornerRadius="8" Margin="0,0,0,14"
+            <!-- 2026-10-20 (живой аудит кассы, К16): возвраты, оплаты долга (наличными/безналом), внесения и изъятия смены —
+                 строки заполняет код (журнал смены кассы), видны только ненулевые; при слепом пересчёте — после «Пересчитал». -->
+            <Border x:Name="ShiftOpsBorder" Padding="12" CornerRadius="8" Margin="0,0,0,10"
+                    Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                    IsVisible="False">
+                <ItemsControl x:Name="ShiftOpsList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,0,0,6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{ReflectionBinding Label}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Column="1" Text="{ReflectionBinding Value}" Classes="num" FontSize="13" FontWeight="SemiBold" Margin="12,0,0,0"/>
+                                </Grid>
+                                <TextBlock Text="{ReflectionBinding Detail}" IsVisible="{ReflectionBinding HasDetail}" FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+
+            <Border x:Name="SystemBalanceBorder" Padding="12" CornerRadius="8" Margin="0,0,0,14"
                     Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
                 <StackPanel>
                     <TextBlock Text="{DynamicResource shift.systemBalance}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                    <TextBlock x:Name="SystemBalanceText" FontSize="18" FontWeight="Bold"
-                               Foreground="{DynamicResource BrushAccent}" Margin="0,4,0,0" Text="—"/>
+                    <!-- 2026-10-16: сумма цветом денег, а не акцента — жёлтый по серой карточке не читался (≈1,2:1). -->
+                    <TextBlock x:Name="SystemBalanceText" Classes="num" FontSize="18" FontWeight="Bold"
+                               Foreground="{DynamicResource BrushMoney}" Margin="0,4,0,0" Text="—"/>
                 </StackPanel>
             </Border>
 
             <TextBlock Text="{DynamicResource closeShift.actualBalanceLabel}" FontSize="13" FontWeight="SemiBold"
                        Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,6"/>
-            <TextBox x:Name="ClosingCashBox" Height="40" FontSize="16" Margin="0,0,0,10" CornerRadius="8"
-                     TextChanged="ClosingCashBox_TextChanged"/>
+            <!-- 2026-10-21 (пакет 6, хвост К16): поле не заполняется заранее — кассир пересчитывает ящик и вводит сам; в поле
+                 подсказка «ожидается N», рядом «= по системе» — одно касание, если пересчитал и сумма сошлась. -->
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                <TextBox x:Name="ClosingCashBox" Height="48" FontSize="18" CornerRadius="8"
+                         VerticalContentAlignment="Center"
+                         TextChanged="ClosingCashBox_TextChanged"/>
+                <Button x:Name="UseExpectedButton" Grid.Column="1" Classes="modal-secondary" Margin="8,0,0,0"
+                        MinHeight="48" IsVisible="False" Click="UseExpected_Click"/>
+            </Grid>
+            <TextBlock x:Name="ExpectedHintText" FontSize="12" TextWrapping="Wrap" Margin="0,-4,0,10" IsVisible="False"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
 
-            <Border x:Name="DiscrepancyBorder" Padding="12" CornerRadius="8" Margin="0,0,0,14"
+            <Border x:Name="DiscrepancyBorder" Padding="12" CornerRadius="8"
                     IsVisible="False">
                 <StackPanel>
                     <TextBlock Text="{DynamicResource closeShift.discrepancyLabel}" FontSize="12"
                                Foreground="{DynamicResource BrushTextSoft}"/>
-                    <TextBlock x:Name="DiscrepancyText" FontSize="18" FontWeight="Bold" Margin="0,4,0,0"/>
+                    <TextBlock x:Name="DiscrepancyText" Classes="num" FontSize="18" FontWeight="Bold" Margin="0,4,0,0"/>
                 </StackPanel>
             </Border>
-
-            <!-- Кнопки с примененными классами стилей -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
-                <Button IsCancel="True" Content="{DynamicResource common.cancel}"
-                        Classes="btn-secondary"
-                        MinWidth="110" Padding="16,0" Height="40"
-                        Click="Cancel_Click"/>
-
-                <Button Content="{DynamicResource csh.toolbar.closeShift}"
-                        Classes="btn-warning"
-                        MinWidth="145" Padding="16,0" Height="40"
-                        IsDefault="True"
-                        Click="Ok_Click"/>
-            </StackPanel>
         </StackPanel>
-    </Border>
+    </dlg:ModalShell>
 </Window>

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Сайт и бот — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.pill{height:34px;padding:0 12px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:700;color:#344054}
+.pill.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.th{border:1px solid #E5E7EB;border-radius:14px;overflow:hidden;background:#FFFFFF;font-family:inherit;padding:0;text-align:left;display:flex;flex-direction:column}
+.th.on{border:2px solid #0B2A3C}
+.seg{height:30px;padding:0 10px;border-radius:8px;border:0;background:transparent;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.seg.on{background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Редактор сайта" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Редактор сайта</b><span style="font-size: 13px; color: #667085">market.nurcrm.kg/nbs · витрина работает · 307 товаров · есть неопубликованные изменения</span></span>
+      <button type="button" class="b2">Смотреть сайт</button>
+      <button type="button" class="b1">Опубликовать</button>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start">
+      <div style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+      <section class="card">
+        <b style="font-size: 16px">Тема сайта</b>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px"><button type="button" class="pill on">Все</button><button type="button" class="pill">Продукты</button><button type="button" class="pill">Одежда и обувь</button><button type="button" class="pill">Профессиональные</button><button type="button" class="pill">Для любого магазина</button></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px">
+          <sc-for list="{{themes}}" as="t" hint-placeholder-count="4">
+            <button type="button" class="th" style="border: {{t.border}}">
+              <span style="height: 76px; background: {{t.bg}}; display: flex; flex-direction: column; gap: 6px; padding: 8px; box-sizing: border-box">
+                <span style="height: 10px; border-radius: 3px; background: {{t.header}}"></span>
+                <span style="flex-grow: 1; border-radius: 4px; background: {{t.hero}}"></span>
+                <span style="display: flex; gap: 4px"><span style="flex-grow: 1; height: 12px; border-radius: 3px; background: {{t.accent}}"></span><span style="flex-grow: 1; height: 12px; border-radius: 3px; background: {{t.accent}}"></span><span style="flex-grow: 1; height: 12px; border-radius: 3px; background: {{t.accent}}"></span></span>
+              </span>
+              <span style="padding: 8px 10px; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 13px">{{t.name}}</b><span style="font-size: 11px; color: #667085">{{t.note}}</span></span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- 2026-10-16: логотип, баннер и предпросмотр — то, что есть в «Редакторе сайта» программы владельца (ревью C) -->
+      <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch">
+        <section class="card" style="flex: 1 1 260px; gap: 10px">
+          <b style="font-size: 16px">Логотип и баннер</b>
+          <div style="display: flex; align-items: center; gap: 12px"><span style="width: 56px; height: 56px; border-radius: 14px; background: #8E0E2E; color: #FFD600; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0">NBS</span><span style="display: flex; flex-direction: column; gap: 4px"><b style="font-size: 13px">Логотип</b><a href="#" style="font-size: 12px; font-weight: 700">Заменить</a></span></div>
+          <span style="font-size: 12px; font-weight: 700; color: #475467">Текст баннера</span>
+          <input type="text" value="Скидки на напитки до 20 %" aria-label="Текст баннера" style="height: 40px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D0D5DD; padding: 0 12px; font-family: inherit; font-size: 13px">
+          <span style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="b2" style="height: 38px">Фото баннера</button><button type="button" class="b2" style="height: 38px">Кнопка: «Смотреть акции» ▾</button></span>
+        </section>
+        <section class="card" style="flex: 1.4 1 340px; gap: 8px">
+          <span style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><b style="font-size: 16px">Предпросмотр</b><span role="group" aria-label="Экран" style="display: flex; background: #F2F4F7; border-radius: 10px; padding: 3px"><button type="button" class="seg on">Компьютер</button><button type="button" class="seg">Телефон</button></span></span>
+          <div style="border: 1px solid #E5E7EB; border-radius: 12px; overflow: hidden; background: #FFFFFF; display: flex; flex-direction: column">
+            <span style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #F2F4F7; font-size: 11px"><b style="color: #8E0E2E">NBS</b><span style="flex-grow: 1; height: 20px; border-radius: 6px; background: #F2F4F7; color: #667085; display: flex; align-items: center; padding: 0 8px">Поиск товара</span><b>Корзина · 0</b></span>
+            <span style="margin: 8px 10px; border-radius: 10px; background: #8E0E2E; color: #FFFFFF; padding: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px"><b style="font-size: 14px">Скидки на напитки до 20&nbsp;%</b><span style="font-size: 11px; font-weight: 800; background: #FFD600; color: #0B2A3C; border-radius: 6px; padding: 4px 8px; white-space: nowrap">Смотреть акции</span></span>
+            <span style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 10px 10px">
+              <sc-for list="{{goods}}" as="g" hint-placeholder-count="3"><span style="border: 1px solid #F2F4F7; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 11px"><span style="height: 34px; border-radius: 6px; background: {{g.tint}}"></span><span style="line-height: 1.3; height: 28px; overflow: hidden">{{g.name}}</span><b>{{g.price}}</b></span></sc-for>
+            </span>
+          </div>
+        </section>
+      </div>
+      </div>
+
+      <aside style="flex: 1 1 280px; max-width: 340px; display: flex; flex-direction: column; gap: 12px">
+        <section class="card">
+          <b style="font-size: 15px">Настройки сайта</b>
+          <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px">
+            <span style="display: flex; justify-content: space-between; gap: 8px"><span style="color: #475467">Адрес</span><b>market.nurcrm.kg/nbs</b></span>
+            <span style="display: flex; justify-content: space-between; gap: 8px"><span style="color: #475467">Получение</span><b>самовывоз · доставка</b></span>
+            <span style="display: flex; justify-content: space-between; gap: 8px"><span style="color: #475467">Оплата</span><b style="text-align: right">при получении · онлайн</b></span>
+          </div>
+          <a href="#" style="font-size: 13px; font-weight: 700">Домен, доставка, оплата — в «Настройках сайта» ›</a>
+        </section>
+        <section class="card">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 40px; height: 40px; border-radius: 12px; background: #E3F2FD; color: #1D4ED8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l6 2 2 6 3-4 5 4z"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">Телеграм-бот @kssirBot</b><span style="font-size: 12px; color: #0E7A3A; font-weight: 700">● работает · отвечает ИИ</span></span></div>
+          <span style="font-size: 13px; color: #475467; line-height: 19px">Покупатели спрашивают цену и наличие, бот отвечает и принимает заказ (сегодня — №10 от Умара).</span>
+          <button type="button" class="b2">Вопросы покупателей · 3</button>
+        </section>
+        <section class="card">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 40px; height: 40px; border-radius: 12px; background: #E7F6EC; color: #0E7A3A; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 7.7 19.4z"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">WhatsApp</b><span style="font-size: 12px; color: #667085">чеки и напоминания о долгах</span></span></div>
+          <button type="button" class="b2">Шаблоны сообщений</button>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const t = (name, note, bg, header, hero, accent, on) => ({ name, note, bg, header, hero, accent, border: on ? '2px solid #0B2A3C' : '1px solid #E5E7EB' });
+    // 2026-10-16: у NBS (Продукты) выбрана «Ала-Тоо», как в «Редакторе сайта» программы владельца; «Стритвир» → «Уличный стиль».
+    const themes = [
+      t('Ала-Тоо', 'выбрана · красный с золотом', '#FFFFFF', '#8E0E2E', '#F3D9DF', '#8E0E2E', true),
+      t('Свежий рынок', 'зелёная · для продуктов', '#F6FBF7', '#FFFFFF', '#CFEBD7', '#0E7A3A'),
+      t('Уличный стиль', 'тёмная · для одежды', '#0E0E10', '#18181B', '#3A4A10', '#C6F432'),
+      t('Бутик', 'чёрно-белая', '#FFFFFF', '#FFFFFF', '#E5E0D8', '#111111')
+    ];
+    const goods = [
+      { name: 'Макароны «Макфа» спагетти 450г', price: '85 сом', tint: '#FFF4C2' },
+      { name: 'Сок Gracio яблочный 1л', price: '120 сом', tint: '#E7F6EC' },
+      { name: 'Mars 50г', price: '39 сом', tint: '#F1E8FD' }
+    ];
+    return { themes, goods };
+  }
+}
+</script>
+</body>
+</html>

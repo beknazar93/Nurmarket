@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Клиенты и долги</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.seg{flex-grow:1;height:38px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700}
+.cl{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:16px;background:#FFFFFF}
+.sm{flex-grow:1;height:38px;border-radius:10px;font-family:inherit;font-size:12px;font-weight:800}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="PAdmClients"><div style="width: 390px; height: 844px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-direction: column;">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(52, 64, 84); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <b style="font-size: 18px; font-weight: 800; flex-grow: 1;">Клиенты и долги</b>
+      <button type="button" aria-label="Новый клиент" style="width: 44px; height: 44px; border-radius: 14px; border: 0px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+    </div>
+    <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgb(228, 231, 236);"><button type="button" class="seg" style="background: transparent; color: rgb(71, 84, 103);">Все</button><button type="button" class="seg" style="background: rgb(255, 255, 255); color: rgb(11, 42, 60);">Должники · [N]</button></span>
+    <section style="border-radius: 16px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); padding: 14px 16px; display: flex; justify-content: space-between; align-items: center;"><span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: rgb(199, 210, 219);">Должны магазину</span><b style="font-size: 22px; color: rgb(255, 214, 0);">[сумма]</b></span><span style="font-size: 12px; color: rgb(199, 210, 219); text-align: right;">просрочено<br><b style="color: rgb(255, 255, 255); font-size: 15px;">[N] клиентов</b></span></section>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0px 16px 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
+    
+      <section class="cl">
+        <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 38px; height: 38px; border-radius: 19px; background: rgb(231, 238, 243); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px;">[ИФ]</span><span style="flex-grow: 1; display: flex; flex-direction: column;"><b style="font-size: 14px;">[Клиент]</b><span style="font-size: 12px; color: rgb(102, 112, 133);">[телефон]</span></span><span style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;"><b style="color: rgb(180, 35, 24);">[сумма]</b><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgb(253, 226, 225); color: rgb(180, 35, 24);"><span class="sc-interp">просрочен [N] дн.</span></span></span></div>
+        <div style="display: flex; gap: 6px;"><button type="button" class="sm" style="border: 0px; background: rgb(231, 246, 236); color: rgb(14, 122, 58);">Принять оплату</button><button type="button" class="sm" style="border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84);">Напомнить в WhatsApp</button></div>
+      </section>
+    
+      <section class="cl">
+        <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 38px; height: 38px; border-radius: 19px; background: rgb(231, 238, 243); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px;">[ИФ]</span><span style="flex-grow: 1; display: flex; flex-direction: column;"><b style="font-size: 14px;">[Клиент]</b><span style="font-size: 12px; color: rgb(102, 112, 133);">[телефон]</span></span><span style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;"><b style="color: rgb(180, 35, 24);">[сумма]</b><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgb(254, 243, 226); color: rgb(181, 71, 8);"><span class="sc-interp">срок сегодня</span></span></span></div>
+        <div style="display: flex; gap: 6px;"><button type="button" class="sm" style="border: 0px; background: rgb(231, 246, 236); color: rgb(14, 122, 58);">Принять оплату</button><button type="button" class="sm" style="border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84);">Напомнить в WhatsApp</button></div>
+      </section>
+    
+      <section class="cl">
+        <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 38px; height: 38px; border-radius: 19px; background: rgb(231, 238, 243); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px;">[ИФ]</span><span style="flex-grow: 1; display: flex; flex-direction: column;"><b style="font-size: 14px;">[Клиент]</b><span style="font-size: 12px; color: rgb(102, 112, 133);">[телефон]</span></span><span style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;"><b style="color: rgb(180, 35, 24);">[сумма]</b><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgb(242, 244, 247); color: rgb(52, 64, 84);"><span class="sc-interp">через [N] дн.</span></span></span></div>
+        <div style="display: flex; gap: 6px;"><button type="button" class="sm" style="border: 0px; background: rgb(231, 246, 236); color: rgb(14, 122, 58);">Принять оплату</button><button type="button" class="sm" style="border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84);">Напомнить в WhatsApp</button></div>
+      </section>
+    
+      <section class="cl">
+        <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 38px; height: 38px; border-radius: 19px; background: rgb(231, 238, 243); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px;">[ИФ]</span><span style="flex-grow: 1; display: flex; flex-direction: column;"><b style="font-size: 14px;">[Клиент]</b><span style="font-size: 12px; color: rgb(102, 112, 133);">[телефон]</span></span><span style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;"><b style="color: rgb(180, 35, 24);">[сумма]</b><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgb(242, 244, 247); color: rgb(52, 64, 84);"><span class="sc-interp">через [N] дн.</span></span></span></div>
+        <div style="display: flex; gap: 6px;"><button type="button" class="sm" style="border: 0px; background: rgb(231, 246, 236); color: rgb(14, 122, 58);">Принять оплату</button><button type="button" class="sm" style="border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84);">Напомнить в WhatsApp</button></div>
+      </section>
+    
+  </main></div></div></div>
+
+
+
+</body></html>

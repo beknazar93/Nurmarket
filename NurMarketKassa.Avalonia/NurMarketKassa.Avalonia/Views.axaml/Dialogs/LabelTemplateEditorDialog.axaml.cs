@@ -231,6 +231,7 @@ public partial class LabelTemplateEditorDialog : Window
             content.Children.Add(new TextBlock { Text = icon, FontSize = 14, VerticalAlignment = VerticalAlignment.Center });
             content.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
             var button = new Button { Content = content, Classes = { "tool-item" } };
+            Avalonia.Automation.AutomationProperties.SetName(button, label); // 2026-10-20, этап О9б: имя кнопки для доступности
             button.Click += (_, _) => SelectElement(kind);
             _toolButtons[kind] = button;
             ToolsPanel.Children.Add(button);
@@ -486,7 +487,9 @@ public partial class LabelTemplateEditorDialog : Window
 
     private void AddFontControls(LabelElementLayout element)
     {
-        var fontHeader = new TextBlock { Text = Tr.T("Шрифт", "Шрифт", "Font", "Yazı tipi", "Shrift"), FontWeight = FontWeight.SemiBold, Foreground = Brushes.Black };
+        // 2026-10-20, этап О9б: подписи панели свойств — цветами темы (чёрный «Шрифт» пропадал в тёмной теме).
+        var fontHeader = new TextBlock { Text = Tr.T("Шрифт", "Шрифт", "Font", "Yazı tipi", "Shrift"), FontWeight = FontWeight.SemiBold };
+        fontHeader.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
         PropertiesPanel.Children.Add(fontHeader);
 
         var fontCombo = new ComboBox { ItemsSource = AvailableFontFamilies, HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -503,7 +506,8 @@ public partial class LabelTemplateEditorDialog : Window
         };
         PropertiesPanel.Children.Add(fontCombo);
 
-        var sizeLabel = new TextBlock { Text = Tr.T("Размер шрифта, px (0 — автоматически)", "Шрифттин өлчөмү, px (0 — автоматтык түрдө)", "Font size, px (0 = automatic)", "Yazı boyutu, px (0 — otomatik)", "Shrift o'lchami, px (0 — avtomatik)"), FontSize = 11, Foreground = Brush.Parse("#64748B") };
+        var sizeLabel = new TextBlock { Text = Tr.T("Размер шрифта, px (0 — автоматически)", "Шрифттин өлчөмү, px (0 — автоматтык түрдө)", "Font size, px (0 = automatic)", "Yazı boyutu, px (0 — otomatik)", "Shrift o'lchami, px (0 — avtomatik)"), FontSize = 11.5, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        sizeLabel.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
         PropertiesPanel.Children.Add(sizeLabel);
 
         var sizeBox = new NumericUpDown

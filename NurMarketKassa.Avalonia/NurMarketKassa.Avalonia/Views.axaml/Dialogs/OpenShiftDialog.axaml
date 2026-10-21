@@ -1,8 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.OpenShiftDialog"
         Title="{DynamicResource csh.toolbar.openShift}"
-        Width="452" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -10,62 +11,40 @@
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
 
-    <Window.Styles>
-        <!-- Стиль для кнопки "Отмена" -->
-        <Style Selector="Button.btn-secondary">
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-        </Style>
+    <!-- 2026-10-16, редизайн (этап 1): общая оболочка ModalShell — заголовок и ✕ сверху, «Отмена»
+         (обводка, Esc) и «Открыть смену» (акцент темы, Enter) снизу справа, подсказка — снизу слева. -->
+    <dlg:ModalShell Margin="16"
+                    Title="{DynamicResource csh.toolbar.openShift}"
+                    Subtitle="{DynamicResource openShift.instructions}"
+                    Hint="{DynamicResource modal.hintEnter}">
+        <dlg:ModalShell.Footer>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button IsCancel="True" Content="{DynamicResource common.cancel}"
+                        Classes="modal-cancel" MaxWidth="200"
+                        Click="Cancel_Click"/>
 
-        <!-- Стиль для акцентной кнопки "Открыть смену" -->
-    </Window.Styles>
+                <Button Content="{DynamicResource csh.toolbar.openShift}"
+                        Classes="modal-primary" MaxWidth="200"
+                        IsDefault="True"
+                        Click="Ok_Click"/>
+            </StackPanel>
+        </dlg:ModalShell.Footer>
 
-    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-            Background="{DynamicResource BrushDialogPanel}"
-            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-            BoxShadow="0 12 32 0 #33101828"
-            Padding="20">
         <StackPanel>
-            <TextBlock Text="{DynamicResource csh.toolbar.openShift}" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
-            <TextBlock Text="{DynamicResource openShift.instructions}"
-                       TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,12"/>
-
             <Border Padding="12" CornerRadius="8" Margin="0,0,0,14"
                     Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
                 <StackPanel>
                     <TextBlock Text="{DynamicResource shift.systemBalance}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                    <TextBlock x:Name="SystemBalanceText" FontSize="18" FontWeight="Bold"
-                               Foreground="{DynamicResource BrushAccent}" Margin="0,4,0,0" Text="—"/>
+                    <!-- 2026-10-16: сумма цветом денег, а не акцента — жёлтый по серой карточке не читался (≈1,2:1). -->
+                    <TextBlock x:Name="SystemBalanceText" Classes="num" FontSize="18" FontWeight="Bold"
+                               Foreground="{DynamicResource BrushMoney}" Margin="0,4,0,0" Text="—"/>
                 </StackPanel>
             </Border>
 
             <TextBlock Text="{DynamicResource openShift.openingAmountLabel}" FontSize="13" FontWeight="SemiBold"
                        Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,6"/>
-            <TextBox x:Name="OpeningCashBox" Text="0.00" Height="40" FontSize="16" Margin="0,0,0,24" CornerRadius="8"/>
-
-            <!-- Кнопки с правильной шириной -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
-                <Button IsCancel="True" Content="{DynamicResource common.cancel}"
-                        Classes="btn-secondary"
-                        MinWidth="110" Padding="16,0" Height="40"
-                        Click="Cancel_Click"/>
-
-                <Button Content="{DynamicResource csh.toolbar.openShift}"
-                        Classes="btn-primary"
-                        MinWidth="150" Padding="16,0" Height="40"
-                        IsDefault="True"
-                        Click="Ok_Click"/>
-            </StackPanel>
+            <TextBox x:Name="OpeningCashBox" Text="0.00" Height="48" FontSize="18" CornerRadius="8"
+                     VerticalContentAlignment="Center"/>
         </StackPanel>
-    </Border>
+    </dlg:ModalShell>
 </Window>

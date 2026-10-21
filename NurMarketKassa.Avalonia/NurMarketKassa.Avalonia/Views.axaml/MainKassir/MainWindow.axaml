@@ -16,6 +16,7 @@
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
         KeyDown="OnMainWindowKeyDown"
+        Focusable="True"
         Foreground="{DynamicResource BrushText}"
         FontFamily="Segoe UI">
 
@@ -39,6 +40,15 @@
 
     <Window.Styles>
         <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Shared/MainViewStyles.axaml"/>
+
+        <!-- 2026-10-20, живая проверка: «после „Фильтр“ скан снова открывает фильтр». Нажатая кнопка забирала
+             фокус, Avalonia запоминала её как фокус окна и возвращала на неё после каждого модального окна, а
+             Enter сканера нажимал её. Кнопки главного экрана (все раскладки, меню ☰, всплывающие меню) фокус не
+             берут — так уже сделано у +/− чека, плиток и «Клавиатуры»; щелчок оставляет фокус окну (сканеру).
+             Поля ввода, списки и вкладки фокус берут как раньше. -->
+        <Style Selector=":is(Button)">
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
 
         <Style Selector="GridSplitter#CatalogGridSplitter">
             <Setter Property="Background" Value="Transparent"/>
@@ -437,7 +447,8 @@
                              набор на экранной клавиатуре уходил в буфер сканера и пропадал. -->
                         <StackPanel Spacing="1" VerticalAlignment="Center">
                             <PathIcon Classes="header-icon" Data="{StaticResource IconKeyboard}"/>
-                            <TextBlock Classes="header-tool-label" Text="{DynamicResource header.labelKeyboard}" FontSize="9"
+                            <!-- 2026-10-21 (пакет 6, п. 58): «Клавиатура» (экранная), а не «Клавиши» — рядом «Горячие» (горячие клавиши) путали. -->
+                            <TextBlock Classes="header-tool-label" Text="{DynamicResource keyboard.title}" FontSize="9"
                                        HorizontalAlignment="Center"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
@@ -504,7 +515,9 @@
                             <TextBlock Text="{DynamicResource csh.toolbar.openShift}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Classes="main-primary shift-action"
+                    <!-- 2026-10-19, К1 (аудит 19.10, проблема 2): на экране продажи одна жёлтая — «Оплатить»;
+                         «Закрыть смену» — обводкой, как «Открыть смену». Обработчик и доступность прежние. -->
+                    <Button Classes="main-outline shift-action"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             Click="CloseShift_Click"
@@ -660,6 +673,15 @@
                        Foreground="{DynamicResource BrushText}"
                        TextWrapping="Wrap"/>
         </Border>
+        <!-- 2026-10-18, редизайн (этап 6, макет MAfterPay): «Продажа прошла» — плашка внизу слева поверх любой
+             из шести раскладок (кнопки «Оплатить» у всех справа), а не окно. Фокус не берёт, сама закрывается
+             через 3 с; показывает и убирает MainWindow.SaleDoneBar.cs. Ширина — 480, на узком экране меньше. -->
+        <controls:SaleDoneBar x:Name="SaleDoneBar"
+                              Grid.Row="1"
+                              ZIndex="160"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Bottom"
+                              Margin="16"/>
         <Panel Grid.RowSpan="2"
                ZIndex="200"
                IsVisible="{Binding IsSideMenuOpen}">

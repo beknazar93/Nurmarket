@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Профиль, принтер, язык</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.grp{background:#FFFFFF;border-radius:18px;overflow:hidden}
+.it{display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid #F2F4F7;font-size:14px;width:100%;box-sizing:border-box;background:#FFFFFF;border-left:0;border-right:0;border-top:0;font-family:inherit;text-align:left;color:#111827}
+.ic{width:34px;height:34px;border-radius:10px;background:#F2F4F7;color:#0B2A3C;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.val{font-size:12px;color:#667085}
+.sw{width:44px;height:26px;border-radius:13px;position:relative;flex-shrink:0}
+.sw i{position:absolute;top:3px;width:20px;height:20px;border-radius:10px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 22px 16px 14px; display: flex; align-items: center; gap: 12px">
+    <span style="width: 56px; height: 56px; border-radius: 28px; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px">КТ</span>
+    <span style="display: flex; flex-direction: column; gap: 2px"><b style="font-size: 18px">Кассир Тест</b><span style="font-size: 13px; color: #667085">NBS · Кассир · Касса 1</span></span>
+  </header>
+  <main style="flex-grow: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 12px">
+    <div class="grp">
+      <button type="button" class="it"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4V11h16v7h-2M6 14h12v7H6z"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column"><span>Принтер чеков</span><span class="val">Bluetooth · [принтер] · подключён</span></span><span style="width: 8px; height: 8px; border-radius: 4px; background: #16A34A"></span></button>
+      <button type="button" class="it"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column"><span>Связь с кассой</span><span class="val">По Wi-Fi · печать и ящик через кассу</span></span></button>
+      <button type="button" class="it"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column"><span>Сканер</span><span class="val">Камера · звук и вибрация</span></span></button>
+    </div>
+    <div class="grp">
+      <button type="button" class="it"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18"></path></svg></span><span style="flex-grow: 1">Язык</span><span class="val">Русский</span></button>
+      <div class="it"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 15A8 8 0 1 1 9 4a6 6 0 0 0 11 11z"></path></svg></span><span style="flex-grow: 1">Тёмная тема</span><span class="sw" role="img" aria-label="Выключено" style="background: #D0D5DD"><i style="left: 3px"></i></span></div>
+      <div class="it"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M12 19h.01"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column"><span>Работа без интернета</span><span class="val">Ждут отправки: [N] чеков</span></span><span class="sw" role="img" aria-label="Включено" style="background: #16A34A"><i style="left: 21px"></i></span></div>
+    </div>
+    <button type="button" style="height: 52px; border-radius: 16px; border: 1.5px solid #FDE2E1; background: #FFFFFF; color: #B42318; font-family: inherit; font-size: 15px; font-weight: 700; margin-top: auto">Выйти из аккаунта</button>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

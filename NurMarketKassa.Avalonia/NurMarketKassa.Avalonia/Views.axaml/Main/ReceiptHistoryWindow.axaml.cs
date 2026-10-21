@@ -41,10 +41,38 @@ public partial class ReceiptHistoryWindow : Window
     /// <summary>Кассир открывал возврат — главное окно после закрытия пересчитает остаток смены.</summary>
     public bool ReturnWasOpened { get; private set; }
 
+    /// <summary>2026-10-20: «Отправить на сервер» — досылка офлайн-очереди (ReceiptHistoryService.SendPendingNowAsync →
+    /// SyncService). Свойства — чтобы стенд снимков подставил свою досылку без сети и базы; касса их не меняет.</summary>
+    public Func<string, CancellationToken, Task<(bool Sent, string Message)>> SendPending { get; set; } = ReceiptHistoryService.SendPendingNowAsync;
+
+    public Func<bool> IsQueueSending { get; set; } = ReceiptHistoryService.IsQueueSending;
+
+    private bool _sending;
+    private SyncService? _sync;
+
     public ReceiptHistoryWindow()
     {
         InitializeComponent();
         _canReturn = CanReturn();
+        EmptyHintText.Text = Tr.T("Выберите другой период — «Сегодня» или «Вчера», или нажмите «Обновить».",
+            "Башка мезгилди тандаңыз — «Бүгүн» же «Кечээ», же «Жаңылоо» баскычын басыңыз.",
+            "Choose another period — “Today” or “Yesterday”, or press “Refresh”.",
+            "Başka bir dönem seçin — «Bugün» veya «Dün» ya da «Yenile»ye basın.",
+            "Boshqa davrni tanlang — «Bugun» yoki «Kecha», yoki «Yangilash»ni bosing.");
+        SendButtonText.Text = SendLabel;
+        CardTotalLabel.Text = Tr.T("Итого", "Жыйынтык", "Total", "Toplam", "Jami");
+        // 2026-10-20 (К6): заголовок блока возвратов под чеком.
+        ReturnsCaption.Text = Tr.T("Возвраты", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar");
+        // Досылка идёт сама (раз в 45 с) — кнопка «Отправить на сервер» показывает «Отправляется…», пока она идёт.
+        try
+        {
+            _sync = App.GetRequiredService<SyncService>();
+            _sync.StateChanged += OnSyncStateChanged;
+        }
+        catch (Exception)
+        {
+            _sync = null;
+        }
         Opened += OnFirstOpened;
         // 2026-10-05, снимок владельца с телефона: «Вчера», поиск и «Обновить» уходили за правый край.
         NarrowLayout.Attach(this, 600, ApplyNarrowLayout);
@@ -83,15 +111,45 @@ public partial class ReceiptHistoryWindow : Window
     private async void OnFirstOpened(object? sender, EventArgs e)
     {
         Opened -= OnFirstOpened;
+        ApplyShiftAvailability();
         await LoadAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>2026-10-20, проверка фильтров: смена закрыта — «Эта смена» выключена (подсказка «Смена закрыта»), выбрано «Сегодня».
+    /// Раньше «Эта смена» оставалась отмеченной, а показывались чеки за сегодня.</summary>
+    private void ApplyShiftAvailability()
+    {
+        if (PeriodChips.Child is not Panel panel)
+            return;
+        var radios = panel.Children.OfType<RadioButton>().ToList();
+        var shift = radios.FirstOrDefault(r => "shift".Equals(r.Tag));
+        var today = radios.FirstOrDefault(r => "today".Equals(r.Tag));
+        if (shift is null || today is null)
+            return;
+        var hasShift = ReceiptHistoryService.CurrentShiftId() is not null;
+        shift.IsEnabled = hasShift;
+        ToolTip.SetShowOnDisabled(shift, true);
+        ToolTip.SetTip(shift, hasShift ? null : Tr.T("Смена закрыта — откройте смену, чтобы видеть её чеки",
+            "Смена жабык — анын чектерин көрүү үчүн сменаны ачыңыз", "The shift is closed — open a shift to see its receipts",
+            "Vardiya kapalı — fişlerini görmek için vardiya açın", "Smena yopiq — uning cheklarini ko'rish uchun smenani oching"));
+        if (!hasShift && _period == ReceiptHistoryPeriod.CurrentShift)
+        {
+            _period = ReceiptHistoryPeriod.Today;
+            today.IsChecked = true;
+        }
     }
 
     protected override void OnClosed(EventArgs e)
     {
         _loadCts?.Cancel();
         _detailCts?.Cancel();
+        if (_sync != null)
+            _sync.StateChanged -= OnSyncStateChanged;
         base.OnClosed(e);
     }
+
+    private void OnSyncStateChanged(object? sender, EventArgs e) =>
+        Avalonia.Threading.Dispatcher.UIThread.Post(UpdateSendButton);
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close(false);
 
@@ -246,7 +304,12 @@ public partial class ReceiptHistoryWindow : Window
         FillHeader(row);
         DetailLines.ItemsSource = null;
         SummaryRows.ItemsSource = null;
-        DetailReceiptText.Text = "";
+        DiscountRows.ItemsSource = null;
+        PeopleRows.ItemsSource = null;
+        ReceiptCard.IsVisible = false;
+        // 2026-10-20 (К6): блок возвратов прежнего чека — не показываем у нового.
+        _returnsCts?.Cancel();
+        ReturnsPanel.IsVisible = false;
         DetailErrorText.IsVisible = false;
         ActionMessage.IsVisible = false;
         PrintCopyButton.IsEnabled = false;
@@ -298,20 +361,37 @@ public partial class ReceiptHistoryWindow : Window
         DetailBadge.Classes.Set("danger", row.IsDanger);
         DetailBadge.Classes.Set("info", row.IsInfo);
 
-        var meta = entry.CreatedAt.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        // 2026-10-20, как в макете: «12.10.2026 · 14:33 · Айгерим Садыкова».
+        var meta = entry.CreatedAt.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)
+                   + " · " + entry.CreatedAt.ToString("HH:mm", CultureInfo.InvariantCulture);
         if (!string.IsNullOrWhiteSpace(entry.Cashier))
-            meta += "  ·  " + Tr.T("Кассир: ", "Кассир: ", "Cashier: ", "Kasiyer: ", "Kassir: ") + entry.Cashier;
+            meta += " · " + entry.Cashier.Trim();
         DetailMeta.Text = meta;
+
+        // 2026-10-20, владелец: под плашкой — причина последнего отказа сервера простыми словами и когда была попытка.
+        var (reason, fromServer) = entry.IsLocal ? ReceiptHistoryService.DescribeUploadError(entry.Local!.LastError) : (null, false);
+        DetailReasonText.Text = reason == null
+            ? ""
+            : (fromServer || entry.IsFailedUpload
+                  ? Tr.T("Сервер не принял: ", "Сервер кабыл алган жок: ", "The server did not accept it: ", "Sunucu kabul etmedi: ", "Server qabul qilmadi: ")
+                  : Tr.T("Причина: ", "Себеби: ", "Reason: ", "Neden: ", "Sababi: "))
+              + reason;
+        DetailReasonText.IsVisible = reason != null;
+        var attempt = entry.Local?.LastAttemptAt;
+        DetailAttemptText.Text = attempt is { } at
+            ? Tr.T("Последняя попытка: ", "Акыркы аракет: ", "Last attempt: ", "Son deneme: ", "Oxirgi urinish: ")
+              + at.LocalDateTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)
+            : "";
+        DetailAttemptText.IsVisible = attempt != null && (entry.IsFailedUpload || entry.IsPendingUpload);
 
         if (entry.IsFailedUpload)
         {
-            var error = string.IsNullOrWhiteSpace(entry.Local!.LastError) ? "—" : entry.Local.LastError!.Trim();
             DetailNoticeText.Text = Tr.T(
-                $"Сервер отклонил этот чек: {error}. Отправить его повторно можно в разделе «Некорректные чеки».",
-                $"Сервер бул чекти четке какты: {error}. Аны «Туура эмес чектер» бөлүмүнөн кайра жөнөтсө болот.",
-                $"The server rejected this receipt: {error}. You can resend it in “Irregular receipts”.",
-                $"Sunucu bu fişi reddetti: {error}. «Sorunlu fişler» bölümünden yeniden gönderebilirsiniz.",
-                $"Server bu chekni rad etdi: {error}. Uni «Noto'g'ri cheklar» bo'limidan qayta yuborish mumkin.");
+                "Сервер отклонил этот чек. Отправить его повторно можно в разделе «Некорректные чеки».",
+                "Сервер бул чекти четке какты. Аны «Туура эмес чектер» бөлүмүнөн кайра жөнөтсө болот.",
+                "The server rejected this receipt. You can resend it in “Irregular receipts”.",
+                "Sunucu bu fişi reddetti. «Sorunlu fişler» bölümünden yeniden gönderebilirsiniz.",
+                "Server bu chekni rad etdi. Uni «Noto'g'ri cheklar» bo'limidan qayta yuborish mumkin.");
             DetailNotice.IsVisible = true;
         }
         else if (entry.IsPendingUpload)
@@ -333,7 +413,93 @@ public partial class ReceiptHistoryWindow : Window
         var canReturn = _canReturn && !entry.IsLocal && !ReceiptHistoryService.IsReturnedOrCanceled(entry);
         ReturnButton.IsVisible = canReturn;
         Grid.SetColumnSpan(PrintCopyButton, canReturn ? 1 : 3);
+        UpdateSendButton();
     }
+
+    private static string SendLabel => Tr.T("Отправить на сервер", "Серверге жөнөтүү", "Send to the server", "Sunucuya gönder", "Serverga yuborish");
+
+    /// <summary>2026-10-20: «Отправить на сервер» — только у чека «Не отправлен на сервер»; тогда она одна жёлтая, а
+    /// «Печать копии» — обводкой. Пока досылка идёт (сама или по кнопке) — выключена, «Отправляется…».</summary>
+    private void UpdateSendButton()
+    {
+        var pending = _selected?.Entry.IsPendingUpload == true;
+        SendButton.IsVisible = pending;
+        PrintCopyButton.Classes.Set("sec-primary", !pending);
+        PrintCopyButton.Classes.Set("sec-outline", pending);
+        // Неотправленный чек: [Отправить на сервер][Печать копии] в один ряд (возврата у него нет);
+        // иначе — [Печать копии][Вернуть…] или печать на всю ширину.
+        Grid.SetColumn(PrintCopyButton, pending ? 2 : 0);
+        Grid.SetColumnSpan(PrintCopyButton, pending || ReturnButton.IsVisible ? 1 : 3);
+        if (!pending)
+            return;
+
+        bool busy;
+        try
+        {
+            busy = _sending || IsQueueSending();
+        }
+        catch (Exception)
+        {
+            busy = _sending;
+        }
+
+        SendButton.IsEnabled = !busy;
+        SendButtonText.Text = busy ? ReceiptHistoryService.SendingNowText : SendLabel;
+        Avalonia.Automation.AutomationProperties.SetName(SendButton, SendButtonText.Text);
+    }
+
+    private async void Send_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_sending || _selected is not { Entry: { IsPendingUpload: true } entry } row)
+            return;
+
+        _sending = true;
+        UpdateSendButton();
+        ShowAction(ReceiptHistoryService.SendingNowText, ok: true);
+        var startedAt = DateTime.Now;
+        (bool Sent, string Message) result;
+        try
+        {
+            result = await SendPending(entry.Id, CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История чеков: «Отправить на сервер» упало: {ex}", "OFFLINE");
+            result = (false, Tr.T("Не удалось отправить чек: ", "Чекти жөнөтүү мүмкүн болгон жок: ", "Could not send the receipt: ",
+                "Fiş gönderilemedi: ", "Chekni yuborib bo'lmadi: ") + ex.Message);
+        }
+        finally
+        {
+            _sending = false;
+        }
+
+        // Список — заново: отправленный чек приходит с сервера со статусом «Оплачен» и своим номером.
+        _shownDetailId = null;
+        _selectedDetail = null;
+        await LoadAsync(result.Sent ? null : entry.Id).ConfigureAwait(true);
+        if (result.Sent && FindSentReceipt(row, startedAt) is { } sent)
+            ReceiptsList.SelectedItem = sent;
+        UpdateSendButton();
+        if (DetailsPanel.IsVisible)
+        {
+            ShowAction(result.Message, result.Sent);
+        }
+        else
+        {
+            // Чек ушёл, но в списке его не нашли (другой период, поиск) — сообщение над списком.
+            NoticeText.Text = result.Message;
+            NoticeBorder.IsVisible = true;
+        }
+    }
+
+    /// <summary>Отправленный чек в обновлённом списке. Запись очереди удаляется после отправки, id продажи на сервере
+    /// из неё уже не прочитать — ищем чек с сервера с той же суммой, проведённый после нажатия (новые — первыми).</summary>
+    private RowVm? FindSentReceipt(RowVm was, DateTime startedAt) =>
+        _rows.Where(r => !r.Entry.IsLocal
+                         && Math.Abs(r.Entry.Total - was.Entry.Total) < 0.01m
+                         && r.Entry.CreatedAt >= startedAt.AddMinutes(-2))
+            .OrderByDescending(r => r.Entry.CreatedAt)
+            .FirstOrDefault();
 
     private void FillDetails(RowVm row, JsonElement detail)
     {
@@ -353,19 +519,31 @@ public partial class ReceiptHistoryWindow : Window
             var discount = LineDiscount(line);
             var returned = entry.IsLocal ? 0 : qty - CartDisplayHelper.RefundableQuantity(line);
 
+            // 2026-10-20, как в макете: «2 × 85,00» мелко, сумма строки жирно справа; «сом» — только у итога.
             lines.Add(new LineVm
             {
                 Name = name,
-                QtyPriceText = $"{qty.ToString("0.###", Ru)} × {ReceiptHistoryService.Money(price)}",
-                TotalText = ReceiptHistoryService.Money(lineTotal),
+                QtyPriceText = $"{qty.ToString("0.###", Ru)} × {MoneyText.Amount(price)}",
+                TotalText = MoneyText.Amount(lineTotal),
                 DiscountText = discount > 0
-                    ? Tr.T("Скидка: −", "Арзандатуу: −", "Discount: −", "İndirim: −", "Chegirma: −") + ReceiptHistoryService.Money(discount)
+                    ? Tr.T("Скидка: −", "Арзандатуу: −", "Discount: −", "İndirim: −", "Chegirma: −") + MoneyText.Amount(discount)
                     : "",
                 ReturnedText = returned > 1e-6
                     ? Tr.T("Возвращено: ", "Кайтарылды: ", "Returned: ", "İade edildi: ", "Qaytarildi: ") + returned.ToString("0.###", Ru)
                     : "",
             });
         }
+
+        // 2026-10-20 (живой аудит кассы, К6): после частичного возврата сервер пересчитывает продажу (001836: «Получено
+        // 70,59, Сдача 20,19» вместо 100,00 / 28,60, возвращённая строка пропадает). Если касса запомнила продажу до
+        // возвратов (SaleReturnLedger) — чек как был, а возвраты — отдельным блоком ниже.
+        var ledger = entry.IsLocal ? null : SaleReturnLedger.Get(entry.Id);
+        var serverShowsReturns = !entry.IsLocal
+            && (ReceiptHistoryService.IsReturnedOrCanceled(entry) || entry.Status == "partially_returned" || lines.Any(l => l.HasReturned));
+        var hasReturns = ledger is { Refunds.Count: > 0 } || serverShowsReturns;
+        var original = hasReturns && ledger is { Total: > 0m, Lines.Count: > 0 } ? ledger : null;
+        if (original is not null)
+            lines = OriginalLines(original, detail);
 
         DetailLines.ItemsSource = lines;
         if (lines.Count == 0)
@@ -378,21 +556,63 @@ public partial class ReceiptHistoryWindow : Window
         if (names.Count > 0)
             entry.SearchText += " " + string.Join(" ", names);
 
-        SummaryRows.ItemsSource = BuildSummary(entry, detail);
-
-        // Чек так, как он выйдет на бумагу при «Печать копии»: тот же текст, та же пометка.
-        try
-        {
-            DetailReceiptText.Text = ReceiptHistoryService.BuildReprintText(entry, detail).TrimEnd('\n', '\r', ' ');
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"История чеков: вид чека не построен: {ex.Message}", "WARNING");
-            DetailReceiptText.Text = "";
-        }
+        var (discounts, total, payments) = hasReturns && ledger is { Total: > 0m }
+            ? BuildOriginalSummary(ledger)
+            : BuildSummary(entry, detail, hideCashDetails: hasReturns);
+        DiscountRows.ItemsSource = discounts;
+        CardTotal.Text = ReceiptHistoryService.Money(total);
+        // 2026-10-20 (К6): у пересчитанного сервером чека (касса продажу до возврата не видела) — «Итого после возвратов».
+        CardTotalLabel.Text = hasReturns && ledger is not { Total: > 0m }
+            ? Tr.T("Итого после возвратов", "Кайтаруудан кийинки жыйынтык", "Total after returns", "İadelerden sonra toplam", "Qaytarishlardan keyingi jami")
+            : Tr.T("Итого", "Жыйынтык", "Total", "Toplam", "Jami");
+        SummaryRows.ItemsSource = payments;
+        ShowReturns(entry, ledger, hasReturns);
+        FillCardHeader(entry, detail);
+        ReceiptCard.IsVisible = true;
     }
 
-    private static List<SummaryVm> BuildSummary(ReceiptHistoryEntry entry, JsonElement detail)
+    /// <summary>2026-10-20: шапка карточки — те же сведения, что в печатном чеке (SaleReceiptTextBuilder /
+    /// CartReceiptTextBuilder): магазин, ИНН и адрес по настройкам чека, «Товарный чек · Кассир»; внизу — клиент и
+    /// консультант. Чек нефискальный (решение владельца 16.10) — «Товарный чек», без «Кассовый чек · Приход».</summary>
+    private void FillCardHeader(ReceiptHistoryEntry entry, JsonElement detail)
+    {
+        var prefs = UserPreferences.Instance;
+        var store = (prefs.StoreName ?? "").Trim();
+        // «MARKET PLUS» — значение по умолчанию, пока владелец не задал название: на экране — название компании.
+        if ((store.Length == 0 || store == "MARKET PLUS") && !string.IsNullOrWhiteSpace(CompanyInfoService.LastCompany?.Name))
+            store = CompanyInfoService.LastCompany!.Name!.Trim();
+        CardStoreName.Text = prefs.ShowStoreName ? store : "";
+        CardStoreName.IsVisible = CardStoreName.Text.Length > 0;
+
+        var info = new List<string>();
+        if (prefs.ShowAddress && !string.IsNullOrWhiteSpace(prefs.StoreAddress))
+            info.Add(prefs.StoreAddress.Trim());
+        if (prefs.ShowInn && !string.IsNullOrWhiteSpace(prefs.StoreInn))
+            info.Add(Tr.T("ИНН", "ИНН", "TIN", "VKN", "STIR") + " " + prefs.StoreInn.Trim());
+        CardStoreInfo.Text = string.Join(" · ", info);
+        CardStoreInfo.IsVisible = info.Count > 0;
+
+        var cashier = entry.Cashier ?? CartDisplayHelper.TryCashierName(detail);
+        CardKind.Text = Tr.T("Товарный чек", "Товардык чек", "Sales receipt", "Satış fişi", "Tovar cheki")
+                        + (string.IsNullOrWhiteSpace(cashier)
+                            ? ""
+                            : " · " + Tr.T("Кассир: ", "Кассир: ", "Cashier: ", "Kasiyer: ", "Kassir: ") + cashier.Trim());
+
+        var people = new List<SummaryVm>();
+        if ((Str(detail, "client_name") ?? Str(detail, "client_display")) is { } client)
+            people.Add(new SummaryVm(Tr.T("Клиент", "Кардар", "Customer", "Müşteri", "Mijoz"), client));
+        if (Str(detail, "consultant_display") is { } consultant)
+            people.Add(new SummaryVm(Tr.T("Консультант", "Консультант", "Consultant", "Danışman", "Maslahatchi"), consultant));
+        PeopleRows.ItemsSource = people;
+        CardPeoplePanel.IsVisible = people.Count > 0;
+    }
+
+    /// <summary>Строки карточки: скидки (до итога), итог, оплата (после итога). 2026-10-20: способ оплаты — с суммой
+    /// («Наличные 209», у смешанной — наличные и безнал отдельно), ниже «Получено» и «Сдача», у долга — остаток.</summary>
+    /// <param name="hideCashDetails">2026-10-20 (К6): по чеку были возвраты, а касса продажу до них не видела — «Получено/Сдача»
+    /// сервер уже пересчитал (выдуманные цифры), их не показываем.</param>
+    private static (List<SummaryVm> Discounts, decimal Total, List<SummaryVm> Payments) BuildSummary(ReceiptHistoryEntry entry, JsonElement detail,
+        bool hideCashDetails = false)
     {
         var rows = new List<SummaryVm>();
         var totals = CartTotalsCalculator.Calculate(detail);
@@ -407,36 +627,239 @@ public partial class ReceiptHistoryWindow : Window
         if (lineDiscounts + orderDiscount > 0.005m
             && Math.Abs((decimal)totals.Subtotal - lineDiscounts - orderDiscount - total) < 0.01m)
             rows.Add(new SummaryVm(Tr.T("Сумма без скидок", "Арзандатуусуз сумма", "Subtotal", "Ara toplam", "Chegirmasiz summa"),
-                ReceiptHistoryService.Money((decimal)totals.Subtotal)));
+                MoneyText.Amount((decimal)totals.Subtotal)));
         if (lineDiscounts > 0.005m)
             rows.Add(new SummaryVm(Tr.T("Скидка на позиции", "Позицияларга арзандатуу", "Item discounts", "Ürün indirimleri", "Pozitsiyalarga chegirma"),
-                "−" + ReceiptHistoryService.Money(lineDiscounts)));
+                "−" + MoneyText.Amount(lineDiscounts)));
         if (orderDiscount > 0.005m)
             rows.Add(new SummaryVm(Tr.T("Скидка на чек", "Чекке арзандатуу", "Receipt discount", "Fiş indirimi", "Chekka chegirma"),
-                "−" + ReceiptHistoryService.Money(orderDiscount)));
+                "−" + MoneyText.Amount(orderDiscount)));
 
-        rows.Add(new SummaryVm(Tr.T("Итого", "Жыйынтык", "Total", "Toplam", "Jami"), ReceiptHistoryService.Money(total), isTotal: true));
-
+        var pay = new List<SummaryVm>();
         var method = (entry.IsLocal ? entry.PaymentMethod : Str(detail, "payment_method") ?? entry.PaymentMethod).Trim().ToLowerInvariant();
-        rows.Add(new SummaryVm(Tr.T("Оплата", "Төлөм", "Payment", "Ödeme", "To'lov"), ReceiptHistoryService.PaymentLabel(method)));
-
-        var received = entry.IsLocal ? ParseMoney(entry.Local!.CashReceived) : Money(detail, "cash_received");
-        if (received is > 0 && method is "cash" or "mixed" or "debt")
+        var received = hideCashDetails ? null : entry.IsLocal ? ParseMoney(entry.Local!.CashReceived) : Money(detail, "cash_received");
+        // Долг с предоплатой у офлайн-чека — «debt-cash» / «debt-noncash» (см. CartReceiptTextBuilder).
+        if (method.StartsWith("debt-", StringComparison.Ordinal))
+            method = "debt";
+        switch (method)
         {
-            rows.Add(new SummaryVm(Tr.T("Получено наличными", "Накталай алынды", "Cash received", "Alınan nakit", "Qabul qilingan naqd pul"),
-                ReceiptHistoryService.Money(received.Value)));
-            if (method == "cash")
-            {
-                var change = (entry.IsLocal ? null : Money(detail, "change")) ?? Math.Max(0, received.Value - total);
-                rows.Add(new SummaryVm(Tr.T("Сдача", "Кайтарым", "Change", "Para üstü", "Qaytim"), ReceiptHistoryService.Money(change)));
-            }
+            case "mixed" or "split":
+                if (received is > 0)
+                {
+                    pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel("cash"), MoneyText.Amount(received.Value)));
+                    pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel("cashless"), MoneyText.Amount(Math.Max(0, total - received.Value))));
+                }
+                else
+                {
+                    pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel(method), MoneyText.Amount(total)));
+                }
+                break;
+            case "debt":
+                pay.Add(new SummaryVm(Tr.T("Оплата", "Төлөм", "Payment", "Ödeme", "To'lov"), ReceiptHistoryService.PaymentLabel(method)));
+                // 2026-10-20, владелец (долг Д5): у долга — «Оплачено» (внесено при продаже).
+                if (received is > 0)
+                    pay.Add(new SummaryVm(Tr.T("Оплачено", "Төлөндү", "Paid", "Ödenen", "To'landi"), MoneyText.Amount(received.Value)));
+                break;
+            case "":
+                break;
+            default:
+                pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel(method), MoneyText.Amount(total)));
+                if (method == "cash" && received is > 0)
+                {
+                    pay.Add(new SummaryVm(Tr.T("Получено", "Алынды", "Received", "Alınan", "Qabul qilindi"), MoneyText.Amount(received.Value)));
+                    var change = (entry.IsLocal ? null : Money(detail, "change")) ?? Math.Max(0, received.Value - total);
+                    pay.Add(new SummaryVm(Tr.T("Сдача", "Кайтарым", "Change", "Para üstü", "Qaytim"), MoneyText.Amount(change)));
+                }
+                break;
         }
 
         if (!entry.IsLocal && method == "debt"
             && (Money(detail, "remaining_debt") ?? Money(detail, "debt_amount")) is { } debt && debt > 0)
-            rows.Add(new SummaryVm(Tr.T("Долг", "Карыз", "Debt", "Borç", "Qarz"), ReceiptHistoryService.Money(debt)));
+            pay.Add(new SummaryVm(Tr.T("Долг", "Карыз", "Debt", "Borç", "Qarz"), MoneyText.Amount(debt)));
+        if (!entry.IsLocal && method == "debt")
+            AddDebtDueRows(pay, SaleReturnLedger.Get(entry.Id));
 
-        return rows;
+        return (rows, total, pay);
+    }
+
+    /// <summary>2026-10-20, владелец (долг Д5): «Вернуть до» или график рассрочки и клиент — из журнала кассы (запись при оплате).</summary>
+    private static void AddDebtDueRows(List<SummaryVm> pay, SaleLedgerEntry? ledger)
+    {
+        if (ledger is null)
+            return;
+        if (ledger.DebtSchedule.Count > 1)
+        {
+            var no = 0;
+            foreach (var p in ledger.DebtSchedule)
+                pay.Add(new SummaryVm(Tr.T($"{++no}-й платёж до ", $"{no}-төлөм ", $"Payment {no} by ", $"{no}. ödeme ", $"{no}-to'lov ")
+                                      + p.Date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture), MoneyText.Amount(p.Amount)));
+        }
+        else if (ledger.DebtDueDate is { } due)
+        {
+            pay.Add(new SummaryVm(Tr.T("Вернуть до", "Кайтаруу мөөнөтү", "Repay by", "Son ödeme", "Qaytarish muddati"),
+                due.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)));
+        }
+        if (CartReceiptTextBuilder.MaskPhone(ledger.ClientPhone) is { Length: > 0 } phone)
+            pay.Add(new SummaryVm(Tr.T("Телефон клиента", "Кардардын телефону", "Client phone", "Müşteri telefonu", "Mijoz telefoni"), phone));
+    }
+
+    /// <summary>2026-10-20 (живой аудит кассы, К6): строки продажи до возвратов (снимок журнала возвратов); у каждой — сколько
+    /// уже возвращено (по возвратам этой кассы, иначе по серверу).</summary>
+    private static List<LineVm> OriginalLines(SaleLedgerEntry ledger, JsonElement detail)
+    {
+        var returnedByLine = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in ledger.Refunds.SelectMany(r => r.Lines))
+        {
+            if (!string.IsNullOrEmpty(line.LineId))
+                returnedByLine[line.LineId] = (returnedByLine.TryGetValue(line.LineId, out var q) ? q : 0) + line.Quantity;
+        }
+        foreach (var line in CartDisplayHelper.EnumerateSaleLineItems(detail))
+        {
+            if (CartDisplayHelper.TryRefundLineId(line) is { } id && !returnedByLine.ContainsKey(id))
+            {
+                var serverReturned = CartDisplayHelper.LineQuantity(line) - CartDisplayHelper.RefundableQuantity(line);
+                if (serverReturned > 1e-6)
+                    returnedByLine[id] = serverReturned;
+            }
+        }
+
+        var result = new List<LineVm>();
+        foreach (var line in ledger.Lines)
+        {
+            var returned = line.LineId is { } id && returnedByLine.TryGetValue(id, out var r) ? Math.Min(r, line.Quantity) : 0;
+            result.Add(new LineVm
+            {
+                Name = line.Name,
+                QtyPriceText = $"{line.Quantity.ToString("0.###", Ru)} × {MoneyText.Amount(line.UnitPrice)}",
+                TotalText = MoneyText.Amount(line.Total),
+                ReturnedText = returned > 1e-6
+                    ? Tr.T("Возвращено: ", "Кайтарылды: ", "Returned: ", "İade edildi: ", "Qaytarildi: ") + returned.ToString("0.###", Ru)
+                    : "",
+            });
+        }
+        return result;
+    }
+
+    /// <summary>2026-10-20 (К6): итог, оплата, «Получено/Сдача» — как при продаже (журнал возвратов), а не как их пересчитал сервер.</summary>
+    private static (List<SummaryVm> Discounts, decimal Total, List<SummaryVm> Payments) BuildOriginalSummary(SaleLedgerEntry ledger)
+    {
+        var rows = new List<SummaryVm>();
+        var orderDiscount = ledger.LinesTotal - ledger.Total;
+        if (ledger.LinesTotal > 0m && orderDiscount > 0.005m)
+        {
+            rows.Add(new SummaryVm(Tr.T("Сумма без скидки на чек", "Чекке арзандатуусуз сумма", "Before the receipt discount", "Fiş indirimi öncesi", "Chek chegirmasisiz summa"),
+                MoneyText.Amount(ledger.LinesTotal)));
+            rows.Add(new SummaryVm(Tr.T("Скидка на чек", "Чекке арзандатуу", "Receipt discount", "Fiş indirimi", "Chekka chegirma"),
+                "−" + MoneyText.Amount(orderDiscount)));
+        }
+
+        var pay = new List<SummaryVm>();
+        switch (ledger.Method)
+        {
+            case "cash":
+                pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel("cash"), MoneyText.Amount(ledger.Total)));
+                if (ledger.Received is > 0m)
+                {
+                    pay.Add(new SummaryVm(Tr.T("Получено", "Алынды", "Received", "Alınan", "Qabul qilindi"), MoneyText.Amount(ledger.Received.Value)));
+                    pay.Add(new SummaryVm(Tr.T("Сдача", "Кайтарым", "Change", "Para üstü", "Qaytim"),
+                        MoneyText.Amount(ledger.Change ?? Math.Max(0m, ledger.Received.Value - ledger.Total))));
+                }
+                break;
+            case "mixed" or "split":
+                pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel("cash"), MoneyText.Amount(ledger.PaidCash)));
+                pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel("cashless"), MoneyText.Amount(ledger.PaidNonCash)));
+                break;
+            case "debt":
+                pay.Add(new SummaryVm(Tr.T("Оплата", "Төлөм", "Payment", "Ödeme", "To'lov"), ReceiptHistoryService.PaymentLabel("debt")));
+                if (ledger.PaidCash + ledger.PaidNonCash > 0.005m)
+                    pay.Add(new SummaryVm(Tr.T("Оплачено", "Төлөндү", "Paid", "Ödenen", "To'landi"), MoneyText.Amount(ledger.PaidCash + ledger.PaidNonCash)));
+                pay.Add(new SummaryVm(Tr.T("В долг", "Карызга", "On credit", "Veresiye", "Qarzga"), MoneyText.Amount(ledger.Debt)));
+                AddDebtDueRows(pay, ledger);
+                break;
+            case "":
+                break;
+            default:
+                pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel(ledger.Method), MoneyText.Amount(ledger.Total)));
+                break;
+        }
+
+        return (rows, ledger.Total, pay);
+    }
+
+    private CancellationTokenSource? _returnsCts;
+
+    /// <summary>2026-10-20 (живой аудит кассы, К6): блок «Возвраты» под чеком — когда, что, на сколько и чем вернули. Возвраты этой
+    /// кассы — из журнала возвратов (суммы кассы с долей скидки на чек); иначе — список возвратов сервера по чеку.</summary>
+    private void ShowReturns(ReceiptHistoryEntry entry, SaleLedgerEntry? ledger, bool hasReturns)
+    {
+        _returnsCts?.Cancel();
+        ReturnsPanel.IsVisible = false;
+        ReturnRows.ItemsSource = null;
+        if (!hasReturns)
+            return;
+
+        if (ledger is { Refunds.Count: > 0 })
+        {
+            var rows = new List<SummaryVm>();
+            foreach (var refund in ledger.Refunds.OrderBy(r => r.At))
+            {
+                var what = refund.Whole && refund.Lines.Count == 0
+                    ? Tr.T("весь чек", "бүт чек", "whole receipt", "tüm fiş", "butun chek")
+                    : string.Join(", ", refund.Lines.Select(l => l.Quantity is > 0 and not 1 ? $"{l.Name} × {l.Quantity.ToString("0.###", Ru)}" : l.Name));
+                rows.Add(new SummaryVm(refund.At.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture) + " · " + what,
+                    "−" + MoneyText.Amount(refund.Amount)));
+                var how = new List<string>();
+                if (refund.Cash > 0.005m)
+                    how.Add(Tr.T("наличными ", "накталай ", "cash ", "nakit ", "naqd ") + MoneyText.Amount(refund.Cash));
+                if (refund.NonCash > 0.005m)
+                    how.Add(Tr.T("на карту/перевод ", "картага/которуу ", "card/transfer ", "kart/havale ", "karta/o'tkazma ") + MoneyText.Amount(refund.NonCash));
+                if (refund.DebtReduced > 0.005m)
+                    how.Add(Tr.T("в счёт долга ", "карыздын эсебинен ", "against the debt ", "borçtan ", "qarz hisobidan ") + MoneyText.Amount(refund.DebtReduced));
+                if (how.Count > 0)
+                    rows.Add(new SummaryVm("   " + string.Join(" · ", how), ""));
+            }
+            rows.Add(new SummaryVm(Tr.T("Возвращено всего", "Бардыгы кайтарылды", "Returned in total", "Toplam iade", "Jami qaytarildi"),
+                "−" + MoneyText.Amount(ledger.Refunded)));
+            ReturnRows.ItemsSource = rows;
+            ReturnsPanel.IsVisible = true;
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+        _returnsCts = cts;
+        _ = LoadServerReturnsAsync(entry.Id, cts);
+    }
+
+    private async Task LoadServerReturnsAsync(string saleId, CancellationTokenSource cts)
+    {
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+            timeout.CancelAfter(TimeSpan.FromSeconds(8));
+            var list = await NurMarketKassa.Services.Api.NurCrmReportsApi.ListReturnsAsync(null, null, saleId: saleId, ct: timeout.Token).ConfigureAwait(true);
+            if (cts.IsCancellationRequested || list is null || !string.Equals(_selected?.Entry.Id, saleId, StringComparison.OrdinalIgnoreCase))
+                return;
+            var mine = list.Where(r => string.Equals(r.SaleId, saleId, StringComparison.OrdinalIgnoreCase)).OrderBy(r => r.CreatedAt).ToList();
+            if (mine.Count == 0)
+                return;
+            var rows = mine.Select(r => new SummaryVm(
+                    (r.CreatedAt?.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture) ?? "—")
+                    + (string.IsNullOrWhiteSpace(r.ItemsText)
+                        ? (r.IsFull ? " · " + Tr.T("весь чек", "бүт чек", "whole receipt", "tüm fiş", "butun chek") : "")
+                        : " · " + r.ItemsText),
+                    "−" + MoneyText.Amount(r.Amount)))
+                .ToList();
+            rows.Add(new SummaryVm(Tr.T("По данным сервера", "Сервердин маалыматы боюнча", "According to the server", "Sunucu verilerine göre", "Server ma'lumotlariga ko'ra"), ""));
+            ReturnRows.ItemsSource = rows;
+            ReturnsPanel.IsVisible = true;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История чеков: возвраты по чеку {saleId} не загружены: {ex.Message}", "WARNING");
+        }
     }
 
     // ── Действия ──
@@ -610,7 +1033,10 @@ public partial class ReceiptHistoryWindow : Window
             ? ReceiptHistoryService.PaymentLabel(Entry.PaymentMethod)
             : Entry.Cashier + "  ·  " + ReceiptHistoryService.PaymentLabel(Entry.PaymentMethod);
 
-        public string TotalText => ReceiptHistoryService.Money(Entry.Total);
+        // 2026-10-20 (живой аудит кассы, К6): после возврата сервер уменьшает итог продажи (001840: 50,00 вместо 75,00) —
+        // в списке, как в карточке, сумма продажи (журнал возвратов кассы), статус «Возврат» рядом.
+        public string TotalText => ReceiptHistoryService.Money(
+            !Entry.IsLocal && SaleReturnLedger.Get(Entry.Id) is { Total: > 0m, Refunds.Count: > 0 } l ? l.Total : Entry.Total);
 
         public string StatusText { get; }
 

@@ -29,11 +29,54 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
 
     private string _barcodeBuf = "";
     private long _barcodeLastTick;
+    private ulong? _barcodeLastRawTs;
     private int _fastRunLength;
 
     public event Action<string>? BarcodeScanned;
 
     public bool HasBufferedInput => _barcodeBuf.Length > 0;
+
+    /// <summary>2026-10-20: в буфере готовый код сканера — следующий Enter его завершит (см. MainWindow.OnScanEnterTunnel).</summary>
+    public bool HasCompleteScan => _barcodeBuf.Length >= MinBarcodeLen && _fastRunLength >= MinFastRunToIntercept;
+
+    /// <summary>2026-10-20 (П1-0): готовый код сканера, последняя клавиша которого пришла только что (до 300 мс) —
+    /// окно оплаты по такому Enter не платит (CheckoutDialog).</summary>
+    public bool HasFreshCompleteScan => HasCompleteScan && Environment.TickCount64 - _barcodeLastTick is >= 0 and < 300;
+
+    /// <summary>2026-10-20 (П1-0): сканер только что (до 300 мс) отдал код — Enter сразу за ним (у многих сканеров
+    /// конец кода — два Enter, CR+LF) не нажимает «Оплату» и не платит в окне оплаты.</summary>
+    public bool ScanJustCompleted =>
+        _lastSource == ScanSource.Keyboard && _lastCode != null && Environment.TickCount64 - _lastCodeTick is >= 0 and < 300;
+
+    /// <summary>2026-10-20 (П1-0): забыть набранный сканером код, никуда его не передавая.</summary>
+    public void DiscardBuffer()
+    {
+        _barcodeBuf = "";
+        _fastRunLength = 0;
+    }
+
+    // 2026-10-20: метка времени нажатия. KeyEventArgs в Avalonia 11 её не несёт, а «сырые» события ввода в
+    // сборках Avalonia закрыты. В Windows KeyDown обрабатывается прямо внутри сообщения WM_KEYDOWN, и
+    // GetMessageTime() — время этого сообщения, т.е. когда клавиша нажата (так же время берёт сама Avalonia).
+    // На Linux/Android метки нет — пауза меряется как раньше.
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern int GetMessageTime();
+
+    internal static ulong? KeyPressTimestamp()
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+        try
+        {
+            // 0 — сообщения нет (поток без очереди сообщений, напр. проверка без окна): меряем как раньше.
+            var time = unchecked((uint)GetMessageTime());
+            return time == 0 ? null : time;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     /// <summary>2026-10-04, владелец: «доступ к камере в Android, чтобы её как сканер можно было использовать
     /// в кассе, при создании товаров, приёмке». Код, считанный камерой (CameraScan), — как скан
@@ -120,8 +163,19 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
         var ch = KeyToBarcodeChar(e.Key, shift);
         if (ch == null) return;
 
+        // 2026-10-20, живая проверка (200 сканов подряд: принято 59, у части кодов отрезано начало —
+        // «7644469162» вместо «7807644469162»): паузу мерили по времени ОБРАБОТКИ клавиши. Пока касса
+        // добавляла предыдущий товар (большой чек — до секунды), клавиши следующего кода ждали в очереди,
+        // и «пауза» между двумя цифрами одного кода выходила больше 220 мс — буфер сбрасывался посреди кода.
+        // Теперь пауза — по времени НАЖАТИЯ (метка самого события клавиатуры от системы); если метки нет —
+        // как раньше, по часам при обработке.
         var now = Environment.TickCount64;
-        var delta = now - _barcodeLastTick;
+        var raw = KeyPressTimestamp();
+        long delta;
+        if (raw is { } rawTs && _barcodeLastRawTs is { } lastRawTs)
+            delta = rawTs >= lastRawTs ? (long)Math.Min(rawTs - lastRawTs, long.MaxValue) : -1;
+        else
+            delta = now - _barcodeLastTick;
         var isFastFollowUp = delta is >= 0 and <= BarcodeInterkeyMs && _barcodeBuf.Length > 0;
         if (isFastFollowUp)
             _fastRunLength++;
@@ -131,6 +185,7 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
             _fastRunLength = 0;
         }
         _barcodeLastTick = now;
+        _barcodeLastRawTs = raw;
 
         _barcodeBuf += ch;
         if (_barcodeBuf.Length > BarcodeMaxLen)

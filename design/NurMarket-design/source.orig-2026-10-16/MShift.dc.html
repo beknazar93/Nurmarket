@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — смена и деньги</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:36px;height:36px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mb{padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+.mf{display:flex;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.hint{flex-grow:1;font-size:12px;color:#667085}
+.b2{height:44px;padding:0 16px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:14px;font-weight:700;color:#344054}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.bd{height:44px;padding:0 18px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:14px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:12px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:46px;box-sizing:border-box;border-radius:12px;border:1px solid #D0D5DD;padding:0 14px;font-family:inherit;font-size:15px}
+.inb{height:52px;box-sizing:border-box;border-radius:12px;border:2px solid #0B2A3C;padding:0 14px;font-family:inherit;font-size:22px;font-weight:800;color:#0B2A3C}
+.chip{height:38px;padding:0 14px;border-radius:19px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.row{display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.soft{border-radius:12px;background:#F9FAFB;padding:12px 14px}
+.seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.opt{height:56px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;font-size:14px;font-weight:700;color:#344054}
+.opt.on{border:2px solid #0B2A3C;background:#FFF7CC;color:#0B2A3C;font-weight:800}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 40px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; align-items: start">
+
+  <section class="m" role="dialog" aria-label="Открыть смену">
+    <div class="mh"><div class="mt"><b>Открыть смену</b><span>Касса 1 · Кассир Тест</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <label class="lbl" for="o1">ДЕНЕГ В КАССЕ СЕЙЧАС</label>
+      <input id="o1" class="inb" type="text" value="0">
+      <div style="display: flex; gap: 6px"><button type="button" class="chip">1 000</button><button type="button" class="chip">2 000</button><button type="button" class="chip">5 000</button></div>
+      <span style="font-size: 12px; color: #667085">Пересчитайте наличные в ящике — от этой суммы касса считает сдачу и итог смены.</span>
+    </div>
+    <div class="mf"><span class="hint">Enter — открыть</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Открыть</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Внесение и изъятие">
+    <div class="mh"><div class="mt"><b>Деньги в кассе</b><span>В ящике сейчас 2 265 сом</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="seg"><button type="button" class="opt">+ Внести</button><button type="button" class="opt on">− Изъять</button></div>
+      <label class="lbl" for="o2">СУММА</label>
+      <input id="o2" class="inb" type="text" value="[сумма]">
+      <span class="lbl">ЗАЧЕМ</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip on">Расходы</button><button type="button" class="chip">Инкассация</button><button type="button" class="chip">Зарплата</button><button type="button" class="chip">Другое</button></div>
+    </div>
+    <div class="mf"><span class="hint">Не больше, чем в ящике</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Изъять</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Смена не закрыта">
+    <div class="mh"><span style="width: 40px; height: 40px; border-radius: 12px; background: #FEF3E2; color: #B54708; display: flex; align-items: center; justify-content: center; font-weight: 800">!</span><div class="mt"><b>Смена не закрыта</b><span>Открыта 10.10.2026 в 14:41</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <span style="font-size: 14px; color: #475467; line-height: 21px">Вчерашняя смена Nur Test ещё открыта. Закройте её, чтобы выручка по дням не смешалась.</span>
+      <div class="soft"><div class="row"><span>Выручка</span><b>4 300 сом</b></div><div class="row" style="margin-top: 6px"><span>Наличных в ящике</span><b>2 265 сом</b></div></div>
+    </div>
+    <div class="mf"><button type="button" class="b2">Продолжить её</button><span style="flex-grow: 1"></span><button type="button" class="b1">Закрыть смену</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Сменить кассира">
+    <div class="mh"><div class="mt"><b>Сменить кассира</b><span>Смена продолжится</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <button type="button" class="opt on" style="text-align: left; padding: 0 14px">Кассир Тест</button>
+      <button type="button" class="opt" style="text-align: left; padding: 0 14px">Nur Test · владелец</button>
+      <label class="lbl" for="o4">ПИН-КОД</label>
+      <input id="o4" class="in" type="password" value="1234" style="letter-spacing: .4em; font-weight: 800">
+    </div>
+    <div class="mf"><span class="hint">Enter — войти</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Войти</button></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

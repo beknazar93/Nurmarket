@@ -69,6 +69,8 @@ public sealed class ShiftApiService : IShiftApiService
             }
         }
 
+        // 2026-10-21 (пакет 5, п. 36): свежий остаток смены — сразу в запасной (если связь потом пропадёт).
+        ShiftStateService.RememberFallbackBalance(payload);
         return payload;
     }
 

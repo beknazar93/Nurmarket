@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Зарплата</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="manage" active="Зарплата" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="font-size: 24px; font-weight: 800">Зарплата</span>
+      <button type="button" aria-label="Как считается зарплата" title="Как считается: у каждого сотрудника своя схема — оклад, процент от продаж, оплата за товар или их сочетание" style="width: 28px; height: 28px; border-radius: 14px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 800; color: #475467">?</button>
+      <span style="flex-grow: 1"></span>
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Октябрь</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Сентябрь</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">7 дней</button>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+      <div style="background: #0B2A3C; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #C7D2DB">К выплате за октябрь</span><span style="font-size: 28px; font-weight: 800; color: #FFD600">[сумма]</span></div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #667085">Сотрудников со схемой</span><span style="font-size: 28px; font-weight: 800; color: #0B2A3C">[N]</span></div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #667085">Продажи сотрудников</span><span style="font-size: 28px; font-weight: 800; color: #0B2A3C">[сумма]</span></div>
+    </div>
+    <section style="background: #FFFFFF; border-radius: 16px; overflow: hidden">
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 1fr 1fr 1fr 1fr 0.8fr; gap: 12px; padding: 12px 16px; background: #F9FAFB; font-size: 12px; font-weight: 700; color: #667085"><span>Сотрудник</span><span style="text-align: right">Оклад</span><span style="text-align: right">Продажи</span><span style="text-align: right">Процент</span><span style="text-align: right">Бонус</span><span style="text-align: right">Итого</span><span></span></div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+        <div style="display: grid; grid-template-columns: 2.2fr 1fr 1fr 1fr 1fr 1fr 0.8fr; gap: 12px; align-items: center; padding: 14px 16px; border-top: 1px solid #F2F4F7">
+          <span style="display: flex; align-items: center; gap: 12px"><span style="width: 40px; height: 40px; border-radius: 20px; background: #F2F4F7; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">{{r.ini}}</span><span style="display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 800">{{r.name}}</span><span style="font-size: 12px; color: #667085">{{r.scheme}}</span></span></span>
+          <span style="text-align: right; font-size: 13px">[сумма]</span>
+          <span style="text-align: right; font-size: 13px">[сумма]</span>
+          <span style="text-align: right; font-size: 13px">[сумма]</span>
+          <span style="text-align: right; font-size: 13px">[сумма]</span>
+          <span style="text-align: right; font-size: 15px; font-weight: 800; color: #0B2A3C">[сумма]</span>
+          <span style="text-align: right"><button type="button" style="height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #0B2A3C">Схема</button></span>
+        </div>
+      </sc-for>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const rows = [
+      { name: 'Кассир Тест', ini: 'КТ', scheme: 'Процент от продаж 30 %' },
+      { name: 'Nur Test', ini: 'NT', scheme: 'Владелец · схема не настроена' },
+      { name: '[сотрудник]', ini: '—', scheme: '[схема]' }
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

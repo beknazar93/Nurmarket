@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Чеки и смены — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.dd{height:40px;padding:0 12px;border-radius:10px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054}
+.seg{height:38px;padding:0 16px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700}
+.tr{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,.9fr) minmax(0,1.4fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr);gap:10px;padding:9px 14px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.rl{display:flex;justify-content:space-between;font-size:13px}
+.per{height:36px;padding:0 14px;border-radius:9px;border:0;background:transparent;color:#475467;font-family:inherit;font-size:13px;font-weight:600;white-space:nowrap}
+.tag{font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px;white-space:nowrap}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Продажи" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Продажи</b><span style="font-size: 13px; color: #667085">Чеки всех касс, телефонов и веб-кассы · обновлено в 14:35</span></span>
+      <span role="tablist" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E5E7EB"><button type="button" role="tab" aria-selected="true" class="seg" style="background: #0B2A3C; color: #FFFFFF">Чеки · 47</button><button type="button" role="tab" class="seg" style="background: transparent; color: #475467">Смены · 3</button></span>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" class="per" style="background: #0B2A3C; color: #FFFFFF; font-weight: 700">Сегодня</button><button type="button" class="per">Вчера</button><button type="button" class="per">Неделя</button><button type="button" class="per">Месяц</button><button type="button" class="per">Даты…</button>
+      </div>
+      <span style="font-size: 13px; color: #667085; white-space: nowrap">12.10.2026</span>
+      <button type="button" class="dd">Все кассы ▾</button><button type="button" class="dd">Все кассиры ▾</button><button type="button" class="dd">Любая оплата ▾</button>
+      <label style="flex: 1 1 180px; height: 40px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><input type="text" placeholder="Товар, клиент или сумма" aria-label="Поиск чека" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 13px; width: 100%"></label>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+      <section style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden">
+        <div style="overflow-x: auto"><div style="min-width: 680px">
+          <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span>Чек</span><span>Касса</span><span>Кассир</span><span>Оплата</span><span>ККМ</span><span style="text-align: right">Сумма</span></div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+            <div class="tr" style="background: {{r.bg}}">
+              <span style="display: flex; flex-direction: column"><b>{{r.no}}</b><span style="font-size: 12px; color: #667085">{{r.time}}</span></span>
+              <span>{{r.where}}</span>
+              <span>{{r.who}}</span>
+              <span style="display: flex; flex-direction: column; gap: 2px; color: #475467"><span style="display: flex; gap: 6px; align-items: center">{{r.pay}}<sc-if value="{{r.ret}}" hint-placeholder-val="{{false}}"><span class="tag" style="color: #B42318; background: #FEF3F2">возврат</span></sc-if></span><sc-if value="{{r.mixed}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; color: #667085; line-height: 1.3">разбивку хранит только касса (нужен сервер)</span></sc-if></span>
+              <span style="font-size: 12px; font-weight: 700; color: {{r.kc}}; white-space: nowrap">{{r.kkm}}</span>
+              <b style="text-align: right; color: {{r.c}}; white-space: nowrap">{{r.sum}}</b>
+            </div>
+          </sc-for>
+        </div></div>
+        <!-- 2026-10-16: итог по фильтру и выгрузка (ревью C) -->
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 14px; background: #FCFCFD">
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #475467"><span>Итого по фильтру: <b style="color: #0B2A3C">47 чеков · 4&nbsp;300&nbsp;сом</b> (возвраты вычтены)</span><span style="font-size: 12px; color: #667085">наличные 2&nbsp;265 · карта 1&nbsp;455 · QR 580 · показано 7 из 47</span></span>
+          <button type="button" class="b2">Excel</button>
+        </div>
+      </section>
+      <!-- 2026-10-16: вкладка «Смены» есть — здесь короткий список смен сегодня (сверка денег) -->
+      <section class="card" style="gap: 8px">
+        <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 15px">Смены сегодня</b><a href="#" style="font-size: 12px; font-weight: 700">Все смены — вкладка «Смены» ›</a></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px">
+          <sc-for list="{{shifts}}" as="s" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: #F9FAFB; font-size: 12px"><span style="display: flex; justify-content: space-between; gap: 8px"><b style="font-size: 13px">{{s.where}}</b><span style="color: #0E7A3A; font-weight: 700">● {{s.state}}</span></span><span style="color: #475467">{{s.who}}</span><b style="font-size: 13px; color: #0B2A3C">{{s.sum}}</b></div>
+          </sc-for>
+        </div>
+      </section>
+      </div>
+
+      <aside style="flex: 1 1 300px; max-width: 360px; display: flex; flex-direction: column; gap: 12px">
+        <section class="card" style="gap: 8px">
+          <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 16px">Чек №1708</b><span style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #E7F6EC; color: #0E7A3A; white-space: nowrap">на сервере · ККМ ✓</span></div>
+          <span style="font-size: 12px; color: #667085">Телефон · Айгерим Садыкова · 14:12</span>
+          <span style="border-top: 1px dashed #D0D5DD"></span>
+          <div class="rl" style="gap: 8px"><span>Макароны «Макфа» спагетти 450г × 2</span><b>170</b></div>
+          <div class="rl"><span>Mars 50г × 1</span><b>39</b></div>
+          <span style="border-top: 1px dashed #D0D5DD"></span>
+          <div class="rl" style="font-size: 16px"><b>Итого</b><b style="color: #0B2A3C">209&nbsp;сом</b></div>
+          <div class="rl" style="color: #475467"><span>Наличные</span><span>500 · сдача 291</span></div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 2px"><button type="button" class="b2">Печать</button><button type="button" class="b2">WhatsApp</button></div>
+          <!-- 2026-10-16: возврат из веба — деньги по правилу SPEC п. 7: безнал сразу, наличные только через открытую смену -->
+          <div style="border: 1px solid #FDE2E1; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px">
+            <b style="font-size: 13px; color: #B42318">Возврат 209&nbsp;сом</b>
+            <span role="group" aria-label="Как вернуть деньги" style="display: flex; background: #F2F4F7; border-radius: 10px; padding: 3px"><button type="button" class="per" style="flex: 1 1 0; height: auto; min-height: 36px; padding: 4px 8px; white-space: normal; line-height: 1.25">Картой или QR</button><button type="button" class="per" style="flex: 1 1 0; height: auto; min-height: 36px; padding: 4px 8px; white-space: normal; line-height: 1.25; background: #0B2A3C; color: #FFFFFF; font-weight: 700">Наличными — через кассу</button></span>
+            <button type="button" class="dd" style="text-align: left; width: 100%; height: auto; min-height: 40px; padding: 6px 12px; line-height: 1.35">Касса и смена: Телефон · смена Айгерим Садыкова открыта с 09:00 ▾</button>
+            <button type="button" class="b2" style="color: #B42318; border-color: #FDA29B">Отправить возврат на кассу…</button>
+            <span style="font-size: 11px; color: #667085; line-height: 1.4">Наличные проходят только через открытую смену — так касса сходится. Кассир подтвердит выдачу.</span>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: единые демо-данные NBS — последние чеки сегодня (№1709 — последний, 14:31).
+    const OK = '#0E7A3A', WAIT = '#B54708';
+    const r = (no, time, where, who, pay, kkm, sum, o) => Object.assign({
+      no, time, where, who, pay, sum, kkm: kkm ? '✓ отправлен' : '… в очереди', kc: kkm ? OK : WAIT,
+      ret: false, mixed: false, bg: '#FFFFFF', c: '#0B2A3C'
+    }, o || {});
+    const rows = [
+      r('№1709', '14:31', 'Касса 1', 'Кассир Тест', 'наличные', false, '120 сом'),
+      r('№1708', '14:12', 'Телефон', 'Айгерим Садыкова', 'наличные', true, '209 сом', { bg: '#FFFCEB' }),
+      r('№1707', '13:40', 'Веб-касса', 'Нурлан Абдыкадыров', 'карта', true, '95 сом'),
+      r('№1706', '13:25', 'Касса 1', 'Кассир Тест', 'наличные', true, '−39 сом', { ret: true, c: '#B42318' }),
+      r('№1705', '13:02', 'Касса 1', 'Кассир Тест', 'QR', true, '170 сом'),
+      r('№1704', '12:48', 'Телефон', 'Айгерим Садыкова', 'карта', true, '114 сом'),
+      r('№1703', '12:30', 'Касса 1', 'Кассир Тест', 'смешанная', true, '340 сом', { mixed: true })
+    ];
+    const shifts = [
+      { where: 'Касса 1', who: 'Кассир Тест · с 08:55 · 31 чек', sum: '2 860 сом', state: 'открыта' },
+      { where: 'Телефон', who: 'Айгерим Садыкова · с 09:00 · 12 чеков', sum: '1 080 сом', state: 'открыта' },
+      { where: 'Веб-касса', who: 'Нурлан Абдыкадыров · с 10:30 · 4 чека', sum: '360 сом', state: 'открыта' }
+    ];
+    return { rows, shifts };
+  }
+}
+</script>
+</body>
+</html>

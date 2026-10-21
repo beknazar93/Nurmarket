@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Зарплата</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="manage" active="Зарплата" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="font-size: 24px; font-weight: 800">Зарплата</span>
+      <button type="button" aria-label="Как считается зарплата" title="Как считается: у каждого сотрудника своя схема — оклад, процент от продаж, оплата за товар или их сочетание" style="width: 28px; height: 28px; border-radius: 14px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 800; color: #475467">?</button>
+      <span style="flex-grow: 1"></span>
+      <!-- 2026-10-16: общий переключатель периода (SPEC 6), у раздела — «Месяц» -->
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Сегодня</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Вчера</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Неделя</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Месяц</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Даты…</button>
+      </div>
+      <button type="button" style="height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #0B2A3C; white-space: nowrap">Октябрь 2026 ▾</button>
+    </div>
+    <span style="font-size: 13px; color: #667085; margin-top: -8px">01.10–31.10.2026 · начислено на 12.10, 14:35 · оклад — по табелю (отработано 10 из 25 смен)</span>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px">
+      <div style="background: #0B2A3C; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #C7D2DB">Остаток к выплате</span><span style="font-size: 28px; font-weight: 800; color: #FFD600; white-space: nowrap">20 313 сом</span><span style="font-size: 12px; color: #C7D2DB">4 сотрудника</span></div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #475467">Начислено за октябрь</span><span style="font-size: 28px; font-weight: 800; color: #0B2A3C; white-space: nowrap">29 913 сом</span><span style="font-size: 12px; color: #667085">на 12.10</span></div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #475467">Выдано авансом</span><span style="font-size: 28px; font-weight: 800; color: #0B2A3C; white-space: nowrap">9 600 сом</span><span style="font-size: 12px; color: #667085">как в «Прибыль и деньги»</span></div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #475467">Продажи сотрудников</span><span style="font-size: 28px; font-weight: 800; color: #0B2A3C; white-space: nowrap">81 240 сом</span><span style="font-size: 12px; color: #667085">893 чека · для процента</span></div>
+    </div>
+    <section style="background: #FFFFFF; border-radius: 16px; overflow: hidden">
+      <div style="display: grid; grid-template-columns: minmax(0, 2.4fr) repeat(5, minmax(0, 1fr)) 200px; gap: 12px; padding: 12px 16px; background: #F9FAFB; font-size: 12px; font-weight: 700; color: #475467"><span>Сотрудник · схема</span><span style="text-align: right">Начислено</span><span style="text-align: right">Аванс</span><span style="text-align: right">Удержания</span><span style="text-align: right">Выплачено</span><span style="text-align: right">Остаток</span><span></span></div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+        <div style="display: grid; grid-template-columns: minmax(0, 2.4fr) repeat(5, minmax(0, 1fr)) 200px; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid #F2F4F7">
+          <span style="display: flex; align-items: center; gap: 12px; min-width: 0"><span style="width: 40px; height: 40px; border-radius: 20px; background: #F2F4F7; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; flex-shrink: 0">{{r.ini}}</span><span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 14px; font-weight: 800">{{r.name}}</span><span style="font-size: 12px; color: #667085">{{r.scheme}}</span></span></span>
+          <span style="text-align: right; font-size: 13px; white-space: nowrap; display: flex; flex-direction: column"><span style="font-weight: 700">{{r.acc}}</span><span style="font-size: 11px; color: #667085">{{r.accNote}}</span></span>
+          <span style="text-align: right; font-size: 13px; white-space: nowrap">{{r.adv}}</span>
+          <span style="text-align: right; font-size: 13px; white-space: nowrap; color: #667085">{{r.ded}}</span>
+          <span style="text-align: right; font-size: 13px; white-space: nowrap; color: #667085">{{r.paid}}</span>
+          <span style="text-align: right; font-size: 15px; font-weight: 800; color: #0B2A3C; white-space: nowrap">{{r.rest}}</span>
+          <span style="display: flex; gap: 6px; justify-content: flex-end"><button type="button" style="height: 34px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #0B2A3C; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #0B2A3C; white-space: nowrap">Выплатить…</button><button type="button" style="height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #344054; white-space: nowrap">Схема</button></span>
+        </div>
+      </sc-for>
+      <div style="display: grid; grid-template-columns: minmax(0, 2.4fr) repeat(5, minmax(0, 1fr)) 200px; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid #EAECF0; background: #F9FAFB; font-size: 13px; font-weight: 800">
+        <span>Итого · 4 сотрудника</span><span style="text-align: right; white-space: nowrap">29&nbsp;913&nbsp;сом</span><span style="text-align: right; white-space: nowrap">9&nbsp;600&nbsp;сом</span><span style="text-align: right">—</span><span style="text-align: right">—</span><span style="text-align: right; color: #0B2A3C; white-space: nowrap">20&nbsp;313&nbsp;сом</span><span></span>
+      </div>
+    </section>
+    <div style="display: flex; gap: 14px">
+      <!-- 2026-10-16: деньги вне смены (SPEC 7) — выплата наличными только через открытую смену -->
+      <div style="flex: 1 1 0; background: #FFFFFF; border-radius: 16px; padding: 14px 18px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 14px; font-weight: 800">Как выплатить</span><span style="font-size: 13px; color: #475467">«Выплатить…» — наличными через кассу (Касса 1 · смена Кассир Тест открыта с 08:55: кассир выдаст в своей смене), на карту или переводом — без смены. Наличные проходят только через открытую смену — так касса сходится.</span></div>
+      <a href="#" style="flex: 0 0 300px; background: #FFFFFF; border-radius: 16px; padding: 14px 18px; display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: #111827"><span style="font-size: 14px; font-weight: 800">Табель ›</span><span style="font-size: 13px; color: #475467">Смены и часы сотрудников за октябрь — из него считается оклад</span></a>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: единые данные NBS — 4 сотрудника (владелец Нурбек Т. зарплату не получает).
+    // Оклад — по табелю: 10 из 25 смен (40 %); процент — от продаж сотрудника за 01–12.10 (всего 81 240 = 52 400 + 18 900 + 9 940).
+    // Аванс 9 600 сом — как в «Прибыль и деньги» (расходы месяца).
+    const som = (v) => v ? v.toLocaleString('ru-RU') + '\u00a0сом' : '—';
+    const r = (name, ini, scheme, acc, accNote, adv) => ({ name, ini, scheme, acc: som(acc), accNote, adv: som(adv), ded: '—', paid: '—', rest: som(acc - adv) });
+    const rows = [
+      r('Нурлан Абдыкадыров', 'НА', 'Администратор · оклад 25 000', 10000, 'оклад 40 %', 4000),
+      r('Кассир Тест', 'КТ', 'Кассир · оклад 15 000 + 1 % от продаж', 6524, '6 000 + 1 % от 52 400', 2800),
+      r('Айгерим Садыкова', 'АС', 'Кассир · оклад 15 000 + 1 % от продаж', 6189, '6 000 + 1 % от 18 900', 2800),
+      r('Бекзат Осмонов', 'БО', 'Кладовщик · оклад 18 000', 7200, 'оклад 40 %', 0)
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

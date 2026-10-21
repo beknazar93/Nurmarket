@@ -8,6 +8,10 @@ public sealed class IrregularReceiptEntry
 {
     public const string InsufficientStock = "insufficient_stock";
 
+    /// <summary>2026-10-20 (живой аудит кассы, К1): сервер записал возврат больше положенного (скидка на чек не учтена) —
+    /// кассиру показана сумма кассы, расхождение — сюда, чтобы владелец видел.</summary>
+    public const string ReturnOverpaid = "return_overpaid";
+
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;

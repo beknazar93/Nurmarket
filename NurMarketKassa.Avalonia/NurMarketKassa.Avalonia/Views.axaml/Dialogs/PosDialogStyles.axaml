@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs">
   <Styles.Resources>
     <ResourceDictionary>
       <ResourceDictionary.ThemeDictionaries>
@@ -62,5 +63,655 @@
   <Style Selector="Button.btn-warning:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource WarningButtonPressed}" />
     <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+
+  <!-- ===================================================================================
+       2026-10-16, редизайн (этап 1): оболочка модалки по правилам макетов (ModalShell.cs).
+       Шапка: заголовок слева, ✕ справа. Низ: подсказка/итог слева, «Отмена» (обводка) и главная
+       кнопка (акцент темы; у «NurMarket» — жёлтая с тёмно-синим текстом; опасное — красная)
+       справа. Шапка и низ на месте, содержимое между ними прокручивается.
+       =================================================================================== -->
+  <Style Selector="dlg|ModalShell">
+    <Setter Property="Padding" Value="24,18" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <!-- Тень — у внешней рамки, обрезка скруглением — у внутренней (иначе обрезалась бы тень). -->
+        <Border Background="{DynamicResource BrushDialogPanel}"
+                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="{DynamicResource SettingsCardRadius}"
+                BoxShadow="0 12 32 0 #33101828">
+          <Border CornerRadius="{DynamicResource SettingsCardRadius}" ClipToBounds="True">
+            <DockPanel>
+              <Border DockPanel.Dock="Top" Padding="24,16,16,14"
+                      BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel VerticalAlignment="Center" Spacing="2" Margin="0,0,12,0">
+                    <TextBlock Text="{TemplateBinding Title}" FontSize="18" FontWeight="Bold"
+                               TextWrapping="Wrap" Foreground="{DynamicResource BrushText}" />
+                    <TextBlock Text="{TemplateBinding Subtitle}" FontSize="13" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushTextSoft}"
+                               IsVisible="{TemplateBinding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                  </StackPanel>
+                  <Button Name="PART_CloseButton" Grid.Column="1" Classes="modal-close"
+                          VerticalAlignment="Top" IsVisible="{TemplateBinding ShowClose}"
+                          IsTabStop="False" Focusable="False">
+                    <PathIcon Data="{DynamicResource IconClose}" Width="16" Height="16" />
+                  </Button>
+                </Grid>
+              </Border>
+              <Border DockPanel.Dock="Bottom" Padding="24,14"
+                      BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
+                <!-- Подсказка слева от кнопок; если места мало (длинные надписи ky/tr/uz), ModalShell
+                     переносит её строкой над кнопками (UpdateFooterLayout), а не режет по буквам. -->
+                <Grid Name="PART_FooterGrid" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                  <ContentPresenter Name="PART_Hint" Content="{TemplateBinding Hint}" VerticalAlignment="Center"
+                                    Margin="0,0,12,0" FontSize="12.5" TextWrapping="Wrap"
+                                    Foreground="{DynamicResource BrushTextSoft}" />
+                  <ContentPresenter Name="PART_Footer" Grid.Column="1" Content="{TemplateBinding Footer}"
+                                    VerticalAlignment="Center" HorizontalAlignment="Right" />
+                </Grid>
+              </Border>
+              <!-- 2026-10-17, этап 3: окна со своим списком на всю высоту (выбор клиента, отложенные чеки)
+                   ставят ContentScroll="Disabled" — список прокручивается сам, поле поиска над ним на месте. -->
+              <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="{TemplateBinding ContentScroll}">
+                <ContentPresenter Name="PART_ContentPresenter"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  Padding="{TemplateBinding Padding}" />
+              </ScrollViewer>
+            </DockPanel>
+          </Border>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <!-- Поле в фокусе внутри модалки: заметная рамка 2 px (у «NurMarket» — тёмно-синяя; жёлтая по
+       белому — 1,4:1, её не видно). BrushFocusRing задаёт AccentThemeService. -->
+  <Style Selector="dlg|ModalShell TextBox:focus /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+
+  <!-- ✕ в шапке: квадрат с обводкой, не забирает фокус у поля ввода. 2026-10-17, этап 3: 44×44 (правило
+       макетов «✕ 44 px», FIXES.md, часть 1М; было 40). -->
+  <Style Selector="Button.modal-close">
+    <Setter Property="Width" Value="44" />
+    <Setter Property="Height" Value="44" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.modal-close:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+  </Style>
+  <!-- 2026-10-18: нажатие — на шаг темнее наведения (общий отклик кнопок — в конце файла). -->
+  <Style Selector="Button.modal-close:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
+  </Style>
+
+  <!-- «Отмена»: обводка, слева от главной. modal-secondary (этап 3) — такая же кнопка с обводкой для
+       остальных действий окна («Назад», «Сбросить», «Только выйти»). -->
+  <Style Selector="Button.modal-cancel, Button.modal-secondary">
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+    <Setter Property="BorderThickness" Value="1.5" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="46" />
+    <Setter Property="MinWidth" Value="110" />
+    <Setter Property="Padding" Value="18,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <!-- 2026-10-18, отклик кнопок: наведение — мягкий фон BrushPanelSoft (BrushInputAlt у «NurMarket» почти белый —
+       наведения не было видно), рамка прежняя; нажатие — ещё темнее и рамка цветом текста. -->
+  <Style Selector="Button.modal-cancel:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+  </Style>
+  <Style Selector="Button.modal-cancel:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
+  </Style>
+
+  <!-- Главная кнопка: акцент темы и его текст (у «NurMarket» — жёлтый #FFD600 и тёмно-синий). -->
+  <Style Selector="Button.modal-primary">
+    <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="MinHeight" Value="46" />
+    <Setter Property="MinWidth" Value="140" />
+    <Setter Property="Padding" Value="20,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.modal-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+  </Style>
+  <Style Selector="Button.modal-primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <!-- 2026-10-18: нажатая — темнее наведения (BrushAccentPressed считает AccentThemeService). -->
+    <Setter Property="Background" Value="{DynamicResource BrushAccentPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+  </Style>
+  <!-- Длинная надпись (ky/tr/uz) переносится на вторую строку внутри MaxWidth кнопки, а не обрезается. -->
+  <Style Selector="Button.modal-cancel /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary /template/ ContentPresenter#PART_ContentPresenter, Button.modal-primary /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextAlignment" Value="Center" />
+  </Style>
+  <!-- Опасное действие — красная главная (тот же #DC2626, что был у PosConfirmDialog/PosAlertDialog). -->
+  <Style Selector="Button.modal-primary.danger">
+    <Setter Property="Background" Value="#DC2626" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+  <Style Selector="Button.modal-primary.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#B91C1C" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+  <Style Selector="Button.modal-primary.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#991B1B" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+
+  <!-- 2026-10-17, этап 3: второстепенное опасное действие («Удалить выбранные» в отложенных чеках) —
+       обводка и текст цветом ошибки. 2026-10-18: текст — BrushDangerOnSoft (цвет ошибки, читаемый ≥ 4,5:1 и на
+       мягком красном фоне наведения; в светлой теме тот же BrushDanger). -->
+  <Style Selector="Button.modal-secondary.danger">
+    <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}" />
+  </Style>
+  <Style Selector="Button.modal-secondary.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}" />
+  </Style>
+
+  <!-- 2026-10-17, этап 3: сегмент модалки (выбор одного из 2–3: «%» / «сом», «Доход» / «Расход», причина)
+       по правилам макетов — высота 44, выбранное залито цветом текста темы (у «NurMarket» светлой —
+       тёмно-синий #0B2A3C, надпись — цветом карточки). Кисти темы, не свой цвет: в тёмной теме выбранное
+       светлое на тёмной карточке, контраст тот же. -->
+  <Style Selector="RadioButton.modal-seg">
+    <Setter Property="MinHeight" Value="44" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="Center"
+                            TextWrapping="Wrap" TextAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="RadioButton.modal-seg:pointerover">
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
+  </Style>
+  <!-- 2026-10-18, отклик кнопок: невыбранный сегмент под курсором — мягкий фон, нажатый — темнее. -->
+  <Style Selector="RadioButton.modal-seg:pointerover:not(:checked)">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+  </Style>
+  <Style Selector="RadioButton.modal-seg:pressed:not(:checked)">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+  </Style>
+  <Style Selector="RadioButton.modal-seg:checked">
+    <Setter Property="Background" Value="{DynamicResource BrushText}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushDialogPanel}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="RadioButton.modal-seg:focus-visible">
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+
+  <!-- 2026-10-17, этап 3: чип модалки (быстрая причина, товар из чека) — 44 px, скруглённый, с обводкой. -->
+  <Style Selector="Button.modal-chip">
+    <Setter Property="MinHeight" Value="44" />
+    <Setter Property="Padding" Value="16,0" />
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="22" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <!-- 2026-10-18: наведение — мягкий фон (рамка прежняя), нажатие — темнее и рамка цветом текста. -->
+  <Style Selector="Button.modal-chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+  </Style>
+  <Style Selector="Button.modal-chip:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
+  </Style>
+
+  <!-- ===================================================================================
+       2026-10-18, редизайн программы владельца (этап О3): общий вид РАЗДЕЛОВ (отчёты, продажи, склад…) по правилам
+       аудита (docs/owner-redesign-plan.md, правила 1–4). Классы ставятся у тех же окон и в кассе (Финансы, Продажи, ABC)
+       и через UiKit (окна из кода) — следующие этапы просто применяют их:
+       • sec-primary — ОДНА главная кнопка экрана: акцент темы (у «NurMarket» — жёлтая с тёмно-синим текстом);
+       • sec-outline — остальные действия (Excel, Word, «Обновить», «Назад»…): обводка, без серой заливки;
+       • sec-segment (рамка) + sec-seg — выбор одного (период, фильтр, вкладка-сегмент): выбранное залито цветом текста
+         темы, надпись — цветом панели (у «NurMarket» светлой — тёмно-синий и белый, в тёмной — светлое на тёмном),
+         как modal-seg и период «Сводки». RadioButton/ToggleButton — по :checked, Button — классом active;
+       • sec-chip — отдельный чип с обводкой (UiKit.Chip), выбранный (active) — так же тёмно-синий;
+       • sec-kpi — плитка показателя: подпись переносится, сумма не обрезается «…» — её уменьшает Viewbox.sec-kpi-fit,
+         а плитки по ширине раскладывает KpiTileGrid (лишние — вторым рядом). Цвет суммы — цвет текста; красный
+         (sec-kpi-value.danger) — только долг, просрочка, убыток.
+       =================================================================================== -->
+  <Style Selector="Button.sec-primary">
+    <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="Padding" Value="16,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.sec-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+  </Style>
+  <!-- 2026-10-18: нажатая — темнее наведения. -->
+  <Style Selector="Button.sec-primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushAccentPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+  </Style>
+
+  <Style Selector="Button.sec-outline">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <!-- 2026-10-18, отклик кнопок: наведение — мягкий фон BrushPanelSoft (рамка прежняя), нажатие — темнее и рамка
+       цветом текста. -->
+  <Style Selector="Button.sec-outline:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+  </Style>
+  <Style Selector="Button.sec-outline:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
+  </Style>
+  <!-- Выключенная (Excel/Word на тарифе без выгрузки) — та же обводка, не серая заливка Fluent.
+       2026-10-18: бледность — общей прозрачностью 0,45 (отклик кнопок, конец файла), цвета — как у обычной. -->
+  <Style Selector="Button.sec-outline:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+  </Style>
+  <Style Selector="Button.sec-outline.danger">
+    <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}" />
+  </Style>
+  <Style Selector="Button.sec-outline.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.sec-outline.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}" />
+  </Style>
+  <Style Selector="Button.sec-primary /template/ ContentPresenter#PART_ContentPresenter, Button.sec-outline /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextAlignment" Value="Center" />
+  </Style>
+  <!-- Без «пружинки» (scale 1.012 из AppControlStyles): у сегментов и чипов она сдвигала соседей на пиксель. -->
+  <Style Selector="Button.sec-primary:pointerover, Button.sec-outline:pointerover, Button.sec-seg:pointerover, Button.sec-chip:pointerover">
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
+
+  <!-- Рамка группы сегментов (период «Сегодня · Вчера · Неделя · Месяц · Даты…»). -->
+  <Style Selector="Border.sec-segment">
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}" />
+    <Setter Property="Padding" Value="3" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="RadioButton.sec-seg, ToggleButton.sec-seg">
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
+    <Setter Property="FontSize" Value="13.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            TextWrapping="NoWrap" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <!-- 2026-10-18: наведение — мягкий фон BrushPanelSoft (был почти белый BrushInputAlt), нажатие — темнее. -->
+  <Style Selector="RadioButton.sec-seg:pointerover, ToggleButton.sec-seg:pointerover">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+  </Style>
+  <Style Selector="RadioButton.sec-seg:pressed, ToggleButton.sec-seg:pressed">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+  </Style>
+  <Style Selector="RadioButton.sec-seg:checked, ToggleButton.sec-seg:checked">
+    <Setter Property="Background" Value="{DynamicResource BrushText}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="RadioButton.sec-seg:focus-visible, ToggleButton.sec-seg:focus-visible">
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+  <Style Selector="Button.sec-seg">
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
+    <Setter Property="FontSize" Value="13.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.sec-seg:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+  </Style>
+  <Style Selector="Button.sec-seg:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+  </Style>
+  <Style Selector="Button.sec-seg.active">
+    <Setter Property="Background" Value="{DynamicResource BrushText}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="Button.sec-seg.active /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushText}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushPanel}" />
+  </Style>
+
+  <!-- Чип (UiKit.Chip): отдельная скруглённая кнопка с обводкой; выбранный — как сегмент. -->
+  <Style Selector="Button.sec-chip">
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.sec-chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+  </Style>
+  <Style Selector="Button.sec-chip:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
+  </Style>
+  <Style Selector="Button.sec-chip.active">
+    <Setter Property="Background" Value="{DynamicResource BrushText}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
+  </Style>
+  <Style Selector="Button.sec-chip.active /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushText}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
+  </Style>
+
+  <!-- Плитка показателя. -->
+  <Style Selector="Border.sec-kpi">
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}" />
+    <Setter Property="Padding" Value="14,12" />
+  </Style>
+  <Style Selector="TextBlock.sec-kpi-label">
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="TextBlock.sec-kpi-value">
+    <Setter Property="FontSize" Value="22" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}" />
+    <Setter Property="TextWrapping" Value="NoWrap" />
+    <Setter Property="TextTrimming" Value="None" />
+  </Style>
+  <Style Selector="TextBlock.sec-kpi-value.danger">
+    <Setter Property="Foreground" Value="{DynamicResource BrushDanger}" />
+  </Style>
+  <!-- Сумма шире плитки — уменьшается целиком (не «20 943 555 …»). -->
+  <Style Selector="Viewbox.sec-kpi-fit">
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="StretchDirection" Value="DownOnly" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+  <!-- 2026-10-18, доводка О4: второстепенные плитки (второй ряд «Продаж»: средний чек, чеки, скидки, бонусы) — ниже и мельче,
+       главные четыре остаются крупными. Ставится классом compact у Border.sec-kpi. -->
+  <Style Selector="Border.sec-kpi.compact">
+    <Setter Property="Padding" Value="14,8" />
+  </Style>
+  <Style Selector="Border.sec-kpi.compact TextBlock.sec-kpi-label">
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="Border.sec-kpi.compact TextBlock.sec-kpi-value">
+    <Setter Property="FontSize" Value="16" />
+  </Style>
+
+  <!-- ===================================================================================
+       2026-10-18, решение владельца: ОТКЛИК КНОПОК на нажатие — везде одинаково (касса и программа владельца).
+       Классы: modal-* (окна кассы), sec-* (разделы владельца и UiKit), btn-primary, основные кнопки главного
+       окна кассы (main-primary/secondary/outline, cart-action/cart-accent — их цвета в своих файлах).
+       • наведение — только цвет фона (жёлтая — BrushAccentStrong, обводка — BrushPanelSoft), без «пружинки»
+         scale 1.012 из AppControlStyles; курсор «рука»;
+       • нажатие — ещё темнее (BrushAccentPressed / BrushPanelPressed — их считает AccentThemeService из палитры
+         темы) и «вдавливание» scale 0.97: RenderTransform не двигает соседей и раскладку;
+       • фокус с клавиатуры — рамка BrushFocusRing 2 px снаружи кнопки (FocusAdorner показывается только при
+         переходе Tab/стрелками, не при щелчке мышью или касании), раскладка не меняется;
+       • выключенная — прозрачность 0,45 при обычных цветах (Fluent красил её серой заливкой); выключенная кнопка
+         не получает наведения;
+       • переходы: фон и рамка 120 мс, «вдавливание» 80 мс. Только на смену состояния — при открытии окна
+         кнопка рисуется сразу своим цветом.
+       Сенсор: Avalonia снимает «наведение» при отпускании пальца, а главный отклик — нажатие (темнее + вдавливание),
+       поэтому подсветка наведения нарочно слабая — даже если на каком-то экране она задержится, это едва заметно.
+       =================================================================================== -->
+  <Style Selector="Button.modal-primary, Button.modal-cancel, Button.modal-secondary, Button.modal-close, Button.modal-chip, Button.sec-primary, Button.sec-outline, Button.sec-seg, Button.sec-chip, Button.btn-primary, Button.main-primary, Button.main-secondary, Button.main-outline, Button.cart-action, Button.cart-accent">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.08" />
+      </Transitions>
+    </Setter>
+    <Setter Property="FocusAdorner">
+      <FocusAdornerTemplate>
+        <!-- Снаружи кнопки на 3 px; без обрезки по границе кнопки (иначе от рамки остаются одни углы). -->
+        <Border Margin="-3" BorderThickness="2" BorderBrush="{DynamicResource BrushFocusRing}"
+                CornerRadius="{DynamicResource SettingsButtonRadius}" AdornerLayer.IsClipEnabled="False" />
+      </FocusAdornerTemplate>
+    </Setter>
+  </Style>
+  <!-- Чипы скруглены сильнее — рамка фокуса по их форме. -->
+  <Style Selector="Button.modal-chip, Button.sec-chip">
+    <Setter Property="FocusAdorner">
+      <FocusAdornerTemplate>
+        <Border Margin="-3" BorderThickness="2" BorderBrush="{DynamicResource BrushFocusRing}" CornerRadius="25"
+                AdornerLayer.IsClipEnabled="False" />
+      </FocusAdornerTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button.modal-primary /template/ ContentPresenter#PART_ContentPresenter, Button.modal-cancel /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary /template/ ContentPresenter#PART_ContentPresenter, Button.modal-close /template/ ContentPresenter#PART_ContentPresenter, Button.modal-chip /template/ ContentPresenter#PART_ContentPresenter, Button.sec-primary /template/ ContentPresenter#PART_ContentPresenter, Button.sec-outline /template/ ContentPresenter#PART_ContentPresenter, Button.sec-seg /template/ ContentPresenter#PART_ContentPresenter, Button.sec-chip /template/ ContentPresenter#PART_ContentPresenter, Button.btn-primary /template/ ContentPresenter#PART_ContentPresenter, Button.main-primary /template/ ContentPresenter#PART_ContentPresenter, Button.main-secondary /template/ ContentPresenter#PART_ContentPresenter, Button.main-outline /template/ ContentPresenter#PART_ContentPresenter, Button.cart-action /template/ ContentPresenter#PART_ContentPresenter, Button.cart-accent /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.12" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.modal-primary:pointerover, Button.modal-cancel:pointerover, Button.modal-secondary:pointerover, Button.modal-close:pointerover, Button.modal-chip:pointerover, Button.sec-primary:pointerover, Button.sec-outline:pointerover, Button.sec-seg:pointerover, Button.sec-chip:pointerover, Button.btn-primary:pointerover, Button.main-primary:pointerover, Button.main-secondary:pointerover, Button.main-outline:pointerover, Button.cart-action:pointerover, Button.cart-accent:pointerover">
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
+  <Style Selector="Button.modal-primary:pressed, Button.modal-cancel:pressed, Button.modal-secondary:pressed, Button.modal-close:pressed, Button.modal-chip:pressed, Button.sec-primary:pressed, Button.sec-outline:pressed, Button.sec-seg:pressed, Button.sec-chip:pressed, Button.btn-primary:pressed, Button.main-primary:pressed, Button.main-secondary:pressed, Button.main-outline:pressed, Button.cart-action:pressed, Button.cart-accent:pressed">
+    <Setter Property="RenderTransform" Value="scale(0.97)" />
+  </Style>
+  <Style Selector="Button.modal-primary:disabled, Button.modal-cancel:disabled, Button.modal-secondary:disabled, Button.modal-close:disabled, Button.modal-chip:disabled, Button.sec-primary:disabled, Button.sec-outline:disabled, Button.sec-seg:disabled, Button.sec-chip:disabled, Button.btn-primary:disabled, Button.main-primary:disabled, Button.main-secondary:disabled, Button.main-outline:disabled, Button.cart-action:disabled, Button.cart-accent:disabled">
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+
+  <!-- Выключенная — свои обычные цвета (бледность даёт Opacity выше), а не серая заливка Fluent.
+       2026-10-18, ревью: кроме ГЛАВНЫХ (жёлтая/синяя/красная заливка): бледно-жёлтая «Оплатить» (CanPay = false) почти не
+       отличалась от включённой, особенно в тёмной теме. Выключенная главная — нейтральный мягкий фон и приглушённый текст
+       (BrushTextMuted — BrushTextSoft у «Классической» давал 3,9:1), без прозрачности: от 7,8:1. main-primary и cart-accent — так же в своих файлах. -->
+  <Style Selector="Button.modal-primary:disabled, Button.sec-primary:disabled, Button.btn-primary:disabled">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Button.modal-primary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.sec-primary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.btn-primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}" />
+  </Style>
+  <Style Selector="Button.modal-cancel:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.modal-chip:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.sec-chip:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+  </Style>
+  <Style Selector="Button.main-outline:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushWindowAlt}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+  </Style>
+  <Style Selector="Button.modal-secondary.danger:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.sec-outline.danger:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}" />
+  </Style>
+  <Style Selector="Button.modal-close:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+  </Style>
+  <Style Selector="Button.sec-seg:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
+  </Style>
+  <Style Selector="Button.sec-seg.active:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.sec-chip.active:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushText}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushPanel}" />
+  </Style>
+
+  <!-- Сегменты-переключатели (RadioButton/ToggleButton) — шаблон свой, фон у самого элемента: те же правила. -->
+  <Style Selector="RadioButton.modal-seg, RadioButton.sec-seg, ToggleButton.sec-seg">
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.12" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.08" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <!-- Фокус у сегментов — их собственная рамка 2 px (:focus-visible выше), без второй рамки Fluent.
+       2026-10-18, ревью: и у modal-seg (у него FocusAdorner снимался только в базовом стиле — Fluent-рамка всё равно была). -->
+  <Style Selector="RadioButton.modal-seg, RadioButton.sec-seg, ToggleButton.sec-seg">
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+  </Style>
+  <Style Selector="RadioButton.modal-seg:pressed, RadioButton.sec-seg:pressed, ToggleButton.sec-seg:pressed">
+    <Setter Property="RenderTransform" Value="scale(0.97)" />
+  </Style>
+  <Style Selector="RadioButton.modal-seg:disabled, RadioButton.sec-seg:disabled, ToggleButton.sec-seg:disabled">
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+
+  <!-- 2026-10-18: меню «⋯» действий строки склада (WarehouseWindow.RowActions.cs, MenuFlyout с классом row-menu):
+       фон и рамка темы, пункты 44 px (касание пальцем), наведение — мягкий фон, «Удалить» — красный фон наведения. -->
+  <Style Selector="MenuFlyoutPresenter.row-menu">
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}" />
+    <Setter Property="Padding" Value="4" />
+  </Style>
+  <Style Selector="MenuFlyoutPresenter.row-menu MenuItem">
+    <Setter Property="MinHeight" Value="44" />
+    <Setter Property="MinWidth" Value="200" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="MenuFlyoutPresenter.row-menu MenuItem:pointerover /template/ Border#PART_LayoutRoot, MenuFlyoutPresenter.row-menu MenuItem:selected /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+  </Style>
+  <Style Selector="MenuFlyoutPresenter.row-menu MenuItem:pressed /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+  </Style>
+  <Style Selector="MenuFlyoutPresenter.row-menu MenuItem.danger:pointerover /template/ Border#PART_LayoutRoot, MenuFlyoutPresenter.row-menu MenuItem.danger:selected /template/ Border#PART_LayoutRoot, MenuFlyoutPresenter.row-menu MenuItem.danger:pressed /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}" />
+  </Style>
+  <Style Selector="MenuFlyoutPresenter.row-menu Separator">
+    <Setter Property="Background" Value="{DynamicResource BrushBorder}" />
   </Style>
 </Styles>

@@ -10,10 +10,9 @@ public partial class OpenShiftDialog : Window
 {
     // Поле заполняется значением в инвариантной культуре (точка), поэтому и разбор
     // должен быть инвариантным — иначе на ru-RU/de-DE сумма теряется или растёт в 100 раз.
-    public decimal OpeningCash =>
-        decimal.TryParse(OpeningCashBox.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out var value)
-            ? value
-            : 0;
+    // 2026-10-15, ревью: NumberStyles.Number считал запятую разделителем тысяч — «1500,50» с русской
+    // цифровой клавиатуры становилось 150050 (как в CloseShiftDialog). Общий разбор — CashAmountInput.
+    public decimal OpeningCash => CashAmountInput.Parse(OpeningCashBox.Text) ?? 0;
 
     public decimal? SuggestedBalance { get; set; }
 
@@ -37,7 +36,7 @@ public partial class OpenShiftDialog : Window
 
     private void Ok_Click(object? sender, RoutedEventArgs e)
     {
-        if (!decimal.TryParse(OpeningCashBox.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount) || amount < 0)
+        if (!CashAmountInput.TryParse(OpeningCashBox.Text, out var amount) || amount < 0)
         {
             PosMessageBox.Show(this, Tr.T("Введите сумму не меньше нуля.", "Нөлдөн кем эмес сумманы киргизиңиз.", "Enter an amount of zero or more.", "Sıfır veya daha büyük bir tutar girin.", "Noldan kam bo'lmagan summani kiriting."), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);

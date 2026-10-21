@@ -1,8 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.WriteOffDialog"
         x:CompileBindings="False"
-        Width="600" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -18,33 +19,37 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,0,6,6"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="RadioButton.reason">
-            <Setter Property="Margin" Value="0,0,14,6"/>
-            <Setter Property="FontSize" Value="13.5"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
     </Window.Styles>
 
-    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-            Background="{DynamicResource BrushDialogPanel}"
-            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-            BoxShadow="0 12 32 0 #33101828"
-            Padding="24,20">
-        <StackPanel Spacing="10">
-            <TextBlock x:Name="HeaderText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-            <TextBlock x:Name="HintText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+    <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 480 (было 600) — заголовок,
+         пояснение и ✕ сверху, «Отмена» (обводка, Esc) и «Списать» (акцент темы) снизу справа; причины —
+         сегментами 44 px (modal-seg), товары чека — чипами (modal-chip). Заголовок и тексты — в коде. -->
+    <dlg:ModalShell x:Name="Shell" Margin="16">
+        <dlg:ModalShell.Footer>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button x:Name="CancelButton" IsCancel="True"
+                        Classes="modal-cancel" MaxWidth="200"
+                        Click="Cancel_Click"/>
+                <Button x:Name="WriteOffButton"
+                        Classes="modal-primary" MaxWidth="200"
+                        Click="WriteOff_Click"/>
+            </StackPanel>
+        </dlg:ModalShell.Footer>
 
+        <StackPanel Spacing="10">
             <!-- Товары текущего чека: чаще всего испорченный товар кассир уже отсканировал. -->
             <StackPanel x:Name="CartPanel" Spacing="6">
                 <TextBlock x:Name="CartLabel" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
                 <WrapPanel x:Name="CartItemsPanel"/>
             </StackPanel>
 
-            <TextBox x:Name="SearchBox" Height="42" Padding="12,9" FontSize="14" CornerRadius="10"
+            <TextBox x:Name="SearchBox" Height="44" Padding="12,9" FontSize="14" CornerRadius="10"
+                     VerticalContentAlignment="Center"
                      Text="{Binding WriteOffSearchText, Mode=TwoWay}"
                      KeyDown="SearchBox_KeyDown"/>
             <ItemsControl x:Name="ResultsList" ItemsSource="{Binding WriteOffSearchResults}">
@@ -74,13 +79,13 @@
 
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock x:Name="QtyLabel" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"
-                           Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                           Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,0,10,0"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                    <Button Classes="pick" Width="40" Height="40" Margin="0" HorizontalContentAlignment="Center"
+                    <Button Classes="pick" Width="44" Height="44" Margin="0" Padding="0" HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center" Content="−" FontSize="18" Click="Minus_Click"/>
-                    <TextBox x:Name="QtyBox" Width="90" Height="40" FontSize="15" CornerRadius="8"
+                    <TextBox x:Name="QtyBox" Width="90" Height="44" FontSize="15" CornerRadius="8"
                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Text="1"/>
-                    <Button Classes="pick" Width="40" Height="40" Margin="0" HorizontalContentAlignment="Center"
+                    <Button Classes="pick" Width="44" Height="44" Margin="0" Padding="0" HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center" Content="+" FontSize="18" Click="Plus_Click"/>
                 </StackPanel>
             </Grid>
@@ -90,18 +95,6 @@
 
             <TextBlock x:Name="ErrorText" FontSize="13" TextWrapping="Wrap" IsVisible="False"
                        Foreground="{DynamicResource BrushDanger}"/>
-
-            <Grid ColumnDefinitions="*,10,*" Margin="0,6,0,0">
-                <Button x:Name="CancelButton" IsCancel="True" Grid.Column="0" MinHeight="44"
-                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Background="{DynamicResource BrushPanel}" Foreground="{DynamicResource BrushText}"
-                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1.5"
-                        FontWeight="SemiBold" CornerRadius="10" Cursor="Hand" Click="Cancel_Click"/>
-                <Button x:Name="WriteOffButton" Grid.Column="2" MinHeight="44"
-                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Background="{DynamicResource BrushAccent}" Foreground="{DynamicResource BrushAccentForeground}"
-                        FontWeight="SemiBold" CornerRadius="10" Cursor="Hand" Click="WriteOff_Click"/>
-            </Grid>
         </StackPanel>
-    </Border>
+    </dlg:ModalShell>
 </Window>

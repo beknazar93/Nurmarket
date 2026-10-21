@@ -969,7 +969,9 @@ public sealed class CashShiftService : ICashShiftService
         AppendEvent("Возвраты", ShiftEventsStore.KindReturn);
         AppendEvent("Списания", ShiftEventsStore.KindWriteOff);
         AppendEvent("Расход", ShiftEventsStore.KindExpense);
-        AppendEvent("Оплата долгов", ShiftEventsStore.KindDebtPayment);
+        // 2026-10-18, ревью: наличные и безнал — отдельными строками (безнал в ящик не попадает); второй круг — на 5 языках.
+        AppendEvent(Tr.T("Оплата долгов наличными", "Карыздарды накталай төлөө", "Debt payments in cash", "Nakit borç ödemeleri", "Qarz to'lovlari naqd"), ShiftEventsStore.KindDebtPayment);
+        AppendEvent(Tr.T("Оплата долгов безналом", "Карыздарды накталай эмес төлөө", "Debt payments non-cash", "Nakitsiz borç ödemeleri", "Qarz to'lovlari naqd emas"), ShiftEventsStore.KindDebtPaymentNonCash);
 
         sb.AppendLine($"Остаток: {((cash ?? 0m) + operationsNet).ToString("0.00", CultureInfo.InvariantCulture)} сом");
         sb.AppendLine("------------------------------");

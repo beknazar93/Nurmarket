@@ -1,0 +1,1558 @@
+{
+  "@@locale": "ru",
+  "som": "сом",
+  "cancel": "Отмена",
+  "done": "Готово",
+  "save": "Сохранить",
+  "retry": "Повторить",
+  "all": "Все",
+  "loginTagline": "Тот же вход, что на кассе и в вебе",
+  "loginLabel": "Логин или телефон",
+  "loginHint": "почта или телефон",
+  "passwordLabel": "Пароль",
+  "signIn": "Войти",
+  "loginEmpty": "Введите логин и пароль.",
+  "loginWrong": "Неверный логин или пароль.",
+  "chooseCashbox": "Выберите кассу",
+  "cashbox": "Касса",
+  "tabHome": "Главная",
+  "tabSale": "Продажа",
+  "tabScan": "Сканер",
+  "tabChecks": "Чеки",
+  "tabStock": "Склад",
+  "newCheck": "Новый чек",
+  "scanTileSub": "Цена и остаток по штрихкоду",
+  "checksTileSub": "Отправить, напечатать",
+  "stockTileSub": "Остатки и приёмка",
+  "shiftOpenSince": "Смена открыта · {time}",
+  "@shiftOpenSince": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "shiftClosed": "Смена закрыта",
+  "mySalesForShift": "Мои продажи за смену",
+  "checksCount": "{n} чеков",
+  "@checksCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "openShift": "Открыть смену",
+  "closeShift": "Закрыть смену",
+  "openingCashHint": "Сколько денег в кассе на начало",
+  "openShiftFirst": "Сначала откройте смену на главной.",
+  "offlineWorking": "Нет связи с сервером — продажи сохраняются на телефоне и уйдут сами.",
+  "runningOut": "Заканчиваются {n} товаров",
+  "@runningOut": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "runningOutShort": "Заканчиваются",
+  "outOfStock": "Нет в наличии",
+  "tellAdmin": "Сообщите администратору",
+  "searchProduct": "Товар или штрихкод",
+  "favorites": "Избранное",
+  "nothingFound": "Ничего не найдено",
+  "inCheck": "В чеке",
+  "positions": "{n} позиций",
+  "@positions": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "swipeToRemove": "Смахните строку влево, чтобы убрать",
+  "payAmount": "Оплатить {sum} сом",
+  "@payAmount": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "orderDiscount": "Скидка на чек",
+  "discountPercentHint": "Процент, например 10",
+  "extraService": "Доп. услуга",
+  "clearCheck": "Очистить чек",
+  "price": "Цена",
+  "weightOf": "Вес: {name}",
+  "@weightOf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "kg": "килограммы, например 0,5",
+  "lineDiscount": "Скидка на товар",
+  "sumHint": "Сумма в сомах",
+  "discount": "Скидка",
+  "barcodeNotFound": "Штрихкод {code} не найден в каталоге.",
+  "@barcodeNotFound": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "cameraUnavailable": "Камера недоступна. Разрешите доступ к камере в настройках телефона или введите штрихкод вручную.",
+  "scanHint": "Наведите на штрихкод — товар добавится сам",
+  "scanReceiveHint": "Отсканировано: {n}",
+  "@scanReceiveHint": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "toCheck": "В чек",
+  "checkPrice": "Узнать цену",
+  "receiving": "Приёмка",
+  "doneCount": "Готово · {n}",
+  "@doneCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "inStock": "на складе {qty} {unit}",
+  "@inStock": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "scanContinuous": "Сканировать подряд, без подтверждения",
+  "checkN": "Чек · {n}",
+  "@checkN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "addToCheck": "Добавить в чек",
+  "addedAutomatically": "Добавлено в чек",
+  "profileTitle": "Профиль",
+  "discountInPercent": "Процент",
+  "discountInSom": "Сумма, сом",
+  "discountResult": "Итого со скидкой: {sum} сом",
+  "@discountResult": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "clothingMode": "Размеры и цвета при продаже",
+  "clothingModeSub": "Для магазина одежды и обуви",
+  "chooseSize": "Размер и цвет",
+  "colorLabel": "Цвет",
+  "sizeLabel": "Размер",
+  "toCheckSize": "В чек · {size}",
+  "@toCheckSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeLowStock": "Остаток этого размера — {qty} шт. Всё равно добавить?",
+  "@sizeLowStock": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "rentals": "Прокат",
+  "rentalNew": "Новый прокат",
+  "rentalActive": "На руках",
+  "rentalOverdue": "Просрочен",
+  "rentalReturn": "Принять возврат",
+  "rentalReturned": "Возврат принят.",
+  "rentalCondOk": "Целое",
+  "rentalCondDamaged": "Повреждено",
+  "rentalPenalty": "Штраф из залога",
+  "rentalClient": "Клиент",
+  "rentalItem": "Вещь",
+  "rentalUntil": "До даты",
+  "rentalPerDay": "Цена за сутки",
+  "rentalDays": "{n} сут.",
+  "@rentalDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "rentalDeposit": "Залог деньгами",
+  "rentalDocument": "Залог документом",
+  "rentalDocumentHint": "Паспорт ID…, ФИО",
+  "rentalCreate": "Выдать и в чек",
+  "rentalCreated": "Прокат №{n} оформлен — стоимость в чеке.",
+  "@rentalCreated": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "rentalLine": "Прокат №{n} · {days} сут.",
+  "@rentalLine": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "chooseClient": "Выбрать клиента",
+  "chooseItem": "Выберите вещь",
+  "marginPercent": "Наценка, %",
+  "marginSum": "Наценка, сом",
+  "kindProduct": "Товар",
+  "kindClothes": "Одежда",
+  "kindService": "Услуга",
+  "sizesLabel": "Размеры",
+  "colorsLabel": "Цвета",
+  "addColor": "Добавить цвет",
+  "colorName": "Название цвета",
+  "colorSizeGrid": "Цвет × размер — сколько штук",
+  "variantsSummary": "{n} вариантов · {qty} шт",
+  "@variantsSummary": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "variantsSaved": "Сохранено вариантов: {n}",
+  "@variantsSaved": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "durationLabel": "Длительность",
+  "mastersLabel": "Мастера · своя цена и процент",
+  "masterAdd": "Добавить мастера",
+  "masterName": "Имя мастера",
+  "masterPercent": "% мастеру",
+  "consumablesLabel": "Расходники со склада",
+  "consumableAdd": "Добавить расходник",
+  "onlineBooking": "Онлайн-запись на сайте и в боте",
+  "serviceLocalNote": "Мастера, длительность и расходники хранятся на этом телефоне, пока у сервера нет API услуг. Сама услуга — в каталоге NurCRM.",
+  "saveService": "Сохранить услугу",
+  "findInternet": "Найти в интернете",
+  "internetFound": "Найдено в базе NurCRM",
+  "barcodeMatched": "штрихкод совпал · точно",
+  "takeLabel": "Взять",
+  "categoryLabel": "Категория",
+  "brandLabel": "Бренд",
+  "fillProduct": "Заполнить товар",
+  "searchInBrowser": "Искать в браузере",
+  "priceNotTaken": "Цена из интернета не берётся — укажите свою.",
+  "bookingsTitle": "Услуги · запись",
+  "dayToday": "Сегодня",
+  "dayTomorrow": "Завтра",
+  "allMasters": "Все мастера",
+  "bookNew": "Записать",
+  "bookCheckout": "Рассчитать",
+  "bookArrived": "пришёл",
+  "bookBooked": "записан",
+  "bookPaid": "оплачено",
+  "bookFree": "свободно",
+  "bookMarkArrived": "Отметить «пришёл»",
+  "bookRemind": "Напомнить в WhatsApp",
+  "bookCancel": "Отменить запись",
+  "bookTime": "Время",
+  "bookClash": "У мастера в это время уже есть запись.",
+  "bookNoMasters": "Мастеров пока нет — добавьте их при создании услуги («Новая позиция» → «Услуга»).",
+  "bookLocalNote": "Записи хранятся на этом телефоне, пока у сервера нет API записи. Оплата услуг — обычный чек NurCRM.",
+  "bookReminder": "Здравствуйте, {name}! Напоминаем о записи {when} к мастеру {master}.",
+  "@bookReminder": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "when": {
+        "type": "String"
+      },
+      "master": {
+        "type": "String"
+      }
+    }
+  },
+  "pricesTitle": "Цены продажи",
+  "pricesSub": "закупка изменилась: {a} · новых: {b}",
+  "@pricesSub": {
+    "placeholders": {
+      "a": {
+        "type": "int"
+      },
+      "b": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleLabel": "Правило",
+  "roundTo": "Округлять до",
+  "applyToAll": "Ко всем строкам, не только изменённым",
+  "costWas": "закупка {was} → {now}",
+  "@costWas": {
+    "placeholders": {
+      "was": {
+        "type": "String"
+      },
+      "now": {
+        "type": "String"
+      }
+    }
+  },
+  "newItemShort": "новый",
+  "applyPrices": "Применить цены",
+  "postSummary": "Позиций: {a} · штук: {qty}\nНовых товаров: {b}\nЦен продажи изменится: {n}\nЗакупка: {sum}",
+  "@postSummary": {
+    "placeholders": {
+      "a": {
+        "type": "int"
+      },
+      "qty": {
+        "type": "String"
+      },
+      "b": {
+        "type": "int"
+      },
+      "n": {
+        "type": "int"
+      },
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "quotesTitle": "КП и счета",
+  "quoteNew": "Коммерческое предложение",
+  "invoiceNew": "Счёт на оплату",
+  "quotesWaiting": "Ждут ответа",
+  "invoicesUnpaid": "Не оплачены",
+  "invoicesOverdue": "Просрочено",
+  "filterAll": "Все",
+  "filterQuotes": "КП",
+  "filterInvoices": "Счета",
+  "stDraft": "Черновик",
+  "stSent": "Отправлено",
+  "stAccepted": "Принято → счёт",
+  "stDeclined": "Отклонено",
+  "stIssued": "Ждёт оплаты",
+  "stPartial": "Оплачен частично",
+  "stPaid": "Оплачен",
+  "validUntil": "Действует до {date}",
+  "@validUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "payUntil": "Оплатить до {date}",
+  "@payUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "fromCart": "Из текущего чека",
+  "useWholesale": "Оптовые цены",
+  "innLabel": "ИНН",
+  "docSendPdf": "Отправить PDF",
+  "invoiceFromQuote": "Выставить счёт по КП",
+  "takePayment": "Принять оплату",
+  "sellFromDoc": "Провести продажу",
+  "markDeclined": "Клиент отказался",
+  "editDoc": "Изменить",
+  "deleteDoc": "Удалить документ",
+  "paidOf": "оплачено {paid} из {total}",
+  "@paidOf": {
+    "placeholders": {
+      "paid": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "basedOnQuote": "по {number}",
+  "@basedOnQuote": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "quotesLocalNote": "КП и счета общие с программой владельца на ПК и другими телефонами компании. Продажа по счёту — обычный чек NurCRM.",
+  "addLine": "Добавить товар",
+  "docDiscount": "Скидка, сом",
+  "esfTitle": "ККМ и ЭСФ",
+  "esfQueue": "Чеков в очереди: {n} — уйдут, когда появится связь",
+  "@esfQueue": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "esfOnline": "Касса на связи, очередь пуста",
+  "esfIssue": "Выписать ЭСФ",
+  "esfBuyerInn": "ИНН покупателя",
+  "esfBuyerName": "Покупатель",
+  "esfPayForm": "Форма оплаты",
+  "esfCash": "Наличная",
+  "esfNonCash": "Безналичная",
+  "esfContract": "Договор № и дата",
+  "esfSum": "Сумма, сом",
+  "esfDraftSaved": "Черновик ЭСФ сохранён",
+  "esfSendTax": "Отправить в налоговую",
+  "esfDrafts": "Черновики ЭСФ",
+  "esfIncoming": "Входящие ЭСФ от поставщиков",
+  "esfStub": "Отправка в налоговую (ЭСФ ГНС КР) и входящие ЭСФ заработают, когда сервер NurCRM подключит налоговую. Сейчас можно готовить черновики — данные покупателя и суммы сохранятся.",
+  "smartCam": "Умная камера",
+  "byLook": "По виду",
+  "byLookHint": "Снимите товар без штрихкода — ИИ узнает его и найдёт в каталоге",
+  "recognizing": "Узнаю товар…",
+  "recognizedNone": "Не узнал товар — снимите ближе и при свете",
+  "seenOnPhoto": "На снимке",
+  "notInCatalog": "нет в каталоге",
+  "aiKeyNeeded": "Для умной камеры нужен ключ ИИ (Gemini) — тот же, что у Нур Советника на кассе. Его можно вставить здесь.",
+  "aiKeyLabel": "Ключ Gemini",
+  "smartShelf": "Полка",
+  "smartInvoice": "Накладная",
+  "smartLabels": "Этикетки",
+  "smartHint": "Держите телефон ровно — камера ищет товары и ценники",
+  "takePhoto": "Сделать снимок",
+  "morePhoto": "Ещё снимок",
+  "seenInBase": "Есть в базе · {n}",
+  "@seenInBase": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "seenNew": "Новых · {n}",
+  "@seenNew": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "smartNext": "Далее — в приёмку · {n}",
+  "@smartNext": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkImport": "Массовая загрузка",
+  "bulkPickFile": "Выбрать файл Excel или CSV",
+  "bulkPaste": "Вставить скопированное из Excel",
+  "bulkTemplate": "Шаблон файла",
+  "bulkHint": "Столбцы: Название · Штрихкод · Цена продажи · Закупка · Количество · Единица · Категория. Первая строка — заголовки (можно в любом порядке). Товар с тем же штрихкодом не дублируется: прибавится количество и обновятся цены.",
+  "bulkSummary": "Строк: {n} · новых {a} · уже есть {b}",
+  "@bulkSummary": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "a": {
+        "type": "int"
+      },
+      "b": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkBad": "пропущено: нет названия или цены",
+  "bulkExists": "уже есть — прибавится",
+  "bulkUpload": "Загрузить {n}",
+  "@bulkUpload": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkDone": "Загружено: {n}",
+  "@bulkDone": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkNothing": "В файле не нашлось строк с товарами",
+  "notFoundTitle": "Товара нет в каталоге",
+  "notFoundAsk": "Штрихкод {code}. Добавить новый товар с этим штрихкодом?",
+  "@notFoundAsk": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "addNewProduct": "Добавить товар",
+  "supplierLabel": "Поставщик",
+  "supplierDiscount": "Скидка поставщика, %",
+  "costWithDiscount": "Закупка со скидкой: {sum}",
+  "@costWithDiscount": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "supplierReceiptNote": "Количество придёт приходом от поставщика — в NurCRM видно, у кого и почём купили.",
+  "retailPrice": "Розничная цена",
+  "altBarcodesLabel": "Доп. штрихкоды",
+  "altBarcodesHint": "Другой штрихкод того же товара или упаковки: у коробки укажите, сколько в ней штук — скан коробки добавит их все.",
+  "altBarcodeAdd": "Добавить штрихкод",
+  "packQty": "Штук",
+  "packName": "Упаковка",
+  "photosLabel": "Фото товара",
+  "photoCamera": "Камера",
+  "photoGallery": "Галерея",
+  "photoInternet": "Из интернета",
+  "photosSearching": "Ищу фото…",
+  "photoFirstMain": "Первое фото — главное",
+  "descriptionLabel": "Описание — для сайта и бота",
+  "descriptionFind": "Найти описание в интернете",
+  "descriptionWriting": "Пишу описание…",
+  "lowStockPull": "↑ Потяните вверх — что заканчивается",
+  "lowStockTitle": "Заканчивается · {n}",
+  "@lowStockTitle": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "lowStockEmpty": "Всего хватает — остатки в норме",
+  "summaryTitle": "Сводка",
+  "periodToday": "Сегодня",
+  "periodWeek": "Неделя",
+  "periodMonth": "Месяц",
+  "kpiRevenue": "Выручка",
+  "kpiChecks": "Чеков",
+  "kpiAvg": "Средний чек",
+  "kpiProfit": "Прибыль",
+  "revenueByDay": "Выручка по дням",
+  "paymentMethods": "Способы оплаты",
+  "topProducts": "Лучшие товары",
+  "noSalesPeriod": "За этот период продаж нет",
+  "abcTitle": "ABC-анализ",
+  "abcByRevenue": "По выручке",
+  "abcByProfit": "По прибыли",
+  "abcByQty": "По штукам",
+  "abcA": "Кормят магазин",
+  "abcB": "Середина",
+  "abcC": "Хвост",
+  "abcGroupNote": "{n} поз. · {share} %",
+  "@abcGroupNote": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "share": {
+        "type": "String"
+      }
+    }
+  },
+  "paretoTitle": "Диаграмма Парето",
+  "paretoHint": "Столбцы — вклад товара, линия — накопленная доля. Товары левее отметки 80 % — группа A.",
+  "advisorTitle": "Нур Советник",
+  "advisorOnline": "Данные магазина подключены",
+  "advisorAsk": "Спросите о своём магазине…",
+  "advisorThinking": "Советник думает…",
+  "advisorQ1": "Сколько продали вчера?",
+  "advisorQ2": "Кто должен?",
+  "advisorQ3": "Что заказать?",
+  "advisorQ4": "Как прошла неделя?",
+  "advisorNew": "Новый разговор",
+  "checkTab": "Чек · {n}",
+  "@checkTab": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteProduct": "Удалить товар",
+  "deleteProductAsk": "Удалить «{name}»? Продажи и отчёты по нему останутся.",
+  "@deleteProductAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "productDeleted": "Товар удалён",
+  "smartUpload": "Загрузить {n} товаров на склад",
+  "@smartUpload": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "smartToReceive": "В приёмку с поставщиком",
+  "smartShots": "Снимков: {n}",
+  "@smartShots": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "smartPriceRule": "Цена продажи новых: +30 % к закупке, до 5 сом",
+  "smartUploaded": "Загружено на склад: {n}",
+  "@smartUploaded": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "sellingPrice": "Продажная цена",
+  "durationCustom": "Своя…",
+  "minutesHint": "минут",
+  "photoLabel": "Фото",
+  "shiftDetails": "Отчёт смены",
+  "shOpened": "Открыта",
+  "shClosed": "Закрыта",
+  "shOpeningCash": "В кассе на начало",
+  "shNonCash": "Безнал",
+  "shDebt": "В долг",
+  "shReturns": "Возвраты",
+  "shIncome": "Прочий приход",
+  "shExpected": "Должно быть в кассе",
+  "shCounted": "Пересчитано",
+  "shDifference": "Разница",
+  "orderReadyNotify": "Здравствуйте, {name}! Ваш заказ №{num} готов к выдаче. К оплате {sum} сом. Ждём вас!",
+  "@orderReadyNotify": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "num": {
+        "type": "String"
+      },
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "customSize": "Свой размер",
+  "pickSupplier": "Выбрать поставщика",
+  "addProductsHint": "Найдите товар и нажмите, чтобы добавить",
+  "removeAction": "Убрать",
+  "esfExportCsv": "Выгрузить в Excel (CSV)",
+  "esfExportAll": "Все черновики в Excel (CSV)",
+  "esfTaxSoon": "Отправка в налоговую заработает, когда сервер NurCRM подключит ЭСФ ГНС. Пока выгрузите в Excel и загрузите на сайте ГНС.",
+  "dateLabel": "Дата",
+  "supplierNoLow": "У этого поставщика нет заканчивающихся товаров",
+  "supplierLowAdd": "Добавить заканчивающиеся товары поставщика",
+  "inStockOnly": "В наличии",
+  "allCategories": "Все категории",
+  "catalogPick": "Из каталога",
+  "themeAuto": "По времени",
+  "darkFrom": "Тёмная с",
+  "darkTo": "до",
+  "leaveAsk": "Вы точно хотите выйти?",
+  "leaveAskSub": "Несохранённые изменения пропадут.",
+  "leaveYes": "Да, конечно",
+  "leaveNo": "Нет, случайно нажал",
+  "aiSettings": "Настройка ИИ",
+  "aiSettingsHint": "Нур Советник отвечает через Gemini. Если у Gemini кончился бесплатный лимит — через Groq, затем OpenRouter. Ключи бесплатные; сохраняются в NurCRM и работают на телефоне, кассе и в программе владельца.",
+  "aiConnected": "подключён",
+  "aiNoKeyShort": "нет ключа",
+  "aiGetKey": "Получить ключ",
+  "aiTest": "Проверить",
+  "aiTestOk": "Работает ✓",
+  "aiKeysSaved": "Ключи сохранены",
+  "aiPasteKey": "Вставьте новый ключ",
+  "aiRemoveKey": "Убрать ключ",
+  "payQrTitle": "QR для оплаты",
+  "payQrHint": "Добавьте QR своих банков (MBank, Optima и др.). Покупатель сканирует QR с суммой чека и платит в приложении банка. Укажите, каким кассирам какой QR показывать — у кассира на выбор до 5 банков. Список общий для всех телефонов магазина.",
+  "payQrAdd": "Добавить QR",
+  "payQrBank": "Банк",
+  "payQrCode": "QR банка",
+  "payQrScan": "Сканировать",
+  "payQrGallery": "Из галереи (скриншот)",
+  "payQrPaste": "Вставить ссылку",
+  "payQrDynamic": "Сумма чека в QR",
+  "payQrDynamicSub": "Покупателю не нужно набирать сумму (стандарт ELQR, как на кассе; проверено на MBank). Если банк покупателя не примет — выключите.",
+  "payQrStaticOnly": "Этот QR без стандарта ELQR — сумма не вписывается, покажется как есть",
+  "payQrCashiers": "Кому показывать",
+  "payQrAllCashiers": "Всем кассирам",
+  "payQrNotRecognized": "QR не распознан",
+  "payQrShowCustomer": "Покажите покупателю (нажмите — крупно). После оплаты нажмите «Оплатить».",
+  "payQrNone": "QR для оплаты не добавлены — владелец добавляет в «Управление → QR для оплаты».",
+  "payQrNoneOwner": "Пока ни одного QR. Нажмите «Добавить QR».",
+  "payQrSaved": "QR сохранены — у кассиров появятся сразу",
+  "payQrDelete": "Удалить QR",
+  "grpAi": "ИИ и аналитика",
+  "grpStock": "Товары и склад",
+  "grpMoney": "Продажи и деньги",
+  "grpClients": "Клиенты и документы",
+  "grpTeam": "Сотрудники",
+  "findSection": "Найти раздел",
+  "liveAuto": "Авто",
+  "liveHintSale": "Наведите на товар — снимок сам через 2 секунды или нажмите",
+  "liveHintShelf": "Наведите на полку с товарами",
+  "liveHintInvoice": "Наведите на накладную целиком",
+  "liveHintLabels": "Наведите на ценники и этикетки",
+  "auditTitle": "Журнал аудита",
+  "auditSub": "Все действия на этом телефоне",
+  "auditSearch": "Сотрудник, товар, номер чека",
+  "auditKind": "Действие",
+  "auditWhat": "Что сделано",
+  "auditSale": "Продажа",
+  "auditCart": "В чек",
+  "auditReturn": "Возврат",
+  "auditPrice": "Цены и остаток",
+  "auditProduct": "Товары",
+  "auditSettings": "Настройки",
+  "auditLogin": "Вход и выход",
+  "auditOpen": "Открыл экран",
+  "teachCamera": "Научить умную камеру: 3 фото + штрихкод",
+  "teachRight": "1 из 3 · товар справа",
+  "teachLeft": "2 из 3 · товар слева",
+  "teachTop": "3 из 3 · товар сверху",
+  "teachHint": "Товар целиком в рамке, на светлом фоне",
+  "teachDone": "Камера обучена — при продаже найдёт этот товар точно",
+  "teachShots": "Для умной камеры: {n} фото",
+  "@teachShots": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "exactMatch": "точно",
+  "noAccess": "Нет доступа",
+  "noAccessHint": "Этот раздел или действие закрыты для вашей учётной записи. Доступ включает владелец: NurCRM → Сотрудники → доступы.",
+  "clientOptional": "Клиент — для бонусов и истории покупок",
+  "bonusRedeem": "Списать бонусами",
+  "bonusNone": "Не списывать",
+  "bonusAll": "Максимум · {sum}",
+  "@bonusAll": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "bonusEarn": "Начислится бонусов: {sum}",
+  "@bonusEarn": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "bonusPaid": "Бонусами: −{sum} сом",
+  "@bonusPaid": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "removeClient": "Убрать клиента",
+  "discountRemove": "Убрать скидку",
+  "addedToCheck": "Добавлено в чек",
+  "payment": "Оплата",
+  "toPayPositions": "К оплате · {n} позиций",
+  "@toPayPositions": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "payMethod": "Способ оплаты",
+  "cash": "Наличные",
+  "card": "Карта",
+  "debt": "В долг",
+  "mixed": "Смешанная",
+  "client": "Клиент",
+  "received": "Получено",
+  "receivedNowDebt": "Получено сейчас (0 — весь долг)",
+  "exact": "Без сдачи",
+  "change": "Сдача",
+  "notEnough": "Не хватает {sum} сом",
+  "@notEnough": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptToCustomer": "Чек покупателю",
+  "notNeeded": "Не нужен",
+  "doPay": "Провести оплату",
+  "check": "Чек",
+  "total": "Итого",
+  "paidOk": "Оплата проведена",
+  "savedOffline": "Чек сохранён на телефоне",
+  "savedOfflineHint": "Нет связи — чек уйдёт на сервер сам, второй раз не проведётся.",
+  "receiptQr": "QR-код",
+  "showQr": "Показать QR покупателю",
+  "qrPointCamera": "Покупатель наводит камеру телефона",
+  "qrDownloadHint": "Камера покупателя сразу скачает чек PDF-файлом",
+  "qrTextHint": "Пока сервер не выдаёт ссылку на чек, камера покажет его текстом. PDF-файл клиенту — кнопкой ниже.",
+  "cashInOut": "Внесение / изъятие",
+  "cashIn": "Внесение",
+  "cashOut": "Изъятие",
+  "amount": "Сумма",
+  "reason": "Причина",
+  "reasonChange": "Размен",
+  "reasonCollection": "Инкассация",
+  "reasonExpense": "Расходы",
+  "reasonOther": "Другое",
+  "cashOpDone": "Записано в смену",
+  "debts": "Долги клиентов",
+  "debtorsTotal": "Всего долгов",
+  "payDebt": "Принять оплату долга",
+  "payDebtDone": "Оплата долга проведена",
+  "noDebts": "Должников нет",
+  "heldChecks": "Отложенные чеки",
+  "holdCheck": "Отложить чек",
+  "holdNote": "Для кого или заметка",
+  "heldEmpty": "Отложенных чеков нет",
+  "restoreCheck": "Вернуть в чек",
+  "delete": "Удалить",
+  "checkBusy": "В чеке уже есть товары — сначала отложите или оплатите его",
+  "returnTitle": "Возврат по чеку",
+  "returnAll": "Вернуть весь чек",
+  "returnSelected": "Вернуть выбранное",
+  "returnDone": "Возврат проведён",
+  "returnToCustomer": "Вернуть покупателю",
+  "showReceipt": "Посмотреть чек",
+  "sendPdf": "Отправить PDF",
+  "sendReceipt": "Отправить чек",
+  "newClient": "Новый клиент",
+  "clientName": "Имя",
+  "phone": "Телефон",
+  "clientSearch": "Имя или телефон",
+  "myChecks": "Мои чеки",
+  "thisShift": "Эта смена",
+  "unsentN": "Не отправленные · {n}",
+  "@unsentN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "checkSearch": "Номер чека или товар",
+  "noChecks": "Чеков пока нет",
+  "checkNotSent": "Чек не отправлен",
+  "notAccepted": "не принят",
+  "waitsForNetwork": "ждёт связи",
+  "returned": "возврат",
+  "offlineCheckHint": "Нет связи — чек сохранён и уйдёт на сервер сам",
+  "sendToCustomer": "Отправить покупателю",
+  "sendAgain": "Отправить ещё раз",
+  "returnByAdmin": "Возврат — с разрешения администратора",
+  "receiveByScanner": "Приёмка сканером",
+  "audit": "Ревизия",
+  "findProduct": "Найти товар",
+  "pricesByAdmin": "Цены и новые товары меняет администратор",
+  "receiveNoSupplier": "Без поставщика и без цен",
+  "scanProduct": "Сканировать товар",
+  "eachScanPlusOne": "Каждый скан — +1 штука",
+  "accepted": "Принято",
+  "goodsPieces": "{n} товаров · {qty} шт",
+  "@goodsPieces": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "wasPieces": "было {qty}",
+  "@wasPieces": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownBarcode": "Неизвестный штрихкод",
+  "unknownBarcodeHint": "{code} · администратор получит его и заведёт товар",
+  "@unknownBarcodeHint": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "postpone": "Отложить",
+  "postPieces": "Провести · {qty} шт",
+  "@postPieces": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "receivedOk": "Приёмка проведена.",
+  "receivedQueued": "Приёмка сохранена — уйдёт при связи.",
+  "allStock": "Весь склад",
+  "chooseWhatToCount": "Что пересчитать",
+  "checkedOf": "Проверено {a} из {b}",
+  "@checkedOf": {
+    "placeholders": {
+      "a": {
+        "type": "int"
+      },
+      "b": {
+        "type": "int"
+      }
+    }
+  },
+  "notChecked": "Не проверены",
+  "differences": "Расхождения",
+  "byProgram": "по программе {qty} {unit}",
+  "@byProgram": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "matches": "совпало",
+  "shortBy": "не хватает {qty}",
+  "@shortBy": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "extraBy": "лишние {qty}",
+  "@extraBy": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "auditAdminApplies": "Остатки поменяет администратор после проверки",
+  "sendToAdmin": "Отправить администратору",
+  "auditSent": "Ревизия отправлена администратору.",
+  "auditQueued": "Ревизия сохранена — уйдёт при связи.",
+  "sinceChecks": "с {time} · {n} чеков",
+  "@sinceChecks": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "revenue": "Выручка",
+  "shouldBeInDrawer": "Должно быть в кассе",
+  "recountCash": "Пересчитайте наличные",
+  "howMuchInDrawer": "Сколько денег в кассе",
+  "cashDiff": "Разница с программой: {sum} сом",
+  "@cashDiff": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "cashDiffHint": "Если сумма не сходится, администратор увидит разницу в отчёте",
+  "closeShiftPending": "Сначала должны уйти на сервер {n} чеков — нужна связь.",
+  "@closeShiftPending": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "shiftClosedOk": "Смена закрыта",
+  "receiptPrinter": "Принтер чеков",
+  "prnSub": "Bluetooth, Wi-Fi/LAN или USB · 58/80 мм",
+  "prnNotSet": "Не настроен",
+  "prnConnection": "Подключение",
+  "prnOff": "Нет",
+  "prnNetwork": "Сеть (Wi-Fi/LAN)",
+  "prnUsb": "USB (OTG)",
+  "prnSearch": "Найти принтеры",
+  "prnSearching": "Ищу…",
+  "prnNothingFound": "Ничего не найдено. Принтер включён и рядом?",
+  "prnPairHint": "Принтера нет в списке? Включите его и нажмите «Найти» — или сопрягите в настройках Bluetooth телефона (PIN обычно 0000 или 1234).",
+  "prnUsbHint": "Подключите принтер кабелем OTG и включите его. Android спросит разрешение — нажмите «Разрешить».",
+  "prnBtSettings": "Настройки Bluetooth",
+  "prnPaired": "сопряжён",
+  "prnNotPaired": "рядом, не сопряжён",
+  "prnIp": "IP-адрес принтера",
+  "prnPort": "Порт",
+  "prnPaper": "Ширина ленты",
+  "prnPaperMm": "{a} мм · {b} знаков",
+  "@prnPaperMm": {
+    "placeholders": {
+      "a": {
+        "type": "int"
+      },
+      "b": {
+        "type": "int"
+      }
+    }
+  },
+  "prnCodepage": "Кодировка кириллицы",
+  "prnCodeTable": "Таблица ESC t",
+  "prnCodepageHint": "Вместо русских букв иероглифы или «?» — смените кодировку или номер таблицы (CP866 — 17, у некоторых 6 или 7; CP1251 — 46, у некоторых 73) и проверьте ещё раз.",
+  "prnAuto": "Печатать чек сразу после оплаты",
+  "prnTest": "Проверить печать",
+  "prnTestSent": "Пробная страница отправлена на принтер",
+  "prnTestHint": "Посмотрите пробную страницу: строка цифр должна занять всю ширину, русские буквы — читаться.",
+  "prnPrint": "Печать чека",
+  "prnSent": "Чек отправлен на принтер",
+  "prnErrNotConfigured": "Принтер не настроен: Профиль → Принтер чеков.",
+  "prnErrUnsupported": "На этом устройстве такой способ печати недоступен.",
+  "prnErrBtOff": "Bluetooth выключен — включите его и повторите.",
+  "prnErrPermission": "Нет разрешения «Устройства поблизости» (Bluetooth). Разрешите в окне Android или в настройках приложения.",
+  "prnErrNotFound": "Принтер не найден — проверьте, что он включён, и выберите его заново.",
+  "prnErrBleOnly": "Этот принтер работает только через BLE — нужен принтер с обычным Bluetooth (SPP).",
+  "prnErrTimeout": "Принтер не отвечает. Он включён, рядом, есть бумага? Повторите.",
+  "prnErrRefused": "Принтер в сети не принимает печать — проверьте IP-адрес и порт (обычно 9100).",
+  "prnErrUsbDenied": "Нет доступа к USB-принтеру — нажмите «Разрешить» в окне Android.",
+  "prnErrUsbNotFound": "USB-принтер не найден — проверьте кабель OTG и питание принтера.",
+  "prnErrIo": "Ошибка печати: {text}",
+  "@prnErrIo": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "kgUnit": "кг",
+  "weighShort": "Весы",
+  "weighTitle": "Весовой товар",
+  "weighHint": "Положите товар на весы. Наведите камеру, чтобы были видны товар и табло весов.",
+  "weighReading": "Узнаю товар и читаю табло весов…",
+  "weighWaiting": "Жду, пока вес установится…",
+  "weighZero": "На весах 0 — положите товар.",
+  "weighNoDisplay": "Табло весов не видно — наведите камеру на цифры веса.",
+  "weighNoAi": "Умная камера недоступна (нет связи или ключа ИИ) — выберите товар и введите вес вручную.",
+  "weighConfirm": "Проверьте товар и вес",
+  "weighRead": "Камера прочитала: {name} · {kg} кг",
+  "@weighRead": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "kg": {
+        "type": "String"
+      }
+    }
+  },
+  "weighLine": "{name} {kg} кг × {price} = {sum} сом",
+  "@weighLine": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "kg": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      },
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "weighTooHeavy": "Вес {kg} кг — больше 50 кг. Точно добавить?",
+  "@weighTooHeavy": {
+    "placeholders": {
+      "kg": {
+        "type": "String"
+      }
+    }
+  },
+  "weighNotStable": "Вес не установился — проверьте показание.",
+  "weighEditKg": "Изменить вес",
+  "weighOther": "Другой товар — выбрать из списка",
+  "linkWithKassa": "Связь с кассой",
+  "linkWithKassaSub": "По Wi-Fi магазина — в следующем обновлении",
+  "language": "Язык",
+  "darkTheme": "Тёмная тема",
+  "offlineMode": "Работа без интернета",
+  "waitingToSend": "Ждут отправки: {n}",
+  "@waitingToSend": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "logout": "Выйти из аккаунта",
+  "logoutPending": "На телефоне {n} неотправленных записей. После выхода они останутся и уйдут при следующем входе этого же аккаунта. Выйти?",
+  "@logoutPending": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "sync": "Синхронизация",
+  "catalogUpdated": "Каталог обновлён {time}",
+  "@catalogUpdated": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "nothingToSend": "Всё отправлено",
+  "sent": "отправлено",
+  "sendNow": "Отправить сейчас",
+  "kindSale": "Продажа",
+  "admin": "Управление",
+  "adminSub": "Цены, смены, заказы, клиенты",
+  "revenueToday": "Выручка сегодня",
+  "checksToday": "Чеков сегодня",
+  "clientsOwe": "Клиенты должны",
+  "productPrice": "Товар — цена и остаток",
+  "shifts": "Смены и отчёт",
+  "siteOrders": "Заказы с сайта",
+  "clientsBonuses": "Клиенты и бонусы",
+  "supplierOrder": "Заказ поставщику",
+  "deletedFromCheck": "Удалено из чека",
+  "nameOrBarcode": "Название или штрихкод",
+  "salePrice": "Цена продажи",
+  "purchasePrice": "Закупка",
+  "wholesalePrice": "Оптовая цена",
+  "onStockLabel": "На складе",
+  "priceSaved": "Цена сохранена.",
+  "markup": "Наценка {pct} %",
+  "@markup": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "belowCost": "Цена ниже закупки — продажа в убыток",
+  "shiftOpenNow": "открыта",
+  "shiftClosedAt": "закрыта {time}",
+  "@shiftClosedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "cashierLabel": "Кассир",
+  "orderNew": "Новый",
+  "orderPicking": "Собираем",
+  "orderReady": "Готов к выдаче",
+  "orderDone": "Выдан",
+  "orderCanceled": "Отменён",
+  "pickOrder": "Собрать заказ",
+  "pickScanHint": "Сканируйте товар — он сам отметится",
+  "pickedOf": "Собрано {a} из {b}",
+  "@pickedOf": {
+    "placeholders": {
+      "a": {
+        "type": "int"
+      },
+      "b": {
+        "type": "int"
+      }
+    }
+  },
+  "orderPicked": "Заказ собран",
+  "notInOrder": "Этого товара нет в заказе",
+  "notifyCustomer": "Сообщить покупателю",
+  "handOver": "Выдать",
+  "orderReadyMsg": "Заказ {num} готов! К оплате {sum} сом. Код выдачи {code}.",
+  "@orderReadyMsg": {
+    "placeholders": {
+      "num": {
+        "type": "String"
+      },
+      "sum": {
+        "type": "String"
+      },
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "statusSaved": "Статус сохранён.",
+  "bonusBalance": "Бонусов на счёте",
+  "addBonus": "Начислить бонусы",
+  "bonusAdded": "Бонусы начислены.",
+  "noPhone": "нет номера",
+  "orderToSupplier": "Отправить в WhatsApp",
+  "supplierName": "Поставщик",
+  "supplierPhone": "Телефон поставщика",
+  "runningLowAdd": "Добавить всё, что заканчивается",
+  "orderQty": "Сколько заказать",
+  "deleteReason": "Почему убираете?",
+  "reasonChanged": "Покупатель передумал",
+  "reasonScanError": "Ошибка сканирования",
+  "reasonNoMoney": "Не хватило денег",
+  "reasonDefect": "Брак или просрочка",
+  "remove": "Убрать",
+  "noDeletions": "Удалений не было.",
+  "loading": "Загрузка…",
+  "empty": "Здесь пусто.",
+  "share": "Поделиться",
+  "documentPdf": "Накладная, товарный чек, счёт",
+  "docSalesReceipt": "Товарный чек",
+  "docWaybill": "Накладная",
+  "docInvoice": "Счёт на оплату",
+  "staff": "Сотрудники и права",
+  "rightSale": "Продажа и оплата",
+  "rightReturn": "Возврат и обмен",
+  "rightDiscount": "Скидки",
+  "rightEditPrice": "Менять цену в чеке",
+  "rightDeleteLine": "Удалять из чека",
+  "rightStock": "Склад, приёмка и ревизия",
+  "rightReports": "Отчёты и аналитика",
+  "rightShifts": "Смены",
+  "rightClients": "Клиенты",
+  "rightSettings": "Настройки",
+  "rightsSaved": "Права сохранены.",
+  "notifications": "Уведомления",
+  "notifyNewOrder": "Новый заказ с сайта",
+  "notifyRunningOut": "Заканчиваются товары",
+  "notifyRunningOutSub": "{n} позиций · пора заказать",
+  "@notifyRunningOutSub": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyBigDebt": "Большой долг клиента",
+  "notifyNotSent": "Не отправлены на сервер",
+  "noNotifications": "Новых уведомлений нет.",
+  "newProductSub": "Штрихкод, название, цены",
+  "findByBarcode": "Найти по штрихкоду",
+  "alreadyInStock": "Такой товар уже есть: {name}",
+  "@alreadyInStock": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "productCreated": "Товар создан.",
+  "quantityLabel": "Количество",
+  "barcodeLabel": "Штрихкод",
+  "retail": "Розница",
+  "wholesale": "Опт",
+  "wholesaleOn": "Оптовая продажа: товары с оптовой ценой — по опту.",
+  "wholesaleNone": "У товаров этого чека нет оптовой цены — задайте её в «Товар — цена и остаток».",
+  "wholesaleTag": "опт",
+  "cashJournal": "Внесения и изъятия за смену",
+  "noCashOps": "Внесений и изъятий не было.",
+  "themeLight": "Светлая",
+  "themeDark": "Тёмная",
+  "themeSystem": "Как в системе",
+  "appearance": "Оформление",
+  "searchAll": "Товар, клиент или раздел",
+  "sectionsTitle": "Разделы",
+  "productsTitle": "Товары",
+  "clientsTitle": "Клиенты",
+  "openAction": "Открыть",
+  "returnAction": "Вернуть",
+  "addedToCheckName": "Добавлено в чек: {name}",
+  "@addedToCheckName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "receiveWithPrices": "Приёмка с ценами",
+  "receiveWithPricesSub": "Поставщик, закупка, продажа, новые товары",
+  "noSupplier": "Без поставщика",
+  "newProduct": "Новый товар",
+  "barcodeNotInStock": "Штрихкод {code} не найден на складе",
+  "@barcodeNotInStock": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "foundInBase": "Найдено в общей базе по штрихкоду — проверьте",
+  "unitLabel": "Единица",
+  "createAndAdd": "Создать и добавить",
+  "markupRule": "Цены продажи: +{pct} % к закупке, до 5 сом",
+  "@markupRule": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "payNowCash": "Оплачено сразу",
+  "onCredit": "В долг поставщику",
+  "purchaseSum": "Закупка {sum} сом",
+  "@purchaseSum": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "postReceipt": "Провести приход",
+  "receiptPosted": "Приход проведён: {n} поз.",
+  "@receiptPosted": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "partlyFailed": "Не прошло: {text}",
+  "@partlyFailed": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "shiftsOpen": "Открытые",
+  "shiftsClosed": "Закрытые",
+  "debtAccessTitle": "Доступ к долгу",
+  "debtAccessHint": "Кому из сотрудников можно продавать в долг: можно, нельзя или с лимитом — сколько чеков и на какую сумму в день. Правила общие для всех касс и телефонов компании. Владелец и администратор ограничений не имеют.",
+  "debtAllStaff": "Все сотрудники",
+  "debtSameAsAll": "Как у всех",
+  "debtAllow": "Можно",
+  "debtDeny": "Нельзя",
+  "debtLimit": "С лимитом",
+  "debtReceiptsPerDay": "Чеков в долг в день",
+  "debtSumPerDay": "Сумма долга в день, сом",
+  "debtNoLimit": "без огр.",
+  "debtAccessSaved": "Сохранено — правила уже действуют на всех кассах и телефонах.",
+  "debtStaffNotLoaded": "Список сотрудников не получен (нет связи?) — можно задать правило для всех.",
+  "debtDenied": "Владелец запретил вам продажу в долг. Выберите другой способ оплаты или позовите владельца.",
+  "debtLimitReceipts": "Лимит продаж в долг на сегодня исчерпан: {a} из {b} чек. Обратитесь к владельцу.",
+  "@debtLimitReceipts": {
+    "placeholders": {
+      "a": {
+        "type": "int"
+      },
+      "b": {
+        "type": "int"
+      }
+    }
+  },
+  "debtLimitSum": "Превышен лимит долга на сегодня: можно ещё {left} сом из {max} сом, а в долг {sum} сом. Возьмите часть оплаты сейчас или позовите владельца.",
+  "@debtLimitSum": {
+    "placeholders": {
+      "left": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      },
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "debtReceiptsOf": "чеков {a} из {b}",
+  "@debtReceiptsOf": {
+    "placeholders": {
+      "a": {
+        "type": "int"
+      },
+      "b": {
+        "type": "int"
+      }
+    }
+  },
+  "debtSumOf": "долг {used} из {max} сом",
+  "@debtSumOf": {
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "debtYourLimit": "Ваш лимит в долг на сегодня: {text}",
+  "@debtYourLimit": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "promoTag": "акция",
+  "promoNoManualDiscount": "На товар действует акция — скидку по ней считает сервер, ручную скидку на эту строку дать нельзя.",
+  "quoteSearch": "Номер, клиент или телефон",
+  "quotesEmpty": "Пока нет КП и счетов",
+  "quotesEmptyHint": "Нажмите «Создать»: выберите клиента и товары — PDF отправится в WhatsApp или на почту.",
+  "quotesNoMatch": "Ничего не найдено — измените поиск или фильтр.",
+  "createDoc": "Создать",
+  "makeInvoice": "Сделать счёт",
+  "sendToClient": "Отправить",
+  "docWaText": "{doc} № {number} на сумму {sum} сом. {until}.",
+  "@docWaText": {
+    "placeholders": {
+      "doc": {
+        "type": "String"
+      },
+      "number": {
+        "type": "String"
+      },
+      "sum": {
+        "type": "String"
+      },
+      "until": {
+        "type": "String"
+      }
+    }
+  },
+  "docSubtotal": "Сумма без скидки",
+  "discountShort": "Скидка",
+  "paidLabel": "Оплачено",
+  "leftToPay": "Осталось оплатить",
+  "findClient": "Найти клиента",
+  "companyLabel": "Компания (ОсОО, ИП)",
+  "clientExists": "Клиент с этим телефоном уже есть в NurCRM — выбран он.",
+  "clientSaved": "Клиент сохранён в NurCRM",
+  "clientLocalOnly": "Нет связи с NurCRM — клиент записан только в этот документ.",
+  "clientNameRequired": "Введите имя или компанию",
+  "innDigits": "ИНН — только цифры, обычно 14",
+  "discountHint": "Сумма или процент, например 10%",
+  "stExpired": "Срок истёк",
+  "deleteDocAsk": "Удалить {number}?",
+  "@deleteDocAsk": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteDocAskSub": "Документ удалится и в программе владельца, без возврата.",
+  "requisitesTitle": "Реквизиты для счёта",
+  "requisitesHint": "Банк, расчётный счёт, БИК, телефон — печатаются в PDF под названием магазина.",
+  "scannedAdded": "Добавлено: {name}",
+  "@scannedAdded": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "invoiceCreated": "Создан счёт {number}",
+  "@invoiceCreated": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "historyLabel": "История",
+  "docLines": "Товары и услуги",
+  "docFrom": "от {date}",
+  "@docFrom": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "clientNotChosen": "Клиент не выбран",
+  "linesEmptyHint": "Добавьте товары: поиск, сканер или из текущего чека.",
+  "quotesSyncing": "Обновление общего списка…",
+  "quotesShared": "Общий список с программой владельца",
+  "quotesSharedAt": "Общий список обновлён: {time}",
+  "@quotesSharedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "quotesOffline": "Нет связи с сервером — показана копия телефона",
+  "quotesNotSent": "Не отправлено: {n}. Уйдёт в программу владельца при связи — нажмите, чтобы повторить.",
+  "@quotesNotSent": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quotesForbidden": "Нет прав на общие настройки компании — изменения только на этом телефоне. Нужен вход владельца или администратора.",
+  "notSentMark": "не отправлено",
+  "quoteChangedElsewhere": "{number} позже изменили в другом месте — показана последняя версия",
+  "@quoteChangedElsewhere": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "quoteRenumbered": "Номер {from} уже занят — документ теперь {to}",
+  "@quoteRenumbered": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  }
+}

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Фискальный чек и электронный чек</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column; position: relative; overflow: hidden">
+
+  <div style="flex-grow: 1; background: #DDE2E8; display: flex; align-items: flex-start; justify-content: center; gap: 40px; padding: 40px 30px">
+    <div style="display: flex; flex-direction: column; gap: 10px; align-items: center"><div role="img" aria-label="Фискальный чек" style="width: 280px; box-sizing: border-box; background: #FFFFFF; box-shadow: 0 10px 30px rgba(11,42,60,.18); padding: 18px 16px; font-family: Consolas, monospace; font-size: 11px; line-height: 15px; color: #111827; display: flex; flex-direction: column; gap: 5px; flex-shrink: 0"><b style="text-align: center; font-size: 13px">ОсОО «NBS»</b><span style="text-align: center">ИНН [ИНН]<br>[адрес]</span><span style="text-align: center; border-top: 1px dashed #98A2B3; border-bottom: 1px dashed #98A2B3; padding: 4px 0; font-weight: 700">КАССОВЫЙ ЧЕК · ПРИХОД</span><span>Смена [№] · Чек [№]<br>[дата] 14:52 · Кассир Тест</span><div style="display: flex; justify-content: space-between"><span>Кока-Кола (ПЭТ) 2л</span></div><div style="display: flex; justify-content: space-between; padding-left: 10px"><span>2 × 120,00</span><span>240,00</span></div><div style="display: flex; justify-content: space-between"><span>Сок Gracio яблочный 1л</span></div><div style="display: flex; justify-content: space-between; padding-left: 10px"><span>1 × 145,00</span><span>145,00</span></div><div style="display: flex; justify-content: space-between"><span>Хлеб белый</span></div><div style="display: flex; justify-content: space-between; padding-left: 10px"><span>2 × 35,00</span><span>70,00</span></div><div style="display: flex; justify-content: space-between"><span>Mars</span></div><div style="display: flex; justify-content: space-between; padding-left: 10px"><span>3 × 65,00</span><span>195,00</span></div><div style="border-top: 1px dashed #98A2B3; padding-top: 4px; display: flex; justify-content: space-between; font-weight: 700; font-size: 13px"><span>ИТОГО</span><span>650,00</span></div><div style="display: flex; justify-content: space-between"><span>Наличными</span><span>650,00</span></div><div style="display: flex; justify-content: space-between"><span>НсП [ставка] %</span><span>[сумма]</span></div><div style="display: flex; justify-content: space-between"><span>НДС</span><span>без НДС</span></div><span style="border-top: 1px dashed #98A2B3; padding-top: 4px">РНМ [РНМ]<br>ФМ [ФМ]<br>ФД [ФД] · ФПД [ФПД]<br>ОФД: [оператор]</span><span style="align-self: center; padding-top: 6px"><span style="display: block; width: 84px; height: 84px; background: repeating-conic-gradient(#111827 0 25%, #FFFFFF 0 50%) 0 0 / 12px 12px; border: 4px solid #FFFFFF; outline: 1px solid #111827; flex-shrink: 0"></span></span><span style="text-align: center">Проверить чек: [сайт ГНС]</span></div><b style="font-size: 13px">Фискальный чек · 80 мм</b></div>
+    <div style="display: flex; flex-direction: column; gap: 10px; align-items: center"><div style="width: 300px; height: 600px; box-sizing: border-box; border-radius: 36px; border: 10px solid #111827; background: #ECE5DD; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0"><div style="height: 52px; background: #075E54; color: #FFFFFF; display: flex; align-items: center; gap: 10px; padding: 0 14px"><span style="width: 30px; height: 30px; border-radius: 50%; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px">N</span><b style="font-size: 14px">NBS</b></div><div style="padding: 14px; display: flex; flex-direction: column; gap: 8px"><div style="align-self: flex-start; max-width: 230px; background: #FFFFFF; border-radius: 0 12px 12px 12px; padding: 10px 12px; font-size: 12.5px; line-height: 18px; box-shadow: 0 1px 1px rgba(0,0,0,.1)">Спасибо за покупку в NBS!<br><b>Чек [№] на 650 сом</b><br>ФД [ФД] · [дата] 14:52<br><span style="color: #2563EB; text-decoration: underline">Открыть чек</span><br><span style="color: #667085; font-size: 11px">Бонусов начислено: 6 · всего 326</span></div><div style="align-self: flex-start; background: #FFFFFF; border-radius: 12px; padding: 8px"><span style="display: block; width: 120px; height: 120px; background: repeating-conic-gradient(#111827 0 25%, #FFFFFF 0 50%) 0 0 / 17px 17px; border: 4px solid #FFFFFF; outline: 1px solid #111827; flex-shrink: 0"></span></div></div></div><b style="font-size: 13px">Электронный чек · WhatsApp</b></div>
+    <div class="card" style="width: 360px; gap: 8px">
+      <b style="font-size: 15px">Что обязательно в чеке</b>
+      <span style="font-size: 12.5px; line-height: 19px; color: #344054">Название и ИНН продавца, адрес, номер смены и чека, дата и время, товары и услуги с количеством и ценой, итог и способ оплаты, налоги, регистрационный номер ККМ и фискального модуля, номер и признак фискального документа, QR для проверки.</span>
+      <div class="row" style="background: #FEF3E2; font-size: 12px; line-height: 17px">Точный перечень реквизитов сверить с Порядком применения ККМ (ПКМ КР № 193) и требованиями выбранного ОФД</div>
+      <b style="font-size: 15px; padding-top: 6px">Электронный чек</b>
+      <span style="font-size: 12.5px; line-height: 19px; color: #344054">Если покупатель назвал номер — чек уходит в WhatsApp или Telegram вместе с бонусами. Бумага по желанию.</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

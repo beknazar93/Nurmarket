@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Магазин в приложении</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="site" active="Магазин в приложении" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Магазин в приложении</span><span style="font-size: 13px; color: #667085">Бесплатно · покупатели находят вас на карте NurCRM, видят цены и копят баллы</span></span>
+      <span style="font-size: 13px; color: #0E7A3A; font-weight: 600">Сохранено в 14:20</span>
+      <button type="button" style="height: 44px; padding: 0 18px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Сохранить</button>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: flex; gap: 16px">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden">
+        <section style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+          <label style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 800"><input type="checkbox" checked="" style="width: 20px; height: 20px; accent-color: #0B2A3C">Показывать магазин «Тестовый» в приложении</label>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <span style="display: flex; flex-direction: column; gap: 4px"><label for="asAddr" style="font-size: 12px; font-weight: 600; color: #344054">Адрес</label><input id="asAddr" type="text" value="[город, улица, дом]" style="height: 42px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D0D5DD; padding: 0 12px; font-family: inherit; font-size: 13px"></span>
+            <span style="display: flex; flex-direction: column; gap: 4px"><label for="asPhone" style="font-size: 12px; font-weight: 600; color: #344054">Телефон</label><input id="asPhone" type="text" value="[телефон]" style="height: 42px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D0D5DD; padding: 0 12px; font-family: inherit; font-size: 13px"></span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end">
+            <span style="display: flex; flex-direction: column; gap: 4px"><label for="asLat" style="font-size: 12px; font-weight: 600; color: #344054">Широта</label><input id="asLat" type="text" value="42,8746" style="height: 42px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D0D5DD; padding: 0 12px; font-family: inherit; font-size: 13px"></span>
+            <span style="display: flex; flex-direction: column; gap: 4px"><label for="asLon" style="font-size: 12px; font-weight: 600; color: #344054">Долгота</label><input id="asLon" type="text" value="74,5698" style="height: 42px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D0D5DD; padding: 0 12px; font-family: inherit; font-size: 13px"></span>
+            <button type="button" style="height: 42px; padding: 0 12px; border-radius: 10px; border: 0; background: #0B2A3C; font-family: inherit; font-size: 12px; font-weight: 700; color: #FFFFFF">Найти по адресу</button>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: end">
+            <span style="display: flex; flex-direction: column; gap: 4px"><label for="asFrom" style="font-size: 12px; font-weight: 600; color: #344054">Открыто с</label><input id="asFrom" type="text" value="10:00" style="width: 96px; height: 42px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D0D5DD; padding: 0 12px; font-family: inherit; font-size: 13px; font-weight: 700"></span>
+            <span style="display: flex; flex-direction: column; gap: 4px"><label for="asTo" style="font-size: 12px; font-weight: 600; color: #344054">до</label><input id="asTo" type="text" value="17:00" style="width: 96px; height: 42px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D0D5DD; padding: 0 12px; font-family: inherit; font-size: 13px; font-weight: 700"></span>
+            <label style="display: flex; align-items: center; gap: 8px; height: 42px; font-size: 13px"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: #0B2A3C">без выходных</label>
+          </div>
+        </section>
+        <section style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+          <span style="font-size: 15px; font-weight: 800">Бонусные баллы</span>
+          <div style="display: flex; align-items: center; gap: 14px">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: #0B2A3C">Начислять баллы</label>
+            <label for="asPct" style="font-size: 13px; font-weight: 600; color: #344054">с покупки</label>
+            <input id="asPct" type="text" value="4 %" style="width: 80px; height: 40px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D0D5DD; padding: 0 12px; font-family: inherit; font-size: 14px; font-weight: 800">
+            <span style="font-size: 12px; color: #667085">обычно 3–5 %, 1 балл = 1 сом</span>
+          </div>
+          <span style="font-size: 12px; color: #667085">Баланс баллов считает сервер — он один на всех кассах компании и виден покупателю в приложении.</span>
+        </section>
+        <section style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+          <span style="font-size: 15px; font-weight: 800">Филиалы</span>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #F9FAFB"><input type="checkbox" checked="" aria-label="Показывать Офис Кубанычбека" style="width: 18px; height: 18px; accent-color: #0B2A3C"><span style="flex-grow: 1; font-size: 13px; font-weight: 700">Офис Кубанычбека</span><span style="font-size: 12px; font-weight: 700; color: #B54708">Нет адреса — не будет на карте</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #F9FAFB"><input type="checkbox" checked="" aria-label="Показывать Домашний" style="width: 18px; height: 18px; accent-color: #0B2A3C"><span style="flex-grow: 1; font-size: 13px; font-weight: 700">Домашний</span><span style="font-size: 12px; font-weight: 700; color: #B54708">Адрес не нашёлся на карте</span></div>
+        </section>
+      </div>
+      <aside aria-label="Так покупатели видят магазин" style="width: 340px; flex-shrink: 0; background: #0B2A3C; border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+        <span style="font-size: 14px; font-weight: 800; color: #FFFFFF">Так покупатели видят магазин</span>
+        <sc-for list="{{cards}}" as="c" hint-placeholder-count="3">
+          <div style="background: #FFFFFF; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: 15px; font-weight: 800">{{c.name}}</span>
+            <span style="font-size: 12px; color: #667085">{{c.line}}</span>
+            <span style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px"><span style="padding: 3px 9px; border-radius: 6px; background: #FFD600; color: #0B2A3C; font-size: 12px; font-weight: 800">Баллы 4 %</span><span style="font-size: 11px; font-weight: 700; color: {{c.mapColor}}">{{c.map}}</span></span>
+          </div>
+        </sc-for>
+        <a href="#" style="margin-top: auto; color: #FFD600; font-size: 13px; font-weight: 700">Проверить в приложении (QR) ›</a>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { cards: [
+      { name: 'Тестовый', line: '[адрес] · 10:00–17:00', map: '● на карте', mapColor: '#0E7A3A' },
+      { name: 'Домашний', line: '[адрес] · [часы]', map: 'не на карте', mapColor: '#B54708' },
+      { name: 'Офис Кубанычбека', line: 'адрес не заполнен', map: 'не на карте', mapColor: '#B54708' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Заказы с сайта</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="site" active="Заказы с сайта" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Заказы с сайта</span><span style="font-size: 13px; color: #667085">С сайта, из Телеграм-бота и из приложения — откуда пришёл, видно чипом у заказа</span></span>
+      <span style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: #E7F6EC; color: #0E7A3A; font-size: 13px; font-weight: 600; white-space: nowrap"><span style="width: 8px; height: 8px; border-radius: 4px; background: #16A34A"></span>Витрина работает · 307 товаров</span>
+      <a href="#" style="font-size: 13px; font-weight: 700; white-space: nowrap">market.nurcrm.kg/nbs ›</a>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap">
+      <sc-for list="{{chips}}" as="c" hint-placeholder-count="6">
+        <sc-if value="{{c.on}}" hint-placeholder-val="{{false}}"><button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap">{{c.name}}</button></sc-if>
+        <sc-if value="{{c.off}}" hint-placeholder-val="{{true}}"><button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">{{c.name}}</button></sc-if>
+      </sc-for>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: flex; gap: 14px">
+      <section style="width: 420px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{orders}}" as="o" hint-placeholder-count="4">
+          <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 14px; border: {{o.border}}; padding: 12px 16px; font-family: inherit; display: flex; flex-direction: column; gap: 5px">
+            <span style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><span style="font-size: 14px; font-weight: 800; color: #0B2A3C">Заказ №{{o.no}}</span><span style="padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; background: {{o.stBg}}; color: {{o.stFg}}">{{o.status}}</span></span>
+            <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #475467"><span style="flex-grow: 1">{{o.client}} · <b style="color: #111827; white-space: nowrap">{{o.sum}}</b> · {{o.pay}}</span><span style="padding: 2px 8px; border-radius: 6px; background: #F2F4F7; color: #344054; font-size: 11px; font-weight: 700; white-space: nowrap">{{o.src}}</span></span>
+            <span style="font-size: 12px; font-weight: 600; color: {{o.ageColor}}">{{o.age}}</span>
+          </button>
+        </sc-for>
+        <span style="font-size: 12px; color: #667085; padding: 0 4px">Новый дольше 30 минут и «Готов к выдаче» дольше 12 часов — подсвечены</span>
+      </section>
+      <section style="flex-grow: 1; min-width: 0; background: #FFFFFF; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <span style="display: flex; align-items: center; gap: 10px"><span style="font-size: 18px; font-weight: 800; flex-grow: 1">Заказ №10</span><span style="padding: 4px 12px; border-radius: 999px; background: #FFF7CC; color: #0B2A3C; font-size: 12px; font-weight: 800; white-space: nowrap">Новый</span>
+          <!-- 2026-10-16: «Отменить заказ…» — красная, справа вверху, далеко от «Написать клиенту»; спросит причину -->
+          <button type="button" title="Спросит причину: нет товара / клиент передумал / не дозвонились / другое" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #B42318; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #B42318; white-space: nowrap">Отменить заказ…</button></span>
+        <div role="list" aria-label="Шаги заказа" style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700">
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="4"><span role="listitem" style="padding: 5px 10px; border-radius: 999px; white-space: nowrap; background: {{s.bg}}; color: {{s.fg}}">{{s.name}}</span><span style="color: #98A2B3">{{s.arrow}}</span></sc-for>
+          <span style="margin-left: auto; font-weight: 500; color: #667085">на любом шаге — «Отменён» с причиной</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+          <span style="border-radius: 12px; background: #F9FAFB; padding: 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #475467">Клиент</span><span style="font-size: 14px; font-weight: 700">Умар · @BigHero02</span><span style="font-size: 11px; color: #B54708">номера телефона нет</span></span>
+          <span style="border-radius: 12px; background: #F9FAFB; padding: 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #475467">Откуда</span><span style="font-size: 14px; font-weight: 700">Телеграм-бот</span><span style="font-size: 11px; color: #475467">сегодня 13:52</span></span>
+          <span style="border-radius: 12px; background: #F9FAFB; padding: 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #475467">Получение и оплата</span><span style="font-size: 14px; font-weight: 700">Самовывоз</span><span style="font-size: 11px; color: #475467">оплата при получении</span></span>
+        </div>
+        <span style="font-size: 12px; font-weight: 700; color: #667085">ТОВАРЫ · 4 позиции</span>
+        <div style="display: flex; flex-direction: column">
+          <sc-for list="{{items}}" as="it" hint-placeholder-count="4"><span style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px; padding: 9px 0; border-bottom: 1px solid #F2F4F7"><span>{{it.name}} <span style="color: #475467">× {{it.qty}}</span> <span style="font-size: 12px; color: {{it.noteColor}}">{{it.note}}</span></span><span style="font-weight: 700; white-space: nowrap">{{it.sum}}</span></span></sc-for>
+        </div>
+        <span style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 15px; font-weight: 700">Итого</span><span style="font-size: 22px; font-weight: 800; color: #0B2A3C; white-space: nowrap">530&nbsp;сом</span></span>
+        <span style="margin-top: auto; font-size: 12px; color: #667085">«Собираем» и «Готов к выдаче» с кодом выдачи — нужен сервер NurCRM (сейчас сервер хранит только статус заказа).</span>
+        <div style="display: flex; gap: 10px; align-items: center">
+          <button type="button" style="height: 46px; padding: 0 18px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054; white-space: nowrap">Написать клиенту</button>
+          <span style="flex-grow: 1; font-size: 12px; color: #667085">в Телеграм — номера нет</span>
+          <button type="button" style="height: 46px; padding: 0 24px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C; white-space: nowrap">Собрать заказ</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: одна машина статусов (SPEC 4): Новый → Собираем → Готов к выдаче → Выдан; «Отменён» — с причиной.
+    // Заказы NBS: №10 Умар (новый, сегодня 13:52, бот, 530 сом), №9 Айпери (готов с 11.10 18:20), №8 Бакыт (выдан), №7 (отменён).
+    const chips = [['Все', 4], ['Новые', 1], ['Собираем', 0], ['Готовы к выдаче', 1], ['Выданы', 1], ['Отменённые', 1]]
+      .map(([n, k], i) => ({ name: n + ' · ' + k, on: i === 0, off: i !== 0 }));
+    const RD = '#B42318';
+    const orders = [
+      { no: '10', status: 'Новый', client: 'Умар', sum: '530 сом', pay: 'при получении', src: 'Телеграм-бот', age: '⚠ новый уже 43 мин (с 13:52) — пора собрать', ageColor: RD, stBg: '#FFF7CC', stFg: '#0B2A3C', border: '2px solid #0B2A3C' },
+      { no: '9', status: 'Готов к выдаче', client: 'Айпери', sum: '340 сом', pay: 'оплачен онлайн', src: 'сайт', age: '⚠ ждёт выдачи 20 ч — с 11.10 18:20', ageColor: RD, stBg: '#E3F2FD', stFg: '#1D4ED8', border: '1px solid #FDE2E1' },
+      { no: '8', status: 'Выдан', client: 'Бакыт', sum: '410 сом', pay: 'при получении', src: 'приложение', age: 'выдан 11.10 17:05', ageColor: '#667085', stBg: '#E7F6EC', stFg: '#0E7A3A', border: '1px solid #E5E7EB' },
+      { no: '7', status: 'Отменён', client: 'Чолпон Каримова', sum: '260 сом', pay: 'при получении', src: 'сайт', age: 'отменён 10.10 · причина: нет товара', ageColor: '#667085', stBg: '#F2F4F7', stFg: '#475467', border: '1px solid #E5E7EB' }
+    ].map((o) => Object.assign(o, { sum: o.sum.replace(' сом', '\u00a0сом') }));
+    const steps = ['Новый', 'Собираем', 'Готов к выдаче', 'Выдан'].map((name, i) => ({
+      name, arrow: i < 3 ? '→' : '', bg: i === 0 ? '#0B2A3C' : '#F2F4F7', fg: i === 0 ? '#FFFFFF' : '#475467' }));
+    const items = [
+      { name: 'Макароны «Макфа» спагетти 450г', qty: 2, sum: '170\u00a0сом', note: '', noteColor: '#667085' },
+      { name: 'Кока-Кола (ПЭТ) 2л', qty: 1, sum: '170\u00a0сом', note: '· на складе 1 шт — последняя', noteColor: '#B54708' },
+      { name: 'Сок Gracio яблочный 1л', qty: 1, sum: '120\u00a0сом', note: '', noteColor: '#667085' },
+      { name: 'Хлеб белый', qty: 2, sum: '70\u00a0сом', note: '', noteColor: '#667085' }
+    ];
+    return { chips, orders, steps, items };
+  }
+}
+</script>
+</body>
+</html>

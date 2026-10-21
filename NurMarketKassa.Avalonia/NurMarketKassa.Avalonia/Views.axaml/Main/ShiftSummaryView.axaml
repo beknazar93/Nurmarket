@@ -33,7 +33,8 @@
         <!-- Кнопки экспорт и основные -->
         <Style Selector="Button.ExportButton">
             <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <!-- 2026-10-21 (пакет 5, п. 41): белый текст на жёлтом акценте не читался — цвет текста на акценте темы. -->
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="Padding" Value="16,8"/>
@@ -150,30 +151,34 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- 2026-10-21 (пакет 5, п. 41): «Внесено» и «Изъято» — нейтральные плитки, как «Баланс на начало»
+                             (были зелёная и красная — цвет без смысла: изъятие не ошибка; красный — только долг). -->
                         <!-- Внесено -->
-                        <Border Background="{DynamicResource BrushSuccessSoft}" CornerRadius="8" Padding="12">
+                        <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8" Padding="12">
                             <StackPanel>
-                                <TextBlock Text="{DynamicResource shift.depositedLabel}" Classes="ShiftFieldLabel" Foreground="{DynamicResource BrushUiStatusOk}"/>
-                                <TextBlock Text="{Binding DepositedTotalText}" Foreground="{DynamicResource BrushUiStatusOk}" FontWeight="Bold" FontSize="16"/>
+                                <TextBlock Text="{DynamicResource shift.depositedLabel}" Classes="ShiftFieldLabel"/>
+                                <TextBlock Text="{Binding DepositedTotalText}" Foreground="{DynamicResource BrushText}" FontWeight="Bold" FontSize="15"/>
                             </StackPanel>
                         </Border>
 
                         <!-- Изъято -->
-                        <Border Background="{DynamicResource BrushDangerSoft}" CornerRadius="8" Padding="12">
+                        <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8" Padding="12">
                             <StackPanel>
-                                <TextBlock Text="{DynamicResource shift.withdrawnLabel}" Classes="ShiftFieldLabel" Foreground="{DynamicResource BrushDanger}"/>
-                                <TextBlock Text="{Binding WithdrawnTotalText}" Foreground="{DynamicResource BrushDanger}" FontWeight="Bold" FontSize="16"/>
+                                <TextBlock Text="{DynamicResource shift.withdrawnLabel}" Classes="ShiftFieldLabel"/>
+                                <TextBlock Text="{Binding WithdrawnTotalText}" Foreground="{DynamicResource BrushText}" FontWeight="Bold" FontSize="15"/>
                             </StackPanel>
                         </Border>
 
                         <Separator Height="1" Background="{DynamicResource BrushPanelSoft}" Margin="0,4"/>
 
                         <!-- Фактический баланс -->
-                        <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="10" Padding="14">
+                        <!-- 2026-10-21 (пакет 5, п. 41): итог — нейтральной карточкой с рамкой (была оранжевая). -->
+                        <Border Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                CornerRadius="10" Padding="14">
                             <StackPanel Spacing="4">
-                                <TextBlock Text="{DynamicResource shift.actualBalanceLabel}" Foreground="{DynamicResource BrushWarning}" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource shift.actualBalanceLabel}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" FontWeight="SemiBold"/>
                                 <TextBlock Text="{Binding ActualBalanceText}" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-                                <TextBlock Text="{Binding DifferenceText}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushWarning}"/>
+                                <TextBlock Text="{Binding DifferenceText}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushTextMuted}"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -197,7 +202,7 @@
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
                               GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="#F1F5F9"
+                              HorizontalGridLinesBrush="{DynamicResource BrushPanelSoft}"
                               RowHeight="40">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{DynamicResource common.date}" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="140"/>

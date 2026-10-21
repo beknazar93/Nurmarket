@@ -3,7 +3,7 @@
         x:Class="NurMarketKassa.AvaloniaHost.Views.StaffTimesheetWindow"
         x:CompileBindings="False"
         Title="{DynamicResource staffTimesheet.title}"
-        Height="720" Width="920" MinHeight="460" MinWidth="700"
+        Height="720" Width="1160" MinHeight="460" MinWidth="700"
         WindowStartupLocation="CenterOwner"
         FontFamily="Segoe UI, Inter, Noto Sans"
         Background="{DynamicResource BrushInputAlt}"
@@ -71,13 +71,14 @@
         <Border Grid.Row="3" Classes="Card">
             <DataGrid x:Name="TimesheetGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="40" GridLinesVisibility="Horizontal">
                 <DataGrid.Columns>
+                    <!-- 2026-10-20 (живой аудит кассы, К18): столбцы обрезались («1253 ч 22 ми», «106 811 122 с», даты) — окно шире (1160), «Смен»/«Дней» уже. -->
                     <DataGridTextColumn Header="{DynamicResource staffTimesheet.colCashier}" Width="2*" Binding="{Binding Cashier}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colShifts}" Width="*" Binding="{Binding ShiftCountText}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colDays}" Width="*" Binding="{Binding DaysWorkedText}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colHours}" Width="1.4*" Binding="{Binding TotalWorkedText}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colAvgShift}" Width="1.4*" Binding="{Binding AverageShiftText}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colRevenue}" Width="1.4*" Binding="{Binding TotalRevenueText}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colPeriod}" Width="2.2*" Binding="{Binding PeriodText}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colShifts}" Width="0.7*" Binding="{Binding ShiftCountText}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colDays}" Width="0.7*" Binding="{Binding DaysWorkedText}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colHours}" Width="1.5*" Binding="{Binding TotalWorkedText}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colAvgShift}" Width="1.5*" Binding="{Binding AverageShiftText}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colRevenue}" Width="1.6*" Binding="{Binding TotalRevenueText}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colPeriod}" Width="2.4*" Binding="{Binding PeriodText}"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>

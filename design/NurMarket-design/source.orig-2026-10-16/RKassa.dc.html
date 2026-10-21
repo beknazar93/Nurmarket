@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Рассрочка — оформление на кассе</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: 1.75fr 1fr; gap: 22px; align-items: start">
+  <section class="m" role="dialog" aria-label="Оформить рассрочку">
+    <div class="mh"><div class="mt"><b>Оформить рассрочку</b><span>Пример расчёта · Телефон [модель] · 50 000 сом</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span class="lbl">КЛИЕНТ</span>
+        <div class="row" style="background: #FFF7CC"><span style="flex-grow: 1"><b>[Клиент]</b><br><span style="font-size: 12px; color: #667085">[телефон] · паспорт [№]</span></span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">лимит есть</span></div>
+        <label class="lbl" for="iv">ПЕРВЫЙ ВЗНОС</label>
+        <input id="iv" class="in big" type="text" value="10 000">
+        <div style="display: flex; gap: 6px"><button type="button" class="chip on">20 %</button><button type="button" class="chip">30 %</button><button type="button" class="chip">50 %</button></div>
+        <span class="lbl" style="padding-top: 4px">СРОК</span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+          <button type="button" class="b2" style="height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px"><span>3 мес · 0 %</span><span style="font-size: 11px; color: #667085">13 330 / мес</span></button>
+          <button type="button" class="b2" style="height: 56px; border: 2px solid #0B2A3C; background: #FFF7CC; color: #0B2A3C; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px"><span>6 мес · +6 %</span><span style="font-size: 11px">7 070 / мес</span></button>
+          <button type="button" class="b2" style="height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px"><span>9 мес · +9 %</span><span style="font-size: 11px; color: #667085">4 850 / мес</span></button>
+          <button type="button" class="b2" style="height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px"><span>12 мес · +12 %</span><span style="font-size: 11px; color: #667085">3 740 / мес</span></button>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span class="lbl">ГРАФИК ПЛАТЕЖЕЙ</span>
+        <div class="row" style="background: #0B2A3C; color: #FFFFFF"><span style="flex-grow: 1">Взнос сегодня</span><b style="color: #FFD600">10 000</b></div>
+        <div class="row"><span style="flex-grow: 1">1 · [дата]</span><b>7 070</b></div>
+        <div class="row"><span style="flex-grow: 1">2 · [дата]</span><b>7 070</b></div>
+        <div class="row"><span style="flex-grow: 1">3 · [дата]</span><b>7 070</b></div>
+        <div class="row"><span style="flex-grow: 1">4 · [дата]</span><b>7 070</b></div>
+        <div class="row"><span style="flex-grow: 1">5 · [дата]</span><b>7 070</b></div>
+        <div class="row"><span style="flex-grow: 1">6 · [дата]</span><b>7 050</b></div>
+        <div class="rl" style="border-top: 1px dashed #D0D5DD; padding-top: 8px"><span>Остаток 40 000 + 6 %</span><b>42 400</b></div>
+        <div class="rl"><span>Переплата клиента</span><b style="color: #B54708">2 400</b></div>
+      </div>
+    </div>
+    <div class="mf"><span class="tot">Всего 52 400 · <b>7 070 в месяц</b></span><button type="button" class="b2">Договор PDF</button><button type="button" class="b1">Оформить и принять взнос</button></div>
+  </section>
+
+  <section class="m" aria-label="Оплата — выбор способа">
+    <div class="mh"><div class="mt"><b>Оплата · 50 000 сом</b><span>Панель оплаты на кассе</span></div></div>
+    <div class="mb">
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+        <button type="button" class="b2" style="height: 56px">Наличные</button>
+        <button type="button" class="b2" style="height: 56px">Карта</button>
+        <button type="button" class="b2" style="height: 56px">QR</button>
+        <button type="button" class="b2" style="height: 56px">В долг</button>
+        <button type="button" class="b2" style="height: 56px; grid-column: span 2; border: 2px solid #0B2A3C; background: #FFF7CC; color: #0B2A3C">Рассрочка · от 3 740 / мес</button>
+      </div>
+      <span style="font-size: 12px; color: #667085; line-height: 18px">Кнопка видна, если в чеке есть товар дороже [сумма] и функция «Рассрочка» включена. Кассиру — только с правом «оформлять рассрочку».</span>
+    </div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

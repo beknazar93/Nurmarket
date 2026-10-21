@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Веб — товары и склад</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.pill{height:38px;padding:0 14px;border-radius:19px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054}
+.pill.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.tr{display:grid;grid-template-columns:36px 2.4fr 1.3fr 1fr .8fr .9fr .9fr;gap:8px;padding:11px 14px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.stk{font-weight:800;padding:3px 10px;border-radius:999px;justify-self:start}
+</style><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="WebStock"><div style="min-height: 900px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-wrap: wrap;">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex;"><div class="sc-host" data-sc-name="WebNav"><nav aria-label="Разделы веб-админки" style="width: 100%; min-height: 900px; height: 100%; box-sizing: border-box; background: rgb(11, 42, 60); font-family: Montserrat, system-ui, sans-serif; padding: 20px 14px; display: flex; flex-direction: column; gap: 2px;">
+  <div style="display: flex; align-items: center; gap: 10px; padding: 0px 8px 12px;"><span style="width: 36px; height: 36px; border-radius: 10px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-weight: 800;">N</span><span style="display: flex; flex-direction: column;"><b style="color: rgb(255, 255, 255); font-size: 15px;">NurMarket</b><span style="font-size: 11px; color: rgb(125, 147, 163);">NBS · Администратор</span></span></div>
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">ГЛАВНАЯ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Сводка</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Нур Советник</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4M9 15l2 2 4-4"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Задачи и календарь</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">[N]</span></span></a>
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">ПРОДАЖА</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Веб-касса</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Чеки и смены</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18v12H3zM3 10h18M7 15h4"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Платежи и банки</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">1</span></span></a>
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">ТОВАРЫ</span></span>
+    
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); text-decoration: none; font-size: 13.5px; font-weight: 800;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Товары и склад</span></span></a>
+      
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Закупки</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">[N]</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Приёмка</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h12v9H2zM14 10h4l3 3v3h-7"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Пополнение и сроки</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Накладные и документы</span></span></a>
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">КЛИЕНТЫ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8M4 21a8 8 0 0 1 16 0"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Клиенты и долги</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">[N]</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Рассрочки</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">[N]</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7v5l3 2"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Прокат</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h16v10H4zM2 7h20v3H2zM12 7v13M12 7c-2-4-6-3-5 0M12 7c2-4 6-3 5 0"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Бонусы и сертификаты</span></span></a>
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">САЙТ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 13H6zM9 8a3 3 0 0 1 6 0"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Заказы с сайта</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">[N]</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M3 12h18M12 3a14 14 0 0 1 0 18"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Сайт и бот</span></span></a>
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">ОТЧЁТЫ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Прибыль и отчёты</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Удалено из чека</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">ЭСФ и ККМ</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">1</span></span></a>
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">УПРАВЛЕНИЕ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 7a4 4 0 1 0-3.5 6L5 19.5V22h3v-2h2v-2h2l1.5-1.5A4 4 0 0 0 15 7"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Сотрудники и зарплата</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V8l7-5 7 5v13"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Филиалы</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6M4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Настройки и подписка</span></span></a>
+      
+    
+  </nav></div></div>
+  <main style="flex: 999 1 560px; min-width: 0px; padding: 22px 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+  <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+    <span style="display: flex; flex-direction: column; flex-grow: 1;"><b style="font-size: 24px; font-weight: 800;">Товары и склад</b><span style="font-size: 13px; color: rgb(102, 112, 133);">Изменения сразу видны на всех кассах, телефонах и на сайте</span></span>
+    <button type="button" class="b2">Ценники</button>
+    <button type="button" class="b1">+ Товар</button>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start;">
+    <section style="flex: 1 1 640px; min-width: 0px; background: rgb(255, 255, 255); border: 1px solid rgb(229, 231, 235); border-radius: 18px; overflow: hidden;">
+      <div style="padding: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid rgb(234, 236, 240);">
+        <label style="flex: 1 1 240px; height: 42px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0px 12px; border-radius: 12px; border: 1px solid rgb(229, 231, 235); background: rgb(249, 250, 251);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+          <input type="text" placeholder="Название или штрихкод" aria-label="Поиск товара" style="border: 0px; outline: 0px; background: transparent; font-family: inherit; font-size: 14px; width: 100%;">
+        </label>
+        <button type="button" class="pill on">Все склады</button><button type="button" class="pill">Продукты</button><button type="button" class="pill">Одежда и обувь</button><button type="button" class="pill">Услуги</button>
+      </div>
+      <div style="padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: rgb(255, 247, 204); font-size: 13px; color: rgb(11, 42, 60);"><b>Выбрано 2</b><a href="#" style="font-weight: 700;">Изменить цену</a><a href="#" style="font-weight: 700;">Переместить на склад</a><a href="#" style="font-weight: 700;">Напечатать ценники</a></div>
+      <div style="overflow-x: auto;">
+        <div style="min-width: 760px;">
+          <div class="tr" style="font-size: 12px; font-weight: 700; color: rgb(102, 112, 133);"><span></span><span>Товар</span><span>Штрихкод</span><span>Склад</span><span>Остаток</span><span>Закупка</span><span>Цена</span></div>
+          
+            <div class="tr" style="background: rgb(255, 252, 235);">
+              <span>
+                <input type="checkbox" aria-label="Выбрать товар" checked="" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);">
+                
+              </span>
+              <span style="display: flex; align-items: center; gap: 10px; min-width: 0px;"><span style="width: 34px; height: 34px; border-radius: 9px; background: rgb(255, 244, 194); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: rgb(11, 42, 60); flex-shrink: 0;"><span class="sc-interp">Мк</span></span><span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">Макароны «Макфа» спагетти 450г</span></span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">4702154000047</span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">Продукты</span></span>
+              <span class="stk" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58);"><span class="sc-interp">49</span></span>
+              <span style="color: rgb(71, 84, 103);">[цена]</span>
+              <b style="color: rgb(11, 42, 60);"><span class="sc-interp">85 сом</span></b>
+            </div>
+          
+            <div class="tr" style="background: rgb(255, 252, 235);">
+              <span>
+                <input type="checkbox" aria-label="Выбрать товар" checked="" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);">
+                
+              </span>
+              <span style="display: flex; align-items: center; gap: 10px; min-width: 0px;"><span style="width: 34px; height: 34px; border-radius: 9px; background: rgb(253, 232, 232); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: rgb(11, 42, 60); flex-shrink: 0;"><span class="sc-interp">Кк</span></span><span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">Кока-Кола (ПЭТ) 2л</span></span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">[штрихкод]</span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">Продукты</span></span>
+              <span class="stk" style="background: rgb(254, 243, 226); color: rgb(181, 71, 8);"><span class="sc-interp">[N]</span></span>
+              <span style="color: rgb(71, 84, 103);">[цена]</span>
+              <b style="color: rgb(11, 42, 60);"><span class="sc-interp">170 сом</span></b>
+            </div>
+          
+            <div class="tr" style="background: rgb(255, 255, 255);">
+              <span>
+                
+                <input type="checkbox" aria-label="Выбрать товар" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);">
+              </span>
+              <span style="display: flex; align-items: center; gap: 10px; min-width: 0px;"><span style="width: 34px; height: 34px; border-radius: 9px; background: rgb(241, 232, 253); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: rgb(11, 42, 60); flex-shrink: 0;"><span class="sc-interp">Ms</span></span><span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">Mars</span></span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">[штрихкод]</span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">Продукты</span></span>
+              <span class="stk" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58);"><span class="sc-interp">[N]</span></span>
+              <span style="color: rgb(71, 84, 103);">[цена]</span>
+              <b style="color: rgb(11, 42, 60);"><span class="sc-interp">39 сом</span></b>
+            </div>
+          
+            <div class="tr" style="background: rgb(255, 255, 255);">
+              <span>
+                
+                <input type="checkbox" aria-label="Выбрать товар" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);">
+              </span>
+              <span style="display: flex; align-items: center; gap: 10px; min-width: 0px;"><span style="width: 34px; height: 34px; border-radius: 9px; background: rgb(255, 235, 214); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: rgb(11, 42, 60); flex-shrink: 0;"><span class="sc-interp">Сг</span></span><span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">Сок Gracio яблочный 1л</span></span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">[штрихкод]</span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">Продукты</span></span>
+              <span class="stk" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58);"><span class="sc-interp">2</span></span>
+              <span style="color: rgb(71, 84, 103);">[цена]</span>
+              <b style="color: rgb(11, 42, 60);"><span class="sc-interp">[цена]</span></b>
+            </div>
+          
+            <div class="tr" style="background: rgb(255, 255, 255);">
+              <span>
+                
+                <input type="checkbox" aria-label="Выбрать товар" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);">
+              </span>
+              <span style="display: flex; align-items: center; gap: 10px; min-width: 0px;"><span style="width: 34px; height: 34px; border-radius: 9px; background: rgb(227, 242, 253); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: rgb(11, 42, 60); flex-shrink: 0;"><span class="sc-interp">Пс</span></span><span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">Патроны для Степлера</span></span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">[штрихкод]</span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">Продукты</span></span>
+              <span class="stk" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58);"><span class="sc-interp">1160</span></span>
+              <span style="color: rgb(71, 84, 103);">[цена]</span>
+              <b style="color: rgb(11, 42, 60);"><span class="sc-interp">35 сом</span></b>
+            </div>
+          
+            <div class="tr" style="background: rgb(255, 255, 255);">
+              <span>
+                
+                <input type="checkbox" aria-label="Выбрать товар" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);">
+              </span>
+              <span style="display: flex; align-items: center; gap: 10px; min-width: 0px;"><span style="width: 34px; height: 34px; border-radius: 9px; background: rgb(231, 246, 236); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: rgb(11, 42, 60); flex-shrink: 0;"><span class="sc-interp">Ao</span></span><span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">Aos Extra pover 450гр бальзам</span></span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">[штрихкод]</span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">Продукты</span></span>
+              <span class="stk" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58);"><span class="sc-interp">65</span></span>
+              <span style="color: rgb(71, 84, 103);">[цена]</span>
+              <b style="color: rgb(11, 42, 60);"><span class="sc-interp">50 сом</span></b>
+            </div>
+          
+            <div class="tr" style="background: rgb(255, 255, 255);">
+              <span>
+                
+                <input type="checkbox" aria-label="Выбрать товар" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);">
+              </span>
+              <span style="display: flex; align-items: center; gap: 10px; min-width: 0px;"><span style="width: 34px; height: 34px; border-radius: 9px; background: rgb(227, 242, 253); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: rgb(11, 42, 60); flex-shrink: 0;"><span class="sc-interp">Аб</span></span><span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">Аренда бетон мешалка</span></span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">—</span></span>
+              <span style="color: rgb(71, 84, 103);"><span class="sc-interp">Услуги</span></span>
+              <span class="stk" style="background: rgb(242, 244, 247); color: rgb(71, 84, 103);"><span class="sc-interp">услуга</span></span>
+              <span style="color: rgb(71, 84, 103);">[цена]</span>
+              <b style="color: rgb(11, 42, 60);"><span class="sc-interp">150 сом</span></b>
+            </div>
+          
+        </div>
+      </div>
+    </section>
+
+    <aside style="flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 12px;">
+      <section style="background: rgb(255, 255, 255); border: 1px solid rgb(229, 231, 235); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+        <b style="font-size: 16px; font-weight: 800;">Массовая загрузка</b>
+        <div style="border: 2px dashed rgb(208, 213, 221); border-radius: 14px; padding: 22px 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0B2A3C" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"></path></svg>
+          <b style="font-size: 14px;">Перетащите файл сюда</b>
+          <span style="font-size: 12px; color: rgb(102, 112, 133);">Excel, CSV или фото накладной — товары появятся списком для проверки</span>
+          <button type="button" class="b2" style="height: 38px;">Выбрать файл</button>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center; border-radius: 14px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); padding: 14px;">
+          <span style="width: 64px; height: 64px; border-radius: 10px; background: rgb(255, 255, 255); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: rgb(11, 42, 60); font-size: 11px; font-weight: 800;">[QR]</span>
+          <span style="display: flex; flex-direction: column; gap: 4px;"><b style="font-size: 14px;">Умная камера телефона</b><span style="font-size: 12px; color: rgb(199, 210, 219);">Наведите телефон на QR — снимайте полки, товары появятся здесь</span></span>
+        </div>
+      </section>
+      <section style="background: rgb(255, 255, 255); border: 1px solid rgb(229, 231, 235); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+        <b style="font-size: 15px;">Последняя загрузка</b>
+        <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: rgb(71, 84, 103);">Новых товаров</span><b>2</b></div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: rgb(71, 84, 103);">Пополнено остатков</span><b>3</b></div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: rgb(71, 84, 103);">Источник</span><b>Телефон · умная камера</b></div>
+      </section>
+    </aside>
+  </div></main></div></div></div>
+
+
+
+</body></html>

@@ -14,11 +14,12 @@ public partial class PrinterNotConnectedDialog : Window
     private PrinterNotConnectedDialog(bool checkoutMode)
     {
         InitializeComponent();
+        // 2026-10-17, этап 3: заголовок — в шапке общей оболочки модалки (Shell.Title вместо TitleText).
 
         if (checkoutMode)
         {
             Title = Tr.T("Чековый аппарат не подключен", "Чек аппараты туташтырылган эмес", "Receipt printer not connected", "Fiş yazıcısı bağlı değil", "Chek apparati ulanmagan");
-            TitleText.Text = Tr.T("Чековый аппарат не подключен", "Чек аппараты туташтырылган эмес", "Receipt printer not connected", "Fiş yazıcısı bağlı değil", "Chek apparati ulanmagan");
+            Shell.Title = Tr.T("Чековый аппарат не подключен", "Чек аппараты туташтырылган эмес", "Receipt printer not connected", "Fiş yazıcısı bağlı değil", "Chek apparati ulanmagan");
             MessageText.Text =
                 Tr.T("Вы выбрали печать чека, однако чековый аппарат не подключён.\n" +
                 "Подключите чековый аппарат либо отключите печать чека и продолжите без печати.", "Сиз чекти басып чыгарууну тандадыңыз, бирок чек аппараты туташтырылган эмес.\nЧек аппаратын туташтырыңыз же чек басып чыгарууну өчүрүп, басып чыгарбай эле улантыңыз.", "You chose to print the receipt, but the receipt printer is not connected.\nConnect the receipt printer, or turn off receipt printing and continue without printing.", "Fiş yazdırmayı seçtiniz, ancak fiş yazıcısı bağlı değil.\nFiş yazıcısını bağlayın ya da fiş yazdırmayı kapatıp yazdırmadan devam edin.", "Siz chekni chop etishni tanladingiz, lekin chek apparati ulanmagan.\nChek apparatini ulang yoki chek chop etishni o'chirib, chop etmasdan davom eting.");
@@ -28,10 +29,13 @@ public partial class PrinterNotConnectedDialog : Window
         }
 
         Title = Tr.T("Принтер не подключен", "Принтер туташтырылган эмес", "Printer not connected", "Yazıcı bağlı değil", "Printer ulanmagan");
-        TitleText.Text = Tr.T("Принтер не подключён", "Принтер туташтырылган эмес", "Printer not connected", "Yazıcı bağlı değil", "Printer ulanmagan");
+        Shell.Title = Tr.T("Принтер не подключён", "Принтер туташтырылган эмес", "Printer not connected", "Yazıcı bağlı değil", "Printer ulanmagan");
         MessageText.Text = Tr.T("Чековый аппарат не подключен.", "Чек аппараты туташтырылган эмес.", "The receipt printer is not connected.", "Fiş yazıcısı bağlı değil.", "Chek apparati ulanmagan.");
         TwoButtonRow.IsVisible = false;
         OkButton.IsVisible = true;
+        // 2026-10-17, ревью этапа 3: Esc и ✕ — это «ОК»; скрытая «Отмена» не должна быть кнопкой отмены окна.
+        CancelButton.IsCancel = false;
+        OkButton.IsCancel = true;
     }
 
     public static PrinterNotConnectedResult ShowCheckout(Window? owner)

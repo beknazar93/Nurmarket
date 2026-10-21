@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Оплата с телефона</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{height:76px;border-radius:16px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:700;color:#344054}
+.m.on{border:2px solid #0B2A3C;background:#FFF7CC;color:#0B2A3C}
+.q{flex-grow:1;height:42px;border-radius:21px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:14px;font-weight:700;color:#344054}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.r{flex-grow:1;height:44px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054}
+.r.on{border:2px solid #0B2A3C;background:#FFF7CC;color:#0B2A3C;font-weight:700}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 8px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад к чеку" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <b style="font-size: 18px; font-weight: 800">Оплата</b>
+  </header>
+
+  <main style="flex-grow: 1; padding: 8px 16px; display: flex; flex-direction: column; gap: 14px">
+    <section style="border-radius: 20px; background: #0B2A3C; color: #FFFFFF; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 4px">
+      <span style="font-size: 12px; color: #C7D2DB">К оплате · 2 позиции</span>
+      <b style="font-size: 36px; font-weight: 800; color: #FFD600">209 сом</b>
+    </section>
+
+    <span class="lbl">СПОСОБ ОПЛАТЫ</span>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+      <button type="button" class="m on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></svg>Наличные</button>
+      <button type="button" class="m"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Карта</button>
+      <button type="button" class="m"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><path d="M14 14h3v3h-3zM20 14v.01M20 20h-3v-3"></path></svg>QR</button>
+    </div>
+
+    <label class="lbl" for="got">ПОЛУЧЕНО</label>
+    <input id="got" type="text" value="500" style="height: 56px; box-sizing: border-box; border-radius: 14px; border: 2px solid #0B2A3C; padding: 0 16px; font-family: inherit; font-size: 24px; font-weight: 800; background: #FFFFFF">
+    <div style="display: flex; gap: 8px"><button type="button" class="q">Без сдачи</button><button type="button" class="q">500</button><button type="button" class="q">1000</button></div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 4px 2px"><span style="font-size: 15px; font-weight: 700">Сдача</span><b style="font-size: 26px; font-weight: 800; color: #0E7A3A">291 сом</b></div>
+
+    <span class="lbl">ЧЕК ПОКУПАТЕЛЮ</span>
+    <div style="display: flex; gap: 8px"><button type="button" class="r on">WhatsApp</button><button type="button" class="r">Печать на кассе</button><button type="button" class="r">Не нужен</button></div>
+  </main>
+
+  <div style="padding: 12px 16px 22px">
+    <button type="button" style="width: 100%; height: 58px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 17px; font-weight: 800; box-shadow: 0 8px 20px rgba(255,214,0,.35)">Провести оплату</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

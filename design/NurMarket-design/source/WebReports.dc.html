@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Прибыль и отчёты — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi > span{font-size:12px;font-weight:600;color:#667085}
+.kpi > b{font-size:22px;font-weight:800;color:#0B2A3C;white-space:nowrap}
+.tab{white-space:nowrap;height:40px;padding:0 14px;border-radius:10px;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:#475467}
+.tab.on{background:#0B2A3C;color:#FFFFFF}
+.per{height:36px;padding:0 14px;border-radius:9px;border:0;background:transparent;color:#475467;font-family:inherit;font-size:13px;font-weight:600;white-space:nowrap}
+.dd{height:44px;padding:0 12px;border-radius:10px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054;white-space:nowrap}
+.ab{display:grid;grid-template-columns:40px minmax(0,.8fr) minmax(0,.8fr) minmax(0,1.6fr);gap:8px;padding:10px 0;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.g{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Прибыль и деньги" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Прибыль и деньги</b><span style="font-size: 13px; color: #667085">Октябрь 2026 · 01.10–12.10.2026 · обновлено в 14:35</span></span>
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" class="per">Сегодня</button><button type="button" class="per">Вчера</button><button type="button" class="per">Неделя</button><button type="button" class="per" style="background: #0B2A3C; color: #FFFFFF; font-weight: 700">Месяц</button><button type="button" class="per">Даты…</button>
+      </div>
+      <button type="button" class="dd">Октябрь 2026 ▾</button>
+      <button type="button" class="dd">Все филиалы ▾</button>
+      <button type="button" class="dd">Excel</button>
+    </div>
+    <!-- 2026-10-16: вкладки — как разделы группы «Отчёты» у владельца; выбранная — #0B2A3C -->
+    <span role="tablist" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E5E7EB; align-self: flex-start"><button type="button" role="tab" aria-selected="true" class="tab on">Прибыль</button><button type="button" role="tab" class="tab">Финансы</button><button type="button" role="tab" class="tab">ABC-анализ</button><button type="button" role="tab" class="tab">Продажи в убыток</button><button type="button" role="tab" class="tab">По кассирам</button><button type="button" role="tab" class="tab">Деньги в кассах</button></span>
+    <!-- 2026-10-16: словарь SPEC: «Валовая прибыль» = выручка − себестоимость; после расходов — «Операционная прибыль» (без «чистой») -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px">
+      <div class="kpi"><span>Выручка</span><b>81&nbsp;240 сом</b><span>893 чека · ср. чек 91</span></div>
+      <div class="kpi"><span>Себестоимость</span><b>64&nbsp;020 сом</b><span>по закупочным ценам</span></div>
+      <div class="kpi"><span>Валовая прибыль · 21,2&nbsp;%</span><b>17&nbsp;220 сом</b><span>выручка − себестоимость</span></div>
+      <div class="kpi"><span>Расходы</span><b>26&nbsp;440 сом</b><span>расшифровка справа</span></div>
+      <div class="kpi" style="background: #0B2A3C; border-color: #0B2A3C"><span style="color: #C7D2DB">Операционная прибыль</span><b style="color: #FFFFFF">−9&nbsp;220 сом</b><span style="color: #C7D2DB">минус из-за аренды за весь октябрь вперёд</span></div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 460px">
+        <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px"><b style="font-size: 15px">Выручка и валовая прибыль по дням, тыс. сом</b><span style="display: flex; gap: 12px; font-size: 12px; color: #475467"><span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #7A93AB"></span>Выручка</span><span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #0B2A3C"></span>Валовая прибыль</span></span></div>
+        <div style="display: flex; gap: 8px">
+          <div style="width: 36px; height: 236px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; font-size: 11px; color: #667085; padding-bottom: 0"><span>10</span><span>8</span><span>6</span><span>4</span><span>2</span><span>0</span></div>
+          <div style="flex-grow: 1; height: 236px; position: relative; display: flex; align-items: flex-end; gap: 8px; border-bottom: 1px solid #98A2B3; background: repeating-linear-gradient(to top, #F2F4F7 0 1px, transparent 1px 47.2px)">
+            <sc-for list="{{bars}}" as="b" hint-placeholder-count="12">
+              <span style="flex: 1 1 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px">
+                <span style="font-size: 10px; font-weight: 700; color: #344054">{{b.label}}</span>
+                <span style="width: 100%; height: {{b.r}}; border-radius: 4px 4px 0 0; background: #7A93AB; display: flex; align-items: flex-end"><span style="width: 100%; height: {{b.p}}; background: #0B2A3C"></span></span>
+              </span>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; padding-left: 44px"><sc-for list="{{bars}}" as="b" hint-placeholder-count="12"><span style="flex: 1 1 0; text-align: center; font-size: 11px; color: #667085">{{b.day}}</span></sc-for></div>
+        <span style="font-size: 12px; color: #667085">Октябрь: выручка 81&nbsp;240 · валовая прибыль 17&nbsp;220 · 12.10 — до 14:35</span>
+      </section>
+      <div style="flex: 1 1 300px; max-width: 400px; display: flex; flex-direction: column; gap: 12px">
+        <section class="card" style="gap: 6px">
+          <b style="font-size: 15px">Расходы октября</b>
+          <sc-for list="{{costs}}" as="c" hint-placeholder-count="4">
+            <div style="display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid #F2F4F7; font-size: 13px"><span style="display: flex; flex-direction: column"><span>{{c.name}}</span><span style="font-size: 11px; color: #667085">{{c.note}}</span></span><b style="white-space: nowrap">{{c.sum}}</b></div>
+          </sc-for>
+          <div style="display: flex; justify-content: space-between; font-size: 14px; padding-top: 2px"><b>Итого</b><b style="white-space: nowrap">26&nbsp;440 сом</b></div>
+        </section>
+        <section class="card" style="gap: 6px">
+          <b style="font-size: 15px">ABC: что приносит деньги</b>
+          <div class="ab" style="font-size: 12px; font-weight: 700; color: #667085"><span></span><span>Товаров</span><span>Выручки</span><span>Что делать</span></div>
+          <div class="ab"><span class="g" style="background: #E7F6EC; color: #0E7A3A">A</span><span>46</span><span>80&nbsp;%</span><span style="font-size: 12px; white-space: nowrap">не допускать нуля</span></div>
+          <div class="ab"><span class="g" style="background: #FFF7CC; color: #0B2A3C">B</span><span>77</span><span>15&nbsp;%</span><span style="font-size: 12px; white-space: nowrap">держать запас</span></div>
+          <div class="ab"><span class="g" style="background: #F2F4F7; color: #475467">C</span><span>184</span><span>5&nbsp;%</span><span style="font-size: 12px; white-space: nowrap">меньше закупать</span></div>
+          <a href="#" style="font-size: 12px; font-weight: 700">Все 307 товаров — вкладка «ABC-анализ» ›</a>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: единые демо-данные NBS — октябрь 01–12.10: выручка 81 240 (неделя 06–12.10 = 45 260), валовая прибыль 21,2 %.
+    const raw = [['01', 7020], ['02', 6880], ['03', 7450], ['04', 8130], ['05', 6500], ['06', 6120], ['07', 5480], ['08', 7310], ['09', 6940], ['10', 8260], ['11', 6850], ['12', 4300]];
+    const fmt = (v) => (v / 1000).toFixed(1).replace('.', ',');
+    // Шкала 0–10 тыс. = 236 px (как ось слева), подпись значения над столбиком.
+    const bars = raw.map(([day, v]) => ({ day, label: fmt(v), r: Math.round(v / 10000 * 236) + 'px', p: '21.2%' }));
+    const costs = [
+      { name: 'Аренда', note: 'оплачена 01.10 за весь октябрь', sum: '15 000 сом' },
+      { name: 'Зарплата (аванс)', note: 'Зарплата → выплаты', sum: '9 600 сом' },
+      { name: 'Интернет и связь', note: '', sum: '1 200 сом' },
+      { name: 'Прочее', note: '', sum: '640 сом' }
+    ];
+    return { bars, costs };
+  }
+}
+</script>
+</body>
+</html>

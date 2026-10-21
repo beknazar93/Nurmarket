@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -31,6 +32,10 @@ public partial class EmployeesSettingsView : UserControl
     {
         InitializeComponent();
         RefreshList();
+        // 2026-10-18, 6-й/7-й круг (П.3): облако этой компании пришло — список обновить (до этого чужой не показываем).
+        // Подписка — только пока страница на экране.
+        AttachedToVisualTree += (_, _) => SettingsCloudSync.Applied += OnCloudApplied;
+        DetachedFromVisualTree += (_, _) => SettingsCloudSync.Applied -= OnCloudApplied;
 
         // 2026-09-09: офлайн (обычный или автономный режим) — реальных Сотрудников/Ролей на
         // сервере не существует без NurCRM, эти кнопки/карточка только пытались бы дёрнуть
@@ -45,16 +50,116 @@ public partial class EmployeesSettingsView : UserControl
         else
         {
             _ = LoadRolesAsync();
+            // 2026-10-20, аудит программы владельца: здесь 2 карточки, а в «Зарплате» 4 сотрудника — список кодов
+            // не подтянут с сайта. При первом показе — только ЧТЕНИЕ списка с сайта: сколько сотрудников не добавлено
+            // (без записи; добавляет по-прежнему «Загрузить с сайта» + «Сохранить»).
+            if (AppMode.IsOwner)
+                AttachedToVisualTree += (_, _) =>
+                {
+                    if (_siteCheckStarted)
+                        return;
+                    _siteCheckStarted = true;
+                    _ = ShowMissingSiteEmployeesAsync();
+                };
+        }
+    }
+
+    private bool _siteCheckStarted;
+
+    /// <summary>2026-10-20, аудит программы владельца: подсказка «на сайте ещё N сотрудников» — только чтение, список не меняет.</summary>
+    private async System.Threading.Tasks.Task ShowMissingSiteEmployeesAsync()
+    {
+        try
+        {
+            var authApi = AuthApi;
+            if (authApi is null || !EmployeeAccessGate.ListBelongsToCurrentCompany())
+                return;
+            var employees = await authApi.GetEmployeesAsync();
+            if (employees is null || LoadStatusPanel.IsVisible)
+                return;
+            var codes = UserPreferences.Instance.EmployeeAccessCodes.ToList();
+            var missing = employees
+                .Where(x => x.Id == null || codes.All(c => c.ServerId != x.Id))
+                .Select(x => (x.FullName ?? x.Email ?? x.Phone ?? "").Trim())
+                .Where(n => n.Length > 0 && codes.All(c => !string.Equals((c.Name ?? "").Trim(), n, System.StringComparison.OrdinalIgnoreCase)))
+                .Distinct(System.StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (missing.Count == 0)
+                return;
+            var names = string.Join(", ", missing);
+            ShowLoadStatus(Tr.T(
+                    $"На сайте ещё сотрудников: {missing.Count} ({names}). Нажмите «Загрузить с сайта», чтобы добавить их сюда.",
+                    $"Сайтта дагы кызматкерлер бар: {missing.Count} ({names}). Аларды бул жерге кошуу үчүн «Сайттан жүктөө» баскычын басыңыз.",
+                    $"More employees on the website: {missing.Count} ({names}). Press “Load from website” to add them here.",
+                    $"Sitede başka personel var: {missing.Count} ({names}). Buraya eklemek için «Siteden yükle»ye basın.",
+                    $"Saytda yana xodimlar bor: {missing.Count} ({names}). Ularni bu yerga qo'shish uchun «Saytdan yuklash»ni bosing."),
+                isError: false);
+        }
+        catch (System.Exception ex)
+        {
+            PosLogger.Log($"Сотрудники: проверка списка на сайте не удалась: {ex.Message}", "UI");
         }
     }
 
     private static IAuthApiService? AuthApi => App.AppHost?.Services.GetService<IAuthApiService>();
 
+    private void OnCloudApplied() => Avalonia.Threading.Dispatcher.UIThread.Post(RefreshList);
+
     private void RefreshList()
     {
         EmployeeListPanel.Children.Clear();
-        foreach (var employee in UserPreferences.Instance.EmployeeAccessCodes)
+        // 2026-10-18, 7-й круг (3b): пока список другой компании — добавлять в него нельзя (ушло бы не туда).
+        var ownList = EmployeeAccessGate.ListBelongsToCurrentCompany();
+        var waitTip = ownList
+            ? null
+            : Tr.T("Подождите загрузки сотрудников этого магазина с сервера.",
+                "Бул дүкөндүн кызматкерлери серверден жүктөлгүчө күтө туруңуз.",
+                "Wait until this store's employees are loaded from the server.",
+                "Bu mağazanın personeli sunucudan yüklenene kadar bekleyin.",
+                "Bu do'kon xodimlari serverdan yuklanguncha kuting.");
+        AddEmployeeButton.IsEnabled = ownList;
+        LoadFromWebButton.IsEnabled = ownList;
+        ToolTip.SetTip(AddEmployeeButton, waitTip);
+        ToolTip.SetTip(LoadFromWebButton, waitTip);
+        // 2026-10-18, 6-й круг (П.3): список другой компании (вход в другой магазин на этом ПК) не показываем, пока не
+        // пришло облако этой компании.
+        if (!ownList)
+        {
+            EmployeeListPanel.Children.Add(new TextBlock
+            {
+                Text = Tr.T("Загрузка сотрудников этого магазина с сервера… Сотрудники других магазинов скрыты.",
+                    "Бул дүкөндүн кызматкерлери серверден жүктөлүүдө… Башка дүкөндөрдүн кызматкерлери жашырылган.",
+                    "Loading this store's employees from the server… Employees of other stores are hidden.",
+                    "Bu mağazanın personeli sunucudan yükleniyor… Diğer mağazaların personeli gizlendi.",
+                    "Bu do'kon xodimlari serverdan yuklanmoqda… Boshqa do'konlar xodimlari yashirilgan."),
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = Brushes.Gray,
+            });
+            return;
+        }
+        foreach (var employee in UserPreferences.Instance.EmployeeAccessCodes.ToList())
             EmployeeListPanel.Children.Add(BuildEmployeeRow(employee));
+        // 2026-10-19, этап О7: пустой список — подсказка, что делать (раньше было пусто между кнопками и «Сохранить»).
+        if (EmployeeListPanel.Children.Count == 0)
+        {
+            var empty = new Border
+            {
+                Classes = { "SettingsCard" },
+                Padding = new Avalonia.Thickness(16, 14),
+                Child = new TextBlock
+                {
+                    Text = Tr.T("Сотрудников пока нет. Нажмите «Загрузить с сайта» — придут сотрудники из NurCRM, или «+ Добавить сотрудника».",
+                        "Азырынча кызматкерлер жок. «Сайттан жүктөө» баскычын басыңыз — NurCRM кызматкерлери келет, же «+ Кызматкер кошуу».",
+                        "No employees yet. Press “Load from website” to get employees from NurCRM, or “+ Add employee”.",
+                        "Henüz personel yok. NurCRM personelini almak için «Siteden yükle»ye veya «+ Personel ekle»ye basın.",
+                        "Hozircha xodimlar yo'q. NurCRM xodimlarini olish uchun «Saytdan yuklash»ni yoki «+ Xodim qo'shish»ni bosing."),
+                    TextWrapping = TextWrapping.Wrap,
+                    FontSize = 13,
+                },
+            };
+            ((TextBlock)empty.Child).Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            EmployeeListPanel.Children.Add(empty);
+        }
     }
 
     /// <summary>2026-09-08: список показывает только имя + сколько кодов уже заполнено —
@@ -63,27 +168,41 @@ public partial class EmployeesSettingsView : UserControl
     /// развёрнуты сразу).</summary>
     private Control BuildEmployeeRow(EmployeeAccessCode employee)
     {
-        var filledCount = new[] { employee.CartDeleteCode, employee.WarehouseDeleteCode, employee.ProductEditCode, employee.ProductAddCode }
-            .Count(c => !string.IsNullOrWhiteSpace(c));
+        // 2026-10-18: коды хранятся хэшем — считаем по EmployeeAccessGate.
+        var filledCount = EmployeeAccessGate.CountCodes(employee);
 
         var nameText = new TextBlock
         {
             Text = employee.Name.Length > 0 ? employee.Name : Tr.T("(без имени)", "(аты жок)", "(no name)", "(isimsiz)", "(ismsiz)"),
             FontWeight = Avalonia.Media.FontWeight.SemiBold,
         };
+        // 2026-10-18, решение владельца: код короче 6 цифр (задан до правила) — пометка у карточки.
+        var shortNote = EmployeeAccessGate.HasShortCode(employee)
+            ? Tr.T(" · короткий код — замените на 6 цифр", " · кыска код — 6 цифрага алмаштырыңыз", " · short code — replace with 6 digits",
+                " · kısa kod — 6 haneli ile değiştirin", " · qisqa kod — 6 raqamga almashtiring")
+            : "";
         var subtitleText = new TextBlock
         {
-            Text = Tr.T($"Кодов заполнено: {filledCount}/4", $"Толтурулган коддор: {filledCount}/4",
-                $"Codes set: {filledCount}/4", $"Doldurulan kodlar: {filledCount}/4", $"To'ldirilgan kodlar: {filledCount}/4"),
+            // 2026-10-18: кодов теперь пять (+ приём оплаты долга) — число берётся из EmployeeAccessGate.
+            // 2026-10-19, этап О7: простыми словами («Кодов заполнено: 0/4» было непонятно), цвет — из темы (в тёмной читается).
+            Text = (filledCount == 0
+                ? Tr.T("Личных кодов нет — действия под кодом ему закрыты", "Жеке коддор жок — код менен аракеттер жабык",
+                    "No personal codes — code-protected actions are closed", "Kişisel kod yok — kodlu işlemler kapalı",
+                    "Shaxsiy kodlar yo'q — kod bilan amallar yopiq")
+                : Tr.T($"Личные коды: {filledCount} из {EmployeeAccessGate.ActionCount}", $"Жеке коддор: {filledCount} / {EmployeeAccessGate.ActionCount}",
+                    $"Personal codes: {filledCount} of {EmployeeAccessGate.ActionCount}", $"Kişisel kodlar: {filledCount} / {EmployeeAccessGate.ActionCount}",
+                    $"Shaxsiy kodlar: {filledCount} / {EmployeeAccessGate.ActionCount}")) + shortNote,
             FontSize = 12,
-            Foreground = Brushes.Gray,
+            TextWrapping = TextWrapping.Wrap,
         };
+        subtitleText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
 
         var textPanel = new StackPanel { Spacing = 2 };
         textPanel.Children.Add(nameText);
         textPanel.Children.Add(subtitleText);
 
-        var chevron = new TextBlock { Text = "›", FontSize = 18, VerticalAlignment = VerticalAlignment.Center, Foreground = Brushes.Gray };
+        var chevron = new TextBlock { Text = "›", FontSize = 18, VerticalAlignment = VerticalAlignment.Center };
+        chevron.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
 
         var cardContent = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         Grid.SetColumn(textPanel, 0);
@@ -97,8 +216,9 @@ public partial class EmployeesSettingsView : UserControl
             Classes = { "SettingsCard" },
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Padding = new Avalonia.Thickness(16, 14),
+            Padding = new Avalonia.Thickness(16, 10),
         };
+        AutomationProperties.SetName(cardButton, nameText.Text);
 
         cardButton.Click += (_, _) =>
         {
@@ -108,12 +228,36 @@ public partial class EmployeesSettingsView : UserControl
                 await authApi.DeleteEmployeeAsync(employee.ServerId!);
             }
 
+            // 2026-10-18, повторное ревью: правка карточки повышает версию списка (облако не вернёт старое).
+            static string CardState(EmployeeAccessCode e) =>
+                System.Text.Json.JsonSerializer.Serialize(EmployeeAccessGate.ToCloudSecure(new[] { e }));
+            var before = CardState(employee);
             var dialog = new EmployeeDetailDialog(employee, employee.ServerId != null ? DeleteOnServer : null);
             var owner = TopLevel.GetTopLevel(this) as Window;
             PosDialogHost.Show(dialog, owner);
+            // 2026-10-18, ревью безопасности: набранные в карточке коды — сразу в хэш (на UI-потоке, карточка закрыта).
+            var typedCodes = EmployeeAccessGate.SecureStoredCodes(new List<EmployeeAccessCode> { employee });
 
+            // 2026-10-18, 6-й круг (П.6): пока карточка была открыта, облако могло заменить объекты списка — удаляем
+            // по ссылке, иначе по id на сайте / email / имени; версию повышаем, только если реально удалено.
+            var removed = false;
             if (dialog.DeleteRequested)
-                UserPreferences.Instance.EmployeeAccessCodes.Remove(employee);
+            {
+                var list = UserPreferences.Instance.EmployeeAccessCodes;
+                var target = list.FirstOrDefault(x => ReferenceEquals(x, employee))
+                             ?? (employee.ServerId != null ? list.FirstOrDefault(x => x.ServerId == employee.ServerId) : null)
+                             ?? (!string.IsNullOrWhiteSpace(employee.Email)
+                                 ? list.FirstOrDefault(x => string.Equals(x.Email, employee.Email, System.StringComparison.OrdinalIgnoreCase))
+                                 : null)
+                             ?? (employee.ServerId == null && string.IsNullOrWhiteSpace(employee.Email)
+                                 // 7-й круг (3c): по имени — только если такое имя в списке одно
+                                 ? (list.Where(x => x.ServerId == null && string.Equals((x.Name ?? "").Trim(), (employee.Name ?? "").Trim(), System.StringComparison.OrdinalIgnoreCase)).ToList()
+                                     is { Count: 1 } byName ? byName[0] : null)
+                                 : null);
+                removed = target != null && list.Remove(target);
+            }
+            if (removed || (!dialog.DeleteRequested && (typedCodes || CardState(employee) != before)))
+                EmployeeAccessGate.MarkCodesChanged();
 
             RefreshList();
         };
@@ -131,20 +275,54 @@ public partial class EmployeesSettingsView : UserControl
 
         if (employee.ServerId != null)
         {
+            // 2026-10-19, этап О7: подпись «Доступы» вместо одного значка-замка (было непонятно, что это).
+            var accessText = Tr.T("Доступы", "Укуктар", "Permissions", "Erişimler", "Huquqlar");
             var accessButton = new Button
             {
-                Content = "🔐",
+                Content = accessText,
                 Classes = { "SettingsCard" },
-                FontSize = 16,
+                FontSize = 13,
+                FontWeight = Avalonia.Media.FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
-                Margin = new Avalonia.Thickness(6, 0, 0, 0),
-                Padding = new Avalonia.Thickness(14, 0),
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Margin = new Avalonia.Thickness(8, 0, 0, 0),
+                Padding = new Avalonia.Thickness(16, 0),
             };
-            ToolTip.SetTip(accessButton, Tr.T("Доступы", "Укуктар", "Permissions", "Erişimler", "Huquqlar"));
+            ToolTip.SetTip(accessButton, Tr.T("Что сотруднику можно делать в кассе и на сайте", "Кызматкерге кассада жана сайтта эмне кылууга болот",
+                "What the employee may do in the till and on the website", "Personelin kasada ve sitede neler yapabileceği",
+                "Xodim kassada va saytda nima qila oladi"));
+            AutomationProperties.SetName(accessButton, accessText + ": " + nameText.Text);
             accessButton.Click += (_, _) => _ = OpenAccessEditorAsync(employee);
             Grid.SetColumn(accessButton, 1);
             outer.Children.Add(accessButton);
+        }
+        else
+        {
+            // 2026-10-21 (пакет 6, п. 64): у сотрудника только этой кассы (нет на сайте) — та же кнопка, но неактивная и с
+            // пояснением: правый край списка ровный, и видно, почему доступы не открываются.
+            var accessText = Tr.T("Доступы", "Укуктар", "Permissions", "Erişimler", "Huquqlar");
+            var placeholder = new Button
+            {
+                Content = accessText,
+                Classes = { "SettingsCard" },
+                FontSize = 13,
+                FontWeight = Avalonia.Media.FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Margin = new Avalonia.Thickness(8, 0, 0, 0),
+                Padding = new Avalonia.Thickness(16, 0),
+                IsEnabled = false,
+            };
+            var why = Tr.T("Доступы — у сотрудников с сайта: нажмите «Загрузить с сайта»", "Укуктар — сайттагы кызматкерлерде: «Сайттан жүктөө» басыңыз",
+                "Permissions are for employees from the website: press “Load from website”", "Erişimler siteden gelen personel içindir: «Siteden yükle»ye basın",
+                "Huquqlar — saytdagi xodimlarda: «Saytdan yuklash»ni bosing");
+            ToolTip.SetTip(placeholder, why);
+            ToolTip.SetShowOnDisabled(placeholder, true);
+            AutomationProperties.SetName(placeholder, accessText + ": " + why);
+            Grid.SetColumn(placeholder, 1);
+            outer.Children.Add(placeholder);
         }
 
         return outer;
@@ -244,10 +422,10 @@ public partial class EmployeesSettingsView : UserControl
                 Name = name,
                 ServerId = created?.Id,
                 Email = created?.Email ?? dialog.Email,
-                LoginPassword = created?.Password,
             });
-            // 2026-09-08: пароль сервер показывает только один раз (в этом самом ответе) — сохраняем
-            // на диск сразу, не дожидаясь кнопки "Сохранить", чтобы он не потерялся при закрытии окна.
+            EmployeeAccessGate.MarkCodesChanged(); // 2026-10-18: версия списка для облака
+            // 2026-10-18, аудит: пароль сотрудника больше не сохраняется (раньше уходил и в общие настройки
+            // компании в облаке, которые читает любой сотрудник) — его показывают один раз в окне ниже.
             UserPreferences.Instance.SaveToDisk();
             RefreshList();
 
@@ -276,7 +454,7 @@ public partial class EmployeesSettingsView : UserControl
         }
         finally
         {
-            AddEmployeeButton.IsEnabled = true;
+            AddEmployeeButton.IsEnabled = EmployeeAccessGate.ListBelongsToCurrentCompany(); // 2026-10-18: см. RefreshList
         }
     }
 
@@ -313,11 +491,31 @@ public partial class EmployeesSettingsView : UserControl
                 .Where(n => n.Length > 0)
                 .ToHashSet(System.StringComparer.OrdinalIgnoreCase);
 
+            static string SiteName(EmployeeInfoDto x) => (x.FullName ?? x.Email ?? x.Phone ?? "").Trim();
+            static bool SameName(string? a, string b) => string.Equals((a ?? "").Trim(), b, System.StringComparison.OrdinalIgnoreCase);
+
             var added = 0;
             foreach (var employee in employees)
             {
-                var name = (employee.FullName ?? employee.Email ?? employee.Phone ?? "").Trim();
-                if (name.Length == 0 || existingNames.Contains(name))
+                var name = SiteName(employee);
+                if (employee.Id != null && UserPreferences.Instance.EmployeeAccessCodes.Any(x => x.ServerId == employee.Id))
+                    continue;
+                if (name.Length > 0 && existingNames.Contains(name))
+                {
+                    // 2026-10-18, аудит: личный код подходит только самому сотруднику (по id/email входа) — карточке,
+                    // заведённой вручную с тем же именем, проставляем id и email с сайта, иначе её коды не сработают.
+                    // Ревью безопасности: только если имя единственное и на сайте, и среди карточек кассы.
+                    var manual = UserPreferences.Instance.EmployeeAccessCodes.Where(x => SameName(x.Name, name)).ToList();
+                    if (manual.Count == 1 && manual[0].ServerId == null && employee.Id != null
+                        && employees.Count(x => SameName(SiteName(x), name)) == 1)
+                    {
+                        manual[0].ServerId = employee.Id;
+                        manual[0].Email ??= employee.Email;
+                        added++;
+                    }
+                    continue;
+                }
+                if (name.Length == 0)
                     continue;
 
                 UserPreferences.Instance.EmployeeAccessCodes.Add(new EmployeeAccessCode { Name = name, ServerId = employee.Id, Email = employee.Email });
@@ -325,9 +523,25 @@ public partial class EmployeesSettingsView : UserControl
                 added++;
             }
 
+            if (added > 0)
+                EmployeeAccessGate.MarkCodesChanged(); // 2026-10-18: версия списка для облака
             RefreshList();
+            // 2026-10-18, ревью безопасности: карточки с кодами, не связанные с сотрудником сайта, — их коды никому не
+            // подходят (код проверяется по вошедшему кассиру). Показываем владельцу, какие это.
+            var unlinked = UserPreferences.Instance.EmployeeAccessCodes
+                .Where(x => x.ServerId == null && string.IsNullOrWhiteSpace(x.Email) && EmployeeAccessGate.CountCodes(x) > 0)
+                .Select(x => string.IsNullOrWhiteSpace(x.Name) ? "?" : x.Name.Trim())
+                .ToList();
+            var unlinkedNote = unlinked.Count == 0
+                ? ""
+                : "\n" + Tr.T(
+                    $"Не привязаны к сотрудникам сайта (их коды не сработают): {string.Join(", ", unlinked)}. Имя должно совпадать с сайтом и быть единственным — или удалите карточку и добавьте сотрудника заново.",
+                    $"Сайттагы кызматкерлерге байланбаган (коддору иштебейт): {string.Join(", ", unlinked)}. Аты сайттагыдай жана жалгыз болушу керек — же карточканы өчүрүп, кызматкерди кайра кошуңуз.",
+                    $"Not linked to website employees (their codes won't work): {string.Join(", ", unlinked)}. The name must match the website and be unique — or delete the card and add the employee again.",
+                    $"Sitedeki personele bağlı değil (kodları çalışmaz): {string.Join(", ", unlinked)}. Ad sitedekiyle aynı ve tek olmalı — ya da kartı silip personeli yeniden ekleyin.",
+                    $"Saytdagi xodimlarga bog'lanmagan (kodlari ishlamaydi): {string.Join(", ", unlinked)}. Ism saytdagidek va yagona bo'lishi kerak — yoki kartani o'chirib, xodimni qayta qo'shing.");
             ShowLoadStatus(
-                added > 0
+                (added > 0
                     ? Tr.T(
                         $"Добавлено сотрудников: {added}. Не забудьте нажать «Сохранить».",
                         $"Кошулган кызматкерлер: {added}. «Сактоо» баскычын басууну унутпаңыз.",
@@ -339,8 +553,8 @@ public partial class EmployeesSettingsView : UserControl
                         "Жаңы кызматкерлер табылган жок — баары мурунтан кошулган.",
                         "No new employees found — all have already been added.",
                         "Yeni personel bulunamadı — herkes zaten eklendi.",
-                        "Yangi xodimlar topilmadi — hammasi allaqachon qo'shilgan."),
-                isError: false);
+                        "Yangi xodimlar topilmadi — hammasi allaqachon qo'shilgan.")) + unlinkedNote,
+                isError: unlinked.Count > 0);
         }
         catch (System.Exception ex)
         {
@@ -355,7 +569,7 @@ public partial class EmployeesSettingsView : UserControl
         }
         finally
         {
-            LoadFromWebButton.IsEnabled = true;
+            LoadFromWebButton.IsEnabled = EmployeeAccessGate.ListBelongsToCurrentCompany(); // 2026-10-18: см. RefreshList
         }
     }
 
@@ -425,17 +639,27 @@ public partial class EmployeesSettingsView : UserControl
         RolesListPanel.Children.Clear();
         foreach (var role in _roles)
             RolesListPanel.Children.Add(BuildRoleRow(role));
+        // 2026-10-19, этап О7: роли свёрнуты — в шапке видно, сколько их.
+        var title = this.TryFindResource("employees.rolesTitle", out var t) && t is string s ? s : "Роли";
+        RolesHeaderText.Text = _roles.Count > 0 ? $"{title} · {_roles.Count}" : title;
     }
 
-    private Grid BuildRoleRow(RoleInfoDto role)
+    private Control BuildRoleRow(RoleInfoDto role)
     {
-        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), MinHeight = 44 };
         var nameText = new TextBlock { Text = role.Name ?? "?", VerticalAlignment = VerticalAlignment.Center };
+        // 2026-10-19, этап О7: «Удалить» у роли — маленькая красная обводка (sec-outline danger), строки 44 с разделителем.
         var deleteButton = new Button
         {
             Content = Tr.T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"),
-            Classes = { "btn-secondary" },
+            Classes = { "sec-outline", "danger" },
+            MinHeight = 32,
+            FontSize = 12.5,
+            VerticalAlignment = VerticalAlignment.Center,
+            // 2026-10-18, аудит: роль «Владелец» удалять нельзя — кнопки нет.
+            IsVisible = !IsOwnerRole(role),
         };
+        AutomationProperties.SetName(deleteButton, Tr.T("Удалить роль", "Ролду өчүрүү", "Delete role", "Rolü sil", "Rolni o'chirish") + " " + (role.Name ?? ""));
         Grid.SetColumn(nameText, 0);
         Grid.SetColumn(deleteButton, 1);
         row.Children.Add(nameText);
@@ -443,7 +667,23 @@ public partial class EmployeesSettingsView : UserControl
 
         deleteButton.Click += async (_, _) =>
         {
-            if (role.Id is null)
+            if (role.Id is null || IsOwnerRole(role))
+                return;
+
+            // 2026-10-18, аудит: подтверждение — раньше роль удалялась на сайте с одного нажатия.
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            var roleName = role.Name ?? "?";
+            var confirmed = await PosConfirmDialog.ShowModalAsync(owner,
+                Tr.T("Удалить роль?", "Ролду өчүрөсүзбү?", "Delete the role?", "Rol silinsin mi?", "Rol o'chirilsinmi?"),
+                Tr.T($"Точно удалить роль «{roleName}»? Она будет удалена и на сайте app.nurcrm.kg. Это нельзя отменить.",
+                    $"«{roleName}» ролу чын эле өчүрүлсүнбү? Ал app.nurcrm.kg сайтынан да өчүрүлөт. Муну артка кайтарууга болбойт.",
+                    $"Really delete the role “{roleName}”? It will also be deleted on app.nurcrm.kg. This cannot be undone.",
+                    $"«{roleName}» rolü gerçekten silinsin mi? app.nurcrm.kg sitesinden de silinecek. Bu geri alınamaz.",
+                    $"«{roleName}» roli rostdan o'chirilsinmi? U app.nurcrm.kg saytidan ham o'chiriladi. Buni bekor qilib bo'lmaydi."),
+                Tr.T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"),
+                Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+                PosConfirmAccent.Danger).ConfigureAwait(true);
+            if (!confirmed)
                 return;
 
             deleteButton.IsEnabled = false;
@@ -471,7 +711,19 @@ public partial class EmployeesSettingsView : UserControl
             }
         };
 
-        return row;
+        var line = new Border { Child = row, BorderThickness = new Avalonia.Thickness(0, 0, 0, 1), Padding = new Avalonia.Thickness(0, 2) };
+        line.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
+        return line;
+    }
+
+    /// <summary>2026-10-18: системная роль «Владелец» (на сайте так и называется) — удалять нельзя.</summary>
+    private static bool IsOwnerRole(RoleInfoDto role)
+    {
+        var name = (role.Name ?? "").Trim();
+        return string.Equals(role.Id, "owner", System.StringComparison.OrdinalIgnoreCase)
+               || name.Equals("Владелец", System.StringComparison.OrdinalIgnoreCase)
+               || name.Equals("Owner", System.StringComparison.OrdinalIgnoreCase)
+               || name.Equals("Ээси", System.StringComparison.OrdinalIgnoreCase);
     }
 
     private async void AddRole_Click(object? sender, RoutedEventArgs e)
@@ -518,6 +770,8 @@ public partial class EmployeesSettingsView : UserControl
 
     private void Save_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-10-18, ревью безопасности: набранные коды — в хэш до записи (на UI-потоке).
+        EmployeeAccessGate.SecureStoredCodes(UserPreferences.Instance.EmployeeAccessCodes);
         UserPreferences.Instance.SaveToDisk();
         SavedNote.IsVisible = true;
     }

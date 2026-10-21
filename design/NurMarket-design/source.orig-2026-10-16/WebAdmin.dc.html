@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб-админка — сводка</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.side a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:#C7D2DB;text-decoration:none;font-size:14px;font-weight:600}
+.side a.on{background:#FFD600;color:#0B2A3C;font-weight:800}
+.side .g{font-size:11px;font-weight:800;color:#7D93A3;letter-spacing:.05em;padding:14px 12px 4px}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:6px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:24px;font-weight:800;color:#0B2A3C}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.tr{display:grid;grid-template-columns:1fr 1.2fr 1fr .8fr;gap:8px;padding:10px 0;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Сводка" hint-size="260px,900px"></dc-import></div>
+
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Сводка</b><span style="font-size: 13px; color: #667085">Все кассы, телефоны и веб-касса магазина</span></span>
+      <label style="height: 44px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; flex: 0 1 280px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input type="text" placeholder="Товар, чек или клиент" aria-label="Поиск" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 14px; width: 100%">
+      </label>
+      <button type="button" style="height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054">Сегодня ▾</button>
+      <button type="button" style="height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054">Все филиалы ▾</button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px">
+      <div class="kpi"><span>Выручка</span><b>[сумма]</b></div>
+      <div class="kpi"><span>Прибыль</span><b>[сумма]</b></div>
+      <div class="kpi"><span>Чеков</span><b>[N]</b></div>
+      <div class="kpi"><span>В кассах сейчас</span><b>[сумма]</b></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px">
+      <section class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 15px">Продажи по часам</b><span style="font-size: 12px; color: #667085">[период]</span></div>
+        <div style="height: 180px; display: flex; align-items: flex-end; gap: 8px; padding-top: 8px">
+          <sc-for list="{{bars}}" as="h" hint-placeholder-count="12"><span style="flex-grow: 1; height: {{h}}; border-radius: 6px 6px 2px 2px; background: #E7EEF3"></span></sc-for>
+        </div>
+        <span style="font-size: 12px; color: #98A2B3">Столбцы заполнятся данными магазина</span>
+      </section>
+      <section class="card">
+        <b style="font-size: 15px">Откуда продажи</b>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #0B2A3C"></span><span style="flex-grow: 1">Касса на компьютере</span><b>[сумма]</b></div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #FFD600"></span><span style="flex-grow: 1">Телефоны кассиров</span><b>[сумма]</b></div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #2E90FA"></span><span style="flex-grow: 1">Веб-касса</span><b>[сумма]</b></div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #16A34A"></span><span style="flex-grow: 1">Сайт-витрина</span><b>[сумма]</b></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 15px">Последние чеки</b><a href="#" style="font-size: 13px; font-weight: 700">Все чеки</a></div>
+      <div style="overflow-x: auto">
+        <div style="min-width: 560px">
+          <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span>Чек</span><span>Где продано</span><span>Кассир</span><span style="text-align: right">Сумма</span></div>
+          <div class="tr"><span>[№]</span><span>Телефон · Касса 1</span><span>Кассир Тест</span><b style="text-align: right">209 сом</b></div>
+          <div class="tr"><span>[№]</span><span>Касса на компьютере</span><span>[Сотрудник]</span><b style="text-align: right">170 сом</b></div>
+          <div class="tr"><span>[№]</span><span>Веб-касса</span><span>[Сотрудник]</span><b style="text-align: right">117 сом</b></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { bars: ['30%', '45%', '60%', '40%', '75%', '90%', '65%', '50%', '70%', '85%', '55%', '35%'] };
+  }
+}
+</script>
+</body>
+</html>

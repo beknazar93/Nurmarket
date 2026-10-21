@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб в телефоне — вход</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.lbl{font-size:13px;font-weight:700;color:#475467}
+.in{height:52px;box-sizing:border-box;border-radius:14px;border:1px solid #D0D5DD;padding:0 14px;font-family:inherit;font-size:16px;width:100%;background:#FFFFFF}
+.chip{flex:1 1 0;height:44px;padding:0 4px;border-radius:12px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:14px;font-weight:600;color:#344054;white-space:nowrap;min-width:0}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0B2A3C; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <section style="padding: 40px 24px 26px; color: #FFFFFF; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 10px"><span style="width: 44px; height: 44px; border-radius: 14px; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px">N</span><b style="font-size: 20px">NurMarket</b></div>
+    <b style="font-size: 26px; line-height: 32px; font-weight: 800">Магазин в браузере телефона</b>
+    <span style="font-size: 13px; color: #C7D2DB">Без установки · тот же логин, что в кассе</span>
+  </section>
+  <form style="flex-grow: 1; background: #F4F5F7; border-radius: 28px 28px 0 0; padding: 26px 20px 24px; display: flex; flex-direction: column; gap: 10px">
+    <label class="lbl" for="a1">Логин или телефон</label>
+    <input id="a1" class="in" type="text" value="nbs-admin" autocomplete="username">
+    <label class="lbl" for="a2">Пароль</label>
+    <span style="position: relative; display: block"><input id="a2" class="in" type="password" value="password" autocomplete="current-password" style="padding-right: 56px"><button type="button" aria-label="Показать пароль" style="position: absolute; right: 4px; top: 4px; width: 44px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 700">👁</button></span>
+    <a href="#" style="align-self: flex-end; font-size: 14px; font-weight: 700; padding: 6px 0">Забыли пароль?</a>
+    <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 44px"><input type="checkbox" checked="" style="width: 22px; height: 22px; accent-color: #0B2A3C">Запомнить на этом телефоне</label>
+    <span class="lbl">Язык</span>
+    <div role="group" aria-label="Язык" style="display: flex; gap: 4px"><button type="button" class="chip on">Рус</button><button type="button" class="chip">Кыр</button><button type="button" class="chip">Eng</button><button type="button" class="chip">Tür</button><button type="button" class="chip">O'zb</button></div>
+    <span style="flex-grow: 1"></span>
+    <button type="button" style="height: 56px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 17px; font-weight: 800">Войти</button>
+    <!-- 2026-10-17: как на компьютере — вход по QR с кассы; после входа — выбор филиала, маршрут по роли -->
+    <button type="button" style="height: 52px; border-radius: 16px; border: 1.5px solid #D0D5DD; background: #FFFFFF; color: #0B2A3C; font-family: inherit; font-size: 15px; font-weight: 700">Войти по QR с кассы</button>
+    <span style="font-size: 13px; color: #475467; text-align: center">После входа: выбор филиала; кассир — в веб-кассу, администратор — в сводку.</span>
+    <a href="#" style="text-align: center; font-size: 14px; font-weight: 700; padding: 8px 0 18px">Скачать приложение — работа без интернета</a>
+  </form>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

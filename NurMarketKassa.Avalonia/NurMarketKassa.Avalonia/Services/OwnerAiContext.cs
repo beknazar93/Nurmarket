@@ -7,99 +7,73 @@ using NurMarketKassa.Services;
 namespace NurMarketKassa.AvaloniaHost.Services;
 
 /// <summary>2026-10-05, владелец: «дай доступ ко всему для ИИ — к долгам, к контактам, клиентам, к складу, к товарам,
-/// поставщикам». Склад для «ИИ-советника» программы владельца: товары с категорией, ценой продажи, закупкой и
-/// остатком (локальный каталог программы) и итоги склада. Персональные данные (имена и телефоны клиентов,
-/// должники, контакты поставщиков) сюда не входят — их отправка в Google ждёт решения владельца.</summary>
+/// поставщикам». Данные магазина для «Нур Советника».
+/// 2026-10-21, «доведи Нур Советника до 10»: данные — частями по важности (AiSection, О1) с источником для подписи «откуда цифра»;
+/// долги — точный общий расчёт, как «Сводка» и «Долги клиентов» (OwnerShopFacts, О2); имена и телефоны должников в ИИ не уходят
+/// (коды [Д1], подстановка на этом ПК), сотрудники — коды [С1] (AiPseudonyms); без права «Клиенты» список должников не строится (О4).</summary>
 public static class OwnerAiContext
 {
-    private static readonly SemaphoreSlim DebtGate = new(1, 1);
-    private static string? _debtCached;
-    private static DateTime _debtCachedAtUtc = DateTime.MinValue;
+    private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
 
-    /// <summary>2026-10-05, владелец: «я должен кому-то или мне должны?» — советник не знал. Обезличенные итоги
-    /// долгов: сколько должны клиенты (сумма, сколько человек и чеков, крупнейшие суммы и давность — без имён и
-    /// телефонов) и поставщики (число и сумма долга, если сервер её отдаёт). Сервер — не чаще раза в 5 минут.</summary>
-    public static async Task<string> BuildDebtTotalsAsync(CancellationToken ct)
+    /// <summary>Итоги долгов клиентов (точно, как «Сводка») и поставщиков. Приоритет 0 — всегда в ИИ.</summary>
+    public static async Task<AiSection> DebtTotalsSectionAsync(CancellationToken ct)
     {
-        await DebtGate.WaitAsync(ct).ConfigureAwait(false);
+        var sb = new StringBuilder();
+        string label = "Долги клиентов";
         try
         {
-            if (_debtCached is not null && DateTime.UtcNow - _debtCachedAtUtc < TimeSpan.FromMinutes(5))
-                return _debtCached;
-            var sb = new StringBuilder();
-            try
+            var facts = await OwnerShopFacts.GetDebtsAsync(ct).ConfigureAwait(false);
+            if (facts.Debtors.Count == 0)
+                sb.AppendLine("ДОЛГИ КЛИЕНТОВ ПЕРЕД МАГАЗИНОМ: непогашенных долгов нет.");
+            else
             {
-                var debts = await App.GetRequiredService<NurMarketKassa.Services.Api.ISalesApiService>()
-                    .PosDebtSalesAsync(null, ct).ConfigureAwait(false);
-                var amounts = new List<double>();
-                var clients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                DateTime? oldest = null;
-                foreach (var debt in debts)
-                {
-                    // debt_amount — остаток долга; нет его — сумма чека (как в отчёте бота «Должники»).
-                    var amount = Num(debt, "debt_amount") ?? Num(debt, "total") ?? 0;
-                    if (amount <= 0.005)
-                        continue;
-                    amounts.Add(amount);
-                    if (Str(debt, "client") is { Length: > 0 } client)
-                        clients.Add(client);
-                    if (DateTime.TryParse(Str(debt, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var at)
-                        && (oldest is null || at < oldest))
-                        oldest = at;
-                }
-                sb.AppendLine(amounts.Count == 0
-                    ? "ДОЛГИ КЛИЕНТОВ ПЕРЕД МАГАЗИНОМ (сервер NurCRM): непогашенных долгов нет."
-                    : $"ДОЛГИ КЛИЕНТОВ ПЕРЕД МАГАЗИНОМ (сервер NurCRM): вам должны {amounts.Sum().ToString("N2", Ru)} сом — {clients.Count} клиент(ов), " +
-                      $"{amounts.Count} чек(ов) в долг; крупнейшие долги по чекам: {string.Join(", ", amounts.OrderByDescending(a => a).Take(5).Select(a => a.ToString("N2", Ru)))} сом" +
-                      (oldest is { } o ? $"; самый старый долг с {o.ToLocalTime():dd.MM.yyyy}" : "") +
-                      ". Имена и телефоны должников — в разделе «Клиенты» (советнику они не передаются).");
+                var oldest = facts.Debtors.Min(d => d.Oldest);
+                sb.AppendLine((facts.Exact
+                                  ? $"ДОЛГИ КЛИЕНТОВ ПЕРЕД МАГАЗИНОМ (точный расчёт, как разделы «Долги клиентов» и «Сводка», на {facts.AtLocal:dd.MM HH:mm}): вам должны {Money2(facts.Total)}"
+                                  : $"ДОЛГИ КЛИЕНТОВ ПЕРЕД МАГАЗИНОМ (ПРИБЛИЗИТЕЛЬНО: точный расчёт ещё не готов, оплаты по сделкам не вычтены — называй сумму со словом «примерно» и предложи раздел «Долги клиентов»): ≈ {Money2(facts.Total)}")
+                              + $" — {facts.Debtors.Count} клиент(ов), {facts.Checks} чек(ов) в долг; просрочка больше 30 дней — {Money2(facts.Overdue30)} у {facts.OverdueClients} клиент(ов); "
+                              + $"крупнейшие долги: {string.Join(", ", facts.Debtors.Take(5).Select(d => Money2(d.Amount)))}; самый старый долг с {oldest:dd.MM.yyyy}.");
+                label = facts.Exact ? $"Долги клиентов (точно, на {facts.AtLocal:dd.MM HH:mm})" : "Долги клиентов (≈, точный расчёт не готов)";
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                PosLogger.Log($"ИИ-советник: долги клиентов не получены ({ex.Message}).", "WARNING");
-                sb.AppendLine("ДОЛГИ КЛИЕНТОВ: сервер сейчас не ответил — подскажи раздел «Клиенты».");
-            }
-
-            try
-            {
-                var data = await PosApp.CatalogApi.ListSuppliersAsync(ct).ConfigureAwait(false);
-                var rows = data.ValueKind == System.Text.Json.JsonValueKind.Array
-                    ? data.EnumerateArray().ToList()
-                    : data.ValueKind == System.Text.Json.JsonValueKind.Object && data.TryGetProperty("results", out var r) && r.ValueKind == System.Text.Json.JsonValueKind.Array
-                        ? r.EnumerateArray().ToList()
-                        : new List<System.Text.Json.JsonElement>();
-                var owed = rows.Select(row => Num(row, "debt") ?? Num(row, "total_debt") ?? Num(row, "balance")).Where(v => v is not null).Select(v => v!.Value).ToList();
-                sb.AppendLine(rows.Count == 0
-                    ? "ПОСТАВЩИКИ (сервер NurCRM): поставщиков в базе нет."
-                    : owed.Count == 0
-                        ? $"ПОСТАВЩИКИ (сервер NurCRM): {rows.Count}; сумм долга перед поставщиками сервер не отдаёт — подскажи раздел «Склад» → приходы."
-                        : $"ПОСТАВЩИКИ (сервер NurCRM): {rows.Count}; по данным сервера сумма по поставщикам {owed.Sum().ToString("N2", Ru)} сом " +
-                          $"(у {owed.Count(v => Math.Abs(v) > 0.005)} есть ненулевая сумма).");
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                PosLogger.Log($"ИИ-советник: поставщики не получены ({ex.Message}).", "WARNING");
-            }
-
-            _debtCached = sb.ToString().Trim();
-            _debtCachedAtUtc = DateTime.UtcNow;
-            return _debtCached;
         }
-        finally
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            DebtGate.Release();
+            PosLogger.Log($"ИИ-советник: долги клиентов не получены ({ex.Message}).", "WARNING");
+            sb.AppendLine("ДОЛГИ КЛИЕНТОВ: сервер сейчас не ответил — цифру не называй, подскажи раздел «Долги клиентов».");
         }
+        try
+        {
+            var data = await PosApp.CatalogApi.ListSuppliersAsync(ct).ConfigureAwait(false);
+            var rows = data.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? data.EnumerateArray().ToList()
+                : data.ValueKind == System.Text.Json.JsonValueKind.Object && data.TryGetProperty("results", out var r) && r.ValueKind == System.Text.Json.JsonValueKind.Array
+                    ? r.EnumerateArray().ToList()
+                    : new List<System.Text.Json.JsonElement>();
+            var owed = rows.Select(row => Num(row, "debt") ?? Num(row, "total_debt") ?? Num(row, "balance")).Where(v => v is not null).Select(v => v!.Value).ToList();
+            sb.AppendLine(rows.Count == 0
+                ? "ПОСТАВЩИКИ (сервер NurCRM): поставщиков в базе нет."
+                : owed.Count == 0
+                    ? $"ПОСТАВЩИКИ (сервер NurCRM): {rows.Count}; сумм долга перед поставщиками сервер не отдаёт — подскажи раздел «Поставщики»."
+                    : $"ПОСТАВЩИКИ (сервер NurCRM): {rows.Count}; по данным сервера сумма по поставщикам {owed.Sum().ToString("N2", Ru)} сом " +
+                      $"(у {owed.Count(v => Math.Abs(v) > 0.005)} есть ненулевая сумма).");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"ИИ-советник: поставщики не получены ({ex.Message}).", "WARNING");
+        }
+        return new AiSection("debts", "Долги клиентов и поставщиков", 0, sb.ToString().Trim(), SourceSection: "debts", SourceLabel: label);
     }
 
+    private static string Money2(double v) => v.ToString("N0", Ru) + " сом";
+
     private static readonly SemaphoreSlim AbcGate = new(1, 1);
-    private static string? _abcCached;
+    private static AiSection? _abcCached;
     private static DateTime _abcCachedAtUtc = DateTime.MinValue;
 
-    /// <summary>2026-10-05, владелец: «дай доступ к ABC-анализу ИИ». Тот же расчёт, что в разделе «ABC-анализ»
-    /// (AnalyticsReportData — цифры сервера NurCRM, без связи — история продаж) за последние 30 дней, все срезы:
-    /// выручка, прибыль, количество, категории, бренды, склад. По каждому срезу — итоги групп A/B/C и товары
-    /// группы (A — все до 40, B и C — до 25). Пересчёт не чаще раза в 10 минут.</summary>
-    public static async Task<string> BuildAbcAsync(CancellationToken ct)
+    /// <summary>2026-10-05, владелец: «дай доступ к ABC-анализу ИИ». Тот же расчёт, что раздел «ABC-анализ» (30 дней, все срезы).
+    /// 2026-10-21 (О1): полный вариант (A — до 40, B и C — до 25 в каждом срезе) и короткий — итоги групп и top-10 группы A по
+    /// выручке, прибыли и количеству. Пересчёт не чаще раза в 10 минут.</summary>
+    public static async Task<AiSection> AbcSectionAsync(CancellationToken ct)
     {
         await AbcGate.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -109,33 +83,42 @@ public static class OwnerAiContext
             var to = DateTime.Today;
             var from = to.AddDays(-29);
             var data = await AnalyticsReportData.BuildAsync(App.SalesApi, from, to, includeSeasonality: false, ct: ct).ConfigureAwait(false);
-            var sb = new StringBuilder();
-            sb.AppendLine($"ABC-АНАЛИЗ за {from:dd.MM}–{to:dd.MM.yyyy} (как в разделе «ABC-анализ»; A — первые 80 % меры, B — следующие 15 %, C — остальные 5 %):");
+            var head = $"ABC-АНАЛИЗ за {from:dd.MM}–{to:dd.MM.yyyy} (как раздел «ABC-анализ»; A — первые 80 % меры, B — следующие 15 %, C — остальные 5 %):";
+            var full = new StringBuilder(head).AppendLine();
+            var brief = new StringBuilder(head).AppendLine();
             if (data.AbcSlices.Count == 0)
-                sb.AppendLine("продаж за период нет — ABC не построен.");
+            {
+                full.AppendLine("продаж за период нет — ABC не построен.");
+                brief.AppendLine("продаж за период нет — ABC не построен.");
+            }
             foreach (var slice in data.AbcSlices)
             {
-                string Fmt(double v) => slice.IsMoney ? $"{v.ToString("N2", Ru)} сом" : $"{v.ToString("0.###", CultureInfo.InvariantCulture)} {slice.Unit}";
-                sb.AppendLine($"Срез «{slice.Title}»: " + string.Join("; ", slice.Summary.Select(g =>
-                    $"группа {g.Group} — {g.Count} поз., {Fmt(g.Sum)} ({g.Share:0.#} %)")));
+                string Fmt(double v) => slice.IsMoney ? $"{v.ToString("N0", Ru)} сом" : $"{v.ToString("0.###", CultureInfo.InvariantCulture)} {slice.Unit}";
+                var summary = $"Срез «{slice.Title}»: " + string.Join("; ", slice.Summary.Select(g => $"группа {g.Group} — {g.Count} поз., {Fmt(g.Sum)} ({g.Share:0.#} %)"));
+                full.AppendLine(summary);
+                brief.AppendLine(summary);
                 foreach (var group in new[] { "A", "B", "C" })
                 {
                     var rows = slice.Rows.Where(r => string.Equals(r.Group, group, StringComparison.OrdinalIgnoreCase)).ToList();
                     if (rows.Count == 0)
                         continue;
                     var take = group == "A" ? 40 : 25;
-                    sb.AppendLine($"  {group}: " + string.Join("; ", rows.Take(take).Select(r => $"{r.Name} — {Fmt(r.Sum)} ({r.Share:0.#} %)"))
-                                  + (rows.Count > take ? $"; … и ещё {rows.Count - take}" : ""));
+                    full.AppendLine($"  {group}: " + string.Join("; ", rows.Take(take).Select(r => $"{r.Name} — {Fmt(r.Sum)} ({r.Share:0.#} %)"))
+                                    + (rows.Count > take ? $"; … и ещё {rows.Count - take}" : ""));
+                    if (group == "A" && slice.Key is AnalyticsReportData.KeyRevenue or AnalyticsReportData.KeyProfit or AnalyticsReportData.KeyQuantity)
+                        brief.AppendLine($"  A (top-10 из {rows.Count}): " + string.Join("; ", rows.Take(10).Select(r => $"{r.Name} — {Fmt(r.Sum)}")));
                 }
             }
-            _abcCached = sb.ToString().TrimEnd();
+            brief.Append("(короткий вариант: по остальным срезам и группам B/C — НУЖНО: abc)");
+            _abcCached = new AiSection("abc", "ABC-анализ (все срезы и группы)", 4, full.ToString().TrimEnd(), brief.ToString().TrimEnd(),
+                SourceSection: "abc", SourceLabel: $"ABC-анализ, {from:dd.MM}–{to:dd.MM}");
             _abcCachedAtUtc = DateTime.UtcNow;
             return _abcCached;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             PosLogger.Log($"ИИ-советник: ABC-анализ не построен ({ex.Message}).", "WARNING");
-            return "ABC-АНАЛИЗ: сейчас не построился — подскажи раздел «ABC-анализ».";
+            return new AiSection("abc", "ABC-анализ", 4, "ABC-АНАЛИЗ: сейчас не построился — подскажи раздел «ABC-анализ».");
         }
         finally
         {
@@ -144,125 +127,74 @@ public static class OwnerAiContext
     }
 
     private static readonly SemaphoreSlim AnalysisGate = new(1, 1);
-    private static string? _analysisCached;
+    private static List<AiSection>? _analysisCached;
     private static DateTime _analysisCachedAtUtc = DateTime.MinValue;
 
-    /// <summary>2026-10-05, владелец: «в ИИ добавь анализ продаж, анализ склада, анализ клиентов, анализ заказов,
-    /// чтобы он смог потом предлагать назначить акции на проблемные товары». Готовые выводы для нейросети:
-    /// • товары без продаж 30 дней при остатке (замороженные деньги);
-    /// • затоваривание — запаса больше чем на 60 дней продаж;
-    /// • падение продаж — последние 15 дней против предыдущих 15;
-    /// • низкая наценка (меньше 10 %) и продажа ниже закупки;
-    /// • растущие товары (кандидаты в «паровоз» для комплекта со слабыми);
-    /// • клиенты — сколько всего и новых за 30 дней (без имён); заказы через Telegram-бота за 30 дней.
-    /// Продажи — тот же расчёт, что «ABC-анализ» (AnalyticsReportData, цифры сервера); склад — каталог программы.
-    /// Пересчёт не чаще раза в 10 минут.</summary>
-    public static async Task<string> BuildAnalysisAsync(CancellationToken ct)
+    /// <summary>2026-10-05, владелец: «в ИИ добавь анализ продаж, склада, клиентов, заказов — чтобы предлагать акции на проблемные
+    /// товары». 2026-10-21 (О1): две части — «что заканчивается» (важнее, приоритет 5) и остальной анализ (мёртвый остаток,
+    /// затоваривание, падение, низкая наценка, рост, клиенты, заказы бота; приоритет 8). Пересчёт не чаще раза в 10 минут.</summary>
+    public static async Task<List<AiSection>> AnalysisSectionsAsync(CancellationToken ct)
     {
         await AnalysisGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             if (_analysisCached is not null && DateTime.UtcNow - _analysisCachedAtUtc < TimeSpan.FromMinutes(10))
                 return _analysisCached;
-            var sb = new StringBuilder();
-            sb.AppendLine("АНАЛИЗ ТОВАРОВ И АКЦИЙ (30 дней; используй его для акций на проблемные товары и для заказа: что закончилось и что заканчивается):");
+            var list = new List<AiSection>();
             try
             {
-                await AppendProductAnalysisAsync(sb, ct).ConfigureAwait(false);
+                var rows = await OwnerShopFacts.StockRowsAsync(ct).ConfigureAwait(false);
+                string Money(double v) => v.ToString("N0", Ru) + " сом";
+                var soldOutAll = OwnerShopFacts.SoldOut(rows, 1000);
+                var lowAll = OwnerShopFacts.RunningLow(rows, 1000);
+                string Low(int take) =>
+                    "ЧТО ЗАКАНЧИВАЕТСЯ (продажи 30 дней как «ABC-анализ», остаток — склад программы; «заказать» — на 14 дней продаж):\n"
+                    + $"• Хорошо продавались, но закончились (остаток 0) — {soldOutAll.Count} поз.: "
+                    + (soldOutAll.Count == 0 ? "нет." : string.Join("; ", soldOutAll.Take(take).Select(r =>
+                        $"{r.Name} — продано {r.Sold30:0.###} за 30 дн. (≈{r.PerDay:0.#} в день), теряется ≈{Money(r.PerDay * r.Price)} выручки в день, заказать ≈{r.OrderFor14:0}"))
+                        + (soldOutAll.Count > take ? $"; показаны {take} из {soldOutAll.Count}" : ""))
+                    + $"\n• Популярные, но осталось мало (запаса меньше чем на 7 дней) — {lowAll.Count} поз.: "
+                    + (lowAll.Count == 0 ? "нет." : string.Join("; ", lowAll.Take(take).Select(r =>
+                        $"{r.Name} — остаток {r.Stock:0.###}, хватит ≈{r.DaysLeft:0.#} дн., продаётся ≈{r.PerDay:0.#} в день, заказать ≈{r.OrderFor14:0}"))
+                        + (lowAll.Count > take ? $"; показаны {take} из {lowAll.Count}" : ""));
+                list.Add(new AiSection("low_stock", "Что заканчивается", 5, Low(40), Low(12) + "\n(полный список — НУЖНО: low_stock)",
+                    SourceSection: "restock", SourceLabel: "Пополнение: продажи 30 дней и остатки склада"));
+
+                var sb = new StringBuilder("АНАЛИЗ ТОВАРОВ И АКЦИЙ (30 дней; для акций на проблемные товары):\n");
+                var deadAll = rows.Where(r => r.Stock > 0 && r.Sold30 <= 0).ToList();
+                var dead = OwnerShopFacts.Dead(rows, 12);
+                sb.AppendLine($"• Не продавались 30 дней, но лежат на складе — {deadAll.Count} поз., заморожено {Money(deadAll.Sum(r => r.Frozen))} (по закупке): " +
+                              (dead.Count == 0 ? "нет." : string.Join("; ", dead.Select(r => $"{r.Name} — остаток {r.Stock:0.###}, {Money(r.Frozen)}")) + (deadAll.Count > dead.Count ? $"; показаны {dead.Count} из {deadAll.Count}" : "")));
+                var overstock = rows.Where(r => r.PerDay > 0 && r.Stock / r.PerDay > 60).OrderByDescending(r => r.Stock / r.PerDay).Take(10).ToList();
+                sb.AppendLine("• Затоварено (запаса больше чем на 60 дней продаж): " +
+                              (overstock.Count == 0 ? "нет." : string.Join("; ", overstock.Select(r => $"{r.Name} — остаток {r.Stock:0.###}, продаётся {r.PerDay:0.##} в день, хватит на {r.Stock / r.PerDay:0} дн."))));
+                var falling = rows.Where(r => r.Before >= 3 && r.Recent < r.Before * 0.6).OrderBy(r => r.Recent / Math.Max(1, r.Before)).Take(8).ToList();
+                sb.AppendLine("• Продажи упали (последние 15 дней против предыдущих 15): " +
+                              (falling.Count == 0 ? "нет." : string.Join("; ", falling.Select(r => $"{r.Name} — было {r.Before:0.###}, стало {r.Recent:0.###}"))));
+                var lowMargin = rows.Where(r => r.Markup is { } m && m < 10).OrderBy(r => r.Markup).Take(10).ToList();
+                sb.AppendLine("• Низкая наценка (меньше 10 %) или цена ниже закупки — скидку на них давать нельзя: " +
+                              (lowMargin.Count == 0 ? "нет." : string.Join("; ", lowMargin.Select(r => $"{r.Name} — цена {r.Price:0.##}, закупка {r.Cost:0.##}, наценка {r.Markup:0.#} %"))));
+                var growing = rows.Where(r => r.Recent >= 3 && r.Recent > r.Before * 1.3).OrderByDescending(r => r.Recent - r.Before).Take(6).ToList();
+                sb.AppendLine("• Растут (хорошие «паровозы» для комплекта со слабым товаром): " +
+                              (growing.Count == 0 ? "нет." : string.Join("; ", growing.Select(r => $"{r.Name} — было {r.Before:0.###}, стало {r.Recent:0.###}"))));
+                sb.AppendLine("Правила акций: скидка не ниже закупки + 5 %; на мёртвый остаток — скидка 15–30 % или «2 по цене 1,5»; " +
+                              "затоваренное — в комплект с растущим товаром; падающее — выкладка/напоминание в боте; товары с низкой наценкой — без скидки.");
+                await AppendClientsAndOrdersAsync(sb, ct).ConfigureAwait(false);
+                list.Add(new AiSection("analysis", "Анализ товаров и акций", 8, sb.ToString().TrimEnd(), SourceSection: "analytics", SourceLabel: "Анализ товаров за 30 дней"));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 PosLogger.Log($"ИИ-советник: анализ товаров не построен ({ex.Message}).", "WARNING");
-                sb.AppendLine("Анализ товаров сейчас не построился.");
+                list.Add(new AiSection("analysis", "Анализ товаров", 8, "АНАЛИЗ ТОВАРОВ: сейчас не построился — подскажи раздел «Пополнение и сроки»."));
             }
-            await AppendClientsAndOrdersAsync(sb, ct).ConfigureAwait(false);
-            _analysisCached = sb.ToString().TrimEnd();
+            _analysisCached = list;
             _analysisCachedAtUtc = DateTime.UtcNow;
-            return _analysisCached;
+            return list;
         }
         finally
         {
             AnalysisGate.Release();
         }
-    }
-
-    private static async Task AppendProductAnalysisAsync(StringBuilder sb, CancellationToken ct)
-    {
-        var today = DateTime.Today;
-        var recent = await AnalyticsReportData.BuildAsync(App.SalesApi, today.AddDays(-14), today, includeSeasonality: false, ct: ct).ConfigureAwait(false);
-        var before = await AnalyticsReportData.BuildAsync(App.SalesApi, today.AddDays(-29), today.AddDays(-15), includeSeasonality: false, ct: ct).ConfigureAwait(false);
-        static Dictionary<string, double> SoldQty(AnalyticsReportData d)
-        {
-            var rows = d.Slice(AnalyticsReportData.KeyRevenue)?.Rows ?? d.Abc;
-            return rows.GroupBy(r => r.Name.Trim(), StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.Sum(r => r.Quantity), StringComparer.OrdinalIgnoreCase);
-        }
-        var q2 = SoldQty(recent);
-        var q1 = SoldQty(before);
-
-        IReadOnlyList<CatalogProductTileVm> tiles = LocalProductRepository.Instance.LoadAllTiles();
-        if (tiles.Count == 0)
-            tiles = CatalogCacheService.Products.ToList();
-        static double Price(CatalogProductTileVm t) => LocalCartService.ParsePrice(t.PriceLine);
-        string Money(double v) => v.ToString("N0", Ru) + " сом";
-
-        var rows = tiles
-            .Where(t => !t.IsService)
-            .Select(t =>
-            {
-                var name = t.Title.Trim();
-                var sold30 = (q1.TryGetValue(name, out var a) ? a : 0) + (q2.TryGetValue(name, out var b) ? b : 0);
-                var perDay = sold30 / 30.0;
-                var price = Price(t);
-                var markup = t.PurchasePrice > 0 ? (price - t.PurchasePrice) / t.PurchasePrice * 100 : (double?)null;
-                return new
-                {
-                    Tile = t, Name = name, Stock = t.Quantity, Sold30 = sold30, PerDay = perDay,
-                    Recent = q2.TryGetValue(name, out var r2) ? r2 : 0, Before = q1.TryGetValue(name, out var r1) ? r1 : 0,
-                    Price = price, Cost = t.PurchasePrice, Markup = markup,
-                    Frozen = Math.Max(0, t.Quantity) * (t.PurchasePrice > 0 ? t.PurchasePrice : price),
-                };
-            })
-            .ToList();
-
-        var dead = rows.Where(r => r.Stock > 0 && r.Sold30 <= 0).OrderByDescending(r => r.Frozen).Take(15).ToList();
-        sb.AppendLine($"• Не продавались 30 дней, но лежат на складе — {rows.Count(r => r.Stock > 0 && r.Sold30 <= 0)} поз., " +
-                      $"заморожено {Money(dead.Sum(r => r.Frozen))} (по закупке): " +
-                      (dead.Count == 0 ? "нет." : string.Join("; ", dead.Select(r => $"{r.Name} — остаток {r.Stock:0.###}, {Money(r.Frozen)}"))));
-
-        // 2026-10-06, владелец: «хорошо проданные товары, архив — что закончилось, и какие популярные остались в малом количестве — добавь в ИИ».
-        var soldOut = rows.Where(r => r.Stock <= 0 && r.Sold30 > 0).OrderByDescending(r => r.Sold30).Take(15).ToList();
-        sb.AppendLine("• ХОРОШО ПРОДАВАЛИСЬ, НО ЗАКОНЧИЛИСЬ (остаток 0, продажи за 30 дней): " +
-                      (soldOut.Count == 0 ? "нет." : string.Join("; ", soldOut.Select(r =>
-                          $"{r.Name} — продано {r.Sold30:0.###} за 30 дн. (≈{r.PerDay:0.#} в день), теряется ≈{Money(r.PerDay * r.Price)} выручки в день, на 14 дней заказать ≈{Math.Ceiling(r.PerDay * 14):0}"))));
-        var lowPopular = rows.Where(r => r.Stock > 0 && r.PerDay > 0 && r.Stock / r.PerDay < 7).OrderByDescending(r => r.Sold30).Take(15).ToList();
-        sb.AppendLine("• ПОПУЛЯРНЫЕ, НО ОСТАЛОСЬ МАЛО (запаса меньше чем на 7 дней продаж): " +
-                      (lowPopular.Count == 0 ? "нет." : string.Join("; ", lowPopular.Select(r =>
-                          $"{r.Name} — остаток {r.Stock:0.###}, хватит ≈{r.Stock / r.PerDay:0.#} дн., продаётся ≈{r.PerDay:0.#} в день, на 14 дней заказать ≈{Math.Max(0, Math.Ceiling(r.PerDay * 14 - r.Stock)):0}"))));
-
-        var overstock = rows.Where(r => r.PerDay > 0 && r.Stock / r.PerDay > 60).OrderByDescending(r => r.Stock / r.PerDay).Take(12).ToList();
-        sb.AppendLine("• Затоварено (запаса больше чем на 60 дней продаж): " +
-                      (overstock.Count == 0 ? "нет." : string.Join("; ", overstock.Select(r =>
-                          $"{r.Name} — остаток {r.Stock:0.###}, продаётся {r.PerDay:0.##} в день, хватит на {r.Stock / r.PerDay:0} дн."))));
-
-        var falling = rows.Where(r => r.Before >= 3 && r.Recent < r.Before * 0.6).OrderBy(r => r.Recent / Math.Max(1, r.Before)).Take(10).ToList();
-        sb.AppendLine("• Продажи упали (последние 15 дней против предыдущих 15): " +
-                      (falling.Count == 0 ? "нет." : string.Join("; ", falling.Select(r => $"{r.Name} — было {r.Before:0.###}, стало {r.Recent:0.###}"))));
-
-        var lowMargin = rows.Where(r => r.Markup is { } m && m < 10).OrderBy(r => r.Markup).Take(12).ToList();
-        sb.AppendLine("• Низкая наценка (меньше 10 %) или цена ниже закупки — скидку на них давать нельзя: " +
-                      (lowMargin.Count == 0 ? "нет." : string.Join("; ", lowMargin.Select(r =>
-                          $"{r.Name} — цена {r.Price:0.##}, закупка {r.Cost:0.##}, наценка {r.Markup:0.#} %"))));
-
-        var growing = rows.Where(r => r.Recent >= 3 && r.Recent > r.Before * 1.3).OrderByDescending(r => r.Recent - r.Before).Take(6).ToList();
-        sb.AppendLine("• Растут (хорошие «паровозы» для комплекта со слабым товаром): " +
-                      (growing.Count == 0 ? "нет." : string.Join("; ", growing.Select(r => $"{r.Name} — было {r.Before:0.###}, стало {r.Recent:0.###}"))));
-
-        var withCost = rows.Where(r => r.Stock > 0 && r.Cost > 0).ToList();
-        sb.AppendLine($"• Склад: {rows.Count(r => r.Stock > 0)} позиций в наличии, по закупке {Money(withCost.Sum(r => r.Stock * r.Cost))}; " +
-                      $"нет в наличии {rows.Count(r => r.Stock <= 0)}.");
-        sb.AppendLine("Правила акций: скидка не ниже закупки + 5 %; на мёртвый остаток — скидка 15–30 % или «2 по цене 1,5»; " +
-                      "затоваренное — в комплект с растущим товаром; падающее — выкладка/напоминание в боте; товары с низкой наценкой — без скидки.");
     }
 
     private static async Task AppendClientsAndOrdersAsync(StringBuilder sb, CancellationToken ct)
@@ -303,44 +235,33 @@ public static class OwnerAiContext
         }
     }
 
-    /// <summary>2026-10-05, владелец: «дай список клиентов-должников». Имена и телефоны клиентов в Google не уходят:
-    /// нейросеть видит должников под кодами [Д1], [Д2]… (сумма, число чеков, с какой даты), а настоящие имя и
-    /// телефон подставляет в её ответ сама программа (<see cref="RevealDebtors"/>) — на этом компьютере.</summary>
     /// <summary>2026-10-06, владелец: «дай ИИ доступ, чтобы по номеру находил должников и писал им вернуть долг». Должники последней
     /// сводки по кодам [Д1]… — имя, телефон, сумма (только на этом компьютере, для кнопок «Написать в WhatsApp»).</summary>
     public static IReadOnlyDictionary<int, (string Name, string? Phone, double Amount)> LastDebtors { get; private set; }
         = new Dictionary<int, (string Name, string? Phone, double Amount)>();
 
-    public static async Task<(string AiText, IReadOnlyDictionary<int, string> Names)> BuildDebtorsPseudonymousAsync(CancellationToken ct)
+    /// <summary>2026-10-05, владелец: «дай список клиентов-должников». Имена и телефоны клиентов в Google не уходят: нейросеть видит
+    /// должников под кодами [Д1], [Д2]… (сумма, число чеков, с какой даты), а настоящие имя и телефон подставляет программа
+    /// (<see cref="RevealCodes"/>) — на этом компьютере. 2026-10-21: суммы — точные (OwnerShopFacts, как «Долги клиентов», О2);
+    /// полный вариант — все должники, короткий — top-10 (О1).</summary>
+    public static async Task<(AiSection? Section, IReadOnlyDictionary<int, string> Names)> DebtorsSectionAsync(CancellationToken ct)
     {
         var names = new Dictionary<int, string>();
         var debtors = new Dictionary<int, (string Name, string? Phone, double Amount)>();
         try
         {
-            var debts = await App.GetRequiredService<NurMarketKassa.Services.Api.ISalesApiService>()
-                .PosDebtSalesAsync(null, ct).ConfigureAwait(false);
-            var byClient = new Dictionary<string, (string Name, double Amount, int Count, DateTime? Oldest)>(StringComparer.OrdinalIgnoreCase);
-            foreach (var debt in debts)
-            {
-                var clientId = Str(debt, "client");
-                var amount = Num(debt, "debt_amount") ?? Num(debt, "total") ?? 0;
-                if (string.IsNullOrWhiteSpace(clientId) || amount <= 0.005)
-                    continue;
-                DateTime? at = DateTime.TryParse(Str(debt, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var d) ? d : null;
-                var name = Str(debt, "client_name") ?? "Без имени";
-                byClient[clientId] = byClient.TryGetValue(clientId, out var e)
-                    ? (e.Name, e.Amount + amount, e.Count + 1, e.Oldest is { } o && (at is null || o < at) ? o : at ?? e.Oldest)
-                    : (name, amount, 1, at);
-            }
-            if (byClient.Count == 0)
-                return ("ДОЛЖНИКИ: непогашенных долгов нет.", names);
+            var facts = await OwnerShopFacts.GetDebtsAsync(ct).ConfigureAwait(false);
+            if (facts.Debtors.Count == 0)
+                return (new AiSection("debtors", "Должники", 7, "ДОЛЖНИКИ: непогашенных долгов нет."), names);
 
             // Телефоны — из карточек клиентов (только для показа владельцу на этом компьютере).
             var phones = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var d in facts.Debtors.Where(d => d.Phone.Length > 0))
+                phones[d.ClientId] = d.Phone.Trim();
             try
             {
                 var api = App.GetRequiredService<NurMarketKassa.Services.Api.IClientsApiService>();
-                for (var page = 1; page <= 20 && byClient.Keys.Any(k => !phones.ContainsKey(k)); page++)
+                for (var page = 1; page <= 20 && facts.Debtors.Any(d => d.ClientId.Length > 0 && !phones.ContainsKey(d.ClientId)); page++)
                 {
                     var (items, hasNext) = await api.GetClientsPageAsync(page, null, ct).ConfigureAwait(false);
                     foreach (var c in items)
@@ -357,33 +278,147 @@ public static class OwnerAiContext
                 PosLogger.Log($"ИИ-советник: телефоны должников не получены ({ex.Message}).", "WARNING");
             }
 
-            var sb = new StringBuilder();
-            sb.AppendLine("ДОЛЖНИКИ (сервер NurCRM; имена скрыты кодами, программа сама подставит имя и телефон вместо кода):");
+            var full = new StringBuilder();
+            var brief = new StringBuilder();
+            var head = $"ДОЛЖНИКИ ({(facts.Exact ? "точно, как «Долги клиентов»" : "≈ приблизительно")}; имена скрыты кодами — пиши код в квадратных скобках, программа сама покажет имя и телефон):";
+            full.AppendLine(head);
+            brief.AppendLine(head);
             var n = 0;
-            foreach (var (id, info) in byClient.OrderByDescending(x => x.Value.Amount).Take(60))
+            foreach (var d in facts.Debtors.Take(60))
             {
                 n++;
-                names[n] = info.Name + (phones.TryGetValue(id, out var phone) ? $" (тел. {phone})" : "");
-                debtors[n] = (info.Name, phones.TryGetValue(id, out var ph) ? ph : null, info.Amount);
-                sb.AppendLine($"• [Д{n}] — {info.Amount.ToString("N2", Ru)} сом, чеков в долг: {info.Count}" +
-                              (info.Oldest is { } o ? $", долг с {o.ToLocalTime():dd.MM.yyyy}" : ""));
+                var phone = phones.TryGetValue(d.ClientId, out var ph) ? ph : null;
+                names[n] = d.Name + (phone is { Length: > 0 } ? $" (тел. {phone})" : "");
+                debtors[n] = (d.Name, phone, d.Amount);
+                var line = $"• [Д{n}] — {Money2(d.Amount)}, чеков в долг: {d.Checks}, долг с {d.Oldest:dd.MM.yyyy}" + (d.Overdue30 > 0.005 ? $", просрочено > 30 дн.: {Money2(d.Overdue30)}" : "");
+                full.AppendLine(line);
+                if (n <= 10)
+                    brief.AppendLine(line);
             }
+            if (facts.Debtors.Count > 60)
+                full.AppendLine($"(показаны 60 из {facts.Debtors.Count} — остальные в разделе «Долги клиентов»)");
+            if (n > 10)
+                brief.AppendLine($"(показаны 10 из {facts.Debtors.Count} — весь список: НУЖНО: debtors)");
             LastDebtors = debtors;
-            return (sb.ToString().TrimEnd(), names);
+            return (new AiSection("debtors", "Должники (коды)", 7, full.ToString().TrimEnd(), brief.ToString().TrimEnd(), SourceSection: "debts",
+                SourceLabel: facts.Exact ? "Долги клиентов (точно)" : "Долги клиентов (≈)", Personal: true), names);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             PosLogger.Log($"ИИ-советник: должники не получены ({ex.Message}).", "WARNING");
-            return ("ДОЛЖНИКИ: сервер сейчас не ответил.", names);
+            return (new AiSection("debtors", "Должники", 7, "ДОЛЖНИКИ: сервер сейчас не ответил."), names);
         }
     }
 
-    /// <summary>Коды [Д1]… в ответе нейросети → настоящие имя и телефон (только на экране владельца).</summary>
-    public static string RevealDebtors(string answer, IReadOnlyDictionary<int, string> names) =>
-        names.Count == 0
+    /// <summary>Коды [Д1]… в ответе нейросети → настоящие имя и телефон (только на экране владельца); [С1]… — имена сотрудников.
+    /// 2026-10-21 (О9): только СО СКОБКАМИ — «витамин Д3» или товар «Д10» больше не превращаются в должника.</summary>
+    public static string RevealCodes(string answer, IReadOnlyDictionary<int, string> names) =>
+        AiPseudonyms.RevealStaff(names.Count == 0
             ? answer
-            : System.Text.RegularExpressions.Regex.Replace(answer, @"\[?Д(\d{1,3})\]?",
-                m => int.TryParse(m.Groups[1].Value, out var i) && names.TryGetValue(i, out var name) ? name : m.Value);
+            : System.Text.RegularExpressions.Regex.Replace(answer, @"\[Д(\d{1,3})\]",
+                m => int.TryParse(m.Groups[1].Value, out var i) && names.TryGetValue(i, out var name) ? name : m.Value));
+
+    /// <summary>Склад итогом (всегда в ИИ, О1): сколько товаров, в наличии, остаток по закупке и по цене продажи.</summary>
+    public static AiSection WarehouseTotalsSection()
+    {
+        try
+        {
+            var tiles = OwnerShopFacts.Tiles().Where(t => !t.IsService).ToList();
+            if (tiles.Count == 0)
+                return new AiSection("warehouse_totals", "Склад итогом", 0, "СКЛАД: каталог в программе ещё не загружен — подскажи раздел «Склад».");
+            var inStock = tiles.Where(t => t.Quantity > 0).ToList();
+            var sale = inStock.Sum(t => t.Quantity * LocalCartService.ParsePrice(t.PriceLine));
+            var cost = inStock.Sum(t => t.Quantity * t.PurchasePrice);
+            var noCost = inStock.Count(t => t.PurchasePrice <= 0);
+            return new AiSection("warehouse_totals", "Склад итогом", 0,
+                $"СКЛАД ИТОГОМ (каталог программы, как раздел «Склад»): товаров {tiles.Count}, в наличии {inStock.Count}, с нулевым или минусовым остатком {tiles.Count - inStock.Count}; " +
+                $"остаток по закупке {Money2(cost)}, по цене продажи {Money2(sale)}" + (noCost > 0 ? $" (у {noCost} товаров в наличии закупка не указана)" : "") + ".",
+                SourceSection: "warehouse", SourceLabel: "Склад (каталог программы)");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: итоги склада не собраны ({ex.Message}).", "WARNING");
+            return new AiSection("warehouse_totals", "Склад итогом", 0, "СКЛАД: данные склада сейчас недоступны.");
+        }
+    }
+
+    /// <summary>Весь склад построчно (О1): полный — все товары, короткий — 40 самых дорогих остатков; приоритет 10 (поднимается, если
+    /// спрашивают список склада).</summary>
+    public static AiSection WarehouseListSection()
+    {
+        try
+        {
+            var tiles = OwnerShopFacts.Tiles().Where(t => !t.IsService).ToList();
+            string Line(CatalogProductTileVm t)
+            {
+                var unit = string.IsNullOrWhiteSpace(t.Unit) ? (t.MustWeigh ? "кг" : "шт.") : t.Unit;
+                var cost = t.PurchasePrice > 0 ? t.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture) : "—";
+                return $"• {t.Title} | {t.Category ?? "—"} | {LocalCartService.ParsePrice(t.PriceLine):0.##} | {cost} | {t.Quantity:0.###} {unit}" + (string.IsNullOrWhiteSpace(t.Barcode) ? "" : $" | {t.Barcode}");
+            }
+            const string head = "СКЛАД ПОСТРОЧНО — название | категория | цена продажи | закупка | остаток | штрихкод:";
+            var full = head + "\n" + string.Join("\n", tiles.OrderBy(t => t.Category ?? "").ThenBy(t => t.Title).Select(Line));
+            var top = tiles.OrderByDescending(t => Math.Max(0, t.Quantity) * Math.Max(t.PurchasePrice, 0)).Take(40).ToList();
+            var brief = head + $" (показаны 40 из {tiles.Count} — самые дорогие остатки; весь склад: НУЖНО: warehouse)\n" + string.Join("\n", top.Select(Line));
+            return new AiSection("warehouse", "Склад построчно (все товары)", 10, full, brief, SourceSection: "warehouse", SourceLabel: "Склад (каталог программы)");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: склад не собран ({ex.Message}).", "WARNING");
+            return new AiSection("warehouse", "Склад построчно", 10, "СКЛАД: данные склада сейчас недоступны.");
+        }
+    }
+
+    /// <summary>Товары, названные в вопросе (по словам названия или штрихкоду), — с ценой, закупкой, остатком и продажами 30 дней (О1, приоритет 1).</summary>
+    public static async Task<AiSection?> QuestionProductsSectionAsync(string question, CancellationToken ct)
+    {
+        try
+        {
+            var found = ProductActionPlan.Mentioned(question, 8);
+            var digits = System.Text.RegularExpressions.Regex.Matches(question ?? "", @"\d{6,14}").Select(m => m.Value).ToHashSet();
+            if (digits.Count > 0)
+                found = found.Concat(OwnerShopFacts.Tiles().Where(t => !string.IsNullOrWhiteSpace(t.Barcode) && digits.Contains(t.Barcode.Trim()))).DistinctBy(t => t.Id).ToList();
+            if (found.Count == 0)
+                return null;
+            // Продажи этих товаров за период вопроса (не назван — 30 дней) — тот же расчёт, что «ABC-анализ». Только если о продажах
+            // спрашивают (иначе — лишний отчёт сервера на каждый вопрос с названием товара, О3).
+            var (pFrom, pToEx, pLabel) = OwnerSalesData.Period(question ?? "");
+            var askSales = new[] { "продал", "продаж", "продан", "сатыл", "саттык", "сатуу", "sold", "sales", "satıl", "sotil" }.Any((question ?? "").ToLowerInvariant().Contains);
+            if (pToEx - pFrom <= TimeSpan.FromDays(1) && !System.Text.RegularExpressions.Regex.IsMatch((question ?? "").ToLowerInvariant(), @"сегодн|вчера|позавчера|кечээ|бүгүн|today|yesterday|\d{1,2}[./]\d{1,2}"))
+                (pFrom, pToEx, pLabel) = (DateTime.Today.AddDays(-29), DateTime.Today.AddDays(1), "30 дней");
+            Dictionary<string, (double Qty, double Sum)> sold = new(StringComparer.OrdinalIgnoreCase);
+            if (!askSales)
+                pLabel = "";
+            else try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(TimeSpan.FromSeconds(6));
+                var report = await AnalyticsReportData.BuildAsync(App.SalesApi, pFrom, pToEx.AddDays(-1), includeSeasonality: false, ct: cts.Token).ConfigureAwait(false);
+                foreach (var r in report.Slice(AnalyticsReportData.KeyRevenue)?.Rows ?? report.Abc)
+                    sold[r.Name.Trim()] = sold.TryGetValue(r.Name.Trim(), out var e) ? (e.Qty + r.Quantity, e.Sum + r.Sum) : (r.Quantity, r.Sum);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                PosLogger.Log($"ИИ-советник: продажи товаров из вопроса не получены ({ex.GetType().Name}).", "WARNING");
+                pLabel = "";
+            }
+            var sb = new StringBuilder("ТОВАРЫ ИЗ ВОПРОСА (найдены программой в каталоге по названию/штрихкоду — других похожих товаров на складе нет; если нужного нет в списке, скажи, что такого товара нет):\n");
+            foreach (var t in found)
+            {
+                var price = LocalCartService.ParsePrice(t.PriceLine);
+                var markup = t.PurchasePrice > 0 ? $", наценка {(price - t.PurchasePrice) / t.PurchasePrice * 100:0.#} %" : "";
+                sb.AppendLine($"• {t.Title} — цена {price:0.##} сом, закупка {(t.PurchasePrice > 0 ? t.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture) + " сом" : "не указана")}{markup}, "
+                              + $"остаток {t.Quantity:0.###} {(string.IsNullOrWhiteSpace(t.Unit) ? "шт." : t.Unit)}" + (string.IsNullOrWhiteSpace(t.Barcode) ? "" : $", штрихкод {t.Barcode}")
+                              + (string.IsNullOrWhiteSpace(t.Category) ? "" : $", категория {t.Category}")
+                              + (pLabel.Length == 0 ? "" : sold.TryGetValue(t.Title.Trim(), out var st) ? $"; продано за {pLabel} ({pFrom:dd.MM}–{pToEx.AddDays(-1):dd.MM}): {st.Qty:0.###} шт. на {st.Sum:N0} сом" : $"; за {pLabel} продаж не было"));
+            }
+            return new AiSection("question_products", "Товары из вопроса", 1, sb.ToString().TrimEnd(), SourceSection: "warehouse", SourceLabel: "Склад (каталог программы)");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: товары из вопроса не найдены ({ex.Message}).", "WARNING");
+            return null;
+        }
+    }
 
     private static string? Str(System.Text.Json.JsonElement e, string name) =>
         e.ValueKind == System.Text.Json.JsonValueKind.Object && e.TryGetProperty(name, out var v)
@@ -405,8 +440,6 @@ public static class OwnerAiContext
                && double.TryParse(v.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var s) ? s : null;
     }
 
-    private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
-    private const int MaxProducts = 600;
 
     /// <summary>2026-10-05, владелец: «добавь боту и ИИ отправлять фото товара, если есть». Товары каталога,
     /// названные в ответе советника (по полному названию, без учёта регистра), у которых есть фото, — в порядке
@@ -437,41 +470,6 @@ public static class OwnerAiContext
         {
             PosLogger.Log($"ИИ-советник: товары для фото не найдены ({ex.Message}).", "WARNING");
             return Array.Empty<CatalogProductTileVm>();
-        }
-    }
-
-    public static string BuildWarehouse()
-    {
-        try
-        {
-            IReadOnlyList<CatalogProductTileVm> tiles = LocalProductRepository.Instance.LoadAllTiles();
-            if (tiles.Count == 0)
-                tiles = CatalogCacheService.Products.ToList();
-            if (tiles.Count == 0)
-                return "СКЛАД: каталог в программе ещё не загружен — подскажи раздел «Склад».";
-
-            static double Price(CatalogProductTileVm t) => LocalCartService.ParsePrice(t.PriceLine);
-            var stockSale = tiles.Where(t => t.Quantity > 0).Sum(t => t.Quantity * Price(t));
-            var stockCost = tiles.Where(t => t.Quantity > 0).Sum(t => t.Quantity * t.PurchasePrice);
-            var outOfStock = tiles.Count(t => t.Quantity <= 0);
-            var sb = new StringBuilder();
-            sb.AppendLine($"СКЛАД (каталог программы): товаров {tiles.Count}, с нулевым остатком {outOfStock}; " +
-                          $"остаток по цене продажи {stockSale.ToString("N2", Ru)} сом, по закупке {stockCost.ToString("N2", Ru)} сом.");
-            sb.AppendLine("Товары — название | категория | цена продажи | закупка | остаток:");
-            foreach (var t in tiles.OrderBy(t => t.Category ?? "").ThenBy(t => t.Title).Take(MaxProducts))
-            {
-                var unit = string.IsNullOrWhiteSpace(t.Unit) ? (t.MustWeigh ? "кг" : "шт.") : t.Unit;
-                var cost = t.PurchasePrice > 0 ? t.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture) : "—";
-                sb.AppendLine($"• {t.Title} | {t.Category ?? "—"} | {Price(t):0.##} | {cost} | {t.Quantity:0.###} {unit}");
-            }
-            if (tiles.Count > MaxProducts)
-                sb.AppendLine($"… и ещё {tiles.Count - MaxProducts} товаров (полный список — раздел «Склад»).");
-            return sb.ToString().TrimEnd();
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"ИИ-советник: склад не собран ({ex.Message}).", "WARNING");
-            return "СКЛАД: данные склада сейчас недоступны.";
         }
     }
 

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб в телефоне — чек и оплата</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.ln{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F2F4F7}
+.st{width:30px;height:30px;border-radius:15px;font-family:inherit;font-size:16px;display:flex;align-items:center;justify-content:center}
+.m{flex-grow:1;height:46px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.m.on{border:2px solid #0B2A3C;background:#FFF7CC;color:#0B2A3C}
+.q{flex-grow:1;height:38px;border-radius:19px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; position: relative; overflow: hidden">
+  <header style="height: 60px; background: #FFFFFF; border-bottom: 1px solid #EAECF0; display: flex; align-items: center; padding: 0 68px"><b style="font-size: 16px">Веб-касса</b></header>
+  <div style="padding: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px"><span style="height: 150px; border-radius: 16px; background: #FFFFFF"></span><span style="height: 150px; border-radius: 16px; background: #FFFFFF"></span></div>
+  <div style="position: absolute; inset: 0; background: rgba(11,42,60,.45)"></div>
+
+  <section role="dialog" aria-label="Чек и оплата" style="position: absolute; left: 0; right: 0; bottom: 0; height: 690px; background: #FFFFFF; border-radius: 24px 24px 0 0; display: flex; flex-direction: column">
+    <span style="align-self: center; width: 40px; height: 4px; border-radius: 2px; background: #D0D5DD; margin-top: 10px"></span>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 18px"><b style="font-size: 18px; flex-grow: 1">Чек · 2 позиции</b><button type="button" aria-label="Свернуть" style="width: 40px; height: 40px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div>
+    <div style="padding: 0 18px; display: flex; flex-direction: column">
+      <div class="ln"><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 600">Макароны «Макфа» 450г</span><b style="font-size: 13px; color: #0B2A3C">170 сом</b></span><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="min-width: 16px; text-align: center">2</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></div>
+      <div class="ln"><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 600">Mars</span><b style="font-size: 13px; color: #0B2A3C">39 сом</b></span><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="min-width: 16px; text-align: center">1</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></div>
+    </div>
+    <div style="padding: 14px 18px 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; gap: 6px"><button type="button" class="m on">Наличные</button><button type="button" class="m">Карта</button><button type="button" class="m">QR</button><button type="button" class="m">Долг</button></div>
+      <label for="got" style="font-size: 11px; font-weight: 700; color: #667085">ПОЛУЧЕНО</label>
+      <input id="got" type="text" value="500" style="height: 52px; box-sizing: border-box; border-radius: 14px; border: 2px solid #0B2A3C; padding: 0 14px; font-family: inherit; font-size: 22px; font-weight: 800">
+      <div style="display: flex; gap: 6px"><button type="button" class="q">Без сдачи</button><button type="button" class="q">500</button><button type="button" class="q">1000</button></div>
+      <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 14px; font-weight: 700">Сдача</span><b style="font-size: 22px; color: #0E7A3A">291 сом</b></div>
+    </div>
+    <span style="flex-grow: 1"></span>
+    <div style="padding: 12px 18px 22px; border-top: 1px solid #EAECF0; display: flex; align-items: center; gap: 12px">
+      <span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #667085">Итого</span><b style="font-size: 22px; color: #0B2A3C">209 сом</b></span>
+      <button type="button" style="flex-grow: 1; height: 56px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 17px; font-weight: 800">Провести</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

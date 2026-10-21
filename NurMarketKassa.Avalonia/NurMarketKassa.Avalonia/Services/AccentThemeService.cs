@@ -67,7 +67,7 @@ public static class AccentThemeService
         double TileWidth = 190, double TileHeight = 204, double TilePhotoHeight = 64,
         double TileNameSize = 14, double TilePriceSize = 24, double TileStockSize = 13,
         double ControlHeight = 36, double BorderThickness = 1,
-        string? Ornament = null);
+        string? Ornament = null, bool AccentPrimaryAction = false);
 
     /// <summary>Шрифт с кириллицей и кыргызскими буквами (ң, ө, ү): системный Segoe UI рисует
     /// их не во всех начертаниях, поэтому первым в списке идёт вшитый Noto Sans.</summary>
@@ -102,6 +102,42 @@ public static class AccentThemeService
         // Родной вид кассы — то, с чем она ставится: жёлтый акцент в светлом режиме, синий в
         // тёмном, прямые углы.
         ["classic"] = new(BaseLight, BaseDark, ButtonRadius: 0, CardRadius: 0, FontSize: 14),
+
+        // 2026-10-16, редизайн (этап 1): фирменная тема по макетам и design/…/nurcrm/tokens.json.
+        // Решение владельца: тёмно-синий #0B2A3C — текст и навигация, жёлтый #FFD600 — главное
+        // действие и выбранное (текст на жёлтом — тёмно-синий, 10,5:1); остальное — из токенов:
+        // поверхности #FFFFFF / #F9FAFB / #E5E7EB, второстепенный текст #666666, тёмный вариант
+        // #111827 / #1C2536 / #26314A, текст #E5E7EB / #98A2B3, скругления 8 (кнопки) и 12 (карточки).
+        // Рамка фокуса — тёмно-синяя (жёлтая по белому — 1,4:1, её не видно), в тёмном — жёлтая.
+        // Главная кнопка диалогов (btn-primary) — тоже жёлтая (AccentPrimaryAction).
+        // Цвета ошибки/успеха оставлены прежними: #FB2C36 и #16A34A из токенов с белым текстом
+        // дают 3,8:1 и 3,3:1 — мелкий текст не читается.
+        ["nurmarket"] = new(
+            BaseLight with
+            {
+                Window = "#F9FAFB", WindowAlt = "#FFFFFF", Panel = "#FFFFFF", PanelElevated = "#FFFFFF",
+                PanelSoft = "#E5E7EB", Input = "#FFFFFF", InputAlt = "#F9FAFB",
+                Border = "#D1D5DB", BorderStrong = "#9CA3AF",
+                Text = "#0B2A3C", TextMuted = "#374151", TextSoft = "#666666",
+                Accent = "#FFD600", AccentStrong = "#EBC500", AccentSoft = "#FFF7CC", AccentForeground = "#0B2A3C",
+                TileBg = "#FFFFFF", TileBorder = "#E5E7EB", Price = "#0B2A3C", Meta = "#666666", Stock = "#374151",
+                TabBg = "#E5E7EB", TabBgHover = "#D1D5DB", TabBgSelected = "#FFD600", TabBorderSelected = "#EBC500",
+                Focus = "#0B2A3C", Money = "#0B2A3C", SurfaceSubtle = "#F9FAFB",
+            },
+            BaseDark with
+            {
+                Window = "#111827", WindowAlt = "#1C2536", Panel = "#1C2536", PanelElevated = "#212B3F",
+                PanelSoft = "#26314A", Input = "#1C2536", InputAlt = "#212B3F",
+                Border = "#3A4251", BorderStrong = "#585F6C",
+                Text = "#E5E7EB", TextMuted = "#C6CBD5", TextSoft = "#98A2B3",
+                Accent = "#FFD600", AccentStrong = "#FFE14D", AccentSoft = "#40412D", AccentForeground = "#0B2A3C",
+                // 2026-10-21: цена — цветом текста, как в светлом варианте (пакет 5, п. 19): жёлтыми были ВСЕ цены
+                // каталога — акцент без смысла; жёлтый остаётся только у главного действия и выбранного.
+                TileBg = "#1C2536", TileBorder = "#3A4251", Price = "#E5E7EB", Meta = "#98A2B3", Stock = "#C6CBD5",
+                TabBg = "#212B3F", TabBgHover = "#26314A", TabBgSelected = "#FFD600", TabBorderSelected = "#FFE14D",
+                Focus = "#FFD600", Money = "#E5E7EB", SurfaceSubtle = "#1C2536",
+            },
+            ButtonRadius: 8, CardRadius: 12, FontSize: 14, ControlHeight: 40, AccentPrimaryAction: true),
 
         // Строгий монохром: ни одного цветного пятна, кроме самой кнопки действия. Поверхности
         // холодно-серые, цена чёрная, углы заметно скруглены — вид делового приложения.
@@ -378,6 +414,16 @@ public static class AccentThemeService
             DescTr = "Kasanın özgün görünümü: açık modda sarı, koyu modda mavi vurgu, keskin köşeler. Kasa bu temayla kurulur.",
             DescUz = "Kassaning asl ko'rinishi: yorug' rejimda sariq, qorong'i rejimda ko'k urg'u, to'g'ri burchaklar. Kassa shu mavzu bilan o'rnatiladi.",
         },
+        // 2026-10-16, редизайн (этап 1): фирменная тема по макетам.
+        new("nurmarket", "NurMarket", "NurMarket", "",
+            "Фирменный вид по новым макетам: тёмно-синий текст и навигация, жёлтая главная кнопка и выбранное, мягкие скругления, хорошо заметная рамка у поля ввода.",
+            "Жаңы макеттер боюнча фирмалык көрүнүш: кочкул көк текст жана навигация, сары негизги баскыч жана тандалган, жумшак бурчтар, киргизүү талаасынын даана көрүнгөн алкагы.")
+        {
+            LabelEn = "NurMarket", LabelTr = "NurMarket", LabelUz = "NurMarket",
+            DescEn = "The brand look from the new designs: dark navy text and navigation, a yellow main button and selection, soft rounding and a clearly visible frame around the active field.",
+            DescTr = "Yeni tasarımlardaki marka görünümü: lacivert metin ve gezinme, sarı ana düğme ve seçim, yumuşak köşeler ve etkin alanın etrafında net görünen çerçeve.",
+            DescUz = "Yangi maketlar bo'yicha brend ko'rinishi: to'q ko'k matn va navigatsiya, sariq asosiy tugma va tanlangan element, yumshoq burchaklar, faol maydon atrofida aniq ko'rinadigan ramka.",
+        },
         new("graphite", "Графит", "Графит", "",
             "Строгий монохром без цветных пятен: холодно-серые поверхности, чёрная цена, заметно скруглённые кнопки и карточки.",
             "Катаал монохром: муздак боз беттер, кара баа, баскычтар менен карточкалар байкаларлык тегерек.")
@@ -471,7 +517,7 @@ public static class AccentThemeService
         "BrushAccent", "BrushPrimary", "BrushAccentStrong", "BrushAccentSoft", "BrushAccentForeground",
         "BrushCatalogTileBg", "BrushCatalogTileBorder", "BrushCatalogPrice", "BrushCatalogMeta", "BrushCatalogStock",
         "BrushCatalogTabBg", "BrushCatalogTabBgHover", "BrushCatalogTabBgSelected", "BrushCatalogTabBorderSelected",
-        "BrushFocus", "BrushMoney", "BrushSurfaceSubtle",
+        "BrushFocus", "BrushFocusRing", "BrushMoney", "BrushSurfaceSubtle",
         "BrushHeader", "BrushHeaderText",
         // Цвета состояний задаёт только своя тема (редактор тем, 2026-09-28); у встроенных они
         // из Themes/AppThemeLight/AppThemeDark, поэтому снятие ключа их не трогает.
@@ -567,8 +613,16 @@ public static class AccentThemeService
         app.Resources["BrushCatalogTabBgSelected"] = Brush(p.TabBgSelected);
         app.Resources["BrushCatalogTabBorderSelected"] = Brush(p.TabBorderSelected);
         app.Resources["BrushFocus"] = Brush(p.Focus);
+        // 2026-10-16, редизайн: рамка поля в фокусе у модалок (ModalShell). У «Классической» фокус
+        // жёлтый — по белому полю 1,4:1, рамки не видно; тогда берём цвет текста (контраст ≥ 3:1).
+        app.Resources["BrushFocusRing"] = Brush(Contrast(p.Focus, p.Input) >= 3.0 ? p.Focus : p.Text);
         app.Resources["BrushMoney"] = Brush(p.Money);
         app.Resources["BrushSurfaceSubtle"] = Brush(p.SurfaceSubtle);
+        // 2026-10-18: отклик кнопок на нажатие (PosDialogStyles.axaml): нажатая главная — на шаг дальше
+        // наведения (AccentStrong), нажатая кнопка с обводкой — на шаг темнее мягкого фона наведения
+        // (в тёмной теме — светлее). Оттенки вычисляются из палитры темы, своих цветов нет.
+        app.Resources["BrushAccentPressed"] = Brush(PressedAccent(p));
+        app.Resources["BrushPanelPressed"] = Brush(Mix(p.PanelSoft, p.Text, 0.08));
 
         // Шапка кассы: у большинства тем — своя панель, у «Витрины» — заливка акцентом.
         app.Resources["BrushHeader"] = Brush(p.Header ?? p.WindowAlt);
@@ -600,6 +654,19 @@ public static class AccentThemeService
             ApplyStatusColors(app, custom, p);
 
         ApplyOrnament(app, skin, dark, p, custom);
+
+        // 2026-10-18: красный текст опасных кнопок с обводкой и пункта «Удалить» — читаемый (≥ 4,5:1) и на мягком
+        // красном фоне наведения: в тёмной теме #F14C4C на #522626 давал 3,5:1. Цвет ошибки темы, доведённый к цвету
+        // текста ровно настолько, насколько нужно; в светлой теме остаётся тем же.
+        app.Resources["BrushDangerOnSoft"] = Brush(DangerOnSoft(app, dark, p));
+    }
+
+    private static string DangerOnSoft(Application app, bool dark, Palette p)
+    {
+        var variant = dark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light;
+        string Hex(string key, string fallback) =>
+            app.TryGetResource(key, variant, out var v) && v is ISolidColorBrush b ? $"#{b.Color.R:X2}{b.Color.G:X2}{b.Color.B:X2}" : fallback;
+        return Readable(Hex("BrushDanger", "#B91C1C"), Hex("BrushDangerSoft", "#FEE2E2"), p.Text, 4.5);
     }
 
     private static readonly Dictionary<string, Bitmap?> OrnamentCache = new(StringComparer.OrdinalIgnoreCase);
@@ -661,12 +728,13 @@ public static class AccentThemeService
         }
 
         // Основная кнопка диалогов (btn-primary): у тем без орнамента — прежний синий.
-        var ornament = skin.Ornament is not null && custom is null;
+        // 2026-10-16: у «NurMarket» (AccentPrimaryAction) — акцент темы, жёлтый с тёмно-синим текстом.
+        var ornament = (skin.Ornament is not null && custom is null) || skin.AccentPrimaryAction;
         app.Resources["BrushPrimaryAction"] = ornament
             ? (app.Resources.TryGetValue("BrushAccent", out var accent) && accent is IBrush a ? a : Brush(p.Accent))
             : Brush("#2563EB");
         app.Resources["BrushPrimaryActionHover"] = Brush(ornament ? p.AccentStrong : "#3B82F6");
-        app.Resources["BrushPrimaryActionPressed"] = Brush(ornament ? p.AccentStrong : "#1D4ED8");
+        app.Resources["BrushPrimaryActionPressed"] = Brush(ornament ? PressedAccent(p) : "#1D4ED8"); // 2026-10-18: нажатая темнее наведения
         app.Resources["BrushPrimaryActionForeground"] = Brush(ornament ? p.AccentForeground : "#FFFFFF");
 
         app.Resources["BrushWindowBackdrop"] = backdrop;
@@ -881,6 +949,17 @@ public static class AccentThemeService
         var b = ParseColor(hexB);
         byte M(byte x, byte y) => (byte)Math.Clamp(Math.Round(x + (y - x) * t), 0, 255);
         return $"#{M(a.R, b.R):X2}{M(a.G, b.G):X2}{M(a.B, b.B):X2}";
+    }
+
+    /// <summary>2026-10-18: цвет нажатой главной кнопки — темнее акцента: продолжение шага «акцент → наведение» (×1,6),
+    /// если наведение темнее (светлые темы), иначе (в тёмных темах наведение светлее) — акцент на 14 % темнее.
+    /// Если надпись на нём читается хуже, чем на самом акценте (и хуже 4,5:1), — остаётся цвет наведения.</summary>
+    private static string PressedAccent(Palette p)
+    {
+        var hoverDarker = Luminance(ParseColor(p.AccentStrong)) < Luminance(ParseColor(p.Accent));
+        var pressed = hoverDarker ? Mix(p.Accent, p.AccentStrong, 1.6) : Mix(p.Accent, "#000000", 0.14);
+        var floor = Math.Min(4.5, Contrast(p.Accent, p.AccentForeground));
+        return Contrast(pressed, p.AccentForeground) >= floor ? pressed : p.AccentStrong;
     }
 
     private static string BestTextOn(string background) =>

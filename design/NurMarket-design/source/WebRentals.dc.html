@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Прокат — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.col{flex:1 1 200px;min-width:0;background:#EAECF0;border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.ch{display:flex;align-items:center;gap:8px;padding:2px 4px;font-size:14px;font-weight:800}
+.ct{font-size:12px;font-weight:800;padding:2px 8px;border-radius:999px;background:#FFFFFF;color:#344054}
+.it{background:#FFFFFF;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+.it > b{font-size:14px}
+.it > span{font-size:12px;color:#667085}
+.sm{height:34px;padding:0 10px;border-radius:9px;border:1.5px solid #D0D5DD;background:#FFFFFF;color:#0B2A3C;font-family:inherit;font-size:12px;font-weight:700;white-space:nowrap}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054;white-space:nowrap}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Прокат" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Прокат</b><span style="font-size: 13px; color: #667085">На руках 8 · залогов 16&nbsp;000 сом · штраф 150 сом/сутки просрочки</span></span>
+      <label style="flex: 0 1 210px; height: 44px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><input type="text" placeholder="Клиент, телефон или №" aria-label="Поиск по прокату" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 13px; width: 100%"></label>
+      <button type="button" class="b2">Календарь занятости</button>
+      <button type="button" class="b1">Выдать в прокат</button>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start">
+      <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start">
+        <section class="col">
+          <div class="ch"><span style="width: 10px; height: 10px; border-radius: 5px; background: #0B2A3C"></span><span style="flex-grow: 1">На руках</span><span class="ct">4</span></div>
+          <sc-for list="{{onHand}}" as="i" hint-placeholder-count="4">
+            <div class="it"><b>Бетономешалка · №{{i.no}}</b><span>{{i.who}} · до {{i.till}}</span><span>Залог 2&nbsp;000 сом · {{i.left}}</span><div style="display: flex; gap: 6px"><button type="button" class="sm">Продлить</button></div></div>
+          </sc-for>
+        </section>
+        <section class="col">
+          <div class="ch"><span style="width: 10px; height: 10px; border-radius: 5px; background: #B54708"></span><span style="flex-grow: 1">Вернуть сегодня</span><span class="ct">1</span></div>
+          <div class="it"><b>Бетономешалка · №23</b><span>Ильяс Жумабеков · выдана 11.10</span><span style="color: #B54708; font-weight: 700">сегодня до 18:00</span><div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="sm">Принять…</button><button type="button" class="sm">Продлить</button><button type="button" class="sm">Напомнить</button></div></div>
+        </section>
+        <section class="col">
+          <div class="ch"><span style="width: 10px; height: 10px; border-radius: 5px; background: #B42318"></span><span style="flex-grow: 1">Просрочено</span><span class="ct" style="color: #B42318">3</span></div>
+          <sc-for list="{{late}}" as="i" hint-placeholder-count="3">
+            <div class="it" style="border: {{i.border}}"><b>Бетономешалка · №{{i.no}}</b><span>{{i.who}} · до {{i.till}}</span><span style="color: #B42318; font-weight: 700">просрочено {{i.days}} · штраф {{i.fine}}</span><div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="sm">Принять…</button><button type="button" class="sm">Продлить</button><button type="button" class="sm">WhatsApp</button></div></div>
+          </sc-for>
+        </section>
+      </div>
+
+      <!-- 2026-10-16: «Принять» — залог и штраф по правилу денег вне смены (SPEC п. 7); одна жёлтая кнопка на экран — «Выдать в прокат» -->
+      <aside style="flex: 1 1 280px; max-width: 320px; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px">
+        <span style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><b style="font-size: 15px">Принять из проката · №22 Арслан</b><button type="button" aria-label="Закрыть" style="width: 32px; height: 32px; border: 0; background: transparent; font-size: 16px; color: #475467; flex-shrink: 0">✕</button></span>
+        <span style="font-size: 12px; color: #667085; line-height: 1.4">Бетономешалка · выдана 09.10 на 1 сутки (до 10.10 18:00) · просрочено 2 дня</span>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; border-top: 1px dashed #D0D5DD; border-bottom: 1px dashed #D0D5DD; padding: 8px 0">
+          <span style="display: flex; justify-content: space-between"><span style="color: #475467">Залог</span><b>2&nbsp;000 сом</b></span>
+          <span style="display: flex; justify-content: space-between"><span style="color: #475467">Штраф · 2 дн. × 150</span><b style="color: #B42318">−300 сом</b></span>
+          <span style="display: flex; justify-content: space-between; font-size: 14px"><b>Вернуть клиенту</b><b style="color: #0B2A3C">1&nbsp;700 сом</b></span>
+        </div>
+        <div role="radiogroup" aria-label="Как вернуть залог" style="display: flex; flex-direction: column; gap: 6px">
+          <sc-for list="{{ways}}" as="w" hint-placeholder-count="3">
+            <label style="display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 12px; border-radius: 10px; border: {{w.border}}; font-size: 13px; font-weight: 600"><span style="width: 16px; height: 16px; border-radius: 8px; box-sizing: border-box; border: {{w.radio}}; flex-shrink: 0"></span>{{w.name}}</label>
+          </sc-for>
+        </div>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: #475467">Касса и смена<button type="button" style="min-height: 40px; text-align: left; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF; padding: 6px 12px; font-family: inherit; font-size: 13px; font-weight: 600; color: #0B2A3C; line-height: 1.35">Касса 1 · смена Кассир Тест открыта с 08:55 ▾</button></label>
+        <span style="font-size: 12px; color: #667085; line-height: 1.4">Наличные проходят только через открытую смену — так касса сходится. Кассир выдаст 1&nbsp;700 сом и пробьёт штраф в своей смене.</span>
+        <span style="display: flex; gap: 8px"><button type="button" class="sm" style="flex: 1 1 0; height: 42px">Отмена</button><button type="button" class="sm" style="flex: 2 1 0; height: 42px; border: 0; background: #0B2A3C; color: #FFFFFF">Отправить на кассу</button></span>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: те же 8 выдач, что на доске «Прокат» программы владельца: на руках 8, просрочено 3 (№22 Арслан с 09.10, №19, №17).
+    // Бетономешалка — вид «Прокат», 150 сом/сутки, залог 2 000 сом, штраф 150 сом за сутки просрочки.
+    const onHand = [
+      { no: '21', who: 'Бакыт', till: '13.10 18:00', left: 'завтра' },
+      { no: '24', who: 'Айпери', till: '13.10 09:30', left: 'завтра' },
+      { no: '25', who: 'Кубат Исаков', till: '15.10 11:10', left: 'через 3 дня' },
+      { no: '20', who: 'Айбек Маматов', till: '17.10 18:00', left: 'через 5 дней' }
+    ];
+    const late = [
+      { no: '22', who: 'Арслан', till: '10.10', days: '2 дн.', fine: '300 сом', border: '2px solid #0B2A3C' },
+      { no: '19', who: 'Гульмира Асанова', till: '09.10', days: '3 дн.', fine: '450 сом', border: '1px solid #FDA29B' },
+      { no: '17', who: 'Нуржан Токтосунов', till: '08.10', days: '4 дн.', fine: '600 сом', border: '1px solid #FDA29B' }
+    ];
+    const on = { border: '2px solid #0B2A3C', radio: '5px solid #0B2A3C' }, off = { border: '1px solid #E5E7EB', radio: '1.5px solid #98A2B3' };
+    const ways = [
+      Object.assign({ name: 'Наличными — через кассу' }, on),
+      Object.assign({ name: 'Картой или QR' }, off),
+      Object.assign({ name: 'Переводом' }, off)
+    ];
+    return { onHand, late, ways };
+  }
+}
+</script>
+</body>
+</html>

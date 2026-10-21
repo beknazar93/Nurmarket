@@ -198,6 +198,12 @@ public sealed class AnalyticsReportData
                 .Select(r => (Name: Text(r, "brand") ?? "", Quantity: Num(r, "qty_sold"), Revenue: Num(r, "revenue")))
                 .Where(r => r.Name.Length > 0)
                 .ToList();
+            // 2026-10-20, аудит владельца: товаров меньше, чем продано (сервер обрезал список) — видно по сумме:
+            // категории сервер отдаёт полностью. Пишем в журнал, чтобы не гадать, откуда «ABC по 20 товарам».
+            var productsSum = products.Sum(p => p.Revenue);
+            var categoriesSum = categories.Sum(c => c.Revenue);
+            if (categoriesSum > 0 && productsSum < categoriesSum * 0.97)
+                PosLogger.Log($"Аналитика: сервер отдал товаров {products.Count} на {productsSum:0.##} при выручке категорий {categoriesSum:0.##} — список товаров неполный.", "WARNING");
 
             if (!full)
                 return new ServerFigures { Products = products, Categories = categories, Brands = brands };
@@ -425,7 +431,8 @@ public sealed class AnalyticsReportData
             Returns = server?.Returns ?? Event(ShiftEventsStore.KindReturn),
             WriteOffs = Event(ShiftEventsStore.KindWriteOff),
             Expenses = Event(ShiftEventsStore.KindExpense),
-            DebtPayments = Event(ShiftEventsStore.KindDebtPayment),
+            // 2026-10-18: «Оплата долгов» в аналитике — все погашения (наличные и безнал), это не остаток ящика.
+            DebtPayments = Event(ShiftEventsStore.KindDebtPayment) + Event(ShiftEventsStore.KindDebtPaymentNonCash),
             // Чек — это одна отметка времени: все строки одной продажи пишутся одним моментом.
             ReceiptCount = server?.ReceiptCount ?? lines.Select(l => l.SoldAt).Distinct().Count(),
             ByDay = server?.ByDay ?? byDay,
@@ -755,7 +762,7 @@ public sealed class AnalyticsReportData
                 KeyRevenue,
                 Tr.T("Товары по выручке", "Түшүм боюнча товарлар", "Products by revenue", "Ciroya göre ürünler", "Tushum bo'yicha mahsulotlar"),
                 Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
-                Tr.T("Классический ABC: где сосредоточены деньги магазина.", "Классикалык ABC: дүкөндүн акчасы кайда топтолгон.", "Classic ABC: where the shop's money is concentrated.", "Klasik ABC: mağazanın parası nerede toplanıyor.", "Klassik ABC: do'kon pullari qayerda jamlangan."),
+                Tr.T("Где сосредоточены деньги магазина: группа A — товары, которые дают 80 % выручки.", "Дүкөндүн акчасы кайда топтолгон: A тобу — түшүмдүн 80 %ын берген товарлар.", "Where the shop's money is concentrated: group A is the products that bring 80% of revenue.", "Mağazanın parası nerede toplanıyor: A grubu, cironun %80'ini getiren ürünler.", "Do'kon pullari qayerda jamlangan: A guruhi — tushumning 80 % ini beradigan mahsulotlar."),
                 byRevenue),
 
             BuildSlice(
@@ -772,11 +779,12 @@ public sealed class AnalyticsReportData
                 Tr.T("ABC по штукам, а не по деньгам: показывает товары, которые держат поток покупателей.", "Акча эмес, даана боюнча ABC: сатып алуучулардын агымын кармаган товарларды көрсөтөт.", "ABC by units rather than money: shows the products that keep customers coming.", "Para yerine adede göre ABC: müşteri akışını sağlayan ürünleri gösterir.", "Pul emas, dona bo'yicha ABC: xaridorlar oqimini ushlab turadigan mahsulotlarni ko'rsatadi."),
                 byQuantity),
 
+            // 2026-10-18, этап О4 (аудит «Продажи»): пояснения срезов простыми словами («Те же 80/15/5», «Классический ABC» — непонятно).
             BuildSlice(
                 KeyCategory,
                 Tr.T("Категории", "Категориялар", "Categories", "Kategoriler", "Kategoriyalar"),
                 Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
-                Tr.T("Те же 80/15/5, но по категориям каталога — что нельзя допускать до пустых полок.", "Ошол эле 80/15/5, бирок каталогдун категориялары боюнча — кайсы категориялардын текчелери бош калбашы керек.", "The same 80/15/5, but by catalog category — what must never run out on the shelf.", "Aynı 80/15/5, ama katalog kategorilerine göre — hangi kategorilerin rafta tükenmemesi gerektiğini gösterir.", "Xuddi shu 80/15/5, lekin katalog kategoriyalari bo'yicha: qaysi kategoriyalarni javonda tugatib qo'ymaslik kerak."),
+                Tr.T("Какие категории дают основную выручку — их полки не должны пустеть.", "Кайсы категориялар негизги түшүмдү берет — алардын текчелери бош калбашы керек.", "Which categories bring most of the revenue — their shelves must never be empty.", "Hangi kategoriler cironun çoğunu getiriyor — rafları asla boş kalmamalı.", "Qaysi kategoriyalar asosiy tushumni beradi — ularning javonlari bo'sh qolmasligi kerak."),
                 byCategory),
 
             BuildSlice(

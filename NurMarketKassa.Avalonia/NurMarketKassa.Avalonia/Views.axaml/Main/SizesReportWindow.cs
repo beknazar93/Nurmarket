@@ -15,11 +15,13 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// Сервер такого отчёта пока не даёт (ТЗ бэкенда, часть 14, п. 14.10), поэтому он считается по чекам периода: список
 /// продаж и состав чеков (запомненные чеки — SaleSizesCache, ограничитель запросов). Возвращённое не считается. Остатки —
 /// из справочника размеров касс (VariantBarcodeIndex).
+/// 2026-10-18, редизайн владельца (этап О3, макет Sizes.dc.html): без своего крупного заголовка (он повторял название раздела),
+/// период — сегментами (UiKit.Seg), суммы в таблицах не обрезаются «…» (обрезается только название). Расчёт — прежний.
 /// </summary>
 public sealed class SizesReportWindow : Window
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
-    private readonly WrapPanel _periods = new() { Orientation = Orientation.Horizontal };
+    private readonly StackPanel _periods = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
     private readonly TextBlock _status = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 10) };
     private readonly StackPanel _body = new() { Spacing = 18 };
     private CancellationTokenSource? _cts;
@@ -40,17 +42,16 @@ public sealed class SizesReportWindow : Window
         Height = 800;
         Use(this, BackgroundProperty, "BrushWindowBackdrop");
 
-        var root = new StackPanel { Margin = new Thickness(24, 16, 24, 24), Spacing = 6 };
-        var title = new TextBlock { Text = Title, FontSize = 22, FontWeight = FontWeight.Bold };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
-        root.Children.Add(title);
+        var root = new StackPanel { Margin = OwnerSectionLayout.Margin, Spacing = 6 };
         root.Children.Add(Soft(Tr.T(
             "Что продано по размерам и цветам за период (возвращённое не считается). «Доля проданного» — продано от продано + остаток: у какого размера она выше, тот уходит первым — его и дозаказывайте.",
             "Мезгилде өлчөмдөр жана түстөр боюнча эмне сатылды (кайтарылгандар эсептелбейт). «Сатылган үлүш» — сатылганы / (сатылганы + калдык): кайсы өлчөмдө жогору болсо, ошол биринчи кетет — аны кайра буйртма бериңиз.",
             "What sold by size and colour in the period (returns excluded). “Sell-through” — sold / (sold + stock): the higher it is, the faster the size sells — reorder it.",
             "Dönemde beden ve renge göre satılanlar (iadeler hariç). «Satış oranı» — satılan / (satılan + stok): yüksek olan beden önce tükenir — onu yeniden sipariş edin.",
             "Davr ichida o'lcham va ranglar bo'yicha nima sotildi (qaytarilganlar hisoblanmaydi). «Sotilgan ulush» — sotilgan / (sotilgan + qoldiq): qaysi o'lchamda yuqori bo'lsa, o'sha birinchi tugaydi — uni qayta buyurtma qiling.")));
-        root.Children.Add(_periods);
+        var periods = UiKit.Segment(_periods);
+        periods.Margin = new Thickness(0, 6, 0, 0);
+        root.Children.Add(periods);
         Use(_status, TextBlock.ForegroundProperty, "BrushTextSoft");
         root.Children.Add(_status);
         root.Children.Add(_body);
@@ -72,8 +73,8 @@ public sealed class SizesReportWindow : Window
                      (90, Tr.T("90 дней", "90 күн", "90 days", "90 gün", "90 kun")),
                  })
         {
-            var chip = UiKit.Chip(this, text, _days == days);
-            chip.Margin = new Thickness(0, 6, 8, 0);
+            // 2026-10-18, этап О3: период — сегментом (выбранный тёмно-синий), как в остальных отчётах.
+            var chip = UiKit.Seg(text, _days == days);
             chip.Click += async (_, _) =>
             {
                 _days = days;
@@ -195,9 +196,10 @@ public sealed class SizesReportWindow : Window
     /// <summary>Таблица: название | продано | выручка | остаток | доля проданного.</summary>
     private Control Table(string title, string firstHeader, List<(string Key, Agg Agg, double? Stock)> rows)
     {
-        var card = new Border { CornerRadius = new CornerRadius(14), Padding = new Thickness(16, 12), BorderThickness = new Thickness(1) };
+        var card = new Border { Padding = new Thickness(16, 12), BorderThickness = new Thickness(1) };
         Use(card, Border.BackgroundProperty, "BrushPanel");
         Use(card, Border.BorderBrushProperty, "BrushBorder");
+        Use(card, Border.CornerRadiusProperty, "SettingsCardRadius");
         var stack = new StackPanel { Spacing = 6 };
         var head = new TextBlock { Text = title, FontSize = 16, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 0, 0, 4) };
         Use(head, TextBlock.ForegroundProperty, "BrushText");
@@ -222,7 +224,8 @@ public sealed class SizesReportWindow : Window
             var t = new TextBlock
             {
                 Text = text, FontSize = header ? 12.5 : 14, FontWeight = header ? FontWeight.SemiBold : FontWeight.Normal,
-                TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = i == 0 ? HorizontalAlignment.Left : HorizontalAlignment.Right,
+                // 2026-10-18, этап О3 (правило аудита 3): «…» — только у названия; числа и суммы не обрезаются.
+                TextTrimming = i == 0 ? TextTrimming.CharacterEllipsis : TextTrimming.None, HorizontalAlignment = i == 0 ? HorizontalAlignment.Left : HorizontalAlignment.Right,
                 Margin = new Thickness(0, 2, i == 4 ? 0 : 12, 2),
             };
             Use(t, TextBlock.ForegroundProperty, header ? "BrushTextSoft" : "BrushText");

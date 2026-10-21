@@ -45,6 +45,22 @@ public sealed class LanUploadedPayload
     public DateTime UploadedAtUtc { get; set; }
 }
 
+/// <summary>2026-10-18: оплата долга принята (касса или программа владельца) — соседи перечитывают долги этого клиента
+/// с сервера. Деньги по этому событию никто не проводит: оно только сигнал «обнови».</summary>
+public sealed class LanDebtPaidPayload
+{
+    public string ClientId { get; set; } = "";
+    public string? ClientName { get; set; }
+    public double Amount { get; set; }
+    /// <summary>Остаток после оплаты; 2026-10-18, восьмой круг: меньше нуля — неизвестен («Оплата есть на сайте»).
+    /// Получатели остаток не берут из события — перечитывают долг с сервера.</summary>
+    public double Left { get; set; }
+    public string Method { get; set; } = "";
+    /// <summary>"owner" или "kassa".</summary>
+    public string Source { get; set; } = "";
+    public DateTime PaidAtUtc { get; set; }
+}
+
 /// <summary>Событие журнала — как оно хранится и передаётся по сети.</summary>
 public sealed class LanEvent
 {
@@ -89,6 +105,8 @@ public static class LanJournal
 {
     public const string KindSale = "sale";
     public const string KindUploaded = "sale_uploaded";
+    /// <summary>2026-10-18: оплата долга (LanDebtPaidPayload).</summary>
+    public const string KindDebtPaid = "debt_paid";
     private static readonly TimeSpan Keep = TimeSpan.FromDays(4);
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static bool _schemaReady;
@@ -183,6 +201,37 @@ public static class LanJournal
         catch (Exception ex)
         {
             PosLogger.Log($"LAN: отметка выгрузки не записана: {ex.Message}", "LAN");
+        }
+    }
+
+    /// <summary>2026-10-18: оплата долга — соседям (касса ↔ программа владельца). operationKey — ключ идемпотентности
+    /// оплаты: повтор той же оплаты второй записью не ляжет. Никогда не бросает.</summary>
+    public static void PublishDebtPaid(string operationKey, LanDebtPaidPayload payload)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(operationKey) || string.IsNullOrWhiteSpace(payload.ClientId))
+                return;
+            Append($"debt:{operationKey}", KindDebtPaid, JsonSerializer.Serialize(payload, Json));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"LAN: оплата долга не записана в журнал: {ex.Message}", "LAN");
+        }
+    }
+
+    /// <summary>2026-10-18: клиент из события «debt_paid» соседа (null — событие не то или не читается).</summary>
+    public static string? DebtPaidClientId(LanEvent e)
+    {
+        if (e.Kind != KindDebtPaid)
+            return null;
+        try
+        {
+            return JsonSerializer.Deserialize<LanDebtPaidPayload>(e.Json, Json)?.ClientId is { Length: > 0 } id ? id : null;
+        }
+        catch
+        {
+            return null;
         }
     }
 

@@ -18,12 +18,14 @@
              Button.receipt-tab (978b762) и всех кнопок новых видов кассы — без фокуса. -->
         <!-- 2026-10-04, редизайн под сенсорные моноблоки: все кнопки чека не ниже 44 точек — по ним
              попадают пальцем (было 42, у +/−/%/корзины — 32). -->
+        <!-- 2026-10-19, К1 (правило 1): «Отложить чек», «Удалить чек», «Доп. услуга», «Ещё», «Добавить» — обводкой
+             без серой заливки; жёлтая на экране продажи одна — «Оплатить». -->
         <Style Selector="Button.cart-action">
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Height" Value="44"/>
             <Setter Property="Padding" Value="8,10"/>
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="FontSize" Value="12"/>
@@ -59,12 +61,14 @@
             <Setter Property="Interval" Value="100"/>
         </Style>
 
+        <!-- 2026-10-19, К1 (правило 4: красный — только долг, убыток, нет в наличии): корзина строки — обводкой с красным
+             значком, красная заливка — только при наведении. -->
         <Style Selector="Button.cart-delete">
             <Setter Property="Width" Value="44"/>
             <Setter Property="Height" Value="44"/>
             <Setter Property="Padding" Value="0"/>
-            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
@@ -135,14 +139,16 @@
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
+        <!-- 2026-10-19, К1 (правило 2, аудит 19.10: «вкладка «Основной чек» жёлтая»): выбранный чек — тёмно-синим
+             (цвет текста темы, надпись цветом панели), как выбранный сегмент у владельца. -->
         <Style Selector="Button.receipt-tab.active">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="Button.receipt-tab.active:pointerover, Button.receipt-tab.active:pressed, Button.receipt-tab.active:focus">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
 
@@ -150,8 +156,8 @@
              Fluent красила её серым, как недоступную: чек, с которым работает кассир, выглядел
              неактивным. Выбранная вкладка теперь всегда цвета темы. -->
         <Style Selector="Button.receipt-tab.active:disabled /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
         <Style Selector="Button.receipt-tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -159,8 +165,8 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="Button.receipt-tab.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
         </Style>
 
         <!-- Наведение, нажатие и недоступность кнопок чека — в цветах темы, а не серым Fluent. -->
@@ -172,25 +178,33 @@
         <Style Selector="Button.cart-action:pressed /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
         </Style>
+        <!-- 2026-10-20 (живой аудит кассы, К10): «Ещё» открыто — кнопка подсвечена. -->
+        <Style Selector="Button.cart-action.more-open /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
         <Style Selector="Button.cart-action:disabled /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
         </Style>
         <Style Selector="Button.cart-accent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         </Style>
+        <!-- 2026-10-18, отклик кнопок: нажатая — темнее наведения (BrushAccentPressed). -->
         <Style Selector="Button.cart-accent:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushAccentPressed}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         </Style>
+        <!-- 2026-10-18, ревью отклика кнопок: выключенная главная — нейтральный мягкий фон и приглушённый текст без
+             прозрачности (бледно-жёлтая почти не отличалась от включённой). -->
         <Style Selector="Button.cart-accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
         </Style>
         <Style Selector="Button.cart-accent:disabled">
-            <Setter Property="Opacity" Value="0.45"/>
+            <Setter Property="Opacity" Value="1"/>
         </Style>
         <Style Selector="Button.cart-qty:pointerover /template/ ContentPresenter#PART_ContentPresenter, RepeatButton.cart-qty:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
@@ -360,6 +374,13 @@
                               OnContent="{DynamicResource csh.cart.modeWholesale}"
                               OffContent="{DynamicResource csh.cart.modeRetail}"
                               ToolTip.Tip="{DynamicResource csh.cart.modeTooltip}"/>
+                <!-- 2026-10-20, живая проверка: при 2–3 открытых чеках «+ Новый чек» уезжал за край прокрутки вкладок
+                     («+ Новый ч…»). Теперь кнопка стоит справа, вне прокрутки, и видна всегда. -->
+                <Border DockPanel.Dock="Right" Classes="cart-tabs-pad" Margin="8,0,0,0">
+                    <Button Classes="new-receipt-tab"
+                            Content="{DynamicResource csh.cart.newReceipt}"
+                            Command="{Binding NewReceiptCommand}"/>
+                </Border>
                 <ScrollViewer HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Disabled"
                               HorizontalAlignment="Stretch"
@@ -385,8 +406,10 @@
                                                 Classes.active="{Binding IsActive}"
                                                 Command="{Binding SelectCommand}"
                                                 CommandParameter="{Binding}">
+                                            <!-- 2026-10-19, К1 (аудит 19.10, проблема 8): 230 вместо 190 — «Основной чек · 6 тов. ·
+                                                 1 517,96» целиком; вкладки по-прежнему прокручиваются вбок. -->
                                             <TextBlock Text="{Binding Title}"
-                                                       MaxWidth="190"
+                                                       MaxWidth="230"
                                                        TextTrimming="CharacterEllipsis"
                                                        TextWrapping="NoWrap"
                                                        FontSize="12"
@@ -396,9 +419,6 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <Button Classes="new-receipt-tab"
-                                    Content="{DynamicResource csh.cart.newReceipt}"
-                                    Command="{Binding NewReceiptCommand}"/>
                         </StackPanel>
                     </Border>
                 </ScrollViewer>
@@ -505,7 +525,8 @@
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch"
                               IsVisible="{Binding HasLines}">
-                    <ListBox Classes="cart-list"
+                    <ListBox x:Name="CartLinesList"
+                             Classes="cart-list"
                              HorizontalAlignment="Stretch"
                              VerticalAlignment="Stretch"
                              ItemsSource="{Binding Lines}">
@@ -533,12 +554,13 @@
                                         <StackPanel Grid.Row="0" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="6"
                                                     HorizontalAlignment="Right" Margin="0,0,0,3">
                                             <Border IsVisible="{Binding HasLoss}" Background="#7F1D1D" CornerRadius="6" Padding="8,3" VerticalAlignment="Center" ToolTip.Tip="{Binding LossTooltip}"><TextBlock Text="{Binding LossDisplayText}" Foreground="White" FontSize="12" FontWeight="Bold"/></Border>
+                                            <!-- 2026-10-19, К1 (правило 4): скидка — не убыток, плашка тёмно-синяя, а не красная. -->
                                             <Border IsVisible="{Binding HasDiscount}"
-                                                    Background="#D32F2F"
+                                                    Background="{DynamicResource BrushText}"
                                                     CornerRadius="6"
                                                     Padding="9,4">
                                                 <TextBlock Text="{Binding DiscountDisplayText}"
-                                                           Foreground="White"
+                                                           Foreground="{DynamicResource BrushPanel}"
                                                            FontSize="12"
                                                            FontWeight="Bold"/>
                                             </Border>
@@ -715,7 +737,9 @@
                             <TextBlock Classes="mdl2" Text="&#xE722;" FontSize="20"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
-                        <TextBox Text="{Binding BarcodeInput}"
+                        <!-- 2026-10-20: подсказка поля короче («Код или название товара», BasketPanelView.axaml.cs) — длинная обрезалась. -->
+                        <TextBox x:Name="BarcodeInputBox"
+                                 Text="{Binding BarcodeInput}"
                                  Watermark="{DynamicResource csh.cart.barcodeWatermark}"
                                  BorderThickness="0"
                                  Background="Transparent"
@@ -781,8 +805,9 @@
                         </Grid>
                     </Border>
 
+                    <!-- 2026-10-19, К1: «Добавить» — обводкой (была жёлтой при введённом коде — вторая главная кнопка). -->
                     <Button Grid.Column="4"
-                            Classes="cart-accent"
+                            Classes="cart-action"
                             MinWidth="120"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Center"
@@ -795,6 +820,7 @@
 
                 <!-- Панель основных быстрых кнопок -->
                 <Grid Grid.Row="1"
+                      x:Name="MainActionsRow"
                       ColumnDefinitions="*,8,*,8,*,8,*"
                       HorizontalAlignment="Stretch"
                       Margin="0,0,0,6">
@@ -815,7 +841,8 @@
                                       Margin="0,0,4,0"
                                       VerticalAlignment="Center"
                                       Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M16.2,16.2L11,13V7H12.5V12.2L17,14.9L16.2,16.2Z"/>
-                            <TextBlock Grid.Column="1"
+                            <TextBlock x:Name="DeferLabel"
+                                       Grid.Column="1"
                                        Text="{DynamicResource csh.cart.defer}"
                                        Classes="cart-action-text"
                                        VerticalAlignment="Center"
@@ -868,7 +895,9 @@
                         </Grid>
                     </Button>
                     <Button Grid.Column="6"
+                            x:Name="MoreActionsButton"
                             Classes="cart-action"
+                            Classes.more-open="{Binding IsMoreActionsVisible}"
                             Command="{Binding ToggleMoreActionsCommand}"
                             ToolTip.Tip="{DynamicResource csh.cart.moreTooltip}">
                         <Grid ColumnDefinitions="Auto,*"
@@ -890,11 +919,29 @@
                 </Grid>
 
                 <!-- Расширенные действия -->
-                <Grid Grid.Row="2"
-                      ColumnDefinitions="*,8,*,8,*,8,*"
+                <!-- 2026-10-20 (живой аудит кассы, К10): «Ещё» раскрывал два ряда кнопок прямо в панели — всё уезжало вверх,
+                     на месте «Ещё» оказывался «Прокат», и двойное касание открывало его. Теперь — всплывающее окно поверх
+                     панели над кнопкой «Ещё» (ничего не сдвигается); щелчок мимо или повторное «Ещё» закрывает его,
+                     нажатая кнопка в нём — тоже (BasketPanelView.axaml.cs). -->
+                <Popup Grid.Row="2"
+                       x:Name="MoreActionsPopup"
+                       IsOpen="{Binding IsMoreActionsVisible, Mode=TwoWay}"
+                       PlacementTarget="{Binding #MoreActionsButton}"
+                       Placement="TopEdgeAlignedRight"
+                       VerticalOffset="-6"
+                       IsLightDismissEnabled="True">
+                  <Border x:Name="MoreActionsContent"
+                          Width="{Binding #MainActionsRow.Bounds.Width}"
+                          Background="{DynamicResource BrushPanel}"
+                          BorderBrush="{DynamicResource BrushBorder}"
+                          BorderThickness="1"
+                          CornerRadius="12"
+                          Padding="8,8,8,2"
+                          BoxShadow="0 6 18 0 #33101828">
+                  <StackPanel>
+                <Grid ColumnDefinitions="*,8,*,8,*,8,*"
                       HorizontalAlignment="Stretch"
-                      Margin="0,0,0,6"
-                      IsVisible="{Binding IsMoreActionsVisible}">
+                      Margin="0,0,0,6">
                     <Button Grid.Column="0"
                             Classes="cart-action"
                             Content="{DynamicResource csh.cart.restore}"
@@ -917,10 +964,8 @@
                             IsEnabled="{Binding HasItems}"/>
                 </Grid>
 
-                <Grid Grid.Row="3"
-                      ColumnDefinitions="*,8,*,8,*,Auto"
-                      Margin="0,0,0,6"
-                      IsVisible="{Binding IsMoreActionsVisible}">
+                <Grid ColumnDefinitions="*,8,*,8,*,Auto"
+                      Margin="0,0,0,6">
                     <Button Grid.Column="0"
                             Classes="cart-action"
                             HorizontalAlignment="Stretch"
@@ -966,6 +1011,9 @@
                             Content="{DynamicResource csh.menu.rental}"
                             Click="Rental_Click"/>
                 </Grid>
+                  </StackPanel>
+                  </Border>
+                </Popup>
 
                 <!-- Сообщения корзины -->
                 <StackPanel Grid.Row="4">
@@ -1023,17 +1071,18 @@
                         VerticalContentAlignment="Center"
                         FontSize="18"
                         Command="{Binding PayCommand}">
+                    <!-- 2026-10-21 (пакет 6, п. 20): цвет значка и надписи — от кнопки (стили cart-accent): у включённой тёмный на
+                         акценте, у выключенной BrushTextMuted. Раньше Foreground=BrushAccentForeground был задан прямо здесь, и в
+                         тёмном «Графите» выключенная «Оплатить» (#111827 на #2A2F38) была не видна. -->
                     <StackPanel Orientation="Horizontal"
                                 Spacing="10"
                                 HorizontalAlignment="Center">
                         <PathIcon Width="20"
                                   Height="20"
-                                  Foreground="{DynamicResource BrushAccentForeground}"
                                   Data="M20,8H4V6H20M20,18H4V12H20M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
                         <TextBlock Text="{Binding PayButtonText}"
                                    FontSize="19"
                                    FontWeight="Bold"
-                                   Foreground="{DynamicResource BrushAccentForeground}"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>

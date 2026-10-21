@@ -23,9 +23,8 @@ namespace NurMarketKassa.Services;
 ///
 /// ЧЕСТНОЕ ОГРАНИЧЕНИЕ, которое надо понимать: надёжно работает только направление
 /// «касса → владелец». Обратное («владелец спрашивает бота») требует, чтобы касса сама
-/// опрашивала Telegram, а значит работает, ТОЛЬКО ПОКА КАССА ВКЛЮЧЕНА. Поэтому здесь сделаны
-/// уведомления, а не чат: опрос (<see cref="TryDetectChatIdAsync"/>) используется ровно один
-/// раз — чтобы узнать chat_id владельца при настройке.</summary>
+/// опрашивала Telegram, а значит работает, ТОЛЬКО ПОКА КАССА ВКЛЮЧЕНА (TelegramBotPollingService).
+/// 2026-10-21: chat_id владельца при настройке — по одноразовому коду (TelegramBotOwner).</summary>
 public static class TelegramBotService
 {
     private const string ApiRoot = "https://api.telegram.org";
@@ -45,8 +44,13 @@ public static class TelegramBotService
         var chatId = UserPreferences.Instance.TelegramChatId;
         if (string.IsNullOrWhiteSpace(chatId))
         {
-            return Task.FromResult<string?>(
-                "Не определён получатель: напишите боту «/start» и нажмите «Определить получателя».");
+            // 2026-10-21 (бот, К1): получатель — по коду из программы.
+            return Task.FromResult<string?>(Tr.T(
+                "Не определён получатель: нажмите «Определить получателя» и отправьте боту код из программы.",
+                "Алуучу аныкталган жок: «Алуучуну аныктоо» баскычын басып, ботко программадагы кодду жөнөтүңүз.",
+                "No recipient: press “Detect recipient” and send the code from the program to the bot.",
+                "Alıcı yok: «Alıcıyı belirle»ye basın ve programdaki kodu bota gönderin.",
+                "Qabul qiluvchi yo'q: «Qabul qiluvchini aniqlash»ni bosing va dasturdagi kodni botga yuboring."));
         }
 
         return SendToAsync(chatId!, text, ct);
@@ -55,7 +59,7 @@ public static class TelegramBotService
     /// <summary>Отправляет сообщение В КОНКРЕТНЫЙ чат — владельцу, клиенту-должнику или любому,
     /// кто подписался на бота. Отдельно от <see cref="SendAsync"/>, потому что получатель здесь
     /// не из настроек: рассылка напоминаний идёт по чатам подписавшихся клиентов.</summary>
-    public static async Task<string?> SendToAsync(string chatId, string text, CancellationToken ct = default)
+    public static async Task<string?> SendToAsync(string chatId, string text, CancellationToken ct = default, object? replyMarkup = null)
     {
         var token = UserPreferences.Instance.TelegramBotToken;
 
@@ -63,14 +67,27 @@ public static class TelegramBotService
             return "Не задан токен бота.";
         if (string.IsNullOrWhiteSpace(chatId))
             return "Не указан получатель сообщения.";
+        // 2026-10-21 (бот, S8a): чат заблокировал бота — 10 минут не шлём ему вовсе (раньше 2 попытки и 4 строки WARNING на каждое сообщение).
+        if (IsBlocked(chatId))
+            return BlockedError;
 
         // 2026-09-29 (стресс-тест бота): отчёт длиннее 4096 символов (/dolgi, /ostatki с длинными
         // названиями) Telegram отклонял целиком — владелец не получал ничего. Теперь — частями по строкам.
-        foreach (var part in SplitForTelegram(text))
+        // 2026-10-21 (бот, ВАЖНО 7): часть, которую Telegram не принял из-за разметки, уходит простым текстом САМА (ссылки — адресом
+        // в скобках), остальные части не повторяются. Раньше весь отчёт слался заново: часть 1 дублировалась, ссылки WhatsApp пропадали.
+        // Кнопки меню (replyMarkup) — под последней частью.
+        var parts = SplitForTelegram(text);
+        for (var i = 0; i < parts.Count; i++)
         {
-            string? error;
-            (error, chatId) = await SendPartAsync(token!, chatId, part, ct).ConfigureAwait(false);
-            if (error != null)
+            var markup = i == parts.Count - 1 ? replyMarkup : null;
+            var (error, newChat, kind) = await SendPartAsync(token!, chatId, parts[i], markup, ct).ConfigureAwait(false);
+            chatId = newChat;
+            if (kind == PartResult.Parse)
+            {
+                PosLogger.Log($"Телеграм-бот: часть {i + 1} из {parts.Count} не принята ({error}) — отправляю её простым текстом.", "TELEGRAM");
+                (error, chatId, kind) = await SendPartAsync(token!, chatId, PlainPart(parts[i]), markup, ct).ConfigureAwait(false);
+            }
+            if (kind != PartResult.Ok)
                 return error;
         }
 
@@ -78,36 +95,62 @@ public static class TelegramBotService
     }
 
     /// <summary>2026-10-06, владелец: «к ИИ и боту дай полный доступ к товарам». Сообщение с кнопками под ним
-    /// (inline_keyboard: (текст, callback_data) в ряд). Ошибка — текст причины, null — отправлено.</summary>
-    public static async Task<string?> SendWithButtonsAsync(string chatId, string text, IReadOnlyList<(string Text, string Data)> buttons, CancellationToken ct = default)
+    /// (inline_keyboard: (текст, callback_data) в ряд). Ошибка — текст причины, null — отправлено.
+    /// 2026-10-21: через общий ограничитель темпа и нарезку (раньше — мимо них, длинный текст резался посреди тега).</summary>
+    public static Task<string?> SendWithButtonsAsync(string chatId, string text, IReadOnlyList<(string Text, string Data)> buttons, CancellationToken ct = default) =>
+        SendToAsync(chatId, text, ct, new Dictionary<string, object?>
+        {
+            ["inline_keyboard"] = new[] { buttons.Select(b => new Dictionary<string, string> { ["text"] = b.Text, ["callback_data"] = b.Data }).ToArray() },
+        });
+
+    // ───── 2026-10-21 (бот, S8a): чаты, заблокировавшие бота ─────
+    private const string BlockedError = "Telegram отклонил сообщение: Forbidden: bot was blocked by the user";
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> BlockedChats = new(StringComparer.Ordinal);
+    private static readonly TimeSpan BlockedMemory = TimeSpan.FromMinutes(10);
+
+    /// <summary>Чат недавно ответил 403 (заблокировал бота, удалил аккаунт, выгнал из группы).</summary>
+    public static bool IsBlocked(string chatId) =>
+        BlockedChats.TryGetValue(chatId, out var at) && DateTime.UtcNow - at < BlockedMemory;
+
+    /// <summary>Часть без разметки: теги убраны, ссылка — «текст (адрес)», чтобы WhatsApp-ссылки не терялись.</summary>
+    private static string PlainPart(string html)
+    {
+        var withLinks = System.Text.RegularExpressions.Regex.Replace(html, "<a\\s+href=\"([^\"]*)\"[^>]*>(.*?)</a>",
+            m => m.Groups[2].Value + " (" + m.Groups[1].Value + ")", System.Text.RegularExpressions.RegexOptions.Singleline);
+        var plain = System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(withLinks, "<[^>]+>", ""));
+        return Escape(plain);
+    }
+
+    /// <summary>2026-10-21 (бот, идея 3): список команд в меню Telegram («/» в поле ввода) на 5 языках. scope null — для всех,
+    /// иначе — для одного чата (владельца). Ошибка не критична — пишется в журнал один раз.</summary>
+    internal static async Task SetMyCommandsAsync(object commands, object? scope, string? languageCode, CancellationToken ct)
     {
         var token = UserPreferences.Instance.TelegramBotToken;
-        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(chatId))
-            return "Не задан токен бота.";
+        if (string.IsNullOrWhiteSpace(token))
+            return;
         try
         {
-            var payload = new Dictionary<string, object?>
+            var payload = new Dictionary<string, object?> { ["commands"] = commands };
+            if (scope != null)
+                payload["scope"] = scope;
+            if (languageCode != null)
+                payload["language_code"] = languageCode;
+            using var response = await Http.PostAsJsonAsync($"{ApiRoot}/bot{token}/setMyCommands", payload, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode && !_commandsErrorLogged)
             {
-                ["chat_id"] = chatId,
-                ["text"] = text.Length > 4000 ? text[..4000] + "…" : text,
-                ["parse_mode"] = "HTML",
-                ["disable_web_page_preview"] = true,
-                ["reply_markup"] = new Dictionary<string, object?>
-                {
-                    ["inline_keyboard"] = new[] { buttons.Select(b => new Dictionary<string, string> { ["text"] = b.Text, ["callback_data"] = b.Data }).ToArray() },
-                },
-            };
-            using var response = await Http.PostAsJsonAsync($"{ApiRoot}/bot{token}/sendMessage", payload, ct).ConfigureAwait(false);
-            if (response.IsSuccessStatusCode)
-                return null;
-            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            return TryReadDescription(body) ?? $"код {(int)response.StatusCode}";
+                _commandsErrorLogged = true;
+                PosLogger.Log($"Телеграм-бот: список команд не обновлён (код {(int)response.StatusCode}).", "TELEGRAM");
+            }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return ex.GetType().Name;
+            if (!_commandsErrorLogged)
+                PosLogger.Log($"Телеграм-бот: список команд не обновлён ({ex.GetType().Name}).", "TELEGRAM");
+            _commandsErrorLogged = true;
         }
     }
+
+    private static bool _commandsErrorLogged;
 
     /// <summary>Ответ на нажатие кнопки (убирает «часики» на кнопке) и, если задан messageId, убирает кнопки у сообщения.</summary>
     public static async Task AnswerCallbackAsync(string callbackId, string? toast, string? chatId, long? messageId, CancellationToken ct = default)
@@ -186,6 +229,8 @@ public static class TelegramBotService
             return "Не задан токен бота.";
         try
         {
+            // 2026-10-21: голос — тоже сообщение, в общем пределе темпа.
+            await TelegramBotRateLimiter.WaitAsync(chatId, ct).ConfigureAwait(false);
             using var form = new MultipartFormDataContent();
             form.Add(new StringContent(chatId), "chat_id");
             var file = new ByteArrayContent(ogg);
@@ -204,12 +249,19 @@ public static class TelegramBotService
     /// говорит, сколько подождать (retry_after), — раньше сообщение просто терялось (ответ владельцу,
     /// напоминание должнику при рассылке). Теперь ждём и повторяем, до трёх раз. Ответ 400 с
     /// migrate_to_chat_id — группу превратили в супергруппу: шлём в новый чат и запоминаем его.</summary>
-    private static async Task<(string? Error, string ChatId)> SendPartAsync(string token, string chatId, string text, CancellationToken ct)
+    private enum PartResult { Ok, Parse, Blocked, Failed }
+
+    /// <summary>2026-10-21 (бот, п. 4 и ВАЖНО 6): перед каждой отправкой — общий ограничитель темпа (≤25/с на бота, ~1/с в чат).
+    /// 429 с любой паузой до 15 минут больше не теряет ответ (раньше — только до 60 с и 3 попыток): чат ждёт сам, остальные чаты —
+    /// нет (очередь по чатам). 403 — без повторов, чат запоминается как заблокировавший.</summary>
+    private static async Task<(string? Error, string ChatId, PartResult Kind)> SendPartAsync(string token, string chatId, string text, object? replyMarkup, CancellationToken ct)
     {
+        var waited429 = false;
         for (var attempt = 1; ; attempt++)
         {
             try
             {
+                await TelegramBotRateLimiter.WaitAsync(chatId, ct).ConfigureAwait(false);
                 var payload = new Dictionary<string, object?>
                 {
                     ["chat_id"] = chatId,
@@ -217,6 +269,8 @@ public static class TelegramBotService
                     ["parse_mode"] = "HTML",
                     ["disable_web_page_preview"] = true,
                 };
+                if (replyMarkup != null)
+                    payload["reply_markup"] = replyMarkup;
 
                 using var response = await Http
                     .PostAsJsonAsync($"{ApiRoot}/bot{token}/sendMessage", payload, ct)
@@ -224,19 +278,23 @@ public static class TelegramBotService
 
                 var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
-                    return (null, chatId);
+                    return (null, chatId, PartResult.Ok);
 
+                var code = (int)response.StatusCode;
                 var (retryAfter, migrateTo) = TryReadParameters(body);
-                if ((int)response.StatusCode == 429 && attempt <= 3 && retryAfter is > 0 and <= 60)
+                if (code == 429 && attempt <= 6 && retryAfter is > 0 and <= 900)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(retryAfter.Value), ct).ConfigureAwait(false);
+                    if (!waited429 && retryAfter > 5)
+                        PosLogger.Log($"Телеграм-бот: Telegram просит подождать {retryAfter} с — ответ этому чату уйдёт позже, другие чаты не ждут.", "TELEGRAM");
+                    waited429 = true;
+                    TelegramBotRateLimiter.Penalize(chatId, retryAfter.Value);
                     continue;
                 }
 
-                // Сбой на стороне Telegram (502/503/504 от его шлюза) — один повтор через 2 с.
-                if ((int)response.StatusCode >= 500 && attempt == 1)
+                // Сбой на стороне Telegram (502/503/504 от его шлюза) — до двух повторов через 2 и 4 с.
+                if (code >= 500 && attempt <= 2)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+                    await Task.Delay(TimeSpan.FromSeconds(2 * attempt), ct).ConfigureAwait(false);
                     continue;
                 }
 
@@ -249,22 +307,31 @@ public static class TelegramBotService
 
                 // Telegram кладёт человекочитаемую причину в description — она гораздо полезнее
                 // кода состояния («chat not found», «bot was blocked by the user»).
-                var reason = TryReadDescription(body) ?? $"код {(int)response.StatusCode}";
+                var reason = TryReadDescription(body) ?? $"код {code}";
+                if (code == 403)
+                {
+                    if (BlockedChats.TryAdd(chatId, DateTime.UtcNow) || !IsBlocked(chatId))
+                        PosLogger.Log($"Telegram sendMessage failed: {reason} — этому чату 10 минут не пишем.", "WARNING");
+                    BlockedChats[chatId] = DateTime.UtcNow;
+                    return ("Telegram отклонил сообщение: " + reason, chatId, PartResult.Blocked);
+                }
+                if (code == 400 && reason.Contains("parse", StringComparison.OrdinalIgnoreCase))
+                    return ("Telegram отклонил сообщение: " + reason, chatId, PartResult.Parse);
                 PosLogger.Log($"Telegram sendMessage failed: {reason}", "WARNING");
-                return ("Telegram отклонил сообщение: " + reason, chatId);
+                return ("Telegram отклонил сообщение: " + reason, chatId, PartResult.Failed);
             }
             catch (TaskCanceledException) when (!ct.IsCancellationRequested)
             {
-                return ("Telegram не ответил за 20 секунд — проверьте интернет.", chatId);
+                return ("Telegram не ответил за 20 секунд — проверьте интернет.", chatId, PartResult.Failed);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                return ("Отправка отменена.", chatId);
+                return ("Отправка отменена.", chatId, PartResult.Failed);
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Telegram send failed: {ex.GetType().Name}: {ex.Message}", "WARNING");
-                return ("Не удалось связаться с Telegram: " + ex.Message, chatId);
+                return ("Не удалось связаться с Telegram: " + ex.Message, chatId, PartResult.Failed);
             }
         }
     }
@@ -295,36 +362,85 @@ public static class TelegramBotService
             return parts;
         }
 
+        // 2026-10-21 (бот, S0): тег, открытый на одной строке и закрытый на другой (<i>…\n…</i>), на границе частей закрывается в конце
+        // части и открывается заново в начале следующей — раньше такие части Telegram отклонял (S0: 2664 частей с битой разметкой).
+        var open = new List<string>();
+        string CloseAll() => string.Concat(Enumerable.Reverse(open).Select(t => "</" + TagName(t) + ">"));
         var current = new StringBuilder();
         var currentLength = 0;
+        void Flush()
+        {
+            var body = current.ToString().TrimEnd();
+            if (VisibleLength(body) > 0)
+                parts.Add(body + CloseAll());
+            current.Clear().Append(string.Concat(open));
+            currentLength = 0;
+        }
+
         foreach (var rawLine in text.Split('\n'))
         {
             var line = rawLine;
             var lineLength = VisibleLength(line) + 1;
-            if (currentLength + lineLength > limit && current.Length > 0)
-            {
-                parts.Add(current.ToString().TrimEnd());
-                current.Clear();
-                currentLength = 0;
-            }
+            if (currentLength + lineLength > limit && currentLength > 0)
+                Flush();
 
-            while (lineLength > limit)
+            if (lineLength > limit)
             {
-                // Строка сама длиннее предела: режем без разметки, не разрывая суррогатную пару.
-                var plain = System.Text.RegularExpressions.Regex.Replace(line, "<[^>]*>", "");
-                var cut = char.IsHighSurrogate(plain[limit - 1]) ? limit - 1 : limit;
-                parts.Add(Escape(System.Net.WebUtility.HtmlDecode(plain[..cut])));
-                line = plain[cut..];
+                // Строка сама длиннее предела: режем без разметки, не разрывая суррогатную пару и сущность (&amp; — сначала
+                // раскодируем, режем по символам, потом кодируем обратно).
+                Flush();
+                ApplyTags(line, open);
+                var plain = System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(line, "<[^>]*>", ""));
+                while (plain.Length + 1 > limit)
+                {
+                    var cut = char.IsHighSurrogate(plain[limit - 1]) ? limit - 1 : limit;
+                    parts.Add(Escape(plain[..cut]));
+                    plain = plain[cut..];
+                }
+                current.Clear().Append(string.Concat(open));
+                line = Escape(plain);
                 lineLength = VisibleLength(line) + 1;
+                current.Append(line).Append('\n');
+                currentLength += lineLength;
+                continue;
             }
 
             current.Append(line).Append('\n');
             currentLength += lineLength;
+            ApplyTags(line, open);
         }
 
-        if (current.ToString().Trim().Length > 0)
-            parts.Add(current.ToString().TrimEnd());
+        var tail = current.ToString().TrimEnd();
+        if (VisibleLength(tail) > 0)
+            parts.Add(tail + CloseAll());
         return parts;
+    }
+
+    private static string TagName(string openTag)
+    {
+        var inner = openTag.Trim('<', '>', ' ');
+        var space = inner.IndexOf(' ');
+        return (space > 0 ? inner[..space] : inner).ToLowerInvariant();
+    }
+
+    /// <summary>Учесть теги строки в списке открытых: «&lt;b&gt;» — открыть, «&lt;/b&gt;» — закрыть последний такой.</summary>
+    private static void ApplyTags(string line, List<string> open)
+    {
+        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(line, "<[^>]*>"))
+        {
+            var tag = m.Value;
+            if (tag.StartsWith("</", StringComparison.Ordinal))
+            {
+                var name = tag[2..^1].Trim().ToLowerInvariant();
+                var index = open.FindLastIndex(t => TagName(t) == name);
+                if (index >= 0)
+                    open.RemoveAt(index);
+            }
+            else if (!tag.EndsWith("/>", StringComparison.Ordinal))
+            {
+                open.Add(tag);
+            }
+        }
     }
 
     private static int VisibleLength(string html)
@@ -422,59 +538,8 @@ public static class TelegramBotService
 
     private static readonly HttpClient LongPollHttp = new() { Timeout = TimeSpan.FromSeconds(60) };
 
-    /// <summary>Узнаёт chat_id владельца: он пишет боту «/start», мы читаем последние
-    /// сообщения. Это единственное место, где касса опрашивает Telegram.</summary>
-    public static async Task<(string? ChatId, string? DisplayName, string? Error)> TryDetectChatIdAsync(
-        string token, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-            return (null, null, "Сначала вставьте токен бота.");
-
-        // Заодно запоминаем имя бота: без него не построить персональную ссылку покупателя
-        // (t.me/ИмяБота?start=idКлиента), а другого места, где владелец его вводил бы, нет.
-        await TryRememberBotUsernameAsync(token.Trim(), ct).ConfigureAwait(false);
-
-        try
-        {
-            using var response = await Http.GetAsync($"{ApiRoot}/bot{token.Trim()}/getUpdates?limit=20", ct)
-                .ConfigureAwait(false);
-            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode)
-                return (null, null, "Telegram отклонил токен: " + (TryReadDescription(body) ?? "проверьте, что он скопирован целиком"));
-
-            using var doc = JsonDocument.Parse(body);
-            if (!doc.RootElement.TryGetProperty("result", out var result) || result.GetArrayLength() == 0)
-            {
-                return (null, null,
-                    "Сообщений боту пока нет. Откройте бота в Telegram, нажмите «Старт» и повторите.");
-            }
-
-            // Берём последнее — если владелец писал боту несколько раз, актуален свежий чат.
-            foreach (var update in result.EnumerateArray().Reverse())
-            {
-                if (!update.TryGetProperty("message", out var message)
-                    || !message.TryGetProperty("chat", out var chat)
-                    || !chat.TryGetProperty("id", out var id))
-                {
-                    continue;
-                }
-
-                var name = chat.TryGetProperty("first_name", out var first) ? first.GetString() : null;
-                if (chat.TryGetProperty("username", out var user) && user.GetString() is { Length: > 0 } u)
-                    name = string.IsNullOrWhiteSpace(name) ? "@" + u : $"{name} (@{u})";
-
-                return (id.ToString(), name, null);
-            }
-
-            return (null, null, "В сообщениях боту не нашлось чата. Напишите боту «/start» ещё раз.");
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Telegram getUpdates failed: {ex.GetType().Name}: {ex.Message}", "WARNING");
-            return (null, null, "Не удалось связаться с Telegram: " + ex.Message);
-        }
-    }
+    // 2026-10-21 (бот, К1): TryDetectChatIdAsync («получатель = чат последнего сообщения боту от кого угодно») убран — получатель
+    // и владелец подтверждаются одноразовым кодом: TelegramBotOwner.Begin (программа показывает код, владелец отправляет его боту).
 
     /// <summary>Проверяет токен и возвращает имя бота: username (для ссылок t.me) и
     /// человекочитаемое название. Используется мастером подключения, чтобы владелец увидел,
@@ -519,7 +584,7 @@ public static class TelegramBotService
     /// <summary>getMe — единственный способ узнать имя бота, не спрашивая его у владельца.
     /// Неудача здесь не критична: она лишь означает, что персональную ссылку покупателю
     /// пока не построить, поэтому ошибку не возвращаем, а только пишем в журнал.</summary>
-    private static async Task TryRememberBotUsernameAsync(string token, CancellationToken ct)
+    public static async Task TryRememberBotUsernameAsync(string token, CancellationToken ct = default)
     {
         try
         {
@@ -562,33 +627,35 @@ public static class TelegramBotService
     {
         string Money(decimal v) => v.ToString("N2", CultureInfo.GetCultureInfo("ru-RU")) + " сом";
 
+        // 2026-10-21 (бот, сводка смены): все строки на языке программы владельца — раньше 2 строки были на языке интерфейса, остальные
+        // по-русски (смесь языков).
         var sb = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(shopName))
             sb.AppendLine($"<b>{Escape(shopName)}</b>");
 
-        sb.AppendLine("<b>Смена закрыта</b>");
+        sb.AppendLine(Tr.T("<b>Смена закрыта</b>", "<b>Смена жабылды</b>", "<b>Shift closed</b>", "<b>Vardiya kapandı</b>", "<b>Smena yopildi</b>"));
         sb.AppendLine();
-        sb.AppendLine($"Кассир: {Escape(shift.Cashier)}");
+        sb.AppendLine(Tr.T("Кассир: ", "Кассир: ", "Cashier: ", "Kasiyer: ", "Kassir: ") + Escape(shift.Cashier));
         if (shift.OpenedAt is { } opened)
-            sb.AppendLine($"Открыта: {opened:dd.MM.yyyy HH:mm}");
+            sb.AppendLine(Tr.T("Открыта: ", "Ачылды: ", "Opened: ", "Açıldı: ", "Ochildi: ") + $"{opened:dd.MM.yyyy HH:mm}");
         if (shift.ClosedAt is { } closed)
-            sb.AppendLine($"Закрыта: {closed:dd.MM.yyyy HH:mm}");
+            sb.AppendLine(Tr.T("Закрыта: ", "Жабылды: ", "Closed: ", "Kapandı: ", "Yopildi: ") + $"{closed:dd.MM.yyyy HH:mm}");
         sb.AppendLine();
-        sb.AppendLine($"<b>Выручка: {Money(shift.Revenue)}</b>");
+        sb.AppendLine("<b>" + Tr.T("Выручка: ", "Түшүм: ", "Revenue: ", "Ciro: ", "Tushum: ") + Money(shift.Revenue) + "</b>");
         if (shift.SalesCount is { } count)
         {
-            sb.AppendLine($"Чеков: {count}");
+            sb.AppendLine(Tr.T("Чеков: ", "Чектер: ", "Receipts: ", "Fiş: ", "Cheklar: ") + count);
             if (count > 0)
-                sb.AppendLine($"Средний чек: {Money(shift.Revenue / count)}");
+                sb.AppendLine(Tr.T("Средний чек: ", "Орточо чек: ", "Average receipt: ", "Ortalama fiş: ", "O'rtacha chek: ") + Money(shift.Revenue / count));
         }
 
         sb.AppendLine();
         if (shift.CashSales is { } cash)
-            sb.AppendLine($"Наличными: {Money(cash)}");
+            sb.AppendLine(Tr.T("Наличными: ", "Накталай: ", "Cash: ", "Nakit: ", "Naqd: ") + Money(cash));
         if (shift.NonCashSales is { } card)
-            sb.AppendLine($"Безналичными: {Money(card)}");
+            sb.AppendLine(Tr.T("Безналичными: ", "Накталай эмес: ", "Non-cash: ", "Nakitsiz: ", "Naqd emas: ") + Money(card));
         if (shift.DebtSales is { } debt && debt > 0m)
-            sb.AppendLine($"В долг: {Money(debt)}");
+            sb.AppendLine(Tr.T("В долг: ", "Карызга: ", "On credit: ", "Veresiye: ", "Qarzga: ") + Money(debt));
 
         // Скидки и оплата бонусами берутся из локальной таблицы кассы: сервер отдаёт скидку
         // одной суммой, в которой бонусы неотличимы от обычной скидки.
@@ -596,10 +663,12 @@ public static class TelegramBotService
         var events = ShiftEventsStore.TotalsForShift(shift.Id);
         var eventLines = new (string Title, string Kind)[]
         {
-            ("Возвраты", ShiftEventsStore.KindReturn),
-            ("Списания", ShiftEventsStore.KindWriteOff),
-            ("Расход", ShiftEventsStore.KindExpense),
-            ("Оплата долгов", ShiftEventsStore.KindDebtPayment),
+            (Tr.T("Возвраты", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar"), ShiftEventsStore.KindReturn),
+            (Tr.T("Списания", "Эсептен чыгаруулар", "Write-offs", "Zayiatlar", "Hisobdan chiqarishlar"), ShiftEventsStore.KindWriteOff),
+            (Tr.T("Расход", "Чыгым", "Expenses", "Giderler", "Xarajat"), ShiftEventsStore.KindExpense),
+            // 2026-10-18, ревью: наличные и безнал — отдельно (безнал в ящик не попадает); второй круг — на 5 языках.
+            (Tr.T("Оплата долгов наличными", "Карыздарды накталай төлөө", "Debt payments in cash", "Nakit borç ödemeleri", "Qarz to'lovlari naqd"), ShiftEventsStore.KindDebtPayment),
+            (Tr.T("Оплата долгов безналом", "Карыздарды накталай эмес төлөө", "Debt payments non-cash", "Nakitsiz borç ödemeleri", "Qarz to'lovlari naqd emas"), ShiftEventsStore.KindDebtPaymentNonCash),
         };
         if (eventLines.Any(e => events.TryGetValue(e.Kind, out var v) && v > 0.005))
         {
@@ -615,36 +684,44 @@ public static class TelegramBotService
         if (adjustments.Discounts > 0.005 || adjustments.PointsRedeemed > 0.005)
         {
             sb.AppendLine();
-            sb.AppendLine($"Скидки: {Money((decimal)adjustments.Discounts)} ({adjustments.Receipts} чек.)");
+            sb.AppendLine(Tr.T("Скидки: ", "Арзандатуулар: ", "Discounts: ", "İndirimler: ", "Chegirmalar: ") + Money((decimal)adjustments.Discounts)
+                          + Tr.T($" ({adjustments.Receipts} чек.)", $" ({adjustments.Receipts} чек)", $" ({adjustments.Receipts} receipts)", $" ({adjustments.Receipts} fiş)", $" ({adjustments.Receipts} chek)"));
             if (adjustments.PointsRedeemed > 0.005)
-                sb.AppendLine($"Оплачено бонусами: {Money((decimal)adjustments.PointsRedeemed)}");
+                sb.AppendLine(Tr.T("Оплачено бонусами: ", "Бонус менен төлөндү: ", "Paid with bonuses: ", "Bonusla ödenen: ", "Bonus bilan to'langan: ") + Money((decimal)adjustments.PointsRedeemed));
         }
 
         if (deposits > 0m || withdrawals > 0m)
         {
             sb.AppendLine();
             if (deposits > 0m)
-                sb.AppendLine($"Внесения: +{Money(deposits)}");
+                sb.AppendLine(Tr.T("Внесения: +", "Салымдар: +", "Cash in: +", "Para girişi: +", "Kirim: +") + Money(deposits));
             if (withdrawals > 0m)
-                sb.AppendLine($"Изъятия: -{Money(withdrawals)}");
+                sb.AppendLine(Tr.T("Изъятия: -", "Алуулар: -", "Cash out: -", "Para çıkışı: -", "Chiqim: -") + Money(withdrawals));
         }
 
         if (shift.OpeningCash is { } opening)
         {
             sb.AppendLine();
-            sb.AppendLine($"Начальная сумма: {Money(opening)}");
+            sb.AppendLine(Tr.T("Начальная сумма: ", "Баштапкы сумма: ", "Opening cash: ", "Açılış tutarı: ", "Boshlang'ich summa: ") + Money(opening));
             if (shift.ClosingCash is { } actual)
             {
-                // Тот же расчёт, что в печатном отчёте смены (ShiftDetailsDialog) — чтобы
-                // цифра в телефоне совпадала с бумажкой, которую держит кассир.
-                var expected = opening + (shift.CashSales ?? 0m) + deposits - withdrawals;
+                // 2026-10-21 (бот, К3): ровно как бумажный отчёт смены (ShiftDetailsDialog ~760): сначала ожидаемый остаток СЕРВЕРА
+                // (ExpectedCash), иначе формула сервера: с полем расхода сервера — начальная + наличные − расход (прочие приходы
+                // сервер в ожидаемый остаток не включает), без него — как раньше, с внесениями. Раньше бот всегда прибавлял внесения
+                // и не смотрел ExpectedCash: «Недостача/Излишек» в телефоне расходились с бумажкой на сумму внесений и оплат долгов.
+                var expected = shift.ExpectedCash
+                    ?? (shift.ExpenseTotal is not null
+                        ? opening + (shift.CashSales ?? 0m) - withdrawals
+                        : opening + (shift.CashSales ?? 0m) + deposits - withdrawals);
                 var diff = actual - expected;
-                sb.AppendLine($"Ожидалось в кассе: {Money(expected)}");
-                sb.AppendLine($"Фактически: {Money(actual)}");
+                sb.AppendLine(Tr.T("Ожидалось в кассе: ", "Кассада болушу керек: ", "Expected in the drawer: ", "Kasada olması gereken: ", "Kassada bo'lishi kerak: ") + Money(expected));
+                sb.AppendLine(Tr.T("Фактически: ", "Иш жүзүндө: ", "Actual: ", "Gerçekte: ", "Haqiqatda: ") + Money(actual));
                 if (Math.Abs(diff) >= 0.01m)
-                    sb.AppendLine(diff > 0 ? $"<b>Излишек: +{Money(diff)}</b>" : $"<b>Недостача: {Money(diff)}</b>");
+                    sb.AppendLine(diff > 0
+                        ? "<b>" + Tr.T("Излишек: +", "Ашыкча: +", "Surplus: +", "Fazla: +", "Ortiqcha: +") + Money(diff) + "</b>"
+                        : "<b>" + Tr.T("Недостача: ", "Жетишпестик: ", "Shortage: ", "Eksik: ", "Kamomad: ") + Money(diff) + "</b>");
                 else
-                    sb.AppendLine("Расхождений нет");
+                    sb.AppendLine(Tr.T("Расхождений нет", "Айырма жок", "No discrepancy", "Fark yok", "Farq yo'q"));
             }
         }
 

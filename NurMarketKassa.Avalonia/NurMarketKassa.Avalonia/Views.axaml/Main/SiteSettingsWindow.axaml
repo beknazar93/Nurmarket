@@ -14,15 +14,43 @@
          отдаёт сервер (api/users/settings/company/): адрес витрины и номер WhatsApp для заказов.
          Название и адрес магазина здесь не меняются (правило владельца). -->
     <Window.Styles>
+        <!-- 2026-10-19, этап О10 (аудит: серые залитые кнопки): обычные кнопки — обводкой (как sec-outline), жёлтая — только
+             «Сохранить» (accent). -->
         <Style Selector="Button.period">
             <Setter Property="Padding" Value="14,7"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.period:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.period:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+        <Style Selector="Button.period:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.period:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="Opacity" Value="0.5"/>
         </Style>
         <Style Selector="Button.period.accent">
             <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontWeight" Value="Bold"/>
         </Style>
         <Style Selector="Button.period.accent /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
@@ -33,6 +61,8 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         </Style>
         <Style Selector="Button.period.accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
             <Setter Property="Opacity" Value="0.5"/>
         </Style>
         <Style Selector="Border.card">
@@ -76,14 +106,17 @@
             </StackPanel>
         </Grid>
 
-        <!-- Витрина сейчас: подключена ли, ссылка, сколько товаров, название магазина. -->
+        <!-- Витрина сейчас: подключена ли, ссылка, сколько товаров, название магазина.
+             2026-10-21 (пакет 4, п. 123): полный блок «Витрина работает» — только здесь (в «Заказах» — короткая полоса со ссылкой);
+             подчёркнутая ссылка открывает витрину. -->
         <Border Grid.Row="1" Classes="card" Margin="0,0,0,12">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <Border x:Name="StateDot" Width="10" Height="10" CornerRadius="5" VerticalAlignment="Top" Margin="0,6,12,0"
                         Background="{DynamicResource BrushTextSoft}"/>
                 <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,12,0">
                     <TextBlock x:Name="StateText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
-                    <TextBlock x:Name="LinkText" FontSize="13" FontWeight="Medium" TextDecorations="Underline" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="LinkText" FontSize="13" FontWeight="Medium" TextDecorations="Underline" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"
+                               Cursor="Hand" HorizontalAlignment="Left" PointerPressed="Link_PointerPressed"/>
                     <TextBlock x:Name="StateHintText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">

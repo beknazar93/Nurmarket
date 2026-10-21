@@ -137,8 +137,9 @@ public partial class ScaleSettingsView : UserControl
             Width = 42,
             Height = 42,
             CornerRadius = new CornerRadius(21),
-            Background = Brush("BrushAccentSoft", Brushes.LightGray),
-            BorderBrush = Brush("BrushAccent", Brushes.Gray),
+            // 2026-10-19, этап О7: кружок с буквой марки — нейтральный (был жёлтый).
+            Background = Brush("BrushPanelSoft", Brushes.LightGray),
+            BorderBrush = Brush("BrushBorderStrong", Brushes.Gray),
             BorderThickness = new Thickness(1),
             Margin = new Thickness(0, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Top,
@@ -184,8 +185,8 @@ public partial class ScaleSettingsView : UserControl
             LabelRulesPanel.Refresh();
         };
         var send = RowButton(profile.Brand == ScaleUi.BrandAi
-            ? L("Подготовить файл →", "Файл даярдоо →", "Prepare the file →", "Dosyayı hazırla →", "Faylni tayyorlash →")
-            : L("Отправить товары →", "Товарларды жөнөтүү →", "Send goods →", "Ürünleri gönder →", "Tovarlarni yuborish →"), true);
+            ? L("Подготовить файл", "Файл даярдоо", "Prepare the file", "Dosyayı hazırla", "Faylni tayyorlash")
+            : L("Отправить товары", "Товарларды жөнөтүү", "Send goods", "Ürünleri gönder", "Tovarlarni yuborish"), true);
         send.Click += (_, _) =>
         {
             LabelScaleStore.Activate(profile);
@@ -242,7 +243,8 @@ public partial class ScaleSettingsView : UserControl
         return new Border
         {
             Background = Brush("BrushSurfaceSubtle", Brushes.WhiteSmoke),
-            BorderBrush = Brush(isActive ? "BrushAccent" : "BrushBorder", Brushes.LightGray),
+            // 2026-10-19, этап О7: выбранные весы — рамка цветом текста (тёмно-синяя), как всё «выбрано»; была жёлтая.
+            BorderBrush = Brush(isActive ? "BrushText" : "BrushBorder", Brushes.LightGray),
             BorderThickness = new Thickness(isActive ? 2 : 1),
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(12, 10),
@@ -258,11 +260,13 @@ public partial class ScaleSettingsView : UserControl
         TextWrapping = TextWrapping.Wrap,
     };
 
+    // 2026-10-18, этап О3 (правило аудита 1): кнопки строки весов — обводкой (sec-outline): синяя «Отправить товары →»
+    // (btn-primary) и серые залитые убраны; главная жёлтая на экране одна — «+ Добавить весы». Параметр primary оставлен.
     private static Button RowButton(string text, bool primary) => new()
     {
         Content = text,
-        Classes = { primary ? "btn-primary" : "SettingsFlatButton" },
-        Height = 38,
+        Classes = { "sec-outline" },
+        MinHeight = 38,
         Padding = new Thickness(14, 0),
         MinWidth = 110,
         HorizontalContentAlignment = HorizontalAlignment.Center,

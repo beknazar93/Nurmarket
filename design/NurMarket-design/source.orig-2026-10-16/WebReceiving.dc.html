@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Приёмка — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.pill{height:36px;padding:0 14px;border-radius:18px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.pill.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.tr{display:grid;grid-template-columns:2.2fr .7fr 1fr 1fr 1fr 32px;gap:8px;padding:10px 14px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.ci{height:36px;box-sizing:border-box;border-radius:8px;border:1px solid #D0D5DD;padding:0 8px;font-family:inherit;font-size:13px;font-weight:700;width:100%}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Приёмка" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Приёмка</b><span style="font-size: 13px; color: #667085">Черновик сохраняется сам · остатки прибавятся после «Провести»</span></span>
+      <button type="button" class="b2">Фото накладной</button>
+      <button type="button" class="b2">Из Excel</button>
+    </div>
+
+    <section class="card" style="flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: flex-end">
+      <span style="flex: 1 1 220px; display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="sp">ПОСТАВЩИК</label><input id="sp" class="in" type="text" placeholder="[поставщик]"></span>
+      <span style="flex: 0 1 auto; display: flex; flex-direction: column; gap: 4px"><span class="lbl">ВАЛЮТА ЗАКУПКИ</span><span style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="pill">Сом</button><button type="button" class="pill">USD</button><button type="button" class="pill on">CNY</button><button type="button" class="pill">EUR</button><button type="button" class="pill">KZT</button></span></span>
+      <span style="flex: 0 1 200px; display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="rt">КУРС, СОМ ЗА 1 CNY</label><span style="display: flex; gap: 6px"><input id="rt" class="in" type="text" placeholder="[курс]"><button type="button" class="b2" style="height: 42px; white-space: nowrap">НБКР</button></span></span>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden">
+      <div style="padding: 12px 14px; border-bottom: 1px solid #EAECF0; display: flex; gap: 8px; flex-wrap: wrap">
+        <label style="flex: 1 1 280px; height: 42px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 10px; border: 1px solid #E5E7EB; background: #F9FAFB"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"></path></svg><input type="text" placeholder="Сканируйте или найдите товар, Enter — в список" aria-label="Добавить товар" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 14px; width: 100%"></label>
+        <button type="button" class="b2" style="height: 42px">+ Новый товар</button>
+      </div>
+      <div style="overflow-x: auto"><div style="min-width: 720px">
+        <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span>Товар</span><span>Кол-во</span><span>Цена, CNY</span><span>Цена, сом</span><span>Продажа</span><span></span></div>
+        <sc-for list="{{lines}}" as="l" hint-placeholder-count="4">
+          <div class="tr">
+            <span style="font-weight: 600">{{l.name}}</span>
+            <input class="ci" type="text" value="{{l.qty}}" aria-label="Количество">
+            <input class="ci" type="text" placeholder="[цена]" aria-label="Цена в юанях">
+            <span style="color: #475467">авто</span>
+            <span style="font-weight: 700; color: #0B2A3C">{{l.sale}}</span>
+            <button type="button" aria-label="Убрать строку" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #98A2B3; font-size: 16px">✕</button>
+          </div>
+        </sc-for>
+      </div></div>
+    </section>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: auto; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 14px 16px">
+      <span style="flex-grow: 1; font-size: 13px; color: #475467">4 позиции · итого <b style="color: #0B2A3C; font-size: 16px">[сумма] сом</b> ([сумма] CNY)</span>
+      <button type="button" class="b2">Очистить</button>
+      <button type="button" class="b1">Провести приход</button>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const l = (name, qty, sale) => ({ name, qty, sale });
+    return {
+      lines: [
+        l('Mars', '24', '39 сом'),
+        l('Кока-Кола (ПЭТ) 2л', '12', '170 сом'),
+        l('Салфетки', '20', '[цена]'),
+        l('Сок Gracio яблочный 1л', '12', '[цена]')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

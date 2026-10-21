@@ -1,4 +1,6 @@
-﻿using System.Runtime.Versioning;
+﻿using System.Globalization;
+using System.Runtime.Versioning;
+using System.Text.Json;
 
 namespace NurMarketKassa.Services;
 
@@ -81,8 +83,9 @@ public static class AnalyticsExportService
     private static string TitleAbcShare => Tr.T("Доля групп в выручке", "Түшүмдөгү топтордун үлүшү", "Group share of revenue", "Grupların ciro payı", "Guruhlarning tushumdagi ulushi");
     private static string TitleAbcSummary => Tr.T("ABC-анализ: сводка по группам", "ABC-анализ: топтор боюнча жыйынтык", "ABC analysis: group summary", "ABC analizi: grup özeti", "ABC tahlili: guruhlar bo'yicha xulosa");
     private static string TitleRestock => Tr.T("Что пора заказать", "Эмнени буйрутма кылуу керек", "What to reorder", "Sipariş edilmesi gerekenler", "Nimani buyurtma qilish kerak");
-    private static string TitlePareto => Tr.T("Диаграмма Парето", "Парето диаграммасы", "Pareto chart", "Pareto grafiği", "Pareto diagrammasi");
-    private static string TitleParetoColumns => Tr.T("Парето столбцами", "Парето мамычалар менен", "Pareto columns", "Pareto sütunları", "Pareto ustunlari");
+    // 2026-10-21: без слова «Парето» — те же названия, что у диаграмм на экране (AbcSectionView), простыми словами (пакет 2, п. 73, 86).
+    private static string TitlePareto => Tr.T("Вклад каждого в итог", "Ар биринин жыйынтыкка салымы", "Each item's contribution", "Her birinin toplama katkısı", "Har birining jamiga hissasi");
+    private static string TitleParetoColumns => Tr.T("Накопленная доля столбцами", "Топтолгон үлүш мамылар менен", "Cumulative share as bars", "Sütunlarla kümülatif pay", "To'plangan ulush ustunlarda");
     private static string TitleGroupShare => Tr.T("доля групп", "топтордун үлүшү", "group shares", "grup payları", "guruh ulushlari");
 
     private static string AbcExplanation => Tr.T(
@@ -111,6 +114,8 @@ public static class AnalyticsExportService
     {
         "profit" => Tr.T("Прибыль", "Пайда", "Profit", "Kâr", "Foyda"),
         "quantity" => Tr.T("Продано", "Сатылды", "Sold", "Satılan", "Sotildi"),
+        // 2026-10-20, аудит программы владельца: у «Склада по стоимости остатка» столбец был «Выручка, сом».
+        AnalyticsReportData.KeyStock => Tr.T("Стоимость остатка", "Калдыктын наркы", "Stock value", "Stok değeri", "Qoldiq qiymati"),
         _ => LRevenue,
     };
 
@@ -148,6 +153,8 @@ public static class AnalyticsExportService
     public static void ExportToExcel(string path, AnalyticsReportData data, string? shopName)
     {
         var meta = ReportMeta.Create(ReportTitle, shopName, Period(data));
+        // 2026-10-21: расходы магазина с сервера — до открытия файла, чтобы долгий запрос не держал его (пакет 2, п. 91).
+        var expenses = ShopExpenses(data);
         using var book = new ExcelWorkbookBuilder(path, meta);
 
         var summary = book.AddSheet(SheetSummary, ReportTitle);
@@ -160,7 +167,7 @@ public static class AnalyticsExportService
             new XlKeyValue("      " + LBonuses, data.PointsRedeemed, XlKind.Money),
             new XlKeyValue(ReportLabels.WithUnit(LReturns, Currency), data.Returns, XlKind.Money),
             new XlKeyValue(ReportLabels.WithUnit(LWriteOffs, Currency), data.WriteOffs, XlKind.Money),
-            new XlKeyValue(ReportLabels.WithUnit(LExpenses, Currency), data.Expenses, XlKind.Money),
+            new XlKeyValue(ReportLabels.WithUnit(expenses.Label, Currency), expenses.Value, XlKind.Money),
             new XlKeyValue(ReportLabels.WithUnit(LDebtPayments, Currency), data.DebtPayments, XlKind.Money),
             new XlKeyValue(LCatalogItems, data.StockPositions, XlKind.Integer),
             new XlKeyValue(ReportLabels.WithUnit(LStockValue, Currency), data.StockValue, XlKind.Money),
@@ -276,11 +283,63 @@ public static class AnalyticsExportService
 
     private static double Share(double value, double total) => total > 0 ? value / total * 100 : 0;
 
+    // 2026-10-21: «Расход» в Word/Excel — расходы магазина в NurCRM (GET api/main/analytics/pnl/: opex.total), как плитка
+    // «Расходы» в «Аналитике» (FinanceWindow.ServerExpenses.cs) и «Прибыль и деньги». Раньше — изъятия из кассы ЭТОГО
+    // компьютера (у программы владельца их нет — 0 при расходах магазина 1 055 071 за октябрь). Сервер не ответил — как
+    // раньше, изъятия из кассы, и подпись об этом прямо в строке (пакет 2, п. 91).
+    private static string LExpensesTillOnly => Tr.T(
+        "Расход (NurCRM не ответил — только изъятия из кассы этого компьютера)",
+        "Чыгым (NurCRM жооп берген жок — ушул компьютердин кассасынан алынганы гана)",
+        "Expenses (NurCRM did not respond — only cash taken from this computer's till)",
+        "Giderler (NurCRM yanıt vermedi — yalnızca bu bilgisayarın kasasından alınan para)",
+        "Xarajatlar (NurCRM javob bermadi — faqat shu kompyuter kassasidan olingan pul)");
+
+    /// <summary>Расход периода для отчёта и подпись строки. Вызывается из фонового потока выгрузки (Task.Run у всех окон).</summary>
+    private static (double Value, string Label) ShopExpenses(AnalyticsReportData data) =>
+        FetchServerExpenses(data.FromLocal, data.ToLocal) is { } server
+            ? (server, LExpenses)
+            : (data.Expenses, LExpensesTillOnly);
+
+    private static double? FetchServerExpenses(DateTime from, DateTime to)
+    {
+        try
+        {
+            if (NurMarketKassa.Services.Api.NurCrmReportsApi.ClientResolver?.Invoke() is not { AccessToken.Length: > 0 } api)
+                return null;
+            var query = new Dictionary<string, string>
+            {
+                ["date_from"] = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ["date_to"] = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            };
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            // Через Task.Run — без контекста синхронизации: ожидание здесь не может зависнуть.
+            var d = Task.Run(() => api.RequestAsync(HttpMethod.Get, "api/main/analytics/pnl/", null, query, cts.Token, TimeSpan.FromSeconds(60)))
+                .GetAwaiter().GetResult();
+            if (d.ValueKind != JsonValueKind.Object || !d.TryGetProperty("opex", out var opex) || opex.ValueKind != JsonValueKind.Object
+                || !opex.TryGetProperty("total", out var total))
+                return null;
+            var text = total.ValueKind switch
+            {
+                JsonValueKind.Number => total.GetRawText(),
+                JsonValueKind.String => total.GetString(),
+                _ => null,
+            };
+            return double.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) ? value : null;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Выгрузка аналитики: расходы с сервера (pnl) не получены — в отчёте изъятия из кассы: {ex.Message}", "WARNING");
+            return null;
+        }
+    }
+
     // ------------------------------------------------------------------- Word
 
     public static void ExportToWord(string path, AnalyticsReportData data, string? shopName)
     {
         var meta = ReportMeta.Create(ReportTitle, shopName, Period(data));
+        // 2026-10-21: расходы магазина с сервера, а не изъятия из кассы этого ПК (пакет 2, п. 91).
+        var expenses = ShopExpenses(data);
         using var doc = new WordReportBuilder(path, meta);
 
         doc.TitleBlock();
@@ -299,7 +358,7 @@ public static class AnalyticsExportService
                 ["      " + LBonuses, ReportFormat.Money(data.PointsRedeemed)],
                 [ReportLabels.WithUnit(LReturns, Currency), ReportFormat.Money(data.Returns)],
                 [ReportLabels.WithUnit(LWriteOffs, Currency), ReportFormat.Money(data.WriteOffs)],
-                [ReportLabels.WithUnit(LExpenses, Currency), ReportFormat.Money(data.Expenses)],
+                [ReportLabels.WithUnit(expenses.Label, Currency), ReportFormat.Money(expenses.Value)],
                 [ReportLabels.WithUnit(LDebtPayments, Currency), ReportFormat.Money(data.DebtPayments)],
                 [LCatalogItems, ReportFormat.Integer(data.StockPositions)],
                 [ReportLabels.WithUnit(LStockValue, Currency), ReportFormat.Money(data.StockValue)],
@@ -312,7 +371,7 @@ public static class AnalyticsExportService
             (LDiscounts, data.Discounts),
             (LReturns, data.Returns),
             (LWriteOffs, data.WriteOffs),
-            (LExpenses, data.Expenses),
+            (LExpenses, expenses.Value),
         }.Where(x => x.Item2 > 0.005).ToList();
         doc.Heading2(TitleStructure);
         // Пустой период — не пустая картинка на полстраницы, а одна строка «нет данных».

@@ -13,74 +13,42 @@
 
   <!-- «История чеков» для кассира (2026-09-27). Оформление — как у окна возврата
        (ReturnSaleDialog): на весь экран, слева список, справа выбранный чек. -->
+  <!-- 2026-10-20, владелец: «вид чека как в мобилке оформи» (макет design/…/screens/PCashCheck.html). Кнопки — общие
+       sec-primary (одна жёлтая главная) и sec-outline (обводка), период — сегменты sec-segment/sec-seg (выбранный
+       тёмно-синий), выбранная строка — мягкий фон темы, справа — карточка чека обычным шрифтом вместо ленты принтера
+       (docs/owner-redesign-plan.md, правила 1–4, 9). -->
   <Window.Styles>
-    <Style Selector="Button.btn-primary">
-      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="FontSize" Value="15"/>
-      <Setter Property="Padding" Value="14,6"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
+    <!-- Сегменты периода — на всю высоту поля поиска. -->
+    <Style Selector="RadioButton.sec-seg">
+      <Setter Property="MinHeight" Value="36"/>
+      <Setter Property="FontSize" Value="14"/>
     </Style>
-    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    <Style Selector="Button.sec-primary, Button.sec-outline">
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Padding" Value="12,6"/>
     </Style>
-    <Style Selector="Button.btn-primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <!-- Обводка — на цвете панели: справа фон серый, прозрачная кнопка выглядела серой залитой (правило 1). -->
+    <Style Selector="Button.sec-outline">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    </Style>
+    <Style Selector="Button.sec-outline:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.sec-primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Opacity" Value="0.5"/>
     </Style>
 
-    <Style Selector="Button.btn-secondary">
-      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-      <Setter Property="BorderThickness" Value="1.5"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="FontSize" Value="14"/>
-      <Setter Property="Padding" Value="14,6"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
+    <!-- Пунктир карточки чека: линия длиннее карточки, лишнее обрезает холст. -->
+    <Style Selector="Canvas.dash">
+      <Setter Property="Height" Value="1"/>
+      <Setter Property="ClipToBounds" Value="True"/>
+      <Setter Property="Margin" Value="0,12"/>
     </Style>
-    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    <Style Selector="Canvas.dash > Line">
+      <Setter Property="Stroke" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="StrokeThickness" Value="1"/>
     </Style>
-
-    <!-- Период: «Эта смена» / «Сегодня» / «Вчера». -->
-    <Style Selector="RadioButton.period-chip">
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-      <Setter Property="Padding" Value="16,0"/>
-      <Setter Property="FontSize" Value="14"/>
-      <Setter Property="MinHeight" Value="42"/>
-      <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Template">
-        <ControlTemplate TargetType="RadioButton">
-          <Border Background="{TemplateBinding Background}"
-                  BorderBrush="{TemplateBinding BorderBrush}"
-                  BorderThickness="1.5"
-                  CornerRadius="{DynamicResource SettingsButtonRadius}"
-                  Padding="{TemplateBinding Padding}"
-                  MinHeight="{TemplateBinding MinHeight}">
-            <ContentPresenter Content="{TemplateBinding Content}"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"
-                              TextElement.Foreground="{TemplateBinding Foreground}"/>
-          </Border>
-        </ControlTemplate>
-      </Setter>
-    </Style>
-    <Style Selector="RadioButton.period-chip:checked">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
+    <Style Selector="TextBlock.card-soft">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
 
     <Style Selector="TextBox.ModernInput">
@@ -116,17 +84,24 @@
     <Style Selector="ListBox#ReceiptsList ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
     </Style>
+    <!-- 2026-10-20: выбранная строка — мягкий фон темы и тёмная полоска слева (был жёлтый BrushAccentSoft). -->
     <Style Selector="ListBox#ReceiptsList ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
     </Style>
     <Style Selector="ListBox#ReceiptsList ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
     </Style>
     <Style Selector="ListBox#ReceiptsList ListBoxItem:selected:focus /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
     </Style>
     <Style Selector="ListBox#ReceiptsList ListBoxItem:pressed /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+    </Style>
+    <Style Selector="ListBox#ReceiptsList ListBoxItem Border.sel-bar">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="ListBox#ReceiptsList ListBoxItem:selected Border.sel-bar">
+      <Setter Property="IsVisible" Value="True"/>
     </Style>
 
     <!-- Плашка статуса чека. -->
@@ -168,28 +143,18 @@
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
 
+    <!-- Строки карточки под итогом (скидки, оплата, сдача): подпись мягким, сумма — цветом текста. -->
     <Style Selector="TextBlock.summary-label">
-      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontSize" Value="13.5"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
       <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style Selector="TextBlock.summary-value">
-      <Setter Property="FontSize" Value="13"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="13.5"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="Margin" Value="12,0,0,0"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
-    </Style>
-    <Style Selector="TextBlock.summary-label.total">
-      <Setter Property="FontSize" Value="17"/>
-      <Setter Property="FontWeight" Value="Bold"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    </Style>
-    <Style Selector="TextBlock.summary-value.total">
-      <Setter Property="FontSize" Value="20"/>
-      <Setter Property="FontWeight" Value="Bold"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushMoney}"/>
     </Style>
   </Window.Styles>
 
@@ -211,7 +176,7 @@
         </StackPanel>
         <Button Grid.Column="1"
                 Content="{DynamicResource common.close}"
-                Classes="btn-secondary"
+                Classes="sec-outline"
                 VerticalAlignment="Top"
                 MinHeight="42" MinWidth="120"
                 IsCancel="True"
@@ -226,14 +191,16 @@
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
-        <StackPanel x:Name="PeriodChips" Grid.Column="0" Orientation="Horizontal" Spacing="6">
-          <RadioButton Classes="period-chip" GroupName="ReceiptPeriod" Tag="shift" IsChecked="True"
-                       Content="{DynamicResource receiptHistory.periodShift}" Click="Period_Click"/>
-          <RadioButton Classes="period-chip" GroupName="ReceiptPeriod" Tag="today"
-                       Content="{DynamicResource common.today}" Click="Period_Click"/>
-          <RadioButton Classes="period-chip" GroupName="ReceiptPeriod" Tag="yesterday"
-                       Content="{DynamicResource sales.yesterday}" Click="Period_Click"/>
-        </StackPanel>
+        <Border x:Name="PeriodChips" Grid.Column="0" Classes="sec-segment">
+          <StackPanel Orientation="Horizontal" Spacing="2">
+            <RadioButton Classes="sec-seg" GroupName="ReceiptPeriod" Tag="shift" IsChecked="True"
+                         Content="{DynamicResource receiptHistory.periodShift}" Click="Period_Click"/>
+            <RadioButton Classes="sec-seg" GroupName="ReceiptPeriod" Tag="today"
+                         Content="{DynamicResource common.today}" Click="Period_Click"/>
+            <RadioButton Classes="sec-seg" GroupName="ReceiptPeriod" Tag="yesterday"
+                         Content="{DynamicResource sales.yesterday}" Click="Period_Click"/>
+          </StackPanel>
+        </Border>
         <TextBox x:Name="SearchBox" Grid.Column="1"
                  Classes="ModernInput"
                  Margin="12,0"
@@ -242,7 +209,7 @@
                  TextChanged="SearchBox_TextChanged"/>
         <Button x:Name="RefreshButton" Grid.Column="3"
                 Content="{DynamicResource common.refresh}"
-                Classes="btn-secondary"
+                Classes="sec-outline"
                 MinHeight="42" MinWidth="110"
                 Click="Refresh_Click"/>
       </Grid>
@@ -262,7 +229,7 @@
       </StackPanel>
 
       <!-- 3: список и выбранный чек -->
-      <Grid Grid.Row="3" Margin="0,12,0,0" ColumnDefinitions="3*,16,2*">
+      <Grid Grid.Row="3" Margin="0,12,0,0" ColumnDefinitions="5*,16,4*">
 
         <Border Grid.Column="0"
                 BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
@@ -274,6 +241,9 @@
                      SelectionChanged="ReceiptsList_SelectionChanged">
               <ListBox.ItemTemplate>
                 <DataTemplate>
+                  <Panel>
+                  <Border Classes="sel-bar" Width="3" HorizontalAlignment="Left" Margin="-14,-10,0,-10"
+                          Background="{DynamicResource BrushText}" CornerRadius="0,2,2,0"/>
                   <Grid ColumnDefinitions="Auto,*,Auto">
                     <StackPanel Grid.Column="0" MinWidth="92" VerticalAlignment="Center">
                       <TextBlock Text="{Binding NumberText}" FontSize="15" FontWeight="Bold"
@@ -303,15 +273,23 @@
                       </Border>
                     </StackPanel>
                   </Grid>
+                  </Panel>
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
 
-            <TextBlock x:Name="EmptyText" IsVisible="False"
-                       Text="{DynamicResource receiptHistory.empty}"
-                       Margin="24" FontSize="14" TextWrapping="Wrap" TextAlignment="Center"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Foreground="{DynamicResource BrushTextSoft}"/>
+            <!-- 2026-10-20: пустое состояние — значок, причина и подсказка, что делать (текст подсказки — из кода). -->
+            <StackPanel x:Name="EmptyText" IsVisible="False" Margin="24" Spacing="8" MaxWidth="360"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+              <PathIcon Data="{DynamicResource IconReceipt}" Width="36" Height="36"
+                        Foreground="{DynamicResource BrushTextMuted}"/>
+              <TextBlock Text="{DynamicResource receiptHistory.empty}"
+                         FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center"
+                         Foreground="{DynamicResource BrushText}"/>
+              <TextBlock x:Name="EmptyHintText"
+                         FontSize="13" TextWrapping="Wrap" TextAlignment="Center"
+                         Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
             <TextBlock x:Name="NoMatchText" IsVisible="False"
                        Text="{DynamicResource receiptHistory.noMatch}"
                        Margin="24" FontSize="14" TextWrapping="Wrap" TextAlignment="Center"
@@ -320,24 +298,29 @@
           </Grid>
         </Border>
 
+        <!-- 2026-10-20, владелец: «вид чека как в мобилке оформи» (макет PCashCheck): шапка «Чек …», дата · время ·
+             кассир и плашка статуса; белая карточка (в тёмной теме — цвет панели) обычным шрифтом: магазин, адрес/ИНН,
+             «Товарный чек · Кассир», позиции «2 × 85 — 170», скидки, «Итого» крупно, оплата, сдача, клиент. Печать —
+             прежним текстом (ReceiptHistoryService.BuildReprintText), карточка его не меняет. Фискальных ККМ/ФД/ФП/QR
+             у кассы нет (чек нефискальный, решение 16.10) — их блока нет. -->
         <Border Grid.Column="2"
-                Background="{DynamicResource BrushPanelSoft}"
+                Background="{DynamicResource BrushWindowBackdrop}"
                 BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                CornerRadius="10" Padding="16">
+                CornerRadius="10" Padding="14">
           <Grid>
             <TextBlock x:Name="SelectHintText"
                        Text="{DynamicResource receiptHistory.selectHint}"
-                       FontSize="14" TextWrapping="Wrap" TextAlignment="Center"
+                       FontSize="14" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="320"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        Foreground="{DynamicResource BrushTextSoft}"/>
 
-            <Grid x:Name="DetailsPanel" IsVisible="False" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
+            <Grid x:Name="DetailsPanel" IsVisible="False" RowDefinitions="Auto,*">
 
-              <!-- 0: номер, статус, время, кассир -->
-              <StackPanel Grid.Row="0" Spacing="4">
+              <!-- 0: «Чек 001832», плашка статуса; дата · время · кассир -->
+              <StackPanel Grid.Row="0" Spacing="2">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock x:Name="DetailTitle" Grid.Column="0"
-                             FontSize="19" FontWeight="Bold" TextWrapping="Wrap"
+                             FontSize="20" FontWeight="Bold" TextWrapping="Wrap"
                              VerticalAlignment="Center"
                              Foreground="{DynamicResource BrushText}"/>
                   <Border x:Name="DetailBadge" Grid.Column="1" Classes="badge"
@@ -345,121 +328,208 @@
                     <TextBlock x:Name="DetailStatusText"/>
                   </Border>
                 </Grid>
-                <TextBlock x:Name="DetailMeta" FontSize="12" TextWrapping="Wrap"
+                <TextBlock x:Name="DetailMeta" FontSize="13" TextWrapping="Wrap"
                            Foreground="{DynamicResource BrushTextSoft}"/>
               </StackPanel>
 
-              <!-- 1: чек не отправлен на сервер / отклонён сервером -->
-              <Border x:Name="DetailNotice" Grid.Row="1" IsVisible="False"
-                      Margin="0,10,0,0" Padding="10,8" CornerRadius="8"
-                      Background="{DynamicResource BrushWarningSoft}"
-                      BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
-                <TextBlock x:Name="DetailNoticeText" FontSize="12" TextWrapping="Wrap"
-                           Foreground="{DynamicResource BrushText}"/>
-              </Border>
-
-              <!-- 2: позиции чека -->
-              <DockPanel Grid.Row="2" Margin="0,12,0,0">
-                <TextBlock DockPanel.Dock="Top" IsVisible="False"
-                           Text="{DynamicResource receiptHistory.itemsHeader}"
-                           FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"
-                           Foreground="{DynamicResource BrushTextSoft}"/>
-                <ProgressBar x:Name="DetailLoadingBar" DockPanel.Dock="Top" IsVisible="False"
-                             IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2"
-                             Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
-                <TextBlock x:Name="DetailErrorText" DockPanel.Dock="Top" IsVisible="False"
-                           FontSize="13" TextWrapping="Wrap" Margin="0,6,0,0"
-                           Foreground="{DynamicResource BrushDanger}"/>
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                  <StackPanel>
-                  <!-- 2026-09-28, владелец: «история чека — отображение как обычный чек, как при
-                       печати». Чек на «бумаге» тем же текстом, что уходит на принтер (с пометкой
-                       «ПОВТОРНАЯ ПЕЧАТЬ» и датой); бумага белая и в тёмной теме. -->
-                  <Border HorizontalAlignment="Center" Margin="0,4,0,12" Padding="20,18"
-                          CornerRadius="4" Background="#FFFFFF" BorderBrush="#E3E6EA" BorderThickness="1"
-                          BoxShadow="0 3 12 0 #26000000">
-                    <TextBlock x:Name="DetailReceiptText" FontFamily="Consolas, Cascadia Mono, Courier New, monospace"
-                               FontSize="13" LineHeight="18" Foreground="#111111"/>
+              <!-- 1: карточка и сразу под ней действия, как в макете. Сетка прижата кверху: строка «*» берёт высоту
+                   карточки, а длинный чек прокручивается, и кнопки остаются видны. -->
+              <Grid Grid.Row="1" RowDefinitions="*,Auto,Auto" VerticalAlignment="Top">
+              <ScrollViewer Grid.Row="0" Margin="0,10,0,0"
+                            HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="480">
+                  <!-- чек не отправлен на сервер / отклонён сервером — и причина последней неудачи (прокручивается с карточкой) -->
+                  <Border x:Name="DetailNotice" IsVisible="False"
+                          Margin="0,0,0,10" Padding="12,10" CornerRadius="10"
+                          Background="{DynamicResource BrushWarningSoft}"
+                          BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
+                    <StackPanel Spacing="4">
+                      <TextBlock x:Name="DetailNoticeText" FontSize="13" TextWrapping="Wrap"
+                                 Foreground="{DynamicResource BrushText}"/>
+                      <TextBlock x:Name="DetailReasonText" IsVisible="False" FontSize="13" FontWeight="SemiBold"
+                                 TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+                      <TextBlock x:Name="DetailAttemptText" IsVisible="False" FontSize="12" TextWrapping="Wrap"
+                                 Foreground="{DynamicResource BrushTextSoft}"/>
+                    </StackPanel>
                   </Border>
-                  <!-- Прежний список позиций оставлен скрытым: по нему строится поиск по товарам. -->
-                  <ItemsControl x:Name="DetailLines" Margin="0,0,14,0" IsVisible="False">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Border BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1" Padding="0,8">
-                          <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2">
-                              <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
+                  <ProgressBar x:Name="DetailLoadingBar" IsVisible="False"
+                               IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" Margin="0,0,0,8"
+                               Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
+                  <TextBlock x:Name="DetailErrorText" IsVisible="False"
+                             FontSize="13" TextWrapping="Wrap" Margin="0,0,0,8"
+                             Foreground="{DynamicResource BrushDanger}"/>
+
+                  <Border x:Name="ReceiptCard" IsVisible="False"
+                          Background="{DynamicResource BrushPanel}"
+                          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                          CornerRadius="16" Padding="18,16"
+                          BoxShadow="0 2 8 0 #14101828">
+                    <StackPanel>
+                      <!-- магазин -->
+                      <TextBlock x:Name="CardStoreName" FontSize="17" FontWeight="Bold"
+                                 TextWrapping="Wrap" TextAlignment="Center"
+                                 Foreground="{DynamicResource BrushText}"/>
+                      <TextBlock x:Name="CardStoreInfo" Classes="card-soft" FontSize="12.5"
+                                 TextAlignment="Center" Margin="0,4,0,0"/>
+                      <TextBlock x:Name="CardKind" Classes="card-soft" FontSize="12.5"
+                                 TextAlignment="Center" Margin="0,2,0,0"/>
+                      <Canvas Classes="dash"><Line StartPoint="0,0.5" EndPoint="4000,0.5" StrokeDashArray="3,3"/></Canvas>
+
+                      <!-- позиции: название, ниже «2 × 85» и сумма жирно справа -->
+                      <ItemsControl x:Name="DetailLines">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <StackPanel Margin="0,0,0,10" Spacing="2">
+                              <TextBlock Text="{Binding Name}" FontSize="14"
                                          TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
-                              <TextBlock Text="{Binding QtyPriceText}" FontSize="12"
-                                         Foreground="{DynamicResource BrushTextSoft}"/>
+                              <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="{Binding QtyPriceText}" Classes="card-soft"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TotalText}"
+                                           Margin="12,0,0,0" FontSize="14" FontWeight="Bold"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource BrushText}"/>
+                              </Grid>
                               <TextBlock Text="{Binding DiscountText}" IsVisible="{Binding HasDiscount}"
-                                         FontSize="12" Foreground="{DynamicResource BrushDanger}"/>
+                                         Classes="card-soft" FontSize="12"/>
                               <TextBlock Text="{Binding ReturnedText}" IsVisible="{Binding HasReturned}"
-                                         FontSize="12" Foreground="{DynamicResource BrushWarning}"/>
+                                         FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushWarning}"/>
                             </StackPanel>
-                            <TextBlock Grid.Column="1" Text="{Binding TotalText}"
-                                       Margin="12,0,0,0" FontSize="14" FontWeight="SemiBold"
-                                       VerticalAlignment="Top"
-                                       Foreground="{DynamicResource BrushText}"/>
-                          </Grid>
-                        </Border>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                  </StackPanel>
-                </ScrollViewer>
-              </DockPanel>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <Canvas Classes="dash" Margin="0,2,0,12"><Line StartPoint="0,0.5" EndPoint="4000,0.5" StrokeDashArray="3,3"/></Canvas>
 
-              <!-- 3: скидки, итог, оплата -->
-              <ItemsControl x:Name="SummaryRows" Grid.Row="3" Margin="0,10,0,0" IsVisible="False">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                      <TextBlock Grid.Column="0" Classes="summary-label" Classes.total="{Binding IsTotal}"
-                                 Text="{Binding Label}"/>
-                      <TextBlock Grid.Column="1" Classes="summary-value" Classes.total="{Binding IsTotal}"
-                                 Text="{Binding Value}"/>
-                    </Grid>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                      <!-- скидки (до итога) -->
+                      <ItemsControl x:Name="DiscountRows">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                              <TextBlock Grid.Column="0" Classes="summary-label" Text="{Binding Label}"/>
+                              <TextBlock Grid.Column="1" Classes="summary-value" Text="{Binding Value}"/>
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
 
-              <!-- 4: печать копии и возврат. Текст кнопок переносится: по-кыргызски он длинный. -->
-              <Grid Grid.Row="4" Margin="0,14,0,0" ColumnDefinitions="*,10,*">
-                <Button x:Name="PrintCopyButton" Grid.Column="0"
-                        Classes="btn-primary"
-                        MinHeight="48"
-                        HorizontalAlignment="Stretch"
-                        IsEnabled="False"
-                        Click="PrintCopy_Click">
-                  <TextBlock Text="{DynamicResource receiptHistory.printCopy}"
-                             TextWrapping="Wrap" TextAlignment="Center"/>
-                </Button>
-                <Button x:Name="ReturnButton" Grid.Column="2"
-                        Classes="btn-secondary"
-                        MinHeight="48"
-                        HorizontalAlignment="Stretch"
-                        Click="Return_Click">
-                  <TextBlock Text="{DynamicResource receiptHistory.return}"
-                             TextWrapping="Wrap" TextAlignment="Center"/>
-                </Button>
-              </Grid>
-              <!-- 2026-10-03, владелец: «нужна кнопка для печати документов из чека» — лист A4 в браузере. -->
-              <Grid Grid.Row="5" Margin="0,10,0,0" ColumnDefinitions="*,10,*">
-                <Button x:Name="DocReceiptButton" Grid.Column="0" Classes="btn-secondary" MinHeight="40"
-                        HorizontalAlignment="Stretch" IsEnabled="False" Click="DocReceipt_Click">
-                  <TextBlock Text="{DynamicResource receiptHistory.docSalesReceipt}" TextWrapping="Wrap" TextAlignment="Center"/>
-                </Button>
-                <Button x:Name="DocWaybillButton" Grid.Column="2" Classes="btn-secondary" MinHeight="40"
-                        HorizontalAlignment="Stretch" IsEnabled="False" Click="DocWaybill_Click">
-                  <TextBlock Text="{DynamicResource receiptHistory.docWaybill}" TextWrapping="Wrap" TextAlignment="Center"/>
-                </Button>
-              </Grid>
+                      <!-- «Итого 209 сом» крупно -->
+                      <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,6">
+                        <TextBlock x:Name="CardTotalLabel" Grid.Column="0" FontSize="18" FontWeight="Bold"
+                                   TextWrapping="Wrap" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock x:Name="CardTotal" Grid.Column="1" FontSize="22" FontWeight="Bold"
+                                   Margin="12,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushText}"/>
+                      </Grid>
 
-              <!-- 5: результат печати -->
-              <TextBlock x:Name="ActionMessage" Grid.Row="6" IsVisible="False"
+                      <!-- оплата, получено, сдача, долг -->
+                      <ItemsControl x:Name="SummaryRows">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                              <TextBlock Grid.Column="0" Classes="summary-label" Text="{Binding Label}"/>
+                              <TextBlock Grid.Column="1" Classes="summary-value" Text="{Binding Value}"/>
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+
+                      <!-- 2026-10-20 (живой аудит кассы, К6): возвраты по чеку — отдельным блоком, чек выше — как был продан. -->
+                      <StackPanel x:Name="ReturnsPanel" IsVisible="False">
+                        <Canvas Classes="dash"><Line StartPoint="0,0.5" EndPoint="4000,0.5" StrokeDashArray="3,3"/></Canvas>
+                        <TextBlock x:Name="ReturnsCaption" FontSize="14" FontWeight="Bold" Margin="0,0,0,6"
+                                   Foreground="{DynamicResource BrushWarning}"/>
+                        <ItemsControl x:Name="ReturnRows">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                                <TextBlock Grid.Column="0" Classes="summary-label" Text="{Binding Label}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Column="1" Classes="summary-value" Text="{Binding Value}" Margin="12,0,0,0"/>
+                              </Grid>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+
+                      <!-- клиент, консультант -->
+                      <StackPanel x:Name="CardPeoplePanel" IsVisible="False">
+                        <Canvas Classes="dash"><Line StartPoint="0,0.5" EndPoint="4000,0.5" StrokeDashArray="3,3"/></Canvas>
+                        <ItemsControl x:Name="PeopleRows">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,4">
+                                <TextBlock Grid.Column="0" Classes="summary-label" Text="{Binding Label}"/>
+                                <TextBlock Grid.Column="1" Classes="summary-value" Text="{Binding Value}"
+                                           TextWrapping="Wrap" TextAlignment="Right"/>
+                              </Grid>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+              </ScrollViewer>
+
+              <!-- действия под карточкой. Одна жёлтая главная: «Печать копии», а у неотправленного чека —
+                   «Отправить на сервер» (тогда печать — обводкой). Текст переносится: по-кыргызски он длинный. -->
+              <StackPanel Grid.Row="1" Margin="0,10,0,0" Spacing="8" MaxWidth="480">
+                <Grid ColumnDefinitions="*,8,*">
+                  <Button x:Name="SendButton" Grid.Column="0" IsVisible="False"
+                          Classes="sec-primary" MinHeight="48"
+                          HorizontalAlignment="Stretch"
+                          Click="Send_Click">
+                    <DockPanel HorizontalAlignment="Center">
+                      <PathIcon Data="{DynamicResource IconExport}" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                      <TextBlock x:Name="SendButtonText" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"/>
+                    </DockPanel>
+                  </Button>
+                  <Button x:Name="PrintCopyButton" Grid.Column="0"
+                          Classes="sec-primary"
+                          MinHeight="48"
+                          HorizontalAlignment="Stretch"
+                          IsEnabled="False"
+                          AutomationProperties.Name="{DynamicResource receiptHistory.printCopy}"
+                          Click="PrintCopy_Click">
+                    <DockPanel HorizontalAlignment="Center">
+                      <PathIcon Data="{DynamicResource IconPrinter}" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                      <TextBlock Text="{DynamicResource receiptHistory.printCopy}"
+                                 TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"/>
+                    </DockPanel>
+                  </Button>
+                  <Button x:Name="ReturnButton" Grid.Column="2"
+                          Classes="sec-outline"
+                          MinHeight="48"
+                          HorizontalAlignment="Stretch"
+                          AutomationProperties.Name="{DynamicResource receiptHistory.return}"
+                          Click="Return_Click">
+                    <DockPanel HorizontalAlignment="Center">
+                      <PathIcon Data="{DynamicResource IconUndo}" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                      <TextBlock Text="{DynamicResource receiptHistory.return}"
+                                 TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"/>
+                    </DockPanel>
+                  </Button>
+                </Grid>
+                <!-- 2026-10-03, владелец: «нужна кнопка для печати документов из чека» — лист A4 в браузере. -->
+                <Grid ColumnDefinitions="*,8,*">
+                  <Button x:Name="DocReceiptButton" Grid.Column="0" Classes="sec-outline" MinHeight="38"
+                          HorizontalAlignment="Stretch" IsEnabled="False" Click="DocReceipt_Click"
+                          AutomationProperties.Name="{DynamicResource receiptHistory.docSalesReceipt}">
+                    <TextBlock Text="{DynamicResource receiptHistory.docSalesReceipt}" TextWrapping="Wrap" TextAlignment="Center"/>
+                  </Button>
+                  <Button x:Name="DocWaybillButton" Grid.Column="2" Classes="sec-outline" MinHeight="38"
+                          HorizontalAlignment="Stretch" IsEnabled="False" Click="DocWaybill_Click"
+                          AutomationProperties.Name="{DynamicResource receiptHistory.docWaybill}">
+                    <TextBlock Text="{DynamicResource receiptHistory.docWaybill}" TextWrapping="Wrap" TextAlignment="Center"/>
+                  </Button>
+                </Grid>
+              </StackPanel>
+
+              <!-- результат печати / отправки -->
+              <TextBlock x:Name="ActionMessage" Grid.Row="2" IsVisible="False"
                          Margin="0,8,0,0" FontSize="13" FontWeight="SemiBold"
                          TextWrapping="Wrap" TextAlignment="Center"/>
+              </Grid>
             </Grid>
           </Grid>
         </Border>

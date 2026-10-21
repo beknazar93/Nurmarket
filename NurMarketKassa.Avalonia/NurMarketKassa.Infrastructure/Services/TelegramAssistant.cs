@@ -26,7 +26,9 @@ public static class TelegramAssistant
     /// фраза не для бота (например, сообщение покупателя не про долг).
     /// Chat = true — это разговор (приветствие, спасибо, «почему…», непонятный вопрос): если
     /// подключён ИИ (TelegramAiChat), ответит он, иначе уходит готовый Reply.</summary>
-    public static (string? Command, string? Reply, bool Chat) Understand(string text, bool isOwner)
+    /// <param name="full">2026-10-21 (бот, ВАЖНО 4): false — участник группы владельца, не сам владелец: журнал обращений покупателей
+    /// (имена и тексты) ему не показываем.</param>
+    public static (string? Command, string? Reply, bool Chat) Understand(string text, bool isOwner, bool full = true)
     {
         var words = Normalize(text);
         // 2026-10-03, владелец (снимок чата): на «?» бот отвечал «Слушаю Вас…» без пользы — даём подсказку.
@@ -36,6 +38,9 @@ public static class TelegramAssistant
         // Покупатель (не владелец) может спросить только про свой долг.
         if (!isOwner)
             return Has(words, DebtWords) ? ("dolg", null, false) : (null, null, false);
+
+        if (!full && Has(words, InquiryWords))
+            return ("dolgi", null, false); // ответ «только для владельца» — общий с должниками
 
         // «Почему упала выручка?», «как поднять продажи» — вопрос-рассуждение, а не отчёт.
         if (words.Length >= 3 && Has(words, ReasoningWords))
@@ -96,18 +101,22 @@ public static class TelegramAssistant
             return ("soveti", null);
         if (Has(words, RevenueWords) || Has(words, TodayWords) || Has(words, WeekWords) || Has(words, MonthWords))
         {
+            // 2026-10-21 (бот, К2): месяц — тоже с сервера («Сводка»), через команду; раньше — местная история кассы за 30 дней.
             if (Has(words, MonthWords))
-                return (null, TelegramReportBuilder.BuildRevenue(30, "За 30 дней"));
+                return ("mesyac", null);
             return Has(words, WeekWords) ? ("nedelya", null) : ("segodnya", null);
         }
 
         if (Has(words, HelpWords))
             return ("help", null);
         if (Has(words, ThanksWords))
-            return (null, "Пожалуйста! Обращайтесь 🙂");
+            return (null, TelegramBotText.T("Пожалуйста! Обращайтесь 🙂", "Эч нерсе эмес! Кайрылыңыз 🙂", "You're welcome! 🙂", "Rica ederim! 🙂", "Arzimaydi! Murojaat qiling 🙂"));
         if (Has(words, GreetingWords))
-            return (null, "Здравствуйте! Я помощник магазина. Спросите обычными словами, например:\n"
-                          + "• сколько заработали сегодня\n• кто должен\n• что заканчивается\n• цена кола");
+            return (null, TelegramBotText.T("Здравствуйте! Я помощник магазина. Нажмите кнопку внизу или спросите обычными словами, например:\n• сколько заработали сегодня\n• кто должен\n• что заканчивается\n• цена кола",
+                "Саламатсызбы! Мен дүкөндүн жардамчысымын. Төмөнкү баскычты басыңыз же жөнөкөй сөз менен сураңыз, мисалы:\n• бүгүн канча түшүм\n• ким карыз\n• эмне түгөнүп жатат\n• кола канча турат",
+                "Hello! I'm the shop assistant. Tap a button below or ask in plain words, for example:\n• how much did we earn today\n• who owes\n• what is running out\n• price of cola",
+                "Merhaba! Mağaza asistanıyım. Aşağıdaki düğmeye basın ya da normal kelimelerle sorun, örneğin:\n• bugün ne kadar kazandık\n• kim borçlu\n• ne bitiyor\n• kola fiyatı",
+                "Assalomu alaykum! Men do'kon yordamchisiman. Pastdagi tugmani bosing yoki oddiy so'zlar bilan so'rang, masalan:\n• bugun qancha topdik\n• kim qarzdor\n• nima tugayapti\n• kola narxi"));
 
         // Одно-два слова без вопроса — возможно, это просто название товара.
         if (words.Length <= 3 && FindProducts(words) is { Count: > 0 } byName)
@@ -116,10 +125,12 @@ public static class TelegramAssistant
         return (null, null);
     }
 
-    private const string FallbackText = "Я понял не всё 🙂 Спросите, например:\n"
-        + "• сколько заработали сегодня / за неделю / за месяц\n"
-        + "• кто должен\n• что заканчивается\n• что заказать\n• что лучше продаётся\n"
-        + "• цена кола, остаток сахар\n\nИли /help — список команд.";
+    private static string FallbackText => TelegramBotText.T(
+        "Я понял не всё 🙂 Спросите, например:\n• сколько заработали сегодня / за неделю / за месяц\n• кто должен\n• что заканчивается\n• что заказать\n• что лучше продаётся\n• цена кола, остаток сахар\n\nИли кнопки внизу, /help — список команд.",
+        "Баарын түшүнгөн жокмун 🙂 Мисалы, мындай сураңыз:\n• бүгүн / жумада / айда канча түшүм\n• ким карыз\n• эмне түгөнүп жатат\n• эмнени заказ кылуу\n• эмне жакшы сатылат\n• кола канча турат\n\nЖе төмөнкү баскычтар, /help — буйруктар.",
+        "I didn't quite get it 🙂 Ask, for example:\n• how much did we earn today / this week / this month\n• who owes\n• what is running out\n• what to reorder\n• what sells best\n• price of cola\n\nOr use the buttons below, /help — list of commands.",
+        "Tam anlayamadım 🙂 Örneğin şöyle sorun:\n• bugün / bu hafta / bu ay ne kadar kazandık\n• kim borçlu\n• ne bitiyor\n• ne sipariş edilmeli\n• en çok ne satılıyor\n• kola fiyatı\n\nYa da aşağıdaki düğmeler, /help — komutlar.",
+        "Hammasini tushunmadim 🙂 Masalan, shunday so'rang:\n• bugun / hafta / oy davomida qancha topdik\n• kim qarzdor\n• nima tugayapti\n• nimani buyurtma qilish\n• nima yaxshi sotiladi\n• kola narxi\n\nYoki pastdagi tugmalar, /help — buyruqlar.");
 
     /// <summary>2026-09-30: каталог для ИИ-консультанта покупателей — только то, что и так видно на
     /// полке и витрине: название, цена, «есть / нет в наличии» (точный остаток не раскрываем).
@@ -178,7 +189,7 @@ public static class TelegramAssistant
             return "";
         try
         {
-            var alts = ProductAlternatives.Find(p, CatalogCacheService.Products, 2);
+            var alts = ProductAlternatives.Find(p, TelegramCatalog.Products, 2);
             if (alts.Count == 0)
                 return "";
             return " Замена в наличии: " + string.Join("; ", alts.Select(a =>
@@ -274,7 +285,7 @@ public static class TelegramAssistant
         List<CatalogProductTileVm> all;
         try
         {
-            all = CatalogCacheService.Products.Where(p => !string.IsNullOrWhiteSpace(p.Title)).ToList();
+            all = TelegramCatalog.Products.Where(p => !string.IsNullOrWhiteSpace(p.Title)).ToList();
         }
         catch
         {
@@ -327,7 +338,9 @@ public static class TelegramAssistant
     {
         var words = Normalize(question);
         string Line(CatalogProductTileVm p) =>
-            $"• {Escape(p.Title)} — {LocalCartService.ParsePrice(p.PriceLine).ToString("N2", Ru)} сом, {(p.Quantity > 0 ? "есть в наличии" : "нет в наличии")}";
+            $"• {Escape(p.Title)} — {LocalCartService.ParsePrice(p.PriceLine).ToString("N2", Ru)} " + (p.Quantity > 0
+                ? TelegramBotText.T("сом, есть в наличии", "сом, бар", "som, in stock", "som, stokta var", "so'm, mavjud")
+                : TelegramBotText.T("сом, нет в наличии", "сом, жок", "som, out of stock", "som, stokta yok", "so'm, mavjud emas"));
 
         var found = FindProducts(words);
         if (found.Count == 0)
@@ -340,7 +353,7 @@ public static class TelegramAssistant
             List<CatalogProductTileVm> inStock;
             try
             {
-                inStock = CatalogCacheService.Products.Where(p => p.Quantity > 0 && !string.IsNullOrWhiteSpace(p.Title))
+                inStock = TelegramCatalog.Products.Where(p => p.Quantity > 0 && !string.IsNullOrWhiteSpace(p.Title))
                     .OrderBy(p => p.Title).Take(25).ToList();
             }
             catch
@@ -349,12 +362,60 @@ public static class TelegramAssistant
             }
 
             if (inStock.Count > 0)
-                return $"<b>Сейчас в наличии в «{Escape(storeName)}»</b> (часть списка):\n" + string.Join("\n", inStock.Select(Line))
-                       + "\n\nСпросите о конкретном товаре — например «сколько стоит сахар».";
+                return TelegramBotText.T($"<b>Сейчас в наличии в «{Escape(storeName)}»</b> (часть списка):\n", $"<b>«{Escape(storeName)}» дүкөнүндө азыр бар</b> (тизменин бир бөлүгү):\n",
+                           $"<b>In stock now at “{Escape(storeName)}”</b> (part of the list):\n", $"<b>«{Escape(storeName)}» mağazasında şu an stokta</b> (listenin bir kısmı):\n",
+                           $"<b>«{Escape(storeName)}» do'konida hozir bor</b> (ro'yxatning bir qismi):\n")
+                       + string.Join("\n", inStock.Select(Line))
+                       + TelegramBotText.T("\n\nСпросите о конкретном товаре — например «сколько стоит сахар».", "\n\nБелгилүү товар тууралуу сураңыз — мисалы «шекер канча турат».",
+                           "\n\nAsk about a specific product — for example “how much is sugar”.", "\n\nBelirli bir ürünü sorun — örneğin «şeker ne kadar».",
+                           "\n\nAniq mahsulot haqida so'rang — masalan «shakar qancha turadi».");
         }
 
-        return "Такого товара я не нашёл 🙂 Напишите название точнее"
-               + (string.IsNullOrWhiteSpace(phone) ? "." : $" или позвоните в магазин: {Escape(phone)}.");
+        // 2026-10-21 (бот, идея 12): без ИИ на непонятный вопрос — «вот что я умею», а не голое «товар не найден».
+        var call = string.IsNullOrWhiteSpace(phone) ? "" : TelegramBotText.T($" Телефон магазина: {Escape(phone)}.", $" Дүкөндүн телефону: {Escape(phone)}.",
+            $" Shop phone: {Escape(phone)}.", $" Mağaza telefonu: {Escape(phone)}.", $" Do'kon telefoni: {Escape(phone)}.");
+        return TelegramBotText.T("Я подскажу цену и наличие, если написать название товара (например «сахар» или «есть кола?»). Ещё можно открыть каталог кнопкой ниже.",
+                   "Товардын атын жазсаңыз (мисалы «шекер» же «кола барбы?»), баасын жана бар-жогун айтам. Төмөнкү баскыч менен каталогду да ачса болот.",
+                   "Type a product name (for example “sugar” or “do you have cola?”) and I'll tell you the price and availability. You can also open the catalog with the button below.",
+                   "Ürün adını yazın (örneğin «şeker» veya «kola var mı?»), fiyatını ve stok durumunu söyleyeyim. Aşağıdaki düğmeyle kataloğu da açabilirsiniz.",
+                   "Mahsulot nomini yozing (masalan «shakar» yoki «kola bormi?»), narxi va mavjudligini aytaman. Pastdagi tugma bilan katalogni ham ochish mumkin.")
+               + call;
+    }
+
+    /// <summary>2026-10-21 (бот, идея 3): кнопка «🛍 Каталог» покупателя — категории с числом товаров в наличии и подсказка, как спросить.</summary>
+    public static string CatalogOverview(string storeName)
+    {
+        var inStock = TelegramCatalog.Products.Where(p => p.Quantity > 0 && !string.IsNullOrWhiteSpace(p.Title)).ToList();
+        if (inStock.Count == 0)
+            return TelegramBotText.T("Каталог сейчас недоступен — напишите, что ищете, или позвоните в магазин.", "Каталог азыр жеткиликсиз — эмне издеп жатканыңызды жазыңыз же дүкөнгө чалыңыз.",
+                "The catalog is unavailable right now — type what you are looking for or call the shop.", "Katalog şu an kullanılamıyor — ne aradığınızı yazın veya mağazayı arayın.",
+                "Katalog hozir mavjud emas — nima qidirayotganingizni yozing yoki do'konga qo'ng'iroq qiling.");
+        var sb = new StringBuilder();
+        sb.AppendLine(TelegramBotText.T($"<b>Каталог «{Escape(storeName)}»</b>", $"<b>«{Escape(storeName)}» каталогу</b>", $"<b>“{Escape(storeName)}” catalog</b>",
+            $"<b>«{Escape(storeName)}» kataloğu</b>", $"<b>«{Escape(storeName)}» katalogi</b>"));
+        sb.AppendLine(TelegramBotText.T($"В наличии: {inStock.Count} товаров.", $"Бар: {inStock.Count} товар.", $"In stock: {inStock.Count} products.",
+            $"Stokta: {inStock.Count} ürün.", $"Mavjud: {inStock.Count} mahsulot."));
+        var categories = inStock.Where(p => !string.IsNullOrWhiteSpace(p.Category)).GroupBy(p => p.Category!.Trim(), StringComparer.CurrentCultureIgnoreCase)
+            .OrderByDescending(g => g.Count()).Take(12).ToList();
+        sb.AppendLine();
+        if (categories.Count > 1)
+        {
+            foreach (var g in categories)
+                sb.AppendLine($"• {Escape(g.Key)} — {g.Count()}");
+        }
+        else
+        {
+            foreach (var p in inStock.OrderBy(p => p.Title).Take(20))
+                sb.AppendLine($"• {Escape(p.Title)} — {LocalCartService.ParsePrice(p.PriceLine).ToString("N2", Ru)} сом");
+        }
+        var example = categories.Count > 1 ? categories[0].Key : inStock[0].Title;
+        sb.AppendLine();
+        sb.AppendLine(TelegramBotText.T($"Напишите название или категорию — например «{Escape(example)}» — покажу цены и наличие.",
+            $"Атын же категориясын жазыңыз — мисалы «{Escape(example)}» — баасын жана бар-жогун көрсөтөм.",
+            $"Type a name or a category — for example “{Escape(example)}” — and I'll show prices and availability.",
+            $"Bir ad veya kategori yazın — örneğin «{Escape(example)}» — fiyatları ve stok durumunu göstereyim.",
+            $"Nom yoki toifani yozing — masalan «{Escape(example)}» — narx va mavjudligini ko'rsataman."));
+        return sb.ToString();
     }
 
     /// <summary>2026-10-01: товар для заказа из бота по названию, которое назвала нейросеть: сначала
@@ -365,7 +426,7 @@ public static class TelegramAssistant
             return null;
         try
         {
-            var exact = CatalogCacheService.Products.FirstOrDefault(p =>
+            var exact = TelegramCatalog.Products.FirstOrDefault(p =>
                 string.Equals(p.Title?.Trim(), title.Trim(), StringComparison.OrdinalIgnoreCase));
             return exact ?? FindProducts(Normalize(title)).FirstOrDefault();
         }
@@ -425,6 +486,8 @@ public static class TelegramAssistant
         "сом", "мне", "скажи", "покажи", "еще", "ещё", "складе", "склад", "товар", "товара", "бар бы", "или", "же", "вас", "у вас", "это",
         // 2026-10-03: «какие одежды есть для покупки» — «для» и «покупки» не часть названия.
         "для", "покупк", "купить", "продаж", "продать", "можно", "взять",
+        // 2026-10-21 (бот, S0): «Кола канча турат?» — «турат» (стоит) не часть названия.
+        "турат", "барбы", "болобу",
     };
 
     private static string[] Normalize(string text)
@@ -442,6 +505,16 @@ public static class TelegramAssistant
             if (stem.Contains(' '))
             {
                 if (string.Join(' ', words).Contains(stem, StringComparison.Ordinal))
+                    return true;
+                continue;
+            }
+
+            // 2026-10-21 (бот, S0): число («7», «30») — только отдельным словом и рядом со словом «дней» («за 7 дней»): раньше
+            // «цена 7up» давала недельную выручку, «продал 30 штук» — выручку за месяц.
+            if (stem.All(char.IsDigit))
+            {
+                if (words.Contains(stem) && words.Any(w => w.StartsWith("дн", StringComparison.Ordinal) || w.StartsWith("ден", StringComparison.Ordinal)
+                                                          || w.StartsWith("күн", StringComparison.Ordinal) || w.StartsWith("кун", StringComparison.Ordinal) || w.StartsWith("day", StringComparison.Ordinal)))
                     return true;
                 continue;
             }
@@ -471,7 +544,7 @@ public static class TelegramAssistant
         List<CatalogProductTileVm> products;
         try
         {
-            products = CatalogCacheService.Products.ToList();
+            products = TelegramCatalog.Products.ToList();
         }
         catch
         {
@@ -503,7 +576,7 @@ public static class TelegramAssistant
         List<CatalogProductTileVm> products;
         try
         {
-            products = CatalogCacheService.Products.Where(p => !string.IsNullOrWhiteSpace(p.Title) && !string.IsNullOrWhiteSpace(p.Category)).ToList();
+            products = TelegramCatalog.Products.Where(p => !string.IsNullOrWhiteSpace(p.Title) && !string.IsNullOrWhiteSpace(p.Category)).ToList();
         }
         catch
         {
@@ -536,14 +609,18 @@ public static class TelegramAssistant
     {
         var sb = new StringBuilder();
         var lookups = 0;
-        sb.AppendLine(products.Count == 1 ? "<b>Нашёл товар</b>" : $"<b>Нашёл товаров: {products.Count}</b>");
+        sb.AppendLine(products.Count == 1
+            ? TelegramBotText.T("<b>Нашёл товар</b>", "<b>Товар табылды</b>", "<b>Found a product</b>", "<b>Ürün bulundu</b>", "<b>Mahsulot topildi</b>")
+            : TelegramBotText.T($"<b>Нашёл товаров: {products.Count}</b>", $"<b>Табылган товарлар: {products.Count}</b>", $"<b>Products found: {products.Count}</b>",
+                $"<b>Bulunan ürünler: {products.Count}</b>", $"<b>Topilgan mahsulotlar: {products.Count}</b>"));
         sb.AppendLine();
         foreach (var p in products)
         {
             var price = LocalCartService.ParsePrice(p.PriceLine);
-            var stock = p.Quantity.ToString("0.###", Ru) + (string.IsNullOrWhiteSpace(p.Unit) ? "" : " " + p.Unit);
+            var stock = p.Quantity.ToString("0.###", Ru) + (string.IsNullOrWhiteSpace(p.Unit) ? "" : " " + Escape(p.Unit));
             sb.AppendLine($"• <b>{Escape(p.Title)}</b>");
-            sb.AppendLine($"  цена {price.ToString("N2", Ru)} сом · остаток {stock}");
+            sb.AppendLine("  " + TelegramBotText.T($"цена {price.ToString("N2", Ru)} сом · остаток {stock}", $"баасы {price.ToString("N2", Ru)} сом · калдык {stock}",
+                $"price {price.ToString("N2", Ru)} som · stock {stock}", $"fiyat {price.ToString("N2", Ru)} som · stok {stock}", $"narxi {price.ToString("N2", Ru)} so'm · qoldiq {stock}"));
             // 2026-10-03: владельцу — тоже размеры и цвета (раньше только покупателю), по первым пяти товарам.
             if (lookups++ < MaxVariantLookups && VariantsText(p, withCounts: true) is { Length: > 0 } variants)
                 sb.AppendLine("  " + Escape(variants.Trim()));

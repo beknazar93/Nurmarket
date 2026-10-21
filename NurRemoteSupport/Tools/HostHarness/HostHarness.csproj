@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 2026-10-16: стенд для проверки НАСТОЯЩЕГО кода кассы удалённой поддержки (RemoteSupportHost) с программой оператора,
+       без входа в кассу. Своя папка данных (AppMode.DataFolderOverride), согласие — автоматически. Только для проверки на ПК. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\NurMarketKassa.Avalonia\NurMarketKassa.Avalonia\NurMarketKassa.Avalonia.csproj" />
+  </ItemGroup>
+
+</Project>

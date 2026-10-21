@@ -33,6 +33,7 @@ public partial class NoStockDialog : Window
         : this()
     {
         BtnAlternatives.IsVisible = hasAlternatives;
+        // 2026-10-17, этап 3: заголовок окна — в шапке общей оболочки модалки (Shell.Title вместо TitleText).
         // Раньше override разрешался ТОЛЬКО когда остаток на складе действительно нулевой —
         // если на складе, например, 3 шт, а кассир пытается добавить 4-ю, override не
         // предлагался вообще, и добавить товар сверх остатка было невозможно. Это было
@@ -61,7 +62,7 @@ public partial class NoStockDialog : Window
         ProductNameText.Text = $"{Tr.T("Товар:", "Товар:", "Product:", "Ürün:", "Mahsulot:")}\n{productName}";
         if (warehouseStock <= 1e-6)
         {
-            TitleText.Text = Tr.T("Товар закончился на складе", "Товар кампада түгөндү", "Product is out of stock", "Ürün depoda tükendi", "Mahsulot omborda tugadi");
+            Shell.Title = Tr.T("Товар закончился на складе", "Товар кампада түгөндү", "Product is out of stock", "Ürün depoda tükendi", "Mahsulot omborda tugadi");
             MessageText.Text = canOverride
                 ? Tr.T(
                     "Остаток на складе равен нулю. Пожалуйста, пополните склад. Можно продолжить продажу — чек попадёт в «Некорректные чеки».",
@@ -73,14 +74,14 @@ public partial class NoStockDialog : Window
         else if (quantityReservedElsewhere <= 1e-6
                  && quantityInCurrentCart >= warehouseStock - 1e-6)
         {
-            TitleText.Text = Tr.T("Остаток уже в корзине", "Калдыктын баары себетте", "All stock is already in the cart", "Stok zaten sepette", "Qoldiq allaqachon savatda");
+            Shell.Title = Tr.T("Остаток уже в корзине", "Калдыктын баары себетте", "All stock is already in the cart", "Stok zaten sepette", "Qoldiq allaqachon savatda");
             MessageText.Text = AppendOverrideHint(Tr.T(
                 $"Весь доступный остаток ({warehouseText}) уже добавлен в текущую корзину.",
                 $"Жеткиликтүү калдыктын баары ({warehouseText}) азыркы себетке кошулган.", $"All available stock ({warehouseText}) has already been added to the current cart.", $"Kullanılabilir stoğun tamamı ({warehouseText}) zaten bu sepete eklendi.", $"Mavjud qoldiqning hammasi ({warehouseText}) joriy savatga qo'shib bo'lingan."));
         }
         else if (quantityReservedElsewhere > 1e-6 && availableToAdd <= 1e-6)
         {
-            TitleText.Text = Tr.T("Остаток уже зарезервирован", "Калдык мурунтан эле резервделген", "Stock already reserved", "Stok zaten ayrılmış", "Qoldiq allaqachon zaxiralangan");
+            Shell.Title = Tr.T("Остаток уже зарезервирован", "Калдык мурунтан эле резервделген", "Stock already reserved", "Stok zaten ayrılmış", "Qoldiq allaqachon zaxiralangan");
             MessageText.Text = AppendOverrideHint(quantityInCurrentCart > 1e-6
                 ? Tr.T(
                     $"Весь доступный остаток ({warehouseText}) распределён между текущим и другими открытыми или отложенными чеками.",
@@ -91,7 +92,7 @@ public partial class NoStockDialog : Window
         }
         else
         {
-            TitleText.Text = Tr.T("Недостаточно остатка", "Калдык жетишсиз", "Not enough stock", "Stok yetersiz", "Qoldiq yetarli emas");
+            Shell.Title = Tr.T("Недостаточно остатка", "Калдык жетишсиз", "Not enough stock", "Stok yetersiz", "Qoldiq yetarli emas");
             MessageText.Text = AppendOverrideHint(Tr.T(
                 "Выбранное количество превышает количество, которое ещё можно добавить в этот чек.",
                 "Тандалган сан бул чекке дагы кошууга мүмкүн болгон сандан ашып кетти.", "The selected quantity exceeds what can still be added to this receipt.", "Seçilen miktar, bu fişe hâlâ eklenebilecek miktarı aşıyor.", "Tanlangan miqdor bu chekka yana qo'shish mumkin bo'lgan miqdordan ko'p."));

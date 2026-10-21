@@ -33,7 +33,7 @@ public partial class WeighedProductDialog : Window
         _narrowLayout = narrow;
         if (narrow)
         {
-            ContentPanel.Margin = new Avalonia.Thickness(16, 12, 16, 16);
+            ContentPanel.Margin = new Avalonia.Thickness(0); // 2026-10-17: поля даёт ModalShell
             ContentPanel.Spacing = 10;
             BodyGrid.ColumnDefinitions = new ColumnDefinitions("*");
             BodyGrid.RowDefinitions = new RowDefinitions("Auto,12,Auto");
@@ -45,7 +45,7 @@ public partial class WeighedProductDialog : Window
         }
         else
         {
-            ContentPanel.Margin = new Avalonia.Thickness(24, 20, 24, 24);
+            ContentPanel.Margin = new Avalonia.Thickness(0);
             ContentPanel.Spacing = 16;
             BodyGrid.ColumnDefinitions = new ColumnDefinitions("*,24,310");
             BodyGrid.RowDefinitions = new RowDefinitions();
@@ -86,15 +86,15 @@ public partial class WeighedProductDialog : Window
         var title = string.IsNullOrEmpty(windowTitle) ? Tr.T("Взвесить товар", "Товарды тартуу", "Weigh the product", "Ürünü tart", "Mahsulotni tortish") : windowTitle;
         Title = title;
 
-        // Присвоение значения шапке диалога
-        HeaderTitleText.Text = string.IsNullOrEmpty(productTitle)
+        // Присвоение значения шапке диалога (2026-10-17, этап 3: шапка общей оболочки модалки — Shell)
+        Shell.Title = string.IsNullOrEmpty(productTitle)
             ? title
             : Tr.T($"Взвесить: {productTitle}", $"Тартуу: {productTitle}",
                 $"Weigh: {productTitle}", $"Tart: {productTitle}", $"Tortish: {productTitle}");
         OkButton.Content = okButtonText ?? Tr.T("В чек", "Чекке", "Add to receipt", "Fişe ekle", "Chekka");
-        PriceBlock.Text = string.IsNullOrEmpty(pricePerKgLine)
+        Shell.Subtitle = string.IsNullOrEmpty(pricePerKgLine)
             ? ""
-            : Tr.T("Цена за кг: ", "1 кг баасы: ", "Price per kg: ", "Kg başına fiyat: ", "Kg narxi: ") + pricePerKgLine;
+            : Tr.T("Цена за кг: ", "1 кг баасы: ", "Price per kg: ", "Kg başına fiyat: ", "Kg narxi: ") + MoneyText.SomFromText(pricePerKgLine); // 2026-10-20 (аудит К18): «70,00 сом», а не «70.00 сом»
         WeightLabel.Text = Tr.T("Вес, кг", "Салмагы, кг", "Weight, kg", "Ağırlık, kg", "Og'irlik, kg");
         LiveScaleLabel.Text = Tr.T("На весах сейчас", "Азыр таразада", "On the scale now", "Şu anda terazide", "Hozir tarozida");
         CancelButton.Content = Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish");
@@ -290,7 +290,9 @@ public partial class WeighedProductDialog : Window
     /// столько). Считается по той же цене за кг, что показана в шапке диалога.</summary>
     private void UpdateComputedPreview()
     {
-        if (!_isAmountMode || _pricePerKg <= 0)
+        // 2026-10-21 (пакет 6, п. 18): и в режиме «По весу» — сумма строки до «В чек» («= 21,00 сом»), раньше её
+        // было видно только в чеке.
+        if (_pricePerKg <= 0)
         {
             ComputedPreviewText.IsVisible = false;
             return;
@@ -300,6 +302,14 @@ public partial class WeighedProductDialog : Window
         if (!double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var amount) || amount <= 0)
         {
             ComputedPreviewText.IsVisible = false;
+            return;
+        }
+
+        if (!_isAmountMode)
+        {
+            ComputedPreviewText.Text = Tr.T("Сумма: ", "Сумма: ", "Amount: ", "Tutar: ", "Summa: ")
+                + MoneyText.Som(Math.Round(amount * _pricePerKg, 2, MidpointRounding.AwayFromZero));
+            ComputedPreviewText.IsVisible = true;
             return;
         }
 

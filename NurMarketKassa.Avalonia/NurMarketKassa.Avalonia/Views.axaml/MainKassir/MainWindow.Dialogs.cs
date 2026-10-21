@@ -33,6 +33,7 @@ public partial class MainWindow
         _hostBridge.OfferAddUnknownProduct = OfferAddUnknownProductAsync;
         _hostBridge.ReweighCartLine = ReweighCartLineAsync;
         _viewModel.Basket.ChangeVariantLine = ChangeCartLineVariantAsync;
+        _viewModel.Basket.AskRemovalReason = AskCartRemovalReasonAsync; // 2026-10-17, этап 4: «Убрать из чека?»
         _hostBridge.ApplyLineDiscount = ApplyLineDiscountAsync;
         _hostBridge.ReplenishStockForProduct = ReplenishStockForProductAsync;
     }
@@ -61,6 +62,14 @@ public partial class MainWindow
         // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
         await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true);
         _viewModel.Basket.RefreshFromCart();
+    }
+
+    /// <summary>2026-10-17, редизайн (этап 4, макет MCancelled): причина удаления строки из чека.
+    /// null — «Оставить» (Esc, ✕): строка остаётся.</summary>
+    private async Task<CartRemovalReasonAnswer?> AskCartRemovalReasonAsync(CartRemovalReasonRequest request)
+    {
+        var dlg = new CartRemovalReasonDialog(request);
+        return await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true) == true ? dlg.Answer : null;
     }
 
     internal async Task OpenCashOperationsAsync()
@@ -341,7 +350,8 @@ public partial class MainWindow
     /// теперь та же кнопка «Доп. услуга» сама оформляет изъятие, если корзина пуста.</summary>
     internal async Task AddCustomItemAsync()
     {
-        var dialog = new CustomServiceDialog();
+        // 2026-10-21 (пакет 6, п. 43): окно само говорит, что «Расход» при пустом чеке — изъятие из кассы.
+        var dialog = new CustomServiceDialog { CartIsEmpty = !_viewModel.Basket.HasItems };
         // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
         if (await PosDialogHost.ShowModalAsync(dialog, this).ConfigureAwait(true) != true)
             return;
@@ -494,13 +504,16 @@ public partial class MainWindow
     internal async Task OfferAddUnknownProductAsync(string barcode)
     {
         var code = (barcode ?? "").Trim();
-        var confirmed = await PosConfirmDialog.ShowModalAsync(
-            this,
+        var notFound = new PosConfirmDialog(
             Tr.T("Товар не найден", "Товар табылган жок", "Product not found", "Ürün bulunamadı", "Mahsulot topilmadi"),
             Tr.T($"Штрих-код {code} не найден в каталоге. Добавить новый товар на склад?",
                  $"{code} штрих-коду каталогдон табылган жок. Кампага жаңы товар кошолубу?", $"Barcode {code} was not found in the catalog. Add a new product to the warehouse?", $"Barkod {code} katalogda bulunamadı. Depoya yeni ürün eklensin mi?", $"{code} shtrix-kodi katalogda topilmadi. Omborga yangi mahsulot qo'shilsinmi?"),
             Tr.T("Добавить на склад", "Кампага кошуу", "Add to warehouse", "Depoya ekle", "Omborga qo'shish"),
             Tr.T("Пропустить", "Өткөрүп жиберүү", "Skip", "Atla", "O'tkazib yuborish"));
+        // 2026-10-20, живая проверка: окно открывается посреди сканирования — Enter сканера здесь не жмёт
+        // «Добавить на склад», а следующий код закрывает окно и встаёт в очередь чека (PassScannerThrough).
+        notFound.PassScannerThrough(_barcodeInputService, next => _viewModel.Basket.EnqueueBarcode(next));
+        var confirmed = await PosDialogHost.ShowModalAsync(notFound, this).ConfigureAwait(true) == true;
         if (!confirmed)
             return;
 
@@ -561,6 +574,8 @@ public partial class MainWindow
         if (!Authorize(PosPermissions.ApplyDiscount))
             return;
         var dlg = App.GetRequiredService<OrderDiscountDialog>();
+        // 2026-10-21 (пакет 6, п. 18): предпросмотр «Было → станет» — от суммы строк после их скидок.
+        dlg.SetPreviewBase(_viewModel.Basket.Lines.Sum(l => l.LineTotal));
         // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
         if (await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true) != true)
             return;
@@ -573,14 +588,17 @@ public partial class MainWindow
         }
 
         var (previousPercent, previousTotal) = _viewModel.Basket.ReadOrderDiscount();
-        if (_viewModel.Basket.ApplyOrderDiscount(dlg.DiscountMode, dlg.DiscountValue))
+        // 2026-10-20 (живой аудит кассы, К5): скидка записывается в чек без обновления экрана — покупатель её не видит,
+        // пока кассир не ответит «Я знаю что делаю»; «Отмена» — прежняя скидка, экран не менялся.
+        if (_viewModel.Basket.ApplyOrderDiscount(dlg.DiscountMode, dlg.DiscountValue, refresh: false))
         {
-            if (!await ConfirmSellingAtLossAsync().ConfigureAwait(true))
+            if (!await ConfirmSellingAtLossAsync(_viewModel.Basket.LossWarningTextFromCart()).ConfigureAwait(true))
             {
-                _viewModel.Basket.RestoreOrderDiscount(previousPercent, previousTotal);
+                _viewModel.Basket.RestoreOrderDiscount(previousPercent, previousTotal, refresh: false);
                 _viewModel.Basket.CartMessage = LossDiscountCancelledText();
                 return;
             }
+            _viewModel.Basket.RefreshFromCart();
             _viewModel.Basket.CartMessage = dlg.DiscountMode == "percent"
                 ? Tr.T($"Скидка {dlg.DiscountValue}% применена.", $"{dlg.DiscountValue}% арзандатуу колдонулду.", $"{dlg.DiscountValue}% discount applied.", $"%{dlg.DiscountValue} indirim uygulandı.", $"{dlg.DiscountValue}% chegirma qo'llandi.")
                 : Tr.T($"Скидка {dlg.DiscountValue} сом применена.", $"{dlg.DiscountValue} сом арзандатуу колдонулду.", $"{dlg.DiscountValue} som discount applied.", $"{dlg.DiscountValue} som indirim uygulandı.", $"{dlg.DiscountValue} so'm chegirma qo'llandi.");
@@ -661,6 +679,8 @@ public partial class MainWindow
         var (mode, value) = ReadLineDiscount(cart, line.ItemId);
         var dialog = App.GetRequiredService<OrderDiscountDialog>();
         dialog.SetItemMode(line.Title, mode, value);
+        // 2026-10-21 (пакет 6, п. 18): предпросмотр «Было → станет» — от цены × количество строки.
+        dialog.SetPreviewBase(line.UnitPrice * line.Quantity);
         if (await PosDialogHost.ShowModalAsync(dialog, this).ConfigureAwait(true) != true)
             return;
 
@@ -715,19 +735,20 @@ public partial class MainWindow
             line.ItemId,
             dialog.ClearRequested ? null : dialog.DiscountMode,
             dialog.ClearRequested ? null : dialog.DiscountValue);
-        _viewModel.Basket.RefreshFromCart();
         // 2026-10-04: скидка увела товар ниже закупки — без «Я знаю что делаю» возвращаем прежнюю скидку.
-        if (!dialog.ClearRequested && !await ConfirmSellingAtLossAsync().ConfigureAwait(true))
+        // 2026-10-20 (живой аудит кассы, К5): вопрос — до обновления экрана: пока окно «Продажа в убыток» открыто,
+        // ни кассир, ни покупатель (экран покупателя) скидку не видят; «Отмена» — прежняя скидка без мигания.
+        if (!dialog.ClearRequested && !await ConfirmSellingAtLossAsync(_viewModel.Basket.LossWarningTextFromCart()).ConfigureAwait(true))
         {
             ReceiptSnapshotCartEditor.PatchLineDiscount(
                 cart,
                 line.ItemId,
                 mode,
                 value?.ToString(CultureInfo.InvariantCulture));
-            _viewModel.Basket.RefreshFromCart();
             _viewModel.Basket.CartMessage = LossDiscountCancelledText();
             return;
         }
+        _viewModel.Basket.RefreshFromCart();
         _viewModel.Basket.CartMessage = dialog.ClearRequested
             ? Tr.T($"Скидка на «{line.Title}» удалена.", $"«{line.Title}» үчүн арзандатуу алынып салынды.", $"Discount on “{line.Title}” removed.", $"«{line.Title}» için indirim kaldırıldı.", $"«{line.Title}» uchun chegirma olib tashlandi.")
             : Tr.T($"Скидка на «{line.Title}» применена.", $"«{line.Title}» үчүн арзандатуу колдонулду.", $"Discount on “{line.Title}” applied.", $"«{line.Title}» için indirim uygulandı.", $"«{line.Title}» uchun chegirma qo'llandi.");
@@ -735,9 +756,11 @@ public partial class MainWindow
 
     /// <summary>2026-10-04, клиент: «если скидку случайно выдать в убыток — предупреждающий экран, и после
     /// подтверждения добавить скидку (кнопка «Я знаю что делаю»)». true — убытка нет или кассир подтвердил.</summary>
-    private async Task<bool> ConfirmSellingAtLossAsync()
+    /// <param name="lossText">2026-10-20 (К5): текст убытка, посчитанный по чеку ДО обновления экрана (LossWarningTextFromCart);
+    /// null — убытка нет.</param>
+    private async Task<bool> ConfirmSellingAtLossAsync(string? lossText)
     {
-        if (_viewModel.Basket.LossWarningText() is not { } text)
+        if (lossText is not { } text)
             return true;
         // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
         var ok = await PosConfirmDialog.ShowModalAsync(
@@ -1288,15 +1311,11 @@ public partial class MainWindow
     private async Task<(SwitchCashierOutcome Outcome, string? ErrorMessage)> ValidateAndSwitchCashierAsync(
         string email, string password)
     {
-        var api = App.AuthApi;
-        var oldSnapshot = new OfflineAuthSession
-        {
-            UserId = App.CurrentUserId ?? "",
-            AccessToken = api.AccessToken,
-            RefreshToken = api.RefreshToken,
-            BranchId = api.ActiveBranchId,
-            CashierName = _session.PosCashboxDisplayName ?? "",
-        };
+        // 2026-10-18, аудит: снимок ПОЛНОГО входа (токены + профиль с ролью/доступами + филиал + ИНН компании).
+        // Раньше восстанавливались только токены — после неверного пароля до перезапуска у владельца
+        // пропадали Настройки/склад, а код удаления с сайта не учитывался.
+        var apiClient = App.GetRequiredService<NurMarketApiClient>();
+        var oldState = apiClient.CaptureSessionState();
 
         var auth = App.GetRequiredService<IOnlineOfflineAuthenticationService>();
         // 2026-09-26: LoginAsync с rememberMe: false СТИРАЕТ сохранённый вход кассы — после любой
@@ -1336,7 +1355,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             await RestoreSavedLoginAsync().ConfigureAwait(true);
-            api.RestoreOfflineSession(oldSnapshot);
+            apiClient.RestoreSessionState(oldState);
             return (SwitchCashierOutcome.InvalidCredentials,
                 Tr.T($"Не удалось выполнить вход: {ex.Message}", $"Кирүү мүмкүн болгон жок: {ex.Message}",
                     $"Could not sign in: {ex.Message}", $"Giriş yapılamadı: {ex.Message}", $"Tizimga kirib bo'lmadi: {ex.Message}"));
@@ -1348,30 +1367,77 @@ public partial class MainWindow
             // LoginAsync их не трогает, но явное восстановление здесь безопаснее, чем полагаться
             // на то, что реализация никогда не изменится.
             await RestoreSavedLoginAsync().ConfigureAwait(true);
-            api.RestoreOfflineSession(oldSnapshot);
+            apiClient.RestoreSessionState(oldState);
             return (SwitchCashierOutcome.InvalidCredentials, result.ErrorMessage);
         }
 
         var newSession = result.Session;
-        var newSnapshot = new OfflineAuthSession
-        {
-            UserId = newSession.UserId,
-            Login = newSession.Login,
-            CashierName = newSession.DisplayName,
-            Role = newSession.Role,
-            AccessToken = api.AccessToken,
-            RefreshToken = api.RefreshToken,
-            BranchId = api.ActiveBranchId,
-            Permissions = newSession.Permissions.ToList(),
-        };
+        // 2026-10-18: новый вход целиком (профиль с доступами из ответа сервера, а не урезанный из сессии).
+        var newState = apiClient.CaptureSessionState();
 
-        // Закрываем смену от имени СТАРОГО кассира — временно возвращаем его токены, чтобы
-        // отчёт/инкассация были атрибутированы правильно, как при обычном ручном закрытии смены.
-        api.RestoreOfflineSession(oldSnapshot);
+        // 2026-10-18, ревью решений владельца: «смена» на самого себя — не смена кассира (иначе обходила бы доступ
+        // «Смены» при закрытии смены). Сравнение по id, запасное — по email, без учёта регистра.
+        static string? PayloadEmail(System.Text.Json.JsonElement payload)
+        {
+            if (payload.ValueKind != System.Text.Json.JsonValueKind.Object)
+                return null;
+            if (payload.TryGetProperty("email", out var e) && e.ValueKind == System.Text.Json.JsonValueKind.String)
+                return e.GetString();
+            return payload.TryGetProperty("user", out var u) && u.ValueKind == System.Text.Json.JsonValueKind.Object
+                   && u.TryGetProperty("email", out var ue) && ue.ValueKind == System.Text.Json.JsonValueKind.String
+                ? ue.GetString()
+                : null;
+        }
+        var oldUserId = App.CurrentUserId;
+        var oldEmail = PayloadEmail(oldState.UserPayload);
+        var sameUser = (!string.IsNullOrWhiteSpace(oldUserId) && !string.IsNullOrWhiteSpace(newSession.UserId)
+                        && string.Equals(oldUserId.Trim(), newSession.UserId.Trim(), StringComparison.OrdinalIgnoreCase))
+                       || (!string.IsNullOrWhiteSpace(oldEmail)
+                           && (string.Equals(oldEmail.Trim(), newSession.Login?.Trim(), StringComparison.OrdinalIgnoreCase)
+                               || string.Equals(oldEmail.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase)));
+        if (sameUser)
+        {
+            await RestoreSavedLoginAsync().ConfigureAwait(true);
+            apiClient.RestoreSessionState(oldState);
+            PosLogger.Log("Смена кассира: введён тот же кассир — смена не меняется.", "AUTH");
+            return (SwitchCashierOutcome.InvalidCredentials,
+                Tr.T("Это тот же кассир — смена не меняется.", "Бул ошол эле кассир — смена өзгөрбөйт.",
+                    "This is the same cashier — the shift stays as it is.", "Bu aynı kasiyer — vardiya değişmiyor.",
+                    "Bu o'sha kassir — smena o'zgarmaydi."));
+        }
+
+        // 2026-10-18, аудит доступов: новому кассиру нужен доступ «Интерфейс кассира» — иначе остаёмся под прежним.
+        if (!_permissions.HasPermission(PosPermissions.ViewCashier))
+        {
+            await RestoreSavedLoginAsync().ConfigureAwait(true);
+            apiClient.RestoreSessionState(oldState);
+            PosLogger.Log("Смена кассира: у нового кассира нет доступа «Интерфейс кассира».", "AUTH");
+            return (SwitchCashierOutcome.InvalidCredentials, PermissionService.CashierWorkDeniedMessage(PosPermissions.ViewCashier));
+        }
+
+        // Закрываем смену от имени СТАРОГО кассира — временно возвращаем его вход (2026-10-18: целиком,
+        // с ролью и доступами), чтобы отчёт/инкассация были атрибутированы правильно, как при обычном
+        // ручном закрытии смены.
+        apiClient.RestoreSessionState(oldState);
         var hadOpenShift = _session.IsShiftOpen;
         if (hadOpenShift)
         {
-            await CloseShiftAsync().ConfigureAwait(true);
+            try
+            {
+                // 2026-10-18, решение владельца: передача кассы — закрытие смены без проверки доступа «Смены».
+                await CloseShiftAsync(confirmUnfinishedReceipt: true, allowWithoutShiftsRight: true).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                // 2026-10-18, ревью безопасности: сбой посреди смены кассира — остаёмся под прежним кассиром
+                // целиком: и в памяти, и в сохранённом входе (auth.dat).
+                PosLogger.Log($"Смена кассира: закрытие смены упало ({ex.GetType().Name}: {ex.Message}) — остаёмся под прежним.", "AUTH");
+                apiClient.RestoreSessionState(oldState);
+                await RestoreSavedLoginAsync().ConfigureAwait(true);
+                return (SwitchCashierOutcome.InvalidCredentials,
+                    Tr.T($"Не удалось закрыть смену: {ex.Message}", $"Сменаны жабуу мүмкүн болгон жок: {ex.Message}",
+                        $"Could not close the shift: {ex.Message}", $"Vardiya kapatılamadı: {ex.Message}", $"Smenani yopib bo'lmadi: {ex.Message}"));
+            }
             if (_session.IsShiftOpen)
             {
                 // Кассир отменил закрытие смены (или не подтвердил потерю незавершённого чека) —
@@ -1382,7 +1448,10 @@ public partial class MainWindow
         }
 
         // Смена закрыта (или её не было) — переключаемся на нового кассира.
-        api.RestoreOfflineSession(newSnapshot);
+        // 2026-10-18, ревью безопасности (П4): облачные настройки — смена пользователя ДО переключения входа: отложенная
+        // отправка прежнего кассира отменяется (иначе ушла бы под новым входом), его ключи ИИ новому не уходят.
+        SettingsCloudSync.OnUserChanged(newSession.UserId);
+        apiClient.RestoreSessionState(newState);
         // Касса запоминала вход до смены кассира — теперь запоминает нового кассира.
         if (savedBefore != null)
         {

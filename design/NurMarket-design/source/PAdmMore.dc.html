@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Администратор — всё управление</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:#FFFFFF;border-top:1px solid #EAECF0;padding:6px 4px 2px}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:#667085;text-decoration:none;padding:6px 0}
+.nav a.on{color:#0B2A3C;font-weight:800}
+.nav a.on span{background:#FFD600}
+.nav span{width:44px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+.gr{border:0;border-radius:14px;background:#FFFFFF;padding:8px 12px;display:flex;align-items:center;gap:12px;font-family:inherit;text-align:left;color:#0B2A3C;min-height:56px;width:100%;box-sizing:border-box}
+.gi{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.gt{flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.gt b{font-size:14px;font-weight:800}
+.gt span{font-size:12px;line-height:16px;color:#475467}
+.bd{min-width:22px;height:22px;border-radius:11px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 6px;box-sizing:border-box;white-space:nowrap;flex-shrink:0}
+.role{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#E7EEF3;color:#0B2A3C;white-space:nowrap}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#FFFFFF}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+    <span style="display: flex; align-items: center; gap: 8px"><b style="font-size: 20px; font-weight: 800; flex-grow: 1">Ещё</b><span class="role">Администратор</span></span>
+    <label style="height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <input type="text" placeholder="Найти раздел" aria-label="Найти раздел" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 16px; width: 100%">
+    </label>
+  </header>
+
+  <!-- 2026-10-17: 8 групп, как в программе владельца; в строке группы — все её разделы (касание открывает группу), поиск — как Ctrl+K -->
+  <main style="flex-grow: 1; padding: 0 16px 10px; display: flex; flex-direction: column; gap: 6px; overflow: hidden">
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="8">
+      <button type="button" class="gr">
+        <span class="gi" style="background: {{g.bg}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{g.icon}}"></path></svg></span>
+        <span class="gt"><b>{{g.name}}</b><span>{{g.items}}</span></span>
+        <sc-if value="{{g.badge}}" hint-placeholder-val="{{false}}"><span class="bd" style="background: {{g.bbg}}; color: {{g.bfg}}">{{g.badge}}</span></sc-if>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex-shrink: 0"><path d="M9 6l6 6-6 6"></path></svg>
+      </button>
+    </sc-for>
+  </main>
+
+  <nav class="nav" aria-label="Разделы администратора">
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg></span>Главная</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path><circle cx="9" cy="19.5" r="1.5"></circle><circle cx="17" cy="19.5" r="1.5"></circle></svg></span>Продажа</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg></span>Товары</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></span>Отчёты</a>
+    <a href="#" class="on" aria-current="page"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg></span>Ещё</a>
+  </nav>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-17: группы и названия — как в OwnerNav/WebNav; разделы, нарисованные для телефона, разложены по тем же группам
+    const I = {
+      home: 'M3 10.5 12 3l9 7.5V21H3z',
+      box: 'M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8',
+      cart: 'M3 4h2l2.5 11h11L21 7H6.5M9 19.5h.01M17 19.5h.01',
+      chart: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+      globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18',
+      users: 'M9 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8M2 21a7 7 0 0 1 14 0M16 4a4 4 0 0 1 0 8M18 14a6 6 0 0 1 4 7',
+      gear: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6M4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4',
+      help: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01'
+    };
+    const N = '#E7EEF3', R = '#FDE2E1';
+    const g = (name, icon, bg, items, badge, red) => ({ name, icon, bg, items: items.join(' · '), badge: badge || '', bbg: red ? '#B42318' : '#E4E7EC', bfg: red ? '#FFFFFF' : '#344054' });
+    return {
+      groups: [
+        g('Главная', I.home, N, ['Нур Советник', 'Задачи и календарь', 'Уведомления']),
+        g('Товары', I.box, '#FFF4C2', ['Приёмка', 'Умная камера', 'Пополнение и сроки', 'Заказ поставщику', 'Возвраты поставщикам', 'Филиалы'], '7'),
+        g('Продажи', I.cart, N, ['Продажи и смены', 'Возвраты', 'Долги клиентов', 'Рассрочка', 'Прокат', 'Деньги в кассе'], '3', true),
+        g('Отчёты', I.chart, N, ['Прибыль и деньги', 'Удалено из чека', 'Накладные и документы']),
+        g('Сайт', I.globe, '#E7F6EC', ['Заказы с сайта', 'Редактор сайта', 'Телеграм-бот'], '1'),
+        g('Клиенты', I.users, N, ['Клиенты', 'Бонусы и сертификаты', 'WhatsApp']),
+        g('Управление', I.gear, N, ['Сотрудники и права', 'Зарплата', 'ККМ и ЭСФ', 'Маркетплейс (конструктор)', 'Оформление', 'Связь с кассой', 'Синхронизация', 'Настройки']),
+        g('Помощь', I.help, R, ['База знаний', 'Тех. поддержка', 'Журнал ошибок'])
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

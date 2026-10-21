@@ -3,6 +3,7 @@
              xmlns:vm="using:NurMarketKassa.ViewModels.Main"
              xmlns:pos="using:NurMarketKassa.Models.Pos"
              xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+             xmlns:mainViews="using:NurMarketKassa.AvaloniaHost.Views"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.CatalogPanelView"
              x:DataType="vm:CatalogPanelViewModel"
              x:CompileBindings="True">
@@ -10,8 +11,15 @@
     <UserControl.Styles>
         <!-- Цвет остатка и плашки типа зависит от товара, но берётся из темы: один и тот же
              hex на обе темы не работает — что читаемо на белом, то сливается с тёмным. -->
+        <!-- 2026-10-19, К1 (аудит 19.10, правило 4): остаток на плитке — норма нейтральная, «мало» (меньше 10) —
+             оранжевым, «нет в наличии» (0 и меньше) — красным, как на Складе (О9). -->
         <Style Selector="TextBlock.stock-low">
-            <Setter Property="Foreground" Value="{DynamicResource BrushCatalogStockLow}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TextBlock.stock-out">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="Border.badge-weighted">
             <Setter Property="Background" Value="{DynamicResource BrushBadgeWeightedBg}"/>
@@ -41,10 +49,11 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
+        <!-- 2026-10-19, К1 (правило 2): выбранная страница — тёмно-синяя (цвет текста темы), а не жёлтая. -->
         <Style Selector="Button.catalog-pager.current">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="Cursor" Value="Arrow"/>
         </Style>
         <Style Selector="Button.catalog-pager:disabled">
@@ -103,9 +112,9 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
         </Style>
         <Style Selector="Button.catalog-pager.current:disabled /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
         </Style>
         <Style Selector="Button.catalog-pager.current:disabled">
             <Setter Property="Opacity" Value="1"/>
@@ -284,17 +293,35 @@
                         </Flyout>
                     </Button.Flyout>
                 </Button>
-                <Button Grid.Column="2"
-                        Classes="main-primary"
-                        MinHeight="44"
-                        Margin="8,0,0,0"
-                        ToolTip.Tip="{DynamicResource csh.catalog.filterTooltip}"
-                        Click="OpenFilter_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <PathIcon Data="{StaticResource IconFilter}" Width="15" Height="15"/>
-                        <TextBlock Text="{DynamicResource csh.catalog.filter}" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+                <!-- 2026-10-19, К1 (аудит 19.10, проблема 2): «Фильтр» — обводкой; жёлтая на экране одна — «Оплатить». -->
+                <!-- 2026-10-20, проверка фильтров: включённый фильтр виден — кнопка выделена (active), на ней число условий,
+                     в подсказке — что включено; «✕» рядом сбрасывает. Кнопки не берут фокус (скан — окну кассы). -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0">
+                    <Button Classes="main-outline"
+                            Classes.filter-on="{Binding HasActiveFilter}"
+                            MinHeight="44"
+                            Focusable="False"
+                            ToolTip.Tip="{Binding ActiveFilterTip}"
+                            Click="OpenFilter_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="{StaticResource IconFilter}" Width="15" Height="15"/>
+                            <TextBlock Text="{DynamicResource csh.catalog.filter}" VerticalAlignment="Center"/>
+                            <Border IsVisible="{Binding HasActiveFilter}" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0"
+                                    Background="{DynamicResource BrushAccent}" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding ActiveFilterCount}" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" Foreground="{DynamicResource BrushAccentForeground}"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="main-outline"
+                            MinHeight="44" MinWidth="44" Padding="10,0"
+                            Focusable="False"
+                            IsVisible="{Binding HasActiveFilter}"
+                            ToolTip.Tip="{Binding ResetFilterTip}"
+                            AutomationProperties.Name="{Binding ResetFilterTip}"
+                            Content="✕"
+                            Click="ResetFilter_Click"/>
+                </StackPanel>
                 <Button Grid.Column="3"
                         Classes="main-ghost"
                         Width="44" Height="44"
@@ -374,7 +401,9 @@
                                        TextAlignment="Center"
                                        TextWrapping="Wrap"
                                        IsVisible="{Binding IsLoading}"/>
-                            <TextBlock Text="{DynamicResource csh.catalog.emptyError}"
+                            <!-- 2026-10-20 (живой аудит кассы, К9): «проверьте подключение» — только при пустом каталоге;
+                                 поиск без результата, пустая вкладка «Комплекты», фильтр — свой текст (EmptyStateText). -->
+                            <TextBlock Text="{Binding EmptyStateText}"
                                        FontSize="14"
                                        Foreground="{DynamicResource BrushTextSoft}"
                                        TextAlignment="Center"
@@ -386,6 +415,7 @@
                                     MinHeight="36"
                                     HorizontalAlignment="Center"
                                     HorizontalContentAlignment="Center"
+                                    IsVisible="{Binding !IsNothingFound}"
                                     Command="{Binding RefreshCatalogCommand}"/>
                             <Button Classes="main-primary"
                                     Content="{DynamicResource csh.catalog.addProductButton}"
@@ -401,7 +431,9 @@
                       <ScrollViewer VerticalScrollBarVisibility="Auto"
                                     HorizontalScrollBarVisibility="Disabled"
                                     IsVisible="{Binding IsCardView}">
-                        <ListBox x:Name="CardsListBox" Classes="catalog-nav"
+                        <!-- 2026-10-20, живая проверка: «верхний ряд плиток срезан» — скан/щелчок выделял товар (SelectedProduct),
+                             и список сам прокручивался к нему на полряда. Прокрутку к рамке стрелок делает CatalogKeyboardNavigation. -->
+                        <ListBox x:Name="CardsListBox" AutoScrollToSelectedItem="False" Classes="catalog-nav"
                                  ItemsSource="{Binding Products}"
                                  SelectedItem="{Binding SelectedProduct}"
                                  SelectionMode="Single">
@@ -424,7 +456,8 @@
                                          Фото есть не у всех, и его строка у остальных схлопывается —
                                          они просто начинаются ниже, а коробка плитки у всех одна,
                                          поэтому ряды остаются ровными. -->
-                                    <Grid Width="{DynamicResource CatalogTileWidth}" Margin="6" Height="{DynamicResource CatalogTileHeight}">
+                                    <Grid Width="{DynamicResource CatalogTileWidth}" Margin="6" Height="{DynamicResource CatalogTileHeight}"
+                                          ContextRequested="Tile_ContextRequested">
                                         <!-- 2026-09-30, владелец: «после входа и после продажи в чек сами добавляются товары». Плитка
                                              товара оставалась в фокусе после нажатия, и Enter, которым сканер
                                              заканчивает каждый код, нажимал её ещё раз — добавлялся тот же товар,
@@ -463,13 +496,18 @@
                                                        см. CatalogProductTileVm.ShowTypeBadge. -->
                                                 <Grid RowDefinitions="Auto,*,Auto,Auto">
 
+                                                    <!-- 2026-10-21: у товара с фото название было в одну строку («Макарон…», «Патроны д…»):
+                                                         фото 64 + цена + остаток съедали место второй строки (пакет 6, п. 15). Фото и
+                                                         название — в одной сетке по центру: название берёт свои две строки, фото
+                                                         ужимается под остаток (не выше CatalogTilePhotoHeight). Без фото — как было. -->
+                                                    <Grid Grid.Row="0" Grid.RowSpan="2" RowDefinitions="*,Auto" VerticalAlignment="Center">
                                                     <!-- Фотография, когда она есть: крупно, сверху,
                                                          по центру карточки. Строка схлопывается у
                                                          товаров без фото, поэтому пустых серых
                                                          прямоугольников, как было раньше, не
                                                          появляется, а высота плитки у всех одна. -->
                                                     <Border Grid.Row="0"
-                                                            Height="{DynamicResource CatalogTilePhotoHeight}"
+                                                            MaxHeight="{DynamicResource CatalogTilePhotoHeight}"
                                                             MaxWidth="140"
                                                             Margin="0,0,0,8"
                                                             CornerRadius="10"
@@ -502,6 +540,7 @@
                                                                HorizontalAlignment="Center"
                                                                VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis"/>
+                                                    </Grid>
 
                                                     <StackPanel Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Center" Spacing="2">
                                                         <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
@@ -522,6 +561,7 @@
                                                                    FontSize="{DynamicResource CatalogTileStockSize}"
                                                                    HorizontalAlignment="Center"
                                                                    Classes.stock-low="{Binding IsLowStock}"
+                                                                   Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
                                                                    Foreground="{DynamicResource BrushCatalogStock}"/>
                                                     </StackPanel>
 
@@ -552,9 +592,13 @@
                                         <!-- 2026-10-01, владелец: «кнопка "Подробнее" не видно, когда фото есть в товаре».
                                              Фон кнопки main-ghost прозрачный (стиль шаблона), и фото просвечивало сквозь
                                              надпись. Теперь подложка — отдельная непрозрачная рамка цвета плитки. -->
+                                        <!-- 2026-10-19, К1 (аудит 19.10, проблема 3): вместо надписи «Подробнее» на каждой плитке —
+                                             маленький значок «i» (как в виде таблицей) и правая кнопка / долгое нажатие по плитке
+                                             (CatalogPanelView.Tile_ContextRequested). Условие показа прежнее. -->
                                         <Button Classes="main-ghost"
                                                 Focusable="False"
                                                 Padding="0"
+                                                Width="28" Height="28"
                                                 Margin="6,6,0,0"
                                                 MinHeight="0"
                                                 HorizontalAlignment="Left"
@@ -563,6 +607,7 @@
                                                 Background="Transparent"
                                                 BorderThickness="0"
                                                 ToolTip.Tip="{DynamicResource csh.catalog.detailsTooltip}"
+                                                AutomationProperties.Name="{DynamicResource csh.catalog.details}"
                                                 Click="ProductDetails_Click">
                                             <!-- 2026-10-01: «Подробнее» — в одежде и услугах на каждой плитке; в любом виде магазина
                                                  (ветаптека и т.п.) — у товаров, где продавец заполнил описание. -->
@@ -575,10 +620,11 @@
                                             <Border Background="{DynamicResource BrushCatalogTileBg}"
                                                     BorderBrush="{DynamicResource BrushBorder}"
                                                     BorderThickness="1"
-                                                    CornerRadius="10"
-                                                    Padding="9,3">
-                                                <TextBlock Text="{DynamicResource csh.catalog.details}" FontSize="10.5" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource BrushText}"/>
+                                                    CornerRadius="11"
+                                                    Width="22" Height="22">
+                                                <TextBlock Text="i" FontSize="13" FontWeight="Bold" FontStyle="Italic"
+                                                           Foreground="{DynamicResource BrushTextSoft}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
                                         </Button>
 
@@ -635,7 +681,9 @@
                             <ScrollViewer Grid.Row="1" Margin="0,8,0,0"
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">
-                            <ListBox x:Name="TableListBox" Classes="catalog-nav"
+                            <!-- 2026-10-20, живая проверка: «верхний ряд плиток срезан» — скан/щелчок выделял товар (SelectedProduct),
+                                 и список сам прокручивался к нему на полряда. Прокрутку к рамке стрелок делает CatalogKeyboardNavigation. -->
+                            <ListBox x:Name="TableListBox" AutoScrollToSelectedItem="False" Classes="catalog-nav"
                                      ItemsSource="{Binding Products}"
                                      SelectedItem="{Binding SelectedProduct}"
                                      SelectionMode="Single"
@@ -647,7 +695,9 @@
                                                 BorderThickness="1" CornerRadius="10"
                                                 Margin="0,0,0,6" ClipToBounds="True"
                                                 HorizontalAlignment="Stretch">
-                                            <Grid MinHeight="132" ColumnDefinitions="56,2.2*,1.4*,1*,1*,52"
+                                            <!-- 2026-10-21: строка «Табличного» вида была ~130 px (на 1080 — 4,5 товара); теперь 64 px,
+                                                 «i» и звезда — рядом справа, а не друг над другом (пакет 6, п. 15). -->
+                                            <Grid MinHeight="64" ColumnDefinitions="56,2.2*,1.4*,1*,1*,96"
                                                   Margin="14,0">
                                                 <Border Grid.Column="0" Width="56" Height="56" CornerRadius="10"
                                                         ClipToBounds="True" VerticalAlignment="Center"
@@ -689,6 +739,7 @@
                                                         <TextBlock Grid.Column="3" Text="{Binding StockInfo}" FontSize="13"
                                                                    IsVisible="{Binding !IsService}"
                                                                    Classes.stock-low="{Binding IsLowStock}"
+                                                                   Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
                                                                    Foreground="{DynamicResource BrushCatalogStock}"
                                                                    VerticalAlignment="Center"
                                                                    Margin="4,0,12,0"/>
@@ -705,8 +756,8 @@
                                                     </Grid>
                                                 </Button>
                                                 <Button Grid.Column="5" Classes="main-ghost" Focusable="False"
-                                                        Width="52" Height="34" Padding="0" Margin="0,8,0,0"
-                                                        HorizontalAlignment="Center" VerticalAlignment="Top"
+                                                        Width="40" Height="44" Padding="0"
+                                                        HorizontalAlignment="Left" VerticalAlignment="Center"
                                                         Background="Transparent" BorderThickness="0"
                                                         ToolTip.Tip="{DynamicResource csh.catalog.detailsTooltip}"
                                                         Click="ProductDetails_Click">
@@ -722,7 +773,7 @@
                                                                Foreground="{DynamicResource BrushTextSoft}" HorizontalAlignment="Center"/>
                                                 </Button>
                                                 <Button Grid.Column="5" Width="52" Height="52" Padding="0"
-                                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Center"
                                                         Background="Transparent" BorderThickness="0"
                                                         ToolTip.Tip="{DynamicResource csh.catalog.favoriteTooltip}"
                                                         Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).ToggleFavoriteCommand}"

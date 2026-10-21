@@ -48,6 +48,11 @@ public sealed partial class SalesApiService
             ["period_start"] = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             ["period_end"] = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         };
+        // 2026-10-20, живой аудит владельца: сервер стал отдавать во вкладке «Товары» только 20 строк top_by_revenue —
+        // ABC в «Продажах и финансах» и в Word считался по 20 товарам из 47 («все 20»). Сайт для полного списка
+        // передаёт limit (фильтр «limit» в аналитике сайта) — просим все проданные товары периода.
+        if (tab == "products")
+            qs["limit"] = "10000";
         // Запрос не привязан к токену одного окна: его ждут и другие. Окно, сменившее период, просто
         // перестаёт ждать (WaitAsync), а ответ остаётся в кэше — вернуться к периоду можно мгновенно.
         var task = GetRetryingThrottleAsync("api/main/analytics/market/", qs, CancellationToken.None);

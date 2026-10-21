@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Элементы интерфейса</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 40px 48px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+
+  <!-- Цвета -->
+  <section style="background: #FFFFFF; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+    <span style="font-size: 16px; font-weight: 800">Цвета</span>
+    <sc-for list="{{colors}}" as="c" hint-placeholder-count="8">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="width: 44px; height: 32px; border-radius: 8px; background: {{c.hex}}; border: 1px solid #E5E7EB"></span>
+        <span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700">{{c.name}}</span><span style="font-size: 12px; color: #667085">{{c.hex}} · {{c.use}}</span></span>
+      </div>
+    </sc-for>
+    <span style="font-size: 12px; line-height: 17px; color: #475467; border-top: 1px solid #EAECF0; padding-top: 10px">Шрифт программы — Noto Sans (есть ң ө ү). Montserrat в макетах шире на 10–15 %: кнопки и подписи рисуем с запасом под ky / tr / uz.</span>
+  </section>
+
+  <!-- Кнопки и поля -->
+  <section style="background: #FFFFFF; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+    <span style="font-size: 16px; font-weight: 800">Кнопки</span>
+    <div style="display: flex; flex-wrap: wrap; gap: 10px">
+      <button type="button" style="height: 48px; padding: 0 20px; border-radius: 12px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 14px; font-weight: 800">Главное действие</button>
+      <button type="button" style="height: 48px; padding: 0 20px; border-radius: 12px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700">Второе</button>
+      <button type="button" style="height: 48px; padding: 0 20px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 14px; font-weight: 700">Отмена</button>
+      <button type="button" style="height: 48px; padding: 0 20px; border-radius: 12px; border: 0; background: #C0362C; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700">Удалить</button>
+      <button type="button" style="height: 48px; padding: 0 12px; border-radius: 12px; border: 0; background: transparent; color: #0B2A3C; font-family: inherit; font-size: 14px; font-weight: 700">Подробнее ›</button>
+    </div>
+    <span style="font-size: 16px; font-weight: 800; margin-top: 6px">Поля</span>
+    <label for="kitName" style="font-size: 13px; font-weight: 600; color: #344054">Название товара</label>
+    <input id="kitName" type="text" value="Макароны «Макфа» спагетти 450г" style="height: 48px; box-sizing: border-box; border-radius: 12px; border: 1px solid #D0D5DD; padding: 0 14px; font-family: inherit; font-size: 14px">
+    <label for="kitPrice" style="font-size: 13px; font-weight: 600; color: #344054">Цена продажи — в фокусе</label>
+    <input id="kitPrice" type="text" value="60" style="height: 48px; box-sizing: border-box; border-radius: 12px; border: 2px solid #0B2A3C; box-shadow: 0 0 0 4px rgba(255,214,0,0.45); padding: 0 14px; font-family: inherit; font-size: 14px; font-weight: 700">
+    <span style="font-size: 12px; color: #C0362C">Ошибка: цена ниже закупки (68 сом)</span>
+    <span style="font-size: 12px; color: #475467">Фокус — тёмная рамка 2 px и жёлтое кольцо: одно жёлтое на белом почти не видно.</span>
+  </section>
+
+  <!-- Чипы, степпер, вкладки -->
+  <section style="background: #FFFFFF; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+    <span style="font-size: 16px; font-weight: 800">Фильтры и вкладки</span>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Все · 307</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Заканчивается · 143</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Нет в наличии · 6</button>
+    </div>
+    <div role="tablist" style="display: flex; gap: 22px; border-bottom: 1px solid #EAECF0">
+      <button type="button" role="tab" aria-selected="true" style="border: 0; background: transparent; padding: 10px 0; border-bottom: 3px solid #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Товары</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Приёмка</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Ревизия</button>
+    </div>
+    <span style="font-size: 16px; font-weight: 800; margin-top: 6px">Количество</span>
+    <span style="display: flex; align-items: center; gap: 10px">
+      <button type="button" aria-label="Меньше" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #D0D5DD; background: #FFFFFF; font-size: 18px; font-family: inherit">−</button>
+      <span style="min-width: 28px; text-align: center; font-weight: 800; font-size: 16px">2</span>
+      <button type="button" aria-label="Больше" style="width: 44px; height: 44px; border-radius: 12px; border: 0; background: #0B2A3C; color: #FFFFFF; font-size: 18px; font-family: inherit">+</button>
+    </span>
+    <span style="font-size: 16px; font-weight: 800; margin-top: 6px">Статусы</span>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <span style="padding: 5px 10px; border-radius: 999px; background: #E7F6EC; color: #0E7A3A; font-size: 12px; font-weight: 700">Оплачен</span>
+      <span style="padding: 5px 10px; border-radius: 999px; background: #FEF3E2; color: #B54708; font-size: 12px; font-weight: 700">Хватит на 11 дн.</span>
+      <span style="padding: 5px 10px; border-radius: 999px; background: #FDE8E8; color: #B42318; font-size: 12px; font-weight: 700">Нет в наличии</span>
+      <span style="padding: 5px 10px; border-radius: 999px; background: #FFF7CC; color: #0B2A3C; font-size: 12px; font-weight: 700">+30 баллов</span>
+    </div>
+  </section>
+
+  <!-- Анатомия модалки -->
+  <section style="grid-column: span 2; background: #FFFFFF; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+    <span style="font-size: 16px; font-weight: 800">Модалка: шапка, содержимое, низ</span>
+    <div style="border-radius: 18px; border: 1px solid #EAECF0; overflow: hidden; display: flex; flex-direction: column">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 17px; font-weight: 800">Скидка на чек</span><button type="button" aria-label="Закрыть" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-size: 16px">✕</button></div>
+      <div style="padding: 18px 20px; display: flex; gap: 10px">
+        <button type="button" style="flex: 1 1 0; height: 56px; border-radius: 12px; border: 2px solid #0B2A3C; background: #FFF7CC; font-family: inherit; font-size: 15px; font-weight: 800; color: #0B2A3C">5 %</button>
+        <button type="button" style="flex: 1 1 0; height: 56px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 700; color: #344054">10 %</button>
+        <button type="button" style="flex: 1 1 0; height: 56px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 700; color: #344054">Сумма, сом</button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid #EAECF0; background: #FCFCFD"><span style="flex-grow: 1; font-size: 14px; color: #475467">Итого со скидкой: <span style="font-weight: 800; color: #0B2A3C">276 сом</span></span><button type="button" style="height: 44px; padding: 0 18px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Отмена</button><button type="button" style="height: 44px; padding: 0 18px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Применить</button></div>
+    </div>
+  </section>
+
+  <!-- Карточка показателя -->
+  <section style="background: #FFFFFF; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+    <span style="font-size: 16px; font-weight: 800">Карточка показателя</span>
+    <div style="border-radius: 16px; padding: 18px; box-shadow: 0 1px 2px rgba(16,24,40,0.05), 0 6px 16px rgba(11,42,60,0.08); display: flex; flex-direction: column; gap: 10px">
+      <span style="font-size: 13px; font-weight: 600; color: #475467">Склад по закупке</span>
+      <span style="font-size: 28px; font-weight: 800; color: #0B2A3C">20,96 млн сом</span>
+      <span style="font-size: 12px; color: #667085">по продаже 32,19 млн · наценка 11,23 млн</span>
+      <a href="#" style="border-top: 1px solid #F2F4F7; padding-top: 10px; display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: #0B2A3C; text-decoration: none"><span>Подробнее</span><span>›</span></a>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const colors = [
+      { name: 'Тёмно-синий', hex: '#0B2A3C', use: 'навигация, текст, второе действие' },
+      { name: 'Жёлтый', hex: '#FFD600', use: 'главное действие, выбранное' },
+      { name: 'Жёлтый мягкий', hex: '#FFF7CC', use: 'фон выбранного' },
+      { name: 'Фон', hex: '#F4F5F7', use: 'подложка экрана' },
+      { name: 'Поверхность', hex: '#FFFFFF', use: 'карточки, панели, модалки' },
+      { name: 'Текст второй', hex: '#667085', use: 'подписи, даты' },
+      { name: 'Успех', hex: '#16A34A', use: 'оплачено, смена открыта' },
+      { name: 'Опасно', hex: '#C0362C', use: 'удаление, нет в наличии' }
+    ];
+    return { colors };
+  }
+}
+</script>
+</body>
+</html>

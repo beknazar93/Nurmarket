@@ -193,6 +193,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase
             if (!SetProperty(ref _isLoading, value))
                 return;
             OnPropertyChanged(nameof(IsCatalogEmpty));
+            RaiseEmptyState();
             (RefreshCatalogCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         }
     }
@@ -219,6 +220,53 @@ public sealed class CatalogPanelViewModel : ViewModelBase
     public bool HasProducts => Products.Count > 0;
 
     public bool IsCatalogEmpty => !HasProducts;
+
+    /// <summary>2026-10-20 (живой аудит кассы, К9): каталог загружен, но на этой странице ничего нет (поиск без результата,
+    /// пустая вкладка, фильтр) — это не «проверьте подключение». Кнопка «Обновить каталог» — только при пустом каталоге.</summary>
+    public bool IsNothingFound => !IsLoading && !HasProducts && _allProducts.Count > 0;
+
+    public bool IsCatalogTrulyEmpty => !IsLoading && _allProducts.Count == 0;
+
+    /// <summary>2026-10-20 (К9): текст пустого каталога — по причине: загрузка, пустой каталог, «ничего не найдено по …»,
+    /// «Комплектов пока нет…», фильтр, пустая вкладка.</summary>
+    public string EmptyStateText
+    {
+        get
+        {
+            if (IsLoading)
+                return Tr.T("Тут пока пусто.\nИдёт загрузка каталога из базы данных или с сервера…",
+                    "Азырынча бош.\nКаталог базадан же серверден жүктөлүүдө…",
+                    "Nothing here yet.\nLoading the catalog from the database or server…",
+                    "Burası henüz boş.\nKatalog veritabanından veya sunucudan yükleniyor…",
+                    "Bu yerda hali bo'sh.\nKatalog bazadan yoki serverdan yuklanmoqda…");
+            if (_allProducts.Count == 0)
+                return Tr.T("Тут пока пусто.\nПроверьте подключение и обновите каталог.",
+                    "Азырынча бош.\nБайланышты текшерип, каталогду жаңылаңыз.",
+                    "Nothing here yet.\nCheck your connection and refresh the catalog.",
+                    "Burası henüz boş.\nBağlantıyı kontrol edin ve kataloğu yenileyin.",
+                    "Bu yerda hali bo'sh.\nUlanishni tekshiring va katalogni yangilang.");
+            var query = _searchText.Trim();
+            if (query.Length > 0)
+                return Tr.T($"Ничего не найдено по «{query}».", $"«{query}» боюнча эч нерсе табылган жок.", $"Nothing found for “{query}”.",
+                    $"«{query}» için sonuç bulunamadı.", $"«{query}» bo'yicha hech narsa topilmadi.");
+            if (HasActiveFilter || HasHotkeyGroupFilter)
+                return Tr.T("Нет товаров по выбранному фильтру.", "Тандалган чыпка боюнча товар жок.", "No products match the filter.",
+                    "Filtreye uyan ürün yok.", "Tanlangan filtr bo'yicha mahsulot yo'q.");
+            if (_selectedTabIndex == 4)
+                return Tr.T("Комплектов пока нет — создайте их в программе владельца.", "Комплекттер азырынча жок — аларды ээсинин программасында түзүңүз.",
+                    "No bundles yet — create them in the owner program.", "Henüz set yok — sahip programında oluşturun.",
+                    "Hozircha to'plamlar yo'q — ularni egasi dasturida yarating.");
+            return Tr.T("В этой вкладке пока нет товаров.", "Бул өтмөктө азырынча товар жок.", "No products in this tab yet.",
+                "Bu sekmede henüz ürün yok.", "Bu bo'limda hozircha mahsulot yo'q.");
+        }
+    }
+
+    private void RaiseEmptyState()
+    {
+        OnPropertyChanged(nameof(IsNothingFound));
+        OnPropertyChanged(nameof(IsCatalogTrulyEmpty));
+        OnPropertyChanged(nameof(EmptyStateText));
+    }
 
     public CatalogViewMode ViewMode
     {
@@ -258,6 +306,87 @@ public sealed class CatalogPanelViewModel : ViewModelBase
     public CatalogFilterViewModel CreateFilterViewModel() =>
         new(_allProducts, _advancedFilter, SearchText);
 
+    /// <summary>2026-10-20: текущий фильтр окна «Фильтр» (без поиска) — чтобы чипы категорий раскладки «Карточки» не стирали
+    /// бренд/цену/«в наличии» и подсвечивали категорию, выбранную в окне.</summary>
+    public CatalogFilterCriteria? AdvancedFilter => _advancedFilter;
+
+    /// <summary>2026-10-20, проверка фильтров (владелец: «фильтры не работают» — включённый фильтр не было видно): сколько условий
+    /// окна «Фильтр» (и чипа категории «Карточек») сейчас сужают каталог — число на кнопке «Фильтр» во всех раскладках.</summary>
+    public int ActiveFilterCount
+    {
+        get
+        {
+            if (_advancedFilter is not { } f)
+                return 0;
+            var n = 0;
+            if (!string.IsNullOrWhiteSpace(f.Kind) && f.Kind != CatalogFilterViewModel.AllProducts)
+                n++;
+            if (!string.IsNullOrWhiteSpace(f.Category))
+                n++;
+            if (!string.IsNullOrWhiteSpace(f.Brand))
+                n++;
+            if (f.PriceMin.HasValue || f.PriceMax.HasValue)
+                n++;
+            if (f.OnlyInStock)
+                n++;
+            return n;
+        }
+    }
+
+    public bool HasActiveFilter => ActiveFilterCount > 0;
+
+    /// <summary>Подсказка кнопки «Фильтр»: что включено («Категория: Напитки · Только в наличии») или что делает кнопка.</summary>
+    public string ActiveFilterTip
+    {
+        get
+        {
+            if (_advancedFilter is not { } f || ActiveFilterCount == 0)
+                return Tr.T("Фильтр товаров: вид, категория, бренд, цена, наличие", "Товар чыпкасы: түрү, категория, бренд, баа, бар-жогу",
+                    "Product filter: type, category, brand, price, stock", "Ürün filtresi: tür, kategori, marka, fiyat, stok",
+                    "Mahsulot filtri: turi, toifa, brend, narx, mavjudlik");
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(f.Kind) && f.Kind != CatalogFilterViewModel.AllProducts)
+                parts.Add(f.Kind switch
+                {
+                    CatalogFilterViewModel.WeightedProducts => Tr.T("Весовые", "Таразалуу", "Weighted", "Tartılı", "Tortiladigan"),
+                    CatalogFilterViewModel.PieceProducts => Tr.T("Штучные", "Даналык", "Per piece", "Adetli", "Donali"),
+                    CatalogFilterViewModel.FavoriteProducts => Tr.T("Избранные", "Тандалгандар", "Favourites", "Favoriler", "Saralanganlar"),
+                    _ => f.Kind,
+                });
+            if (!string.IsNullOrWhiteSpace(f.Category))
+                parts.Add(Tr.T("Категория: ", "Категория: ", "Category: ", "Kategori: ", "Toifa: ") + f.Category);
+            if (!string.IsNullOrWhiteSpace(f.Brand))
+                parts.Add(Tr.T("Бренд: ", "Бренд: ", "Brand: ", "Marka: ", "Brend: ") + f.Brand);
+            if (f.PriceMin.HasValue || f.PriceMax.HasValue)
+                parts.Add(Tr.T("Цена: ", "Баа: ", "Price: ", "Fiyat: ", "Narx: ")
+                          + (f.PriceMin?.ToString("0.##", CultureInfo.InvariantCulture) ?? "…") + "–" + (f.PriceMax?.ToString("0.##", CultureInfo.InvariantCulture) ?? "…"));
+            if (f.OnlyInStock)
+                parts.Add(Tr.T("Только в наличии", "Бар болгондор гана", "In stock only", "Yalnızca stokta olanlar", "Faqat mavjudlari"));
+            return Tr.T("Фильтр включён: ", "Чыпка күйүк: ", "Filter is on: ", "Filtre açık: ", "Filtr yoqilgan: ") + string.Join(" · ", parts);
+        }
+    }
+
+    public string ResetFilterTip => Tr.T("Сбросить фильтр", "Чыпканы тазалоо", "Reset the filter", "Filtreyi sıfırla", "Filtrni tozalash");
+
+    /// <summary>«Сбросить фильтр» рядом с кнопкой «Фильтр»: условия окна снимаются, поиск остаётся.</summary>
+    public void ResetAdvancedFilter()
+    {
+        if (_advancedFilter is null)
+            return;
+        _advancedFilter = null;
+        ResetCurrentPage();
+        ApplyFilter();
+        RaiseFilterState();
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RaiseFilterState()
+    {
+        OnPropertyChanged(nameof(ActiveFilterCount));
+        OnPropertyChanged(nameof(HasActiveFilter));
+        OnPropertyChanged(nameof(ActiveFilterTip));
+    }
+
     public void ApplyAdvancedFilter(CatalogFilterCriteria criteria)
     {
         _searchText = criteria.SearchText;
@@ -266,6 +395,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         _advancedFilter = criteria with { SearchText = "" };
         ResetCurrentPage();
         ApplyFilter();
+        RaiseFilterState();
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -764,6 +894,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase
                 $"Ko'rsatilgan: {_filteredProductCount} / {_allProducts.Count}");
 
         RebuildPagerEntries();
+        // 2026-10-20 (К9): текст пустого каталога зависит от поиска/вкладки/фильтра — после каждого отбора.
+        RaiseEmptyState();
     }
 
     private void GoToPage(int? page)

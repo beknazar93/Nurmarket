@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 2026-10-17: поддельная касса для проверки ретранслятора и страницы оператора в браузере. Только Windows:
+       картинка кодируется в JPEG через System.Drawing — так же, как в кассе (RemoteSupportHost.cs). Пакетов NuGet нет. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

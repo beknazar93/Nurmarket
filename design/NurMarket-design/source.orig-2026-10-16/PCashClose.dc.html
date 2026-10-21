@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Кассир — закрытие смены</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.rl{display:flex;justify-content:space-between;font-size:14px;padding:6px 0}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 18px; font-weight: 800">Закрыть смену</b><span style="font-size: 12px; color: #667085">с [время] · [N] чеков</span></span>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 12px">
+    <section style="background: #FFFFFF; border-radius: 18px; padding: 14px 16px">
+      <div class="rl"><span style="color: #475467">Наличные</span><b>[сумма]</b></div>
+      <div class="rl"><span style="color: #475467">Карта</span><b>[сумма]</b></div>
+      <div class="rl"><span style="color: #475467">QR</span><b>[сумма]</b></div>
+      <div class="rl"><span style="color: #475467">Возвраты</span><b style="color: #B42318">−[сумма]</b></div>
+      <div class="rl" style="border-top: 1px dashed #D0D5DD; margin-top: 4px; padding-top: 10px; font-size: 16px"><b>Выручка</b><b style="color: #0B2A3C">[сумма]</b></div>
+    </section>
+
+    <section style="background: #0B2A3C; color: #FFFFFF; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #C7D2DB">Должно быть в кассе</span><b style="color: #FFD600">[сумма]</b></div>
+      <label class="lbl" for="cnt" style="color: #C7D2DB">ПЕРЕСЧИТАЙТЕ НАЛИЧНЫЕ</label>
+      <input id="cnt" type="text" placeholder="Сколько денег в кассе" style="height: 56px; box-sizing: border-box; border-radius: 14px; border: 0; padding: 0 16px; font-family: inherit; font-size: 20px; font-weight: 800">
+      <span style="font-size: 12px; color: #C7D2DB">Если сумма не сходится, администратор увидит разницу в отчёте</span>
+    </section>
+
+    <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #344054"><input type="checkbox" checked="" style="width: 20px; height: 20px; accent-color: #0B2A3C">Отправить отчёт смены администратору</label>
+  </main>
+
+  <div style="padding: 10px 16px 22px">
+    <button type="button" style="width: 100%; height: 56px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 17px; font-weight: 800">Закрыть смену</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

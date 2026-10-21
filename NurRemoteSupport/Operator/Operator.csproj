@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 2026-10-16, владелец: «закончи начатое с удалённой поддержкой — создай программу для сотрудников тех поддержки и дай им все
+       инструменты и функции». Программа оператора (решение 07.10: «оператор — отдельная программа»). Протокол — ../PROTOCOL.md. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>NurMarketSupport</AssemblyName>
+    <RootNamespace>NurRemoteSupport.Operator</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>NurMarket Поддержка</Product>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport> <!-- нужно Avalonia для UI Automation (дикторы, проверка tools/qa) -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.5" />
+  </ItemGroup>
+
+</Project>

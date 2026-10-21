@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Телефон — оформить рассрочку</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:44px;padding:0 16px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:48px;height:48px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="PInstNew"><div style="width: 390px; height: 844px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-direction: column; position: relative; overflow: hidden;">
+
+  <div style="padding: 10px 16px 0px; display: flex; justify-content: flex-end;"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgb(231, 238, 243); color: rgb(11, 42, 60); white-space: nowrap;">Кассир</span></div>
+  <header style="padding: 4px 16px 6px; display: flex; align-items: center; gap: 12px;"><button type="button" class="nv" aria-label="Назад"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button><span style="display: flex; flex-direction: column; flex-grow: 1;"><b style="font-size: 18px; font-weight: 800;">Рассрочка</b><span style="font-size: 12px; color: rgb(102, 112, 133);">Шаг 2 из 3 · срок и взнос</span></span></header>
+  <div style="padding: 0px 16px 8px; display: flex; gap: 4px;"><span style="flex-grow: 1; height: 4px; border-radius: 2px; background: rgb(11, 42, 60);"></span><span style="flex-grow: 1; height: 4px; border-radius: 2px; background: rgb(11, 42, 60);"></span><span style="flex-grow: 1; height: 4px; border-radius: 2px; background: rgb(228, 231, 236);"></span></div>
+  <main style="padding: 4px 16px 12px; display: flex; flex-direction: column; gap: 10px; flex-grow: 1;">
+    <div class="pc" style="flex-direction: row; align-items: center;"><span style="flex-grow: 1; font-size: 14px;"><b>Телефон Samsung Galaxy A35</b><br><span style="color: rgb(102, 112, 133); font-size: 12px;">Бектур Жумабаев</span></span><b style="color: rgb(11, 42, 60); white-space: nowrap;">50&nbsp;000&nbsp;сом</b></div>
+    <label class="lbl" for="v1">ПЕРВЫЙ ВЗНОС</label>
+    <input id="v1" class="in big" type="text" value="10 000" style="height: 54px;">
+    <div style="display: flex; gap: 6px;"><button type="button" class="chip on">20&nbsp;%</button><button type="button" class="chip">30&nbsp;%</button><button type="button" class="chip">50&nbsp;%</button></div>
+    <span class="lbl">СРОК</span>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0px, 1fr)); gap: 8px;">
+      <button type="button" class="b2" style="height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center;">3 мес<span style="font-size: 11px; color: rgb(102, 112, 133); white-space: nowrap;">13&nbsp;330 / мес · без наценки</span></button>
+      <button type="button" class="b2" style="height: 60px; border: 0px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); display: flex; flex-direction: column; align-items: center; justify-content: center;">6 мес<span style="font-size: 11px; white-space: nowrap;">7&nbsp;070 / мес · 6&nbsp;%</span></button>
+      <button type="button" class="b2" style="height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center;">9 мес<span style="font-size: 11px; color: rgb(102, 112, 133); white-space: nowrap;">4&nbsp;850 / мес · 9&nbsp;%</span></button>
+      <button type="button" class="b2" style="height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center;">12 мес<span style="font-size: 11px; color: rgb(102, 112, 133); white-space: nowrap;">3&nbsp;740 / мес · 12&nbsp;%</span></button>
+    </div>
+    <span style="font-size: 12px; color: rgb(102, 112, 133);">3 мес — без наценки, дольше — 1&nbsp;% в месяц на остаток 40&nbsp;000&nbsp;сом</span>
+    <div class="pc"><div class="rl"><span>Наценка за 6 мес</span><b style="white-space: nowrap;">6&nbsp;% · 2&nbsp;400&nbsp;сом</b></div><div class="rl"><span>Взносы</span><b style="white-space: nowrap;">5 × 7&nbsp;070 + 7&nbsp;050</b></div><div class="rl"><span>Всего клиент заплатит</span><b style="white-space: nowrap;">52&nbsp;400&nbsp;сом</b></div></div>
+  </main>
+  <div style="padding: 10px 16px 0px; background: rgb(255, 255, 255); border-top: 1px solid rgb(234, 236, 240);"><button type="button" class="cta">Дальше · график</button><div style="height: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><span style="width: 134px; height: 5px; border-radius: 3px; background: rgba(11, 42, 60, 0.25);"></span></div></div></div></div></div>
+
+
+
+</body></html>

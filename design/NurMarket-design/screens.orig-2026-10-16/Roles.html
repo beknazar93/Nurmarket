@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Роли и доступ</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.row{display:grid;grid-template-columns:2.2fr repeat(3,minmax(0,1fr)) 1.6fr;align-items:center;gap:8px;padding:6px 16px;font-size:13px}
+.row:nth-child(even){background:#F9FAFB}
+.yes{justify-self:center;width:26px;height:26px;border-radius:13px;background:#E7F6EC;color:#0E7A3A;display:flex;align-items:center;justify-content:center}
+.no{justify-self:center;width:26px;height:26px;border-radius:13px;background:#F2F4F7;color:#98A2B3;display:flex;align-items:center;justify-content:center}
+.dev{font-size:11px;font-weight:700;color:#475467}
+.grp{padding:8px 16px 2px;font-size:11px;font-weight:800;color:#667085;letter-spacing:.04em}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="Roles"><div style="width: 1440px; height: 900px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); padding: 36px 40px; display: flex; flex-direction: column; gap: 16px;">
+  <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <span style="font-size: 26px; font-weight: 800;">Роли и доступ</span>
+      <span style="font-size: 14px; color: rgb(71, 84, 103);">Права задаются один раз и действуют одинаково на кассе, в телефоне и в вебе.</span>
+    </div>
+    <span style="display: flex; gap: 8px;"><button type="button" style="height: 42px; padding: 0px 16px; border-radius: 12px; border: 1.5px solid rgb(208, 213, 221); background: rgb(255, 255, 255); font-family: inherit; font-size: 13px; font-weight: 700; color: rgb(52, 64, 84);">Права сотрудника вручную</button><button type="button" style="height: 42px; padding: 0px 16px; border-radius: 12px; border: 0px; background: rgb(255, 214, 0); font-family: inherit; font-size: 13px; font-weight: 800; color: rgb(11, 42, 60);">+ Пригласить сотрудника</button></span>
+  </div>
+
+  <section style="background: rgb(255, 255, 255); border-radius: 20px; border: 1px solid rgb(229, 231, 235); overflow: hidden; flex-grow: 1; display: flex; flex-direction: column;">
+    <div class="row" style="background: rgb(11, 42, 60); color: rgb(255, 255, 255); font-weight: 700; padding: 14px 16px;">
+      <span>Что можно делать</span>
+      <span style="text-align: center;">Кассир</span>
+      <span style="text-align: center;">Администратор</span>
+      <span style="text-align: center;">Владелец</span>
+      <span>Где доступно</span>
+    </div>
+    
+      <div class="grp"><span class="sc-interp">ПРОДАЖА</span></div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Продавать, сканировать, принимать оплату</span></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Касса · Телефон · Веб</span></span>
+        </div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Свои чеки: отправить, напечатать</span></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Касса · Телефон · Веб</span></span>
+        </div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Возврат и обмен</span></span>
+          
+          <span class="no" role="img" aria-label="Нельзя"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Касса · Телефон · Веб</span></span>
+        </div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Скидка больше разрешённой</span></span>
+          
+          <span class="no" role="img" aria-label="Нельзя"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Касса · Телефон · Веб</span></span>
+        </div>
+      
+    
+      <div class="grp"><span class="sc-interp">СКЛАД</span></div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Остатки и поиск товара</span></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Касса · Телефон · Веб</span></span>
+        </div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Приёмка и ревизия сканером</span></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Телефон · Касса</span></span>
+        </div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Цены, себестоимость, новый товар</span></span>
+          
+          <span class="no" role="img" aria-label="Нельзя"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Касса · Телефон · Веб</span></span>
+        </div>
+      
+    
+      <div class="grp"><span class="sc-interp">ДЕНЬГИ И ОТЧЁТЫ</span></div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Все чеки и смены магазина</span></span>
+          
+          <span class="no" role="img" aria-label="Нельзя"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Касса · Телефон · Веб</span></span>
+        </div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Отчёты, прибыль, долги клиентов</span></span>
+          
+          <span class="no" role="img" aria-label="Нельзя"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Телефон · Веб · Владелец</span></span>
+        </div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Внесение и изъятие из кассы</span></span>
+          
+          <span class="no" role="img" aria-label="Нельзя"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Касса · Веб</span></span>
+        </div>
+      
+    
+      <div class="grp"><span class="sc-interp">УПРАВЛЕНИЕ</span></div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Сотрудники и права</span></span>
+          
+          <span class="no" role="img" aria-label="Нельзя"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Телефон · Веб · Владелец</span></span>
+        </div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Сайт, бот, настройки магазина</span></span>
+          
+          <span class="no" role="img" aria-label="Нельзя"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Веб · Владелец</span></span>
+        </div>
+      
+        <div class="row">
+          <span style="font-weight: 600;"><span class="sc-interp">Филиалы, функции и подписка</span></span>
+          
+          <span class="no" role="img" aria-label="Нельзя"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></span>
+          
+          <span class="no" role="img" aria-label="Нельзя"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></span>
+          <span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span class="dev"><span class="sc-interp">Веб · Владелец</span></span>
+        </div>
+      
+    
+  </section>
+  <span style="font-size: 12px; color: rgb(102, 112, 133);">Кассиру недоступные разделы не показываются вовсе. Отдельному сотруднику можно открыть или закрыть любой пункт — например, разрешить кассиру возврат.</span></div></div></div>
+
+
+
+</body></html>

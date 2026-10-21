@@ -91,12 +91,15 @@ public interface ISalesApiService
     Task<JsonElement> PosReturnCartLineAsync(string cartId, PosRefundLineRequest line, string? reason, CancellationToken ct = default);
 
     /// <summary>Полный возврат чека: PATCH с причиной, затем DELETE продажи.</summary>
-    Task<JsonElement> PosReturnWholeSaleAsync(string saleId, string? reason, CancellationToken ct = default);
+    /// <remarks>2026-10-15, ревью: <paramref name="idempotencyKey"/> — тот же ключ при повторе того же возврата
+    /// (после «Превышено время ожидания»), null — новый ключ, как раньше.</remarks>
+    Task<JsonElement> PosReturnWholeSaleAsync(string saleId, string? reason, CancellationToken ct = default, string? idempotencyKey = null);
 
     /// <summary>POST /api/main/pos/sales/{id}/return/ — тот же запрос, что шлёт сайт.
     /// <paramref name="lines"/> пуст или null — возвращается весь чек; непустой — только эти
     /// позиции (items: sale_item_id + quantity).</summary>
-    Task<JsonElement> PosReturnSaleAsync(string saleId, IReadOnlyList<PosRefundLineRequest>? lines, CancellationToken ct = default);
+    /// <remarks>2026-10-15, ревью: <paramref name="idempotencyKey"/> — см. PosReturnWholeSaleAsync.</remarks>
+    Task<JsonElement> PosReturnSaleAsync(string saleId, IReadOnlyList<PosRefundLineRequest>? lines, CancellationToken ct = default, string? idempotencyKey = null);
 
     /// <summary>Покупки клиента (GET /api/main/pos/sales/?client=…) — для карточки клиента.</summary>
     Task<List<JsonElement>> PosSalesByClientAsync(string clientId, int maxPages = 5, CancellationToken ct = default);
@@ -110,8 +113,10 @@ public interface ISalesApiService
     /// <see cref="ClientDealGetAsync"/> (поле "installments" в ответе). amount = null — полное
     /// погашение взноса (подтверждённый рабочий случай, в захваченном запросе поля amount не
     /// было вообще); конкретное значение amount — частичная оплата (не подтверждено живым
-    /// захватом, может быть ненадёжно).</summary>
-    Task<JsonElement> PosPayDebtAsync(string clientId, string dealId, string? installmentId, double? amount, CancellationToken ct = default);
+    /// захватом, может быть ненадёжно).
+    /// 2026-10-15, ревью: <paramref name="idempotencyKey"/> — один и тот же ключ на все повторы ОДНОЙ оплаты
+    /// (null — новый ключ, как раньше), иначе потерянный ответ + повтор гасили долг дважды.</summary>
+    Task<JsonElement> PosPayDebtAsync(string clientId, string dealId, string? installmentId, double? amount, CancellationToken ct = default, string? idempotencyKey = null);
 
     /// <summary>GET /api/main/clients/{clientId}/deals/{dealId}/ — карточка сделки с полями
     /// remaining_debt и installments (график платежей). 2026-09-15: подтверждено живым захватом

@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:NurMarketKassa.AvaloniaHost.Views.Controls"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Analytics.WarehouseStockAnalyticsView"
              x:CompileBindings="False">
 
@@ -9,33 +10,31 @@
          Стили берутся от окна, в котором она стоит, — поэтому здесь своих нет. -->
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="16">
+            <!-- 2026-10-21 (пакет 2, п. 98, аудит 18.10: «серые плитки, 5-я плитка одна»): плитки — общие sec-kpi (белые с
+                 тонкой рамкой, сумма не обрезается — Viewbox), раскладка KpiTileGrid: ряды поровну (5 плиток на 4 места — 3 + 2),
+                 а не WrapPanel с плитками по 200 px и одной пятой во втором ряду. -->
             <ItemsControl x:Name="AnalyticsKpiPanel">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel/>
+                        <controls:KpiTileGrid MinTileWidth="170" Spacing="8"/>
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Background="{DynamicResource BrushPanelSoft}"
-                                BorderBrush="{DynamicResource BrushBorder}"
-                                BorderThickness="1"
-                                CornerRadius="12" Padding="16,12" Margin="0,0,10,10"
-                                Width="200">
+                        <Border Classes="sec-kpi">
                             <StackPanel Spacing="4">
-                                <TextBlock Text="{Binding Label}" FontSize="12"
-                                           Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
-                                <TextBlock Text="{Binding Value}" FontSize="20" FontWeight="Bold"
-                                           Foreground="{DynamicResource BrushText}"/>
+                                <TextBlock Classes="sec-kpi-label" Text="{Binding Label}"/>
+                                <Viewbox Classes="sec-kpi-fit"><TextBlock Classes="sec-kpi-value" Text="{Binding Value}"/></Viewbox>
                             </StackPanel>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
+            <!-- 2026-10-21 (пакет 2, п. 98): карточки графиков — цветом панели (белые), как плитки, а не серые BrushPanelSoft. -->
             <StackPanel Spacing="8">
                 <TextBlock Text="{DynamicResource warehouse.analyticsTopValueTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
-                <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}"
                         BorderThickness="1" CornerRadius="12" Padding="16">
                     <StackPanel x:Name="AnalyticsTopValueChart" Spacing="10"/>
                 </Border>
@@ -56,11 +55,13 @@
 
             <StackPanel Spacing="8">
                 <TextBlock Text="{DynamicResource warehouse.analyticsByCategoryTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
-                <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
-                        BorderThickness="1" CornerRadius="12" Padding="16">
+                <!-- 2026-10-21 (пакет 2, п. 98, «радуга»): круговая по категориям повторяла полосы и таблицу под ней — скрыта,
+                     как круговые «Аналитики» в О10; полосы — одним цветом текста темы. -->
+                <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1" CornerRadius="12" Padding="16" IsVisible="False">
                     <StackPanel x:Name="AnalyticsCategoryPie" Spacing="10"/>
                 </Border>
-                <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}"
                         BorderThickness="1" CornerRadius="12" Padding="16">
                     <StackPanel x:Name="AnalyticsCategoryChart" Spacing="10"/>
                 </Border>

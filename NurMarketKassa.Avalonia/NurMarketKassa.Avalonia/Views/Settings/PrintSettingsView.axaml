@@ -10,8 +10,8 @@
 
     <Style Selector="RadioButton.PrintModePill">
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
       <Setter Property="Padding" Value="10,6"/>
       <Setter Property="FontSize" Value="12"/>
       <Setter Property="MinHeight" Value="36"/>
@@ -30,16 +30,20 @@
         </ControlTemplate>
       </Setter>
     </Style>
+    <!-- 2026-10-19, этап О7: выбранный режим — тёмно-синий, как sec-seg (был бледно-жёлтый); «Найти», «Тест», «Открыть» —
+         обводкой (были три жёлтые): жёлтая на странице одна — «Сохранить». -->
     <Style Selector="RadioButton.PrintModePill:checked">
-      <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 
     <Style Selector="Button.PrintGoldButton">
-      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Padding" Value="14,6"/>
       <Setter Property="Height" Value="36"/>
@@ -48,8 +52,15 @@
       <Setter Property="CornerRadius" Value="6"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
+    <!-- 2026-10-19, О7: выключенная — бледная обводка, не серая заливка Fluent. -->
+    <Style Selector="Button.PrintGoldButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
     <Style Selector="Button.PrintGoldButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
   </UserControl.Styles>
@@ -80,6 +91,9 @@
               <TextBlock Text="{DynamicResource posSettings.print.printAfterPayment}" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
               <CheckBox x:Name="ReceiptEnabledCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
             </StackPanel>
+            <!-- 2026-10-20 (живой аудит кассы, К7): как этот выключатель связан с «Напечатать чек» в окне оплаты (текст — в коде, 5 языков). -->
+            <TextBlock x:Name="PrintSwitchHint" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap" MaxWidth="640"
+                       HorizontalAlignment="Left" Foreground="{DynamicResource BrushTextSoft}"/>
           </StackPanel>
         </Border>
 
@@ -192,10 +206,21 @@
           </StackPanel>
         </Border>
 
-        <!-- Блок 1: Настройки ESC/POS (когда выбран Текстовый режим) -->
+        <!-- Блок 1: текстовый чек (когда выбран Текстовый режим). 2026-10-19, этап О7: кодировка, кодовая страница и ESC R —
+             язык специалиста — в раскрывающемся «Дополнительно: команды принтера», по умолчанию свёрнуто. -->
         <Border Classes="SettingsCard" Padding="14" IsVisible="{Binding #TextModeRadio.IsChecked}">
           <StackPanel Spacing="12">
             <TextBlock Text="{DynamicResource posSettings.print.escPosParams}" Classes="SettingsCardTitle" FontSize="14"/>
+            <StackPanel Spacing="0">
+            <ToggleButton x:Name="PrintAdvancedToggle" Classes="SettingsGroupHeader" IsChecked="False">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{DynamicResource posSettings.print.advancedPrinter}" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                <TextBlock Grid.Column="1" Classes="SettingsGroupChevron" Text="&#x25BE;" IsVisible="{Binding #PrintAdvancedToggle.IsChecked}"/>
+                <TextBlock Grid.Column="1" Classes="SettingsGroupChevron" Text="&#x25B8;" IsVisible="{Binding !#PrintAdvancedToggle.IsChecked}"/>
+              </Grid>
+            </ToggleButton>
+            <Border Classes="SettingsGroupBody" IsVisible="{Binding #PrintAdvancedToggle.IsChecked}">
             <Grid ColumnDefinitions="*,12,*,12,*">
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.encoding}" Classes="FieldLabel"/>
@@ -225,10 +250,12 @@
               </StackPanel>
 
               <StackPanel Grid.Column="4" Spacing="4">
-                <TextBlock Text="ESC R (0–255)" Classes="FieldLabel"/>
+                <TextBlock Text="{DynamicResource posSettings.print.escR}" Classes="FieldLabel"/>
                 <TextBox x:Name="ReceiptEscRBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36"/>
               </StackPanel>
             </Grid>
+            </Border>
+            </StackPanel>
 
             <!-- 2026-09-08: размер шрифта чека перенесён сюда же, в блок текстовой печати —
                  раньше был только в отдельной карточке "Настройки чека" ниже, владелец не видел
@@ -351,7 +378,7 @@
             <TextBox x:Name="StatusText" x:FieldModifier="public"
                      Classes="ModernTextBox" Height="48"
                      IsReadOnly="True" TextWrapping="Wrap" FontSize="11"
-                     Foreground="{DynamicResource BrushText}" Background="{DynamicResource BrushPanelSoft}"/>
+                     Foreground="{DynamicResource BrushText}"/> <!-- 2026-10-19, О7: фон поля из общего стиля (был серый) -->
 
             <Border x:Name="PrintErrorPanel" x:FieldModifier="public"
                     IsVisible="False" CornerRadius="6" Padding="8"

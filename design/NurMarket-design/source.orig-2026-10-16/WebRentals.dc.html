@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Прокат — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.col{flex:1 1 260px;min-width:0;background:#EAECF0;border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.ch{display:flex;align-items:center;gap:8px;padding:2px 4px;font-size:14px;font-weight:800}
+.ct{font-size:12px;font-weight:800;padding:2px 8px;border-radius:999px;background:#FFFFFF;color:#344054}
+.it{background:#FFFFFF;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+.it b{font-size:14px}
+.it span{font-size:12px;color:#667085}
+.sm{height:34px;padding:0 12px;border-radius:9px;border:0;font-family:inherit;font-size:12px;font-weight:800}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Прокат" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Прокат</b><span style="font-size: 13px; color: #667085">Штраф за просрочку считается сам и попадает в чек при возврате</span></span>
+      <button type="button" class="b1">Выдать в прокат</button>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start">
+      <section class="col">
+        <div class="ch"><span style="width: 10px; height: 10px; border-radius: 5px; background: #2E90FA"></span><span style="flex-grow: 1">Выдано</span><span class="ct">[N]</span></div>
+        <div class="it"><b>Аренда бетон мешалка</b><span>[Клиент] · до [дата]</span><span>Залог [сумма]</span></div>
+        <div class="it"><b>[вещь]</b><span>[Клиент] · до [дата]</span><span>Залог [сумма]</span></div>
+      </section>
+      <section class="col">
+        <div class="ch"><span style="width: 10px; height: 10px; border-radius: 5px; background: #F79009"></span><span style="flex-grow: 1">Вернуть сегодня</span><span class="ct">[N]</span></div>
+        <div class="it"><b>[вещь]</b><span>[Клиент] · [телефон]</span><div style="display: flex; gap: 6px"><button type="button" class="sm" style="background: #FFD600; color: #0B2A3C">Принять</button><button type="button" class="sm" style="background: #F2F4F7; color: #344054">Напомнить</button></div></div>
+      </section>
+      <section class="col">
+        <div class="ch"><span style="width: 10px; height: 10px; border-radius: 5px; background: #C0362C"></span><span style="flex-grow: 1">Просрочено</span><span class="ct">[N]</span></div>
+        <div class="it" style="border: 2px solid #FDE2E1"><b>[вещь]</b><span>[Клиент] · просрочка [N] дн.</span><span style="color: #B42318; font-weight: 700">Штраф [сумма]</span><div style="display: flex; gap: 6px"><button type="button" class="sm" style="background: #FFD600; color: #0B2A3C">Принять</button><button type="button" class="sm" style="background: #F2F4F7; color: #344054">WhatsApp</button></div></div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

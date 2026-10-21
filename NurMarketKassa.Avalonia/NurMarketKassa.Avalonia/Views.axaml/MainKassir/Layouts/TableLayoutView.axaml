@@ -113,10 +113,29 @@
             </Border>
 
             <Border Grid.Column="4" Classes="lx-field">
-                <Grid ColumnDefinitions="Auto,*">
+                <Grid ColumnDefinitions="Auto,*,Auto">
                     <PathIcon Data="{StaticResource IconSearch}" Margin="0,0,10,0"/>
                     <TextBox x:Name="ProductSearchBox" Grid.Column="1" Text="{Binding Catalog.SearchText}"
                              Watermark="{DynamicResource lx.searchWatermark}"/>
+                    <!-- 2026-10-20, проверка фильтров: «Фильтр» в раскладке (было только в «Классике») — число включённых условий,
+                         в подсказке что включено; «✕» сбрасывает. Кнопки не берут фокус (скан — окну кассы). -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center">
+                        <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="32" Padding="10,0"
+                                ToolTip.Tip="{Binding Catalog.ActiveFilterTip}" Click="OpenFilter_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <PathIcon Data="{StaticResource IconFilter}" Width="14" Height="14"/>
+                                <TextBlock Text="{DynamicResource csh.catalog.filter}" VerticalAlignment="Center"/>
+                                <Border IsVisible="{Binding Catalog.HasActiveFilter}" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0"
+                                        Background="{DynamicResource BrushAccent}" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Catalog.ActiveFilterCount}" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource BrushAccentForeground}"/>
+                                </Border>
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="lx-chip" Focusable="False" Height="32" Width="32" Padding="0" Content="✕"
+                                IsVisible="{Binding Catalog.HasActiveFilter}" ToolTip.Tip="{Binding Catalog.ResetFilterTip}"
+                                AutomationProperties.Name="{Binding Catalog.ResetFilterTip}" Click="ResetFilter_Click"/>
+                    </StackPanel>
                 </Grid>
             </Border>
         </Grid>
@@ -147,7 +166,7 @@
                                         <DataTemplate x:DataType="vm:ReceiptTabVm">
                                             <Button Classes="receipt-tab" Classes.active="{Binding IsActive}"
                                                     Command="{Binding SelectCommand}" CommandParameter="{Binding}">
-                                                <TextBlock Text="{Binding Title}" MaxWidth="200" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Title}" MaxWidth="230" TextTrimming="CharacterEllipsis"/>
                                             </Button>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -323,7 +342,9 @@
                         </ScrollViewer>
 
                         <ScrollViewer Grid.Row="2" Classes="lx-scroll">
-                            <ListBox x:Name="QuickProductsList" Classes="lx-tiles"
+                            <!-- 2026-10-20, живая проверка: «верхний ряд плиток срезан» — скан/щелчок выделял товар (SelectedProduct),
+                                 и список сам прокручивался к нему на полряда. Прокрутку к рамке стрелок делает CatalogKeyboardNavigation. -->
+                            <ListBox x:Name="QuickProductsList" AutoScrollToSelectedItem="False" Classes="lx-tiles"
                                      ItemsSource="{Binding Catalog.Products}"
                                      SelectedItem="{Binding Catalog.SelectedProduct}" SelectionMode="Single">
                                 <ListBox.ItemsPanel>

@@ -42,7 +42,9 @@ internal static class MainViewModelRegistration
                 sp.GetRequiredService<IDialogService>(),
                 sp.GetRequiredService<IDispatcher>(),
                 LookupCatalogProduct,
-                (productId, salePackageId) => GetMaximumCartQuantity(productId, salePackageId, basket),
+                // 2026-10-20: в пакете перестройки строк (LookupBatch) лимит одного товара считается один раз.
+                (productId, salePackageId) => LookupBatch.Memo($"max-cart-qty|{productId}|{salePackageId}",
+                    () => GetMaximumCartQuantity(productId, salePackageId, basket)),
                 sp.GetService<IPosCheckoutUiFlow>(),
                 (product, lineNameOverride) => bridge.AddProductFromCatalog?.Invoke(product, lineNameOverride) ?? Task.CompletedTask,
                 () => bridge.OpenDeferredCarts?.Invoke() ?? Task.CompletedTask,

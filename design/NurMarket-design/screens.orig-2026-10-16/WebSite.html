@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Сайт и бот — веб</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.pill{height:34px;padding:0 12px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:700;color:#344054}
+.pill.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.th{border:1px solid #E5E7EB;border-radius:14px;overflow:hidden;background:#FFFFFF;font-family:inherit;padding:0;text-align:left;display:flex;flex-direction:column}
+.th.on{border:2px solid #0B2A3C}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+</style><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="WebSite"><div style="min-height: 900px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-wrap: wrap;">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex;"><div class="sc-host" data-sc-name="WebNav"><nav aria-label="Разделы веб-админки" style="width: 100%; min-height: 900px; height: 100%; box-sizing: border-box; background: rgb(11, 42, 60); font-family: Montserrat, system-ui, sans-serif; padding: 20px 14px; display: flex; flex-direction: column; gap: 2px;">
+  <div style="display: flex; align-items: center; gap: 10px; padding: 0px 8px 12px;"><span style="width: 36px; height: 36px; border-radius: 10px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-weight: 800;">N</span><span style="display: flex; flex-direction: column;"><b style="color: rgb(255, 255, 255); font-size: 15px;">NurMarket</b><span style="font-size: 11px; color: rgb(125, 147, 163);">NBS · Администратор</span></span></div>
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">ГЛАВНАЯ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Сводка</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Нур Советник</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4M9 15l2 2 4-4"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Задачи и календарь</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">[N]</span></span></a>
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">ПРОДАЖА</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Веб-касса</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Чеки и смены</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18v12H3zM3 10h18M7 15h4"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Платежи и банки</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">1</span></span></a>
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">ТОВАРЫ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Товары и склад</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Закупки</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">[N]</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Приёмка</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h12v9H2zM14 10h4l3 3v3h-7"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Пополнение и сроки</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Накладные и документы</span></span></a>
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">КЛИЕНТЫ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8M4 21a8 8 0 0 1 16 0"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Клиенты и долги</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">[N]</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Рассрочки</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">[N]</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7v5l3 2"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Прокат</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h16v10H4zM2 7h20v3H2zM12 7v13M12 7c-2-4-6-3-5 0M12 7c2-4 6-3 5 0"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Бонусы и сертификаты</span></span></a>
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">САЙТ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 13H6zM9 8a3 3 0 0 1 6 0"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Заказы с сайта</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">[N]</span></span></a>
+      
+    
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); text-decoration: none; font-size: 13.5px; font-weight: 800;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M3 12h18M12 3a14 14 0 0 1 0 18"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Сайт и бот</span></span></a>
+      
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">ОТЧЁТЫ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Прибыль и отчёты</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Удалено из чека</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">ЭСФ и ККМ</span></span><span style="font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgb(192, 54, 44); color: rgb(255, 255, 255);"><span class="sc-interp">1</span></span></a>
+      
+    
+  
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(125, 147, 163); letter-spacing: 0.05em; padding: 12px 12px 4px;"><span class="sc-interp">УПРАВЛЕНИЕ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 7a4 4 0 1 0-3.5 6L5 19.5V22h3v-2h2v-2h2l1.5-1.5A4 4 0 0 0 15 7"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Сотрудники и зарплата</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V8l7-5 7 5v13"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Филиалы</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; color: rgb(199, 210, 219); text-decoration: none; font-size: 13.5px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6M4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4"></path></svg><span style="flex-grow: 1;"><span class="sc-interp">Настройки и подписка</span></span></a>
+      
+    
+  </nav></div></div>
+  <main style="flex: 999 1 560px; min-width: 0px; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+      <span style="display: flex; flex-direction: column; flex-grow: 1;"><b style="font-size: 24px; font-weight: 800;">Сайт и бот</b><span style="font-size: 13px; color: rgb(102, 112, 133);">Витрина: market.nurcrm.kg · есть неопубликованные изменения</span></span>
+      <button type="button" class="b2">Смотреть сайт</button>
+      <button type="button" class="b1">Опубликовать</button>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start;">
+      <section class="card" style="flex: 999 1 520px;">
+        <b style="font-size: 16px;">Тема сайта</b>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;"><button type="button" class="pill">Все</button><button type="button" class="pill on">Одежда и обувь</button><button type="button" class="pill">Продукты</button><button type="button" class="pill">Профессиональные</button><button type="button" class="pill">Для любого магазина</button></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px;">
+          
+            <button type="button" class="th" style="border: 2px solid rgb(11, 42, 60);">
+              <span style="height: 92px; background: rgb(250, 246, 241); display: flex; flex-direction: column; gap: 6px; padding: 8px; box-sizing: border-box;">
+                <span style="height: 12px; border-radius: 3px; background: rgb(250, 246, 241);"></span>
+                <span style="flex-grow: 1; border-radius: 4px; background: rgb(232, 213, 200);"></span>
+                <span style="display: flex; gap: 4px;"><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(154, 74, 47);"></span><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(154, 74, 47);"></span><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(154, 74, 47);"></span></span>
+              </span>
+              <span style="padding: 8px 10px; display: flex; flex-direction: column; gap: 2px;"><b style="font-size: 13px;"><span class="sc-interp">Ателье</span></b><span style="font-size: 11px; color: rgb(102, 112, 133);"><span class="sc-interp">выбрана</span></span></span>
+            </button>
+          
+            <button type="button" class="th" style="border: 1px solid rgb(229, 231, 235);">
+              <span style="height: 92px; background: rgb(14, 14, 16); display: flex; flex-direction: column; gap: 6px; padding: 8px; box-sizing: border-box;">
+                <span style="height: 12px; border-radius: 3px; background: rgb(24, 24, 27);"></span>
+                <span style="flex-grow: 1; border-radius: 4px; background: rgb(58, 74, 16);"></span>
+                <span style="display: flex; gap: 4px;"><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(198, 244, 50);"></span><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(198, 244, 50);"></span><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(198, 244, 50);"></span></span>
+              </span>
+              <span style="padding: 8px 10px; display: flex; flex-direction: column; gap: 2px;"><b style="font-size: 13px;"><span class="sc-interp">Стритвир</span></b><span style="font-size: 11px; color: rgb(102, 112, 133);"><span class="sc-interp">тёмная</span></span></span>
+            </button>
+          
+            <button type="button" class="th" style="border: 1px solid rgb(229, 231, 235);">
+              <span style="height: 92px; background: rgb(255, 248, 240); display: flex; flex-direction: column; gap: 6px; padding: 8px; box-sizing: border-box;">
+                <span style="height: 12px; border-radius: 3px; background: rgb(255, 255, 255);"></span>
+                <span style="flex-grow: 1; border-radius: 4px; background: rgb(247, 212, 221);"></span>
+                <span style="display: flex; gap: 4px;"><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(194, 37, 92);"></span><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(194, 37, 92);"></span><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(194, 37, 92);"></span></span>
+              </span>
+              <span style="padding: 8px 10px; display: flex; flex-direction: column; gap: 2px;"><b style="font-size: 13px;"><span class="sc-interp">Детский</span></b><span style="font-size: 11px; color: rgb(102, 112, 133);"><span class="sc-interp">пастель</span></span></span>
+            </button>
+          
+            <button type="button" class="th" style="border: 1px solid rgb(229, 231, 235);">
+              <span style="height: 92px; background: rgb(255, 255, 255); display: flex; flex-direction: column; gap: 6px; padding: 8px; box-sizing: border-box;">
+                <span style="height: 12px; border-radius: 3px; background: rgb(255, 255, 255);"></span>
+                <span style="flex-grow: 1; border-radius: 4px; background: rgb(229, 224, 216);"></span>
+                <span style="display: flex; gap: 4px;"><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(17, 17, 17);"></span><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(17, 17, 17);"></span><span style="flex-grow: 1; height: 14px; border-radius: 3px; background: rgb(17, 17, 17);"></span></span>
+              </span>
+              <span style="padding: 8px 10px; display: flex; flex-direction: column; gap: 2px;"><b style="font-size: 13px;"><span class="sc-interp">Бутик</span></b><span style="font-size: 11px; color: rgb(102, 112, 133);"><span class="sc-interp">чёрно-белая</span></span></span>
+            </button>
+          
+        </div>
+      </section>
+
+      <aside style="flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 12px;">
+        <section class="card">
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 40px; height: 40px; border-radius: 12px; background: rgb(227, 242, 253); color: rgb(29, 78, 216); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l6 2 2 6 3-4 5 4z"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column;"><b style="font-size: 14px;">Telegram-бот</b><span style="font-size: 12px; color: rgb(14, 122, 58); font-weight: 700;">работает · отвечает ИИ</span></span></div>
+          <span style="font-size: 13px; color: rgb(71, 84, 103); line-height: 19px;">Покупатели спрашивают цену и наличие, бот отвечает и принимает заказ.</span>
+          <button type="button" class="b2">Вопросы покупателей · [N]</button>
+        </section>
+        <section class="card">
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 40px; height: 40px; border-radius: 12px; background: rgb(231, 246, 236); color: rgb(14, 122, 58); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 7.7 19.4z"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column;"><b style="font-size: 14px;">WhatsApp</b><span style="font-size: 12px; color: rgb(102, 112, 133);">чеки и напоминания о долгах</span></span></div>
+          <button type="button" class="b2">Шаблоны сообщений</button>
+        </section>
+      </aside>
+    </div>
+  </main></div></div></div>
+
+
+
+</body></html>

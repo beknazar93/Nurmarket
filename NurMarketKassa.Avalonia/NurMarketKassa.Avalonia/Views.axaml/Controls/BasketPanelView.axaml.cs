@@ -9,7 +9,60 @@ namespace NurMarketKassa.AvaloniaHost.Views.Main.Controls;
 
 public partial class BasketPanelView : UserControl
 {
-    public BasketPanelView() => InitializeComponent();
+    public BasketPanelView()
+    {
+        InitializeComponent();
+        DataContextChanged += (_, _) => HookLines();
+        // 2026-10-20, живая проверка: «Отложить ч…» и подсказка поля кода не помещались на 1296 точек — короткие
+        // подписи здесь (полный текст «Отложить чек» остаётся в подсказке кнопки).
+        ApplyShortLabels();
+        AttachedToVisualTree += (_, _) =>
+        {
+            Tr.LanguageChanged -= OnLanguageChanged;
+            Tr.LanguageChanged += OnLanguageChanged;
+            ApplyShortLabels();
+        };
+        DetachedFromVisualTree += (_, _) => Tr.LanguageChanged -= OnLanguageChanged;
+        // 2026-10-20 (живой аудит кассы, К10): «Ещё» — всплывающее окно; нажатая в нём кнопка закрывает его (до своей команды).
+        MoreActionsContent.AddHandler(Button.ClickEvent, (_, _) =>
+        {
+            if (DataContext is BasketPanelViewModel vm)
+                vm.IsMoreActionsVisible = false;
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
+    }
+
+    private void OnLanguageChanged() => Avalonia.Threading.Dispatcher.UIThread.Post(ApplyShortLabels);
+
+    private void ApplyShortLabels()
+    {
+        DeferLabel.Text = Tr.T("Отложить", "Калтыруу", "Hold", "Beklet", "Kechiktirish");
+        BarcodeInputBox.Watermark = Tr.T("Код или название товара", "Товардын коду же аты", "Product code or name", "Ürün kodu veya adı", "Mahsulot kodi yoki nomi");
+    }
+
+    // 2026-10-20, живая проверка (большой чек): строки чека больше не пересоздаются на каждый скан (вставляется
+    // только новая строка сверху), и список, прокрутка которого «держится» за видимые строки, уезжал от новой
+    // строки — сверху её не было видно. Новая строка сверху — список показывает её, как раньше.
+    private System.Collections.ObjectModel.ObservableCollection<CartLineItemVm>? _lines;
+
+    private void HookLines()
+    {
+        if (_lines is not null)
+            _lines.CollectionChanged -= OnLinesChanged;
+        _lines = (DataContext as BasketPanelViewModel)?.Lines;
+        if (_lines is not null)
+            _lines.CollectionChanged += OnLinesChanged;
+    }
+
+    private void OnLinesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action != System.Collections.Specialized.NotifyCollectionChangedAction.Add || e.NewStartingIndex != 0)
+            return;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (_lines is { Count: > 0 })
+                CartLinesList.ScrollIntoView(0);
+        }, Avalonia.Threading.DispatcherPriority.Background);
+    }
 
     // Cashiers often click away (e.g. straight to "Оплатить") instead of pressing Enter
     // after typing a quantity — commit on blur too, not just on the Enter key binding.

@@ -169,6 +169,11 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
 
     public double LineTotal => Quantity * PurchasePrice;
 
+    /// <summary>2026-10-19: закупка по скану накладной (InvoiceEditorWindow) — категория и весовой товар у нового товара, как раньше
+    /// давал скан при создании товара напрямую. Приёмка склада их не задаёт (null / false — как прежде).</summary>
+    public string? CategoryName { get; set; }
+    public bool IsWeight { get; set; }
+
     /// <summary>Товара у магазина ещё нет — он будет создан при проведении приёмки.</summary>
     public bool IsNew => Source != ReceivingSource.Warehouse;
 

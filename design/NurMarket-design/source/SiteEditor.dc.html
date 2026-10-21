@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Редактор сайта</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="site" active="Редактор сайта" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Редактор сайта</span><span style="font-size: 13px; color: #0E7A3A; font-weight: 600">Всё опубликовано · версия 15 · 09.10.2026 14:35</span></span>
+      <button type="button" style="height: 44px; padding: 0 14px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054">Смотреть сайт</button>
+      <button type="button" style="height: 44px; padding: 0 14px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054">История версий</button>
+      <button type="button" disabled="" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #F2F4F7; font-family: inherit; font-size: 13px; font-weight: 800; color: #98A2B3">Опубликовать</button>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: flex; gap: 16px">
+      <section style="width: 420px; flex-shrink: 0; background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+        <span style="font-size: 16px; font-weight: 800">Темы сайта</span>
+        <span style="font-size: 12px; color: #667085; line-height: 17px">Весь вид сайта одним нажатием: цвета, шрифт, шапка, карточки. Покупатели увидят тему после «Опубликовать».</span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <sc-for list="{{themes}}" as="t" hint-placeholder-count="6">
+            <button type="button" style="text-align: left; border-radius: 14px; border: {{t.border}}; background: #FFFFFF; padding: 0; overflow: hidden; font-family: inherit; display: flex; flex-direction: column">
+              <span style="height: 60px; background: {{t.bg}}; display: flex; align-items: flex-end; padding: 8px; box-sizing: border-box"><span style="width: 40px; height: 8px; border-radius: 4px; background: {{t.accent}}"></span></span>
+              <span style="padding: 10px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 800">{{t.name}}</span><span style="font-size: 11px; color: #667085">{{t.note}}</span></span>
+            </button>
+          </sc-for>
+        </div>
+        <!-- 2026-10-16: тонкая настройка из программы (≈20 цветов, шрифт, скругления, тени) — за кнопкой «Ещё настройки» -->
+        <button type="button" style="height: 44px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #0B2A3C; display: flex; align-items: center; justify-content: space-between; padding: 0 14px"><span>Ещё настройки</span><span style="font-weight: 600; color: #667085">цвета, шрифт, скругления, тени ›</span></button>
+        <span style="font-size: 12px; color: #667085; line-height: 17px">Изменения сначала попадают в черновик. «Отменить изменения» и «Вернуть в черновик» — в «Истории версий».</span>
+      </section>
+      <section aria-label="Предпросмотр" style="flex-grow: 1; min-width: 0; background: #FFFFFF; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+        <span style="padding: 10px 16px; background: #FFF7CC; font-size: 12px; font-weight: 700; color: #0B2A3C; text-align: center">Предпросмотр · market.nurcrm.kg/nbs — так сайт видят покупатели сейчас (версия 15)</span>
+        <div style="background: #B3123A; color: #FFFFFF; padding: 14px 20px; display: flex; align-items: center; gap: 14px"><span style="font-size: 18px; font-weight: 800">Nurmarket</span><span style="flex-grow: 1; height: 34px; border-radius: 8px; background: rgba(255,255,255,0.15)"></span><span style="font-size: 13px; font-weight: 700">Корзина</span></div>
+        <div style="height: 200px; background: #8E0E2E; padding: 28px 24px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 14px"><span style="font-size: 44px; font-weight: 800; color: #FFFFFF">NBS</span><span style="align-self: flex-start; padding: 10px 16px; border-radius: 8px; background: #E11D48; color: #FFFFFF; font-size: 14px; font-weight: 800">Смотреть акции</span></div>
+        <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; background: #FFF8F0">
+          <span style="display: flex; justify-content: space-between"><span style="font-size: 16px; font-weight: 800">Категории</span><span style="font-size: 12px; color: #667085">16 категорий</span></span>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap"><span style="padding: 8px 12px; border-radius: 8px; background: #B3123A; color: #FFFFFF; font-size: 12px; font-weight: 700">Все</span><span style="padding: 8px 12px; border-radius: 8px; background: #FFFFFF; font-size: 12px; font-weight: 700">Напитки 48</span><span style="padding: 8px 12px; border-radius: 8px; background: #FFFFFF; font-size: 12px; font-weight: 700">Бакалея 62</span><span style="padding: 8px 12px; border-radius: 8px; background: #FFFFFF; font-size: 12px; font-weight: 700">Молочное 24</span><span style="padding: 8px 12px; border-radius: 8px; background: #FFFFFF; font-size: 12px; font-weight: 700">Сладости 31</span></div>
+          <!-- 2026-10-16: 307 товаров — как на складе и в «Заказах с сайта»; карточки — товары NBS с ценами -->
+          <span style="font-size: 16px; font-weight: 800; margin-top: 4px">Все товары · 307</span>
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+            <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+              <span style="border-radius: 10px; background: #FFFFFF; padding: 8px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 2px rgba(16,24,40,.06)">
+                <span style="height: 64px; border-radius: 8px; background: {{c.tile}}; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; color: #8E0E2E">{{c.ini}}</span>
+                <span style="font-size: 12px; font-weight: 700; line-height: 15px; height: 30px; overflow: hidden">{{c.name}}</span>
+                <span style="display: flex; align-items: center; justify-content: space-between; gap: 6px"><b style="font-size: 14px; color: #B3123A; white-space: nowrap">{{c.price}}</b><span style="padding: 5px 8px; border-radius: 6px; background: #B3123A; color: #FFFFFF; font-size: 11px; font-weight: 700; white-space: nowrap">В корзину</span></span>
+              </span>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const themes = [
+      ['Солнечный', 'Жёлтый и белый, крупные фото', '#FFFFFF', '#FFD600'],
+      ['Ночной', 'Тёмный и дорогой вид', '#111827', '#FFD600'],
+      ['Свежий рынок', 'Зелёный, для продуктов', '#E7F6EC', '#16A34A'],
+      ['Бутик', 'Чёрно-белый, для одежды', '#F2F4F7', '#111827'],
+      ['Ала-Тоо ✓', 'Красный с золотом и узором', '#8E0E2E', '#FFD600'],
+      ['Чистый', 'Голубой и белый, аптека', '#E3F2FD', '#1D4ED8']
+    ].map(([name, note, bg, accent], i) => ({ name, note, bg, accent, border: i === 4 ? '2px solid #0B2A3C' : '1px solid #E5E7EB' }));
+    const cards = [
+      ['МК', 'Макароны «Макфа» спагетти 450г', '85', '#FDE68A'],
+      ['M', 'Mars 50г', '39', '#FECACA'],
+      ['СG', 'Сок Gracio яблочный 1л', '120', '#D9F99D'],
+      ['МЛ', 'Молоко 1л', '95', '#E0F2FE']
+    ].map(([ini, name, price, tile]) => ({ ini, name, price: price + ' сом', tile }));
+    return { themes, cards };
+  }
+}
+</script>
+</body>
+</html>

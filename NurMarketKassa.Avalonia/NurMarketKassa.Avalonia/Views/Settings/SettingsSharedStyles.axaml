@@ -129,10 +129,12 @@
     <Setter Property="Margin" Value="23,0,0,0"/>
   </Style>
 
+  <!-- 2026-10-19, этап О7: «выбрано» во всех Настройках — одним видом, как sec-seg/modal-seg: тёмно-синяя заливка
+       (цвет текста темы) и надпись цветом панели; невыбранное — белое с обводкой (было серое залитое / бледно-жёлтое). -->
   <Style Selector="RadioButton.DatePill">
     <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
     <Setter Property="Padding" Value="18,10"/>
     <Setter Property="FontSize" Value="14"/>
     <Setter Property="MinHeight" Value="42"/>
@@ -142,7 +144,7 @@
       <ControlTemplate TargetType="RadioButton">
         <Border Background="{TemplateBinding Background}"
                 BorderBrush="{TemplateBinding BorderBrush}"
-                BorderThickness="1" CornerRadius="0"
+                BorderThickness="1" CornerRadius="{DynamicResource SettingsButtonRadius}"
                 Padding="{TemplateBinding Padding}">
           <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"
                             TextElement.Foreground="{TemplateBinding Foreground}"/>
@@ -151,29 +153,34 @@
     </Setter>
   </Style>
 
+  <Style Selector="RadioButton.DatePill:pointerover">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+  </Style>
   <Style Selector="RadioButton.DatePill:checked">
-    <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+    <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
   </Style>
 
+  <!-- 2026-10-19, этап О7: поля ввода и списки — фон поля темы (BrushInput) с заметной рамкой, а не серые залитые плашки. -->
   <Style Selector="TextBox.ModernTextBox">
     <Setter Property="Height" Value="42"/>
     <Setter Property="Padding" Value="12,8"/>
-    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+    <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="FontSize" Value="14"/>
     <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    <Setter Property="CaretBrush" Value="#0F172A"/>
+    <Setter Property="CaretBrush" Value="{DynamicResource BrushText}"/>
     <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>
 
   <Style Selector="ComboBox.TouchComboBox">
     <Setter Property="Height" Value="42"/>
-    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
     <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="FontSize" Value="14"/>
     <Setter Property="Padding" Value="8,6"/>
@@ -181,15 +188,69 @@
     <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>
 
+  <!-- 2026-10-19, этап О7: второстепенные кнопки Настроек — обводкой, как sec-outline (были серые залитые). Главная
+       («Сохранить» и т.п.) остаётся жёлтой — одна на странице. -->
   <Style Selector="Button.SettingsFlatButton">
     <Setter Property="Height" Value="42"/>
     <Setter Property="FontSize" Value="14"/>
-    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Padding" Value="14,0"/>
+    <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
     <Setter Property="VerticalAlignment" Value="Top"/>
+    <Setter Property="Cursor" Value="Hand"/>
+  </Style>
+  <Style Selector="Button.SettingsFlatButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+  </Style>
+  <Style Selector="Button.SettingsFlatButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+  </Style>
+  <Style Selector="Button.SettingsFlatButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+  </Style>
+
+  <!-- 2026-10-19, этап О7: кнопки без своего стиля в страницах Настроек (btn-secondary, SecondaryButton) были серыми
+       кнопками Fluent («+ Добавить роль», «Загрузить с сайта», «Удалить» у ролей) — теперь обводкой, как sec-outline.
+       Страница со своим стилем этих классов (Маркетплейс, Экран) задаёт его ниже include и перекрывает этот. -->
+  <Style Selector="Button.btn-secondary, Button.SecondaryButton">
+    <Setter Property="MinHeight" Value="38"/>
+    <Setter Property="Padding" Value="14,0"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="Cursor" Value="Hand"/>
+  </Style>
+  <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.SecondaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+  </Style>
+  <Style Selector="Button.btn-secondary:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.SecondaryButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+  </Style>
+  <Style Selector="Button.btn-secondary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.SecondaryButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
   </Style>
 
   <Style Selector="Border.AlertBlock">
@@ -206,8 +267,9 @@
        настроек. ToggleButton вместо Avalonia Expander — не тянет его нестандартный
        ControlTemplate, повторяет уже устоявшийся в проекте приём "кнопка + видимость по
        IsChecked" (см. HotkeyOptionsPanel в ProductEditDialog). -->
+  <!-- 2026-10-19, этап О7: шапка группы — белая (цвет панели) с рамкой, как карточка; наведение — мягкий фон (была серая). -->
   <Style Selector="ToggleButton.SettingsGroupHeader">
-    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="10"/>
@@ -229,6 +291,9 @@
   </Style>
   <Style Selector="ToggleButton.SettingsGroupHeader:checked">
     <Setter Property="CornerRadius" Value="10,10,0,0"/>
+  </Style>
+  <Style Selector="ToggleButton.SettingsGroupHeader:pointerover">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
   </Style>
   <Style Selector="TextBlock.SettingsGroupChevron">
     <Setter Property="FontSize" Value="11"/>

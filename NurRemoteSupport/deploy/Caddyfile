@@ -1,0 +1,10 @@
+# Caddy сам получает и продлевает сертификат Let's Encrypt для RELAY_DOMAIN (порты 80 и 443 должны быть открыты).
+{$RELAY_DOMAIN} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	# WebSocket (/ws/host, /ws/operator) Caddy пробрасывает сам, без ограничения времени
+	reverse_proxy relay:8080
+}

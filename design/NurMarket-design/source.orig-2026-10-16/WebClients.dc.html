@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Клиенты и долги — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.seg{height:38px;padding:0 16px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700}
+.tr{display:grid;grid-template-columns:1.6fr 1.2fr .8fr 1fr 1fr 120px;gap:8px;padding:11px 14px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.sm{height:32px;padding:0 10px;border-radius:8px;border:0;background:#E7F6EC;color:#0E7A3A;font-family:inherit;font-size:12px;font-weight:800}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Клиенты и долги" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <b style="font-size: 24px; font-weight: 800; flex-grow: 1">Клиенты и долги</b>
+      <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC"><button type="button" class="seg" style="background: transparent; color: #475467">Все клиенты</button><button type="button" class="seg" style="background: #FFFFFF; color: #0B2A3C">Должники · [N]</button></span>
+      <button type="button" class="b1">+ Клиент</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px">
+      <div class="kpi"><span>Всего долгов</span><b style="color: #B42318">[сумма]</b></div>
+      <div class="kpi"><span>Должников</span><b>[N]</b></div>
+      <div class="kpi"><span>Просрочено</span><b style="color: #B54708">[N]</b></div>
+      <div class="kpi"><span>Вернули за месяц</span><b style="color: #0E7A3A">[сумма]</b></div>
+    </div>
+
+    <section style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden">
+      <div style="padding: 12px 14px; border-bottom: 1px solid #EAECF0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+        <label style="flex: 1 1 260px; height: 40px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 10px; border: 1px solid #E5E7EB; background: #F9FAFB"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><input type="text" placeholder="Имя или телефон" aria-label="Поиск клиента" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 13px; width: 100%"></label>
+        <button type="button" class="b2" style="height: 40px">Напомнить всем просроченным</button>
+      </div>
+      <div style="overflow-x: auto"><div style="min-width: 760px">
+        <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span>Клиент</span><span>Телефон</span><span>Бонусы</span><span>Долг</span><span>Срок</span><span></span></div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+          <div class="tr">
+            <span style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; border-radius: 16px; background: #E7EEF3; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px">[ИФ]</span><b style="font-weight: 600">[Клиент]</b></span>
+            <span style="color: #475467">[телефон]</span>
+            <span style="color: #475467">[N]</span>
+            <b style="color: #B42318">[сумма]</b>
+            <span style="font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; justify-self: start; background: {{r.bg}}; color: {{r.c}}">{{r.due}}</span>
+            <span style="display: flex; gap: 6px"><button type="button" class="sm">Оплата</button><button type="button" class="sm" aria-label="Напомнить в WhatsApp" style="background: #F2F4F7; color: #344054">WA</button></span>
+          </div>
+        </sc-for>
+      </div></div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const late = { c: '#B42318', bg: '#FDE2E1' };
+    const soon = { c: '#B54708', bg: '#FEF3E2' };
+    const ok = { c: '#344054', bg: '#F2F4F7' };
+    const r = (due, s) => Object.assign({ due }, s);
+    return { rows: [r('просрочен [N] дн.', late), r('просрочен [N] дн.', late), r('сегодня', soon), r('через [N] дн.', ok), r('через [N] дн.', ok), r('без срока', ok)] };
+  }
+}
+</script>
+</body>
+</html>

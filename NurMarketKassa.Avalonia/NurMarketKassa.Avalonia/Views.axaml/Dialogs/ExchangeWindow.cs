@@ -66,6 +66,30 @@ public sealed class ExchangeWindow : Window
     private readonly Button _go;
     private string _method = "cash";
 
+    /// <summary>2026-10-15, ревью: обмен уже отправлен — повторное нажатие (кнопку могло снова включить UpdateTotals) не шлёт второй.</summary>
+    private bool _running;
+    private bool _closingWithResult;
+
+    /// <summary>2026-10-15, ревью: ключ идемпотентности обмена живёт до ответа сервера (как в PayDebtDialog): после таймаута
+    /// повтор ТОГО ЖЕ обмена (тот же чек, те же строки, товары и способ оплаты) уходит с тем же ключом, а не новым на каждый
+    /// клик. Новый — после успеха, отказа по существу (4xx) или если состав обмена изменился. Static — переживает и
+    /// повторное открытие окна.
+    /// 2026-10-16, ревью: общий PendingIdempotencyKey; ключ живёт не дольше 10 минут.</summary>
+    private static readonly PendingIdempotencyKey PendingExchange = new(TimeSpan.FromMinutes(10));
+
+    /// <summary>2026-10-16, ревью: обмен, ответ на который не дошёл (таймаут, обрыв, 5xx/408/429): чек и сколько по
+    /// отправленным строкам было к возврату перед отправкой. Ключ обмена сервер пока не проверяет (см.
+    /// SalesApiService.PosExchangeAsync) — повтор провёл бы второй обмен, поэтому перед следующим обменом по этому чеку
+    /// касса перечитывает чек (VerifyUnknownExchangeAsync). Static — переживает закрытие окна.</summary>
+    private sealed record UnknownExchange(string SaleId, IReadOnlyDictionary<string, double> RefundableBefore);
+    private static UnknownExchange? _unknownExchange;
+
+    /// <summary>2026-10-16, ревью: по чеку видно, что обмен без ответа уже прошёл, — в этом окне больше не отправляем.</summary>
+    private bool _appliedWithoutAnswer;
+
+    /// <summary>2026-10-16, ревью: был обмен без ответа сервера — окно «Возврат» перечитывает чек.</summary>
+    public bool SaleMayHaveChanged { get; private set; }
+
     public ExchangeOutcome? Outcome { get; private set; }
 
     public ExchangeWindow(string saleId, string? receiptNumber, DateTime? saleDate, IReadOnlyList<ExchangeReturnLine> lines, string? reason = null)
@@ -77,25 +101,34 @@ public sealed class ExchangeWindow : Window
         _returnRows = lines.Select(l => new ReturnRow { Line = l, Qty = l.MaxQuantity }).ToList();
 
         Title = T("Обмен товара", "Товарды алмаштыруу", "Exchange", "Ürün değişimi", "Mahsulotni almashtirish");
-        Width = 780;
+        // 2026-10-17, редизайн (этап 3): общая оболочка модалок ModalShell — карточка 640 (окно 672 с полями под
+        // тень, было 780 с рамкой Windows), заголовок и номер чека в шапке, ✕ = Esc (закрыть без обмена),
+        // «Отмена» и «Провести обмен» внизу справа; шапка и кнопки на месте, шаги прокручиваются. Высота окна
+        // прежняя 860 (подгонка под экран — FitToKassaScreen), карточка не выше 85 % экрана.
+        Width = 672;
         Height = 860;
         MinWidth = 360;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Use(this, BackgroundProperty, "BrushDialogPanel");
+        SystemDecorations = SystemDecorations.None;
+        Use(this, BackgroundProperty, "DialogWindowBackground");
+        Use(this, TransparencyLevelHintProperty, "DialogTransparencyHint");
         KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(false); };
+        // 2026-10-17, ревью этапа 3: пока обмен отправляется/печатается, Esc, «Отмена» и ✕ окно не закрывают — иначе
+        // сервер проведёт обмен, а кассир не увидит «получить/выдать N сом» и окно возврата не перечитает чек.
+        Closing += (_, e) =>
+        {
+            if (_running && !_closingWithResult && e.CloseReason == WindowCloseReason.WindowClosing)
+                e.Cancel = true;
+        };
 
         _search = UiKit.Input(this, T("Название или штрихкод (можно сканером)", "Аталышы же штрихкоду (сканер менен болот)", "Name or barcode (scanner works too)",
             "Ad veya barkod (tarayıcı da olur)", "Nomi yoki shtrix-kodi (skaner bilan ham bo'ladi)"));
 
-        var root = new StackPanel { Margin = new Thickness(24, 18, 24, 12), Spacing = 14 };
-        var title = new TextBlock { Text = Title, FontSize = 22, FontWeight = FontWeight.Bold };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
-        root.Children.Add(title);
+        var root = new StackPanel { Spacing = 14 };
         var number = string.IsNullOrWhiteSpace(receiptNumber) ? "" : receiptNumber!.Trim().TrimStart('№');
-        var sub = Small(T($"Чек №{number}", $"Чек №{number}", $"Receipt No. {number}", $"Fiş No. {number}", $"Chek №{number}")
-                        + (saleDate is { } d && d > DateTime.MinValue
-                            ? T($" от {d:dd.MM.yyyy}", $" {d:dd.MM.yyyy}", $" of {d:dd.MM.yyyy}", $", {d:dd.MM.yyyy}", $" {d:dd.MM.yyyy}") : ""));
-        root.Children.Add(sub);
+        var sub = T($"Чек №{number}", $"Чек №{number}", $"Receipt No. {number}", $"Fiş No. {number}", $"Chek №{number}")
+                  + (saleDate is { } d && d > DateTime.MinValue
+                      ? T($" от {d:dd.MM.yyyy}", $" {d:dd.MM.yyyy}", $" of {d:dd.MM.yyyy}", $", {d:dd.MM.yyyy}", $" {d:dd.MM.yyyy}") : "");
 
         // 1. Что возвращают
         root.Children.Add(Section(1, T("Покупатель возвращает", "Сатып алуучу кайтарат", "The customer returns", "Müşteri iade ediyor", "Xaridor qaytaradi"), _returnPanel));
@@ -119,7 +152,7 @@ public sealed class ExchangeWindow : Window
         Use(_error, TextBlock.ForegroundProperty, "BrushDanger");
         root.Children.Add(_error);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Right };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right };
         var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => Close(false);
         _go = UiKit.Primary(this, T("Провести обмен", "Алмаштырууну жүргүзүү", "Complete exchange", "Değişimi tamamla", "Almashtirishni o'tkazish"));
@@ -127,20 +160,15 @@ public sealed class ExchangeWindow : Window
         _go.Click += async (_, _) => await RunAsync().ConfigureAwait(true);
         buttons.Children.Add(cancel);
         buttons.Children.Add(_go);
-        var footer = new Border { Padding = new Thickness(24, 12, 24, 16), BorderThickness = new Thickness(0, 1, 0, 0), Child = buttons };
-        Use(footer, Border.BorderBrushProperty, "BrushBorder");
+        // Шапка, низ с кнопками и прокрутка шагов — у ModalShell (стили — PosDialogStyles.axaml).
+        var shell = new ModalShell { Margin = new Thickness(16), Title = Title, Subtitle = sub, Footer = buttons, Content = root };
+        Content = shell;
 
-        var layout = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
-        layout.Children.Add(new ScrollViewer { Content = root, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
-        Grid.SetRow(footer, 1);
-        layout.Children.Add(footer);
-        Content = layout;
-
-        // Телефон: поля поуже, кнопки — во всю ширину.
-        NarrowLayout.Attach(this, 700, narrow =>
+        // Телефон: поля поуже.
+        NarrowLayout.Attach(this, 560, narrow =>
         {
-            root.Margin = narrow ? new Thickness(12, 12, 12, 8) : new Thickness(24, 18, 24, 12);
-            footer.Padding = narrow ? new Thickness(12, 10) : new Thickness(24, 12, 24, 16);
+            shell.Margin = narrow ? new Thickness(6) : new Thickness(16);
+            shell.Padding = narrow ? new Thickness(12, 12) : new Thickness(24, 18);
         });
 
         RenderReturns();
@@ -367,6 +395,8 @@ public sealed class ExchangeWindow : Window
 
     private async Task RunAsync()
     {
+        if (_running || _appliedWithoutAnswer)
+            return;
         _error.Text = "";
         var returns = _returnRows.Where(r => r.Qty > 0).ToList();
         if (returns.Count == 0 || _newRows.Count == 0)
@@ -383,7 +413,20 @@ public sealed class ExchangeWindow : Window
 
         var estimate = Difference;
         var method = estimate > 0.004m ? _method : "cash";
+        var signature = _saleId + "|" + method
+            + "|" + string.Join(";", returns.Select(r => r.Line.LineId + ":" + r.Qty.ToString("0.###", CultureInfo.InvariantCulture)).OrderBy(x => x, StringComparer.Ordinal))
+            + "|" + string.Join(";", _newRows.Select(n => n.ProductId + "/" + n.VariantId + ":" + n.Qty.ToString("0.###", CultureInfo.InvariantCulture)).OrderBy(x => x, StringComparer.Ordinal));
+        _running = true;
         _go.IsEnabled = false;
+        // 2026-10-16, ревью: прошлый обмен по этому чеку остался без ответа — сначала проверяем по чеку, не провёл ли его
+        // сервер; прошёл или проверить не удалось — второй раз не отправляем.
+        if (!await VerifyUnknownExchangeAsync(beforeRetry: true).ConfigureAwait(true))
+        {
+            _running = false;
+            _go.IsEnabled = !_appliedWithoutAnswer;
+            return;
+        }
+        var exchangeKey = PendingExchange.Get(signature);
         var client = App.GetRequiredService<NurMarketApiClient>();
         var shiftId = NurMarketKassa.PosApp.ActiveShiftId;
         try
@@ -393,11 +436,17 @@ public sealed class ExchangeWindow : Window
             var res = await api.PosExchangeAsync(_saleId,
                 returns.Select(r => (r.Line.LineId, r.Qty)).ToList(),
                 _newRows.Select(n => (n.ProductId, n.VariantId, n.Qty)).ToList(),
-                method).ConfigureAwait(true);
+                method,
+                idempotencyKey: exchangeKey).ConfigureAwait(true);
+            PendingExchange.OnSuccess();
 
             string? Str(string name) => res.ValueKind == JsonValueKind.Object && res.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number ? v.ToString() : null;
             decimal Dec(string name, decimal fallback) => decimal.TryParse(Str(name), NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : fallback;
-            var exchangeId = Str("exchange") ?? Guid.NewGuid().ToString();
+            // 2026-10-15, ревью: сервер не прислал id обмена — берём ключ идемпотентности, а не новый Guid: он тот же
+            // при повторе, и сверка наличных (ExchangeCashCorrections) и журнал смены не задвоят один обмен.
+            // 2026-10-16, ревью: и у двух настоящих обменов ключ не общий — после успеха он забыт, а повторно уходит только
+            // для той же операции без ответа, когда по чеку видно, что она не прошла (VerifyUnknownExchangeAsync).
+            var exchangeId = Str("exchange") ?? exchangeKey;
             var returned = Dec("returned_amount", ReturnedTotal);
             var newAmount = Dec("new_amount", NewTotal);
             var difference = Dec("difference", newAmount - returned);
@@ -422,21 +471,93 @@ public sealed class ExchangeWindow : Window
                 returnedLines, issuedLines, returned, newAmount, difference, method, _reason, cashier)).ConfigureAwait(true);
             if (printError is not null)
                 PosMessageBox.Show(this, printError, Title ?? "", MessageBoxButton.OK, MessageBoxImage.Warning);
+            _closingWithResult = true;
             Close(true);
         }
         catch (ApiException ex)
         {
             _error.Text = T("Обмен не проведён: ", "Алмаштыруу жүргүзүлгөн жок: ", "Exchange failed: ", "Değişim yapılamadı: ", "Almashtirish o'tkazilmadi: ") + ex.Message;
             PosLogger.Log($"Обмен по продаже {_saleId} не проведён: {ex.StatusCode} {ex.Message}", "WARNING");
-            _go.IsEnabled = true;
+            // 2026-10-16, ревью: 4xx (кроме 408/429) — ключ забыт; иначе исход неизвестен — сразу сверяем по чеку.
+            if (PendingExchange.OnError(ex))
+                await RememberUnknownExchangeAsync(returns).ConfigureAwait(true);
+            _go.IsEnabled = !_appliedWithoutAnswer;
         }
         catch (Exception ex)
         {
             _error.Text = T("Обмен не проведён (нет связи с сервером?): ", "Алмаштыруу жүргүзүлгөн жок (сервер менен байланыш жокпу?): ", "Exchange failed (no connection?): ",
                 "Değişim yapılamadı (bağlantı yok mu?): ", "Almashtirish o'tkazilmadi (server bilan aloqa yo'qmi?): ") + ex.Message;
             PosLogger.Log($"Обмен по продаже {_saleId} не проведён: {ex}", "WARNING");
-            _go.IsEnabled = true;
+            // 2026-10-16, ревью: таймаут/обрыв — исход неизвестен, сразу сверяем по чеку.
+            if (PendingExchange.OnError(ex))
+                await RememberUnknownExchangeAsync(returns).ConfigureAwait(true);
+            _go.IsEnabled = !_appliedWithoutAnswer;
         }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    /// <summary>2026-10-16, ревью: обмен остался без ответа — запоминаем, что было к возврату по его строкам, и сразу
+    /// сверяем по чеку (не прошёл — запись остаётся: перед повтором чек перечитается ещё раз, сервер мог не успеть).</summary>
+    private async Task RememberUnknownExchangeAsync(IReadOnlyList<ReturnRow> returns)
+    {
+        _unknownExchange = new UnknownExchange(_saleId, returns
+            .DistinctBy(r => r.Line.LineId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(r => r.Line.LineId, r => r.Line.MaxQuantity, StringComparer.OrdinalIgnoreCase));
+        SaleMayHaveChanged = true;
+        await VerifyUnknownExchangeAsync(beforeRetry: false).ConfigureAwait(true);
+    }
+
+    /// <summary>2026-10-16, ревью: был обмен по этому чеку без ответа сервера — прошёл ли он? Перечитываем чек
+    /// (ReturnSaleDialog.LinesReturnedSince). true — обмена без ответа нет или он не прошёл (перед повтором,
+    /// <paramref name="beforeRetry"/>, запись снимается — можно отправлять); false — прошёл (кассиру сказано, окно больше не
+    /// отправляет) или чек прочитать не удалось.</summary>
+    private async Task<bool> VerifyUnknownExchangeAsync(bool beforeRetry)
+    {
+        if (_unknownExchange is not { } unknown || !string.Equals(unknown.SaleId, _saleId, StringComparison.OrdinalIgnoreCase))
+            return true;
+        JsonElement sale;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            sale = await App.SalesApi.PosSaleGetAsync(_saleId, cts.Token).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Обмен по продаже {_saleId}: прошлый остался без ответа, чек перечитать не удалось — повтор не отправляем: {ex.Message}", "WARNING");
+            if (beforeRetry)
+                _error.Text = T("Прошлый обмен по этому чеку остался без ответа сервера, а проверить, прошёл ли он, сейчас не удалось. Повторите, когда появится связь: касса сначала проверит чек.",
+                    "Бул чек боюнча мурунку алмаштыруу сервердин жообусуз калды, ал өттүбү — азыр текшерүү мүмкүн болгон жок. Байланыш пайда болгондо кайталаңыз: касса адегенде чекти текшерет.",
+                    "The previous exchange for this receipt got no reply from the server, and it could not be checked now whether it went through. Retry when the connection is back: the till will check the receipt first.",
+                    "Bu fiş için önceki değişim sunucudan yanıt alamadı ve gerçekleşip gerçekleşmediği şu an kontrol edilemedi. Bağlantı gelince tekrar deneyin: kasa önce fişi kontrol edecek.",
+                    "Bu chek bo'yicha oldingi almashtirish serverdan javobsiz qoldi, u o'tgan-o'tmagani hozir tekshirib bo'lmadi. Aloqa paydo bo'lganda qayta urining: kassa avval chekni tekshiradi.");
+            return false;
+        }
+
+        if (!ReturnSaleDialog.LinesReturnedSince(sale, unknown.RefundableBefore))
+        {
+            if (beforeRetry)
+            {
+                _unknownExchange = null;
+                PosLogger.Log($"Обмен по продаже {_saleId}: прошлый остался без ответа, по чеку он не прошёл — отправляем повтор.", "SALES");
+            }
+            return true;
+        }
+
+        _unknownExchange = null;
+        PendingExchange.OnSuccess();
+        _appliedWithoutAnswer = true;
+        SaleMayHaveChanged = true;
+        _go.IsEnabled = false;
+        PosLogger.Log($"Обмен по продаже {_saleId}: ответ не дошёл, но по чеку сервер его провёл — повторно не отправляем.", "WARNING");
+        _error.Text = T("Сервер уже провёл этот обмен — ответ не дошёл до кассы из-за связи. Повторно не проводите. Закройте окно и найдите новый чек в «Истории чеков»: доплату или сдачу по нему выдайте, только если ещё не выдали (не дважды).",
+            "Сервер бул алмаштырууну мурунтан эле жүргүзгөн — байланыштан улам жооп кассага жеткен жок. Кайра жүргүзбөңүз. Терезени жабып, жаңы чекти «Чектердин тарыхынан» табыңыз: кошумча төлөмдү же кайтарымды ага жараша, эгер али бере элек болсоңуз гана бериңиз (эки жолу эмес).",
+            "The server has already processed this exchange — its reply did not reach the till because of the connection. Do not repeat it. Close the window and find the new receipt in the receipt history: settle the extra payment or change by it only if you have not done so yet (not twice).",
+            "Sunucu bu değişimi zaten işledi — bağlantı nedeniyle yanıt kasaya ulaşmadı. Tekrarlamayın. Pencereyi kapatıp yeni fişi fiş geçmişinde bulun: ek ödemeyi veya para üstünü ona göre, yalnızca henüz yapmadıysanız verin (iki kez değil).",
+            "Server bu almashtirishni allaqachon o'tkazgan — aloqa tufayli javob kassaga yetib kelmadi. Takrorlamang. Oynani yopib, yangi chekni «Cheklar tarixi»dan toping: qo'shimcha to'lov yoki qaytimni unga ko'ra, faqat hali bermagan bo'lsangiz bering (ikki marta emas).");
+        return false;
     }
 
     // ── Оформление ─────────────────────────────────────────────────────────────────────

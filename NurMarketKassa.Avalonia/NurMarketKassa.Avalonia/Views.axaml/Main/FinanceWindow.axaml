@@ -4,6 +4,7 @@
 	xmlns:local="using:NurMarketKassa.AvaloniaHost.Converters"
     xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
     xmlns:analytics="using:NurMarketKassa.AvaloniaHost.Views.Analytics"
+    xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Controls"
 	x:CompileBindings="False"
 	Title="{DynamicResource csh.menu.finance}"
 	Height="750"
@@ -44,80 +45,7 @@
 					Property="Padding"
 					Value="2" />
             </Style>
-            <Style Selector="RadioButton.DatePill">
-                <Setter
-					Property="Foreground"
-					Value="{DynamicResource BrushText}" />
-                <Setter
-					Property="Background"
-					Value="#00FFFFFF" />
-                <Setter
-					Property="BorderBrush"
-					Value="{DynamicResource BrushBorder}" />
-                <Setter
-					Property="Padding"
-					Value="14,6" />
-                <Setter
-					Property="Cursor"
-					Value="Hand" />
-                <Setter
-					Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate
-							TargetType="RadioButton">
-                            <Border
-								x:Name="pill"
-								Background="{TemplateBinding Background}"
-								BorderBrush="{TemplateBinding BorderBrush}"
-								BorderThickness="1"
-								CornerRadius="10"
-								Padding="{TemplateBinding Padding}">
-                                <ContentPresenter
-									Content="{TemplateBinding Content}"
-									HorizontalAlignment="Center"
-									VerticalAlignment="Center" />
-                            </Border>
-
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-            <Style Selector="Button.PrimaryActionButton">
-                <Setter
-					Property="Height"
-					Value="36" />
-                <Setter
-					Property="Background"
-					Value="{DynamicResource BrushAccent}" />
-                <Setter
-					Property="Foreground"
-					Value="{DynamicResource BrushAccentForeground}" />
-                <Setter
-					Property="FontWeight"
-					Value="SemiBold" />
-                <Setter
-					Property="Cursor"
-					Value="Hand" />
-                <Setter
-					Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate
-							TargetType="Button">
-                            <Border
-								x:Name="btn"
-								Background="{TemplateBinding Background}"
-								CornerRadius="{DynamicResource SettingsButtonRadius}">
-                                <ContentPresenter
-									Content="{TemplateBinding Content}"
-									HorizontalAlignment="Center"
-									VerticalAlignment="Center"
-									Margin="15,0" />
-                            </Border>
-
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
+            <!-- 2026-10-18, этап О3: свои стили DatePill / PrimaryActionButton / SecondaryActionButton / TabButton убраны — общие sec-seg, sec-primary, sec-outline (PosDialogStyles.axaml). -->
             <Style Selector="Border.TimeBadge">
                 <Setter
 					Property="Background"
@@ -138,51 +66,14 @@
 					Property="Margin"
 					Value="0" />
             </Style>
-            <Style Selector="Button.SecondaryActionButton">
-                <Setter
-					Property="Height"
-					Value="36" />
-                <Setter
-					Property="Background"
-					Value="{DynamicResource BrushPanelSoft}" />
-                <Setter
-					Property="Foreground"
-					Value="{DynamicResource BrushText}" />
-                <Setter
-					Property="BorderBrush"
-					Value="{DynamicResource BrushBorderStrong}" />
-                <Setter
-					Property="BorderThickness"
-					Value="1" />
-                <Setter
-					Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate
-							TargetType="Button">
-                            <Border
-								x:Name="border"
-								Background="{TemplateBinding Background}"
-								BorderBrush="{TemplateBinding BorderBrush}"
-								BorderThickness="{TemplateBinding BorderThickness}"
-								CornerRadius="{DynamicResource SettingsButtonRadius}">
-                                <ContentPresenter
-									Content="{TemplateBinding Content}"
-									HorizontalAlignment="Center"
-									VerticalAlignment="Center"
-									Margin="12,0" />
-                            </Border>
-
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
+            <!-- 2026-10-18, этап О3: карточки графиков — белые с тонкой рамкой, как плитки sec-kpi (были серые с тёмной рамкой). -->
             <Style Selector="Border.KpiCard">
                 <Setter
 					Property="Background"
-					Value="{DynamicResource BrushInputAlt}" />
+					Value="{DynamicResource BrushPanel}" />
                 <Setter
 					Property="BorderBrush"
-					Value="{DynamicResource BrushBorderStrong}" />
+					Value="{DynamicResource BrushBorder}" />
                 <Setter
 					Property="BorderThickness"
 					Value="1" />
@@ -311,6 +202,11 @@
             <Style Selector="Button.HamburgerMenuItem.logout:pointerover">
                 <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}" />
             </Style>
+        <!-- 2026-10-18, доводка О4: шапка таблиц — цветом панели во всех темах (у Fluent в тёмной теме — чёрная полоса). -->
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
         <!-- Вкладки нижнего TabControl (Продажи/Аналитика/Возвраты/История) -->
         <Style Selector="TabControl">
             <Setter Property="Padding" Value="0"/>
@@ -335,18 +231,6 @@
         </Style>
 
         <!-- Вкладки Открытые/Закрытые на панели "Смены" -->
-        <Style Selector="Button.TabButton">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Padding" Value="14,8"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.TabButton.Active">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-        </Style>
 
         <!-- Значок статуса смены (Открыта/Закрыта) -->
         <Style Selector="Border.ShiftStatusBadge">
@@ -409,22 +293,31 @@
                         Foreground="{DynamicResource BrushText}"
                         Click="HamburgerMenu_Click"
                         ToolTip.Tip="{DynamicResource csh.toolbar.menu}"
+                        AutomationProperties.Name="{DynamicResource csh.toolbar.menu}"
                         VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <!-- 2026-10-18, доводка О4: часы кассира — в шапке рядом с ☰ (была своя строка под плитками: пустая рамка,
+                             на 1024 в таблице чеков на 1–2 строки меньше). В программе владельца скрыты (AsOwnerSection). -->
+                        <Border Grid.Column="0" x:Name="ClockBadge" Classes="TimeBadge" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="52,0,12,0">
+                            <TextBlock x:Name="CurrentTimeText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"
+                                       FontFeatures="{DynamicResource TabularNumbers}" />
+                        </Border>
                         <TextBlock Grid.Column="1" x:Name="HeaderTitleText"
                            Text="{DynamicResource csh.menu.finance}"
                            FontSize="26" FontWeight="Bold"
                            Foreground="{DynamicResource BrushText}"
                            VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="2" x:Name="HeaderActions" Orientation="Horizontal">
-                            <Button Content="Excel" Classes="SecondaryActionButton" Margin="0,0,6,0"
+                        <!-- 2026-10-18, этап О3 (правило аудита 1): одна главная кнопка — жёлтая «Обновить» (sec-primary),
+                             Excel / Word / «Выход» — обводкой (sec-outline), без серой заливки. Стили — PosDialogStyles.axaml. -->
+                        <StackPanel Grid.Column="2" x:Name="HeaderActions" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="Excel" Classes="sec-outline" Margin="0,0,6,0"
                                     Click="ExportExcel_Click"
                                     ToolTip.Tip="{DynamicResource loc.owner.finance.excelTip}"/>
-                            <Button Content="Word" Classes="SecondaryActionButton" Margin="0,0,6,0"
+                            <Button Content="Word" Classes="sec-outline" Margin="0,0,6,0"
                                     Click="ExportWord_Click"
                                     ToolTip.Tip="{DynamicResource loc.owner.finance.wordTip}"/>
-                            <Button x:Name="RefreshButton" Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
+                            <Button x:Name="RefreshButton" Content="{DynamicResource common.refresh}" Classes="sec-primary"
             Margin="0,0,10,0" Click="Refresh_Click" />
-                            <Button x:Name="ExitButton" Content="{DynamicResource common.exit}" Classes="SecondaryActionButton"
+                            <Button x:Name="ExitButton" Content="{DynamicResource common.exit}" Classes="sec-outline"
             Click="Exit_Click" />
                         </StackPanel>
                     </Grid>
@@ -436,17 +329,20 @@
                             Padding="14,10" Margin="0,10,0,0" IsVisible="False"
                             HorizontalAlignment="Stretch">
                         <StackPanel Spacing="8">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
+                            <!-- 2026-10-18, этап О3: «День / Неделя / Месяц» — сегменты (выбранный тёмно-синий, sec-seg active). -->
+                            <Border Classes="sec-segment">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
                                 <Button x:Name="SummaryPeriodDayButton" Content="{DynamicResource common.day}"
-                                        Classes="TabButton Active" Height="28" Padding="12,4" FontSize="12"
+                                        Classes="sec-seg active" MinHeight="28" Padding="12,4" FontSize="12"
                                         Tag="0" Click="SummaryPeriod_Click"/>
                                 <Button x:Name="SummaryPeriodWeekButton" Content="{DynamicResource common.week}"
-                                        Classes="TabButton" Height="28" Padding="12,4" FontSize="12"
+                                        Classes="sec-seg" MinHeight="28" Padding="12,4" FontSize="12"
                                         Tag="1" Click="SummaryPeriod_Click"/>
                                 <Button x:Name="SummaryPeriodMonthButton" Content="{DynamicResource common.month}"
-                                        Classes="TabButton" Height="28" Padding="12,4" FontSize="12"
+                                        Classes="sec-seg" MinHeight="28" Padding="12,4" FontSize="12"
                                         Tag="2" Click="SummaryPeriod_Click"/>
                             </StackPanel>
+                            </Border>
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <TextBlock Text="📊" FontSize="18" VerticalAlignment="Top"/>
                                 <TextBlock x:Name="DailySummaryText" TextWrapping="Wrap" FontSize="13"
@@ -456,71 +352,77 @@
                     </Border>
                     </Grid>
 
-                    <!-- KPI-карточки -->
-                    <UniformGrid Grid.Row="1" Columns="6" Margin="0,0,0,16">
+                    <!-- KPI-карточки. 2026-10-18, этап О3 (правило аудита 3): плитки по ширине раздела (KpiTileGrid — лишние
+                         вторым рядом), подпись переносится, сумма уменьшается целиком (Viewbox), а не обрезается; суммы — цветом
+                         текста (жёлтый по светлому не читался), «Возвраты» — не красные (красный — только долг/убыток). -->
+                    <!-- 2026-10-18, этап О4: в кассе плитки — под периодом (Grid.Row 2), сначала выбор периода, потом цифры. -->
+                    <ctl:KpiTileGrid Grid.Row="2" MinTileWidth="170" Spacing="8" Margin="0,0,0,16">
                         <!-- 2026-09-30: плитка нажимается — подробно, как в Z-отчёте (Kpi_PointerPressed). -->
-                        <Border Classes="KpiCard" Tag="sales" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
-                            <StackPanel>
-                                <TextBlock Text="{DynamicResource common.revenue}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
-                                <TextBlock x:Name="TotalSalesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushAccent}" />
+                        <Border Classes="sec-kpi" Tag="sales" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Classes="sec-kpi-label" Text="{DynamicResource common.revenue}" />
+                                <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="TotalSalesText" Classes="sec-kpi-value" /></Viewbox>
                             </StackPanel>
                         </Border>
-                        <Border Classes="KpiCard" Tag="returns" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
-                            <StackPanel>
-                                <TextBlock Text="{DynamicResource sales.returns}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
-                                <TextBlock x:Name="TotalRefundsText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushDanger}" />
+                        <Border Classes="sec-kpi" Tag="returns" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Classes="sec-kpi-label" Text="{DynamicResource sales.returns}" />
+                                <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="TotalRefundsText" Classes="sec-kpi-value" /></Viewbox>
                             </StackPanel>
                         </Border>
-                        <Border Classes="KpiCard" Tag="cash" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
-                            <StackPanel>
-                                <TextBlock Text="{DynamicResource common.cash}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
-                                <TextBlock x:Name="CashText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
+                        <Border Classes="sec-kpi" Tag="cash" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Classes="sec-kpi-label" Text="{DynamicResource common.cash}" />
+                                <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="CashText" Classes="sec-kpi-value" /></Viewbox>
                             </StackPanel>
                         </Border>
-                        <Border Classes="KpiCard" Tag="card" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
-                            <StackPanel>
-                                <TextBlock Text="{DynamicResource sales.nonCashShort}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
-                                <TextBlock x:Name="NonCashText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
+                        <Border Classes="sec-kpi" Tag="card" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Classes="sec-kpi-label" Text="{DynamicResource sales.nonCashShort}" />
+                                <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="NonCashText" Classes="sec-kpi-value" /></Viewbox>
                                 <!-- 2026-09-28: смешанная оплата отдельно, как на сайте (см. UpdateStats). -->
-                                <TextBlock x:Name="NonCashBreakdownText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" IsVisible="False" />
+                                <TextBlock x:Name="NonCashBreakdownText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" IsVisible="False" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
-                        <Border Classes="KpiCard" Tag="avg" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
-                            <StackPanel>
-                                <TextBlock Text="{DynamicResource sales.avgReceipt}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
-                                <TextBlock x:Name="AvgReceiptText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushAccent}" />
+                        <Border Classes="sec-kpi" Tag="avg" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Classes="sec-kpi-label" Text="{DynamicResource sales.avgReceipt}" />
+                                <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="AvgReceiptText" Classes="sec-kpi-value" /></Viewbox>
                             </StackPanel>
                         </Border>
-                        <Border Classes="KpiCard" Tag="count" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
-                            <StackPanel>
-                                <TextBlock Text="{DynamicResource sales.receiptsCount}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
-                                <TextBlock x:Name="ReceiptCountText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
+                        <Border Classes="sec-kpi" Tag="count" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Classes="sec-kpi-label" Text="{DynamicResource sales.receiptsCount}" />
+                                <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="ReceiptCountText" Classes="sec-kpi-value" /></Viewbox>
                             </StackPanel>
                         </Border>
-                    </UniformGrid>
+                    </ctl:KpiTileGrid>
 
                     <!-- Панель выбора дат -->
-                    <StackPanel Grid.Row="2" x:Name="PeriodBar" Orientation="Horizontal" Margin="0,0,0,12">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
-                            <RadioButton Content="{DynamicResource common.today}" Classes="DatePill" IsChecked="True" Tag="Today" GroupName="QuickDate" Click="QuickDate_Click" />
-                            <RadioButton Content="{DynamicResource sales.yesterday}" Classes="DatePill" Margin="4,0,0,0" Tag="Yesterday" GroupName="QuickDate" Click="QuickDate_Click" />
-                            <RadioButton Content="{DynamicResource common.week}" Classes="DatePill" Margin="4,0,0,0" Tag="Week" GroupName="QuickDate" Click="QuickDate_Click" />
-                            <RadioButton Content="{DynamicResource common.month}" Classes="DatePill" Margin="4,0,0,0" Tag="Month" GroupName="QuickDate" Click="QuickDate_Click" />
-                            <RadioButton x:Name="CustomDatePill" Content="{DynamicResource sales.customDate}" Classes="DatePill" Margin="4,0,0,0" Tag="Custom" GroupName="QuickDate" Click="QuickDate_Click" />
+                    <!-- 2026-10-18, этап О3 (правило аудита 2): период — сегменты в рамке, выбранный залит тёмно-синим (sec-seg,
+                         как период «Сводки»); раньше выбранную кнопку не было видно вовсе. -->
+                    <WrapPanel Grid.Row="1" x:Name="PeriodBar" Orientation="Horizontal" Margin="0,0,0,12">
+                        <Border Classes="sec-segment" Margin="0,0,16,0">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <RadioButton Content="{DynamicResource common.today}" Classes="sec-seg" IsChecked="True" Tag="Today" GroupName="QuickDate" Click="QuickDate_Click" />
+                            <RadioButton Content="{DynamicResource sales.yesterday}" Classes="sec-seg" Tag="Yesterday" GroupName="QuickDate" Click="QuickDate_Click" />
+                            <RadioButton Content="{DynamicResource common.week}" Classes="sec-seg" Tag="Week" GroupName="QuickDate" Click="QuickDate_Click" />
+                            <RadioButton Content="{DynamicResource common.month}" Classes="sec-seg" Tag="Month" GroupName="QuickDate" Click="QuickDate_Click" />
+                            <RadioButton x:Name="CustomDatePill" Content="{DynamicResource sales.customDate}" Classes="sec-seg" Tag="Custom" GroupName="QuickDate" Click="QuickDate_Click" />
                         </StackPanel>
-                        <StackPanel x:Name="CustomDatePanel" Orientation="Horizontal" IsVisible="False">
+                        </Border>
+                        <!-- 2026-10-20, проверка фильтров: поля «с / по» работают (раньше панель была скрыта, а изменение дат никто не слушал):
+                             ввод даты — загрузка за этот период, выбранным становится «Спец. дата». Поля показывают и даты сегмента. -->
+                        <!-- 2026-10-20: период — WrapPanel: на узком окне поля дат переносятся строкой ниже, а не налезают на «Excel / Word». -->
+                        <StackPanel x:Name="CustomDatePanel" Orientation="Horizontal" Margin="0,2,0,2">
                             <TextBlock Text="{DynamicResource sales.fromColon}" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="{DynamicResource BrushText}" />
-                            <DatePicker x:Name="FromPicker" Width="120" VerticalAlignment="Center" Margin="0,0,6,0"  />
-                            <TextBlock Text="—" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource BrushText}" />
+                            <CalendarDatePicker x:Name="FromPicker" Width="118" VerticalAlignment="Center" Margin="0,0,8,0" SelectedDateFormat="Short" SelectedDateChanged="DatePicker_DateChanged" />
                             <TextBlock Text="{DynamicResource sales.toColon}" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="{DynamicResource BrushText}" />
-                            <DatePicker x:Name="ToPicker" Width="120" VerticalAlignment="Center" Margin="0,0,12,0"  />
+                            <CalendarDatePicker x:Name="ToPicker" Width="118" VerticalAlignment="Center" Margin="0,0,12,0" SelectedDateFormat="Short" SelectedDateChanged="DatePicker_DateChanged" />
                         </StackPanel>
-                    </StackPanel>
+                    </WrapPanel>
 
-                    <!-- Время -->
-                    <Border Grid.Row="3" x:Name="ClockBadge" Classes="TimeBadge" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,6,10,6">
-                        <TextBlock x:Name="CurrentTimeText" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" />
-                    </Border>
+                    <!-- Время: 2026-10-18, доводка О4 — в шапке (HeaderRow). -->
 
                     <!-- Popup с деталями чека -->
                     <Popup x:Name="ReceiptDetailsPopup"
@@ -544,7 +446,7 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </ScrollViewer>
-                                <Button Grid.Row="2" Content="{DynamicResource common.close}" Classes="SecondaryActionButton"
+                                <Button Grid.Row="2" Content="{DynamicResource common.close}" Classes="sec-outline"
                     HorizontalAlignment="Right" Margin="0,10,0,0" Click="CloseReceiptDetails_Click" />
                             </Grid>
                         </Border>
@@ -552,7 +454,7 @@
 
                     <!-- Вкладки с таблицами -->
                     <TabControl Grid.Row="6" x:Name="FinanceTabs" Background="#00FFFFFF" BorderThickness="0"
-                         Margin="0,10,0,0">
+                         Margin="0">
                         <TabItem x:Name="SalesTab" Header="{DynamicResource csh.menu.sales}">
                             <Border Background="#00FFFFFF" Padding="8">
                                 <Grid>
@@ -589,39 +491,43 @@
                                     <StackPanel>
                                         <!-- Блок с расширенными KPI (прибыль, маржа) -->
                                         <StackPanel Margin="8,8,8,12">
-                                            <TextBlock Text="{DynamicResource sales.additionalMetrics}" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8" Foreground="{DynamicResource BrushText}"/>
-                                            <WrapPanel>
-                                                <Border Classes="KpiCard" MinWidth="180">
-                                                    <StackPanel>
-                                                        <TextBlock Text="{DynamicResource sales.netProfit}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
-                                                        <TextBlock x:Name="NetProfitText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushSuccess}" />
+                                            <TextBlock x:Name="ProfitMetricsTitle" Text="{DynamicResource sales.additionalMetrics}" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8" Foreground="{DynamicResource BrushText}"/>
+                                            <!-- 2026-10-18, этап О3: суммы — цветом текста (жёлтая маржа по светлому не читалась; изъятия — не убыток, не красные). -->
+                                            <!-- 2026-10-19, этап О10: плитки по ширине (KpiTileGrid, как сводка раздела), сумма уменьшается целиком, а не
+                                                 обрезается; под плитками — как считается валовая и чистая прибыль (ProfitHowText). -->
+                                            <ctl:KpiTileGrid MinTileWidth="200" Spacing="8">
+                                                <Border Classes="sec-kpi">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Classes="sec-kpi-label" Text="{DynamicResource sales.netProfit}" />
+                                                        <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="NetProfitText" Classes="sec-kpi-value" /></Viewbox>
                                                     </StackPanel>
                                                 </Border>
-                                                <Border Classes="KpiCard" MinWidth="180">
-                                                    <StackPanel>
-                                                        <TextBlock Text="{DynamicResource sales.marginPercent}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
-                                                        <TextBlock x:Name="MarginPercentText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushAccent}" />
+                                                <Border Classes="sec-kpi">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Classes="sec-kpi-label" Text="{DynamicResource sales.marginPercent}" />
+                                                        <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="MarginPercentText" Classes="sec-kpi-value" /></Viewbox>
                                                     </StackPanel>
                                                 </Border>
 
                                                 <!-- Расходы: деньги, вынутые из денежного ящика за период
                                                      (изъятия, включая «Доп. услуга → Расход»). До этого
                                                      аналитика их не показывала вовсе. -->
-                                                <Border Classes="KpiCard" MinWidth="180">
-                                                    <StackPanel>
-                                                        <TextBlock Text="{DynamicResource loc.owner.finance.expenses}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
-                                                        <TextBlock x:Name="ExpensesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushDanger}" Text="{DynamicResource loc.owner.zeroMoney}" />
-                                                        <TextBlock x:Name="ExpensesBreakdownText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" />
+                                                <Border Classes="sec-kpi">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Classes="sec-kpi-label" Text="{DynamicResource loc.owner.finance.expenses}" />
+                                                        <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="ExpensesText" Classes="sec-kpi-value" Text="{DynamicResource loc.owner.zeroMoney}" /></Viewbox>
+                                                        <TextBlock x:Name="ExpensesBreakdownText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" TextWrapping="Wrap" MaxWidth="260" HorizontalAlignment="Left" />
                                                     </StackPanel>
                                                 </Border>
 
-                                                <Border Classes="KpiCard" MinWidth="180">
-                                                    <StackPanel>
-                                                        <TextBlock Text="{DynamicResource loc.owner.finance.profitAfterExpenses}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" TextWrapping="Wrap" />
-                                                        <TextBlock x:Name="ProfitAfterExpensesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushMoney}" Text="{DynamicResource loc.owner.zeroMoney}" />
+                                                <Border Classes="sec-kpi">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Classes="sec-kpi-label" Text="{DynamicResource loc.owner.finance.profitAfterExpenses}" />
+                                                        <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="ProfitAfterExpensesText" Classes="sec-kpi-value" Text="{DynamicResource loc.owner.zeroMoney}" /></Viewbox>
                                                     </StackPanel>
                                                 </Border>
-                                            </WrapPanel>
+                                            </ctl:KpiTileGrid>
+                                            <TextBlock x:Name="ProfitHowText" FontSize="12" Margin="2,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
                                         </StackPanel>
 
                                         <!-- Блок "Инфографика" -->
@@ -633,8 +539,8 @@
                                                     <StackPanel x:Name="PaymentLegend" Orientation="Horizontal" Spacing="20"/>
                                                 </StackPanel>
                                             </Border>
-                                            <TextBlock Text="{DynamicResource finance.paymentMethodsPieTitle}" FontWeight="SemiBold" FontSize="14" Margin="0,16,0,8" Foreground="{DynamicResource BrushText}"/>
-                                            <Border Classes="KpiCard">
+                                            <TextBlock x:Name="PaymentPieTitle" Text="{DynamicResource finance.paymentMethodsPieTitle}" FontWeight="SemiBold" FontSize="14" Margin="0,16,0,8" Foreground="{DynamicResource BrushText}"/>
+                                            <Border x:Name="PaymentPieCard" Classes="KpiCard">
                                                 <StackPanel x:Name="PaymentSplitPie" Spacing="10"/>
                                             </Border>
 
@@ -704,7 +610,8 @@
                                             ItemsSource="{Binding TopItems}">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="{DynamicResource common.product}" Width="*" Binding="{ReflectionBinding ProductName}" />
-                                                <DataGridTextColumn Header="{DynamicResource common.revenue}" Width="120" Binding="{ReflectionBinding Revenue, StringFormat='{}{0:N2} сом'}" />
+                                                <!-- 2026-10-19, этап О10: 120 → 160 — «98 000,00 сом» обрезалось. -->
+                                                <DataGridTextColumn Header="{DynamicResource common.revenue}" Width="160" Binding="{ReflectionBinding Revenue, StringFormat='{}{0:N2} сом'}" />
                                                 <DataGridTextColumn Header="{DynamicResource sales.colQty}" Width="80" Binding="{ReflectionBinding Quantity}" />
                                             </DataGrid.Columns>
                                         </DataGrid>
@@ -728,15 +635,20 @@
                                         DoubleTapped="RefundsGrid_MouseDoubleClick"
                                         ItemsSource="{Binding RefundsView}">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="{DynamicResource common.date}" Width="80" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM}" />
-                                            <DataGridTextColumn Header="{DynamicResource common.time}" Width="70" Binding="{ReflectionBinding TimeDisplay}" />
+                                            <!-- 2026-10-18, доводка О4: ширины колонок — заголовки «Время», «Количество», «Причина» не обрезаются на 1024. -->
+                                            <!-- 2026-10-20, аудит владельца («Время» у всех возвратов «—»): колонка даты была двусторонней — таблица
+                                                 записывала «20.10» обратно в CreatedAt и стирала время (18:52 → 00:00). Только чтение. -->
+                                            <DataGridTextColumn Header="{DynamicResource common.date}" Width="80" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM, Mode=OneWay}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.time}" Width="84" Binding="{ReflectionBinding TimeDisplay}" />
                                             <!-- 2026-09-30: настоящие возвраты сервера — чек, вид (полный/частичный), точная сумма. -->
                                             <DataGridTextColumn Header="{DynamicResource sales.colReceipt}" Width="80" Binding="{ReflectionBinding ReceiptNumber}" />
-                                            <DataGridTextColumn Header="{DynamicResource common.type}" Width="150" Binding="{ReflectionBinding Kind}" />
+                                            <!-- 2026-10-20, аудит программы владельца: «Полный возвра», «Частичный возв» и причина обрезались —
+                                                 «Тип» по ширине надписи, «Причина» шире (2*). -->
+                                            <DataGridTextColumn Header="{DynamicResource common.type}" Width="Auto" MinWidth="140" Binding="{ReflectionBinding Kind}" />
                                             <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" Binding="{ReflectionBinding ProductName}" />
-                                            <DataGridTextColumn Header="{DynamicResource common.quantity}" Width="90" Binding="{ReflectionBinding QuantityDisplay}" />
-                                            <DataGridTextColumn Header="{DynamicResource common.amount}" Width="140" Binding="{ReflectionBinding AmountDisplay}" />
-                                            <DataGridTextColumn Header="{DynamicResource common.reason}" Width="1*" Binding="{ReflectionBinding DeletedBy}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.quantity}" Width="Auto" MinWidth="90" Binding="{ReflectionBinding QuantityDisplay}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.amount}" Width="120" Binding="{ReflectionBinding AmountDisplay}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.reason}" Width="2*" MinWidth="120" Binding="{ReflectionBinding DeletedBy}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Grid>
@@ -787,7 +699,7 @@
                        FontSize="18" FontWeight="SemiBold"
                        HorizontalAlignment="Center" Margin="0,12,0,16"/>
                 <Button Content="{DynamicResource finance.backArrowButton}"
-                    Classes="SecondaryActionButton"
+                    Classes="sec-outline"
                     HorizontalAlignment="Center" MinWidth="120"
                     Click="UnderConstructionBack_Click"/>
             </StackPanel>
@@ -797,36 +709,46 @@
         <Grid x:Name="ShiftsPanel" IsVisible="False" Panel.ZIndex="100" Background="{DynamicResource BrushPanel}">
             <Grid x:Name="ShiftsContent" Margin="16" RowDefinitions="Auto,Auto,*">
                 <Grid Grid.Row="0" x:Name="ShiftsHeader" ColumnDefinitions="Auto,*" Margin="0,0,0,12">
-                    <Button Grid.Column="0" Content="←" Classes="SecondaryActionButton" MinWidth="44" Click="ShiftsBack_Click"/>
+                    <Button Grid.Column="0" Content="←" Classes="sec-outline" MinWidth="44" Click="ShiftsBack_Click"/>
                     <TextBlock Grid.Column="1" Text="{DynamicResource finance.navShift}" FontSize="20" FontWeight="Bold"
                                Margin="12,0,0,0" VerticalAlignment="Center"/>
                 </Grid>
 
-                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
-                    <Button x:Name="ShiftsOpenTabButton" Classes="TabButton Active" Click="ShiftsOpenTab_Click">
+                <!-- 2026-10-18, этап О3: «Открытые / Закрытые» — сегменты (выбранный тёмно-синий, sec-seg active); у счётчиков
+                     свой цвет текста — на тёмно-синей кнопке белый текст по жёлтой плашке не читался бы. -->
+                <Border Grid.Row="1" Classes="sec-segment" Margin="0,0,0,12">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <!-- 2026-10-18, этап О4 (аудит, правило 10): у сегментов со счётчиком — имя для доступности. -->
+                    <Button x:Name="ShiftsOpenTabButton" Classes="sec-seg active" Click="ShiftsOpenTab_Click"
+                            AutomationProperties.Name="{DynamicResource finance.shiftsOpenTab}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="{DynamicResource finance.shiftsOpenTab}"/>
+                            <TextBlock Text="{DynamicResource finance.shiftsOpenTab}" VerticalAlignment="Center"/>
                             <Border Background="{DynamicResource BrushAccent}" CornerRadius="10" Padding="7,1" MinWidth="20">
-                                <TextBlock x:Name="ShiftsOpenCountText" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="ShiftsOpenCountText" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource BrushAccentForeground}"/>
                             </Border>
                         </StackPanel>
                     </Button>
-                    <Button x:Name="ShiftsClosedTabButton" Classes="TabButton" Click="ShiftsClosedTab_Click">
+                    <Button x:Name="ShiftsClosedTabButton" Classes="sec-seg" Click="ShiftsClosedTab_Click"
+                            AutomationProperties.Name="{DynamicResource finance.shiftsClosedTab}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="{DynamicResource finance.shiftsClosedTab}"/>
+                            <TextBlock Text="{DynamicResource finance.shiftsClosedTab}" VerticalAlignment="Center"/>
                             <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                                     CornerRadius="10" Padding="7,1" MinWidth="20">
-                                <TextBlock x:Name="ShiftsClosedCountText" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="ShiftsClosedCountText" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource BrushText}"/>
                             </Border>
                         </StackPanel>
                     </Button>
                 </StackPanel>
+                </Border>
 
                 <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <TextBlock x:Name="ShiftsEmptyText" IsVisible="False"
-                                   Text="{DynamicResource finance.shiftsEmpty}" FontSize="13"
-                                   Foreground="{DynamicResource BrushTextSoft}" Margin="4,20,0,0"/>
+                                   Text="{DynamicResource finance.shiftsEmpty}" FontSize="14"
+                                   Foreground="{DynamicResource BrushTextSoft}" Margin="24,56,24,0"
+                                   HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="460"/>
                         <ItemsControl x:Name="ShiftsList" x:CompileBindings="False">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -851,7 +773,7 @@
                                             <Grid ColumnDefinitions="*,*,*">
                                                 <StackPanel Grid.Column="0">
                                                     <TextBlock Text="{DynamicResource common.revenue}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
-                                                    <TextBlock Text="{Binding RevenueText}" FontWeight="Bold" Foreground="{DynamicResource BrushSuccess}"/>
+                                                    <TextBlock Text="{Binding RevenueText}" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1">
                                                     <TextBlock Text="{DynamicResource finance.salesCountLabel}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
@@ -859,7 +781,7 @@
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="2">
                                                     <TextBlock Text="{DynamicResource finance.shiftsCashboxLabel}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
-                                                    <TextBlock Text="{Binding CashboxName}" FontWeight="SemiBold" Foreground="{DynamicResource BrushAccentStrong}"
+                                                    <TextBlock Text="{Binding CashboxName}" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"
                                                                TextWrapping="Wrap"/>
                                                 </StackPanel>
                                             </Grid>
@@ -869,9 +791,9 @@
                                                            IsVisible="{Binding IsCurrentCashbox}" FontSize="11" FontStyle="Italic"
                                                            Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                                                    <Button Content="{DynamicResource finance.shiftCloseAction}" Classes="SecondaryActionButton"
+                                                    <Button Content="{DynamicResource finance.shiftCloseAction}" Classes="sec-outline"
                                                             IsVisible="{Binding CanClose}" Click="CloseShiftForCashbox_Click"
-                                                            Padding="14,4" Height="32" Tag="{Binding}"/>
+                                                            Padding="14,4" MinHeight="32" Tag="{Binding}"/>
                                                 </StackPanel>
                                             </Grid>
                                         </StackPanel>
@@ -888,7 +810,7 @@
         <Grid x:Name="ProductsAnalyticsPanel" IsVisible="False" Panel.ZIndex="100" Background="{DynamicResource BrushPanel}">
             <Grid x:Name="ProductsContent" Margin="16" RowDefinitions="Auto,*">
                 <Grid Grid.Row="0" x:Name="ProductsHeader" ColumnDefinitions="Auto,*" Margin="0,0,0,12">
-                    <Button Grid.Column="0" Content="←" Classes="SecondaryActionButton" MinWidth="44" Click="ProductsBack_Click"/>
+                    <Button Grid.Column="0" Content="←" Classes="sec-outline" MinWidth="44" Click="ProductsBack_Click"/>
                     <TextBlock Grid.Column="1" Text="{DynamicResource finance.navProducts}" FontSize="20" FontWeight="Bold"
                                Margin="12,0,0,0" VerticalAlignment="Center"/>
                 </Grid>
@@ -897,12 +819,12 @@
                     <StackPanel Spacing="18">
                         <StackPanel Spacing="8">
                             <TextBlock Text="{DynamicResource finance.popularProductsTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
-                            <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                            <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}"
                                     BorderThickness="1" CornerRadius="12" Padding="16">
                                 <StackPanel x:Name="PopularProductsChart" Spacing="10"/>
                             </Border>
                             <TextBlock Text="{DynamicResource finance.popularProductsPieTitle}" FontWeight="SemiBold" FontSize="13" Margin="0,8,0,0" Foreground="{DynamicResource BrushText}"/>
-                            <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                            <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}"
                                     BorderThickness="1" CornerRadius="12" Padding="16">
                                 <StackPanel x:Name="PopularProductsPie" Spacing="10"/>
                             </Border>
@@ -923,7 +845,7 @@
                         <StackPanel Spacing="8">
                             <TextBlock Text="{DynamicResource finance.unpopularProductsTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
                             <TextBlock Text="{DynamicResource finance.unpopularProductsSubtitle}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
-                            <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                            <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}"
                                     BorderThickness="1" CornerRadius="12" Padding="16">
                                 <StackPanel x:Name="UnpopularProductsChart" Spacing="10"/>
                             </Border>
@@ -945,7 +867,8 @@
                             <TextBlock Text="{DynamicResource finance.allProductsTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
                             <TextBlock Text="{DynamicResource finance.allProductsSubtitle}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
 
-                            <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                            <!-- 2026-10-19, этап О10: карточки «Товаров» — белые, как остальные (были на серой подложке BrushPanelSoft). -->
+                            <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}"
                                     BorderThickness="1" CornerRadius="12" Padding="16">
                                 <StackPanel Spacing="8">
                                     <StackPanel x:Name="AllProductsStockPie" Spacing="10"/>
@@ -1011,7 +934,7 @@
                     </Grid>
                 </Border>
                 <StackPanel Grid.Row="1" Margin="0,8,0,0">
-                    <Button Content="{DynamicResource finance.navSale}" Classes="HamburgerMenuItem" Click="NavigateToSale_Click" />
+                    <Button x:Name="NavSaleButton" Content="{DynamicResource finance.navSale}" Classes="HamburgerMenuItem" Click="NavigateToSale_Click" />
                     <Button Content="{DynamicResource finance.navWarehouse}" Classes="HamburgerMenuItem" Click="NavigateToStock_Click" />
                     <Button Content="{DynamicResource finance.navShift}" Classes="HamburgerMenuItem" Click="ManageShift_Click" />
                     <Button Content="{DynamicResource finance.navProducts}" Classes="HamburgerMenuItem" Click="NavigateToProducts_Click" />

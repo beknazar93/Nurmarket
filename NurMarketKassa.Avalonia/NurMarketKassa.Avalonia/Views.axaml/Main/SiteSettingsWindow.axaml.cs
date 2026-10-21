@@ -308,13 +308,26 @@ public partial class SiteSettingsWindow : Window, IOwnerSection
                 $"The showcase is live · products on the showcase: {count}", $"Vitrin yayında · vitrindeki ürünler: {count}",
                 $"Vitrina ishlayapti · vitrinadagi mahsulotlar: {count}")
             : Tr.T("Витрина работает", "Витрина иштеп жатат", "The showcase is live", "Vitrin yayında", "Vitrina ishlayapti");
-        StateHintText.Text = _settings.ShowcasePhone.Length > 0
-            ? Tr.T($"Заказы с витрины приходят в WhatsApp на номер {_settings.ShowcasePhone}.", $"Витринадан заказдар WhatsApp'ка {_settings.ShowcasePhone} номерине келет.",
-                $"Showcase orders arrive in WhatsApp at {_settings.ShowcasePhone}.", $"Vitrin siparişleri WhatsApp'ta {_settings.ShowcasePhone} numarasına gelir.",
-                $"Vitrina buyurtmalari WhatsApp'ga {_settings.ShowcasePhone} raqamiga keladi.")
+        // 2026-10-19, этап О10 (аудит: номер без пробелов; «какой адрес давать покупателям» — здесь nurcrm.kg, в редакторе market.nurcrm.kg):
+        // номер — с пробелами, и одной строкой — где виден вид из «Редактора сайта».
+        var nicePhone = SiteOrdersWindow.PrettyPhone(_settings.ShowcasePhone);
+        // 2026-10-21 (пакет 4, п. 123): «заказы приходят в WhatsApp» спорило с «Заказами с сайта» (там — «сохраняются на сервере
+        // NurCRM»): заказы — в разделе «Заказы с сайта», номер — для связи с покупателями.
+        StateHintText.Text = (_settings.ShowcasePhone.Length > 0
+            ? Tr.T($"Заказы с витрины — в разделе «Заказы с сайта»; WhatsApp для связи с покупателями — {nicePhone}.",
+                $"Витринадан заказдар — «Сайттан заказдар» бөлүмүндө; кардарлар менен байланыш үчүн WhatsApp — {nicePhone}.",
+                $"Showcase orders are in “Website orders”; WhatsApp for customers — {nicePhone}.",
+                $"Vitrin siparişleri «Web sitesi siparişleri» bölümünde; müşteriler için WhatsApp — {nicePhone}.",
+                $"Vitrina buyurtmalari — «Saytdan buyurtmalar» bo'limida; xaridorlar bilan aloqa uchun WhatsApp — {nicePhone}.")
             : Tr.T("Номер WhatsApp не задан — покупатели не смогут отправить заказ.", "WhatsApp номери коюлган эмес — кардарлар заказ жөнөтө алышпайт.",
                 "No WhatsApp number is set — customers can't send an order.", "WhatsApp numarası belirlenmemiş — müşteriler sipariş gönderemez.",
-                "WhatsApp raqami kiritilmagan — xaridorlar buyurtma yubora olmaydi.");
+                "WhatsApp raqami kiritilmagan — xaridorlar buyurtma yubora olmaydi."))
+            // 2026-10-20 (живой аудит: три вида адреса): адрес один — из ShowcaseApiService.CatalogUrl, как в плашке и «Скопировать ссылку».
+            + " " + Tr.T($"Эту ссылку давайте покупателям: {ShowcaseApiService.CatalogUrlShort(slug)} — там и вид из «Редактора сайта».",
+                $"Бул шилтемени кардарларга бериңиз: {ShowcaseApiService.CatalogUrlShort(slug)} — «Сайттын редакторундагы» көрүнүш да ошол жерде.",
+                $"Give customers this link: {ShowcaseApiService.CatalogUrlShort(slug)} — the design from “Website editor” is there too.",
+                $"Müşterilere bu bağlantıyı verin: {ShowcaseApiService.CatalogUrlShort(slug)} — «Web sitesi düzenleyici» tasarımı da orada.",
+                $"Xaridorlarga shu havolani bering: {ShowcaseApiService.CatalogUrlShort(slug)} — «Sayt muharriri» ko'rinishi ham o'sha yerda.");
     }
 
     private void RenderSlugStatus()
@@ -572,6 +585,9 @@ public partial class SiteSettingsWindow : Window, IOwnerSection
         if (_settings is { Slug.Length: > 0 } s)
             SiteOrdersWindow.OpenUrl(ShowcaseApiService.CatalogUrl(s.Slug));
     }
+
+    // 2026-10-21: подчёркнутая ссылка на витрину открывает её, как «Открыть витрину» (пакет 4, п. 123).
+    private void Link_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e) => OpenShowcase_Click(sender, e);
 
     private async void CopyLink_Click(object? sender, RoutedEventArgs e)
     {

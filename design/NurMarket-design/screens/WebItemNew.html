@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Веб — новый товар (вид «Одежда»)</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="WebItemNew"><div style="min-height: 900px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-wrap: wrap;">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex;"><div class="sc-host" data-sc-name="WebNav"><nav aria-label="Разделы веб-админки" style="width: 100%; min-height: 900px; height: 100%; box-sizing: border-box; font-family: Montserrat, system-ui, sans-serif; display: flex;">
+  
+  <div style="width: 68px; flex-shrink: 0; background: rgb(11, 42, 60); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 0px 12px;">
+    <span style="width: 38px; height: 38px; border-radius: 10px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-weight: 800; margin-bottom: 8px;">N</span>
+    
+      
+      
+        <button type="button" aria-label="Главная" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Главная</span></span></button>
+      
+    
+      
+        <button type="button" aria-label="Товары" aria-current="true" style="width: 64px; border: 0px; border-radius: 12px; background: rgba(255, 214, 0, 0.16); color: rgb(255, 214, 0); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Товары</span></span></button>
+      
+      
+    
+      
+      
+        <button type="button" aria-label="Продажи" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2 12h11l2-8H7M9 20h.01M17 20h.01"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Продажи</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Отчёты" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Отчёты</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Сайт" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Сайт</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Клиенты" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21a7 7 0 0 1 14 0M17 11a3 3 0 1 0 0-6M22 21a6 6 0 0 0-4-5.6"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Клиенты</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Управление" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12l2-1-1-3-2 .5-1.5-1.5.5-2-3-1-1 2h-2l-1-2-3 1 .5 2L6 8.5 4 8l-1 3 2 1v2l-2 1 1 3 2-.5L7.5 18 7 20l3 1 1-2h2l1 2 3-1-.5-2 1.5-1.5 2 .5 1-3-2-1z"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Управление</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Помощь" style="width: 64px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center;"><span class="sc-interp">Помощь</span></span></button>
+      
+    
+    <span style="flex-grow: 1;"></span>
+    <button type="button" aria-label="Нурлан Абдыкадыров, администратор — профиль и выход" style="width: 36px; height: 36px; border: 0px; border-radius: 18px; background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-family: inherit; font-size: 12px; font-weight: 800;">НА</button>
+  </div>
+  <div style="flex-grow: 1; min-width: 0px; background: rgb(255, 255, 255); border-right: 1px solid rgb(229, 231, 235); display: flex; flex-direction: column; gap: 2px; padding: 16px 10px 12px;">
+    <span style="display: flex; flex-direction: column; gap: 4px; padding: 0px 6px 10px;"><b style="font-size: 15px; color: rgb(11, 42, 60);">NBS</b><span style="font-size: 11.5px; color: rgb(102, 112, 133);">Администратор</span><button type="button" aria-label="Филиал" style="align-self: flex-start; height: 28px; padding: 0px 8px; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-family: inherit; font-size: 11.5px; font-weight: 700;">Все филиалы ▾</button></span>
+    <span style="font-size: 10.5px; font-weight: 800; color: rgb(102, 112, 133); letter-spacing: 0.05em; padding: 4px 8px;"><span class="sc-interp">ТОВАРЫ</span></span>
+    
+      
+        <a href="#" aria-current="page" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; background: rgb(255, 247, 204); box-shadow: rgb(255, 214, 0) 3px 0px 0px inset; color: rgb(11, 42, 60); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">Склад</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; color: rgb(71, 84, 103); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">Приёмка</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; color: rgb(71, 84, 103); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">Закупки</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">2</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; color: rgb(71, 84, 103); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">Калькуляция</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; color: rgb(71, 84, 103); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">Пополнение и сроки</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">7</span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; color: rgb(71, 84, 103); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">Возвраты поставщикам</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; color: rgb(71, 84, 103); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25;"><span style="flex-grow: 1; min-width: 0px;"><span class="sc-interp">Филиалы</span></span><span style="font-size: 11px; font-weight: 800; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+    
+    <span style="flex-grow: 1;"></span>
+    <label style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0px 8px; border-radius: 10px; background: rgb(242, 244, 247); color: rgb(102, 112, 133); font-size: 12.5px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input type="text" placeholder="Раздел" aria-label="Найти раздел (Ctrl+K)" style="border: 0px; outline: 0px; background: transparent; font-family: inherit; font-size: 12.5px; width: 60px; min-width: 0px; flex-grow: 1; color: rgb(17, 24, 39);"><span style="font-size: 10.5px; color: rgb(71, 84, 103); border: 1px solid rgb(208, 213, 221); border-radius: 6px; padding: 1px 4px; white-space: nowrap;">Ctrl+K</span></label>
+  </div></nav></div></div>
+  <main style="flex: 999 1 560px; min-width: 0px; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px;">
+    
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+      <span style="display: flex; flex-direction: column; flex-grow: 1;"><b style="font-size: 24px; font-weight: 800;">Склад</b><span style="font-size: 13px; color: rgb(102, 112, 133);"><span class="sc-interp">Склад › Новый товар · пример магазина одежды (функция «Размеры и цвета» включена)</span></span></span>
+      <button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить</button>
+    </div>
+    <div role="tablist" aria-label="Вид" style="display: flex; flex-wrap: wrap; gap: 4px; align-self: flex-start; background: rgb(255, 255, 255); border: 1px solid rgb(229, 231, 235); border-radius: 12px; padding: 4px;">
+      
+        <button type="button" role="tab" aria-selected="false" style="min-width: 150px; padding: 6px 14px; border-radius: 9px; border: 0px; background: transparent; font-family: inherit; text-align: left; display: flex; flex-direction: column; gap: 1px;"><b style="font-size: 13.5px; color: rgb(11, 42, 60);"><span class="sc-interp">Товар</span></b><span style="font-size: 11.5px; color: rgb(102, 112, 133); white-space: nowrap;"><span class="sc-interp">штучный или весовой</span></span></button>
+      
+        <button type="button" role="tab" aria-selected="true" style="min-width: 150px; padding: 6px 14px; border-radius: 9px; border: 0px; background: rgb(11, 42, 60); font-family: inherit; text-align: left; display: flex; flex-direction: column; gap: 1px;"><b style="font-size: 13.5px; color: rgb(255, 255, 255);"><span class="sc-interp">Одежда</span></b><span style="font-size: 11.5px; color: rgb(199, 210, 219); white-space: nowrap;"><span class="sc-interp">размеры и цвета</span></span></button>
+      
+        <button type="button" role="tab" aria-selected="false" style="min-width: 150px; padding: 6px 14px; border-radius: 9px; border: 0px; background: transparent; font-family: inherit; text-align: left; display: flex; flex-direction: column; gap: 1px;"><b style="font-size: 13.5px; color: rgb(11, 42, 60);"><span class="sc-interp">Услуга</span></b><span style="font-size: 11.5px; color: rgb(102, 112, 133); white-space: nowrap;"><span class="sc-interp">без остатка, с мастером</span></span></button>
+      
+        <button type="button" role="tab" aria-selected="false" style="min-width: 150px; padding: 6px 14px; border-radius: 9px; border: 0px; background: transparent; font-family: inherit; text-align: left; display: flex; flex-direction: column; gap: 1px;"><b style="font-size: 13.5px; color: rgb(11, 42, 60);"><span class="sc-interp">Прокат</span></b><span style="font-size: 11.5px; color: rgb(102, 112, 133); white-space: nowrap;"><span class="sc-interp">залог и срок</span></span></button>
+      
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start;">
+      <div style="flex: 999 1 560px; min-width: 0px; display: flex; flex-direction: column; gap: 14px;">
+        <section class="card">
+          
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0px, 1fr)); gap: 10px;">
+            
+              <span style="grid-column: span 2; display: flex; flex-direction: column; gap: 4px; min-width: 0px;">
+                <span class="lbl" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">НАЗВАНИЕ</span></span>
+                <input class="in" type="text" aria-label="НАЗВАНИЕ" value="Футболка оверсайз, хлопок" style="border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255);">
+                
+                
+              </span>
+            
+              <span style="grid-column: span 1; display: flex; flex-direction: column; gap: 4px; min-width: 0px;">
+                <span class="lbl" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">АРТИКУЛ</span></span>
+                <input class="in" type="text" aria-label="АРТИКУЛ" value="TS-2041" style="border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255);">
+                
+                
+              </span>
+            
+              <span style="grid-column: span 1; display: flex; flex-direction: column; gap: 4px; min-width: 0px;">
+                <span class="lbl" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">КАТЕГОРИЯ</span></span>
+                
+                <select class="in" aria-label="КАТЕГОРИЯ" style="color: rgb(17, 24, 39);"><option><span class="sc-interp">Футболки</span></option></select>
+                
+              </span>
+            
+              <span style="grid-column: span 1; display: flex; flex-direction: column; gap: 4px; min-width: 0px;">
+                <span class="lbl" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">СКЛАД</span></span>
+                
+                <select class="in" aria-label="СКЛАД" style="color: rgb(17, 24, 39);"><option><span class="sc-interp">Главный склад</span></option></select>
+                
+              </span>
+            
+              <span style="grid-column: span 1; display: flex; flex-direction: column; gap: 4px; min-width: 0px;">
+                <span class="lbl" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">ЕДИНИЦА</span></span>
+                
+                
+                <span role="radiogroup" aria-label="ЕДИНИЦА" style="display: flex; gap: 4px; height: 42px; box-sizing: border-box; padding: 3px; border-radius: 10px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255);"><button type="button" role="radio" aria-checked="true" style="flex-grow: 1; border: 0px; border-radius: 8px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); font-family: inherit; font-size: 13px; font-weight: 700;">шт</button><button type="button" role="radio" aria-checked="false" style="flex-grow: 1; border: 0px; border-radius: 8px; background: transparent; color: rgb(71, 84, 103); font-family: inherit; font-size: 13px; font-weight: 600;">кг</button></span>
+              </span>
+            
+              <span style="grid-column: span 1; display: flex; flex-direction: column; gap: 4px; min-width: 0px;">
+                <span class="lbl" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">ЗАКУПКА, СОМ</span></span>
+                <input class="in" type="text" aria-label="ЗАКУПКА, СОМ" value="650" style="border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255);">
+                
+                
+              </span>
+            
+              <span style="grid-column: span 1; display: flex; flex-direction: column; gap: 4px; min-width: 0px;">
+                <span class="lbl" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">ЦЕНА ПРОДАЖИ · +98 %</span></span>
+                <input class="in" type="text" aria-label="ЦЕНА ПРОДАЖИ · +98 %" value="1&nbsp;290" style="border: 2px solid rgb(11, 42, 60); background: rgb(255, 255, 255);">
+                
+                
+              </span>
+            
+              <span style="grid-column: span 1; display: flex; flex-direction: column; gap: 4px; min-width: 0px;">
+                <span class="lbl" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">МИН. ОСТАТОК НА ВАРИАНТ</span></span>
+                <input class="in" type="text" aria-label="МИН. ОСТАТОК НА ВАРИАНТ" value="1" style="border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255);">
+                
+                
+              </span>
+            
+              <span style="grid-column: span 1; display: flex; flex-direction: column; gap: 4px; min-width: 0px;">
+                <span class="lbl" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">НАЧАЛЬНЫЙ ОСТАТОК</span></span>
+                <input class="in" type="text" aria-label="НАЧАЛЬНЫЙ ОСТАТОК" value="46 шт — по сетке" style="border: 1px solid rgb(208, 213, 221); background: rgb(242, 244, 247);">
+                
+                
+              </span>
+            
+              <span style="grid-column: span 2; display: flex; flex-direction: column; gap: 4px; min-width: 0px;">
+                <span class="lbl" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">НАЛОГ И ПРИЗНАК ДЛЯ ККМ</span></span>
+                
+                <select class="in" aria-label="НАЛОГ И ПРИЗНАК ДЛЯ ККМ" style="color: rgb(17, 24, 39);"><option><span class="sc-interp">Без НДС · товар</span></option></select>
+                
+              </span>
+            
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;"><span class="lbl">ОПИСАНИЕ</span><span style="display: flex; gap: 6px;"><button type="button" class="chip" style="display: flex; align-items: center; gap: 4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path></svg>Написать с Нур Советником</button><button type="button" class="chip">На кыргызском</button></span></div>
+          <div id="wdesc" role="textbox" aria-multiline="true" aria-label="Описание" style="min-height: 44px; box-sizing: border-box; border-radius: 10px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); padding: 10px 12px; font-size: 14px; line-height: 21px;"><span class="sc-interp">Футболка свободного кроя, 100 % хлопок, плотность 180 г/м².</span></div>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px;"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);">Показывать на сайте-витрине и в Телеграм-боте</label>
+          
+        </section>
+        
+          <section class="card">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"><b style="font-size: 15px; flex-grow: 1;">Вид «Одежда»: размеры и цвета</b><span class="lbl">ШАБЛОН</span><button type="button" class="chip on">S–XXL</button><button type="button" class="chip">42–56</button><button type="button" class="chip">Обувь 36–46</button><button type="button" class="chip">Детская 92–152</button></div>
+            <div role="table" aria-label="Количество и штрихкод по размерам и цветам" style="display: grid; grid-template-columns: 116px repeat(6, minmax(0px, 1fr)) 52px; gap: 4px; align-items: start; font-size: 14px;">
+              <span class="lbl">ЦВЕТ \ РАЗМЕР</span><b style="text-align: center;"><span class="sc-interp">XS</span></b><b style="text-align: center;"><span class="sc-interp">S</span></b><b style="text-align: center;"><span class="sc-interp">M</span></b><b style="text-align: center;"><span class="sc-interp">L</span></b><b style="text-align: center;"><span class="sc-interp">XL</span></b><b style="text-align: center;"><span class="sc-interp">XXL</span></b><span class="lbl" style="text-align: right;">ВСЕГО</span>
+              
+                <span style="display: flex; align-items: center; gap: 6px; min-width: 0px; height: 34px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: rgb(17, 24, 39); border: 1px solid rgb(208, 213, 221); flex-shrink: 0;"></span><span class="sc-interp">Чёрный</span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Чёрный XS" value="" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(249, 250, 251); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(152, 162, 179); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">нет</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Чёрный S" value="4" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204101020</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Чёрный M" value="6" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204101037</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Чёрный L" value="6" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204101044</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Чёрный XL" value="3" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204101051</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Чёрный XXL" value="" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(249, 250, 251); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(152, 162, 179); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">нет</span></span></span>
+                
+                <b style="text-align: right; line-height: 34px;"><span class="sc-interp">19</span></b>
+              
+                <span style="display: flex; align-items: center; gap: 6px; min-width: 0px; height: 34px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: rgb(255, 255, 255); border: 1.5px solid rgb(102, 112, 133); flex-shrink: 0;"></span><span class="sc-interp">Белый</span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Белый XS" value="" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(249, 250, 251); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(152, 162, 179); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">нет</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Белый S" value="3" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204102027</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Белый M" value="5" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204102034</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Белый L" value="5" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204102041</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Белый XL" value="2" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204102058</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Белый XXL" value="" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(249, 250, 251); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(152, 162, 179); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">нет</span></span></span>
+                
+                <b style="text-align: right; line-height: 34px;"><span class="sc-interp">15</span></b>
+              
+                <span style="display: flex; align-items: center; gap: 6px; min-width: 0px; height: 34px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: rgb(217, 195, 165); border: 1px solid rgb(208, 213, 221); flex-shrink: 0;"></span><span class="sc-interp">Бежевый</span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Бежевый XS" value="" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(249, 250, 251); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(152, 162, 179); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">нет</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Бежевый S" value="2" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204103024</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Бежевый M" value="4" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204103031</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Бежевый L" value="4" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204103048</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Бежевый XL" value="2" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(71, 84, 103); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">2000204103055</span></span></span>
+                
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><input type="text" placeholder="0" aria-label="Бежевый XXL" value="" style="height: 34px; min-width: 0px; box-sizing: border-box; border-radius: 8px; border: 1px solid rgb(208, 213, 221); background: rgb(249, 250, 251); text-align: center; font-family: inherit; font-size: 14px; font-weight: 700;"><span style="font-size: 10px; color: rgb(152, 162, 179); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">нет</span></span></span>
+                
+                <b style="text-align: right; line-height: 34px;"><span class="sc-interp">12</span></b>
+              
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;"><button type="button" class="chip">+ Цвет</button><button type="button" class="chip">Всем по 1</button><button type="button" class="chip">Очистить</button><span style="font-size: 12px; color: rgb(102, 112, 133);">Штрихкод у каждой клетки — свой, печатается на бирке.</span></div>
+            <span style="font-size: 12px; color: rgb(102, 112, 133);">Варианты (размер × цвет) со своим штрихкодом и остатком — проверить, что сервер NurCRM их хранит (products/…/variants).</span>
+          </section>
+        
+      </div>
+      <aside style="flex: 1 1 300px; max-width: 360px; min-width: 0px; display: flex; flex-direction: column; gap: 14px;">
+        <section class="card">
+          <b style="font-size: 15px;">Фото</b>
+          <div style="border: 2px dashed rgb(208, 213, 221); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;"><b style="font-size: 13px;">Перетащите фото сюда</b><span style="font-size: 12px; color: rgb(102, 112, 133);">или вставьте из буфера · Ctrl+V</span></div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0px, 1fr)); gap: 8px;"><span style="height: 64px; border-radius: 10px; background: rgb(31, 41, 55); border: 2px solid rgb(11, 42, 60); box-sizing: border-box;"></span><span style="height: 64px; border-radius: 10px; background: rgb(255, 255, 255); border: 1.5px solid rgb(208, 213, 221); box-sizing: border-box;"></span><span style="height: 64px; border-radius: 10px; background: rgb(233, 220, 201); border: 0px; box-sizing: border-box;"></span></div>
+          <button type="button" class="b2" style="display: flex; align-items: center; justify-content: center; gap: 6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg>Подобрать фото в интернете</button>
+          
+        </section>
+        
+          <section class="card">
+            <b style="font-size: 15px;">Итого</b>
+            <div class="rl"><span>Вариантов</span><b><span class="sc-interp">12</span></b></div><div class="rl"><span>Штук</span><b><span class="sc-interp">46</span></b></div><div class="rl"><span>По закупке</span><b style="white-space: nowrap;"><span class="sc-interp">29&nbsp;900&nbsp;сом</span></b></div><div class="rl"><span>По цене продажи</span><b style="white-space: nowrap;"><span class="sc-interp">59&nbsp;340&nbsp;сом</span></b></div>
+            <button type="button" class="b2" style="display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8zM7.5 7.5h.01"></path></svg><span class="sc-interp">Бирки · PDF 58×40 · 46&nbsp;шт</span></button>
+            <span style="font-size: 12px; color: rgb(102, 112, 133); line-height: 17px;">Бирки — PDF точного размера 58×40: печать в масштабе 100 %, без полей — без сдвигов на принтере этикеток.</span>
+            <span style="font-size: 12px; color: rgb(102, 112, 133); line-height: 17px;">На кассе: сканируете бирку — в чек попадает нужный размер и цвет. На сайте покупатель видит только то, что есть.</span>
+          </section>
+        
+      </aside>
+    </div>
+
+  </main></div></div></div>
+
+
+
+</body></html>

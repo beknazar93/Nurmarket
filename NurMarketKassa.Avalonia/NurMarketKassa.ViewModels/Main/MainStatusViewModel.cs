@@ -25,7 +25,8 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
 
     private bool _isOnline = true;
     private string _networkModeText = "";
-    private string _shiftBalanceText = Tr.T("Касса: 0.00 сом", "Касса: 0.00 сом", "Till: 0.00 som", "Kasa: 0.00 som", "Kassa: 0.00 so'm");
+    // 2026-10-20 (живой аудит кассы, К18): «0,00 сом» — как после открытия смены, а не «0.00».
+    private string _shiftBalanceText = Tr.T("Касса: ", "Касса: ", "Till: ", "Kasa: ", "Kassa: ") + MoneyText.Som(0m);
     private string _statusLabel = FormatStatusLabel(true);
     private int _queuedCount;
     private string _queueText = "";
@@ -384,8 +385,8 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
     }
 
     public void SetShiftBalance(decimal balance) =>
-        ShiftBalanceText = Tr.T($"Касса: {balance:0.00} сом", $"Касса: {balance:0.00} сом",
-            $"Till: {balance:0.00} som", $"Kasa: {balance:0.00} som", $"Kassa: {balance:0.00} so'm");
+        // 2026-10-20 (живой аудит кассы, К18): «1 234,50 сом» (MoneyText), как остальные суммы кассы.
+        ShiftBalanceText = Tr.T("Касса: ", "Касса: ", "Till: ", "Kasa: ", "Kassa: ") + MoneyText.Som(balance);
 
     private void ApplySubscriptionCountdown(SubscriptionStatus? status)
     {

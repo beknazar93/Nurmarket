@@ -18,7 +18,8 @@ public sealed record DebtorInfo(
     int SalesCount,
     string? OldestDebtAt);
 
-/// <summary>Итог погашения долга одной суммой (POST /api/main/clients/{id}/pay-debt/).</summary>
+/// <summary>Итог погашения долга одной суммой (POST /api/main/clients/{id}/pay-debt/).
+/// 2026-10-21 (ревью денег, мелочь): Left &lt; 0 — сервер не прислал «left», остаток неизвестен (не «погашен полностью»).</summary>
 public sealed record PayDebtResult(double Paid, double Left, int AppliedCount, bool Replayed);
 
 /// <summary>
@@ -52,8 +53,10 @@ public sealed class ClientDebtsApiService : IDisposable
     /// <summary>Сервер ещё не знает этот адрес (старая версия NurCRM) — тогда и только тогда
     /// вызывающий уходит на старый путь. На 400/403/500 старый путь НЕ включается: для оплаты это
     /// риск провести деньги дважды, а ошибку проверки сервер и так объяснит текстом.</summary>
+    /// <remarks>2026-10-18, десятый круг ревью: 404 — «адреса нет» только БЕЗ JSON-тела (HTML/пусто, как у неизвестного
+    /// маршрута Django); 404 с JSON (detail «Not found») — сервер адрес знает, но не нашёл чек/клиента.</remarks>
     public static bool IsEndpointMissing(Exception ex) =>
-        ex is ApiException { StatusCode: 404 or 405 or 501 };
+        ex is ApiException { StatusCode: 405 or 501 } || ex is ApiException { StatusCode: 404, Payload: null };
 
     // ── BE-03: должники ──────────────────────────────────────────────────────────────
 
@@ -143,7 +146,8 @@ public sealed class ClientDebtsApiService : IDisposable
 
         return new PayDebtResult(
             ReadDouble(data, "paid") ?? amount,
-            ReadDouble(data, "left") ?? 0,
+            // 2026-10-21 (ревью денег, мелочь): нет поля «left» — остаток неизвестен (−1), а не 0 «погашен полностью».
+            ReadDouble(data, "left") ?? -1,
             applied,
             replayed);
     }
@@ -177,7 +181,7 @@ public sealed class ClientDebtsApiService : IDisposable
         var replayed = data.ValueKind == JsonValueKind.Object
             && data.TryGetProperty("replayed", out var replayedEl)
             && replayedEl.ValueKind == JsonValueKind.True;
-        return new PayDebtResult(ReadDouble(data, "paid") ?? amount, ReadDouble(data, "left") ?? 0, 1, replayed);
+        return new PayDebtResult(ReadDouble(data, "paid") ?? amount, ReadDouble(data, "left") ?? -1, 1, replayed); // 2026-10-21: без «left» — неизвестен
     }
 
     // ── BE-04: telegram_chat_id у клиента ────────────────────────────────────────────

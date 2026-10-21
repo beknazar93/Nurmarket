@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Меню веб-админки</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<nav aria-label="Разделы веб-админки" style="width: 100%; min-height: 900px; height: 100%; box-sizing: border-box; font-family: Montserrat, system-ui, sans-serif; display: flex">
+  <!-- 2026-10-16: меню как в программе владельца — тёмная колонка 8 групп + пункты выбранной группы + Ctrl+K. Те же группы и названия. -->
+  <div style="width: 68px; flex-shrink: 0; background: #0B2A3C; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 0 12px">
+    <span style="width: 38px; height: 38px; border-radius: 10px; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; margin-bottom: 8px">N</span>
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="8">
+      <sc-if value="{{g.on}}" hint-placeholder-val="{{false}}">
+        <button type="button" aria-label="{{g.name}}" aria-current="true" style="width: 64px; border: 0; border-radius: 12px; background: rgba(255,214,0,0.16); color: #FFD600; padding: 6px 0 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{g.icon}}"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center">{{g.name}}</span></button>
+      </sc-if>
+      <sc-if value="{{g.off}}" hint-placeholder-val="{{true}}">
+        <button type="button" aria-label="{{g.name}}" style="width: 64px; border: 0; border-radius: 12px; background: transparent; color: #C7D2DB; padding: 6px 0 5px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{g.icon}}"></path></svg><span style="font-size: 9.5px; font-weight: 600; line-height: 1.15; max-width: 64px; overflow-wrap: anywhere; text-align: center">{{g.name}}</span></button>
+      </sc-if>
+    </sc-for>
+    <span style="flex-grow: 1"></span>
+    <button type="button" aria-label="Нурлан Абдыкадыров, администратор — профиль и выход" style="width: 36px; height: 36px; border: 0; border-radius: 18px; background: #FFFFFF; color: #0B2A3C; font-family: inherit; font-size: 12px; font-weight: 800">НА</button>
+  </div>
+  <div style="flex-grow: 1; min-width: 0; background: #FFFFFF; border-right: 1px solid #E5E7EB; display: flex; flex-direction: column; gap: 2px; padding: 16px 10px 12px">
+    <span style="display: flex; flex-direction: column; gap: 4px; padding: 0 6px 10px"><b style="font-size: 15px; color: #0B2A3C">NBS</b><span style="font-size: 11.5px; color: #667085">Администратор</span><button type="button" aria-label="Филиал" style="align-self: flex-start; height: 28px; padding: 0 8px; border-radius: 8px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #0B2A3C; font-family: inherit; font-size: 11.5px; font-weight: 700">Все филиалы ▾</button></span>
+    <span style="font-size: 10.5px; font-weight: 800; color: #667085; letter-spacing: .05em; padding: 4px 8px 4px">{{groupTitle}}</span>
+    <sc-for list="{{items}}" as="i" hint-placeholder-count="5">
+      <sc-if value="{{i.on}}" hint-placeholder-val="{{false}}">
+        <a href="#" aria-current="page" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; background: #FFF7CC; box-shadow: inset 3px 0 0 #FFD600; color: #0B2A3C; text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25"><span style="flex-grow: 1; min-width: 0">{{i.name}}</span><span style="font-size: 11px; font-weight: 800; color: {{i.badgeColor}}; white-space: nowrap">{{i.badge}}</span></a>
+      </sc-if>
+      <sc-if value="{{i.off}}" hint-placeholder-val="{{true}}">
+        <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 10px; color: #475467; text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.25"><span style="flex-grow: 1; min-width: 0">{{i.name}}</span><span style="font-size: 11px; font-weight: 800; color: {{i.badgeColor}}; white-space: nowrap">{{i.badge}}</span></a>
+      </sc-if>
+    </sc-for>
+    <span style="flex-grow: 1"></span>
+    <label style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 8px; border-radius: 10px; background: #F2F4F7; color: #667085; font-size: 12.5px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input type="text" placeholder="Раздел" aria-label="Найти раздел (Ctrl+K)" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 12.5px; width: 60px; min-width: 0; flex-grow: 1; color: #111827"><span style="font-size: 10.5px; color: #475467; border: 1px solid #D0D5DD; border-radius: 6px; padding: 1px 4px; white-space: nowrap">Ctrl+K</span></label>
+  </div>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"text","default":"Сводка"},"$preview":{"width":260,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: один реестр разделов с программой владельца: те же 8 групп, тот же порядок, те же названия.
+    // Пункты, которых нет в программе владельца (веб-касса, закупки, рассрочка…), лежат в тех же группах.
+    // Число: красное — просрочено, серо-синее — ждёт внимания.
+    const RED = '#B42318', NEU = '#475467';
+    const G = {
+      home: ['Главная', 'M3 10.5 12 3l9 7.5V21H3z', [['Сводка'], ['Нур Советник'], ['Задачи и календарь', '2']]],
+      goods: ['Товары', 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8', [['Склад'], ['Приёмка'], ['Закупки', '2'], ['Калькуляция'], ['Пополнение и сроки', '7'], ['Возвраты поставщикам'], ['Филиалы']]],
+      sales: ['Продажи', 'M3 4h2l2 12h11l2-8H7M9 20h.01M17 20h.01', [['Веб-касса'], ['Продажи'], ['Долги клиентов', '17'], ['Прокат', '3', RED], ['Рассрочка', '1', RED]]],
+      reports: ['Отчёты', 'M4 20V10M10 20V4M16 20v-7M22 20H2', [['Финансы'], ['Аналитика'], ['ABC-анализ'], ['Прибыль и деньги'], ['Продажи в убыток'], ['Удалено из чека'], ['Платежи и банки', '1'], ['Накладные и документы']]],
+      site: ['Сайт', 'M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18', [['Заказы с сайта', '1'], ['Редактор сайта'], ['Настройки сайта'], ['Магазин в приложении']]],
+      clients: ['Клиенты', 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21a7 7 0 0 1 14 0M17 11a3 3 0 1 0 0-6M22 21a6 6 0 0 0-4-5.6', [['Клиенты'], ['Бонусы и сертификаты'], ['Телеграм-бот'], ['WhatsApp'], ['Воронка']]],
+      manage: ['Управление', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12l2-1-1-3-2 .5-1.5-1.5.5-2-3-1-1 2h-2l-1-2-3 1 .5 2L6 8.5 4 8l-1 3 2 1v2l-2 1 1 3 2-.5L7.5 18 7 20l3 1 1-2h2l1 2 3-1-.5-2 1.5-1.5 2 .5 1-3-2-1z', [['Зарплата'], ['ЭСФ и ККМ', '1'], ['Маркетплейс'], ['Настройки']]],
+      help: ['Помощь', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01', [['База знаний'], ['Тех. поддержка'], ['Журнал ошибок']]]
+    };
+    // Старые названия веб-досок → пункт общего реестра.
+    const alias = {
+      'Товары и склад': 'Склад', 'Чеки и смены': 'Продажи', 'Клиенты и долги': 'Клиенты', 'Рассрочки': 'Рассрочка',
+      'Сайт и бот': 'Редактор сайта', 'Прибыль и отчёты': 'Прибыль и деньги', 'Сотрудники и зарплата': 'Зарплата',
+      'Настройки и подписка': 'Маркетплейс', 'Функции и подписка': 'Маркетплейс'
+    };
+    const active = alias[this.props.active] ?? this.props.active ?? 'Сводка';
+    const key = Object.keys(G).find((k) => G[k][2].some((it) => it[0] === active)) ?? 'home';
+    const groups = Object.entries(G).map(([k, g]) => ({ name: g[0], icon: g[1], on: k === key, off: k !== key }));
+    const items = G[key][2].map(([name, badge, color]) => ({ name, badge: badge || '', badgeColor: color || NEU, on: name === active, off: name !== active }));
+    return { groups, items, groupTitle: G[key][0].toUpperCase() };
+  }
+}
+</script>
+</body>
+</html>

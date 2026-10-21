@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>ABC-анализ</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="reports" active="ABC-анализ" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">ABC-анализ</span><span style="font-size: 13px; color: #667085">Какие товары дают выручку, а какие только занимают полку</span></span>
+      <div role="group" aria-label="Срез" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">По выручке</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">По прибыли</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">По штукам</button>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+      <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 16px; border: 2px solid #0B2A3C; padding: 18px; font-family: inherit; display: flex; flex-direction: column; gap: 6px"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; border-radius: 10px; background: #0B2A3C; color: #FFD600; display: flex; align-items: center; justify-content: center; font-weight: 800">A</span><span style="font-size: 14px; font-weight: 700">Кормят магазин</span></span><span style="font-size: 26px; font-weight: 800; color: #0B2A3C">3 позиции</span><span style="font-size: 13px; color: #475467">91,5 % выручки · не допускать нуля на складе</span></button>
+      <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 16px; border: 1px solid #E5E7EB; padding: 18px; font-family: inherit; display: flex; flex-direction: column; gap: 6px"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; border-radius: 10px; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800">B</span><span style="font-size: 14px; font-weight: 700">Середина</span></span><span style="font-size: 26px; font-weight: 800; color: #0B2A3C">[N] позиций</span><span style="font-size: 13px; color: #475467">[доля] выручки · держать в наличии</span></button>
+      <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 16px; border: 1px solid #E5E7EB; padding: 18px; font-family: inherit; display: flex; flex-direction: column; gap: 6px"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; border-radius: 10px; background: #F2F4F7; color: #475467; display: flex; align-items: center; justify-content: center; font-weight: 800">C</span><span style="font-size: 14px; font-weight: 700">Хвост</span></span><span style="font-size: 26px; font-weight: 800; color: #0B2A3C">[N] позиций</span><span style="font-size: 13px; color: #475467">[доля] выручки · пересмотреть закупку</span></button>
+    </div>
+    <div style="display: flex; height: 14px; border-radius: 7px; overflow: hidden"><span style="width: 91.5%; background: #0B2A3C"></span><span style="width: 6%; background: #FFD600"></span><span style="width: 2.5%; background: #D0D5DD"></span></div>
+    <section style="flex-grow: 1; min-height: 0; background: #FFFFFF; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+      <div style="display: grid; grid-template-columns: 0.4fr 2.6fr 1fr 1fr 1fr; gap: 12px; padding: 12px 16px; background: #F9FAFB; font-size: 12px; font-weight: 700; color: #667085"><span>Гр.</span><span>Товар</span><span style="text-align: right">Выручка</span><span style="text-align: right">Доля</span><span style="text-align: right">Накоплено</span></div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+        <div style="display: grid; grid-template-columns: 0.4fr 2.6fr 1fr 1fr 1fr; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid #F2F4F7"><span style="width: 26px; height: 26px; border-radius: 8px; background: {{r.bg}}; color: {{r.fg}}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800">{{r.g}}</span><span style="font-size: 13px; font-weight: 700">[товар]</span><span style="text-align: right; font-size: 13px">[сумма]</span><span style="text-align: right; font-size: 13px">[доля]</span><span style="text-align: right; font-size: 13px; color: #667085">[доля]</span></div>
+      </sc-for>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const g = ['A', 'A', 'A', 'B', 'B', 'C'];
+    const rows = g.map((x) => ({ g: x, bg: x === 'A' ? '#0B2A3C' : x === 'B' ? '#FFD600' : '#F2F4F7', fg: x === 'A' ? '#FFD600' : x === 'B' ? '#0B2A3C' : '#475467' }));
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

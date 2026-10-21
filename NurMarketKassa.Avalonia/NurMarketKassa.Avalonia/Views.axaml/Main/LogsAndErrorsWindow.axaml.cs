@@ -95,6 +95,10 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
     public LogsAndErrorsWindow()
     {
         InitializeComponent();
+        // 2026-10-20 (живой аудит кассы, К18): в кассе Esc закрывает окно (раньше не закрывал). В программе владельца окно —
+        // раздел оболочки, там Esc не трогаем.
+        if (!AppMode.IsOwner)
+            EscapeKey.Attach(this);
     }
 
     private void Window_Loaded(object? sender, RoutedEventArgs e)

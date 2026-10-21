@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Окна долгов</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700}
+.ck{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;font-size:13px}
+</style>
+</helmet>
+<!-- 2026-10-16: окна ровно 640 и 480 px (правило модалок); данные NBS (Умар, Арслан, Айпери) — как на «Долгах клиентов» -->
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: 640px 480px; justify-content: center; gap: 22px; align-items: start">
+
+  <div style="display: flex; flex-direction: column; gap: 22px">
+  <section class="m" role="dialog" aria-label="Оплата долга" style="width: 640px">
+    <div class="mh"><div class="mt"><b>Оплата долга · Умар</b><span>6 чеков в долг · с 31.08.2026 (42 дня) · номера телефона нет</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; background: #FDE2E1; border-radius: 12px; padding: 12px 14px"><span style="font-size: 13px; font-weight: 600; color: #7A271A">Должен всего</span><b style="font-size: 22px; color: #B42318; white-space: nowrap">64 500&nbsp;сом</b></div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px">
+        <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+          <span class="lbl">КАК ПЛАТИТ</span>
+          <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC"><button type="button" class="seg" style="background: transparent; color: #475467">Полностью</button><button type="button" class="seg" style="background: #0B2A3C; color: #FFFFFF">Частично</button><button type="button" class="seg" style="background: transparent; color: #475467">По чекам</button></span>
+          <label class="lbl" for="dp">СУММА СЕЙЧАС</label>
+          <input id="dp" class="in" type="text" value="20 000 сом" style="height: 52px; font-size: 20px; font-weight: 800; border: 2px solid #0B2A3C">
+          <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip">Половину</button><button type="button" class="chip">Старый чек</button><button type="button" class="chip">Своя сумма</button></div>
+          <span style="font-size: 12px; color: #667085; line-height: 17px">Частичная оплата закрывает сначала самые старые чеки: 20 000 закроет №1012 (12 400) и часть №1088</span>
+        </div>
+        <!-- 2026-10-16: у владельца смены нет — наличные только через кассу и открытую смену, безнал — без смены -->
+        <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+          <span class="lbl">СПОСОБ</span>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip on">Наличными — через кассу</button><button type="button" class="chip">Картой или QR</button><button type="button" class="chip">Переводом</button></div>
+          <label class="lbl" for="dshift" style="padding-top: 4px">КАССА И СМЕНА</label>
+          <button id="dshift" type="button" class="in" style="height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFFFFF; text-align: left; font-family: inherit; color: #111827"><span style="min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 13px; font-weight: 700; white-space: nowrap">Касса 1 · смена Кассир Тест</span><span style="font-size: 12px; color: #0E7A3A; font-weight: 600; white-space: nowrap">● открыта с 08:55</span></span><span aria-hidden="true">▾</span></button>
+          <span style="font-size: 12px; color: #667085; line-height: 17px">Наличные проходят только через открытую смену — так касса сходится. Кассир подтвердит приём в своей смене.</span>
+          <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #667085; padding-top: 2px"><input type="checkbox" disabled="" style="width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: #0B2A3C"><span>Квитанция в WhatsApp — у клиента нет номера. <a href="#" style="font-weight: 700; color: #0B2A3C">Добавить номер</a></span></label>
+        </div>
+      </div>
+    </div>
+    <div class="mf"><span class="tot">Останется долг <b style="white-space: nowrap">44 500&nbsp;сом</b></span><button type="button" class="b2">Отмена</button><button type="button" class="b1" style="white-space: nowrap">Отправить на кассу</button></div>
+  </section>
+    <section class="m" role="dialog" aria-label="Напоминание о долге" style="width: 640px">
+      <div class="mh"><div class="mt"><b>Напомнить о долге · Арслан</b><span>WhatsApp · +996 555 41-27-09 · с личного номера — по одному</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb"><div style="background: #E7F6EC; border-radius: 14px 14px 14px 4px; padding: 10px 12px; font-size: 13px; line-height: 19px; color: #0B3B1E">Здравствуйте, Арслан! Напоминаем о долге в NBS: 38 200 сом (с 09.09.2026). Оплатить можно на кассе или по QR. Спасибо!</div>
+        <!-- 2026-10-16: «Изменить текст» — внутри окна, слева внизу только «Отмена» -->
+        <a href="#" style="align-self: flex-start; font-size: 13px; font-weight: 700; color: #0B2A3C">✎ Изменить текст</a></div>
+      <div class="mf"><span class="tot">Откроется чат WhatsApp с этим текстом</span><button type="button" class="b2">Отмена</button><button type="button" class="b1" style="white-space: nowrap">Открыть WhatsApp</button></div>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 22px">
+  <section class="m" role="dialog" aria-label="Оплата по чекам" style="width: 480px">
+    <div class="mh"><div class="mt"><b>Закрыть по чекам · Умар</b><span>Отметьте чеки, которые клиент оплачивает</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb" style="gap: 6px">
+      <label class="ck" style="background: #FFF7CC"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: #0B2A3C"><span style="flex-grow: 1; display: flex; flex-direction: column"><b>Чек №1012 · 31.08</b><span style="font-size: 11px; color: #B42318; font-weight: 700">в долгу 42 дня</span></span><b style="white-space: nowrap">12 400&nbsp;сом</b></label>
+      <label class="ck" style="background: #FFF7CC"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: #0B2A3C"><span style="flex-grow: 1; display: flex; flex-direction: column"><b>Чек №1088 · 05.09</b><span style="font-size: 11px; color: #B42318; font-weight: 700">в долгу 37 дней</span></span><b style="white-space: nowrap">9 800&nbsp;сом</b></label>
+      <label class="ck"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #0B2A3C"><span style="flex-grow: 1; display: flex; flex-direction: column"><b>Чек №1156 · 12.09</b><span style="font-size: 11px; color: #667085">в долгу 30 дней</span></span><b style="white-space: nowrap">15 300&nbsp;сом</b></label>
+      <span style="font-size: 12px; color: #667085; padding: 0 10px">Ещё 3 чека: №1240, №1391, №1532 — 27 000 сом</span>
+      <!-- 2026-10-16: пеню не считаем — нужен договор с покупателем и сервер NurCRM -->
+      <div style="padding: 8px 10px; border-radius: 10px; background: #F2F4F7; font-size: 12px; line-height: 17px; color: #475467"><b>Пеня за просрочку</b> — позже: нужен договор с покупателем и сервер NurCRM</div>
+    </div>
+    <div class="mf"><span class="tot">2 чека · <b style="white-space: nowrap">22 200&nbsp;сом</b></span><button type="button" class="b2">Назад</button><button type="button" class="b1">Дальше</button></div>
+  </section>
+
+    <section class="m" role="dialog" aria-label="Продажа в долг" style="width: 480px">
+      <div class="mh"><div class="mt"><b>Продажа в долг · Айпери</b><span>Окно кассы · долг 9 800 из лимита 20 000 сом</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+          <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="pre">ПРЕДОПЛАТА</label><input id="pre" class="in" type="text" placeholder="0"></span>
+          <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="due">ВЕРНУТЬ ДО</label><input id="due" class="in" type="text" value="26.10.2026"></span>
+        </div>
+        <div style="display: flex; gap: 6px"><button type="button" class="chip">7 дней</button><button type="button" class="chip on">14 дней</button><button type="button" class="chip">30 дней</button></div>
+      </div>
+      <div class="mf"><span class="tot">В долг <b style="white-space: nowrap">340&nbsp;сом</b></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Продать</button></div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

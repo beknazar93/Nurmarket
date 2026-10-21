@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб в телефоне — меню</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; position: relative; overflow: hidden">
+  <header style="height: 60px; background: #FFFFFF; border-bottom: 1px solid #EAECF0; display: flex; align-items: center; gap: 10px; padding: 0 12px">
+    <span style="width: 44px; height: 44px"></span><b style="font-size: 16px; flex-grow: 1">Сводка</b>
+  </header>
+  <div style="padding: 16px; display: flex; flex-direction: column; gap: 10px">
+    <span style="height: 110px; border-radius: 18px; background: #0B2A3C"></span>
+    <span style="height: 70px; border-radius: 16px; background: #FFFFFF"></span>
+    <span style="height: 70px; border-radius: 16px; background: #FFFFFF"></span>
+  </div>
+  <div style="position: absolute; inset: 0; background: rgba(11,42,60,.45)"></div>
+  <aside style="position: absolute; left: 0; top: 0; bottom: 0; width: 300px; overflow: hidden; box-shadow: 8px 0 30px rgba(0,0,0,.25); display: flex; flex-direction: column">
+    <div style="flex-grow: 1; overflow: hidden; display: flex"><dc-import name="WebNav" active="Сводка" hint-size="300px,900px"></dc-import></div>
+  </aside>
+  <button type="button" aria-label="Закрыть меню" style="position: absolute; left: 314px; top: 12px; width: 44px; height: 44px; border-radius: 22px; border: 0; background: #FFFFFF; color: #0B2A3C; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

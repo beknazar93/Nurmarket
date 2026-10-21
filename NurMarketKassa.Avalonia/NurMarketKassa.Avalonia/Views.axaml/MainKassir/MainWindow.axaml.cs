@@ -103,6 +103,7 @@ public partial class MainWindow : Window
         IUserPrompts prompts,
         AvaloniaCustomerDisplayService customerDisplay)
     {
+        RegisterAccessibleButtonNames();
         _viewModel = viewModel;
         _session = session;
         _hostBridge = hostBridge;
@@ -138,6 +139,12 @@ public partial class MainWindow : Window
         // 2026-10-04: скан QR клиента NurCRM, а клиента нет в базе — окно «Новый клиент» с телефоном.
         _viewModel.Basket.OfferNewClientFromQr = OfferNewClientFromQrAsync;
         _viewModel.Basket.CheckoutSucceeded += OnCheckoutSucceeded;
+        // 2026-10-20 (живой аудит кассы, К1–К3, К6): как заплатили — для суммы возврата и «Истории чеков» после возврата.
+        _viewModel.Basket.CheckoutSucceeded += RememberSaleForReturns;
+        // 2026-10-20 (К12): оплата долга (в этой кассе, в программе владельца или на соседней кассе) — «Касса» в шапке сразу.
+        PosDataEvents.ClientDebtChanged += OnClientDebtChangedRefreshBalance;
+        // 2026-10-18, редизайн (этап 6): «Продажа прошла» — плашка внизу вместо окна (MainWindow.SaleDoneBar.cs).
+        InitSaleDoneBar();
         ServerOutageMonitor.Recovered += OnServerRecovered;
         ServerOutageMonitor.QueueFlushed += OnQueueFlushed;
 
@@ -152,6 +159,9 @@ public partial class MainWindow : Window
         // директивная навигация по стрелкам перехватывает Up/Down/Left/Right раньше, чем
         // событие успевает добубниться до окна — Tunnel гарантированно срабатывает первым.
         AddHandler(KeyDownEvent, OnArrowKeyTunnel, RoutingStrategies.Tunnel);
+        // 2026-10-20: Enter готового скана — сканеру, раньше «Оплаты» и кнопки с фокусом (см. OnScanEnterTunnel).
+        AddHandler(KeyDownEvent, OnScanEnterTunnel, RoutingStrategies.Tunnel);
+        InstallPopupScanHook();
         // 2026-09-16, тоже Tunnel и по той же причине: если фокус остался внутри списка
         // каталога (обычное дело после клика мышкой по плитке товара — фокус оседает на кнопке
         // плитки, потомке ListBox'а), у ListBox'а уже есть СВОЙ Bubble-обработчик Enter
@@ -206,6 +216,12 @@ public partial class MainWindow : Window
             _ = window.ShowDialog(this);
         };
         NurMarketKassa.AvaloniaHost.Views.Main.Controls.BasketExtraActions.OpenRentals ??= _viewModel.SideMenu.NavigateRentalAction;
+        // 2026-10-17, редизайн (этап 4): журнал «Удалено из чека» — владельцу и администратору (как «Настройки»).
+        _viewModel.SideMenu.NavigateCartRemovalsAction ??= () =>
+        {
+            if (Authorize(PosPermissions.ViewSettings))
+                _ = PosDialogHost.ShowAsync(new CartRemovalsWindow(), this);
+        };
         // 2026-10-02: «Оформить как прокат» из окна оплаты.
         _viewModel.Basket.RentalFromCart ??= async (items, clientId, clientName) =>
         {
@@ -677,6 +693,10 @@ public partial class MainWindow : Window
     /// привычная клавиатура Windows. Возвращена системная osk.exe без собственной FrmKeyboard.</summary>
     internal void ToggleKeyboard()
     {
+        // 2026-10-21 (пакет 6, п. 58): повторное нажатие «Клавиатура» закрывает открытую клавиатуру Windows (было — только
+        // поднимало её наверх, закрыть можно было лишь крестиком osk).
+        if (OperatingSystem.IsWindows() && WindowsOperatingSystemKeyboardService.TryCloseVisible())
+            return;
         App.GetRequiredService<IOperatingSystemKeyboardService>().ShowSystemKeyboard();
 
         // 2026-09-30, «экранная клавиатура не работает»: без поля ввода в фокусе набранное на
@@ -695,7 +715,8 @@ public partial class MainWindow : Window
         var result = _customerDisplay.TestSecondaryScreen(this);
         if (result.IsSuccess)
         {
-            _prompts.ShowToast(result.Message);
+            // 2026-10-21 (пакет 6, п. 56): «Экран покупателя открыт на …» — строкой под чеком, без окна, которое надо закрывать.
+            _viewModel.Basket.CartMessage = result.Message;
         }
         else
         {
@@ -761,6 +782,8 @@ public partial class MainWindow : Window
 
         if (FocusManager?.GetFocusedElement() is TextBox)
             return;
+        if (ReferenceEquals(e, _scanKeySeenInTunnel))
+            return;
 
         _barcodeInputService.ProcessKeyDown(e);
     }
@@ -772,6 +795,9 @@ public partial class MainWindow : Window
     /// Не перехватывает, когда фокус в текстовом поле — там клавиша нужна для набора.</summary>
     private void OnPlainHotkeyTunnel(object? sender, KeyEventArgs e)
     {
+        // 2026-10-20: открыто меню ☰ «Новое» — Enter/Num± разбирает меню (пункт, поиск, сканер), не «Оплата» и не чек.
+        if (NurMarketKassa.AvaloniaHost.Views.Main.Controls.SideMenuView.CapturesKeyboard)
+            return;
         if (!_hotkeys.TryMatch(e, plain: true, out var action))
             return;
         if (FocusManager?.GetFocusedElement() is TextBox)
@@ -812,6 +838,13 @@ public partial class MainWindow : Window
         // осознанное нажатие кассира, и его нужно пропустить сюда дальше, к самому сканеру.
         if (_barcodeInputService.HasBufferedInput)
             return;
+        // 2026-10-20 (П1-0, живая проверка: окно оплаты большого чека открылось во время сканирования): Enter сразу
+        // за сканом (второй Enter сканера, CR+LF) — часть скана, а не «Оплата»: его съедаем.
+        if (_barcodeInputService is AvaloniaKeyboardWedgeBarcodeService { ScanJustCompleted: true })
+        {
+            e.Handled = true;
+            return;
+        }
         if (!_viewModel.Basket.HasItems || _viewModel.Basket.IsBusy)
             return;
         if (!_viewModel.Basket.PayCommand.CanExecute(null))
@@ -831,6 +864,9 @@ public partial class MainWindow : Window
     private void OnArrowKeyTunnel(object? sender, KeyEventArgs e)
     {
         if (e.Key is not (Key.Up or Key.Down or Key.Left or Key.Right))
+            return;
+        // 2026-10-20: при открытом меню ☰ «Новое» стрелки выбирают его пункты, а не товар в каталоге под затемнением.
+        if (NurMarketKassa.AvaloniaHost.Views.Main.Controls.SideMenuView.CapturesKeyboard)
             return;
 
         var focused = FocusManager?.GetFocusedElement() as Control;
@@ -976,14 +1012,16 @@ public partial class MainWindow : Window
         if (_customerDisplay.IsOpen)
         {
             _ = _customerDisplay.CloseAsync(true);
-            _prompts.ShowToast(Tr.T("Экран покупателя скрыт.", "Сатып алуучунун экраны жашырылды.", "Customer display hidden.", "Müşteri ekranı gizlendi.", "Xaridor ekrani yashirildi."));
+            // 2026-10-21 (пакет 6, п. 56): без модального окна — строкой под чеком.
+            _viewModel.Basket.CartMessage = Tr.T("Экран покупателя скрыт.", "Сатып алуучунун экраны жашырылды.", "Customer display hidden.", "Müşteri ekranı gizlendi.", "Xaridor ekrani yashirildi.");
             RestoreScannerFocus();
             return;
         }
 
         var result = _customerDisplay.TestSecondaryScreen(this);
+        // 2026-10-21 (пакет 6, п. 56): успех — строкой под чеком, без модального окна.
         if (result.IsSuccess)
-            _prompts.ShowToast(result.Message);
+            _viewModel.Basket.CartMessage = result.Message;
         else
             _prompts.ShowWarning(result.Message);
         RestoreScannerFocus();
@@ -1021,9 +1059,164 @@ public partial class MainWindow : Window
 
     private void RestoreScannerFocus()
     {
-        FocusManager?.ClearFocus();
-        Focus();
+        // 2026-10-20, живая проверка («после „Фильтр“ сканер ломается до конца сеанса»): окно было
+        // нефокусируемым, Focus() молча не срабатывал, а ClearFocus() в Avalonia 11 возвращает фокус на
+        // элемент, запомненный окном (нажатую кнопку), — и при каждой активации после модального окна
+        // окно снова ставило фокус на «Фильтр». Теперь окно фокусируемое (Focusable в MainWindow.axaml),
+        // Focus() запоминает само окно. Пока активно другое окно кассы (диалог), фокус у него не отнимаем:
+        // FocusManager в Avalonia один на всё приложение.
+        if (!IsActive && IsAnotherAppWindowActive())
+            return;
+        if (!Focus())
+        {
+            FocusManager?.ClearFocus();
+            Focus();
+        }
     }
+
+    private bool IsAnotherAppWindowActive() =>
+        Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+        && desktop.Windows.Any(w => !ReferenceEquals(w, this) && w.IsActive);
+
+    /// <summary>2026-10-20, живая проверка: Enter, которым сканер заканчивает код, раньше доходил до
+    /// элемента с фокусом (кнопка, плитка, вкладка) и нажимал его — товар не добавлялся. Если в буфере
+    /// сканера уже готовый код, Enter забирает сканер раньше всех (Tunnel). Обычный Enter кассира
+    /// (буфер пуст или набран медленно) идёт дальше как раньше — «Оплата» и т.д. В текстовом поле — не трогаем.</summary>
+    private void OnScanEnterTunnel(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyModifiers != KeyModifiers.None)
+            return;
+        var focused = FocusManager?.GetFocusedElement();
+        // 2026-10-20 (живой аудит кассы, К4): курсор в поиске каталога — скан раньше уходил туда текстом, Enter ничего не
+        // добавлял. Клавиши поиска передаём и сканеру (символы остаются в поле — ручной набор как раньше); код,
+        // набранный со скоростью сканера и законченный Enter, уходит в чек, поиск очищается.
+        if (focused is TextBox { Name: "ProductSearchBox" } productSearch)
+        {
+            FeedScannerFromProductSearch(productSearch, e);
+            return;
+        }
+        if (focused is TextBox)
+            return;
+
+        // 2026-10-20, живая проверка («Табличная»: открыто меню «Ещё» → скан → открылись «Отложенные корзины»):
+        // в открытом всплывающем меню цифры сканера забирало меню, а Enter нажимал пункт меню. Пока фокус во
+        // всплывающем окне кассы (меню, выпадашка), клавиши сначала идут сканеру; готовый код закрывает меню и
+        // уходит в чек, как обычный скан. Обычные стрелки/Enter/Esc кассира меню получает как раньше.
+        if (focused is Visual visual && TopLevel.GetTopLevel(visual) is PopupRoot popupRoot && ReferenceEquals(popupRoot.ParentTopLevel, this))
+        {
+            OnPopupScanKey(popupRoot, e);
+            return;
+        }
+
+        if (e.Key == Key.Enter && _barcodeInputService is AvaloniaKeyboardWedgeBarcodeService { HasCompleteScan: true })
+            _barcodeInputService.ProcessKeyDown(e);
+    }
+
+    private int _searchFastRun;
+    private long _lastSearchKeyTick;
+    private ulong? _lastSearchKeyRaw;
+
+    /// <summary>2026-10-20 (живой аудит кассы, К4): клавиши поля поиска каталога — и сканеру. Скан: ≥ 4 знака подряд быстрее
+    /// 50 мс (по времени нажатия, как у сканера — AvaloniaKeyboardWedgeBarcodeService) и Enter сразу за ними (до 150 мс) —
+    /// так человек не печатает (как в поиске меню ☰ «Новое»). Тогда код — в чек, поле поиска очищается, курсор — сканеру.
+    /// Иначе Enter и символы — полю, как раньше (буфер сканера забывается).</summary>
+    private void FeedScannerFromProductSearch(TextBox search, KeyEventArgs e)
+    {
+        if (_barcodeInputService is not AvaloniaKeyboardWedgeBarcodeService wedge)
+            return;
+        var now = Environment.TickCount64;
+        if (e.Key == Key.Enter)
+        {
+            var fresh = now - _lastSearchKeyTick is >= 0 and < 150;
+            if (wedge.ScanJustCompleted)
+            {
+                e.Handled = true; // второй Enter сканера (CR+LF)
+                return;
+            }
+            if (_searchFastRun >= 3 && fresh && wedge.HasCompleteScan)
+            {
+                _searchFastRun = 0;
+                _scanFromOwnPopup = true; // окно кассы активно, но фокус в поле — код всё равно наш (см. OnBarcodeScanned)
+                try
+                {
+                    wedge.ProcessKeyDown(e); // готовый код → BarcodeScanned → очередь сканов чека
+                }
+                finally
+                {
+                    _scanFromOwnPopup = false;
+                }
+                e.Handled = true;
+                search.Text = "";
+                PosLogger.Log("Скан в поле поиска каталога: код ушёл в чек, поиск очищен.", "SCAN");
+                RestoreScannerFocus();
+                return;
+            }
+            wedge.DiscardBuffer();
+            _searchFastRun = 0;
+            return;
+        }
+
+        var raw = AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestamp();
+        long delta = raw is { } r && _lastSearchKeyRaw is { } lr && r >= lr ? (long)Math.Min(r - lr, long.MaxValue) : now - _lastSearchKeyTick;
+        _searchFastRun = delta is >= 0 and < 50 ? _searchFastRun + 1 : 0;
+        _lastSearchKeyTick = now;
+        _lastSearchKeyRaw = raw;
+        var handled = e.Handled;
+        wedge.ProcessKeyDown(e);
+        e.Handled = handled; // символ остаётся в поле — набор кассира не страдает
+    }
+
+    // Клавиши во всплывающем меню (MenuFlyout «Ещё» раскладок) идут по его собственному дереву и до окна кассы
+    // не доходят — ловим их на корне всплывающего окна (один раз на приложение).
+    private static bool _popupScanHookInstalled;
+
+    private static void InstallPopupScanHook()
+    {
+        if (_popupScanHookInstalled)
+            return;
+        _popupScanHookInstalled = true;
+        InputElement.KeyDownEvent.AddClassHandler<PopupRoot>((root, e) =>
+        {
+            if (root.ParentTopLevel is MainWindow main)
+                main.OnPopupScanKey(root, e);
+        }, RoutingStrategies.Tunnel);
+    }
+
+    private void OnPopupScanKey(PopupRoot popupRoot, KeyEventArgs e)
+    {
+        if (e.Handled || e.KeyModifiers != KeyModifiers.None || ReferenceEquals(e, _scanKeySeenInTunnel))
+            return;
+        if (FocusManager?.GetFocusedElement() is TextBox)
+            return;
+        var completesScan = e.Key == Key.Enter && _barcodeInputService is AvaloniaKeyboardWedgeBarcodeService { HasCompleteScan: true };
+        _scanKeySeenInTunnel = e;
+        // Всплывающее окно могло забрать активность у окна кассы — готовый код всё равно наш (см. OnBarcodeScanned).
+        _scanFromOwnPopup = completesScan;
+        try
+        {
+            _barcodeInputService.ProcessKeyDown(e);
+        }
+        finally
+        {
+            _scanFromOwnPopup = false;
+        }
+        if (completesScan)
+            ClosePopup(popupRoot);
+    }
+
+    /// <summary>Меню «Ещё» (MenuFlyout) закрывается своим Close(), остальное — через Popup.</summary>
+    private static void ClosePopup(PopupRoot popupRoot)
+    {
+        if (popupRoot.Content is MenuBase menu)
+            menu.Close();
+        else
+            (popupRoot.Parent as Popup)?.Close();
+    }
+
+    private bool _scanFromOwnPopup;
+
+    /// <summary>Клавиша уже передана сканеру в OnScanEnterTunnel (всплывающее меню) — второй раз не передаём.</summary>
+    private KeyEventArgs? _scanKeySeenInTunnel;
 
     private void OnBarcodeScanned(string barcode)
     {
@@ -1031,7 +1224,7 @@ public partial class MainWindow : Window
         // (Warehouse, Return, etc.) raises this same event, and MainWindow stays subscribed for
         // its whole lifetime. Without this guard, scanning while another window has focus also
         // added the item to the cash register cart in the background.
-        if (!IsActive)
+        if (!IsActive && !_scanFromOwnPopup)
             return;
 
         // В очередь сканов, а не «положить в поле и нажать команду»: пока касса добавляла
@@ -1256,6 +1449,91 @@ public partial class MainWindow : Window
         _balanceRefreshTimer.Start();
     }
 
+    /// <summary>2026-10-20 (живой аудит кассы, К1–К3, К6): проведённая на сервере продажа — как её заплатили (итог, наличные
+    /// и безнал, получено и сдача, сумма строк до скидки на чек) — в журнал возвратов (SaleReturnLedger): по нему окно
+    /// возврата считает долю скидки на чек, потолок «не больше оплаченного» и что выдать, а «История чеков» после
+    /// возврата показывает продажу как была. Запись в фоне — оплату не задерживает.</summary>
+    private void RememberSaleForReturns(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (_viewModel.Basket.LastSale is not { SavedOffline: false, SaleId: { Length: > 0 } saleId } sale)
+                return;
+            var total = (decimal)sale.Total;
+            var method = (sale.PaymentMethod ?? "").Trim().ToLowerInvariant();
+            decimal.TryParse(sale.CashReceivedText, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var cashPart);
+            decimal paidCash = 0m, paidNonCash = 0m;
+            switch (method)
+            {
+                case "cash":
+                    paidCash = total;
+                    break;
+                case "mixed":
+                    paidCash = Math.Min(Math.Max(0m, cashPart), total);
+                    paidNonCash = total - paidCash;
+                    break;
+                case "debt":
+                    // 2026-10-21 (ревью денег, п. 1): предоплата долга безналом (cash_received несёт её же целиком) —
+                    // в безнал, иначе возврат такого чека велел выдать её наличными из ящика.
+                    var prepaid = Math.Min(Math.Max(0m, cashPart), total);
+                    decimal.TryParse(sale.NonCashReceivedText, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var nonCashPart);
+                    paidNonCash = Math.Min(Math.Max(0m, nonCashPart), prepaid);
+                    paidCash = prepaid - paidNonCash;
+                    break;
+                default:
+                    paidNonCash = total;
+                    break;
+            }
+
+            var linesTotal = 0m;
+            DateTime? dueDate = null;
+            var schedule = new List<SaleLedgerDuePayment>();
+            string? clientName = null, clientPhone = null;
+            if (!string.IsNullOrWhiteSpace(sale.CartJson))
+            {
+                using var doc = JsonDocument.Parse(sale.CartJson);
+                var root = doc.RootElement;
+                var totals = CartTotalsCalculator.Calculate(root);
+                linesTotal = (decimal)Math.Max(0, totals.Subtotal - totals.LineDiscounts);
+                // 2026-10-20, владелец (долг Д5): срок и график долга, клиент — из снимка чека (PosCheckoutService), для копии чека.
+                static string? S(JsonElement o, string k) => o.ValueKind == JsonValueKind.Object && o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+                if (S(root, "debt_due_date") is { } dd && DateTime.TryParseExact(dd, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var due))
+                    dueDate = due;
+                if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("debt_schedule", out var ds) && ds.ValueKind == JsonValueKind.Object
+                    && ds.TryGetProperty("payments", out var pays) && pays.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var p in pays.EnumerateArray())
+                    {
+                        if (S(p, "due_date") is { } pd && DateTime.TryParseExact(pd, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var pdate)
+                            && decimal.TryParse(S(p, "amount"), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var pam))
+                            schedule.Add(new SaleLedgerDuePayment { Date = pdate, Amount = pam });
+                    }
+                }
+                clientName = S(root, "debt_client_name");
+                clientPhone = S(root, "debt_client_phone");
+            }
+
+            decimal? received = method == "cash" && sale.CashReceived is { } got ? (decimal)got : null;
+            decimal? change = method == "cash" && sale.ChangeDue is { } back ? (decimal)back : null;
+            var soldAt = new DateTimeOffset(sale.SoldAt);
+            _ = Task.Run(() => SaleReturnLedger.RememberPayment(saleId, total, method, paidCash, paidNonCash, received, change, linesTotal, soldAt,
+                dueDate, schedule, clientName, clientPhone));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Продажа не записана в журнал возвратов: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>2026-10-20 (живой аудит кассы, К12): после оплаты долга «Касса» в шапке не менялась до следующей продажи.
+    /// Долг изменился (оплата в этой кассе, в программе владельца, на соседней кассе) — остаток смены с сервера, как после продажи.</summary>
+    private void OnClientDebtChangedRefreshBalance(string? clientId, string? operationKey) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_session.IsShiftOpen)
+                OnCheckoutSucceeded(this, EventArgs.Empty);
+        });
+
     /// <param name="afterSale">2026-10-04, отчёт о производительности (п. 8): после оплаты список открытых смен
     /// уже спросила проверка смены кассы (ShiftStateService) — остаток берём из её ответа, а не вторым
     /// таким же запросом.</param>
@@ -1335,8 +1613,36 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>2026-10-18, аудит доступов: открыть/закрыть смену — доступ «Смены».</summary>
+    private bool AuthorizeShifts()
+    {
+        if (_permissions.HasPermission(PosPermissions.ViewShifts))
+            return true;
+        PosLogger.Log($"Permission denied: {PosPermissions.ViewShifts}", "WARNING");
+        _prompts.ShowWarning(PermissionService.CashierWorkDeniedMessage(PosPermissions.ViewShifts));
+        return false;
+    }
+
+    /// <summary>2026-10-18, ревью безопасности: выход с «Закрыть смену», а доступа «Смены» нет — явно сказать,
+    /// что смена ОСТАЛАСЬ открытой (выход при этом продолжается, как при «Выйти без закрытия»). true — доступа нет, смену не закрываем.</summary>
+    private bool WarnShiftLeftOpenIfDenied()
+    {
+        if (!_session.IsShiftOpen || _permissions.HasPermission(PosPermissions.ViewShifts))
+            return false;
+        _prompts.ShowWarning(Tr.T(
+            "Смена осталась ОТКРЫТОЙ: у вас нет доступа «Смены». Закрыть её может владелец или сотрудник с этим доступом.",
+            "Смена АЧЫК бойдон калды: сизде «Сменалар» укугу жок. Аны ээси же ушул укугу бар кызматкер жаба алат.",
+            "The shift is still OPEN: you don't have the “Shifts” permission. The owner or an employee with this permission can close it.",
+            "Vardiya AÇIK kaldı: «Vardiyalar» erişiminiz yok. Sahibi veya bu erişime sahip bir personel kapatabilir.",
+            "Smena OCHIQ qoldi: sizda «Smenalar» huquqi yo'q. Uni egasi yoki shu huquqqa ega xodim yopishi mumkin."));
+        return true;
+    }
+
     internal async Task OpenShiftAsync()
     {
+        if (!_session.IsShiftOpen && !AuthorizeShifts())
+            return;
+
         if (_session.IsShiftOpen)
         {
             // Вторая смена поверх незакрытой осиротила бы продажи прежней смены.
@@ -1355,9 +1661,14 @@ public partial class MainWindow : Window
 
     internal Task CloseShiftAsync() => CloseShiftAsync(confirmUnfinishedReceipt: true);
 
-    private async Task CloseShiftAsync(bool confirmUnfinishedReceipt)
+    /// <param name="allowWithoutShiftsRight">2026-10-18, решение владельца: true — только из «Сменить кассира»: кассиру без
+    /// доступа «Смены» разрешено передать кассу (закрыть смену при передаче). Обычное закрытие — с проверкой доступа.</param>
+    private async Task CloseShiftAsync(bool confirmUnfinishedReceipt, bool allowWithoutShiftsRight = false)
     {
         if (!_session.IsShiftOpen)
+            return;
+
+        if (!allowWithoutShiftsRight && !AuthorizeShifts())
             return;
 
         if (confirmUnfinishedReceipt && !await ConfirmDiscardUnfinishedReceiptAsync().ConfigureAwait(true))
@@ -1379,7 +1690,7 @@ public partial class MainWindow : Window
         if (await PosDialogHost.ShowAsync(dlg, this).ConfigureAwait(true) != true)
             return;
 
-        await ApplyShiftClosedAsync(dlg.ClosingCash).ConfigureAwait(true);
+        await ApplyShiftClosedAsync(dlg.ClosingCash, allowWithoutShiftsRight).ConfigureAwait(true);
     }
 
     /// <summary>Фоновая часть исправления из CloseShiftAsync — см. её комментарий.</summary>
@@ -1499,6 +1810,8 @@ public partial class MainWindow : Window
             return;
         }
         var dlg = App.GetRequiredService<ReturnSaleDialog>();
+        // 2026-10-21 (пакет 6, п. 35): касса не на весь экран — окно возврата на её месте и её размера.
+        dlg.FitToOwnerWindow(this);
 #if NURANDROID
         // 2026-10-04, Android-касса: без вложенного цикла — остаток смены обновляем после закрытия окна возврата.
         _ = PosDialogHost.ShowAsync(dlg, this).ContinueWith(
@@ -1536,7 +1849,21 @@ public partial class MainWindow : Window
     internal void NavigateFinance()
     {
         // 2026-10-01: «Финансы» — флаг «Аналитика» сайта (раньше без проверки).
-        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewAnalytics))
+        // 2026-10-18, решение владельца: пункт «Продажи и финансы» (вместо «Финансов» и «Продаж»). Части — по правам и
+        // «Разделам меню», как было у каждого пункта: «Продажи» — право «Продажи», «Финансы» — «Аналитика». Обе — окно
+        // «Финансов» с вкладкой «Чеки» из «Продаж» (FinanceWindow.Merged.cs); одна — её прежнее окно.
+        if (!OwnerSectionAvailable())
+            return;
+        var sales = _permissions.HasPermission(PosPermissions.ViewSales) && !SectionVisibility.IsHidden("kassa.sales");
+        var finance = _permissions.HasPermission(PosPermissions.ViewAnalytics) && !SectionVisibility.IsHidden("kassa.finance");
+        if (sales && finance)
+        {
+            _viewModel.CloseSideMenu();
+            App.GetRequiredService<FinanceWindow>().AsSalesAndFinance().Show(this);
+        }
+        else if (sales)
+            ShowModuleWindow<SalesWindow>();
+        else if (Authorize(PosPermissions.ViewAnalytics))
             ShowModuleWindow<FinanceWindow>();
     }
 
@@ -1658,10 +1985,14 @@ public partial class MainWindow : Window
 
                 if (shiftResult == Views.Dialogs.ShiftNotClosedDialogResult.CloseShift)
                 {
-                    if (!await ConfirmDiscardUnfinishedReceiptAsync().ConfigureAwait(true))
-                        return;
+                    // 2026-10-18: без доступа «Смены» — смена остаётся открытой (сказано явно), чек не трогаем.
+                    if (!WarnShiftLeftOpenIfDenied())
+                    {
+                        if (!await ConfirmDiscardUnfinishedReceiptAsync().ConfigureAwait(true))
+                            return;
 
-                    await CloseShiftAsync(confirmUnfinishedReceipt: false).ConfigureAwait(true);
+                        await CloseShiftAsync(confirmUnfinishedReceipt: false).ConfigureAwait(true);
+                    }
                 }
                 // LogoutOnly: смена намеренно остаётся открытой — например, кассир передаёт
                 // кассу другому сотруднику посреди смены, не проводя закрытие/пересчёт кассы.
@@ -1685,6 +2016,17 @@ public partial class MainWindow : Window
         RefreshUiScale();
         if (!_appInitialized)
             await InitializeApplicationAsync(null, _windowCts.Token).ConfigureAwait(true);
+
+        // 2026-10-18, аудит доступов: без доступа «Интерфейс кассира» в кассу не пускаем — понятное сообщение
+        // и окно входа. Ревью безопасности 18.10 (решение владельца): сохранённый вход НЕ стираем — после
+        // включения доступа на сайте касса снова войдёт им (без связи — когда сохранённый вход узнает о доступе).
+        if (!_permissions.HasPermission(PosPermissions.ViewCashier))
+        {
+            PosLogger.Log("Вход в кассу: нет доступа «Интерфейс кассира» — окно входа, сохранённый вход оставлен.", "AUTH");
+            _prompts.ShowWarning(PermissionService.CashierWorkDeniedMessage(PosPermissions.ViewCashier));
+            await NavigateToLoginAsync(keepSavedLogin: true).ConfigureAwait(true);
+            return;
+        }
 
         // Здесь (а не в InitializeApplicationAsync) — окно уже гарантированно видимо и может
         // быть owner'ом диалога, независимо от того, был ли _appInitialized уже true к этому
@@ -1926,10 +2268,14 @@ public partial class MainWindow : Window
                     return;
                 if (shiftResult == Views.Dialogs.ShiftNotClosedDialogResult.CloseShift)
                 {
-                    if (!await ConfirmDiscardUnfinishedReceiptAsync().ConfigureAwait(true))
-                        return;
+                    // 2026-10-18: без доступа «Смены» — смена остаётся открытой (сказано явно), чек не трогаем.
+                    if (!WarnShiftLeftOpenIfDenied())
+                    {
+                        if (!await ConfirmDiscardUnfinishedReceiptAsync().ConfigureAwait(true))
+                            return;
 
-                    await CloseShiftAsync(confirmUnfinishedReceipt: false).ConfigureAwait(true);
+                        await CloseShiftAsync(confirmUnfinishedReceipt: false).ConfigureAwait(true);
+                    }
                 }
             }
 
@@ -2000,11 +2346,14 @@ public partial class MainWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         _applicationStateService.CancelPendingSave();
+        // 2026-10-18, ревью этапа 6: таймер плашки «Продажа прошла» (40 мс) не должен пережить окно.
+        SaleDoneBar.Dismiss();
         ServerOutageMonitor.Recovered -= OnServerRecovered;
         ServerOutageMonitor.QueueFlushed -= OnQueueFlushed;
         MarketSpheres.Changed -= OnMarketSphereChanged;
         Screens.Changed -= OnCashierScreensChanged;
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
+        PosDataEvents.ClientDebtChanged -= OnClientDebtChangedRefreshBalance;
         _voiceControl.CommandRecognized -= OnVoiceCommandRecognized;
         _voiceControl.Stop();
         _telegramRetryTimer?.Stop();
@@ -2268,7 +2617,50 @@ public partial class MainWindow : Window
     {
         _viewModel.CloseSideMenu();
         var window = App.GetRequiredService<T>();
+        // 2026-10-21 (пакет 6, п. 68): немодальное «Некорректные чеки» закрывалось только мышью — Esc закрывает его, как
+        // остальные окна (у тех Esc уже свой: IsCancel или обработчик клавиш).
+        if (window is IrregularReceiptsWindow)
+            window.KeyDown += (_, e) =>
+            {
+                if (e.Key == Key.Escape && !e.Handled)
+                {
+                    e.Handled = true;
+                    window.Close();
+                }
+            };
         window.Show(this);
+    }
+
+    private static bool _accessibleNamesRegistered;
+
+    /// <summary>2026-10-21 (пакет 6, п. 68): у кнопок-значков (☰, вид каталога, обновить, ⋮, шапка…) экранный диктор
+    /// читал «Avalonia.Controls.PathIcon» — имени не было. Кнопке без своего имени при показе даётся имя из подсказки
+    /// (ToolTip) или из подписи внутри (TextBlock, кроме значков шрифта Segoe MDL2). Заданные имена не трогаются.</summary>
+    private static void RegisterAccessibleButtonNames()
+    {
+        if (_accessibleNamesRegistered)
+            return;
+        _accessibleNamesRegistered = true;
+        Control.LoadedEvent.AddClassHandler<Button>((button, _) =>
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(Avalonia.Automation.AutomationProperties.GetName(button)) || button.Content is string)
+                    return;
+                var name = ToolTip.GetTip(button) as string;
+                if (string.IsNullOrWhiteSpace(name))
+                    name = string.Join(" ", Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(button)
+                        .OfType<TextBlock>()
+                        .Select(t => t.Text?.Trim() ?? "")
+                        .Where(t => t.Length > 0 && !t.All(ch => ch is >= '\uE000' and <= '\uF8FF')));
+                if (!string.IsNullOrWhiteSpace(name))
+                    Avalonia.Automation.AutomationProperties.SetName(button, name.Length > 120 ? name[..120] : name);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Имя кнопки для диктора не задано: {ex.Message}", "UI");
+            }
+        });
     }
 
     private async Task RefreshShiftStateAsync(CancellationToken cancellationToken, TimeSpan? balanceTimeout = null)
@@ -2506,6 +2898,9 @@ public partial class MainWindow : Window
 
     private async Task ApplyShiftOpenedAsync(decimal openingCash)
     {
+        // 2026-10-18: и из окна «Операции с кассой» — тоже только с доступом «Смены».
+        if (!AuthorizeShifts())
+            return;
         NurMarketKassa.App.SyncFromSession(_session);
         var result = await _cashShiftService.OpenShiftAsync(openingCash, _windowCts.Token).ConfigureAwait(true);
         if (!result.IsSuccess)
@@ -2523,8 +2918,14 @@ public partial class MainWindow : Window
         _shiftCashBalance = result.Balance ?? openingCash;
         UpdateShiftBalanceUi();
         _viewModel.Toolbar.NotifyShiftStateChanged();
-        _viewModel.SideMenu.ShiftBalanceText = ShiftBalanceHelper.FormatBalance(EffectiveShiftCashBalance);
-        _viewModel.Catalog.StatusText = Tr.T($"Смена открыта. Остаток: {openingCash:0.00} сом", $"Смена ачылды. Калдык: {openingCash:0.00} сом", $"Shift opened. Opening balance: {openingCash:0.00} som", $"Vardiya açıldı. Bakiye: {openingCash:0.00} som", $"Smena ochildi. Qoldiq: {openingCash:0.00} so'm");
+        // 2026-10-17: текст меню уже поставил UpdateShiftBalanceUi (он же скрывает сумму при слепом пересчёте).
+        // 2026-10-20 (живой аудит кассы, К18): «Остаток: 0,00» под поиском не менялся после продаж и путал с «Касса» в шапке —
+        // теперь это явно начальная сумма и время открытия (текущая сумма — в шапке).
+        var openedText = DateTime.Now.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+        var openingText = MoneyText.Som(openingCash);
+        _viewModel.Catalog.StatusText = Tr.T($"Смена открыта в {openedText}, начальная сумма {openingText}.", $"Смена {openedText} ачылды, баштапкы сумма {openingText}.",
+            $"Shift opened at {openedText}, opening cash {openingText}.", $"Vardiya {openedText} açıldı, başlangıç tutarı {openingText}.",
+            $"Smena {openedText} da ochildi, boshlang'ich summa {openingText}.");
         if (UserPreferences.Instance.CustomerDisplay.IsEnabled)
         {
             var displayResult = _customerDisplay.OpenForSession(this);
@@ -2535,9 +2936,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task ApplyShiftClosedAsync(decimal? closingCash)
+    private async Task ApplyShiftClosedAsync(decimal? closingCash, bool allowWithoutShiftsRight = false)
     {
-        if (!_session.IsShiftOpen)
+        if (!_session.IsShiftOpen || (!allowWithoutShiftsRight && !AuthorizeShifts()))
             return;
 
         NurMarketKassa.App.SyncFromSession(_session);
@@ -2555,7 +2956,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(result.InfoMessage))
             _prompts.ShowToast(result.InfoMessage);
 
-        _viewModel.Basket.ClearAfterShiftClose();
+        _viewModel.Basket.ClearAfterShiftClose(shiftIdBeforeClose); // 2026-10-17, этап 4: смена — для журнала удалений
         NurMarketKassa.App.SyncToSession(_session);
 
         _shiftCashBalance = result.Balance ?? closingCash ?? 0m;
@@ -2628,6 +3029,78 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"ShowShiftClosedReport failed: {ex.Message}", "SHIFT");
+        }
+    }
+
+    private bool _xReportOpening;
+
+    /// <summary>2026-10-20 (живой аудит кассы, К16): «X-отчёт» из меню ☰ — текущие цифры открытой смены без её закрытия (то же
+    /// окно «Просмотр смены», что после закрытия: продажи, наличные/безнал, возвраты, оплаты долга, внесения/изъятия).</summary>
+    internal async void ShowXReport()
+    {
+        if (_xReportOpening)
+            return;
+        _viewModel.CloseSideMenu();
+        var shiftId = _session.ActiveShiftId;
+        if (!_session.IsShiftOpen || string.IsNullOrWhiteSpace(shiftId))
+        {
+            _prompts.ShowToast(Tr.T("Смена не открыта — X-отчёта нет.", "Смена ачылган эмес — X-отчёт жок.", "The shift is not open — no X-report.",
+                "Vardiya açık değil — X raporu yok.", "Smena ochilmagan — X-hisobot yo'q."), isWarning: true);
+            return;
+        }
+
+        _xReportOpening = true;
+        try
+        {
+            ShiftModel? shift = null;
+            if (!ServerOutageMonitor.IsOutage && !shiftId.StartsWith("offline-", StringComparison.OrdinalIgnoreCase))
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(_windowCts.Token);
+                cts.CancelAfter(TimeSpan.FromSeconds(8));
+                try
+                {
+                    if (await ShiftHistoryService.LoadOneAsync(shiftId, cts.Token).ConfigureAwait(true) is { } entry)
+                        shift = ShiftModel.FromEntry(entry);
+                }
+                catch (Exception ex) when (!_windowCts.IsCancellationRequested)
+                {
+                    PosLogger.Log($"X-отчёт: смена с сервера не получена, показываю цифры кассы: {ex.Message}", "SHIFT");
+                }
+            }
+
+            var totals = _shiftTotals;
+            shift ??= new ShiftModel
+            {
+                Id = shiftId,
+                ShiftNumber = shiftId,
+                OpenedAt = totals?.OpenedAt,
+                Cashier = NurMarketKassa.PosApp.CurrentUserDisplayName ?? "—",
+                Status = "Открыта",
+                Revenue = totals?.TotalSales ?? 0m,
+                OpeningCash = totals?.OpeningCash,
+                CashSales = totals?.CashSales,
+                NonCashSales = totals?.NonCashSales,
+                DebtSales = totals?.DebtSales,
+                SalesCount = totals?.SalesCount,
+                ExpenseTotal = totals?.ExpenseTotal,
+                IncomeTotal = totals?.IncomeTotal,
+            };
+            var dialog = new ShiftDetailsDialog(shift)
+            {
+                Title = Tr.T("X-отчёт (смена не закрывается)", "X-отчёт (смена жабылбайт)", "X-report (the shift stays open)",
+                    "X raporu (vardiya kapanmaz)", "X-hisobot (smena yopilmaydi)"),
+            };
+            PosLogger.Log($"X-отчёт открыт: смена {shiftId}.", "SHIFT");
+            await PosDialogHost.ShowAsync(dialog, this).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"X-отчёт не открылся: {ex}", "WARNING");
+        }
+        finally
+        {
+            _xReportOpening = false;
+            RestoreScannerFocus();
         }
     }
 
@@ -2788,19 +3261,30 @@ public partial class MainWindow : Window
         var balance = EffectiveShiftCashBalance;
         var balanceText = _session.IsShiftOpen
             ? Tr.T($"Касса: {ShiftBalanceHelper.FormatBalance(balance)}", $"Касса: {ShiftBalanceHelper.FormatBalance(balance)}", $"Till: {ShiftBalanceHelper.FormatBalance(balance)}", $"Kasa: {ShiftBalanceHelper.FormatBalance(balance)}", $"Kassa: {ShiftBalanceHelper.FormatBalance(balance)}")
-            : Tr.T("Касса: 0.00 сом", "Касса: 0.00 сом", "Till: 0.00 som", "Kasa: 0.00 som", "Kassa: 0.00 so'm");
+            // 2026-10-20 (живой аудит кассы, К18): «0,00 сом», как после открытия смены.
+            : Tr.T("Касса: ", "Касса: ", "Till: ", "Kasa: ", "Kassa: ") + MoneyText.Som(0m);
 
         _viewModel.Toolbar.Status.SetShiftBalance(balance ?? 0m);
         _viewModel.SideMenu.ShiftBalanceText = _session.IsShiftOpen
             ? ShiftBalanceHelper.FormatBalance(balance)
             : Tr.T("Смена не открыта", "Смена ачылган эмес", "Shift not open", "Vardiya açık değil", "Smena ochilmagan");
+
+        // 2026-10-17, ревью этапа 1: при слепом пересчёте (Настройки → Операции) сумма в ящике не показывается
+        // в шапке и меню — иначе кассир видит ожидаемое и «слепой» пересчёт теряет смысл.
+        if (_session.IsShiftOpen && UserPreferences.Instance.BlindCashCount)
+        {
+            balanceText = Tr.T("Касса: скрыто", "Касса: жашырылган", "Till: hidden", "Kasa: gizli", "Kassa: yashirilgan");
+            _viewModel.SideMenu.ShiftBalanceText = Tr.T("скрыто (слепой пересчёт)", "жашырылган (сокур эсептөө)", "hidden (blind count)", "gizli (kör sayım)", "yashirilgan (ko'r sanash)");
+        }
         _viewModel.SideMenu.RefreshSessionInfo();
 
         if (_viewModel.Toolbar.Status.ShiftBalanceText != balanceText)
             _viewModel.Toolbar.Status.ShiftBalanceText = balanceText;
     }
 
-    private async Task NavigateToLoginAsync()
+    /// <param name="keepSavedLogin">2026-10-18, ревью безопасности: true — отказ по доступу «Интерфейс кассира»:
+    /// сохранённый вход (auth.dat) НЕ стирается, чтобы после включения доступа на сайте войти снова (и без связи).</param>
+    private async Task NavigateToLoginAsync(bool keepSavedLogin = false)
     {
         FrmKeyboard.KillKeyboard();
 
@@ -2815,12 +3299,18 @@ public partial class MainWindow : Window
             PosLogger.Log($"Window already closing: {ex.GetType().Name}", "DEBUG");
         }
 
+        // 2026-10-18, ревью безопасности (П4): выход — облачные настройки следующего входа получаются заново, отложенная
+        // отправка этого пользователя не уйдёт под чужим входом.
+        SettingsCloudSync.OnUserChanged(null);
         App.AuthApi.ClearSession();
         // Logout is explicit: remove the DPAPI session as well as in-memory tokens.
-        await App.GetRequiredService<NurMarketKassa.Core.Contracts.IAuthSessionManager>()
-            .ClearSessionAsync()
-            .ConfigureAwait(true);
-        OfflineAuthSessionStore.Clear();
+        if (!keepSavedLogin)
+        {
+            await App.GetRequiredService<NurMarketKassa.Core.Contracts.IAuthSessionManager>()
+                .ClearSessionAsync()
+                .ConfigureAwait(true);
+            OfflineAuthSessionStore.Clear();
+        }
         App.PosCashboxId = null;
         // App.PosCashboxId (NurMarketKassa.AvaloniaHost.App) и PosApp.PosCashboxId
         // (Infrastructure) — два НЕЗАВИСИМЫХ статических поля, несмотря на похожие имена;

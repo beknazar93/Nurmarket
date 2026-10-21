@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
@@ -43,10 +43,17 @@ public sealed class AvaloniaWindowService : IWindowService
                     $"owner={owner.GetType().Name}, visible={owner.IsVisible}, active={owner.IsActive}",
                     "PAYMENT");
 
+                // 2026-10-17, редизайн (этап 2): окно оплаты — панелью у правого края главного окна; место и
+                // размер ставятся до показа, чтобы окно не прыгало из центра. Не вышло — по центру, как раньше.
+                (window as CheckoutDialog)?.DockTo(owner);
+
                 return await window.ShowDialog<TResult?>(owner).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
+                // 2026-10-17, ревью этапа 2: окно оплаты не открылось — Closed не придёт, отписываем его от
+                // главного окна сразу (иначе главное окно держало бы окно оплаты и его модель до выхода).
+                (window as CheckoutDialog)?.DetachDockOwner();
                 PosLogger.Log(
                     $"ShowDialogAsync<{typeof(TViewModel).Name}> failed: {ex}",
                     "PAYMENT");

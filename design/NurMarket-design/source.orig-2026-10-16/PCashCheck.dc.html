@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Чек — отправить, печать</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.rl{display:flex;justify-content:space-between;font-size:13px}
+.act{height:72px;border-radius:16px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:700;color:#344054}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 8px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад к чекам" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 18px; font-weight: 800">Чек [№]</b><span style="font-size: 12px; color: #667085">[дата, время] · Кассир Тест</span></span>
+  </header>
+
+  <main style="flex-grow: 1; padding: 8px 16px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: center; gap: 10px; border-radius: 14px; background: #FEF3E2; padding: 10px 12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B54708" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01"></path></svg><span style="font-size: 12px; font-weight: 600; color: #93370D">Нет связи — чек сохранён и уйдёт на сервер сам</span></div>
+
+    <section style="background: #FFFFFF; border-radius: 18px; padding: 18px 18px 22px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 2px rgba(16,24,40,.05)">
+      <b style="font-size: 16px; text-align: center">NBS</b>
+      <span style="font-size: 12px; color: #667085; text-align: center">[адрес магазина]</span>
+      <span style="border-top: 1px dashed #D0D5DD; margin: 6px 0"></span>
+      <div class="rl"><span>Макароны «Макфа» спагетти 450г</span></div>
+      <div class="rl" style="color: #667085"><span>2 × 85</span><b style="color: #111827">170</b></div>
+      <div class="rl"><span>Mars</span></div>
+      <div class="rl" style="color: #667085"><span>1 × 39</span><b style="color: #111827">39</b></div>
+      <span style="border-top: 1px dashed #D0D5DD; margin: 6px 0"></span>
+      <div class="rl" style="font-size: 16px"><b>Итого</b><b style="color: #0B2A3C">209 сом</b></div>
+      <div class="rl" style="color: #475467"><span>Наличные</span><span>500</span></div>
+      <div class="rl" style="color: #475467"><span>Сдача</span><span>291</span></div>
+    </section>
+
+    <span style="font-size: 11px; font-weight: 700; color: #667085; letter-spacing: .03em">ОТПРАВИТЬ ПОКУПАТЕЛЮ</span>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+      <button type="button" class="act"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0E7A3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 7.7 19.4z"></path></svg>WhatsApp</button>
+      <button type="button" class="act"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l6 2 2 6 3-4 5 4z"></path></svg>Telegram</button>
+      <button type="button" class="act"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"></path><rect x="6" y="14" width="12" height="7"></rect></svg>На кассе</button>
+    </div>
+    <button type="button" disabled="" style="height: 48px; border-radius: 14px; border: 1px dashed #D0D5DD; background: transparent; font-family: inherit; font-size: 13px; font-weight: 600; color: #667085; display: flex; align-items: center; justify-content: center; gap: 8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Возврат — с разрешения администратора</button>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

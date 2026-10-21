@@ -1,8 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using NurMarketKassa.AvaloniaHost.Views.Main.Controls;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.ViewModels.Main;
@@ -38,6 +41,31 @@ public class KassaLayoutBase : UserControl, ICatalogKeyboardSurface
     }
 
     private ListBox? VisibleProductList => _productLists.FirstOrDefault(l => l.IsEffectivelyVisible);
+
+    /// <summary>2026-10-19, К1 (доработка по снимку «Карточек»: справа пустая полоса ~110 px): плитки списка — на всю
+    /// ширину ряда, как в «Классике» (CatalogPanelView.FitTilesToRowDesktop). Ширина плитки — ресурс LxTileWidth этой
+    /// раскладки (разметка: Width="{DynamicResource LxTileWidth}"); столбцов — с округлением вверх от желаемой
+    /// ширины, но плитка не уже 85 % желаемой и не уже 140. Только вид: список, команды и клавиатура прежние.</summary>
+    protected void FitTilesToRow(ListBox listBox, double preferredWidth, double slotMargin)
+    {
+        Resources["LxTileWidth"] = preferredWidth;
+        void Fit()
+        {
+            var scroller = listBox.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+            var available = (scroller is { Viewport.Width: > 1 } ? scroller.Viewport.Width : listBox.Bounds.Width) - 2;
+            if (available < preferredWidth + slotMargin)
+                return;
+            var minWidth = Math.Max(140, preferredWidth * 0.85);
+            var columns = Math.Max(1, (int)Math.Ceiling(available / (preferredWidth + slotMargin)));
+            while (columns > 1 && available / columns - slotMargin < minWidth)
+                columns--;
+            var width = Math.Floor(available / columns - slotMargin);
+            if (Resources.TryGetValue("LxTileWidth", out var old) && old is double w && Math.Abs(w - width) < 0.5)
+                return;
+            Resources["LxTileWidth"] = width;
+        }
+        listBox.SizeChanged += (_, _) => Dispatcher.UIThread.Post(Fit, DispatcherPriority.Background);
+    }
 
     public bool TryEnterCatalogNavigation()
     {
@@ -100,6 +128,16 @@ public class KassaLayoutBase : UserControl, ICatalogKeyboardSurface
         basket.PreferredPaymentMethod = method;
         basket.PayCommand.Execute(null);
     }
+
+    /// <summary>2026-10-20, проверка фильтров: «Фильтр» есть и в раскладках (было только в «Классике») — то же окно; число на
+    /// кнопке — сколько условий включено (Catalog.ActiveFilterCount), «✕» — сбросить.</summary>
+    protected void OpenFilter_Click(object? sender, RoutedEventArgs e)
+    {
+        if (Vm?.Catalog is { } catalog)
+            CatalogPanelView.OpenFilterFor(catalog, this);
+    }
+
+    protected void ResetFilter_Click(object? sender, RoutedEventArgs e) => Vm?.Catalog?.ResetAdvancedFilter();
 
     /// <summary>Вкладка каталога (Все / Весовые / Штучные / …) по номеру из Tag кнопки.</summary>
     protected void CatalogTab_Click(object? sender, RoutedEventArgs e)

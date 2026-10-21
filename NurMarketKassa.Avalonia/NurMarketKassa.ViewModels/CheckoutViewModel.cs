@@ -105,7 +105,8 @@ namespace NurMarketKassa.ViewModels
         private string _newClientPhone = "";
         private string _newClientAddress = "";
         private bool _isAddingClient;
-        private string _debtCashReceived = "0.00";
+        // 2026-10-20, владелец (долг Д3): показ «0,00», как суммы везде; ввод принимает и точку, и запятую (ParseNonNegative).
+        private string _debtCashReceived = "0,00";
         private string _mixedCashAmount = "";
         private string _mixedNonCashAmount = "";
 
@@ -224,16 +225,24 @@ namespace NurMarketKassa.ViewModels
         /// ИТОГОВОЙ суммы к оплате (после всех скидок и списания баллов), не от подытога, чтобы
         /// не начислять бонусы на уже списанные бонусы.</summary>
         // 2026-10-05: процент и «баллы включены» — из настройки магазина на сервере (ServerLoyalty), без связи — последние.
+        // 2026-10-20 (живой аудит кассы, К13): бонусы начисляет касса (CreditOrRedeemLoyaltyPoints → ServerLoyalty «earn»), и на
+        // продажу «в долг» они начислялись со всей суммы (+0,6 при неоплаченном чеке). Теперь у долга — только с внесённой
+        // сейчас части; погашение долга позже бонусов не даёт (правила бонусов: начисляются при оплате чека).
         public double EarnedPointsPreview => LoyaltyEnabled && HasSelectedClient && ServerLoyalty.EarnEnabled
-            ? Math.Round(_effectiveTotalDue * ServerLoyalty.EarnPercent / 100.0, 2)
+            ? Math.Round(EarnBase * ServerLoyalty.EarnPercent / 100.0, 2)
             : 0;
 
+        private double EarnBase => IsDebtMode
+            ? Math.Clamp(ParseNonNegative(_debtCashReceived) ?? 0, 0, Math.Max(0, _effectiveTotalDue))
+            : _effectiveTotalDue;
+
+        // 2026-10-20 (живой аудит кассы, К18): «2,60 сом» (MoneyText) вместо «2,6 сом».
         public string EarnedPointsPreviewDisplay => Tr.T(
-            $"За этот чек начислится: {EarnedPointsPreview:0.##} сом бонусов",
-            $"Бул чек үчүн кошулат: {EarnedPointsPreview:0.##} сом бонус",
-            $"Points earned on this receipt: {EarnedPointsPreview:0.##} som",
-            $"Bu fişten kazanılacak puan: {EarnedPointsPreview:0.##} som",
-            $"Bu chek uchun beriladigan bonus: {EarnedPointsPreview:0.##} so'm");
+            $"За этот чек начислится: {MoneyText.Som(EarnedPointsPreview)} бонусов",
+            $"Бул чек үчүн кошулат: {MoneyText.Som(EarnedPointsPreview)} бонус",
+            $"Points earned on this receipt: {MoneyText.Som(EarnedPointsPreview)}",
+            $"Bu fişten kazanılacak puan: {MoneyText.Som(EarnedPointsPreview)}",
+            $"Bu chek uchun beriladigan bonus: {MoneyText.Som(EarnedPointsPreview)}");
 
         public double EffectiveTotalDue => _effectiveTotalDue;
 
@@ -248,14 +257,16 @@ namespace NurMarketKassa.ViewModels
                 ? debtPaidNow
                 : _effectiveTotalDue;
 
+        // 2026-10-19, К1: суммы окна оплаты — одним видом «1 234,50» (MoneyText), как в чеке; только показ,
+        // поля ввода (CashReceived и т.п.) и расчёт — по-прежнему «0.00» InvariantCulture.
         public string BigTotalDisplay =>
-            EffectivePayableNow.ToString("0.00", CultureInfo.InvariantCulture);
+            MoneyText.Amount(EffectivePayableNow);
 
         public string SubtotalDisplay =>
-            $"{_subtotal.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+            MoneyText.Som(_subtotal);
 
         public string DiscountSummaryDisplay =>
-            $"{_orderDiscountAmount.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+            MoneyText.Som(_orderDiscountAmount);
 
         /// <summary>Раньше видимость плашки скидки была завязана на "!!DiscountSummaryDisplay" —
         /// эта строка НИКОГДА не пуста (даже "0.00 сом" без реальной скидки), так что красная
@@ -264,19 +275,33 @@ namespace NurMarketKassa.ViewModels
         public bool HasDiscount => _orderDiscountAmount > 0.005;
 
         public string PayableDisplay =>
-            $"{EffectivePayableNow.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+            MoneyText.Som(EffectivePayableNow);
 
         public string PayButtonText
         {
             get
             {
                 var amount = EffectivePayableNow;
-                return $"{Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash")} {amount.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+                // 2026-10-20, владелец (долг Д4): «В долг 22,00 сом» без внесения; «Получить 5,00 · в долг 17,00» при частичном.
+                if (IsDebtMode)
+                {
+                    var paidNow = Math.Clamp(ParseNonNegative(_debtCashReceived) ?? 0, 0, Math.Max(0, _effectiveTotalDue));
+                    var debtLeft = Math.Max(0, _effectiveTotalDue - paidNow);
+                    return paidNow > 0.005
+                        ? Tr.T($"Получить {MoneyText.Amount(paidNow)} · в долг {MoneyText.Amount(debtLeft)}",
+                            $"Алуу {MoneyText.Amount(paidNow)} · карызга {MoneyText.Amount(debtLeft)}",
+                            $"Take {MoneyText.Amount(paidNow)} · on credit {MoneyText.Amount(debtLeft)}",
+                            $"Al {MoneyText.Amount(paidNow)} · veresiye {MoneyText.Amount(debtLeft)}",
+                            $"Olish {MoneyText.Amount(paidNow)} · qarzga {MoneyText.Amount(debtLeft)}")
+                        : Tr.T($"В долг {MoneyText.Som(debtLeft)}", $"Карызга {MoneyText.Som(debtLeft)}", $"On credit {MoneyText.Som(debtLeft)}",
+                            $"Veresiye {MoneyText.Som(debtLeft)}", $"Qarzga {MoneyText.Som(debtLeft)}");
+                }
+                return $"{Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash")} {MoneyText.Som(amount)}";
             }
         }
 
         public string ChangeAmountDisplay =>
-            _changeAmount.ToString("0.00", CultureInfo.InvariantCulture);
+            MoneyText.Amount(_changeAmount);
 
         public string ChangeStatusText =>
             IsCashMode
@@ -437,6 +462,23 @@ namespace NurMarketKassa.ViewModels
             }
         }
 
+        /// <summary>2026-10-20 (живой аудит кассы, К7): «Печатать чек после оплаты» в Настройках — главный выключатель; без
+        /// него чек не печатается при любом положении «Напечатать чек» (переключатель в окне оплаты тогда неактивен).</summary>
+        public bool IsPrintReceiptAvailable => UserPreferences.Instance.ReceiptEnabled;
+
+        /// <summary>2026-10-20 (К7): подпись под «Напечатать чек» — откуда положение и что выбор запоминается.</summary>
+        public string PrintReceiptHint => UserPreferences.Instance.ReceiptEnabled
+            ? Tr.T("Выбор запоминается для следующих чеков. Главный выключатель — Настройки → Печать.",
+                "Тандоо кийинки чектер үчүн эсте калат. Негизги которгуч — Жөндөөлөр → Басып чыгаруу.",
+                "Your choice is remembered for the next receipts. The main switch is in Settings → Printing.",
+                "Seçiminiz sonraki fişler için hatırlanır. Ana anahtar: Ayarlar → Yazdırma.",
+                "Tanlov keyingi cheklar uchun eslab qolinadi. Asosiy kalit — Sozlamalar → Chop etish.")
+            : Tr.T("Печать чеков выключена в Настройках → Печать («Печатать чек после оплаты»).",
+                "Чек басып чыгаруу Жөндөөлөр → Басып чыгарууда өчүрүлгөн («Төлөмдөн кийин чек басуу»).",
+                "Receipt printing is off in Settings → Printing (“Print receipt after payment”).",
+                "Fiş yazdırma Ayarlar → Yazdırma'da kapalı («Ödemeden sonra fiş yazdır»).",
+                "Chek chop etish Sozlamalar → Chop etishda o'chirilgan («To'lovdan keyin chek chop etish»).");
+
         /// <summary>2026-09-29: принтер не подключён и кассир выбрал «Продолжить без печати» — чек не
         /// печатается только в этой оплате. Это не выбор в переключателе, поэтому не запоминается.</summary>
         public void SkipPrintForThisPayment()
@@ -478,6 +520,38 @@ namespace NurMarketKassa.ViewModels
         public bool IsMixedMode => _paymentMethod == "mixed";
         public bool CanPay => CanExecutePay(null);
 
+        /// <summary>2026-10-21 (пакет 6, п. 15): почему «Оплатить» серая — кассир видел неактивную кнопку при продаже
+        /// «в долг» без пояснения (нужны клиент и срок). Пусто — кнопка активна или причина уже видна в поле суммы.</summary>
+        public string PayBlockedHint
+        {
+            get
+            {
+                if (CanPay)
+                    return "";
+                if (PaymentMethod == "debt")
+                {
+                    if (SelectedClient == null)
+                        return Tr.T("Чтобы продать в долг, выберите клиента.", "Карызга сатуу үчүн кардарды тандаңыз.",
+                            "To sell on credit, choose a client.", "Veresiye satış için müşteri seçin.", "Qarzga sotish uchun mijozni tanlang.");
+                    if (!IsDebtScheduleValid)
+                        return Tr.T("Укажите, до какого числа клиент вернёт долг: 7, 14, 30 дней или дату.",
+                            "Кардар карызды качанга чейин кайтарарын көрсөтүңүз: 7, 14, 30 күн же дата.",
+                            "Set the date the client will repay by: 7, 14, 30 days or a date.",
+                            "Müşterinin borcu ne zamana kadar ödeyeceğini belirtin: 7, 14, 30 gün veya tarih.",
+                            "Mijoz qarzni qachongacha qaytarishini ko'rsating: 7, 14, 30 kun yoki sana.");
+                    return Tr.T("Получено больше суммы чека — исправьте сумму.", "Алынган сумма чектен көп — сумманы оңдоңуз.",
+                        "Received is more than the receipt total — fix the amount.", "Alınan tutar fiş toplamından fazla — tutarı düzeltin.",
+                        "Olingan summa chekdan ko'p — summani to'g'rilang.");
+                }
+                if (PaymentMethod != "cash" && SelectedBank == null)
+                    return Tr.T("Выберите банк для безналичной оплаты.", "Накталай эмес төлөм үчүн банкты тандаңыз.",
+                        "Choose a bank for the cashless payment.", "Nakitsiz ödeme için banka seçin.", "Naqdsiz to'lov uchun bankni tanlang.");
+                return "";
+            }
+        }
+
+        public bool HasPayBlockedHint => PayBlockedHint.Length > 0;
+
         /// <summary>Сколько кассир получил сейчас при продаже «в долг» — остальное уходит в долг клиента.
         /// "0.00" по умолчанию (весь долг целиком), но можно указать частичную оплату.</summary>
         public string DebtCashReceived
@@ -490,6 +564,9 @@ namespace NurMarketKassa.ViewModels
                 _debtCashReceived = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(DebtRemainingText));
+                // 2026-10-20 (К13): бонусы у долга — с внесённой сейчас суммы.
+                OnPropertyChanged(nameof(EarnedPointsPreview));
+                OnPropertyChanged(nameof(EarnedPointsPreviewDisplay));
                 RaiseDebtScheduleChanged();
                 OnPropertyChanged(nameof(PayButtonText));
                 OnPropertyChanged(nameof(BigTotalDisplay));
@@ -505,7 +582,7 @@ namespace NurMarketKassa.ViewModels
             {
                 var paid = ParseNonNegative(_debtCashReceived) ?? 0;
                 var remaining = Math.Max(0, _effectiveTotalDue - paid);
-                return $"{Tr.T("Останется в долг", "Карызга калат", "Left as debt", "Borç olarak kalacak", "Qarz bo'lib qoladi")}: {remaining.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+                return $"{Tr.T("Останется в долг", "Карызга калат", "Left as debt", "Borç olarak kalacak", "Qarz bo'lib qoladi")}: {MoneyText.Som(remaining)}";
             }
         }
 
@@ -584,8 +661,8 @@ namespace NurMarketKassa.ViewModels
                 if (Math.Abs(remaining) < 0.005)
                     return Tr.T("Сумма сходится", "Сумма туура келет", "Amount matches", "Tutar uyuşuyor", "Summa mos keladi");
                 return remaining > 0
-                    ? $"{Tr.T("Не хватает", "Жетишсиз", "Still due", "Eksik", "Yetishmaydi")}: {remaining.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}"
-                    : $"{Tr.T("Лишнее", "Ашык", "Overpaid", "Fazla", "Ortiqcha")}: {(-remaining).ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+                    ? $"{Tr.T("Не хватает", "Жетишсиз", "Still due", "Eksik", "Yetishmaydi")}: {MoneyText.Som(remaining)}"
+                    : $"{Tr.T("Лишнее", "Ашык", "Overpaid", "Fazla", "Ortiqcha")}: {MoneyText.Som(-remaining)}";
             }
         }
 
@@ -760,7 +837,9 @@ namespace NurMarketKassa.ViewModels
         public System.Windows.Input.ICommand RentalCommand { get; private set; } = null!;
 
         /// <summary>Прокат — только в сферах «Одежда» и «Услуги».</summary>
-        public bool ShowRentalButton => HasRentableItems && (NurMarketKassa.Services.MarketSpheres.IsClothing || NurMarketKassa.Services.MarketSpheres.IsServices);
+        // 2026-10-20: прокат во всех сферах; скрыт галочкой «Прокат» в «Показывать разделы» — и кнопки нет.
+        public bool ShowRentalButton => HasRentableItems && NurMarketKassa.Services.MarketSpheres.HasRentals
+                                        && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.rental");
 
         /// <summary>В чеке есть товары (не только «Доп. услуги» и строка «Прокат №…») — их можно выдать в прокат.</summary>
         public bool HasRentableItems { get; set; } = true;
@@ -964,6 +1043,8 @@ namespace NurMarketKassa.ViewModels
         private void RaiseCommandsCanExecuteChanged()
         {
             OnPropertyChanged(nameof(CanPay));
+            OnPropertyChanged(nameof(PayBlockedHint));
+            OnPropertyChanged(nameof(HasPayBlockedHint));
             OnPropertyChanged(nameof(CashSuggestion1));
             OnPropertyChanged(nameof(CashSuggestion2));
             OnPropertyChanged(nameof(CashSuggestion3));
@@ -1191,6 +1272,9 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(IsCashMode));
             OnPropertyChanged(nameof(IsBankSelectionVisible));
             OnPropertyChanged(nameof(IsDebtMode));
+            // 2026-10-20 (К13): у долга бонусы — только с внесённой части.
+            OnPropertyChanged(nameof(EarnedPointsPreview));
+            OnPropertyChanged(nameof(EarnedPointsPreviewDisplay));
             OnPropertyChanged(nameof(ShowDebtPrepaymentMethod));
             OnPropertyChanged(nameof(IsMixedMode));
             OnPropertyChanged(nameof(ShowClientSection));

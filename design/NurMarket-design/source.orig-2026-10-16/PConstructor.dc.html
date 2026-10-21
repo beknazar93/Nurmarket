@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Телефон — конструктор функций</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column; position: relative; overflow: hidden">
+
+  <header style="padding: 18px 16px 8px; display: flex; align-items: center; gap: 12px"><button type="button" class="nv" aria-label="Назад"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button><b style="font-size: 18px; font-weight: 800; flex-grow: 1">Функции магазина</b><button type="button" class="chip">Продукты ▾</button></header>
+  <main style="padding: 0 16px 10px; display: flex; flex-direction: column; gap: 10px; flex-grow: 1; overflow: hidden">
+    <div style="display: flex; gap: 6px; overflow: hidden"><button type="button" class="chip on">Все</button><button type="button" class="chip">Деньги</button><button type="button" class="chip">Налоги</button><button type="button" class="chip">Клиенты</button><button type="button" class="chip">Склад</button></div>
+    <div class="pc" style="gap: 0; padding: 2px 14px"><div style="display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #F2F4F7"><span style="flex-grow: 1"><b style="font-size: 14px">Терминал и QR</b> <span class="tag" style="background: #EEF4FF; color: #3538CD; white-space: nowrap">новое</span><br><span style="font-size: 12px; color: #667085">300 сом / мес</span></span><span role="switch" aria-checked="true" aria-label="Терминал и QR" style="width: 38px; height: 22px; border-radius: 11px; flex-shrink: 0; position: relative; background: #0E7A3A"><span style="position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.2)"></span></span></div><div style="display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #F2F4F7"><span style="flex-grow: 1"><b style="font-size: 14px">ККМ и электронный чек</b> <span class="tag" style="background: #EEF4FF; color: #3538CD; white-space: nowrap">новое</span><br><span style="font-size: 12px; color: #667085">500 сом / мес</span></span><span role="switch" aria-checked="true" aria-label="ККМ и электронный чек" style="width: 38px; height: 22px; border-radius: 11px; flex-shrink: 0; position: relative; background: #0E7A3A"><span style="position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.2)"></span></span></div><div style="display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #F2F4F7"><span style="flex-grow: 1"><b style="font-size: 14px">Клиенты и бонусы</b> <br><span style="font-size: 12px; color: #667085">300 сом / мес</span></span><span role="switch" aria-checked="true" aria-label="Клиенты и бонусы" style="width: 38px; height: 22px; border-radius: 11px; flex-shrink: 0; position: relative; background: #0E7A3A"><span style="position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.2)"></span></span></div><div style="display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #F2F4F7"><span style="flex-grow: 1"><b style="font-size: 14px">Подарочные сертификаты</b> <span class="tag" style="background: #EEF4FF; color: #3538CD; white-space: nowrap">новое</span><br><span style="font-size: 12px; color: #667085">200 сом / мес</span></span><span role="switch" aria-checked="false" aria-label="Подарочные сертификаты" style="width: 38px; height: 22px; border-radius: 11px; flex-shrink: 0; position: relative; background: #D0D5DD"><span style="position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.2)"></span></span></div><div style="display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #F2F4F7"><span style="flex-grow: 1"><b style="font-size: 14px">Долги и рассрочка</b> <br><span style="font-size: 12px; color: #667085">400 сом / мес</span></span><span role="switch" aria-checked="true" aria-label="Долги и рассрочка" style="width: 38px; height: 22px; border-radius: 11px; flex-shrink: 0; position: relative; background: #0E7A3A"><span style="position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.2)"></span></span></div><div style="display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #F2F4F7"><span style="flex-grow: 1"><b style="font-size: 14px">Задачи и календарь</b> <span class="tag" style="background: #EEF4FF; color: #3538CD; white-space: nowrap">новое</span><br><span style="font-size: 12px; color: #667085">200 сом / мес</span></span><span role="switch" aria-checked="false" aria-label="Задачи и календарь" style="width: 38px; height: 22px; border-radius: 11px; flex-shrink: 0; position: relative; background: #D0D5DD"><span style="position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.2)"></span></span></div><div style="display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #F2F4F7"><span style="flex-grow: 1"><b style="font-size: 14px">Нур Советник</b> <br><span style="font-size: 12px; color: #667085">600 сом / мес</span></span><span role="switch" aria-checked="false" aria-label="Нур Советник" style="width: 38px; height: 22px; border-radius: 11px; flex-shrink: 0; position: relative; background: #D0D5DD"><span style="position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.2)"></span></span></div></div>
+    <div class="row" style="background: #FFF7CC; font-size: 12px; line-height: 17px">Новая функция — 7 дней бесплатно, потом по цене. Выключить можно в любой момент.</div>
+  </main>
+  <div style="padding: 10px 16px 22px; background: #FFFFFF; border-top: 1px solid #EAECF0; display: flex; align-items: center; gap: 12px"><span style="display: flex; flex-direction: column"><span style="font-size: 11px; color: #667085">в месяц</span><b style="font-size: 20px; color: #0B2A3C">4 290 сом</b></span><button type="button" class="cta" style="flex-grow: 1">Сохранить</button></div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

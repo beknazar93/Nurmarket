@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Телефон — оплата поставщику</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.sp{display:flex;align-items:center;gap:10px;padding:12px;border-radius:14px;background:#FFFFFF}
+.chip{height:36px;padding:0 12px;border-radius:18px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.q{flex-grow:1;height:38px;border-radius:19px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; position: relative; overflow: hidden">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <b style="font-size: 18px; font-weight: 800">Долги поставщикам</b>
+  </header>
+  <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 8px">
+    <section style="border-radius: 16px; background: #0B2A3C; color: #FFFFFF; padding: 14px 16px"><span style="font-size: 12px; color: #C7D2DB">Всего должны</span><br><b style="font-size: 24px; color: #FFD600">[сумма]</b></section>
+    <div class="sp"><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">[поставщик]</b><span style="font-size: 12px; color: #B42318; font-weight: 700">срок [дата]</span></span><b style="color: #B42318">[сумма]</b></div>
+    <div class="sp"><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">[поставщик]</b><span style="font-size: 12px; color: #667085">срок [дата]</span></span><b style="color: #B42318">[сумма]</b></div>
+  </div>
+  <div style="position: absolute; inset: 0; background: rgba(11,42,60,.45)"></div>
+
+  <section role="dialog" aria-label="Оплата поставщику" style="position: absolute; left: 0; right: 0; bottom: 0; background: #FFFFFF; border-radius: 24px 24px 0 0; padding: 10px 18px 22px; display: flex; flex-direction: column; gap: 10px">
+    <span style="align-self: center; width: 40px; height: 4px; border-radius: 2px; background: #D0D5DD"></span>
+    <div style="display: flex; align-items: center; gap: 10px"><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 17px">Оплата · [поставщик]</b><span style="font-size: 12px; color: #667085">долг [сумма]</span></span><button type="button" aria-label="Закрыть" style="width: 40px; height: 40px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; font-family: inherit">✕</button></div>
+    <label for="ps" style="font-size: 11px; font-weight: 700; color: #667085">СУММА</label>
+    <input id="ps" type="text" placeholder="[сумма]" style="height: 54px; box-sizing: border-box; border-radius: 14px; border: 2px solid #0B2A3C; padding: 0 14px; font-family: inherit; font-size: 20px; font-weight: 800">
+    <div style="display: flex; gap: 6px"><button type="button" class="q">Весь долг</button><button type="button" class="q">Половину</button></div>
+    <span style="font-size: 11px; font-weight: 700; color: #667085">ОТКУДА</span>
+    <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip on">Касса 1</button><button type="button" class="chip">Карта</button><button type="button" class="chip">Перевод</button></div>
+    <button type="button" style="height: 56px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 17px; font-weight: 800; margin-top: 6px">Оплатить</button>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

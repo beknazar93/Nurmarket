@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Продажи в убыток</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="reports" active="Продажи в убыток" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Продажи в убыток</span><span style="font-size: 13px; color: #667085">Проданное дешевле закупки или без закупочной цены</span></span>
+      <!-- 2026-10-16: общий переключатель периода -->
+      <span style="font-size: 13px; color: #667085; white-space: nowrap">01.10–12.10.2026</span>
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Сегодня</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Вчера</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Неделя</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Месяц</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Даты…</button>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+      <div style="background: #FDE8E8; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #7A271A">Потеряно на продажах ниже закупки</span><span style="font-size: 28px; font-weight: 800; color: #B42318; white-space: nowrap">239&nbsp;сом</span></div>
+      <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 16px; border: 2px solid #0B2A3C; padding: 18px; font-family: inherit; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #667085">Ниже закупки</span><span style="font-size: 28px; font-weight: 800; color: #0B2A3C">3 товара · 13 шт</span></button>
+      <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 16px; border: 1px solid #E5E7EB; padding: 18px; font-family: inherit; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #667085">Без закупочной цены — прибыль не посчитать</span><span style="font-size: 28px; font-weight: 800; color: #B54708">1 товар · 9 шт</span></button>
+    </div>
+    <!-- 2026-10-16: в строках — обводка (жёлтая главная кнопка одна на экран; здесь главной нет) -->
+    <section style="background: #FFFFFF; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+      <span style="padding: 14px 16px 10px; font-size: 16px; font-weight: 800">Ниже закупки · 3</span>
+      <div style="display: grid; grid-template-columns: 2.4fr 1fr 1fr 0.8fr 1fr 1.2fr; gap: 12px; padding: 12px 16px; background: #F9FAFB; font-size: 12px; font-weight: 700; color: #475467"><span>Товар</span><span style="text-align: right">Продано по</span><span style="text-align: right">Закупка</span><span style="text-align: right">Штук</span><span style="text-align: right">Убыток</span><span></span></div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+        <div style="display: grid; grid-template-columns: 2.4fr 1fr 1fr 0.8fr 1fr 1.2fr; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid #F2F4F7">
+          <span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700">{{r.name}}</span><span style="font-size: 12px; color: #667085">{{r.why}}</span></span>
+          <span style="text-align: right; font-size: 13px; white-space: nowrap">{{r.price}}</span><span style="text-align: right; font-size: 13px; white-space: nowrap">{{r.cost}}</span><span style="text-align: right; font-size: 13px">{{r.qty}}</span><span style="text-align: right; font-size: 13px; font-weight: 800; color: #B42318; white-space: nowrap">{{r.loss}}</span>
+          <span style="text-align: right"><button type="button" style="height: 34px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #0B2A3C; white-space: nowrap">Исправить цену</button></span>
+        </div>
+      </sc-for>
+    </section>
+    <!-- 2026-10-16: без закупочной цены убыток посчитать нельзя — отдельный блок, кнопка «Указать закупку» -->
+    <section style="background: #FFFFFF; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+      <span style="display: flex; flex-direction: column; gap: 2px; padding: 14px 16px 10px"><span style="font-size: 16px; font-weight: 800">Нельзя посчитать прибыль — нет закупочной цены · 1</span><span style="font-size: 12px; color: #667085">Убыток это или нет — неизвестно. Укажите закупку, и строка попадёт в обычный расчёт.</span></span>
+      <div style="display: grid; grid-template-columns: 2.4fr 1fr 1fr 0.8fr 1fr 1.2fr; gap: 12px; padding: 12px 16px; background: #F9FAFB; font-size: 12px; font-weight: 700; color: #475467"><span>Товар</span><span style="text-align: right">Продано по</span><span style="text-align: right">Закупка</span><span style="text-align: right">Штук</span><span style="text-align: right">Выручка</span><span></span></div>
+      <div style="display: grid; grid-template-columns: 2.4fr 1fr 1fr 0.8fr 1fr 1.2fr; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid #F2F4F7">
+        <span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700">Кока-Кола (ПЭТ) 2л</span><span style="font-size: 12px; color: #667085">на складе 1 шт · мин. 6</span></span>
+        <span style="text-align: right; font-size: 13px; white-space: nowrap">170&nbsp;сом</span>
+        <span style="text-align: right; font-size: 13px; display: flex; flex-direction: column; align-items: flex-end"><span>—</span><span style="font-size: 11px; font-weight: 700; color: #B54708; white-space: nowrap">нет закупки</span></span>
+        <span style="text-align: right; font-size: 13px">9</span><span style="text-align: right; font-size: 13px; font-weight: 700; white-space: nowrap">1 530&nbsp;сом</span>
+        <span style="text-align: right"><button type="button" style="height: 34px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #0B2A3C; white-space: nowrap">Указать закупку</button></span>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: товары и закупки NBS (SPEC); убыток = (закупка − цена продажи) × штук: 192 + 27 + 20 = 239.
+    const S = ' сом';
+    return { rows: [
+      { name: 'Сок Gracio яблочный 1л', why: 'скидка по сроку годности · цена в карточке 120', price: '60' + S, cost: '92' + S, qty: '6', loss: '−192' + S },
+      { name: 'MR PROPER Универсал Лимон 400г', why: 'продан по ручной цене · цена в карточке 191', price: '150' + S, cost: '159' + S, qty: '3', loss: '−27' + S },
+      { name: 'Вафли «Лесной орех» 220г', why: 'скидка на чек · цена в карточке 114', price: '90' + S, cost: '95' + S, qty: '4', loss: '−20' + S }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

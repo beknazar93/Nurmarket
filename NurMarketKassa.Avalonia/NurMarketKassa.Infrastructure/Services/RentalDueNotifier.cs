@@ -123,7 +123,7 @@ public static class RentalDueNotifier
 
     private static async Task CheckAsync(CancellationToken ct)
     {
-        if (_loader is null || _unavailable || !(MarketSpheres.IsClothing || MarketSpheres.IsServices))
+        if (_loader is null || _unavailable || !MarketSpheres.HasRentals) // 2026-10-20: прокат во всех сферах
             return;
         if (ApiThrottle.RemainingBlock > TimeSpan.Zero)
             return;

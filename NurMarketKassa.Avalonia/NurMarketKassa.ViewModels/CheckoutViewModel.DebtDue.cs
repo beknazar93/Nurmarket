@@ -56,15 +56,34 @@ namespace NurMarketKassa.ViewModels
                 _debtDueDate = date;
                 OnPropertyChanged();
                 RaiseDebtScheduleChanged();
+                RaiseDueSegments();
             }
         }
 
-        /// <summary>«Через N дней» — параметр строкой ("7", "14", "30").</summary>
+        /// <summary>«Через N дней» — параметр строкой ("7", "14", "30"). 2026-10-20, владелец (долг Д1): ровно +N дней от
+        /// сегодняшней даты (DateTime.Today.Date), подпись — «Срок: 30 дн., до 19.11.2026» при продаже 20.10.</summary>
         public ICommand SetDebtDueDaysCommand => _setDebtDueDaysCommand ??= new RelayCommand<string>(days =>
         {
             if (int.TryParse(days, NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n > 0)
-                DebtDueDate = DateTime.Today.AddDays(n);
+                DebtDueDate = DateTime.Today.Date.AddDays(n);
         });
+
+        /// <summary>2026-10-20, владелец (долг Д2): выбранный срок — подсвеченный сегмент «7 / 14 / 30 дней»; дата из календаря,
+        /// совпавшая с одним из них, подсвечивает его, иначе ни один.</summary>
+        public bool IsDue7Selected => _debtDueDate == DateTime.Today.Date.AddDays(7);
+        public bool IsDue14Selected => _debtDueDate == DateTime.Today.Date.AddDays(14);
+        public bool IsDue30Selected => _debtDueDate == DateTime.Today.Date.AddDays(30);
+
+        private void RaiseDueSegments()
+        {
+            OnPropertyChanged(nameof(IsDue7Selected));
+            OnPropertyChanged(nameof(IsDue14Selected));
+            OnPropertyChanged(nameof(IsDue30Selected));
+        }
+
+        /// <summary>2026-10-20, владелец (долг Д2): подписи блока долга.</summary>
+        public string DebtPaidNowLabel => Tr.T("Внесено сейчас (0 — весь чек в долг)", "Азыр төлөндү (0 — бүт чек карызга)", "Paid now (0 — the whole receipt on credit)",
+            "Şimdi ödenen (0 — fişin tamamı veresiye)", "Hozir to'landi (0 — butun chek qarzga)");
 
         /// <summary>Галочка «Рассрочка (несколько платежей)».</summary>
         public bool IsInstallment
@@ -229,7 +248,7 @@ namespace NurMarketKassa.ViewModels
                         "Mijozdan qarzni qachongacha qaytarishini so'rang — sana chekda bo'ladi.");
                 if (d < DateTime.Today)
                     return PastDateText();
-                var days = (d - DateTime.Today).Days;
+                var days = (d.Date - DateTime.Today.Date).Days;
                 return Tr.T($"Срок: {days} дн., до {d:dd.MM.yyyy}", $"Мөөнөтү: {days} күн, {d:dd.MM.yyyy} чейин", $"Term: {days} days, until {d:dd.MM.yyyy}",
                     $"Süre: {days} gün, {d:dd.MM.yyyy} tarihine kadar", $"Muddat: {days} kun, {d:dd.MM.yyyy} gacha");
             }

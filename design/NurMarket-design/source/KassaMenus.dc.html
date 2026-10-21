@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Касса — «Ещё», действия строки, меню ☰ (все функции старой кассы)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:44px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;min-height:44px;box-sizing:border-box;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; align-items: start">
+
+  <section class="m" role="menu" aria-label="Ещё">
+    <div class="mh"><div class="mt"><b>Ещё</b><span>Кнопка «Ещё» под чеком</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb" style="gap: 4px">
+      <div class="row" style="padding: 0 12px; background: #FFFFFF; border: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 13.5px">Скидка % на чек</span><span class="tag" style="background: #F2F4F7; color: #475467; white-space: nowrap">Ctrl+D</span></div><div class="row" style="padding: 0 12px; background: #FFFFFF; border: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 13.5px">Опт на весь чек</span></div><div class="row" style="padding: 0 12px; background: #FFFFFF; border: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 13.5px">Оплата долга</span></div><div class="row" style="padding: 0 12px; background: #FFFFFF; border: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 13.5px">Рассрочка — платёж</span></div><div class="row" style="padding: 0 12px; background: #FFFFFF; border: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 13.5px">Печать последнего чека</span></div><div class="row" style="padding: 0 12px; background: #FFFFFF; border: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 13.5px">Вернуть последний отложенный</span></div><div class="row" style="padding: 0 12px; background: #FFFFFF; border: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 13.5px">Списание товара</span></div><div class="row" style="padding: 0 12px; background: #FFFFFF; border: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 13.5px">Оформить как прокат</span></div><div class="row" style="padding: 0 12px; background: #FFFFFF; border: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 13.5px">Доп. услуга</span></div><div class="row" style="padding: 0 12px; background: #FFFFFF; border: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 13.5px">Скан камерой</span></div><div class="row" style="padding: 0 12px; background: #FFFFFF; border: 1px solid #EAECF0"><span style="flex-grow: 1; font-size: 13.5px">Сделать возврат</span></div>
+    </div>
+  </section>
+
+  <div style="display: flex; flex-direction: column; gap: 22px">
+    <section class="m" role="dialog" aria-label="Действия строки">
+      <div class="mh"><div class="mt"><b>Сок Gracio яблочный 1л</b><span>Нажмите строку — кнопки под ней; здесь — все действия</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <span class="lbl">СКИДКА НА ТОВАР</span>
+        <div style="display: flex; gap: 6px"><div class="sg" style="padding: 3px"><button type="button" class="seg on" style="height: 32px; padding: 0 12px">%</button><button type="button" class="seg" style="height: 32px; padding: 0 12px">сом</button></div><input class="in" type="text" value="25" aria-label="Скидка" style="height: 44px"></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px"><button type="button" class="b2" style="height: 40px">Оптовая цена</button><button type="button" class="b2" style="height: 40px">Количество вручную</button><button type="button" class="b2" style="height: 40px">Перевзвесить</button><button type="button" class="b2" style="height: 40px">Размер / цвет</button></div>
+        <div class="row" style="background: #FDECEA; font-size: 12px">Цена со скидкой ниже закупки — продажа в убыток: касса попросит PIN администратора</div>
+        <button type="button" class="b2" style="align-self: flex-start; color: #C0362C; border-color: #FDE2E1">Убрать из чека</button>
+      </div>
+      <div class="mf"><span class="tot">Цена со скидкой: <b>90 сом</b> · Enter</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Применить</button></div>
+    </section>
+    <section class="m" role="dialog" aria-label="Горячие клавиши">
+      <div class="mh"><div class="mt"><b>Горячие клавиши</b><span>Как в программе по умолчанию; F1–F12 — только группы товаров</span></div></div>
+      <div class="mb" style="gap: 3px"><div class="rl" style="padding: 4px 0"><span>Быстрый поиск товара</span><span class="tag" style="background: #F2F4F7; color: #475467; white-space: nowrap">Ctrl+F</span></div><div class="rl" style="padding: 4px 0"><span>Оплата</span><span class="tag" style="background: #F2F4F7; color: #475467; white-space: nowrap">Enter</span></div><div class="rl" style="padding: 4px 0"><span>Оплата из любого поля</span><span class="tag" style="background: #F2F4F7; color: #475467; white-space: nowrap">Ctrl+Enter</span></div><div class="rl" style="padding: 4px 0"><span>Добавить товар в чек</span><span class="tag" style="background: #F2F4F7; color: #475467; white-space: nowrap">Num +</span></div><div class="rl" style="padding: 4px 0"><span>Убавить / убрать товар</span><span class="tag" style="background: #F2F4F7; color: #475467; white-space: nowrap">Num −</span></div><div class="rl" style="padding: 4px 0"><span>Скидка на чек</span><span class="tag" style="background: #F2F4F7; color: #475467; white-space: nowrap">Ctrl+D</span></div><div class="rl" style="padding: 4px 0"><span>Экран покупателя</span><span class="tag" style="background: #F2F4F7; color: #475467; white-space: nowrap">Ctrl+M</span></div><div class="rl" style="padding: 4px 0"><span>Очистить корзину (удалить чек)</span><span class="tag" style="background: #F2F4F7; color: #475467; white-space: nowrap">Ctrl+F1</span></div><div class="rl" style="padding: 4px 0"><span>Группы быстрых товаров</span><span class="tag" style="background: #F2F4F7; color: #475467; white-space: nowrap">F1–F12</span></div></div>
+    </section>
+  </div>
+
+  <section class="m" role="menu" aria-label="Меню кассы">
+    <div class="mh"><div class="mt"><b>NBS · Касса 1</b><span>Смена № 42 с 08:55 · Кассир Тест</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb" style="gap: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; align-items: start"><div style="display: flex; flex-direction: column"><div style="display: flex; flex-direction: column"><span class="lbl" style="padding: 6px 4px 2px">СМЕНА</span><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Внесение / изъятие</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Открыть или закрыть смену</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">X-отчёт (деньги в кассе)</div></div><div style="display: flex; flex-direction: column"><span class="lbl" style="padding: 6px 4px 2px">КЛИЕНТЫ И ОТЧЁТЫ</span><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Клиенты</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Оплата долга</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Продажи</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Финансы</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">ABC-анализ</div><span class="lbl" style="padding: 6px 4px 2px">ЭКРАН</span><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Экран покупателя · Ctrl+M</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Клавиатура Windows (osk)</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Тема и вид кассы</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Горячие клавиши</div></div></div><div style="display: flex; flex-direction: column"><div style="display: flex; flex-direction: column"><span class="lbl" style="padding: 6px 4px 2px">РАБОТА</span><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Склад</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Возврат</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">История чеков</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Некорректные чеки</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Пополнение и сроки</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Прокат</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Табель и зарплата</div></div><div style="display: flex; flex-direction: column"><span class="lbl" style="padding: 6px 4px 2px">СИСТЕМНЫЕ</span><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Настройки</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Конструктор</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Маркетплейс</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">NurCRM</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Логи и ошибки</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">Тех поддержка</div><div style="min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; border-radius: 8px; font-size: 12.5px">База знаний</div></div></div></div>
+    <div class="mf"><button type="button" class="b2">Сменить кассира</button><span class="tot"></span><button type="button" class="b2">Выход</button></div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

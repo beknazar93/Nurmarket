@@ -1,8 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PrinterNotConnectedDialog"
         Title="{DynamicResource printerDialog.title}"
-        Width="520" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -10,79 +11,37 @@
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
 
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="28,24">
-    <StackPanel HorizontalAlignment="Stretch">
+  <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 480 — заголовок (текст — в коде) и ✕
+       сверху, кнопки снизу справа. Режим «при оплате»: «Отмена» (обводка, Esc) и «Отключить печать и
+       продолжить» (акцент темы, Enter); режим «сообщение»: одна «ОК» (Enter; ✕ — то же закрытие). -->
+  <dlg:ModalShell x:Name="Shell" Margin="16">
+    <dlg:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <!-- Панель из двух кнопок -->
+        <StackPanel x:Name="TwoButtonRow" Orientation="Horizontal" Spacing="10">
+          <Button IsCancel="True" x:Name="CancelButton"
+                  Classes="modal-cancel" MaxWidth="200"
+                  Content="{DynamicResource common.cancel}"
+                  Click="CancelButton_Click"/>
+          <Button x:Name="ProceedButton"
+                  Classes="modal-primary" MaxWidth="220"
+                  Content="{DynamicResource printerDialog.proceedWithoutPrint}"
+                  IsDefault="True"
+                  Click="ProceedButton_Click"/>
+        </StackPanel>
 
-      <!-- Заголовок отцентрирован -->
-      <TextBlock x:Name="TitleText"
-                 FontSize="18" FontWeight="Bold"
-                 Foreground="{DynamicResource BrushText}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 Margin="0,0,0,12"/>
-
-      <!-- Текст сообщения отцентрирован -->
-      <TextBlock x:Name="MessageText"
-                 FontSize="14" TextWrapping="Wrap"
-                 Foreground="{DynamicResource BrushTextSoft}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 Margin="0,0,0,22"/>
-
-      <!-- Панель из двух кнопок -->
-      <Grid x:Name="TwoButtonRow" ColumnDefinitions="*,12,*">
-        <Button IsCancel="True" x:Name="CancelButton"
-                Grid.Column="0"
-                Content="{DynamicResource common.cancel}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Background="{DynamicResource BrushPanel}"
-                Foreground="{DynamicResource BrushText}"
-                BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1.5"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Cursor="Hand"
-                Click="CancelButton_Click"/>
-
-        <Button x:Name="ProceedButton"
-                Grid.Column="2"
-                Content="{DynamicResource printerDialog.proceedWithoutPrint}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Background="{DynamicResource BrushAccent}"
-                Foreground="{DynamicResource BrushAccentForeground}"
-                FontWeight="SemiBold"
-                CornerRadius="10"
+        <!-- Кнопка ОК (когда режим одной кнопки) -->
+        <Button x:Name="OkButton"
+                Classes="modal-primary" MaxWidth="200"
+                Content="{DynamicResource common.ok}"
+                IsVisible="False"
                 IsDefault="True"
-                Cursor="Hand"
-                Click="ProceedButton_Click"/>
-      </Grid>
+                Click="OkButton_Click"/>
+      </StackPanel>
+    </dlg:ModalShell.Footer>
 
-      <!-- Кнопка ОК (когда режим одной кнопки) -->
-      <Button x:Name="OkButton"
-              Content="{DynamicResource common.ok}"
-              Height="46"
-              HorizontalAlignment="Stretch"
-              HorizontalContentAlignment="Center"
-              VerticalContentAlignment="Center"
-              Background="{DynamicResource BrushAccent}"
-              Foreground="{DynamicResource BrushAccentForeground}"
-              FontWeight="SemiBold"
-              CornerRadius="10"
-              IsVisible="False"
-              IsDefault="True"
-              Cursor="Hand"
-              Click="OkButton_Click"/>
-
-    </StackPanel>
-  </Border>
+    <TextBlock x:Name="MessageText"
+               FontSize="14" TextWrapping="Wrap"
+               Foreground="{DynamicResource BrushTextSoft}"/>
+  </dlg:ModalShell>
 </Window>

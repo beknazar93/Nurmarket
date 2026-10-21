@@ -152,15 +152,17 @@ public static class PosRefundService
         string reason,
         string? cashboxId,
         bool isDefect = false,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? idempotencyKey = null)
     {
+        // 2026-10-15, ревью: idempotencyKey — тот же при повторе того же возврата (ReturnSaleDialog), null — новый.
         // 2026-10-06, владелец: «главное не трогай продуктовый» — в «Продуктах» прежний запрос возврата.
         if ((MarketSpheres.IsClothing || isDefect) && api is Api.IPosExchangeApi details)
         {
-            await details.PosReturnWithDetailsAsync(saleId, null, reason, isDefect, ct).ConfigureAwait(false);
+            await details.PosReturnWithDetailsAsync(saleId, null, reason, isDefect, ct, idempotencyKey).ConfigureAwait(false);
             return;
         }
-        await api.PosReturnWholeSaleAsync(saleId, reason, ct).ConfigureAwait(false);
+        await api.PosReturnWholeSaleAsync(saleId, reason, ct, idempotencyKey).ConfigureAwait(false);
     }
 
     public static async Task RefundLinesAsync(
@@ -170,7 +172,8 @@ public static class PosRefundService
         string reason,
         string? cashboxId,
         bool isDefect = false,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? idempotencyKey = null)
     {
         // Один запрос на весь возврат — тот же, что делает сайт: POST pos/sales/{id}/return/
         // с массивом items. Раньше здесь был цикл по позициям, и каждая уходила в
@@ -180,9 +183,10 @@ public static class PosRefundService
         // 2026-10-06, владелец: «главное не трогай продуктовый» — в «Продуктах» прежний запрос возврата.
         if ((MarketSpheres.IsClothing || isDefect) && api is Api.IPosExchangeApi details)
         {
-            await details.PosReturnWithDetailsAsync(saleId, lines, reason, isDefect, ct).ConfigureAwait(false);
+            await details.PosReturnWithDetailsAsync(saleId, lines, reason, isDefect, ct, idempotencyKey).ConfigureAwait(false);
             return;
         }
-        await api.PosReturnSaleAsync(saleId, lines, ct).ConfigureAwait(false);
+        // 2026-10-15, ревью: ключ — от ReturnSaleDialog, тот же при повторе того же возврата.
+        await api.PosReturnSaleAsync(saleId, lines, ct, idempotencyKey).ConfigureAwait(false);
     }
 }

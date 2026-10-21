@@ -152,18 +152,39 @@ public sealed class VoiceControlService : IVoiceControlService
 
         text = text.Trim();
 
-        // Логируется всегда (даже без ключевого слова) — иначе при "не работает" совершенно
-        // не видно, слышит ли касса вообще что-то осмысленное или просто тишину/шум/чужую речь.
-        PosLogger.Log($"Голосовое управление: услышано «{text}».", "VOICE");
+        // 2026-10-20 (живой аудит кассы, К14): раньше в журнал писалось ВСЁ услышанное в зале (366 строк чужих разговоров
+        // за 75 минут) — это и приватность, и мусор в журнале. Теперь текст пишется только у фраз с ключевым словом
+        // (команды кассе, HandleRecognizedText); посторонняя речь — только счётчиком раз в 10 минут, без текста.
+        // Проверить, слышит ли касса, можно в окне проверки голоса (RawTextRecognized — без журнала).
+        CountIgnoredSpeech(text);
         RawTextRecognized?.Invoke(text);
 
         HandleRecognizedText(text, utteranceAudio);
+    }
+
+    private int _ignoredSpeech;
+    private long _ignoredSpeechLoggedAt = Environment.TickCount64;
+
+    /// <summary>2026-10-20 (К14): фраза без ключевого слова — в журнал не текстом, а числом за последние 10 минут.</summary>
+    private void CountIgnoredSpeech(string text)
+    {
+        if (VoiceCommandParser.TryStripWakeWord(text, out _))
+            return;
+        _ignoredSpeech++;
+        var now = Environment.TickCount64;
+        if (now - _ignoredSpeechLoggedAt < 10 * 60 * 1000)
+            return;
+        PosLogger.Log($"Голосовое управление: за 10 мин услышано фраз без ключевого слова — {_ignoredSpeech} (текст не сохраняется).", "VOICE");
+        _ignoredSpeech = 0;
+        _ignoredSpeechLoggedAt = now;
     }
 
     private void HandleRecognizedText(string text, byte[] utteranceAudio)
     {
         if (!VoiceCommandParser.TryStripWakeWord(text, out var commandText))
             return;
+        // 2026-10-20 (К14): в журнал — только фразы, обращённые к кассе (с ключевым словом).
+        PosLogger.Log($"Голосовое управление: команда «{text}».", "VOICE");
 
         // Звуковой сигнал сразу по ключевому слову — кассиру не нужно смотреть на экран, чтобы
         // понять, что касса его услышала (и это же помогает диагностировать: если гудка нет,

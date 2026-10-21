@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Владелец — сводка</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex">
+
+  <dc-import name="OwnerNav" group="home" active="Сводка" hint-size="308px,900px"></dc-import>
+
+  <!-- Содержимое -->
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 28px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; align-items: center; gap: 16px">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><span style="font-size: 24px; font-weight: 800">Сводка</span><span style="font-size: 13px; color: #667085">Понедельник, 12.10.2026 · обновлено в 14:35</span></span>
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Сегодня</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Вчера</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Неделя</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Месяц</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Даты…</button>
+      </div>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 14px; font-weight: 800">Спросить Нур Советника</button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+        <div style="background: #FFFFFF; border-radius: 16px; padding: 18px 18px 14px; box-shadow: 0 1px 2px rgba(16,24,40,0.05), 0 6px 16px rgba(11,42,60,0.06); display: flex; flex-direction: column; gap: 10px">
+          <span style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: #475467"><span style="width: 32px; height: 32px; border-radius: 10px; background: #F2F4F7; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800">{{k.icon}}</span>{{k.label}}</span>
+          <span style="font-size: 28px; font-weight: 800; color: #0B2A3C">{{k.value}}</span>
+          <span style="font-size: 12px; color: #667085"><span style="font-weight: 700; color: {{k.deltaColor}}">{{k.delta}}</span> {{k.note}}</span>
+          <a href="#" style="border-top: 1px solid #F2F4F7; padding-top: 10px; display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: #0B2A3C; text-decoration: none"><span>Подробнее</span><span>›</span></a>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; gap: 16px; flex-grow: 1; min-height: 0">
+      <div style="flex: 2 1 0; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <section style="flex-grow: 1; min-height: 0; background: #FFFFFF; border-radius: 16px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(16,24,40,0.05), 0 6px 16px rgba(11,42,60,0.06); display: flex; flex-direction: column; gap: 14px">
+        <span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 16px; font-weight: 800">Выручка за неделю, тыс. сом</span><span style="font-size: 13px; color: #667085">06.10 — 12.10 · итого 45 260 сом · сегодня — до 14:35</span></span>
+        <div style="flex-grow: 1; display: flex; align-items: flex-end; gap: 14px; padding: 0 4px; border-bottom: 1px solid #EAECF0">
+          <sc-for list="{{week}}" as="d" hint-placeholder-count="7">
+            <div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%">
+              <span style="font-size: 11px; font-weight: 700; color: #344054">{{d.label}}</span>
+              <span style="width: 100%; max-width: 56px; height: {{d.h}}; border-radius: 8px 8px 0 0; background: {{d.color}}"></span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 14px; padding: 0 4px">
+          <sc-for list="{{week}}" as="d" hint-placeholder-count="7"><span style="flex: 1 1 0; text-align: center; font-size: 12px; color: #667085">{{d.day}}</span></sc-for>
+        </div>
+      </section>
+      <!-- 2026-10-16: вернули «Кассиры сегодня» из нынешней сводки (ревью B, NowOwner) -->
+      <section style="background: #FFFFFF; border-radius: 16px; padding: 14px 20px; box-shadow: 0 1px 2px rgba(16,24,40,0.05), 0 6px 16px rgba(11,42,60,0.06); display: flex; flex-direction: column; gap: 8px">
+        <span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 16px; font-weight: 800">Кассиры сегодня</span><span style="font-size: 12px; color: #667085">наличные 2 265 · карта 1 455 · QR 580 сом</span></span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+          <sc-for list="{{cashiers}}" as="c" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: #F9FAFB">
+              <span style="font-size: 13px; font-weight: 700">{{c.who}}</span>
+              <span style="font-size: 12px; color: #667085">{{c.where}}</span>
+              <span style="font-size: 13px"><b style="color: #0B2A3C">{{c.sum}}</b> · {{c.checks}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+      </div>
+
+      <section style="flex: 1 1 0; min-width: 0; background: #FFFFFF; border-radius: 16px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(16,24,40,0.05), 0 6px 16px rgba(11,42,60,0.06); display: flex; flex-direction: column; gap: 12px">
+        <span style="font-size: 16px; font-weight: 800">Требует внимания</span>
+        <sc-for list="{{alerts}}" as="a" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: #F9FAFB">
+            <span style="width: 10px; height: 10px; border-radius: 5px; background: {{a.dot}}; flex-shrink: 0"></span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700; line-height: 1.3">{{a.title}}</span><span style="font-size: 12px; color: #667085">{{a.note}}</span></span>
+            <a href="#" style="font-size: 12px; font-weight: 700; color: #0B2A3C; text-decoration: none; white-space: nowrap">{{a.action}} ›</a>
+          </div>
+        </sc-for>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: единые демо-данные NBS (как на «Продажах», «Финансах», в вебе и телефоне).
+    // Сравнение — «к вчера на это время» (вчера до 14:35: 3 900 сом, 42 чека), как в программе сейчас.
+    const kpis = [
+      { icon: 'сом', label: 'Выручка', value: '4 300 сом', delta: '▲ 10 %', deltaColor: '#0E7A3A', note: 'к вчера на это время (3 900)' },
+      { icon: '№', label: 'Чеков', value: '47', delta: '▲ 5', deltaColor: '#0E7A3A', note: 'к вчера на это время (42)' },
+      { icon: 'ср', label: 'Средний чек', value: '91 сом', delta: '▼ 2 %', deltaColor: '#B42318', note: 'к вчера на это время (93)' },
+      { icon: '%', label: 'Валовая прибыль · 21,2 %', value: '910 сом', delta: '▲ 11 %', deltaColor: '#0E7A3A', note: 'к вчера на это время (820)' }
+    ];
+    // Одна шкала — тысячи сом; сегодняшний день (неполный) подсвечен жёлтым.
+    const raw = [['06.10', 6120], ['07.10', 5480], ['08.10', 7310], ['09.10', 6940], ['10.10', 8260], ['11.10', 6850], ['12.10', 4300]];
+    const max = Math.max(...raw.map((r) => r[1]));
+    const fmt = (v) => (v / 1000).toFixed(1).replace('.', ',');
+    const week = raw.map(([day, v], i) => ({ day: i === 6 ? 'сегодня' : day, label: fmt(v), h: Math.max(4, Math.round(v / max * 200)) + 'px', color: i === 6 ? '#FFD600' : '#0B2A3C' }));
+    const cashiers = [
+      { who: 'Кассир Тест', where: 'Касса 1 · смена с 08:55', sum: '2 860 сом', checks: '31 чек' },
+      { who: 'Айгерим Садыкова', where: 'Телефон · смена с 09:00', sum: '1 080 сом', checks: '12 чеков' },
+      { who: 'Нурлан Абдыкадыров', where: 'Веб-касса · смена с 10:30', sum: '360 сом', checks: '4 чека' }
+    ];
+    const alerts = [
+      { dot: '#B42318', title: 'Aos Extra pover 450гр — нет в наличии', note: 'Продаётся 11 шт/день · заказать 156 шт', action: 'В заказ' },
+      { dot: '#B42318', title: 'Эссе манго — хватит на 0,6 дня', note: 'Заказать 213 шт', action: 'В заказ' },
+      { dot: '#F59E0B', title: 'Заказ с сайта №10 — новый', note: 'Умар · 13:52 · ждёт сборки', action: 'Заказы' },
+      { dot: '#F59E0B', title: 'Долги клиентов: 811 889 сом', note: '17 клиентов · Умар — 42 дня', action: 'Долги' },
+      { dot: '#B42318', title: 'Прокат: просрочено 3', note: '№22 Арслан — бетономешалка', action: 'Прокат' },
+      { dot: '#16A34A', title: 'План месяца: 41 % — идём по графику', note: '81 240 из 200 000 сом · прошло 39 % месяца', action: 'План' }
+    ];
+    return { kpis, week, cashiers, alerts };
+  }
+}
+</script>
+</body>
+</html>

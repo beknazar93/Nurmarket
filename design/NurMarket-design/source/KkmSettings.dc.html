@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Настройки — ККМ и налоги</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+/* 2026-10-16: цели касания ≥ 44 px (✕, кнопки, поля, чипы, сегменты) */
+.x{width:44px;height:44px;flex-shrink:0;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C;white-space:nowrap}
+.b1,.b2,.bd{white-space:nowrap}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:44px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:44px;padding:0 14px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:44px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column; position: relative; overflow: hidden">
+
+  <header style="height: 60px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: #FFFFFF; border-bottom: 1px solid #EAECF0"><b style="font-size: 18px; font-weight: 800; flex-grow: 1">Настройки</b><input class="in" type="text" placeholder="Найти настройку" aria-label="Найти настройку" style="width: 280px"><button type="button" class="x" aria-label="Закрыть">✕</button></header>
+  <div style="flex-grow: 1; display: flex; min-height: 0">
+    <nav aria-label="Разделы настроек" style="width: 220px; flex-shrink: 0; padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; background: #FFFFFF; border-right: 1px solid #EAECF0"><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: #344054; font-weight: 600">Магазин и чек</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: #344054; font-weight: 600">Касса и продажа</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; background: #FFF7CC; box-shadow: inset 4px 0 0 #FFD600; color: #0B2A3C; font-weight: 800" aria-current="page">ККМ и налоги</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: #344054; font-weight: 600">Оформление</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: #344054; font-weight: 600">Принтеры и ящик</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: #344054; font-weight: 600">Весы и сканер</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: #344054; font-weight: 600">Оплата и банки</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: #344054; font-weight: 600">Сотрудники и доступ</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: #344054; font-weight: 600">О программе</a></nav>
+    <main style="flex-grow: 1; min-width: 0; padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+      <span style="display: flex; flex-direction: column"><b style="font-size: 20px; font-weight: 800">ККМ и налоги</b><span style="font-size: 12px; color: #667085">Один раз для компании · касса подскажет, что обязательно именно вам</span></span>
+      <span class="lbl">КАК ВЫ РАБОТАЕТЕ</span>
+      <div style="display: flex; gap: 10px"><button type="button" style="flex: 1 1 0; text-align: left; padding: 12px 14px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; display: flex; flex-direction: column; gap: 4px; min-width: 0"><span style="display: flex; justify-content: space-between; gap: 6px"><b style="font-size: 14px; color: #0B2A3C">Патент</b></span><span style="font-size: 12px; line-height: 16px; color: #667085">Патент не отменяет фискальный чек. Нужна ли ККМ — зависит от вида деятельности, уточнить в ГНС.</span></button><button type="button" style="flex: 1 1 0; text-align: left; padding: 12px 14px; border-radius: 14px; border: 2px solid #0B2A3C; background: #FFF7CC; font-family: inherit; display: flex; flex-direction: column; gap: 4px; min-width: 0"><span style="display: flex; justify-content: space-between; gap: 6px"><b style="font-size: 14px; color: #0B2A3C">Единый налог</b><span class="tag" style="background: #0B2A3C; color: #FFFFFF">выбрано</span></span><span style="font-size: 12px; line-height: 16px; color: #667085">ККМ обязательна. ЭСФ — только если продаёте юрлицам.</span></button><button type="button" style="flex: 1 1 0; text-align: left; padding: 12px 14px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; display: flex; flex-direction: column; gap: 4px; min-width: 0"><span style="display: flex; justify-content: space-between; gap: 6px"><b style="font-size: 14px; color: #0B2A3C">Общий режим, НДС</b></span><span style="font-size: 12px; line-height: 16px; color: #667085">ККМ и ЭСФ обязательны. В чеке НДС и НсП.</span></button></div>
+      <!-- 2026-10-16: вместо «Патент — ККМ не нужна» спрашиваем вид деятельности (ГНС: патент не отменяет фискальный чек) -->
+      <div style="display: flex; align-items: flex-end; gap: 12px"><span style="display: flex; flex-direction: column; gap: 4px; width: 420px; flex-shrink: 0"><label class="lbl" for="k0">ВИД ДЕЯТЕЛЬНОСТИ</label><button id="k0" type="button" class="in" style="display: flex; align-items: center; justify-content: space-between; text-align: left; color: #111827">Розничная торговля продуктами питания<span aria-hidden="true" style="color: #475467">▾</span></button></span><span style="font-size: 12px; line-height: 17px; color: #475467; padding-bottom: 4px">Обязанность ККМ зависит от вида деятельности — уточнить в ГНС. Для «Единого налога» касса считает ККМ обязательной.</span></div>
+      <span style="display: flex; justify-content: space-between; gap: 12px"><span class="lbl">ОНЛАЙН-ККМ · ОПЕРАТОР ФИСКАЛЬНЫХ ДАННЫХ</span><span style="font-size: 11px; color: #667085">список — по реестру ГНС · у каждого нужен договор и API для сторонней кассы</span></span>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <button type="button" style="text-align: left; padding: 10px 12px; border-radius: 12px; border: 2px solid #0B2A3C; background: #FFF7CC; font-family: inherit; display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="display: flex; justify-content: space-between; gap: 6px"><b style="font-size: 13px; color: #0B2A3C">eKassa</b><span class="tag" style="background: #E7F6EC; color: #0E7A3A">подключено</span></span><span style="font-size: 11px; color: #667085">облачная ККМ · через интернет</span></button><button type="button" style="text-align: left; padding: 10px 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="display: flex; justify-content: space-between; gap: 6px"><b style="font-size: 13px; color: #0B2A3C">MKassa · MBANK</b></span><span style="font-size: 11px; color: #667085">ККМ банка · тариф по договору</span></button><button type="button" style="text-align: left; padding: 10px 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="display: flex; justify-content: space-between; gap: 6px"><b style="font-size: 13px; color: #0B2A3C">О!Касса</b></span><span style="font-size: 11px; color: #667085">виртуальная ККМ</span></button>
+        <button type="button" style="text-align: left; padding: 10px 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="display: flex; justify-content: space-between; gap: 6px"><b style="font-size: 13px; color: #0B2A3C">MegaKassa</b></span><span style="font-size: 11px; color: #667085">MegaCom · программная ККМ</span></button><button type="button" style="text-align: left; padding: 10px 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="display: flex; justify-content: space-between; gap: 6px"><b style="font-size: 13px; color: #0B2A3C">NewCas</b></span><span style="font-size: 11px; color: #667085">офлайн — по лимиту ОФД</span></button><button type="button" style="text-align: left; padding: 10px 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="display: flex; justify-content: space-between; gap: 6px"><b style="font-size: 13px; color: #0B2A3C">Аппаратная ККМ</b></span><span style="font-size: 11px; color: #667085">свой фискальный принтер · офлайн с лимитом</span></button>
+      </div>
+      <div class="card" style="padding: 14px; gap: 8px">
+        <div style="display: flex; align-items: center; gap: 8px"><b style="font-size: 14px; flex-grow: 1">eKassa · Касса 1</b><span class="tag" style="background: #E7F6EC; color: #0E7A3A">на связи · 2 мин назад</span></div>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px"><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><label class="lbl" for="k1">ИНН КОМПАНИИ</label><input id="k1" class="in" type="text" value="01204201610123"></span><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><label class="lbl" for="k2">РЕГ. НОМЕР ККМ</label><input id="k2" class="in" type="text" value="0000731205"></span><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><label class="lbl" for="k3">ФИСКАЛЬНЫЙ МОДУЛЬ</label><input id="k3" class="in" type="text" value="9960440300512387"></span><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><label class="lbl" for="k4">КЛЮЧ ДОСТУПА</label><input id="k4" class="in" type="password" value="••••••••••"><span style="font-size: 11px; color: #667085">хранится зашифрованно, в журнал не пишется</span></span></div>
+        <div style="display: flex; align-items: center; gap: 8px"><button type="button" class="b2">Пробный чек</button><button type="button" class="b2">Сверить смену с ОФД</button><span style="font-size: 11px; line-height: 15px; color: #667085">если ОФД отдаёт итоги смены по API</span><span style="flex-grow: 1"></span><button type="button" class="b2" style="color: #B42318">Отключить…</button></div>
+        <span style="font-size: 12px; line-height: 17px; color: #475467">Абонплата оператора — по договору с ОФД. За неоплату функции «ККМ» касса её не выключает: льготный период и предупреждения владельцу, продажа с ККМ не прерывается.</span>
+      </div>
+    </main>
+    <aside style="width: 320px; flex-shrink: 0; padding: 18px; display: flex; flex-direction: column; gap: 10px; background: #FFFFFF; border-left: 1px solid #EAECF0">
+      <b style="font-size: 15px">Налоги в чеке</b>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px"><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><label class="lbl" for="t1">НДС</label><input id="t1" class="in" type="text" value="не плательщик"></span><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><label class="lbl" for="t0">СИСТЕМА</label><input id="t0" class="in" type="text" value="единый налог"></span><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><label class="lbl" for="t2">НсП · НАЛИЧНЫЕ</label><input id="t2" class="in" type="text" placeholder="ставка, %"></span><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><label class="lbl" for="t3">НсП · БЕЗНАЛ</label><input id="t3" class="in" type="text" placeholder="ставка, %"></span></div>
+      <span style="font-size: 11px; line-height: 15px; color: #475467">НсП: при едином налоге может входить в налог; если платится отдельно — ставка зависит от вида деятельности и формы оплаты. Ставки уточнить в ГНС.</span>
+      <span class="lbl">ЧЕК</span>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: #0B2A3C">Печатать фискальный чек</label>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: #0B2A3C">Электронный чек в WhatsApp или Telegram, если покупатель дал номер</label>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: #0B2A3C">Услуги и залог за прокат — тоже через ККМ</label>
+      <span class="lbl">БЕЗ ИНТЕРНЕТА</span>
+      <!-- 2026-10-16: без «чеки уйдут позже» для облачной ККМ — офлайн только по правилам ОФД -->
+      <div class="row" style="background: #FEF3E2; font-size: 12px; line-height: 17px; display: block">Офлайн — по правилам вашего ОФД: <b>аппаратная ККМ</b> — с лимитом (часы / количество чеков), <b>облачная</b> (eKassa) — без связи фискальный чек не выдать. Лимит уточнить у ОФД.</div>
+      <span class="lbl">ЭСФ</span>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: #0B2A3C">Выписывать ЭСФ при продаже юрлицу по ИНН</label>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: #0B2A3C">Входящие ЭСФ поставщиков → черновик приёмки</label>
+      <span style="flex-grow: 1"></span>
+      <button type="button" class="b1">Сохранить</button>
+    </aside>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -6,6 +6,8 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using NurMarketKassa.AvaloniaHost.Views.Controls;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
 
@@ -14,11 +16,16 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// <summary>2026-10-03, владелец: «если в убыток продаёт со скидкой — фиксировать это в админке». Раздел программы
 /// владельца «Продажи в убыток»: чеки, где со скидкой товар ушёл дешевле закупки (журнал LossSalesStore, пишет
 /// касса при оплате). Период, итог убытка, по каждому чеку — кассир и строки «закупка → продано → убыток».
-/// Окно собрано в коде, как «Прибыль и деньги»; цвета — из темы.</summary>
+/// Окно собрано в коде, как «Прибыль и деньги»; цвета — из темы.
+/// 2026-10-18, редизайн владельца (этап О3, макет LossSales.dc.html): без своего крупного заголовка (он повторял название
+/// раздела), пояснение слева и период сегментами справа, итог — плитками «Чеков в убыток» / «Убыток всего» (убыток — красным).
+/// Данные и расчёт — прежние.</summary>
 public sealed class LossSalesWindow : Window
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
-    private readonly StackPanel _periods = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
+    private readonly StackPanel _periods = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
+    // 2026-10-19, этап О10: третья плитка «Товаров в убыток» — ширина под три плитки (было 640 на две, справа пусто).
+    private readonly KpiTileGrid _totals = new() { MinTileWidth = 200, MaxWidth = 960, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 12), IsVisible = false };
     private readonly TextBlock _summary = new() { FontSize = 15, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly StackPanel _list = new() { Spacing = 10 };
     private readonly TextBlock _hint = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 12) };
@@ -39,22 +46,26 @@ public sealed class LossSalesWindow : Window
         Height = 800;
         Use(this, BackgroundProperty, "BrushWindowBackdrop");
 
-        var root = new Grid { Margin = new Thickness(24, 16, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,*") };
-        var title = new TextBlock { Text = Title, FontSize = 22, FontWeight = FontWeight.Bold };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
+        // 2026-10-18, этап О3: шапка одной строкой — пояснение слева (переносится), период сегментами справа; под ней — плитки
+        // итога (или строка «За этот период продаж в убыток нет.»), ниже — чеки.
+        var root = new Grid { Margin = OwnerSectionLayout.Margin, RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*") };
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 14) };
         var hint = _hint;
         Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
-        _periods.Margin = new Thickness(0, 0, 0, 12);
+        hint.Margin = new Thickness(0, 0, 16, 0);
+        hint.VerticalAlignment = VerticalAlignment.Center;
+        var periods = UiKit.WithPeriodLabel(UiKit.Segment(_periods), _periodLabel);
+        Grid.SetColumn(periods, 1);
+        header.Children.Add(hint);
+        header.Children.Add(periods);
         _summary.Margin = new Thickness(0, 0, 0, 12);
-        Use(_summary, TextBlock.ForegroundProperty, "BrushDanger");
-        Grid.SetRow(hint, 1);
-        Grid.SetRow(_periods, 2);
-        Grid.SetRow(_summary, 3);
+        Use(_summary, TextBlock.ForegroundProperty, "BrushTextSoft");
+        Grid.SetRow(_totals, 1);
+        Grid.SetRow(_summary, 2);
         var scroll = new ScrollViewer { Content = _list, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
-        Grid.SetRow(scroll, 4);
-        root.Children.Add(title);
-        root.Children.Add(hint);
-        root.Children.Add(_periods);
+        Grid.SetRow(scroll, 3);
+        root.Children.Add(header);
+        root.Children.Add(_totals);
         root.Children.Add(_summary);
         root.Children.Add(scroll);
         Content = root;
@@ -67,12 +78,16 @@ public sealed class LossSalesWindow : Window
 
     private void OnChanged() => Dispatcher.UIThread.Post(Render);
 
+    // 2026-10-20, проверка фильтров: «Всё (180 дней)» — именно 180 дней и в журнале этого ПК (без связи показывался весь журнал);
+    // «7 дней» / «Этот месяц» — общие правила PeriodRange; подпись дат рядом с сегментами.
+    private readonly TextBlock _periodLabel = new();
+
     private DateTimeOffset From() => _period switch
     {
         "today" => DateTime.Today,
-        "week" => DateTime.Today.AddDays(-6),
-        "all" => DateTimeOffset.MinValue,
-        _ => new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1),
+        "week" => PeriodRange.WeekFrom(DateTime.Today),
+        "all" => DateTime.Today.AddDays(-180),
+        _ => PeriodRange.MonthFrom(DateTime.Today),
     };
 
     private void BuildPeriods()
@@ -80,9 +95,8 @@ public sealed class LossSalesWindow : Window
         _periods.Children.Clear();
         void Add(string key, string text)
         {
-            var b = new Button { Content = text, Padding = new Thickness(14, 6) };
-            if (key == _period)
-                Use(b, Button.BackgroundProperty, "BrushAccentSoft");
+            // 2026-10-18, этап О3: сегмент; выбранный — тёмно-синий (было: серые кнопки и светло-жёлтая выбранная).
+            var b = UiKit.Seg(text, key == _period);
             b.Click += (_, _) =>
             {
                 _period = key;
@@ -96,6 +110,7 @@ public sealed class LossSalesWindow : Window
         Add("week", Tr.T("7 дней", "7 күн", "7 days", "7 gün", "7 kun"));
         Add("month", Tr.T("Этот месяц", "Бул ай", "This month", "Bu ay", "Shu oy"));
         Add("all", Tr.T("Всё (180 дней)", "Баары (180 күн)", "All (180 days)", "Tümü (180 gün)", "Hammasi (180 kun)"));
+        _periodLabel.Text = PeriodRange.Label(From().Date, DateTime.Today);
     }
 
     private async void Render()
@@ -174,11 +189,8 @@ public sealed class LossSalesWindow : Window
             "Chegirma tufayli mahsulot xarid narxidan arzon sotilgan cheklar — kompaniyaning barcha kassalari bo'yicha (NurCRM serveri hisoblaydi).");
         _list.Children.Clear();
         var total = records.Sum(r => r.Loss);
-        _summary.Text = records.Count == 0
-            ? Tr.T("За этот период продаж в убыток нет.", "Бул мезгилде зыян менен сатуу жок.", "No sales at a loss for this period.", "Bu dönemde zararına satış yok.", "Bu davrda zarariga sotuv yo'q.")
-            : Tr.T($"Чеков в убыток: {records.Count} · убыток всего {Money(total)}", $"Зыян менен чектер: {records.Count} · жалпы зыян {Money(total)}",
-                $"Receipts at a loss: {records.Count} · total loss {Money(total)}", $"Zararına fişler: {records.Count} · toplam zarar {Money(total)}",
-                $"Zarariga cheklar: {records.Count} · jami zarar {Money(total)}");
+        ShowTotals(records.Count, total);
+        ShowByProduct(records.SelectMany(r => r.Lines.Select(l => (l.Title, l.Loss))));
         foreach (var r in records.Take(300))
         {
             var who = string.Join(" · ", new[] { r.Number.Length > 0 ? "№" + r.Number : "", r.Cashier, r.Branch }.Where(x => !string.IsNullOrWhiteSpace(x)));
@@ -197,27 +209,97 @@ public sealed class LossSalesWindow : Window
         _list.Children.Clear();
         var records = LossSalesStore.ReadAll().Where(r => r.At >= from).ToList();
         var total = records.Sum(r => r.Loss);
-        _summary.Text = records.Count == 0
-            ? Tr.T("За этот период продаж в убыток нет.", "Бул мезгилде зыян менен сатуу жок.", "No sales at a loss for this period.", "Bu dönemde zararına satış yok.", "Bu davrda zarariga sotuv yo'q.")
-            : Tr.T($"Чеков в убыток: {records.Count} · убыток всего {Money(total)}", $"Зыян менен чектер: {records.Count} · жалпы зыян {Money(total)}",
-                $"Receipts at a loss: {records.Count} · total loss {Money(total)}", $"Zararına fişler: {records.Count} · toplam zarar {Money(total)}",
-                $"Zarariga cheklar: {records.Count} · jami zarar {Money(total)}");
+        ShowTotals(records.Count, total);
+        ShowByProduct(records.SelectMany(r => r.Lines.Select(l => (l.Title, l.Loss))));
 
         foreach (var r in records.Take(300))
             AddCard(r.At.LocalDateTime.ToString("dd.MM.yyyy HH:mm", Ru) + (string.IsNullOrWhiteSpace(r.Cashier) ? "" : " · " + r.Cashier), r.Loss,
                 r.Lines.Select(l => (l.Title, l.Quantity, l.Unit, l.UnitCost * l.Quantity, l.Net, l.Loss)));
     }
 
-    private void AddCard(string headText, double lossTotal, IEnumerable<(string Title, double Quantity, string Unit, double Cost, double Net, double Loss)> lines)
+    /// <summary>2026-10-18, этап О3: итог периода — плитками (число чеков и убыток всего, убыток — красным); нет чеков —
+    /// строка «За этот период продаж в убыток нет.». Те же числа, что раньше были одной красной строкой.</summary>
+    private void ShowTotals(int count, double total)
     {
-        var card = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Padding = new Thickness(16, 12) };
+        _totals.Children.Clear();
+        _totals.IsVisible = count > 0;
+        _summary.IsVisible = count == 0;
+        _summary.Text = count == 0
+            ? Tr.T("За этот период продаж в убыток нет.", "Бул мезгилде зыян менен сатуу жок.", "No sales at a loss for this period.", "Bu dönemde zararına satış yok.", "Bu davrda zarariga sotuv yo'q.")
+            : "";
+        if (count == 0)
+            return;
+        _totals.Children.Add(UiKit.Kpi(Tr.T("Чеков в убыток", "Зыян менен чектер", "Receipts at a loss", "Zararına fişler", "Zarariga cheklar"),
+            count.ToString(Ru)));
+        _totals.Children.Add(UiKit.Kpi(Tr.T("Убыток всего", "Жалпы зыян", "Total loss", "Toplam zarar", "Jami zarar"), "−" + Money(total), danger: true));
+    }
+
+    /// <summary>2026-10-19, этап О10 (аудит: «один и тот же товар повторяется десятки раз — нет сводки по товарам и совета»):
+    /// над чеками — «Чаще всего в убыток»: до 5 товаров, сколько раз и на сколько, и что сделать. Из тех же строк, что ниже.</summary>
+    private void ShowByProduct(IEnumerable<(string Title, double Loss)> lines)
+    {
+        var byProduct = lines.Where(l => !string.IsNullOrWhiteSpace(l.Title))
+            .GroupBy(l => l.Title.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => (Title: g.Key, Times: g.Count(), Loss: g.Sum(x => x.Loss)))
+            .OrderByDescending(x => x.Loss).ThenByDescending(x => x.Times)
+            .ToList();
+        if (_totals.IsVisible && byProduct.Count > 0)
+            _totals.Children.Add(UiKit.Kpi(Tr.T("Товаров в убыток", "Зыян менен товарлар", "Products at a loss", "Zararına ürünler", "Zarariga mahsulotlar"),
+                byProduct.Count.ToString(Ru)));
+        if (byProduct.Count == 0)
+            return;
+
+        var card = new Border { BorderThickness = new Thickness(1), Padding = new Thickness(16, 12) };
         Use(card, Border.BackgroundProperty, "BrushPanel");
         Use(card, Border.BorderBrushProperty, "BrushBorder");
+        Use(card, Border.CornerRadiusProperty, "SettingsCardRadius");
+        var body = new StackPanel { Spacing = 6 };
+        var title = new TextBlock { Text = Tr.T("Чаще всего в убыток", "Көбүнчө зыян менен", "Most often at a loss", "En sık zararına", "Ko'pincha zarariga"), FontSize = 15, FontWeight = FontWeight.Bold };
+        Use(title, TextBlock.ForegroundProperty, "BrushText");
+        body.Children.Add(title);
+        foreach (var p in byProduct.Take(5))
+        {
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), MinHeight = 28 };
+            var name = new TextBlock
+            {
+                // 2026-10-20, аудит программы владельца: «2 раз» — падеж по числу (1 раз / 2–4 раза / 5 раз).
+                Text = p.Title + "  ·  " + Tr.T($"{p.Times} {TimesRu(p.Times)}", $"{p.Times} жолу", p.Times == 1 ? "once" : $"{p.Times} times", $"{p.Times} kez", $"{p.Times} marta"),
+                FontSize = 13.5, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center,
+            };
+            Use(name, TextBlock.ForegroundProperty, "BrushText");
+            var sum = new TextBlock { Text = "−" + Money(p.Loss), FontSize = 13.5, FontWeight = FontWeight.SemiBold, Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            Use(sum, TextBlock.ForegroundProperty, "BrushDanger");
+            Grid.SetColumn(sum, 1);
+            row.Children.Add(name);
+            row.Children.Add(sum);
+            body.Children.Add(row);
+        }
+        var advice = new TextBlock
+        {
+            Text = Tr.T("Что сделать: проверьте цену продажи и скидку на эти товары — со скидкой они уходят дешевле закупки. Поднимите цену или ограничьте скидку.",
+                "Эмне кылуу керек: бул товарлардын сатуу баасын жана арзандатуусун текшериңиз — арзандатуу менен алар сатып алуу баасынан арзан кетет. Бааны көтөрүңүз же арзандатууну чектеңиз.",
+                "What to do: check the selling price and discount of these products — with the discount they sell below cost. Raise the price or limit the discount.",
+                "Ne yapmalı: bu ürünlerin satış fiyatını ve indirimini kontrol edin — indirimle alış fiyatının altında satılıyorlar. Fiyatı yükseltin veya indirimi sınırlayın.",
+                "Nima qilish kerak: bu mahsulotlarning sotuv narxi va chegirmasini tekshiring — chegirma bilan ular xarid narxidan arzon ketadi. Narxni oshiring yoki chegirmani cheklang."),
+            FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0),
+        };
+        Use(advice, TextBlock.ForegroundProperty, "BrushTextSoft");
+        body.Children.Add(advice);
+        card.Child = body;
+        _list.Children.Add(card);
+    }
+
+    private void AddCard(string headText, double lossTotal, IEnumerable<(string Title, double Quantity, string Unit, double Cost, double Net, double Loss)> lines)
+    {
+        var card = new Border { BorderThickness = new Thickness(1), Padding = new Thickness(16, 12) };
+        Use(card, Border.BackgroundProperty, "BrushPanel");
+        Use(card, Border.BorderBrushProperty, "BrushBorder");
+        Use(card, Border.CornerRadiusProperty, "SettingsCardRadius");
         var body = new StackPanel { Spacing = 4 };
         var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         var when = new TextBlock { Text = headText, FontSize = 14, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
         Use(when, TextBlock.ForegroundProperty, "BrushText");
-        var loss = new TextBlock { Text = "−" + Money(lossTotal), FontSize = 15, FontWeight = FontWeight.Bold };
+        var loss = new TextBlock { Text = "−" + Money(lossTotal), FontSize = 15, FontWeight = FontWeight.Bold, Margin = new Thickness(12, 0, 0, 0) };
         Use(loss, TextBlock.ForegroundProperty, "BrushDanger");
         Grid.SetColumn(loss, 1);
         head.Children.Add(when);
@@ -242,6 +324,10 @@ public sealed class LossSalesWindow : Window
         card.Child = body;
         _list.Children.Add(card);
     }
+
+    /// <summary>2026-10-20: «раз» / «раза» по числу (2, 3, 4, 22… — «раза»; 12–14 — «раз»).</summary>
+    private static string TimesRu(long n) =>
+        n % 10 is >= 2 and <= 4 && n % 100 is < 12 or > 14 ? "раза" : "раз";
 
     private static string Money(double v) => v.ToString("N2", Ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm");
 

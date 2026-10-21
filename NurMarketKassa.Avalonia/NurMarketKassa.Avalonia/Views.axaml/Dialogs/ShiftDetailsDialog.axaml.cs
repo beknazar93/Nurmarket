@@ -371,9 +371,11 @@ public partial class ShiftDetailsDialog : Window
         }
         else
         {
-            StatusBadge.Background = ThemeBrush("BrushDangerSoft", Brushes.DarkRed);
-            StatusDot.Fill = ThemeBrush("BrushDanger", Brushes.Red);
-            StatusText.Foreground = ThemeBrush("BrushDanger", Brushes.Red);
+            // 2026-10-21 (пакет 6, хвост пакета 5): закрытая смена — обычное состояние, значок нейтральный (был красный;
+            // красный — только долг и недостача).
+            StatusBadge.Background = ThemeBrush("BrushPanelSoft", Brushes.LightGray);
+            StatusDot.Fill = ThemeBrush("BrushTextMuted", Brushes.Gray);
+            StatusText.Foreground = ThemeBrush("BrushTextSoft", Brushes.DimGray);
         }
     }
 
@@ -422,7 +424,8 @@ public partial class ShiftDetailsDialog : Window
         var debtPaid = Get(ShiftEventsStore.KindDebtPayment);
         // 2026-10-04, стресс-тест: оплата долгов смены есть и в отчёте сервера (debt_payments_cash) —
         // в программе владельца и на другой кассе локального журнала нет, плитка показывала «—»
-        // при оплате 30 сом в смене. Берём большее: журнал кассы знает и безналичную оплату.
+        // при оплате 30 сом в смене. Берём большее. 2026-10-18, второй круг ревью: и журнал кассы здесь — только наличные
+        // (безнал — свой вид события, подписью ниже), так что обе цифры — наличные в ящике.
         if (_report is { DebtPaymentsCash: > 0m } withDebtPayments)
             debtPaid = Math.Max(debtPaid, (double)withDebtPayments.DebtPaymentsCash!.Value);
 
@@ -430,6 +433,10 @@ public partial class ShiftDetailsDialog : Window
         WriteOffsText.Text = writeOffs > 0.005 ? Money(writeOffs) : "—";
         ExpenseText.Text = expenses > 0.005 ? Money(expenses) : "—";
         DebtPaidText.Text = debtPaid > 0.005 ? Money(debtPaid) : "—";
+        // 2026-10-18, ревью: плитка выше — наличные (локальный журнал или debt_payments_cash сервера); безнал — отдельно.
+        var debtPaidNonCash = Get(ShiftEventsStore.KindDebtPaymentNonCash);
+        DebtPaidNonCashText.IsVisible = debtPaidNonCash > 0.005;
+        DebtPaidNonCashText.Text = Tr.T("+ безналом: ", "+ накталай эмес: ", "+ non-cash: ", "+ nakitsiz: ", "+ naqd emas: ") + Money(debtPaidNonCash);
 
         var adjustments = ClientLoyaltyStore.AdjustmentsForShift(shiftId);
         var discounts = Math.Max(adjustments.Discounts, _serverDiscounts);

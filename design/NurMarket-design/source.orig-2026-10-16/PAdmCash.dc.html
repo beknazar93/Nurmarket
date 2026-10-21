@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Деньги в кассе</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.seg{flex-grow:1;height:42px;border-radius:10px;border:0;font-family:inherit;font-size:14px;font-weight:700}
+.chip{height:36px;padding:0 12px;border-radius:18px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.hs{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F2F4F7;font-size:13px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <b style="font-size: 18px; font-weight: 800; flex-grow: 1">Деньги в кассе</b>
+  </header>
+  <main style="flex-grow: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 10px">
+    <section style="border-radius: 18px; background: #0B2A3C; color: #FFFFFF; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center">
+      <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #C7D2DB">Касса 1 · наличные сейчас</span><b style="font-size: 24px; color: #FFD600">[сумма]</b></span>
+      <button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.3); background: transparent; color: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700">Касса 1 ▾</button>
+    </section>
+    <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC"><button type="button" class="seg" style="background: transparent; color: #475467">Внесение</button><button type="button" class="seg" style="background: #FFFFFF; color: #0B2A3C">Изъятие</button></span>
+    <label class="lbl" for="sum">СУММА</label>
+    <input id="sum" type="text" placeholder="[сумма]" style="height: 56px; box-sizing: border-box; border-radius: 14px; border: 2px solid #0B2A3C; padding: 0 16px; font-family: inherit; font-size: 22px; font-weight: 800; background: #FFFFFF">
+    <span class="lbl">ЗАЧЕМ</span>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px"><button type="button" class="chip on">Инкассация</button><button type="button" class="chip">Расходы магазина</button><button type="button" class="chip">Поставщику</button><button type="button" class="chip">Другое</button></div>
+    <section style="background: #FFFFFF; border-radius: 16px; padding: 4px 14px">
+      <div class="hs"><span style="flex-grow: 1">Внесение · размен</span><span style="color: #667085">[время]</span><b style="color: #0E7A3A">+[сумма]</b></div>
+      <div class="hs" style="border: 0"><span style="flex-grow: 1">Изъятие · расходы</span><span style="color: #667085">[время]</span><b style="color: #B42318">−[сумма]</b></div>
+    </section>
+  </main>
+  <div style="padding: 10px 16px 22px"><button type="button" style="width: 100%; height: 56px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 17px; font-weight: 800">Изъять из кассы</button></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

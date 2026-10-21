@@ -61,11 +61,10 @@ public static class TelegramAiChat
         + "Название товара можно выделить **жирным**. Перед списком и после — не больше одной короткой фразы.";
 
     /// <summary>2026-10-05, владелец: «в десктопе открой чат с ИИ для владельца, чтобы владелец советовался с ним —
-    /// специальную вкладку». Раздел «ИИ-советник» программы владельца (AiAdvisorWindow): та же сводка магазина,
-    /// что у бота, свой разговор, вместо команд бота — разделы программы; ответ простым текстом.</summary>
-    /// <param name="serverSummary">Цифры «Сводки» программы владельца (отчёт сервера NurCRM). Есть — выручка берётся
-    /// из них, а не из локальной истории продаж (она бывает неполной или с повторами: живой случай 05.10 —
-    /// 1 353 572 сом за 7 дней по локальной истории против 886 049 сом на сервере).</param>
+    /// специальную вкладку». Раздел «Нур Советник» программы владельца (AiAdvisorWindow).
+    /// 2026-10-21, «доведи Нур Советника до 10»: данные магазина — частями по важности (<see cref="AiContextBudget"/>), без молча
+    /// обрезанных разделов (О1); права пользователя (О4); сотрудники кодами [С1], запасной ИИ — без персональных данных (О5);
+    /// этапы ответа на экране и время каждого этапа в журнале (О3).</summary>
     /// <summary>2026-10-06, владелец: «добавь загрузку фото накладной в наш ИИ, чтобы он мог загрузить с маржей на склад».
     /// Фото к текущему вопросу советника (накладная, чек поставщика, товар) — уходит в Gemini частью inline_data; в историю
     /// разговора не попадает (только текст).</summary>
@@ -75,80 +74,312 @@ public static class TelegramAiChat
     /// страниц». Вторая и следующие страницы (фото или PDF) — к тому же вопросу, после первой.</summary>
     private static readonly AsyncLocal<List<(byte[] Data, string Mime)>?> QuestionExtraImages = new();
 
-    /// <summary>Вопрос с несколькими вложениями (страницы накладной): первое — как обычное фото, остальные — следом в том же запросе.</summary>
-    public static async Task<(string? Answer, string? Error, IReadOnlyList<WebSource> Sources)> AskOwnerAppWithDetailsAsync(
-        string question, string? serverSummary, CancellationToken ct, IReadOnlyList<(byte[] Data, string Mime)> attachments)
+    /// <summary>2026-10-21: ответ советника и всё, что нужно окну: разделы данных, которые ушли в ИИ (для «откуда цифра»),
+    /// время этапов, ответившая модель и ответил ли запасной ИИ.</summary>
+    public sealed record OwnerAskResult(string? Answer, string? Error, IReadOnlyList<WebSource> Sources, IReadOnlyList<AiSection> Included,
+        string Timings, string? Model, bool Fallback);
+
+    /// <summary>Этап ответа для экрана: 1 — собираю данные, 2 — спрашиваю ИИ, 3 — готовлю ответ.</summary>
+    public const int StageCollect = 1, StageAsk = 2, StageCompose = 3;
+
+    /// <summary>2026-10-21 (О1): бюджет данных магазина для одного вопроса (символов). Инструкции — отдельно, короткие (~2–4 тыс.).
+    /// 16 000 на всё (1.17.58) не хватало даже складу; Gemini принимает гораздо больше, но большой запрос отвечает медленнее (О3).</summary>
+    public const int OwnerDataBudget = 22000;
+
+    private static readonly System.Text.Json.JsonSerializerOptions RelaxedJson = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+    /// <summary>2026-10-21: модели, которые отказали на thinkingBudget 0 (400) — им шлём запрос без этой настройки.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> ThinkingStep = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Токены ответа Gemini для журнала: вопрос, размышления, ответ (usageMetadata).</summary>
+    private static string UsageText(string json)
     {
-        if (attachments.Count == 0)
-            return await AskOwnerAppWithDetailsAsync(question, serverSummary, ct, null, null).ConfigureAwait(false);
-        QuestionExtraImages.Value = attachments.Skip(1).ToList();
         try
         {
-            return await AskOwnerAppWithDetailsAsync(question, serverSummary, ct, attachments[0].Data, attachments[0].Mime).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("usageMetadata", out var u))
+                return "токены —";
+            int N(string n) => u.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 0;
+            return $"токены: вопрос {N("promptTokenCount")}, размышления {N("thoughtsTokenCount")}, ответ {N("candidatesTokenCount")}";
+        }
+        catch (JsonException)
+        {
+            return "токены —";
+        }
+    }
+
+    // 2026-10-21: подмена ответа ИИ для стенда проверки (см. GenerateGeminiAsync). В программе не задаётся.
+    private static Func<string, string, string?>? _standAnswer;
+    private static string? _standLastSystem;
+
+    /// <summary>Модель Gemini, ответившая последней (для журнала).</summary>
+    public static string? LastModel => _workingModel;
+
+    public static async Task<OwnerAskResult> AskOwnerAppAsync(string question, IReadOnlyList<AiSection> shop, AiAccess access, CancellationToken ct,
+        IReadOnlyList<(byte[] Data, string Mime)>? attachments = null, Action<int>? stage = null, bool useHistory = true, ISet<string>? forceFull = null)
+    {
+        var total = System.Diagnostics.Stopwatch.StartNew();
+        var timings = new StringBuilder();
+        stage?.Invoke(StageCollect);
+        QuestionImage.Value = attachments is { Count: > 0 } ? (attachments[0].Data, attachments[0].Mime) : null;
+        QuestionExtraImages.Value = attachments is { Count: > 1 } ? attachments.Skip(1).ToList() : null;
+        try
+        {
+            var (questionSections, researchSources, partTimes) = await QuestionSectionsAsync(question, access, ct).ConfigureAwait(false);
+            timings.Append(partTimes);
+            var all = shop.Concat(questionSections).ToList();
+            var explicitWebSearch = ProductActionPlan.IsExplicitWebSearchRequest(question);
+            var groqSearch = explicitWebSearch && WebSearchUnavailable && AiProviders.CanSearchWeb;
+            var build = System.Diagnostics.Stopwatch.StartNew();
+            var (system, included, fallbackSystem) = BuildOwnerSystem(question, all, access, QuestionImage.Value is not null, forceFull, groqSearch);
+            timings.Append($"контекст {system.Length} симв. ({build.ElapsedMilliseconds} мс); ");
+            // 2026-10-21 (стенд): запасной ИИ получает обезличенный вариант всегда, кроме вопросов именно о сотрудниках, должниках и
+            // чеках (без персональных разделов он на них не ответит) — раньше раздел должников был почти в каждом запросе и запасной ИИ не включался.
+            var personalNeeded = PersonalQuestion(question);
+            stage?.Invoke(StageAsk);
+            var ai = System.Diagnostics.Stopwatch.StartNew();
+            var (answer, error, generatedSources, fallback) = await AskCoreOwnerAsync(question, system, personalNeeded ? "" : fallbackSystem, ct, useHistory,
+                webSearch: explicitWebSearch && !groqSearch && researchSources.Count == 0).ConfigureAwait(false);
+            timings.Append($"ИИ {(fallback ? "запасной" : _workingModel ?? "—")} {ai.ElapsedMilliseconds} мс; ");
+            var sources = researchSources.Count > 0 ? researchSources : generatedSources;
+
+            // 2026-10-21 (О1): ИИ попросил раздел, который не поместился («НУЖНО: warehouse»), — второй шаг: только этот раздел целиком.
+            if (answer is not null && AiContextBudget.NeedRequest(answer) is { } need && all.Any(s => s.Key == need) && forceFull?.Contains(need) != true)
+            {
+                DropLastTurn(useHistory);
+                var force = new HashSet<string>(forceFull ?? new HashSet<string>()) { need };
+                (system, included, fallbackSystem) = BuildOwnerSystem(question, all, access, QuestionImage.Value is not null, force, groqSearch);
+                var again = System.Diagnostics.Stopwatch.StartNew();
+                (answer, error, generatedSources, fallback) = await AskCoreOwnerAsync(question, system, personalNeeded ? "" : fallbackSystem, ct, useHistory,
+                    webSearch: false).ConfigureAwait(false);
+                timings.Append($"второй шаг «{need}» {again.ElapsedMilliseconds} мс; ");
+                // Снова «НУЖНО:» — служебную строку владельцу не показываем.
+                if (answer is not null && AiContextBudget.NeedRequest(answer) is not null)
+                    answer = Tr.T("Для точного ответа данных не хватило — откройте нужный раздел программы (склад, ABC-анализ, долги) или задайте вопрос уже.",
+                        "Так жооп үчүн маалымат жетишкен жок — программанын керектүү бөлүмүн ачыңыз же суроону тагыраак бериңиз.",
+                        "Not enough data for an exact answer — open the relevant section of the program or ask a narrower question.",
+                        "Kesin yanıt için veri yetmedi — programın ilgili bölümünü açın veya soruyu daraltın.",
+                        "Aniq javob uchun ma'lumot yetmadi — dasturning kerakli bo'limini oching yoki savolni aniqroq bering.");
+            }
+
+            // 2026-10-05: у бесплатного ключа Gemini поиска Google нет — тогда ищет Groq (в Groq уходит только запрос, без сводки).
+            if (groqSearch && answer is not null && SearchRequest(answer) is { } query)
+            {
+                DropLastTurn(useHistory);
+                var (found, webFound, searchError) = await AiProviders.SearchWebAsync(query, ct).ConfigureAwait(false);
+                var withResults = question + "\n\nРЕЗУЛЬТАТЫ ПОИСКА В ИНТЕРНЕТЕ по запросу «" + query + "»:\n"
+                                  + (found ?? "не нашлось (" + searchError + ")")
+                                  + "\n\nОтветь на вопрос по данным магазина и этим результатам. Строку «ПОИСК:» больше не пиши.";
+                (answer, error, _, fallback) = await AskCoreOwnerAsync(withResults, system.Replace(GroqSearchHint, ""), "", ct, useHistory, webSearch: false).ConfigureAwait(false);
+                sources = webFound;
+            }
+            stage?.Invoke(StageCompose);
+            timings.Append($"всего {total.ElapsedMilliseconds} мс");
+            return new OwnerAskResult(answer, error, sources, included, timings.ToString(), fallback ? "запасной ИИ" : _workingModel, fallback);
         }
         finally
         {
+            QuestionImage.Value = null;
             QuestionExtraImages.Value = null;
         }
     }
 
-    public static async Task<(string? Answer, string? Error)> AskOwnerAppAsync(string question, string? serverSummary, CancellationToken ct,
-        byte[]? image = null, string? imageMime = null)
+    private static void DropLastTurn(bool useHistory)
     {
-        var (answer, error, _) = await AskOwnerAppWithDetailsAsync(question, serverSummary, ct, image, imageMime).ConfigureAwait(false);
-        return (answer, error);
-    }
-
-    public static async Task<(string? Answer, string? Error, IReadOnlyList<WebSource> Sources)> AskOwnerAppWithDetailsAsync(
-        string question, string? serverSummary, CancellationToken ct, byte[]? image = null, string? imageMime = null)
-    {
-        QuestionImage.Value = image is { Length: > 0 } ? (image, imageMime ?? "image/jpeg") : null;
-        // 2026-10-06, владелец: «к ИИ дай полный доступ к товарам… следить за сроками годности» — сроки с сервера в сводку.
-        await ProductExpiryIndex.RefreshAsync(false, ct).ConfigureAwait(false);
-        var cards = await ProductActionPlan.MentionedCardsContextAsync(question, ct).ConfigureAwait(false);
-        // 2026-10-06, владелец: «поиск информации в интернете по товарам сделай возможным ИИ-ассистенту» — просят описать или
-        // дополнить товар: сначала программа ищет сведения (открытые базы по штрихкоду + интернет), потом спрашивает ИИ.
-        var (research, researchSources) = await ResearchMentionedAsync(question, ct).ConfigureAwait(false);
-        if (research.Length > 0)
-            cards += (cards.Length > 0 ? "\n\n" : "") + research;
-        // 2026-10-06, владелец: «дай доступ ИИ к сотрудникам, чтобы ИИ мог считать зарплату и их продажи».
-        var staff = await StaffContextAsync(question, ct).ConfigureAwait(false);
-        if (staff.Length > 0)
-            cards += (cards.Length > 0 ? "\n\n" : "") + staff;
-        // 2026-10-07: «чеки за вчера» — программа сама загружает чеки за период, ИИ выводит таблицей (раньше: «зайдите в NurMarket»).
-        var salesDetail = await SalesDetailContextAsync(question, ct).ConfigureAwait(false);
-        if (salesDetail.Length > 0)
-            cards += (cards.Length > 0 ? "\n\n" : "") + salesDetail;
-        if (QuestionImage.Value is not null)
-            cards += (cards.Length > 0 ? "\n\n" : "") + ProductActionPlan.PhotoPromptText;
-        var system = OwnerAppPrompt + "\n" + ProductActionPlan.PromptText + (cards.Length > 0 ? "\n\n" + cards : "") + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
-                     + (string.IsNullOrWhiteSpace(serverSummary) ? "" : serverSummary.Trim() + "\n")
-                     + BuildShopContext(question, localRevenue: string.IsNullOrWhiteSpace(serverSummary));
-        // 2026-10-05: у бесплатного ключа Gemini поиска Google нет — тогда ищет Groq (AiProviders): Gemini пишет строку
-        // «ПОИСК: запрос», программа ищет и отдаёт найденное Gemini для ответа (в Groq уходит только запрос, без сводки).
-        var explicitWebSearch = ProductActionPlan.IsExplicitWebSearchRequest(question);
-        var groqSearch = explicitWebSearch && WebSearchUnavailable && AiProviders.CanSearchWeb;
-        if (groqSearch)
-            system += "\n" + GroqSearchHint;
-        var (answer, error, generatedSources) = await AskCoreAsync(OwnerAppHistoryKey, question, system, ct, raw: true,
-            webSearch: explicitWebSearch && !groqSearch && research.Length == 0).ConfigureAwait(false);
-        var requestSources = researchSources.Count > 0 ? researchSources : generatedSources;
-        if (!groqSearch || !explicitWebSearch || answer is null || SearchRequest(answer) is not { } query)
-            return (answer, error, requestSources);
-
-        // Промежуточный ответ «ПОИСК: …» в истории разговора не нужен.
+        if (!useHistory)
+            return;
         lock (History)
         {
             if (History.TryGetValue(OwnerAppHistoryKey, out var list) && list.Count >= 2)
                 list.RemoveRange(list.Count - 2, 2);
         }
-        var (found, sources, searchError) = await AiProviders.SearchWebAsync(query, ct).ConfigureAwait(false);
-        var withResults = question + "\n\nРЕЗУЛЬТАТЫ ПОИСКА В ИНТЕРНЕТЕ по запросу «" + query + "»:\n"
-                          + (found ?? "не нашлось (" + searchError + ")")
-                          + "\n\nОтветь на вопрос по сводке магазина и этим результатам. Строку «ПОИСК:» больше не пиши.";
-        var (final, finalError, _) = await AskCoreAsync(OwnerAppHistoryKey, withResults, system.Replace(GroqSearchHint, ""), ct, raw: true).ConfigureAwait(false);
-        return (final, finalError, sources);
     }
+
+    /// <summary>Части данных, которые зависят от вопроса: карточки товаров из вопроса, сведения из интернета, сотрудники, чеки за
+    /// период, остатки и сроки — ОДНОВРЕМЕННО (2026-10-21, О3: раньше по очереди, сроки годности ждали отчёт сервера каждый раз).</summary>
+    private static async Task<(List<AiSection> Sections, IReadOnlyList<WebSource> Research, string Timings)> QuestionSectionsAsync(
+        string question, AiAccess access, CancellationToken ct)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        long msExpiry = -1, msCards = -1, msStaff = -1, msSales = -1, msResearch = -1;
+        // Сроки годности: не ждём сервер дольше 1,5 с — нет свежих, берём прошлые (обновятся к следующему вопросу).
+        var expiry = access.Products ? ProductExpiryIndex.RefreshAsync(false, ct) : Task.FromResult(ProductExpiryIndex.Marks);
+        _ = expiry.ContinueWith(t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        async Task<T> Timed<T>(Func<Task<T>> f, Action<long> done)
+        {
+            try { return await f().ConfigureAwait(false); }
+            finally { done(watch.ElapsedMilliseconds); }
+        }
+        var cardsTask = access.Products ? Timed(() => ProductActionPlan.MentionedCardsContextAsync(question, ct), ms => msCards = ms) : Task.FromResult("");
+        var researchTask = access.Products ? Timed(() => ResearchMentionedAsync(question, ct), ms => msResearch = ms) : Task.FromResult(("", (IReadOnlyList<WebSource>)Array.Empty<WebSource>()));
+        var staffTask = access.Staff ? Timed(() => StaffContextAsync(question, ct), ms => msStaff = ms) : Task.FromResult("");
+        var salesTask = Timed(() => SalesDetailContextAsync(question, ct), ms => msSales = ms);
+        await Task.WhenAny(expiry, Task.Delay(1500, ct)).ConfigureAwait(false);
+        msExpiry = expiry.IsCompleted ? watch.ElapsedMilliseconds : -2;
+        string cards, staff, sales;
+        (string Text, IReadOnlyList<WebSource> Sources) research;
+        try { cards = await cardsTask.ConfigureAwait(false); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"ИИ: карточки товаров не получены ({ex.Message}).", "WARNING"); cards = ""; }
+        try { research = await researchTask.ConfigureAwait(false); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"ИИ: сведения из интернета не получены ({ex.Message}).", "WARNING"); research = ("", Array.Empty<WebSource>()); }
+        try { staff = await staffTask.ConfigureAwait(false); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"ИИ: сотрудники не получены ({ex.Message}).", "WARNING"); staff = ""; }
+        try { sales = await salesTask.ConfigureAwait(false); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"ИИ: чеки за период не получены ({ex.Message}).", "WARNING"); sales = ""; }
+
+        var list = new List<AiSection>();
+        if (cards.Length > 0)
+            list.Add(new AiSection("question_cards", "Карточки товаров из вопроса", 1, cards, SourceSection: "warehouse", SourceLabel: "Склад — карточки товаров"));
+        if (research.Text.Length > 0)
+            list.Add(new AiSection("research", "Найдено в интернете о товарах", 1, research.Text));
+        if (staff.Length > 0)
+            list.Add(new AiSection("staff", "Сотрудники, зарплата и табель", 2, staff, Personal: true, SourceSection: "salary", SourceLabel: "Зарплата и табель (сервер NurCRM)"));
+        if (sales.Length > 0)
+            list.Add(new AiSection("receipts", "Чеки за период", 2, sales, Short: sales.Length > 6000 ? sales[..6000] + "\n(показана часть чеков — итоги выше по всем)" : null,
+                Personal: true, SourceSection: "sales", SourceLabel: "Продажи — чеки всех касс (сервер NurCRM)"));
+        if (access.Products)
+        {
+            var exp = ProductExpiryIndex.ContextText(40);
+            if (exp.Length > 0)
+                list.Add(new AiSection("expiry", "Сроки годности", LooksLikeExpiryQuestion(question) ? 1 : 6, exp,
+                    Short: ProductExpiryIndex.Marks.Count > 15 ? ProductExpiryIndex.ContextText(15) + $"\n(показаны 15 из {ProductExpiryIndex.Marks.Count} — остальное: НУЖНО: expiry)" : null,
+                    SourceSection: "restock", SourceLabel: "Пополнение и сроки (сервер NurCRM)"));
+        }
+        var local = BuildOwnerLocalContext(question, access);
+        if (local.Length > 0)
+            list.Add(new AiSection("local", "Обращения в бот, прокат, товары из вопроса", 7, local));
+        var t = $"сроки {(msExpiry == -2 ? "не ждали (>1,5 с)" : msExpiry + " мс")}, карточки {msCards} мс, интернет {msResearch} мс, сотрудники {msStaff} мс, чеки {msSales} мс; ";
+        return (list, research.Sources, t);
+    }
+
+    /// <summary>Локальные мелочи для советника: обращения покупателей в бот, прокат, товары из вопроса (без выручки — она из «Сводки»).</summary>
+    private static string BuildOwnerLocalContext(string question, AiAccess access)
+    {
+        var sb = new StringBuilder();
+        try { sb.AppendLine(TelegramInquiryStore.ShortSummary()); }
+        catch (Exception ex) { PosLogger.Log($"ИИ-помощник: обращения не собраны ({ex.Message}).", "TELEGRAM"); }
+        if (TelegramAssistant.RentalContext(question) is { } rentals)
+            sb.AppendLine(rentals);
+        if (access.Products && TelegramAssistant.ProductContext(question) is { } products)
+            sb.AppendLine("Товары из вопроса (каталог):\n" + products);
+        return StripHtml(sb.ToString()).Trim();
+    }
+
+    private static bool Has(string q, params string[] words) => words.Any(q.Contains);
+
+    /// <summary>Вопрос именно о сотрудниках, должниках или чеках (с кассирами) — ответ только по персональным разделам.</summary>
+    private static bool PersonalQuestion(string question)
+    {
+        var q = (question ?? "").ToLowerInvariant();
+        return LooksLikeStaffQuestion(q) || Has(q, "долж", "долг", "карыз", "debt", "qarz", "borç", "чек", "receipt", "fiş", "chek", "клиент", "кардар");
+    }
+
+    public static bool LooksLikeExpiryQuestion(string question) => Has((question ?? "").ToLowerInvariant(), "срок", "просроч", "годн", "мөөнөт", "expir", "skt", "muddat");
+
+    /// <summary>2026-10-21 (О6): просьба ПОКАЗАТЬ список («выведи списком», «покажи все», «таблицей») — отвечаем таблицей, не планом действий.</summary>
+    public static bool LooksLikeListRequest(string question)
+    {
+        var q = (question ?? "").ToLowerInvariant();
+        return Has(q, "выведи", "выведите", "вывести", "списком", "список", "перечисли", "покажи все", "покажи всех", "покажи таблиц", "таблицей", "таблицу",
+                   "тизме", "тизмеси", "көрсөт", "list", "show all", "listele", "ro'yxat", "jadval")
+               && !Has(q, "добавь в список", "внеси в список");
+    }
+
+    /// <summary>Нужны правила действий с товарами (длинные — только когда о них речь).</summary>
+    private static bool NeedsActionRules(string question, bool image)
+    {
+        if (image)
+            return true;
+        var q = (question ?? "").ToLowerInvariant();
+        return ProductActionPlan.LooksLikeAction(q) || Has(q, "пополн", "закаж", "заказать", "списа", "цен", "акци", "скидк", "фото", "наценк", "срок год", "товар:");
+    }
+
+    private static bool NeedsBotRules(string question)
+    {
+        var q = (question ?? "").ToLowerInvariant();
+        return Has(q, "бот", "telegram", "телеграм", "сценари", "команд", "консультант", "ответы голосом");
+    }
+
+    private static bool NeedsRemindRules(string question)
+    {
+        var q = (question ?? "").ToLowerInvariant();
+        return Has(q, "напомн", "whatsapp", "ватсап", "вотсап", "эскерт");
+    }
+
+    /// <summary>2026-10-21 (О1): инструкция советника = короткое ядро + только нужные правила + данные по бюджету. Возвращает и
+    /// вариант для запасного ИИ — без персональных частей (О5).</summary>
+    private static (string System, IReadOnlyList<AiSection> Included, string FallbackSystem) BuildOwnerSystem(string question, IReadOnlyList<AiSection> sections,
+        AiAccess access, bool image, ISet<string>? forceFull, bool groqSearch)
+    {
+        var rules = new StringBuilder(OwnerCorePrompt);
+        if (access.DeniedPrompt() is { Length: > 0 } denied)
+            rules.Append(' ').Append(denied);
+        var q = (question ?? "").ToLowerInvariant();
+        if (access.Clients && Has(q, "долж", "долг", "карыз", "debt", "borç", "qarz"))
+            rules.Append(' ').Append(DebtorTableRule);
+        if (access.Products && NeedsActionRules(question ?? "", image) && !(LooksLikeListRequest(question ?? "") && !ProductActionPlan.LooksLikeAction(q.Replace("выведи", "").Replace("покажи", ""))))
+            rules.Append(' ').Append(ActionRules);
+        else if (access.Products)
+            rules.Append(" Изменения товаров (строки «ТОВАР:») предлагай только по прямой просьбе владельца что-то изменить.");
+        if (access.Settings && NeedsBotRules(question ?? ""))
+            rules.Append(' ').Append(BotRules);
+        if (access.Clients && NeedsRemindRules(question ?? ""))
+            rules.Append(' ').Append(RemindRules);
+        if (image && access.Products)
+            rules.Append("\n").Append(ProductActionPlan.PhotoPromptText).Append(' ').Append(InvoiceException);
+        if (groqSearch)
+            rules.Append('\n').Append(GroqSearchHint);
+        var head = rules + "\n\nДАННЫЕ МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + " (части по важности):\n";
+        // 2026-10-21 (стенд): раздел, присланный целиком по «НУЖНО:», — сверх бюджета (раньше склад целиком вытеснял всё остальное).
+        var extra = Math.Min(40000, sections.Where(x => forceFull?.Contains(x.Key) == true).Sum(x => x.Full.Length));
+        // Сначала обезличенный вариант, потом основной — в AiContextBudget.LastReport остаётся отчёт о том, что ушло на самом деле.
+        var (safeData, _, _) = AiContextBudget.Compose(sections, OwnerDataBudget + extra, withoutPersonal: true, forceFull: forceFull);
+        var (data, report, included) = AiContextBudget.Compose(sections, OwnerDataBudget + extra, forceFull: forceFull);
+        PosLogger.Log($"ИИ-советник: в ИИ — инструкции {head.Length} симв., {report}.", "INFO");
+        return (head + data, included, head + safeData + "\n(Персональные данные сотрудников и должников запасному ИИ не передаются — на такие вопросы скажи, что основной ИИ недоступен, пусть владелец повторит позже.)");
+    }
+
+    private const string OwnerCorePrompt =
+        "Тебя зовут Нур Советник (по-кыргызски — Нур Кеңешчи; называй себя одним именем на языке ответа): ИИ-советник владельца магазина в Кыргызстане в программе NurMarket. "
+        + "Отвечай на языке вопроса (русский, кыргызский, английский, турецкий, узбекский), по делу и дружелюбно, до 8 предложений. Валюта — сом. "
+        + "ЦИФРЫ — ТОЛЬКО из данных магазина ниже; никогда не выдумывай суммы, остатки, цены и даты. Готовые итоги и проценты (СРАВНЕНИЕ ПЕРИОДОВ, ДОЛГИ, СКЛАД) называй как есть, не пересчитывай. "
+        + "Нужных данных нет (другой период, будущая дата, нет такого товара) — честно скажи и назови раздел программы («Сводка», «Продажи», «ABC-анализ», «Пополнение и сроки», «Долги клиентов», «Склад», «Зарплата»). "
+        + "Должники обозначены кодами [Д1], сотрудники — [С1]: пиши код ВСЕГДА в квадратных скобках ровно как в данных — программа сама покажет имя; не пиши, что имена скрыты. "
+        + "Просят список, таблицу, «выведи», «покажи все» — выведи ТАБЛИЦЕЙ Markdown все строки из данных (строка заголовков, строка |---|, строки, «Итого» последней), без строк «ТОВАР:». "
+        + "Однотипные данные (товары, дни, должники, сотрудники) — таблицей 2–7 колонок с короткими заголовками, числа с пробелами между разрядами и единицей (сом, шт); "
+        + "перед таблицей одна фраза, после — 1–2 предложения вывода. Остальное — простой текст без # и звёздочек; список — пункты «• » с новой строки, не больше 10–15. "
+        + "Советы — конкретные: что заказать, что продвигать, где теряются деньги, как поднять продажи; акции не ниже закупки + 5 %, на товары с низкой наценкой — без скидки. "
+        + "Поиск в интернете и внешние источники — только по прямой просьбе искать в интернете; найденное называй найденным. "
+        + "Не начинай ответ со своего имени и приветствия — сразу по делу.";
+
+    private const string DebtorTableRule =
+        "Список должников — таблицей | Должник | Долг, сом | Чеков | Долг с |, в колонке «Должник» только код [Д1] как в данных, в конце строка «Итого». Итог долгов бери из «ДОЛГИ КЛИЕНТОВ».";
+
+    private const string ActionRules =
+        "ДЕЙСТВИЯ С ТОВАРАМИ: ничего не меняется до кнопки владельца — пиши «предлагаю», «подтвердите», не пиши, что уже сделал. "
+        + "Каждое действие — отдельной строкой в конце ответа: ТОВАР: {\"op\": \"...\", \"product\": \"точное название или id из данных\", ...} — одной строкой JSON. "
+        + "op: stock_in / stock_out / stock_set (\"qty\"; у stock_out \"reason\": \"Просрочка\"/\"Брак\"/\"Порча\"/\"Кража\"/\"Другое\"), set_price / set_purchase (\"price\"), "
+        + "set_expiry (\"date\": \"ГГГГ-ММ-ДД\"), set_shelf_life (\"days\"), set_min (\"qty\"), set_description (\"text\": 2–5 предложений без выдуманных цифр), "
+        + "set_country / set_name / set_brand / set_category / set_barcode / set_article (\"text\"), receive (\"qty\", \"purchase\", \"price\"), "
+        + "create (\"name\", \"qty\", \"purchase\", \"price\", \"barcode\"?, \"unit\"?, \"category\"?), open_section (\"section\": warehouse, sales, finance, analytics, salary, clients, debts, restock), "
+        + "open (открыть товар на складе), photo (только по прямой просьбе искать фото в интернете). «добавь/пришло» — stock_in, «спиши/убери» — stock_out, «ровно N» — stock_set; "
+        + "просрочку — stock_out с reason «Просрочка». Название — точно как в данных; товар не найден или неясен — спроси, не угадывай; название и штрихкод без просьбы не меняй. "
+        + "Блок «НАЙДЕНО В ИНТЕРНЕТЕ О ТОВАРАХ» — источник описания, страны, бренда; сведений нет — не придумывай. Обрабатывай все перечисленные позиции.";
+
+    private const string BotRules =
+        "БОТ: состояние функций Телеграм-бота — в данных (раздел «БОТ»). Просят включить или выключить функцию — одна-две фразы, что изменится, и ПОСЛЕДНЕЙ строкой ровно: "
+        + "БОТ: {\"ключ\": true/false} — ключи shift_summary_enabled, commands_enabled, ai_enabled, consultant_enabled, voice_replies_enabled; до кнопки «Применить» ничего не меняется. "
+        + "Свои ответы бота (если в данных НЕ написано «сервер пока не поддерживает»): короткий вежливый ответ покупателю и ПОСЛЕДНЕЙ строкой: "
+        + "СЦЕНАРИЙ: {\"kind\": \"command\" или \"keywords\", \"command\": \"латиница_без_слеша\", \"keywords\": [\"слово\", …], \"title\": \"название\", \"reply_text\": \"ответ\", \"audience\": \"customers\"} — "
+        + "одной строкой JSON; адрес, телефон и цены не выдумывай — спроси.";
+
+    private const string RemindRules =
+        "Просят напомнить должникам о долге — коротко скажи, кому, и ПОСЛЕДНЕЙ строкой ровно: НАПОМНИТЬ: [Д1], [Д2] (всем — НАПОМНИТЬ: все). "
+        + "Программа покажет кнопки «Написать в WhatsApp» с готовым текстом — отправляет владелец, не пиши, что уже отправил.";
+
+    private const string InvoiceException =
+        "ИСКЛЮЧЕНИЕ для фото накладной: не применяй ограничение 10–15 пунктов и общие правила оформления; выведи все строки в таблице строго по инструкции «ФОТО К ВОПРОСУ», "
+        + "затем ровно три строки итогов; другого видимого текста не добавляй.";
 
     private const string GroqSearchHint =
         "ПОИСК В ИНТЕРНЕТЕ: если для ответа нужны свежие сведения извне (цены у конкурентов и поставщиков, курсы валют, новости, законы и налоги, "
@@ -207,25 +438,27 @@ public static class TelegramAiChat
     private const string OwnerAppHistoryKey = "ownerapp";
 
     /// <summary>2026-10-05, владелец: «постоянное голосовое общение как ChatGPT» (ответ «да»). Инструкция для живого разговора
-    /// (GeminiLiveVoice): та же сводка магазина, что у чата советника, но ответы — короткие и для слуха; в конце — последние
-    /// реплики текстового разговора, чтобы голосом можно было продолжить начатое.</summary>
-    public static string BuildOwnerVoiceInstruction(string? serverSummary, IEnumerable<(bool Owner, string Text)> recent, string? staff = null)
+    /// (GeminiLiveVoice): ответы — короткие и для слуха.
+    /// 2026-10-21 (О1, О7): данные — тот же построитель по важности, что у чата (AiContextBudget, раньше звонок получал всю сводку без
+    /// счёта, а чат — обрезанную); прав пользователя — те же (О4). Из текстового чата — только две последние пары реплик и с пометкой
+    /// «старые просьбы не выполнять» (звонок 07.10 искал фото товаров из прошлых просьб).</summary>
+    public static string BuildOwnerVoiceInstruction(IReadOnlyList<AiSection> shop, IEnumerable<(bool Owner, string Text)> recent, string? staff, AiAccess access)
     {
         var sb = new StringBuilder(OwnerVoicePrompt);
-        sb.Append("\n\nСВОДКА МАГАЗИНА на ").Append(DateTime.Now.ToString("dd.MM.yyyy HH:mm")).Append(":\n");
-        if (!string.IsNullOrWhiteSpace(serverSummary))
-            sb.Append(serverSummary.Trim()).Append('\n');
-        sb.Append(BuildShopContext("", localRevenue: string.IsNullOrWhiteSpace(serverSummary)));
-        // 2026-10-06, владелец (снимок звонка: «В этой сводке нет данных по сотрудникам и зарплатам», «не могу показать табель»):
-        // «исправь это, дай доступ». В звонке сводка собирается один раз — сотрудники, ставки, начисления и табель кладутся сюда.
-        if (!string.IsNullOrWhiteSpace(staff))
-            sb.Append('\n').Append(staff.Trim()).Append('\n');
-        var lines = recent.TakeLast(HistoryTurns * 2).ToList();
+        if (access.DeniedPrompt() is { Length: > 0 } denied)
+            sb.Append(' ').Append(denied);
+        var sections = shop.ToList();
+        if (access.Staff && !string.IsNullOrWhiteSpace(staff))
+            sections.Add(new AiSection("staff", "Сотрудники, зарплата и табель", 3, staff.Trim(), Personal: true));
+        var (data, report, _) = AiContextBudget.Compose(sections, 24000);
+        PosLogger.Log($"ИИ-советник: звонок — {report}.", "INFO");
+        sb.Append("\n\nДАННЫЕ МАГАЗИНА на ").Append(DateTime.Now.ToString("dd.MM.yyyy HH:mm")).Append(":\n").Append(data).Append('\n');
+        var lines = recent.TakeLast(4).ToList();
         if (lines.Count > 0)
         {
-            sb.Append("\nНЕДАВНИЙ РАЗГОВОР (текстом, до звонка):\n");
+            sb.Append("\nПОСЛЕДНИЕ РЕПЛИКИ ТЕКСТОВОГО ЧАТА (только для справки; старые просьбы из них НЕ выполняй — выполняй только то, что владелец говорит сейчас):\n");
             foreach (var (owner, text) in lines)
-                sb.Append(owner ? "Владелец: " : "Советник: ").Append(text.Length > 600 ? text[..600] + "…" : text).Append('\n');
+                sb.Append(owner ? "Владелец: " : "Советник: ").Append(text.Length > 400 ? text[..400] + "…" : text).Append('\n');
         }
         return sb.ToString();
     }
@@ -245,7 +478,9 @@ public static class TelegramAiChat
         + "(смены, дни, часы, кто сейчас на смене) — бери из раздела «СОТРУДНИКИ» и «ТАБЕЛЬ» сводки ниже; данные там есть, не говори, что их нет. "
         + "Если спрашивают за другой период — скажи «Сейчас посмотрю»: программа пришлёт данные сообщением «[Программа]». "
         + "Должники в сводке обозначены кодами [Д1], [Д2] — коды вслух не произноси: назови, сколько должников и на какую сумму, "
-        + "а имена владелец увидит в разделе «Долги клиентов». Никогда не выдумывай суммы, остатки и цены. "
+        + "а имена владелец увидит в разделе «Долги клиентов». Сотрудники обозначены кодами [С1], [С2] — вслух их не произноси, говори «сотрудник», "
+        // 2026-10-21 (О5): имена сотрудников в ИИ не уходят — в чате программа сама подставит имя вместо кода.
+        + "в чате пиши код в квадратных скобках. Никогда не выдумывай суммы, остатки и цены. "
         + "Давай конкретные советы: что заказать, что продвигать, где теряются деньги, как поднять продажи; акции — не ниже закупки плюс пять процентов. "
         // 2026-10-07, владелец: «перестань выдавать фото из базы NurCRM, ищи прямо в интернете».
         + "Поиск фото в интернете запускай только по прямой просьбе найти / поискать фото именно в интернете или в сети. "
@@ -276,65 +511,6 @@ public static class TelegramAiChat
         + "и не выдумывай факты о товаре — их покажет программа. Сообщения, которые начинаются с «[Программа]», — от программы: "
         + "коротко перескажи их владельцу. Валюта — сом.";
 
-    private const string OwnerAppPrompt =
-        "Тебя зовут Нур Советник (по-русски называй себя только «Нур Советник», по-кыргызски — только «Нур Кеңешчи», не оба сразу): ты ИИ-советник владельца магазина в Кыргызстане, встроенный в программу NurMarket (раздел «Нур Советник»). "
-        + "Владелец советуется с тобой о своём магазине. Отвечай по делу и дружелюбно, до 8–10 предложений, на языке собеседника "
-        + "(русский, кыргызский, английский, турецкий или узбекский). "
-        + "Цифры магазина бери ТОЛЬКО из сводки ниже; если нужных данных в ней нет — честно скажи об этом и подскажи раздел программы: "
-        + "«Продажи», «Аналитика», «ABC-анализ», «Пополнение и сроки», «Прибыль и деньги», «Клиенты» (долги), «Склад». "
-        + "В сводке есть итоги долгов и список должников: каждый должник обозначен кодом вида [Д1], [Д2]. Называя должника, "
-        + "пиши его код в квадратных скобках ровно так, как в сводке, — программа сама покажет владельцу вместо кода имя и телефон. "
-        + "Никогда не пиши, что имена или телефоны скрыты, недоступны или конфиденциальны — владелец видит их вместо кодов. "
-        // 2026-10-06, владелец: «сделай отображение должников в виде таблицы» (таблица разваливалась: «•» внутри строк).
-        + "Просят список должников — перечисли ВСЕХ из сводки ТАБЛИЦЕЙ: | Должник | Долг, сом | Чеков | Долг с |, в колонке «Должник» — "
-        + "только код [Д1] ровно как в сводке, без «•» и без «№» в строках таблицы, "
-        + "в конце — итог. "
-        // 2026-10-06, владелец: «если открыт WhatsApp, по номеру находи должников и пиши им вернуть долг, напомни о долге».
-        + "Если владелец просит напомнить должникам о долге (написать, отправить напоминание в WhatsApp), коротко скажи, кому напоминаешь, "
-        + "и ПОСЛЕДНЕЙ строкой напиши ровно: НАПОМНИТЬ: [Д1], [Д2] — коды из сводки (всем — НАПОМНИТЬ: все). Программа покажет кнопки "
-        + "«Написать в WhatsApp» с готовым текстом — отправляет владелец, поэтому не пиши, что уже отправил. "
-        + "В сводке есть «АНАЛИЗ ТОВАРОВ И АКЦИЙ»: хорошо продававшиеся, но закончившиеся товары; популярные, которых осталось мало (с количеством к заказу); товары без продаж, затоваренные, с падающими продажами, с низкой наценкой, растущие, "
-        + "клиенты и заказы через бота. Когда спрашивают про акции, проблемные товары или «что делать со складом» — предлагай "
-        + "конкретные акции на конкретные товары: какой товар, какая скидка или комплект, на какой срок и почему; соблюдай правила "
-        + "акций из анализа (не ниже закупки + 5 %, на товары с низкой наценкой — без скидки). "
-        + "Фото через интернет ищи только по прямой просьбе пользователя искать фото в интернете / сети; упоминание фото само по себе не разрешает поиск. "
-        // 2026-10-05, владелец: «включи поиск по интернету для ИИ».
-        + "Поиск Google и другие внешние источники используй только когда пользователь прямо просит найти или проверить информацию в интернете / сети. "
-        + "Без такой просьбы отвечай по сводке и локальным данным, а при нехватке данных честно сообщи об этом. Цифры своего магазина — "
-        + "только из сводки. Найденное в интернете называй как найденное и не выдумывай. "
-        // 2026-10-05, владелец: «добавь возможность ИИ управлять ботом» (ответ «1 да»). Сам ИИ ничего не меняет:
-        // он пишет строку БОТ: {...}, программа показывает её владельцу карточкой и применяет только по «Применить».
-        + "Ты можешь включать и выключать функции Телеграм-бота магазина. Состояние бота — в сводке (раздел «БОТ»). "
-        + "Если владелец просит включить или выключить функцию бота, коротко скажи, что изменится, и ПОСЛЕДНЕЙ строкой ответа "
-        + "напиши ровно: БОТ: {\"ключ\": true/false} — только ключи shift_summary_enabled (сводка смены владельцу), "
-        + "commands_enabled (команды владельца в боте), ai_enabled (ИИ в боте), consultant_enabled (ИИ-консультант для покупателей), "
-        + "voice_replies_enabled (ответы голосом). Программа покажет владельцу кнопку «Применить» — до неё ничего не меняется, "
-        + "поэтому не пиши, что уже включил. В таком ответе — одна-две фразы о том, что изменится, без других цифр магазина. "
-        // 2026-10-05, ТЗ часть 11: свои ответы бота (команда /adres, ответ на слово «доставка») — тоже через подтверждение.
-        + "Свои ответы бота: если в сводке «СЦЕНАРИИ БОТА» НЕ написано «сервер пока не поддерживает» и владелец просит добавить "
-        + "команду или ответ бота (адрес, доставка, график работы, оплата), составь короткий вежливый ответ покупателю и ПОСЛЕДНЕЙ строкой "
-        + "напиши ровно: СЦЕНАРИЙ: {\"kind\": \"command\" или \"keywords\", \"command\": \"латиница_без_слеша\" (для command), "
-        + "\"keywords\": [\"слово\", …] (для keywords, по-русски и по-кыргызски), \"title\": \"название\", \"reply_text\": \"ответ, можно теги <b> <i>\", "
-        + "\"audience\": \"customers\"} — одной строкой JSON. Не выдумывай адрес, телефон и цены — бери их у владельца или из сводки; "
-        + "если данных нет — спроси. Если сервер не поддерживает сценарии — скажи, что они появятся после обновления сервера. "
-        + "В сводке есть ABC-анализ за 30 дней (срезы по выручке, прибыли, количеству, категориям, брендам и складу, группы A/B/C) — "
-        + "по нему советуй, что нельзя допускать до нуля (A), что держать в меньшем запасе или выводить (C), где товар в A по выручке, "
-        + "но в C по прибыли (мало наценки). "
-        + "В сводке есть и склад: все товары с категорией, ценой продажи, закупкой и остатком — по нему считай наценку, "
-        + "замороженные в остатках деньги, что закончилось и что заказать. "
-        + "Никогда не выдумывай суммы, остатки и цены. Давай конкретные советы: что заказать, что продвигать, где теряются деньги, "
-        + "как поднять продажи, как работать с покупателями и выкладкой. Валюта — сом. "
-        // 2026-10-06, владелец (снимок: табель и зарплаты сплошным текстом): «выводи данные нормально, как таблицу, если это данные магазина».
-        + "Оформление. Данные магазина из нескольких однотипных строк (сотрудники, табель, зарплата и ставки, товары, остатки, наценка, "
-        + "продажи по дням, должники, итоги по категориям) — ТАБЛИЦЕЙ Markdown: строка заголовков, под ней строка вида |---|---|, дальше строки; "
-        + "2–7 колонок, короткие заголовки, числа с пробелами между разрядами и единицей (сом, шт, ч), без звёздочек внутри таблицы; "
-        + "итог — последней строкой «Итого». Перед таблицей — одна короткая фраза, после — 1–2 предложения вывода или совета. "
-        + "Остальное — простой текст без решёток (#) и звёздочек; список — каждый пункт с новой строки, начинается с «• », не больше 10–15 пунктов. "
-        // 2026-10-09: формат полного списка накладной важнее общего ограничения длины списков и обычного текста вокруг таблиц.
-        + "ИСКЛЮЧЕНИЕ: если к вопросу приложено фото накладной, не применяй ограничение 10–15 пунктов и общие правила оформления таблиц; "
-        + "выведи все строки в таблице с колонками строго по инструкции «ФОТО К ВОПРОСУ», затем ровно три заданные строки итогов; "
-        + "не используй списки вместо строк таблицы и не добавляй никакого другого видимого текста.";
-
     /// <summary>2026-10-05: ответ нейросети для окна программы (не Telegram): единые «• », без разметки Markdown.</summary>
     public static string ToPlainText(string text)
     {
@@ -356,6 +532,8 @@ public static class TelegramAiChat
         }
         var s = string.Join("\n", lines);
         s = Regex.Replace(s, @"\n{3,}", "\n\n").Trim();
+        // 2026-10-21, живая проверка: модель иногда начинает ответ строкой «Нур Кеңешчи» / «Нур Советник» — убираем.
+        s = Regex.Replace(s, @"^\s*(Нур Советник|Нур Кеңешчи|Nur Advisor|Nur Danışman|Nur Maslahatchi)\s*[:.!]?\s*\n+", "", RegexOptions.IgnoreCase);
         return s;
     }
 
@@ -375,11 +553,15 @@ public static class TelegramAiChat
         var salesDetail = await SalesDetailContextAsync(question, ct).ConfigureAwait(false);
         if (salesDetail.Length > 0)
             cards += (cards.Length > 0 ? "\n\n" : "") + salesDetail;
-        var system = SystemPrompt + "\n" + ProductActionPlan.PromptText + (cards.Length > 0 ? "\n\n" + cards : "") + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n" + BuildShopContext(question);
+        // 2026-10-21 (бот, К2): выручка в сводке ИИ бота — с сервера, как «Сводка» программы; местная история — только без связи.
+        var serverRevenue = await TelegramReportBuilder.ServerRevenueAiTextAsync(ct).ConfigureAwait(false);
+        var system = SystemPrompt + "\n" + ProductActionPlan.PromptText + (cards.Length > 0 ? "\n\n" + cards : "") + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
+                     + (serverRevenue is null ? "" : serverRevenue + "\n") + BuildShopContext(question, localRevenue: serverRevenue is null);
         var (answer, error, _) = await AskCoreAsync("owner:" + chatId, question, system, ct, raw: true).ConfigureAwait(false);
         if (answer is null)
             return (null, new List<ProductActionPlan.Step>(), error);
-        var (text, steps, _) = ProductActionPlan.Extract(answer, question);
+        // 2026-10-21 (О5): сотрудники в ИИ ушли кодами [С1] — владельцу в боте показываем имена.
+        var (text, steps, _) = ProductActionPlan.Extract(AiPseudonyms.RevealStaff(answer), question);
         // «Открыть на складе» — только в программе владельца.
         steps = steps.Where(st => st.Op is not ("open" or "open_section")).ToList();
         return (ToTelegramHtml(text.Length > 0 ? text : "Подтвердите действия:"), steps, null);
@@ -463,11 +645,12 @@ public static class TelegramAiChat
         var salaryTask = Start(async () => { var r = await PosApp.SalesApi.MarketSalaryReportAsync(from, to, ct).ConfigureAwait(false); msSalary = watch.ElapsedMilliseconds; return r; });
         var archiveTask = ShiftArchiveProvider is { } archiveProvider ? Start(() => archiveProvider(ct)) : null;
         // Список сотрудников — как у сайта (api/users/employees/), тот же, что выбор консультанта при оплате.
+        // 2026-10-21 (О5): имена — кодами [С1]… (AiPseudonyms), настоящие подставляет программа на этом ПК.
         try
         {
             var people = await peopleTask.ConfigureAwait(false);
             if (people.Count > 0)
-                sb.Append($"СПИСОК СОТРУДНИКОВ (сервер NurCRM, всего {people.Count}): ").Append(string.Join(", ", people.Select(p => p.Name))).Append(".\n");
+                sb.Append($"СПИСОК СОТРУДНИКОВ (сервер NurCRM, всего {people.Count}; имена скрыты кодами, пиши код в скобках): ").Append(string.Join(", ", people.Select(p => AiPseudonyms.Staff(p.Name)))).Append(".\n");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -510,7 +693,7 @@ public static class TelegramAiChat
                           + $"продажи сотрудников {S(cards, "total_employee_sales")} сом, чеков {S(cards, "sales_count")}.\n");
             if (report.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
                 foreach (var r in rows.EnumerateArray())
-                    sb.Append($"• {S(r, "employee_label")}: {S(r, "pay_scheme_label")}"
+                    sb.Append($"• {AiPseudonyms.Staff(S(r, "employee_label"))}: {S(r, "pay_scheme_label")}"
                               + (S(r, "monthly_base_salary") is { Length: > 0 } b && b != "0.00" ? $", оклад {b}/мес" : "")
                               + (S(r, "sales_percent") is { Length: > 0 } pc && pc != "0.00" ? $", {pc}% от продаж" : "")
                               + (S(r, "per_item_amount") is { Length: > 0 } pi && pi != "0.00" ? $", {pi} сом за проданный товар" : "")
@@ -519,12 +702,13 @@ public static class TelegramAiChat
                               + (S(r, "consultant_commission_period") is { Length: > 0 } cc && cc != "0.00" ? $" + консультант {cc}" : "") + ")\n");
             sb.Append("Отвечая про сотрудников, их зарплату, продажи и табель (смены, дни, часы), бери цифры только отсюда; схемы меняются в разделе «Зарплата», табель — раздел «Табель».");
             PosLogger.Log($"ИИ: сотрудники ({label}) — список {msPeople} мс, табель {msTimesheet} мс, зарплата {msSalary} мс.", "INFO");
-            return sb.ToString();
+            // 2026-10-21 (О5): табель и архив смен приходят с именами кассиров — известные имена тоже кодами.
+            return AiPseudonyms.MaskStaff(sb.ToString());
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             PosLogger.Log($"ИИ: зарплата сотрудников не получена ({ex.Message}).", "WARNING");
-            return sb.Append("СОТРУДНИКИ И ЗАРПЛАТА: сервер не ответил — скажи владельцу открыть раздел «Зарплата».").ToString();
+            return AiPseudonyms.MaskStaff(sb.Append("СОТРУДНИКИ И ЗАРПЛАТА: сервер не ответил — скажи владельцу открыть раздел «Зарплата».").ToString());
         }
     }
 
@@ -544,8 +728,11 @@ public static class TelegramAiChat
     /// <summary>Ответ на реплику владельца. Error — понятная владельцу причина, если не вышло.</summary>
     public static async Task<(string? Answer, string? Error)> AskAsync(string chatId, string question, CancellationToken ct)
     {
+        // 2026-10-21 (бот, К2): выручка — с сервера, как «Сводка»; местная история — только без связи.
+        var serverRevenue = await TelegramReportBuilder.ServerRevenueAiTextAsync(ct).ConfigureAwait(false);
         var (answer, error, _) = await AskCoreAsync("owner:" + chatId, question,
-            SystemPrompt + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n" + BuildShopContext(question), ct).ConfigureAwait(false);
+            SystemPrompt + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
+            + (serverRevenue is null ? "" : serverRevenue + "\n") + BuildShopContext(question, localRevenue: serverRevenue is null), ct).ConfigureAwait(false);
         return (answer, error);
     }
 
@@ -631,6 +818,9 @@ public static class TelegramAiChat
             return "Заказ отменён. Ничего не оформляли.";
         if (!IsCustomerOrderConfirmation(question))
             return "У вас подготовлен заказ. Чтобы продолжить, ответьте «Оформить заказ» или «Отменить заказ». Если нужно что-то изменить, сначала отмените текущий заказ.";
+        // 2026-10-21 (бот, ВАЖНО 5): антиспам заказов — не чаще 1 в 10 минут и 3 в сутки с чата, 200 в час на бота (TelegramOrderGate).
+        if (TelegramOrderGate.Check(chatId) is { } refusal)
+            return refusal;
 
         if (!string.IsNullOrWhiteSpace(draft.Name))
             TelegramInquiryStore.SaveProfile(chatId, draft.Name, draft.Phone);
@@ -829,6 +1019,52 @@ public static class TelegramAiChat
         return (raw ? answer : ToTelegramHtml(answer), null, sources);
     }
 
+    /// <summary>2026-10-21: запрос советника. История — последние реплики, каждая не длиннее 1 500 символов (длинные таблицы прошлых
+    /// ответов замедляли ответ); useHistory=false — без истории (разбор фразы в звонке, О7). fallbackSystem — инструкция для
+    /// запасного ИИ без персональных данных (О5); пустая строка — запасной ИИ не спрашиваем (в вопросе персональные данные).</summary>
+    private static async Task<(string? Answer, string? Error, IReadOnlyList<WebSource> Sources, bool Fallback)> AskCoreOwnerAsync(
+        string question, string system, string fallbackSystem, CancellationToken ct, bool useHistory, bool webSearch)
+    {
+        var key = AiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            return (null, "ключ ИИ не задан", Array.Empty<WebSource>(), false);
+        List<(string Role, string Text)> history;
+        lock (History)
+        {
+            if (!History.TryGetValue(OwnerAppHistoryKey, out history!))
+                History[OwnerAppHistoryKey] = history = new List<(string, string)>();
+            history = useHistory ? history.Select(h => (h.Role, h.Text.Length > 1500 ? h.Text[..1500] + "…" : h.Text)).ToList() : new List<(string, string)>();
+        }
+        var result = await GenerateGeminiAsync(key!, system, history, question, ct, webSearch).ConfigureAwait(false);
+        var fallback = false;
+        if (result.Answer is null && !ct.IsCancellationRequested && AiProviders.HasFallback && fallbackSystem.Length > 0 && QuestionImage.Value is null)
+        {
+            var (fa, fe) = await AiProviders.ChatFallbackAsync(fallbackSystem, history, question, ct).ConfigureAwait(false);
+            if (fa is not null)
+            {
+                result = (fa, null, result.Sources);
+                fallback = true;
+                PosLogger.Log("ИИ-советник: Gemini не ответил — ответил запасной ИИ (без персональных данных).", "INFO");
+            }
+            else
+                result = (null, result.Error + "; запасные модели: " + fe, result.Sources);
+        }
+        if (result.Answer is null)
+            return (null, result.Error, result.Sources, false);
+        if (useHistory)
+        {
+            lock (History)
+            {
+                var list = History[OwnerAppHistoryKey];
+                list.Add(("user", question));
+                list.Add(("model", result.Answer));
+                while (list.Count > HistoryTurns * 2)
+                    list.RemoveAt(0);
+            }
+        }
+        return (result.Answer, null, result.Sources, fallback);
+    }
+
     /// <summary>2026-10-05: один вопрос без истории разговора (голосовое управление кассы — VoiceAi).</summary>
     public static async Task<(string? Answer, string? Error)> AskOnceAsync(string system, string question, CancellationToken ct)
     {
@@ -874,6 +1110,13 @@ public static class TelegramAiChat
     {
         if (webSearch && WebSearchUnavailable && fallbackWithoutSearch)
             webSearch = false;
+        // 2026-10-21: только для стенда проверки в scratchpad (ставится через reflection; в программе всегда null) — ответ подменой,
+        // без сети: проверка «что ушло в ИИ», прав и обезличивания без платных запросов.
+        if (_standAnswer is { } stand)
+        {
+            _standLastSystem = system;
+            return (stand(system, question), null, Array.Empty<WebSource>());
+        }
         var contents = new JsonArray();
         foreach (var (role, text) in history)
             contents.Add(new JsonObject { ["role"] = role, ["parts"] = new JsonArray(new JsonObject { ["text"] = text }) });
@@ -895,28 +1138,65 @@ public static class TelegramAiChat
                 ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = system }) },
                 ["contents"] = contents.DeepClone(),
                 // 2026-10-09: длинные накладные должны помещать все строки таблицы и действия без обрыва на прежнем лимите.
-                ["generationConfig"] = new JsonObject { ["temperature"] = image is null ? 0.5 : 0.2, ["maxOutputTokens"] = image is not null ? 32768 : search ? 1200 : 1200 },
+                // 2026-10-21, живая проверка: лимит ответа включает «размышления» модели (1148 размышлений + 48 токенов ответа — обрезанный
+                // ответ «спагетти 450г, Байэл…») — 4096 вместо 1200; длину ответа держит инструкция.
+                ["generationConfig"] = new JsonObject { ["temperature"] = image is null ? 0.5 : 0.2, ["maxOutputTokens"] = image is not null ? 32768 : 4096 },
             };
             if (search)
                 b["tools"] = new JsonArray(new JsonObject { ["google_search"] = new JsonObject() });
-            return b.ToJsonString();
+            // 2026-10-21 (О3): кириллица — как есть, без \uXXXX (запрос был 78 тыс. символов вместо ~30).
+            return b.ToJsonString(RelaxedJson);
         }
         var body = Body(webSearch);
         var none = (IReadOnlyList<WebSource>)Array.Empty<WebSource>();
 
         var models = (_workingModel is { } known ? new[] { known }.Concat(Models.Where(m => m != known)) : Models).ToList();
         string? lastError = null;
+        // 2026-10-21 (О3, ответ 25 с): у каждой попытки свой срок (первая — 20 с, следующие — 12 с) и общий — 40 с (с фото накладной —
+        // как раньше, до 45 с на модель); модель не ответила вовремя — сразу следующая, а не ожидание до конца общего таймаута.
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        var overall = image is not null ? TimeSpan.FromSeconds(90) : TimeSpan.FromSeconds(40);
         for (var mi = 0; mi < models.Count; mi++)
         {
             var model = models[mi];
+            var left = overall - started.Elapsed;
+            if (left < TimeSpan.FromSeconds(5))
+            {
+                lastError ??= "Google не ответил вовремя";
+                break;
+            }
+            var attemptLimit = image is not null ? TimeSpan.FromSeconds(45) : mi == 0 ? TimeSpan.FromSeconds(20) : TimeSpan.FromSeconds(12);
+            using var attempt = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            attempt.CancelAfter(attemptLimit < left ? attemptLimit : left);
+            var attemptWatch = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Post,
                     $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent");
                 request.Headers.Add("x-goog-api-key", key);
-                request.Content = new StringContent(body, Encoding.UTF8, "application/json");
-                using var response = await Http.SendAsync(request, ct).ConfigureAwait(false);
-                var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                // 2026-10-21 (О3, ответ 13–25 с): обычный вопрос — без «размышлений» модели (thinkingBudget 0): лёгкие модели Gemini
+                // по умолчанию «думали» по 10+ с. Накладная по фото — как раньше. Модель не принимает настройку — запоминаем и шлём без неё.
+                // Шаг для модели: 0 — thinkingBudget 0 (Gemini 2.x), 1 — thinkingLevel «low» (Gemini 3), 2 — как есть.
+                // Живая проверка 21.10: gemini-3.x на thinkingBudget 0 — 400, на thinkingLevel «low» — 1,2 с и 0 токенов размышлений.
+                var thinkStep = image is not null ? 2 : ThinkingStep.TryGetValue(model, out var ts) ? ts : model.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+                var noThinking = thinkStep < 2;
+                var sendBody = thinkStep switch
+                {
+                    0 => body.Replace("\"generationConfig\":{", "\"generationConfig\":{\"thinkingConfig\":{\"thinkingBudget\":0},"),
+                    1 => body.Replace("\"generationConfig\":{", "\"generationConfig\":{\"thinkingConfig\":{\"thinkingLevel\":\"low\"},"),
+                    _ => body,
+                };
+                request.Content = new StringContent(sendBody, Encoding.UTF8, "application/json");
+                using var response = await Http.SendAsync(request, attempt.Token).ConfigureAwait(false);
+                var json = await response.Content.ReadAsStringAsync(attempt.Token).ConfigureAwait(false);
+                PosLogger.Log($"ИИ: {model} — {(int)response.StatusCode} за {attemptWatch.ElapsedMilliseconds} мс (запрос {sendBody.Length} симв.{(noThinking ? ", без размышлений" : "")}; {UsageText(json)}).", "INFO");
+                // 2026-10-21: живая проверка — Gemini 3.5 на thinkingBudget 0 отвечает общим «invalid argument»: любая 400 без размышлений → повтор с ними.
+                if (noThinking && response.StatusCode == HttpStatusCode.BadRequest)
+                {
+                    ThinkingStep[model] = thinkStep + 1;
+                    mi--;
+                    continue;
+                }
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -981,7 +1261,12 @@ public static class TelegramAiChat
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
-                return (null, "Google не ответил вовремя", none);
+                // 2026-10-21 (О3): эта модель не успела — следующая (если общий срок позволяет).
+                PosLogger.Log($"ИИ: {model} не ответила за {attemptWatch.ElapsedMilliseconds} мс — пробую следующую.", "WARNING");
+                lastError = "Google не ответил вовремя";
+                if (_workingModel == model)
+                    _workingModel = null;
+                continue;
             }
             catch (HttpRequestException ex)
             {
@@ -1117,6 +1402,23 @@ public static class TelegramAiChat
         s = Regex.Replace(s, @"(?m)^(?!• )([^\n<]{2,40}):[ \t]*$", "<b>$1:</b>");
         // Не больше одной пустой строки подряд.
         s = Regex.Replace(s, @"\n{3,}", "\n\n").Trim();
-        return s.Length > 3800 ? s[..3800] + "…" : s;
+        // 2026-10-21 (бот, S0): режем по концу строки — <b> не переходит через строку, так разметка не рвётся (раньше 35 % длинных
+        // ответов ломались внутри тега → 400 → повтор без оформления).
+        if (s.Length <= 3800)
+            return s;
+        var cut = s.LastIndexOf('\n', 3800);
+        if (cut < 2000)
+        {
+            cut = 3800;
+            var open = s.LastIndexOf('<', cut - 1);
+            if (open >= 0 && s.IndexOf('>', open) >= cut)
+                cut = open;
+            var amp = s.LastIndexOf('&', cut - 1);
+            if (amp >= 0 && s.IndexOf(';', amp) >= cut)
+                cut = amp;
+            var head = s[..cut];
+            return head + (Regex.Matches(head, "<b>").Count > Regex.Matches(head, "</b>").Count ? "</b>" : "") + "…";
+        }
+        return s[..cut] + "\n…";
     }
 }

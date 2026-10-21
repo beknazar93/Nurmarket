@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — отчёты</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:36px;height:36px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:10px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:13px;color:#475467}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%}
+.chip{height:34px;padding:0 12px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.row{display:flex;justify-content:space-between;font-size:14px;padding:7px 0;border-bottom:1px solid #F2F4F7}
+.row span{color:#475467}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center;font-size:12px}
+.cal span{height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 36px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px; align-items: start">
+
+  <section class="m" role="dialog" aria-label="Период">
+    <div class="mh"><div class="mt"><b>Период отчёта</b><span>Применится ко всем разделам</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip">Сегодня</button><button type="button" class="chip">Вчера</button><button type="button" class="chip on">Эта неделя</button><button type="button" class="chip">Этот месяц</button><button type="button" class="chip">Прошлый месяц</button></div>
+      <span style="font-size: 14px; font-weight: 800; text-align: center">Октябрь 2026</span>
+      <div class="cal">
+        <sc-for list="{{wd}}" as="w" hint-placeholder-count="7"><span style="color: #98A2B3; font-weight: 700">{{w}}</span></sc-for>
+        <sc-for list="{{days}}" as="d" hint-placeholder-count="31"><span style="background: {{d.bg}}; color: {{d.fg}}; font-weight: {{d.fw}}">{{d.n}}</span></sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px"><span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="r1">С</label><input id="r1" class="in" type="text" value="06.10.2026"></span><span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="r2">ПО</label><input id="r2" class="in" type="text" value="12.10.2026"></span></div>
+    </div>
+    <div class="mf"><span class="tot">7 дней</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Показать</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Смена">
+    <div class="mh"><div class="mt"><b>Смена Nur Test</b><span>10.10 14:41 — открыта</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="border-radius: 14px; background: #0B2A3C; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center"><span style="font-size: 13px; color: #C7D2DB">Выручка · 47 чеков</span><span style="font-size: 24px; font-weight: 800; color: #FFD600">4 300 сом</span></div>
+      <div class="row"><span>Наличные</span><b>2 265 сом</b></div>
+      <div class="row"><span>Безналичные</span><b>2 035 сом</b></div>
+      <div class="row"><span>Возвраты</span><b>0 сом</b></div>
+      <div class="row"><span>Средний чек</span><b>91,49 сом</b></div>
+      <div class="row" style="border: 0"><span>В ящике должно быть</span><b style="color: #0B2A3C">2 265 сом</b></div>
+    </div>
+    <div class="mf"><button type="button" class="b2">Все чеки смены</button><span style="flex-grow: 1"></span><button type="button" class="b1">Печать отчёта</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="История кассы">
+    <div class="mh"><div class="mt"><b>Деньги в кассе</b><span>Внесения и изъятия за смену</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: flex; gap: 6px"><button type="button" class="chip on">Все</button><button type="button" class="chip">Внесения</button><button type="button" class="chip">Изъятия</button></div>
+      <div style="border-radius: 12px; border: 1.5px dashed #D0D5DD; padding: 22px 16px; text-align: center; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 14px; font-weight: 700">За эту смену движений не было</span><span style="font-size: 12px; color: #667085">Внести или изъять деньги — кнопка ниже</span></div>
+      <span class="lbl">ПРОШЛЫЕ СМЕНЫ</span>
+      <div class="row"><span>[дата] · Изъятие · расходы</span><b style="color: #B42318">−[сумма]</b></div>
+      <div class="row"><span>[дата] · Внесение · размен</span><b style="color: #0E7A3A">+[сумма]</b></div>
+    </div>
+    <div class="mf"><span class="tot"></span><button type="button" class="b2">Закрыть</button><button type="button" class="b1">Внести / изъять</button></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const wd = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    const days = [];
+    for (let i = 0; i < 3; i++) days.push({ n: '', bg: 'transparent', fg: '#111827', fw: 400 });
+    for (let d = 1; d <= 31; d++) {
+      const inRange = d >= 6 && d <= 12;
+      const edge = d === 6 || d === 12;
+      days.push({ n: String(d), bg: edge ? '#0B2A3C' : inRange ? '#FFF7CC' : 'transparent', fg: edge ? '#FFFFFF' : '#111827', fw: inRange ? 700 : 400 });
+    }
+    return { wd, days };
+  }
+}
+</script>
+</body>
+</html>

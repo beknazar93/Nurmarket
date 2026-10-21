@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб-админка — сводка</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.side a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:#C7D2DB;text-decoration:none;font-size:14px;font-weight:600}
+.side a.on{background:#FFD600;color:#0B2A3C;font-weight:800}
+.side .g{font-size:11px;font-weight:800;color:#7D93A3;letter-spacing:.05em;padding:14px 12px 4px}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi > span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:24px;font-weight:800;color:#0B2A3C}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.tr{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,.7fr);gap:8px;padding:8px 0;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Сводка" hint-size="260px,900px"></dc-import></div>
+
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+    <!-- 2026-10-16: тот же макет сводки, что у владельца (ревью C): период вкладками, «обновлено в», «Спросить Нур Советника» -->
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Сводка</b><span style="font-size: 13px; color: #667085">Понедельник, 12.10.2026 · обновлено в 14:35</span></span>
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Сегодня</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Вчера</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Неделя</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Месяц</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Даты…</button>
+      </div>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 14px; font-weight: 800; white-space: nowrap">Спросить Нур Советника</button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+        <div class="kpi">
+          <span>{{k.label}}</span>
+          <b>{{k.value}}</b>
+          <span style="font-weight: 500"><b style="font-size: 12px; font-weight: 700; color: {{k.deltaColor}}">{{k.delta}}</b> {{k.note}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; flex-grow: 1; min-height: 0; align-items: flex-start">
+      <div style="flex: 2 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+        <section class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 15px">Продажи по часам, сом</b><span style="font-size: 12px; color: #667085; white-space: nowrap">сегодня до 14:35 · итого 4&nbsp;300&nbsp;сом</span></div>
+          <div style="height: 190px; display: flex; align-items: flex-end; gap: 10px; padding-top: 8px; border-bottom: 1px solid #EAECF0">
+            <sc-for list="{{hours}}" as="h" hint-placeholder-count="7">
+              <div style="flex: 1 1 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px">
+                <span style="font-size: 11px; font-weight: 700; color: #344054">{{h.v}}</span>
+                <span style="width: 100%; max-width: 64px; height: {{h.h}}; border-radius: 6px 6px 0 0; background: #0B2A3C"></span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; gap: 10px"><sc-for list="{{hours}}" as="h" hint-placeholder-count="7"><span style="flex: 1 1 0; text-align: center; font-size: 12px; color: #667085; white-space: nowrap">{{h.t}}</span></sc-for></div>
+        </section>
+        <section class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 15px">Последние чеки</b><a href="#" style="font-size: 13px; font-weight: 700">Все чеки в «Продажах»</a></div>
+          <div style="overflow-x: auto">
+            <div style="min-width: 560px">
+              <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085; padding-top: 0"><span>Чек</span><span>Где продано</span><span>Кассир</span><span>Оплата</span><span style="text-align: right">Сумма</span></div>
+              <sc-for list="{{checks}}" as="c" hint-placeholder-count="4">
+                <div class="tr"><span style="white-space: nowrap">{{c.no}} <span style="color: #667085">· {{c.time}}</span></span><span>{{c.where}}</span><span>{{c.who}}</span><span style="display: flex; gap: 6px; align-items: center; white-space: nowrap">{{c.pay}}<sc-if value="{{c.ret}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-weight: 700; color: #B42318; background: #FEF3F2; border-radius: 6px; padding: 2px 6px">возврат</span></sc-if></span><b style="text-align: right; white-space: nowrap; color: {{c.color}}">{{c.sum}}</b></div>
+              </sc-for>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+        <section class="card">
+          <b style="font-size: 15px">Требует внимания</b>
+          <sc-for list="{{alerts}}" as="a" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: #F9FAFB">
+              <span style="width: 10px; height: 10px; border-radius: 5px; background: {{a.dot}}; flex-shrink: 0"></span>
+              <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700; line-height: 1.3">{{a.title}}</span><span style="font-size: 12px; color: #667085">{{a.note}}</span></span>
+              <a href="#" style="font-size: 12px; font-weight: 700; color: #0B2A3C; text-decoration: none; white-space: nowrap">{{a.action}} ›</a>
+            </div>
+          </sc-for>
+        </section>
+        <!-- 2026-10-16: «Откуда продажи» — полосы долей с числами вместо цветных точек (жёлтая точка не видна на белом) -->
+        <section class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 15px">Откуда продажи</b><span style="font-size: 12px; color: #667085">по кассам</span></div>
+          <sc-for list="{{sources}}" as="s" hint-placeholder-count="4">
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <span style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px"><span>{{s.name}} <span style="color: #667085">· {{s.note}}</span></span><b style="white-space: nowrap">{{s.sum}} <span style="font-weight: 600; color: #667085">· {{s.pct}}</span></b></span>
+              <span style="height: 8px; border-radius: 4px; background: #F2F4F7; display: flex"><span style="width: {{s.w}}; border-radius: 4px; background: #0B2A3C"></span></span>
+            </div>
+          </sc-for>
+          <span style="font-size: 12px; color: #667085; border-top: 1px solid #F2F4F7; padding-top: 8px">В кассах сейчас 3&nbsp;265&nbsp;сом (размен 1&nbsp;000 + наличные 2&nbsp;265) · изъятий из кассы 0</span>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: единые демо-данные NBS (как на сводке владельца): сегодня до 14:35, сравнение «к вчера на это время».
+    const kpis = [
+      { label: 'Выручка', value: '4 300 сом', delta: '▲ 10 %', deltaColor: '#0E7A3A', note: 'к вчера на это время (3 900)' },
+      { label: 'Чеков', value: '47', delta: '▲ 5', deltaColor: '#0E7A3A', note: 'к вчера на это время (42)' },
+      { label: 'Средний чек', value: '91 сом', delta: '▼ 2 %', deltaColor: '#B42318', note: 'к вчера на это время (93)' },
+      { label: 'Валовая прибыль · 21,2 %', value: '910 сом', delta: '▲ 11 %', deltaColor: '#0E7A3A', note: 'к вчера на это время (820)' }
+    ];
+    // По часам: сумма = 4 300; последний час неполный (до 14:35).
+    const raw = [['08', 120], ['09', 380], ['10', 560], ['11', 720], ['12', 980], ['13', 860], ['14:00–14:35', 680]];
+    const hours = raw.map(([t, v]) => ({ t, v: String(v), h: Math.round(v / 980 * 158) + 'px' }));
+    const checks = [
+      { no: '№1709', time: '14:31', where: 'Касса 1', who: 'Кассир Тест', pay: 'наличные', ret: false, sum: '120 сом', color: '#0B2A3C' },
+      { no: '№1708', time: '14:12', where: 'Телефон', who: 'Айгерим Садыкова', pay: 'наличные', ret: false, sum: '209 сом', color: '#0B2A3C' },
+      { no: '№1707', time: '13:40', where: 'Веб-касса', who: 'Нурлан Абдыкадыров', pay: 'карта', ret: false, sum: '95 сом', color: '#0B2A3C' },
+      { no: '№1706', time: '13:25', where: 'Касса 1', who: 'Кассир Тест', pay: 'наличные', ret: true, sum: '−39 сом', color: '#B42318' }
+    ];
+    const alerts = [
+      { dot: '#B42318', title: 'Aos Extra pover 450гр — нет в наличии', note: 'Продаётся 11 шт/день · заказать 156 шт', action: 'В заказ' },
+      { dot: '#B42318', title: 'Эссе манго — хватит на 0,6 дня', note: 'Заказать 213 шт', action: 'В заказ' },
+      { dot: '#B54708', title: 'Заказ с сайта №10 — новый', note: 'Умар · 13:52 · ждёт сборки', action: 'Заказы' },
+      { dot: '#B54708', title: 'Долги клиентов: 811 889 сом', note: '17 клиентов · Умар — 42 дня', action: 'Долги' },
+      { dot: '#B42318', title: 'Прокат: просрочено 3', note: '№22 Арслан — бетономешалка', action: 'Прокат' }
+    ];
+    // Доли по кассам: 2 860 + 1 080 + 360 + 0 = 4 300.
+    const sources = [
+      { name: 'Касса 1', note: '31 чек', sum: '2 860 сом', pct: '67 %', w: '67%' },
+      { name: 'Телефон', note: '12 чеков', sum: '1 080 сом', pct: '25 %', w: '25%' },
+      { name: 'Веб-касса', note: '4 чека', sum: '360 сом', pct: '8 %', w: '8%' },
+      { name: 'Сайт', note: 'выданных заказов нет', sum: '0 сом', pct: '0 %', w: '0%' }
+    ];
+    return { kpis, hours, checks, alerts, sources };
+  }
+}
+</script>
+</body>
+</html>

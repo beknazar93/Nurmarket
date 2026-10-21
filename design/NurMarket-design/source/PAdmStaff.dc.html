@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Сотрудники и права</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.emp{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#FFFFFF;border:0;font-family:inherit;text-align:left;width:100%}
+.av{width:38px;height:38px;border-radius:19px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0}
+.role{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.tg{display:flex;align-items:center;gap:10px;padding:6px 0;min-height:48px;box-sizing:border-box;border-bottom:1px solid #F2F4F7;font-size:14px}
+.tg small{display:block;font-size:12px;color:#667085;font-weight:500}
+.sw{width:44px;height:26px;border-radius:13px;position:relative;flex-shrink:0}
+.sw i{position:absolute;top:3px;width:20px;height:20px;border-radius:10px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.dev{flex-grow:1;height:48px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700}
+.emp{min-height:56px}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#FFFFFF}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 18px; font-weight: 800">Сотрудники и права</b><span><span class="role" style="background: #E7EEF3; color: #0B2A3C; font-weight: 700">Администратор</span></span></span>
+    <button type="button" aria-label="Пригласить сотрудника" style="width: 48px; height: 48px; border-radius: 14px; border: 1.5px solid #D0D5DD; background: #FFFFFF; color: #0B2A3C; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 10px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <button type="button" class="emp"><span class="av" style="background: #0B2A3C; color: #FFFFFF">НА</span><span style="flex-grow: 1; font-size: 14px; font-weight: 700">Нурлан Абдыкадыров</span><span class="role" style="background: #E7EEF3; color: #0B2A3C">Администратор</span></button>
+
+    <section style="background: #FFFFFF; border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; border: 2px solid #0B2A3C">
+      <div style="display: flex; align-items: center; gap: 10px; padding-bottom: 8px"><span class="av" style="background: #FFD600; color: #0B2A3C">АС</span><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">Айгерим Садыкова</b><span style="font-size: 12px; color: #667085">в смене с 09:00 · Телефон</span></span><span class="role" style="background: #FFF7CC; color: #0B2A3C">Кассир</span></div>
+      <sc-for list="{{rights}}" as="r" hint-placeholder-count="6">
+        <div class="tg"><span style="flex-grow: 1">{{r.name}}<small>{{r.note}}</small></span><span class="sw" role="img" aria-label="{{r.label}}" style="background: {{r.bg}}"><i style="left: {{r.left}}"></i></span></div>
+      </sc-for>
+      <span style="font-size: 11px; font-weight: 700; color: #667085; letter-spacing: .03em; padding: 10px 0 6px">ГДЕ МОЖНО ВХОДИТЬ · <span style="font-weight: 600; letter-spacing: 0">нужен сервер NurCRM</span></span>
+      <div style="display: flex; gap: 6px"><button type="button" class="dev" aria-pressed="true" style="border: 0; background: #0B2A3C; color: #FFFFFF">Касса</button><button type="button" class="dev" aria-pressed="true" style="border: 0; background: #0B2A3C; color: #FFFFFF">Телефон</button><button type="button" class="dev" style="border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054">Веб</button></div>
+    </section>
+
+    <button type="button" class="emp"><span class="av" style="background: #F2F4F7; color: #0B2A3C">КТ</span><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">Кассир Тест</b><span style="font-size: 12px; color: #667085">в смене с 08:55 · Касса 1</span></span><span class="role" style="background: #FFF7CC; color: #0B2A3C">Кассир</span></button>
+    <button type="button" class="emp"><span class="av" style="background: #F2F4F7; color: #0B2A3C">БО</span><span style="flex-grow: 1; font-size: 14px; font-weight: 700">Бекзат Осмонов</span><span class="role" style="background: #F2F4F7; color: #344054">Кладовщик</span></button>
+  </main>
+
+  <!-- 2026-10-17: права не сохраняются по касанию — «Сохранить» / «Отмена», чтобы случайно не включить закупочные цены -->
+  <div style="padding: 10px 16px 8px; display: flex; align-items: center; gap: 8px; background: #FFFFFF; border-top: 1px solid #EAECF0">
+    <button type="button" style="height: 52px; padding: 0 18px; border-radius: 16px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Отмена</button>
+    <button type="button" style="flex-grow: 1; height: 52px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 16px; font-weight: 800; white-space: nowrap">Сохранить · 1 изменение</button>
+  </div>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-17: «у кассира нет отчётов магазина, закупочных цен и изменения цен» — по умолчанию, включается правом (can_view_*)
+    const on = { bg: '#16A34A', left: '21px', label: 'Включено' };
+    const off = { bg: '#D0D5DD', left: '3px', label: 'Выключено' };
+    const r = (name, note, s) => Object.assign({ name, note }, s);
+    return {
+      rights: [
+        r('Продажа и оплата', '', on),
+        r('Приёмка и ревизия', 'изменено — не сохранено', on),
+        r('Возврат и обмен', 'без права — по PIN администратора', off),
+        r('Видеть закупочные цены', 'по умолчанию нет', off),
+        r('Отчёты и все чеки', 'по умолчанию нет; включается правом', off),
+        r('Скидка больше 10\u00a0%', 'нужен сервер NurCRM', off)
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

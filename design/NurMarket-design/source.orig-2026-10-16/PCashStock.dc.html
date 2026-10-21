@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Кассир — склад</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#FFFFFF;border-top:1px solid #EAECF0;padding:8px 6px 14px}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#667085;text-decoration:none;padding:6px 0}
+.nav a.on{color:#0B2A3C;font-weight:800}
+.nav a.on span{background:#FFD600}
+.nav span{width:44px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+.big{border:0;border-radius:18px;padding:14px;display:flex;align-items:center;gap:10px;font-family:inherit;text-align:left;font-size:14px;font-weight:800}
+.it{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;background:#FFFFFF}
+.chip{height:34px;padding:0 12px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+    <b style="font-size: 20px; font-weight: 800">Склад</b>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <button type="button" class="big" style="background: #FFD600; color: #0B2A3C"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Приёмка сканером</button>
+      <button type="button" class="big" style="background: #FFFFFF; color: #0B2A3C"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 11l3 3 8-8"></path><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"></path></svg>Ревизия</button>
+    </div>
+    <label style="height: 44px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <input type="text" placeholder="Найти товар" aria-label="Найти товар" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 14px; width: 100%">
+    </label>
+    <div style="display: flex; gap: 6px"><button type="button" class="chip on">Все</button><button type="button" class="chip">Заканчиваются</button><button type="button" class="chip">Нет в наличии</button></div>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <sc-for list="{{items}}" as="p" hint-placeholder-count="6">
+      <div class="it">
+        <span style="width: 44px; height: 44px; border-radius: 12px; background: {{p.tint}}; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #0B2A3C; flex-shrink: 0">{{p.mono}}</span>
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.name}}</span><span style="font-size: 12px; color: #667085">{{p.price}}</span></span>
+        <span style="font-size: 13px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: {{p.sbg}}; color: {{p.sfg}}">{{p.stock}}</span>
+      </div>
+    </sc-for>
+    <span style="font-size: 12px; color: #98A2B3; text-align: center">Цены и новые товары меняет администратор</span>
+  </main>
+
+  <nav class="nav" aria-label="Разделы кассира">
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path><circle cx="9" cy="19.5" r="1.5"></circle><circle cx="17" cy="19.5" r="1.5"></circle></svg></span>Продажа</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path><path d="M8 9v6M12 9v6M16 9v6"></path></svg></span>Сканер</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg></span>Чеки</a>
+    <a href="#" class="on"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg></span>Склад</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ok = { sbg: '#E7F6EC', sfg: '#0E7A3A' };
+    const low = { sbg: '#FEF3E2', sfg: '#B54708' };
+    const none = { sbg: '#FDE2E1', sfg: '#B42318' };
+    const p = (name, mono, tint, price, stock, s) => Object.assign({ name, mono, tint, price, stock }, s);
+    return {
+      items: [
+        p('Макароны «Макфа» спагетти 450г', 'Мк', '#FFF4C2', '85 сом', '48 шт', ok),
+        p('Кока-Кола (ПЭТ) 2л', 'Кк', '#FDE8E8', '170 сом', '[N] шт', low),
+        p('Mars', 'Ms', '#F1E8FD', '39 сом', '[N] шт', ok),
+        p('Патроны для Степлера', 'Пс', '#E3F2FD', '35 сом', '1160 шт', ok),
+        p('Aos Extra pover 450гр бальзам', 'Ao', '#E7F6EC', '50 сом', '65 шт', ok),
+        p('Сок Gracio яблочный 1л', 'Сг', '#FFEBD6', '[цена]', '0 шт', none)
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

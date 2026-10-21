@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Заказы с сайта — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.pill{height:36px;padding:0 14px;border-radius:18px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.pill.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.or{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:#FFFFFF;border:1px solid #E5E7EB;font-family:inherit;text-align:left;width:100%}
+.b1{height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.rl{display:flex;justify-content:space-between;font-size:13px}
+.step{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:700}
+.step i{width:24px;height:24px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Заказы с сайта" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Заказы с сайта</b><span style="font-size: 13px; color: #667085">Новый заказ приходит сюда, в телефон администратора и на кассу</span></span>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" class="pill on">Новые · [N]</button><button type="button" class="pill">Собираются</button><button type="button" class="pill">Готовы</button><button type="button" class="pill">Выданы</button><button type="button" class="pill">Отменены</button></div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section style="flex: 1 1 320px; max-width: 420px; display: flex; flex-direction: column; gap: 8px">
+        <button type="button" class="or" style="border: 2px solid #0B2A3C; background: #FFFCEB"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px">Заказ [№] · [Клиент]</b><span style="font-size: 12px; color: #667085">[время] · доставка</span></span><b style="color: #0B2A3C">379 сом</b></button>
+        <button type="button" class="or"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px">Заказ [№] · [Клиент]</b><span style="font-size: 12px; color: #667085">[время] · самовывоз</span></span><b style="color: #0B2A3C">[сумма]</b></button>
+        <button type="button" class="or"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px">Заказ [№] · [Клиент]</b><span style="font-size: 12px; color: #667085">[время] · самовывоз</span></span><b style="color: #0B2A3C">[сумма]</b></button>
+      </section>
+
+      <section class="card" style="flex: 999 1 420px">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px"><b style="font-size: 18px">Заказ [№]</b><span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #FEF3E2; color: #B54708">новый · ждёт ответа</span></div>
+        <div style="display: flex; gap: 4px; padding: 6px 0">
+          <span class="step" style="color: #0B2A3C"><i style="background: #FFD600">1</i>Принят</span>
+          <span class="step" style="color: #98A2B3"><i style="background: #F2F4F7">2</i>Собран</span>
+          <span class="step" style="color: #98A2B3"><i style="background: #F2F4F7">3</i>Оплачен</span>
+          <span class="step" style="color: #98A2B3"><i style="background: #F2F4F7">4</i>Выдан</span>
+        </div>
+        <div class="rl"><span>Кока-Кола (ПЭТ) 2л × 2</span><b>340</b></div>
+        <div class="rl"><span>Mars × 1</span><b>39</b></div>
+        <span style="border-top: 1px dashed #D0D5DD"></span>
+        <div class="rl" style="font-size: 16px"><b>Итого</b><b style="color: #0B2A3C">379 сом</b></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; background: #F9FAFB; border-radius: 12px; padding: 12px; font-size: 13px">
+          <span style="display: flex; flex-direction: column; gap: 2px"><span style="color: #667085; font-size: 12px">Покупатель</span><b>[Клиент] · [телефон]</b></span>
+          <span style="display: flex; flex-direction: column; gap: 2px"><span style="color: #667085; font-size: 12px">Доставка</span><b>[адрес]</b></span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px"><button type="button" class="b2" style="color: #B42318; border-color: #FDE2E1">Отменить</button><button type="button" class="b2">Написать в WhatsApp</button><span style="flex-grow: 1"></span><button type="button" class="b1">Принять заказ</button></div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб — бонусы и сертификаты</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Бонусы и сертификаты" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Бонусы и сертификаты</b><span style="font-size: 13px; color: #667085">Одна программа на все кассы, сайт и бота</span></span>
+      <button type="button" class="b2">Акция «бонусы × 2»</button><button type="button" class="b1">+ Сертификат</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px">
+      <div class="kpi"><span>Участников</span><b>1 284</b></div><div class="kpi"><span>Покупки с картой</span><b>41 %</b></div><div class="kpi"><span>Начислено за месяц</span><b>18 400</b></div><div class="kpi"><span>Списано за месяц</span><b>11 900</b></div><div class="kpi"><span>Бонусов на счетах</span><b>64 300</b></div><div class="kpi"><span>Сертификатов не погашено</span><b>23 000</b></div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 520px; gap: 2px">
+        <b style="font-size: 15px; padding-bottom: 6px">Подарочные сертификаты</b>
+        <div class="lbl" style="display: grid; grid-template-columns: minmax(0, 1.3fr) 80px 80px 150px; gap: 10px; padding: 0 10px 6px"><span>КОД</span><span style="text-align: right">НОМИНАЛ</span><span style="text-align: right">ОСТАТОК</span><span>СТАТУС</span></div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) 80px 80px 150px; gap: 10px; align-items: center; padding: 10px; font-size: 13px; border-bottom: 1px solid #F2F4F7"><span style="font-family: Consolas, monospace">NBS-7K4Q-2M9X</span><b style="text-align: right">2 000</b><b style="text-align: right">1 350</b><span><span class="tag" style="background: #EEF4FF; color: #3538CD">частично</span></span></div><div style="display: grid; grid-template-columns: minmax(0, 1.3fr) 80px 80px 150px; gap: 10px; align-items: center; padding: 10px; font-size: 13px; border-bottom: 1px solid #F2F4F7"><span style="font-family: Consolas, monospace">NBS-3P8D-QQ1A</span><b style="text-align: right">5 000</b><b style="text-align: right">5 000</b><span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">активен</span></span></div><div style="display: grid; grid-template-columns: minmax(0, 1.3fr) 80px 80px 150px; gap: 10px; align-items: center; padding: 10px; font-size: 13px; border-bottom: 1px solid #F2F4F7"><span style="font-family: Consolas, monospace">NBS-9W2E-L4K7</span><b style="text-align: right">1 000</b><b style="text-align: right">0</b><span><span class="tag" style="background: #F2F4F7; color: #475467">погашен</span></span></div><div style="display: grid; grid-template-columns: minmax(0, 1.3fr) 80px 80px 150px; gap: 10px; align-items: center; padding: 10px; font-size: 13px; border-bottom: 1px solid #F2F4F7"><span style="font-family: Consolas, monospace">NBS-1Z6R-H8N3</span><b style="text-align: right">2 000</b><b style="text-align: right">2 000</b><span><span class="tag" style="background: #FEF3E2; color: #B54708">истекает через 9 дней</span></span></div>
+        <b style="font-size: 15px; padding-top: 14px">Лучшие клиенты</b>
+        <div class="rl" style="padding: 8px 4px; border-bottom: 1px solid #F2F4F7"><span>[Кардар 1] · <span class="tag" style="background: #FFF7CC; color: #7A5A00">Золото</span></span><span>84 200 за год · <b>1 920</b> бонусов</span></div><div class="rl" style="padding: 8px 4px; border-bottom: 1px solid #F2F4F7"><span>[Кардар 2] · <span class="tag" style="background: #FFF7CC; color: #7A5A00">Золото</span></span><span>61 050 за год · <b>860</b> бонусов</span></div><div class="rl" style="padding: 8px 4px; border-bottom: 1px solid #F2F4F7"><span>[Кардар 3] · <span class="tag" style="background: #EEF4FF; color: #3538CD">Серебро</span></span><span>38 400 за год · <b>1 140</b> бонусов</span></div>
+      </section>
+      <aside class="card" style="flex: 1 1 300px; max-width: 380px">
+        <b style="font-size: 15px">Сгорят в этом месяце</b>
+        <div class="rl"><span>4 200 бонусов · 37 клиентов</span></div>
+        <button type="button" class="b2">Напомнить в WhatsApp</button>
+        <b style="font-size: 15px; padding-top: 8px">Уровни</b>
+        <div class="rl"><span><span class="tag" style="background: #F2F4F7; color: #475467">Базовый</span></span><b>1 040 клиентов</b></div><div class="rl"><span><span class="tag" style="background: #EEF4FF; color: #3538CD">Серебро</span></span><b>196 клиентов</b></div><div class="rl"><span><span class="tag" style="background: #FFF7CC; color: #7A5A00">Золото</span></span><b>48 клиентов</b></div>
+        <span style="font-size: 12px; line-height: 17px; color: #667085">Бонусы на счетах — обязательство магазина: 64 300 сом могут прийти в оплату.</span>
+      </aside>
+    </div>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

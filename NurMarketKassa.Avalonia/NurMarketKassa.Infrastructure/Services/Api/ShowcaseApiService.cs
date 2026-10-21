@@ -87,8 +87,11 @@ public sealed class ShowcaseApiService
     public const int SlugMaxLength = 50;
     public const int PhoneMaxLength = 60;
 
-    /// <summary>Сайт, на котором открывается витрина (app.nurcrm.kg/catalog/… отвечает 404).</summary>
-    public const string PublicSiteBase = "https://nurcrm.kg";
+    /// <summary>Сайт, на котором открывается витрина (app.nurcrm.kg/catalog/… отвечает 404).
+    /// 2026-10-20 (аудит программы владельца, «Настройки сайта»: адрес витрины в трёх видах — nurcrm.kg/catalog и
+    /// market.nurcrm.kg/catalog): один адрес для покупателей — market.nurcrm.kg, там виден опубликованный вид из
+    /// «Редактора сайта» (решение владельца 07.10). Все ссылки берутся из <see cref="CatalogUrl"/>.</summary>
+    public const string PublicSiteBase = DesignSiteBase;
 
     private const int MaxOrderPages = 20;
 
@@ -116,11 +119,15 @@ public sealed class ShowcaseApiService
 
     public static string CatalogUrl(string slug) => $"{PublicSiteBase}/catalog/{Uri.EscapeDataString(slug.Trim())}";
 
+    /// <summary>2026-10-20: адрес витрины без «https://» — для подписей (тот же источник, что и <see cref="CatalogUrl"/>).</summary>
+    public static string CatalogUrlShort(string slug) => CatalogUrl(slug).Replace("https://", "", StringComparison.Ordinal);
+
     /// <summary>2026-10-07: оформление из редактора (темы, цвета, баннер) NurCRM включил на витрине market.nurcrm.kg (сборка
     /// catalog-Ccmz2ht8.js, проверено: опубликованная тема видна); nurcrm.kg/catalog пока показывает прежний вид.</summary>
     public const string DesignSiteBase = "https://market.nurcrm.kg";
 
-    public static string DesignCatalogUrl(string slug) => $"{DesignSiteBase}/catalog/{Uri.EscapeDataString(slug.Trim())}";
+    // 2026-10-20: тот же адрес, что и CatalogUrl (один источник; имя оставлено для старых вызовов).
+    public static string DesignCatalogUrl(string slug) => CatalogUrl(slug);
 
     /// <summary>Правило сайта NurCRM (Settings → ссылка на витрину): на «Старте» в секторе «Магазин»
     /// витрина — платная доп. услуга «Онлайн витрина» (can_view_showcase у компании); на остальных

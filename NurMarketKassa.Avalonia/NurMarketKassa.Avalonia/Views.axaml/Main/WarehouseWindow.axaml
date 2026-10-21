@@ -4,6 +4,8 @@
         xmlns:models="using:NurMarketKassa.Models"
         xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
         xmlns:analytics="using:NurMarketKassa.AvaloniaHost.Views.Analytics"
+        xmlns:views="using:NurMarketKassa.AvaloniaHost.Views"
+        xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Controls"
         x:Class="NurMarketKassa.AvaloniaHost.Views.WarehouseWindow"
         x:DataType="vm:WarehouseViewModel"
         x:CompileBindings="True"
@@ -18,6 +20,11 @@
         Loaded="Window_Loaded"
         Closed="Window_Closed">
 
+    <!-- 2026-10-19, О9: ширина плитки товара — по ширине списка (WarehouseWindow.O9.cs), справа не остаётся пустой полосы. -->
+    <Window.Resources>
+        <x:Double x:Key="WarehouseTileWidth">208</x:Double>
+    </Window.Resources>
+
     <Window.Styles>
         <!-- Остаток: цвет из темы, красный — только при малом количестве. -->
         <Style Selector="TextBlock.stock-low">
@@ -26,10 +33,13 @@
         <!-- Пилюли фильтра "Единица продажи" (2026-09-07) — тот же визуальный стиль, что и
              RadioButton.ClickPill в ScreenSettingsView.axaml, продублирован локально: тот стиль
              определён в другом файле и не виден отсюда. -->
+        <!-- 2026-10-19, этап О9 (аудит 19.10, проблема 1): пилюли были серыми, а выбранная — бледно-жёлтой с рыжей рамкой.
+             Теперь как sec-seg во всей программе: невыбранная — обводкой, выбранная — тёмно-синяя с белым текстом.
+             Почти все переключатели склада теперь sec-seg в рамке sec-segment; этот стиль — для оставшихся. -->
         <Style Selector="RadioButton.SaleUnitPill">
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="MinHeight" Value="34"/>
@@ -47,10 +57,51 @@
                 </ControlTemplate>
             </Setter>
         </Style>
+        <Style Selector="RadioButton.SaleUnitPill:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
         <Style Selector="RadioButton.SaleUnitPill:checked">
-            <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <!-- 2026-10-19, О9: подпись перед группой переключателей («Единица продажи», «Наличие»). -->
+        <Style Selector="TextBlock.seg-label">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+        <!-- 2026-10-19, О9: пустая таблица — заголовок и подсказка посередине (не нажимается, строки не закрывает). -->
+        <Style Selector="StackPanel.empty-state">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="MaxWidth" Value="460"/>
+            <Setter Property="Spacing" Value="6"/>
+            <Setter Property="Margin" Value="16,48,16,16"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+        <Style Selector="StackPanel.empty-state TextBlock.empty-title">
+            <Setter Property="FontSize" Value="15"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="StackPanel.empty-state TextBlock.empty-hint">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <!-- 2026-10-19, О9: белая карточка с рамкой (списание; было — серая подложка). -->
+        <Style Selector="Border.wh-card">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="20"/>
         </Style>
 
         <!-- Кастомный стиль вкладок TabControl -->
@@ -58,12 +109,14 @@
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
         </Style>
+        <!-- 2026-10-19, О9: на 1024 вкладка «Редактор этикетки» уходила во 2-ю строку — шрифт 15 → 14, поля и промежутки меньше
+             (и короче названия «Ревизия», «Списание» в Strings). -->
         <Style Selector="TabItem">
-            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-            <Setter Property="Padding" Value="16,10"/>
-            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
             <Setter Property="CornerRadius" Value="10,10,0,0"/>
         </Style>
         <Style Selector="TabItem:pointerover">
@@ -111,8 +164,14 @@
         <Style Selector="ComboBoxItem:selected, ComboBoxItem:pointerover">
             <Setter Property="Foreground" Value="White"/>
         </Style>
+        <!-- 2026-10-19, О9: выбранная строка — мягкий фон темы (BrushPanelPressed) с обычным цветом текста, а не голубая
+             системная подсветка с белым текстом (у строк с наведением белый текст на светлом фоне не читался). -->
         <Style Selector="DataGridRow:selected, DataGridRow:pointerover">
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="{DynamicResource BrushPanelPressed}"/>
+            <Setter Property="Opacity" Value="1"/>
         </Style>
 
         <!-- Кастомный стиль кнопок -->
@@ -126,22 +185,76 @@
             <Setter Property="Padding" Value="20,10"/>
             <Setter Property="Focusable" Value="False"/>
         </Style>
-        <Style Selector="Button.PrimaryButton:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushWarning}"/>
+        <!-- 2026-10-19, О9 (аудит, проблема 2): одна жёлтая на вкладку (PrimaryButton — как sec-primary: наведение темнее,
+             выключенная — нейтральная, не серая Fluent), остальные — обводкой (SecondaryButton — как sec-outline, была серая
+             заливка). Фокус по-прежнему не берут: Enter сканера не должен нажимать кнопку. -->
+        <Style Selector="Button.PrimaryButton">
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.PrimaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.PrimaryButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentPressed}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.PrimaryButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
         </Style>
 
         <Style Selector="Button.SecondaryButton">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Focusable" Value="False"/>
         </Style>
-        <Style Selector="Button.SecondaryButton:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
+        <Style Selector="Button.SecondaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+        <Style Selector="Button.SecondaryButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.SecondaryButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+        <!-- 2026-10-19, О9: пункт раскрывающегося списка (причина списания, подсказки приёмки) — без рамки, наведение мягким фоном. -->
+        <Style Selector="Button.list-item">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.list-item:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.list-item:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+        </Style>
+        <!-- «✕» в строке приёмки/ревизии — маленькая обводка под строку 44 px. -->
+        <Style Selector="Button.SecondaryButton.row-x">
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="FontSize" Value="12"/>
         </Style>
 
         <!-- Кнопки управления окном (Свернуть / Закрыть) -->
@@ -179,15 +292,31 @@
         <Style Selector="DataGridCell">
             <Setter Property="Padding" Value="12,0"/>
         </Style>
+        <!-- 2026-10-21 (пакет 1, п. 71): название в строке приёмки — до 2 строк (на 1024 и по-кыргызски обрезалось), класс ставит O9.cs. -->
+        <Style Selector="DataGridCell.rcv-name TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="LineHeight" Value="17"/>
+        </Style>
 
         <Style Selector="DataGridColumnHeader">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Padding" Value="10,8"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="SeparatorBrush" Value="{DynamicResource BrushBorder}"/>
+        </Style>
+        <!-- 2026-10-19, О9 (аудит, проблема 6: «Цена закупк», «Ожидаемый оста», «Коли», «Причина сп»): заголовок — TextBlock,
+             длинный переносится на 2-ю строку. Справа в шаблоне Fluent всегда занято 32 px под значок сортировки — текст
+             заходит на это место (отрицательное поле), заодно заголовки «по правому краю» встали над числами. -->
+        <Style Selector="DataGridColumnHeader TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+            <Setter Property="LineHeight" Value="15"/>
+            <Setter Property="Margin" Value="0,0,-24,0"/>
         </Style>
         <Style Selector="DataGridRow">
             <Setter Property="CornerRadius" Value="6"/>
@@ -200,12 +329,25 @@
             <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
         </Style>
 
-        <!-- Плашка остатка. Зелёная — товар есть, красная — заканчивается (порог считает
-             IsLowStock во вьюмодели). -->
-        <Style Selector="Border.low">
+        <!-- Плашка остатка. 2026-10-19, О9 (аудит, проблема 5: «0 шт» было зелёным, «3 шт» — красным; правило 4): норма —
+             нейтральная, «заканчивается» (меньше 10, IsLowStock) — оранжевая, «нет в наличии» (0 и меньше) — красная.
+             Цвет — только классами (stock / low / out), без своего цвета у Border и TextBlock. -->
+        <Style Selector="Border.stock">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="Border.stock TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Border.stock.low">
+            <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+        </Style>
+        <Style Selector="Border.stock.low TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+        </Style>
+        <Style Selector="Border.stock.out">
             <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
         </Style>
-        <Style Selector="Border.low TextBlock">
+        <Style Selector="Border.stock.out TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
         </Style>
 
@@ -244,6 +386,33 @@
         <Style Selector="Button.RowIcon PathIcon">
             <Setter Property="Width" Value="16"/>
             <Setter Property="Height" Value="16"/>
+        </Style>
+        <!-- 2026-10-18, решение владельца (аудит, правило 5): действия строки товара — «± Остаток» и «✎ Изменить» с
+             подписью, остальное в «⋯» (WarehouseWindow.RowActions.cs). Вид и отклик — общий sec-outline (наведение, нажатие,
+             выключенная); здесь только размер под строку 52 px. Без фокуса, как прежние значки (Enter сканера). -->
+        <Style Selector="Button.row-act">
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="MinWidth" Value="36"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.row-act PathIcon">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+        </Style>
+        <Style Selector="Button.row-more">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <!-- Узкая таблица (класс ставит ProductsGrid_SizeChanged) — только значки, подпись в подсказке. -->
+        <Style Selector="DataGrid.row-compact Button.row-act">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="DataGrid.row-compact TextBlock.row-act-text">
+            <Setter Property="IsVisible" Value="False"/>
         </Style>
         <!-- 2026-10-06, редизайн склада: метка срока годности в строке товара и плитки сводки. -->
         <Style Selector="Border.expiryBadge">
@@ -318,7 +487,7 @@
 
                 <!-- Левый блок: Иконка и заголовок (для перемещения окна) -->
                 <StackPanel x:Name="WindowTitlePanel" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="8" Padding="8">
+                    <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8" Padding="8">
                         <TextBlock Text="&#xE7B8;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16"
                                    Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
                     </Border>
@@ -339,7 +508,8 @@
                         <!-- 2026-10-06, владелец: «проведи полный редизайн склада». Сводка склада — плитками сверху (была строкой
                              под таблицей): товары, стоимость по закупке и по продаже, «Заканчивается», «Нет в наличии», «Срок
                              годности»; нажатие на плитку включает фильтр. Собирается в коде (WarehouseWindow.Redesign.cs). -->
-                        <Grid Grid.Row="0" x:Name="WarehouseKpiPanel" Margin="0,0,0,14"/>
+                        <!-- 2026-10-19, О9 (аудит, проблема 4): плитки sec-kpi в KpiTileGrid — на 1024 суммы не обрезаются «65 087 с…». -->
+                        <ctl:KpiTileGrid Grid.Row="0" x:Name="WarehouseKpiPanel" MinTileWidth="128" Spacing="8" Margin="0,0,0,14"/>
 
                         <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,12">
                             <!-- 2026-10-06, владелец: «сделай редизайн кнопок, расположение, удобство» — у поиска значок и «✕» очистки. -->
@@ -384,34 +554,41 @@
                         <!-- Фильтр "Единица продажи" (2026-09-07, по образцу stage.nurcrm.kg/crm/sklad) -->
                         <!-- 2026-10-06: слева — фильтры (единица продажи, наличие), справа — вид списка (это не фильтр). -->
                         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                        <!-- 2026-10-19, О9: группы — сегментами sec-segment/sec-seg (выбранный тёмно-синий, как «Продажи» и «Клиенты»). -->
                         <WrapPanel Grid.Column="0" x:Name="WarehouseFiltersRow" Orientation="Horizontal">
-                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
-                            <TextBlock Text="{DynamicResource warehouse.saleUnitFilterLabel}" VerticalAlignment="Center"
-                                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,4,0"/>
-                            <RadioButton x:Name="SaleUnitAllRadio" GroupName="SaleUnitFilter" Classes="SaleUnitPill" IsChecked="True"
-                                         Content="{DynamicResource warehouse.saleUnitAll}" Click="SaleUnitFilter_Changed"/>
-                            <RadioButton x:Name="SaleUnitWeightRadio" GroupName="SaleUnitFilter" Classes="SaleUnitPill"
-                                         Content="{DynamicResource warehouse.saleUnitWeight}" Click="SaleUnitFilter_Changed"/>
-                            <RadioButton x:Name="SaleUnitPieceRadio" GroupName="SaleUnitFilter" Classes="SaleUnitPill"
-                                         Content="{DynamicResource warehouse.saleUnitPiece}" Click="SaleUnitFilter_Changed"/>
-                            <RadioButton x:Name="SaleUnitPiecePackageRadio" GroupName="SaleUnitFilter" Classes="SaleUnitPill"
-                                         Content="{DynamicResource warehouse.saleUnitPiecePackage}" Click="SaleUnitFilter_Changed"/>
-
-                            <!-- Вид списка. Таблица отвечает на вопрос «сколько и почём» — цифры в
-                                 колонках сравнивать удобнее; плитки отвечают на «что это» — товар
-                                 узнают по фотографии. Нужны оба: приёмка идёт по цифрам, а поиск
-                                 глазами — по картинкам. -->
-                            <Border Width="1" Margin="10,2,10,2" Background="{DynamicResource BrushBorder}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                            <TextBlock Classes="seg-label" Text="{DynamicResource warehouse.saleUnitFilterLabel}"/>
+                            <Border Classes="sec-segment">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <RadioButton x:Name="SaleUnitAllRadio" GroupName="SaleUnitFilter" Classes="sec-seg" IsChecked="True"
+                                                 Content="{DynamicResource warehouse.saleUnitAll}" Click="SaleUnitFilter_Changed"/>
+                                    <RadioButton x:Name="SaleUnitWeightRadio" GroupName="SaleUnitFilter" Classes="sec-seg"
+                                                 Content="{DynamicResource warehouse.saleUnitWeight}" Click="SaleUnitFilter_Changed"/>
+                                    <RadioButton x:Name="SaleUnitPieceRadio" GroupName="SaleUnitFilter" Classes="sec-seg"
+                                                 Content="{DynamicResource warehouse.saleUnitPiece}" Click="SaleUnitFilter_Changed"/>
+                                    <RadioButton x:Name="SaleUnitPiecePackageRadio" GroupName="SaleUnitFilter" Classes="sec-seg"
+                                                 Content="{DynamicResource warehouse.saleUnitPiecePackage}" Click="SaleUnitFilter_Changed"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                         <!-- 2026-10-06: фильтр наличия — «Все / Заканчивается / Нет в наличии / Срок годности» (кнопки — в коде). -->
-                        <StackPanel x:Name="StockFilterPanel" Orientation="Horizontal" Spacing="8" Margin="0,0,0,4"/>
-                        </WrapPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top" Margin="12,0,0,4">
-                            <RadioButton x:Name="ViewListRadio" GroupName="WarehouseViewMode" Classes="SaleUnitPill" IsChecked="True"
-                                         Content="{DynamicResource warehouse.viewList}" Click="WarehouseViewMode_Changed"/>
-                            <RadioButton x:Name="ViewTilesRadio" GroupName="WarehouseViewMode" Classes="SaleUnitPill"
-                                         Content="{DynamicResource warehouse.viewTiles}" Click="WarehouseViewMode_Changed"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <TextBlock x:Name="StockFilterLabel" Classes="seg-label"/>
+                            <Border Classes="sec-segment">
+                                <StackPanel x:Name="StockFilterPanel" Orientation="Horizontal" Spacing="2"/>
+                            </Border>
                         </StackPanel>
+                        </WrapPanel>
+                        <!-- Вид списка. Таблица отвечает на вопрос «сколько и почём» — цифры в колонках сравнивать удобнее;
+                             плитки отвечают на «что это» — товар узнают по фотографии. -->
+                        <Border Grid.Column="1" Classes="sec-segment" VerticalAlignment="Top" Margin="12,0,0,6">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <RadioButton x:Name="ViewListRadio" GroupName="WarehouseViewMode" Classes="sec-seg" IsChecked="True"
+                                             Content="{DynamicResource warehouse.viewList}" Click="WarehouseViewMode_Changed"/>
+                                <RadioButton x:Name="ViewTilesRadio" GroupName="WarehouseViewMode" Classes="sec-seg"
+                                             Content="{DynamicResource warehouse.viewTiles}" Click="WarehouseViewMode_Changed"/>
+                            </StackPanel>
+                        </Border>
                         </Grid>
 
                         <!-- Таблица товаров (2026-09-07, перестроена по образцу Shopify Polaris IndexTable:
@@ -430,7 +607,8 @@
                                   ItemsSource="{Binding PagedProducts}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
-                                  RowHeight="52">
+                                  RowHeight="52"
+                                  SizeChanged="ProductsGrid_SizeChanged">
                             <DataGrid.Columns>
                                 <!-- Сумма ширин НЕ должна превышать окно, иначе появляется горизонтальная прокрутка
                                      и последняя кнопка в «Действиях» обрезается по краю. Сейчас
@@ -559,52 +737,48 @@
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Border CornerRadius="6" Padding="10,3"
+                                            <Border Classes="stock" CornerRadius="6" Padding="10,3"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                    Background="{DynamicResource BrushSuccessSoft}"
-                                                    Classes.low="{ReflectionBinding IsLowStock}">
+                                                    Classes.low="{ReflectionBinding IsLowStock}"
+                                                    Classes.out="{ReflectionBinding Quantity, Converter={x:Static views:WarehouseWindow.IsOutOfStock}}">
                                                 <TextBlock Text="{ReflectionBinding StockWithUnitText}"
-                                                           FontSize="13" FontWeight="Bold"
-                                                           Foreground="{DynamicResource BrushSuccess}"/>
+                                                           FontSize="13" FontWeight="Bold"/>
                                             </Border>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Width="256">
+                                <!-- 2026-10-18: ширину колонки (300 с подписями / 156 значками) ставит ProductsGrid_SizeChanged. -->
+                                <DataGridTemplateColumn Width="300">
                                     <DataGridTemplateColumn.Header>
                                         <TextBlock Text="{DynamicResource warehouse.colActions}" TextAlignment="Center"/>
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,12,0">
+                                            <!-- 2026-10-18, решение владельца: было 6 значков без подписей (±, ✎, этикетка, ценник, фото,
+                                                 корзина). Видны два главных действия с подписью, остальное — в «⋯» (меню с подписями,
+                                                 «Удалить» последним, красным, под чертой). Обработчики прежние. -->
+                                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,12,0">
                                                 <!-- 2026-10-06, редизайн склада: «±» — приход, списание или точное количество прямо из строки. -->
-                                                <Button Classes="SecondaryButton RowIcon" Click="StockAdjust_Click" Tag="{Binding}"
+                                                <Button Classes="sec-outline row-act" Click="StockAdjust_Click" Tag="{Binding}"
+                                                        AutomationProperties.Name="{x:Static views:WarehouseWindow.RowStockName}"
                                                         ToolTip.Tip="{ReflectionBinding Title, Converter={x:Static conv:StockAdjustTipConverter.Instance}}">
-                                                    <PathIcon Foreground="{DynamicResource BrushAccent}" Data="M11,3 H13 V8 H18 V10 H13 V15 H11 V10 H6 V8 H11 Z M6,18 H18 V20 H6 Z"/>
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <PathIcon Data="M11,3 H13 V8 H18 V10 H13 V15 H11 V10 H6 V8 H11 Z M6,18 H18 V20 H6 Z"/>
+                                                        <TextBlock Classes="row-act-text" VerticalAlignment="Center" Text="{x:Static views:WarehouseWindow.RowStockText}"/>
+                                                    </StackPanel>
                                                 </Button>
-                                                <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource product.editRowButton}"
-                                                        Click="EditProduct_Click" Tag="{Binding}">
-                                                    <PathIcon Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+                                                <Button Classes="sec-outline row-act" Click="EditProduct_Click" Tag="{Binding}"
+                                                        AutomationProperties.Name="{x:Static views:WarehouseWindow.RowEditName}"
+                                                        ToolTip.Tip="{x:Static views:WarehouseWindow.RowEditName}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <PathIcon Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+                                                        <TextBlock Classes="row-act-text" VerticalAlignment="Center" Text="{DynamicResource product.editRowButton}"/>
+                                                    </StackPanel>
                                                 </Button>
-                                                <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource warehouse.printLabelButton}"
-                                                        Click="PrintLabel_Click" Tag="{Binding}">
-                                                    <PathIcon Data="M5.5,7A1.5,1.5 0 0,1 4,5.5A1.5,1.5 0 0,1 5.5,4A1.5,1.5 0 0,1 7,5.5A1.5,1.5 0 0,1 5.5,7M21.41,11.58L12.41,2.58C12.05,2.22 11.55,2 11,2H4C2.89,2 2,2.89 2,4V11C2,11.55 2.22,12.05 2.59,12.41L11.58,21.41C11.95,21.77 12.45,22 13,22C13.55,22 14.05,21.77 14.41,21.41L21.41,14.41C21.78,14.05 22,13.55 22,13C22,12.44 21.77,11.94 21.41,11.58Z"/>
-                                                </Button>
-                                                <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource warehouse.priceTagButton}"
-                                                        Click="PrintPriceTag_Click" Tag="{Binding}">
-                                                    <PathIcon Foreground="{DynamicResource BrushSuccess}"
-                                                              Data="M7,15H9C9,16.08 10.37,17 12,17C13.63,17 15,16.08 15,15C15,13.9 13.96,13.5 11.76,12.97C9.64,12.44 7,11.78 7,9C7,7.21 8.47,5.69 10.5,5.18V3H13.5V5.18C15.53,5.69 17,7.21 17,9H15C15,7.92 13.63,7 12,7C10.37,7 9,7.92 9,9C9,10.1 10.04,10.5 12.24,11.03C14.36,11.56 17,12.22 17,15C17,16.79 15.53,18.31 13.5,18.82V21H10.5V18.82C8.47,18.31 7,16.79 7,15Z"/>
-                                                </Button>
-                                                <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource warehouse.photoButton}"
-                                                        Click="UploadPhoto_Click" Tag="{Binding}">
-                                                    <PathIcon Data="M4,4H7L9,2H15L17,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M12,7A5,5 0 0,0 7,12A5,5 0 0,0 12,17A5,5 0 0,0 17,12A5,5 0 0,0 12,7M12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9Z"/>
-                                                </Button>
-                                                <!-- 2026-10-06: «Удалить» — отдельно, после промежутка: рядом с «Фото» по нему промахивались. -->
-                                                <Border Width="1" Height="22" Margin="4,0" Background="{DynamicResource BrushBorder}"/>
-                                                <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource warehouse.deleteButton}"
-                                                        Click="DeleteProduct_Click" Tag="{Binding}">
-                                                    <PathIcon Foreground="{DynamicResource BrushDanger}"
-                                                              Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+                                                <Button Classes="sec-outline row-act row-more" Click="RowMore_Click" Tag="{Binding}"
+                                                        AutomationProperties.Name="{x:Static views:WarehouseWindow.RowMoreText}"
+                                                        ToolTip.Tip="{x:Static views:WarehouseWindow.RowMoreText}">
+                                                    <PathIcon Data="M6,10A2,2 0 1,1 6,14A2,2 0 1,1 6,10M12,10A2,2 0 1,1 12,14A2,2 0 1,1 12,10M18,10A2,2 0 1,1 18,14A2,2 0 1,1 18,10Z"/>
                                                 </Button>
                                             </StackPanel>
                                         </DataTemplate>
@@ -625,7 +799,7 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Width="208" Margin="0,0,12,12" Padding="12"
+                                        <Border Width="{DynamicResource WarehouseTileWidth}" Margin="0,0,12,12" Padding="12"
                                                 Background="{DynamicResource BrushCatalogTileBg}"
                                                 BorderBrush="{DynamicResource BrushCatalogTileBorder}"
                                                 BorderThickness="1"
@@ -652,17 +826,17 @@
                                                            ToolTip.Tip="{ReflectionBinding Title}"/>
 
                                                 <Grid ColumnDefinitions="*,Auto">
+                                                    <!-- 2026-10-19, О9: цена — цветом текста (в тёмной теме была жёлтой — акцент без смысла). -->
                                                     <TextBlock Grid.Column="0" Text="{ReflectionBinding PriceLine}"
                                                                FontSize="15" FontWeight="Bold"
                                                                VerticalAlignment="Center"
-                                                               Foreground="{DynamicResource BrushCatalogPrice}"/>
-                                                    <Border Grid.Column="1" CornerRadius="6" Padding="8,2"
+                                                               Foreground="{DynamicResource BrushText}"/>
+                                                    <Border Grid.Column="1" Classes="stock" CornerRadius="6" Padding="8,2"
                                                             VerticalAlignment="Center"
-                                                            Background="{DynamicResource BrushSuccessSoft}"
-                                                            Classes.low="{ReflectionBinding IsLowStock}">
-                                                        <TextBlock Text="{ReflectionBinding Quantity, StringFormat=\{0:0.###\}}"
-                                                                   FontSize="12" FontWeight="Bold"
-                                                                   Foreground="{DynamicResource BrushSuccess}"/>
+                                                            Classes.low="{ReflectionBinding IsLowStock}"
+                                                            Classes.out="{ReflectionBinding Quantity, Converter={x:Static views:WarehouseWindow.IsOutOfStock}}">
+                                                        <TextBlock Text="{ReflectionBinding StockWithUnitText}"
+                                                                   FontSize="12" FontWeight="Bold"/>
                                                     </Border>
                                                 </Grid>
 
@@ -670,26 +844,24 @@
                                                            FontSize="11" Foreground="{DynamicResource BrushTextSoft}"
                                                            TextTrimming="CharacterEllipsis"/>
 
-                                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                                    <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource product.editRowButton}"
-                                                            Click="EditProduct_Click" Tag="{Binding}">
-                                                        <PathIcon Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+                                                <!-- 2026-10-18, решение владельца: в плитке — «✎ Изменить» с подписью и «⋯» (ценник, фото,
+                                                     этикетка, «Удалить» красным под чертой) вместо 4 значков без подписей. -->
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <Button Classes="sec-outline row-act" HorizontalAlignment="Stretch"
+                                                            Click="EditProduct_Click" Tag="{Binding}"
+                                                            AutomationProperties.Name="{x:Static views:WarehouseWindow.RowEditName}"
+                                                            ToolTip.Tip="{x:Static views:WarehouseWindow.RowEditName}">
+                                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                                            <PathIcon Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+                                                            <TextBlock VerticalAlignment="Center" Text="{DynamicResource product.editRowButton}"/>
+                                                        </StackPanel>
                                                     </Button>
-                                                    <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource warehouse.priceTagButton}"
-                                                            Click="PrintPriceTag_Click" Tag="{Binding}">
-                                                        <PathIcon Foreground="{DynamicResource BrushSuccess}"
-                                                                  Data="M7,15H9C9,16.08 10.37,17 12,17C13.63,17 15,16.08 15,15C15,13.9 13.96,13.5 11.76,12.97C9.64,12.44 7,11.78 7,9C7,7.21 8.47,5.69 10.5,5.18V3H13.5V5.18C15.53,5.69 17,7.21 17,9H15C15,7.92 13.63,7 12,7C10.37,7 9,7.92 9,9C9,10.1 10.04,10.5 12.24,11.03C14.36,11.56 17,12.22 17,15C17,16.79 15.53,18.31 13.5,18.82V21H10.5V18.82C8.47,18.31 7,16.79 7,15Z"/>
+                                                    <Button Grid.Column="1" Margin="6,0,0,0" Classes="sec-outline row-act row-more" Click="RowMore_Click" Tag="{Binding}"
+                                                            AutomationProperties.Name="{x:Static views:WarehouseWindow.RowMoreText}"
+                                                            ToolTip.Tip="{x:Static views:WarehouseWindow.RowMoreText}">
+                                                        <PathIcon Data="M6,10A2,2 0 1,1 6,14A2,2 0 1,1 6,10M12,10A2,2 0 1,1 12,14A2,2 0 1,1 12,10M18,10A2,2 0 1,1 18,14A2,2 0 1,1 18,10Z"/>
                                                     </Button>
-                                                    <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource warehouse.photoButton}"
-                                                            Click="UploadPhoto_Click" Tag="{Binding}">
-                                                        <PathIcon Data="M4,4H7L9,2H15L17,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M12,7A5,5 0 0,0 7,12A5,5 0 0,0 12,17A5,5 0 0,0 17,12A5,5 0 0,0 12,7M12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9Z"/>
-                                                    </Button>
-                                                    <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource warehouse.deleteButton}"
-                                                            Click="DeleteProduct_Click" Tag="{Binding}">
-                                                        <PathIcon Foreground="{DynamicResource BrushDanger}"
-                                                                  Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
-                                                    </Button>
-                                                </StackPanel>
+                                                </Grid>
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>
@@ -731,7 +903,8 @@
                             <Button Grid.Column="0" Classes="SecondaryButton"
                                     Content="{DynamicResource csh.catalog.prevPage}"
                                     Command="{Binding PreviousProductPageCommand}"/>
-                            <TextBlock Grid.Column="1" Text="{Binding ProductPageStatusText}"
+                            <!-- 2026-10-21 (пакет 1, п. 109): «Товары 1–50 из 330 · страница 1 из 7» — текст ставит WarehouseWindow.O9.cs. -->
+                            <TextBlock Grid.Column="1" x:Name="ProductPageStatus"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Foreground="{DynamicResource BrushTextSoft}" FontSize="13"/>
                             <Button Grid.Column="2" Classes="SecondaryButton"
@@ -771,12 +944,14 @@
                                         <TextBlock Grid.Column="1" Text="▾" Margin="8,0,0,0" Foreground="{DynamicResource BrushTextSoft}"/>
                                     </Grid>
                                 </Button>
-                                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasReceivingSupplier}">
-                                    <RadioButton x:Name="ReceivingPaidRadio" GroupName="ReceivingPayment" Classes="SaleUnitPill" IsChecked="True"
-                                                 Content="{DynamicResource warehouse.receivingPaidNow}" Click="ReceivingPayment_Click"/>
-                                    <RadioButton x:Name="ReceivingDebtRadio" GroupName="ReceivingPayment" Classes="SaleUnitPill"
-                                                 Content="{DynamicResource warehouse.receivingOnDebt}" Click="ReceivingPayment_Click"/>
-                                </StackPanel>
+                                <Border Classes="sec-segment" IsVisible="{Binding HasReceivingSupplier}">
+                                    <StackPanel Orientation="Horizontal" Spacing="2">
+                                        <RadioButton x:Name="ReceivingPaidRadio" GroupName="ReceivingPayment" Classes="sec-seg" IsChecked="True"
+                                                     Content="{DynamicResource warehouse.receivingPaidNow}" Click="ReceivingPayment_Click"/>
+                                        <RadioButton x:Name="ReceivingDebtRadio" GroupName="ReceivingPayment" Classes="sec-seg"
+                                                     Content="{DynamicResource warehouse.receivingOnDebt}" Click="ReceivingPayment_Click"/>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                             <Border x:Name="ReceivingSupplierPanel" IsVisible="False" Width="400" HorizontalAlignment="Left"
                                     Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
@@ -842,12 +1017,12 @@
                                 CornerRadius="8">
                             <!-- 2026-10-11, тестировщик (склад.md, 2.2.4): «список зависает, и его никак не убрать» — крестик закрытия. -->
                             <Grid RowDefinitions="Auto,Auto">
-                            <Button Grid.Row="0" Content="✕" HorizontalAlignment="Right" Classes="SecondaryButton" Padding="10,2" Margin="0,0,0,2"
+                            <Button Grid.Row="0" Content="✕" HorizontalAlignment="Right" Classes="SecondaryButton row-x" Padding="10,2" Margin="0,0,0,2"
                                     Click="ReceivingSuggestionsClose_Click"/>
                             <ItemsControl Grid.Row="1" x:Name="ReceivingSuggestionsPanel" x:CompileBindings="False">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Button Classes="SecondaryButton"
+                                        <Button Classes="list-item"
                                                 HorizontalAlignment="Stretch"
                                                 HorizontalContentAlignment="Left"
                                                 Margin="0,1" Padding="10,6"
@@ -883,26 +1058,48 @@
                                   CellPointerPressed="ReceivingGrid_CellPointerPressed"
                                   RowHeight="44">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingSource}" Width="120"
-                                                    Binding="{ReflectionBinding SourceText}" IsReadOnly="True"/>
+                                <!-- 2026-10-19, О9: ширины уже, заголовки переносятся — на 1366 без прокрутки вбок; на узкой таблице
+                                     (1024) «Источник» и «Было» прячутся (WarehouseWindow.O9.cs). Порядок колонок прежний. -->
+                                <DataGridTextColumn Width="104"
+                                                    Binding="{ReflectionBinding SourceText}" IsReadOnly="True">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingSource}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
                                 <!-- 2026-10-11, тестировщик (склад.md, 2.2.3): название сжималось в «щель в 10 пикселей» — остальные колонки
                                      фиксированной ширины. Теперь не уже 240 точек; таблица при нехватке места прокручивается вбок. -->
-                                <DataGridTextColumn Header="{DynamicResource common.name}" Width="*" MinWidth="240"
-                                                    Binding="{ReflectionBinding ProductName}"/>
-                                <DataGridTextColumn Header="{DynamicResource csh.catalog.colBarcode}" Width="140"
-                                                    Binding="{ReflectionBinding Barcode}"/>
-                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingUnit}" Width="76"
-                                                    Binding="{ReflectionBinding Unit}"/>
-                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingWas}" Width="90"
-                                                    Binding="{ReflectionBinding StockBefore, StringFormat=\{0:0.###\}}" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingTaken}" Width="112"
-                                                    Binding="{ReflectionBinding QuantityText}"/>
-                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingPurchasePrice}" Width="140"
-                                                    Binding="{ReflectionBinding PurchasePriceText}"/>
-                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingSalePrice}" Width="140"
-                                                    Binding="{ReflectionBinding SalePriceText}"/>
-                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingLineTotal}" Width="120"
-                                                    Binding="{ReflectionBinding LineTotal, StringFormat=\{0:0.##\}}" IsReadOnly="True"/>
+                                <DataGridTextColumn Width="*" MinWidth="200"
+                                                    Binding="{ReflectionBinding ProductName}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource common.name}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="136"
+                                                    Binding="{ReflectionBinding Barcode}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource csh.catalog.colBarcode}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="64"
+                                                    Binding="{ReflectionBinding Unit}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingUnit}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <!-- 2026-10-19: 72 → 84 — кыргызское «Болгон» переносилось посреди слова («Болго / н»); на 1024 столбец скрыт -->
+                                <DataGridTextColumn Width="84"
+                                                    Binding="{ReflectionBinding StockBefore, StringFormat=\{0:0.###\}}" IsReadOnly="True">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingWas}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="92"
+                                                    Binding="{ReflectionBinding QuantityText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingTaken}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="104"
+                                                    Binding="{ReflectionBinding PurchasePriceText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingPurchasePrice}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="104"
+                                                    Binding="{ReflectionBinding SalePriceText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingSalePrice}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <!-- 2026-10-19, О9: сумма с разрядами («1 155,00», было «1155»). -->
+                                <DataGridTextColumn Width="112"
+                                                    Binding="{ReflectionBinding LineTotal, StringFormat=\{0:N2\}}" IsReadOnly="True">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingLineTotal}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
                                 <!-- 2026-10-06 (О-70, магазин одежды): «Размеры» — сколько каких принимается; нажатие открывает сетку.
                                      Последней колонкой, чтобы номера колонок выше не сдвинулись. Заголовок и видимость — в коде. -->
                                 <!-- 2026-10-06, владелец (снимок): «Размеры» обрезались («46, Чёрный ×…») — теперь в две строки, полный
@@ -920,7 +1117,7 @@
                                 <DataGridTemplateColumn Header="" Width="52" IsReadOnly="True">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button Content="✕" Tag="{Binding}" Click="ReceivingRowRemove_Click" Classes="SecondaryButton"
+                                            <Button Content="✕" Tag="{Binding}" Click="ReceivingRowRemove_Click" Classes="SecondaryButton row-x"
                                                     Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center"
                                                     ToolTip.Tip="{DynamicResource warehouse.transferRemoveItem}"/>
@@ -929,6 +1126,11 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
+                        <!-- 2026-10-19, О9: пустая накладная — что делать (тексты — WarehouseWindow.O9.cs). -->
+                        <StackPanel Grid.Row="4" x:Name="ReceivingEmptyState" Classes="empty-state">
+                            <TextBlock x:Name="ReceivingEmptyTitle" Classes="empty-title"/>
+                            <TextBlock x:Name="ReceivingEmptyHint" Classes="empty-hint"/>
+                        </StackPanel>
 
                         <Grid Grid.Row="5" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
                             <TextBlock Grid.Column="0" x:Name="ReceivingSummaryText"
@@ -978,19 +1180,30 @@
                                   IsReadOnly="False"
                                   RowHeight="44">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="{DynamicResource warehouse.colBarcodeHyphen}" Width="150" Binding="{ReflectionBinding Barcode}" IsReadOnly="True" />
-                                <DataGridTextColumn Header="{DynamicResource warehouse.colProductName}" Width="*" Binding="{ReflectionBinding ProductName}" IsReadOnly="True" />
-                                <DataGridTextColumn Header="{DynamicResource warehouse.colExpectedQty}" Width="160"
-                                                    Binding="{ReflectionBinding ExpectedQty, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
-                                <DataGridTextColumn Header="{DynamicResource warehouse.colActualQty}" Width="170"
-                                                    Binding="{ReflectionBinding ActualQty, StringFormat=\{0:0.###\}}" />
-                                <DataGridTextColumn Header="{DynamicResource warehouse.colDifference}" Width="130"
-                                                    Binding="{ReflectionBinding Difference, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
+                                <DataGridTextColumn Width="150" Binding="{ReflectionBinding Barcode}" IsReadOnly="True">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.colBarcodeHyphen}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="*" Binding="{ReflectionBinding ProductName}" IsReadOnly="True">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.colProductName}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <!-- 2026-10-19, О9: заголовки переносятся («Ожидаемый остаток» обрезался), ширины по числам. -->
+                                <DataGridTextColumn Width="132"
+                                                    Binding="{ReflectionBinding ExpectedQty, StringFormat=\{0:0.###\}}" IsReadOnly="True">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.colExpectedQty}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="132"
+                                                    Binding="{ReflectionBinding ActualQty, StringFormat=\{0:0.###\}}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.colActualQty}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="112"
+                                                    Binding="{ReflectionBinding Difference, StringFormat=\{0:0.###\}}" IsReadOnly="True">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.colDifference}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
                                 <!-- 2026-10-11, тестировщик (склад.md): «нужен крестик справа от товара, если случайно добавил». -->
                                 <DataGridTemplateColumn Header="" Width="52" IsReadOnly="True">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button Content="✕" Tag="{Binding}" Click="RevisionRowRemove_Click" Classes="SecondaryButton"
+                                            <Button Content="✕" Tag="{Binding}" Click="RevisionRowRemove_Click" Classes="SecondaryButton row-x"
                                                     Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center"
                                                     ToolTip.Tip="{DynamicResource warehouse.transferRemoveItem}"/>
@@ -999,6 +1212,11 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
+                        <!-- 2026-10-19, О9: пустая ревизия — что делать. -->
+                        <StackPanel Grid.Row="1" x:Name="RevisionEmptyState" Classes="empty-state">
+                            <TextBlock x:Name="RevisionEmptyTitle" Classes="empty-title"/>
+                            <TextBlock x:Name="RevisionEmptyHint" Classes="empty-hint"/>
+                        </StackPanel>
 
                         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" Spacing="12">
                             <!-- 2026-10-11, тестировщик (склад.md, 3.1): «нужна кнопка для очищения выбранных». -->
@@ -1013,12 +1231,14 @@
 
             <!-- Вкладка 2: Списание -->
             <TabItem x:Name="WriteOffTabItem" Header="{DynamicResource warehouse.tabWriteOff}">
-                <Grid Background="{DynamicResource BrushPanel}" ColumnDefinitions="Auto,16,*">
-                <Border Grid.Column="0" Padding="24,24,0,24">
+                <!-- 2026-10-19, О9 (аудит, проблема 6): списание было на серой подложке и без скругления, как ни одна другая
+                     вкладка; форма — фиксированной ширины 560 (на 1024 история сжималась до щели). Теперь панель как у
+                     остальных вкладок, форма — белая карточка 4/10 ширины (не шире 560), история — остальное. -->
+                <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
+                <Grid ColumnDefinitions="4*,16,6*">
+                <Border Grid.Column="0">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <Border Width="560" HorizontalAlignment="Left"
-                                Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                                CornerRadius="12" Padding="20">
+                        <Border Classes="wh-card" MaxWidth="560" HorizontalAlignment="Stretch" VerticalAlignment="Top">
                             <StackPanel Spacing="18">
                                 <TextBlock Text="{DynamicResource warehouse.writeOffTitle}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
 
@@ -1054,8 +1274,11 @@
                                              FontWeight="Bold"
                                              Foreground="{DynamicResource BrushText}"
                                              Background="{DynamicResource BrushInputAlt}" />
+                                    <!-- 2026-10-19, О9: «Штрих-код:» было вписано по-русски на всех языках; без товара строки нет. -->
                                     <TextBlock Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="2,0,0,0"
-                                               Text="{Binding WriteOffBarcode, StringFormat=Штрих-код: \{0\}}" />
+                                               IsVisible="{Binding WriteOffBarcode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <Run Text="{DynamicResource csh.catalog.colBarcode}"/><Run Text=": "/><Run Text="{Binding WriteOffBarcode}"/>
+                                    </TextBlock>
                                 </StackPanel>
 
                                 <!-- Количество -->
@@ -1089,7 +1312,7 @@
                                     </Border>
                                 </StackPanel>
 
-                                <Separator Height="1" Background="{DynamicResource BrushPanelSoft}" Margin="0,6"/>
+                                <Separator Height="1" Background="{DynamicResource BrushBorder}" Margin="0,6"/>
 
                                 <!-- Кнопка отправки -->
                                 <Button Content="{DynamicResource warehouse.confirmWriteOffButton}"
@@ -1105,7 +1328,7 @@
                 <!-- История списаний (AI-фичи 2026-09-04) — локальный журнал этой кассы, см.
                      WarehouseViewModel.WriteOffHistory/WriteOffHistoryStore — API актов
                      списания не даёт прочитать историю обратно с сервера. -->
-                <Border Grid.Column="2" Padding="0,24,24,24">
+                <Border Grid.Column="2">
                     <Grid RowDefinitions="Auto,*">
                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
                             <TextBlock Grid.Column="0" Text="{DynamicResource warehouse.writeOffHistoryTitle}"
@@ -1115,24 +1338,39 @@
                                     Content="{DynamicResource warehouse.writeOffHistoryExpandButton}"
                                     Click="ExpandWriteOffHistory_Click"/>
                         </Grid>
-                        <DataGrid Grid.Row="1" x:CompileBindings="False"
+                        <!-- 2026-10-19, О9: история — белая таблица; «Количество» вместо «Количество для списания» (обрезалось
+                             «Коли»); на узкой таблице «Кассир» прячется (WarehouseWindow.O9.cs). -->
+                        <DataGrid Grid.Row="1" x:Name="WriteOffHistoryGrid" x:CompileBindings="False"
                                   ItemsSource="{Binding WriteOffHistory}"
                                   AutoGenerateColumns="False" IsReadOnly="True"
-                                  Background="{DynamicResource BrushPanelSoft}"
-                                  BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                                  CornerRadius="12" GridLinesVisibility="Horizontal"
-                                  RowHeight="40">
+                                  GridLinesVisibility="Horizontal"
+                                  RowHeight="44">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="{DynamicResource common.date}" Width="130" Binding="{ReflectionBinding DateText}"/>
-                                <DataGridTextColumn Header="{DynamicResource common.product}" Width="2*" Binding="{ReflectionBinding ProductName}"/>
-                                <DataGridTextColumn Header="{DynamicResource warehouse.qtyForWriteOffLabel}" Width="90" Binding="{ReflectionBinding QuantityText}"/>
-                                <DataGridTextColumn Header="{DynamicResource warehouse.writeOffReasonLabel}" Width="130" Binding="{ReflectionBinding Reason}"/>
-                                <DataGridTextColumn Header="{DynamicResource common.cashier}" Width="120" Binding="{ReflectionBinding CashierName}"/>
+                                <DataGridTextColumn Width="104" Binding="{ReflectionBinding DateText}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource common.date}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="*" MinWidth="140" Binding="{ReflectionBinding ProductName}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource common.product}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="110" Binding="{ReflectionBinding QuantityText}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource common.quantity}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="112" Binding="{ReflectionBinding Reason}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.writeOffReasonLabel}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="150" Binding="{ReflectionBinding CashierName}">
+                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource common.cashier}"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
                             </DataGrid.Columns>
                         </DataGrid>
+                        <StackPanel Grid.Row="1" x:Name="WriteOffEmptyState" Classes="empty-state">
+                            <TextBlock x:Name="WriteOffEmptyTitle" Classes="empty-title"/>
+                            <TextBlock x:Name="WriteOffEmptyHint" Classes="empty-hint"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
                 </Grid>
+                </Border>
             </TabItem>
 
             <!-- Вкладка 4: Аналитика (склад/товары) — считается локально из уже загруженного
@@ -1146,42 +1384,52 @@
             <TabItem x:Name="MovementsTabItem" Header="{DynamicResource warehouse.tabMovements}">
                 <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
                     <Grid RowDefinitions="Auto,Auto,*">
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+                        <!-- 2026-10-19, О9: строка переносится (на 1024 «Excel», «Word» уходили за край); переключатели — сегменты. -->
+                        <WrapPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
                             <!-- Два разных вопроса в одном разделе: «какие отгрузки идут между
                                  складами» и «что вообще уходило со склада». Первый — документы с
                                  маршрутом и статусом, второй — сплошной журнал расхода. -->
-                            <RadioButton x:Name="TransfersDocsRadio" GroupName="MovementsSection" Classes="SaleUnitPill" IsChecked="True"
-                                         Content="{DynamicResource warehouse.transfersDocs}" Click="MovementsSection_Changed"/>
-                            <RadioButton x:Name="TransfersFlowRadio" GroupName="MovementsSection" Classes="SaleUnitPill"
-                                         Content="{DynamicResource warehouse.transfersFlow}" Click="MovementsSection_Changed"/>
-                            <Border Width="1" Margin="6,2,6,2" Background="{DynamicResource BrushBorder}"/>
+                            <Border Classes="sec-segment" Margin="0,0,10,8">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <RadioButton x:Name="TransfersDocsRadio" GroupName="MovementsSection" Classes="sec-seg" IsChecked="True"
+                                                 Content="{DynamicResource warehouse.transfersDocs}" Click="MovementsSection_Changed"/>
+                                    <RadioButton x:Name="TransfersFlowRadio" GroupName="MovementsSection" Classes="sec-seg"
+                                                 Content="{DynamicResource warehouse.transfersFlow}" Click="MovementsSection_Changed"/>
+                                </StackPanel>
+                            </Border>
 
-                            <TextBox x:Name="MovementsSearchBox" Width="280"
+                            <TextBox x:Name="MovementsSearchBox" Width="280" Margin="0,0,10,8"
                                      Watermark="{DynamicResource warehouse.movementsSearchHint}"
                                      TextChanged="MovementsFilter_Changed"/>
-                            <RadioButton x:Name="MovementsWeekRadio" GroupName="MovementsPeriod" Classes="SaleUnitPill" IsChecked="True"
-                                         Content="{DynamicResource warehouse.movementsWeek}" Click="MovementsFilter_Changed"/>
-                            <RadioButton x:Name="MovementsMonthRadio" GroupName="MovementsPeriod" Classes="SaleUnitPill"
-                                         Content="{DynamicResource warehouse.movementsMonth}" Click="MovementsFilter_Changed"/>
-                            <RadioButton x:Name="MovementsQuarterRadio" GroupName="MovementsPeriod" Classes="SaleUnitPill"
-                                         Content="{DynamicResource warehouse.movementsQuarter}" Click="MovementsFilter_Changed"/>
+                            <Border Classes="sec-segment" Margin="0,0,10,8" IsVisible="{Binding #MovementsWeekRadio.IsVisible}">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <RadioButton x:Name="MovementsWeekRadio" GroupName="MovementsPeriod" Classes="sec-seg" IsChecked="True"
+                                                 Content="{DynamicResource warehouse.movementsWeek}" Click="MovementsFilter_Changed"/>
+                                    <RadioButton x:Name="MovementsMonthRadio" GroupName="MovementsPeriod" Classes="sec-seg"
+                                                 Content="{DynamicResource warehouse.movementsMonth}" Click="MovementsFilter_Changed"/>
+                                    <RadioButton x:Name="MovementsQuarterRadio" GroupName="MovementsPeriod" Classes="sec-seg"
+                                                 Content="{DynamicResource warehouse.movementsQuarter}" Click="MovementsFilter_Changed"/>
+                                </StackPanel>
+                            </Border>
 
-                            <Button x:Name="CreateTransferButton" Classes="PrimaryButton" IsVisible="False"
+                            <Button x:Name="CreateTransferButton" Classes="PrimaryButton" IsVisible="False" Margin="0,0,8,8"
                                     Content="{DynamicResource warehouse.transferCreate}"
                                     Click="CreateTransfer_Click"/>
                             <!-- Выгрузка всего журнала: для инвентаризации и разбора нужен список
                                  документов целиком, а не по одному открытому. -->
-                            <Button x:Name="TransfersExcelButton" Classes="SecondaryButton" IsVisible="False"
+                            <Button x:Name="TransfersExcelButton" Classes="SecondaryButton" IsVisible="False" Margin="0,0,8,8"
                                     Content="Excel" Click="ExportTransfersExcel_Click"/>
-                            <Button x:Name="TransfersWordButton" Classes="SecondaryButton" IsVisible="False"
+                            <Button x:Name="TransfersWordButton" Classes="SecondaryButton" IsVisible="False" Margin="0,0,0,8"
                                     Content="Word" Click="ExportTransfersWord_Click"/>
-                        </StackPanel>
+                        </WrapPanel>
 
                         <!-- Фильтр статусов — кнопками, а не выпадающим списком (2026-09-25, «статусы
                              серые, не нажимаются»): у окна склада своя рамка без системного хрома, и
                              всплывающий список ComboBox в таком окне у Avalonia не открывается. -->
                         <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="0,0,0,10">
-                            <StackPanel Grid.Column="0" x:Name="TransferStatusPills" Orientation="Horizontal" Spacing="6" IsVisible="False"/>
+                            <Border Grid.Column="0" Classes="sec-segment" IsVisible="{Binding #TransferStatusPills.IsVisible}">
+                                <StackPanel x:Name="TransferStatusPills" Orientation="Horizontal" Spacing="2" IsVisible="False"/>
+                            </Border>
                             <TextBlock Grid.Column="1" x:Name="MovementsSummaryText" Margin="12,0,0,0" VerticalAlignment="Center"
                                        TextWrapping="Wrap"
                                        FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
@@ -1349,6 +1597,11 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
+                        <!-- 2026-10-19, О9: пустой журнал — что делать (тексты — WarehouseWindow.O9.cs). -->
+                        <StackPanel Grid.Row="2" x:Name="MovementsEmptyState" Classes="empty-state">
+                            <TextBlock x:Name="MovementsEmptyTitle" Classes="empty-title"/>
+                            <TextBlock x:Name="MovementsEmptyHint" Classes="empty-hint"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
             </TabItem>
@@ -1375,7 +1628,10 @@
                                    Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" TextAlignment="Center"/>
                         <TextBlock Text="{DynamicResource warehouse.labelEditorTabDescription}" FontSize="13"
                                    Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" TextAlignment="Center"/>
-                        <Button Content="{DynamicResource warehouse.labelEditorTabButton}" Classes="PrimaryButton"
+                        <!-- 2026-10-21 (пакет 1, п. 110): цена и где купить; подпись кнопки — по состоянию (WarehouseWindow.O9.cs). -->
+                        <TextBlock x:Name="LabelEditorPaidText" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" TextAlignment="Center"/>
+                        <Button x:Name="LabelEditorOpenButton" Content="{DynamicResource warehouse.labelEditorTabButton}" Classes="PrimaryButton"
                                 HorizontalAlignment="Center" Click="OpenLabelEditorTab_Click"/>
                     </StackPanel>
                 </Border>

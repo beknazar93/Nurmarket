@@ -42,7 +42,9 @@ internal static class EmployeeAccessChecklist
 
         var boxes = new Boxes
         {
-            Cashbox = Check(Tr.T("Касса", "Касса", "Till", "Kasa", "Kassa"), flags.CanViewCashbox),
+            // 2026-10-18, аудит: can_view_cashbox на сайте — «Финансы → Кассы» (деньги всех касс компании), а не
+            // работа на кассе; подпись «Касса» вводила владельца в заблуждение.
+            Cashbox = Check(Tr.T("Финансы: кассы компании", "Финансы: компаниянын кассалары", "Finance: company cash desks", "Finans: şirket kasaları", "Moliya: kompaniya kassalari"), flags.CanViewCashbox),
             Analytics = Check(Tr.T("Аналитика", "Аналитика", "Analytics", "Analitik", "Analitika"), flags.CanViewAnalytics),
             Products = Check(Tr.T("Склад", "Склад", "Warehouse", "Depo", "Ombor"), flags.CanViewProducts),
             Sale = Check(Tr.T("Продажа", "Сатуу", "Sale", "Satış", "Sotuv"), flags.CanViewSale),

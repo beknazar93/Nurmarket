@@ -26,8 +26,12 @@ public static class ShiftEventsStore
     /// <summary>Расход: изъятие из кассы или строка «Доп. услуга» с отрицательной ценой.</summary>
     public const string KindExpense = "expense";
 
-    /// <summary>Погашение долга клиентом.</summary>
+    /// <summary>Погашение долга клиентом наличными (в ящик). Записи до 2026-10-18 — все этого вида (касса принимала только наличные).</summary>
     public const string KindDebtPayment = "debt_payment";
+
+    /// <summary>2026-10-18, ревью: погашение долга безналом (карта, перевод) — отдельным видом, чтобы в Z-отчёте, отчёте
+    /// Telegram и плитке смены оно не выглядело деньгами в ящике. Схема таблицы та же (kind — текст).</summary>
+    public const string KindDebtPaymentNonCash = "debt_payment_noncash";
 
     /// <param name="sourceId">ID продажи/операции. Повторная запись с тем же id и видом
     /// события ничего не меняет — так повтор офлайн-очереди не задваивает суммы.</param>
@@ -43,21 +47,28 @@ public static class ShiftEventsStore
         (string.IsNullOrWhiteSpace(id) ? "op" : id.Trim())
         + ":" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
 
-    public static void Record(string kind, string? shiftId, string? sourceId, double amount, string? note = null)
+    public static void Record(string kind, string? shiftId, string? sourceId, double amount, string? note = null) =>
+        TryRecord(kind, shiftId, sourceId, amount, note);
+
+    /// <summary>2026-10-18: то же, что Record, но сообщает, записалось ли событие (оплата долга предупреждает кассира, если
+    /// в смену не попало). Нулевая сумма — записывать нечего, true.</summary>
+    public static bool TryRecord(string kind, string? shiftId, string? sourceId, double amount, string? note = null)
     {
         if (string.IsNullOrWhiteSpace(kind) || Math.Abs(amount) < 1e-9)
-            return;
+            return true;
 
         try
         {
             Db.RecordShiftEvent(kind, shiftId, sourceId, amount, note);
             // Возврат, списание, изъятие и оплата долга меняют Z-отчёт и аналитику.
             PosDataEvents.RaiseSalesChanged();
+            return true;
         }
         catch (Exception ex)
         {
             // Журнал итогов не должен ронять саму операцию — возврат или списание уже сделаны.
             PosLogger.Log($"Событие смены не записано ({kind}): {ex.Message}", "WARNING");
+            return false;
         }
     }
 

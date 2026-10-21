@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Модалки — первый запуск</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.mb{padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:46px;box-sizing:border-box;border-radius:12px;border:1px solid #D0D5DD;padding:0 14px;font-family:inherit;font-size:14px;width:100%}
+.tile{display:flex;gap:12px;align-items:center;padding:14px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;text-align:left}
+.tile.on{border:2px solid #0B2A3C;background:#FFF7CC}
+.tile b{font-size:15px}
+.tile span{font-size:12px;color:#667085;line-height:17px}
+.ic{width:44px;height:44px;border-radius:12px;background:#F2F4F7;display:flex;align-items:center;justify-content:center;font-weight:800;color:#0B2A3C;flex-shrink:0}
+.fr{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;border:1px solid #E5E7EB;font-size:13px}
+.fr.on{border:2px solid #FFD600}
+.chip{height:32px;padding:0 10px;border-radius:16px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="MFirstRun"><div style="width: 1440px; height: 900px; box-sizing: border-box; background: rgb(11, 42, 60); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); padding: 36px; display: grid; grid-template-columns: repeat(3, minmax(0px, 1fr)); gap: 26px; align-items: start;">
+
+  <section class="m" role="dialog" aria-label="Вход">
+    <div class="mb" style="align-items: center; padding-top: 26px;">
+      <span style="width: 56px; height: 56px; border-radius: 16px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800;">N</span>
+      <span style="font-size: 20px; font-weight: 800;">NurMarket Касса</span>
+      <span style="font-size: 13px; color: rgb(102, 112, 133);">Вход через аккаунт NurCRM</span>
+    </div>
+    <div class="mb" style="padding-top: 0px;">
+      <label class="lbl" for="l1">ЛОГИН ИЛИ ТЕЛЕФОН</label><input id="l1" class="in" type="text" placeholder="[логин]">
+      <label class="lbl" for="l2">ПАРОЛЬ</label><input id="l2" class="in" type="password" value="password">
+      <label style="display: flex; align-items: center; gap: 10px; font-size: 13px;"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);">Запомнить на этом компьютере</label>
+      <div style="display: flex; gap: 6px; justify-content: center;"><button type="button" class="chip on">Рус</button><button type="button" class="chip">Кыр</button><button type="button" class="chip">Eng</button><button type="button" class="chip">Tür</button><button type="button" class="chip">O'zb</button></div>
+    </div>
+    <div class="mf"><button type="button" class="b2">Без интернета</button><span style="flex-grow: 1;"></span><button type="button" class="b1">Войти</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Какой у вас магазин">
+    <div class="mh"><div class="mt"><b>Какой у вас магазин?</b><span>Касса настроится под ваш вид торговли</span></div></div>
+    <div class="mb">
+      <button type="button" class="tile on"><span class="ic">Пр</span><span style="display: flex; flex-direction: column; gap: 3px;"><b>Продукты</b><span>Весы и весовые товары, быстрые продажи</span></span></button>
+      <button type="button" class="tile"><span class="ic">Од</span><span style="display: flex; flex-direction: column; gap: 3px;"><b>Одежда, обувь и похожие</b><span>Размеры и цвета, обмен по закону, консультант, прокат</span></span></button>
+      <button type="button" class="tile"><span class="ic">Ус</span><span style="display: flex; flex-direction: column; gap: 3px;"><b>Услуги</b><span>Салон, ремонт, прокат — без остатка на складе</span></span></button>
+      <span style="font-size: 12px; color: rgb(102, 112, 133);">Поменять можно потом: Настройки → Операции → «Вид магазина»</span>
+    </div>
+    <div class="mf"><button type="button" class="b2">Позже</button><span style="flex-grow: 1;"></span><button type="button" class="b1">Дальше</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Функции">
+    <div class="mh"><div class="mt"><b>Выберите функции</b><span>Касса входит всегда · 7 дней бесплатно</span></div></div>
+    <div class="mb" style="gap: 8px;">
+      <div class="fr" style="background: rgb(249, 250, 251);"><input type="checkbox" disabled="" checked="" style="width: 18px; height: 18px;"><span style="flex-grow: 1; font-weight: 700;">Касса</span><b>990</b></div>
+      <label class="fr on"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);"><span style="flex-grow: 1; font-weight: 700;">Склад</span><b>500</b></label>
+      <label class="fr on"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);"><span style="flex-grow: 1; font-weight: 700;">Пополнение и сроки</span><b>300</b></label>
+      <label class="fr on"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);"><span style="flex-grow: 1; font-weight: 700;">Весы и этикетки</span><b>300</b></label>
+      <label class="fr on"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);"><span style="flex-grow: 1; font-weight: 700;">Долги клиентов</span><b>400</b></label>
+      <label class="fr"><input type="checkbox" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);"><span style="flex-grow: 1; font-weight: 700;">Нур Советник (ИИ)</span><b>600</b></label>
+      <span style="font-size: 12px; color: rgb(102, 112, 133);">Ещё 12 функций — листайте</span>
+    </div>
+    <div class="mf" style="background: rgb(11, 42, 60);"><span style="flex-grow: 1; display: flex; flex-direction: column;"><span style="font-size: 11px; color: rgb(199, 210, 219);">В месяц</span><span style="font-size: 20px; font-weight: 800; color: rgb(255, 214, 0);">2 490 сом</span></span><button type="button" class="b1">Начать бесплатно</button></div>
+  </section></div></div></div>
+
+
+
+</body></html>

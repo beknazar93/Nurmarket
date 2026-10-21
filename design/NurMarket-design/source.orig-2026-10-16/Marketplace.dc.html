@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Оформление и дополнения</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="manage" active="Маркетплейс" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <span style="display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Оформление и дополнения</span><span style="font-size: 13px; color: #667085">Темы меняют вид экрана кассира · дополнения открываются ключом</span></span>
+    <div role="tablist" style="display: flex; gap: 24px; border-bottom: 1px solid #E5E7EB">
+      <button type="button" role="tab" aria-selected="true" style="border: 0; background: transparent; padding: 10px 0; border-bottom: 3px solid #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Темы кассы</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Доп. функции</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Виды кассы</button>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: flex; gap: 14px">
+      <div style="flex-grow: 1; min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-content: start">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="6">
+          <article style="background: #FFFFFF; border-radius: 16px; border: {{t.border}}; overflow: hidden; display: flex; flex-direction: column">
+            <span style="height: 120px; background: {{t.bg}}; padding: 12px; box-sizing: border-box; display: flex; gap: 8px"><span style="width: 24px; border-radius: 6px; background: {{t.rail}}"></span><span style="flex-grow: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px"><span style="border-radius: 6px; background: {{t.card}}"></span><span style="border-radius: 6px; background: {{t.card}}"></span><span style="border-radius: 6px; background: {{t.card}}"></span></span><span style="width: 52px; border-radius: 6px; background: {{t.card}}; display: flex; align-items: flex-end; padding: 4px; box-sizing: border-box"><span style="width: 100%; height: 12px; border-radius: 4px; background: {{t.accent}}"></span></span></span>
+            <span style="padding: 12px 14px; display: flex; justify-content: space-between; align-items: center"><span style="display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 800">{{t.name}}</span><span style="font-size: 12px; color: #667085">{{t.note}}</span></span><span style="font-size: 12px; font-weight: 800; color: {{t.stateColor}}">{{t.state}}</span></span>
+          </article>
+        </sc-for>
+      </div>
+      <aside style="width: 300px; flex-shrink: 0; background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 16px; font-weight: 800">Ключ активации</span>
+        <span style="font-size: 12px; color: #667085; line-height: 17px">Купили тему или дополнение — введите ключ, оно откроется на этой кассе и на всех кассах компании.</span>
+        <label for="key" style="font-size: 13px; font-weight: 600; color: #344054">Ключ</label>
+        <input id="key" type="text" placeholder="NMK-XXXX-XXXX" style="height: 44px; box-sizing: border-box; border-radius: 12px; border: 1px solid #D0D5DD; padding: 0 14px; font-family: inherit; font-size: 14px; letter-spacing: 0.04em">
+        <button type="button" style="height: 46px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Активировать</button>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const t = (name, note, bg, rail, card, accent, state, stateColor, active) => ({ name, note, bg, rail, card, accent, state, stateColor, border: active ? '2px solid #0B2A3C' : '1px solid #E5E7EB' });
+    return { themes: [
+      t('NurMarket светлая', 'Как на макетах', '#F4F5F7', '#FFFFFF', '#FFFFFF', '#FFD600', '✓ Включена', '#0E7A3A', true),
+      t('NurMarket тёмная', 'Для вечерней смены', '#111827', '#0B2A3C', '#1C2536', '#FFD600', 'Бесплатно', '#0B2A3C', false),
+      t('[тема]', '[описание]', '#E7F6EC', '#FFFFFF', '#FFFFFF', '#16A34A', '[цена]', '#0B2A3C', false),
+      t('[тема]', '[описание]', '#E3F2FD', '#FFFFFF', '#FFFFFF', '#1D4ED8', '[цена]', '#0B2A3C', false),
+      t('[тема]', '[описание]', '#FDE8E8', '#FFFFFF', '#FFFFFF', '#C0362C', '[цена]', '#0B2A3C', false),
+      t('[тема]', '[описание]', '#F1E8FD', '#FFFFFF', '#FFFFFF', '#6D28D9', '[цена]', '#0B2A3C', false)
+    ] };
+  }
+}
+</script>
+</body>
+</html>

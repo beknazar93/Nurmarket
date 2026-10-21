@@ -55,7 +55,11 @@ public static class NonExchangeableRules
     public static void SaveSelected(IEnumerable<string> categories)
     {
         var prefs = UserPreferences.Instance;
-        prefs.NonExchangeableCategories = string.Join(";", categories.Select(c => c.Trim()).Where(c => c.Length > 0));
+        var joined = string.Join(";", categories.Select(c => c.Trim()).Where(c => c.Length > 0));
+        // 2026-10-21: тот же список — не сохранять и не отправлять на сервер общую настройку магазина зря (пакет 3, п. 79).
+        if (joined == prefs.NonExchangeableCategories)
+            return;
+        prefs.NonExchangeableCategories = joined;
         prefs.SaveToDisk();
     }
 

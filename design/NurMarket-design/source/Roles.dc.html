@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Роли и доступ</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.row{display:grid;grid-template-columns:2.2fr repeat(4,minmax(0,1fr)) 2.1fr;align-items:center;gap:8px;padding:4px 16px;font-size:13px}
+.row:nth-child(even){background:#F9FAFB}
+.yes{justify-self:center;width:26px;height:26px;border-radius:13px;background:#E7F6EC;color:#0E7A3A;display:flex;align-items:center;justify-content:center}
+.no{justify-self:center;width:26px;height:26px;border-radius:13px;background:#F2F4F7;color:#667085;display:flex;align-items:center;justify-content:center}
+.dev{font-size:11px;font-weight:700;color:#475467}
+.grp{padding:6px 16px 0;font-size:11px;font-weight:800;color:#667085;letter-spacing:.04em}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 36px 40px; display: flex; flex-direction: column; gap: 16px">
+  <div style="display: flex; align-items: flex-end; justify-content: space-between">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 26px; font-weight: 800">Роли и доступ</span>
+      <span style="font-size: 14px; color: #475467">Четыре роли. Права задаются один раз в NurCRM и действуют одинаково на кассе, в программе владельца, в телефоне и в вебе.</span>
+    </div>
+    <!-- 2026-10-16: права и приглашение — это сервер NurCRM (в кассе только чтение прав PosPermissions) -->
+    <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px">
+      <span style="display: flex; gap: 8px"><button type="button" style="height: 42px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054; white-space: nowrap">Права вручную ↗</button><button type="button" style="height: 42px; padding: 0 16px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 13px; font-weight: 800; color: #0B2A3C; white-space: nowrap">+ Пригласить сотрудника ↗</button></span>
+      <span style="font-size: 12px; color: #667085">через NurCRM (сервер) — откроется app.nurcrm.kg</span>
+    </span>
+  </div>
+
+  <section style="background: #FFFFFF; border-radius: 20px; border: 1px solid #E5E7EB; overflow: hidden; display: flex; flex-direction: column">
+    <div class="row" style="background: #0B2A3C; color: #FFFFFF; font-weight: 700; padding: 12px 16px">
+      <span>Что можно делать</span>
+      <span style="text-align: center">Владелец</span>
+      <span style="text-align: center">Администратор</span>
+      <span style="text-align: center">Кассир</span>
+      <span style="text-align: center">Кладовщик</span>
+      <span>Где доступно</span>
+    </div>
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+      <div class="grp">{{g.name}}</div>
+      <sc-for list="{{g.items}}" as="r" hint-placeholder-count="3">
+        <div class="row">
+          <span style="font-weight: 600">{{r.what}}</span>
+          <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="4">
+          <sc-if value="{{c.yes}}" hint-placeholder-val="{{true}}"><span class="yes" role="img" aria-label="Можно"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span></sc-if>
+          <sc-if value="{{c.no}}" hint-placeholder-val="{{false}}"><span class="no" role="img" aria-label="Нельзя"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></span></sc-if>
+          </sc-for>
+          <span class="dev">{{r.where}}</span>
+        </div>
+      </sc-for>
+    </sc-for>
+  </section>
+  <section style="background: #FFFFFF; border-radius: 16px; border: 1px solid #E5E7EB; padding: 12px 16px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 13px">
+    <span style="font-weight: 800">Сотрудники NBS</span>
+    <sc-for list="{{people}}" as="p" hint-placeholder-count="4"><span style="white-space: nowrap"><b>{{p.who}}</b> <span style="color: #667085">— {{p.role}}</span></span></sc-for>
+  </section>
+  <span style="font-size: 12px; color: #667085">Недоступные разделы сотруднику не показываются. Любой пункт можно открыть или закрыть отдельному сотруднику в NurCRM. «Консультант» — схема зарплаты, а не роль.</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: 4 роли (Владелец, Администратор, Кассир, Кладовщик); «Где доступно» — всегда в одном порядке.
+    const P = ['Касса', 'Программа владельца', 'Телефон', 'Веб'];
+    const where = (m) => P.filter((x, i) => m[i] === '1').join(' · ');
+    const r = (what, roles, m) => ({ what, cells: roles.split('').map((x) => ({ yes: x === '1', no: x !== '1' })), where: where(m) });
+    return {
+      people: [
+        { who: 'Нурбек Т.', role: 'владелец' },
+        { who: 'Нурлан Абдыкадыров', role: 'администратор' },
+        { who: 'Кассир Тест, Айгерим Садыкова', role: 'кассиры' },
+        { who: 'Бекзат Осмонов', role: 'кладовщик' }
+      ],
+      // роли: Владелец · Администратор · Кассир · Кладовщик; места: Касса · Программа владельца · Телефон · Веб
+      groups: [
+        { name: 'ПРОДАЖА', items: [
+          r('Продавать, сканировать, принимать оплату', '1110', '1011'),
+          r('Открыть и закрыть смену', '1110', '1011'),
+          r('Свои чеки: отправить, напечатать', '1110', '1011'),
+          r('Возврат и обмен', '1100', '1011'),
+          r('Скидка больше разрешённой', '1100', '1011')
+        ] },
+        { name: 'СКЛАД', items: [
+          r('Остатки и поиск товара', '1111', '1111'),
+          r('Приёмка и ревизия (Склад → Приёмка)', '1111', '1111'),
+          r('Списание и перемещение', '1101', '1101'),
+          r('Цены, себестоимость, новый товар', '1100', '1111')
+        ] },
+        { name: 'ДЕНЬГИ И ОТЧЁТЫ', items: [
+          r('Все чеки и смены магазина', '1100', '1111'),
+          r('Отчёты, прибыль, долги клиентов', '1100', '0111'),
+          r('Внесение и изъятие из кассы', '1100', '1001')
+        ] },
+        { name: 'УПРАВЛЕНИЕ', items: [
+          r('Сотрудники и права — в NurCRM', '1100', '0001'),
+          r('Сайт, бот, настройки магазина', '1100', '0101'),
+          r('Филиалы, функции и подписка', '1000', '0101')
+        ] }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

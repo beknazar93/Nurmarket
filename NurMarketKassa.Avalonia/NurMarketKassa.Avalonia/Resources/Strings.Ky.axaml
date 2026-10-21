@@ -16,6 +16,7 @@
   <x:String x:Key="csh.menu.cashOperation">Акча салуу / алуу</x:String>
   <x:String x:Key="csh.menu.finance">Каржы</x:String>
   <x:String x:Key="csh.menu.sales">Сатуулар</x:String>
+  <x:String x:Key="csh.menu.salesFinance">Сатуулар жана каржы</x:String>
   <x:String x:Key="csh.menu.abc">ABC-анализ</x:String>
   <x:String x:Key="csh.menu.clients">Клиенттер</x:String>
   <x:String x:Key="csh.menu.payDebt">Карыз төлөө</x:String>
@@ -24,6 +25,7 @@
   <x:String x:Key="csh.menu.marketplace">Маркетплейс</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
   <x:String x:Key="csh.menu.errorLogs">Логдор жана каталар</x:String>
+  <x:String x:Key="csh.menu.cartRemovals">Чектен алынгандар</x:String>
   <x:String x:Key="csh.menu.remoteSupport">NurCRM тех колдоо</x:String>
   <x:String x:Key="csh.menu.knowledgeBase">NurMarket билим базасы</x:String>
   <x:String x:Key="csh.menu.restock">Толуктоо жана мөөнөттөр</x:String>
@@ -41,9 +43,9 @@
   <x:String x:Key="restock.reorderEmpty">Болжолдоо үчүн сатуу тарыхы азырынча жок. «Серверден тарыхты жүктөө» баскычын басыңыз же бир нече күн күтүңүз — касса ар бир сатуудан кийин маалыматты өзү топтойт.</x:String>
   <x:String x:Key="restock.backfillButton">Серверден тарыхты жүктөө</x:String>
   <x:String x:Key="restock.tabExpiry">Жарактуулук мөөнөтү</x:String>
-  <x:String x:Key="restock.expirySubtitle">Жарактуулук мөөнөтү товардын категориясы боюнча болжолдуу эсептелет (ЖИ ачкычы жок болсо, чыныгы интернет-издөө жок, жөндөөлөрдү караңыз). Келген күнү — бул кассада товардын калдыгы биринчи жолу пайда болгон күн.</x:String>
+  <x:String x:Key="restock.expirySubtitle">Бул жердеги мөөнөт болжолдуу: программа товардын бул кассага качан келгенин жана анын категориясынын кадимки сактоо мөөнөтүн гана билет (сүт азыктары ≈ 7 күн, нан ≈ 3 күн). Чыныгы датаны таңгактан караңыз — эсептен чыгаруудан же сатуудан алуудан мурун.</x:String>
   <x:String x:Key="restock.colIntakeDate">Келген күнү</x:String>
-  <x:String x:Key="restock.colExpiryDate">Мөөнөтү</x:String>
+  <x:String x:Key="restock.colExpiryDate">Болжол менен чейин</x:String>
   <x:String x:Key="restock.expiryEmpty">Келген күнү белгилүү товарлар азырынча жок — ал товардын калдыгы пайда болору менен автоматтык түрдө катталат.</x:String>
   <x:String x:Key="posSettings.operations.loyaltyTitle">Бонус программасы</x:String>
   <x:String x:Key="posSettings.operations.loyaltySubtitle">Баланс ушул кассада гана сакталат — NurCRM'де азырынча клиенттин упайлары үчүн талаа жок.</x:String>
@@ -122,7 +124,7 @@
   <x:String x:Key="mainWindow.windowTitle">Касса — Nur Market</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Артка</x:String>
   <x:String x:Key="printSettings.findButton">Издөө</x:String>
-  <x:String x:Key="printSettings.lptWatermark">LPT-порт же принтердин жолу</x:String>
+  <x:String x:Key="printSettings.lptWatermark">Порт же принтердин жолу (табылбаса)</x:String>
   <x:String x:Key="printSettings.testButton">Текшерүү</x:String>
   <x:String x:Key="posSettings.print.cashDrawerTitle">Акча кутусу</x:String>
   <x:String x:Key="posSettings.print.cashDrawerEnable">Накталай төлөгөндө ачуу</x:String>
@@ -130,7 +132,7 @@
   <x:String x:Key="printSettings.cashDrawerPin2">2-контакт (көбүнчө)</x:String>
   <x:String x:Key="printSettings.cashDrawerPin5">5-контакт</x:String>
   <x:String x:Key="printSettings.cashDrawerTestButton">Ачуу</x:String>
-  <x:String x:Key="printSettings.lptNotFound">LPT системада табылган жок</x:String>
+  <x:String x:Key="printSettings.lptNotFound">Бул дарек боюнча принтер табылган жок</x:String>
   <x:String x:Key="printSettings.previewTextReceipt">Тексттик чекти алдын ала көрүү</x:String>
   <x:String x:Key="printSettings.qrHeader">QR-код</x:String>
   <x:String x:Key="printSettings.uploadQr">QR жүктөө</x:String>
@@ -156,6 +158,7 @@
   <x:String x:Key="scaleSettings.comNotFound">COM-порт табылган жок</x:String>
   <x:String x:Key="scaleSettings.testButton">Таразаны текшерүү</x:String>
   <x:String x:Key="operations.bankQrDesc">Накталай эмес төлөм үчүн банктардын QR-коддору жана логотиптери</x:String>
+  <x:String x:Key="operations.pageSubtitle">Дүкөндүн түрү, сменаны жабуу, чектен өчүрүү, Telegram жана QR менен төлөө</x:String>
   <x:String x:Key="operations.qrNotLoaded">QR жүктөлгөн эмес</x:String>
   <x:String x:Key="operations.qrLoaded">QR жүктөлдү</x:String>
   <x:String x:Key="csh.cart.customService">Кошумча кызмат</x:String>
@@ -177,8 +180,8 @@
   <!-- Checkout dialog -->
   <x:String x:Key="csh.checkout.title">Сатып алууну төлөө</x:String>
   <x:String x:Key="csh.checkout.subtitle">Төлөм ыкмасын тандап, сумманы ырастаңыз</x:String>
-  <x:String x:Key="csh.checkout.totalDue">ТӨЛӨНҮҮЧҮ СУММА</x:String>
-  <x:String x:Key="csh.checkout.paymentMethod">ТӨЛӨМ ЫКМАСЫ</x:String>
+  <x:String x:Key="csh.checkout.totalDue">Төлөнүүчү сумма</x:String>
+  <x:String x:Key="csh.checkout.paymentMethod">Төлөм ыкмасы</x:String>
   <x:String x:Key="csh.checkout.cash">Накталай</x:String>
   <x:String x:Key="csh.checkout.transfer">Накталай эмес</x:String>
   <x:String x:Key="csh.checkout.cashReceived">Накталай алынды</x:String>
@@ -202,6 +205,8 @@
   <x:String x:Key="csh.checkout.rental">Прокат (ижара) катары тариздөө</x:String>
   <x:String x:Key="csh.checkout.mixedCash">Накталай</x:String>
   <x:String x:Key="csh.checkout.mixedNonCash">Накталай эмес</x:String>
+  <!-- 2026-10-17, редизайн (этап 2): быстрая сумма «без сдачи» в окне оплаты (ExactCashCommand). -->
+  <x:String x:Key="csh.checkout.exact">Так сумма</x:String>
   <x:String x:Key="csh.checkout.paidNow">Азыр алынды (0 — баары карызга)</x:String>
   <x:String x:Key="csh.checkout.loyaltyRedeemWatermark">Бонустан чегерүү (сом)</x:String>
 
@@ -250,14 +255,14 @@
   <!-- Customer display (second monitor) -->
   <x:String x:Key="csh.customer.title">Сатып алуучунун экраны</x:String>
   <x:String x:Key="csh.customer.tagline">Сатып алууларыңыз — тез жана ыңгайлуу</x:String>
-  <x:String x:Key="csh.customer.receiptEyebrow">ЧЕГИҢИЗ</x:String>
+  <x:String x:Key="csh.customer.receiptEyebrow">Чегиңиз</x:String>
   <x:String x:Key="csh.customer.receiptTitle">Сатып алуулар тизмеси</x:String>
   <x:String x:Key="csh.customer.adPlaceholder">QR-код же жарнама&#x0a;баннери үчүн орун</x:String>
-  <x:String x:Key="csh.customer.subtotal">АРАЛЫК ЖЫЙЫНТЫК</x:String>
-  <x:String x:Key="csh.customer.discount">АРЗАНДАТУУ</x:String>
+  <x:String x:Key="csh.customer.subtotal">Аралык жыйынтык</x:String>
+  <x:String x:Key="csh.customer.discount">Арзандатуу</x:String>
   <x:String x:Key="csh.customer.received">АЛЫНДЫ</x:String>
   <x:String x:Key="csh.customer.change">КАЙТАРЫМ</x:String>
-  <x:String x:Key="csh.customer.totalDue">ТӨЛӨӨГӨ</x:String>
+  <x:String x:Key="csh.customer.totalDue">Төлөөгө</x:String>
 
   <!-- Common / generic (reused across many windows) -->
   <x:String x:Key="common.yes">Ооба</x:String>
@@ -269,7 +274,7 @@
   <x:String x:Key="common.confirm">Ырастоо</x:String>
   <x:String x:Key="common.close">Жабуу</x:String>
   <x:String x:Key="staffTimesheet.title">Кызматкерлер табели</x:String>
-  <x:String x:Key="staffTimesheet.description">Сааттар жана сменалар кассада ачылган/жабылган сменалардын маалыматы боюнча эсептелет — тандалган мезгилдеги ЖАБЫЛГАН сменалар гана. Азыр ачык турган смена жабылмайынча табелге кирбейт.</x:String>
+  <x:String x:Key="staffTimesheet.description">Сааттар жана сменалар кассада ачылган/жабылган сменалардын маалыматы боюнча эсептелет — тандалган мезгилдеги жабылган сменалар гана. Азыр ачык турган смена жабылмайынча табелге кирбейт.</x:String>
   <x:String x:Key="staffTimesheet.periodLabel">Мезгил:</x:String>
   <x:String x:Key="staffTimesheet.fromWatermark">Датадан…</x:String>
   <x:String x:Key="staffTimesheet.toWatermark">Датага чейин…</x:String>
@@ -322,9 +327,8 @@
   <x:String x:Key="logs.empty">Эскертүүлөр жана каталар жок.</x:String>
 
   <!-- NurCRM тех колдоо (бэклог "Доработки" этап 4) -->
-  <x:String x:Key="remoteSupport.intro">Алыстан жардам алуу үчүн AnyDesk программасы колдонулат. Төмөнкү баскычты басыңыз — туташуу дареги (ID) менен AnyDesk ачылат. Ошол даректи колдоо операторуна телефон же WhatsApp аркылуу айтып бериңиз.</x:String>
-  <x:String x:Key="remoteSupport.launchButton">AnyDesk'ти иштетүү</x:String>
-  <x:String x:Key="remoteSupport.downloadButton">AnyDesk'ти жүктөп алуу</x:String>
+  <!-- 2026-10-16: удалённая помощь — только своя «Нур Колдоо» -->
+  <x:String x:Key="remoteSupport.intro">Алыстан жардам — «Нур Колдоо»: NurMarket оператору кассанын экранын көрүп, маселени чечүүгө жардам берет. Колдоо кызматына чалыңыз же WhatsApp'ка жазыңыз: +996 559 340 032, андан кийин «Колдоо үчүн код алуу» баскычын басып, операторго код менен PIN'ди айтып бериңиз.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Түзмөк жөнүндө маалыматты көчүрүү</x:String>
 
@@ -363,7 +367,7 @@
   <x:String x:Key="kb.q.logsQ">Үзгүлтүк болгондо эмне болгонун кайдан көрсө болот?</x:String>
   <x:String x:Key="kb.q.logsA">Каптал меню → «Логдор жана каталар» — акыркы убакыттагы эскертүүлөрдү, каталарды жана сервер менен байланыштын үзүлүүлөрүн көрсөтөт. «Логдор папкасын ачуу» баскычы толук техникалык файлдар сакталган папканы ачат — аларды колдоо кызматына жиберсе болот.</x:String>
   <x:String x:Key="kb.q.remoteSupportQ">NurCRM колдоосунан алыстан жардам кантип алса болот?</x:String>
-  <x:String x:Key="kb.q.remoteSupportA">Каптал меню → «NurCRM тех колдоо» → «AnyDesk'ти иштетүү». Туташуу дареги (ID) чыгат — аны колдоо операторуна телефон же WhatsApp аркылуу айтып бериңиз, ал сиздин компьютерге туташып, маселени чечүүгө жардам берет.</x:String>
+  <x:String x:Key="kb.q.remoteSupportA">Каптал меню → «NurCRM тех колдоо» → «Нур Колдоо» блогу → «Колдоо үчүн код алуу». Код менен PIN'ди колдоо операторуна телефон же WhatsApp аркылуу айтып бериңиз (+996 559 340 032), ал уруксат сураганда — «Уруксат берүү» же «Көрүү гана» баскычын басыңыз. Сиздин уруксатыңызсыз эч ким туташпайт.</x:String>
   <x:String x:Key="kb.q.printerQ">Касса USB аркылуу туташтырылган чек принтерин көрбөйт — эмне кылуу керек?</x:String>
   <x:String x:Key="kb.q.printerA">Жөндөөлөр → Басып чыгаруу бөлүмүндө «Издөө» баскычын кайра басыңыз (тизме өзү жаңырбайт). Принтер Zadig аркылуу орнотулган болсо да көрүнбөсө — аны кайра туташтырып, дагы аракет кылып көрүңүз же «NurCRM тех колдоо» аркылуу колдоого кайрылыңыз.</x:String>
   <x:String x:Key="common.comment">Комментарий</x:String>
@@ -417,6 +421,9 @@
   <x:String x:Key="closeShift.nonCashSalesLabel">Накталай эмес</x:String>
   <x:String x:Key="openShift.instructions">Сменанын башталышында кассадагы накталай акча суммасын көрсөтүңүз.</x:String>
   <x:String x:Key="openShift.openingAmountLabel">Ачылыштагы сумма</x:String>
+  <!-- 2026-10-16, редизайн: подсказка слева на строке кнопок модалки (ModalShell.Hint);
+       неразрывные пробелы — строка переносится только между «Enter…» и «Esc…». -->
+  <x:String x:Key="modal.hintEnter">Enter&#160;—&#160;ырастоо · Esc&#160;—&#160;жокко&#160;чыгаруу</x:String>
   <x:String x:Key="shiftNotClosed.title">Смена жабылган эмес</x:String>
   <x:String x:Key="shiftNotClosed.message">Сизде ачык смена калды.&#x0a;Чыгуудан мурун аны жабасызбы?</x:String>
   <x:String x:Key="shiftNotClosed.logoutOnly">Сменаны жабубай чыгуу</x:String>
@@ -509,6 +516,15 @@
   <x:String x:Key="priceTagBulk.selectNone">Баарын алып салуу</x:String>
   <x:String x:Key="priceTagBulk.copiesEachLabel">Ар бир товарга көчүрмө</x:String>
   <x:String x:Key="priceTagBulk.printButton">Басып чыгаруу</x:String>
+  <!-- 2026-10-20, этап О9б: окна ценников и этикеток (ModalShell, пустой список, настройка принтера). -->
+  <x:String x:Key="priceTag.subtitle">Шаблон жана принтерди тандаңыз — сол жакта баа белгиси кандай басылары көрүнөт.</x:String>
+  <x:String x:Key="priceTagBulk.subtitle">Товарларды белгилеп, шаблон жана принтерди тандаңыз.</x:String>
+  <x:String x:Key="priceTagBulk.notFound">Эч нерсе табылган жок. Сурамды өзгөртүңүз — аталышы жана штрихкоду боюнча изделет.</x:String>
+  <x:String x:Key="priceTagBulk.noProducts">Азырынча товар жок: каталог жүктөлө элек. Терезени жаап, бир мүнөттөн кийин кайра ачыңыз.</x:String>
+  <x:String x:Key="labelPrint.subtitle">Штрихкоду бар этикетка — этикетка принтеринде басылат.</x:String>
+  <x:String x:Key="labelEditor.printerSetup">Принтерди жөндөө</x:String>
+  <x:String x:Key="labelEditor.zoomOut">Кичирейтүү</x:String>
+  <x:String x:Key="labelEditor.zoomIn">Чоңойтуу</x:String>
   <x:String x:Key="discount.title">Арзандатуу</x:String>
   <x:String x:Key="discount.applyToSelected">Тандалган товарга колдонуу</x:String>
   <x:String x:Key="discount.modeAmountLabel">Арзандатуу режими: Сумма (сом)</x:String>
@@ -546,9 +562,9 @@
   <x:String x:Key="returnSale.title">Чек боюнча кайтаруу</x:String>
   <x:String x:Key="returnSale.header">Чек боюнча товарларды кайтаруу</x:String>
   <x:String x:Key="returnSale.instructions">«Тандоо» баскычы менен чекти тандаңыз. Анын курамы төмөндө көрсөтүлөт: товарларды белгилеп, «Тандалгандарды кайтаруу» же «Бүт чекти кайтаруу» баскычын басыңыз.</x:String>
-  <x:String x:Key="returnSale.step1">1. Сатуу чектери</x:String>
+  <x:String x:Key="returnSale.step1">1. Сатып алуучунун чегин табыңыз</x:String>
   <x:String x:Key="returnSale.colReceiptNo">Чек №</x:String>
-  <x:String x:Key="returnSale.step2">2. Тандалган чектин курамы</x:String>
+  <x:String x:Key="returnSale.step2">2. Эмне кайтарыларын белгилеңиз</x:String>
   <x:String x:Key="returnSale.clearSelection">Алып салуу</x:String>
   <x:String x:Key="returnSale.returnSelected">Тандалгандарды кайтаруу</x:String>
   <x:String x:Key="returnSale.returnWholeReceipt">Бүт чекти кайтаруу</x:String>
@@ -606,9 +622,9 @@
 
   <!-- Side menu -->
   <x:String x:Key="sideMenu.shiftLabel">Касса сменасы</x:String>
-  <x:String x:Key="sideMenu.sectionWork">ИШ</x:String>
-  <x:String x:Key="sideMenu.sectionInfoClients">МААЛЫМАТ ЖАНА КЛИЕНТТЕР</x:String>
-  <x:String x:Key="sideMenu.sectionSystem">СИСТЕМАЛЫК</x:String>
+  <x:String x:Key="sideMenu.sectionWork">Иш</x:String>
+  <x:String x:Key="sideMenu.sectionInfoClients">Маалымат жана клиенттер</x:String>
+  <x:String x:Key="sideMenu.sectionSystem">Система</x:String>
 
   <!-- Admin support, CRM webview, shift history window -->
   <x:String x:Key="adminSupport.title">Колдоо — Nur Market</x:String>
@@ -639,7 +655,7 @@
   <x:String x:Key="employees.addButton">+ Кызматкер кошуу</x:String>
   <x:String x:Key="employees.loadFromWeb">Сайттан жүктөө</x:String>
   <x:String x:Key="employees.rolesTitle">Ролдор</x:String>
-  <x:String x:Key="employees.rolesSubtitle">Компаниянын ролдору (app.nurcrm.kg) — жаңы кызматкер түзүү үчүн керек (ар бир кызматкердин ролу болушу шарт).</x:String>
+  <x:String x:Key="employees.rolesSubtitle">NurCRM сайтындагы ролдор — ар бир кызматкердин ролу болушу керек (кассир, администратор…).</x:String>
   <x:String x:Key="employees.addRoleButton">+ Роль кошуу</x:String>
   <x:String x:Key="employees.saveHint">Кызматкердин коду бош болсо — ага тиешелүү аракет бөгөттөлөт.</x:String>
   <x:String x:Key="employees.saved">Сакталды.</x:String>
@@ -734,7 +750,7 @@
   <x:String x:Key="posSettings.screen.groupCashierLang">Касса жана тил</x:String>
   <x:String x:Key="posSettings.screen.groupScaleLayout">Масштаб жана жайгашуу</x:String>
   <x:String x:Key="posSettings.screen.fullscreen">Толук экран режими</x:String>
-  <x:String x:Key="posSettings.screen.trueFullscreen">Чыныгы толук экран режими</x:String>
+  <x:String x:Key="posSettings.screen.trueFullscreen">Windows тапшырма панелин жашыруу</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Windows тапшырмалар панелин толугу менен жашырат. Толук экран режими менен бирге гана иштейт.</x:String>
   <x:String x:Key="posSettings.screen.quickProducts">Бош чектеги ыкчам товарлар</x:String>
   <x:String x:Key="posSettings.screen.quickProductsDesc">Тандалган товарлар (каталогдогу ★) «Себет бош» деген жазуунун астында. Керек болбосо өчүрүңүз.</x:String>
@@ -804,13 +820,15 @@
   <x:String x:Key="posSettings.print.tapeWidth">Тасманын туурасы</x:String>
   <x:String x:Key="posSettings.print.charsPerLine">Саптагы белгилер</x:String>
   <x:String x:Key="posSettings.print.widthHint">Чекиттер менен сызыкчалардан турган сызыктар же суммалар чектин четинен чыгып кетсе — азайтыңыз: 58 мм — 32ден 30га, 80 мм — 48ден 42ге (графика: 576 → 512 чекит). Ар бир тасма туурасы үчүн өз мааниси. Сынак басып чыгаруу баскычы менен текшериңиз.</x:String>
-  <x:String x:Key="posSettings.print.graphicsDots">Графика (чекиттер)</x:String>
+  <x:String x:Key="posSettings.print.graphicsDots">Басуу кеңдиги, чекит</x:String>
   <x:String x:Key="posSettings.print.printMode">Басып чыгаруу режими</x:String>
   <x:String x:Key="posSettings.print.modeText">Текст</x:String>
   <x:String x:Key="posSettings.print.modeGraphics">Графика</x:String>
-  <x:String x:Key="posSettings.print.escPosParams">ESC/POS параметрлери</x:String>
+  <x:String x:Key="posSettings.print.escPosParams">Тексттик чек</x:String>
+  <x:String x:Key="posSettings.print.advancedPrinter">Кошумча: принтердин буйруктары (адис үчүн)</x:String>
   <x:String x:Key="posSettings.print.encoding">Кодировка</x:String>
-  <x:String x:Key="posSettings.print.escTable">ESC t таблицасы</x:String>
+  <x:String x:Key="posSettings.print.escTable">Код барагы (ESC t)</x:String>
+  <x:String x:Key="posSettings.print.escR">Өлкө символдор топтому (ESC R, 0–255)</x:String>
   <x:String x:Key="posSettings.print.auto">Авто</x:String>
   <x:String x:Key="posSettings.print.receiptSettings">Чектин жөндөөлөрү</x:String>
   <x:String x:Key="posSettings.print.enableLayout">Макетти күйгүзүү</x:String>
@@ -826,7 +844,7 @@
 
   <!-- POS settings: Monitor tab -->
   <x:String x:Key="posSettings.monitor.title">Сатып алуучунун монитору</x:String>
-  <x:String x:Key="posSettings.monitor.subtitle">Экинчи экранды, маалымат курамын жана CustomerDisplayWindow терезесинин тышкы көрүнүшүн жөндөө</x:String>
+  <x:String x:Key="posSettings.monitor.subtitle">Сатып алуучу үчүн экинчи экран: анда эмне көрсөтүлөт жана кандай көрүнөт</x:String>
   <x:String x:Key="posSettings.monitor.mainSettingsTitle">Негизги жөндөөлөр</x:String>
   <x:String x:Key="posSettings.monitor.useCustomerDisplay">Сатып алуучунун мониторун колдонуу</x:String>
   <x:String x:Key="posSettings.monitor.keepOnTop">Тышкы монитордо башка терезелердин үстүндө бекитүү</x:String>
@@ -935,7 +953,7 @@
   <x:String x:Key="posSettings.updates.diagnosticsDesc">Колдонмонун жана иштөө директориясынын техникалык маалыматы:</x:String>
 
   <!-- Clients window -->
-  <x:String x:Key="clients.title">Клиенттер базасы</x:String>
+  <x:String x:Key="clients.title">Кардарлар</x:String>
   <x:String x:Key="clients.newClientHeader">Жаңы клиент</x:String>
   <x:String x:Key="clients.nameWatermark">Аты-жөнү</x:String>
   <x:String x:Key="clients.emailOptionalWatermark">Email (милдеттүү эмес)</x:String>
@@ -946,15 +964,15 @@
   <x:String x:Key="clients.telegramHeader">Telegram-бот</x:String>
   <x:String x:Key="clients.telegramCopyLink">Шилтемени көчүрүү</x:String>
   <x:String x:Key="clients.telegramExplain">Бул шилтемени клиентке жөнөтүңүз — WhatsApp, СМС аркылуу же чекке басып чыгарыңыз. Ал шилтемени ачып, «Старт» баскычын басканда, касса ага карыз тууралуу эскертмелерди жана акциялар жөнүндө билдирүүлөрдү жөнөтө алат. Telegram адамга телефон номери боюнча жазууга өзү уруксат бербейт: биринчи кадамды клиент жасашы керек.</x:String>
-  <x:String x:Key="clients.addButton">+ Кошуу</x:String>
+  <x:String x:Key="clients.addButton">+ Кардар</x:String>
   <x:String x:Key="clients.refreshButton">Жаңылоо</x:String>
-  <x:String x:Key="clients.colFullName">Аты-жөнү</x:String>
+  <x:String x:Key="clients.colFullName">Кардар</x:String>
   <x:String x:Key="clients.colAdded">Кошулган</x:String>
   <x:String x:Key="clients.colLoyalty">Бонустар</x:String>
   <x:String x:Key="clients.cardHeader">Клиенттин карточкасы</x:String>
   <x:String x:Key="clients.saveButton">Сактоо</x:String>
   <x:String x:Key="clients.deleteButton">Өчүрүү</x:String>
-  <x:String x:Key="clients.hint">Клиенттин карточкасын ачуу үчүн тизмедеги сапты басыңыз</x:String>
+  <x:String x:Key="clients.hint">Карточканы ачуу үчүн кардарды басыңыз: маалыматтар, сатып алуулар, карыз жана бонустар.</x:String>
 
   <!-- Product edit dialog -->
   <x:String x:Key="product.addTitle">Жаңы товар</x:String>
@@ -1072,7 +1090,8 @@
   <x:String x:Key="sales.toColon">Чейин:</x:String>
   <x:String x:Key="sales.colReceipt">Чек</x:String>
   <x:String x:Key="sales.additionalMetrics">Кошумча көрсөткүчтөр</x:String>
-  <x:String x:Key="sales.netProfit">Таза пайда</x:String>
+  <!-- 2026-10-19, этап О10: здесь всегда выручка − закупка (сервер gross_profit) — «Валовая», как на Сводке. -->
+  <x:String x:Key="sales.netProfit">Дүң пайда</x:String>
   <x:String x:Key="sales.marginPercent">Маржа %</x:String>
   <x:String x:Key="sales.top10Title">Түшүм боюнча ТОП-10 товар</x:String>
   <x:String x:Key="sales.colQty">Саны</x:String>
@@ -1111,7 +1130,7 @@
   <x:String x:Key="warehouse.colActions">Аракеттер</x:String>
   <x:String x:Key="warehouse.deleteButton">Өчүрүү</x:String>
   <x:String x:Key="warehouse.photoButton">Сүрөт</x:String>
-  <x:String x:Key="warehouse.tabRevision">Ревизия (инвентаризация)</x:String>
+  <x:String x:Key="warehouse.tabRevision">Ревизия</x:String>
   <x:String x:Key="warehouse.tabReceiving">Кабыл алуу</x:String>
   <x:String x:Key="warehouse.receivingHint">Жүк коштоо кагазындагы товарларды кадимки сканер менен окуңуз. Кампадагы товар өз баалары менен, CRM'дин жалпы базасындагы товар аталышы менен түшөт, белгисиз штрихкод жаңы сап болуп чыгат — аталышын жазыңыз. Санын, сатып алуу жана сатуу баасын түз эле таблицада оңдосо болот. «Кирешеге алуу» жаңы товарларды түзүп, калдыкты кошуп, бааларды сатып алуулар тарыхына жазат.</x:String>
   <x:String x:Key="warehouse.receivingScanHint">Штрихкодду сканерлеңиз же киргизиңиз…</x:String>
@@ -1134,7 +1153,7 @@
   <x:String x:Key="warehouse.colActualQty">Иш жүзүндөгү калдык</x:String>
   <x:String x:Key="warehouse.colDifference">Айырма</x:String>
   <x:String x:Key="warehouse.commitRevisionButton">Ревизияны бекитүү</x:String>
-  <x:String x:Key="warehouse.tabWriteOff">Товарды эсептен чыгаруу</x:String>
+  <x:String x:Key="warehouse.tabWriteOff">Эсептен чыгаруу</x:String>
   <x:String x:Key="warehouse.tabAnalytics">Аналитика</x:String>
   <x:String x:Key="warehouse.tabMovements">Жылдыруу</x:String>
   <x:String x:Key="warehouse.transfersDocs">Документтер</x:String>
@@ -1177,9 +1196,9 @@
   <x:String x:Key="warehouse.movementsWriteOff">Эсептен чыгаруу</x:String>
   <x:String x:Key="warehouse.tabLabelEditor">Этикетка редактору</x:String>
   <x:String x:Key="warehouse.labelEditorTabTitle">Этикетка редактору</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Штрихкоддун, аталыштын, баанын, артикулдун, өлчөө бирдигинин жана дүкөндүн аталышынын этикеткадагы жайгашуусу — ар бир элементти сүйрөп жылдырып, жөндөсө болот. Акылуу функция: сериялык номер менен ачылат.</x:String>
+  <x:String x:Key="warehouse.labelEditorTabDescription">Штрихкоддун, аталыштын, баанын, артикулдун, өлчөө бирдигинин жана дүкөндүн аталышынын этикеткадагы жайгашуусу — сүйрөп жылдырып, ар бир элементти жөндөсө болот. Товардын сабынан басылган этикеткалар ушул шаблон боюнча чыгат (⋯ → Этикетка басуу).</x:String>
   <x:String x:Key="warehouse.labelEditorTabButton">Редакторду ачуу</x:String>
-  <x:String x:Key="warehouse.analyticsSkuCountLabel">Жалпы товар (SKU)</x:String>
+  <x:String x:Key="warehouse.analyticsSkuCountLabel">Каталогдогу товарлар</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Калдыгы жок</x:String>
   <x:String x:Key="warehouse.analyticsLowStockLabel">Калдыгы аз</x:String>
   <x:String x:Key="warehouse.analyticsPurchaseValueLabel">Сатып алуу баасы боюнча калдык</x:String>
@@ -1190,7 +1209,7 @@
   <x:String x:Key="warehouse.analyticsSkuColumn">Саны</x:String>
   <x:String x:Key="warehouse.writeOffTitle">Эсептен чыгаруу актысын тариздөө</x:String>
   <x:String x:Key="warehouse.writeOffHistoryTitle">Эсептен чыгаруулар тарыхы</x:String>
-  <x:String x:Key="warehouse.writeOffHistoryExpandButton">Толук ачуу ⤢</x:String>
+  <x:String x:Key="warehouse.writeOffHistoryExpandButton">Бүт тарых</x:String>
   <x:String x:Key="warehouse.writeOffHistorySearchWatermark">Товар, себеп же кассир боюнча издөө…</x:String>
   <x:String x:Key="warehouse.writeOffHistoryEmpty">Азырынча эсептен чыгаруулар жок.</x:String>
   <x:String x:Key="warehouse.findProductLabel">Товарды аталышы боюнча издөө</x:String>
@@ -1323,8 +1342,10 @@
     <x:String x:Key="loc.owner.sales.metricsTab">Көрсөткүчтөр</x:String>
     <x:String x:Key="loc.owner.finance.excelTip">Тандалган мезгилдин аналитикасын графиктери жана ABC-анализи менен Excel'ге чыгаруу.</x:String>
     <x:String x:Key="loc.owner.finance.wordTip">Ошол эле отчёт Word'до — таблицалар, графиктер жана ABC-анализ.</x:String>
-    <x:String x:Key="loc.owner.finance.expenses">Чыгашалар (акча алуулар)</x:String>
-    <x:String x:Key="loc.owner.finance.profitAfterExpenses">Чыгашалар чегерилгенден кийинки пайда</x:String>
+    <!-- 2026-10-20, аудит владельца: расходы теперь из NurCRM (pnl), а не изъятия кассы -->
+    <x:String x:Key="loc.owner.finance.expenses">Чыгымдар</x:String>
+    <!-- 2026-10-19, этап О10: валовая − расходы — «Чистая прибыль» (одни слова во всех отчётах). -->
+    <x:String x:Key="loc.owner.finance.profitAfterExpenses">Таза пайда</x:String>
     <x:String x:Key="loc.owner.zeroMoney">0,00 сом</x:String>
     <x:String x:Key="loc.owner.voice.title">Үн менен башкарууну текшерүү</x:String>
     <x:String x:Key="loc.owner.voice.howTo">Кантип колдонуу керек</x:String>
@@ -1498,12 +1519,12 @@
   <x:String x:Key="scaleSetup.btn.check">Байланышты текшерүү</x:String>
   <x:String x:Key="scaleSetup.btn.find">Тармактан табуу…</x:String>
   <x:String x:Key="scaleSetup.btn.settings">Тараза жөндөөлөрү…</x:String>
-  <x:String x:Key="scaleSetup.btn.send">Товарларды жөнөтүү →</x:String>
+  <x:String x:Key="scaleSetup.btn.send">Товарларды жөнөтүү</x:String>
   <x:String x:Key="scaleSetup.barcode.open">Салмак / сумма →</x:String>
   <x:String x:Key="scaleSetup.barcode.title">Касса тараза этикеткасындагы штрих-кодду кантип окуйт</x:String>
   <x:String x:Key="scaleSetup.barcode.desc">Салмактуу штрих-код — 13 сан: 20–29 префикси, товардын коду, салмак же сумма жана текшерүү цифрасы. Раскладканы жана режимди компания NurCRM сайтында коёт (Таразалар → Жөндөөлөр), касса аларды киргенде алат.</x:String>
   <x:String x:Key="scaleSetup.wizard.title">Этикетка боюнча жөндөө</x:String>
-  <x:String x:Key="scaleSetup.wizard.desc">Чектеги сумма этикетка менен дал келбейби? Басылган этикетканын штрих-кодун сканерлеңиз (же 13 сан киргизиңиз) — касса эки окууну көрсөтөт: САЛМАК жана СУММА. Этикетка менен дал келгенин басыңыз — касса аны префикс үчүн эстеп калып, дароо ошентип окуйт.</x:String>
+  <x:String x:Key="scaleSetup.wizard.desc">Чектеги сумма этикетка менен дал келбейби? Басылган этикетканын штрих-кодун сканерлеңиз (же 13 сан киргизиңиз) — касса эки окууну көрсөтөт: «салмак» жана «сумма». Этикетка менен дал келгенин басыңыз — касса аны префикс үчүн эстеп калып, дароо ошентип окуйт.</x:String>
   <x:String x:Key="scaleSetup.wizard.parse">Талдоо</x:String>
   <x:String x:Key="scaleSetup.wizard.open">Этикетка боюнча жөндөө…</x:String>
   <x:String x:Key="scaleSetup.rules.title">Тараза штрих-коддо эмнени басат</x:String>

@@ -8,6 +8,7 @@ public partial class MinimalLayoutView : KassaLayoutBase
     {
         InitializeComponent();
         RegisterProductList(TilesList);
+        FitTilesToRow(TilesList, 156, 16);
         SearchBox = ProductSearchBox;
     }
 }

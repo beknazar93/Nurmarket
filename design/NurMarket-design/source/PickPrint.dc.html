@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Сборка заказа — лист сборки и наклейка на пакет</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column; position: relative; overflow: hidden">
+
+  <!-- 2026-10-16: лист сборки и наклейка — заказ № 10 Умар (530 сом, 4 позиции, 6 шт) из набора NBS; код выдачи 4821 -->
+  <div style="flex-grow: 1; background: #DDE2E8; display: flex; align-items: flex-start; justify-content: center; gap: 48px; padding: 50px 30px">
+    <div style="display: flex; flex-direction: column; gap: 10px; align-items: center"><div role="img" aria-label="Лист сборки" style="width: 300px; box-sizing: border-box; background: #FFFFFF; box-shadow: 0 10px 30px rgba(11,42,60,.18); padding: 18px 16px; font-family: Arial, sans-serif; font-size: 11px; color: #111827; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0"><b style="font-size: 15px; text-align: center">ЛИСТ СБОРКИ</b><span style="text-align: center; font-size: 13px; font-weight: 700">Заказ №10 · самовывоз 16:00</span><span>Умар · из Телеграм-бота (номера нет) · 530 сом, оплата при получении</span><span style="font-style: italic">«Хлеб посвежее, пожалуйста»</span><div style="border-top: 1.5px solid #111827; margin-top: 4px"><div style="display: grid; grid-template-columns: 16px minmax(0, 1fr) 30px; gap: 6px; padding: 5px 0; border-bottom: 1px solid #D0D5DD; align-items: start"><span style="width: 12px; height: 12px; border: 1.5px solid #111827; margin-top: 2px"></span><span><b>Макароны «Макфа» спагетти 450г</b><br><span style="color: #475467">Ряд 1 · полка 2</span></span><b style="text-align: right">× 2</b></div><div style="display: grid; grid-template-columns: 16px minmax(0, 1fr) 30px; gap: 6px; padding: 5px 0; border-bottom: 1px solid #D0D5DD; align-items: start"><span style="width: 12px; height: 12px; border: 1.5px solid #111827; margin-top: 2px"></span><span><b>Кока-Кола (ПЭТ) 2л</b><br><span style="color: #475467">Ряд 2 · полка 1</span></span><b style="text-align: right">× 1</b></div><div style="display: grid; grid-template-columns: 16px minmax(0, 1fr) 30px; gap: 6px; padding: 5px 0; border-bottom: 1px solid #D0D5DD; align-items: start"><span style="width: 12px; height: 12px; border: 1.5px solid #111827; margin-top: 2px"></span><span><b>Сок Gracio яблочный 1л</b><br><span style="color: #475467">Ряд 2 · полка 3</span></span><b style="text-align: right">× 1</b></div><div style="display: grid; grid-template-columns: 16px minmax(0, 1fr) 30px; gap: 6px; padding: 5px 0; border-bottom: 1px solid #D0D5DD; align-items: start"><span style="width: 12px; height: 12px; border: 1.5px solid #111827; margin-top: 2px"></span><span><b>Хлеб белый</b><br><span style="color: #475467">Хлеб · у кассы</span></span><b style="text-align: right">× 2</b></div></div><span style="padding-top: 6px">4 позиции · 6 шт · начато 14:36</span><span>Собрал ________ Проверил ________</span><span style="align-self: center"><span aria-hidden="true" style="display: block; width: 70px; height: 70px; background: repeating-conic-gradient(#111827 0 25%, #FFFFFF 0 50%) 0 0 / 8px 8px; border: 4px solid #FFFFFF; outline: 1px solid #D0D5DD; flex-shrink: 0"></span></span></div><b style="font-size: 13px">Лист сборки · 80 мм или A4</b></div>
+    <div style="display: flex; flex-direction: column; gap: 10px; align-items: center"><div role="img" aria-label="Наклейка на пакет" style="width: 320px; height: 200px; box-sizing: border-box; background: #FFFFFF; box-shadow: 0 10px 30px rgba(11,42,60,.18); border-radius: 8px; padding: 14px 16px; display: flex; gap: 12px; font-family: Arial, sans-serif; color: #111827; flex-shrink: 0"><div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px"><b style="font-size: 12px; color: #475467">NBS · ЗАКАЗ С САЙТА</b><b style="font-size: 30px">№10</b><span style="font-size: 14px; font-weight: 700">Умар</span><span style="font-size: 12px">самовывоз · 16:00</span><span style="flex-grow: 1"></span><span style="font-size: 13px; font-weight: 700">Пакет 1 из 2 · полка A3</span></div><div style="display: flex; flex-direction: column; align-items: center; gap: 4px"><span aria-hidden="true" style="display: block; width: 96px; height: 96px; background: repeating-conic-gradient(#111827 0 25%, #FFFFFF 0 50%) 0 0 / 12px 12px; border: 4px solid #FFFFFF; outline: 1px solid #D0D5DD; flex-shrink: 0"></span><b style="font-size: 18px; letter-spacing: .2em">4821</b></div></div><b style="font-size: 13px">Наклейка на пакет · 58×40 мм на принтере этикеток</b>
+      <div class="card" style="width: 320px; box-sizing: border-box; gap: 6px; margin-top: 16px"><b style="font-size: 14px">Зачем QR</b><span style="font-size: 12.5px; line-height: 19px; color: #344054">Скан наклейки на кассе сразу открывает выдачу этого заказа. Покупатель показывает тот же QR из сообщения в Телеграм-боте — или называет код 4821. Код выдачи и QR — бэкенд, часть 26.</span></div></div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

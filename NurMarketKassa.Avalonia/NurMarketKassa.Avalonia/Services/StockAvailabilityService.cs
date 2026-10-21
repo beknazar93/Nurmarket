@@ -39,9 +39,12 @@ public static class StockAvailabilityService
         if (string.IsNullOrWhiteSpace(productId))
             return 0;
 
-        var tile = ResolveTile(productId);
+        // 2026-10-20, живая проверка (большой чек медленный): при перестройке строк чека это считалось для
+        // каждой строки — файл отложенных чеков читался и разбирался сотни раз за скан. В пакете перестройки
+        // (LookupBatch) файл читается один раз; вне пакета — как раньше.
+        var tile = LookupBatch.Memo("stock-tile|" + productId, () => ResolveTile(productId));
         double sum = 0;
-        foreach (var entry in DeferredCartsStore.LoadAll())
+        foreach (var entry in LookupBatch.Memo("deferred-carts", DeferredCartsStore.LoadAll))
         {
             if (!string.IsNullOrEmpty(excludeDeferredEntryId) &&
                 string.Equals(entry.Id, excludeDeferredEntryId, StringComparison.Ordinal))

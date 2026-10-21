@@ -24,14 +24,13 @@ public static class RongtaSetupService
     ];
 
     /// <summary>Куда попадает инсталлятор после скачивания (see class doc-comment) —
-    /// проверяется в первую очередь, аналогично "AnyDesk\AnyDesk.exe" рядом с кассой.</summary>
+    /// проверяется в первую очередь (папка Rongta рядом с exe кассы).</summary>
     public static string BundledInstallerPath =>
         Path.Combine(AppContext.BaseDirectory, "Rongta", "RLS1000_SETUP.exe");
 
     /// <summary>Ищет уже установленную RLS1000 через реестр Uninstall-записей Inno Setup
     /// (DisplayName содержит "RLS1000") — не угадывает путь, а читает InstallLocation.
-    /// Резерв — фиксированные Program Files/Program Files x86 кандидаты, как
-    /// KnownAnyDeskPaths в RemoteSupportWindow.axaml.cs.</summary>
+    /// Резерв — фиксированные Program Files/Program Files x86 кандидаты.</summary>
     public static string? TryFindInstalledExePath()
     {
         foreach (var hive in new[] { Registry.LocalMachine, Registry.CurrentUser })

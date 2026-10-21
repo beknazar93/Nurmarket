@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Склад — приёмка в валюте</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="goods" active="Склад" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="font-size: 24px; font-weight: 800; flex-grow: 1">Склад</span>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Режим сканера</button>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Фото накладной</button>
+    </div>
+    <div role="tablist" style="display: flex; gap: 24px; border-bottom: 1px solid #E5E7EB">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="7">
+        <sc-if value="{{t.active}}" hint-placeholder-val="{{false}}"><button type="button" role="tab" aria-selected="true" style="border: 0; background: transparent; padding: 10px 0; border-bottom: 3px solid #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">{{t.name}}</button></sc-if>
+        <sc-if value="{{t.idle}}" hint-placeholder-val="{{true}}"><button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">{{t.name}}</button></sc-if>
+      </sc-for>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 16px 18px; display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: center">
+      <span style="display: flex; align-items: center; gap: 10px"><span style="font-size: 13px; font-weight: 700; color: #667085">Поставщик</span><button type="button" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #0B2A3C">[поставщик] ▾</button></span>
+      <span style="display: flex; align-items: center; gap: 6px"><span style="font-size: 13px; font-weight: 700; color: #667085; margin-right: 4px">Валюта закупки</span>
+        <sc-for list="{{cur}}" as="c" hint-placeholder-count="7">
+          <sc-if value="{{c.active}}" hint-placeholder-val="{{false}}"><button type="button" style="height: 36px; padding: 0 12px; border-radius: 18px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 800">{{c.name}}</button></sc-if>
+          <sc-if value="{{c.idle}}" hint-placeholder-val="{{true}}"><button type="button" style="height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 12px; font-weight: 600">{{c.name}}</button></sc-if>
+        </sc-for>
+      </span>
+      <span style="display: flex; align-items: center; gap: 8px"><label for="rate" style="font-size: 13px; font-weight: 700; color: #344054">Курс: 1 CNY =</label><input id="rate" type="text" value="13,0665" style="width: 110px; height: 40px; box-sizing: border-box; border-radius: 10px; border: 2px solid #0B2A3C; padding: 0 10px; text-align: right; font-family: inherit; font-size: 14px; font-weight: 800"><span style="font-size: 13px; font-weight: 600">сом</span><button type="button" style="height: 40px; padding: 0 12px; border-radius: 10px; border: 0; background: #FFF7CC; font-family: inherit; font-size: 12px; font-weight: 800; color: #0B2A3C">⟳ Подставить курс НБКР</button></span>
+    </div>
+
+    <label style="display: flex; align-items: center; gap: 10px; height: 48px; box-sizing: border-box; padding: 0 14px; background: #FFFFFF; border: 2px dashed #FFD600; border-radius: 12px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0B2A3C" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"></path></svg>
+      <input type="text" placeholder="Сканируйте товар или введите название — строка добавится в приёмку" style="border: 0; outline: 0; flex-grow: 1; font-family: inherit; font-size: 14px"></label>
+
+    <section style="flex-grow: 1; min-height: 0; background: #FFFFFF; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+      <div style="display: grid; grid-template-columns: 2.6fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 0.4fr; gap: 10px; padding: 12px 16px; background: #F9FAFB; font-size: 12px; font-weight: 700; color: #667085"><span>Товар</span><span>Было</span><span>Пришло</span><span>Закупка, CNY</span><span>Закупка, сом</span><span>Продажа, сом</span><span style="text-align: right">Сумма, сом</span><span></span></div>
+      <sc-for list="{{lines}}" as="l" hint-placeholder-count="4">
+        <div style="display: grid; grid-template-columns: 2.6fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 0.4fr; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid #F2F4F7">
+          <span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700">{{l.name}}</span><span style="font-size: 11px; color: {{l.srcColor}}; font-weight: 600">{{l.src}}</span></span>
+          <span style="font-size: 13px; color: #475467">{{l.was}}</span>
+          <input type="text" value="{{l.qty}}" aria-label="Пришло" style="width: 64px; height: 34px; box-sizing: border-box; border-radius: 8px; border: 1px solid #D0D5DD; text-align: center; font-family: inherit; font-size: 13px; font-weight: 700">
+          <input type="text" value="{{l.cny}}" aria-label="Закупка в юанях" style="width: 90px; height: 34px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFD600; text-align: right; padding: 0 8px; font-family: inherit; font-size: 13px; font-weight: 800">
+          <span style="font-size: 13px; font-weight: 700; color: #0B2A3C">{{l.som}}</span>
+          <input type="text" value="{{l.sale}}" aria-label="Цена продажи" style="width: 90px; height: 34px; box-sizing: border-box; border-radius: 8px; border: 1px solid #D0D5DD; text-align: right; padding: 0 8px; font-family: inherit; font-size: 13px; font-weight: 700">
+          <span style="text-align: right; font-size: 13px; font-weight: 800">{{l.total}}</span>
+          <button type="button" aria-label="Убрать строку" style="justify-self: end; width: 30px; height: 30px; border-radius: 8px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #667085">✕</button>
+        </div>
+      </sc-for>
+      <div style="margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-top: 1px solid #EAECF0; background: #FCFCFD">
+        <span style="flex-grow: 1; font-size: 13px; color: #475467">4 позиции · 66 ед. · <span style="font-weight: 800; color: #0B2A3C">3 201 сом</span> (245 CNY) · на склад уйдёт в сомах</span>
+        <button type="button" style="height: 46px; padding: 0 18px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Очистить</button>
+        <button type="button" style="height: 46px; padding: 0 20px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Провести приход</button>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tabs = ['Товары', 'Обзор', 'Приёмка', 'Ревизия', 'Списание', 'Перемещение', 'Журнал'].map((name, i) => ({ name, active: i === 2, idle: i !== 2 }));
+    const cur = ['сом', '$ USD', '€ EUR', '¥ CNY', '₸ KZT', '₽ RUB', 'UZS'].map((name, i) => ({ name, active: i === 3, idle: i !== 3 }));
+    const rate = 13.0665;
+    const rows = [
+      ['Патроны для степлера', 'На складе', '#0E7A3A', '1 162', 40, 2.1, 35],
+      ['Ручка «PIANO» PG-2271234567890', 'На складе', '#0E7A3A', '8', 12, 3.5, 60],
+      ['Чипсы «Пир» ассорти 75г', 'На складе', '#0E7A3A', '2', 10, 3.9, 65],
+      ['[новый товар]', 'Новый — будет создан', '#B54708', '—', 4, 20, 330]
+    ];
+    const fmt = (v) => v.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+    const lines = rows.map(([name, src, srcColor, was, qty, cny, sale]) => ({
+      name, src, srcColor, was, qty, cny: fmt(cny), som: fmt(Math.round(cny * rate * 100) / 100) + ' сом',
+      sale: String(sale), total: fmt(Math.round(qty * cny * rate)) + ' сом'
+    }));
+    return { tabs, cur, lines };
+  }
+}
+</script>
+</body>
+</html>

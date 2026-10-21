@@ -22,7 +22,8 @@ public interface IPosExchangeApi
         IReadOnlyList<(string LineId, double Quantity)> returnItems,
         IReadOnlyList<(string ProductId, string? VariantId, double Quantity)> newItems,
         string paymentMethod,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        string? idempotencyKey = null);
 
     /// <summary>POST api/main/pos/sales/{id}/return/ с причиной и отметкой «брак» (проверено 06.10: сервер хранит
     /// reason в документе возврата, is_defect=true — товар не возвращается на склад, restock=false).
@@ -32,7 +33,8 @@ public interface IPosExchangeApi
         IReadOnlyList<PosRefundLineRequest>? lines,
         string? reason,
         bool isDefect,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        string? idempotencyKey = null);
 }
 
 public sealed partial class SalesApiService : IPosExchangeApi
@@ -42,13 +44,15 @@ public sealed partial class SalesApiService : IPosExchangeApi
         IReadOnlyList<(string LineId, double Quantity)> returnItems,
         IReadOnlyList<(string ProductId, string? VariantId, double Quantity)> newItems,
         string paymentMethod,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? idempotencyKey = null)
     {
         var id = saleId.Trim();
         if (id.Length == 0)
             throw new ApiException("Укажите номер продажи.", 400);
 
-        var key = Guid.NewGuid().ToString();
+        // 2026-10-15, ревью: ключ передаёт окно обмена — тот же при повторе того же обмена после таймаута.
+        var key = string.IsNullOrWhiteSpace(idempotencyKey) ? Guid.NewGuid().ToString() : idempotencyKey;
         var body = new Dictionary<string, object>
         {
             ["return_items"] = returnItems
@@ -82,7 +86,8 @@ public sealed partial class SalesApiService : IPosExchangeApi
         IReadOnlyList<PosRefundLineRequest>? lines,
         string? reason,
         bool isDefect,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? idempotencyKey = null)
     {
         var id = saleId.Trim();
         if (id.Length == 0)
@@ -90,7 +95,8 @@ public sealed partial class SalesApiService : IPosExchangeApi
 
         var body = new Dictionary<string, object>
         {
-            ["idempotency_key"] = Guid.NewGuid().ToString(),
+            // 2026-10-15, ревью: при повторе того же возврата — тот же ключ (см. SalesApiService.PosReturnSaleAsync).
+            ["idempotency_key"] = string.IsNullOrWhiteSpace(idempotencyKey) ? Guid.NewGuid().ToString() : idempotencyKey,
             ["cashbox_role"] = "pos_main",
         };
         if (!string.IsNullOrWhiteSpace(reason))

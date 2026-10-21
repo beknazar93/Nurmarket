@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Касса — оплата картой и QR с автоподтверждением</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+/* 2026-10-16: цели касания ≥ 44 px (✕, кнопки, поля, чипы, сегменты) */
+.x{width:44px;height:44px;flex-shrink:0;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C;white-space:nowrap}
+.b1,.b2,.bd{white-space:nowrap}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:44px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:44px;padding:0 14px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:44px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+.k{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;background:rgba(11,42,60,.12);vertical-align:1px}
+.pn{background:#FFFFFF;border-radius:16px;box-shadow:0 8px 24px rgba(11,42,60,.14);display:flex;flex-direction:column;overflow:hidden}
+.cap{font-size:11px;font-weight:700;color:#475467;letter-spacing:.04em}
+.note{font-size:11.5px;line-height:16px;color:#475467}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 24px; display: grid; grid-template-columns: 270px repeat(3, minmax(0, 1fr)); gap: 20px; align-items: start">
+  <!-- 2026-10-16: карта и QR — состояния панели оплаты справа, чек остаётся виден (не модалки) -->
+
+  <div class="col">
+    <span class="cap">ЧЕК СЛЕВА — ВИДЕН ВСЁ ВРЕМЯ</span>
+    <section class="card" aria-label="Чек № 000482" style="padding: 14px; gap: 6px">
+      <span style="display: flex; justify-content: space-between; align-items: baseline"><b style="font-size: 15px">Чек № 000482</b><span style="font-size: 11px; color: #667085">Касса 1</span></span>
+      <span class="row" style="padding: 8px 10px; font-size: 12px"><span style="flex-grow: 1"><b>Гулзат Мамытова</b><br><span style="color: #475467">Серебро · 5 % · бонусов 326</span></span></span>
+      <div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 7px 0; border-bottom: 1px solid #EAECF0"><span style="min-width: 0">Кока-Кола (ПЭТ) 2л<br><span style="font-size: 11px; color: #667085">1 × 170</span></span><b>170</b></div><div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 7px 0; border-bottom: 1px solid #EAECF0"><span style="min-width: 0">Сок Gracio яблочный 1л<br><span style="font-size: 11px; color: #667085">1 × 120</span></span><b>120</b></div><div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 7px 0; border-bottom: 1px solid #EAECF0"><span style="min-width: 0">Молоко 1л<br><span style="font-size: 11px; color: #667085">1 × 95</span></span><b>95</b></div><div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 7px 0; border-bottom: 1px solid #EAECF0"><span style="min-width: 0">Хлеб белый<br><span style="font-size: 11px; color: #667085">2 × 35</span></span><b>70</b></div><div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 7px 0; border-bottom: 1px solid #EAECF0"><span style="min-width: 0">Mars 50г<br><span style="font-size: 11px; color: #667085">5 × 39</span></span><b>195</b></div>
+      <div style="display: flex; justify-content: space-between; padding-top: 6px"><b style="font-size: 15px">Итого</b><b style="font-size: 18px">650&nbsp;сом</b></div>
+      <span class="note">5 позиций · 10 шт · Кассир Тест</span>
+    </section>
+  </div>
+
+  <div class="col">
+    <span class="cap">ПАНЕЛЬ ОПЛАТЫ · КАРТА</span>
+    <section class="pn" aria-label="Оплата картой — ждём карту">
+      <div class="mh" style="padding: 12px 16px"><div class="mt"><b>Оплата чека · 650 сом</b><span style="color: #344054">Карта / QR · терминал MBANK</span></div><button type="button" class="x" aria-label="Закрыть · Esc">✕</button></div>
+      <div class="mb" style="align-items: center; text-align: center; gap: 10px; padding: 18px 16px">
+        <span style="width: 92px; height: 116px; border-radius: 14px; background: #1F2937; position: relative"><span style="position: absolute; left: 11px; right: 11px; top: 12px; height: 40px; border-radius: 7px; background: #3B82F6; color: #FFFFFF; font-weight: 800; display: flex; align-items: center; justify-content: center">650</span></span>
+        <b style="font-size: 16px">Приложите или вставьте карту</b>
+        <span style="font-size: 12.5px; line-height: 18px; color: #475467">Сумма уже на терминале — кассиру ничего вводить не нужно</span>
+        <div style="display: flex; gap: 4px; align-items: center; font-size: 12px; color: #475467"><span class="tag" style="background: #E7F6EC; color: #0E7A3A">✓ отправлено</span><span>→</span><span class="tag" style="background: #EEF4FF; color: #3538CD">ждём карту</span><span>→</span><span class="tag" style="background: #F2F4F7; color: #475467">банк</span></div>
+        <span class="note">Сумма на терминал — по ECR-протоколу банка (нужен договор)</span>
+      </div>
+      <div class="mf" style="padding: 12px 16px"><button type="button" class="b2">Другой способ</button><span class="tot"></span><button type="button" class="b2">Отменить<span class="k">Esc</span></button></div>
+    </section>
+    <!-- 2026-10-16: таймаут терминала — сначала статус последней операции, иначе двойное списание -->
+    <section class="pn" aria-label="Терминал не ответил" style="margin-top: 10px">
+      <div class="mh" style="padding: 12px 16px; background: #FEF3E2"><div class="mt"><b>Терминал не ответил · 60 с</b><span style="color: #344054">Карта · MBANK · 650 сом</span></div></div>
+      <div class="mb" style="padding: 14px 16px">
+        <span style="font-size: 13px; line-height: 19px">Деньги могли списаться. Не пробивайте оплату ещё раз, пока не узнали статус.</span>
+        <div class="rl" style="font-size: 12px"><span>Последняя операция</span><b>14:36:02 · 650 · нет ответа</b></div>
+        <button type="button" class="b1" style="width: 100%; padding: 0 8px">Проверить статус последней операции</button>
+      </div>
+      <div class="mf" style="padding: 12px 16px"><button type="button" class="b2">Отменить</button><span class="tot" style="text-align: right">Enter — проверить</span></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <span class="cap">ПАНЕЛЬ ОПЛАТЫ · QR</span>
+    <!-- 2026-10-16: один ELQR-QR (принимают все банки), подтверждает банк-эквайер MBANK; ручное — с PIN, в журнал и сверку -->
+    <section class="pn" aria-label="Оплата по QR">
+      <div class="mh" style="padding: 12px 16px"><div class="mt"><b>Оплата чека · 650 сом</b><span style="color: #344054">Карта / QR · QR на экране покупателя</span></div><button type="button" class="x" aria-label="Закрыть · Esc">✕</button></div>
+      <div class="mb" style="align-items: center; gap: 10px; padding: 16px">
+        <span class="tag" style="background: #0B2A3C; color: #FFFFFF; font-size: 12px; padding: 5px 10px">ELQR · один QR для всех банков</span>
+        <span aria-hidden="true" style="display: block; width: 170px; height: 170px; background: repeating-conic-gradient(#111827 0 25%, #FFFFFF 0 50%) 0 0 / 18px 18px; border: 6px solid #FFFFFF; outline: 1px solid #D0D5DD; flex-shrink: 0"></span>
+        <span style="font-size: 12.5px; line-height: 18px; color: #475467; text-align: center">Покупатель сканирует в приложении любого банка. Подтверждает оплату <b style="color: #0B2A3C">MBANK</b> — банк-эквайер магазина.</span>
+        <div style="width: 100%; display: flex; flex-direction: column; gap: 4px"><span style="display: flex; justify-content: space-between; font-size: 12px; color: #475467"><span>Ждём оплату</span><b style="color: #0B2A3C">2:41</b></span><div style="height: 6px; width: 100%; border-radius: 3px; background: #EAECF0"><div style="width: 55%; height: 6px; border-radius: 3px; background: #0B2A3C"></div></div></div>
+        <span class="note" style="text-align: center">Чек закроется сам, когда банк ответит «оплачено» — нужен мерчант-API банка и договор. Нет ответа — «Подтвердить вручную» с PIN админа: запись в журнал и в сверку смены.</span>
+      </div>
+      <div class="mf" style="padding: 12px 16px"><button type="button" class="b2">Другой способ</button><span class="tot"></span><button type="button" class="b2">Подтвердить вручную…</button></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <span class="cap">ПАНЕЛЬ ОПЛАТЫ · ИТОГ</span>
+    <section class="pn" aria-label="Оплачено">
+      <div class="mh" style="padding: 12px 16px; background: #E7F6EC"><div class="mt"><b>Оплачено · MBANK QR</b><span style="color: #344054">подтверждено банком · 14:36:07</span></div><button type="button" class="x" aria-label="Закрыть · Esc">✕</button></div>
+      <div class="mb" style="gap: 0; padding: 10px 16px">
+        <div class="rl"><span>Чек</span><b>№ 000482 · сквозной</b></div>
+        <span class="note" style="padding-bottom: 4px">номер с сервера, один на все кассы; нет связи — номер из резерва кассы</span>
+        <div class="rl"><span>Платёж банка</span><b>ID 7731045298</b></div>
+        <div class="rl"><span>Бонусы · Гулзат Мамытова</span><b style="color: #0E7A3A">+32 → 358</b></div>
+      </div>
+      <div class="mf" style="padding: 12px 16px"><button type="button" class="b2">Печать</button><span class="tot"></span><button type="button" class="b1">Чек в WhatsApp<span class="k">Enter</span></button></div>
+    </section>
+    <!-- 2026-10-16: «Банк отклонил» — одна жёлтая «Повторить», остальные обводкой -->
+    <section class="pn" aria-label="Оплата не прошла" style="margin-top: 10px">
+      <div class="mh" style="padding: 12px 16px; background: #FDECEA"><div class="mt"><b>Банк отклонил оплату</b><span style="color: #344054">Недостаточно средств · карта ****2291</span></div><button type="button" class="x" aria-label="Закрыть · Esc">✕</button></div>
+      <div class="mb" style="padding: 14px 16px">
+        <span style="font-size: 13px; color: #475467">Чек не закрыт, товары на месте.</span>
+        <button type="button" class="b1" style="width: 100%">Повторить<span class="k">Enter</span></button>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px"><button type="button" class="b2" style="padding: 0 6px">Другой способ</button><button type="button" class="b2" style="padding: 0 6px">Разделить оплату</button></div>
+      </div>
+    </section>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

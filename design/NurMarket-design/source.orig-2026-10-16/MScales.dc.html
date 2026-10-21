@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — весы</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:36px;height:36px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:10px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:13px;color:#475467}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px}
+.opt{height:60px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.opt span{font-size:11px;font-weight:500;color:#667085}
+.opt.on{border:2px solid #0B2A3C;background:#FFF7CC;color:#0B2A3C}
+.chip{height:34px;padding:0 12px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.dev{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 36px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px; align-items: start">
+
+  <section class="m" role="dialog" aria-label="Товары в весы">
+    <div class="mh"><div class="mt"><b>Товары в весы</b><span>Dahua TM · весовые товары</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span>Загружено</span><b>[N] из [N]</b></div>
+      <div style="height: 10px; border-radius: 5px; background: #F2F4F7; overflow: hidden"><span style="display: block; width: 40%; height: 10px; background: #FFD600"></span></div>
+      <div class="dev"><span style="flex-grow: 1; font-size: 13px; font-weight: 700">картошка</span><span style="font-size: 12px; font-weight: 700; color: #0E7A3A">✓ PLU [N]</span></div>
+      <div class="dev"><span style="flex-grow: 1; font-size: 13px; font-weight: 700">[весовой товар]</span><span style="font-size: 12px; font-weight: 700; color: #B54708">загружается…</span></div>
+      <span style="font-size: 12px; color: #667085">Цены на весах обновятся сами, когда вы поменяете цену товара.</span>
+    </div>
+    <div class="mf"><span class="tot"></span><button type="button" class="b2">Остановить</button><button type="button" class="b1" disabled="" style="opacity: .5">Готово</button></div>
+  </section><section class="m" role="dialog" aria-label="Подключение весов">
+    <div class="mh"><div class="mt"><b>Подключить весы</b><span>Шаг 1 из 2</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px"><button type="button" class="opt on">Весы на кассе<span>вес сразу в чек</span></button><button type="button" class="opt">С этикетками<span>печатают штрихкод</span></button></div>
+      <span class="lbl">МОДЕЛЬ</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip on">CAS</button><button type="button" class="chip">Штрих</button><button type="button" class="chip">Dahua</button><button type="button" class="chip">Rongta</button><button type="button" class="chip">Другая</button></div>
+      <div style="display: flex; gap: 10px; align-items: end"><span style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1"><label class="lbl" for="sc1">ПОРТ</label><input id="sc1" class="in" type="text" value="COM3 — найден сам"></span><button type="button" class="b2">Проверить</button></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-radius: 12px; background: #E7F6EC; padding: 12px 14px"><span style="font-size: 13px; font-weight: 700; color: #0E7A3A">Весы отвечают</span><span style="font-size: 22px; font-weight: 800; color: #0B2A3C">[вес] кг</span></div>
+    </div>
+    <div class="mf"><span class="tot">Положите груз — вес должен измениться</span><button type="button" class="b2">Назад</button><button type="button" class="b1">Готово</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Поиск весов в сети">
+    <div class="mh"><div class="mt"><b>Весы в сети</b><span>Ищу в 192.168.1.* …</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="height: 8px; border-radius: 4px; background: #F2F4F7; overflow: hidden"><span style="display: block; width: 64%; height: 8px; background: #0B2A3C"></span></div>
+      <div class="dev"><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Dahua TM</span><span style="font-size: 12px; color: #667085">[IP-адрес]</span></span><button type="button" class="b1" style="height: 36px">Использовать</button></div>
+      <div class="dev"><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Rongta</span><span style="font-size: 12px; color: #667085">[IP-адрес]</span></span><button type="button" class="b2" style="height: 36px">Использовать</button></div>
+      <span style="font-size: 12px; color: #667085">Не нашлись? Проверьте, что весы и компьютер в одной сети, или впишите адрес вручную.</span>
+      <input class="in" type="text" placeholder="Адрес вручную: 192.168.1.50" aria-label="Адрес вручную">
+    </div>
+    <div class="mf"><span class="tot"></span><button type="button" class="b2">Искать снова</button><button type="button" class="b1">Готово</button></div>
+  </section>
+
+  
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

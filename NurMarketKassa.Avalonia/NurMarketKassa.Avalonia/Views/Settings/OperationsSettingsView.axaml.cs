@@ -198,10 +198,99 @@ public partial class OperationsSettingsView : UserControl
         _ = SaveSphereOnServerAsync(sphere);
     }
 
+    // ── Закрытие смены: слепой пересчёт (2026-10-16, редизайн, этап 1) ────────────────
+
+    private void RefreshShiftCloseUi()
+    {
+        ShiftCloseTitle.Text = Tr.T("Закрытие смены", "Сменаны жабуу", "Closing the shift", "Vardiya kapanışı", "Smenani yopish");
+        BlindCashCountCheck.Content = Tr.T("Слепой пересчёт наличных", "Накталай акчаны сокур эсептөө", "Blind cash count",
+            "Kör nakit sayımı", "Naqd pulni ko'r sanash");
+        BlindCashCountDesc.Text = Tr.T(
+            "При закрытии смены кассир сначала пересчитывает ящик и вводит сумму, и только после кнопки «Пересчитал» видит сумму по системе и расхождение. Так недостачу нельзя «подогнать» под подсказку.",
+            "Сменаны жабууда кассир адегенде кутуну санап, сумманы киргизет, ал эми система боюнча сумманы жана айырманы «Санадым» баскычынан кийин гана көрөт. Ошентип, жетишпегенди көрсөтмөгө «ылайыктап» коюуга болбойт.",
+            "When closing the shift, the cashier first counts the drawer and enters the amount, and sees the system amount and the difference only after pressing “Counted”. This way a shortage cannot be “adjusted” to the hint.",
+            "Vardiya kapatılırken kasiyer önce çekmeceyi sayıp tutarı girer; sistem tutarını ve farkı ancak «Saydım» düğmesine bastıktan sonra görür. Böylece açık, ipucuna göre «ayarlanamaz».",
+            "Smenani yopishda kassir avval tortmani sanab, summani kiritadi va tizim bo'yicha summa hamda farqni faqat «Sanadim» tugmasidan keyin ko'radi. Shunday qilib, kamomadni ko'rsatmaga «moslab» bo'lmaydi.");
+        // Обработчик сравнивает значение перед записью — эта установка лишнего сохранения не делает.
+        BlindCashCountCheck.IsChecked = UserPreferences.Instance.BlindCashCount;
+    }
+
+    private void BlindCashCount_Changed(object? sender, RoutedEventArgs e)
+    {
+        var prefs = UserPreferences.Instance;
+        var enabled = BlindCashCountCheck.IsChecked == true;
+        if (prefs.BlindCashCount == enabled)
+            return;
+        prefs.BlindCashCount = enabled;
+        prefs.SaveToDisk();
+    }
+
+    // ── Контроль удалений из чека (2026-10-17, редизайн, этап 4) ────────────────────
+
+    private void RefreshCartRemovalUi()
+    {
+        CartRemovalTitle.Text = Tr.T("Контроль удалений", "Өчүрүүлөрдү көзөмөлдөө", "Removal control", "Silme kontrolü", "O'chirishlar nazorati");
+        AskRemovalReasonCheck.Content = Tr.T("Спрашивать причину удаления строки из чека", "Чектен сапты өчүргөндө себебин суроо",
+            "Ask for a reason when a line is removed from the receipt", "Fişten satır çıkarılınca nedenini sor",
+            "Chekdan qator olib tashlanganda sababini so'rash");
+        RemovalThresholdLabel.Text = Tr.T("если сумма строки от", "эгер саптын суммасы", "if the line amount is at least",
+            "satır tutarı en az", "agar qator summasi kamida");
+        RemovalThresholdUnit.Text = Tr.T("сом", "сомдон ашса", "som", "som ise", "so'm bo'lsa");
+        CartRemovalDesc.Text = Tr.T(
+            "Обычное удаление — сразу, без окна. Журнал «Удалено из чека» (☰ → Система) пишется всегда на этой кассе (на все кассы — нужен сервер NurCRM). Код на удаление из корзины для кассиров — в Настройки → Сотрудники и на сайте.",
+            "Кадимки өчүрүү — дароо, терезесиз. «Чектен алынгандар» журналы (☰ → Система) ушул кассада дайыма жазылат (бардык кассалар үчүн — NurCRM сервери керек). Кассирлер үчүн себеттен өчүрүү коду — Жөндөөлөр → Кызматкерлер бөлүмүндө жана сайтта.",
+            "A normal removal happens at once, without a window. The “Removed from receipt” log (☰ → System) is always kept on this till (for all tills — needs the NurCRM server). The cart-removal code for cashiers is in Settings → Staff and on the website.",
+            "Normal silme hemen, pencere olmadan yapılır. «Fişten çıkarılanlar» günlüğü (☰ → Sistem) bu kasada her zaman tutulur (tüm kasalar için — NurCRM sunucusu gerekir). Kasiyerler için sepetten silme kodu Ayarlar → Çalışanlar bölümünde ve web sitesindedir.",
+            "Oddiy o'chirish darhol, oynasiz. «Chekdan olib tashlanganlar» jurnali (☰ → Tizim) shu kassada doim yoziladi (barcha kassalar uchun — NurCRM serveri kerak). Kassirlar uchun savatdan o'chirish kodi — Sozlamalar → Xodimlar bo'limida va saytda.");
+        // Обработчики сравнивают значение перед записью — эти установки лишнего сохранения не делают.
+        var prefs = UserPreferences.Instance;
+        AskRemovalReasonCheck.IsChecked = prefs.AskCartRemovalReason;
+        RemovalThresholdBox.Text = prefs.CartRemovalReasonThreshold.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private void AskRemovalReason_Changed(object? sender, RoutedEventArgs e)
+    {
+        var prefs = UserPreferences.Instance;
+        var enabled = AskRemovalReasonCheck.IsChecked == true;
+        if (prefs.AskCartRemovalReason == enabled)
+            return;
+        prefs.AskCartRemovalReason = enabled;
+        prefs.SaveToDisk();
+    }
+
+    private void RemovalThreshold_KeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (e.Key == Avalonia.Input.Key.Enter)
+            SaveRemovalThreshold();
+    }
+
+    private void RemovalThreshold_LostFocus(object? sender, RoutedEventArgs e) => SaveRemovalThreshold();
+
+    /// <summary>Порог в сомах (0 — спрашивать при любом удалении). Неверный ввод — поле к сохранённому значению.</summary>
+    private void SaveRemovalThreshold()
+    {
+        var prefs = UserPreferences.Instance;
+        var raw = (RemovalThresholdBox.Text ?? "").Replace(" ", "").Replace(" ", "").Replace(',', '.');
+        if (!double.TryParse(raw, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            || value < 0 || value > 10_000_000)
+        {
+            RemovalThresholdBox.Text = prefs.CartRemovalReasonThreshold.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+            return;
+        }
+        value = Math.Round(value, 2);
+        RemovalThresholdBox.Text = value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        if (Math.Abs(prefs.CartRemovalReasonThreshold - value) < 0.001)
+            return;
+        prefs.CartRemovalReasonThreshold = value;
+        prefs.SaveToDisk();
+    }
+
     public void LoadBankQrSettings()
     {
         RefreshSphereUi();
         RefreshLanUi();
+        RefreshShiftCloseUi();
+        RefreshCartRemovalUi();
         _bankSettings = new ObservableCollection<BankQrSetting>();
         var prefs = UserPreferences.Instance;
 
@@ -288,39 +377,63 @@ public partial class OperationsSettingsView : UserControl
         var token = (TelegramTokenBox.Text ?? "").Trim();
         if (prefs.TelegramBotToken == token)
             return;
+        // 2026-10-21 (бот, ВАЖНО 13): другой бот — прежний получатель и владелец недействительны, подтверждаются заново кодом.
+        if (TelegramBotOwner.BotId(prefs.TelegramBotToken) is { } oldBot && oldBot != TelegramBotOwner.BotId(token))
+        {
+            prefs.TelegramChatId = null;
+            prefs.TelegramChatTitle = null;
+            TelegramBotOwner.Reset();
+        }
         prefs.TelegramBotToken = token;
         prefs.SaveToDisk();
     }
 
-    /// <summary>Узнаёт chat_id владельца по последним сообщениям боту. Владелец должен сначала
-    /// нажать «Старт» у своего бота — иначе Telegram нам просто нечего показать.</summary>
+    private CancellationTokenSource? _telegramDetectCts;
+
+    /// <summary>2026-10-21 (бот, К1): получатель и владелец — по одноразовому коду, который владелец отправляет боту. Раньше
+    /// бралось чат последнего сообщения боту от кого угодно — получателем мог стать покупатель.</summary>
     private async void TelegramDetect_Click(object? sender, RoutedEventArgs e)
     {
         SaveTelegramToken();
         TelegramDetectButton.IsEnabled = false;
-        TelegramStatusText.Text = Tr.T("Спрашиваю Telegram…", "Telegram'дан суралууда…", "Asking Telegram…", "Telegram'a soruluyor…", "Telegram'dan so'ralmoqda…");
+        _telegramDetectCts?.Cancel();
+        _telegramDetectCts = new CancellationTokenSource();
         try
         {
-            var (chatId, name, error) = await TelegramBotService
-                .TryDetectChatIdAsync(UserPreferences.Instance.TelegramBotToken ?? "")
-                .ConfigureAwait(true);
-
-            if (error is not null || chatId is null)
+            var token = UserPreferences.Instance.TelegramBotToken ?? "";
+            if (string.IsNullOrWhiteSpace(token))
             {
-                TelegramStatusText.Text = error ?? Tr.T("Не удалось определить получателя.", "Алуучуну аныктоо мүмкүн болгон жок.", "Couldn't detect the recipient.", "Alıcı belirlenemedi.", "Qabul qiluvchini aniqlab bo'lmadi.");
+                TelegramStatusText.Text = Tr.T("Сначала вставьте токен бота.", "Адегенде боттун токенин коюңуз.", "Paste the bot token first.", "Önce bot token'ını yapıştırın.", "Avval bot tokenini qo'ying.");
                 return;
             }
-
-            var prefs = UserPreferences.Instance;
-            prefs.TelegramChatId = chatId;
-            prefs.TelegramChatTitle = name;
-            prefs.SaveToDisk();
+            await TelegramBotService.TryRememberBotUsernameAsync(token.Trim()).ConfigureAwait(true);
+            var (code, completion) = TelegramBotOwner.Begin(_telegramDetectCts.Token);
+            TelegramStatusText.Text = Tr.T(
+                $"Отправьте боту код {code} из СВОЕГО Telegram: в личный чат с ботом — просто цифры, в группу магазина — /code {code}. Код действует 10 минут. Жду…",
+                $"Ботко {code} кодун ӨЗҮҢҮЗДҮН Telegram'дан жөнөтүңүз: бот менен жеке чатка — сандарды гана, дүкөндүн тобуна — /code {code}. Код 10 мүнөт жарактуу. Күтүп жатам…",
+                $"Send the code {code} to the bot from YOUR Telegram: in a private chat with the bot — just the digits, in the shop group — /code {code}. The code is valid for 10 minutes. Waiting…",
+                $"{code} kodunu bota KENDİ Telegram'ınızdan gönderin: botla özel sohbette — sadece rakamlar, mağaza grubunda — /code {code}. Kod 10 dakika geçerli. Bekliyorum…",
+                $"{code} kodini botga O'Z Telegram'ingizdan yuboring: bot bilan shaxsiy chatga — faqat raqamlar, do'kon guruhiga — /code {code}. Kod 10 daqiqa amal qiladi. Kutyapman…");
+            var result = await completion.ConfigureAwait(true);
+            if (!result.Ok)
+            {
+                if (result.Error is not null)
+                    TelegramStatusText.Text = result.Error;
+                return;
+            }
             UpdateTelegramStatus();
         }
         finally
         {
             TelegramDetectButton.IsEnabled = true;
         }
+    }
+
+    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        // 2026-10-21: настройки закрыли — код подтверждения больше не ждём.
+        _telegramDetectCts?.Cancel();
+        base.OnDetachedFromVisualTree(e);
     }
 
     private async void TelegramTest_Click(object? sender, RoutedEventArgs e)
@@ -330,9 +443,12 @@ public partial class OperationsSettingsView : UserControl
         TelegramStatusText.Text = Tr.T("Отправляю…", "Жөнөтүлүүдө…", "Sending…", "Gönderiliyor…", "Yuborilmoqda…");
         try
         {
-            var shop = UserPreferences.Instance.StoreName;
+            // 2026-10-21 (бот): «&» и «<» в названии магазина ломали пробное сообщение — экранируем; текст на языке программы.
+            var shop = System.Net.WebUtility.HtmlEncode(UserPreferences.Instance.StoreName ?? "");
             var error = await TelegramBotService
-                .SendAsync($"<b>{shop}</b>\n\nПробное сообщение из кассы. Если вы его видите — бот настроен верно.")
+                .SendAsync($"<b>{shop}</b>\n\n" + Tr.T("Пробное сообщение из кассы. Если вы его видите — бот настроен верно.",
+                    "Кассадан сынак билдирүү. Аны көрүп жатсаңыз — бот туура жөндөлгөн.", "A test message from the kassa. If you see it, the bot is set up correctly.",
+                    "Kasadan deneme mesajı. Görüyorsanız bot doğru ayarlanmış.", "Kassadan sinov xabari. Uni ko'rayotgan bo'lsangiz — bot to'g'ri sozlangan."))
                 .ConfigureAwait(true);
             TelegramStatusText.Text = error ?? Tr.T("Отправлено — проверьте Telegram.", "Жөнөтүлдү — Telegram'ды текшериңиз.", "Sent — check Telegram.", "Gönderildi — Telegram'ı kontrol edin.", "Yuborildi — Telegram'ni tekshiring.");
         }
@@ -413,8 +529,15 @@ public partial class OperationsSettingsView : UserControl
                 App.GetRequiredService<NurMarketKassa.Services.Api.ClientDebtsApiService>());
 
             var sent = await bot.SendDebtRemindersAsync().ConfigureAwait(true);
-            TelegramStatusText.Text = sent > 0
-                ? Tr.T($"Отправлено напоминаний: {sent}.", $"Жөнөтүлгөн эскертмелер: {sent}.", $"Reminders sent: {sent}.", $"Gönderilen hatırlatma sayısı: {sent}.", $"Yuborilgan eslatmalar: {sent}.")
+            // 2026-10-21 (бот, ВАЖНО 8): повторная рассылка тем, кому уже писали за 20 часов, не уходит — говорим об этом честно.
+            var skipped = bot.LastRemindersSkippedRecent;
+            var skippedText = skipped > 0
+                ? Tr.T($" Ещё {skipped} — уже получили напоминание за последние 20 часов, повторно не шлём.", $" Дагы {skipped} — акыркы 20 саатта эскертме алышкан, кайра жөнөтпөйбүз.",
+                    $" {skipped} more already got a reminder in the last 20 hours — not sent again.", $" {skipped} kişi son 20 saatte hatırlatma aldı — tekrar gönderilmedi.",
+                    $" Yana {skipped} kishi oxirgi 20 soatda eslatma olgan — qayta yuborilmadi.")
+                : "";
+            TelegramStatusText.Text = sent > 0 || skipped > 0
+                ? Tr.T($"Отправлено напоминаний: {sent}.", $"Жөнөтүлгөн эскертмелер: {sent}.", $"Reminders sent: {sent}.", $"Gönderilen hatırlatma sayısı: {sent}.", $"Yuborilgan eslatmalar: {sent}.") + skippedText
                 : Tr.T(
                     "Некому отправлять: должники не подписаны на бота. Список со ссылками WhatsApp пришлёт команда /dolgi.",
                     "Алуучулар жок: карызкорлор ботко жазылышкан эмес. WhatsApp шилтемелери бар тизмени /dolgi буйругу жөнөтөт.",

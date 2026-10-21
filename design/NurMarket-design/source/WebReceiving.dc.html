@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Приёмка — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.pill{height:36px;padding:0 14px;border-radius:18px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.pill.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.tr{display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,.8fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1fr) minmax(0,.7fr) 32px;gap:10px;padding:7px 14px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.seg{height:36px;padding:0 14px;border-radius:9px;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:600;color:#344054;white-space:nowrap}
+.seg.on{background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.ci{height:34px;box-sizing:border-box;border-radius:8px;border:1px solid #D0D5DD;padding:0 8px;font-family:inherit;font-size:13px;font-weight:700;width:100%}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Приёмка" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Приёмка</b><span style="font-size: 13px; color: #667085">Черновик сохраняется сам · остатки прибавятся после «Провести»</span></span>
+      <button type="button" class="b2">Фото накладной</button>
+      <button type="button" class="b2">Из Excel</button>
+    </div>
+
+    <!-- 2026-10-16: режим «по заказу поставщику» (заказано / пришло), как в «Закупках» (ревью C) -->
+    <section class="card" style="flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: flex-end">
+      <span style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px"><span class="lbl">КАК ПРИНИМАЕМ</span><span role="group" aria-label="Режим приёмки" style="display: flex; background: #F2F4F7; border-radius: 12px; padding: 3px"><button type="button" class="seg on">По заказу поставщику</button><button type="button" class="seg">Без заказа</button></span></span>
+      <span style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 4px"><span class="lbl">ЗАКАЗ ПОСТАВЩИКУ</span><button type="button" class="in" style="text-align: left; font-weight: 700; color: #0B2A3C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">№17 · «Бишкек Дистрибьюшн» · 12.10 ▾</button></span>
+      <span style="flex: 0 1 auto; display: flex; flex-direction: column; gap: 4px"><span class="lbl">ВАЛЮТА ЗАКУПКИ</span><span style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="pill on">KGS</button><button type="button" class="pill">USD</button><button type="button" class="pill">CNY</button><button type="button" class="pill">EUR</button><button type="button" class="pill">KZT</button></span></span>
+      <span style="flex: 0 1 150px; font-size: 12px; color: #667085; line-height: 1.4; padding-bottom: 2px">Курс НБКР — только для чужой валюты</span>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden">
+      <div style="padding: 10px 14px; border-bottom: 1px solid #EAECF0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+        <label style="flex: 1 1 280px; height: 42px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 10px; border: 1px solid #E5E7EB; background: #F9FAFB"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"></path></svg><input type="text" placeholder="Сканируйте или найдите товар, Enter — в список" aria-label="Добавить товар" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 14px; width: 100%"></label>
+        <span style="font-size: 12px; color: #475467">Новая цена продажи = закупка + <b>30&nbsp;%</b>, округление до 1&nbsp;сом · <a href="#" style="font-weight: 700">Изменить</a></span>
+        <button type="button" class="b2" style="height: 42px">+ Новый товар</button>
+      </div>
+      <div style="overflow-x: auto"><div style="min-width: 760px">
+        <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span>Товар</span><span>Заказано</span><span>Пришло</span><span>Закупка, сом</span><span>Продажа, сом</span><span>Наценка</span><span></span></div>
+        <sc-for list="{{lines}}" as="l" hint-placeholder-count="6">
+          <div class="tr" style="background: {{l.bg}}">
+            <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">{{l.name}}</span><span style="font-size: 12px; font-weight: 700; color: {{l.noteColor}}">{{l.note}}</span></span>
+            <span style="color: #475467">{{l.ordered}}</span>
+            <input class="ci" type="text" value="{{l.qty}}" aria-label="Пришло, шт" style="border-color: {{l.qtyBorder}}">
+            <span style="display: flex; flex-direction: column; gap: 2px"><input class="ci" type="text" value="{{l.cost}}" aria-label="Закупка, сом" style="border-color: {{l.costBorder}}"><span style="font-size: 11px; font-weight: 700; color: #B54708; white-space: nowrap">{{l.costNote}}</span></span>
+            <span style="display: flex; flex-direction: column; gap: 2px"><input class="ci" type="text" value="{{l.sale}}" aria-label="Продажа, сом"><a href="#" style="font-size: 11px; font-weight: 700; white-space: nowrap">{{l.saleHint}}</a></span>
+            <span style="font-weight: 700; color: #0B2A3C; white-space: nowrap">{{l.markup}}</span>
+            <button type="button" aria-label="Убрать строку" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #667085; font-size: 16px">✕</button>
+          </div>
+        </sc-for>
+      </div></div>
+    </section>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch">
+      <!-- 2026-10-16: оплата поставщику — по правилу денег вне смены (SPEC п. 7) -->
+      <section class="card" style="flex: 3 1 420px; gap: 10px">
+        <span style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><b style="font-size: 15px">Оплата поставщику</b><span style="font-size: 12px; color: #667085">долг поставщикам сейчас 3&nbsp;500&nbsp;сом</span></span>
+        <span role="group" aria-label="Способ оплаты" style="display: flex; flex-wrap: wrap; background: #F2F4F7; border-radius: 12px; padding: 3px; align-self: flex-start"><button type="button" class="seg on">Наличными — через кассу</button><button type="button" class="seg">Безнал / перевод</button><button type="button" class="seg">В долг</button></span>
+        <span style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end">
+          <span style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 4px"><span class="lbl">КАССА И СМЕНА</span><button type="button" class="in" style="text-align: left; font-weight: 600; color: #0B2A3C">Касса 1 · смена Кассир Тест открыта с 08:55 ▾</button></span>
+          <button type="button" class="b2" style="height: 42px; white-space: nowrap">Отправить на кассу</button>
+        </span>
+        <span style="font-size: 12px; color: #667085">Наличные проходят только через открытую смену — так касса сходится. Кассир подтвердит выдачу 12&nbsp;066&nbsp;сом в своей смене.</span>
+      </section>
+      <section class="card" style="flex: 2 1 300px; gap: 8px">
+        <span style="display: flex; justify-content: space-between; font-size: 13px; color: #475467">6 позиций · пришло 222 из 228 шт<b style="font-size: 18px; color: #0B2A3C; white-space: nowrap">12&nbsp;066&nbsp;сом</b></span>
+        <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #475467">Сумма по накладной <input class="ci" type="text" value="12 066" aria-label="Сумма по накладной" style="width: 96px; margin-left: auto"><span style="font-weight: 700; color: #0E7A3A; white-space: nowrap">✓ сходится</span></span>
+        <span style="font-size: 12px; color: #667085">По заказу 12&nbsp;300 · не пришло 6 Snickers (−330) · рост закупки Mars (+96)</span>
+        <span style="display: flex; gap: 8px; margin-top: auto"><button type="button" class="b2" style="flex: 1 1 0">Очистить</button><button type="button" class="b1" style="flex: 2 1 0">Провести</button></span>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: заказ №17 «Бишкек Дистрибьюшн» (как в «Закупках»): заказано на 12 300 сом, пришло на 12 066.
+    // Подсветка: не пришло (оранжевая рамка у «Пришло»), рост закупки (оранжевая рамка у «Закупка»).
+    const l = (name, ordered, qty, cost, sale, markup, extra) => Object.assign({
+      name, ordered: ordered + ' шт', qty, cost, sale, markup, note: '', noteColor: '#667085', costNote: '', saleHint: '',
+      qtyBorder: '#D0D5DD', costBorder: '#D0D5DD', bg: '#FFFFFF'
+    }, extra || {});
+    const lines = [
+      l('Пепси (ПЭТ) 1,5л', 24, '24', '120', '150', '25 %', { note: 'первая закупка — раньше цены не было' }),
+      l('Sprite Мохито 1л', 24, '24', '40', '80', '100 %'),
+      l('Mars 50г', 48, '48', '32', '39', '22 %', { costBorder: '#B54708', costNote: '▲ +2 (было 30)', saleHint: 'Поднять до 42?', bg: '#FFFAEB' }),
+      l('Snickers', 36, '30', '55', '70', '27 %', { qtyBorder: '#B54708', note: 'не пришло 6 шт', noteColor: '#B54708', bg: '#FFFAEB' }),
+      l('Fanta апельсин 1л', 24, '24', '45', '75', '67 %'),
+      l('Энергетик «Gorilla» ассорти 0,45', 72, '72', '55', '85', '55 %')
+    ];
+    return { lines };
+  }
+}
+</script>
+</body>
+</html>

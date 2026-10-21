@@ -85,7 +85,7 @@
                              Foreground="{DynamicResource BrushText}"/>
 
                   <StackPanel Grid.Row="2" Spacing="2" HorizontalAlignment="Center">
-                    <TextBlock Text="{Binding PriceLine}"
+                    <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}, ConverterParameter=som}"
                                FontSize="{DynamicResource CatalogTilePriceSize}"
                                FontWeight="Bold"
                                HorizontalAlignment="Center"

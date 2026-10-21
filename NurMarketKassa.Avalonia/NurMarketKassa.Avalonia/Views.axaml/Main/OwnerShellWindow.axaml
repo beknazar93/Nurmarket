@@ -5,10 +5,9 @@
         Title="NurMarket Владелец"
         Height="860"
         Width="1360"
-        MinWidth="1080"
-        MinHeight="660"
+        MinWidth="1000"
+        MinHeight="560"
         WindowStartupLocation="CenterScreen"
-        FontFamily="Segoe UI, Inter, Noto Sans"
         Background="{DynamicResource BrushWindowBackdrop}"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
@@ -18,7 +17,9 @@
          Разделы открываются теми же окнами, что раньше открывались из меню кассы. Сводка и
          последние продажи берутся с сервера NurCRM и обновляются сами — продажа на кассе
          появляется здесь через несколько секунд. Оформление — как у кассы: своя шапка вместо
-         системной рамки, иконки меню из SideMenuView, цвета только из темы (светлая и тёмная). -->
+         системной рамки, иконки меню из SideMenuView, цвета только из темы (светлая и тёмная).
+         2026-10-18, этап О3: свой шрифт окна «Segoe UI, Inter, Noto Sans» убран — шрифт, как у кассы, из темы (AppFontFamily:
+         вшитый Noto Sans, решение владельца; стиль Window в App.axaml). -->
     <Window.Resources>
         <StreamGeometry x:Key="HomeIcon">M3,11 L12,3 L21,11 V21 H15 V15 H9 V21 H3 Z</StreamGeometry>
         <StreamGeometry x:Key="WarehouseIcon">M4,7 L12,3 L20,7 V17 L12,21 L4,17 Z M4,7 L12,11 L20,7 M12,11 V21</StreamGeometry>
@@ -29,6 +30,8 @@
         <!-- «Аналитика»: оси и линия тренда с точками (2026-09-27). -->
         <StreamGeometry x:Key="AnalyticsIcon">M4,4 V20 H20 M7.5,15.5 L11,11.5 L14,14 L19,8 M11,11.5 V11.51 M14,14 V14.01 M19,8 V8.01</StreamGeometry>
         <StreamGeometry x:Key="SalaryIcon">M2,6 H22 V18 H2 Z M12,9 A3,3 0 1 1 11.99,9 M5,9 V9.01 M19,15 V15.01</StreamGeometry>
+        <!-- 2026-10-20, живой аудит (меню, МЕЛОЧЬ): у «Поставщиков» был значок «Клиентов» — свой, грузовик. -->
+        <StreamGeometry x:Key="SuppliersIcon">M2,6 H14 V17 H2 Z M14,9 H18 L21,12.5 V17 H14 M6,17 A2,2 0 1 1 5.99,17 M17,17 A2,2 0 1 1 16.99,17</StreamGeometry>
         <StreamGeometry x:Key="ClientsIcon">M9,11 A4,4 0 1 1 8.99,11 M3,20 A6,6 0 0 1 15,20 M17,11 A3,3 0 1 1 16.99,11 M17,14 A5,5 0 0 1 21,19</StreamGeometry>
         <StreamGeometry x:Key="CrmIcon">M4,5 H20 V16 H13 L9,20 V16 H4 Z</StreamGeometry>
         <!-- 2026-10-05: WhatsApp — трубка в облачке; «Воронка» — сужающиеся этапы. -->
@@ -73,13 +76,263 @@
         <StreamGeometry x:Key="SearchIcon">M10.5,4 A6.5,6.5 0 1 1 10.49,4 M15.5,15.5 L20,20</StreamGeometry>
         <StreamGeometry x:Key="ChevronDownIcon">M6,9 L12,15 L18,9</StreamGeometry>
         <StreamGeometry x:Key="SiteSettingsIcon">M12,3 A9,9 0 1 1 11.99,3 M3,12 H21 M12,3 A14,14 0 0 1 12,21 M12,3 A14,14 0 0 0 12,21</StreamGeometry>
+        <!-- 2026-10-18, этап О2 (макет OwnerNav): «Помощь» — знак вопроса в круге; «« / »» — свернуть и развернуть колонку пунктов. -->
+        <StreamGeometry x:Key="HelpIcon">M12,3 A9,9 0 1 1 11.99,3 M9.5,9 A2.5,2.5 0 1 1 13,11.3 C12.4,11.6 12,12.2 12,13 M12,17 V17.01</StreamGeometry>
+        <!-- Клиенты в тёмной колонке — значок макета (двое людей): ClientsIcon в 22 точках читался как «очки». -->
+        <StreamGeometry x:Key="RailClientsIcon">M9,11 A4,4 0 1 0 9,3 A4,4 0 0 0 9,11 M2,21 A7,7 0 0 1 16,21 M17,11 A3,3 0 1 0 17,5 M22,21 A6,6 0 0 0 18,15.4</StreamGeometry>
+        <StreamGeometry x:Key="CollapseNavIcon">M11,6 L5,12 L11,18 M19,6 L13,12 L19,18</StreamGeometry>
+        <StreamGeometry x:Key="ExpandNavIcon">M5,6 L11,12 L5,18 M13,6 L19,12 L13,18</StreamGeometry>
+        <!-- 2026-10-18, этап О2: цвета тёмной колонки групп. Здесь — значения темы NurMarket (светлая); по теме их пересчитывает
+             ApplyRailBrushes (OwnerShellWindow.Nav.cs): светлые темы — цвет текста темы, тёмные — темнее фона окна. -->
+        <SolidColorBrush x:Key="OwnerRailBg" Color="#0B2A3C"/>
+        <SolidColorBrush x:Key="OwnerRailFg" Color="#C7D2DB"/>
+        <SolidColorBrush x:Key="OwnerRailHoverBg" Color="#1FFFFFFF"/>
+        <SolidColorBrush x:Key="OwnerRailHoverFg" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="OwnerRailActiveBg" Color="#29FFD600"/>
+        <SolidColorBrush x:Key="OwnerRailActiveFg" Color="#FFD600"/>
+        <SolidColorBrush x:Key="OwnerRailAvatarBg" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="OwnerRailAvatarFg" Color="#0B2A3C"/>
+        <!-- 2026-10-18, вид меню на выбор: «Вид» внизу меню — три колонки макета; ☰ — открыть меню (вид «Бургер»);
+             затемнение под выехавшим меню (пересчёт по теме — ApplyRailBrushes). -->
+        <StreamGeometry x:Key="MenuStyleIcon">M4,4 H20 A1,1 0 0 1 21,5 V19 A1,1 0 0 1 20,20 H4 A1,1 0 0 1 3,19 V5 A1,1 0 0 1 4,4 Z M8,4 V20 M12,8 H17 M12,12 H17 M12,16 H15</StreamGeometry>
+        <StreamGeometry x:Key="BurgerIcon">M4,7 H20 M4,12 H20 M4,17 H20</StreamGeometry>
+        <SolidColorBrush x:Key="OwnerScrim" Color="#730B1A26"/>
     </Window.Resources>
 
     <Window.Styles>
-        <!-- Меню -->
+        <!-- Меню. 2026-10-18, этап О2 (макет OwnerNav): тёмная колонка групп (railGroup) и колонка пунктов выбранной группы (nav).
+             Подписи групп — обычными буквами (правило аудита 9), у каждой кнопки есть имя для экранного диктора. -->
+        <Style Selector="Button.railGroup">
+            <Setter Property="Width" Value="68"/>
+            <Setter Property="Padding" Value="0,7,0,6"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource OwnerRailFg}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.railGroup:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.railGroup:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource OwnerRailHoverBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource OwnerRailHoverFg}"/>
+        </Style>
+        <Style Selector="Button.railGroup:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource OwnerRailHoverBg}"/>
+        </Style>
+        <Style Selector="Button.railGroup.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource OwnerRailActiveBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource OwnerRailActiveFg}"/>
+        </Style>
+        <Style Selector="Button.railGroup Path.railIcon">
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="1.9"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Stroke" Value="{DynamicResource OwnerRailFg}"/>
+        </Style>
+        <Style Selector="Button.railGroup:pointerover Path.railIcon">
+            <Setter Property="Stroke" Value="{DynamicResource OwnerRailHoverFg}"/>
+        </Style>
+        <Style Selector="Button.railGroup.active Path.railIcon">
+            <Setter Property="Stroke" Value="{DynamicResource OwnerRailActiveFg}"/>
+        </Style>
+        <Style Selector="Button.railGroup TextBlock.railLabel">
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="LineHeight" Value="12.5"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxWidth" Value="66"/>
+        </Style>
+        <!-- 2026-10-18, ревью О2: низкое окно (1366×768 при 125 % — ~580 точек) — колонка групп плотнее, совсем низкое — только
+             значки (ApplyRailDensity в OwnerShellWindow.Nav.cs). -->
+        <Style Selector="Border.dense Button.railGroup">
+            <Setter Property="Padding" Value="0,6,0,5"/>
+        </Style>
+        <!-- 2026-10-18: ступень плотнее («tight») — после кнопки «Вид» внизу колонки. -->
+        <Style Selector="Border.tight Button.railGroup">
+            <Setter Property="Padding" Value="0,4,0,3"/>
+        </Style>
+        <Style Selector="Border.iconsOnly Button.railGroup">
+            <Setter Property="Padding" Value="0,7"/>
+        </Style>
+        <Style Selector="Border.iconsOnly Button.railGroup TextBlock.railLabel">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <!-- Кнопка «»» в тёмной колонке (колонка пунктов свёрнута). -->
+        <Style Selector="Button.railMini">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource OwnerRailHoverBg}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.railMini:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.railMini:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource OwnerRailHoverBg}"/>
+        </Style>
+        <Style Selector="Button.railMini Path">
+            <Setter Property="Width" Value="14"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="2"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+            <Setter Property="Stroke" Value="{DynamicResource OwnerRailFg}"/>
+        </Style>
+
+        <!-- Пункт колонки пунктов: высота от 44, выбранный — светло-жёлтый фон и полоса акцента слева. -->
         <Style Selector="Button.nav">
-            <Setter Property="Height" Value="40"/>
-            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.nav:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.nav:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <!-- 2026-10-18, вид меню на выбор: выбранный пункт во всех трёх видах — тёмно-синяя заливка (цвет текста темы) и текст
+             цветом карточки, как выбранный период (правило аудита 2); было светло-жёлтое BrushAccentSoft. -->
+        <Style Selector="Button.nav.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+        </Style>
+        <Style Selector="Button.nav Border.navBar">
+            <Setter Property="Width" Value="4"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="CornerRadius" Value="10,0,0,10"/>
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="Button.nav.active Border.navBar">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <!-- Подпись группы над пунктами и над найденным при поиске — обычными буквами. -->
+        <Style Selector="TextBlock.navCaption">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Margin" Value="12,10,0,4"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <!-- ««: свернуть колонку пунктов. -->
+        <Style Selector="Button.navCollapse">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.navCollapse:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.navCollapse:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+        <Style Selector="Button.navCollapse Path">
+            <Setter Property="Width" Value="14"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="2"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+            <Setter Property="Stroke" Value="{DynamicResource BrushTextMuted}"/>
+        </Style>
+        <!-- 2026-10-19, вид меню «Вкладки» (OwnerShellWindow.Tabs.cs): пункт группы — вкладка 42 над разделом. Выбранная —
+             тёмно-синий текст и подчёркивание цветом текста темы (правило 2), без второй тёмной плашки рядом с колонкой групп. -->
+        <Style Selector="Button.ownerTab">
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="Padding" Value="14,0,14,0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0,0,0,3"/>
+            <Setter Property="CornerRadius" Value="8,8,0,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ownerTab:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.ownerTab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.ownerTab:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.ownerTab.active">
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style Selector="Button.ownerTab.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.ownerTab.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+        <Style Selector="Button.ownerTab Path.tabChevron">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="2"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Stroke" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <!-- 2026-10-18, вид меню «Старое» (как в выпуске 1.17.58): пункт 40 со значком, заголовок группы сворачивает её,
+             число у «Заказов с сайта» и «Проката» — плашкой. Выбранный пункт — тёмно-синий, как в новом виде. -->
+        <!-- Высота от 40: длинная подпись (ky, uz, tr) переносится второй строкой, а не обрезается «…» (было Height 40). -->
+        <Style Selector="Button.navOld">
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Margin" Value="0,1"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -91,23 +344,24 @@
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        <Style Selector="Button.nav:pointerover">
+        <Style Selector="Button.navOld:pointerover">
             <Setter Property="RenderTransform" Value="scale(1)"/>
         </Style>
-        <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Style Selector="Button.navOld:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
-        <Style Selector="Button.nav:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Style Selector="Button.navOld:pressed /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
         </Style>
-        <Style Selector="Button.nav.active /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        <Style Selector="Button.navOld.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
         </Style>
-        <Style Selector="Button.nav.active">
+        <Style Selector="Button.navOld.active">
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
-        <Style Selector="Button.nav Path.navIcon">
+        <Style Selector="Button.navOld Path.navIcon">
             <Setter Property="Width" Value="18"/>
             <Setter Property="Height" Value="18"/>
             <Setter Property="Stretch" Value="Uniform"/>
@@ -117,10 +371,12 @@
             <Setter Property="Stroke" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
-        <Style Selector="Button.nav:pointerover Path.navIcon, Button.nav.active Path.navIcon">
+        <Style Selector="Button.navOld:pointerover Path.navIcon">
             <Setter Property="Stroke" Value="{DynamicResource BrushText}"/>
         </Style>
-        <!-- Число новых заказов с сайта у пункта меню (2026-09-29). -->
+        <Style Selector="Button.navOld.active Path.navIcon">
+            <Setter Property="Stroke" Value="{DynamicResource BrushPanel}"/>
+        </Style>
         <Style Selector="Border.navBadge">
             <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
             <Setter Property="CornerRadius" Value="9"/>
@@ -133,11 +389,9 @@
         <Style Selector="Border.navBadge TextBlock">
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
-        <!-- 2026-10-06: заголовок группы меню — нажатие сворачивает и разворачивает группу. -->
         <Style Selector="Button.navGroupBtn">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -147,6 +401,9 @@
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.navGroupBtn:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
         </Style>
         <Style Selector="Button.navGroupBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
@@ -170,26 +427,20 @@
             <Setter Property="Stroke" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
-        <!-- 2026-10-06: поиск раздела в меню (Ctrl+K). -->
+
+        <!-- 2026-10-06: поиск раздела в меню (Ctrl+K); 2026-10-18, этап О2 — внизу колонки пунктов. -->
         <Style Selector="TextBox.navSearch">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="Padding" Value="8,9,4,9"/>
-            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="MinHeight" Value="38"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="TextBox.navSearch:pointerover /template/ Border#PART_BorderElement, TextBox.navSearch:focus /template/ Border#PART_BorderElement">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        <Style Selector="TextBlock.navGroup">
-            <Setter Property="FontSize" Value="11"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="LetterSpacing" Value="0.6"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-            <Setter Property="Margin" Value="12,16,0,6"/>
         </Style>
 
         <!-- Кнопки-иконки и кнопки окна -->
@@ -263,14 +514,17 @@
             <Setter Property="CornerRadius" Value="11"/>
             <Setter Property="Padding" Value="3"/>
         </Style>
+        <!-- 2026-10-18, редизайн сводки (этап О1): у цвета одна роль — выбранный период тёмно-синий (цвет текста темы)
+             с белым текстом, как modal-seg кассы; жёлтый остаётся только у «сегодня» на графике и у главной кнопки. -->
         <Style Selector="Button.seg">
-            <Setter Property="Padding" Value="14,6"/>
-            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="MinHeight" Value="34"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
@@ -282,8 +536,49 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="Button.seg.active /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+        </Style>
+        <Style Selector="Button.seg.active">
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <!-- 2026-10-18, этап О1: «Спросить Нур Советника» — одна главная (жёлтая) кнопка сводки.
+             2026-10-19, этап О10 (аудит: «единственная синяя/жёлтая кнопка сводки — не главное действие»): обычная обводка,
+             как sec-outline разделов; цвет — текста темы (в светлой и тёмной), заливка — только при наведении. -->
+        <Style Selector="Button.askAi">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.askAi:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.askAi:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+        <Style Selector="Button.askAi:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.askAi Path">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="1.8"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+            <Setter Property="Stroke" Value="{DynamicResource BrushText}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
         <!-- Карточки -->
@@ -296,8 +591,8 @@
             <Setter Property="BoxShadow" Value="0 1 3 0 #0F000000"/>
         </Style>
         <Style Selector="TextBlock.cardTitle">
-            <Setter Property="FontSize" Value="15"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
@@ -306,23 +601,32 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
+        <!-- 2026-10-18, этап О1: показатель — название, крупное число (цифры одной ширины) и строка сравнения;
+             цветные плитки-значки убраны (у цвета одна роль: красный/зелёный — только стрелки изменений). -->
         <Style Selector="TextBlock.kpiLabel">
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
         <Style Selector="TextBlock.kpiValue">
-            <Setter Property="FontSize" Value="26"/>
-            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="30"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="Margin" Value="0,10,0,8"/>
+            <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}"/>
+            <Setter Property="Margin" Value="0,6,0,6"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
-        <Style Selector="Border.kpiIcon">
-            <Setter Property="Width" Value="38"/>
-            <Setter Property="Height" Value="38"/>
-            <Setter Property="CornerRadius" Value="11"/>
+        <Style Selector="TextBlock.deltaLine">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <!-- Числа в списках сводки — цифры одной ширины. -->
+        <Style Selector="TextBlock.num">
+            <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}"/>
         </Style>
         <!-- 2026-10-04, редизайн под Android-телефон (класс phone ставит OwnerShellWindow.Phone.cs, в Windows его
              нет): в карточке 190 точек «71 818,22 сом» обрезалось до «71 818,...», «Средний чек» уходил под значок. -->
@@ -338,55 +642,30 @@
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
-        <Style Selector=".phone Border.kpiIcon">
-            <Setter Property="Width" Value="28"/>
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Margin" Value="6,0,0,0"/>
+        <Style Selector=".phone TextBlock.deltaLine">
+            <Setter Property="FontSize" Value="12"/>
         </Style>
-        <Style Selector="Border.kpiIcon Path">
-            <Setter Property="Width" Value="19"/>
-            <Setter Property="Height" Value="19"/>
-            <Setter Property="Stretch" Value="Uniform"/>
-            <Setter Property="StrokeThickness" Value="1.9"/>
-            <Setter Property="StrokeLineCap" Value="Round"/>
-            <Setter Property="StrokeJoin" Value="Round"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-        <Style Selector=".phone Border.kpiIcon Path">
-            <Setter Property="Width" Value="15"/>
-            <Setter Property="Height" Value="15"/>
-        </Style>
-        <Style Selector="Border.delta">
-            <Setter Property="CornerRadius" Value="7"/>
-            <Setter Property="Padding" Value="7,2"/>
+        <!-- 2026-10-18, этап О1: строка блока «Требует внимания» — точка-статус, заголовок, пояснение, действие справа. -->
+        <Style Selector="Button.attnRow">
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        <Style Selector="Border.delta TextBlock">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        <Style Selector="Button.attnRow:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
         </Style>
-        <Style Selector="Border.delta.up">
-            <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+        <Style Selector="Button.attnRow:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         </Style>
-        <Style Selector="Border.delta.up TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
-        </Style>
-        <Style Selector="Border.delta.down">
-            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
-        </Style>
-        <Style Selector="Border.delta.down TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
-        </Style>
-        <Style Selector="TextBlock.deltaHint">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="8,0,0,0"/>
-            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        <Style Selector="Border.attnRow">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12,10"/>
         </Style>
         <Style Selector="Button.link">
             <Setter Property="Background" Value="Transparent"/>
@@ -434,30 +713,141 @@
                 Background="{DynamicResource BrushOrnamentBand}" IsHitTestVisible="False"/>
 
         <!-- ============================== Меню ============================== -->
-        <Border Grid.Row="1" Grid.Column="0" Background="{DynamicResource BrushPanel}"
+        <!-- 2026-10-18, этап О2 (макет OwnerNav): две колонки — тёмная колонка групп (76) и колонка пунктов выбранной группы (232).
+             Группы, пункты, права и тариф — те же (BuildNavigation); «««» сворачивает колонку пунктов, на экране до 1366 точек она
+             сворачивается сама, когда открыт раздел (OwnerShellWindow.Nav.cs). Сама кнопка-«меню» — Border в колонке 0, строке 1:
+             её ищет телефонный режим (OwnerShellWindow.Phone.cs). -->
+        <Border Grid.Row="1" Grid.Column="0" x:Name="NavSidebar">
+            <Grid x:Name="NavSidebarGrid" ColumnDefinitions="76,*">
+                <!-- Тёмная колонка групп -->
+                <Border x:Name="NavRail" Background="{DynamicResource OwnerRailBg}">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" x:Name="LogoGrid" Spacing="8" Margin="0,16,0,10" Background="Transparent"
+                                    PointerPressed="DragArea_PointerPressed">
+                            <Border x:Name="LogoImage" Width="44" Height="44" CornerRadius="12" ClipToBounds="True" HorizontalAlignment="Center">
+                                <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png" Stretch="UniformToFill"/>
+                            </Border>
+                            <Button x:Name="ExpandNavButton" Classes="railMini" Click="ExpandNav_Click" IsVisible="False">
+                                <Path Data="{StaticResource ExpandNavIcon}"/>
+                            </Button>
+                            <!-- 2026-10-19, вид «Вкладки»: колонки пунктов нет — поиск раздела (тот же, что Ctrl+K) значком под логотипом. -->
+                            <Button x:Name="RailSearchButton" Classes="railMini" Width="44" Height="32" Click="RailSearch_Click" IsVisible="False">
+                                <Path Data="{StaticResource SearchIcon}" Width="16" Height="16"/>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Внизу: тема, выход на рабочий стол (было «Система → Выйти»), пользователь. -->
+                        <StackPanel DockPanel.Dock="Bottom" Spacing="2" Margin="0,6,0,14" HorizontalAlignment="Center">
+                            <Button x:Name="ThemeButton" Classes="railGroup" Click="Theme_Click">
+                                <StackPanel Spacing="3">
+                                    <Path x:Name="ThemeIconPath" Classes="railIcon" Width="20" Height="20" Data="{StaticResource MoonIcon}"/>
+                                    <TextBlock x:Name="ThemeLabel" Classes="railLabel"/>
+                                </StackPanel>
+                            </Button>
+                            <!-- 2026-10-18: вид меню на выбор (новое / бургер ☰ / старое) — окно с карточками, рядом с «Тема». -->
+                            <Button x:Name="MenuStyleButton" Classes="railGroup" Click="MenuStyle_Click">
+                                <StackPanel Spacing="3">
+                                    <Path Classes="railIcon" Width="20" Height="20" Data="{StaticResource MenuStyleIcon}"/>
+                                    <TextBlock x:Name="MenuStyleLabel" Classes="railLabel"/>
+                                </StackPanel>
+                            </Button>
+                            <!-- 2026-09-29, владелец: «выйти из учётной записи» — в Настройки → Аккаунт,
+                                 здесь вместо него «Выйти на рабочий стол» (вход при этом сохраняется). -->
+                            <Button x:Name="ExitButton" Classes="railGroup" Click="ExitToDesktop_Click">
+                                <StackPanel Spacing="3">
+                                    <Path Classes="railIcon" Width="20" Height="20" Data="{StaticResource ExitIcon}"/>
+                                    <TextBlock x:Name="ExitLabel" Classes="railLabel"/>
+                                </StackPanel>
+                            </Button>
+                            <Border x:Name="AvatarBadge" Width="40" Height="40" CornerRadius="20" Margin="0,6,0,0" HorizontalAlignment="Center"
+                                    Background="{DynamicResource OwnerRailAvatarBg}">
+                                <TextBlock x:Name="AvatarText" FontSize="13" FontWeight="Bold"
+                                           Foreground="{DynamicResource OwnerRailAvatarFg}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </StackPanel>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                      BringIntoViewOnFocusChange="False">
+                            <StackPanel x:Name="RailPanel" Spacing="4" HorizontalAlignment="Center"/>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+
+                <!-- Колонка пунктов выбранной группы -->
+                <Border Grid.Column="1" x:Name="NavItemsColumn" Background="{DynamicResource BrushPanel}"
+                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,1,0">
+                    <DockPanel x:Name="NavItemsDock" Margin="14,18,14,14">
+                        <!-- Компания и тариф; «««» — свернуть колонку. -->
+                        <Grid DockPanel.Dock="Top" x:Name="CompanyCard" ColumnDefinitions="*,Auto" Margin="10,0,0,10"
+                              Background="Transparent" PointerPressed="DragArea_PointerPressed">
+                            <StackPanel Spacing="3" VerticalAlignment="Top">
+                                <TextBlock x:Name="CompanyNameText" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" MaxLines="2"
+                                           TextTrimming="CharacterEllipsis" Foreground="{DynamicResource BrushText}"/>
+                                <TextBlock x:Name="TariffText" FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" x:Name="CollapseButton" Classes="navCollapse" Margin="8,0,0,0"
+                                    VerticalAlignment="Top" Click="Collapse_Click">
+                                <Path Data="{StaticResource CollapseNavIcon}"/>
+                            </Button>
+                        </Grid>
+
+                        <!-- 2026-10-06, владелец: «займись редизайном и удобством админки» — поиск раздела по названию:
+                             Ctrl+K из любого раздела, Enter открывает первый найденный, Esc очищает (OwnerShellWindow.NavSearch.cs).
+                             2026-10-18, этап О2: внизу колонки пунктов, ищет по всем группам. -->
+                        <Border DockPanel.Dock="Bottom" x:Name="NavSearchBox" Margin="0,10,0,0" CornerRadius="10" BorderThickness="1"
+                                Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Path Classes="btnIcon" Width="15" Height="15" Margin="11,0,0,0" VerticalAlignment="Center"
+                                      Data="{StaticResource SearchIcon}"/>
+                                <TextBox Grid.Column="1" x:Name="NavSearchText" Classes="navSearch"/>
+                                <Border Grid.Column="2" x:Name="NavSearchKeyHint" Margin="0,0,8,0" Padding="6,1,6,2" CornerRadius="5"
+                                        VerticalAlignment="Center" Background="{DynamicResource BrushPanel}"
+                                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" IsHitTestVisible="False">
+                                    <TextBlock Text="Ctrl+K" FontSize="10.5" Foreground="{DynamicResource BrushTextMuted}"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock DockPanel.Dock="Top" x:Name="NavGroupTitle" Classes="navCaption" Margin="12,4,0,6"/>
+
+                        <!-- 2026-10-05, владелец: «после того как пролистаешь, кнопка слева не нажимается, а уезжает вниз или вверх».
+                             Нажатая кнопка получала фокус (а при возврате из раздела фокус возвращался прежней кнопке), меню
+                             прокручивалось к ней, и под курсором оказывалось другое место — первое нажатие терялось. -->
+                        <ScrollViewer x:Name="NavItemsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                      BringIntoViewOnFocusChange="False">
+                            <StackPanel x:Name="NavPanel"/>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- 2026-10-18, вид меню «Старое» — меню выпуска 1.17.58: логотип с «Владелец» и ☰ (свернуть до значков), карточка
+             компании, поиск вверху, все группы и пункты списком, внизу пользователь, «Вид», тема и выход. Поиск (NavSearchBox) и
+             список пунктов (NavPanel) — те же, что в новом виде: переносятся сюда (OwnerShellWindow.MenuStyle.cs). -->
+        <Border Grid.Row="1" Grid.Column="0" x:Name="OldNavSidebar" IsVisible="False" Background="{DynamicResource BrushPanel}"
                 BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,1,0">
             <DockPanel>
-                <!-- Логотип -->
-                <Grid DockPanel.Dock="Top" x:Name="LogoGrid" Margin="18,18,12,14" ColumnDefinitions="Auto,*,Auto"
+                <Grid DockPanel.Dock="Top" x:Name="OldLogoGrid" Margin="18,18,12,14" ColumnDefinitions="Auto,*,Auto"
                       Background="Transparent" PointerPressed="DragArea_PointerPressed">
-                    <Border x:Name="LogoImage" Width="40" Height="40" CornerRadius="11" ClipToBounds="True">
+                    <Border x:Name="OldLogoImage" Width="40" Height="40" CornerRadius="11" ClipToBounds="True">
                         <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png" Stretch="UniformToFill"/>
                     </Border>
-                    <StackPanel Grid.Column="1" x:Name="LogoTextPanel" Margin="11,0,0,0" VerticalAlignment="Center" Spacing="3">
+                    <StackPanel Grid.Column="1" x:Name="OldLogoTextPanel" Margin="11,0,0,0" VerticalAlignment="Center" Spacing="3">
                         <TextBlock Text="NurMarket" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                         <Border HorizontalAlignment="Left" Background="{DynamicResource BrushAccent}" CornerRadius="6" Padding="7,1,7,2">
                             <TextBlock x:Name="OwnerBadgeText" FontSize="11" FontWeight="SemiBold"
                                        Foreground="{DynamicResource BrushAccentForeground}"/>
                         </Border>
                     </StackPanel>
-                    <!-- Бургер: меню сворачивается до иконок (2026-09-26, просьба владельца). -->
-                    <Button Grid.Column="2" x:Name="CollapseButton" Classes="iconBtn" Click="Collapse_Click" VerticalAlignment="Center">
-                        <Path Classes="btnIcon" Data="M4,7 H20 M4,12 H20 M4,17 H20"/>
+                    <Button Grid.Column="2" x:Name="OldCollapseButton" Classes="iconBtn" Click="OldCollapse_Click" VerticalAlignment="Center">
+                        <Path Classes="btnIcon" Data="{StaticResource BurgerIcon}"/>
                     </Button>
                 </Grid>
 
-                <!-- Компания -->
-                <Border DockPanel.Dock="Top" x:Name="CompanyCard" Margin="14,0,14,4" Padding="12,10" CornerRadius="12"
+                <Border DockPanel.Dock="Top" x:Name="OldCompanyCard" Margin="14,0,14,4" Padding="12,10" CornerRadius="12"
                         Background="{DynamicResource BrushInputAlt}"
                         BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
                     <Grid ColumnDefinitions="Auto,*">
@@ -466,114 +856,105 @@
                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
-                            <TextBlock x:Name="CompanyNameText" FontSize="13.5" FontWeight="SemiBold"
+                            <TextBlock x:Name="OldCompanyNameText" FontSize="13.5" FontWeight="SemiBold"
                                        Foreground="{DynamicResource BrushText}" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock x:Name="TariffText" FontSize="11.5"
+                            <!-- 2026-10-20, живой аудит (меню, МЕЛОЧЬ): «Тариф «Стандарт» · до 01.…» обрезался — переносим строкой,
+                                 полный текст и в подсказке карточки. -->
+                            <TextBlock x:Name="OldTariffText" FontSize="11.5" TextWrapping="Wrap" MaxLines="2"
                                        Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <!-- 2026-10-06, владелец: «займись редизайном и удобством админки» — в меню 30+ разделов, поиск по названию:
-                     Ctrl+K из любого раздела, Enter открывает первый найденный, Esc очищает (OwnerShellWindow.NavSearch.cs). -->
-                <Border DockPanel.Dock="Top" x:Name="NavSearchBox" Margin="14,8,14,2" CornerRadius="10" BorderThickness="1"
-                        Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}">
-                    <Grid ColumnDefinitions="Auto,*,Auto">
-                        <Path Classes="btnIcon" Width="15" Height="15" Margin="11,0,0,0" VerticalAlignment="Center"
-                              Data="{StaticResource SearchIcon}"/>
-                        <TextBox Grid.Column="1" x:Name="NavSearchText" Classes="navSearch"/>
-                        <Border Grid.Column="2" x:Name="NavSearchKeyHint" Margin="0,0,8,0" Padding="6,1,6,2" CornerRadius="5"
-                                VerticalAlignment="Center" Background="{DynamicResource BrushPanel}"
-                                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" IsHitTestVisible="False">
-                            <TextBlock Text="Ctrl+K" FontSize="10.5" Foreground="{DynamicResource BrushTextSoft}"/>
-                        </Border>
-                    </Grid>
-                </Border>
+                <Decorator DockPanel.Dock="Top" x:Name="OldNavSearchSlot" Margin="14,8,14,2"/>
 
-                <!-- Пользователь: тема и выход всегда видны -->
-                <Border DockPanel.Dock="Bottom" x:Name="UserFooter" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0"
+                <Border DockPanel.Dock="Bottom" x:Name="OldUserFooter" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0"
                         Padding="14,12">
-                    <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                        <Border Width="38" Height="38" CornerRadius="19" Background="{DynamicResource BrushAccent}">
-                            <TextBlock x:Name="AvatarText" FontSize="14" FontWeight="Bold"
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                        <Border x:Name="OldAvatarBadge" Width="38" Height="38" CornerRadius="19" Background="{DynamicResource BrushAccent}">
+                            <TextBlock x:Name="OldAvatarText" FontSize="14" FontWeight="Bold"
                                        Foreground="{DynamicResource BrushAccentForeground}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <StackPanel Grid.Column="1" x:Name="UserInfoPanel" Margin="10,0,6,0" VerticalAlignment="Center" Spacing="1">
-                            <TextBlock x:Name="UserNameText" FontSize="13" FontWeight="SemiBold"
+                        <StackPanel Grid.Column="1" x:Name="OldUserInfoPanel" Margin="10,0,2,0" VerticalAlignment="Center" Spacing="1">
+                            <TextBlock x:Name="OldUserNameText" FontSize="13" FontWeight="SemiBold"
                                        Foreground="{DynamicResource BrushText}" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock x:Name="UserRoleText" FontSize="11.5"
+                            <!-- 2026-10-20: «Вход через …» обрезался — перенос строкой и подсказка (OwnerShellWindow.MenuStyle.cs). -->
+                            <TextBlock x:Name="OldUserRoleText" FontSize="11.5" TextWrapping="Wrap" MaxLines="2"
                                        Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
-                        <Button Grid.Column="2" x:Name="ThemeButton" Classes="iconBtn" Click="Theme_Click">
-                            <Path x:Name="ThemeIconPath" Classes="btnIcon" Data="{StaticResource MoonIcon}"/>
+                        <Button Grid.Column="2" x:Name="OldMenuStyleButton" Classes="iconBtn" Width="32" Click="MenuStyle_Click">
+                            <Path Classes="btnIcon" Data="{StaticResource MenuStyleIcon}"/>
                         </Button>
-                        <!-- 2026-09-29, владелец: «выйти из учётной записи» — в Настройки → Аккаунт,
-                             здесь вместо него «Выйти на рабочий стол» (вход при этом сохраняется). -->
-                        <Button Grid.Column="3" x:Name="ExitButton" Classes="iconBtn" Click="ExitToDesktop_Click">
+                        <Button Grid.Column="3" x:Name="OldThemeButton" Classes="iconBtn" Width="32" Click="Theme_Click">
+                            <Path x:Name="OldThemeIconPath" Classes="btnIcon" Data="{StaticResource MoonIcon}"/>
+                        </Button>
+                        <Button Grid.Column="4" x:Name="OldExitButton" Classes="iconBtn" Width="32" Click="ExitToDesktop_Click">
                             <Path Classes="btnIcon" Data="{StaticResource ExitIcon}"/>
                         </Button>
                     </Grid>
                 </Border>
 
-                <!-- 2026-10-02, владелец: «уведомление об окончании и приближении срока проката». Карточка
-                     в меню: разделы открываются поверх правой части окна, а меню видно всегда. -->
-                <Border DockPanel.Dock="Bottom" x:Name="RentalAlertCard" IsVisible="False" Margin="12,0,12,10"
-                        Padding="12,10" CornerRadius="12" BorderThickness="1"
-                        Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}">
-                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
-                        <TextBlock x:Name="RentalAlertTitle" FontSize="13" FontWeight="Bold" TextWrapping="Wrap"
-                                   Foreground="{DynamicResource BrushText}"/>
-                        <Button Grid.Column="1" x:Name="RentalAlertClose" Classes="iconBtn" Width="26" Height="26" Margin="6,-4,-6,0"
-                                VerticalAlignment="Top" Click="RentalAlertClose_Click">
-                            <Path Classes="btnIcon" Width="12" Height="12" Data="{StaticResource CloseIcon}"/>
-                        </Button>
-                        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" x:Name="RentalAlertText" FontSize="12" Margin="0,4,0,8"
-                                   TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
-                        <Button Grid.Row="2" Grid.ColumnSpan="2" x:Name="RentalAlertOpen" Classes="link" Padding="0"
-                                Click="RentalAlertOpen_Click">
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <TextBlock x:Name="RentalAlertOpenText" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                <Path Classes="btnIcon" Width="12" Height="12" Data="{StaticResource ChevronRightIcon}"
-                                      VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-                    </Grid>
-                </Border>
-
-                <!-- 2026-10-05, владелец: «после того как пролистаешь, кнопка слева не нажимается, а уезжает вниз или вверх».
-                     Нажатая кнопка получала фокус (а при возврате из раздела фокус возвращался прежней кнопке), меню
-                     прокручивалось к ней, и под курсором оказывалось другое место — первое нажатие терялось. -->
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              BringIntoViewOnFocusChange="False">
-                    <StackPanel x:Name="NavPanel" Margin="12,2,12,12"/>
-                </ScrollViewer>
+                <ScrollViewer x:Name="OldNavScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              BringIntoViewOnFocusChange="False"/>
             </DockPanel>
         </Border>
 
+        <!-- 2026-10-18, вид меню «Бургер ☰»: затемнение под выехавшим меню (щелчок — закрыть). Само меню — NavSidebar поверх
+             правой части (Grid.ColumnSpan и ZIndex ставит ApplyBurgerLayout). -->
+        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" x:Name="BurgerScrim" IsVisible="False" ZIndex="30"
+                Background="{DynamicResource OwnerScrim}" PointerPressed="BurgerScrim_PointerPressed"/>
+
         <!-- ============================== Сводка ============================== -->
-        <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,*">
+        <!-- 2026-10-19: строка 0 — полоса вкладок вида меню «Вкладки» (в остальных видах скрыта, высота 0). -->
+        <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,Auto,*">
+
+            <!-- 2026-10-19, вид меню «Вкладки» (OwnerShellWindow.Tabs.cs): «NBS · Товары» мелко, под ней пункты группы вкладками;
+                 справа — плашка проката и кнопки окна (переносятся сюда из шапки). Не помещаются — последние в «Ещё ▾».
+                 За полосу окно перетаскивается, как за шапку. -->
+            <Border Grid.Row="0" x:Name="TabsBar" IsVisible="False" Background="Transparent"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1"
+                    PointerPressed="DragArea_PointerPressed">
+                <Grid ColumnDefinitions="*,Auto,Auto" Margin="20,0,10,0">
+                    <StackPanel x:Name="TabsMain" VerticalAlignment="Bottom" ClipToBounds="True">
+                        <!-- 2026-10-20, живой аудит (меню, МЕЛОЧЬ): «NBS · Главная» была прижата к верху окна — отступ 10 → 16. -->
+                        <TextBlock x:Name="TabsCrumbText" FontSize="12" FontWeight="SemiBold" Margin="2,16,0,4"
+                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBlock x:Name="TabsTitleText" FontSize="17" FontWeight="Bold" Margin="2,2,0,12" IsVisible="False"
+                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource BrushText}"/>
+                        <StackPanel x:Name="TabsStrip" Orientation="Horizontal" Spacing="2"/>
+                    </StackPanel>
+                    <Decorator Grid.Column="1" x:Name="TabsAlertSlot" VerticalAlignment="Center" Margin="12,6,0,0"/>
+                    <Decorator Grid.Column="2" x:Name="TabsCaptionSlot" VerticalAlignment="Top" Margin="8,8,0,0"/>
+                </Grid>
+            </Border>
 
             <!-- Шапка: за неё окно перетаскивается, двойной щелчок разворачивает -->
-            <Grid Grid.Row="0" x:Name="HeaderGrid" Margin="28,12,10,4" ColumnDefinitions="*,Auto,Auto"
+            <Grid Grid.Row="1" x:Name="HeaderGrid" Margin="28,12,10,4" ColumnDefinitions="*,Auto,Auto"
                   Background="Transparent"
                   PointerPressed="DragArea_PointerPressed">
                 <!-- В разделе шапка становится узкой полосой: название раздела и кнопки окна. -->
                 <TextBlock Grid.Column="0" x:Name="SectionTitleText" IsVisible="False" FontSize="15" FontWeight="SemiBold"
-                           VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
-                <StackPanel Grid.Column="0" x:Name="TitlePanel" VerticalAlignment="Center" Margin="0,6,0,0" Spacing="2">
-                    <TextBlock x:Name="DashboardTitle" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-                    <TextBlock x:Name="DateText" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource BrushText}"/>
+                <!-- 2026-10-18, этап О1: заголовок 28 Bold; «Обновлено в …» — под ним, рядом с датой (как в макете Owner),
+                     справа остаются «Обновить», период и «Спросить Нур Советника». -->
+                <StackPanel Grid.Column="0" x:Name="TitlePanel" VerticalAlignment="Center" Margin="0,6,12,0" Spacing="2">
+                    <TextBlock x:Name="DashboardTitle" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource BrushText}"
+                               TextTrimming="CharacterEllipsis"/>
+                    <WrapPanel Orientation="Horizontal">
+                        <TextBlock x:Name="DateText" FontSize="13" Margin="0,0,12,0" Foreground="{DynamicResource BrushTextSoft}"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Ellipse x:Name="LiveDot" Width="8" Height="8" Fill="{DynamicResource BrushSuccess}"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock x:Name="UpdatedText" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </WrapPanel>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" x:Name="OverviewTools" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center"
                             Margin="0,6,18,0">
-                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                        <Ellipse x:Name="LiveDot" Width="8" Height="8" Fill="{DynamicResource BrushSuccess}"
-                                 VerticalAlignment="Center"/>
-                        <TextBlock x:Name="UpdatedText" FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
                     <Button x:Name="RefreshButton" Classes="iconBtn" Click="Refresh_Click">
                         <Path Classes="btnIcon" Data="{StaticResource RefreshIcon}"/>
                     </Button>
@@ -586,9 +967,45 @@
                             <Button x:Name="CustomButton" Classes="seg" Tag="custom" Click="Period_Click"/>
                         </StackPanel>
                     </Border>
+                    <!-- 2026-10-18, этап О1: открывает тот же раздел «Нур Советник», что пункт меню (виден, только если пункт есть).
+                         На узкой шапке — только значок (OwnerShellWindow.Attention.cs, FitHeaderTools). -->
+                    <Button x:Name="AskAiButton" Classes="askAi" Click="AskAi_Click" IsVisible="False">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Path Data="{StaticResource AiAdvisorIcon}"/>
+                            <TextBlock x:Name="AskAiText" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Spacing="2">
+                <!-- 2026-10-02, владелец: «уведомление об окончании и приближении срока проката» (со звуком).
+                     2026-10-18, этап О2: плашка — не в меню (правило аудита 9), а в полосе над открытым разделом: окно раздела
+                     лежит поверх правой части, а эта полоса видна всегда. В «Сводке» те же сроки — строками «Требует внимания». -->
+                <Border Grid.Column="1" x:Name="RentalAlertCard" IsVisible="False" VerticalAlignment="Center" HorizontalAlignment="Right"
+                        Margin="0,0,12,0" Padding="10,3,3,3" CornerRadius="10" BorderThickness="1"
+                        Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Path Classes="btnIcon" Width="16" Height="16" VerticalAlignment="Center" Stroke="{DynamicResource BrushText}"
+                              Data="{StaticResource RentalIcon}"/>
+                        <TextBlock x:Name="RentalAlertTitle" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock x:Name="RentalAlertText" FontSize="13" VerticalAlignment="Center" MaxWidth="320"
+                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource BrushText}"/>
+                        <Button x:Name="RentalAlertOpen" Classes="link" Padding="8,3" Click="RentalAlertOpen_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock x:Name="RentalAlertOpenText" VerticalAlignment="Center" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource BrushText}"/>
+                                <Path Classes="btnIcon" Width="12" Height="12" Data="{StaticResource ChevronRightIcon}"
+                                      Stroke="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="RentalAlertClose" Classes="iconBtn" Width="28" Height="28" VerticalAlignment="Center"
+                                Click="RentalAlertClose_Click">
+                            <Path Classes="btnIcon" Width="12" Height="12" Data="{StaticResource CloseIcon}"/>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Grid.Column="2" x:Name="CaptionButtons" Orientation="Horizontal" VerticalAlignment="Top" Spacing="2">
                     <Button Classes="caption" Click="Minimize_Click">
                         <Path Classes="capIcon" Data="M0,5 H10"/>
                     </Button>
@@ -603,122 +1020,106 @@
 
             <!-- Место раздела: окно раздела без рамки лежит ровно поверх этой области и двигается
                  вместе с окном программы (см. OwnerShellWindow.SyncSectionBounds). -->
-            <Border Grid.Row="1" x:Name="SectionHost" IsVisible="False" Margin="0,0,0,0"
+            <Border Grid.Row="2" x:Name="SectionHost" IsVisible="False" Margin="0,0,0,0"
                     Background="{DynamicResource BrushWindowBackdrop}">
-                <TextBlock x:Name="SectionLoadingText" Classes="empty"/>
+                <!-- 2026-10-18, вид «Бургер ☰»: пока меню выехало, окно раздела спрятано, а здесь — его снимок под затемнением. -->
+                <Panel>
+                    <TextBlock x:Name="SectionLoadingText" Classes="empty"/>
+                    <Image x:Name="SectionSnapshot" IsVisible="False" Stretch="Fill"/>
+                </Panel>
             </Border>
 
-            <ScrollViewer Grid.Row="1" x:Name="OverviewScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer Grid.Row="2" x:Name="OverviewScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="28,12,28,28" Spacing="16">
 
-                    <!-- Показатели -->
+                    <!-- Показатели. 2026-10-18, этап О1 (макет Owner): название, число без копеек, строка сравнения
+                         «▲ 10 % к вчера на это время (3 900)»; цветных плиток-значков нет. Переходов у показателей нет —
+                         карточки не нажимаются. -->
                     <Grid x:Name="OverviewKpiGrid" ColumnDefinitions="*,16,*,16,*,16,*">
                         <Border Grid.Column="0" Classes="card">
                             <StackPanel>
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock x:Name="RevenueLabel" Classes="kpiLabel"/>
-                                    <Border Grid.Column="1" Classes="kpiIcon" Background="#1F3B82F6">
-                                        <Path Data="{StaticResource SalaryIcon}" Stroke="#3B82F6"/>
-                                    </Border>
-                                </Grid>
+                                <TextBlock x:Name="RevenueLabel" Classes="kpiLabel"/>
                                 <TextBlock x:Name="RevenueValue" Classes="kpiValue" Text="—"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <Border x:Name="RevenueDeltaPill" Classes="delta"><TextBlock x:Name="RevenueDelta" Text="—"/></Border>
-                                    <TextBlock x:Name="RevenueDeltaHint" Classes="deltaHint"/>
-                                </StackPanel>
+                                <TextBlock x:Name="RevenueDelta" Classes="deltaLine" Text="—"/>
                             </StackPanel>
                         </Border>
                         <Border Grid.Column="2" Classes="card">
                             <StackPanel>
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock x:Name="ChecksLabel" Classes="kpiLabel"/>
-                                    <Border Grid.Column="1" Classes="kpiIcon" Background="#1F8B5CF6">
-                                        <Path Data="{StaticResource ReceiptIcon}" Stroke="#8B5CF6"/>
-                                    </Border>
-                                </Grid>
+                                <TextBlock x:Name="ChecksLabel" Classes="kpiLabel"/>
                                 <TextBlock x:Name="ChecksValue" Classes="kpiValue" Text="—"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <Border x:Name="ChecksDeltaPill" Classes="delta"><TextBlock x:Name="ChecksDelta" Text="—"/></Border>
-                                    <TextBlock x:Name="ChecksDeltaHint" Classes="deltaHint"/>
-                                </StackPanel>
+                                <TextBlock x:Name="ChecksDelta" Classes="deltaLine" Text="—"/>
                             </StackPanel>
                         </Border>
                         <Border Grid.Column="4" Classes="card">
                             <StackPanel>
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock x:Name="AvgLabel" Classes="kpiLabel"/>
-                                    <Border Grid.Column="1" Classes="kpiIcon" Background="#1FF59E0B">
-                                        <Path Data="{StaticResource ScaleIcon}" Stroke="#F59E0B"/>
-                                    </Border>
-                                </Grid>
+                                <TextBlock x:Name="AvgLabel" Classes="kpiLabel"/>
                                 <TextBlock x:Name="AvgValue" Classes="kpiValue" Text="—"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <Border x:Name="AvgDeltaPill" Classes="delta"><TextBlock x:Name="AvgDelta" Text="—"/></Border>
-                                    <TextBlock x:Name="AvgDeltaHint" Classes="deltaHint"/>
-                                </StackPanel>
+                                <TextBlock x:Name="AvgDelta" Classes="deltaLine" Text="—"/>
                             </StackPanel>
                         </Border>
                         <Border Grid.Column="6" Classes="card">
                             <StackPanel>
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock x:Name="ProfitLabel" Classes="kpiLabel"/>
-                                    <Border Grid.Column="1" Classes="kpiIcon" Background="#1F10B981">
-                                        <Path Data="{StaticResource RestockIcon}" Stroke="#10B981"/>
-                                    </Border>
-                                </Grid>
+                                <TextBlock x:Name="ProfitLabel" Classes="kpiLabel"/>
                                 <TextBlock x:Name="ProfitValue" Classes="kpiValue" Text="—"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <Border x:Name="ProfitDeltaPill" Classes="delta"><TextBlock x:Name="ProfitDelta" Text="—"/></Border>
-                                    <TextBlock x:Name="ProfitDeltaHint" Classes="deltaHint"/>
-                                </StackPanel>
+                                <TextBlock x:Name="ProfitDelta" Classes="deltaLine" Text="—"/>
                             </StackPanel>
                         </Border>
                     </Grid>
+                    <!-- 2026-10-21 (пакет 2, п. 85): сравнивать не с чем — одна строка под всеми плитками, а не одно и то же
+                         «вчера к этому времени продаж не было» в каждой из четырёх. -->
+                    <TextBlock x:Name="KpiCompareNote" Classes="deltaLine" Margin="2,-8,0,0" TextWrapping="Wrap" IsVisible="False"/>
 
-                    <!-- Выручка по дням + способы оплаты -->
-                    <Grid x:Name="OverviewRow1" ColumnDefinitions="3*,16,2*">
-                        <Border Grid.Column="0" Classes="card">
-                            <DockPanel>
-                                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
-                                    <TextBlock x:Name="ChartTitle" Classes="cardTitle"/>
-                                    <TextBlock Grid.Column="1" x:Name="ChartTotalText" Classes="cardHint"/>
-                                </Grid>
-                                <Panel Height="210">
-                                    <Grid x:Name="ChartBars"/>
-                                    <TextBlock x:Name="ChartEmptyText" Classes="empty" IsVisible="False"/>
-                                </Panel>
-                            </DockPanel>
-                        </Border>
+                    <!-- 2026-10-18, этап О1: слева — выручка по дням и способы оплаты, справа — «Требует внимания»
+                         (прокат, долги, заказы с сайта, товары на исходе — OwnerShellWindow.Attention.cs). -->
+                    <Grid x:Name="OverviewRow1" ColumnDefinitions="2*,16,*">
+                        <StackPanel Grid.Column="0" Spacing="16">
+                            <Border Classes="card">
+                                <DockPanel>
+                                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                                        <TextBlock x:Name="ChartTitle" Classes="cardTitle" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" x:Name="ChartTotalText" Classes="cardHint num" Margin="12,0,0,0"/>
+                                    </Grid>
+                                    <Panel Height="230">
+                                        <Grid x:Name="ChartBars"/>
+                                        <TextBlock x:Name="ChartEmptyText" Classes="empty" IsVisible="False"/>
+                                    </Panel>
+                                </DockPanel>
+                            </Border>
 
-                        <Border Grid.Column="2" Classes="card">
-                            <StackPanel Spacing="14">
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock x:Name="PaymentsTitle" Classes="cardTitle"/>
-                                    <TextBlock Grid.Column="1" x:Name="PaymentsCountText" Classes="cardHint"/>
-                                </Grid>
-                                <Border Height="12" CornerRadius="6" ClipToBounds="True" Background="{DynamicResource BrushInputAlt}">
-                                    <Grid x:Name="PaymentsBar"/>
-                                </Border>
-                                <StackPanel x:Name="PaymentsLegend" Spacing="11"/>
-                                <TextBlock x:Name="PaymentsEmptyText" Classes="empty" Margin="0,8" IsVisible="False"/>
-                                <Border Height="1" Background="{DynamicResource BrushBorder}"/>
-                                <Grid ColumnDefinitions="Auto,*,Auto">
-                                    <Border Width="30" Height="30" CornerRadius="9" Background="{DynamicResource BrushDangerSoft}">
-                                        <Path Classes="btnIcon" Width="15" Height="15" Data="{StaticResource ReturnIcon}"
-                                              Stroke="{DynamicResource BrushDanger}"
-                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <!-- Способы оплаты: полоса и точки — оттенки цвета текста (без зелёного), суммы справа. -->
+                            <Border Classes="card">
+                                <StackPanel Spacing="12">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock x:Name="PaymentsTitle" Classes="cardTitle"/>
+                                        <TextBlock Grid.Column="1" x:Name="PaymentsCountText" Classes="cardHint num"/>
+                                    </Grid>
+                                    <Border Height="8" CornerRadius="4" ClipToBounds="True" Background="{DynamicResource BrushInputAlt}">
+                                        <Grid x:Name="PaymentsBar"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" x:Name="ReturnsLabel" Margin="10,0,0,0" FontSize="13.5"
-                                               Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" x:Name="ReturnsValue" FontSize="13.5" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
-                                </Grid>
+                                    <StackPanel x:Name="PaymentsLegend" Spacing="8"/>
+                                    <TextBlock x:Name="PaymentsEmptyText" Classes="empty" Margin="0,4" IsVisible="False"/>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock x:Name="ReturnsLabel" FontSize="14"
+                                                   Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" x:Name="ReturnsValue" Classes="num" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <Border Grid.Column="2" Classes="card" x:Name="AttentionCard">
+                            <StackPanel Spacing="12">
+                                <TextBlock x:Name="AttentionTitle" Classes="cardTitle"/>
+                                <StackPanel x:Name="AttentionList" Spacing="8"/>
+                                <TextBlock x:Name="AttentionEmptyText" FontSize="14" TextWrapping="Wrap" IsVisible="False"
+                                           Foreground="{DynamicResource BrushTextSoft}"/>
                             </StackPanel>
                         </Border>
                     </Grid>
 
-                    <!-- Последние продажи + топ товаров -->
-                    <Grid x:Name="OverviewRow2" ColumnDefinitions="3*,16,2*">
+                    <!-- Последние продажи + долги, план и лучшие товары -->
+                    <Grid x:Name="OverviewRow2" ColumnDefinitions="2*,16,*">
                         <Border Grid.Column="0" Classes="card" Padding="20,16,20,10" VerticalAlignment="Top">
                             <DockPanel>
                                 <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
@@ -744,7 +1145,7 @@
                              раздел «Долги клиентов». Заполняется в OwnerShellWindow.Debts.cs. -->
                         <Border Classes="card" x:Name="DebtsCard" Padding="20,16,20,14" VerticalAlignment="Top" IsVisible="False">
                             <DockPanel>
-                                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,4,0,12">
+                                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
                                     <TextBlock x:Name="DebtsTitle" Classes="cardTitle"/>
                                     <Button Grid.Column="1" x:Name="DebtsLink" Classes="link" Click="DebtsLink_Click">
                                         <StackPanel Orientation="Horizontal" Spacing="4">
@@ -754,39 +1155,7 @@
                                         </StackPanel>
                                     </Button>
                                 </Grid>
-                                <StackPanel x:Name="DebtsHost" Spacing="8"/>
-                            </DockPanel>
-                        </Border>
-
-                        <Border Classes="card" Padding="20,16,20,14" VerticalAlignment="Top">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" x:Name="TopTitle" Classes="cardTitle" Margin="0,4,0,12"/>
-                                <Panel>
-                                    <StackPanel x:Name="TopList" Spacing="12"/>
-                                    <TextBlock x:Name="TopEmptyText" Classes="empty" IsVisible="False"/>
-                                </Panel>
-                            </DockPanel>
-                        </Border>
-
-                        <!-- 2026-09-30, владелец (скриншот): «там есть пустота — выведи туда что-нибудь». Под
-                             «Лучшими товарами» было пусто рядом с высоким списком продаж — теперь здесь то, что
-                             заканчивается на складе (каталог программы, без услуг), со ссылкой на «Пополнение». -->
-                        <Border Classes="card" Padding="20,16,20,14" VerticalAlignment="Top">
-                            <DockPanel>
-                                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,4,0,12">
-                                    <TextBlock x:Name="LowStockTitle" Classes="cardTitle"/>
-                                    <Button Grid.Column="1" x:Name="LowStockLink" Classes="link" Click="LowStockLink_Click">
-                                        <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock x:Name="LowStockLinkText" VerticalAlignment="Center"/>
-                                            <Path Classes="btnIcon" Width="12" Height="12" Data="{StaticResource ChevronRightIcon}"
-                                                  VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                </Grid>
-                                <Panel>
-                                    <StackPanel x:Name="LowStockList" Spacing="10"/>
-                                    <TextBlock x:Name="LowStockEmptyText" Classes="empty" IsVisible="False"/>
-                                </Panel>
+                                <StackPanel x:Name="DebtsHost" Spacing="6"/>
                             </DockPanel>
                         </Border>
 
@@ -795,14 +1164,24 @@
                         <Border Classes="card" x:Name="SalesPlanCard" Padding="20,16,20,14" VerticalAlignment="Top" IsVisible="False">
                             <StackPanel x:Name="SalesPlanHost" Spacing="8"/>
                         </Border>
+
+                        <Border Classes="card" Padding="20,16,20,14" VerticalAlignment="Top">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" x:Name="TopTitle" Classes="cardTitle" Margin="0,0,0,12"/>
+                                <Panel>
+                                    <StackPanel x:Name="TopList" Spacing="12"/>
+                                    <TextBlock x:Name="TopEmptyText" Classes="empty" IsVisible="False"/>
+                                </Panel>
+                            </DockPanel>
+                        </Border>
                         </StackPanel>
                     </Grid>
 
                     <!-- ABC-анализ по всем срезам (2026-09-27, владелец: «ABC анализ должен быть в сводке
                          и он должен быть по всем»). Считается локально, за тот же период, что и сводка;
                          пересчёт — при смене периода и после новых продаж, а не каждые 20 секунд.
-                         Высота блока — почти экран: внутри свои вкладки и прокрутка, а колесо на краю
-                         прокрутки блока передаётся сводке. -->
+                         2026-10-21 (пакет 2, п. 86): высота блока — по содержимому, своей вертикальной прокрутки нет
+                         (была «прокрутка в прокрутке»): Сводка листается целиком. -->
                     <Border x:Name="AbcCard" Classes="card" Padding="20,16,20,14" IsVisible="False">
                         <DockPanel>
                             <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
@@ -818,7 +1197,7 @@
                                     </StackPanel>
                                 </Button>
                             </Grid>
-                            <Panel x:Name="AbcHost" Height="640">
+                            <Panel x:Name="AbcHost">
                                 <TextBlock x:Name="AbcLoadingText" Classes="empty" VerticalAlignment="Top"/>
                             </Panel>
                         </DockPanel>

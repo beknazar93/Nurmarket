@@ -39,7 +39,11 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
         var cacheKey = thumb ? path + "|" + ThumbParameter : path;
 
         if (_cache.TryGetValue(cacheKey, out var cached))
+        {
+            if (thumb)
+                TouchThumb(cacheKey);
             return cached;
+        }
 
         Bitmap? result = null;
         try
@@ -66,7 +70,40 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
         }
 
         _cache[cacheKey] = result;
+        if (thumb)
+            TouchThumb(cacheKey);
         return result;
+    }
+
+    // 2026-10-20 (живой аудит кассы, К15: память кассы 496 → 1009 МБ за 75 минут): миниатюры товаров копились в кэше без
+    // предела — каждая декодированная (≈0,4 МБ пикселей вне управляемой кучи) жила до конца работы, и листание каталога
+    // в несколько тысяч товаров съедало сотни МБ. Теперь в кэше — последние MaxThumbs миниатюр (несколько страниц
+    // каталога); вытесненная не освобождается принудительно (её ещё может показывать плитка) — её соберёт сборщик мусора,
+    // когда плитка её отпустит. Обои, фон и значки (без «thumb») — как раньше, без предела.
+    private const int MaxThumbs = 240;
+    private static readonly LinkedList<string> ThumbOrder = new();
+    private static readonly Dictionary<string, LinkedListNode<string>> ThumbNodes = new(StringComparer.Ordinal);
+    private static readonly object ThumbGate = new();
+
+    private static void TouchThumb(string key)
+    {
+        lock (ThumbGate)
+        {
+            if (ThumbNodes.TryGetValue(key, out var node))
+            {
+                ThumbOrder.Remove(node);
+                ThumbOrder.AddFirst(node);
+                return;
+            }
+
+            ThumbNodes[key] = ThumbOrder.AddFirst(key);
+            while (ThumbOrder.Count > MaxThumbs && ThumbOrder.Last is { } oldest)
+            {
+                ThumbOrder.RemoveLast();
+                ThumbNodes.Remove(oldest.Value);
+                _cache.TryRemove(oldest.Value, out _);
+            }
+        }
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

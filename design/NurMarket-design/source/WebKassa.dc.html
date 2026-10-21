@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб-касса в браузере</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.chip{height:40px;padding:0 16px;border-radius:20px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.p{border:0;text-align:left;background:#FFFFFF;border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:8px;font-family:inherit;box-shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(11,42,60,.06)}
+.st{font-size:12px;font-weight:600;padding:6px 10px;border-radius:999px;display:flex;align-items:center;gap:6px}
+.line{display:flex;gap:10px;align-items:center;padding:10px;border-radius:14px;background:#F9FAFB}
+.sb{width:30px;height:30px;border-radius:15px;font-size:16px;font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <!-- 2026-10-16: веб-касса по возможностям браузера (ревью C, SPEC п. 9): сканер-клавиатура, Ctrl+Enter, печать окном браузера, без связи — продажа стоп -->
+  <header style="background: #FFFFFF; border-bottom: 1px solid #E5E7EB; padding: 12px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+    <span style="display: flex; align-items: center; gap: 10px; flex-grow: 1"><span style="width: 40px; height: 40px; border-radius: 10px; background: #0B2A3C; color: #FFD600; display: flex; align-items: center; justify-content: center; font-weight: 800">N</span><span style="display: flex; flex-direction: column"><b style="font-size: 15px">NBS · Веб-касса</b><span style="font-size: 12px; color: #667085">Работает в браузере, без установки</span></span></span>
+    <span class="st" style="background: #E7F6EC; color: #0E7A3A; white-space: nowrap"><span style="width: 8px; height: 8px; border-radius: 4px; background: #0E7A3A"></span>На связи</span>
+    <span class="st" style="background: #F2F4F7; color: #344054; white-space: nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"></path></svg>Сканер: ждём штрихкод · последний скан 14:31</span>
+    <span class="st" style="background: #E7F6EC; color: #0E7A3A; white-space: nowrap"><span style="width: 8px; height: 8px; border-radius: 4px; background: #0E7A3A"></span>Смена открыта · Нурлан · с 10:30</span>
+    <button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054; white-space: nowrap">Закрыть смену</button>
+    <span title="Нурлан Абдыкадыров" style="width: 40px; height: 40px; border-radius: 20px; background: #0B2A3C; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700">НА</span>
+  </header>
+
+  <div style="flex-grow: 1; display: flex; flex-wrap: wrap">
+    <main style="flex: 1 1 560px; min-width: 0; padding: 18px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+        <label style="flex: 1 1 320px; display: flex; align-items: center; gap: 10px; height: 48px; box-sizing: border-box; padding: 0 16px; background: #FFFFFF; border: 2px solid #0B2A3C; border-radius: 12px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"></path></svg>
+          <input type="text" placeholder="Сканируйте штрихкод или введите название…" aria-label="Поиск товара" style="border: 0; outline: 0; flex-grow: 1; font-family: inherit; font-size: 14px; background: transparent">
+          <span style="font-size: 12px; color: #667085; border: 1px solid #E5E7EB; border-radius: 6px; padding: 2px 6px">F2</span>
+        </label>
+        <span style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" class="chip on">Все</button><button type="button" class="chip">Избранное</button><button type="button" class="chip">Весовые</button><button type="button" class="chip">Напитки</button></span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px">
+        <sc-for list="{{products}}" as="p" hint-placeholder-count="10">
+          <button type="button" class="p">
+            <span style="height: 64px; border-radius: 12px; background: {{p.tint}}; display: flex; align-items: center; justify-content: center; color: #0B2A3C; font-size: 20px; font-weight: 800">{{p.mono}}</span>
+            <span style="font-size: 13px; font-weight: 600; line-height: 18px; height: 36px; overflow: hidden">{{p.name}}</span>
+            <span style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 15px; color: #0B2A3C; white-space: nowrap">{{p.price}}</b><span style="width: 28px; height: 28px; border-radius: 14px; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700">+</span></span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: auto">
+        <section style="flex: 3 1 420px; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+          <b style="font-size: 14px">Оборудование в браузере</b>
+          <sc-for list="{{devices}}" as="d" hint-placeholder-count="5">
+            <span style="display: flex; gap: 10px; font-size: 12px; line-height: 1.4"><b style="flex: 0 0 120px; color: #0B2A3C">{{d.name}}</b><span style="color: #475467">{{d.text}}</span></span>
+          </sc-for>
+        </section>
+        <section style="flex: 2 1 300px; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+          <span style="display: flex; justify-content: space-between; gap: 8px"><b style="font-size: 14px">Так выглядит без связи</b><span style="font-size: 12px; color: #667085">пример состояния</span></span>
+          <span role="alert" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: #FEF3F2; color: #B42318; font-size: 13px; font-weight: 700"><span style="width: 8px; height: 8px; border-radius: 4px; background: #B42318; flex-shrink: 0"></span>Нет связи — продажа остановлена</span>
+          <button type="button" disabled style="height: 44px; border-radius: 12px; border: 0; background: #EAECF0; color: #667085; font-family: inherit; font-size: 15px; font-weight: 800">Оплатить · Ctrl+Enter</button>
+          <span style="font-size: 12px; color: #667085; line-height: 1.4">Чек остаётся в корзине; «Оплатить» снова станет доступна, когда связь вернётся — продать дважды нельзя.</span>
+        </section>
+      </div>
+    </main>
+
+    <section style="flex: 1 1 340px; max-width: 420px; background: #FFFFFF; border-left: 1px solid #E5E7EB; padding: 18px 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between"><span style="padding: 8px 14px; border-radius: 10px; background: #0B2A3C; color: #FFFFFF; font-size: 13px; font-weight: 700">Новый чек</span><a href="#" style="font-size: 13px; font-weight: 700; white-space: nowrap">Отложенные · 1</a></div>
+      <span style="font-size: 12px; color: #667085">Номер чека выдаст сервер после оплаты</span>
+      <div class="line"><span style="width: 44px; height: 44px; border-radius: 10px; background: #FFF4C2; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #0B2A3C; flex-shrink: 0">Мк</span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Макароны «Макфа» спагетти 450г</span><span style="font-size: 12px; color: #667085">85 × 2 = <b style="font-size: 14px; color: #0B2A3C">170&nbsp;сом</b></span></span><span style="display: flex; align-items: center; gap: 6px"><button type="button" class="sb" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b>2</b><button type="button" class="sb" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></span></div>
+      <div class="line"><span style="width: 44px; height: 44px; border-radius: 10px; background: #F1E8FD; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #0B2A3C; flex-shrink: 0">Ms</span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 600">Mars 50г</span><span style="font-size: 12px; color: #667085">39 × 1 = <b style="font-size: 14px; color: #0B2A3C">39&nbsp;сом</b></span></span><span style="display: flex; align-items: center; gap: 6px"><button type="button" class="sb" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b>1</b><button type="button" class="sb" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></span></div>
+
+      <!-- 2026-10-16: действия над итогом, как в кассе на компьютере: иконка + подпись -->
+      <div style="margin-top: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{actions}}" as="a" hint-placeholder-count="4">
+          <button type="button" style="height: 56px; border-radius: 12px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: {{a.color}}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{a.icon}}"></path></svg>{{a.label}}</button>
+        </sc-for>
+      </div>
+      <div role="group" aria-label="Способ оплаты" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #F2F4F7; border-radius: 12px; padding: 4px; gap: 4px">
+        <button type="button" style="height: 36px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Наличные</button>
+        <button type="button" style="height: 36px; border-radius: 9px; border: 0; background: transparent; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Карта</button>
+        <button type="button" style="height: 36px; border-radius: 9px; border: 0; background: transparent; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">QR</button>
+        <button type="button" style="height: 36px; border-radius: 9px; border: 0; background: transparent; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">В долг</button>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center">
+        <label style="flex: 1 1 0; display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #D0D5DD; border-radius: 10px; font-size: 13px; color: #475467">Получено <b style="margin-left: auto; font-size: 15px; color: #0B2A3C">500&nbsp;сом</b></label>
+        <span style="flex: 1 1 0; display: flex; justify-content: space-between; font-size: 13px; color: #475467">Сдача <b style="font-size: 15px; color: #0B2A3C">291&nbsp;сом</b></span>
+      </div>
+      <span style="font-size: 12px; color: #667085; line-height: 1.4">Карта — подтвердите оплату на терминале вручную. В долг — только с выбранным клиентом.</span>
+      <div style="border-top: 1px dashed #D0D5DD; padding-top: 10px; display: flex; justify-content: space-between; align-items: baseline"><b style="font-size: 15px">Итого</b><b style="font-size: 28px; font-weight: 800; color: #0B2A3C; white-space: nowrap">209&nbsp;сом</b></div>
+      <button type="button" style="height: 60px; border-radius: 14px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 18px; font-weight: 800; box-shadow: 0 8px 20px rgba(255,214,0,.35); white-space: nowrap">Оплатить · Ctrl+Enter</button>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: товары и цены — единые демо-данные NBS (SPEC п. 4).
+    const p = (name, mono, tint, price) => ({ name, mono, tint, price });
+    const products = [
+      p('Макароны «Макфа» спагетти 450г', 'Мк', '#FFF4C2', '85 сом'),
+      p('Кока-Кола (ПЭТ) 2л', 'Кк', '#FDE8E8', '170 сом'),
+      p('Mars 50г', 'Ms', '#F1E8FD', '39 сом'),
+      p('Хлеб белый', 'Хб', '#FFEBD6', '35 сом'),
+      p('Молоко 1л', 'Мл', '#E3F2FD', '95 сом'),
+      p('Snickers', 'Sn', '#F1E8FD', '70 сом'),
+      p('Сок Gracio яблочный 1л', 'Сг', '#E7F6EC', '120 сом'),
+      p('Чипсы «Пир» ассорти 75г', 'Чп', '#FFF4C2', '65 сом'),
+      p('Вафли «Лесной орех» 220г', 'Вф', '#FFEBD6', '114 сом'),
+      p('Патроны для степлера', 'Пс', '#E3F2FD', '35 сом')
+    ];
+    // Что браузер умеет на самом деле (без своей программы на компьютере).
+    const devices = [
+      { name: 'Сканер', text: 'работает как клавиатура: скан узнаём по скорости ввода + Enter, курсор всегда в поле поиска' },
+      { name: 'Печать чека', text: 'через окно печати браузера; без окна — Chrome/Edge в режиме киоска (--kiosk-printing) или принтер по WebUSB' },
+      { name: 'Денежный ящик', text: 'только с WebUSB-принтером' },
+      { name: 'Терминал банка', text: 'браузер им не управляет — карта: подтвердите оплату на терминале вручную' },
+      { name: 'Весы', text: 'вес вводится вручную (весы — только Chrome через WebSerial)' }
+    ];
+    const actions = [
+      { label: 'Отложить', color: '#344054', icon: 'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18' },
+      { label: 'Скидка', color: '#344054', icon: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5M17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5' },
+      { label: 'Клиент', color: '#344054', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21a8 8 0 0 1 16 0' },
+      { label: 'Удалить', color: '#B42318', icon: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13' }
+    ];
+    return { products, devices, actions };
+  }
+}
+</script>
+</body>
+</html>

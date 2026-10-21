@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — клавиатура, зарплата, без интернета</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:10px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#667085}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:15px;width:100%}
+.kb{display:grid;gap:6px}
+.k{height:54px;border-radius:12px;border:0;background:#FFFFFF;box-shadow:0 1px 0 #C9CFD8;font-family:inherit;font-size:18px;font-weight:700;color:#0B2A3C}
+.k.d{background:#E4E7EC;font-size:14px}
+.opt{height:54px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.opt.on{border:2px solid #0B2A3C;background:#FFF7CC;color:#0B2A3C}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: 1.6fr 1fr; grid-template-rows: auto auto; gap: 22px; align-items: start">
+
+  <section role="dialog" aria-label="Экранная клавиатура" style="grid-row: span 2; background: #D3D8DF; border-radius: 22px; padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 24px 60px rgba(11,42,60,.22)">
+    <div style="display: flex; align-items: center; gap: 10px"><input class="in" type="text" value="мака" aria-label="Ввод" style="background: #FFFFFF; font-size: 18px; font-weight: 700"><button type="button" class="b2" style="height: 44px">Рус ▾</button><button type="button" class="x" aria-label="Скрыть клавиатуру" style="width: 44px; height: 44px">✕</button></div>
+    <div class="kb" style="grid-template-columns: repeat(10, minmax(0, 1fr))"><sc-for list="{{r1}}" as="k" hint-placeholder-count="10"><button type="button" class="k">{{k}}</button></sc-for></div>
+    <div class="kb" style="grid-template-columns: repeat(12, minmax(0, 1fr))"><sc-for list="{{r2}}" as="k" hint-placeholder-count="12"><button type="button" class="k">{{k}}</button></sc-for></div>
+    <div class="kb" style="grid-template-columns: repeat(11, minmax(0, 1fr))"><sc-for list="{{r3}}" as="k" hint-placeholder-count="11"><button type="button" class="k">{{k}}</button></sc-for></div>
+    <div class="kb" style="grid-template-columns: 1.4fr repeat(9, minmax(0, 1fr)) 1.4fr"><button type="button" class="k d">⇧</button><sc-for list="{{r4}}" as="k" hint-placeholder-count="9"><button type="button" class="k">{{k}}</button></sc-for><button type="button" class="k d">⌫</button></div>
+    <div class="kb" style="grid-template-columns: 1.2fr 1fr 5fr 1fr 2fr"><button type="button" class="k d">123</button><button type="button" class="k d">,</button><button type="button" class="k">пробел</button><button type="button" class="k d">.</button><button type="button" class="k" style="background: #FFD600">Готово</button></div>
+    <span style="font-size: 12px; color: #475467; text-align: center">Открывается сама при касании поля на сенсорном экране</span>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Схема зарплаты">
+    <div class="mh"><div class="mt"><b>Схема зарплаты · Кассир Тест</b><span>Считается сама по продажам и табелю</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px"><button type="button" class="opt">Оклад</button><button type="button" class="opt on">% от продаж</button><button type="button" class="opt">За товар</button><button type="button" class="opt">Оклад + %</button></div>
+      <div style="display: flex; gap: 10px; align-items: end"><span style="display: flex; flex-direction: column; gap: 4px; width: 120px"><label class="lbl" for="sa1">ПРОЦЕНТ</label><input id="sa1" class="in" type="text" value="30 %" style="font-weight: 800"></span><span style="font-size: 12px; color: #667085; padding-bottom: 12px">с продаж, где сотрудник — кассир или консультант</span></div>
+    </div>
+    <div class="mf"><span class="tot">Пример: продал на [сумма] → [сумма]</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Без интернета">
+    <div class="mh"><span style="width: 40px; height: 40px; border-radius: 12px; background: #FEF3E2; color: #B54708; display: flex; align-items: center; justify-content: center; font-weight: 800">!</span><div class="mt"><b>Работа без интернета</b><span>Касса продаёт по сохранённому каталогу</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">Чеков ждут отправки</span><b>[N]</b></div>
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">Каталог сохранён</span><b>306 товаров</b></div>
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">Последняя связь</span><b>[время]</b></div>
+      <span style="font-size: 12px; color: #667085">Долг, QR и бонусы без интернета недоступны — только наличные и карта.</span>
+    </div>
+    <div class="mf"><button type="button" class="b2">Проверить связь</button><span style="flex-grow: 1"></span><button type="button" class="b1">Продолжить без интернета</button></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      r1: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+      r2: ['й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х', 'ъ'],
+      r3: ['ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э'],
+      r4: ['я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю']
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -85,6 +85,7 @@ public partial class BulkPriceTagPrintDialog : Window
         RefreshPrinterList();
         UpdateSelectionCount();
         ApplyKindUi();
+        UpdateEmptyText();
     }
 
     public static async Task Open(Window? owner)
@@ -101,6 +102,16 @@ public partial class BulkPriceTagPrintDialog : Window
             : _allRows.Where(r =>
                 r.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                 r.Barcode.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+        UpdateEmptyText();
+    }
+
+    /// <summary>2026-10-20, этап О9б: пустой список — подсказка поверх таблицы: каталог ещё не загрузился или поиск ничего не нашёл.</summary>
+    private void UpdateEmptyText()
+    {
+        var empty = ProductsGrid.ItemsSource is not System.Collections.ICollection { Count: > 0 };
+        EmptyListText.IsVisible = empty;
+        if (empty)
+            EmptyListText.Text = (_allRows.Count == 0 ? this.FindResource("priceTagBulk.noProducts") : this.FindResource("priceTagBulk.notFound")) as string ?? "";
     }
 
     private void SelectAll_Click(object? sender, RoutedEventArgs e)
@@ -110,9 +121,10 @@ public partial class BulkPriceTagPrintDialog : Window
         UpdateSelectionCount();
     }
 
+    // 2026-10-20, проверка фильтров: «Снять» — как «Выбрать все», по найденным строкам (было: снимал и скрытые поиском).
     private void SelectNone_Click(object? sender, RoutedEventArgs e)
     {
-        foreach (var row in _allRows)
+        foreach (var row in (IEnumerable<SelectionRow>)ProductsGrid.ItemsSource!)
             row.IsSelected = false;
         UpdateSelectionCount();
     }
@@ -174,10 +186,12 @@ public partial class BulkPriceTagPrintDialog : Window
     private void UpdateSelectionCount()
     {
         var count = _allRows.Count(r => r.IsSelected);
+        var total = _allRows.Count;
+        // 2026-10-20, проверка фильтров: «Выбрано N из M» — сколько отмечено из всех товаров (и скрытых поиском).
         SelectionCountText.Text = count == 0
             ? Tr.T("Товары не выбраны.", "Товарлар тандалган жок.", "No products selected.", "Ürün seçilmedi.", "Mahsulotlar tanlanmagan.")
-            : Tr.T($"Выбрано товаров: {count}.", $"Тандалган товарлар: {count}.",
-                $"Products selected: {count}.", $"Seçilen ürün: {count}.", $"Tanlangan mahsulotlar: {count}.");
+            : Tr.T($"Выбрано {count} из {total}", $"{total} ичинен {count} тандалды", $"Selected {count} of {total}",
+                $"{total} üründen {count} seçildi", $"{total} tadan {count} tanlandi");
     }
 
     private async void PrintButton_Click(object? sender, RoutedEventArgs e)

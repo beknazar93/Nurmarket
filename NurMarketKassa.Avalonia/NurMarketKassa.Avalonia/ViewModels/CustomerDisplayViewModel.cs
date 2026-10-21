@@ -105,19 +105,22 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
         get => _statusBrush;
         private set { _statusBrush = value; OnPropertyChanged(); }
     }
-    public string TotalText => Tr.T($"{_snapshot.Total:0.00} сом", $"{_snapshot.Total:0.00} сом", $"{_snapshot.Total:0.00} som", $"{_snapshot.Total:0.00} som", $"{_snapshot.Total:0.00} so'm");
-    public string SubtotalText => Tr.T($"Промежуточный итог: {_snapshot.Subtotal:0.00} сом", $"Аралык жыйынтык: {_snapshot.Subtotal:0.00} сом",
-        $"Subtotal: {_snapshot.Subtotal:0.00} som", $"Ara toplam: {_snapshot.Subtotal:0.00} som", $"Oraliq jami: {_snapshot.Subtotal:0.00} so'm");
-    public string DiscountText => Tr.T($"Скидка: {_snapshot.Discount:0.00} сом", $"Арзандатуу: {_snapshot.Discount:0.00} сом",
-        $"Discount: {_snapshot.Discount:0.00} som", $"İndirim: {_snapshot.Discount:0.00} som", $"Chegirma: {_snapshot.Discount:0.00} so'm");
-    public string SubtotalAmountText => Tr.T($"{_snapshot.Subtotal:0.00} сом", $"{_snapshot.Subtotal:0.00} сом", $"{_snapshot.Subtotal:0.00} som", $"{_snapshot.Subtotal:0.00} som", $"{_snapshot.Subtotal:0.00} so'm");
-    public string DiscountAmountText => Tr.T($"-{_snapshot.Discount:0.00} сом", $"-{_snapshot.Discount:0.00} сом", $"-{_snapshot.Discount:0.00} som", $"-{_snapshot.Discount:0.00} som", $"-{_snapshot.Discount:0.00} so'm");
+    // 2026-10-20, живая проверка: экран покупателя показывал суммы без разрядов («237425,66 сом») — теперь
+    // как в чеке кассы (MoneyText: «237 425,66 сом»). Только показ.
+    public string TotalText => MoneyText.Som(_snapshot.Total);
+    public string SubtotalText => Tr.T($"Промежуточный итог: {MoneyText.Som(_snapshot.Subtotal)}", $"Аралык жыйынтык: {MoneyText.Som(_snapshot.Subtotal)}",
+        $"Subtotal: {MoneyText.Som(_snapshot.Subtotal)}", $"Ara toplam: {MoneyText.Som(_snapshot.Subtotal)}", $"Oraliq jami: {MoneyText.Som(_snapshot.Subtotal)}");
+    public string DiscountText => Tr.T($"Скидка: {MoneyText.Som(_snapshot.Discount)}", $"Арзандатуу: {MoneyText.Som(_snapshot.Discount)}",
+        $"Discount: {MoneyText.Som(_snapshot.Discount)}", $"İndirim: {MoneyText.Som(_snapshot.Discount)}", $"Chegirma: {MoneyText.Som(_snapshot.Discount)}");
+    public string SubtotalAmountText => MoneyText.Som(_snapshot.Subtotal);
+    // 2026-10-20, живая проверка: «Скидка -0,00 сом» при пустом чеке — минус только у настоящей скидки.
+    public string DiscountAmountText => (_snapshot.Discount > 0.004 ? "-" : "") + MoneyText.Som(Math.Max(0, _snapshot.Discount));
     public bool HasCashInfo => _snapshot.CashReceived.HasValue && Settings.ShowChangeAfterPayment &&
         (Settings.ShowPaidAmount || Settings.ShowChange);
     public bool ShowPaidAmountColumn => HasCashInfo && Settings.ShowPaidAmount;
     public bool ShowChangeColumn => HasCashInfo && Settings.ShowChange;
-    public string CashReceivedText => Tr.T($"{_snapshot.CashReceived ?? 0:0.00} сом", $"{_snapshot.CashReceived ?? 0:0.00} сом", $"{_snapshot.CashReceived ?? 0:0.00} som", $"{_snapshot.CashReceived ?? 0:0.00} som", $"{_snapshot.CashReceived ?? 0:0.00} so'm");
-    public string ChangeDueText => Tr.T($"{_snapshot.ChangeDue ?? 0:0.00} сом", $"{_snapshot.ChangeDue ?? 0:0.00} сом", $"{_snapshot.ChangeDue ?? 0:0.00} som", $"{_snapshot.ChangeDue ?? 0:0.00} som", $"{_snapshot.ChangeDue ?? 0:0.00} so'm");
+    public string CashReceivedText => MoneyText.Som(_snapshot.CashReceived ?? 0);
+    public string ChangeDueText => MoneyText.Som(_snapshot.ChangeDue ?? 0);
     public string ItemCountText => Tr.T($"{Lines.Count} поз.", $"{Lines.Count} позиция",
         $"{Lines.Count} items", $"{Lines.Count} kalem", $"{Lines.Count} ta mahsulot");
     public string DateTimeText => DateTime.Now.ToString("dd.MM.yyyy  HH:mm");
@@ -208,18 +211,33 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
              !string.IsNullOrWhiteSpace(path) && File.Exists(path)) ?? false) ||
         (!string.IsNullOrWhiteSpace(UserPreferences.Instance.QrCodePath) &&
          File.Exists(UserPreferences.Instance.QrCodePath)));
-    public string InformationEyebrow => HasPaymentQr ? Tr.T("ОПЛАТА ПО QR", "QR АРКЫЛУУ ТӨЛӨӨ", "PAY BY QR", "QR İLE ÖDEME", "QR ORQALI TO'LOV") : Tr.T("ИНФОРМАЦИЯ", "МААЛЫМАТ", "INFORMATION", "BİLGİ", "MA'LUMOT");
+    // 2026-10-19, К1: подписи экрана покупателя — обычным регистром (правило «без ЗАГЛАВНЫХ»).
+    public string InformationEyebrow => HasPaymentQr ? Tr.T("Оплата по QR", "QR аркылуу төлөө", "Pay by QR", "QR ile ödeme", "QR orqali to'lov") : Tr.T("Информация", "Маалымат", "Information", "Bilgi", "Ma'lumot");
+    // 2026-10-21 (пакет 6, п. 56): без рекламы и QR покупатель видел служебное «Полезная информация» / «Место для QR-кода
+    // или рекламного баннера» / «Здесь может отображаться акция…» — это подсказки для владельца, они остались только
+    // в предпросмотре редактора; на настоящем экране — приветствие и название магазина.
+    private bool ShowOwnerPlaceholders => _designPreview || HasInformationImage;
     public string InformationTitle => HasPaymentQr
         ? Tr.T("Наведите камеру", "Камераны багыттаңыз", "Point your camera", "Kamerayı yöneltin", "Kamerani yo'naltiring")
         : string.IsNullOrWhiteSpace(Settings.AdvertisementTitle)
-            ? Tr.T("Полезная информация", "Пайдалуу маалымат", "Useful information", "Yararlı bilgiler", "Foydali ma'lumot")
+            ? ShowOwnerPlaceholders
+                ? Tr.T("Полезная информация", "Пайдалуу маалымат", "Useful information", "Yararlı bilgiler", "Foydali ma'lumot")
+                : GreetingTitle
             : Settings.AdvertisementTitle;
+    /// <summary>2026-10-21 (пакет 6, п. 56): надпись в пустой рамке без картинки — в редакторе «место для QR/рекламы»,
+    /// у покупателя — название магазина, как в шапке экрана.</summary>
+    public string InformationPlaceholderText => _designPreview
+        ? Tr.T("Место для QR-кода\nили рекламного баннера", "QR-код же жарнама\nбаннери үчүн орун", "Space for a QR code\nor an ad banner",
+            "QR kodu\nveya reklam alanı", "QR-kod\nyoki reklama banneri uchun joy")
+        : HeaderTitle;
     public string InformationDescription => HasPaymentQr
-        ? Tr.T($"После подтверждения кассиром оплатите {_snapshot.Total:0.00} сом", $"Кассир ырастагандан кийин {_snapshot.Total:0.00} сом төлөңүз",
-            $"After the cashier confirms, pay {_snapshot.Total:0.00} som", $"Kasiyer onayladıktan sonra {_snapshot.Total:0.00} som ödeyin",
-            $"Kassir tasdiqlaganidan keyin {_snapshot.Total:0.00} so'm to'lang")
+        ? Tr.T($"После подтверждения кассиром оплатите {MoneyText.Som(_snapshot.Total)}", $"Кассир ырастагандан кийин {MoneyText.Som(_snapshot.Total)} төлөңүз",
+            $"After the cashier confirms, pay {MoneyText.Som(_snapshot.Total)}", $"Kasiyer onayladıktan sonra {MoneyText.Som(_snapshot.Total)} ödeyin",
+            $"Kassir tasdiqlaganidan keyin {MoneyText.Som(_snapshot.Total)} to'lang")
         : string.IsNullOrWhiteSpace(Settings.AdvertisementDescription)
-            ? Tr.T("Здесь может отображаться акция, реклама или QR-код оплаты.", "Бул жерде акция, жарнама же төлөм QR-коду көрсөтүлүшү мүмкүн.", "A promotion, advertisement, or payment QR code can be shown here.", "Burada bir promosyon, reklam veya ödeme QR kodu gösterilebilir.", "Bu yerda aksiya, reklama yoki to'lov QR-kodi ko'rsatilishi mumkin.")
+            ? ShowOwnerPlaceholders
+                ? Tr.T("Здесь может отображаться акция, реклама или QR-код оплаты.", "Бул жерде акция, жарнама же төлөм QR-коду көрсөтүлүшү мүмкүн.", "A promotion, advertisement, or payment QR code can be shown here.", "Burada bir promosyon, reklam veya ödeme QR kodu gösterilebilir.", "Bu yerda aksiya, reklama yoki to'lov QR-kodi ko'rsatilishi mumkin.")
+                : ""
             : Settings.AdvertisementDescription;
     public string ScannerStatusText => _state.CurrentStatus switch
     {
@@ -338,15 +356,8 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
     private static bool IsDefaultText(string? value, string defaultText) =>
         string.IsNullOrWhiteSpace(value) || string.Equals(value.Trim(), defaultText, StringComparison.Ordinal);
 
-    private static readonly NumberFormatInfo MoneyFormat = new()
-    {
-        NumberDecimalSeparator = ".",
-        NumberGroupSeparator = " ",
-        NumberGroupSizes = [3],
-    };
-
-    /// <summary>«1 234.50» — как суммы в раскладках кассы (MoneyConverter).</summary>
-    internal static string Money(double amount) => amount.ToString("#,0.00", MoneyFormat);
+    /// <summary>«1 234,50» — как суммы кассы (MoneyText; 2026-10-19, К1: было «1 234.50»).</summary>
+    internal static string Money(double amount) => MoneyText.Amount(amount);
 
     /// <summary>«Системная» тема экрана покупателя (2026-09-07, исправление реального бага):
     /// раньше все брaши ниже проверяли только Settings.Theme == Dark, поэтому пункт "Системная"
@@ -371,8 +382,9 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
     public IBrush TextBrush => _palette.Text;
     public IBrush SecondaryTextBrush => _palette.TextSoft;
     public IBrush BorderBrushValue => _palette.Border;
-    public IBrush DiscountBrush => _palette.Danger;
-    public IBrush DiscountSoftBrush => _palette.DangerSoft;
+    // 2026-10-21 (пакет 6, п. 56): «Скидка 0,00» была красной — красный только у настоящей скидки.
+    public IBrush DiscountBrush => HasDiscount ? _palette.Danger : _palette.TextSoft;
+    public IBrush DiscountSoftBrush => HasDiscount ? _palette.DangerSoft : Brushes.Transparent;
     public IBrush ScannerStatusBrush => _state.CurrentStatus switch
     {
         CustomerDisplayPaymentStatus.Processing => Brush("#F59E0B", "#F59E0B"),
@@ -445,6 +457,8 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
         Refresh();
     }
 
+    private readonly List<string> _lineKeys = new();
+
     private void Refresh()
     {
         if (!Dispatcher.UIThread.CheckAccess())
@@ -455,13 +469,26 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
 
         _snapshot = _state.CurrentSnapshot;
         var columns = GetVisibleColumns();
-        Lines.Clear();
         TableHeaders.Clear();
         foreach (var column in columns)
             TableHeaders.Add(new CustomerDisplayTableCellViewModel(ColumnLabel(column), ColumnWidth(column)));
-        var number = _snapshot.Lines.Count;
-        foreach (var line in _snapshot.Lines)
-            Lines.Add(new CustomerDisplayItemViewModel(line, columns) { Number = number--, ShowPhoto = Settings.ShowProductImage });
+        // 2026-10-20, живая проверка (большой чек медленный): экран покупателя стирал и создавал заново ВСЕ строки
+        // на каждый скан (и дважды за скан). Теперь меняются только строки, у которых изменились данные (ключ —
+        // всё, из чего строка собирается); на экране то же самое, что после полного пересоздания.
+        var snapshotLines = _snapshot.Lines;
+        var count = snapshotLines.Count;
+        var showPhoto = Settings.ShowProductImage;
+        var common = string.Join(",", columns) + "|" + MoneyText.Currency + "|" + showPhoto;
+        var keys = new List<string>(count);
+        for (var i = 0; i < count; i++)
+        {
+            var line = snapshotLines[i];
+            keys.Add(string.Join("\u001f", (count - i).ToString(CultureInfo.InvariantCulture), line.Title, line.Barcode,
+                line.Quantity.ToString("R", CultureInfo.InvariantCulture), line.Unit, line.LineTotal.ToString("R", CultureInfo.InvariantCulture),
+                CustomerDisplayItemViewModel.ResolveImagePath(line.ImageUrl), common));
+        }
+        ObservableListPatch.ApplyByKey(Lines, _lineKeys, keys,
+            i => new CustomerDisplayItemViewModel(snapshotLines[i], columns) { Number = count - i, ShowPhoto = showPhoto });
 
         if (_previewMode && Lines.Count == 0)
         {
@@ -724,8 +751,8 @@ public sealed class CustomerDisplayItemViewModel
         Title = title;
         Barcode = barcode?.Trim() ?? "";
         QuantityText = $"×{quantity.ToString("0.###", CultureInfo.InvariantCulture)} {unit}";
-        UnitPriceText = Tr.T($"{(quantity == 0 ? 0 : lineTotal / quantity):0.00} сом", $"{(quantity == 0 ? 0 : lineTotal / quantity):0.00} сом", $"{(quantity == 0 ? 0 : lineTotal / quantity):0.00} som", $"{(quantity == 0 ? 0 : lineTotal / quantity):0.00} som", $"{(quantity == 0 ? 0 : lineTotal / quantity):0.00} so'm");
-        TotalText = Tr.T($"{lineTotal:0.00} сом", $"{lineTotal:0.00} сом", $"{lineTotal:0.00} som", $"{lineTotal:0.00} som", $"{lineTotal:0.00} so'm");
+        UnitPriceText = MoneyText.Som((quantity == 0 ? 0 : lineTotal / quantity));
+        TotalText = MoneyText.Som(lineTotal);
         QuantityValueText = quantity.ToString("0.###", CultureInfo.InvariantCulture);
         UnitText = unit;
         UnitPriceNumberText = CustomerDisplayViewModel.Money(quantity == 0 ? 0 : lineTotal / quantity);
@@ -768,7 +795,7 @@ public sealed class CustomerDisplayItemViewModel
     public bool HasPhoto => ShowPhoto && !string.IsNullOrWhiteSpace(ImagePath);
     public bool HasNoPhoto => !HasPhoto;
 
-    private static string? ResolveImagePath(string? imageUrl)
+    internal static string? ResolveImagePath(string? imageUrl)
     {
         if (string.IsNullOrWhiteSpace(imageUrl))
             return null;

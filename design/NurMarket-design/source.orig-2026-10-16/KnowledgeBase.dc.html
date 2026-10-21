@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>База знаний</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="help" active="База знаний" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">База знаний</span><span style="font-size: 13px; color: #667085">22 видеоурока · на русском, с кыргызскими субтитрами</span></span>
+      <label style="width: 380px; display: flex; align-items: center; gap: 10px; height: 44px; box-sizing: border-box; padding: 0 14px; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input type="text" placeholder="Как сделать возврат…" style="border: 0; outline: 0; flex-grow: 1; font-family: inherit; font-size: 14px"></label>
+    </div>
+    <div style="display: flex; gap: 8px">
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Все · 22</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Касса · 6</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Склад и цены · 7</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Клиенты и бот · 5</button>
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Виды магазинов · 4</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; overflow: hidden">
+      <sc-for list="{{lessons}}" as="l" hint-placeholder-count="16">
+        <a href="#" style="text-decoration: none; color: inherit; background: #FFFFFF; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column">
+          <span style="height: 70px; background: #0B2A3C; display: flex; align-items: center; justify-content: center; position: relative"><span style="width: 34px; height: 34px; border-radius: 17px; background: #FFD600; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l13-8z" fill="#0B2A3C"></path></svg></span><span style="position: absolute; left: 10px; top: 8px; font-size: 11px; font-weight: 800; color: #FFD600">{{l.no}}</span></span>
+          <span style="padding: 10px 12px; font-size: 13px; font-weight: 700; line-height: 18px">{{l.title}}</span>
+        </a>
+      </sc-for>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const titles = ['Как продать товар', 'Как оформить возврат', 'Как открыть и закрыть смену', 'Продажа в долг и оплата долга', 'Внесение и изъятие денег',
+      'Как подключить весы с этикетками', 'Склад и приёмка товара', 'Продажи и финансы', 'Этикетки и ценники', 'Ревизия, списание и перемещение',
+      'Калькуляция цены и наценки', 'ABC-анализ и пополнение запасов', 'Темы и доп. функции', 'Клиенты, бонусы и зарплата', 'Телеграм-бот владельца', 'Безналичная оплата и QR банков'];
+    return { lessons: titles.map((title, i) => ({ title, no: 'УРОК ' + String(i + 1).padStart(2, '0') })) };
+  }
+}
+</script>
+</body>
+</html>

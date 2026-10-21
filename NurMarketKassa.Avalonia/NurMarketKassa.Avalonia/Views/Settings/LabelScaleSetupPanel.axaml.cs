@@ -98,8 +98,8 @@ public partial class LabelScaleSetupPanel : UserControl
         DeviceSettingsButton.IsVisible = hasNetwork;
         SendButton.IsVisible = !IsDialogMode;
         SendButton.Content = _brand == ScaleUi.BrandAi
-            ? L("Подготовить файл →", "Файл даярдоо →", "Prepare the file →", "Dosyayı hazırla →", "Faylni tayyorlash →")
-            : L("Отправить товары →", "Товарларды жөнөтүү →", "Send goods →", "Ürünleri gönder →", "Tovarlarni yuborish →");
+            ? L("Подготовить файл", "Файл даярдоо", "Prepare the file", "Dosyayı hazırla", "Faylni tayyorlash")
+            : L("Отправить товары", "Товарларды жөнөтүү", "Send goods", "Ürünleri gönder", "Tovarlarni yuborish");
 
         ShtrikhRouteHint.Text = ShtrikhRouteDirect.IsChecked == true
             ? L("Касса сама отправляет товары на весы по сети (UDP), без сервера. Нужны адрес, порт и пароль из системного меню весов.",

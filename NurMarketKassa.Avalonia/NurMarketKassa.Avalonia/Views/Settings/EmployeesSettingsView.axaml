@@ -20,11 +20,32 @@
       <Setter Property="BorderThickness" Value="1.5"/>
       <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
     </Style>
+    <!-- 2026-10-19, этап О7: карточка сотрудника и кнопка «Доступы» — белые с рамкой (были тёмно-серые кнопки Fluent),
+         наведение — мягкий фон. -->
+    <Style Selector="Button.SettingsCard">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+      <Setter Property="MinHeight" Value="56"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.SettingsCard:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.SettingsCard:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
   </UserControl.Styles>
 
   <Border Classes="SettingsContentHost">
     <ScrollViewer Classes="SettingsPageScroll">
-      <StackPanel Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch" Margin="0,16">
+      <!-- 2026-10-21 (пакет 6, п. 64): справа 14 px под полосу прокрутки — кнопки «Доступы» уходили под неё (за край). -->
+      <StackPanel Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch" Margin="0,16,14,16">
 
         <Border Classes="SettingsHeaderCard" HorizontalAlignment="Stretch">
           <StackPanel Orientation="Horizontal" Spacing="12">
@@ -38,26 +59,16 @@
           </StackPanel>
         </Border>
 
-        <Border x:Name="RolesCard" Classes="SettingsCard" Padding="16">
-          <StackPanel Spacing="10">
-            <TextBlock Text="{DynamicResource employees.rolesTitle}" FontSize="15" FontWeight="SemiBold"/>
-            <TextBlock Text="{DynamicResource employees.rolesSubtitle}" FontSize="12"
-                       Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
-            <StackPanel x:Name="RolesListPanel" Spacing="6"/>
-            <Button x:Name="AddRoleButton" Classes="btn-secondary" HorizontalAlignment="Left"
-                    Content="{DynamicResource employees.addRoleButton}" Click="AddRole_Click"/>
-            <TextBlock x:Name="RolesStatusText" FontSize="12" TextWrapping="Wrap" IsVisible="False"/>
-          </StackPanel>
-        </Border>
-
-        <StackPanel x:Name="EmployeeListPanel" Spacing="10"/>
-
+        <!-- 2026-10-19, этап О7: сначала сотрудники — «+ Добавить сотрудника» и «Загрузить с сайта» над списком (были под ним,
+             а сверху — роли с девятью «Удалить»). Роли — внизу, свёрнуты. -->
         <StackPanel Orientation="Horizontal" Spacing="10">
           <Button x:Name="AddEmployeeButton" Classes="btn-secondary" HorizontalAlignment="Left"
                   Content="{DynamicResource employees.addButton}" Click="AddEmployee_Click"/>
           <Button x:Name="LoadFromWebButton" Classes="btn-secondary" HorizontalAlignment="Left"
                   Content="{DynamicResource employees.loadFromWeb}" Click="LoadFromWeb_Click"/>
         </StackPanel>
+
+        <StackPanel x:Name="EmployeeListPanel" Spacing="8"/>
         <!-- Подложка обязательна. Этот текст — единственный на странице, кто висел прямо на
              фоне страницы, а он прозрачный (Border.SettingsContentHost), и под ним видны обои
              рабочего стола. Цвет обоев произвольный, поэтому ни один цвет текста не может
@@ -82,6 +93,27 @@
                        Foreground="{DynamicResource BrushSuccess}" FontSize="12" IsVisible="False"/>
           </StackPanel>
         </Border>
+
+        <StackPanel x:Name="RolesCard" Spacing="0">
+          <ToggleButton x:Name="RolesToggle" Classes="SettingsGroupHeader" IsChecked="False">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock x:Name="RolesHeaderText" Text="{DynamicResource employees.rolesTitle}" FontSize="14" FontWeight="SemiBold"
+                         Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Classes="SettingsGroupChevron" Text="&#x25BE;" IsVisible="{Binding #RolesToggle.IsChecked}"/>
+              <TextBlock Grid.Column="1" Classes="SettingsGroupChevron" Text="&#x25B8;" IsVisible="{Binding !#RolesToggle.IsChecked}"/>
+            </Grid>
+          </ToggleButton>
+          <Border Classes="SettingsGroupBody" IsVisible="{Binding #RolesToggle.IsChecked}">
+            <StackPanel Spacing="10">
+              <TextBlock Text="{DynamicResource employees.rolesSubtitle}" FontSize="12"
+                         Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+              <StackPanel x:Name="RolesListPanel" Spacing="0"/>
+              <Button x:Name="AddRoleButton" Classes="btn-secondary" HorizontalAlignment="Left"
+                      Content="{DynamicResource employees.addRoleButton}" Click="AddRole_Click"/>
+              <TextBlock x:Name="RolesStatusText" FontSize="12" TextWrapping="Wrap" IsVisible="False"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
 
       </StackPanel>
     </ScrollViewer>

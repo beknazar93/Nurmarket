@@ -53,7 +53,7 @@ public static class OwnerSalesData
             return Day(today.AddDays(-1));
         if (t.Contains("недел") || t.Contains("жума") || t.Contains("7 дн") || t.Contains("week") || t.Contains("hafta"))
             return (today.AddDays(-6), today.AddDays(1), $"{today.AddDays(-6):dd.MM}–{today:dd.MM.yyyy}");
-        if (t.Contains("месяц") || Regex.IsMatch(t, @"\bай\b|айдагы|бул ай") || t.Contains("month") || t.Contains("ay ") || t.Contains("oy "))
+        if (t.Contains("месяц") || Regex.IsMatch(t, @"\bай\b|айдагы|бул ай") || t.Contains("month") || Regex.IsMatch(t, @"(?<!\p{L})ay(ı|da|lık)?(?!\p{L})") || Regex.IsMatch(t, @"(?<!\p{L})oy(da|ning)?(?!\p{L})"))
             return (new DateTime(today.Year, today.Month, 1), today.AddDays(1), $"{new DateTime(today.Year, today.Month, 1):dd.MM}–{today:dd.MM.yyyy}");
         return Day(today);
     }
@@ -100,7 +100,8 @@ public static class OwnerSalesData
             sb.AppendLine($"| Итого | {paid.Count} | {Money(total)} |");
             sb.AppendLine();
         }
-        var byCashier = paid.GroupBy(e => string.IsNullOrWhiteSpace(e.Cashier) ? "—" : e.Cashier!.Trim()).ToList();
+        // 2026-10-21 (О5): кассиры для ИИ — кодами [С1] (AiPseudonyms), имена подставит программа на этом ПК.
+        var byCashier = paid.GroupBy(e => AiPseudonyms.Staff(e.Cashier)).ToList();
         if (byCashier.Count > 1)
         {
             sb.AppendLine("| Кассир | Чеков | Сумма |");
@@ -119,7 +120,7 @@ public static class OwnerSalesData
             if (item.Length > 40)
                 item = item[..40] + "…";
             sb.AppendLine($"| {(e.ReceiptNumber.Length > 0 ? e.ReceiptNumber : "—")} | {e.CreatedAt.ToString(multiDay ? "dd.MM HH:mm" : "HH:mm", Ru)} | "
-                          + $"{(string.IsNullOrWhiteSpace(e.Cashier) ? "—" : e.Cashier!.Replace("|", "/"))} | {ReceiptHistoryService.PaymentLabel(e.PaymentMethod)}{status} | "
+                          + $"{AiPseudonyms.Staff(e.Cashier)} | {ReceiptHistoryService.PaymentLabel(e.PaymentMethod)}{status} | "
                           + $"{Money(e.Total)} | {item} |");
         }
         if (all.Count > maxRows)

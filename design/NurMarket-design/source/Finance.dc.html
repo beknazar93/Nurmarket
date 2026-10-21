@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Продажи — Финансы</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <!-- 2026-10-16: «Финансы» — один путь: Отчёты → Финансы (как в программе); вкладки — из FinanceWindow, без вкладок «Продаж» -->
+  <dc-import name="OwnerNav" group="reports" active="Финансы" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Финансы</span><span style="font-size: 13px; color: #667085">Понедельник, 12.10.2026 · обновлено в 14:35</span></span>
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Сегодня</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Вчера</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Неделя</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Месяц</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Даты…</button>
+      </div>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054; white-space: nowrap">Скачать отчёт ▾</button>
+    </div>
+    <div role="tablist" style="display: flex; gap: 24px; border-bottom: 1px solid #E5E7EB">
+      <button type="button" role="tab" aria-selected="true" style="border: 0; background: transparent; padding: 10px 0; border-bottom: 3px solid #0B2A3C; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Выручка и оплаты</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Смены</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Товары</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Сезонность</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Склад</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Долги</button>
+    </div>
+    <!-- 2026-10-16: «Чистая прибыль» → «Валовая прибыль» (выручка − себестоимость); «Расходы (изъятия)» → «Изъятия из кассы» -->
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px">
+      <div style="background: #0B2A3C; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #C7D2DB">Валовая прибыль</span><span style="font-size: 28px; font-weight: 800; color: #FFD600">910 сом</span><span style="font-size: 12px; color: #C7D2DB">4&nbsp;300 выручка − 3&nbsp;390 себестоимость</span></div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #667085">Маржа</span><span style="font-size: 28px; font-weight: 800; color: #0B2A3C">21,2 %</span><span style="font-size: 12px; color: #667085">валовая прибыль ÷ выручка</span></div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #667085">Изъятия из кассы</span><span style="font-size: 28px; font-weight: 800; color: #0B2A3C">0 сом</span><span style="font-size: 12px; color: #667085">сегодня изъятий не было</span></div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #667085">Возвраты</span><span style="font-size: 28px; font-weight: 800; color: #0B2A3C">0 сом</span><span style="font-size: 12px; color: #667085">0 чеков</span></div>
+    </div>
+    <section style="background: #FFFFFF; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+      <span style="display: flex; justify-content: space-between"><span style="font-size: 16px; font-weight: 800">Способы оплаты</span><span style="font-size: 13px; color: #667085">47 чеков · 4 300 сом</span></span>
+      <div style="display: flex; height: 18px; border-radius: 9px; overflow: hidden"><span style="width: 52.7%; background: #0B2A3C"></span><span style="width: 47.3%; background: #FFD600"></span></div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+        <span style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #F9FAFB"><span style="width: 14px; height: 14px; border-radius: 4px; background: #0B2A3C"></span><span style="flex-grow: 1; font-size: 14px">Наличные</span><span style="font-size: 15px; font-weight: 800">2 265 сом · 52,7 %</span></span>
+        <span style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #F9FAFB"><span style="width: 14px; height: 14px; border-radius: 4px; background: #FFD600"></span><span style="flex-grow: 1; font-size: 14px">Безналичные <span style="color: #475467">· карта 1 455 · QR 580</span></span><span style="font-size: 15px; font-weight: 800; white-space: nowrap">2 035 сом · 47,3 %</span></span>
+      </div>
+    </section>
+    <section style="background: #FFFFFF; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+      <span style="display: flex; justify-content: space-between"><span style="font-size: 16px; font-weight: 800">Деньги в кассах за день</span><span style="font-size: 13px; color: #667085">Касса 1, Телефон, Веб-касса · смены открыты</span></span>
+      <span style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">На начало (размен)</span><span style="font-weight: 700">1 000 сом</span></span>
+      <span style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">+ Наличные продажи</span><span style="font-weight: 700">2 265 сом</span></span>
+      <span style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">− Возвраты и изъятия</span><span style="font-weight: 700">0 сом</span></span>
+      <span style="display: flex; justify-content: space-between; font-size: 15px; border-top: 1px solid #F2F4F7; padding-top: 10px"><span style="font-weight: 800">В кассах сейчас</span><span style="font-weight: 800; color: #0B2A3C">3 265 сом</span></span>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

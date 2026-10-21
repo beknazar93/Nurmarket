@@ -39,7 +39,9 @@ public static class CartReceiptTextBuilder
             var prefs = UserPreferences.Instance;
             var store = prefs.StoreName ?? "MARKET PLUS";
 
-            Line(ReceiptLineLayout.Center("Контрольно-кассовый чек", W));
+            // 2026-10-16, решение владельца: чек нефискальный — заголовок «Товарный чек» вместо
+            // «Контрольно-кассовый чек» (тот выдавал чек за фискальный документ — риск перед ГНС).
+            Line(ReceiptLineLayout.Center("Товарный чек", W));
             Blank();
 
             if (prefs.ShowStoreName)
@@ -189,9 +191,22 @@ public static class CartReceiptTextBuilder
             }
             else if (pm is "debt")
             {
-                if (cash.HasValue)
-                    AppendStackedAmountLine(sb, cash.Value > 0.005 && debtPrepaymentLabel != null ? debtPrepaymentLabel : "ВНЕСЕНО:", FormatMoney(cash.Value));
+                // 2026-10-20, владелец (долг Д5): «Оплачено» — только если клиент что-то внёс (без «ВНЕСЕНО: 0.00»), «В долг»,
+                // «Вернуть до» / график, клиент — имя и телефон маской.
+                if (cash is > 0.005)
+                    AppendStackedAmountLine(sb, debtPrepaymentLabel switch
+                    {
+                        "ВНЕСЕНО БЕЗНАЛОМ:" => "ОПЛАЧЕНО БЕЗНАЛОМ:",
+                        "ВНЕСЕНО НАЛИЧНЫМИ:" => "ОПЛАЧЕНО НАЛИЧНЫМИ:",
+                        _ => "ОПЛАЧЕНО:",
+                    }, FormatMoney(cash.Value));
                 AppendStackedAmountLine(sb, "В ДОЛГ:", FormatMoney(Math.Max(0, totals.TotalDue - (cash ?? 0))));
+                var debtClient = DebtClientLine(
+                    root.TryGetProperty("debt_client_name", out var dcn) && dcn.ValueKind == JsonValueKind.String ? dcn.GetString() : null,
+                    root.TryGetProperty("debt_client_phone", out var dcp) && dcp.ValueKind == JsonValueKind.String ? dcp.GetString() : null);
+                if (debtClient != null)
+                    foreach (var part in WrapText(debtClient, W))
+                        Line(part);
                 // 2026-10-06: дата долга, срок возврата (названный клиентом) и штраф за просрочку.
                 Line($"Дата долга: {when:dd.MM.yyyy}");
                 var schedule = root.TryGetProperty("debt_schedule", out var ds) && ds.ValueKind == JsonValueKind.Object
@@ -374,6 +389,28 @@ public static class CartReceiptTextBuilder
             Line($"Вернуть вещь до {rental.To:dd.MM.yyyy}");
         Line(new string('-', W));
         Line();
+    }
+
+    /// <summary>2026-10-20, владелец (долг Д5): «Клиент: Арслан, +996*****949» — телефон маской (видны код страны и
+    /// последние 3 цифры), чек уносит покупатель. null — клиента нет.</summary>
+    public static string? DebtClientLine(string? name, string? phone)
+    {
+        var n = (name ?? "").Trim();
+        var p = MaskPhone(phone);
+        if (n.Length == 0 && p.Length == 0)
+            return null;
+        return "Клиент: " + (n.Length > 0 && p.Length > 0 ? $"{n}, {p}" : n.Length > 0 ? n : p);
+    }
+
+    /// <summary>2026-10-20 (долг Д5): «+996509754949» → «+996*****949».</summary>
+    public static string MaskPhone(string? phone)
+    {
+        var raw = (phone ?? "").Trim();
+        var digits = new string(raw.Where(char.IsDigit).ToArray());
+        if (digits.Length < 6)
+            return digits.Length == 0 ? "" : new string('*', digits.Length);
+        var head = digits.StartsWith("996", StringComparison.Ordinal) ? 3 : Math.Min(3, digits.Length - 3);
+        return (raw.StartsWith('+') ? "+" : "") + digits[..head] + new string('*', digits.Length - head - 3) + digits[^3..];
     }
 
     /// <summary>Срок возврата долга из снимка чека (PosCheckoutService кладёт debt_due_date).</summary>

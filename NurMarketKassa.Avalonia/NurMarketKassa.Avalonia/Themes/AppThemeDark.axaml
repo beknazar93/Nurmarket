@@ -6,6 +6,10 @@
   <SolidColorBrush x:Key="BrushAccent" Color="#2563EB" />
   <SolidColorBrush x:Key="BrushPrimary" Color="#2563EB" />
   <SolidColorBrush x:Key="BrushAccentStrong" Color="#1D4ED8" />
+  <!-- 2026-10-18: нажатые кнопки и красный текст на мягком красном (до применения темы; дальше их считает AccentThemeService). -->
+  <SolidColorBrush x:Key="BrushAccentPressed" Color="#1841CD" />
+  <SolidColorBrush x:Key="BrushPanelPressed" Color="#434343" />
+  <SolidColorBrush x:Key="BrushDangerOnSoft" Color="#F58282" />
   <SolidColorBrush x:Key="BrushAccentSoft" Color="#1E3A8A" />
   <SolidColorBrush x:Key="BrushAccentForeground" Color="#FFFFFF" />
   <SolidColorBrush x:Key="BrushLoginHeroTitle" Color="#FFFFFF" />

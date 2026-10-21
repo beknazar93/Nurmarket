@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Продажи в убыток</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="reports" active="Продажи в убыток" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Продажи в убыток</span><span style="font-size: 13px; color: #667085">Проданное дешевле закупки или без закупочной цены</span></span>
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">7 дней</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">30 дней</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">180 дней</button>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+      <div style="background: #FDE8E8; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #7A271A">Потеряно на убыточных продажах</span><span style="font-size: 28px; font-weight: 800; color: #B42318">[сумма]</span></div>
+      <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 16px; border: 2px solid #0B2A3C; padding: 18px; font-family: inherit; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #667085">Ниже закупки</span><span style="font-size: 28px; font-weight: 800; color: #0B2A3C">[N] строк</span></button>
+      <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 16px; border: 1px solid #E5E7EB; padding: 18px; font-family: inherit; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #667085">Без закупочной цены</span><span style="font-size: 28px; font-weight: 800; color: #B54708">[N] строк</span></button>
+    </div>
+    <section style="flex-grow: 1; min-height: 0; background: #FFFFFF; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+      <div style="display: grid; grid-template-columns: 2.4fr 1fr 1fr 0.8fr 1fr 1.2fr; gap: 12px; padding: 12px 16px; background: #F9FAFB; font-size: 12px; font-weight: 700; color: #667085"><span>Товар</span><span style="text-align: right">Продано по</span><span style="text-align: right">Закупка</span><span style="text-align: right">Штук</span><span style="text-align: right">Убыток</span><span></span></div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+        <div style="display: grid; grid-template-columns: 2.4fr 1fr 1fr 0.8fr 1fr 1.2fr; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid #F2F4F7">
+          <span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700">{{r.name}}</span><span style="font-size: 11px; font-weight: 700; color: {{r.whyColor}}">{{r.why}}</span></span>
+          <span style="text-align: right; font-size: 13px">{{r.price}}</span><span style="text-align: right; font-size: 13px">{{r.cost}}</span><span style="text-align: right; font-size: 13px">[N]</span><span style="text-align: right; font-size: 13px; font-weight: 800; color: #B42318">[сумма]</span>
+          <span style="text-align: right"><button type="button" style="height: 34px; padding: 0 12px; border-radius: 10px; border: 0; background: #FFD600; font-family: inherit; font-size: 12px; font-weight: 800; color: #0B2A3C">Исправить цену</button></span>
+        </div>
+      </sc-for>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { rows: [
+      { name: 'Кока Кола (ПЭТ) 2л', why: 'Нет закупочной цены', whyColor: '#B54708', price: '170 сом', cost: '—' },
+      { name: '[товар]', why: 'Ниже закупки', whyColor: '#B42318', price: '[цена]', cost: '[цена]' },
+      { name: '[товар]', why: 'Ниже закупки', whyColor: '#B42318', price: '[цена]', cost: '[цена]' },
+      { name: '[товар]', why: 'Нет закупочной цены', whyColor: '#B54708', price: '[цена]', cost: '—' },
+      { name: '[товар]', why: 'Ниже закупки', whyColor: '#B42318', price: '[цена]', cost: '[цена]' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

@@ -354,8 +354,9 @@ public partial class TelegramBotSetupWindow : Window
 
     private void OpenMyBot_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-10-21 (бот, К1): пока ждём код — ссылка сразу отправит его боту («Старт» с кодом).
         if (!string.IsNullOrWhiteSpace(_botUsername))
-            OpenUrl($"https://t.me/{_botUsername}");
+            OpenUrl(_ownerCode is { } code ? $"https://t.me/{_botUsername}?start=own_{code}" : $"https://t.me/{_botUsername}");
     }
 
     private async void CopyNewBot_Click(object? sender, RoutedEventArgs e)
@@ -402,6 +403,15 @@ public partial class TelegramBotSetupWindow : Window
             }
 
             var prefs = UserPreferences.Instance;
+            // 2026-10-21 (бот, ВАЖНО 13): другой бот — прежний получатель и владелец к нему не относятся, подтверждаются заново.
+            if (TelegramBotOwner.BotId(prefs.TelegramBotToken) is { } oldBot && oldBot != TelegramBotOwner.BotId(token))
+            {
+                prefs.TelegramChatId = null;
+                prefs.TelegramChatTitle = null;
+                TelegramBotOwner.Reset();
+                TestButton.IsEnabled = false;
+                DetectStatus.Text = "";
+            }
             prefs.TelegramBotToken = token;
             prefs.TelegramBotUsername = username;
             prefs.SaveToDisk();
@@ -419,31 +429,45 @@ public partial class TelegramBotSetupWindow : Window
         }
     }
 
+    /// <summary>2026-10-21 (бот, К1): код подтверждения, пока он ждёт отправки боту (для ссылки «Открыть моего бота»).</summary>
+    private string? _ownerCode;
+    private CancellationTokenSource? _detectCts;
+
+    /// <summary>2026-10-21 (бот, К1): получатель и владелец — по одноразовому коду. Раньше «Определить получателя» брало чат
+    /// последнего сообщения боту от кого угодно: написал покупатель — выручка и должники уходили ему.</summary>
     private async void Detect_Click(object? sender, RoutedEventArgs e)
     {
         DetectButton.IsEnabled = false;
-        DetectStatus.Text = Tr.T("Спрашиваю Telegram…", "Telegram'дан суралууда…", "Asking Telegram…", "Telegram'a soruluyor…", "Telegram'dan so'ralmoqda…");
+        _detectCts?.Cancel();
+        _detectCts = new CancellationTokenSource();
         try
         {
-            var (chatId, name, error) = await TelegramBotService
-                .TryDetectChatIdAsync(UserPreferences.Instance.TelegramBotToken ?? "")
-                .ConfigureAwait(true);
-
-            if (error != null || chatId == null)
+            var token = UserPreferences.Instance.TelegramBotToken ?? "";
+            if (string.IsNullOrWhiteSpace(UserPreferences.Instance.TelegramBotUsername))
+                await TelegramBotService.TryRememberBotUsernameAsync(token.Trim()).ConfigureAwait(true);
+            _botUsername = UserPreferences.Instance.TelegramBotUsername ?? _botUsername;
+            var (code, completion) = TelegramBotOwner.Begin(_detectCts.Token);
+            _ownerCode = code;
+            DetectStatus.Text = Tr.T(
+                $"Отправьте боту код {code} из СВОЕГО Telegram: в личный чат с ботом — просто цифры (или нажмите «Открыть моего бота»), в группу магазина — /code {code}. Код действует 10 минут. Жду…",
+                $"Ботко {code} кодун ӨЗҮҢҮЗДҮН Telegram'дан жөнөтүңүз: бот менен жеке чатка — сандарды гана (же «Ботумду ачуу» баскычын басыңыз), дүкөндүн тобуна — /code {code}. Код 10 мүнөт жарактуу. Күтүп жатам…",
+                $"Send the code {code} to the bot from YOUR Telegram: in a private chat with the bot — just the digits (or press “Open my bot”), in the shop group — /code {code}. The code is valid for 10 minutes. Waiting…",
+                $"{code} kodunu bota KENDİ Telegram'ınızdan gönderin: botla özel sohbette — sadece rakamlar (veya «Botumu aç»a basın), mağaza grubunda — /code {code}. Kod 10 dakika geçerli. Bekliyorum…",
+                $"{code} kodini botga O'Z Telegram'ingizdan yuboring: bot bilan shaxsiy chatga — faqat raqamlar (yoki «Botimni ochish»ni bosing), do'kon guruhiga — /code {code}. Kod 10 daqiqa amal qiladi. Kutyapman…");
+            var result = await completion.ConfigureAwait(true);
+            _ownerCode = null;
+            if (!result.Ok || result.ChatId == null)
             {
-                DetectStatus.Text = error ?? Tr.T("Не удалось определить получателя.", "Алуучуну аныктоо мүмкүн болгон жок.", "Could not detect the recipient.", "Alıcı belirlenemedi.", "Qabul qiluvchini aniqlab bo'lmadi.");
+                if (result.Error != null)
+                    DetectStatus.Text = result.Error;
                 return;
             }
 
-            var prefs = UserPreferences.Instance;
-            prefs.TelegramChatId = chatId;
-            prefs.TelegramChatTitle = name;
-            prefs.SaveToDisk();
-
             TestButton.IsEnabled = true;
+            var name = result.Title;
             DetectStatus.Text = string.IsNullOrWhiteSpace(name)
-                ? Tr.T($"Готово: сводки пойдут в чат {chatId}.", $"Даяр: жыйынтыктар {chatId} чатына жөнөтүлөт.", $"Done: summaries will go to chat {chatId}.", $"Hazır: özetler {chatId} sohbetine gönderilecek.", $"Tayyor: hisobotlar {chatId} chatiga yuboriladi.")
-                : Tr.T($"Готово: сводки пойдут в чат «{name}».", $"Даяр: жыйынтыктар «{name}» чатына жөнөтүлөт.", $"Done: summaries will go to the “{name}” chat.", $"Hazır: özetler «{name}» sohbetine gönderilecek.", $"Tayyor: hisobotlar «{name}» chatiga yuboriladi.");
+                ? Tr.T($"Готово: вы подтверждены как владелец, сводки пойдут в чат {result.ChatId}.", $"Даяр: сиз ээси катары ырасталдыңыз, жыйынтыктар {result.ChatId} чатына жөнөтүлөт.", $"Done: you are confirmed as the owner, summaries will go to chat {result.ChatId}.", $"Hazır: sahip olarak doğrulandınız, özetler {result.ChatId} sohbetine gönderilecek.", $"Tayyor: siz ega sifatida tasdiqlandingiz, hisobotlar {result.ChatId} chatiga yuboriladi.")
+                : Tr.T($"Готово: вы подтверждены как владелец, сводки пойдут в чат «{name}».", $"Даяр: сиз ээси катары ырасталдыңыз, жыйынтыктар «{name}» чатына жөнөтүлөт.", $"Done: you are confirmed as the owner, summaries will go to the “{name}” chat.", $"Hazır: sahip olarak doğrulandınız, özetler «{name}» sohbetine gönderilecek.", $"Tayyor: siz ega sifatida tasdiqlandingiz, hisobotlar «{name}» chatiga yuboriladi.");
 
             StartBotIfEnabled();
         }
@@ -453,16 +477,27 @@ public partial class TelegramBotSetupWindow : Window
         }
     }
 
+    protected override void OnClosed(EventArgs e)
+    {
+        // 2026-10-21: окно закрыли — код больше не ждём (опрос подтверждения не висит 10 минут).
+        _detectCts?.Cancel();
+        base.OnClosed(e);
+    }
+
     private async void Test_Click(object? sender, RoutedEventArgs e)
     {
         TestButton.IsEnabled = false;
         TestStatus.Text = Tr.T("Отправляю…", "Жөнөтүлүүдө…", "Sending…", "Gönderiliyor…", "Yuborilmoqda…");
         try
         {
-            var shop = UserPreferences.Instance.StoreName;
+            // 2026-10-21 (бот): «&» и «<» в названии магазина ломали пробное сообщение — экранируем; текст на языке программы.
+            var shop = System.Net.WebUtility.HtmlEncode(UserPreferences.Instance.StoreName ?? "");
             var error = await TelegramBotService
-                .SendAsync($"<b>{shop}</b>\n\nПробное сообщение из кассы. Если вы его видите — бот подключён.\n\n"
-                           + "Попробуйте команду /segodnya.")
+                .SendAsync($"<b>{shop}</b>\n\n" + Tr.T("Пробное сообщение из кассы. Если вы его видите — бот подключён.\n\nНажмите кнопку «📊 Сегодня» внизу или команду /segodnya.",
+                    "Кассадан сынак билдирүү. Аны көрүп жатсаңыз — бот туташкан.\n\nТөмөнкү «📊 Бүгүн» баскычын же /segodnya буйругун басыңыз.",
+                    "A test message from the kassa. If you see it, the bot is connected.\n\nPress the “📊 Today” button below or the /segodnya command.",
+                    "Kasadan deneme mesajı. Görüyorsanız bot bağlı.\n\nAşağıdaki «📊 Bugün» düğmesine veya /segodnya komutuna basın.",
+                    "Kassadan sinov xabari. Uni ko'rayotgan bo'lsangiz — bot ulangan.\n\nPastdagi «📊 Bugun» tugmasini yoki /segodnya buyrug'ini bosing."))
                 .ConfigureAwait(true);
             TestStatus.Text = error ?? Tr.T("Отправлено — проверьте Telegram.", "Жөнөтүлдү — Telegram'ды текшериңиз.", "Sent — check Telegram.", "Gönderildi — Telegram'ı kontrol edin.", "Yuborildi — Telegram'ni tekshiring.");
         }

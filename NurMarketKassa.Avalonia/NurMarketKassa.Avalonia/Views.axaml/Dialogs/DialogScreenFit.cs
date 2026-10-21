@@ -152,8 +152,8 @@ internal static class DialogScreenFit
     }
 
     /// <summary>Экран главного окна кассы (или программы владельца); если его не определить —
-    /// экран владельца окна, затем основной.</summary>
-    private static Avalonia.Platform.Screen? KassaScreen(Window window)
+    /// экран владельца окна, затем основной. 2026-10-16: internal — им пользуется и ModalShell.</summary>
+    internal static Avalonia.Platform.Screen? KassaScreen(Window window)
     {
         try
         {

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Кассир — главная</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:#FFFFFF;border-top:1px solid #EAECF0;padding:6px 4px 2px}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#667085;text-decoration:none;padding:6px 0;border-radius:12px}
+.nav a.on{color:#0B2A3C;font-weight:800}
+.nav a.on span{background:#FFD600}
+.nav span{width:44px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+.tile{border:0;border-radius:20px;padding:18px;display:flex;flex-direction:column;align-items:flex-start;gap:10px;font-family:inherit;text-align:left;min-height:116px}
+.tile b{font-size:17px;font-weight:800}
+.tile small{font-size:12px;line-height:16px}
+.ti{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#FFFFFF}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+.role{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#E7EEF3;color:#0B2A3C;white-space:nowrap}
+.row{border-radius:16px;background:#FFFFFF;border:1px solid #E5E7EB;padding:10px 14px;min-height:56px;box-sizing:border-box;display:flex;align-items:center;gap:12px;font-family:inherit;text-align:left;width:100%}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 20px 20px 12px; display: flex; align-items: center; gap: 12px">
+    <span style="width: 44px; height: 44px; border-radius: 22px; background: #0B2A3C; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px">АС</span>
+    <!-- 2026-10-17: на телефоне работает Айгерим Садыкова (единые данные NBS), метка роли в шапке -->
+    <span style="display: flex; flex-direction: column; flex-grow: 1; gap: 2px"><b style="font-size: 16px">Айгерим Садыкова</b><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #667085">NBS · Телефон <span class="role">Кассир</span></span></span>
+    <button type="button" aria-label="Уведомления" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg></button>
+  </header>
+
+  <main style="flex-grow: 1; padding: 4px 20px 16px; display: flex; flex-direction: column; gap: 14px">
+    <section style="border-radius: 20px; background: #0B2A3C; color: #FFFFFF; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 4px; background: #4ADE80"></span><span style="font-size: 13px; font-weight: 600; color: #D0D5DD">Смена открыта · с 09:00</span></div>
+      <div style="display: flex; justify-content: space-between; align-items: flex-end">
+        <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #C7D2DB">Мои продажи за смену</span><b style="font-size: 28px; font-weight: 800; color: #FFD600; white-space: nowrap">1&nbsp;080&nbsp;сом</b></span>
+        <span style="font-size: 13px; color: #C7D2DB; white-space: nowrap">12 чеков</span>
+      </div>
+      <span style="font-size: 12px; color: #C7D2DB">1 чек ждёт связи — отправится сам</span>
+      <button type="button" style="height: 48px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: transparent; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Закрыть смену</button>
+    </section>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+      <button type="button" class="tile" style="background: #FFD600; color: #0B2A3C"><span class="ti" style="background: rgba(11,42,60,.12)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path><circle cx="9" cy="19.5" r="1.5"></circle><circle cx="17" cy="19.5" r="1.5"></circle></svg></span><b>Продажа</b><small>Новый чек</small></button>
+      <button type="button" class="tile" style="background: #FFFFFF; color: #0B2A3C"><span class="ti" style="background: #F2F4F7"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path><path d="M8 9v6M11 9v6M14 9v6M17 9v6"></path></svg></span><b>Приёмка</b><small style="color: #667085">Товар от поставщика</small></button>
+      <button type="button" class="tile" style="background: #FFFFFF; color: #0B2A3C"><span class="ti" style="background: #F2F4F7"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9zM7 5H5v16h14V5h-2"></path><path d="M8.5 13l2.5 2.5 4.5-5"></path></svg></span><b>Ревизия</b><small style="color: #667085">Пересчёт товара на полке</small></button>
+      <button type="button" class="tile" style="background: #FFFFFF; color: #0B2A3C"><span class="ti" style="background: #F2F4F7"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17M11 6h9M11 12h9M11 18h9"></path></svg></span><b style="white-space: nowrap">Мои задачи · 2</b><small style="color: #667085">От администратора</small></button>
+    </div>
+
+    <!-- 2026-10-17: плитки не повторяют нижнее меню (Сканер/Чеки/Товары там); число «мало» = 4, как на складе -->
+    <button type="button" class="row">
+      <span style="width: 36px; height: 36px; border-radius: 10px; background: #FEF3E2; color: #B54708; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0">!</span>
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 14px">Заканчиваются 4 товара</b><span style="font-size: 12px; color: #667085">Сок Gracio, Кока-Кола, Эссе манго, Aos</span></span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+    </button>
+    <button type="button" class="row">
+      <span style="width: 36px; height: 36px; border-radius: 10px; background: #E7EEF3; color: #0B2A3C; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg></span>
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 14px">Сообщить администратору</b><span style="font-size: 12px; color: #667085">Нет товара, ошибка цены, вопрос</span></span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+    </button>
+  </main>
+
+  <nav class="nav" aria-label="Разделы кассира">
+    <a href="#" class="on" aria-current="page"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg></span>Главная</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path><circle cx="9" cy="19.5" r="1.5"></circle><circle cx="17" cy="19.5" r="1.5"></circle></svg></span>Продажа</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path><path d="M8 9v6M12 9v6M16 9v6"></path></svg></span>Сканер</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg></span>Чеки</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg></span>Товары</a>
+  </nav>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

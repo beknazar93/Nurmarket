@@ -22,7 +22,7 @@ using NurMarketKassa.Ui.Shared;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
 
-public partial class WarehouseWindow : Window, IOwnerSection
+public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepAlive
 {
     private readonly IBarcodeInputService _barcodeInputService;
     private readonly WarehouseViewModel _viewModel;
@@ -62,6 +62,8 @@ public partial class WarehouseWindow : Window, IOwnerSection
         EscapeKey.Attach(this, closeWindow: CloseByEscape);
         _viewModel.RevisionLineAdded += OnRevisionLineAdded;
         InitializeWriteOffReasonPicker();
+        // 2026-10-19, этап О9: пустые состояния и узкие таблицы (WarehouseWindow.O9.cs).
+        InitO9Look();
         WarehouseTabs.SelectionChanged += WarehouseTabs_SelectionChanged;
         RefreshPaidFeatureVisibility();
     }
@@ -151,6 +153,9 @@ public partial class WarehouseWindow : Window, IOwnerSection
         if (e.Key != Key.Enter)
             return;
 
+        // 2026-10-19: Enter в поле скана всегда обработан здесь — дальше по окну он не идёт (раньше при видимых подсказках не
+        // ставился e.Handled, и тот же Enter мог сработать ещё раз). Пустое поле — Enter просто гасится.
+        e.Handled = true;
         var code = ReceivingScanBox.Text?.Trim() ?? "";
         if (code.Length == 0)
             return;
@@ -165,6 +170,8 @@ public partial class WarehouseWindow : Window, IOwnerSection
             && ReceivingSuggestionsPanel.ItemsSource is IEnumerable<CatalogProductTileVm> found
             && found.FirstOrDefault() is { } first)
         {
+            // 2026-10-19: ReceivingSuggestion_Click сам очищает поле и подсказки и возвращает фокус; от двойного добавления
+            // защищают e.Handled выше и пустое поле (повторный Enter ничего не добавит).
             ReceivingSuggestion_Click(new Button { Tag = first }, new RoutedEventArgs());
             return;
         }
@@ -353,7 +360,8 @@ public partial class WarehouseWindow : Window, IOwnerSection
             + "   ·   " + Tr.T("единиц", "бирдик", "units", "adet", "birliklar")
             + $": {lines.Sum(l => l.Quantity):0.###}"
             + "   ·   " + Tr.T("на сумму", "суммасы", "total", "tutar", "summa")
-            + $": {lines.Sum(l => l.LineTotal):0.##} " + Tr.T("сом", "сом", "som", "som", "so'm");
+            // 2026-10-19, О9: сумма с разрядами («14 903», было «14903»).
+            + $": {lines.Sum(l => l.LineTotal).ToString("#,0.##", RuCulture)} " + Tr.T("сом", "сом", "som", "som", "so'm");
 
         if (created > 0)
             text += "   ·   " + Tr.T("новых товаров", "жаңы товар", "new products", "yeni ürün", "yangi mahsulotlar")
@@ -417,12 +425,13 @@ public partial class WarehouseWindow : Window, IOwnerSection
 
         TransfersGrid.ItemsSource = rows;
 
+        // 2026-10-21 (пакет 1, п. 108): «кнопка справа», а кнопка «+ Создать перемещение» — слева, в строке фильтров.
         MovementsSummaryText.Text = (rows.Count == 0
-            ? Tr.T("Перемещений пока нет. Создайте первое — кнопка справа.",
-                   "Жылышуулар азырынча жок. Биринчисин түзүңүз — оң жактагы баскыч.",
-                   "No transfers yet. Create the first one with the button on the right.",
-                   "Henüz transfer yok. İlkini sağdaki düğmeyle oluşturun.",
-                   "Hozircha ko'chirishlar yo'q. Birinchisini o'ngdagi tugma bilan yarating.")
+            ? Tr.T("Перемещений пока нет. Создайте первое кнопкой «+ Создать перемещение» выше.",
+                   "Жылышуулар азырынча жок. Биринчисин жогорудагы «+ Жылдыруу түзүү» баскычы менен түзүңүз.",
+                   "No transfers yet. Create the first one with «+ New transfer» above.",
+                   "Henüz transfer yok. İlkini yukarıdaki «+ Yeni transfer» düğmesiyle oluşturun.",
+                   "Hozircha ko'chirishlar yo'q. Birinchisini yuqoridagi «+ Yangi ko'chirish» tugmasi bilan yarating.")
             : Tr.T("Документов", "Документтер", "Documents", "Belgeler", "Hujjatlar") + $": {rows.Count}")
             // 2026-09-25, по замечанию владельца: перемещение выглядело так, будто двигает остатки.
             // У товара магазина в NurCRM один остаток на весь магазин (поле quantity, без
@@ -504,7 +513,8 @@ public partial class WarehouseWindow : Window, IOwnerSection
                 GroupName = "TransferStatus",
                 IsChecked = status == _transferStatusFilter,
             };
-            pill.Classes.Add("SaleUnitPill");
+            // 2026-10-19, О9: сегмент (выбранный — тёмно-синий), рамка sec-segment — в разметке.
+            pill.Classes.Add("sec-seg");
             pill.Click += (_, _) =>
             {
                 _transferStatusFilter = status;
@@ -680,7 +690,15 @@ public partial class WarehouseWindow : Window, IOwnerSection
 
     private void MovementsFilter_Changed(object? sender, RoutedEventArgs e) => RefreshMovements();
 
-    private void MovementsFilter_Changed(object? sender, TextChangedEventArgs e) => RefreshMovements();
+    // 2026-10-20: проверка фильтров — поиск в «Документах» не искал: поле обновляло только скрытый журнал движения
+    // (и подменяло его итогом строку сводки). Теперь — тот список, который на экране.
+    private void MovementsFilter_Changed(object? sender, TextChangedEventArgs e)
+    {
+        if (TransfersDocsRadio?.IsChecked == true)
+            RefreshTransfers();
+        else
+            RefreshMovements();
+    }
 
     /// <summary>Переключение «Список / Плитки». Обе панели стоят в одной ячейке сетки и просто
     /// показываются по очереди — данные у них общие (та же страница каталога), поэтому
@@ -739,7 +757,8 @@ public partial class WarehouseWindow : Window, IOwnerSection
         {
             var button = new Button
             {
-                Classes = { "SecondaryButton" },
+                // 2026-10-19, О9: пункт списка без рамки (было — серая кнопка на каждую причину).
+                Classes = { "list-item" },
                 Content = reason,
                 Tag = reason,
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
@@ -805,6 +824,8 @@ public partial class WarehouseWindow : Window, IOwnerSection
             InitRedesign();
             // 2026-10-11: замечания тестировщика — крестики, «Очистить список», подсказки не «зависают» (WarehouseWindow.Fixes.cs).
             InitWarehouseFixes();
+            // 2026-10-20, этап П3: «В долг» — срок оплаты поставщику (WarehouseWindow.SupplierDebt.cs).
+            InitSupplierDebtTerm();
             RefreshReceivingSummary();
             ReceivingPaidRadio.IsChecked = true;
             _viewModel.ReceivingPaidNow = true;
@@ -1526,6 +1547,11 @@ public partial class WarehouseWindow : Window, IOwnerSection
     #endregion
 
     #region Window Controls & Dragging
+
+    /// <summary>2026-10-20, память программы владельца: несохранённую приёмку или ревизию (строки живут только в окне)
+    /// и проведение документа оболочка не закрывает при уходе из раздела (IOwnerSectionKeepAlive).</summary>
+    public bool KeepAliveWhenHidden =>
+        _viewModel.IsBusy || _viewModel.ReceivingLines.Count > 0 || _viewModel.RevisionLines.Count > 0;
 
     /// <summary>Склад разделом программы владельца (см. <see cref="IOwnerSection"/>): над разделом
     /// уже написано «Склад», поэтому своя шапка «Управление складом» с кнопками «свернуть» и ✕ не

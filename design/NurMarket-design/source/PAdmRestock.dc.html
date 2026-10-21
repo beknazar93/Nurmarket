@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Заказ поставщику</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.ln{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#FFFFFF}
+.st{width:44px;height:44px;border-radius:22px;font-family:inherit;font-size:18px;display:flex;align-items:center;justify-content:center}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 18px; font-weight: 800">Заказ поставщику <span style="font-size: 11px; font-weight: 700; background: #E4E7EC; border-radius: 6px; padding: 3px 7px; vertical-align: middle">Администратор</span></b><span style="font-size: 12px; color: #667085">Количество — по продажам за 4 недели · черновик</span></span>
+  </header>
+  <main style="flex-grow: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <button type="button" style="display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; text-align: left"><span style="width: 38px; height: 38px; border-radius: 12px; background: #E7EEF3; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px">БД</span><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">ОсОО «Бишкек Дистрибьюшн»</b><span style="font-size: 12px; color: #667085">Напитки · WhatsApp +996 555 10 20 30</span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+      <div class="ln">
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</b><span style="font-size: 12px; color: {{r.c}}; font-weight: 600">{{r.left}}</span></span>
+        <span style="display: flex; align-items: center; gap: 6px"><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="min-width: 28px; text-align: center">{{r.q}}</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></span>
+      </div>
+    </sc-for>
+    <button type="button" style="height: 44px; border-radius: 12px; border: 1.5px dashed #D0D5DD; background: transparent; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054">+ Добавить товар</button>
+  </main>
+  <div style="padding: 10px 16px 30px; position: relative; display: flex; flex-direction: column; gap: 8px; background: #FFFFFF; border-top: 1px solid #EAECF0">
+    <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">3 товара · по закупке примерно</span><b style="font-size: 18px; color: #0B2A3C; white-space: nowrap">2&nbsp;320 сом + Кока-Кола</b></div>
+    <span style="font-size: 12px; color: #667085">У Кока-Колы не указана закупка — сумма без неё. Отправится текстом в WhatsApp поставщику, заказ появится в «Закупках» со статусом «Отправлен».</span>
+    <span style="display: flex; gap: 8px"><button type="button" style="flex: 1 1 0; height: 54px; border-radius: 16px; border: 1.5px solid #D0D5DD; background: #FFFFFF; color: #0B2A3C; font-family: inherit; font-size: 15px; font-weight: 700; white-space: nowrap">Сохранить черновик</button><button type="button" style="flex: 1 1 0; height: 54px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 15px; font-weight: 800; white-space: nowrap">Отправить</button></span><span style="position: absolute; left: 128px; bottom: 8px; width: 134px; height: 5px; border-radius: 3px; background: rgba(11,42,60,.25)"></span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: один поставщик (напитки), остатки и закупки — единые данные NBS
+    const r = (name, left, c, q) => ({ name, left, c, q });
+    return {
+      rows: [
+        r('Кока-Кола (ПЭТ) 2л', 'осталось 1 шт · на 1 день · закупка не указана', '#B42318', '24'),
+        r('Сок Gracio яблочный 1л', 'мало: 2 шт · на 1 день · 92 сом', '#B54708', '20'),
+        r('Sprite Мохито 1л', 'осталось 9 шт · на 4 дня · 40 сом', '#B54708', '12')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

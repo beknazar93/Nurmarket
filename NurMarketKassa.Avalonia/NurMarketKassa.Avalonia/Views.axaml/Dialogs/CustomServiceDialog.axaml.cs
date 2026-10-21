@@ -27,6 +27,41 @@ public partial class CustomServiceDialog : Window
         InitializeComponent();
         Opened += (_, _) => NameBox.Focus();
         NameBox.TextChanged += (_, _) => ShowCatalogSuggestions();
+        ExpenseRadio.IsCheckedChanged += (_, _) => UpdateExpenseNote();
+    }
+
+    private bool _cartIsEmpty;
+
+    /// <summary>2026-10-21 (пакет 6, п. 43): чек пустой — «Расход» оформится изъятием из кассы (MainWindow.AddCustomItemAsync).</summary>
+    public bool CartIsEmpty
+    {
+        get => _cartIsEmpty;
+        set
+        {
+            _cartIsEmpty = value;
+            UpdateExpenseNote();
+        }
+    }
+
+    private void UpdateExpenseNote()
+    {
+        var expense = ExpenseRadio.IsChecked == true;
+        ExpenseNoteBorder.IsVisible = expense;
+        ExpenseNoteText.Text = _cartIsEmpty
+            ? Tr.T("Чек пустой — «Расход» будет изъятием наличных из кассы (как «Изъятие» в смене), с подтверждением суммы.",
+                "Чек бош — «Чыгым» кассадан накталай акча алуу болот (сменадагы «Алуу» сыяктуу), сумманы ырастоо менен.",
+                "The receipt is empty — an “Expense” will be a cash withdrawal from the till (like “Cash out” in the shift), with the amount confirmed.",
+                "Fiş boş — «Gider», kasadan nakit çıkışı olacak (vardiyadaki «Para çıkışı» gibi), tutar onaylanarak.",
+                "Chek bo'sh — «Chiqim» kassadan naqd pul olish bo'ladi (smenadagi «Chiqim» kabi), summa tasdiqlanadi.")
+            : Tr.T("«Расход» вычитается из суммы этого чека — покупатель заплатит меньше.",
+                "«Чыгым» ушул чектин суммасынан кемийт — сатып алуучу азыраак төлөйт.",
+                "An “Expense” is subtracted from this receipt — the customer pays less.",
+                "«Gider» bu fişin tutarından düşülür — müşteri daha az öder.",
+                "«Chiqim» shu chek summasidan ayiriladi — xaridor kamroq to'laydi.");
+        if (expense && _cartIsEmpty)
+            AddButton.Content = Tr.T("Изъять из кассы", "Кассадан алуу", "Withdraw from till", "Kasadan çek", "Kassadan olish");
+        else
+            AddButton.Bind(ContentControl.ContentProperty, this.GetResourceObservable("customService.addButton"));
     }
 
     /// <summary>2026-10-03, проверка у клиента: из 142 строк продаж 2 были «Доп. услугой» «конфет», хотя конфеты

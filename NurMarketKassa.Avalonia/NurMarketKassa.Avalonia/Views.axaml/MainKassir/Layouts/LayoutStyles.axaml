@@ -113,6 +113,17 @@
     </Style>
 
     <!-- Обычная кнопка: панель с рамкой. -->
+    <!-- 2026-10-19, К1: остаток на плитке во всех раскладках — как в «Классике» и на Складе: меньше 10 — оранжевым,
+         0 и меньше — красным, норма — цветом темы. -->
+    <Style Selector="TextBlock.stock-low">
+        <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="TextBlock.stock-out">
+        <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
     <Style Selector="Button.lx-btn">
         <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
@@ -280,6 +291,15 @@
         <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
         <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <!-- 2026-10-20, проверка фильтров: кнопка «Фильтр» при включённом фильтре — тёмная рамка 2 px (как выбранная плитка склада),
+         число условий — жёлтым кружком на кнопке. -->
+    <Style Selector="Button.filter-on">
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+    <Style Selector="Button.lx-chip.filter-on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
     </Style>
     <Style Selector="Button.lx-chip.active">
         <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб — товары и склад</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.pill{height:38px;padding:0 14px;border-radius:19px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054}
+.pill.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.tr{display:grid;grid-template-columns:24px minmax(0,2.3fr) minmax(0,1.25fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,.9fr) minmax(0,.9fr);gap:10px;padding:9px 12px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.stk{font-weight:800;padding:3px 10px;border-radius:999px;justify-self:start}
+.dd{height:42px;padding:0 12px;border-radius:12px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#475467;white-space:nowrap}
+.dd b{color:#0B2A3C}
+.pg{min-width:32px;height:32px;border-radius:8px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Склад" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+  <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+    <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Склад</b><span style="font-size: 13px; color: #667085">Изменения сразу видны на всех кассах, телефонах и на сайте</span></span>
+    <button type="button" class="b2">Ценники</button>
+    <button type="button" class="b1">+ Товар</button>
+  </div>
+
+  <!-- 2026-10-16: плитки — те же числа, что в «Пополнении и сроках» и в меню (SPEC п. 9) -->
+  <div style="display: flex; flex-wrap: wrap; gap: 10px">
+    <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+      <button type="button" style="height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 600; color: #344054; display: flex; align-items: center; gap: 8px; white-space: nowrap"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{t.dot}}"></span>{{t.label}} · <b style="color: #0B2A3C">{{t.n}}</b></button>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+    <section style="flex: 1 1 640px; min-width: 0; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 18px; overflow: hidden">
+      <!-- 2026-10-16: «Склад» = место хранения; «Категория» и «Вид» — отдельные фильтры (ревью C) -->
+      <div style="padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #EAECF0">
+        <label style="flex: 1 1 200px; height: 42px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #F9FAFB">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+          <input type="text" placeholder="Название или штрихкод" aria-label="Поиск товара" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 14px; width: 100%">
+        </label>
+        <button type="button" class="dd">Склад: <b>Главный склад</b> ▾</button>
+        <button type="button" class="dd">Категория: <b>Все</b> ▾</button>
+        <button type="button" class="dd">Вид: <b>Все</b> ▾</button>
+      </div>
+      <div style="padding: 9px 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: #FFF7CC; font-size: 13px; color: #0B2A3C"><b>Выбрано 2</b><a href="#" style="font-weight: 700">Изменить цену</a><a href="#" style="font-weight: 700">Переместить на другой склад</a><a href="#" style="font-weight: 700">Напечатать ценники</a></div>
+      <div style="overflow-x: auto">
+        <div style="min-width: 760px">
+          <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span></span><span>Товар ▲</span><span>Штрихкод ↕</span><span>Категория ↕</span><span>Остаток ↕</span><span>Закупка ↕</span><span>Цена ↕</span></div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+            <div class="tr" style="background: {{r.bg}}">
+              <span>
+                <sc-if value="{{r.sel}}" hint-placeholder-val="{{false}}"><input type="checkbox" aria-label="Выбрать товар" checked="" style="width: 18px; height: 18px; accent-color: #0B2A3C"></sc-if>
+                <sc-if value="{{r.unsel}}" hint-placeholder-val="{{true}}"><input type="checkbox" aria-label="Выбрать товар" style="width: 18px; height: 18px; accent-color: #0B2A3C"></sc-if>
+              </span>
+              <span style="display: flex; align-items: center; gap: 10px; min-width: 0"><span style="width: 34px; height: 34px; border-radius: 9px; background: {{r.tint}}; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: #0B2A3C; flex-shrink: 0">{{r.mono}}</span><span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</span></span>
+              <span style="color: #475467; font-size: 12px; font-variant-numeric: tabular-nums">{{r.code}}</span>
+              <span style="color: #475467; display: flex; flex-direction: column; align-items: flex-start; gap: 2px">{{r.cat}}<sc-if value="{{r.rent}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-weight: 700; color: #0B2A3C; background: #E3F2FD; border-radius: 6px; padding: 2px 6px; white-space: nowrap">Прокат</span></sc-if></span>
+              <span class="stk" style="background: {{r.sbg}}; color: {{r.sfg}}; white-space: nowrap">{{r.stock}}</span>
+              <span style="color: #475467; white-space: nowrap; display: flex; flex-direction: column">{{r.cost}}<sc-if value="{{r.nocost}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-weight: 700; color: #B54708">нет закупки</span></sc-if></span>
+              <span style="display: flex; flex-direction: column"><b style="color: #0B2A3C; white-space: nowrap">{{r.price}}</b><span style="font-size: 11px; color: #667085">{{r.unit}}</span></span>
+            </div>
+          </sc-for>
+          <div style="padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #475467"><span>Показано 1–50 из 307</span><span style="display: flex; gap: 6px; align-items: center"><button type="button" class="pg" disabled>‹</button><button type="button" class="pg" style="background: #0B2A3C; color: #FFFFFF; border: 0">1</button><button type="button" class="pg">2</button><button type="button" class="pg">3</button>…<button type="button" class="pg">7</button><button type="button" class="pg">›</button></span></div>
+        </div>
+      </div>
+    </section>
+
+    <aside style="flex: 1 1 260px; max-width: 300px; display: flex; flex-direction: column; gap: 12px">
+      <section style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+        <b style="font-size: 16px; font-weight: 800">Массовая загрузка</b>
+        <div style="border: 2px dashed #D0D5DD; border-radius: 14px; padding: 18px 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0B2A3C" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"></path></svg>
+          <b style="font-size: 14px">Перетащите файл сюда</b>
+          <span style="font-size: 12px; color: #667085">Excel, CSV или фото накладной — товары появятся списком для проверки</span>
+          <button type="button" class="b2" style="height: 38px">Выбрать файл</button>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center; border-radius: 14px; background: #0B2A3C; color: #FFFFFF; padding: 14px">
+          <span style="width: 64px; height: 64px; border-radius: 10px; background: #FFFFFF; flex-shrink: 0; display: flex; align-items: center; justify-content: center">
+            <svg width="52" height="52" viewBox="0 0 21 21" shape-rendering="crispEdges" role="img" aria-label="QR-код для умной камеры"><path fill="#0B2A3C" d="M0 0h7v7H0zM14 0h7v7h-7zM0 14h7v7H0z"></path><path fill="#FFFFFF" d="M1 1h5v5H1zM15 1h5v5h-5zM1 15h5v5H1z"></path><path fill="#0B2A3C" d="M2 2h3v3H2zM16 2h3v3h-3zM2 16h3v3H2zM8 0h1v2H8zM10 1h2v1h-2zM9 3h2v2H9zM12 4h1v3h-1zM8 6h2v2H8zM0 8h2v1H0zM3 8h3v1H3zM7 9h3v1H7zM11 8h2v2h-2zM14 8h3v1h-3zM18 8h3v2h-3zM1 10h2v2H1zM5 10h1v3H5zM9 11h3v1H9zM13 11h2v2h-2zM16 10h2v3h-2zM19 12h2v1h-2zM8 13h2v2H8zM11 13h1v3h-1zM14 14h3v1h-3zM18 14h1v3h-1zM8 16h2v1H8zM13 16h2v2h-2zM16 17h1v2h-1zM8 18h3v1H8zM12 19h2v2h-2zM19 18h2v3h-2zM9 20h2v1H9z"></path></svg>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 4px"><b style="font-size: 14px">Умная камера телефона</b><span style="font-size: 12px; color: #C7D2DB">Откройте NurMarket в телефоне → «Умная камера» и наведите на этот код — снятые товары появятся здесь</span></span>
+        </div>
+      </section>
+      <section style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+        <b style="font-size: 15px">Последняя загрузка</b>
+        <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #475467">Новых товаров</span><b>2</b></div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #475467">Пополнено остатков</span><b>3</b></div>
+        <div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px"><span style="color: #475467">Источник</span><b style="text-align: right">Телефон · умная камера</b></div>
+      </section>
+    </aside>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: единые демо-данные NBS (SPEC п. 4). Цвет остатка — одно правило и всегда с текстом:
+    // 0 → красный «нет»; ≤ мин. остатка → оранжевый «мало»; иначе зелёный.
+    const level = (n, min) => n === 0 ? { sbg: '#FEF3F2', sfg: '#B42318', stock: '0 шт · нет' }
+      : n <= min ? { sbg: '#FEF3E2', sfg: '#B54708', stock: n + ' шт · мало' }
+      : { sbg: '#E7F6EC', sfg: '#0E7A3A', stock: String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' шт' };
+    const r = (name, mono, tint, code, cat, s, cost, price, sel, rent) => Object.assign(
+      { unit: '', name, mono, tint, code, cat, cost, nocost: cost === '—' && !rent, price, sel, unsel: !sel, rent: !!rent, bg: sel ? '#FFFCEB' : '#FFFFFF' }, s);
+    const rows = [
+      r('Макароны «Макфа» спагетти 450г', 'Мк', '#FFF4C2', '4702154000047', 'Бакалея', level(50, 10), '68 сом', '85 сом', true),
+      r('Кока-Кола (ПЭТ) 2л', 'Кк', '#FDE8E8', '5449000017932', 'Напитки', level(1, 6), '—', '170 сом', true),
+      r('Mars 50г', 'Ms', '#F1E8FD', '5000159407236', 'Сладости', level(48, 12), '30 сом', '39 сом', false),
+      r('Сок Gracio яблочный 1л', 'Сг', '#FFEBD6', '4870210000215', 'Напитки', level(2, 10), '92 сом', '120 сом', false),
+      r('Хлеб белый', 'Хб', '#FFF4C2', '2000000000107', 'Хлеб', level(40, 10), '28 сом', '35 сом', false),
+      r('Патроны для степлера', 'Пс', '#E3F2FD', '4606400101012', 'Канцтовары', level(1162, 20), '28 сом', '35 сом', false),
+      r('Aos Extra pover 450гр бальзам', 'Ao', '#E7F6EC', '4810141005478', 'Бытовая химия', level(0, 10), '35 сом', '50 сом', false),
+      // Прокат — вид «Прокат» (не услуга, не склад, не пополнение): остаток — выдана или свободна.
+      r('Бетономешалка', 'Бм', '#E3F2FD', '—', 'Инструмент', { sbg: '#F2F4F7', sfg: '#475467', stock: 'выдано 8', unit: 'за сутки' }, '—', '150 сом', false, true)
+    ];
+    const tiles = [
+      { label: 'Всего', n: '307', dot: '#0B2A3C' },
+      { label: 'Мало', n: '4', dot: '#B54708' },
+      { label: 'Нет в наличии', n: '1', dot: '#B42318' },
+      { label: 'Срок годности', n: '3', dot: '#B54708' }
+    ];
+    return { rows, tiles };
+  }
+}
+</script>
+</body>
+</html>

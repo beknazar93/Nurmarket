@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Товар — цена и остаток</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:46px;box-sizing:border-box;border-radius:12px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:15px;font-weight:700;width:100%;background:#FFFFFF}
+.f{display:flex;flex-direction:column;gap:4px}
+.card{background:#FFFFFF;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.st{width:36px;height:36px;border-radius:18px;font-family:inherit;font-size:18px;display:flex;align-items:center;justify-content:center}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 8px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад к товарам" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <b style="font-size: 18px; font-weight: 800; flex-grow: 1">Товар</b>
+    <button type="button" aria-label="Ещё действия" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg></button>
+  </header>
+
+  <main style="flex-grow: 1; padding: 4px 16px 10px; display: flex; flex-direction: column; gap: 10px; overflow: hidden">
+    <section class="card" style="flex-direction: row; align-items: center; gap: 12px">
+      <span style="width: 76px; height: 76px; border-radius: 14px; background: #FFF4C2; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; color: #0B2A3C; flex-shrink: 0">Мк</span>
+      <span style="display: flex; flex-direction: column; gap: 6px; flex-grow: 1">
+        <b style="font-size: 15px; line-height: 19px">Макароны «Макфа» спагетти 450г</b>
+        <span style="display: flex; gap: 6px"><button type="button" style="height: 32px; padding: 0 10px; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #344054">Снять фото</button><button type="button" style="height: 32px; padding: 0 10px; border-radius: 10px; border: 0; background: #FFF7CC; font-family: inherit; font-size: 12px; font-weight: 700; color: #0B2A3C">Найти фото</button></span>
+      </span>
+    </section>
+
+    <section class="card">
+      <div class="f"><label class="lbl" for="bc">ШТРИХКОД</label><span style="display: flex; gap: 8px"><input id="bc" class="in" type="text" value="4702154000047" style="font-weight: 600"><button type="button" aria-label="Сканировать штрихкод" style="width: 46px; height: 46px; flex-shrink: 0; border-radius: 12px; border: 0; background: #0B2A3C; color: #FFD600; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path><path d="M8 9v6M12 9v6M16 9v6"></path></svg></button></span></div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+        <div class="f"><label class="lbl" for="cost">ЗАКУПКА</label><input id="cost" class="in" type="text" placeholder="[цена]"></div>
+        <div class="f"><label class="lbl" for="price">ЦЕНА ПРОДАЖИ</label><input id="price" class="in" type="text" value="85" style="border: 2px solid #0B2A3C"></div>
+      </div>
+      <span style="font-size: 12px; color: #667085">Наценка и прибыль с одной штуки посчитаются сами</span>
+    </section>
+
+    <section class="card">
+      <div style="display: flex; align-items: center; justify-content: space-between"><span style="display: flex; flex-direction: column; gap: 2px"><span class="lbl">ОСТАТОК · СКЛАД «ПРОДУКТЫ»</span><b style="font-size: 22px; font-weight: 800; color: #0B2A3C">48 шт</b></span><span style="display: flex; gap: 6px"><button type="button" class="st" aria-label="Списать" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><button type="button" class="st" aria-label="Добавить" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></span></div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+        <div class="f"><label class="lbl" for="min">МИНИМУМ</label><input id="min" class="in" type="text" placeholder="[N]"></div>
+        <div class="f"><label class="lbl" for="cat">КАТЕГОРИЯ</label><input id="cat" class="in" type="text" value="Бакалея" style="font-weight: 600"></div>
+      </div>
+    </section>
+    <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #344054"><input type="checkbox" checked="" style="width: 20px; height: 20px; accent-color: #0B2A3C">Показывать на сайте-витрине</label>
+  </main>
+
+  <div style="padding: 10px 16px 22px; display: flex; gap: 8px; background: #FFFFFF; border-top: 1px solid #EAECF0">
+    <button type="button" style="height: 54px; padding: 0 16px; border-radius: 16px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Ценник</button>
+    <button type="button" style="flex-grow: 1; height: 54px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 16px; font-weight: 800">Сохранить</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

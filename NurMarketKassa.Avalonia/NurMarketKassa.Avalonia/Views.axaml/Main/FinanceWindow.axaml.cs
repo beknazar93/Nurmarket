@@ -107,9 +107,18 @@ namespace NurMarketKassa.AvaloniaHost.Views
         public FinanceWindow()
         {
             InitializeComponent();
+            AddEmptyHints(); // 2026-10-18, доводка О4: пустые «Возвраты» и «История» — с подсказкой (FinanceWindow.Merged.cs)
+            // 2026-10-19, этап О10: под плитками прибыли — как считается (те же слова, что на Сводке и в «Прибыли и деньгах»).
+            // 2026-10-20: аудит владельца — расходы теперь из NurCRM (как в «Прибыли и деньгах»), а не изъятия из кассы.
+            ProfitHowText.Text = ProfitTerms.GrossHow + ". " + ProfitTerms.NetHow + Tr.T(" (расходы — из NurCRM, как в «Прибыли и деньгах»).",
+                " (чыгымдар — NurCRMден, «Пайда жана акча» бөлүмүндөгүдөй).", " (expenses come from NurCRM, as in “Profit & cash”).",
+                " (giderler NurCRM'den, «Kâr ve para» bölümündeki gibi).", " (xarajatlar — NurCRMdan, «Foyda va pul» bo'limidagidek).");
             // Esc: всплывающий чек → меню → подраздел (Смены/Товары/заглушка) → выход из окна.
             EscapeKey.Attach(this, () =>
             {
+                // 2026-10-18: «Продажи и финансы» — сначала открытый чек вкладки «Чеки» (FinanceWindow.Merged.cs).
+                if (_mergedSales != null && _mergedSales.CloseReceiptPopup())
+                    return true;
                 if (ReceiptDetailsPopup.IsOpen)
                     ReceiptDetailsPopup.IsOpen = false;
                 else if (_isHamburgerOpen)
@@ -142,6 +151,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _clockTimer.Tick += (_, _) => CurrentTimeText.Text = DateTime.Now.ToString("HH:mm:ss   dd.MM.yyyy");
+            // 2026-10-18, доводка О4: время сразу, а не через секунду — пустой рамки часов не бывает.
+            CurrentTimeText.Text = DateTime.Now.ToString("HH:mm:ss   dd.MM.yyyy");
+            // На телефоне шапка узкая, время и так видно в строке состояния — часы не показываем.
+            if (OperatingSystem.IsAndroid())
+                ClockBadge.IsVisible = false;
             _clockTimer.Start();
         }
 
@@ -238,6 +252,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _abcCts?.Cancel();
             _seasonalityCts?.Cancel();
             _insightsCts?.Cancel();
+            // 2026-10-18: «Продажи и финансы» — встроенная часть «Продаж» останавливает свои загрузки.
+            _mergedSales?.ReleaseFromFinance();
+            _mergedSales = null;
             base.OnClosed(e);
         }
 
@@ -245,10 +262,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             PosDataEvents.SalesChanged += OnSalesChangedExternally;
 
-            FromPicker.SelectedDate = new DateTimeOffset(_historyFrom);
-            ToPicker.SelectedDate = new DateTimeOffset(_historyTo);
+            SyncDatePickers(_historyFrom, _historyTo);
             CustomDatePill.IsChecked = false;
-            CustomDatePanel.IsVisible = false;
             await LoadDataAsync(_historyFrom, _historyTo);
         }
         
@@ -340,6 +355,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 AbcSection.ProductAnalyticsRequested += ShowProductAnalytics;
                 _ownerShiftsTab = MoveIntoOwnerTab(ShiftsPanel, ShiftsContent, ShiftsHeader,
                     Tr.T("Смены", "Сменалар", "Shifts", "Vardiyalar", "Smenalar"));
+                // 2026-10-18: «Продажи и финансы» — срезы ABC обоих разделов, ABC последней вкладкой (FinanceWindow.Merged.cs).
+                if (_mergedSales != null)
+                    ApplySalesAndFinanceOwnerTabs();
             }
             FinanceTabs.SelectionChanged += OwnerTabs_SelectionChanged;
         }
@@ -402,17 +420,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             };
             FinanceTabs.Items.Add(_ownerStockTab);
 
-            // 2026-10-05, владелец: «где в сводке и аналитике долги??» — вкладка «Долги» сразу после «Выручки и оплат»:
-            // кто сколько должен, давность, чеки в долг (тот же блок, что и в разделе «Долги клиентов»).
-            if (TariffGate.CanUseDebts)
-            {
-                var debtsTab = new TabItem
-                {
-                    Header = Tr.T("Долги", "Карыздар", "Debts", "Borçlar", "Qarzlar"),
-                    Content = new DebtsView(showTitle: false),
-                };
-                FinanceTabs.Items.Insert(FinanceTabs.Items.IndexOf(AnalyticsTab) + 1, debtsTab);
-            }
+            // 2026-10-05, владелец: «где в сводке и аналитике долги??» — вкладка «Долги» сразу после «Выручки и оплат».
+            // 2026-10-19, этап О10 (аудит: «вкладка «Долги» — полная копия раздела «Долги клиентов»»): вместо копии — кнопка
+            // «Долги клиентов» под шапкой (открывает тот раздел); плитки «Продаж» и круговая оплат здесь не повторяются.
+            ApplyAnalyticsLayoutO10();
 
             FinanceTabs.SelectedItem = AnalyticsTab;
 
@@ -453,6 +464,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     return;
                 _seasonalityView.Show(report);
                 _seasonalityLoaded = true;
+                // 2026-10-20, аудит владельца: столбики по месяцам — итоги сервера (как «Сводка» за месяц), не история кассы.
+                var today = DateTime.Today;
+                var months = await FetchServerMonthTotalsAsync(today, cts.Token).ConfigureAwait(true);
+                if (!cts.IsCancellationRequested && months != null)
+                    _seasonalityView.ShowServerMonths(months, today, report.FirstSale);
             }
             catch (OperationCanceledException)
             {
@@ -534,7 +550,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 HorizontalAlignment = HorizontalAlignment.Center,
                 MinWidth = 200,
             };
-            open.Classes.Add("PrimaryActionButton");
+            // 2026-10-19, этап О10: обводкой — главная (жёлтая) кнопка раздела одна, «Обновить» в шапке.
+            open.Classes.Add("sec-outline");
             open.Click += (_, _) => OpenMarketplaceExtras();
             panel.Children.Add(open);
             return panel;
@@ -594,6 +611,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var selected = FinanceTabs.SelectedItem;
             if (selected == null)
                 return;
+            // 2026-10-18, этап О4 (аудит: «ABC зажат в окошке ~270 px»): на вкладке ABC плитки скрыты — ей вся высота раздела;
+            // период остаётся в шапке. В «Аналитике» плитки — как были.
+            if (!_isAnalyticsSection && TileGridOf(TotalSalesText) is { } tiles)
+                tiles.IsVisible = !ReferenceEquals(selected, AbcTab);
             if (ReferenceEquals(selected, _ownerShiftsTab))
                 await LoadShiftsAsync().ConfigureAwait(true);
             else if (ReferenceEquals(selected, _ownerProductsTab))
@@ -719,30 +740,55 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private void ShiftsOpenTab_Click(object sender, RoutedEventArgs e)
         {
             _shiftsShowOpen = true;
-            ShiftsOpenTabButton.Classes.Add("Active");
-            ShiftsClosedTabButton.Classes.Remove("Active");
+            // 2026-10-18, этап О3: сегменты sec-seg — выбранный классом active (был свой TabButton.Active).
+            ShiftsOpenTabButton.Classes.Add("active");
+            ShiftsClosedTabButton.Classes.Remove("active");
             ApplyShiftsFilter();
         }
 
         private void ShiftsClosedTab_Click(object sender, RoutedEventArgs e)
         {
             _shiftsShowOpen = false;
-            ShiftsClosedTabButton.Classes.Add("Active");
-            ShiftsOpenTabButton.Classes.Remove("Active");
+            ShiftsClosedTabButton.Classes.Add("active");
+            ShiftsOpenTabButton.Classes.Remove("active");
             ApplyShiftsFilter();
         }
 
         private void ApplyShiftsFilter()
         {
-            var visible = _allShifts.Where(s => s.IsOpen == _shiftsShowOpen).ToList();
+            // 2026-10-20, аудит программы владельца: «Смены» не следовали периоду (закрытых 256 за всё время при «Неделе»).
+            // У владельца закрытые смены — открытые в выбранном периоде; открытые — все (они идут сейчас). Касса — как было.
+            var inPeriod = _isOwnerSection
+                ? _allShifts.Where(s => s.IsOpen || s.OpenedAtRaw == DateTime.MinValue
+                                        || (s.OpenedAtRaw.Date >= _displayFrom.Date && s.OpenedAtRaw.Date <= _displayTo.Date)).ToList()
+                : _allShifts;
+            if (_isOwnerSection && _shiftsLoaded)
+            {
+                ShiftsOpenCountText.Text = inPeriod.Count(s => s.IsOpen).ToString();
+                ShiftsClosedCountText.Text = inPeriod.Count(s => !s.IsOpen).ToString();
+            }
+            var visible = inPeriod.Where(s => s.IsOpen == _shiftsShowOpen).ToList();
             ShiftsList.ItemsSource = visible;
             ShiftsEmptyText.IsVisible = visible.Count == 0;
+            // 2026-10-20: пустой список был белым листом без надписи (пока грузится — тоже) — пишем, что именно пусто.
+            if (_isOwnerSection)
+                ShiftsEmptyText.Text = !_shiftsLoaded
+                    ? Tr.T("Загружаю смены…", "Сменалар жүктөлүүдө…", "Loading shifts…", "Vardiyalar yükleniyor…", "Smenalar yuklanmoqda…")
+                    : _shiftsShowOpen
+                        ? Tr.T("Открытых смен нет.", "Ачык сменалар жок.", "No open shifts.", "Açık vardiya yok.", "Ochiq smenalar yo'q.")
+                        : Tr.T("Закрытых смен за этот период нет.", "Бул мезгилде жабык сменалар жок.", "No closed shifts in this period.",
+                            "Bu dönemde kapalı vardiya yok.", "Bu davrda yopiq smenalar yo'q.");
         }
+
+        /// <summary>2026-10-20: список смен уже пришёл с сервера (до этого надпись «Загружаю смены…»).</summary>
+        private bool _shiftsLoaded;
 
         /// <summary>GET /api/construction/shifts/ (CashShiftList) — тот же источник, что уже
         /// использует ShiftStateService для определения текущей открытой смены на кассе.</summary>
         private async Task LoadShiftsAsync()
         {
+            if (!_shiftsLoaded)
+                ApplyShiftsFilter(); // 2026-10-20: «Загружаю смены…» вместо белого листа
             try
             {
                 var raw = await App.ShiftApi.ConstructionShiftsListAsync(ct: CancellationToken.None).ConfigureAwait(true);
@@ -760,12 +806,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 ShiftsOpenCountText.Text = openCount.ToString();
                 ShiftsClosedCountText.Text = closedCount.ToString();
 
+                _shiftsLoaded = true;
                 ApplyShiftsFilter();
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Shifts list load failed: {ex}", "WARNING");
                 _allShifts = new List<ShiftCardVm>();
+                _shiftsLoaded = true;
                 ApplyShiftsFilter();
             }
         }
@@ -940,9 +988,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 })
                 .ToList();
 
+            // 2026-10-19, этап О10 (аудит: «радужные полосы — каждый товар свой цвет без смысла»): полосы одним цветом текста темы.
+            var barBrush = this.FindResource("BrushText") as IBrush;
             BarChartRenderer.Render(PopularProductsChart, TopItems
                 .Select(t => (t.ProductName, (double)t.Revenue, $"{t.Revenue:N0} {Som}"))
-                .ToList());
+                .ToList(), barBrush);
             BarChartRenderer.RenderPie(PopularProductsPie, TopItems
                 .Take(10)
                 .Select(t => (t.ProductName, (double)t.Revenue, $"{t.Revenue:N0} {Som}"))
@@ -950,7 +1000,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             BarChartRenderer.Render(UnpopularProductsChart, unpopular
                 .Take(10)
                 .Select(p => (p.Title, p.Quantity, $"{p.Quantity:N0} {Pcs}"))
-                .ToList());
+                .ToList(), barBrush);
 
             RefreshAllProductsSection();
         }
@@ -1091,8 +1141,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// «Продажи». 2026-09-28: цифры — те же, что на этом экране и на сайте (выручка, чеки,
         /// скидки, возвраты, товары — с сервера, см. AnalyticsReportData.ServerFigures); без связи
         /// отчёт строится из локальных данных кассы, как раньше.</summary>
+        // 2026-10-19, владелец: «при нажатии на Excel просто выведи все продажи, а не аналитику» — Excel: все чеки периода
+        // (лист «Чеки» и «Товары», SalesExcelExport); Word — аналитика, как была.
         private async void ExportExcel_Click(object? sender, RoutedEventArgs e) =>
-            await ExportAnalyticsAsync(toWord: false).ConfigureAwait(true);
+            await SalesExcelExport.RunAsync(this, _historyFrom, _historyTo, message => ErrorMessage = message,
+                () => AvaloniaHost.Services.NoticeBanner.Apply(NoticeBox, NoticeText, success: true)).ConfigureAwait(true);
 
         private async void ExportWord_Click(object? sender, RoutedEventArgs e) =>
             await ExportAnalyticsAsync(toWord: true).ConfigureAwait(true);
@@ -1173,11 +1226,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var noRefunds = new List<RefundItem>();
             UpdateCollections(sales, noRefunds);
             _serverSummary = null;
+            _serverExpenses = null; // 2026-10-20: без сервера — расходы по изъятиям кассы, как раньше
+            _expensesPending = false;
             UpdateStats(sales, noRefunds);
             UpdateCharts(sales);
             UpdateHistory(sales, noRefunds);
 
             RefreshAbc();
+            // 2026-10-18: «Продажи и финансы» — «Чеки» тоже по данным кассы (FinanceWindow.Merged.cs).
+            ShowMergedSalesLocal(from, to);
 
             ErrorMessage = ServerOutageMonitor.IsOutage
                 // 2026-09-29: «Данные на 14:05, сервер не отвечает» — с какого времени нет данных сервера.
@@ -1221,8 +1278,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     // 2026-09-28: список чеков периода не перекачивался (окно то же) — история и
                     // графики не видели новую продажу. Для коротких периодов по сегодня (до недели —
                     // одна-две страницы) перекачиваем; плитки и так берутся со сводки сервера заново.
+                    // 2026-10-18, ревью объединения: в «Продажах и финансах» список по сегодня перекачивается при любом периоде —
+                    // иначе «Чеки» и «Скидки» на «Месяце» не видели новую продажу.
                     await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => await LoadDataAsync(_historyFrom, _historyTo,
-                        forceRefresh: _historyTo.Date >= DateTime.Today && (_historyTo.Date - _historyFrom.Date).Days < 7));
+                        forceRefresh: _historyTo.Date >= DateTime.Today && (_mergedSales != null || (_historyTo.Date - _historyFrom.Date).Days < 7)));
                 }
                 catch (System.OperationCanceledException)
                 {
@@ -1238,6 +1297,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private async Task LoadDataAsync(DateTime from, DateTime to, bool forceRefresh = false)
         {
             CancelLoad();
+            // 2026-10-18, ревью объединения: «Чеки» — признак загрузки, «Скидки» и «Оплачено бонусами» — «…» до нового списка.
+            BeginMergedSalesLoad();
             var currentCts = new CancellationTokenSource();
             _loadCts = currentCts;
             var token = currentCts.Token;
@@ -1272,6 +1333,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 // показала бы нули за «прошлый месяц».
                 _displayFrom = from.Date;
                 _displayTo = to.Date;
+                // 2026-10-20, аудит программы владельца: смены уже загружены — пересчитать под новый период.
+                if (_isOwnerSection && _shiftsLoaded)
+                    ApplyShiftsFilter();
 
                 // 2026-09-28, жалоба клиентов «аналитика не похожа на веб, загрузка очень долгая»:
                 // окно «период + последние 60 дней» (ради карточки сводки) даже для «Сегодня»
@@ -1285,6 +1349,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
                 // Сводка сайта, товары сайта и журнал удалений — одновременно со списком чеков.
                 var summaryTask = ServerSalesSummary.FetchAsync(from, to, token);
+                // 2026-10-20: аудит владельца — расходы и чистая прибыль из отчёта сервера, как «Прибыль и деньги».
+                var expensesTask = FetchServerExpensesAsync(from, to, token);
                 var wantProducts = !_isOwnerSection || _isAnalyticsSection;
                 var productsTask = wantProducts ? FetchServerProductFactsAsync(from, to, from.Date, token) : null;
                 var refundsTask = FetchRefundsAsync(from, to, token);
@@ -1295,13 +1361,21 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     {
                         // 2026-09-29: первые страницы списка видны сразу, не дожидаясь всего периода.
                         if (!token.IsCancellationRequested)
+                        {
                             UpdateCollections(firstRows, new List<RefundItem>());
+                            // 2026-10-18: и во вкладку «Чеки» — без прошлого периода на 30–60 с.
+                            ShowMergedSalesFirstRows(firstRows);
+                        }
                     })
                     : null;
 
                 // Плитки — сразу, как только ответила сводка сайта (доли секунды), не дожидаясь списка.
                 _serverSummary = await summaryTask;
                 token.ThrowIfCancellationRequested();
+                // 2026-10-20: расходы приходят сами по себе — плитки выручки их не ждут (до ответа — «…»).
+                _serverExpenses = null;
+                _expensesPending = true;
+                _ = ApplyServerExpensesAsync(expensesTask, token);
                 if (_serverSummary?.Revenue != null)
                     UpdateStats(new List<SaleItem>(), new List<RefundItem>());
                 // 2026-09-29, стресс-тест: ABC берётся из вкладки «Товары» сервера и от списка чеков не
@@ -1357,6 +1431,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 var refunds = await refundsTask;
 
                 UpdateCollections(sales, refunds);
+                // 2026-10-18, ревью объединения: «Чеки» и «Скидки» — из этого же списка, без второго списка с сервера.
+                token.ThrowIfCancellationRequested();
+                ShowMergedSales(sales, from, to);
                 // 2026-09-17: базовые показатели (выручка/чеки/наличные/безнал) считаются сразу из
                 // уже полученных sales/refunds и не зависят от построчных данных чеков — раньше
                 // UpdateStats ждала полной загрузки LoadTopItemsAsync (нужна для маржи), из-за чего
@@ -1418,6 +1495,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     _loadCts = null;
                     IsLoading = false;
+                    _mergedSales?.EndFinanceLoad(); // 2026-10-18: признак загрузки во вкладке «Чеки»
                     RefreshOwnerProductsTabIfShown();
                 }
                 currentCts.Dispose();
@@ -1871,6 +1949,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     item.RefundReason = rrProp.GetString();
                 if (el.TryGetProperty("customer_id", out var cidProp))
                     item.CustomerId = cidProp.GetString();
+                // 2026-10-18: «Продажи и финансы» — скидка и первый товар чека, как их читает список «Продаж»: вкладка «Чеки» и плитка
+                // «Скидки» берут этот же список, а не качают его второй раз (FinanceWindow.Merged.cs).
+                if (el.TryGetProperty("discount_total", out var discProp))
+                    item.DiscountTotal = ParseDecimal(discProp);
+                if (el.TryGetProperty("first_item_name", out var firstItem) && firstItem.ValueKind == JsonValueKind.String)
+                    item.FirstItemName = firstItem.GetString() ?? "";
                 // ReceiptNumber остаётся пустым, если сервер не прислал ни одного из известных полей —
                 // UpdateCollections подставит читаемый порядковый номер вместо «сырого» GUID.
                 result.Add(item);
@@ -2018,7 +2102,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (list.Count > 0)
                 PosLogger.Log($"Возвраты с сервера: {list.Count}, первый: {list[0].CreatedAt:O}", "SALES");
 
-            return list
+            var items = list
                 .OrderByDescending(r => r.CreatedAt)
                 .Select(r => new RefundItem
                 {
@@ -2037,6 +2121,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     DeletedBy = string.IsNullOrWhiteSpace(r.Reason) ? "—" : r.Reason!,
                 })
                 .ToList();
+            return items;
         }
 
         /// <summary>Журнал удалений позиций из корзины (product/quantity/who/when) — единственный
@@ -2206,7 +2291,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // отменённые чеки, в выручку они и так не входят.
             decimal netProfit = _serverSummary?.GrossProfit ?? totalSales - costOfGoods;
             if (NetProfitText != null)
+            {
                 NetProfitText.Text = $"{netProfit:N2} {Som}";
+                MarkLoss(NetProfitText, netProfit < 0);
+            }
 
             if (MarginPercentText != null)
             {
@@ -2215,23 +2303,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 MarginPercentText.Text = $"{margin:F1}%";
             }
 
-            // Расходы за период — изъятия из денежного ящика (в т.ч. «Доп. услуга → Расход» при
-            // пустой корзине, которая оформляется именно как изъятие). Это деньги, реально
-            // вынутые из кассы, и до сих пор в аналитике они не отражались вообще: прибыль
-            // выглядела больше, чем осталось в ящике.
-            var (deposits, withdrawals) = CashOperationsForPeriod(_displayFrom, _displayTo);
-            if (ExpensesText != null)
-                ExpensesText.Text = $"{withdrawals:N2} {Som}";
-            if (ExpensesBreakdownText != null)
-            {
-                ExpensesBreakdownText.Text = deposits > 0m
-                    ? Tr.T($"внесено: {deposits:N2} сом", $"салынды: {deposits:N2} сом", $"cash in: {deposits:N2} som", $"para girişi: {deposits:N2} som", $"kiritildi: {deposits:N2} so'm")
-                    : Tr.T("внесений не было", "акча салынган жок", "no cash in", "para girişi yapılmadı", "kirim bo'lmagan");
-            }
-
-            if (ProfitAfterExpensesText != null)
-                ProfitAfterExpensesText.Text = $"{netProfit - withdrawals:N2} {Som}";
+            // Расходы за период. 2026-10-20, живой аудит владельца (КРИТИЧНО): раньше — только изъятия из денежного ящика
+            // этого компьютера (у программы владельца 0), и «Чистая прибыль» = валовой (+588 428 при −466 643 в «Прибыли и
+            // деньгах»). Теперь — расходы NurCRM из того же отчёта сервера (pnl), см. FinanceWindow.ServerExpenses.cs.
+            ShowExpenses(netProfit);
         }
+
+        /// <summary>2026-10-18, ревью О3: прибыль в минусе (убыток) — красным (класс danger у sec-kpi-value), иначе цветом текста.</summary>
+        private static void MarkLoss(TextBlock text, bool loss) => text?.Classes.Set("danger", loss);
 
         internal static bool IsMixedPayment(string method) =>
             string.Equals(method, "mixed", StringComparison.OrdinalIgnoreCase)
@@ -2300,9 +2379,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 return;
 
             _summaryPeriod = period;
-            SummaryPeriodDayButton.Classes.Set("Active", period == 0);
-            SummaryPeriodWeekButton.Classes.Set("Active", period == 1);
-            SummaryPeriodMonthButton.Classes.Set("Active", period == 2);
+            SummaryPeriodDayButton.Classes.Set("active", period == 0);
+            SummaryPeriodWeekButton.Classes.Set("active", period == 1);
+            SummaryPeriodMonthButton.Classes.Set("active", period == 2);
             _ = RefreshSummaryPanelAsync();
         }
 
@@ -2329,8 +2408,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var to = DateTime.Today;
             var from = _summaryPeriod switch
             {
-                1 => to.AddDays(-6),
-                2 => to.AddDays(-29),
+                // 2026-10-20, проверка фильтров: общие правила периода — «Месяц» с 1-го числа (было 30 дней).
+                1 => PeriodRange.WeekFrom(to),
+                2 => PeriodRange.MonthFrom(to),
                 _ => to,
             };
             var periodLengthDays = (to - from).Days + 1;
@@ -2495,27 +2575,46 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // дням берутся из сводки сервера (как плитки), иначе графики молча показывали бы только
             // последние 50 000 чеков. По часам и число продаж по дням сервер не отдаёт — они по
             // загруженным чекам, об этом говорит плашка.
+            // 2026-10-20, живой аудит владельца: способы оплаты за месяц не сходились со «Сводкой» (после загрузки списка
+            // чеков полоса строилась по списку: наличные 1 818 967 против 1 819 353, «долг 672» среди способов, сумма
+            // 1 979 868 ≠ выручке 1 979 195). Теперь способы оплаты всегда из сводки сервера, как «Сводка» (charts.payment_methods
+            // того же отчёта), продажи в долг — не способ оплаты: отдельной строкой «в долг, не входит в выручку».
+            var payments = PaymentsForCharts(sales, out var debtOutside);
             if ((_salesListTruncated || _listPending) && _serverSummary is { Revenue: not null } summary)
             {
-                var byMethod = summary.PaymentTotals
-                    .Select(kv => new SaleItem { PaymentMethod = kv.Key, TotalAmount = kv.Value })
-                    .ToList();
                 var byDay = summary.ByDay
                     .Select(d => new SaleItem { CreatedAt = d.Day, TotalAmount = d.Revenue })
                     .ToList();
-                UpdatePaymentSplitChart(byMethod);
+                UpdatePaymentSplitChart(payments, debtOutside);
                 UpdateDailyRevenueChart(byDay);
                 UpdateHourlyRevenueChart(sales);
-                UpdatePaymentSplitPie(byMethod);
+                UpdatePaymentSplitPie(payments);
                 UpdateRevenueTrendCharts(sales);
                 return;
             }
 
-            UpdatePaymentSplitChart(sales);
+            UpdatePaymentSplitChart(payments, debtOutside);
             UpdateDailyRevenueChart(sales);
             UpdateHourlyRevenueChart(sales);
-            UpdatePaymentSplitPie(sales);
+            UpdatePaymentSplitPie(payments);
             UpdateRevenueTrendCharts(sales);
+        }
+
+        /// <summary>2026-10-20: суммы по способам оплаты для полосы и круговой — из сводки сервера (как «Сводка»), без продаж
+        /// в долг; без сервера — по загруженным чекам, тоже без долга. debtOutside — продано в долг за период (по чекам).</summary>
+        private List<SaleItem> PaymentsForCharts(List<SaleItem> sales, out decimal debtOutside)
+        {
+            static bool IsDebt(string method) => string.Equals(method?.Trim(), "debt", StringComparison.OrdinalIgnoreCase);
+            debtOutside = sales.Where(s => IsDebt(s.PaymentMethod)).Sum(s => s.TotalAmount);
+            if (_serverSummary is { Revenue: not null } summary && summary.PaymentTotals.Count > 0)
+            {
+                return summary.PaymentTotals
+                    .Where(kv => !IsDebt(kv.Key))
+                    .Select(kv => new SaleItem { PaymentMethod = kv.Key, TotalAmount = kv.Value })
+                    .ToList();
+            }
+
+            return sales.Where(s => !IsDebt(s.PaymentMethod)).ToList();
         }
 
         private void UpdatePaymentSplitPie(List<SaleItem> sales)
@@ -2540,6 +2639,30 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .Select(g => new { Date = g.Key, Total = g.Sum(s => s.TotalAmount), Count = g.Count() })
                 .OrderBy(x => x.Date)
                 .ToList();
+
+            // 2026-10-19, этап О10 (аудит: «за «Сегодня» графики-тренды из одной точки — пустые без подсказки»): тренд из одного
+            // дня не построить — вместо пустых графиков подсказка выбрать неделю или месяц.
+            if (byDay.Count < 2)
+            {
+                foreach (var chart in new[] { RevenueTrendChart, RevenueCumulativeChart, RevenueVsSalesChart })
+                {
+                    chart.Children.Clear();
+                    var hint = new TextBlock
+                    {
+                        Text = Tr.T("Тренд виден за несколько дней — выберите сверху «Неделя» или «Месяц».",
+                            "Тренд бир нече күндө көрүнөт — жогорудан «Апта» же «Ай» тандаңыз.",
+                            "A trend needs several days — pick “Week” or “Month” at the top.",
+                            "Eğilim birkaç günde görünür — üstten «Hafta» veya «Ay» seçin.",
+                            "Tendensiya bir necha kunda ko'rinadi — yuqoridan «Hafta» yoki «Oy»ni tanlang."),
+                        FontSize = 12.5,
+                        TextWrapping = TextWrapping.Wrap,
+                        Margin = new Thickness(4, 6),
+                    };
+                    hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
+                    chart.Children.Add(hint);
+                }
+                return;
+            }
 
             var linePoints = byDay
                 .Select(d => (d.Date.ToString("dd.MM"), (double)d.Total))
@@ -2575,7 +2698,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             {
                 "" => Tr.T("Не указано", "Көрсөтүлгөн эмес", "Not specified", "Belirtilmemiş", "Ko'rsatilmagan"),
                 "cash" => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
-                "transfer" or "card" => Tr.T("Перевод", "Которуу", "Transfer", "Nakitsiz", "Naqdsiz"),
+                // 2026-10-21: «Безналичные», как в Сводке и в окне оплаты (было «Перевод» — тот же способ, другое слово) (пакет 2, п. 87).
+                "transfer" or "card" => Tr.T("Безналичные", "Накталай эмес", "Cashless", "Nakitsiz", "Naqdsiz"),
                 "mbank" => "MBank",
                 "mixed" => Tr.T("Смешанный", "Аралаш", "Mixed", "Karışık", "Aralash"),
                 "debt" => Tr.T("Долг", "Карыз", "Debt", "Borç", "Qarz"),
@@ -2586,7 +2710,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             };
         }
 
-        private void UpdatePaymentSplitChart(List<SaleItem> sales)
+        private void UpdatePaymentSplitChart(List<SaleItem> sales, decimal debtOutside = 0m)
         {
             PaymentSplitBar.ColumnDefinitions.Clear();
             PaymentSplitBar.Children.Clear();
@@ -2642,6 +2766,22 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 });
                 PaymentLegend.Children.Add(legendItem);
             }
+
+            // 2026-10-20: аудит владельца — продажа в долг не оплачена и в выручку не входит; сумма способов выше = выручке.
+            if (debtOutside > 0m)
+            {
+                PaymentLegend.Children.Add(new TextBlock
+                {
+                    Text = Tr.T($"Ещё в долг: {debtOutside:N0} сом — в выручку не входит, пока клиент не оплатит",
+                        $"Дагы карызга: {debtOutside:N0} сом — кардар төлөмөйүнчө түшүмгө кирбейт",
+                        $"Also on credit: {debtOutside:N0} som — not in revenue until the customer pays",
+                        $"Ayrıca veresiye: {debtOutside:N0} som — müşteri ödeyene kadar ciroya dahil değil",
+                        $"Yana qarzga: {debtOutside:N0} so'm — mijoz to'lamaguncha tushumga kirmaydi"),
+                    FontSize = 12,
+                    Foreground = Brushes.Gray,
+                    TextWrapping = TextWrapping.Wrap,
+                });
+            }
         }
 
         private void UpdateHourlyRevenueChart(List<SaleItem> sales)
@@ -2685,7 +2825,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     Width = barWidth,
                     Height = barHeight,
-                    Background = value > 0 ? Brush.Parse("#3B82F6") : Brushes.LightGray,
+                    // 2026-10-19, этап О10: столбцы — цветом текста темы, как «Выручка за 7 дней» на Сводке (были синие и оранжевые).
+                    Background = value > 0 ? (this.FindResource("BrushText") as IBrush ?? Brush.Parse("#3B82F6")) : Brushes.LightGray,
                     CornerRadius = new CornerRadius(3, 3, 0, 0),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     [ToolTip.TipProperty] = $"{hour:00}:00 — {value:N2} {Som}",
@@ -2751,7 +2892,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     Width = barWidth,
                     Height = barHeight,
-                    Background = Brush.Parse("#F59E0B"),
+                    Background = this.FindResource("BrushText") as IBrush ?? Brush.Parse("#F59E0B"), // 2026-10-19, этап О10: как на Сводке
                     CornerRadius = new CornerRadius(4, 4, 0, 0),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     [ToolTip.TipProperty] = $"{day.Date:dd.MM.yyyy}: {day.Total:N2} {Som}",
@@ -2773,9 +2914,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // DeferRefresh сам обновляет представление, отдельный Refresh больше не нужен.
             using var batch = HistoryView.DeferRefresh();
             _history.Clear();
+            // 2026-10-20, доработка аудита владельца: продажи и возвраты — одной лентой по времени (новые сверху). Раньше
+            // возвраты добавлялись в конец списка, после всех продаж периода, и их не было видно рядом с их временем.
+            var rows = new List<HistoryItem>();
             foreach (var s in sales)
             {
-                _history.Add(new HistoryItem
+                rows.Add(new HistoryItem
                 {
                     Id = s.Id,
                     CreatedAt = s.CreatedAt,
@@ -2787,7 +2931,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             foreach (var r in refunds)
             {
-                _history.Add(new HistoryItem
+                rows.Add(new HistoryItem
                 {
                     // 2026-09-30: возврат с сервера открывает свой чек (двойной щелчок в истории).
                     Id = string.IsNullOrEmpty(r.SaleId) ? r.Id : r.SaleId,
@@ -2798,6 +2942,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     PaymentMethod = string.IsNullOrWhiteSpace(r.DeletedBy) ? "—" : r.DeletedBy
                 });
             }
+            foreach (var row in rows.OrderByDescending(x => x.CreatedAt))
+                _history.Add(row);
         }
 
         // Детали чека (popup)
@@ -2945,6 +3091,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 await ShowReceiptDetailsByIdAsync(item.Id, item.ReceiptNumber);
         }
 
+        // 2026-10-18, этап О3: выбранная кнопка периода — чтобы вернуть её, если окно «Спец. дата» закрыли без выбора.
+        private RadioButton _quickDatePill;
+
         // Быстрые даты
         private async void QuickDate_Click(object sender, RoutedEventArgs e)
         {
@@ -2952,46 +3101,89 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             if (tag == "Custom")
             {
-                var dlg = new FinanceDateRangeDialog();
+                // 2026-10-20, проверка фильтров: окно дат открывается на текущем периоде, а не на сегодня.
+                var dlg = new FinanceDateRangeDialog(_historyFrom, _historyTo);
+                // 2026-10-18, этап О3: выбранный период теперь виден (сегменты sec-seg) — после выбора дат «Спец. дата»
+                // остаётся выбранной, при отмене выбор возвращается на прежнюю кнопку (раньше после окна дат не было
+                // выбрано ничего). Даты и загрузка — как были.
+                var previous = _quickDatePill ?? (CustomDatePill.Parent as Panel)?.Children.OfType<RadioButton>()
+                    .FirstOrDefault(r => "Today".Equals(r.Tag));
                 if (await dlg.ShowDialog<bool>(this) == true)
                 {
+                    // Отмечается сразу, до загрузки: пока грузится, могли нажать другой период — тогда его выбор не трогаем.
+                    _quickDatePill = CustomDatePill;
+                    CustomDatePill.IsChecked = true;
                     _historyFrom = dlg.FromDate;
                     _historyTo = dlg.ToDate;
-                    FromPicker.SelectedDate = new DateTimeOffset(dlg.FromDate);
-                    ToPicker.SelectedDate = new DateTimeOffset(dlg.ToDate);
+                    SyncDatePickers(dlg.FromDate, dlg.ToDate);
                     await LoadDataAsync(_historyFrom, _historyTo);
+                    if (ReferenceEquals(_quickDatePill, CustomDatePill))
+                        CustomDatePill.IsChecked = true;
                 }
-                CustomDatePill.IsChecked = false;
+                else if (previous != null && !ReferenceEquals(previous, CustomDatePill))
+                    previous.IsChecked = true;
+                else
+                    CustomDatePill.IsChecked = ReferenceEquals(previous, CustomDatePill);
                 return;
             }
+            _quickDatePill = rb;
 
             DateTime from, to;
             DateTime today = DateTime.Today;
             switch (tag)
             {
                 case "Yesterday": from = to = today.AddDays(-1); break;
-                // Неделя начинается с понедельника (СНГ), а не с воскресенья, как в (int)DayOfWeek по умолчанию —
-                // иначе по воскресеньям диапазон схлопывался в один сегодняшний день без вчерашних продаж.
-                case "Week": from = today.AddDays(-(((int)today.DayOfWeek + 6) % 7)); to = today; break;
-                case "Month": from = new DateTime(today.Year, today.Month, 1); to = today; break;
+                // 2026-10-20, проверка фильтров: одно правило во всех окнах (PeriodRange) — «Неделя» = последние 7 дней
+                // включая сегодня (было — с понедельника), «Месяц» — с 1-го числа.
+                case "Week": from = PeriodRange.WeekFrom(today); to = today; break;
+                case "Month": from = PeriodRange.MonthFrom(today); to = today; break;
                 default: from = to = today; break;
             }
 
             _historyFrom = from;
             _historyTo = to;
-            FromPicker.SelectedDate = new DateTimeOffset(from);
-            ToPicker.SelectedDate = new DateTimeOffset(to);
+            SyncDatePickers(from, to);
             await LoadDataAsync(from, to);
-            CustomDatePill.IsChecked = false;
+            // 2026-10-18, ревью О3: снимаем «Спец. дату», только если за время загрузки не выбрали другой период.
+            if (ReferenceEquals(_quickDatePill, rb))
+                CustomDatePill.IsChecked = false;
         }
 
-        private async void DatePicker_DateChanged(object sender, EventArgs e)
+        // 2026-10-20, проверка фильтров (владелец: «фильтры не работают»): поля «с / по» раньше были скрыты и не подписаны
+        // на изменение. Теперь ввод даты — загрузка за этот период, выбранным становится «Спец. дата»; сегменты и окно дат
+        // ставят даты в поля сами (без повторной загрузки — флаг _syncingPickers).
+        private bool _syncingPickers;
+
+        private void SyncDatePickers(DateTime from, DateTime to)
         {
-            if (sender == FromPicker)
-                _historyFrom = FromPicker.SelectedDate?.DateTime ?? DateTime.Today;
-            else if (sender == ToPicker)
-                _historyTo = ToPicker.SelectedDate?.DateTime ?? DateTime.Today;
-            await LoadDataAsync(_historyFrom, _historyTo);
+            _syncingPickers = true;
+            try
+            {
+                FromPicker.SelectedDate = from.Date;
+                ToPicker.SelectedDate = to.Date;
+            }
+            finally
+            {
+                _syncingPickers = false;
+            }
+        }
+
+        private async void DatePicker_DateChanged(object sender, Avalonia.Controls.SelectionChangedEventArgs e)
+        {
+            if (_syncingPickers || FromPicker.SelectedDate is not { } fromPicked || ToPicker.SelectedDate is not { } toPicked)
+                return;
+            var from = fromPicked.Date;
+            var to = toPicked.Date;
+            if (from > to)
+                (from, to) = (to, from);
+            if (from == _historyFrom.Date && to == _historyTo.Date)
+                return;
+            _historyFrom = from;
+            _historyTo = to;
+            SyncDatePickers(from, to);
+            _quickDatePill = CustomDatePill;
+            CustomDatePill.IsChecked = true;
+            await LoadDataAsync(from, to);
         }
 
         // Работа с кассовой историей
@@ -3061,6 +3253,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             public bool IsRefund { get; set; }
             public string RefundReason { get; set; }
             public string CustomerId { get; set; }
+            // 2026-10-18: для вкладки «Чеки» «Продаж и финансов» (см. FetchSalesPageAsync).
+            public decimal DiscountTotal { get; set; }
+            public string FirstItemName { get; set; } = "";
         }
 
         public class RefundItem

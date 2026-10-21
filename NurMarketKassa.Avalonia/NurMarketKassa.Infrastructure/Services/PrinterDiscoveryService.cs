@@ -18,6 +18,9 @@ public static class PrinterDiscoveryService
 {
     private static readonly string[] LptPortsToProbe = ["LPT1", "LPT2", "LPT3", "LPT4"];
 
+    private static string? _lastWinUsbLine;
+    private static long _lastWinUsbLineAt;
+
     public static IReadOnlyList<DiscoveredPrinter> Discover()
     {
         var result = new List<DiscoveredPrinter>();
@@ -57,11 +60,18 @@ public static class PrinterDiscoveryService
             // (libusb-win32/libusbK вместо WinUSB — у них другой device interface GUID, см.
             // WinUsbPrinterPort.WinUsbInterfaceGuid) или устройство ещё не переподключено
             // после установки драйвера.
-            PosLogger.Log(
-                winUsbDevices.Count == 0
-                    ? "WinUSB scan: устройств не найдено (проверьте, что в Zadig выбран драйвер именно WinUSB, и переподключите принтер после установки драйвера)."
-                    : $"WinUSB scan: найдено {winUsbDevices.Count} устройств(о) — {string.Join(", ", winUsbDevices.Select(d => d.Label))}.",
-                "INFO");
+            var winUsbLine = winUsbDevices.Count == 0
+                ? "WinUSB scan: устройств не найдено (проверьте, что в Zadig выбран драйвер именно WinUSB, и переподключите принтер после установки драйвера)."
+                : $"WinUSB scan: найдено {winUsbDevices.Count} устройств(о) — {string.Join(", ", winUsbDevices.Select(d => d.Label))}.";
+            // 2026-10-21 (пакет 6, п. 65): «Настройки кассы» ищут порты дважды при открытии (принтер и дисплей цены) — та же
+            // строка в журнал не чаще раза в минуту (новый результат пишется сразу).
+            if (!string.Equals(winUsbLine, _lastWinUsbLine, StringComparison.Ordinal)
+                || Environment.TickCount64 - _lastWinUsbLineAt > 60_000)
+            {
+                _lastWinUsbLine = winUsbLine;
+                _lastWinUsbLineAt = Environment.TickCount64;
+                PosLogger.Log(winUsbLine, "INFO");
+            }
         }
         catch (Exception ex)
         {

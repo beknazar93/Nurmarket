@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Оплата с телефона</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{height:76px;border-radius:16px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:700;color:#344054}
+.m.on{border:2px solid #0B2A3C;background:#FFF7CC;color:#0B2A3C}
+.q{flex-grow:1;height:42px;border-radius:21px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:14px;font-weight:700;color:#344054}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.r{flex-grow:1;height:44px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054}
+.r.on{border:2px solid #0B2A3C;background:#FFF7CC;color:#0B2A3C;font-weight:700}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="PCashPay"><div style="width: 390px; height: 844px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-direction: column;">
+  <header style="padding: 18px 16px 8px; display: flex; align-items: center; gap: 12px;">
+    <button type="button" aria-label="Назад к чеку" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(52, 64, 84); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <b style="font-size: 18px; font-weight: 800;">Оплата</b>
+  </header>
+
+  <main style="flex-grow: 1; padding: 8px 16px; display: flex; flex-direction: column; gap: 14px;">
+    <section style="border-radius: 20px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <span style="font-size: 12px; color: rgb(199, 210, 219);">К оплате · 2 позиции</span>
+      <b style="font-size: 36px; font-weight: 800; color: rgb(255, 214, 0);">209 сом</b>
+    </section>
+
+    <span class="lbl">СПОСОБ ОПЛАТЫ</span>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0px, 1fr)); gap: 8px;">
+      <button type="button" class="m on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></svg>Наличные</button>
+      <button type="button" class="m"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Карта</button>
+      <button type="button" class="m"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><path d="M14 14h3v3h-3zM20 14v.01M20 20h-3v-3"></path></svg>QR</button>
+    </div>
+
+    <label class="lbl" for="got">ПОЛУЧЕНО</label>
+    <input id="got" type="text" value="500" style="height: 56px; box-sizing: border-box; border-radius: 14px; border: 2px solid rgb(11, 42, 60); padding: 0px 16px; font-family: inherit; font-size: 24px; font-weight: 800; background: rgb(255, 255, 255);">
+    <div style="display: flex; gap: 8px;"><button type="button" class="q">Без сдачи</button><button type="button" class="q">500</button><button type="button" class="q">1000</button></div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 4px 2px;"><span style="font-size: 15px; font-weight: 700;">Сдача</span><b style="font-size: 26px; font-weight: 800; color: rgb(14, 122, 58);">291 сом</b></div>
+
+    <span class="lbl">ЧЕК ПОКУПАТЕЛЮ</span>
+    <div style="display: flex; gap: 8px;"><button type="button" class="r on">WhatsApp</button><button type="button" class="r">Печать на кассе</button><button type="button" class="r">Не нужен</button></div>
+  </main>
+
+  <div style="padding: 12px 16px 22px;">
+    <button type="button" style="width: 100%; height: 58px; border-radius: 16px; border: 0px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); font-family: inherit; font-size: 17px; font-weight: 800; box-shadow: rgba(255, 214, 0, 0.35) 0px 8px 20px;">Провести оплату</button>
+  </div></div></div></div>
+
+
+
+</body></html>

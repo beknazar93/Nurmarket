@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Нур Советник</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.tr{display:grid;grid-template-columns:1.6fr 1fr;gap:8px;padding:7px 0;border-bottom:1px solid #F2F4F7;font-size:12px}
+.sug{height:34px;padding:0 12px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="PAdmAdvisor"><div style="width: 390px; height: 844px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-direction: column;">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px; background: rgb(255, 255, 255); border-bottom: 1px solid rgb(234, 236, 240);">
+    <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(52, 64, 84); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <span style="width: 40px; height: 40px; border-radius: 12px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path></svg></span>
+    <span style="display: flex; flex-direction: column; flex-grow: 1;"><b style="font-size: 16px;">Нур Советник <span style="font-size: 11px; font-weight: 700; color: rgb(11, 42, 60); background: rgb(238, 242, 246); border-radius: 6px; padding: 2px 6px; vertical-align: middle;">Администратор</span></b><span style="font-size: 12px; color: rgb(14, 122, 58); font-weight: 700;">на связи</span></span>
+  </header>
+
+  <main style="flex-grow: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
+    <div style="align-self: flex-end; max-width: 80%; background: rgb(11, 42, 60); color: rgb(255, 255, 255); border-radius: 16px 16px 4px; padding: 10px 14px; font-size: 14px;">Сколько продали вчера?</div>
+    <div style="max-width: 88%; background: rgb(255, 255, 255); border-radius: 16px 16px 16px 4px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 14px;">Вчера, 11.10: выручка 6&nbsp;850 сом, 74 чека (до 14:35 — 3&nbsp;900).</span>
+      <div class="tr" style="font-weight: 700; color: rgb(102, 112, 133);"><span>Способ</span><span>Сумма</span></div>
+      <div class="tr"><span>Наличные</span><b>3&nbsp;610 сом</b></div>
+      <div class="tr"><span>Карта и QR</span><b>2&nbsp;980 сом</b></div>
+      <div class="tr" style="border: 0px;"><span>В долг</span><b>260 сом</b></div>
+    </div>
+    <div style="align-self: flex-end; max-width: 80%; background: rgb(11, 42, 60); color: rgb(255, 255, 255); border-radius: 16px 16px 4px; padding: 10px 14px; font-size: 14px;">Открой склад</div>
+    <div style="max-width: 88%; background: rgb(255, 255, 255); border-radius: 16px 16px 16px 4px; padding: 10px 14px; font-size: 14px;">Склад на телефоне — вкладка «Товары». Открываю · <a href="#" style="font-weight: 700;">перейти</a></div>
+  </main>
+
+  <div style="padding: 0px 16px 8px; display: flex; gap: 6px; overflow: hidden;"><button type="button" class="sug">Кто должен</button><button type="button" class="sug">Что заказать</button><button type="button" class="sug">Табель</button></div>
+  
+  <div style="padding: 8px 16px 30px; position: relative; display: flex; align-items: center; gap: 10px; background: rgb(255, 255, 255); border-top: 1px solid rgb(234, 236, 240);"><span style="position: absolute; left: 128px; bottom: 8px; width: 134px; height: 5px; border-radius: 3px; background: rgba(11, 42, 60, 0.25);"></span>
+    <label style="flex-grow: 1; height: 48px; box-sizing: border-box; display: flex; align-items: center; padding: 0px 14px; border-radius: 14px; border: 1px solid rgb(208, 213, 221);"><input type="text" placeholder="Спросите о магазине" aria-label="Вопрос" style="border: 0px; outline: 0px; background: transparent; font-family: inherit; font-size: 16px; width: 100%;"></label>
+    <button type="button" aria-label="Говорить" style="width: 56px; height: 56px; border-radius: 28px; border: 0px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; box-shadow: rgba(255, 214, 0, 0.4) 0px 8px 20px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
+  </div></div></div></div>
+
+
+
+</body></html>

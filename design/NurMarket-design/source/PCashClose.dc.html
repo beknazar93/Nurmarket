@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Кассир — закрытие смены</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.rl{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;padding:5px 0}
+.rl b{white-space:nowrap}
+.tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.role{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#E7EEF3;color:#0B2A3C;white-space:nowrap}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#F4F5F7}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 18px; font-weight: 800">Закрыть смену</b><span style="font-size: 12px; color: #667085">Телефон · с 09:00 · 12 чеков</span></span>
+    <span class="role">Кассир</span>
+  </header>
+
+  <!-- 2026-10-17: слепой пересчёт — «должно быть», разбивка и разница показываются только после ввода суммы (здесь — состояние после ввода) -->
+  <main style="flex-grow: 1; padding: 0 16px 8px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 10px; border-radius: 14px; background: #FEF3E2; padding: 10px 12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B54708" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex-shrink: 0"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01"></path></svg><span style="font-size: 12px; font-weight: 600; color: #93370D">1 чек ждёт связи (Т-0012) — уйдёт на сервер сам, закрыть смену можно</span></div>
+
+    <section style="background: #0B2A3C; color: #FFFFFF; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+      <label class="lbl" for="cnt" style="color: #C7D2DB">1. ПЕРЕСЧИТАЙТЕ НАЛИЧНЫЕ В КАССЕ</label>
+      <input id="cnt" type="text" value="611" aria-label="Сколько денег в кассе" style="height: 56px; box-sizing: border-box; border-radius: 14px; border: 0; padding: 0 16px; font-family: inherit; font-size: 22px; font-weight: 800">
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #C7D2DB">Должно быть в кассе</span><b style="color: #FFD600; white-space: nowrap">611&nbsp;сом</b></div>
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #C7D2DB">Разница</span><b style="color: #4ADE80; white-space: nowrap">0&nbsp;сом ✓ сходится</b></div>
+      <span style="font-size: 12px; color: #C7D2DB">«Должно быть» и разница видны только после ввода суммы</span>
+    </section>
+
+    <section style="background: #FFFFFF; border-radius: 18px; padding: 10px 16px">
+      <span class="lbl">2. МОЯ СМЕНА</span>
+      <div class="rl"><span style="color: #475467">Наличные</span><b>650&nbsp;сом</b></div>
+      <div class="rl"><span style="color: #475467; display: flex; align-items: center; gap: 6px">Карта <span class="tag" style="background: #E7F6EC; color: #0E7A3A">✓ сверено с терминалом</span></span><b>315&nbsp;сом</b></div>
+      <div class="rl"><span style="color: #475467; display: flex; align-items: center; gap: 6px">QR <span class="tag" style="background: #E7F6EC; color: #0E7A3A">✓ 2 оплаты в банке</span></span><b>154&nbsp;сом</b></div>
+      <div class="rl"><span style="color: #475467; display: flex; align-items: center; gap: 6px">Возвраты <span class="tag" style="background: #FDE2E1; color: #B42318">возврат · 1</span></span><b style="color: #B42318">−39&nbsp;сом</b></div>
+      <div class="rl" style="border-top: 1px dashed #D0D5DD; margin-top: 4px; padding-top: 8px; font-size: 16px"><b>Выручка</b><b style="color: #0B2A3C">1&nbsp;080&nbsp;сом</b></div>
+    </section>
+
+    <div style="display: flex; align-items: center; gap: 12px; border-radius: 14px; background: #FFFFFF; padding: 10px 14px; min-height: 48px; box-sizing: border-box">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0B2A3C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>
+      <span style="display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px">Z-отчёт ККМ</b><span style="font-size: 12px; color: #667085">Снимется сам при закрытии смены и напечатается</span></span>
+    </div>
+  </main>
+
+  <div style="padding: 8px 16px 0">
+    <button type="button" style="width: 100%; height: 56px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 17px; font-weight: 800">Закрыть смену</button>
+  </div>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

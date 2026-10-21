@@ -19,20 +19,11 @@ public partial class MarketplaceView : UserControl
     public MarketplaceView()
     {
         InitializeComponent();
-        BuildThemeGallery();
-        RefreshLoyaltyCard();
-        RefreshVoiceControlCard();
-        RefreshWarehouseAnalyticsCard();
-        RefreshPriceTagEditorCard();
-        RefreshLabelEditorCard();
-        RefreshLayoutModeCard();
-        RefreshLanguagePackCard();
-        RefreshStaffTimesheetCard();
-        RefreshTelegramBotCard();
-        RefreshShiftAnalyticsCard();
-        RefreshAnalyticsExportCard();
-        RefreshScalesCard();
-        RefreshStandardPackCards();
+        RebuildThemedCards();
+        // 2026-10-21: карточки красятся кистями темы в момент сборки — при смене светлой/тёмной (кнопка «Тема» у владельца,
+        // редактор тем) пересобираем их, иначе остаются старые цвета. Post — AccentThemeService.Apply кладёт новые кисти
+        // уже после смены варианта (App.ApplyTheme).
+        ActualThemeVariantChanged += (_, _) => Dispatcher.UIThread.Post(RebuildThemedCards);
 
         // Вкладка «Виды кассы» (2026-09-28): выбор вида обновляет карточку «1С» в «Доп. функциях»
         // и предпросмотр экрана покупателя — он меняется вместе с видом кассы.
@@ -161,13 +152,10 @@ public partial class MarketplaceView : UserControl
         ThemesPanel.IsVisible = index == 0;
         ExtrasPanel.IsVisible = index == 1;
         LayoutsPanel.IsVisible = index == 2;
+        // 2026-10-19, этап О7: вкладки — сегменты sec-seg, выбранная — класс active (тёмно-синяя).
         var buttons = new[] { ThemesTabButton, ExtrasTabButton, LayoutsTabButton };
         for (var i = 0; i < buttons.Length; i++)
-        {
-            buttons[i].Classes.Remove(i == index ? "btn-secondary" : "btn-primary");
-            if (!buttons[i].Classes.Contains(i == index ? "btn-primary" : "btn-secondary"))
-                buttons[i].Classes.Add(i == index ? "btn-primary" : "btn-secondary");
-        }
+            buttons[i].Classes.Set("active", i == index);
 
         if (index == 2)
         {
@@ -268,6 +256,9 @@ public partial class MarketplaceView : UserControl
                     "Your own theme. To change it, use the “Theme editor” button.", "Kendi temanız. Değiştirmek için «Tema düzenleyici» düğmesi.",
                     "O'z mavzuingiz. O'zgartirish — «Mavzu muharriri» tugmasi."), IsCustom: true)))
             .ToList();
+        // 2026-10-21: «Выбрана» — на теме, которая реально включена сейчас (по цветам окна), а не только по записи в настройках:
+        // запись могла прийти с другого устройства (облако), а программа ещё в прежней теме (пакет 3, п. 138).
+        current = AppliedThemeId(current, entries.Where(t => !t.IsCustom).Select(t => t.Id));
 
         foreach (var theme in entries)
         {
@@ -277,17 +268,21 @@ public partial class MarketplaceView : UserControl
             var card = new Button
             {
                 Tag = theme.Id,
-                Width = 250,
+                Width = 266, // 2026-10-19, О7: 4 темы в ряд на 1366, 3 — на 1024 (при 280 на 1024 входило 2 и пустая треть)
                 Margin = new Thickness(0, 0, 10, 10),
                 Padding = new Thickness(0),
                 Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
                 Background = ThemeBrush("BrushPanel", Brushes.White),
+                // 2026-10-19, этап О7: выбранная тема — рамка цветом текста (тёмно-синяя), как всё «выбрано»; была жёлтая.
                 BorderBrush = isActive
-                    ? ThemeBrush("BrushAccent", Brushes.Goldenrod)
+                    ? ThemeBrush("BrushText", Brushes.Black)
                     : ThemeBrush("BrushBorder", Brushes.LightGray),
                 BorderThickness = new Thickness(isActive ? 2 : 1),
                 CornerRadius = new CornerRadius(12),
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                // 2026-10-21: карточки ряда — одной высоты (по самой высокой), содержимое прижато к верху (п. 59)
+                VerticalAlignment = VerticalAlignment.Stretch,
+                VerticalContentAlignment = VerticalAlignment.Top,
             };
 
             var rows = new StackPanel { Spacing = 0 };
@@ -378,9 +373,14 @@ public partial class MarketplaceView : UserControl
                 FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = ThemeBrush("BrushText", Brushes.Black),
+                TextTrimming = TextTrimming.CharacterEllipsis, // 2026-10-21: длинное имя своей темы — в одну строку (п. 59)
             };
             Grid.SetColumn(nameText, 1);
             titleRow.Children.Add(nameText);
+
+            // 2026-10-21: бейджи «Выбрана» / «Своя» — в отдельной строке фиксированной высоты внизу карточки:
+            // в строке названия бейдж сжимал имя и сдвигал карточку (п. 59).
+            var badgeRow = new Panel { Height = 20, Margin = new Thickness(0, 8, 0, 0) };
 
             if (theme.IsCustom && !isActive)
             {
@@ -390,6 +390,7 @@ public partial class MarketplaceView : UserControl
                     CornerRadius = new CornerRadius(6),
                     Padding = new Thickness(7, 2),
                     VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Left,
                     Child = new TextBlock
                     {
                         Text = Tr.T("Своя", "Өзүңүздүкү", "Custom", "Özel", "O'zingizniki"),
@@ -398,28 +399,27 @@ public partial class MarketplaceView : UserControl
                         Foreground = ThemeBrush("BrushTextMuted", Brushes.Gray),
                     },
                 };
-                Grid.SetColumn(customBadge, 2);
-                titleRow.Children.Add(customBadge);
+                badgeRow.Children.Add(customBadge);
             }
 
             if (isActive)
             {
                 var badge = new Border
                 {
-                    Background = ThemeBrush("BrushAccentSoft", Brushes.LightGoldenrodYellow),
+                    Background = ThemeBrush("BrushText", Brushes.Black),
                     CornerRadius = new CornerRadius(6),
                     Padding = new Thickness(7, 2),
                     VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Left,
                     Child = new TextBlock
                     {
-                        Text = Tr.T("Выбрана", "Тандалган", "Selected", "Seçili", "Tanlangan"),
-                        FontSize = 10,
+                        Text = "✓ " + Tr.T("Выбрана", "Тандалган", "Selected", "Seçili", "Tanlangan"),
+                        FontSize = 10.5,
                         FontWeight = FontWeight.SemiBold,
-                        Foreground = ThemeBrush("BrushAccentStrong", Brushes.DarkGoldenrod),
+                        Foreground = ThemeBrush("BrushPanel", Brushes.White),
                     },
                 };
-                Grid.SetColumn(badge, 2);
-                titleRow.Children.Add(badge);
+                badgeRow.Children.Add(badge);
             }
 
             var descText = new TextBlock
@@ -429,12 +429,25 @@ public partial class MarketplaceView : UserControl
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 5, 0, 0),
                 Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
+                // 2026-10-21: описание — ровно 2 строки места, длиннее — с многоточием, полный текст в подсказке (п. 59)
+                LineHeight = 15,
+                MaxLines = 2,
+                MinHeight = 30,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Background = Brushes.Transparent, // чтобы подсказка появлялась над всем полем текста
+            };
+            ToolTip.SetTip(descText, theme.Description);
+            var fullDescription = theme.Description;
+            descText.SizeChanged += (_, e) =>
+            {
+                if (e.WidthChanged)
+                    FitTwoLines(descText, fullDescription, e.NewSize.Width);
             };
 
             rows.Children.Add(new Border
             {
                 Padding = new Thickness(12, 10, 12, 12),
-                Child = new StackPanel { Spacing = 0, Children = { titleRow, descText } },
+                Child = new StackPanel { Spacing = 0, Children = { titleRow, descText, badgeRow } },
             });
 
             card.Content = rows;
@@ -445,6 +458,50 @@ public partial class MarketplaceView : UserControl
         ThemeGalleryPanel.Items.Add(BuildNewCustomThemeCard());
     }
 
+    /// <summary>2026-10-21: описание карточки темы — не длиннее 2 строк с «…» в конце. Avalonia 11.2 при MaxLines ставит «…»
+    /// только когда последняя строка не влезает по ширине; если перенос пришёлся на пробел, текст обрывался без многоточия —
+    /// поэтому обрезаем по словам сами (п. 59).</summary>
+    private static void FitTwoLines(TextBlock block, string text, double width)
+    {
+        if (width <= 0 || string.IsNullOrEmpty(text))
+            return;
+        var typeface = new Typeface(block.FontFamily, block.FontStyle, block.FontWeight);
+        int Lines(string t) => new Avalonia.Media.TextFormatting.TextLayout(t, typeface, block.FontSize, null,
+            textWrapping: TextWrapping.Wrap, maxWidth: width).TextLines.Count;
+        var fitted = text;
+        if (Lines(text) > 2)
+        {
+            var words = text.Split(' ');
+            for (var n = words.Length - 1; n > 0; n--)
+            {
+                fitted = string.Join(" ", words, 0, n).TrimEnd(' ', ',', '.', ':', ';', '—', '-') + "…";
+                if (Lines(fitted) <= 2)
+                    break;
+            }
+        }
+        if (block.Text != fitted)
+            block.Text = fitted;
+    }
+
+    /// <summary>2026-10-21: id темы, которая реально включена: сохранённая, если её цвета (фон окна, акцент, текст) сейчас в
+    /// программе; иначе — встроенная тема с такими цветами; не нашлась или сохранена своя тема (у неё бывают свои цвета
+    /// поверх основы) — сохранённая (пакет 3, п. 138).</summary>
+    private static string AppliedThemeId(string saved, IEnumerable<string> builtInIds)
+    {
+        if (Application.Current is not { } app || CustomThemeStore.Find(saved) is not null)
+            return saved;
+        Color? Live(string key) => app.Resources.TryGetValue(key, out var value) && value is ISolidColorBrush brush ? brush.Color : null;
+        if (Live("BrushWindow") is not { } window || Live("BrushAccent") is not { } accent || Live("BrushText") is not { } text)
+            return saved;
+        var dark = app.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark;
+        bool Shown(string id) =>
+            AccentThemeService.GetPreview(id, dark) is { } pv
+            && Color.Parse(pv.Window) == window && Color.Parse(pv.Accent) == accent && Color.Parse(pv.Text) == text;
+        if (Shown(saved))
+            return saved;
+        return builtInIds.FirstOrDefault(Shown) ?? saved;
+    }
+
     /// <summary>Последняя карточка галереи — вход в редактор: создать свою тему.</summary>
     private Button BuildNewCustomThemeCard()
     {
@@ -452,6 +509,7 @@ public partial class MarketplaceView : UserControl
         {
             Width = 250,
             MinHeight = 150,
+            VerticalAlignment = VerticalAlignment.Stretch, // 2026-10-21: высотой с соседние карточки тем (п. 59)
             Margin = new Thickness(0, 0, 10, 10),
             Padding = new Thickness(12),
             Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
@@ -535,12 +593,36 @@ public partial class MarketplaceView : UserControl
         BuildThemeGallery();
     }
 
+    /// <summary>2026-10-21: галерея тем и карточки «Доп. функций» — в порядке конструктора (порядок карточек в ряду).</summary>
+    private void RebuildThemedCards()
+    {
+        BuildThemeGallery();
+        RefreshLoyaltyCard();
+        RefreshVoiceControlCard();
+        RefreshWarehouseAnalyticsCard();
+        RefreshPriceTagEditorCard();
+        RefreshLabelEditorCard();
+        RefreshLayoutModeCard();
+        RefreshLanguagePackCard();
+        RefreshStaffTimesheetCard();
+        RefreshTelegramBotCard();
+        RefreshShiftAnalyticsCard();
+        RefreshAnalyticsExportCard();
+        RefreshScalesCard();
+        RefreshStandardPackCards();
+    }
+
     /// <summary>Кисть из ресурсов приложения — карточки Маркетплейса собираются в коде, а там
     /// DynamicResource недоступен, поэтому значение берётся напрямую с запасным вариантом.</summary>
-    private IBrush ThemeBrush(string key, IBrush fallback) =>
-        this.TryFindResource(key, out var value) && value is IBrush brush
-            ? brush
-            : fallback;
+    private IBrush ThemeBrush(string key, IBrush fallback)
+    {
+        // 2026-10-21: карточки собираются в конструкторе, когда вид ещё не в окне — поиск от this не доходил до ресурсов
+        // приложения и отдавал запасной цвет (белый низ карточек тем в тёмной теме). Вне дерева ищем в Application,
+        // и всегда с вариантом темы — кисти Warning/Success… лежат в словарях Light/Dark.
+        var found = this.TryFindResource(key, ActualThemeVariant, out var value)
+                    || (Application.Current is { } app && app.TryFindResource(key, app.ActualThemeVariant, out value));
+        return found && value is IBrush brush ? brush : fallback;
+    }
 
     /// <summary>Проверка серийного номера — офлайн, нет сервера лицензий. Два вида принимаемых
     /// ключей: постоянный (свой на каждую функцию, см. LicenseKeys.IsPermanentSerial) открывает
@@ -686,7 +768,7 @@ public partial class MarketplaceView : UserControl
         return new Border
         {
             Classes = { "SettingsCard" },
-            Width = 330,
+            Width = 390, // 2026-10-19, О7: 3 карточки в ряд на 1366, 2 — на 1024 (было 330 — 2 в ряд и пустое поле)
             Padding = new Thickness(14),
             Margin = new Thickness(0, 0, 10, 10),
             Child = content,
@@ -923,7 +1005,7 @@ public partial class MarketplaceView : UserControl
         return new Border
         {
             Classes = { "SettingsCard" },
-            Width = 330,
+            Width = 390, // 2026-10-19, О7: 3 карточки в ряд на 1366, 2 — на 1024 (было 330 — 2 в ряд и пустое поле)
             Padding = new Thickness(14),
             Margin = new Thickness(0, 0, 10, 10),
             Child = content,
@@ -1062,7 +1144,7 @@ public partial class MarketplaceView : UserControl
         return new Border
         {
             Classes = { "SettingsCard" },
-            Width = 330,
+            Width = 390, // 2026-10-19, О7: 3 карточки в ряд на 1366, 2 — на 1024 (было 330 — 2 в ряд и пустое поле)
             Padding = new Thickness(14),
             Margin = new Thickness(0, 0, 10, 10),
             Child = content,
@@ -1204,7 +1286,7 @@ public partial class MarketplaceView : UserControl
         return new Border
         {
             Classes = { "SettingsCard" },
-            Width = 330,
+            Width = 390, // 2026-10-19, О7: 3 карточки в ряд на 1366, 2 — на 1024 (было 330 — 2 в ряд и пустое поле)
             Padding = new Thickness(14),
             Margin = new Thickness(0, 0, 10, 10),
             Child = content,
@@ -1352,7 +1434,7 @@ public partial class MarketplaceView : UserControl
         return new Border
         {
             Classes = { "SettingsCard" },
-            Width = 330,
+            Width = 390, // 2026-10-19, О7: 3 карточки в ряд на 1366, 2 — на 1024 (было 330 — 2 в ряд и пустое поле)
             Padding = new Thickness(14),
             Margin = new Thickness(0, 0, 10, 10),
             Child = content,
@@ -1914,7 +1996,7 @@ public partial class MarketplaceView : UserControl
         _languagePackCard = new Border
         {
             Classes = { "SettingsCard" },
-            Width = 330,
+            Width = 390, // 2026-10-19, О7: 3 карточки в ряд на 1366, 2 — на 1024 (было 330 — 2 в ряд и пустое поле)
             Padding = new Thickness(14),
             Margin = new Thickness(0, 0, 10, 10),
             Child = content,
@@ -2041,7 +2123,7 @@ public partial class MarketplaceView : UserControl
         var allLayoutsButton = new Button
         {
             Classes = { "btn-secondary" },
-            Content = Tr.T("Все виды кассы →", "Кассанын бардык түрлөрү →", "All till layouts →", "Tüm kasa görünümleri →", "Kassaning barcha ko'rinishlari →"),
+            Content = Tr.T("Все виды кассы", "Кассанын бардык түрлөрү", "All till layouts", "Tüm kasa görünümleri", "Kassaning barcha ko'rinishlari"), // 2026-10-19, О7: без «→»
             Height = 34,
             Padding = new Thickness(14, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -2060,7 +2142,7 @@ public partial class MarketplaceView : UserControl
         _layoutModeCard = new Border
         {
             Classes = { "SettingsCard" },
-            Width = 330,
+            Width = 390, // 2026-10-19, О7: 3 карточки в ряд на 1366, 2 — на 1024 (было 330 — 2 в ряд и пустое поле)
             Padding = new Thickness(14),
             Margin = new Thickness(0, 0, 10, 10),
             Child = content,
@@ -2238,7 +2320,7 @@ public partial class MarketplaceView : UserControl
         return new Border
         {
             Classes = { "SettingsCard" },
-            Width = 330,
+            Width = 390, // 2026-10-19, О7: 3 карточки в ряд на 1366, 2 — на 1024 (было 330 — 2 в ряд и пустое поле)
             Padding = new Thickness(14),
             Margin = new Thickness(0, 0, 10, 10),
             Child = content,

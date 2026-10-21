@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб в телефоне — чеки и смены</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:#FFFFFF;border-top:1px solid #EAECF0;padding:6px 4px 2px;flex-shrink:0}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;min-height:48px;font-size:11.5px;font-weight:600;color:#475467;text-decoration:none;padding:4px 0}
+.nav a.on{color:#0B2A3C;font-weight:800}
+.nav a.on span{background:#FFD600}
+.nav span{width:44px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#FFFFFF}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+.hd{height:60px;flex-shrink:0;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #EAECF0;display:flex;align-items:center;gap:10px;padding:0 16px}
+.hd b{font-size:18px;font-weight:800}
+.hb{width:44px;height:44px;border-radius:12px;border:0;background:#F2F4F7;color:#0B2A3C;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chip{height:44px;padding:0 14px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:14px;font-weight:600;color:#344054;white-space:nowrap;flex-shrink:0}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:3px;flex-shrink:0}
+.sg button{flex:1 1 0;height:44px;border-radius:9px;border:0;background:transparent;color:#475467;font-family:inherit;font-size:14px;font-weight:600;white-space:nowrap;padding:0 4px}
+.sg button.on{background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.srch{height:48px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:12px;border:1px solid #D0D5DD;background:#FFFFFF;flex-shrink:0}
+.srch input{border:0;outline:0;background:transparent;font-family:inherit;font-size:16px;width:100%;min-width:0;color:#111827}
+.ck{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:16px;background:#FFFFFF;min-height:64px;box-sizing:border-box}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header class="hd"><b style="flex-grow: 1">Продажи</b><button type="button" class="chip" style="height: 40px">Excel</button></header>
+  <div style="padding: 10px 16px 6px; display: flex; flex-direction: column; gap: 8px">
+    <div class="sg"><button type="button" class="on">Чеки</button><button type="button">Смены</button></div>
+    <label class="srch"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><input type="text" placeholder="Номер чека, товар, кассир" aria-label="Поиск чека"></label>
+    <div style="display: flex; gap: 6px; overflow: hidden"><button type="button" class="chip on">Сегодня</button><button type="button" class="chip">Вчера</button><button type="button" class="chip">Неделя</button><button type="button" class="chip">Оплата ▾</button></div>
+    <span style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #475467">За сегодня: 47 чеков</span><b style="white-space: nowrap">4&nbsp;300 сом</b></span>
+  </div>
+  <main style="flex-grow: 1; min-height: 0; padding: 0 16px 8px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+      <div class="ck">
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px">{{r.no}} · {{r.time}}</b><span style="font-size: 13px; color: #475467; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.where}} · {{r.pay}}</span></span>
+        <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px"><b style="font-size: 15px; color: {{r.c}}; white-space: nowrap">{{r.sum}}</b><span style="font-size: 12px; font-weight: 700; color: {{r.stc}}; white-space: nowrap">{{r.st}}</span></span>
+      </div>
+    </sc-for>
+  </main>
+  <!-- 2026-10-17: нижнее меню как в приложении администратора; «Ещё» = бывшее ☰ (8 групп) -->
+  <nav class="nav" aria-label="Разделы">
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg></span>Главная</a>
+    <a href="#" class="on" aria-current="page"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path><circle cx="9" cy="19.5" r="1.5"></circle><circle cx="17" cy="19.5" r="1.5"></circle></svg></span>Продажа</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg></span>Товары</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></span>Отчёты</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg></span>Ещё</a>
+  </nav>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-17: номера и суммы — как на «Продажах» владельца и в вебе; статус отправки; возврат — словом
+    const r = (no, time, where, pay, sum, st, ret) => ({ no, time, where, pay, sum, st, c: ret ? '#B42318' : '#0B2A3C', stc: st === 'ждёт связи' ? '#B54708' : '#0E7A3A' });
+    return {
+      rows: [
+        r('№1709', '14:31', 'Кассир Тест · Касса 1', 'наличные', '120 сом', 'на сервере'),
+        r('№1708', '14:27', 'Айгерим · телефон', 'наличные', '209 сом', 'на сервере'),
+        r('№1707', '14:18', 'Кассир Тест · Касса 1', 'карта', '170 сом', 'на сервере'),
+        r('№1706', '14:06', 'Нурлан · веб-касса', 'QR', '95 сом', 'на сервере'),
+        r('№1705', '13:58', 'Касса 1 · возврат Mars', 'карта', '−39 сом', 'возврат · на сервере', true),
+        r('Т-0012', '13:50', 'Айгерим · телефон без связи', 'наличные', '85 сом', 'ждёт связи')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

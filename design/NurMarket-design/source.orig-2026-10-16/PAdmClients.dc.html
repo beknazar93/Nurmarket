@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Клиенты и долги</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.seg{flex-grow:1;height:38px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700}
+.cl{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:16px;background:#FFFFFF}
+.sm{flex-grow:1;height:38px;border-radius:10px;font-family:inherit;font-size:12px;font-weight:800}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <b style="font-size: 18px; font-weight: 800; flex-grow: 1">Клиенты и долги</b>
+      <button type="button" aria-label="Новый клиент" style="width: 44px; height: 44px; border-radius: 14px; border: 0; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+    </div>
+    <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC"><button type="button" class="seg" style="background: transparent; color: #475467">Все</button><button type="button" class="seg" style="background: #FFFFFF; color: #0B2A3C">Должники · [N]</button></span>
+    <section style="border-radius: 16px; background: #0B2A3C; color: #FFFFFF; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center"><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #C7D2DB">Должны магазину</span><b style="font-size: 22px; color: #FFD600">[сумма]</b></span><span style="font-size: 12px; color: #C7D2DB; text-align: right">просрочено<br><b style="color: #FFFFFF; font-size: 15px">[N] клиентов</b></span></section>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+      <section class="cl">
+        <div style="display: flex; align-items: center; gap: 10px"><span style="width: 38px; height: 38px; border-radius: 19px; background: #E7EEF3; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px">[ИФ]</span><span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">[Клиент]</b><span style="font-size: 12px; color: #667085">[телефон]</span></span><span style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px"><b style="color: #B42318">[сумма]</b><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: {{r.bg}}; color: {{r.c}}">{{r.due}}</span></span></div>
+        <div style="display: flex; gap: 6px"><button type="button" class="sm" style="border: 0; background: #E7F6EC; color: #0E7A3A">Принять оплату</button><button type="button" class="sm" style="border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054">Напомнить в WhatsApp</button></div>
+      </section>
+    </sc-for>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      rows: [
+        { due: 'просрочен [N] дн.', c: '#B42318', bg: '#FDE2E1' },
+        { due: 'срок сегодня', c: '#B54708', bg: '#FEF3E2' },
+        { due: 'через [N] дн.', c: '#344054', bg: '#F2F4F7' },
+        { due: 'через [N] дн.', c: '#344054', bg: '#F2F4F7' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

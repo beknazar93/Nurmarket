@@ -1,0 +1,58 @@
+# Ретранслятор NurMarket + Caddy (автоматический HTTPS от Let's Encrypt). 2026-09-29.
+# Запуск: в этой папке создать .env (см. .env.example), затем  docker compose up -d --build
+services:
+  relay:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: nurmarket-relay:latest
+    restart: unless-stopped
+    environment:
+      Relay__DataDir: /data
+      # Сервер наружу не открыт — к нему ходит только Caddy, поэтому X-Forwarded-For можно верить
+      Relay__TrustForwardedHeaders: "true"
+      Logging__Console__FormatterName: json
+      Logging__Console__FormatterOptions__TimestampFormat: "yyyy-MM-ddTHH:mm:ss.fffZ "
+      Logging__Console__FormatterOptions__UseUtcTimestamp: "true"
+    volumes:
+      - ./data:/data
+    expose:
+      - "8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - relay
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      RELAY_DOMAIN: ${RELAY_DOMAIN:?Укажите RELAY_DOMAIN в файле .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:

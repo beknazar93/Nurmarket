@@ -1,0 +1,71 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.SaleDoneBar"
+             IsVisible="False">
+
+    <!-- 2026-10-18, редизайн (этап 6, макет MAfterPay): «Продажа прошла» — не окно, а плашка внизу главного
+         окна. Сама закрывается через 3 с (полоса времени), фокус не берёт: все кнопки Focusable="False",
+         Enter и Esc остаются у кассы, следующий скан сразу идёт в новый чек. -->
+    <Border x:Name="Card"
+            Background="{DynamicResource BrushPanel}"
+            BorderBrush="{DynamicResource BrushBorder}"
+            BorderThickness="1"
+            CornerRadius="16"
+            BoxShadow="0 16 40 0 #380B2A3C"
+            ClipToBounds="True">
+        <Grid RowDefinitions="Auto,Auto,4" ColumnDefinitions="6,*">
+            <!-- Зелёная полоса слева — «успех» (цвет темы). -->
+            <Border Grid.RowSpan="3" Background="{DynamicResource BrushUiStatusOk}"/>
+
+            <Grid Grid.Column="1" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" Margin="14,14,16,10">
+                <Border Width="44" Height="44" CornerRadius="22" VerticalAlignment="Top"
+                        Background="{DynamicResource BrushSuccessSoft}">
+                    <PathIcon Data="{DynamicResource IconCheck}" Width="22" Height="22"
+                              Foreground="{DynamicResource BrushUiStatusOk}"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,10,0" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock x:Name="TitleText" FontSize="16" FontWeight="Bold"
+                               Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="DetailsText" FontSize="12.5"
+                               Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="NoteText" FontSize="12.5" FontWeight="SemiBold" IsVisible="False"
+                               Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                </StackPanel>
+                <!-- Сдача — крупно и без переноса. Фирменные цвета во всех темах, как итог в окне оплаты:
+                     жёлтый по #0B2A3C — 11:1. На узкой плашке (телефон) — строкой ниже текста (ApplyNarrow). -->
+                <Border x:Name="ChangeBlock" Grid.Column="2" IsVisible="False" VerticalAlignment="Center"
+                        CornerRadius="12" Background="#0B2A3C" Padding="12,6">
+                    <StackPanel>
+                        <TextBlock x:Name="ChangeLabel" FontSize="11.5" Foreground="#C9D6DF"
+                                   HorizontalAlignment="Right"/>
+                        <TextBlock x:Name="ChangeText" FontSize="24" FontWeight="Bold" Foreground="#FFD600"
+                                   TextWrapping="NoWrap" HorizontalAlignment="Right"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="Auto,*,Auto" Margin="14,0,16,12">
+                <!-- «Печать копии» — обводкой: жёлтая главная кнопка на экране одна («Оплатить»). -->
+                <Button x:Name="PrintCopyButton" Classes="modal-secondary"
+                        MinHeight="44" Height="44" MinWidth="0" Padding="16,0"
+                        Focusable="False" IsTabStop="False"
+                        Click="PrintCopyButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <PathIcon Data="{DynamicResource IconPrinter}" Width="16" Height="16"/>
+                        <TextBlock x:Name="PrintCopyText" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="CloseButton" Grid.Column="2" Classes="modal-close"
+                        Focusable="False" IsTabStop="False"
+                        Click="CloseButton_Click">
+                    <PathIcon Data="{DynamicResource IconClose}" Width="16" Height="16"/>
+                </Button>
+            </Grid>
+
+            <!-- Полоса времени до автозакрытия: убывает слева направо. -->
+            <Border x:Name="TimeTrack" Grid.Row="2" Grid.Column="1" Background="{DynamicResource BrushBorder}">
+                <Border x:Name="TimeFill" HorizontalAlignment="Left" Background="{DynamicResource BrushUiStatusOk}"/>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

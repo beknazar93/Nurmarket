@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Заказы с сайта</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.chip{height:34px;padding:0 12px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.or{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:#FFFFFF;border:0;font-family:inherit;text-align:left;width:100%}
+.rl{display:flex;justify-content:space-between;font-size:13px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <b style="font-size: 18px; font-weight: 800; flex-grow: 1">Заказы с сайта</b>
+    </div>
+    <div style="display: flex; gap: 6px; overflow: hidden"><button type="button" class="chip on">Новые · [N]</button><button type="button" class="chip">Собираются</button><button type="button" class="chip">Готовы</button><button type="button" class="chip">Выданы</button></div>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <section style="background: #FFFFFF; border: 2px solid #FFD600; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 15px">Заказ [№]</b><span style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #FEF3E2; color: #B54708">новый · [время]</span></div>
+      <span style="font-size: 12px; color: #667085">[Клиент] · доставка · [адрес]</span>
+      <div class="rl"><span>Кока-Кола (ПЭТ) 2л × 2</span><b>340</b></div>
+      <div class="rl"><span>Mars × 1</span><b>39</b></div>
+      <div class="rl" style="border-top: 1px dashed #D0D5DD; padding-top: 8px; font-size: 15px"><b>Итого</b><b style="color: #0B2A3C">379 сом</b></div>
+      <div style="display: flex; gap: 8px; padding-top: 4px"><button type="button" style="height: 46px; padding: 0 14px; border-radius: 12px; border: 1.5px solid #FDE2E1; background: #FFFFFF; color: #B42318; font-family: inherit; font-size: 13px; font-weight: 700">Отклонить</button><button type="button" style="flex-grow: 1; height: 46px; border-radius: 12px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 14px; font-weight: 800">Принять и собрать</button></div>
+    </section>
+    <button type="button" class="or"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px">Заказ [№] · [Клиент]</b><span style="font-size: 12px; color: #667085">самовывоз · [время]</span></span><b style="color: #0B2A3C">[сумма]</b></button>
+    <button type="button" class="or"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px">Заказ [№] · [Клиент]</b><span style="font-size: 12px; color: #667085">доставка · [время]</span></span><b style="color: #0B2A3C">[сумма]</b></button>
+    <span style="font-size: 12px; color: #98A2B3; text-align: center; padding-top: 4px">Принятый заказ сразу появится на кассе для оплаты</span>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

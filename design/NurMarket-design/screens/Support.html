@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Тех. поддержка</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="Support"><div style="width: 1440px; height: 900px; display: flex; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39);">
+  <div class="sc-host" data-sc-name="OwnerNav"><div style="height: 900px; display: flex; font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39);">
+  <nav aria-label="Группы разделов" style="width: 76px; background: rgb(11, 42, 60); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 0px 14px;">
+    <div style="width: 44px; height: 44px; border-radius: 12px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; margin-bottom: 10px;">N</div>
+    
+      
+      
+        <button type="button" aria-label="Главная" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Главная</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Товары" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Товары</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Продажи" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2 12h11l2-8H7M9 20h.01M17 20h.01"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Продажи</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Отчёты" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Отчёты</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Сайт" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Сайт</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Клиенты" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21a7 7 0 0 1 14 0M17 11a3 3 0 1 0 0-6M22 21a6 6 0 0 0-4-5.6"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Клиенты</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Управление" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12l2-1-1-3-2 .5-1.5-1.5.5-2-3-1-1 2h-2l-1-2-3 1 .5 2L6 8.5 4 8l-1 3 2 1v2l-2 1 1 3 2-.5L7.5 18 7 20l3 1 1-2h2l1 2 3-1-.5-2 1.5-1.5 2 .5 1-3-2-1z"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Управление</span></span></button>
+      
+    
+      
+        <button type="button" aria-label="Помощь" aria-current="true" style="width: 68px; border-radius: 14px; border: 0px; background: rgba(255, 214, 0, 0.16); color: rgb(255, 214, 0); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Помощь</span></span></button>
+      
+      
+    
+    <div style="flex-grow: 1;"></div>
+    
+    <button type="button" aria-label="Тема: светлая или тёмная" style="width: 68px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg><span style="font-size: 10px; font-weight: 600;">Тема</span></button>
+    <button type="button" aria-label="Выйти на рабочий стол" style="width: 68px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"></path></svg><span style="font-size: 10px; font-weight: 600;">Выйти</span></button>
+    <button type="button" aria-label="Нурбек Т., владелец — сменить пользователя" style="width: 40px; height: 40px; margin-top: 4px; border: 0px; border-radius: 20px; background: rgb(255, 255, 255); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-family: inherit; font-size: 13px; font-weight: 800;">NT</button>
+  </nav>
+  
+  <aside style="width: 232px; box-sizing: border-box; background: rgb(255, 255, 255); border-right: 1px solid rgb(229, 231, 235); padding: 20px 14px; display: flex; flex-direction: column; gap: 4px;">
+    <span style="display: flex; align-items: center; justify-content: space-between; padding: 0px 0px 0px 10px;"><span style="font-size: 18px; font-weight: 800;"><span class="sc-interp">NBS</span></span><button type="button" aria-label="Свернуть колонку пунктов" title="Свернуть: останется тёмная колонка групп. На экранах до 1366 px колонка сворачивается сама, когда открыт раздел" style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(71, 84, 103); font-family: inherit; font-size: 16px; font-weight: 700;">«</button></span>
+    <span style="font-size: 12px; color: rgb(102, 112, 133); padding: 2px 10px 0px;">Тариф «Стандарт»</span>
+    <span style="font-size: 12px; color: rgb(102, 112, 133); padding: 0px 10px 14px;">оплачен до 01.10.2027</span>
+    <span style="font-size: 11px; font-weight: 700; color: rgb(102, 112, 133); letter-spacing: 0.06em; padding: 0px 12px 6px;"><span class="sc-interp">ПОМОЩЬ</span></span>
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 12px; border-radius: 10px; color: rgb(71, 84, 103); font-size: 14px; font-weight: 600; line-height: 1.25; text-decoration: none;"><span><span class="sc-interp">База знаний</span></span><span style="font-size: 12px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+    
+      
+        <a href="#" aria-current="page" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 12px; border-radius: 10px; background: rgb(255, 247, 204); color: rgb(11, 42, 60); font-size: 14px; font-weight: 600; line-height: 1.25; text-decoration: none; box-shadow: rgb(255, 214, 0) 4px 0px 0px inset;"><span><span class="sc-interp">Тех. поддержка</span></span><span style="font-size: 12px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+      
+    
+      
+      
+        <a href="#" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 12px; border-radius: 10px; color: rgb(71, 84, 103); font-size: 14px; font-weight: 600; line-height: 1.25; text-decoration: none;"><span><span class="sc-interp">Журнал ошибок</span></span><span style="font-size: 12px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></a>
+      
+    
+    <div style="flex-grow: 1;"></div>
+    <label style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0px 12px; border-radius: 10px; background: rgb(242, 244, 247); color: rgb(102, 112, 133); font-size: 13px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+      <input type="text" placeholder="Найти раздел" aria-label="Найти раздел (Ctrl+K)" style="border: 0px; outline: 0px; background: transparent; font-family: inherit; font-size: 13px; width: 110px; color: rgb(17, 24, 39);"><span style="margin-left: auto; font-size: 11px; color: rgb(71, 84, 103); border: 1px solid rgb(208, 213, 221); border-radius: 6px; padding: 1px 5px;">Ctrl+K</span></label>
+  </aside>
+  </div></div>
+  <main style="flex-grow: 1; min-width: 0px; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px;">
+    
+    <span style="display: flex; flex-direction: column;"><span style="font-size: 24px; font-weight: 800;">Тех. поддержка</span><span style="font-size: 13px; color: rgb(102, 112, 133);">Нур Поддержка — своя удалённая помощь NurMarket, без сторонних программ · оператор видит экран только после вашего «Разрешить»</span></span>
+    <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px;">
+      <section style="background: rgb(11, 42, 60); border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 12px;">
+        <span style="display: flex; align-items: center; justify-content: space-between; gap: 10px;"><span style="font-size: 18px; font-weight: 800; color: rgb(255, 255, 255);">Нур Поддержка</span><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: rgb(255, 214, 0); white-space: nowrap;"><span style="width: 8px; height: 8px; border-radius: 4px; background: rgb(255, 214, 0);"></span>Ждём оператора</span></span>
+        <span style="font-size: 13px; color: rgb(199, 210, 219); line-height: 20px;">Продиктуйте оператору поддержки код и PIN. Без вашего разрешения никто не подключится.</span>
+        <div style="display: flex; align-items: flex-end; gap: 18px; padding: 14px 16px; border-radius: 14px; background: rgba(255, 255, 255, 0.08);">
+          <span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: rgb(199, 210, 219);">Код</span><span style="font-size: 30px; font-weight: 800; color: rgb(255, 214, 0); letter-spacing: 0.08em; white-space: nowrap;">482 913 605</span></span>
+          <span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: rgb(199, 210, 219);">PIN</span><span style="font-size: 30px; font-weight: 800; color: rgb(255, 214, 0); letter-spacing: 0.08em;">7316</span></span>
+          <span style="flex-grow: 1;"></span>
+          <span style="font-size: 12px; color: rgb(199, 210, 219); text-align: right; line-height: 17px; white-space: nowrap;">Действует 15 минут<br>до 14:50</span>
+        </div>
+        <span style="display: flex; gap: 10px;">
+          <button type="button" style="flex-grow: 1; height: 48px; border-radius: 14px; border: 1.5px solid rgba(255, 255, 255, 0.35); background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: rgb(255, 255, 255);">Завершить</button>
+        </span>
+      </section>
+      <section style="background: rgb(255, 255, 255); border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 16px; font-weight: 800;">Связаться</span>
+        <span style="display: flex; justify-content: space-between; gap: 10px; padding: 11px 14px; border-radius: 12px; background: rgb(249, 250, 251); font-size: 14px;"><span>Телефон</span><span style="font-weight: 700; white-space: nowrap;">+996 559 340 032</span></span>
+        <span style="display: flex; justify-content: space-between; gap: 10px; padding: 11px 14px; border-radius: 12px; background: rgb(249, 250, 251); font-size: 14px;"><span>WhatsApp</span><span style="font-weight: 700; white-space: nowrap;">тот же номер</span></span>
+        <span style="display: flex; justify-content: space-between; gap: 10px; padding: 11px 14px; border-radius: 12px; background: rgb(249, 250, 251); font-size: 14px;"><span>Telegram</span><a href="#" style="font-weight: 700; text-decoration: none; white-space: nowrap;">Бот поддержки NurCRM ›</a></span>
+        <span style="font-size: 12px; color: rgb(102, 112, 133);">В боте — видео-инструкции и «Связаться с оператором»</span>
+        <button type="button" style="margin-top: auto; height: 46px; border-radius: 12px; border: 1.5px solid rgb(208, 213, 221); background: rgb(255, 255, 255); font-family: inherit; font-size: 14px; font-weight: 700; color: rgb(52, 64, 84);">Отправить журнал ошибок поддержке</button>
+      </section>
+    </div>
+    <span style="font-size: 13px; font-weight: 700; color: rgb(71, 84, 103);">Когда оператор подключается — окно поверх всех окон (даже если открыта касса). Исключение из правил модалок: без ✕ — ответить нужно кнопкой; без ответа за 60 с — отказ.</span>
+    <div style="display: flex; gap: 16px; align-items: flex-start;">
+      
+      <section role="alertdialog" aria-labelledby="supTitle" style="width: 480px; flex-shrink: 0; box-sizing: border-box; background: rgb(255, 255, 255); border-radius: 20px; border: 2px solid rgb(245, 158, 11); box-shadow: rgba(11, 42, 60, 0.25) 0px 24px 60px; overflow: hidden; display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid rgb(234, 236, 240);"><span style="width: 40px; height: 40px; border-radius: 12px; background: rgb(254, 243, 226); display: flex; align-items: center; justify-content: center; color: rgb(181, 71, 8); font-weight: 800;">!</span><span style="flex-grow: 1; display: flex; flex-direction: column;"><span id="supTitle" style="font-size: 16px; font-weight: 800;">Оператор Азамат хочет подключиться</span><span style="font-size: 12px; color: rgb(102, 112, 133);">Удалённая помощь NurMarket · ответьте за 60 с</span></span></div>
+        <div style="padding: 14px 20px; font-size: 14px; color: rgb(71, 84, 103); line-height: 21px;">Оператор «Азамат» хочет видеть экран и управлять мышью и клавиатурой. «Разрешить» — полный доступ, «Только просмотр» — только экран, без управления.</div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid rgb(234, 236, 240); background: rgb(252, 252, 253);"><span title="Осталось 52 секунды" style="flex-grow: 1; font-size: 12px; font-weight: 700; color: rgb(181, 71, 8); white-space: nowrap;">52 с</span><button type="button" style="height: 44px; padding: 0px 12px; border-radius: 12px; border: 1.5px solid rgb(208, 213, 221); background: rgb(255, 255, 255); font-family: inherit; font-size: 13px; font-weight: 700; color: rgb(52, 64, 84);">Отклонить</button><button type="button" style="height: 44px; padding: 0px 12px; border-radius: 12px; border: 1.5px solid rgb(208, 213, 221); background: rgb(255, 255, 255); font-family: inherit; font-size: 13px; font-weight: 700; color: rgb(52, 64, 84); white-space: nowrap;">Только просмотр</button><button type="button" style="height: 44px; padding: 0px 16px; border-radius: 12px; border: 0px; background: rgb(255, 214, 0); font-family: inherit; font-size: 13px; font-weight: 800; color: rgb(11, 42, 60);">Разрешить</button></div>
+      </section>
+      <div style="flex-grow: 1; min-width: 0px; display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 13px; font-weight: 700; color: rgb(52, 64, 84);">Идёт сеанс — красная полоса поверх всех окон</span>
+        <div aria-hidden="true" style="position: relative; height: 150px; border-radius: 14px; background: rgb(229, 231, 235); border: 1px solid rgb(208, 213, 221); overflow: hidden;">
+          <span style="position: absolute; left: 12px; top: 40px; width: 58%; height: 96px; border-radius: 8px; background: rgb(255, 255, 255);"></span>
+          <span style="position: absolute; right: 12px; top: 40px; width: 34%; height: 96px; border-radius: 8px; background: rgb(255, 255, 255);"></span>
+          <span style="position: absolute; left: 50%; top: 0px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 7px 8px 7px 14px; border-radius: 0px 0px 12px 12px; background: rgb(198, 40, 40); white-space: nowrap;"><span style="font-size: 13px; font-weight: 700; color: rgb(255, 255, 255);">● Идёт сеанс поддержки: Азамат</span><span style="height: 28px; padding: 0px 12px; border-radius: 8px; background: rgb(255, 255, 255); color: rgb(180, 35, 24); font-size: 12px; font-weight: 800; display: flex; align-items: center;">Завершить</span></span>
+        </div>
+        <span style="font-size: 12px; color: rgb(102, 112, 133); line-height: 18px;">«Завершить» сразу отключает оператора. Закрыли окно «Тех. поддержка» — сеанс идёт, полоса остаётся. В режиме «Только просмотр» оператору недоступны мышь и клавиатура.</span>
+      </div>
+    </div>
+  </main></div></div></div>
+
+
+
+</body></html>

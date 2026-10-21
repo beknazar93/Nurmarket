@@ -14,14 +14,14 @@
     <RootNamespace>NurMarketKassa.AvaloniaHost</RootNamespace>
     <AssemblyName>NurMarketKassa.Avalonia</AssemblyName>
     <DefineConstants>$(DefineConstants);NURPORTABLE</DefineConstants>
-    <Version>1.17.58</Version>
+    <Version>1.17.59</Version>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>
     <ApplicationIcon>..\NurMarketKassa.Avalonia\Assets\app-icon.ico</ApplicationIcon>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <EnableDefaultAvaloniaItems>false</EnableDefaultAvaloniaItems>
     <HostDir>$(MSBuildThisFileDirectory)..\NurMarketKassa.Avalonia\</HostDir>
-    <HostExcludes>$(HostDir)obj\**;$(HostDir)bin\**;$(HostDir)publish*\**;$(HostDir)release*\**;$(HostDir)installer-out\**;$(HostDir)VoiceModel\**;$(HostDir)AnyDesk\**;$(HostDir)**\*.bak;$(HostDir)**\*.wpfbak;$(HostDir)**\*.shellbak;$(HostDir)**\*.Thin.cs;$(HostDir)**\*.Legacy.cs;$(HostDir)**\_wpf_port_backup\**</HostExcludes>
+    <HostExcludes>$(HostDir)obj\**;$(HostDir)bin\**;$(HostDir)publish*\**;$(HostDir)release*\**;$(HostDir)installer-out\**;$(HostDir)VoiceModel\**;$(HostDir)**\*.bak;$(HostDir)**\*.wpfbak;$(HostDir)**\*.shellbak;$(HostDir)**\*.Thin.cs;$(HostDir)**\*.Legacy.cs;$(HostDir)**\_wpf_port_backup\**</HostExcludes>
   </PropertyGroup>
 
   <ItemGroup>

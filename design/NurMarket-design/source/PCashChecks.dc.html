@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Чеки</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:#FFFFFF;border-top:1px solid #EAECF0;padding:6px 4px 2px}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#667085;text-decoration:none;padding:6px 0}
+.nav a.on{color:#0B2A3C;font-weight:800}
+.nav a.on span{background:#FFD600}
+.nav span{width:44px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+.seg{flex-grow:1;height:44px;white-space:nowrap;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700}
+.ck{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:#FFFFFF;border:0;font-family:inherit;text-align:left;width:100%}
+.role{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#E7EEF3;color:#0B2A3C;white-space:nowrap}
+.mi{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#FFFFFF}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+    <span style="display: flex; align-items: center; gap: 8px"><b style="font-size: 20px; font-weight: 800; flex-grow: 1">Мои чеки</b><span class="role">Кассир</span></span>
+    <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC">
+      <button type="button" class="seg" aria-pressed="true" style="background: #0B2A3C; color: #FFFFFF">Эта смена · 12</button>
+      <button type="button" class="seg" style="background: transparent; color: #475467">Отложенные · 1</button>
+    </span>
+    <label style="height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <input type="text" placeholder="Номер чека или товар" aria-label="Поиск чека" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 16px; width: 100%">
+    </label>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <span style="font-size: 12px; font-weight: 700; color: #667085">СЕГОДНЯ · СМЕНА С 09:00 · 12 ЧЕКОВ · 1&nbsp;080&nbsp;СОМ</span>
+    <sc-for list="{{checks}}" as="c" hint-placeholder-count="6">
+      <button type="button" class="ck">
+        <span class="mi" style="background: {{c.bg}}; color: {{c.fg}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="{{c.icon}}"></path></svg></span>
+        <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0"><b style="font-size: 14px; white-space: nowrap">Чек {{c.no}} <span style="font-weight: 500; color: #667085">· {{c.time}}</span></b><span style="font-size: 12px; color: #667085; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.items}}</span></span>
+        <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px"><b style="font-size: 15px; color: #0B2A3C; white-space: nowrap">{{c.sum}}</b><span style="font-size: 11px; font-weight: 700; white-space: nowrap; padding: 2px 8px; border-radius: 999px; background: {{c.sbg}}; color: {{c.sfg}}">{{c.state}}</span></span>
+      </button>
+    </sc-for>
+    <span style="font-size: 12px; color: #667085; text-align: center">Ещё 6 чеков ниже · чек «ждёт связи» получит номер с сервера после отправки</span>
+  </main>
+
+  <nav class="nav" aria-label="Разделы кассира">
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg></span>Главная</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path><circle cx="9" cy="19.5" r="1.5"></circle><circle cx="17" cy="19.5" r="1.5"></circle></svg></span>Продажа</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path><path d="M8 9v6M12 9v6M16 9v6"></path></svg></span>Сканер</a>
+    <a href="#" class="on" aria-current="page"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg></span>Чеки</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg></span>Товары</a>
+  </nav>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const cash = 'M2 6h20v12H2zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5';
+    const card = 'M2 5h20v14H2zM2 10h20';
+    const qr = 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3z';
+    // 2026-10-17: «на сервере» / «ждёт связи» (не «отправлен» — путали с отправкой покупателю); офлайн-чек — временный номер Т-0012
+    const ok = { state: 'на сервере', sbg: '#E7F6EC', sfg: '#0E7A3A' };
+    const wait = { state: 'ждёт связи', sbg: '#FEF3E2', sfg: '#B54708' };
+    const ret = { state: 'возврат', sbg: '#FDE2E1', sfg: '#B42318' };
+    const c = (no, time, items, sum, icon, bg, fg, st) => Object.assign({ no, time, items, sum, icon, bg, fg }, st);
+    const n = '\u00a0';
+    return {
+      checks: [
+        c('Т-0012', '14:33', 'Макароны «Макфа» × 2, Mars', '209' + n + 'сом', cash, '#FFF7CC', '#0B2A3C', wait),
+        c('№1706', '14:05', 'Кока-Кола (ПЭТ) 2л', '170' + n + 'сом', card, '#E7EEF3', '#0B2A3C', ok),
+        c('№1699', '13:40', 'Mars · по чеку №1697, PIN администратора', '−39' + n + 'сом', cash, '#FDE2E1', '#B42318', ret),
+        c('№1697', '13:22', 'Mars × 3', '117' + n + 'сом', cash, '#FFF7CC', '#0B2A3C', ok),
+        c('№1688', '12:40', 'Макароны «Макфа» спагетти 450г', '85' + n + 'сом', qr, '#F2F4F7', '#344054', ok),
+        c('№1679', '11:58', 'Хлеб белый × 2, Молоко 1л', '165' + n + 'сом', card, '#E7EEF3', '#0B2A3C', ok)
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

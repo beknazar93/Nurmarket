@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Деньги в кассе</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.seg{flex-grow:1;height:42px;border-radius:10px;border:0;font-family:inherit;font-size:14px;font-weight:700}
+.chip{height:44px;padding:0 12px;border-radius:18px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.hs{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F2F4F7;font-size:13px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px">
+    <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <b style="font-size: 18px; font-weight: 800; flex-grow: 1">Деньги в кассе</b><span style="font-size: 11px; font-weight: 700; color: #0B2A3C; background: #E4E7EC; border-radius: 6px; padding: 3px 7px">Администратор</span>
+  </header>
+  <main style="flex-grow: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 10px">
+    <section style="border-radius: 18px; background: #0B2A3C; color: #FFFFFF; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center">
+      <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #C7D2DB">Касса 1 · смена Кассир Тест с 08:55</span><b style="font-size: 24px; color: #FFD600; white-space: nowrap">2&nbsp;795 сом</b><span style="font-size: 12px; color: #C7D2DB">размен 1&nbsp;000 + наличные продаж 1&nbsp;795</span></span>
+      <button type="button" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.3); background: transparent; color: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700">Касса 1 ▾</button>
+    </section>
+    <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC"><button type="button" class="seg" style="background: transparent; color: #475467">Внесение</button><button type="button" class="seg" style="background: #0B2A3C; color: #FFFFFF">Изъятие</button></span>
+    <label class="lbl" for="sum">СУММА</label>
+    <input id="sum" type="text" value="1 500 сом" style="height: 56px; box-sizing: border-box; border-radius: 14px; border: 2px solid #0B2A3C; padding: 0 16px; font-family: inherit; font-size: 22px; font-weight: 800; background: #FFFFFF">
+    <span class="lbl">ЗАЧЕМ</span>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px"><button type="button" class="chip on">Инкассация</button><button type="button" class="chip">Расходы магазина</button><button type="button" class="chip">Другое</button></div>
+    <span style="font-size: 12px; color: #475467">Платите поставщику? Это <a href="#" style="font-weight: 700">«Оплата поставщику»</a> — изъятие запишется само.</span>
+    <!-- 2026-10-16: наличные физически у кассира — админ с телефона только отправляет запрос, кассир подтверждает в своей смене -->
+    <span style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: #FFF7CC; font-size: 13px; color: #0B2A3C"><b>i</b><span>Деньги в ящике у кассира. Запрос уйдёт на <b>Касса 1</b>, Кассир Тест подтвердит его в своей смене — так касса сходится при закрытии.</span></span>
+    <section style="background: #FFFFFF; border-radius: 16px; padding: 4px 14px">
+      <div class="hs"><span style="flex-grow: 1">Внесение · размен</span><span style="color: #667085">08:55</span><b style="color: #0E7A3A; white-space: nowrap">+1&nbsp;000 сом</b></div>
+      <div class="hs" style="border: 0"><span style="flex-grow: 1; color: #475467">Изъятий сегодня не было</span><b style="color: #475467">0 сом</b></div>
+    </section>
+  </main>
+  <div style="padding: 10px 16px 30px; position: relative"><button type="button" style="width: 100%; height: 56px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 17px; font-weight: 800; white-space: nowrap">Отправить запрос на Касса 1</button><span style="position: absolute; left: 128px; bottom: 8px; width: 134px; height: 5px; border-radius: 3px; background: rgba(11,42,60,.25)"></span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

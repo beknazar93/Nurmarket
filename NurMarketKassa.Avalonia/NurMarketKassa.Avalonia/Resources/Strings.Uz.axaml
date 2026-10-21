@@ -16,6 +16,7 @@
   <x:String x:Key="csh.menu.cashOperation">Kirim / chiqim</x:String>
   <x:String x:Key="csh.menu.finance">Moliya</x:String>
   <x:String x:Key="csh.menu.sales">Sotuvlar</x:String>
+  <x:String x:Key="csh.menu.salesFinance">Sotuvlar va moliya</x:String>
   <x:String x:Key="csh.menu.abc">ABC tahlili</x:String>
   <x:String x:Key="csh.menu.clients">Mijozlar</x:String>
   <x:String x:Key="csh.menu.payDebt">Qarzni to'lash</x:String>
@@ -24,6 +25,7 @@
   <x:String x:Key="csh.menu.marketplace">Marketpleys</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
   <x:String x:Key="csh.menu.errorLogs">Jurnal va xatolar</x:String>
+  <x:String x:Key="csh.menu.cartRemovals">Chekdan olib tashlanganlar</x:String>
   <x:String x:Key="csh.menu.remoteSupport">NurCRM texnik yordami</x:String>
   <x:String x:Key="csh.menu.knowledgeBase">NurMarket bilimlar bazasi</x:String>
   <x:String x:Key="csh.menu.restock">To'ldirish va muddatlar</x:String>
@@ -41,9 +43,9 @@
   <x:String x:Key="restock.reorderEmpty">Bashorat uchun hali sotuv tarixi yo'q. "Serverdan tarixni yuklash" tugmasini bosing yoki bir necha kun kuting — kassa har bir sotuvdan keyin ma'lumotlarni o'zi yig'adi.</x:String>
   <x:String x:Key="restock.backfillButton">Serverdan tarixni yuklash</x:String>
   <x:String x:Key="restock.tabExpiry">Yaroqlilik muddati</x:String>
-  <x:String x:Key="restock.expirySubtitle">Yaroqlilik muddati — mahsulot toifasiga qarab taxminiy baho (AI kalitisiz haqiqiy internet qidiruvi ishlamaydi, sozlamalarga qarang). Kelgan sana — mahsulot qoldig'i ushbu kassada ilk bor paydo bo'lgan kun.</x:String>
+  <x:String x:Key="restock.expirySubtitle">Bu yerdagi muddat taxminiy: dastur faqat mahsulot ushbu kassaga qachon kelganini va uning toifasi uchun odatiy saqlash muddatini biladi (sut mahsulotlari ≈ 7 kun, non ≈ 3 kun). Hisobdan chiqarish yoki sotuvdan olishdan oldin haqiqiy sanani qadoqdan tekshiring.</x:String>
   <x:String x:Key="restock.colIntakeDate">Kelgan</x:String>
-  <x:String x:Key="restock.colExpiryDate">Muddati</x:String>
+  <x:String x:Key="restock.colExpiryDate">Taxminan gacha</x:String>
   <x:String x:Key="restock.expiryEmpty">Hali kelgan sanasi ma'lum mahsulotlar yo'q — bu sana mahsulot qoldig'i paydo bo'lishi bilanoq avtomatik qayd etiladi.</x:String>
   <x:String x:Key="posSettings.operations.loyaltyTitle">Sodiqlik dasturi</x:String>
   <x:String x:Key="posSettings.operations.loyaltySubtitle">Balans ushbu kassada mahalliy saqlanadi — NurCRM'da hali mijoz ballari uchun maydon yo'q.</x:String>
@@ -122,7 +124,7 @@
   <x:String x:Key="mainWindow.windowTitle">Kassa — Nur Market</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Orqaga</x:String>
   <x:String x:Key="printSettings.findButton">Topish</x:String>
-  <x:String x:Key="printSettings.lptWatermark">LPT port yoki printerga yo'l</x:String>
+  <x:String x:Key="printSettings.lptWatermark">Port yoki printer yo'li (topilmasa)</x:String>
   <x:String x:Key="printSettings.testButton">Test</x:String>
   <x:String x:Key="posSettings.print.cashDrawerTitle">Pul qutisi</x:String>
   <x:String x:Key="posSettings.print.cashDrawerEnable">Naqd to'lovda ochilsin</x:String>
@@ -130,7 +132,7 @@
   <x:String x:Key="printSettings.cashDrawerPin2">2-kontakt (odatda)</x:String>
   <x:String x:Key="printSettings.cashDrawerPin5">5-kontakt</x:String>
   <x:String x:Key="printSettings.cashDrawerTestButton">Ochish</x:String>
-  <x:String x:Key="printSettings.lptNotFound">Tizimda LPT topilmadi</x:String>
+  <x:String x:Key="printSettings.lptNotFound">Bu manzilda printer topilmadi</x:String>
   <x:String x:Key="printSettings.previewTextReceipt">Matnli chekni oldindan ko'rish</x:String>
   <x:String x:Key="printSettings.qrHeader">QR-kod</x:String>
   <x:String x:Key="printSettings.uploadQr">QR yuklash</x:String>
@@ -156,6 +158,7 @@
   <x:String x:Key="scaleSettings.comNotFound">COM port topilmadi</x:String>
   <x:String x:Key="scaleSettings.testButton">Tarozini tekshirish</x:String>
   <x:String x:Key="operations.bankQrDesc">Naqd pulsiz to'lov uchun bank QR-kodlari va logotiplari</x:String>
+  <x:String x:Key="operations.pageSubtitle">Do'kon turi, smenani yopish, chekdan o'chirish, Telegram va QR orqali to'lov</x:String>
   <x:String x:Key="operations.qrNotLoaded">QR yuklanmagan</x:String>
   <x:String x:Key="operations.qrLoaded">QR yuklangan</x:String>
   <x:String x:Key="csh.cart.customService">Qo'shimcha xizmat</x:String>
@@ -177,8 +180,8 @@
   <!-- To'lov oynasi -->
   <x:String x:Key="csh.checkout.title">Xarid uchun to'lov</x:String>
   <x:String x:Key="csh.checkout.subtitle">To'lov usulini tanlang va summani tasdiqlang</x:String>
-  <x:String x:Key="csh.checkout.totalDue">TO'LANADIGAN SUMMA</x:String>
-  <x:String x:Key="csh.checkout.paymentMethod">TO'LOV USULI</x:String>
+  <x:String x:Key="csh.checkout.totalDue">To'lanadigan summa</x:String>
+  <x:String x:Key="csh.checkout.paymentMethod">To'lov usuli</x:String>
   <x:String x:Key="csh.checkout.cash">Naqd</x:String>
   <x:String x:Key="csh.checkout.transfer">Naqdsiz</x:String>
   <x:String x:Key="csh.checkout.cashReceived">Qabul qilingan naqd pul</x:String>
@@ -202,6 +205,8 @@
   <x:String x:Key="csh.checkout.rental">Prokat (ijara) sifatida rasmiylashtirish</x:String>
   <x:String x:Key="csh.checkout.mixedCash">Naqd</x:String>
   <x:String x:Key="csh.checkout.mixedNonCash">Naqdsiz</x:String>
+  <!-- 2026-10-17, редизайн (этап 2): быстрая сумма «без сдачи» в окне оплаты (ExactCashCommand). -->
+  <x:String x:Key="csh.checkout.exact">Aniq summa</x:String>
   <x:String x:Key="csh.checkout.paidNow">Hozir olingan (0 — hammasi qarzga)</x:String>
   <x:String x:Key="csh.checkout.loyaltyRedeemWatermark">Bonusdan yechish (so'm)</x:String>
 
@@ -250,14 +255,14 @@
   <!-- Xaridor ekrani (ikkinchi monitor) -->
   <x:String x:Key="csh.customer.title">Xaridor ekrani</x:String>
   <x:String x:Key="csh.customer.tagline">Xaridlaringiz — tez va qulay</x:String>
-  <x:String x:Key="csh.customer.receiptEyebrow">SIZNING CHEKINGIZ</x:String>
+  <x:String x:Key="csh.customer.receiptEyebrow">Sizning chekingiz</x:String>
   <x:String x:Key="csh.customer.receiptTitle">Xaridlar ro'yxati</x:String>
   <x:String x:Key="csh.customer.adPlaceholder">QR-kod&#x0a;yoki reklama banneri uchun joy</x:String>
-  <x:String x:Key="csh.customer.subtotal">ORALIQ SUMMA</x:String>
-  <x:String x:Key="csh.customer.discount">CHEGIRMA</x:String>
+  <x:String x:Key="csh.customer.subtotal">Oraliq summa</x:String>
+  <x:String x:Key="csh.customer.discount">Chegirma</x:String>
   <x:String x:Key="csh.customer.received">QABUL QILINDI</x:String>
   <x:String x:Key="csh.customer.change">QAYTIM</x:String>
-  <x:String x:Key="csh.customer.totalDue">TO'LOVGA</x:String>
+  <x:String x:Key="csh.customer.totalDue">To'lovga</x:String>
 
   <!-- Umumiy iboralar -->
   <x:String x:Key="common.yes">Ha</x:String>
@@ -269,7 +274,7 @@
   <x:String x:Key="common.confirm">Tasdiqlash</x:String>
   <x:String x:Key="common.close">Yopish</x:String>
   <x:String x:Key="staffTimesheet.title">Xodimlar tabeli</x:String>
-  <x:String x:Key="staffTimesheet.description">Soatlar va smenalar kassadagi ochilgan/yopilgan smenalar ma'lumotlari bo'yicha hisoblanadi — tanlangan davrdagi faqat YOPILGAN smenalar olinadi. Hozir ochiq smena yopilmaguncha tabelga kirmaydi.</x:String>
+  <x:String x:Key="staffTimesheet.description">Soatlar va smenalar kassadagi ochilgan/yopilgan smenalar ma'lumotlari bo'yicha hisoblanadi — tanlangan davrdagi faqat yopilgan smenalar olinadi. Hozir ochiq smena yopilmaguncha tabelga kirmaydi.</x:String>
   <x:String x:Key="staffTimesheet.periodLabel">Davr:</x:String>
   <x:String x:Key="staffTimesheet.fromWatermark">Sanadan…</x:String>
   <x:String x:Key="staffTimesheet.toWatermark">Sanagacha…</x:String>
@@ -322,9 +327,8 @@
   <x:String x:Key="logs.empty">Ogohlantirishlar va xatolar yo'q.</x:String>
 
   <!-- NurCRM texnik yordam -->
-  <x:String x:Key="remoteSupport.intro">Masofaviy yordam uchun AnyDesk dasturidan foydalaniladi. Quyidagi tugmani bosing — AnyDesk ulanish manzili (ID) bilan ochiladi. Ushbu manzilni telefon yoki WhatsApp orqali yordam operatoriga ayting.</x:String>
-  <x:String x:Key="remoteSupport.launchButton">AnyDesk'ni ishga tushirish</x:String>
-  <x:String x:Key="remoteSupport.downloadButton">AnyDesk'ni yuklab olish</x:String>
+  <!-- 2026-10-16: удалённая помощь — только своя «Nur Yordam» -->
+  <x:String x:Key="remoteSupport.intro">Masofaviy yordam — «Nur Yordam»: NurMarket operatori kassa ekranini ko'radi va muammoni hal qilishga yordam beradi. Yordam xizmatiga qo'ng'iroq qiling yoki WhatsApp'ga yozing: +996 559 340 032, so'ng «Yordam uchun kod olish» tugmasini bosing va operatorga kod hamda PIN'ni ayting.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Qurilma ma'lumotlarini nusxalash</x:String>
 
@@ -363,7 +367,7 @@
   <x:String x:Key="kb.q.logsQ">Nosozlik paytida nima bo'lganini qayerdan ko'rish mumkin?</x:String>
   <x:String x:Key="kb.q.logsA">Yon menyu → "Jurnal va xatolar" — so'nggi vaqtdagi ogohlantirishlar, xatolar va server bilan aloqa uzilishlarini ko'rsatadi. "Jurnal papkasini ochish" tugmasi batafsil texnik fayllar joylashgan papkani ochadi — ularni yordam xizmatiga yuborish mumkin.</x:String>
   <x:String x:Key="kb.q.remoteSupportQ">NurCRM yordam xizmatidan masofaviy yordam qanday olinadi?</x:String>
-  <x:String x:Key="kb.q.remoteSupportA">Yon menyu → "NurCRM texnik yordami" → "AnyDesk'ni ishga tushirish". Ulanish manzili (ID) paydo bo'ladi — operator kompyuteringizga ulanib, muammoni hal qilishga yordam berishi uchun manzilni unga telefon yoki WhatsApp orqali ayting.</x:String>
+  <x:String x:Key="kb.q.remoteSupportA">Yon menyu → "NurCRM texnik yordami" → "Nur Yordam" bloki → "Yordam uchun kod olish". Kod va PIN'ni operatorga telefon yoki WhatsApp orqali ayting (+996 559 340 032), u ruxsat so'raganda "Ruxsat berish" yoki "Faqat ko'rish" tugmasini bosing. Ruxsatingizsiz hech kim ulanmaydi.</x:String>
   <x:String x:Key="kb.q.printerQ">Kassa USB orqali ulangan chek printerini ko'rmayapti — nima qilish kerak?</x:String>
   <x:String x:Key="kb.q.printerA">Sozlamalar → Chop etish bo'limida "Topish" tugmasini yana bosing (ro'yxat o'zi yangilanmaydi). Agar printer Zadig orqali sozlangan bo'lsa-yu, baribir ko'rinmasa — uni qayta ulang va yana urinib ko'ring yoki "NurCRM texnik yordami" orqali murojaat qiling.</x:String>
   <x:String x:Key="common.comment">Izoh</x:String>
@@ -417,6 +421,9 @@
   <x:String x:Key="closeShift.nonCashSalesLabel">Naqdsiz</x:String>
   <x:String x:Key="openShift.instructions">Smena boshida kassadagi naqd pul summasini kiriting.</x:String>
   <x:String x:Key="openShift.openingAmountLabel">Ochilish summasi</x:String>
+  <!-- 2026-10-16, редизайн: подсказка слева на строке кнопок модалки (ModalShell.Hint);
+       неразрывные пробелы — строка переносится только между «Enter…» и «Esc…». -->
+  <x:String x:Key="modal.hintEnter">Enter&#160;—&#160;tasdiqlash · Esc&#160;—&#160;bekor&#160;qilish</x:String>
   <x:String x:Key="shiftNotClosed.title">Smena yopilmagan</x:String>
   <x:String x:Key="shiftNotClosed.message">Sizda ochiq smena bor.&#x0a;Chiqishdan oldin uni yopasizmi?</x:String>
   <x:String x:Key="shiftNotClosed.logoutOnly">Smenani yopmasdan chiqish</x:String>
@@ -509,6 +516,15 @@
   <x:String x:Key="priceTagBulk.selectNone">Tanlovni bekor qilish</x:String>
   <x:String x:Key="priceTagBulk.copiesEachLabel">Har bir mahsulotga nusxa</x:String>
   <x:String x:Key="priceTagBulk.printButton">Chop etish</x:String>
+  <!-- 2026-10-20, этап О9б: окна ценников и этикеток (ModalShell, пустой список, настройка принтера). -->
+  <x:String x:Key="priceTag.subtitle">Shablon va printerni tanlang — chap tomonda narx yorlig'i qanday chop etilishi ko'rinadi.</x:String>
+  <x:String x:Key="priceTagBulk.subtitle">Mahsulotlarni belgilang, shablon va printerni tanlang.</x:String>
+  <x:String x:Key="priceTagBulk.notFound">Hech narsa topilmadi. So'rovni o'zgartiring — nomi va shtrix-kodi bo'yicha qidiriladi.</x:String>
+  <x:String x:Key="priceTagBulk.noProducts">Hozircha mahsulot yo'q: katalog hali yuklanmadi. Oynani yopib, bir daqiqadan keyin qayta oching.</x:String>
+  <x:String x:Key="labelPrint.subtitle">Shtrix-kodli yorliq — yorliq printerida chop etiladi.</x:String>
+  <x:String x:Key="labelEditor.printerSetup">Printerni sozlash</x:String>
+  <x:String x:Key="labelEditor.zoomOut">Kichraytirish</x:String>
+  <x:String x:Key="labelEditor.zoomIn">Kattalashtirish</x:String>
   <x:String x:Key="discount.title">Chegirma</x:String>
   <x:String x:Key="discount.applyToSelected">Tanlangan mahsulotga qo'llash</x:String>
   <x:String x:Key="discount.modeAmountLabel">Chegirma rejimi: Summa (so'm)</x:String>
@@ -546,9 +562,9 @@
   <x:String x:Key="returnSale.title">Chek bo'yicha qaytarish</x:String>
   <x:String x:Key="returnSale.header">Chek bo'yicha mahsulotlarni qaytarish</x:String>
   <x:String x:Key="returnSale.instructions">Chekni "Tanlash" tugmasi bilan tanlang. Uning tarkibi pastda paydo bo'ladi: mahsulotlarni belgilang va "Tanlanganlarni qaytarish" tugmasini bosing yoki "Butun chekni qaytarish" tugmasidan foydalaning.</x:String>
-  <x:String x:Key="returnSale.step1">1. Sotuv cheklari</x:String>
+  <x:String x:Key="returnSale.step1">1. Xaridor chekini toping</x:String>
   <x:String x:Key="returnSale.colReceiptNo">Chek №</x:String>
-  <x:String x:Key="returnSale.step2">2. Tanlangan chek tarkibi</x:String>
+  <x:String x:Key="returnSale.step2">2. Qaytariladiganini belgilang</x:String>
   <x:String x:Key="returnSale.clearSelection">Tozalash</x:String>
   <x:String x:Key="returnSale.returnSelected">Tanlanganlarni qaytarish</x:String>
   <x:String x:Key="returnSale.returnWholeReceipt">Butun chekni qaytarish</x:String>
@@ -606,9 +622,9 @@
 
   <!-- Yon menyu -->
   <x:String x:Key="sideMenu.shiftLabel">Kassa smenasi</x:String>
-  <x:String x:Key="sideMenu.sectionWork">ISH</x:String>
-  <x:String x:Key="sideMenu.sectionInfoClients">MA'LUMOT VA MIJOZLAR</x:String>
-  <x:String x:Key="sideMenu.sectionSystem">TIZIM</x:String>
+  <x:String x:Key="sideMenu.sectionWork">Ish</x:String>
+  <x:String x:Key="sideMenu.sectionInfoClients">Ma'lumot va mijozlar</x:String>
+  <x:String x:Key="sideMenu.sectionSystem">Tizim</x:String>
 
   <!-- Admin yordami, CRM veb-ko'rinishi, smena tarixi oynasi -->
   <x:String x:Key="adminSupport.title">Yordam — Nur Market</x:String>
@@ -639,7 +655,7 @@
   <x:String x:Key="employees.addButton">+ Xodim qo'shish</x:String>
   <x:String x:Key="employees.loadFromWeb">Saytdan yuklash</x:String>
   <x:String x:Key="employees.rolesTitle">Rollar</x:String>
-  <x:String x:Key="employees.rolesSubtitle">Kompaniya rollari (app.nurcrm.kg) — yangi xodim yaratish uchun kerak (har bir xodim uchun rol majburiy).</x:String>
+  <x:String x:Key="employees.rolesSubtitle">NurCRM saytidagi rollar — har bir xodimning roli bo'lishi kerak (kassir, administrator…).</x:String>
   <x:String x:Key="employees.addRoleButton">+ Rol qo'shish</x:String>
   <x:String x:Key="employees.saveHint">Xodimning kodi bo'sh bo'lsa, u uchun tegishli amal bloklanadi.</x:String>
   <x:String x:Key="employees.saved">Saqlandi.</x:String>
@@ -734,7 +750,7 @@
   <x:String x:Key="posSettings.screen.groupCashierLang">Kassa va til</x:String>
   <x:String x:Key="posSettings.screen.groupScaleLayout">Masshtab va joylashuv</x:String>
   <x:String x:Key="posSettings.screen.fullscreen">To'liq ekran rejimi</x:String>
-  <x:String x:Key="posSettings.screen.trueFullscreen">Haqiqiy to'liq ekran rejimi</x:String>
+  <x:String x:Key="posSettings.screen.trueFullscreen">Windows vazifalar panelini yashirish</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Windows vazifalar panelini butunlay yashiradi. Faqat to'liq ekran rejimi bilan birga ishlaydi.</x:String>
   <x:String x:Key="posSettings.screen.quickProducts">Bo‘sh chekda tezkor mahsulotlar</x:String>
   <x:String x:Key="posSettings.screen.quickProductsDesc">Sevimli mahsulotlar (katalogda ★) «Savat bo'sh» yozuvi ostida. Kerak bo‘lmasa, o‘chiring.</x:String>
@@ -804,13 +820,15 @@
   <x:String x:Key="posSettings.print.tapeWidth">Lenta kengligi</x:String>
   <x:String x:Key="posSettings.print.charsPerLine">Qatordagi belgilar</x:String>
   <x:String x:Key="posSettings.print.widthHint">Nuqta va chiziqchalardan iborat chiziqlar yoki summalar chek chetidan chiqib ketsa, kamaytiring: 58 mm — 32 dan 30 ga, 80 mm — 48 dan 42 ga (grafika: 576 → 512 nuqta). Har bir lenta kengligi uchun o'z qiymati. Sinov chop etish tugmasi bilan tekshiring.</x:String>
-  <x:String x:Key="posSettings.print.graphicsDots">Grafika (nuqtalar)</x:String>
+  <x:String x:Key="posSettings.print.graphicsDots">Bosma kengligi, nuqta</x:String>
   <x:String x:Key="posSettings.print.printMode">Chop etish rejimi</x:String>
   <x:String x:Key="posSettings.print.modeText">Matn</x:String>
   <x:String x:Key="posSettings.print.modeGraphics">Grafika</x:String>
-  <x:String x:Key="posSettings.print.escPosParams">ESC/POS parametrlari</x:String>
+  <x:String x:Key="posSettings.print.escPosParams">Matnli chek</x:String>
+  <x:String x:Key="posSettings.print.advancedPrinter">Qo'shimcha: printer buyruqlari (mutaxassis uchun)</x:String>
   <x:String x:Key="posSettings.print.encoding">Kodlash</x:String>
-  <x:String x:Key="posSettings.print.escTable">ESC t jadvali</x:String>
+  <x:String x:Key="posSettings.print.escTable">Kod sahifasi (ESC t)</x:String>
+  <x:String x:Key="posSettings.print.escR">Mamlakat belgilar to'plami (ESC R, 0–255)</x:String>
   <x:String x:Key="posSettings.print.auto">Avtomatik</x:String>
   <x:String x:Key="posSettings.print.receiptSettings">Chek sozlamalari</x:String>
   <x:String x:Key="posSettings.print.enableLayout">Maketni yoqish</x:String>
@@ -826,7 +844,7 @@
 
   <!-- Sozlamalar: Monitor bo'limi -->
   <x:String x:Key="posSettings.monitor.title">Xaridor monitori</x:String>
-  <x:String x:Key="posSettings.monitor.subtitle">Ikkinchi ekranni, uning tarkibini va xaridor ekrani oynasining ko'rinishini sozlash</x:String>
+  <x:String x:Key="posSettings.monitor.subtitle">Xaridor uchun ikkinchi ekran: unda nima ko'rinadi va qanday ko'rinishda</x:String>
   <x:String x:Key="posSettings.monitor.mainSettingsTitle">Asosiy sozlamalar</x:String>
   <x:String x:Key="posSettings.monitor.useCustomerDisplay">Xaridor monitoridan foydalanish</x:String>
   <x:String x:Key="posSettings.monitor.keepOnTop">Tashqi monitorda boshqa oynalar ustida qotirish</x:String>
@@ -935,7 +953,7 @@
   <x:String x:Key="posSettings.updates.diagnosticsDesc">Dastur va ish katalogi haqida texnik ma'lumot:</x:String>
 
   <!-- Mijozlar oynasi -->
-  <x:String x:Key="clients.title">Mijozlar bazasi</x:String>
+  <x:String x:Key="clients.title">Mijozlar</x:String>
   <x:String x:Key="clients.newClientHeader">Yangi mijoz</x:String>
   <x:String x:Key="clients.nameWatermark">Ism / F.I.Sh.</x:String>
   <x:String x:Key="clients.emailOptionalWatermark">Email (ixtiyoriy)</x:String>
@@ -946,15 +964,15 @@
   <x:String x:Key="clients.telegramHeader">Telegram bot</x:String>
   <x:String x:Key="clients.telegramCopyLink">Havolani nusxalash</x:String>
   <x:String x:Key="clients.telegramExplain">Bu havolani mijozga yuboring — WhatsApp yoki SMS orqali, yoxud chekda chop etib bering. U havolani ochib «Start» tugmasini bosgach, kassa unga qarz eslatmalari va aksiyalar haqida xabar yubora oladi. Telegramning o'zi odamga telefon raqami orqali yozishga ruxsat bermaydi: birinchi qadamni mijoz qo'yishi kerak.</x:String>
-  <x:String x:Key="clients.addButton">+ Qo'shish</x:String>
+  <x:String x:Key="clients.addButton">+ Mijoz</x:String>
   <x:String x:Key="clients.refreshButton">Yangilash</x:String>
-  <x:String x:Key="clients.colFullName">F.I.Sh.</x:String>
+  <x:String x:Key="clients.colFullName">Mijoz</x:String>
   <x:String x:Key="clients.colAdded">Qo'shilgan</x:String>
   <x:String x:Key="clients.colLoyalty">Bonuslar</x:String>
   <x:String x:Key="clients.cardHeader">Mijoz kartasi</x:String>
   <x:String x:Key="clients.saveButton">Saqlash</x:String>
   <x:String x:Key="clients.deleteButton">O'chirish</x:String>
-  <x:String x:Key="clients.hint">Mijoz kartasini ochish uchun ro'yxatdagi qatorni bosing</x:String>
+  <x:String x:Key="clients.hint">Kartani ochish uchun mijozni bosing: ma'lumotlar, xaridlar, qarz va bonuslar.</x:String>
 
   <!-- Mahsulotni tahrirlash oynasi -->
   <x:String x:Key="product.addTitle">Yangi mahsulot</x:String>
@@ -1072,7 +1090,8 @@
   <x:String x:Key="sales.toColon">Gacha:</x:String>
   <x:String x:Key="sales.colReceipt">Chek</x:String>
   <x:String x:Key="sales.additionalMetrics">Qo'shimcha ko'rsatkichlar</x:String>
-  <x:String x:Key="sales.netProfit">Sof foyda</x:String>
+  <!-- 2026-10-19, этап О10: здесь всегда выручка − закупка (сервер gross_profit) — «Валовая», как на Сводке. -->
+  <x:String x:Key="sales.netProfit">Yalpi foyda</x:String>
   <x:String x:Key="sales.marginPercent">Marja %</x:String>
   <x:String x:Key="sales.top10Title">Tushum bo'yicha top-10 mahsulot</x:String>
   <x:String x:Key="sales.colQty">Miqdor</x:String>
@@ -1177,9 +1196,9 @@
   <x:String x:Key="warehouse.movementsWriteOff">Hisobdan chiqarish</x:String>
   <x:String x:Key="warehouse.tabLabelEditor">Yorliq muharriri</x:String>
   <x:String x:Key="warehouse.labelEditorTabTitle">Yorliq muharriri</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Yorliqda shtrix-kod, nom, narx, artikul, o'lchov birligi va do'kon nomini joylashtirish — har bir elementni sudrab ko'chirish va alohida sozlash mumkin. Pullik funksiya: seriya raqami bilan ochiladi.</x:String>
+  <x:String x:Key="warehouse.labelEditorTabDescription">Yorliqda shtrix-kod, nom, narx, artikul, o'lchov birligi va do'kon nomini joylashtirish — har bir elementni sudrab ko'chirish va alohida sozlash mumkin. Mahsulot qatoridan chop etiladigan yorliqlar (⋯ → Yorliqni chop etish) shu shablon bo'yicha chiqadi.</x:String>
   <x:String x:Key="warehouse.labelEditorTabButton">Muharrirni ochish</x:String>
-  <x:String x:Key="warehouse.analyticsSkuCountLabel">Jami mahsulotlar (SKU)</x:String>
+  <x:String x:Key="warehouse.analyticsSkuCountLabel">Katalogdagi mahsulotlar</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Mavjud emas</x:String>
   <x:String x:Key="warehouse.analyticsLowStockLabel">Kam qoldiq</x:String>
   <x:String x:Key="warehouse.analyticsPurchaseValueLabel">Qoldiq (xarid narxida)</x:String>
@@ -1190,7 +1209,7 @@
   <x:String x:Key="warehouse.analyticsSkuColumn">Miqdor</x:String>
   <x:String x:Key="warehouse.writeOffTitle">Hisobdan chiqarish aktini rasmiylashtirish</x:String>
   <x:String x:Key="warehouse.writeOffHistoryTitle">Hisobdan chiqarishlar tarixi</x:String>
-  <x:String x:Key="warehouse.writeOffHistoryExpandButton">To'liq ochish ⤢</x:String>
+  <x:String x:Key="warehouse.writeOffHistoryExpandButton">Butun tarix</x:String>
   <x:String x:Key="warehouse.writeOffHistorySearchWatermark">Mahsulot, sabab yoki kassir bo'yicha qidirish…</x:String>
   <x:String x:Key="warehouse.writeOffHistoryEmpty">Hali hisobdan chiqarishlar bo'lmagan.</x:String>
   <x:String x:Key="warehouse.findProductLabel">Mahsulotni nomi bo'yicha topish</x:String>
@@ -1323,8 +1342,10 @@
     <x:String x:Key="loc.owner.sales.metricsTab">Ko'rsatkichlar</x:String>
     <x:String x:Key="loc.owner.finance.excelTip">Tanlangan davr tahlilini grafiklar va ABC-tahlil bilan Excel'ga eksport qilish.</x:String>
     <x:String x:Key="loc.owner.finance.wordTip">Xuddi shu hisobot Word'da — jadvallar, grafiklar va ABC-tahlil.</x:String>
-    <x:String x:Key="loc.owner.finance.expenses">Xarajatlar (chiqimlar)</x:String>
-    <x:String x:Key="loc.owner.finance.profitAfterExpenses">Xarajatlar chegirilgandan keyingi foyda</x:String>
+    <!-- 2026-10-20, аудит владельца: расходы теперь из NurCRM (pnl), а не изъятия кассы -->
+    <x:String x:Key="loc.owner.finance.expenses">Xarajatlar</x:String>
+    <!-- 2026-10-19, этап О10: валовая − расходы — «Чистая прибыль» (одни слова во всех отчётах). -->
+    <x:String x:Key="loc.owner.finance.profitAfterExpenses">Sof foyda</x:String>
     <x:String x:Key="loc.owner.zeroMoney">0,00 so'm</x:String>
     <x:String x:Key="loc.owner.voice.title">Ovozli boshqaruvni tekshirish</x:String>
     <x:String x:Key="loc.owner.voice.howTo">Qanday foydalanish kerak</x:String>
@@ -1498,12 +1519,12 @@
   <x:String x:Key="scaleSetup.btn.check">Aloqani tekshirish</x:String>
   <x:String x:Key="scaleSetup.btn.find">Tarmoqda topish…</x:String>
   <x:String x:Key="scaleSetup.btn.settings">Tarozi sozlamalari…</x:String>
-  <x:String x:Key="scaleSetup.btn.send">Tovarlarni yuborish →</x:String>
+  <x:String x:Key="scaleSetup.btn.send">Tovarlarni yuborish</x:String>
   <x:String x:Key="scaleSetup.barcode.open">Vazn / summa →</x:String>
   <x:String x:Key="scaleSetup.barcode.title">Kassa tarozi yorlig‘idagi shtrix-kodni qanday o‘qiydi</x:String>
   <x:String x:Key="scaleSetup.barcode.desc">Vaznli shtrix-kod — 13 raqam: 20–29 prefiks, tovar kodi, vazn yoki summa va nazorat raqami. Tartib va rejimni kompaniya NurCRM saytida belgilaydi (Tarozilar → Sozlamalar), kassa ularni kirishda oladi.</x:String>
   <x:String x:Key="scaleSetup.wizard.title">Yorliq bo‘yicha sozlash</x:String>
-  <x:String x:Key="scaleSetup.wizard.desc">Chekdagi summa yorliq bilan mos kelmayaptimi? Chop etilgan yorliqdagi shtrix-kodni skanerlang (yoki 13 raqam kiriting) — kassa ikki o‘qishni ko‘rsatadi: VAZN va SUMMA. Yorliq bilan mos kelganini bosing — kassa uni prefiks uchun eslab qoladi va darhol shunday o‘qiydi.</x:String>
+  <x:String x:Key="scaleSetup.wizard.desc">Chekdagi summa yorliq bilan mos kelmayaptimi? Chop etilgan yorliqdagi shtrix-kodni skanerlang (yoki 13 raqam kiriting) — kassa ikki o‘qishni ko‘rsatadi: «vazn» va «summa». Yorliq bilan mos kelganini bosing — kassa uni prefiks uchun eslab qoladi va darhol shunday o‘qiydi.</x:String>
   <x:String x:Key="scaleSetup.wizard.parse">Tahlil qilish</x:String>
   <x:String x:Key="scaleSetup.wizard.open">Yorliq bo‘yicha sozlash…</x:String>
   <x:String x:Key="scaleSetup.rules.title">Tarozi shtrix-kodda nimani chop etadi</x:String>

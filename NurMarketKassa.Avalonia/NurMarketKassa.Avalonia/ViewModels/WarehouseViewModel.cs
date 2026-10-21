@@ -417,6 +417,9 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>2026-10-20, этап П3: «В долг» — срок оплаты поставщику в днях (по умолчанию 30): дата оплаты долга = день прихода + срок.</summary>
+    public int ReceivingDebtDays { get; set; } = 30;
+
     public async Task LoadReceivingSuppliersAsync()
     {
         if (ReceivingSuppliers.Count > 0)
@@ -633,8 +636,15 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
             // Остаток в каталоге правим сразу, как после ревизии: кассир тут же пойдёт
             // продавать принятое, а синхронизация каталога придёт только через пару минут.
+            // 2026-10-19, ревью: от ТЕКУЩЕГО остатка плитки на момент ответа сервера, а не от остатка при скане (StockBefore) —
+            // продажи, прошедшие, пока строки приёмки набирались, не откатываются.
             foreach (var line in result.PostedLines.Where(l => !l.IsNew))
-                ApplyCountedStock(line.ProductId!, line.StockBefore + line.Quantity);
+            {
+                var tile = CatalogCacheService.Products.FirstOrDefault(p =>
+                    string.Equals(p.Id, line.ProductId, StringComparison.OrdinalIgnoreCase));
+                if (tile is not null)
+                    ApplyCountedStock(line.ProductId!, Math.Round(tile.Quantity + line.Quantity, 3));
+            }
 
             // Принятые строки уходят из списка, непринятые остаются: их можно поправить и
             // провести ещё раз, не сканируя накладную заново.
@@ -660,17 +670,23 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
                 await EnsureCatalogLoadedAsync().ConfigureAwait(true);
             }
 
-            var summary = Tr.T($"Принято позиций: {result.PostedLines.Count} на {result.TotalAmount:0.##} сом.",
-                $"Кабыл алынды: {result.PostedLines.Count} позиция, {result.TotalAmount:0.##} сом.",
-                $"Received {result.PostedLines.Count} items worth {result.TotalAmount:0.##} som.",
-                $"Kabul edildi: {result.PostedLines.Count} kalem, {result.TotalAmount:0.##} som.",
-                $"Qabul qilingan pozitsiyalar: {result.PostedLines.Count}, jami {result.TotalAmount:0.##} so'm.");
-            if (result.Created > 0)
-                summary += " " + Tr.T($"Новых товаров создано: {result.Created}.", $"Жаңы товар түзүлдү: {result.Created}.",
-                    $"New products created: {result.Created}.", $"Oluşturulan yeni ürün: {result.Created}.",
-                    $"Yaratilgan yangi mahsulotlar: {result.Created}.");
+            // 2026-10-19: тот же текст итога — и у закупки по скану накладной (PurchaseReceivingService.SummaryText).
+            var summary = PurchaseReceivingService.SummaryText(result);
 
-            if (result.Errors.Count == 0)
+            // 2026-10-20, этап П3: приход «в долг» прошёл — записать долг поставщику (сделка-долг, как сайт), с защитой от двойного долга.
+            // Не записался — строка в очереди «долг не записан» и предупреждение; сам приход не трогаем.
+            var debtFailed = false;
+            if (supplier is not null && !ReceivingPaidNow && result.PostedLines.Count > 0)
+            {
+                var debt = await NurMarketKassa.AvaloniaHost.Services.SupplierDebtUi.RecordAfterReceiptAsync(supplier, result, ReceivingDebtDays, "receipt").ConfigureAwait(true);
+                if (debt is not null)
+                {
+                    summary += "\n" + SupplierDebtRecorder.ResultText(debt);
+                    debtFailed = !debt.Recorded;
+                }
+            }
+
+            if (result.Errors.Count == 0 && !debtFailed)
                 _prompts?.ShowToast(summary);
             else
                 _prompts?.ShowWarning(summary + "\n\n" + string.Join("\n", result.Errors.Take(10)));

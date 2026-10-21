@@ -25,10 +25,11 @@
       <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
     </Style>
 
+    <!-- 2026-10-19, этап О7: второстепенные — обводкой цветом текста (были серые с бледным текстом). -->
     <Style Selector="Button.btn-secondary">
-      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
@@ -39,12 +40,35 @@
     <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    </Style>
+    <!-- 2026-10-19, этап О7: кнопки внутри карточек доп. функций («Скачать модель», «Настроить»…) — обводкой: жёлтая на
+         вкладке одна («Редактор тем» / «Редактор экрана покупателя»), а в «Доп. функциях» их было 4–5. -->
+    <Style Selector="Border.SettingsCard Border.SettingsCard Button.btn-primary">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="Border.SettingsCard Border.SettingsCard Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    </Style>
+    <!-- Название карточки переносится и не налезает на бейдж «Платно / Разблокировано» справа. -->
+    <Style Selector="Border.SettingsCard Border.SettingsCard TextBlock.SettingsCardTitle">
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Margin" Value="0,0,8,0"/>
+    </Style>
+    <Style Selector="Border.SettingsCard Border.SettingsCard Button /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
   </UserControl.Styles>
 
   <Border Classes="SettingsContentHost" Padding="16">
     <ScrollViewer Classes="SettingsPageScroll">
-      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="860" HorizontalAlignment="Stretch">
+      <!-- 2026-10-19, этап О7: ширина колонки — как у страниц Настроек (было 860 — справа на 1366 пустое поле). -->
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
         <!-- Хедер-карточки «Маркетплейс» здесь больше нет (2026-09-27, «дублируется»): название
              уже есть в шапке окна кассы и в заголовке раздела программы владельца. -->
@@ -73,19 +97,19 @@
           </StackPanel>
         </Border>
 
-        <!-- Переключатель вкладок -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-          <Button x:Name="ThemesTabButton" Classes="btn-primary"
-                  Content="{DynamicResource marketplace.themesTab}"
-                  Height="38" Padding="16,6" Click="ThemesTab_Click"/>
-          <Button x:Name="ExtrasTabButton" Classes="btn-secondary"
-                  Content="{DynamicResource marketplace.extrasTab}"
-                  Height="38" Padding="16,6" Click="ExtrasTab_Click"/>
-          <!-- 2026-09-28, «виды касс в маркетплейс добавь» -->
-          <Button x:Name="LayoutsTabButton" Classes="btn-secondary"
-                  Content="{DynamicResource marketplace.layoutsTab}"
-                  Height="38" Padding="16,6" Click="LayoutsTab_Click"/>
-        </StackPanel>
+        <!-- Переключатель вкладок. 2026-10-19, этап О7: сегменты sec-seg (выбранная тёмно-синяя, как modal-seg), слева —
+             как вкладки разделов; была жёлтая кнопка и серые. -->
+        <Border Classes="sec-segment" HorizontalAlignment="Left">
+          <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button x:Name="ThemesTabButton" Classes="sec-seg active"
+                    Content="{DynamicResource marketplace.themesTab}" Click="ThemesTab_Click"/>
+            <Button x:Name="ExtrasTabButton" Classes="sec-seg"
+                    Content="{DynamicResource marketplace.extrasTab}" Click="ExtrasTab_Click"/>
+            <!-- 2026-09-28, «виды касс в маркетплейс добавь» -->
+            <Button x:Name="LayoutsTabButton" Classes="sec-seg"
+                    Content="{DynamicResource marketplace.layoutsTab}" Click="LayoutsTab_Click"/>
+          </StackPanel>
+        </Border>
 
         <!-- Темы. Карточки собираются в коде (BuildThemeGallery): у каждой свой живой
              предпросмотр, нарисованный цветами самой темы, — по описанию словами разницу
@@ -166,7 +190,7 @@
                        Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
 
             <WrapPanel x:Name="ExtrasWrapPanel">
-              <Border Classes="SettingsCard" Width="330" Padding="14" Margin="0,0,10,10">
+              <Border Classes="SettingsCard" Width="390" Padding="14" Margin="0,0,10,10">
                 <StackPanel Spacing="8">
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="{DynamicResource marketplace.extra2Title}" Classes="SettingsCardTitle" FontSize="14" VerticalAlignment="Center"/>

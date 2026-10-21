@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- Ретранслятор удалённой поддержки NurMarket (2026-09-29). Без сторонних пакетов. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Server</AssemblyName>
+    <RootNamespace>NurRemoteSupport.Server</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Маленький VPS: рабочая станция GC держит память скромнее серверного -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Страница оператора лежит рядом с Server.dll и при обычной сборке (не только publish) -->
+    <Content Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="appsettings.example.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+</Project>

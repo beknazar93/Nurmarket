@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Конструктор — о функции, зависимость, выключение</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:12px;flex-shrink:0;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{white-space:nowrap;height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{white-space:nowrap;height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{white-space:nowrap;height:44px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:44px;padding:0 12px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:44px;white-space:nowrap;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#0B2A3C;color:#FFFFFF}
+.row{display:flex;align-items:center;gap:10px;min-height:44px;box-sizing:border-box;padding:8px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="MConstructor"><div style="width: 1440px; height: 900px; box-sizing: border-box; background: rgb(221, 226, 232); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); padding: 30px; display: grid; grid-template-columns: 480px 480px; justify-content: center; gap: 30px; align-items: start;">
+  
+
+  <section class="m" role="dialog" aria-label="О функции">
+    <div class="mh"><div class="mt"><b>Подарочные сертификаты</b><span>Новая функция · 7 дней бесплатно, потом 200&nbsp;сом / мес</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <span class="lbl">ЧТО ПОЯВИТСЯ</span>
+      <div class="row"><span style="flex-grow: 1;">На кассе — продажа сертификата и оплата сертификатом в панели оплаты</span></div>
+      <div class="row"><span style="flex-grow: 1;">В вебе — раздел «Бонусы и сертификаты»</span></div>
+      <div class="row"><span style="flex-grow: 1;">В отчётах — продано, погашено и остаток на сертификатах</span></div>
+      <div class="row"><span style="flex-grow: 1;">В Телеграм-боте — сертификат клиента</span><span class="tag" style="background: rgb(242, 244, 247); color: rgb(71, 84, 103); white-space: nowrap;">нужен сервер</span></div>
+      <span class="lbl">СОВЕТУЕМ</span>
+      <div class="row" style="background: rgb(231, 246, 236);"><span style="flex-grow: 1;">Клиенты и бонусы — для именных сертификатов; анонимный работает и без них</span><span class="tag" style="background: rgb(255, 255, 255); color: rgb(14, 122, 58); white-space: nowrap;">уже включено</span></div>
+      <span style="font-size: 12px; color: rgb(71, 84, 103); line-height: 17px;">С ККМ: как пробивать продажу и погашение сертификата (аванс), чтобы не было двойного налога, — уточнить у ОФД. После включения — номиналы и срок действия, 1 минута.</span>
+    </div>
+    <div class="mf"><span class="tot">Оплата — в Маркетплейсе · нужен биллинг NurCRM</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Включить</button></div>
+  </section>
+
+  <div style="display: flex; flex-direction: column; gap: 24px;">
+  <section class="m" role="dialog" aria-label="Советуем другую функцию">
+    <div class="mh" style="background: rgb(238, 244, 255);"><div class="mt"><b>ЭСФ 2.0 — советуем вместе с ККМ</b><span>ЭСФ можно выписывать и без ККМ (опт, безнал)</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="row"><span style="flex-grow: 1;"><b>ЭСФ и ЭСФ 2.0</b><br><span style="font-size: 11px; color: rgb(102, 112, 133);">то, что вы включаете</span></span><b style="white-space: nowrap;">400&nbsp;сом</b></div>
+      <div class="row" style="background: rgb(255, 247, 204); border: 2px solid rgb(11, 42, 60);"><span style="flex-grow: 1;"><b>ККМ и электронный чек</b><br><span style="font-size: 11px; color: rgb(102, 112, 133);">сверка продаж с налоговой · + тариф оператора ККМ / ОФД по договору</span></span><b style="white-space: nowrap;">500&nbsp;сом</b></div>
+      <div class="rl" style="font-size: 15px; border-top: 1px solid rgb(234, 236, 240); padding-top: 8px;"><b>Обе — в месяц</b><b style="white-space: nowrap;">900&nbsp;сом</b></div>
+    </div>
+    <div class="mf"><span class="tot"></span><button type="button" class="b2">Только ЭСФ · 400</button><button type="button" class="b1">Включить обе · 900</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Выключить функцию">
+    <div class="mh" style="background: rgb(254, 243, 226);"><div class="mt"><b>Выключить «Долги и рассрочка»?</b><span>Сейчас: 17 должников · 811 889&nbsp;сом · 5 рассрочек</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="row"><span style="flex-grow: 1;">Новые продажи в долг и новые рассрочки исчезнут с кассы</span></div>
+      <div class="row"><span style="flex-grow: 1;">Действующие долги и рассрочки работают дальше: приём оплат, графики, напоминания</span><span class="tag" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58); white-space: nowrap;">данные целы</span></div>
+      <span style="font-size: 12px; color: rgb(71, 84, 103);">Включите снова в любой момент — всё вернётся как было.</span>
+    </div>
+    <div class="mf"><span class="tot">Esc — оставить</span><button type="button" class="b2">Оставить</button><button type="button" class="bd">Выключить</button></div>
+  </section>
+  </div></div></div></div>
+
+
+
+</body></html>

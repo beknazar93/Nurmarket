@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Вид кассы — Классика</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="LayClassic"><div style="width: 1440px; height: 900px; position: relative; overflow: hidden; font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39);">
+  <div class="sc-host" data-sc-name="Main"><div style="width: 1440px; height: 900px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-direction: column;">
+
+  
+  <header style="height: 72px; flex-shrink: 0; box-sizing: border-box; background: rgb(255, 255, 255); border-bottom: 1px solid rgb(229, 231, 235); display: flex; align-items: center; gap: 16px; padding: 0px 20px;">
+    <div style="display: flex; align-items: center; gap: 12px; min-width: 196px;">
+      <div style="width: 40px; height: 40px; border-radius: 10px; background: rgb(11, 42, 60); color: rgb(255, 214, 0); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;">N</div>
+      <div style="display: flex; flex-direction: column;">
+        <span style="font-weight: 700; font-size: 15px;">NBS · Касса 1</span>
+        <span style="font-size: 12px; color: rgb(71, 84, 103);">Кассир Тест</span>
+      </div>
+    </div>
+    <nav style="display: flex; gap: 4px; flex-grow: 1; justify-content: center;">
+      <a href="#" style="display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0px 14px; border-radius: 10px; background: rgb(255, 247, 204); color: rgb(11, 42, 60); font-weight: 700; font-size: 14px; text-decoration: none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg>Продажа</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0px 14px; border-radius: 10px; color: rgb(71, 84, 103); font-weight: 600; font-size: 14px; text-decoration: none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>Чеки</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0px 14px; border-radius: 10px; color: rgb(71, 84, 103); font-weight: 600; font-size: 14px; text-decoration: none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h11a5 5 0 0 1 0 10h-3"></path></svg>Возврат</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0px 14px; border-radius: 10px; color: rgb(71, 84, 103); font-weight: 600; font-size: 14px; text-decoration: none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Долги</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0px 14px; border-radius: 10px; color: rgb(71, 84, 103); font-weight: 600; font-size: 14px; text-decoration: none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="4"></circle><path d="M2 21a7 7 0 0 1 14 0"></path><path d="M17 11a3 3 0 1 0 0-6M22 21a6 6 0 0 0-4-5.6"></path></svg>Клиенты</a>
+    </nav>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span style="display: flex; align-items: center; gap: 8px; height: 36px; box-sizing: border-box; padding: 0px 12px; border-radius: 999px; background: rgb(242, 244, 247); color: rgb(52, 64, 84); font-size: 13px; font-weight: 600;"><span style="width: 8px; height: 8px; border-radius: 4px; background: rgb(22, 163, 74);"></span>В сети</span>
+      <button type="button" title="Меню смены: X-отчёт, внесение и изъятие, закрыть смену" style="height: 44px; display: flex; align-items: center; gap: 8px; padding: 0px 14px; border-radius: 22px; border: 0px; background: rgb(231, 246, 236); color: rgb(14, 122, 58); font-family: inherit; font-size: 13px; font-weight: 600;">Смена с 08:55<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+      <div style="width: 40px; height: 40px; border-radius: 20px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">КТ</div>
+      <button type="button" aria-label="Меню" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(52, 64, 84); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg></button>
+    </div>
+  </header>
+
+  <div style="flex-grow: 1; display: flex; min-height: 0px; padding-right: 0px;">
+
+    
+    <aside style="width: 104px; flex-shrink: 0; box-sizing: border-box; background: rgb(255, 255, 255); border-right: 1px solid rgb(229, 231, 235); padding: 16px 12px; display: flex; flex-direction: column; gap: 8px;">
+      
+        
+          <button type="button" style="border: 0px; border-radius: 14px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 700; box-shadow: rgba(255, 214, 0, 0.35) 0px 6px 14px;">
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: rgba(11, 42, 60, 0.12); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;"><span class="sc-interp">Вс</span></span><span class="sc-interp">Все</span></button>
+        
+        
+      
+        
+        
+          <button type="button" style="border: 0px; border-radius: 14px; background: transparent; color: rgb(71, 84, 103); padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 600;">
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: rgb(242, 244, 247); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;"><span class="sc-interp">Нп</span></span><span class="sc-interp">Напитки</span></button>
+        
+      
+        
+        
+          <button type="button" style="border: 0px; border-radius: 14px; background: transparent; color: rgb(71, 84, 103); padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 600;">
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: rgb(242, 244, 247); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;"><span class="sc-interp">Сл</span></span><span class="sc-interp">Сладости</span></button>
+        
+      
+        
+        
+          <button type="button" style="border: 0px; border-radius: 14px; background: transparent; color: rgb(71, 84, 103); padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 600;">
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: rgb(242, 244, 247); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;"><span class="sc-interp">Бк</span></span><span class="sc-interp">Бакалея</span></button>
+        
+      
+        
+        
+          <button type="button" style="border: 0px; border-radius: 14px; background: transparent; color: rgb(71, 84, 103); padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 600;">
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: rgb(242, 244, 247); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;"><span class="sc-interp">Мл</span></span><span class="sc-interp">Молочное</span></button>
+        
+      
+        
+        
+          <button type="button" style="border: 0px; border-radius: 14px; background: transparent; color: rgb(71, 84, 103); padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 600;">
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: rgb(242, 244, 247); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;"><span class="sc-interp">Хл</span></span><span class="sc-interp">Хлеб</span></button>
+        
+      
+        
+        
+          <button type="button" style="border: 0px; border-radius: 14px; background: transparent; color: rgb(71, 84, 103); padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 600;">
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: rgb(242, 244, 247); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;"><span class="sc-interp">Хм</span></span><span class="sc-interp">Химия</span></button>
+        
+      
+    </aside>
+
+    
+    <main style="flex-grow: 1; min-width: 0px; min-height: 0px; overflow: hidden; box-sizing: border-box; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; gap: 8px; flex-shrink: 0;">
+      <label style="flex-grow: 1; min-width: 0px; display: flex; align-items: center; gap: 10px; height: 48px; flex-shrink: 0; box-sizing: border-box; padding: 0px 16px; background: rgb(255, 255, 255); border: 1px solid rgb(229, 231, 235); border-radius: 12px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"></path></svg>
+        <input type="text" placeholder="Сканируйте штрихкод или введите название…" style="border: 0px; outline: 0px; flex-grow: 1; min-width: 0px; font-family: inherit; font-size: 14px; background: transparent;">
+        <span style="font-size: 12px; color: rgb(71, 84, 103); border: 1px solid rgb(208, 213, 221); border-radius: 6px; padding: 2px 6px; white-space: nowrap;">Ctrl+F</span>
+      </label>
+      
+      <div style="display: flex; gap: 8px; flex-shrink: 0;">
+        <button type="button" aria-label="Избранное" title="Избранное" style="width: 48px; height: 48px; border-radius: 12px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(181, 71, 8); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg></button>
+        <button type="button" aria-label="Фильтр: весовые, штучные, поштучно, комплекты, услуги" title="Весовые · Штучные · Поштучно · Комплекты · Услуги" style="width: 48px; height: 48px; border-radius: 12px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(52, 64, 84); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"></path></svg></button>
+        <button type="button" aria-label="Вид каталога: плитки или список" title="Плитки / список" style="width: 48px; height: 48px; border-radius: 12px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(52, 64, 84); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"></rect><rect x="13" y="4" width="7" height="7" rx="1"></rect><rect x="4" y="13" width="7" height="7" rx="1"></rect><rect x="13" y="13" width="7" height="7" rx="1"></rect></svg></button>
+      </div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-shrink: 0; overflow: hidden;">
+        
+          <button type="button" style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0px 12px; border-radius: 22px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84); font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;"><span style="font-size: 11px; font-weight: 800; color: rgb(11, 42, 60); background: rgb(242, 244, 247); border-radius: 6px; padding: 2px 5px;"><span class="sc-interp">F1</span></span><span class="sc-interp">Хлеб</span></button>
+        
+          <button type="button" style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0px 12px; border-radius: 22px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84); font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;"><span style="font-size: 11px; font-weight: 800; color: rgb(11, 42, 60); background: rgb(242, 244, 247); border-radius: 6px; padding: 2px 5px;"><span class="sc-interp">F2</span></span><span class="sc-interp">Молочка</span></button>
+        
+          <button type="button" style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0px 12px; border-radius: 22px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84); font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;"><span style="font-size: 11px; font-weight: 800; color: rgb(11, 42, 60); background: rgb(242, 244, 247); border-radius: 6px; padding: 2px 5px;"><span class="sc-interp">F3</span></span><span class="sc-interp">Напитки</span></button>
+        
+          <button type="button" style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0px 12px; border-radius: 22px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84); font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;"><span style="font-size: 11px; font-weight: 800; color: rgb(11, 42, 60); background: rgb(242, 244, 247); border-radius: 6px; padding: 2px 5px;"><span class="sc-interp">F4</span></span><span class="sc-interp">Сладости</span></button>
+        
+          <button type="button" style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0px 12px; border-radius: 22px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84); font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;"><span style="font-size: 11px; font-weight: 800; color: rgb(11, 42, 60); background: rgb(242, 244, 247); border-radius: 6px; padding: 2px 5px;"><span class="sc-interp">F5</span></span><span class="sc-interp">Весовые</span></button>
+        
+          <button type="button" style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0px 12px; border-radius: 22px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84); font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;"><span style="font-size: 11px; font-weight: 800; color: rgb(11, 42, 60); background: rgb(242, 244, 247); border-radius: 6px; padding: 2px 5px;"><span class="sc-interp">F6</span></span><span class="sc-interp">Бакалея</span></button>
+        
+          <button type="button" style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0px 12px; border-radius: 22px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84); font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;"><span style="font-size: 11px; font-weight: 800; color: rgb(11, 42, 60); background: rgb(242, 244, 247); border-radius: 6px; padding: 2px 5px;"><span class="sc-interp">F7–F12</span></span><span class="sc-interp">…</span></button>
+        
+      </div>
+      <div style="flex-grow: 1; min-height: 0px; display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); align-content: start; gap: 10px; overflow: hidden;">
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              <span style="position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgb(254, 240, 199); color: rgb(122, 46, 14);">Мало: <span class="sc-interp">1 шт</span></span>
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Кока-Кола (ПЭТ) 2л</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">170 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">1 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Mars 50г</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">39 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">48 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              <span style="position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgb(254, 240, 199); color: rgb(122, 46, 14);">Мало: <span class="sc-interp">2 шт</span></span>
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Сок Gracio яблочный 1л</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">120 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">2 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Хлеб белый</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">35 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">40 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Молоко 1л</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">95 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">24 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Snickers 50г</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">70 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">36 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Макароны «Макфа» спагетти 450г</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">85 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">50 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              <span style="position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgb(254, 240, 199); color: rgb(122, 46, 14);">Мало: <span class="sc-interp">2 шт</span></span>
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Чипсы «Пир» ассорти 75г</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">65 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">2 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Sprite Мохито 1л</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">80 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">40 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Вафли «Лесной орех» 220г</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">114 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">7 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Вода «Адыгене» 1,5л</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">45 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">60 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Сахар 1кг</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">85 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">40 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Яйца 10 шт</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">140 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">30 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Кефир 1л</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">90 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">12 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Масло подсолнечное 1л</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">160 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">22 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Чай «Пиала» 100 пак.</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">210 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">18 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              <span style="position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgb(11, 42, 60); color: rgb(255, 255, 255);"><span class="sc-interp">весовой</span></span>
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Сыр «Российский»</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">780/кг</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              <span style="position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgb(11, 42, 60); color: rgb(255, 255, 255);"><span class="sc-interp">весовой</span></span>
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Яблоки</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">95/кг</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Квас «Шоро» 1л</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">60 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">15 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              <span style="position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgb(254, 240, 199); color: rgb(122, 46, 14);">Мало: <span class="sc-interp">9 шт</span></span>
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Эссе манго</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">130 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">9 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Салфетки «Мягкие» 100 шт</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">45 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">20 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">MR PROPER Универсал Лимон 400г</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">191 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">11 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              <span style="position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgb(254, 228, 226); color: rgb(180, 35, 24);">Нет в наличии</span>
+              
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Aos Extra power 450г бальзам</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">50 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">0 шт</span></span></span>
+          </button>
+        
+          <button type="button" style="border: 0px; text-align: left; background: rgb(255, 255, 255); border-radius: 14px; padding: 8px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px, rgba(11, 42, 60, 0.06) 0px 4px 12px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0px; color: rgb(17, 24, 39);">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: rgb(238, 240, 243); display: flex; align-items: center; justify-content: center; position: relative;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              
+              
+              <span style="position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgb(11, 42, 60); color: rgb(255, 255, 255);"><span class="sc-interp">комплект</span></span>
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden;"><span class="sc-interp">Набор «Чай + печенье»</span></span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px;"><span style="font-size: 15px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">250 сом</span></span><span style="font-size: 11.5px; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp"></span></span></span>
+          </button>
+        
+      </div>
+    </main>
+
+    
+    <section style="width: 400px; flex-shrink: 0; min-height: 0px; overflow: hidden; box-sizing: border-box; background: rgb(255, 255, 255); border-left: 1px solid rgb(229, 231, 235); padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span style="height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0px 14px; border-radius: 10px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); font-size: 13px; font-weight: 700; white-space: nowrap;"><span class="sc-interp">Чек № 1710</span></span>
+        <span style="height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0px 14px; border-radius: 10px; background: rgb(242, 244, 247); color: rgb(52, 64, 84); font-size: 13px; font-weight: 600; white-space: nowrap;"><span class="sc-interp">Отложен · 2 тов.</span></span>
+        <button type="button" aria-label="Новый чек" style="margin-left: auto; width: 44px; height: 44px; flex-shrink: 0; border-radius: 10px; border: 1px dashed rgb(152, 162, 179); background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-size: 20px; font-family: inherit;">+</button>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" style="flex-grow: 1; min-width: 0px; height: 44px; border-radius: 10px; border: 1px solid rgb(229, 231, 235); background: rgb(249, 250, 251); color: rgb(71, 84, 103); font-family: inherit; font-size: 13px; font-weight: 600; text-align: left; padding: 0px 12px; display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex-shrink: 0;"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span style="overflow: hidden; text-overflow: ellipsis;"><span class="sc-interp">Клиент — выбрать</span></span></button>
+        <div role="group" aria-label="Цены чека" style="display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: rgb(228, 231, 236); flex-shrink: 0;">
+          <button type="button" style="height: 38px; padding: 0px 10px; border-radius: 9px; border: 0px; background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-family: inherit; font-size: 12.5px; font-weight: 700;">Розница</button>
+          <button type="button" style="height: 38px; padding: 0px 10px; border-radius: 9px; border: 0px; background: transparent; color: rgb(11, 42, 60); font-family: inherit; font-size: 12.5px; font-weight: 700;">Опт</button>
+        </div>
+      </div>
+      <div style="font-size: 14px; font-weight: 700; display: flex; justify-content: space-between;"><span>Товары в чеке</span><span style="color: rgb(71, 84, 103); font-weight: 500;"><span class="sc-interp">5 позиций · 10 шт</span></span></div>
+      <div style="flex-grow: 1; min-height: 0px; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
+        
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; border-radius: 14px; background: rgb(249, 250, 251); border: 1px solid rgb(242, 244, 247);">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span style="flex-grow: 1; min-width: 0px; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 13px; font-weight: 600; line-height: 16px; max-height: 32px; overflow: hidden;"><span class="sc-interp">Кока-Кола (ПЭТ) 2л</span></span><span style="font-size: 12.5px; color: rgb(71, 84, 103);"><span class="sc-interp">170 сом × 1</span></span></span>
+              <span style="display: flex; align-items: center; gap: 2px; flex-shrink: 0;">
+                <button type="button" aria-label="Меньше · Num −" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); font-size: 18px; font-family: inherit; color: rgb(11, 42, 60);">−</button>
+                <span style="min-width: 32px; text-align: center; font-weight: 700; font-size: 14px;"><span class="sc-interp">1</span></span>
+                <button type="button" aria-label="Больше · Num +" style="width: 44px; height: 44px; border-radius: 12px; border: 0px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); font-size: 18px; font-family: inherit;">+</button>
+              </span>
+              <span style="width: 52px; flex-shrink: 0; text-align: right; font-size: 14px; font-weight: 800; color: rgb(11, 42, 60);"><span class="sc-interp">170</span></span>
+            </div>
+            
+          </div>
+        
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; border-radius: 14px; background: rgb(249, 250, 251); border: 1px solid rgb(242, 244, 247);">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span style="flex-grow: 1; min-width: 0px; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 13px; font-weight: 600; line-height: 16px; max-height: 32px; overflow: hidden;"><span class="sc-interp">Сок Gracio яблочный 1л</span></span><span style="font-size: 12.5px; color: rgb(71, 84, 103);"><span class="sc-interp">120 сом × 1</span></span></span>
+              <span style="display: flex; align-items: center; gap: 2px; flex-shrink: 0;">
+                <button type="button" aria-label="Меньше · Num −" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); font-size: 18px; font-family: inherit; color: rgb(11, 42, 60);">−</button>
+                <span style="min-width: 32px; text-align: center; font-weight: 700; font-size: 14px;"><span class="sc-interp">1</span></span>
+                <button type="button" aria-label="Больше · Num +" style="width: 44px; height: 44px; border-radius: 12px; border: 0px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); font-size: 18px; font-family: inherit;">+</button>
+              </span>
+              <span style="width: 52px; flex-shrink: 0; text-align: right; font-size: 14px; font-weight: 800; color: rgb(11, 42, 60);"><span class="sc-interp">120</span></span>
+            </div>
+            
+          </div>
+        
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; border-radius: 14px; background: rgb(249, 250, 251); border: 1px solid rgb(242, 244, 247);">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span style="flex-grow: 1; min-width: 0px; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 13px; font-weight: 600; line-height: 16px; max-height: 32px; overflow: hidden;"><span class="sc-interp">Молоко 1л</span></span><span style="font-size: 12.5px; color: rgb(71, 84, 103);"><span class="sc-interp">95 сом × 1</span></span></span>
+              <span style="display: flex; align-items: center; gap: 2px; flex-shrink: 0;">
+                <button type="button" aria-label="Меньше · Num −" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); font-size: 18px; font-family: inherit; color: rgb(11, 42, 60);">−</button>
+                <span style="min-width: 32px; text-align: center; font-weight: 700; font-size: 14px;"><span class="sc-interp">1</span></span>
+                <button type="button" aria-label="Больше · Num +" style="width: 44px; height: 44px; border-radius: 12px; border: 0px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); font-size: 18px; font-family: inherit;">+</button>
+              </span>
+              <span style="width: 52px; flex-shrink: 0; text-align: right; font-size: 14px; font-weight: 800; color: rgb(11, 42, 60);"><span class="sc-interp">95</span></span>
+            </div>
+            
+          </div>
+        
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; border-radius: 14px; background: rgb(249, 250, 251); border: 1px solid rgb(242, 244, 247);">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span style="flex-grow: 1; min-width: 0px; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 13px; font-weight: 600; line-height: 16px; max-height: 32px; overflow: hidden;"><span class="sc-interp">Хлеб белый</span></span><span style="font-size: 12.5px; color: rgb(71, 84, 103);"><span class="sc-interp">35 сом × 2</span></span></span>
+              <span style="display: flex; align-items: center; gap: 2px; flex-shrink: 0;">
+                <button type="button" aria-label="Меньше · Num −" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); font-size: 18px; font-family: inherit; color: rgb(11, 42, 60);">−</button>
+                <span style="min-width: 32px; text-align: center; font-weight: 700; font-size: 14px;"><span class="sc-interp">2</span></span>
+                <button type="button" aria-label="Больше · Num +" style="width: 44px; height: 44px; border-radius: 12px; border: 0px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); font-size: 18px; font-family: inherit;">+</button>
+              </span>
+              <span style="width: 52px; flex-shrink: 0; text-align: right; font-size: 14px; font-weight: 800; color: rgb(11, 42, 60);"><span class="sc-interp">70</span></span>
+            </div>
+            
+          </div>
+        
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; border-radius: 14px; background: rgb(249, 250, 251); border: 1px solid rgb(242, 244, 247);">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span style="flex-grow: 1; min-width: 0px; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 13px; font-weight: 600; line-height: 16px; max-height: 32px; overflow: hidden;"><span class="sc-interp">Mars 50г</span></span><span style="font-size: 12.5px; color: rgb(71, 84, 103);"><span class="sc-interp">39 сом × 5</span></span></span>
+              <span style="display: flex; align-items: center; gap: 2px; flex-shrink: 0;">
+                <button type="button" aria-label="Меньше · Num −" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgb(208, 213, 221); background: rgb(255, 255, 255); font-size: 18px; font-family: inherit; color: rgb(11, 42, 60);">−</button>
+                <span style="min-width: 32px; text-align: center; font-weight: 700; font-size: 14px;"><span class="sc-interp">5</span></span>
+                <button type="button" aria-label="Больше · Num +" style="width: 44px; height: 44px; border-radius: 12px; border: 0px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); font-size: 18px; font-family: inherit;">+</button>
+              </span>
+              <span style="width: 52px; flex-shrink: 0; text-align: right; font-size: 14px; font-weight: 800; color: rgb(11, 42, 60);"><span class="sc-interp">195</span></span>
+            </div>
+            
+          </div>
+        
+        
+      </div>
+      
+        <div style="display: grid; grid-template-columns: 1fr 1fr 0.75fr 1.25fr; gap: 8px;">
+          <button type="button" style="height: 56px; border-radius: 12px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); font-family: inherit; font-size: 12px; font-weight: 600; color: rgb(52, 64, 84); padding: 0px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="4" width="4" height="16" rx="1"></rect><rect x="15" y="4" width="4" height="16" rx="1"></rect></svg>Отложить</button>
+          <button type="button" title="Ctrl+D" style="height: 56px; border-radius: 12px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); font-family: inherit; font-size: 12px; font-weight: 600; color: rgb(52, 64, 84); padding: 0px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M19 5 5 19"></path><circle cx="7" cy="7" r="2.5"></circle><circle cx="17" cy="17" r="2.5"></circle></svg>Скидка</button>
+          <button type="button" title="Доп. услуга, отложенные, перевзвесить, экран покупателя" style="height: 56px; border-radius: 12px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); font-family: inherit; font-size: 12px; font-weight: 600; color: rgb(52, 64, 84); padding: 0px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg>Ещё</button>
+          <button type="button" title="Ctrl+F1" style="height: 56px; border-radius: 12px; border: 1px solid rgb(253, 226, 225); background: rgb(255, 255, 255); font-family: inherit; font-size: 12px; font-weight: 600; color: rgb(192, 54, 44); padding: 0px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>Удалить чек</button>
+        </div>
+      
+      <div style="border-top: 1px dashed rgb(208, 213, 221); padding-top: 10px; display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between; color: rgb(71, 84, 103);"><span>Сумма</span><span><span class="sc-interp">650 сом</span></span></div>
+        <div style="display: flex; justify-content: space-between; color: rgb(71, 84, 103);"><span><span class="sc-interp">Скидка</span></span><span><span class="sc-interp">0 сом</span></span></div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px;"><span style="font-size: 15px; font-weight: 700;">Итого</span><span style="font-size: 26px; font-weight: 800; color: rgb(11, 42, 60);"><span class="sc-interp">650 сом</span></span></div>
+      </div>
+      
+        <button type="button" style="height: 60px; flex-shrink: 0; border-radius: 14px; border: 0px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); font-family: inherit; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 12px; box-shadow: rgba(255, 214, 0, 0.35) 0px 8px 20px;">Оплатить <span class="sc-interp">650 сом</span><span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: rgba(11, 42, 60, 0.12);">Enter</span></button>
+      
+      
+    </section>
+  </div></div></div></div></div></div>
+
+
+
+</body></html>

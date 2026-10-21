@@ -45,6 +45,9 @@ public sealed class PosCheckoutRequest
     /// <summary>2026-10-06: график долга (оплата «В долг») — одним платежом на дату, названную клиентом, или рассрочка
     /// по дням / месяцам, как «Отсрочка» на сайте NurCRM. На сервер (DebtDueDateSync) и в чек.</summary>
     public DebtSchedulePlan? DebtSchedule { get; init; }
+    /// <summary>2026-10-20, владелец (долг Д5): имя и телефон клиента — только для печатного чека продажи «в долг».</summary>
+    public string? ClientNameForReceipt { get; init; }
+    public string? ClientPhoneForReceipt { get; init; }
 }
 
 /// <summary>2026-10-06: график погашения долга. Unit — "day" или "month"; Count — число платежей; Interval — через сколько

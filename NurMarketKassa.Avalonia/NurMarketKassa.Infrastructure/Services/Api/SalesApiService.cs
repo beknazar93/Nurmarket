@@ -332,6 +332,28 @@ public sealed partial class SalesApiService : ISalesApiService
                     if (e.StatusCode >= 500 && page > 1 && path == paths[0]
                         && await PageIsPastEndAsync(path, qs, page, pageSize, ct).ConfigureAwait(false))
                         return new List<JsonElement>();
+                    // 2026-10-20, аудит программы владельца: 5xx на странице, которая ЕСТЬ (по count), — настоящий сбой
+                    // сервера. Раньше сразу ошибка всей загрузки; теперь 2 повтора через 1,5 с, не помогло — Warning в
+                    // журнал и прежняя ошибка наверх (окно пишет, что загрузить не удалось, — не молча неполный список).
+                    if (e.StatusCode >= 500 && page > 1 && path == paths[0])
+                    {
+                        for (var retry = 1; retry <= 2; retry++)
+                        {
+                            await Task.Delay(TimeSpan.FromSeconds(1.5), ct).ConfigureAwait(false);
+                            try
+                            {
+                                var again = await GetRetryingThrottleAsync(path, qs, ct).ConfigureAwait(false);
+                                PosLogger.Log($"Список продаж: страница {page} получена с повтора {retry} после HTTP {e.StatusCode}.", "API");
+                                return NurMarketApiClient.UnwrapList(UnwrapListRootElement(again));
+                            }
+                            catch (ApiException again) when (again.StatusCode >= 500)
+                            {
+                                e = again;
+                            }
+                        }
+                        PosLogger.Log($"Список продаж: страница {page} — сервер ответил HTTP {e.StatusCode} и после 2 повторов; загрузка неполная, показываю ошибку.", "WARNING");
+                        throw e;
+                    }
                     if (e.StatusCode is 404 or 405 or 410)
                     {
                         if (path != paths[0])
@@ -660,7 +682,7 @@ public sealed partial class SalesApiService : ISalesApiService
     // не попадает в тело запроса, как в реальном рабочем вызове; передаётся только при настоящей
     // частичной оплате (сумма меньше остатка взноса) — этот случай в живом захвате ни разу не
     // подтверждён и может по-прежнему быть ненадёжным на стороне сервера.
-    public Task<JsonElement> PosPayDebtAsync(string clientId, string dealId, string? installmentId, double? amount, CancellationToken ct = default)
+    public Task<JsonElement> PosPayDebtAsync(string clientId, string dealId, string? installmentId, double? amount, CancellationToken ct = default, string? idempotencyKey = null)
     {
         var client = Uri.EscapeDataString(clientId.Trim());
         var deal = Uri.EscapeDataString(dealId.Trim());
@@ -669,7 +691,8 @@ public sealed partial class SalesApiService : ISalesApiService
             ["date"] = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             ["cashbox_role"] = "pos_main",
             ["note"] = "",
-            ["idempotency_key"] = Guid.NewGuid().ToString(),
+            // 2026-10-15, ревью: ключ передаёт вызывающий код — один на все повторы одной оплаты.
+            ["idempotency_key"] = string.IsNullOrWhiteSpace(idempotencyKey) ? Guid.NewGuid().ToString() : idempotencyKey,
         };
         if (amount is { } explicitAmount)
             body["amount"] = explicitAmount.ToString("0.00", CultureInfo.InvariantCulture);
@@ -815,7 +838,8 @@ public sealed partial class SalesApiService : ISalesApiService
     public async Task<JsonElement> PosReturnSaleAsync(
         string saleId,
         IReadOnlyList<PosRefundLineRequest>? lines,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? idempotencyKey = null)
     {
         var id = saleId.Trim();
         if (id.Length == 0)
@@ -823,7 +847,8 @@ public sealed partial class SalesApiService : ISalesApiService
 
         var body = new Dictionary<string, object>
         {
-            ["idempotency_key"] = Guid.NewGuid().ToString(),
+            // 2026-10-15, ревью: при повторе того же возврата — тот же ключ (иначе деньги и товар возвращались дважды).
+            ["idempotency_key"] = string.IsNullOrWhiteSpace(idempotencyKey) ? Guid.NewGuid().ToString() : idempotencyKey,
             ["cashbox_role"] = "pos_main",
         };
 
@@ -847,7 +872,7 @@ public sealed partial class SalesApiService : ISalesApiService
             .ConfigureAwait(false);
     }
 
-    public async Task<JsonElement> PosReturnWholeSaleAsync(string saleId, string? reason, CancellationToken ct = default)
+    public async Task<JsonElement> PosReturnWholeSaleAsync(string saleId, string? reason, CancellationToken ct = default, string? idempotencyKey = null)
     {
         var id = saleId.Trim();
         if (id.Length == 0)
@@ -862,7 +887,8 @@ public sealed partial class SalesApiService : ISalesApiService
         // причина возврата сервером здесь не принимается, поэтому дальше никуда не отправляется.
         var body = new Dictionary<string, string>
         {
-            ["idempotency_key"] = Guid.NewGuid().ToString(),
+            // 2026-10-15, ревью: при повторе того же возврата — тот же ключ (см. PosReturnSaleAsync).
+            ["idempotency_key"] = string.IsNullOrWhiteSpace(idempotencyKey) ? Guid.NewGuid().ToString() : idempotencyKey,
             ["cashbox_role"] = "pos_main",
         };
         return await _client.RequestAsync(
@@ -891,7 +917,10 @@ public sealed partial class SalesApiService : ISalesApiService
                 return pastEnd;
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // 2026-10-15, ревью: таймаут HttpClient — тоже TaskCanceledException, и прежний фильтр выпускал его наружу
+        // вместо исходной ошибки 500. Наружу уходит только настоящая отмена (ct); иначе — false, и вызывающий код
+        // бросает исходное ApiException(500).
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
         }
         return false;

@@ -180,17 +180,20 @@ public sealed class CartLineItemVm : ViewModelBase
         ? Quantity.ToString("0.000", CultureInfo.InvariantCulture)
         : Quantity.ToString("0.###", CultureInfo.InvariantCulture);
 
-    public string UnitPriceDisplay => $"{UnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+    // 2026-10-19, К1: суммы на экране — одним видом «1 234,50» (MoneyText), как у владельца; только показ.
+    public string UnitPriceDisplay => MoneyText.Som(UnitPrice);
 
     /// <summary>2026-10-02: обычная цена, если вариант продаётся по акции (см. CartItem.PromoBasePrice).</summary>
     public double? PromoBasePrice { get; init; }
 
     /// <summary>Подпись вида «0.500 кг × 115.71 сом» или «1 шт × 150.00 сом»; у варианта по акции —
     /// «1 шт × 2200.00 сом · было 2500.00 (−12%)».</summary>
+    // 2026-10-20 (живой аудит кассы, К18): «0,300 кг × 70,00 сом» — количество с запятой, как сумма рядом (только показ;
+    // QuantityDisplay/QuantityInput для ввода — прежние, с точкой).
     public string PriceQuantityLine =>
-        $"{QuantityDisplay} {Unit} × {UnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}"
+        $"{Quantity.ToString(IsWeight ? "0.000" : "0.###", CultureInfo.GetCultureInfo("ru-RU"))} {Unit} × {MoneyText.Som(UnitPrice)}"
         + (PromoBasePrice is { } basePrice && basePrice > UnitPrice + 0.005
-            ? " · " + Tr.T("было", "болгон", "was", "önce", "edi") + $" {basePrice.ToString("0.00", CultureInfo.InvariantCulture)} (−{Math.Round((1 - UnitPrice / basePrice) * 100):0}%)"
+            ? " · " + Tr.T("было", "болгон", "was", "önce", "edi") + $" {MoneyText.Amount(basePrice)} (−{Math.Round((1 - UnitPrice / basePrice) * 100):0}%)"
             : "");
 
     // 2026-10-03, владелец: «при скидке, если в убыток продаёт, — на экране в корзине рядом с товаром показывать,
@@ -226,7 +229,7 @@ public sealed class CartLineItemVm : ViewModelBase
     public bool HasLoss => LossAmount > 0.005;
 
     public string LossDisplayText => HasLoss
-        ? Tr.T("убыток", "зыян", "loss", "zarar", "zarar") + $" {LossAmount.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}"
+        ? Tr.T("убыток", "зыян", "loss", "zarar", "zarar") + " " + MoneyText.Som(LossAmount)
         : "";
 
     public string LossTooltip => HasLoss
@@ -237,6 +240,7 @@ public sealed class CartLineItemVm : ViewModelBase
             $"Xarid narxidan arzon sotilmoqda: xarid {UnitCost:0.00} × {QuantityDisplay}, chegirma bilan — {LossAmount:0.00} so'm zarar.")
         : "";
 
-    public string LineTotalDisplay =>$"{LineTotal.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
-    public string LineTotalAmount => LineTotal.ToString("0.00", CultureInfo.InvariantCulture);
+    // 2026-10-19, К1: суммы на экране — одним видом «1 234,50» (MoneyText), как у владельца; только показ.
+    public string LineTotalDisplay => MoneyText.Som(LineTotal);
+    public string LineTotalAmount => MoneyText.Amount(LineTotal);
 }

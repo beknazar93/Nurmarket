@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Филиалы</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="goods" active="Филиалы" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="display: flex; align-items: center; gap: 10px"><span style="font-size: 24px; font-weight: 800">Филиалы</span><button type="button" aria-label="Что такое филиалы" title="Филиал — отдельный магазин или склад со своим остатком. Товар между ними передаётся перемещением." style="width: 28px; height: 28px; border-radius: 14px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-weight: 800; color: #475467">?</button></span>
+      <!-- 2026-10-16: раздел в группе «Товары» (как в программе); найти из любого места — Ctrl+K «филиал» / «перемещение» -->
+      <span style="font-size: 13px; color: #667085">3 филиала · у каждого свой склад и остаток · Ctrl+K: «филиал», «перемещение»</span></span>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Переместить товар</button>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">+ Филиал</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+      <sc-for list="{{branches}}" as="b" hint-placeholder-count="3">
+        <article style="background: #FFFFFF; border-radius: 16px; padding: 18px; border: {{b.border}}; display: flex; flex-direction: column; gap: 10px">
+          <span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 16px; font-weight: 800">{{b.name}}</span><button type="button" aria-label="Ещё" style="width: 32px; height: 32px; border-radius: 10px; border: 1px solid #E5E7EB; background: #FFFFFF">⋯</button></span>
+          <span style="font-size: 12px; font-weight: 700; color: {{b.tagColor}}">{{b.tag}}</span>
+          <span style="font-size: 13px; color: #475467">{{b.addr}}</span>
+          <span style="font-size: 13px; color: #475467">Склад: <b style="color: #111827">{{b.store}}</b></span>
+          <!-- 2026-10-16: как в программе (BranchesWindow) — товары и сотрудники; выручки по филиалу нет (нужен разрез продаж на сервере) -->
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+            <span style="border-radius: 10px; background: #F9FAFB; padding: 10px; display: flex; flex-direction: column"><span style="font-size: 11px; color: #667085">Товаров</span><span style="font-size: 16px; font-weight: 800">{{b.products}}</span></span>
+            <span style="border-radius: 10px; background: #F9FAFB; padding: 10px; display: flex; flex-direction: column"><span style="font-size: 11px; color: #667085">Сотрудников</span><span style="font-size: 16px; font-weight: 800">{{b.staff}}</span></span>
+          </div>
+          <button type="button" style="height: 40px; border-radius: 10px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #0B2A3C">Изменить</button>
+        </article>
+      </sc-for>
+    </div>
+    <span style="font-size: 12px; color: #667085">Выручка по филиалу — позже: нужен разрез продаж по филиалу на сервере NurCRM</span>
+    <!-- 2026-10-16: статусы перемещения как в программе (StockTransferService): «В пути» → «Доставлено» -->
+    <section style="background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+      <span style="font-size: 16px; font-weight: 800">Перемещения</span>
+      <div style="display: grid; grid-template-columns: 1.4fr 2fr 2fr 1fr 1fr; gap: 12px; padding: 10px 12px; background: #F9FAFB; border-radius: 10px; font-size: 12px; font-weight: 700; color: #475467"><span>Документ</span><span>Откуда</span><span>Куда</span><span>Товаров</span><span>Статус</span></div>
+      <div style="display: grid; grid-template-columns: 1.4fr 2fr 2fr 1fr 1fr; gap: 12px; padding: 10px 12px; font-size: 13px; align-items: center"><span style="display: flex; flex-direction: column"><span style="font-weight: 800; color: #0B2A3C">ПЕР-000005</span><span style="font-size: 12px; color: #667085">12.10 14:20</span></span><span>NBS — главный · Главный склад</span><span>Офис Кубанычбека</span><span style="white-space: nowrap">2 · 22 шт</span><span><span style="padding: 4px 10px; border-radius: 999px; background: #FEF3E2; color: #B54708; font-size: 12px; font-weight: 700; white-space: nowrap">→ В пути</span></span></div>
+      <div style="display: grid; grid-template-columns: 1.4fr 2fr 2fr 1fr 1fr; gap: 12px; padding: 10px 12px; font-size: 13px; align-items: center; border-top: 1px solid #F2F4F7"><span style="display: flex; flex-direction: column"><span style="font-weight: 800; color: #0B2A3C">ПЕР-000004</span><span style="font-size: 12px; color: #667085">09.10 11:05</span></span><span>NBS — главный · Главный склад</span><span>Домашний</span><span style="white-space: nowrap">5 · 40 шт</span><span><span style="padding: 4px 10px; border-radius: 999px; background: #E7F6EC; color: #0E7A3A; font-size: 12px; font-weight: 700; white-space: nowrap">✓ Доставлено</span></span></div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: филиалы и склады NBS — одни на всех досках (главный склад — «Главный склад»).
+    return { branches: [
+      { name: 'NBS — главный', tag: 'Главный магазин', tagColor: '#0E7A3A', addr: 'Бишкек, ул. Токтогула 112', store: 'Главный склад', products: '307', staff: '4', border: '2px solid #FFD600' },
+      { name: 'Офис Кубанычбека', tag: 'Филиал · адрес не заполнен', tagColor: '#B54708', addr: 'Заполните адрес — без него филиал не виден на карте', store: 'Офис Кубанычбека', products: '42', staff: '1', border: '1px solid #E5E7EB' },
+      { name: 'Домашний', tag: 'Филиал', tagColor: '#475467', addr: 'Бишкек, мкр. Джал 23/7', store: 'Домашний', products: '15', staff: '0', border: '1px solid #E5E7EB' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

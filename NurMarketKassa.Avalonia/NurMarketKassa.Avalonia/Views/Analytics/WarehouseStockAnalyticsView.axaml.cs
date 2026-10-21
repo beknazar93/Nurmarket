@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Media;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
@@ -63,7 +64,8 @@ public partial class WarehouseStockAnalyticsView : UserControl
 
         AnalyticsKpiPanel.ItemsSource = new List<KpiCardVm>
         {
-            new() { Label = Tr.T("Всего товаров (SKU)", "Бардык товарлар (SKU)", "Total products (SKU)", "Toplam ürün (SKU)", "Jami mahsulotlar (SKU)"), Value = skuCount.ToString() },
+            // 2026-10-21 (пакет 2, п. 73, 98): без «SKU» — простыми словами.
+            new() { Label = Tr.T("Товаров в каталоге", "Каталогдогу товарлар", "Products in catalog", "Katalogdaki ürünler", "Katalogdagi mahsulotlar"), Value = skuCount.ToString() },
             new() { Label = Tr.T("Нет в наличии", "Калдыкта жок", "Out of stock", "Stokta yok", "Mavjud emas"), Value = outOfStock.ToString() },
             new() { Label = Tr.T("Низкий остаток", "Аз калды", "Low stock", "Düşük stok", "Kam qoldiq"), Value = lowStock.ToString() },
             new() { Label = Tr.T("Остаток по закупке", "Сатып алуу баасы боюнча калдык", "Stock at purchase price", "Stok değeri (alış)", "Qoldiq (xarid narxida)"), Value = $"{purchaseValue:N0} {Som}" },
@@ -86,9 +88,11 @@ public partial class WarehouseStockAnalyticsView : UserControl
                 ValueText = $"{x.Value:N2} {Som}",
             })
             .ToList();
+        // 2026-10-21 (пакет 2, п. 98, «радуга»): полосы рейтинга — одним цветом текста темы, как в «Аналитике» (О10).
+        var barBrush = this.FindResource("BrushText") as IBrush;
         BarChartRenderer.Render(AnalyticsTopValueChart, topValue
             .Select(x => (x.Product.Title, (double)x.Value, $"{x.Value:N0} {Som}"))
-            .ToList());
+            .ToList(), barBrush);
 
         var byCategory = products
             .GroupBy(p => string.IsNullOrWhiteSpace(p.Category) ? Tr.T("Без категории", "Категориясыз", "No category", "Kategorisiz", "Kategoriyasiz") : p.Category!.Trim())
@@ -102,6 +106,9 @@ public partial class WarehouseStockAnalyticsView : UserControl
             .OrderByDescending(g => g.Value)
             .ToList();
 
+        // 2026-10-21 (пакет 2, п. 73): столбец «Кол-во» рядом с «Остатком» читался как штуки — это число разных товаров.
+        if (AnalyticsCategoryGrid.Columns.Count > 1)
+            AnalyticsCategoryGrid.Columns[1].Header = Tr.T("Товаров", "Товарлар", "Products", "Ürün", "Mahsulotlar");
         AnalyticsCategoryGrid.ItemsSource = byCategory
             .Select(g => new AnalyticsCategoryRow
             {
@@ -115,7 +122,7 @@ public partial class WarehouseStockAnalyticsView : UserControl
             .Take(10)
             .Select(g => (g.Name, g.Value, $"{g.Value:N0} {Som}"))
             .ToList();
-        BarChartRenderer.Render(AnalyticsCategoryChart, categoryChartData);
-        BarChartRenderer.RenderPie(AnalyticsCategoryPie, categoryChartData);
+        BarChartRenderer.Render(AnalyticsCategoryChart, categoryChartData, barBrush);
+        // 2026-10-21 (пакет 2, п. 98): круговая скрыта в разметке (повтор полос) — не рисуется.
     }
 }

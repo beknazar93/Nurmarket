@@ -1,67 +1,42 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PosAlertDialog"
         Title="{DynamicResource dialog.messageTitle}"
-        Width="440" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="28,24">
-    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-      <TextBlock x:Name="TitleText"
-                 FontSize="18" FontWeight="Bold"
-                 Foreground="{DynamicResource BrushText}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 Margin="0,0,0,12"/>
-
-      <ScrollViewer MaxHeight="480" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Margin="0,0,0,22">
-        <!-- Отступ справа: полоса прокрутки длинного текста («Касса обновлена») не ложится на буквы. -->
-        <TextBlock x:Name="MessageText" Margin="0,0,14,0"
-                   FontSize="14" TextWrapping="Wrap"
-                   Foreground="{DynamicResource BrushTextSoft}"
-                   HorizontalAlignment="Stretch"
-                   TextAlignment="Left"/>
-      </ScrollViewer>
-
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
-        <Button IsCancel="True" x:Name="OkButton"
-                Content="{DynamicResource common.gotIt}"
-                Height="46" Width="165"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Background="{DynamicResource BrushAccent}"
-                Foreground="{DynamicResource BrushAccentForeground}"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Cursor="Hand"
-                Click="OkButton_Click"/>
+  <!-- 2026-10-16, редизайн (этап 1): общая оболочка ModalShell — заголовок и ✕ сверху, длинный текст
+       прокручивается (не выше 85 % экрана), кнопки внизу справа: «Отложить ошибку» (обводка) и главная.
+       Карточка 480 + поля 2×16 под тень. Esc и ✕ — «Закрыть»/«Понятно» (IsCancel), как и раньше. -->
+  <dlg:ModalShell x:Name="Shell" Margin="16">
+    <dlg:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
         <!-- Надпись переносится на вторую строку: по-кыргызски «Катаны кийинкиге калтыруу» в одну
              строку не помещалась и обрезалась (2026-09-25). -->
-        <Button x:Name="DeferButton"
-                Height="46" Width="165" Padding="8,0"
+        <Button x:Name="DeferButton" Classes="modal-cancel"
+                MaxWidth="200" Padding="12,0"
                 IsVisible="False"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Background="{DynamicResource BrushPanelSoft}"
-                Foreground="{DynamicResource BrushText}"
-                BorderBrush="{DynamicResource BrushBorderStrong}"
-                BorderThickness="1"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Cursor="Hand"
                 Click="DeferButton_Click">
           <TextBlock Text="{DynamicResource dialog.deferError}" TextWrapping="Wrap" TextAlignment="Center"
                      LineHeight="17" VerticalAlignment="Center"/>
         </Button>
+        <Button IsCancel="True" x:Name="OkButton" Classes="modal-primary"
+                MaxWidth="200"
+                Content="{DynamicResource common.gotIt}"
+                Click="OkButton_Click"/>
       </StackPanel>
-    </StackPanel>
-  </Border>
+    </dlg:ModalShell.Footer>
+
+    <!-- Отступ справа: полоса прокрутки длинного текста («Касса обновлена») не ложится на буквы. -->
+    <TextBlock x:Name="MessageText" Margin="0,0,14,0"
+               FontSize="14" TextWrapping="Wrap"
+               Foreground="{DynamicResource BrushTextSoft}"
+               HorizontalAlignment="Stretch"
+               TextAlignment="Left"/>
+  </dlg:ModalShell>
 </Window>

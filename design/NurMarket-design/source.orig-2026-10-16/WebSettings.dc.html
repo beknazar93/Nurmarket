@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Настройки и подписка — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.sn a{display:block;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:600;color:#344054;text-decoration:none}
+.sn a.on{background:#FFFFFF;color:#0B2A3C;font-weight:800;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.fr{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid #E5E7EB;font-size:13px}
+.fr.on{border:2px solid #FFD600;background:#FFFCEB}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.dv{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F2F4F7;font-size:13px}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Настройки и подписка" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+    <b style="font-size: 24px; font-weight: 800">Настройки и подписка</b>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <nav class="sn" aria-label="Разделы настроек" style="flex: 1 1 180px; max-width: 220px; background: #E4E7EC; border-radius: 14px; padding: 6px; display: flex; flex-direction: column; gap: 2px">
+        <a href="#">Магазин и чек</a><a href="#">Оплата и банки</a><a href="#">Склады</a><a href="#">Устройства</a><a href="#" class="on">Функции и подписка</a><a href="#">Язык и тема</a>
+      </nav>
+
+      <section class="card" style="flex: 999 1 420px">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-radius: 12px; background: #0B2A3C; color: #FFFFFF; padding: 14px 16px">
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #C7D2DB">Пробный период до [дата]</span><b style="font-size: 18px">В месяц: <span style="color: #FFD600">[сумма]</span></b></span>
+          <button type="button" class="b1">Оплатить</button>
+        </div>
+        <sc-for list="{{features}}" as="f" hint-placeholder-count="8">
+          <label class="fr" style="border: {{f.border}}; background: {{f.bg}}">
+            <input type="checkbox" checked="{{f.on}}" style="width: 18px; height: 18px; accent-color: #0B2A3C">
+            <span style="flex-grow: 1; display: flex; flex-direction: column"><b>{{f.name}}</b><span style="font-size: 12px; color: #667085">{{f.note}}</span></span>
+            <b style="color: #0B2A3C">{{f.price}}</b>
+          </label>
+        </sc-for>
+      </section>
+
+      <aside class="card" style="flex: 1 1 260px; max-width: 320px">
+        <b style="font-size: 15px">Подключённые устройства</b>
+        <div class="dv"><span style="width: 8px; height: 8px; border-radius: 4px; background: #16A34A"></span><span style="flex-grow: 1">Касса · Windows</span><span style="color: #667085">сейчас</span></div>
+        <div class="dv"><span style="width: 8px; height: 8px; border-radius: 4px; background: #16A34A"></span><span style="flex-grow: 1">Телефон · Кассир Тест</span><span style="color: #667085">сейчас</span></div>
+        <div class="dv"><span style="width: 8px; height: 8px; border-radius: 4px; background: #98A2B3"></span><span style="flex-grow: 1">Веб-касса · Chrome</span><span style="color: #667085">[время]</span></div>
+        <div class="dv"><span style="width: 8px; height: 8px; border-radius: 4px; background: #98A2B3"></span><span style="flex-grow: 1">Касса · Linux</span><span style="color: #667085">[время]</span></div>
+        <a href="#" style="font-size: 13px; font-weight: 700">Отключить устройство</a>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const f = (name, note, price, on) => ({ name, note, price, on, border: on ? '2px solid #FFD600' : '1px solid #E5E7EB', bg: on ? '#FFFCEB' : '#FFFFFF' });
+    return {
+      features: [
+        f('Касса', 'всегда включена', '990', true),
+        f('Склад', 'приёмка, ревизия, склады по видам', '500', true),
+        f('Пополнение и сроки', 'что заказать, сроки годности', '300', true),
+        f('Долги клиентов', 'продажа в долг, напоминания', '400', true),
+        f('Сайт-витрина', 'темы, заказы онлайн', '700', false),
+        f('Telegram-бот', 'ответы покупателям', '400', false),
+        f('Нур Советник', 'ИИ: отчёты и команды голосом', '600', false),
+        f('Зарплата', 'табель и расчёт', '400', false)
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

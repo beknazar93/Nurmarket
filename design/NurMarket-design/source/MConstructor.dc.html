@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Конструктор — о функции, зависимость, выключение</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:12px;flex-shrink:0;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{white-space:nowrap;height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{white-space:nowrap;height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{white-space:nowrap;height:44px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:44px;padding:0 12px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:44px;white-space:nowrap;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#0B2A3C;color:#FFFFFF}
+.row{display:flex;align-items:center;gap:10px;min-height:44px;box-sizing:border-box;padding:8px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: 480px 480px; justify-content: center; gap: 30px; align-items: start">
+  <!-- 2026-10-17: окна 480, цели 44 px, низ по правилам; зависимости — советом, а не принуждением (анонимный сертификат без базы клиентов, ЭСФ без ККМ); ККМ — «+ тариф оператора/ОФД»; выключение «Долги и рассрочка» не трогает действующие договоры (17 должников, 5 рассрочек) -->
+
+  <section class="m" role="dialog" aria-label="О функции">
+    <div class="mh"><div class="mt"><b>Подарочные сертификаты</b><span>Новая функция · 7 дней бесплатно, потом 200&nbsp;сом / мес</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <span class="lbl">ЧТО ПОЯВИТСЯ</span>
+      <div class="row"><span style="flex-grow: 1">На кассе — продажа сертификата и оплата сертификатом в панели оплаты</span></div>
+      <div class="row"><span style="flex-grow: 1">В вебе — раздел «Бонусы и сертификаты»</span></div>
+      <div class="row"><span style="flex-grow: 1">В отчётах — продано, погашено и остаток на сертификатах</span></div>
+      <div class="row"><span style="flex-grow: 1">В Телеграм-боте — сертификат клиента</span><span class="tag" style="background: #F2F4F7; color: #475467; white-space: nowrap">нужен сервер</span></div>
+      <span class="lbl">СОВЕТУЕМ</span>
+      <div class="row" style="background: #E7F6EC"><span style="flex-grow: 1">Клиенты и бонусы — для именных сертификатов; анонимный работает и без них</span><span class="tag" style="background: #FFFFFF; color: #0E7A3A; white-space: nowrap">уже включено</span></div>
+      <span style="font-size: 12px; color: #475467; line-height: 17px">С ККМ: как пробивать продажу и погашение сертификата (аванс), чтобы не было двойного налога, — уточнить у ОФД. После включения — номиналы и срок действия, 1 минута.</span>
+    </div>
+    <div class="mf"><span class="tot">Оплата — в Маркетплейсе · нужен биллинг NurCRM</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Включить</button></div>
+  </section>
+
+  <div style="display: flex; flex-direction: column; gap: 24px">
+  <section class="m" role="dialog" aria-label="Советуем другую функцию">
+    <div class="mh" style="background: #EEF4FF"><div class="mt"><b>ЭСФ 2.0 — советуем вместе с ККМ</b><span>ЭСФ можно выписывать и без ККМ (опт, безнал)</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="row"><span style="flex-grow: 1"><b>ЭСФ и ЭСФ 2.0</b><br><span style="font-size: 11px; color: #667085">то, что вы включаете</span></span><b style="white-space: nowrap">400&nbsp;сом</b></div>
+      <div class="row" style="background: #FFF7CC; border: 2px solid #0B2A3C"><span style="flex-grow: 1"><b>ККМ и электронный чек</b><br><span style="font-size: 11px; color: #667085">сверка продаж с налоговой · + тариф оператора ККМ / ОФД по договору</span></span><b style="white-space: nowrap">500&nbsp;сом</b></div>
+      <div class="rl" style="font-size: 15px; border-top: 1px solid #EAECF0; padding-top: 8px"><b>Обе — в месяц</b><b style="white-space: nowrap">900&nbsp;сом</b></div>
+    </div>
+    <div class="mf"><span class="tot"></span><button type="button" class="b2">Только ЭСФ · 400</button><button type="button" class="b1">Включить обе · 900</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Выключить функцию">
+    <div class="mh" style="background: #FEF3E2"><div class="mt"><b>Выключить «Долги и рассрочка»?</b><span>Сейчас: 17 должников · 811 889&nbsp;сом · 5 рассрочек</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="row"><span style="flex-grow: 1">Новые продажи в долг и новые рассрочки исчезнут с кассы</span></div>
+      <div class="row"><span style="flex-grow: 1">Действующие долги и рассрочки работают дальше: приём оплат, графики, напоминания</span><span class="tag" style="background: #E7F6EC; color: #0E7A3A; white-space: nowrap">данные целы</span></div>
+      <span style="font-size: 12px; color: #475467">Включите снова в любой момент — всё вернётся как было.</span>
+    </div>
+    <div class="mf"><span class="tot">Esc — оставить</span><button type="button" class="b2">Оставить</button><button type="button" class="bd">Выключить</button></div>
+  </section>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

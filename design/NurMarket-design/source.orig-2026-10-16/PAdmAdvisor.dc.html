@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Нур Советник</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.tr{display:grid;grid-template-columns:1.6fr 1fr;gap:8px;padding:7px 0;border-bottom:1px solid #F2F4F7;font-size:12px}
+.sug{height:34px;padding:0 12px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; align-items: center; gap: 12px; background: #FFFFFF; border-bottom: 1px solid #EAECF0">
+    <button type="button" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <span style="width: 40px; height: 40px; border-radius: 12px; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path></svg></span>
+    <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 16px">Нур Советник</b><span style="font-size: 12px; color: #0E7A3A; font-weight: 700">на связи</span></span>
+  </header>
+
+  <main style="flex-grow: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden">
+    <div style="align-self: flex-end; max-width: 80%; background: #0B2A3C; color: #FFFFFF; border-radius: 16px 16px 4px 16px; padding: 10px 14px; font-size: 14px">Сколько продали вчера?</div>
+    <div style="max-width: 88%; background: #FFFFFF; border-radius: 16px 16px 16px 4px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+      <span style="font-size: 14px">Вчера выручка [сумма], [N] чеков.</span>
+      <div class="tr" style="font-weight: 700; color: #667085"><span>Способ</span><span>Сумма</span></div>
+      <div class="tr"><span>Наличные</span><b>[сумма]</b></div>
+      <div class="tr"><span>Карта и QR</span><b>[сумма]</b></div>
+      <div class="tr" style="border: 0"><span>В долг</span><b>[сумма]</b></div>
+    </div>
+    <div style="align-self: flex-end; max-width: 80%; background: #0B2A3C; color: #FFFFFF; border-radius: 16px 16px 4px 16px; padding: 10px 14px; font-size: 14px">Открой склад</div>
+    <div style="max-width: 88%; background: #FFFFFF; border-radius: 16px 16px 16px 4px; padding: 10px 14px; font-size: 14px">Открываю «Товары» · <a href="#" style="font-weight: 700">перейти</a></div>
+  </main>
+
+  <div style="padding: 0 16px 8px; display: flex; gap: 6px; overflow: hidden"><button type="button" class="sug">Кто должен</button><button type="button" class="sug">Что заказать</button><button type="button" class="sug">Табель</button></div>
+  <div style="padding: 8px 16px 24px; display: flex; align-items: center; gap: 10px; background: #FFFFFF; border-top: 1px solid #EAECF0">
+    <label style="flex-grow: 1; height: 48px; box-sizing: border-box; display: flex; align-items: center; padding: 0 14px; border-radius: 14px; border: 1px solid #D0D5DD"><input type="text" placeholder="Спросите о магазине" aria-label="Вопрос" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 14px; width: 100%"></label>
+    <button type="button" aria-label="Говорить" style="width: 56px; height: 56px; border-radius: 28px; border: 0; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(255,214,0,.4)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

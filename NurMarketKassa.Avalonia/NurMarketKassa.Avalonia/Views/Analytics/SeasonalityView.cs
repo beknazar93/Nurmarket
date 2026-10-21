@@ -133,7 +133,8 @@ public sealed class SeasonalityView : UserControl
         var body = new StackPanel { Margin = new Thickness(10) };
         body.Children.Add(_warning);
         body.Children.Add(_note);
-        body.Children.Add(Card(Tr.T("Выручка магазина по месяцам (вся история)", "Дүкөндүн айлык түшүмү (бүт тарых)", "Store revenue by month (all time)", "Aylara göre mağaza cirosu (tüm geçmiş)", "Oylar bo'yicha do'kon tushumi (butun tarix)"), _shopChart));
+        // 2026-10-20: столбики — итоги сервера за 12 месяцев (ShowServerMonths), а не «вся история» кассы.
+        body.Children.Add(Card(Tr.T("Выручка магазина по месяцам (12 месяцев)", "Дүкөндүн айлык түшүмү (12 ай)", "Store revenue by month (12 months)", "Aylara göre mağaza cirosu (12 ay)", "Oylar bo'yicha do'kon tushumi (12 oy)"), _shopChart));
         body.Children.Add(Card(Tr.T("Сезонные товары по сезонам", "Мезгилдүү товарлар жыл мезгилдери боюнча", "Seasonal products by season", "Mevsime göre mevsimlik ürünler", "Mavsumlar bo'yicha mavsumiy mahsulotlar"), _seasonGroups));
         body.Children.Add(_grid);
 
@@ -153,9 +154,16 @@ public sealed class SeasonalityView : UserControl
         _note.Foreground = Brushes.Gray;
 
         _warning.IsVisible = !report.Reliable && report.Rows.Count > 0;
-        _warningText.Text = Tr.T("Выводов о сезонности пока нет: история продаж покрывает", "Мезгилдүүлүк боюнча азырынча тыянак жок: сатуу тарыхы камтыган жыл мезгилдери:", "No seasonality insights yet. Seasons covered by sales history:", "Mevsimsellik sonucu henüz yok: satış geçmişinin kapsadığı mevsim", "Mavsumiylik bo'yicha hali xulosa yo'q: sotuv tarixi qamragan fasllar:") + " " + report.CoveredSeasons.ToString(CultureInfo.InvariantCulture) + " / 4. "
+        // 2026-10-19, этап О10 (аудит: «история покрывает 1 / 4» — непонятно; оранжевый текст по светлому не читался):
+        // простыми словами и цветом текста темы.
+        var covered = report.CoveredSeasons.ToString(CultureInfo.InvariantCulture);
+        _warningText.Text = Tr.T($"Выводов о сезонности пока нет: продажи есть только за {covered} сезон(а) из 4 (зима, весна, лето, осень). ",
+                $"Мезгилдүүлүк боюнча азырынча тыянак жок: сатуулар 4 мезгилдин {covered} гана мезгилинде бар (кыш, жаз, жай, күз). ",
+                $"No seasonality insights yet: there are sales for only {covered} of 4 seasons (winter, spring, summer, autumn). ",
+                $"Henüz mevsimsellik sonucu yok: 4 mevsimin yalnızca {covered} tanesinde satış var (kış, ilkbahar, yaz, sonbahar). ",
+                $"Mavsumiylik bo'yicha hali xulosa yo'q: sotuvlar 4 fasldan faqat {covered} tasida bor (qish, bahor, yoz, kuz). ")
             + Tr.T("Копите историю — раздел заполнится сам.", "Тарых топтолгон сайын бөлүм өзү толот.", "Keep collecting history — this section will fill in on its own.", "Geçmiş biriktikçe bölüm kendiliğinden dolacak.", "Tarix to'planishi bilan bo'lim o'zi to'ladi.");
-        _warningText.Foreground = Brush.Parse("#F59E0B");
+        _warningText.Bind(TextBlock.ForegroundProperty, _warningText.GetResourceObservable("BrushText"));
 
         RenderShopMonths(report);
         RenderSeasonGroups(report);
@@ -178,13 +186,52 @@ public sealed class SeasonalityView : UserControl
         }).ToList();
     }
 
+    /// <summary>2026-10-20, живой аудит владельца: «Выручка по месяцам» строилась по истории ЭТОЙ кассы (с 16.09) —
+    /// сентябрь 2 166 667 меньше, чем «1–20 сентября» в «Сводке» (3 122 413), октябрь 2 119 731 ≠ 1 979 195.
+    /// Теперь столбики — итоги месяцев с сервера NurCRM (те же карточки, что «Сводка» за месяц); текущий месяц
+    /// подписан как неполный. Таблица товаров ниже — по-прежнему по истории кассы (по товарам сервер месяцы не отдаёт).
+    /// values — по номеру месяца (0 = январь), null — сервер не ответил за этот месяц.</summary>
+    public void ShowServerMonths(IReadOnlyList<decimal?> values, DateTime today, DateTime? localFirstSale)
+    {
+        var revenue = new double[12];
+        var covered = new bool[12];
+        var started = false;
+        // По порядку: 11 месяцев назад … текущий. Месяцы до первой продажи на сервере — «нет данных», а не ноль.
+        for (var back = 11; back >= 0; back--)
+        {
+            var m = today.AddMonths(-back).Month - 1;
+            if (values[m] is not { } v)
+                continue;
+            if (v > 0)
+                started = true;
+            if (!started)
+                continue;
+            revenue[m] = (double)v;
+            covered[m] = true;
+        }
+
+        RenderShopMonths(revenue, covered, today.Month - 1);
+        var current = MonthShort[today.Month - 1];
+        var since = localFirstSale is { } f ? f.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : "—";
+        _note.Text = Tr.T(
+            $"Выручка по месяцам — итоги сервера NurCRM за последние 12 месяцев (как «Сводка» за месяц). {current} — по {today:dd.MM}, месяц ещё не закончился. Товары ниже — по истории продаж этой кассы с {since}.",
+            $"Айлар боюнча түшүм — NurCRM серверинин акыркы 12 айдагы жыйынтыгы («Жыйынтык» бөлүмүндөгү айдай). {current} — {today:dd.MM} чейин, ай бүтө элек. Төмөнкү товарлар — ушул кассанын {since} баштап сатуу тарыхы боюнча.",
+            $"Revenue by month comes from the NurCRM server totals for the last 12 months (as the monthly “Summary”). {current} is up to {today:dd.MM}, the month is not over yet. Products below use this till's sales history since {since}.",
+            $"Aylara göre ciro — NurCRM sunucusunun son 12 aylık toplamları («Özet» aylık gibi). {current} — {today:dd.MM} tarihine kadar, ay henüz bitmedi. Aşağıdaki ürünler bu kasanın {since} tarihinden itibaren satış geçmişine göre.",
+            $"Oylar bo'yicha tushum — NurCRM serverining so'nggi 12 oylik yakunlari («Xulosa» oylikdagidek). {current} — {today:dd.MM} gacha, oy hali tugamagan. Quyidagi tovarlar — shu kassaning {since} dan beri sotuv tarixi bo'yicha.");
+    }
+
     /// <summary>Столбики выручки магазина по месяцам. Месяцы без истории показаны пустой
     /// рамкой, а не нулевым столбиком: ноль и «не знаем» — разные вещи.</summary>
-    private void RenderShopMonths(AnalyticsReportData.SeasonalityReport report)
+    private void RenderShopMonths(AnalyticsReportData.SeasonalityReport report) =>
+        RenderShopMonths(report.ShopMonthRevenue, report.MonthCovered, -1);
+
+    /// <summary>partialMonth — номер месяца (0..11), который ещё не закончился (подпись «…»), −1 — нет такого.</summary>
+    private void RenderShopMonths(IReadOnlyList<double> shopMonthRevenue, IReadOnlyList<bool> monthCovered, int partialMonth)
     {
         _shopChart.Children.Clear();
 
-        var max = report.ShopMonthRevenue.Count > 0 ? report.ShopMonthRevenue.Max() : 0;
+        var max = shopMonthRevenue.Count > 0 ? shopMonthRevenue.Max() : 0;
         if (max <= 0)
         {
             _shopChart.Children.Add(new TextBlock
@@ -199,13 +246,16 @@ public sealed class SeasonalityView : UserControl
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         for (var m = 0; m < 12; m++)
         {
-            var covered = report.MonthCovered[m];
-            var value = report.ShopMonthRevenue[m];
+            var covered = monthCovered[m];
+            var value = shopMonthRevenue[m];
             var column = new StackPanel { Width = 62, VerticalAlignment = VerticalAlignment.Bottom };
 
             column.Children.Add(new TextBlock
             {
-                Text = covered ? value.ToString("N0", CultureInfo.CurrentCulture) : Tr.T("нет", "жок", "none", "yok", "yo'q"),
+                // 2026-10-20: незаконченный месяц — с «…», чтобы не читался как полный.
+                Text = covered
+                    ? value.ToString("N0", CultureInfo.CurrentCulture) + (m == partialMonth ? "…" : "")
+                    : Tr.T("нет", "жок", "none", "yok", "yo'q"),
                 FontSize = 10,
                 Foreground = Brushes.Gray,
                 TextAlignment = TextAlignment.Center,

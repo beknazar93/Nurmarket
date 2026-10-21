@@ -40,7 +40,14 @@ public sealed class AbcSectionView : UserControl
     /// <summary>Все срезы, включая склад по стоимости остатка.</summary>
     public static readonly IReadOnlyList<string> AllSliceKeys = [.. SalesSliceKeys, AnalyticsReportData.KeyStock];
 
-    private readonly TabControl _tabs = new() { Margin = new Thickness(0) };
+    // 2026-10-18, доводка О4 (две полосы одинаковых подчёркнутых вкладок подряд): срезы — сегментами в рамке (sec-seg, выбранный
+    // тёмно-синий), как период; страница среза — под ними. Одна страница (склад, «продаж нет») — без полосы выбора.
+    private readonly StackPanel _segItems = new() { Orientation = Orientation.Horizontal };
+    private readonly Border _segment;
+    private readonly ScrollViewer _segScroll;
+    private readonly ContentControl _page = new();
+    private readonly List<(Button Button, Control Content)> _pages = [];
+    private int _selected;
     private readonly List<SliceView> _views = [];
     private readonly SeasonalityView _seasonality = new();
     private IReadOnlyList<string> _sliceKeys = SalesSliceKeys;
@@ -80,6 +87,11 @@ public sealed class AbcSectionView : UserControl
     /// сама и рисует только видимые. По умолчанию предела нет — как было в кассе.</summary>
     public double TableMaxHeight { get; set; } = double.PositiveInfinity;
 
+    /// <summary>2026-10-21 (пакет 2, п. 86, аудит 18.10: «прокрутка внутри прокрутки» в Сводке): false — у среза нет своей
+    /// вертикальной прокрутки, раздел растёт по содержимому и прокручивается вместе со страницей, где стоит (Сводка).
+    /// По умолчанию true — как было (окна «Продажи», «Финансы», ABC, касса).</summary>
+    public bool ScrollsVertically { get; set; } = true;
+
     /// <summary>Попросили разбор конкретного товара — нажали на столбец диаграммы Парето или
     /// на строку таблицы. Само окно раздел не открывает: он живёт и во вкладке «Продаж», и в
     /// отдельном окне ABC, а владелец окна у них разный.</summary>
@@ -87,7 +99,43 @@ public sealed class AbcSectionView : UserControl
 
     public AbcSectionView()
     {
-        Content = _tabs;
+        _segment = NurMarketKassa.AvaloniaHost.Views.UiKit.Segment(_segItems);
+        _segment.HorizontalAlignment = HorizontalAlignment.Left;
+        _segScroll = new ScrollViewer
+        {
+            Content = _segment,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Margin = new Thickness(0, 8, 0, 4),
+        };
+        var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
+        Grid.SetRow(_page, 1);
+        root.Children.Add(_segScroll);
+        root.Children.Add(_page);
+        Content = root;
+    }
+
+    /// <summary>2026-10-18, доводка О4: страница среза (вместо вкладки TabControl).</summary>
+    private void AddPage(string title, Control content)
+    {
+        var index = _pages.Count;
+        var button = NurMarketKassa.AvaloniaHost.Views.UiKit.Seg(title, false);
+        button.Click += (_, _) => Select(index);
+        _segItems.Children.Add(button);
+        _pages.Add((button, content));
+    }
+
+    private void Select(int index)
+    {
+        if (_pages.Count == 0)
+        {
+            _page.Content = null;
+            return;
+        }
+        _selected = Math.Clamp(index, 0, _pages.Count - 1);
+        for (var i = 0; i < _pages.Count; i++)
+            _pages[i].Button.Classes.Set("active", i == _selected);
+        _page.Content = _pages[_selected].Content;
     }
 
     /// <summary>Заполняет раздел. Срезы приходят в том же порядке, поэтому вкладка,
@@ -114,16 +162,15 @@ public sealed class AbcSectionView : UserControl
         if (layout != _layout)
         {
             _layout = layout;
-            _tabs.ItemsSource = null;
-            _tabs.Items.Clear();
+            _page.Content = null;
+            _segItems.Children.Clear();
+            _pages.Clear();
             _views.Clear();
 
             if (message)
             {
-                _tabs.Items.Add(new TabItem
-                {
-                    Header = Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"),
-                    Content = new TextBlock
+                AddPage(Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"),
+                    new TextBlock
                     {
                         Text = wantsSales
                             ? Tr.T("Продаж за выбранный период нет — считать ABC не на чем.", "Тандалган мезгилде сатуу жок — ABC эсептөө үчүн маалымат жок.", "No sales in the selected period — nothing to run ABC analysis on.", "Seçilen dönemde satış yok — ABC analizi yapılamıyor.", "Tanlangan davrda sotuv yo'q — ABC tahlili uchun ma'lumot yo'q.")
@@ -131,23 +178,23 @@ public sealed class AbcSectionView : UserControl
                         Margin = new Thickness(12),
                         TextWrapping = TextWrapping.Wrap,
                         Foreground = Brushes.Gray,
-                    },
-                });
+                    });
             }
 
             foreach (var slice in slices)
             {
-                var view = new SliceView(TableMaxHeight);
+                var view = new SliceView(TableMaxHeight, ScrollsVertically);
                 view.ProductAnalyticsRequested += name => ProductAnalyticsRequested?.Invoke(name);
                 _views.Add(view);
-                _tabs.Items.Add(new TabItem { Header = slice.Title, Content = view });
+                AddPage(slice.Title, view);
             }
 
             // Сезонность считается по всей истории, а не за выбранный период, поэтому она
             // осмысленна даже когда в периоде продаж нет.
             if (_showSeasonality)
-                _tabs.Items.Add(new TabItem { Header = Tr.T("Сезонность", "Мезгилдүүлүк", "Seasonality", "Mevsimsellik", "Mavsumiylik"), Content = _seasonality });
-            _tabs.SelectedIndex = 0;
+                AddPage(Tr.T("Сезонность", "Мезгилдүүлүк", "Seasonality", "Mevsimsellik", "Mavsumiylik"), _seasonality);
+            _segScroll.IsVisible = _pages.Count > 1;
+            Select(0);
         }
 
         for (var i = 0; i < slices.Count; i++)
@@ -225,7 +272,7 @@ public sealed class AbcSectionView : UserControl
         private readonly DataGridTextColumn _valueColumn;
         private readonly DataGridTextColumn _quantityColumn;
 
-        public SliceView(double tableMaxHeight = double.PositiveInfinity)
+        public SliceView(double tableMaxHeight = double.PositiveInfinity, bool scrollsVertically = true)
         {
             _grid.MaxHeight = tableMaxHeight;
             // По строке таблицы — тот же разбор, что и по столбцу диаграммы: искать товар
@@ -239,7 +286,7 @@ public sealed class AbcSectionView : UserControl
             _grid.Columns.Add(new DataGridTemplateColumn
             {
                 Header = Tr.T("Гр.", "Тп.", "Grp", "Gr.", "Gr."),
-                Width = new DataGridLength(54),
+                Width = new DataGridLength(64), // 2026-10-18, доводка О4: заголовок «Гр.» не обрезается
                 CellTemplate = new FuncDataTemplate<RowVm>((row, _) => row is null ? null : new Border
                 {
                     Background = row.GroupBrush,
@@ -318,6 +365,13 @@ public sealed class AbcSectionView : UserControl
                 _groups));
             body.Children.Add(_grid);
 
+            // 2026-10-21 (пакет 2, п. 86): без своей прокрутки — содержимое как есть, прокручивает страница.
+            if (!scrollsVertically)
+            {
+                Content = body;
+                return;
+            }
+
             var scroller = new ScrollViewer
             {
                 Content = body,
@@ -350,20 +404,32 @@ public sealed class AbcSectionView : UserControl
             _quantityColumn.IsVisible = money;
 
             var shown = Math.Min(slice.Rows.Count, 20);
+            // 2026-10-18, доводка О4: без слова «Парето» — простыми словами, что показывает диаграмма.
             _paretoTitle.Text = slice.Rows.Count > shown
-                ? Tr.T("Диаграмма Парето — крупнейшие", "Парето диаграммасы — эң ирилери", "Pareto chart — top items", "Pareto grafiği — en büyükler", "Pareto diagrammasi — eng yiriklari") + $": {shown} / {slice.Rows.Count}"
-                : Tr.T("Диаграмма Парето — все", "Парето диаграммасы — баары", "Pareto chart — all items", "Pareto grafiği — tümü", "Pareto diagrammasi — barchasi") + $": {slice.Rows.Count}";
+                ? Tr.T($"Вклад каждого — первые {shown} из {slice.Rows.Count}", $"Ар биринин салымы — алгачкы {shown} / {slice.Rows.Count}", $"Each item's contribution — top {shown} of {slice.Rows.Count}",
+                    $"Her birinin katkısı — ilk {shown} / {slice.Rows.Count}", $"Har birining hissasi — birinchi {shown} / {slice.Rows.Count}")
+                : Tr.T($"Вклад каждого — все {slice.Rows.Count}", $"Ар биринин салымы — баары {slice.Rows.Count}", $"Each item's contribution — all {slice.Rows.Count}",
+                    $"Her birinin katkısı — tümü {slice.Rows.Count}", $"Har birining hissasi — barchasi {slice.Rows.Count}");
 
             var rightTitle = stock
                 ? Tr.T("Стоимость остатка", "Калдыктын наркы", "Inventory value", "Stok değeri", "Qoldiq qiymati")
                 : slice.IsMoney
                     ? Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum")
                     : Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor");
-            _pyramidTitle.Text = Tr.T("Доля позиций против доли", "Позициялардын жана көрсөткүчтүн үлүшү", "Item share vs. total share", "Kalem payına karşı pay", "Pozitsiyalar ulushi va natija ulushi") + ": " + rightTitle.ToLowerInvariant();
+            // 2026-10-18, доводка О4: заголовок пирамиды простыми словами («Доля позиций против доли: выручка» читалось с трудом).
+            var right = rightTitle.ToLowerInvariant();
+            _pyramidTitle.Text = Tr.T($"Позиции и {right} по группам A · B · C", $"Позициялар жана {right} A · B · C топтору боюнча", $"Items and {right} by group A · B · C",
+                $"Kalemler ve {right}: A · B · C grupları", $"Pozitsiyalar va {right}: A · B · C guruhlari");
             BarChartRenderer.RenderAbcPyramid(_pyramid, slice.Summary,
                 Tr.T("Позиции", "Позициялар", "Items", "Kalemler", "Pozitsiyalar"), rightTitle);
 
-            BarChartRenderer.RenderAbcLegend(_legend, slice.Summary, slice.Unit);
+            // 2026-10-18, доводка О4: «поз.» → словом по срезу (товаров / категорий / брендов).
+            var itemsWord = slice.Key == AnalyticsReportData.KeyCategory
+                ? Tr.T("категорий", "категория", "categories", "kategori", "kategoriya")
+                : slice.Key == AnalyticsReportData.KeyBrand
+                    ? Tr.T("брендов", "бренд", "brands", "marka", "brend")
+                    : Tr.T("товаров", "товар", "products", "ürün", "mahsulot");
+            BarChartRenderer.RenderAbcLegend(_legend, slice.Summary, slice.Unit, itemsWord);
             _paretoHint.Text = Tr.T(
                 "Товары слева направо — от самого весомого к самому мелкому. Высота столбца — доля товара, цвет — его группа. Ломаная сверху — та же доля нарастающим итогом: где она пересекает пунктир 80 %, заканчивается группа A, где 95 % — группа B. Нажмите на столбец, чтобы посмотреть разбор товара.",
                 "Товарлар солдон оңго — эң маанилүүсүнөн эң майдасына чейин. Мамынын бийиктиги — товардын үлүшү, түсү — анын тобу. Үстүндөгү сынык сызык — ошол эле үлүштүн топтолгон жыйынтыгы: ал 80 % пунктирин кесип өткөн жерде A тобу, 95 % пунктирин кесип өткөн жерде B тобу бүтөт. Товардын талдоосун көрүү үчүн мамыны басыңыз.",
@@ -382,7 +448,7 @@ public sealed class AbcSectionView : UserControl
                 .ToList(),
                 name => ProductAnalyticsRequested?.Invoke(name));
             _paretoColumnsTitle.Text = Tr.T(
-                "Парето столбцами", "Парето мамылар менен", "Pareto as bars", "Sütunlarla Pareto", "Ustunli Pareto")
+                "Накопленная доля столбцами", "Топтолгон үлүш мамылар менен", "Cumulative share as bars", "Sütunlarla kümülatif pay", "To'plangan ulush ustunlarda")
                 + $": {shown} / {slice.Rows.Count}";
             _paretoColumnsHint.Text = Tr.T(
                 "Та же картина, но накопленная доля и порог 80 % — столбцами: так их высоты сравниваются напрямую. Где оранжевый столбец перерос серый, заканчивается группа A.",
@@ -402,23 +468,24 @@ public sealed class AbcSectionView : UserControl
                 rightTitle,
                 name => ProductAnalyticsRequested?.Invoke(name));
 
-            BarChartRenderer.RenderAbcGroups(_groups, slice.Summary);
+            BarChartRenderer.RenderAbcGroups(_groups, slice.Summary, itemsWord);
 
             _grid.ItemsSource = slice.Rows.Select(r => new RowVm
             {
                 Group = r.Group,
                 GroupBrush = Brush.Parse(BarChartRenderer.AbcColor(r.Group)),
                 Name = r.Name,
-                QuantityText = r.Quantity.ToString("0.###", CultureInfo.InvariantCulture),
+                QuantityText = r.Quantity.ToString("0.###", CultureInfo.CurrentCulture),
                 SumText = Format(r.Sum, slice.Unit),
-                ShareText = r.Share.ToString("0.##", CultureInfo.InvariantCulture) + " %",
-                CumulativeText = r.Cumulative.ToString("0.##", CultureInfo.InvariantCulture) + " %",
+                // 2026-10-18, доводка О4: проценты с запятой по культуре, как суммы («87,3 %», а не «87.3 %»).
+                ShareText = r.Share.ToString("0.##", CultureInfo.CurrentCulture) + " %",
+                CumulativeText = r.Cumulative.ToString("0.##", CultureInfo.CurrentCulture) + " %",
             }).ToList();
         }
 
         private static string Format(double value, string unit) =>
             unit == "шт." || unit == "даана" || unit == "pcs" || unit == "adet" || unit == "dona"
-                ? value.ToString("0.###", CultureInfo.InvariantCulture) + " " + unit
+                ? value.ToString("0.###", CultureInfo.CurrentCulture) + " " + unit
                 : value.ToString("N2", CultureInfo.CurrentCulture) + " " + unit;
 
         private static Border Card(Control title, Control body) => Card(title, null, body);

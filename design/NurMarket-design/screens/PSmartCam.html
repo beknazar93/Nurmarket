@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Умная камера — снимок полки</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.rb{width:48px;height:48px;border-radius:24px;border:0;background:rgba(255,255,255,.14);color:#FFFFFF;display:flex;align-items:center;justify-content:center}
+.seg{flex-grow:1;height:44px;border-radius:10px;border:0;font-family:inherit;font-size:12px;font-weight:700}
+.shelf{position:absolute;left:0;right:0;height:10px;background:#5B4636;border-radius:2px}
+.box{position:absolute;border-radius:6px}
+.det{position:absolute;border:2.5px solid;border-radius:8px}
+.lab{position:absolute;left:-2px;top:-24px;font-size:10px;font-weight:800;padding:3px 6px;border-radius:6px;white-space:nowrap}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="PSmartCam"><div style="width: 390px; height: 844px; box-sizing: border-box; background: rgb(10, 22, 32); font-family: Montserrat, system-ui, sans-serif; color: rgb(255, 255, 255); display: flex; flex-direction: column;">
+  <header style="padding: 16px 16px 6px; display: flex; align-items: center; gap: 10px;">
+    <button type="button" class="rb" aria-label="Закрыть камеру"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+    <span style="flex-grow: 1; display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(255, 255, 255, 0.1);">
+      <button type="button" class="seg" style="background: rgb(255, 214, 0); color: rgb(11, 42, 60);">Полка</button>
+      <button type="button" class="seg" style="background: transparent; color: rgb(208, 213, 221);">Накладная</button>
+      <button type="button" class="seg" style="background: transparent; color: rgb(208, 213, 221);">Этикетки</button>
+    </span>
+  </header>
+  
+  <div style="padding: 2px 16px 0px; display: flex; align-items: flex-start; gap: 8px;">
+    <span style="flex-grow: 1; font-size: 12px; line-height: 1.35; color: rgb(208, 213, 221);">Полка: новые карточки и сверка «в базе / на полке» — остаток не меняется. Приход товара — «Накладная» (в приёмку).</span>
+    <span style="flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); color: rgb(255, 255, 255); white-space: nowrap;">Администратор</span>
+  </div>
+
+  <div style="flex-grow: 1; position: relative; margin: 6px 12px; border-radius: 20px; background: rgb(42, 35, 28); overflow: hidden;">
+    <div style="position: absolute; left: 14px; right: 14px; top: 40px; height: 200px;">
+      <span class="box" style="left: 6px; bottom: 10px; width: 54px; height: 150px; background: rgb(185, 28, 28);"></span>
+      <span class="box" style="left: 66px; bottom: 10px; width: 54px; height: 150px; background: rgb(185, 28, 28);"></span>
+      <span class="box" style="left: 140px; bottom: 10px; width: 60px; height: 120px; background: rgb(245, 158, 11);"></span>
+      <span class="box" style="left: 206px; bottom: 10px; width: 60px; height: 120px; background: rgb(245, 158, 11);"></span>
+      <span class="box" style="left: 280px; bottom: 10px; width: 56px; height: 96px; background: rgb(74, 222, 128);"></span>
+      <span class="shelf" style="bottom: 0px;"></span>
+      <span class="det" style="left: 2px; bottom: 6px; width: 122px; height: 158px; border-color: rgb(74, 222, 128);"><span class="lab" style="background: rgb(74, 222, 128); color: rgb(10, 22, 32);">похоже: Кока-Кола (ПЭТ) 2л · ×2</span></span>
+      <span class="det" style="left: 136px; bottom: 6px; width: 134px; height: 128px; border-color: rgb(255, 214, 0);"><span class="lab" style="background: rgb(255, 214, 0); color: rgb(10, 22, 32);">Новый · ×2</span></span>
+      <span class="det" style="left: 276px; bottom: 6px; width: 64px; height: 104px; border-color: rgb(255, 214, 0);"><span class="lab" style="background: rgb(255, 214, 0); color: rgb(10, 22, 32);">Новый</span></span>
+    </div>
+    <div style="position: absolute; left: 14px; right: 14px; top: 290px; height: 160px;">
+      <span class="box" style="left: 6px; bottom: 10px; width: 40px; height: 70px; background: rgb(124, 45, 18);"></span>
+      <span class="box" style="left: 52px; bottom: 10px; width: 40px; height: 70px; background: rgb(124, 45, 18);"></span>
+      <span class="box" style="left: 98px; bottom: 10px; width: 40px; height: 70px; background: rgb(124, 45, 18);"></span>
+      <span class="box" style="left: 160px; bottom: 10px; width: 80px; height: 110px; background: rgb(253, 230, 138);"></span>
+      <span class="shelf" style="bottom: 0px;"></span>
+      <span class="det" style="left: 2px; bottom: 6px; width: 140px; height: 78px; border-color: rgb(74, 222, 128);"><span class="lab" style="background: rgb(74, 222, 128); color: rgb(10, 22, 32);">похоже: Mars 50г · ×3</span></span>
+      <span class="det" style="left: 156px; bottom: 6px; width: 88px; height: 118px; border-color: rgb(74, 222, 128);"><span class="lab" style="background: rgb(74, 222, 128); color: rgb(10, 22, 32); max-width: 190px; overflow: hidden; text-overflow: ellipsis;">похоже: Макароны «Макфа» спагетти 450г</span></span>
+      <span class="box" style="left: 262px; bottom: 10px; width: 70px; height: 84px; background: rgb(96, 165, 250);"></span>
+      <span class="det" style="left: 258px; bottom: 6px; width: 78px; height: 92px; border-color: rgb(255, 214, 0);"><span class="lab" style="background: rgb(255, 214, 0); color: rgb(10, 22, 32); left: auto; right: -2px;">Новый</span></span>
+    </div>
+    <span style="position: absolute; left: 0px; right: 0px; bottom: 14px; text-align: center; font-size: 12px; color: rgb(208, 213, 221);">Без штрихкода — «похоже на…»: 0,5 / 1 / 2 л камера не различит</span>
+  </div>
+
+  <div style="padding: 10px 16px 0px; display: flex; gap: 8px; justify-content: center;">
+    <span style="font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; background: rgba(74, 222, 128, 0.16); color: rgb(74, 222, 128); white-space: nowrap;">В базе · 3 — сверить</span>
+    <span style="font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; background: rgba(255, 214, 0, 0.16); color: rgb(255, 214, 0); white-space: nowrap;">Новых · 3 — создать</span>
+  </div>
+
+  <div style="padding: 12px 24px 4px; display: flex; align-items: center; justify-content: space-between;">
+    <button type="button" class="rb" aria-label="Выбрать фото из галереи" style="width: 52px; height: 52px; border-radius: 14px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="9" cy="9" r="2"></circle><path d="M21 16l-5-5-9 9"></path></svg></button>
+    <button type="button" aria-label="Сделать снимок" style="width: 76px; height: 76px; border-radius: 38px; border: 4px solid rgb(255, 255, 255); background: rgb(255, 214, 0);"></button>
+    <button type="button" style="height: 52px; padding: 0px 16px; border-radius: 14px; border: 0px; background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-family: inherit; font-size: 14px; font-weight: 800; white-space: nowrap;">Далее · 6</button>
+  </div>
+  <div style="height: 24px; display: flex; align-items: center; justify-content: center;"><span style="width: 134px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.35);"></span></div></div></div></div>
+
+
+
+</body></html>

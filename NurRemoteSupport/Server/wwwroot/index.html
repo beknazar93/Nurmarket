@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>NurMarket · Поддержка</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <!-- Консоль оператора удалённой поддержки NurMarket (2026-09-29). Протокол: PROTOCOL.md -->
+  <header class="topbar" id="topbar" hidden>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="10.5" r="2.4" fill="currentColor"/></svg>
+      <span>NurMarket <b>Поддержка</b></span>
+    </div>
+    <nav class="nav">
+      <button class="navbtn" data-nav="connect" type="button">Подключение</button>
+      <button class="navbtn" data-nav="journal" type="button">Журнал</button>
+    </nav>
+    <div class="me">
+      <span id="me-name"></span>
+      <button class="btn btn-ghost btn-sm" id="logout" type="button">Выйти</button>
+    </div>
+  </header>
+
+  <!-- Вход -->
+  <main class="center" id="view-login" hidden>
+    <form class="card card-narrow" id="login-form" autocomplete="on">
+      <div class="card-logo">
+        <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="10.5" r="2.4" fill="currentColor"/></svg>
+      </div>
+      <h1>Поддержка NurMarket</h1>
+      <p class="muted">Вход для сотрудников</p>
+      <label class="field"><span>Логин</span>
+        <input id="login-login" name="username" autocomplete="username" required maxlength="64" autocapitalize="off" spellcheck="false">
+      </label>
+      <label class="field"><span>Пароль</span>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required maxlength="256">
+      </label>
+      <div class="error" id="login-error" role="alert"></div>
+      <button class="btn btn-primary btn-block" type="submit" id="login-submit">Войти</button>
+    </form>
+  </main>
+
+  <!-- Код и PIN -->
+  <main class="center" id="view-connect" hidden>
+    <form class="card card-narrow" id="join-form" autocomplete="off">
+      <h1>Подключение к кассе</h1>
+      <p class="muted">Попросите кассира открыть в кассе <b>«Тех. поддержка»</b> и продиктовать код и PIN.</p>
+      <label class="field"><span>Код сеанса</span>
+        <input id="join-code" class="code-input" inputmode="numeric" placeholder="000 000 000" maxlength="11" required>
+      </label>
+      <label class="field"><span>PIN</span>
+        <input id="join-pin" class="pin-input" inputmode="numeric" placeholder="0000" maxlength="4" required>
+      </label>
+      <div class="error" id="join-error" role="alert"></div>
+      <button class="btn btn-primary btn-block" type="submit" id="join-submit">Подключиться</button>
+      <p class="hint">Кассир увидит ваше имя и должен нажать «Разрешить». Код и PIN одноразовые и действуют 15 минут.</p>
+    </form>
+  </main>
+
+  <!-- Ожидание согласия -->
+  <main class="center" id="view-waiting" hidden>
+    <div class="card card-narrow waiting">
+      <div class="spinner" aria-hidden="true"></div>
+      <h1>Ожидаем разрешения кассира…</h1>
+      <p class="muted">На экране кассы появился запрос. Кассир должен нажать «Разрешить».</p>
+      <button class="btn btn-ghost" id="waiting-cancel" type="button">Отменить</button>
+    </div>
+  </main>
+
+  <!-- Просмотр и управление -->
+  <section class="viewer" id="view-viewer" hidden>
+    <div class="toolbar" id="toolbar">
+      <div class="tb-left">
+        <span class="live-dot" id="live-dot" title="Сеанс идёт"></span>
+        <div class="tb-title">
+          <b id="vw-company">—</b>
+          <span id="vw-machine" class="muted"></span>
+        </div>
+      </div>
+      <div class="tb-center">
+        <button class="tbtn" id="tb-viewonly" type="button" aria-pressed="false" title="Только смотреть, без мыши и клавиатуры">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <span>Только просмотр</span>
+        </button>
+        <label class="tselect" title="Качество картинки">
+          <span>Качество</span>
+          <select id="tb-quality">
+            <option value="">авто</option>
+            <option value="30">низкое</option>
+            <option value="50">среднее</option>
+            <option value="70">высокое</option>
+            <option value="90">максимум</option>
+          </select>
+        </label>
+        <label class="tselect" id="tb-monitor-wrap" title="Монитор кассы" hidden>
+          <span>Монитор</span>
+          <select id="tb-monitor"></select>
+        </label>
+        <div class="menu-wrap">
+          <button class="tbtn" id="tb-keys" type="button" aria-haspopup="true" aria-expanded="false" title="Сочетания клавиш, которые браузер не пропускает">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <span>Клавиши</span>
+          </button>
+          <div class="menu" id="keys-menu" hidden>
+            <button type="button" data-combo="ControlLeft,ShiftLeft,Escape">Ctrl+Shift+Esc — диспетчер задач</button>
+            <button type="button" data-combo="AltLeft,Tab">Alt+Tab</button>
+            <button type="button" data-combo="MetaLeft">Win (Пуск)</button>
+            <button type="button" data-combo="MetaLeft,KeyR">Win+R — выполнить</button>
+            <button type="button" data-combo="MetaLeft,KeyD">Win+D — рабочий стол</button>
+            <button type="button" data-combo="AltLeft,F4">Alt+F4 — закрыть окно</button>
+            <button type="button" data-combo="PrintScreen">Print Screen</button>
+            <button type="button" id="tb-cad" class="menu-muted">Ctrl+Alt+Del — не поддерживается</button>
+          </div>
+        </div>
+        <button class="tbtn" id="tb-text" type="button" title="Напечатать или вставить текст на кассе">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5h16v2M12 5v14M9 19h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Текст</span>
+        </button>
+        <button class="tbtn" id="tb-scale" type="button" title="Вписать в окно / реальный размер">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span id="tb-scale-label">Вписать</span>
+        </button>
+        <button class="tbtn" id="tb-fullscreen" type="button" title="Во весь экран">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Во весь экран</span>
+        </button>
+      </div>
+      <div class="tb-right">
+        <span class="stats" id="stats" title="Кадров в секунду · скорость · задержка до сервера">— к/с · — кбит/с · — мс</span>
+        <button class="btn btn-danger btn-sm" id="tb-end" type="button">Завершить</button>
+      </div>
+    </div>
+
+    <div class="banner" id="banner" hidden></div>
+
+    <div class="stage" id="stage">
+      <canvas id="screen" tabindex="0" aria-label="Экран кассы"></canvas>
+      <div class="remote-cursor" id="remote-cursor" hidden>
+        <svg viewBox="0 0 16 22" width="16" height="22" aria-hidden="true"><path d="M1 1v17l4.5-4.2L8.6 21l2.9-1.2-3.1-7H14z" fill="#fff" stroke="#000" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="stage-msg" id="stage-msg">Ждём первый кадр…</div>
+    </div>
+
+    <div class="overlay" id="ended" hidden>
+      <div class="card card-narrow">
+        <h1 id="ended-title">Сеанс завершён</h1>
+        <p class="muted" id="ended-text"></p>
+        <button class="btn btn-primary btn-block" id="ended-ok" type="button">Новое подключение</button>
+      </div>
+    </div>
+
+    <div class="overlay" id="text-dialog" hidden>
+      <form class="card" id="text-form">
+        <h2>Текст на кассу</h2>
+        <p class="muted">Текст будет напечатан там, где сейчас курсор на кассе. Кириллица поддерживается.</p>
+        <textarea id="text-input" rows="5" maxlength="10000" placeholder="Введите или вставьте текст"></textarea>
+        <div class="row-end">
+          <button class="btn btn-ghost" type="button" id="text-cancel">Отмена</button>
+          <button class="btn btn-primary" type="submit">Отправить</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Журнал -->
+  <main class="page" id="view-journal" hidden>
+    <div class="page-head">
+      <h1>Журнал сеансов</h1>
+      <button class="btn btn-ghost btn-sm" id="journal-refresh" type="button">Обновить</button>
+    </div>
+    <h2>Сейчас</h2>
+    <div class="table-wrap">
+      <table class="table" id="active-table">
+        <thead><tr><th>Состояние</th><th>Компания</th><th>Касса</th><th>Версия</th><th>IP кассы</th><th>Оператор</th><th>Начало</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <h2>Последние сеансы</h2>
+    <div class="table-wrap">
+      <table class="table" id="recent-table">
+        <thead><tr><th>Начало</th><th>Оператор</th><th>Компания</th><th>Касса</th><th>Версия</th><th>IP кассы</th><th>Длительность</th><th>Итог</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="error" id="journal-error"></div>
+  </main>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

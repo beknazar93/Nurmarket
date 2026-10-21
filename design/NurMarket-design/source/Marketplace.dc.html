@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Маркетплейс</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="manage" active="Маркетплейс" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <!-- 2026-10-16: заголовок = пункт меню «Маркетплейс»; функции и подписка покупаются только здесь (вкладка «Функции») -->
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Маркетплейс</span><span style="font-size: 13px; color: #667085">Функции и подписка, темы и виды кассы — в одном месте · тема меняет вид экрана кассира на всех кассах</span></span>
+      <span style="font-size: 13px; color: #667085; white-space: nowrap">Тариф «Стандарт» · оплачен до 01.10.2027</span>
+    </div>
+    <div role="tablist" aria-label="Разделы маркетплейса" style="align-self: flex-start; display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+      <button type="button" role="tab" aria-selected="false" style="height: 36px; padding: 0 16px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Функции</button>
+      <button type="button" role="tab" aria-selected="true" style="height: 36px; padding: 0 16px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap">Темы · 11</button>
+      <button type="button" role="tab" aria-selected="false" style="height: 36px; padding: 0 16px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">Виды кассы · <span style="color: #0E7A3A; font-weight: 700">бесплатно</span></button>
+      <button type="button" role="tab" aria-selected="false" style="height: 36px; padding: 0 16px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Ключи</button>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-content: start">
+      <sc-for list="{{themes}}" as="t" hint-placeholder-count="11">
+        <article style="background: #FFFFFF; border-radius: 16px; border: {{t.border}}; overflow: hidden; display: flex; flex-direction: column">
+          <span style="height: 92px; background: {{t.bg}}; padding: 10px; box-sizing: border-box; display: flex; gap: 6px"><span style="width: 20px; border-radius: 6px; background: {{t.rail}}"></span><span style="flex-grow: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px"><span style="border-radius: 6px; background: {{t.card}}; border: 1px solid {{t.line}}"></span><span style="border-radius: 6px; background: {{t.card}}; border: 1px solid {{t.line}}"></span><span style="border-radius: 6px; background: {{t.card}}; border: 1px solid {{t.line}}"></span></span><span style="width: 46px; border-radius: 6px; background: {{t.card}}; border: 1px solid {{t.line}}; display: flex; align-items: flex-end; padding: 4px; box-sizing: border-box"><span style="width: 100%; height: 11px; border-radius: 4px; background: {{t.accent}}"></span></span></span>
+          <span style="padding: 10px 12px; display: flex; flex-direction: column; gap: 3px">
+            <span style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><span style="font-size: 14px; font-weight: 800">{{t.name}}</span><span style="font-size: 12px; font-weight: 800; color: {{t.stateColor}}; white-space: nowrap">{{t.state}}</span></span>
+            <span style="font-size: 12px; color: #667085; line-height: 16px">{{t.note}}</span>
+          </span>
+        </article>
+      </sc-for>
+      <button type="button" style="border-radius: 16px; border: 1.5px dashed #98A2B3; background: transparent; font-family: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 12px; min-height: 150px"><span style="font-size: 14px; font-weight: 800; color: #0B2A3C">+ Своя тема</span><span style="font-size: 12px; color: #667085">Редактор тем · свои цвета</span></button>
+    </div>
+    <span style="font-size: 12px; color: #667085">Все 11 тем входят в тариф · тёмный вариант есть у каждой (Настройки → Оформление) · купленный ключ NMK-… — вкладка «Ключи»</span>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: 11 тем — как в коде (AccentThemeService.AvailableThemes), цвета светлого варианта; в коде у тем цены нет → «входит в тариф».
+    const t = (name, note, bg, rail, card, line, accent, active) => ({ name, note, bg, rail, card, line, accent,
+      state: active ? '✓ Выбрана' : 'входит в тариф', stateColor: active ? '#0E7A3A' : '#475467',
+      border: active ? '2px solid #0B2A3C' : '1px solid #E5E7EB' });
+    return { themes: [
+      t('NurMarket', 'Фирменная: тёмно-синяя навигация, жёлтая главная кнопка', '#F9FAFB', '#0B2A3C', '#FFFFFF', '#E5E7EB', '#FFD600', true),
+      t('Классическая', 'Родной вид кассы, прямые углы — так касса ставится', '#EFF3F8', '#FFFFFF', '#FFFFFF', '#E2E8F0', '#F7D617', false),
+      t('Графит', 'Строгий монохром: серые поверхности, чёрная цена', '#E8EBEF', '#1F2937', '#F8F9FB', '#CDD3DB', '#1F2937', false),
+      t('Закат', 'Тёплая песочная гамма, терракотовый акцент', '#FBE7D8', '#FFF6EE', '#FFF8F2', '#F0CDB0', '#EA580C', false),
+      t('Лесная', 'Спокойная зелёная: мятный фон, тёмно-зелёная цена', '#E3EFE5', '#F2F8F3', '#FFFFFF', '#C3DCC7', '#15803D', false),
+      t('Контрастная', 'Чёрное, белое и жёлтое, крупный шрифт — для яркого света', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#FACC15', false),
+      t('Терминал', 'Моноширинный шрифт, зелёный по тёмному', '#07120A', '#0B1A0E', '#0F2213', '#1E4527', '#22C55E', false),
+      t('Сенсорная', 'Для пальца: плитки вдвое крупнее, кнопки 52 точки', '#E9EEF6', '#F6F9FD', '#FFFFFF', '#CBD8EC', '#2563EB', false),
+      t('Плотная', 'Мелкая сетка — вдвое больше товаров на экране', '#F1F3F5', '#FAFBFC', '#FFFFFF', '#D5DAE0', '#0F766E', false),
+      t('Витрина', 'Фиолетовая шапка, крупное фото товара', '#F5F2FA', '#7C3AED', '#FFFFFF', '#E4DAF7', '#7C3AED', false),
+      t('Кыргыз', 'Красный и золото флага, узор «кочкор мүйүз»', '#F6EDDF', '#C8102E', '#FFFCF7', '#EAD7BC', '#F2B705', false)
+    ] };
+  }
+}
+</script>
+</body>
+</html>

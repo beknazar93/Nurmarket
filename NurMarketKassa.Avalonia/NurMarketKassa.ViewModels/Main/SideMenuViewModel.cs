@@ -25,7 +25,8 @@ public sealed class SideMenuViewModel : ViewModelBase
     private bool _canViewRemoteSupport = true;
     private bool _canViewKnowledgeBase = true;
     private bool _canViewMarketplace = true;
-    private bool _isWorkSectionExpanded;
+    // 2026-10-19, К1 (аудит 19.10, проблема 6: группы свёрнуты — лишний щелчок): «Работа» открыта сразу.
+    private bool _isWorkSectionExpanded = true;
     private bool _isInfoSectionExpanded;
     private bool _isSystemSectionExpanded;
 
@@ -298,8 +299,21 @@ public sealed class SideMenuViewModel : ViewModelBase
         CloseMenuCommand.Execute(null);
     });
 
+    /// <summary>2026-10-17, редизайн (этап 4, «Контроль удалений»): пункт «Удалено из чека» (☰ → Система) — журнал
+    /// строк, убранных из чека на этой кассе. Видят владелец и администратор (право ViewSettings, как «Настройки»);
+    /// окно открывает главное окно кассы.</summary>
+    public Action? NavigateCartRemovalsAction { get; set; }
+
+    private ICommand? _navigateCartRemovalsCommand;
+
+    public ICommand NavigateCartRemovalsCommand => _navigateCartRemovalsCommand ??= new RelayCommand(() =>
+    {
+        CloseMenuCommand.Execute(null);
+        NavigateCartRemovalsAction?.Invoke();
+    });
+
     public bool ShowRental => _navigateRentalAction != null
-                              && (NurMarketKassa.Services.MarketSpheres.IsClothing || NurMarketKassa.Services.MarketSpheres.IsServices)
+                              && NurMarketKassa.Services.MarketSpheres.HasRentals // 2026-10-20: во всех сферах
                               && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.rental");
 
     public void RefreshEntitlements()
@@ -344,7 +358,22 @@ public sealed class SideMenuViewModel : ViewModelBase
         CanViewRemoteSupport &= !Hidden("kassa.support");
         CanViewKnowledgeBase &= !Hidden("kassa.kb");
         CanViewMarketplace &= !Hidden("kassa.marketplace");
+        // 2026-10-18: «Продажи» и «Финансы» — один пункт «Продажи и финансы» (виден, если доступна хотя бы одна часть).
+        OnPropertyChanged(nameof(CanViewSalesFinance));
+        OnPropertyChanged(nameof(SalesFinanceShowsBoth));
+        OnPropertyChanged(nameof(SalesFinanceShowsSalesOnly));
+        OnPropertyChanged(nameof(SalesFinanceShowsFinanceOnly));
     }
+
+    // 2026-10-18, ревью: название пункта — по доступным частям, как в программе владельца:
+    // «Продажи и финансы» / «Продажи» / «Финансы» (строки — csh.menu.salesFinance / sales / finance, 5 языков).
+    public bool SalesFinanceShowsBoth => CanViewFinance && CanViewSales;
+    public bool SalesFinanceShowsSalesOnly => CanViewSales && !CanViewFinance;
+    public bool SalesFinanceShowsFinanceOnly => CanViewFinance && !CanViewSales;
+
+    /// <summary>2026-10-18, решение владельца: пункт «Продажи и финансы» вместо «Финансов» и «Продаж»; что откроется —
+    /// решает MainWindow.NavigateFinance по правам и «Разделам меню» каждой части.</summary>
+    public bool CanViewSalesFinance => CanViewFinance || CanViewSales;
 
     /// <summary>Три раздела меню сворачиваются по клику на заголовок (2026-09-05, по просьбе
     /// пользователя: "приведи в порядок бургер меню, главное что бы там не было так много") —

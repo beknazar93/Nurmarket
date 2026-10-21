@@ -24,7 +24,8 @@ public static class BarChartRenderer
     private static readonly string[] Palette =
         { "#F59E0B", "#3B82F6", "#22C55E", "#A855F7", "#EF4444", "#14B8A6", "#EC4899", "#64748B", "#F97316", "#0EA5E9" };
 
-    public static void Render(StackPanel container, IReadOnlyList<(string Label, double Value, string ValueText)> items)
+    /// <param name="barBrush">2026-10-19, этап О10: один цвет всех полос (рейтинг товаров — не категории); null — палитра, как было.</param>
+    public static void Render(StackPanel container, IReadOnlyList<(string Label, double Value, string ValueText)> items, IBrush? barBrush = null)
     {
         container.Children.Clear();
         if (items.Count == 0)
@@ -45,9 +46,10 @@ public static class BarChartRenderer
         {
             var (label, value, valueText) = items[i];
             var fraction = Math.Clamp(value / max, 0.03, 1.0);
-            var color = Brush.Parse(Palette[i % Palette.Length]);
+            var color = barBrush ?? Brush.Parse(Palette[i % Palette.Length]);
 
-            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("150,*,Auto") };
+            // 2026-10-19, этап О10: подпись 150 → 220 — названия товаров («Сыр «Российский» весовой») целиком.
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("220,*,Auto") };
 
             var labelText = new TextBlock
             {
@@ -347,13 +349,18 @@ public static class BarChartRenderer
             return;
         }
 
-        const double height = 300;
-        const double topPad = 14, bottomPad = 74, leftPad = 42, rightPad = 46;
+        // 2026-10-18, доводка О4: подписи под столбцами длиннее (170 px вместо 62, «Aos Extra…» не обрезается) — поле снизу выше,
+        // справа — место под повёрнутую подпись последнего столбца.
+        const double labelWidth = 170;
+        // 2026-10-21 (пакет 2, п. 86): поле под подписями 134 → 150 (высота 360 → 376, сам график той же высоты): повёрнутая
+        // на 48° подпись в 170 px шрифтом 11 занимает ~142 px — длинные названия больше не срезаются снизу.
+        const double height = 376;
+        const double topPad = 14, bottomPad = 150, leftPad = 42, rightPad = 46;
         const double barWidth = 30, gap = 12;
         const double step = barWidth + gap;
         var plotHeight = height - topPad - bottomPad;
         var plotWidth = step * items.Count;
-        var canvasWidth = leftPad + rightPad + plotWidth;
+        var canvasWidth = leftPad + plotWidth + Math.Max(rightPad, labelWidth * 0.67 - barWidth / 2 - gap / 2 + 8);
 
         var maxShare = items.Max(i => i.Share);
         if (maxShare <= 0) maxShare = 1;
@@ -426,25 +433,16 @@ public static class BarChartRenderer
             };
             ToolTip.SetTip(bar, item.Label + "\n" + item.ValueText
                 + "\n" + Tr.T("Доля", "Үлүшү", "Share", "Pay", "Ulush") + ": "
-                + item.Share.ToString("0.##", CultureInfo.InvariantCulture) + " %"
+                + item.Share.ToString("0.##", CultureInfo.CurrentCulture) + " %"
                 + "\n" + Tr.T("Накопительно", "Топтолгон", "Cumulative", "Kümülatif", "To'plangan") + ": "
-                + item.Cumulative.ToString("0.##", CultureInfo.InvariantCulture) + " %");
+                + item.Cumulative.ToString("0.##", CultureInfo.CurrentCulture) + " %");
             Canvas.SetLeft(bar, x);
             Canvas.SetTop(bar, topPad + plotHeight - barHeight);
             canvas.Children.Add(bar);
 
             // Название под столбцом — повёрнутое: при двух десятках товаров горизонтальные
             // подписи наезжают друг на друга и не читается ни одна.
-            var label = new TextBlock
-            {
-                Text = item.Label,
-                FontSize = 10,
-                Foreground = Brushes.Gray,
-                Width = bottomPad - 12,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                RenderTransform = new RotateTransform(48),
-                RenderTransformOrigin = RelativePoint.TopLeft,
-            };
+            var label = CaptionLabel(container, item.Label, labelWidth);
             Canvas.SetLeft(label, x + barWidth / 2);
             Canvas.SetTop(label, topPad + plotHeight + 6);
             canvas.Children.Add(label);
@@ -472,14 +470,17 @@ public static class BarChartRenderer
             linePoints.Add(new Point(x, y));
         }
 
-        canvas.Children.Add(new Polyline
+        // 2026-10-18, доводка О4: ломаная — цветом текста темы (тёмно-синяя #0F172A на тёмном фоне не была видна).
+        var polyline = new Polyline
         {
             Points = linePoints,
             Stroke = Brush.Parse("#0F172A"),
             StrokeThickness = 2,
             StrokeJoin = PenLineJoin.Round,
             IsHitTestVisible = false,
-        });
+        };
+        polyline.Bind(Shape.StrokeProperty, container.GetResourceObservable("BrushText"));
+        canvas.Children.Add(polyline);
 
         foreach (var point in linePoints)
         {
@@ -492,6 +493,7 @@ public static class BarChartRenderer
                 StrokeThickness = 1.5,
                 IsHitTestVisible = false,
             };
+            dot.Bind(Shape.StrokeProperty, container.GetResourceObservable("BrushText"));
             Canvas.SetLeft(dot, point.X - 3.5);
             Canvas.SetTop(dot, point.Y - 3.5);
             canvas.Children.Add(dot);
@@ -504,6 +506,26 @@ public static class BarChartRenderer
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Height = height + 6,
         });
+    }
+
+    /// <summary>2026-10-21 (пакет 2, п. 86, аудит 18.10: подписи столбцов ABC «обрезаны», серые 10 px плохо читаются): подпись
+    /// под столбцом — шрифт 11 цветом второстепенного текста темы (был постоянный серый 10), полное название — во всплывающей
+    /// подсказке, если не влезло.</summary>
+    private static TextBlock CaptionLabel(Control themeSource, string text, double width)
+    {
+        var label = new TextBlock
+        {
+            Text = text,
+            FontSize = 11,
+            Foreground = Brushes.Gray,
+            Width = width,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            RenderTransform = new RotateTransform(48),
+            RenderTransformOrigin = RelativePoint.TopLeft,
+        };
+        label.Bind(TextBlock.ForegroundProperty, themeSource.GetResourceObservable("BrushTextSoft"));
+        ToolTip.SetTip(label, text);
+        return label;
     }
 
     /// <summary>Та же Парето, но столбцами — как её строят в Excel: на каждый товар три
@@ -539,8 +561,11 @@ public static class BarChartRenderer
         const string ColorThreshold = "#A5A5A5";
         const double Threshold = 80.0;
 
-        const double height = 330;
-        const double topPad = 14, bottomPad = 100, leftPad = 74, rightPad = 52;
+        // 2026-10-18, доводка О4: подписи под группами столбцов не обрезаются (см. RenderPareto).
+        const double labelWidth = 170;
+        // 2026-10-21 (пакет 2, п. 86): поле под подписями 130 → 150, как в RenderPareto.
+        const double height = 380;
+        const double topPad = 14, bottomPad = 150, leftPad = 74, rightPad = 52;
         const double barWidth = 13, innerGap = 2, groupGap = 18;
         var groupWidth = barWidth * 3 + innerGap * 2;
         var step = groupWidth + groupGap;
@@ -550,7 +575,7 @@ public static class BarChartRenderer
         var maxValue = items.Max(i => i.Value);
         if (maxValue <= 0) maxValue = 1;
 
-        var canvas = new Canvas { Width = leftPad + rightPad + plotWidth, Height = height };
+        var canvas = new Canvas { Width = leftPad + plotWidth + Math.Max(rightPad, labelWidth * 0.67 - groupWidth / 2 - groupGap / 2 + 8), Height = height };
         var gridBrush = new SolidColorBrush(Color.Parse("#94A3B8"), 0.35);
 
         for (var percent = 0; percent <= 100; percent += 20)
@@ -594,7 +619,7 @@ public static class BarChartRenderer
             var groupX = leftPad + i * step + groupGap / 2;
             var tip = item.Label + "\n" + valueTitle + ": " + item.ValueText + "\n"
                 + Tr.T("Накопительно", "Топтолгон", "Cumulative", "Kümülatif", "To'plangan") + ": "
-                + item.Cumulative.ToString("0.##", CultureInfo.InvariantCulture) + " %";
+                + item.Cumulative.ToString("0.##", CultureInfo.CurrentCulture) + " %";
 
             void AddBar(int index, double fraction, string color)
             {
@@ -617,16 +642,7 @@ public static class BarChartRenderer
             AddBar(1, Math.Clamp(item.Cumulative, 0, 100) / 100.0, ColorCumulative);
             AddBar(2, Threshold / 100.0, ColorThreshold);
 
-            var caption = new TextBlock
-            {
-                Text = item.Label,
-                FontSize = 10,
-                Foreground = Brushes.Gray,
-                Width = bottomPad - 14,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                RenderTransform = new RotateTransform(48),
-                RenderTransformOrigin = RelativePoint.TopLeft,
-            };
+            var caption = CaptionLabel(container, item.Label, labelWidth);
             Canvas.SetLeft(caption, groupX + groupWidth / 2);
             Canvas.SetTop(caption, topPad + plotHeight + 6);
             canvas.Children.Add(caption);
@@ -737,9 +753,10 @@ public static class BarChartRenderer
             Canvas.SetTop(canvas.Children[^1], 0);
         }
 
-        Header(leftX, columnWidth, leftTitle.ToUpperInvariant());
-        Header(leftX + columnWidth, columnGap, Tr.T("СЕГМЕНТЫ", "СЕГМЕНТТЕР", "SEGMENTS", "SEGMENTLER", "SEGMENTLAR"));
-        Header(rightX, columnWidth, rightTitle.ToUpperInvariant());
+        // 2026-10-18, этап О4 (аудит «Продажи»): подписи обычным регистром, без ЗАГЛАВНЫХ; посередине — группы A/B/C.
+        Header(leftX, columnWidth, leftTitle);
+        Header(leftX + columnWidth, columnGap, Tr.T("Группы", "Топтор", "Groups", "Gruplar", "Guruhlar"));
+        Header(rightX, columnWidth, rightTitle);
 
         // Полоса группы: высота пропорциональна доле, подпись — процент внутри полосы.
         double DrawBand(double x, double y, double share, string group)
@@ -752,7 +769,7 @@ public static class BarChartRenderer
                 Background = Brush.Parse(AbcColor(group)),
                 Child = new TextBlock
                 {
-                    Text = share.ToString("0.#", CultureInfo.InvariantCulture) + " %",
+                    Text = share.ToString("0.#", CultureInfo.CurrentCulture) + " %", // 2026-10-18, доводка О4: запятая по культуре
                     FontSize = 13,
                     FontWeight = FontWeight.Bold,
                     Foreground = Brushes.White,
@@ -833,7 +850,8 @@ public static class BarChartRenderer
     /// диаграммой Парето на этой же вкладке.</summary>
     public static void RenderAbcGroups(
         StackPanel container,
-        IReadOnlyList<(string Group, int Count, double Sum, double Share)> summary)
+        IReadOnlyList<(string Group, int Count, double Sum, double Share)> summary,
+        string? itemsWord = null)
     {
         container.Children.Clear();
         if (summary.Count == 0)
@@ -872,7 +890,7 @@ public static class BarChartRenderer
 
             column.Children.Add(new TextBlock
             {
-                Text = group.Share.ToString("0.#", CultureInfo.InvariantCulture) + " %",
+                Text = group.Share.ToString("0.#", CultureInfo.CurrentCulture) + " %",
                 FontSize = 13,
                 FontWeight = FontWeight.Bold,
                 TextAlignment = TextAlignment.Center,
@@ -899,7 +917,8 @@ public static class BarChartRenderer
 
             column.Children.Add(new TextBlock
             {
-                Text = group.Count.ToString(CultureInfo.InvariantCulture) + " " + Tr.T("поз.", "поз.", "items", "kalem", "poz."),
+                // 2026-10-18, доводка О4: «товаров: 4» вместо «4 поз.».
+                Text = (itemsWord ?? Tr.T("позиций", "позиция", "items", "kalem", "pozitsiya")) + ": " + group.Count.ToString(CultureInfo.CurrentCulture),
                 FontSize = 11,
                 Foreground = Brushes.Gray,
                 TextAlignment = TextAlignment.Center,
@@ -915,7 +934,8 @@ public static class BarChartRenderer
     public static void RenderAbcLegend(
         StackPanel container,
         IReadOnlyList<(string Group, int Count, double Sum, double Share)> summary,
-        string unit = "сом")
+        string unit = "сом",
+        string? itemsWord = null)
     {
         container.Children.Clear();
         if (summary.Count == 0)
@@ -940,9 +960,11 @@ public static class BarChartRenderer
             });
             chip.Children.Add(new TextBlock
             {
-                Text = group.Group + ": " + group.Count.ToString(CultureInfo.InvariantCulture)
-                    + " " + Tr.T("поз.", "поз.", "items", "kalem", "poz.") + " — " + group.Sum.ToString(unit == "шт." || unit == "даана" ? "0.###" : "N0", CultureInfo.CurrentCulture)
-                    + " " + unit + " (" + group.Share.ToString("0.#", CultureInfo.InvariantCulture) + " %)",
+                // 2026-10-18, доводка О4: «A — товаров: 4 · 6 476 сом (87,3 %)» вместо «A: 4 поз. — … (87.3 %)».
+                Text = group.Group + " — " + (itemsWord ?? Tr.T("позиций", "позиция", "items", "kalem", "pozitsiya")) + ": "
+                    + group.Count.ToString(CultureInfo.CurrentCulture)
+                    + " · " + group.Sum.ToString(unit == "шт." || unit == "даана" ? "0.###" : "N0", CultureInfo.CurrentCulture)
+                    + " " + unit + " (" + group.Share.ToString("0.#", CultureInfo.CurrentCulture) + " %)",
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
             });

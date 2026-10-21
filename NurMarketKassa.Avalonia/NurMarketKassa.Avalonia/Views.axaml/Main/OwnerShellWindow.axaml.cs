@@ -53,20 +53,12 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private const int RecentRows = 8;
 
-    // Цвета способов оплаты. Цветом выделена только точка/полоса, подпись — обычным цветом текста
-    // темы, поэтому читается одинаково в светлой и тёмной теме.
-    private static readonly Dictionary<string, Color> PaymentColors = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["cash"] = Color.Parse("#16A34A"),
-        ["transfer"] = Color.Parse("#3B82F6"),
-        ["card"] = Color.Parse("#3B82F6"),
-        ["mbank"] = Color.Parse("#06B6D4"),
-        ["mixed"] = Color.Parse("#8B5CF6"),
-        ["split"] = Color.Parse("#8B5CF6"),
-        ["debt"] = Color.Parse("#F59E0B"),
-    };
+    // 2026-10-18, этап О1 (редизайн сводки): цвета способов оплаты (зелёный/синий/фиолетовый) убраны — у цвета одна роль,
+    // способы различаются оттенком цвета текста темы (ApplyPayments).
 
-    private static readonly Color OtherPaymentColor = Color.Parse("#94A3B8");
+    /// <summary>2026-10-18, этап О1: уже этого (ширина сводки) — показатели 2×2, ещё шире на 100 — колонки рядом.</summary>
+    private const double KpiNarrowWidth = 900;
+    private const double RowsNarrowWidth = 1000;
 
     private readonly DispatcherTimer _timer;
     private readonly CancellationTokenSource _cts = new();
@@ -80,6 +72,7 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     // Прошлый период не меняется — берём его отчёт один раз на период (и на новый день).
     private string? _compareKey;
+    private double _lastMargin;
     private JsonElement? _compareCards;
 
     // 2026-09-30, «проверь бота, он не работает»: команды бота слушала только касса, а бота
@@ -139,7 +132,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         var w = OverviewScroll.Bounds.Width;
         if (w <= 0)
             return;
-        var narrow = _narrowKpi ? w < 800 : w < 760;
+        // 2026-10-18, этап О1: и в Windows — на 1024×768 с открытым меню (сводка ≈ 770) показатели 2×2.
+        var narrow = _narrowKpi ? w < KpiNarrowWidth + 40 : w < KpiNarrowWidth;
         if (narrow == _narrowKpi)
             return;
         _narrowKpi = narrow;
@@ -157,16 +151,24 @@ public partial class OwnerShellWindow : Window, IMainShell
     public OwnerShellWindow()
     {
         InitializeComponent();
+        // 2026-10-18, этап О2: цвета тёмной колонки групп — из темы, пересчёт при смене темы (OwnerShellWindow.Nav.cs).
+        ApplyRailBrushes();
+        ResourcesChanged += (_, _) => QueueRailBrushes();
+        ActualThemeVariantChanged += (_, _) => QueueRailBrushes();
+        // До 1366 точек колонка пунктов меню сворачивается сама, пока открыт раздел.
+        SizeChanged += (_, _) => OnShellSizeChangedForNav();
         // 2026-10-04, владелец: «у владельца тоже адаптацию под экраны сделай» (Android, вертикальный телефон).
         // «Сводка»: на узком месте показатели — 2×2, «Выручка | Способы оплаты» и «Последние | Лучшие» — друг под другом.
-        if (OperatingSystem.IsAndroid())
-        {
-            NarrowStack.Attach(OverviewScroll, OverviewRow1, 760, "Auto,16,Auto");
-            NarrowStack.Attach(OverviewScroll, OverviewRow2, 760, "Auto,16,Auto");
-            OverviewScroll.SizeChanged += (_, _) => ApplyNarrowKpiGrid();
-        }
+        // 2026-10-18, этап О1 (редизайн сводки): то же и в Windows/Linux — на 1024×768 колонки сводки складываются
+        // друг под друга (было только на Android, а окно владельца на 1024 обрезалось справа).
+        NarrowStack.Attach(OverviewScroll, OverviewRow1, RowsNarrowWidth, "Auto,16,Auto");
+        NarrowStack.Attach(OverviewScroll, OverviewRow2, RowsNarrowWidth, "Auto,16,Auto");
+        OverviewScroll.SizeChanged += (_, _) => ApplyNarrowKpiGrid();
+        HeaderGrid.SizeChanged += (_, _) => FitHeaderTools();
         // 2026-10-04, редизайн под Android-телефон: меню по «≡», без кнопок окна (OwnerShellWindow.Phone.cs).
         AttachPhoneLayout();
+        // 2026-10-18: вид меню на выбор — новое / бургер ☰ / старое (OwnerShellWindow.MenuStyle.cs).
+        AttachMenuStyle();
         // 2026-10-05: на «Старте» подключили (или истёк тестовый доступ) пакет «Стандарта» — меню сразу по тарифу.
         TariffGate.PacksChanged += () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(); _ = RefreshDebtsCardAsync(force: true); });
         SectionVisibility.Changed += () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(); _ = RefreshDebtsCardAsync(force: true); });
@@ -202,6 +204,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             // 2026-10-02: сроки проката — значок у «Проката», карточка в меню и напоминание в Телеграм.
             RentalDueNotifier.Changed += OnRentalDueChanged;
             RentalDueNotifier.Start((status, token) => App.GetRequiredService<NurMarketKassa.Services.Api.RentalsApi>().ListAsync(status, token));
+            // 2026-10-21, И3 «Утренний отчёт» Нур Советника: планировщик (в 9:00 или при первом запуске после 9:00 — карточка и Telegram владельцу).
+            OwnerMorningReport.Start();
             // Заказы с сайта — после сводки, чтобы первые запросы не шли пачкой.
             // 2026-09-30: опрос «Закупок» и значок — только когда список заказов включён.
             if (ShowcaseApiService.OrdersListEnabled)
@@ -231,11 +235,6 @@ public partial class OwnerShellWindow : Window, IMainShell
         LanSyncService.Instance.PeerDataChanged += OnLanPeerData;
         PosDataEvents.SalesChanged += OnSalesChangedForAbc;
         ShowcaseApiService.NewOrdersCountChanged += OnSiteOrdersCountChanged;
-        OverviewScroll.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == BoundsProperty)
-                FitAbcHeight();
-        };
         UseBrush(LiveDot, Shape.FillProperty, "BrushSuccess");
 
         Closing += (_, _) => CloseAllSections();
@@ -330,7 +329,8 @@ public partial class OwnerShellWindow : Window, IMainShell
     private void ApplyTexts()
     {
         Title = Tr.T("NurMarket Владелец", "NurMarket Ээси", "NurMarket Owner", "NurMarket İşletme Sahibi", "NurMarket Egasi");
-        OwnerBadgeText.Text = Tr.T("Владелец", "Ээси", "Owner", "İşletme sahibi", "Egasi");
+        // 2026-10-18, этап О2: подписи «NurMarket / Владелец» у логотипа в тёмной колонке нет — во всплывающей подсказке.
+        ToolTip.SetTip(LogoImage, "NurMarket · " + Tr.T("Владелец", "Ээси", "Owner", "İşletme sahibi", "Egasi"));
 
         var company = CompanyInfoService.LastCompany;
         CompanyNameText.Text = string.IsNullOrWhiteSpace(company?.Name) ? "NurCRM" : company!.Name;
@@ -342,16 +342,42 @@ public partial class OwnerShellWindow : Window, IMainShell
         TariffText.Text = tariff;
         TariffText.IsVisible = tariff.Length > 0;
         // 2026-10-06, редизайн: в узком меню дата тарифа обрезалась («до 01.…») — полностью во всплывающей подсказке.
+        // 2026-10-18, этап О2: тариф переносится строкой (колонка пунктов шире), подсказка оставлена.
         ToolTip.SetTip(CompanyCard, CompanyNameText.Text + (tariff.Length > 0 ? "\n" + tariff : ""));
 
+        // 2026-10-18, этап О2 (макет OwnerNav): пользователь — кружок с буквами внизу тёмной колонки, имя — в подсказке.
         var name = PosApp.CurrentUserDisplayName ?? "";
-        UserNameText.Text = string.IsNullOrWhiteSpace(name) ? Tr.T("Пользователь", "Колдонуучу", "User", "Kullanıcı", "Foydalanuvchi") : name;
-        UserRoleText.Text = Tr.T("Вход через NurCRM", "NurCRM аркылуу кирүү", "Signed in via NurCRM", "NurCRM ile giriş", "NurCRM orqali kirish");
+        var userLine = (string.IsNullOrWhiteSpace(name) ? Tr.T("Пользователь", "Колдонуучу", "User", "Kullanıcı", "Foydalanuvchi") : name)
+                       + "\n" + Tr.T("Вход через NurCRM", "NurCRM аркылуу кирүү", "Signed in via NurCRM", "NurCRM ile giriş", "NurCRM orqali kirish");
         AvatarText.Text = Initials(name);
-        ToolTip.SetTip(ThemeButton, Tr.T("Светлая / тёмная тема", "Жарык / караңгы тема", "Light / dark theme", "Açık / koyu tema", "Yorug' / qorong'i mavzu"));
-        ToolTip.SetTip(ExitButton, Tr.T("Выйти на рабочий стол", "Иш столуна чыгуу", "Exit to desktop", "Masaüstüne çık", "Ish stoliga chiqish"));
+        ToolTip.SetTip(AvatarBadge, userLine);
+        Avalonia.Automation.AutomationProperties.SetName(AvatarBadge, userLine.Replace("\n", ", "));
+        ThemeLabel.Text = Tr.T("Тема", "Тема", "Theme", "Tema", "Mavzu");
+        ExitLabel.Text = Tr.T("Выйти", "Чыгуу", "Exit", "Çık", "Chiqish");
+        var themeTip = Tr.T("Светлая / тёмная тема", "Жарык / караңгы тема", "Light / dark theme", "Açık / koyu tema", "Yorug' / qorong'i mavzu");
+        var exitTip = Tr.T("Выйти на рабочий стол", "Иш столуна чыгуу", "Exit to desktop", "Masaüstüne çık", "Ish stoliga chiqish");
+        ToolTip.SetTip(ThemeButton, themeTip);
+        ToolTip.SetTip(ExitButton, exitTip);
         ToolTip.SetTip(RefreshButton, Tr.T("Обновить сейчас", "Азыр жаңыртуу", "Refresh now", "Şimdi yenile", "Hozir yangilash"));
-        ToolTip.SetTip(CollapseButton, Tr.T("Свернуть / развернуть меню", "Менюну жыйноо / ачуу", "Collapse / expand menu", "Menüyü daralt / genişlet", "Menyuni yig'ish / yoyish"));
+        var collapseTip = Tr.T(
+            "Свернуть колонку пунктов. На экране до 1366 точек она сворачивается сама, когда открыт раздел",
+            "Пункттар тилкесин жыйноо. 1366 чекиттен кичине экранда бөлүм ачылганда өзү жыйылат",
+            "Collapse the items column. On screens up to 1366 px it collapses by itself while a section is open",
+            "Öğe sütununu daralt. 1366 piksele kadar ekranlarda bir bölüm açıkken kendiliğinden daralır",
+            "Bandlar ustunini yig'ish. 1366 nuqtagacha ekranda bo'lim ochiq bo'lsa, o'zi yig'iladi");
+        var expandTip = Tr.T("Развернуть колонку пунктов", "Пункттар тилкесин ачуу", "Expand the items column", "Öğe sütununu genişlet", "Bandlar ustunini yoyish");
+        ToolTip.SetTip(CollapseButton, collapseTip);
+        ToolTip.SetTip(ExpandNavButton, expandTip);
+        // 2026-10-18, этап О2 (правило аудита 10): у кнопок-значков — имя для экранного диктора (было «Avalonia.Controls.Grid»).
+        Avalonia.Automation.AutomationProperties.SetName(ThemeButton, themeTip);
+        Avalonia.Automation.AutomationProperties.SetName(ExitButton, exitTip);
+        Avalonia.Automation.AutomationProperties.SetName(CollapseButton, Tr.T("Свернуть колонку пунктов", "Пункттар тилкесин жыйноо", "Collapse the items column", "Öğe sütununu daralt", "Bandlar ustunini yig'ish"));
+        Avalonia.Automation.AutomationProperties.SetName(ExpandNavButton, expandTip);
+        Avalonia.Automation.AutomationProperties.SetName(RefreshButton, Tr.T("Обновить сейчас", "Азыр жаңыртуу", "Refresh now", "Şimdi yenile", "Hozir yangilash"));
+        Avalonia.Automation.AutomationProperties.SetName(NavSearchText, Tr.T("Найти раздел (Ctrl+K)", "Бөлүмдү табуу (Ctrl+K)", "Find a section (Ctrl+K)", "Bölüm bul (Ctrl+K)", "Bo'limni topish (Ctrl+K)"));
+        Avalonia.Automation.AutomationProperties.SetName(RentalAlertClose, Tr.T("Скрыть", "Жашыруу", "Hide", "Gizle", "Yashirish"));
+        // 2026-10-18: кнопка «Вид» и подписи старого вида меню.
+        ApplyMenuStyleTexts();
         UpdateThemeIcon();
 
         DashboardTitle.Text = Tr.T("Сводка", "Жыйынтык", "Overview", "Özet", "Umumiy ko'rinish");
@@ -359,6 +385,10 @@ public partial class OwnerShellWindow : Window, IMainShell
         var culture = UiCulture;
         var today = DateTime.Today.ToString("dddd, d MMMM yyyy", culture);
         DateText.Text = today.Length > 0 ? char.ToUpper(today[0], culture) + today[1..] : today;
+        // 2026-10-18, этап О1: на узкой шапке (1024×768) — без дня недели (FitHeaderTools).
+        _dateFull = DateText.Text;
+        _dateShort = DateTime.Today.ToString("d MMMM yyyy", culture);
+        FitHeaderTools();
         TodayButton.Content = Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun");
         WeekButton.Content = Tr.T("Неделя", "Жума", "Week", "Hafta", "Hafta");
         MonthButton.Content = Tr.T("Месяц", "Ай", "Month", "Ay", "Oy");
@@ -369,13 +399,26 @@ public partial class OwnerShellWindow : Window, IMainShell
         RevenueLabel.Text = Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum");
         ChecksLabel.Text = Tr.T("Чеки", "Чектер", "Receipts", "Fişler", "Cheklar");
         AvgLabel.Text = Tr.T("Средний чек", "Орточо чек", "Average receipt", "Ortalama fiş", "O'rtacha chek");
-        ProfitLabel.Text = Tr.T("Валовая прибыль", "Дүң пайда", "Gross profit", "Brüt kâr", "Yalpi foyda");
+        // 2026-10-18, ревью О1: маржа последних карточек сохраняется и при смене языка.
+        ProfitLabel.Text = Tr.T("Валовая прибыль", "Дүң пайда", "Gross profit", "Brüt kâr", "Yalpi foyda")
+                           + (_lastMargin != 0 ? " · " + Percent(_lastMargin) : "");
+        // 2026-10-19, этап О10: «как считается» — подсказкой у плитки (те же слова, что в Аналитике и «Прибыли и деньгах»).
+        if (ProfitLabel.Parent?.Parent is Control profitCard)
+            ToolTip.SetTip(profitCard, ProfitTerms.GrossHow);
 
-        ChartTitle.Text = _period == "month"
+        ChartTitle.Text = (_period == "month"
             ? Tr.T("Выручка по дням месяца", "Айдын күндөрү боюнча түшүм", "Revenue by day this month", "Ayın günlerine göre ciro", "Oy kunlari bo'yicha tushum")
             : _period == "custom"
                 ? Tr.T("Выручка по дням периода", "Мезгилдин күндөрү боюнча түшүм", "Revenue by day for the period", "Dönemin günlerine göre ciro", "Davr kunlari bo'yicha tushum")
-                : Tr.T("Выручка за 7 дней", "7 күндүк түшүм", "Revenue, last 7 days", "Son 7 günün cirosu", "7 kunlik tushum");
+                : Tr.T("Выручка за 7 дней", "7 күндүк түшүм", "Revenue, last 7 days", "Son 7 günün cirosu", "7 kunlik tushum"))
+            // 2026-10-18, этап О1: подписи над столбцами — в одной единице (тыс. сом), она названа в заголовке.
+            + (ChartHasLabels ? ", " + ThousandSom() : "");
+        AttentionTitle.Text = Tr.T("Требует внимания", "Көңүл буруу керек", "Needs attention", "Dikkat gerektirenler", "E'tibor talab qiladi");
+        // 2026-10-18, ревью О1: «Загрузка…» / «Всё в порядке» — по тому, что уже загружено (RenderAttention).
+        RenderAttention();
+        AskAiText.Text = Tr.T("Спросить Нур Советника", "Нур Кеңешчиден суроо", "Ask Nur Advisor", "Nur Danışman'a sor", "Nur Maslahatchidan so'rash");
+        ToolTip.SetTip(AskAiButton, AskAiText.Text);
+        Avalonia.Automation.AutomationProperties.SetName(AskAiButton, AskAiText.Text);
         ChartEmptyText.Text = Tr.T("Продаж за эти дни нет", "Бул күндөрү сатуу жок", "No sales on these days", "Bu günlerde satış yok", "Bu kunlarda sotuv yo'q");
         PaymentsTitle.Text = Tr.T("Способы оплаты", "Төлөм ыкмалары", "Payment methods", "Ödeme yöntemleri", "To'lov usullari");
         PaymentsEmptyText.Text = Tr.T("Оплат пока нет", "Азырынча төлөм жок", "No payments yet", "Henüz ödeme yok", "Hozircha to'lov yo'q");
@@ -385,11 +428,9 @@ public partial class OwnerShellWindow : Window, IMainShell
         RecentEmptyText.Text = Tr.T("За этот период продаж нет", "Бул мезгилде сатуу жок", "No sales in this period", "Bu dönemde satış yok", "Bu davrda sotuv yo'q");
         TopTitle.Text = Tr.T("Лучшие товары", "Мыкты товарлар", "Top products", "En çok satanlar", "Eng yaxshi mahsulotlar");
         TopEmptyText.Text = Tr.T("Пока нечего показать", "Азырынча көрсөтө турган эч нерсе жок", "Nothing to show yet", "Henüz gösterilecek bir şey yok", "Hozircha ko'rsatadigan narsa yo'q");
-        LowStockTitle.Text = Tr.T("Заканчивается на складе", "Кампада түгөнүп баратат", "Running low in stock", "Stokta azalanlar", "Omborda tugayapti");
-        LowStockLinkText.Text = Tr.T("Пополнение", "Толуктоо", "Restock", "Stok yenileme", "To'ldirish");
-        LowStockEmptyText.Text = Tr.T("Всего хватает — остатки в норме", "Баары жетиштүү — калдыктар нормада", "Everything is in stock", "Her şey stokta", "Hammasi yetarli — qoldiqlar me'yorida");
-        LowStockLink.IsVisible = TariffGate.CanUseRestock;
-        AbcTitle.Text = Tr.T("ABC-анализ по всем срезам", "Бардык кесилиштер боюнча ABC-анализ", "ABC analysis — all views", "Tüm kırılımlarda ABC analizi", "Barcha kesimlar bo'yicha ABC tahlili");
+        // 2026-10-18, этап О1: «Заканчивается на складе» — строками блока «Требует внимания» (OwnerShellWindow.Attention.cs).
+        // 2026-10-21 (пакет 2, п. 73, 86): без «срезов» — что показывает блок, простыми словами.
+        AbcTitle.Text = Tr.T("ABC-анализ: что приносит больше всего денег", "ABC-анализ: эмне көбүрөөк акча алып келет", "ABC analysis: what brings in the most money", "ABC analizi: en çok parayı ne getiriyor", "ABC tahlili: eng ko'p pulni nima keltiradi");
         AbcHint.Text = Tr.T(
             "За выбранный период: выручка, прибыль, количество, категории и бренды; склад по стоимости остатка — на сейчас. Нажмите на столбец, чтобы посмотреть разбор товара.",
             "Тандалган мезгил үчүн: түшүм, пайда, саны, категориялар жана бренддер; калдыктын наркы боюнча кампа — азыркы абалы. Товардын талдоосун көрүү үчүн мамыны басыңыз.",
@@ -416,20 +457,24 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// склад и настройки, как на сайте). Недоступные разделы не показываются — как в кассе.</summary>
     private void BuildNavigation()
     {
+        // 2026-10-18: поиск и пункты — в колонку выбранного вида меню (OwnerShellWindow.MenuStyle.cs).
+        EnsureMenuStyleParts();
+        _oldGroupHeaders.Clear();
         NavPanel.Children.Clear();
+        RailPanel.Children.Clear();
         _navButtons.Clear();
-        // 2026-10-06, редизайн меню: пункты и группы — для поиска раздела и сворачивания групп (OwnerShellWindow.NavSearch.cs).
+        // 2026-10-06, редизайн меню: пункты и группы — для поиска раздела (OwnerShellWindow.NavSearch.cs).
+        // 2026-10-18, этап О2: группы — кнопками тёмной колонки, пункты выбранной группы — в колонке пунктов (OwnerShellWindow.Nav.cs).
         _navEntries.Clear();
-        _navGroupHeaders.Clear();
+        _navGroups.Clear();
         _siteOrdersBadge = null;
         _rentalsBadge = null;
         var pendingGroup = (string?)null;
         var pendingGroupKey = (string?)null;
         var currentGroupKey = (string?)null;
 
-        // 2026-10-04: на телефоне меню открывается на весь экран — всегда с подписями (OwnerShellWindow.Phone.cs).
-        var collapsed = UserPreferences.Instance.OwnerSidebarCollapsed && !_phoneLayout;
-        ApplySidebarLayout(collapsed);
+        // 2026-10-04: на телефоне меню открывается на весь экран — всегда с колонкой пунктов (OwnerShellWindow.Phone.cs).
+        ApplySidebarLayout();
 
         void Group(string groupKey, string title)
         {
@@ -437,6 +482,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             pendingGroupKey = groupKey;
         }
 
+        // iconKey — значок пункта прежнего меню; 2026-10-18, этап О2: у пунктов значков нет (значки — у групп, как в макете).
         void Add(string key, string iconKey, string text, bool visible, Action open)
         {
             _navTitles[key] = text;
@@ -446,64 +492,35 @@ public partial class OwnerShellWindow : Window, IMainShell
 
             if (pendingGroup != null)
             {
-                // В свёрнутом меню вместо подписи группы — тонкая черта; в развёрнутом — заголовок, который сворачивает группу.
-                NavPanel.Children.Add(collapsed
-                    ? new Border { Height = 1, Margin = new Thickness(8, 10), Background = Brushes.Transparent, Classes = { "navGroupLine" } }
-                    : NavGroupHeader(pendingGroupKey!, pendingGroup));
+                // Группа появляется только с первым видимым пунктом — группа, где всё скрыто правами, тарифом или «Разделами
+                // меню», в тёмной колонке не показывается.
+                AddNavGroup(pendingGroupKey!, pendingGroup);
                 currentGroupKey = pendingGroupKey;
                 pendingGroup = null;
             }
 
-            var content = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
-            if (this.TryFindResource(iconKey, out var icon) && icon is Geometry geometry)
-                content.Children.Add(new Path { Data = geometry, Classes = { "navIcon" } });
-            var label = new TextBlock
-            {
-                Text = text,
-                Margin = new Thickness(12, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-            };
-            Grid.SetColumn(label, 1);
-            content.Children.Add(label);
-            // 2026-09-29: у «Заказов с сайта» — число новых заказов (в свёрнутом меню — над иконкой).
-            // 2026-10-02: у «Проката» — сколько вернуть сегодня/завтра и просрочено.
-            if (key is "siteorders" or "rentals")
-            {
-                content.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-                var badge = new Border { Classes = { "navBadge" }, Child = new TextBlock(), IsVisible = false };
-                if (collapsed)
-                {
-                    badge.HorizontalAlignment = HorizontalAlignment.Right;
-                    badge.VerticalAlignment = VerticalAlignment.Top;
-                    badge.Margin = new Thickness(0, -9, -12, 0);
-                }
-                else
-                {
-                    badge.Margin = new Thickness(8, 0, 0, 0);
-                    Grid.SetColumn(badge, 2);
-                }
-                content.Children.Add(badge);
-                if (key == "siteorders")
-                    _siteOrdersBadge = badge;
-                else
-                    _rentalsBadge = badge;
-            }
-
-            var button = new Button { Content = content, Classes = { "nav" } };
-            ToolTip.SetTip(button, text);
-            if (collapsed)
-            {
-                label.IsVisible = false;
-                button.Padding = new Thickness(0);
-                button.HorizontalContentAlignment = HorizontalAlignment.Center;
-            }
+            // 2026-09-29: у «Заказов с сайта» — число новых заказов; 2026-10-02: у «Проката» — сколько вернуть сегодня/завтра и просрочено.
+            // 2026-10-18: в старом виде — пункт со значком (iconKey), как в выпуске 1.17.58.
+            Border? badge;
+            var button = OldMenu ? OldNavItemButton(key, iconKey, text, out badge) : NavItemButton(key, text, out badge);
+            if (key == "siteorders")
+                _siteOrdersBadge = badge;
+            else if (key == "rentals")
+                _rentalsBadge = badge;
             _navButtons[key] = button;
             _navEntries.Add(new NavEntry(key, text, currentGroupKey, button, open));
             button.Click += (_, _) =>
             {
                 // 2026-10-04, телефон: выбор пункта закрывает меню на весь экран.
                 SetPhoneMenu(false);
+                // 2026-10-18, вид «Бургер ☰»: выехавшее меню закрывается; раздел не сменился (нет прав) — прежний возвращается.
+                var fromBurger = CloseBurgerForNavigation();
+                // 2026-10-18, этап О2: колонка пунктов была раскрыта нажатием на группу — после выбора снова свёрнута.
+                if (_navPeek)
+                {
+                    _navPeek = false;
+                    ApplySidebarLayout();
+                }
                 try
                 {
                     open();
@@ -513,10 +530,14 @@ public partial class OwnerShellWindow : Window, IMainShell
                     PosLogger.Log($"Owner app: section failed to open: {ex}", "ERROR");
                     PosMessageBox.Show(this, ex.Message, Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
                 }
+                if (fromBurger)
+                    RestoreSectionAfterBurger();
             };
             NavPanel.Children.Add(button);
         }
 
+        // 2026-10-18, этап О2 (макет OwnerNav): «Главная» — своя группа в тёмной колонке.
+        Group("home", Tr.T("Главная", "Башкы бет", "Home", "Ana sayfa", "Bosh sahifa"));
         Add("overview", "HomeIcon", Tr.T("Сводка", "Жыйынтык", "Overview", "Özet", "Umumiy ko'rinish"), true,
             () => ShowSection(null));
         // 2026-10-05, владелец: «в десктопе открой чат с ИИ для владельца, чтобы владелец советовался с ним —
@@ -535,6 +556,11 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("calculator", () => new CalculatorWindow()); });
         Add("restock", "RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar"), TariffGate.CanUseRestock,
             () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>()); });
+        // 2026-10-20, этап П1, владелец: «полностью возьми функционал (поставщиков) оттуда и нашим дизайном добавь нам» —
+        // список поставщиков с долгом и карточка (SuppliersWindow); тариф и права — как у «Возвратов поставщикам».
+        // 2026-10-20, живой аудит: свой значок (грузовик) — в «только значки» он совпадал с «Клиентами».
+        Add("suppliers", "SuppliersIcon", SuppliersWindow.TitleText, !TariffGate.IsStartTariff,
+            () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("suppliers", () => new SuppliersWindow()); });
         // 2026-10-05, владелец: «возврат для поставщиков тоже добавь». Поставщики и закупки на сайте NurCRM на «Старте»
         // скрыты (платная услуга «Закупки») — здесь так же.
         Add("supplierreturns", "ReturnIcon", Tr.T("Возвраты поставщикам", "Жеткирүүчүлөргө кайтаруулар", "Returns to suppliers", "Tedarikçiye iadeler", "Yetkazib beruvchilarga qaytarishlar"),
@@ -548,20 +574,24 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-06, редизайн меню: «Продажи и деньги» (9 пунктов) разделены — «Продажи» (чеки, долги, прокат)
         // и «Отчёты» (финансы, аналитика, ABC, прибыль, убыток, размеры).
         Group("sales", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"));
-        Add("sales", "SalesIcon", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"), TariffGate.CanUseSalesAnalytics,
-            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("sales", () => App.GetRequiredService<SalesWindow>()); });
+        // 2026-10-18, решение владельца: «Продажи» и «Финансы» — один пункт «Продажи и финансы» (OwnerShellWindow.SalesFinance.cs).
+        // Виден, если доступна хотя бы одна часть (право и «Разделы меню»); название — по доступным частям.
+        var salesFinanceParts = SalesFinanceParts();
+        Add(SalesFinanceKey, "SalesIcon", SalesFinanceNavTitle(salesFinanceParts),
+            TariffGate.CanUseSalesAnalytics && (salesFinanceParts.Sales || salesFinanceParts.Finance),
+            () => OpenSalesFinance());
         // 2026-10-05, владелец: «аналитика по долгам — при нажатии подробно показывать долги».
         Add("debts", "DebtsIcon", Tr.T("Долги клиентов", "Кардарлардын карыздары", "Customer debts", "Müşteri borçları", "Mijozlar qarzlari"), TariffGate.CanUseDebts,
             OpenDebts);
         // 2026-10-02, владелец: «и админку не забудь — при смене режима админка должна меняться». Прокат —
         // только в сферах «Одежда» и «Услуги»; в программе владельца — просмотр (выдача и возврат в кассе).
+        // 2026-10-20, владелец: прокат во всех видах магазина (скрыть — «Показывать разделы»).
         Add("rentals", "RentalIcon", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"),
-            MarketSpheres.IsClothing || MarketSpheres.IsServices,
+            MarketSpheres.HasRentals,
             () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("rentals", () => new RentalsWindow(null, null)); });
 
         Group("reports", Tr.T("Отчёты", "Отчёттор", "Reports", "Raporlar", "Hisobotlar"));
-        Add("finance", "FinanceIcon", Tr.T("Финансы", "Каржы", "Finance", "Finans", "Moliya"), TariffGate.CanUseSalesAnalytics,
-            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("finance", () => App.GetRequiredService<FinanceWindow>()); });
+        // 2026-10-18: пункт «Финансы» убран — он теперь часть «Продаж и финансов» (группа «Продажи», выше).
         // Вся аналитика, кроме ABC (2026-09-27): выручка и оплаты, товары, сезонность, склад. Это
         // окно «Финансов» в режиме аналитики (FinanceWindow.AsAnalyticsSection); из самих
         // «Финансов», «Продаж» и «Склада» эти вкладки убраны. Права и тариф — как у «ABC-анализа».
@@ -631,6 +661,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => OpenSection("logs", () => App.GetRequiredService<LogsAndErrorsWindow>()));
 
         // Как в меню кассы: закрыть программу и выйти на рабочий стол (вход при этом сохраняется).
+        // 2026-10-18, этап О2: группы «Система» в тёмной колонке нет — «Выйти» внизу неё; пункт остаётся для поиска Ctrl+K.
         Group("system", Tr.T("Система", "Система", "System", "Sistem", "Tizim"));
         Add("exit", "ExitIcon", Tr.T("Выйти на рабочий стол", "Иш столуна чыгуу", "Exit to desktop", "Masaüstüne çık", "Ish stoliga chiqish"), true,
             ExitToDesktop);
@@ -638,45 +669,17 @@ public partial class OwnerShellWindow : Window, IMainShell
         UpdateNavHighlight();
         UpdateSiteOrdersBadge();
         UpdateRentalAlert();
-        NavSearchBox.IsVisible = !collapsed;
+        // 2026-10-18, этап О1: «Спросить Нур Советника» — только если пункт «Нур Советник» есть в меню (тариф, скрытые разделы).
+        AskAiButton.IsVisible = _navButtons.ContainsKey("aiadvisor");
         ApplyNavFilter();
+        UpdateRailDots();
+        // 2026-10-18, ревью О2: плотность тёмной колонки по высоте окна (подсказки у групп — в режиме «только значки»).
+        _railDensity = null;
+        ApplyRailDensity();
     }
 
     // ------------------------------------------------------------------ свёрнутое меню
-
-    private void Collapse_Click(object? sender, RoutedEventArgs e)
-    {
-        // 2026-10-04, телефон: «≡» в меню — закрыть меню на весь экран (OwnerShellWindow.Phone.cs).
-        if (_phoneLayout)
-        {
-            SetPhoneMenu(!_phoneMenuOpen);
-            return;
-        }
-        var prefs = UserPreferences.Instance;
-        prefs.OwnerSidebarCollapsed = !prefs.OwnerSidebarCollapsed;
-        prefs.SaveToDisk();
-        BuildNavigation();
-        Dispatcher.UIThread.Post(SyncSectionBounds, DispatcherPriority.Loaded);
-    }
-
-    /// <summary>Свёрнутое меню — только иконки (подпись всплывает подсказкой), без карточки
-    /// компании и имени пользователя; правая часть окна и открытый раздел занимают освободившееся
-    /// место (SectionHost меняет размер — SyncSectionBounds двигает раздел).</summary>
-    private void ApplySidebarLayout(bool collapsed)
-    {
-        RootGrid.ColumnDefinitions[0].Width = new GridLength(collapsed ? 72 : 252);
-        LogoImage.IsVisible = !collapsed;
-        LogoTextPanel.IsVisible = !collapsed;
-        LogoGrid.Margin = collapsed ? new Thickness(0, 18, 0, 14) : new Thickness(18, 18, 12, 14);
-        LogoGrid.HorizontalAlignment = collapsed ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
-        CompanyCard.IsVisible = !collapsed;
-        UserInfoPanel.IsVisible = !collapsed;
-        ThemeButton.IsVisible = !collapsed;
-        ExitButton.IsVisible = !collapsed;
-        UserFooter.Padding = collapsed ? new Thickness(16, 12) : new Thickness(14, 12);
-        ToolTip.SetTip(AvatarText, collapsed ? UserNameText.Text : null);
-        ApplyPhoneColumns();
-    }
+    // 2026-10-18, этап О2: «« / »» и ширина меню — OwnerShellWindow.Nav.cs (Collapse_Click, ExpandNav_Click, ApplySidebarLayout).
 
     // ------------------------------------------------------------------ разделы в окне
 
@@ -687,6 +690,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     // окну: оно лежит ровно поверх правой части, двигается и меняет размер вместе с ним. Слева
     // остаётся меню, сверху — узкая полоса с названием раздела и кнопками окна. Раздел, открытый
     // раньше, при переходе прячется, а не закрывается: вернуться в него можно сразу, как было.
+    // 2026-10-20: прячутся только несколько последних, остальные закрываются ради памяти (TrimHiddenSections).
 
     private sealed class Section
     {
@@ -695,7 +699,28 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         /// <summary>Открыт до смены языка — при следующем переходе откроется заново.</summary>
         public bool Stale { get; set; }
+
+        /// <summary>2026-10-20: номер последнего показа — кого из спрятанных закрыть первым (TrimHiddenSections).</summary>
+        public long LastShown { get; set; }
     }
+
+    /// <summary>2026-10-20, живой аудит (п. 9, память): к концу аудита ≈ 25 спрятанных разделов держали 933 МБ рабочего
+    /// набора / 1 165 МБ private — рядом с кассой на ПК с 7,8 ГБ это много. Теперь спрятанными живут только несколько
+    /// последних разделов, остальные закрываются штатно (Close — их Closed отписывает события и таймеры).</summary>
+    private const int HiddenSectionsKept = 3;
+
+    /// <summary>Тяжёлые разделы (предпросмотр сайта, графики аналитики) — закрываются вскоре после ухода из них.</summary>
+    private static readonly HashSet<string> HeavySections = new() { "siteeditor", "analytics" };
+
+    /// <summary>Что вернуть разделу, открытому заново после закрытия: вкладку и кнопку периода.</summary>
+    private sealed class SectionState
+    {
+        public int TabIndex { get; init; } = -1;
+        public string? QuickDate { get; init; }
+    }
+
+    private readonly Dictionary<string, SectionState> _sectionStates = new();
+    private long _sectionShowCounter;
 
     /// <summary>Разделы, которые сами переводятся на лету (калькулятор, база знаний), и сайт
     /// NurCRM — язык его страниц не наш. Остальные собирают часть надписей в коде один раз.</summary>
@@ -730,11 +755,15 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         var window = create();
         PrepareEmbeddedWindow(window);
+        UnsavedInputTracker.Attach(window); // 2026-10-20: «есть несохранённое» — см. SectionBusy
         var section = new Section { Key = key, Window = window };
         window.Closed += (_, _) => OnSectionClosed(section);
         _sections.Add(section);
         PosLogger.Log($"Owner app: раздел «{TitleFor(section)}» открыт.", "UI");
         ShowSection(section);
+        // 2026-10-20: раздел закрывали ради памяти — возвращаем вкладку и период, как было бы у спрятанного окна.
+        if (_sectionStates.Remove(SectionStateKey(section), out var state))
+            RestoreSectionState(window, state);
     }
 
     /// <summary>Окно раздела без рамки, значка в панели задач и ограничений размера — его место
@@ -809,14 +838,30 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// полосы с названием раздела и кнопками окна.</summary>
     private void ShowSection(Section? section)
     {
+        // 2026-10-18, вид «Бургер ☰»: переход в раздел закрывает выехавшее меню и убирает снимок раздела под ним.
+        CloseBurgerQuietly();
         _activeSection = section;
+        if (section != null)
+            section.LastShown = ++_sectionShowCounter;
+        // 2026-10-18, этап О2: в колонке пунктов — группа открытого раздела; раскрытая нажатием колонка сворачивается,
+        // а до 1366 точек колонка пунктов сворачивается сама, пока открыт раздел (ширина SectionHost — ниже, UpdateLayout).
+        if (GroupOfKey(section?.Key ?? "overview") is { } navGroup)
+            _navGroup = navGroup;
+        _navPeek = false;
+        ApplySidebarLayout();
+        PlaceRentalAlert();
         foreach (var other in _sections)
         {
             if (!ReferenceEquals(other, section) && other.Window.IsVisible)
                 other.Window.Hide();
         }
+        // 2026-10-20, память: лишние спрятанные разделы — закрыть.
+        TrimHiddenSections();
 
         var overview = section == null;
+        // 2026-10-19, вторая живая проверка: возврат на «Сводку» — карточка долгов из свежего кэша раздела (без запросов).
+        if (overview)
+            ApplyExactDebtsFromCache();
         OverviewScroll.IsVisible = overview;
         OverviewTools.IsVisible = overview;
         TitlePanel.IsVisible = overview;
@@ -824,6 +869,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         SectionHost.IsVisible = !overview;
         HeaderGrid.Margin = overview ? new Thickness(28, 12, 10, 4) : new Thickness(24, 4, 10, 4);
         AdjustHeaderForPhone(overview);
+        // 2026-10-18, этап О2: шапка «Сводки» на узком окне — в две строки, в разделе — в одну (FitHeaderRows).
+        FitHeaderTools();
         if (section != null)
             SectionTitleText.Text = TitleFor(section);
         UpdateNavHighlight();
@@ -891,6 +938,113 @@ public partial class OwnerShellWindow : Window, IMainShell
         ShowSection(null);
     }
 
+    /// <summary>2026-10-20, память (живой аудит п. 9): спрятанными держим только HiddenSectionsKept последних разделов,
+    /// тяжёлые (HeavySections) закрываем через несколько секунд после ухода. Не закрываем раздел с открытым окном поверх
+    /// (диалог приёмки, карточка…) и раздел, который сам просит остаться (IOwnerSectionKeepAlive: звонок, несохранённая
+    /// приёмка) — такие и в счёт не идут. Раздел после смены языка (Stale) всё равно открылся бы заново — закрываем сразу.</summary>
+    private void TrimHiddenSections()
+    {
+        if (_closingAllSections)
+            return;
+        var kept = 0;
+        foreach (var section in _sections.Where(s => !ReferenceEquals(s, _activeSection)).OrderByDescending(s => s.LastShown).ToList())
+        {
+            if (SectionBusy(section))
+                continue;
+            if (section.Stale)
+                CloseHiddenSection(section, "после смены языка");
+            else if (HeavySections.Contains(section.Key))
+                ScheduleHeavySectionClose(section);
+            else if (++kept > HiddenSectionsKept)
+                CloseHiddenSection(section, "давно не открывали");
+        }
+    }
+
+    private static bool SectionBusy(Section section) =>
+        section.Window.OwnedWindows.Count > 0
+        || section.Window is IOwnerSectionKeepAlive { KeepAliveWhenHidden: true }
+        // 2026-10-20, доработка: несохранённый ввод (Настройки, Калькуляция, черновик редактора…) — раздел не закрываем.
+        || ((section.Window as IOwnerSection)?.HasUnsavedChanges ?? UnsavedInputTracker.IsDirty(section.Window));
+
+    /// <summary>Не сразу: «Редактор сайта» отправляет черновик через 0,8 с после правки, Нур Советник открывает редактор
+    /// на одну голосовую команду и возвращается — пусть успеет. Вернулись в раздел за это время — не закрываем.</summary>
+    private void ScheduleHeavySectionClose(Section section)
+    {
+        var shown = section.LastShown;
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (section.LastShown == shown && _sections.Contains(section) && !ReferenceEquals(_activeSection, section)
+                && !section.Window.IsVisible && !SectionBusy(section))
+                CloseHiddenSection(section, "тяжёлый раздел");
+        }, TimeSpan.FromSeconds(5));
+    }
+
+    private void CloseHiddenSection(Section section, string why)
+    {
+        try
+        {
+            if (CaptureSectionState(section.Window) is { } state)
+                _sectionStates[SectionStateKey(section)] = state;
+            PosLogger.Log($"Owner app: спрятанный раздел «{TitleFor(section)}» закрыт ({why}) — освобождаем память.", "UI");
+            // Из списка его убирает Closed → OnSectionClosed (раздел не открыт — к сводке не возвращает).
+            section.Window.Close();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Owner app: hidden section close failed: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>У «Продаж и финансов» состав вкладок зависит от прав (Tag окна) — состояние храним для каждого состава.</summary>
+    private static string SectionStateKey(Section section) => section.Key + "|" + (section.Window.Tag as string);
+
+    /// <summary>Главная вкладка (первый TabControl окна) и кнопка периода «Сегодня/Вчера/Неделя/Месяц» (группа QuickDate).</summary>
+    private static SectionState? CaptureSectionState(Window window)
+    {
+        var tabs = window.GetVisualDescendants().OfType<TabControl>().FirstOrDefault();
+        var quick = window.GetVisualDescendants().OfType<RadioButton>()
+            .FirstOrDefault(r => r.GroupName == "QuickDate" && r.IsChecked == true)?.Tag as string;
+        var tabIndex = tabs?.SelectedIndex ?? -1;
+        return tabIndex <= 0 && (quick is null or "Today") ? null : new SectionState { TabIndex = tabIndex, QuickDate = quick };
+    }
+
+    /// <summary>Вкладка — сразу (до SelectSalesFinanceTab/ShowStockTab: явный переход главнее), период — нажатием кнопки
+    /// после первой загрузки окна, как если бы его нажал владелец. «Спец. дата» не возвращаем — она открывает окно дат.</summary>
+    private static void RestoreSectionState(Window window, SectionState state)
+    {
+        try
+        {
+            if (state.TabIndex > 0 && window.GetVisualDescendants().OfType<TabControl>().FirstOrDefault() is { } tabs
+                && state.TabIndex < tabs.ItemCount && tabs.Items[state.TabIndex] is TabItem { IsVisible: true, IsEnabled: true })
+                tabs.SelectedIndex = state.TabIndex;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Owner app: section tab restore failed: {ex.Message}", "WARNING");
+        }
+
+        if (state.QuickDate is null or "Today" or "Custom")
+            return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                if (!window.IsVisible)
+                    return;
+                var button = window.GetVisualDescendants().OfType<RadioButton>()
+                    .FirstOrDefault(r => r.GroupName == "QuickDate" && Equals(r.Tag, state.QuickDate) && r.IsEffectivelyVisible && r.IsEffectivelyEnabled);
+                if (button is null || button.IsChecked == true)
+                    return;
+                button.IsChecked = true;
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, button));
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Owner app: section period restore failed: {ex.Message}", "WARNING");
+            }
+        }, DispatcherPriority.Background);
+    }
+
     /// <summary>2026-09-26, «баг с языком»: раздел, открытый до смены языка, оставался на старом
     /// (меню по-узбекски, «Эмгек акы» по-кыргызски). Спрятанные разделы закрываем — при переходе
     /// они откроются уже на новом языке; открытый сейчас (обычно «Настройки», где язык и меняют)
@@ -910,6 +1064,9 @@ public partial class OwnerShellWindow : Window, IMainShell
             _sections.Remove(section);
             try
             {
+                // 2026-10-20: вкладку и период — тоже вернуть при новом открытии (как у разделов, закрытых ради памяти).
+                if (CaptureSectionState(section.Window) is { } state)
+                    _sectionStates[SectionStateKey(section)] = state;
                 section.Window.Close();
             }
             catch (Exception ex)
@@ -976,9 +1133,10 @@ public partial class OwnerShellWindow : Window, IMainShell
         var today = DateTime.Today;
         return _period switch
         {
-            // Неделя — с понедельника, месяц — с 1-го числа, как в «Продажах» кассы и на сайте.
-            "week" => (today.AddDays(-(((int)today.DayOfWeek + 6) % 7)), today),
-            "month" => (new DateTime(today.Year, today.Month, 1), today),
+            // 2026-10-20: аудит владельца — «Неделя» была с понедельника (20 447 при 97 242 за 7 дней в других окнах).
+            // Теперь общее правило PeriodRange: неделя = 7 дней включая сегодня, месяц — с 1-го числа.
+            "week" => (PeriodRange.WeekFrom(today), today),
+            "month" => (PeriodRange.MonthFrom(today), today),
             "custom" => (_customFrom.Date, _customTo.Date),
             _ => (today, today),
         };
@@ -1052,6 +1210,8 @@ public partial class OwnerShellWindow : Window, IMainShell
                     ? Tr.T($"Нет связи · данные на {at:HH:mm}", $"Байланыш жок · маалымат {at:HH:mm} боюнча", $"Offline · data as of {at:HH:mm}",
                         $"Bağlantı yok · veriler {at:HH:mm} itibarıyla", $"Aloqa yo'q · ma'lumotlar {at:HH:mm} holatiga ko'ra")
                     : Tr.T("Нет связи с сервером", "Сервер менен байланыш жок", "No connection to the server", "Sunucuyla bağlantı yok", "Server bilan aloqa yo'q");
+        // 2026-10-18, ревью О1: каталог локальный — товары на исходе видны и без связи (иначе «Требует внимания» пустой).
+        ApplyLowStock();
     }
 
     /// <summary>2026-10-04, п. 7: «Сводка» видна владельцу — окно активно, не свёрнуто и не закрыто
@@ -1096,6 +1256,9 @@ public partial class OwnerShellWindow : Window, IMainShell
 
             var reportTask = App.SalesApi.MarketSalesReportAsync(from, to, ct);
             // 2026-10-06, ТЗ ч.12, п. 3.7: для сравнения нужны только карточки — итоги периода (summary), не весь отчёт.
+            // 2026-10-18, ревью О1: прошлый период другой — старые карточки сравнения не показывать, пока не пришли новые.
+            if (_compareKey != compareKey)
+                _compareCards = null;
             var previousTask = _compareKey != compareKey ? PreviousCardsAsync(prevFrom, prevTo, ct) : null;
             // 2026-10-04, п. 7: график 7 дней — раз в 5 минут (и сразу по «Обновить» / смене дня).
             var chartKey = $"{chartFrom:yyyyMMdd}:{chartTo:yyyyMMdd}";
@@ -1257,6 +1420,9 @@ public partial class OwnerShellWindow : Window, IMainShell
             // Себестоимость кассы не передают — без отчёта сервера прибыль неизвестна, а не ноль.
             ProfitValue.Inlines = null;
             ProfitValue.Text = "—";
+            // 2026-10-18, ревью О1: и сравнение прибыли неизвестно (было «▼ 100 % …» под «—»).
+            ProfitDelta.Inlines = null;
+            ProfitDelta.Text = "—";
         }
         ApplyChart(chart, chartFrom, chartTo);
         ApplyPayments(report);
@@ -1422,6 +1588,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         double? prevAvg = prev is { } p3 ? Num(p3, "avg_check") : null;
         double? prevProfit = prev is { } p4 ? Num(p4, "gross_profit") : null;
         // 2026-10-06: «Сегодня» — со вчера до того же часа, а не с целым вчерашним днём (OwnerShellWindow.SameTime.cs).
+        var sameTime = false;
         if (prev != null && YesterdayShareNow() is { } share)
         {
             prevRevenue *= share.Revenue;
@@ -1429,24 +1596,36 @@ public partial class OwnerShellWindow : Window, IMainShell
             prevAvg = prevChecks is > 0 ? prevRevenue / prevChecks : null;
             prevProfit *= share.Revenue;
             hint = Tr.T("к вчера на это время", "кечээки ушул убакытка карата", "vs yesterday at this time", "dünün aynı saatine göre", "kechaning shu vaqtiga nisbatan");
+            sameTime = true;
         }
+        // 2026-10-18, этап О1, «—» во всех четырёх карточках: прошлый период получен, но чеков в нём (к этому часу) не было —
+        // сравнивать не с чем (у NBS 18.10 в 12:02 все 22 вчерашних чека были после 16:00). Теперь так и написано, а не «—».
+        var noneBefore = prev != null && prevChecks is not > 0 ? NoSalesBeforeText(sameTime) : null;
+        // 2026-10-21 (пакет 2, п. 85, аудит 18.10: «вчера к этому времени продаж не было» 4 раза): сравнивать не с чем — одна
+        // строка под плитками, а строки сравнения в плитках скрыты; то же, если прошлый период не получен (было «— к вчера» ×4).
+        var sharedNote = noneBefore ?? (prev == null ? NoCompareText() : null);
+        KpiCompareNote.Text = sharedNote;
+        KpiCompareNote.IsVisible = sharedNote != null;
+        RevenueDelta.IsVisible = ChecksDelta.IsVisible = AvgDelta.IsVisible = ProfitDelta.IsVisible = sharedNote == null;
 
         SetMoney(RevenueValue, Num(cards, "revenue"));
-        SetDelta(RevenueDeltaPill, RevenueDelta, RevenueDeltaHint, Num(cards, "revenue"), prevRevenue, hint);
+        SetDelta(RevenueDelta, Num(cards, "revenue"), prevRevenue, hint, noneBefore);
 
         ChecksValue.Inlines = null;
         ChecksValue.Text = Num(cards, "transactions").ToString("N0", UiCulture);
-        SetDelta(ChecksDeltaPill, ChecksDelta, ChecksDeltaHint, Num(cards, "transactions"), prevChecks, hint);
+        SetDelta(ChecksDelta, Num(cards, "transactions"), prevChecks, hint, noneBefore);
 
         SetMoney(AvgValue, Num(cards, "avg_check"));
-        SetDelta(AvgDeltaPill, AvgDelta, AvgDeltaHint, Num(cards, "avg_check"), prevAvg, hint);
+        SetDelta(AvgDelta, Num(cards, "avg_check"), prevAvg, hint, noneBefore);
 
         SetMoney(ProfitValue, Num(cards, "gross_profit"));
         var margin = Num(cards, "margin_percent");
-        var profitHint = margin != 0
-            ? Tr.T($"маржа {margin:0.#}%", $"маржа {margin:0.#}%", $"margin {margin:0.#}%", $"marj %{margin:0.#}", $"marja {margin:0.#}%")
-            : hint;
-        SetDelta(ProfitDeltaPill, ProfitDelta, ProfitDeltaHint, Num(cards, "gross_profit"), prevProfit, profitHint);
+        _lastMargin = margin;
+        // 2026-10-18, этап О1: маржа — в названии («Валовая прибыль · 21,2 %», макет Owner), а строка под числом —
+        // сравнение, как у остальных показателей (раньше при марже сравнения у прибыли не было).
+        ProfitLabel.Text = Tr.T("Валовая прибыль", "Дүң пайда", "Gross profit", "Brüt kâr", "Yalpi foyda")
+                           + (margin != 0 ? " · " + Percent(margin) : "");
+        SetDelta(ProfitDelta, Num(cards, "gross_profit"), prevProfit, hint, noneBefore);
 
         // 2026-10-05: те же цифры — «ИИ-советнику» (OwnerOverviewSnapshot), точнее локальной истории продаж.
         OwnerOverviewSnapshot.Set("1-cards",
@@ -1464,39 +1643,76 @@ public partial class OwnerShellWindow : Window, IMainShell
             : $"{from:dd.MM}–{to:dd.MM.yyyy}";
     }
 
-    /// <summary>Сумма крупно, «сом» мелко и приглушённо.</summary>
+    /// <summary>Сумма крупно, «сом» мелко и приглушённо. 2026-10-18, этап О1: без копеек (точная сумма — в «Продажах»).</summary>
     private void SetMoney(TextBlock target, double value)
     {
-        var currency = new Run(" " + Som()) { FontSize = 15, FontWeight = FontWeight.Medium };
+        var currency = new Run(" " + Som()) { FontSize = 17, FontWeight = FontWeight.Medium };
         UseBrush(currency, TextElement.ForegroundProperty, "BrushTextSoft");
         target.Text = null;
-        target.Inlines = new InlineCollection { new Run(Amount(value)), currency };
+        target.Inlines = new InlineCollection { new Run(Whole(value)), currency };
     }
 
-    private static void SetDelta(Border pill, TextBlock text, TextBlock hint, double current, double? previous, string hintText)
+    /// <summary>2026-10-18, этап О1: строка сравнения «▲ 10 % к вчера на это время (3 900)» — стрелка и процент красным/зелёным,
+    /// остальное серым; прошлое значение — в скобках. Нет прошлого периода — «—»; в нём не было продаж — noneBefore.</summary>
+    private void SetDelta(TextBlock line, double current, double? previous, string hintText, string? noneBefore)
     {
-        pill.Classes.Set("up", false);
-        pill.Classes.Set("down", false);
-        hint.Text = hintText;
-
+        line.Inlines = null;
         if (previous is not { } prev || prev <= 0)
         {
-            text.Text = "—";
+            line.Text = noneBefore ?? "— " + hintText;
             return;
         }
 
         var change = (current - prev) / prev * 100;
-        if (Math.Abs(change) < 0.5)
-        {
-            text.Text = "0%";
-            return;
-        }
-
-        var up = change > 0;
-        pill.Classes.Set(up ? "up" : "down", true);
         var abs = Math.Abs(change);
-        text.Text = (up ? "▲ " : "▼ ") + (abs >= 100 ? abs.ToString("0", CultureInfo.InvariantCulture) : abs.ToString("0.#", UiCulture)) + "%";
+        var flat = abs < 0.5;
+        var up = change > 0;
+        var number = abs >= 100 ? abs.ToString("0", CultureInfo.InvariantCulture) : abs.ToString("0.#", UiCulture);
+        var head = new Run((flat ? "" : up ? "▲ " : "▼ ") + Percent(flat ? 0 : abs, flat ? "0" : number)) { FontWeight = FontWeight.SemiBold };
+        UseBrush(head, TextElement.ForegroundProperty, flat ? "BrushText" : up ? "BrushSuccess" : "BrushDanger");
+        line.Text = null;
+        line.Inlines = new InlineCollection { head, new Run($" {hintText} ({Whole(prev)})") };
     }
+
+    /// <summary>«10 %» (в турецком «%10»), с неразрывным пробелом.</summary>
+    private static string Percent(double value, string? formatted = null)
+    {
+        var n = formatted ?? value.ToString("0.#", UiCulture);
+        return Tr.T($"{n} %", $"{n} %", $"{n}%", $"%{n}", $"{n} %");
+    }
+
+    /// <summary>Сумма без копеек: 4 300.</summary>
+    private static string Whole(double value)
+    {
+        var r = Math.Round(value);
+        if (r == 0)
+            r = 0; // без «-0»
+        return r.ToString("N0", CultureInfo.GetCultureInfo("ru-RU"));
+    }
+
+    /// <summary>Подпись, когда в прошлом периоде (вчера к этому часу) продаж не было.
+    /// 2026-10-21 (пакет 2, п. 85): одна строка под всеми плитками — с объяснением, почему нет «▲ / ▼».</summary>
+    private string NoSalesBeforeText(bool sameTime) => _period switch
+    {
+        "week" => Tr.T("Сравнить не с чем: на прошлой неделе продаж не было", "Салыштырууга эч нерсе жок: өткөн жумада сатуу болгон эмес", "Nothing to compare with: no sales last week", "Karşılaştırılacak bir şey yok: geçen hafta satış yoktu", "Taqqoslash uchun hech narsa yo'q: o'tgan haftada sotuv bo'lmagan"),
+        "month" => Tr.T("Сравнить не с чем: в прошлом месяце продаж не было", "Салыштырууга эч нерсе жок: өткөн айда сатуу болгон эмес", "Nothing to compare with: no sales last month", "Karşılaştırılacak bir şey yok: geçen ay satış yoktu", "Taqqoslash uchun hech narsa yo'q: o'tgan oyda sotuv bo'lmagan"),
+        "custom" => Tr.T("Сравнить не с чем: в прошлом периоде продаж не было", "Салыштырууга эч нерсе жок: мурунку мезгилде сатуу болгон эмес", "Nothing to compare with: no sales in the previous period", "Karşılaştırılacak bir şey yok: önceki dönemde satış yoktu", "Taqqoslash uchun hech narsa yo'q: oldingi davrda sotuv bo'lmagan"),
+        _ => sameTime
+            ? Tr.T("Сравнить не с чем: вчера к этому времени продаж не было", "Салыштырууга эч нерсе жок: кечээ ушул убакытка чейин сатуу болгон эмес", "Nothing to compare with: no sales by this time yesterday", "Karşılaştırılacak bir şey yok: dün bu saate kadar satış yoktu", "Taqqoslash uchun hech narsa yo'q: kecha shu vaqtgacha sotuv bo'lmagan")
+            : Tr.T("Сравнить не с чем: вчера продаж не было", "Салыштырууга эч нерсе жок: кечээ сатуу болгон эмес", "Nothing to compare with: no sales yesterday", "Karşılaştırılacak bir şey yok: dün satış yoktu", "Taqqoslash uchun hech narsa yo'q: kecha sotuv bo'lmagan"),
+    };
+
+    /// <summary>2026-10-21 (пакет 2, п. 85): прошлый период не получен (сервер не ответил) — одна строка вместо «— к вчера» в каждой плитке.</summary>
+    private string NoCompareText() => _period switch
+    {
+        "week" => Tr.T("Сравнения с прошлой неделей пока нет — её данные не получены", "Өткөн жума менен салыштыруу азырынча жок — анын маалыматы алынган жок", "No comparison with last week yet — its data was not received", "Geçen haftayla karşılaştırma henüz yok — verileri alınamadı", "O'tgan hafta bilan taqqoslash hozircha yo'q — uning ma'lumotlari olinmadi"),
+        "month" => Tr.T("Сравнения с прошлым месяцем пока нет — его данные не получены", "Өткөн ай менен салыштыруу азырынча жок — анын маалыматы алынган жок", "No comparison with last month yet — its data was not received", "Geçen ayla karşılaştırma henüz yok — verileri alınamadı", "O'tgan oy bilan taqqoslash hozircha yo'q — uning ma'lumotlari olinmadi"),
+        "custom" => Tr.T("Сравнения с прошлым периодом пока нет — его данные не получены", "Мурунку мезгил менен салыштыруу азырынча жок — анын маалыматы алынган жок", "No comparison with the previous period yet — its data was not received", "Önceki dönemle karşılaştırma henüz yok — verileri alınamadı", "Oldingi davr bilan taqqoslash hozircha yo'q — uning ma'lumotlari olinmadi"),
+        _ => Tr.T("Сравнения со вчера пока нет — данные за вчера не получены", "Кечээ менен салыштыруу азырынча жок — кечээки маалымат алынган жок", "No comparison with yesterday yet — yesterday's data was not received", "Dünle karşılaştırma henüz yok — dünün verileri alınamadı", "Kecha bilan taqqoslash hozircha yo'q — kechagi ma'lumotlar olinmadi"),
+    };
+
+    /// <summary>2026-10-18, этап О2: меньше этой суммы день выбросом на графике не считается.</summary>
+    private const double ChartOutlierMinSom = 5000;
 
     private void ApplyChart(JsonElement report, DateTime from, DateTime to)
     {
@@ -1528,8 +1744,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         OwnerOverviewSnapshot.Set("2-chart",
             $"Выручка по дням с {from:dd.MM} по {to:dd.MM} (сервер NurCRM): " +
             string.Join(", ", days.Select((d, i) => $"{d:dd.MM} — {values[i]:0.##}")) + $"; итого {total:0.##} сом.");
-        ChartTotalText.Text = Tr.T($"Итого: {Amount(total)} {Som()}", $"Жыйынтык: {Amount(total)} {Som()}", $"Total: {Amount(total)} {Som()}",
-            $"Toplam: {Amount(total)} {Som()}", $"Jami: {Amount(total)} {Som()}");
+        ChartTotalText.Text = Tr.T($"Итого: {Whole(total)} {Som()}", $"Жыйынтык: {Whole(total)} {Som()}", $"Total: {Whole(total)} {Som()}",
+            $"Toplam: {Whole(total)} {Som()}", $"Jami: {Whole(total)} {Som()}");
         ChartEmptyText.IsVisible = max <= 0;
         ChartBars.IsVisible = max > 0;
         if (max <= 0)
@@ -1537,46 +1753,88 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         var culture = UiCulture;
         var few = days.Count <= 10;
-        const double barArea = 150;
+        // 2026-10-18, этап О1 (макет Owner): столбцы — цвет текста темы (тёмно-синий), «сегодня» — жёлтый с подписью «сегодня»;
+        // подписи — в тыс. сом с одним знаком (6,1 / 51,4). Выброс (столбец больше 3 медиан остальных дней, у владельца 16.10 —
+        // 51 тыс. при обычных 3–7) рисуется во всю высоту с отметкой разрыва, а остальные дни — в своей шкале, чтобы их было видно.
+        const double barArea = 170;
+        var outlier = new bool[values.Count];
+        for (var i = 0; i < values.Count; i++)
+        {
+            var others = values.Where((v, j) => j != i && v > 0).OrderBy(v => v).ToList();
+            if (others.Count >= 2)
+            {
+                var median = others.Count % 2 == 1 ? others[others.Count / 2] : (others[others.Count / 2 - 1] + others[others.Count / 2]) / 2;
+                // 2026-10-18, этап О2 (решение главной сессии): выброс — только день ≥ 3 медиан И ≥ 5 000 сом; при малых суммах
+                // (870 сом при медиане ~110) обычный день рисовался с ложным разрывом.
+                outlier[i] = values[i] >= 3 * median && values[i] >= ChartOutlierMinSom;
+            }
+        }
+        var scaleMax = values.Where((_, i) => !outlier[i]).DefaultIfEmpty(0).Max();
+        var capped = outlier.Any(o => o) && scaleMax > 0;
+        if (!capped)
+            scaleMax = max;
         for (var i = 0; i < days.Count; i++)
         {
             ChartBars.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
             var day = days[i];
             var value = values[i];
             var isToday = day == DateTime.Today;
+            var isOutlier = capped && outlier[i];
 
             var column = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom };
             if (few && value > 0)
             {
                 var valueText = new TextBlock
                 {
-                    Text = Compact(value),
-                    FontSize = 11,
+                    // 2026-10-18, ревью О1: меньше 100 сом — «<0,1», а не «0,0».
+                    Text = value < 100 ? "<" + 0.1.ToString("N1", culture) : (value / 1000).ToString("N1", culture),
+                    FontSize = 12.5,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     Margin = new Thickness(0, 0, 0, 5),
-                    FontWeight = isToday ? FontWeight.SemiBold : FontWeight.Normal,
+                    FontWeight = FontWeight.SemiBold,
+                    Classes = { "num" },
                 };
-                UseBrush(valueText, TextBlock.ForegroundProperty, isToday ? "BrushText" : "BrushTextSoft");
+                UseBrush(valueText, TextBlock.ForegroundProperty, "BrushText");
                 column.Children.Add(valueText);
             }
 
+            // Выбросов несколько (51,4 и 15,1) — они различаются хотя бы немного: верхние 12 % высоты — по их размеру.
+            var height = value <= 0 ? 2
+                : isOutlier ? barArea * (0.88 + 0.12 * value / max)
+                : Math.Max(4, (capped ? barArea * 0.8 : barArea) * value / scaleMax);
             var bar = new Border
             {
-                Height = value > 0 ? Math.Max(4, barArea * value / max) : 2,
+                Height = height,
                 CornerRadius = new CornerRadius(6, 6, 2, 2),
-                Margin = new Thickness(few ? 10 : 2, 0),
-                Opacity = isToday ? 1 : 0.55,
             };
-            UseBrush(bar, Border.BackgroundProperty, value > 0 ? "BrushAccent" : "BrushBorder");
+            UseBrush(bar, Border.BackgroundProperty, value <= 0 ? "BrushBorder" : isToday ? "BrushAccent" : "BrushText");
             ToolTip.SetTip(bar, $"{day.ToString("ddd, d MMMM", culture)} — {Amount(value)} {Som()}");
-            column.Children.Add(bar);
+            Control barView = bar;
+            if (isOutlier)
+            {
+                // Отметка разрыва: косая полоса цвета карточки поперёк столбца.
+                var gap = new Border
+                {
+                    Height = 6,
+                    Margin = new Thickness(-4, barArea * 0.28, -4, 0),
+                    VerticalAlignment = VerticalAlignment.Top,
+                    RenderTransform = new RotateTransform(-12),
+                    IsHitTestVisible = false,
+                };
+                UseBrush(gap, Border.BackgroundProperty, "BrushPanel");
+                barView = new Panel { Children = { bar, gap } };
+            }
+            barView.Margin = new Thickness(few ? 12 : 2, 0);
+            column.Children.Add(barView);
             Grid.SetColumn(column, i);
             ChartBars.Children.Add(column);
 
             var label = new TextBlock
             {
-                Text = few ? $"{day.ToString("ddd", culture)}\n{day.Day}" : day.Day.ToString(CultureInfo.InvariantCulture),
-                FontSize = few ? 11.5 : 10.5,
+                Text = few
+                    ? (isToday ? Tr.T("сегодня", "бүгүн", "today", "bugün", "bugun") : day.ToString("ddd", culture)) + $"\n{day.Day}"
+                    : day.Day.ToString(CultureInfo.InvariantCulture),
+                FontSize = few ? 12.5 : 11,
                 TextAlignment = TextAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 8, 0, 0),
@@ -1611,48 +1869,54 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         methods.Sort((a, b) => b.Total.CompareTo(a.Total));
         var sum = methods.Sum(m => m.Total);
-        PaymentsCountText.Text = sum > 0 ? $"{Amount(sum)} {Som()}" : "";
+        PaymentsCountText.Text = sum > 0 ? $"{Whole(sum)} {Som()}" : "";
         PaymentsEmptyText.IsVisible = methods.Count == 0;
 
+        // 2026-10-18, этап О1: у цвета одна роль — способы различаются оттенком цвета текста темы (не зелёным/синим).
+        double[] shades = { 1, 0.6, 0.38, 0.22, 0.12 };
         for (var i = 0; i < methods.Count; i++)
         {
             var (method, count, total) = methods[i];
-            var color = PaymentColors.TryGetValue(method, out var c) ? c : OtherPaymentColor;
+            var shade = shades[Math.Min(i, shades.Length - 1)];
             var share = sum > 0 ? total / sum : 0;
 
             PaymentsBar.ColumnDefinitions.Add(new ColumnDefinition(Math.Max(share, 0.004), GridUnitType.Star));
             var segment = new Border
             {
-                Background = new SolidColorBrush(color),
+                Opacity = shade,
                 Margin = new Thickness(0, 0, i < methods.Count - 1 ? 2 : 0, 0),
             };
+            UseBrush(segment, Border.BackgroundProperty, "BrushText");
             Grid.SetColumn(segment, i);
             PaymentsBar.Children.Add(segment);
 
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
-            row.Children.Add(new Ellipse { Width = 10, Height = 10, Fill = new SolidColorBrush(color), VerticalAlignment = VerticalAlignment.Center });
+            var dot = new Ellipse { Width = 10, Height = 10, Opacity = shade, VerticalAlignment = VerticalAlignment.Center };
+            UseBrush(dot, Shape.FillProperty, "BrushText");
+            row.Children.Add(dot);
 
             var name = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 8, 0), TextTrimming = TextTrimming.CharacterEllipsis };
-            var nameRun = new Run(PaymentLabel(method)) { FontSize = 13.5 };
+            var nameRun = new Run(PaymentLabel(method)) { FontSize = 14 };
             UseBrush(nameRun, TextElement.ForegroundProperty, "BrushText");
-            var countRun = new Run("  " + ChecksWord(count)) { FontSize = 12 };
+            var countRun = new Run("  " + ChecksWord(count)) { FontSize = 13 };
             UseBrush(countRun, TextElement.ForegroundProperty, "BrushTextSoft");
             name.Inlines = new InlineCollection { nameRun, countRun };
             Grid.SetColumn(name, 1);
             row.Children.Add(name);
 
-            var amount = new TextBlock { Text = $"{Amount(total)} {Som()}", FontSize = 13.5, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            var amount = new TextBlock { Text = $"{Whole(total)} {Som()}", FontSize = 14, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, Classes = { "num" } };
             UseBrush(amount, TextBlock.ForegroundProperty, "BrushText");
             Grid.SetColumn(amount, 2);
             row.Children.Add(amount);
 
             var percent = new TextBlock
             {
-                Text = (share * 100).ToString("0", CultureInfo.InvariantCulture) + "%",
-                FontSize = 12.5,
-                MinWidth = 44,
+                Text = Percent(Math.Round(share * 100), (share * 100).ToString("0", CultureInfo.InvariantCulture)),
+                FontSize = 13,
+                MinWidth = 52,
                 TextAlignment = TextAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
+                Classes = { "num" },
             };
             UseBrush(percent, TextBlock.ForegroundProperty, "BrushTextSoft");
             Grid.SetColumn(percent, 3);
@@ -1696,7 +1960,12 @@ public partial class OwnerShellWindow : Window, IMainShell
             returnsSum = (double)listed.Sum;
         }
 
-        ReturnsValue.Text = returnsCount > 0 ? $"{returnsCount:0} · {Amount(returnsSum)} {Som()}" : "0";
+        // 2026-10-18, этап О1: «2 чека на 450 сом» вместо склейки «2 · 450 сом».
+        ReturnsValue.Text = returnsCount > 0
+            ? Tr.T($"{ChecksWord(returnsCount)} на {Whole(returnsSum)} {Som()}", $"{ChecksWord(returnsCount)}, {Whole(returnsSum)} {Som()}",
+                $"{ChecksWord(returnsCount)}, {Whole(returnsSum)} {Som()}", $"{ChecksWord(returnsCount)}, {Whole(returnsSum)} {Som()}",
+                $"{ChecksWord(returnsCount)}, {Whole(returnsSum)} {Som()}")
+            : "0";
     }
 
     private void ApplyTopProducts(JsonElement report)
@@ -1725,8 +1994,9 @@ public partial class OwnerShellWindow : Window, IMainShell
             var (name, sold, revenue) = items[i];
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
 
+            // 2026-10-18, этап О1: место — нейтральной плашкой у всех (жёлтый — только у «сегодня» и главной кнопки).
             var rank = new Border { Width = 28, Height = 28, CornerRadius = new CornerRadius(8), VerticalAlignment = VerticalAlignment.Center };
-            UseBrush(rank, Border.BackgroundProperty, i == 0 ? "BrushAccent" : "BrushInputAlt");
+            UseBrush(rank, Border.BackgroundProperty, "BrushInputAlt");
             var rankText = new TextBlock
             {
                 Text = (i + 1).ToString(CultureInfo.InvariantCulture),
@@ -1735,7 +2005,7 @@ public partial class OwnerShellWindow : Window, IMainShell
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            UseBrush(rankText, TextBlock.ForegroundProperty, i == 0 ? "BrushAccentForeground" : "BrushText");
+            UseBrush(rankText, TextBlock.ForegroundProperty, "BrushText");
             rank.Child = rankText;
             row.Children.Add(rank);
 
@@ -1755,8 +2025,8 @@ public partial class OwnerShellWindow : Window, IMainShell
                     new ColumnDefinition(Math.Max(1 - share, 0.0001), GridUnitType.Star),
                 },
             };
-            var fill = new Border { CornerRadius = new CornerRadius(3) };
-            UseBrush(fill, Border.BackgroundProperty, "BrushAccent");
+            var fill = new Border { CornerRadius = new CornerRadius(3), Opacity = 0.6 };
+            UseBrush(fill, Border.BackgroundProperty, "BrushText");
             fillGrid.Children.Add(fill);
             track.Child = fillGrid;
             middle.Children.Add(track);
@@ -1764,7 +2034,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             row.Children.Add(middle);
 
             var right = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 1 };
-            var revenueText = new TextBlock { Text = $"{Amount(revenue)} {Som()}", FontSize = 13, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Right };
+            var revenueText = new TextBlock { Text = $"{Whole(revenue)} {Som()}", FontSize = 14, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Right, Classes = { "num" } };
             UseBrush(revenueText, TextBlock.ForegroundProperty, "BrushText");
             var soldText = new TextBlock
             {
@@ -1784,12 +2054,14 @@ public partial class OwnerShellWindow : Window, IMainShell
         ApplyLowStock();
     }
 
-    /// <summary>2026-09-30: «Заканчивается на складе» — 6 товаров с самым малым остатком из каталога
+    /// <summary>2026-09-30: «Заканчивается на складе» — товары с самым малым остатком из каталога
     /// программы (без услуг: у них остатка нет). Пересчитывается вместе со сводкой; каталог уже в
-    /// памяти, запросов к серверу нет.</summary>
+    /// памяти, запросов к серверу нет. 2026-10-18, этап О1: показываются строками блока «Требует внимания»
+    /// (OwnerShellWindow.Attention.cs) — три первых и «ещё N», действие «Пополнение ›».</summary>
     private void ApplyLowStock()
     {
-        LowStockList.Children.Clear();
+        _attnStock.Clear();
+        _attnStockMore = 0;
         List<NurMarketKassa.Models.Pos.CatalogProductTileVm> low;
         try
         {
@@ -1797,7 +2069,6 @@ public partial class OwnerShellWindow : Window, IMainShell
                 .Where(p => !p.IsService && !string.IsNullOrWhiteSpace(p.Title) && p.Quantity <= 5)
                 .OrderBy(p => p.Quantity)
                 .ThenBy(p => p.Title)
-                .Take(6)
                 .ToList();
         }
         catch (Exception ex)
@@ -1806,44 +2077,13 @@ public partial class OwnerShellWindow : Window, IMainShell
             low = [];
         }
 
-        LowStockEmptyText.IsVisible = low.Count == 0;
-        foreach (var p in low)
-        {
-            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
-            var dot = new Ellipse { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center };
-            UseBrush(dot, Shape.FillProperty, p.Quantity <= 0 ? "BrushDanger" : "BrushWarning");
-            row.Children.Add(dot);
-
-            var name = new TextBlock
-            {
-                Text = p.Title,
-                FontSize = 13.5,
-                FontWeight = FontWeight.SemiBold,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                Margin = new Thickness(12, 0, 12, 0),
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            UseBrush(name, TextBlock.ForegroundProperty, "BrushText");
-            Grid.SetColumn(name, 1);
-            row.Children.Add(name);
-
-            var qty = new TextBlock
-            {
-                Text = p.Quantity <= 0
-                    ? Tr.T("нет в наличии", "жок", "out of stock", "stokta yok", "mavjud emas")
-                    : Tr.T($"осталось {Qty(p.Quantity)}", $"{Qty(p.Quantity)} калды", $"{Qty(p.Quantity)} left", $"{Qty(p.Quantity)} kaldı", $"{Qty(p.Quantity)} qoldi")
-                      + (string.IsNullOrWhiteSpace(p.Unit) ? "" : " " + p.Unit),
-                FontSize = 12.5,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            UseBrush(qty, TextBlock.ForegroundProperty, p.Quantity <= 0 ? "BrushDanger" : "BrushTextSoft");
-            Grid.SetColumn(qty, 2);
-            row.Children.Add(qty);
-
-            LowStockList.Children.Add(row);
-        }
+        foreach (var p in low.Take(AttentionStockRows))
+            _attnStock.Add(new AttentionStock(p.Title, p.Quantity, p.Unit));
+        _attnStockMore = Math.Max(0, low.Count - AttentionStockRows);
+        _attnStockLoaded = true;
 
         ApplyLowSizes();
+        RenderAttention();
     }
 
     /// <summary>2026-10-06, исследование «Кассы для одежды» (О-74): в сфере «Одежда» под товарами — «Заканчиваются размеры»:
@@ -1856,7 +2096,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         List<VariantBarcodeIndex.LowSize> low;
         try
         {
-            low = VariantBarcodeIndex.LowSizes(6);
+            // 2026-10-18, ревью О1: весь список — «ещё N» считается по нему, а строк в блоке не больше AttentionStockRows всего.
+            low = VariantBarcodeIndex.LowSizes(1000);
         }
         catch (Exception ex)
         {
@@ -1867,48 +2108,14 @@ public partial class OwnerShellWindow : Window, IMainShell
             return;
         var titles = CatalogCacheService.Products.ToList().GroupBy(p => p.Id, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First().Title, StringComparer.OrdinalIgnoreCase);
-        var head = new TextBlock
+        var room = Math.Max(0, AttentionStockRows - _attnStock.Count);
+        foreach (var s in low.Take(room))
         {
-            Text = Tr.T("Заканчиваются размеры", "Өлчөмдөр түгөнүп баратат", "Sizes running out", "Bedenler tükeniyor", "O'lchamlar tugayapti"),
-            FontSize = 13, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 8, 0, 0),
-        };
-        UseBrush(head, TextBlock.ForegroundProperty, "BrushTextSoft");
-        LowStockList.Children.Add(head);
-        LowStockEmptyText.IsVisible = false;
-        foreach (var s in low)
-        {
-            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
-            var dot = new Ellipse { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center };
-            UseBrush(dot, Shape.FillProperty, s.Quantity <= 0 ? "BrushDanger" : "BrushWarning");
-            row.Children.Add(dot);
             var label = string.Join(", ", new[] { s.Size, s.Color }.Where(x => !string.IsNullOrWhiteSpace(x)));
-            var name = new TextBlock
-            {
-                Text = (titles.TryGetValue(s.ProductId, out var t) ? t : "—") + (label.Length > 0 ? " — " + label : ""),
-                FontSize = 13.5, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
-                Margin = new Thickness(12, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center,
-            };
-            UseBrush(name, TextBlock.ForegroundProperty, "BrushText");
-            Grid.SetColumn(name, 1);
-            row.Children.Add(name);
-            var qty = new TextBlock
-            {
-                Text = s.Quantity <= 0
-                    ? Tr.T("нет в наличии", "жок", "out of stock", "stokta yok", "mavjud emas")
-                    : Tr.T($"осталось {Qty(s.Quantity)}", $"{Qty(s.Quantity)} калды", $"{Qty(s.Quantity)} left", $"{Qty(s.Quantity)} kaldı", $"{Qty(s.Quantity)} qoldi"),
-                FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center,
-            };
-            UseBrush(qty, TextBlock.ForegroundProperty, s.Quantity <= 0 ? "BrushDanger" : "BrushTextSoft");
-            Grid.SetColumn(qty, 2);
-            row.Children.Add(qty);
-            LowStockList.Children.Add(row);
+            var name = (titles.TryGetValue(s.ProductId, out var t) ? t : "—") + (label.Length > 0 ? " — " + label : "");
+            _attnStock.Add(new AttentionStock(name, s.Quantity, null));
         }
-    }
-
-    private void LowStockLink_Click(object? sender, RoutedEventArgs e)
-    {
-        if (TariffGate.CanUseRestock)
-            OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>());
+        _attnStockMore += Math.Max(0, low.Count - room);
     }
 
     // 2026-09-28, сверка с сайтом: в «Последних продажах» был виден только первый товар чека
@@ -1985,15 +2192,15 @@ public partial class OwnerShellWindow : Window, IMainShell
             var canceled = string.Equals(Str(sale, "status"), "canceled", StringComparison.OrdinalIgnoreCase);
             var method = Str(sale, "payment_method");
 
-            var line = new Border { Padding = new Thickness(0, 10), BorderThickness = new Thickness(0, 0, 0, i < shown.Count - 1 ? 1 : 0) };
-            UseBrush(line, Border.BorderBrushProperty, "BrushBorder");
-            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("60,*,Auto,Auto") };
+            // 2026-10-18, этап О1: без линий между строками; способ оплаты — серой строкой под суммой, без цветной точки.
+            var line = new Border { Padding = new Thickness(0, 8) };
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("60,*,Auto") };
 
             var created = Str(sale, "created_at");
             var time = DateTimeOffset.TryParse(created, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dto)
                 ? dto.LocalDateTime.ToString(dto.LocalDateTime.Date == DateTime.Today ? "HH:mm" : "dd.MM", CultureInfo.InvariantCulture)
                 : "";
-            var timeText = new TextBlock { Text = time, FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
+            var timeText = new TextBlock { Text = time, FontSize = 13, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 0, 0), Classes = { "num" } };
             UseBrush(timeText, TextBlock.ForegroundProperty, "BrushTextSoft");
             row.Children.Add(timeText);
 
@@ -2028,44 +2235,37 @@ public partial class OwnerShellWindow : Window, IMainShell
             var who = string.Join(" · ", new[] { Str(sale, "user_display"), Str(sale, "cashbox_name") }.Where(s => !string.IsNullOrWhiteSpace(s)));
             if (who.Length > 0)
             {
-                var sub = new TextBlock { Text = who, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis };
+                var sub = new TextBlock { Text = who, FontSize = 13, TextTrimming = TextTrimming.CharacterEllipsis };
                 UseBrush(sub, TextBlock.ForegroundProperty, "BrushTextSoft");
                 middle.Children.Add(sub);
             }
             Grid.SetColumn(middle, 1);
             row.Children.Add(middle);
 
-            var pill = new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(9, 3), Margin = new Thickness(0, 0, 16, 0), VerticalAlignment = VerticalAlignment.Center };
-            UseBrush(pill, Border.BackgroundProperty, canceled ? "BrushDangerSoft" : "BrushInputAlt");
-            var pillContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-            var dotColor = canceled ? Color.Parse("#EF4444") : PaymentColors.TryGetValue(method, out var pc) ? pc : OtherPaymentColor;
-            pillContent.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = new SolidColorBrush(dotColor), VerticalAlignment = VerticalAlignment.Center });
-            var pillText = new TextBlock
-            {
-                Text = canceled ? Tr.T("Возврат", "Кайтаруу", "Returned", "İade", "Qaytarilgan") : PaymentLabel(method),
-                FontSize = 12,
-                FontWeight = FontWeight.Medium,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            UseBrush(pillText, TextBlock.ForegroundProperty, canceled ? "BrushDanger" : "BrushText");
-            pillContent.Children.Add(pillText);
-            pill.Child = pillContent;
-            Grid.SetColumn(pill, 2);
-            row.Children.Add(pill);
-
+            var right = new StackPanel { Spacing = 2, MinWidth = 110, VerticalAlignment = VerticalAlignment.Top };
             var amount = new TextBlock
             {
                 Text = $"{Amount(Num(sale, "total"))} {Som()}",
                 FontSize = 14,
                 FontWeight = FontWeight.SemiBold,
-                MinWidth = 110,
                 TextAlignment = TextAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Right,
                 TextDecorations = canceled ? TextDecorations.Strikethrough : null,
+                Classes = { "num" },
             };
             UseBrush(amount, TextBlock.ForegroundProperty, canceled ? "BrushTextSoft" : "BrushText");
-            Grid.SetColumn(amount, 3);
-            row.Children.Add(amount);
+            right.Children.Add(amount);
+            var methodText = new TextBlock
+            {
+                Text = canceled ? Tr.T("Возврат", "Кайтаруу", "Returned", "İade", "Qaytarilgan") : PaymentLabel(method),
+                FontSize = 13,
+                TextAlignment = TextAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Right,
+            };
+            UseBrush(methodText, TextBlock.ForegroundProperty, "BrushTextSoft");
+            right.Children.Add(methodText);
+            Grid.SetColumn(right, 2);
+            row.Children.Add(right);
 
             line.Child = row;
             RecentList.Children.Add(line);
@@ -2117,15 +2317,18 @@ public partial class OwnerShellWindow : Window, IMainShell
             ? value.ToString("N0", CultureInfo.GetCultureInfo("ru-RU"))
             : value.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"));
 
-    /// <summary>Короткая подпись над столбиком: 415 тыс, 1,2 млн.</summary>
-    private static string Compact(double value)
+    /// <summary>2026-10-18, этап О1: единица подписей графика (было «415 тыс» / «4 288» вперемешку) — всё в тыс. сом.</summary>
+    private static string ThousandSom() => Tr.T("тыс. сом", "миң сом", "thousand som", "bin som", "ming so'm");
+
+    /// <summary>Подписи над столбцами есть, когда дней в графике не больше 10 (как в ApplyChart).</summary>
+    private bool ChartHasLabels
     {
-        var ru = CultureInfo.GetCultureInfo("ru-RU");
-        if (value >= 1_000_000)
-            return (value / 1_000_000).ToString("0.#", ru) + " " + Tr.T("млн", "млн", "M", "mn", "mln");
-        if (value >= 10_000)
-            return (value / 1_000).ToString("0", ru) + " " + Tr.T("тыс", "миң", "K", "bin", "ming");
-        return value.ToString("N0", ru);
+        get
+        {
+            var (from, to) = CurrentRange();
+            var (chartFrom, chartTo) = ChartRange(from, to);
+            return (chartTo.Date - chartFrom.Date).Days + 1 <= 10;
+        }
     }
 
     private static double Num(JsonElement obj, string name)
@@ -2182,6 +2385,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         {
             UpdateWindowChrome();
             Dispatcher.UIThread.Post(SyncSectionBounds, DispatcherPriority.Loaded);
+            // 2026-10-18, ревью О2: развернули/восстановили окно — заново решить, сворачивать ли колонку пунктов (порог 1366).
+            Dispatcher.UIThread.Post(OnShellSizeChangedForNav, DispatcherPriority.Loaded);
         }
     }
 
@@ -2303,6 +2508,8 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         _siteOrdersNewCount = count;
         UpdateSiteOrdersBadge();
+        // 2026-10-18, этап О1: новые заказы — и строкой в «Требует внимания».
+        RenderAttention();
     });
 
     private void UpdateSiteOrdersBadge()
@@ -2312,6 +2519,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         var count = _siteOrdersNewCount;
         badge.IsVisible = count > 0;
         text.Text = count > 99 ? "99+" : count.ToString(CultureInfo.InvariantCulture);
+        UpdateRailDots();
         if (_navButtons.TryGetValue("siteorders", out var button) && _navTitles.TryGetValue("siteorders", out var title))
             ToolTip.SetTip(button, count > 0
                 ? title + " · " + Tr.T($"новых: {count}", $"жаңы: {count}", $"new: {count}", $"yeni: {count}", $"yangi: {count}")
@@ -2334,44 +2542,55 @@ public partial class OwnerShellWindow : Window, IMainShell
     private static string RentalAlertSignature(RentalDueNotifier.Summary s) =>
         string.Join("|", s.Overdue.Select(r => "o" + r.Id).Concat(s.Today.Select(r => "t" + r.Id)).Concat(s.Tomorrow.Select(r => "m" + r.Id)));
 
+    /// <summary>Плашка показана владельцу (сроки есть, не скрыта крестиком) — от неё зависят звук и место плашки.</summary>
+    private bool _rentalAlertActive;
+
     private void UpdateRentalAlert()
     {
+        // 2026-10-18, этап О1: сроки проката — и строкой в «Требует внимания» сводки.
+        // 2026-10-18, этап О2: плашка ушла из меню (правило аудита 9) в полосу над открытым разделом (PlaceRentalAlert), в «Сводке»
+        // сроки — строками «Требует внимания». Звук — как раньше: новое событие (прокат впервые «завтра», «сегодня» или «просрочен»).
+        // Прежде звук молчал при свёрнутом меню (карточки там не было) — теперь оповещение видно всегда, и звук тоже.
+        RenderAttention();
         var s = RentalDueNotifier.Last;
         var count = s?.Count ?? 0;
-        var visibleSphere = MarketSpheres.IsClothing || MarketSpheres.IsServices;
+        var visibleSphere = MarketSpheres.HasRentals; // 2026-10-20: прокат во всех сферах
         if (_rentalsBadge is { Child: TextBlock badgeText } badge)
         {
             badge.IsVisible = visibleSphere && count > 0;
             badgeText.Text = count > 99 ? "99+" : count.ToString(CultureInfo.InvariantCulture);
-            // Просрочка — красным, только сроки — цветом акцента.
-            if (s is { Overdue.Count: > 0 } && this.TryFindResource("BrushDanger", out var danger) && danger is IBrush red)
-                badge.Background = red;
-            else
-                badge.ClearValue(Border.BackgroundProperty);
+            // Просрочка — красным, только сроки — серо-синим (UpdateRailDots — точка у группы «Продажи»).
+            SetNavBadgeTone(badge, s is { Overdue.Count: > 0 });
         }
 
-        if (s is null || count == 0 || !visibleSphere || UserPreferences.Instance.OwnerSidebarCollapsed
-            || RentalAlertSignature(s) == _rentalAlertDismissed)
+        if (s is null || count == 0 || !visibleSphere || RentalAlertSignature(s) == _rentalAlertDismissed)
         {
-            RentalAlertCard.IsVisible = false;
+            _rentalAlertActive = false;
+            PlaceRentalAlert();
             return;
         }
 
-        RentalAlertTitle.Text = "⏰ " + Tr.T("Прокат: сроки возврата", "Прокат: кайтаруу мөөнөтү", "Rentals: return dates", "Kiralama: iade tarihleri", "Prokat: qaytarish muddati");
-        var lines = new List<string>();
+        RentalAlertTitle.Text = Tr.T("Прокат: сроки возврата", "Прокат: кайтаруу мөөнөтү", "Rentals: return dates", "Kiralama: iade tarihleri", "Prokat: qaytarish muddati");
+        var parts = new List<string>();
         if (s.Overdue.Count > 0)
-            lines.Add(Tr.T($"Просрочено: {s.Overdue.Count}", $"Мөөнөтү өттү: {s.Overdue.Count}", $"Overdue: {s.Overdue.Count}", $"Gecikmiş: {s.Overdue.Count}", $"Muddati o'tgan: {s.Overdue.Count}"));
+            parts.Add(Tr.T($"Просрочено: {s.Overdue.Count}", $"Мөөнөтү өттү: {s.Overdue.Count}", $"Overdue: {s.Overdue.Count}", $"Gecikmiş: {s.Overdue.Count}", $"Muddati o'tgan: {s.Overdue.Count}"));
         if (s.Today.Count > 0)
-            lines.Add(Tr.T($"Вернуть сегодня: {s.Today.Count}", $"Бүгүн кайтаруу: {s.Today.Count}", $"Due today: {s.Today.Count}", $"Bugün iade: {s.Today.Count}", $"Bugun qaytarish: {s.Today.Count}"));
+            parts.Add(Tr.T($"Вернуть сегодня: {s.Today.Count}", $"Бүгүн кайтаруу: {s.Today.Count}", $"Due today: {s.Today.Count}", $"Bugün iade: {s.Today.Count}", $"Bugun qaytarish: {s.Today.Count}"));
         if (s.Tomorrow.Count > 0)
-            lines.Add(Tr.T($"Вернуть завтра: {s.Tomorrow.Count}", $"Эртең кайтаруу: {s.Tomorrow.Count}", $"Due tomorrow: {s.Tomorrow.Count}", $"Yarın iade: {s.Tomorrow.Count}", $"Ertaga qaytarish: {s.Tomorrow.Count}"));
-        // Первые три — с именем клиента: владелец сразу видит, кому звонить.
+            parts.Add(Tr.T($"Вернуть завтра: {s.Tomorrow.Count}", $"Эртең кайтаруу: {s.Tomorrow.Count}", $"Due tomorrow: {s.Tomorrow.Count}", $"Yarın iade: {s.Tomorrow.Count}", $"Ertaga qaytarish: {s.Tomorrow.Count}"));
+        // В плашке — числа одной строкой; первые три проката с именем клиента — в подсказке (кому звонить).
+        RentalAlertText.Text = string.Join(" · ", parts);
+        var lines = new List<string>(parts);
         foreach (var r in s.Overdue.Concat(s.Today).Concat(s.Tomorrow).Take(3))
             lines.Add($"• №{r.Number} {r.ClientName} — {string.Join(", ", r.Items.Select(i => i.Label))}");
-        RentalAlertText.Text = string.Join("\n", lines);
+        ToolTip.SetTip(RentalAlertCard, string.Join("\n", lines));
         RentalAlertOpenText.Text = Tr.T("Открыть прокат", "Прокатты ачуу", "Open rentals", "Kiralamayı aç", "Prokatni ochish");
         ToolTip.SetTip(RentalAlertClose, Tr.T("Скрыть", "Жашыруу", "Hide", "Gizle", "Yashirish"));
-        RentalAlertCard.IsVisible = true;
+        Avalonia.Automation.AutomationProperties.SetName(RentalAlertOpen, RentalAlertOpenText.Text);
+        // 2026-10-18, ревью О2: пункта «Прокат» нет (права, «Разделы меню») — плашка только сообщает, без «Открыть прокат ›».
+        RentalAlertOpen.IsVisible = _navButtons.ContainsKey("rentals");
+        _rentalAlertActive = true;
+        PlaceRentalAlert();
 
         var keys = RentalAlertSignature(s).Split('|');
         var fresh = keys.Count(k => _rentalAlertSounded.Add(k));
@@ -2382,11 +2601,22 @@ public partial class OwnerShellWindow : Window, IMainShell
         }
     }
 
+    /// <summary>2026-10-18, этап О2: плашка проката — в полосе над открытым разделом (окно раздела закрывает правую часть, а полоса
+    /// видна всегда). В «Сводке» её нет: те же сроки — первыми строками «Требует внимания». На телефоне полоса узкая — только
+    /// число у пункта «Прокат», точка у группы и строки «Требует внимания».</summary>
+    private void PlaceRentalAlert()
+    {
+        if (RentalAlertCard is null)
+            return;
+        RentalAlertCard.IsVisible = _rentalAlertActive && _activeSection != null && !_phoneLayout;
+    }
+
     private void RentalAlertClose_Click(object? sender, RoutedEventArgs e)
     {
         if (RentalDueNotifier.Last is { } s)
             _rentalAlertDismissed = RentalAlertSignature(s);
-        RentalAlertCard.IsVisible = false;
+        _rentalAlertActive = false;
+        PlaceRentalAlert();
     }
 
     private void RentalAlertOpen_Click(object? sender, RoutedEventArgs e)
@@ -2540,6 +2770,8 @@ public partial class OwnerShellWindow : Window, IMainShell
                 SliceKeys = AbcSectionView.AllSliceKeys,
                 ShowSeasonality = false,
                 TableMaxHeight = 360,
+                // 2026-10-21 (пакет 2, п. 86): без прокрутки внутри прокрутки — блок по высоте содержимого, листает сама Сводка.
+                ScrollsVertically = false,
             };
             _abcView.ProductAnalyticsRequested += ShowAbcProductAnalytics;
             AbcHost.Children.Add(_abcView);
@@ -2551,14 +2783,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         AbcLoadingText.IsVisible = false;
     }
 
-    /// <summary>Блок ABC — высотой почти в видимую часть сводки: вкладки срезов и таблица целиком
-    /// на одном экране, а сама сводка прокручивается к нему как обычно.</summary>
-    private void FitAbcHeight()
-    {
-        var viewport = OverviewScroll.Bounds.Height;
-        if (viewport > 0)
-            AbcHost.Height = Math.Max(520, viewport - 120);
-    }
+    // 2026-10-21 (пакет 2, п. 86): FitAbcHeight (блок ABC высотой в экран со своей прокруткой) убран — блок по содержимому.
 
     private void ShowAbcProductAnalytics(string productName)
     {
@@ -2574,8 +2799,9 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private void AllSales_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-10-18: «Все продажи» — раздел «Продажи и финансы», вкладка «Чеки» (OwnerShellWindow.SalesFinance.cs).
         if (TariffGate.CanUseSalesAnalytics && Authorize(PosPermissions.ViewSales))
-            OpenSection("sales", () => App.GetRequiredService<SalesWindow>());
+            OpenSalesFinance("checks");
     }
 
     private void Theme_Click(object? sender, RoutedEventArgs e)
@@ -2591,7 +2817,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     private void UpdateThemeIcon()
     {
         if (this.TryFindResource(UserPreferences.Instance.DarkTheme ? "SunIcon" : "MoonIcon", out var icon) && icon is Geometry geometry)
-            ThemeIconPath.Data = geometry;
+            ThemeIconPath.Data = OldThemeIconPath.Data = geometry;
     }
 
     /// <summary>Как в меню кассы: закрыть программу и выйти на рабочий стол (вход при этом сохраняется).</summary>

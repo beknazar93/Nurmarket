@@ -1,0 +1,27 @@
+# 2026-10-16: запуск ретранслятора без Docker (systemd). /etc/systemd/system/nurremote.service
+# Программа — в /opt/nurremote (dotnet publish), ключ оператора — в /etc/nurremote.env (OPERATOR_KEY=..., chmod 600).
+[Unit]
+Description=NurMarket remote support relay (NurRemoteSupport)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=nurremote
+Group=nurremote
+WorkingDirectory=/opt/nurremote
+# Сборка без самодостаточного режима: нужен aspnetcore-runtime-8.0. Самодостаточная: ExecStart=/opt/nurremote/NurRemoteSupport.Server
+ExecStart=/usr/bin/dotnet /opt/nurremote/NurRemoteSupport.Server.dll
+Environment=BIND=127.0.0.1
+Environment=PORT=8080
+Environment=DOTNET_NOLOGO=1
+EnvironmentFile=-/etc/nurremote.env
+Restart=always
+RestartSec=5
+SyslogIdentifier=nurremote
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

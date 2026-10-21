@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Вход и выбор магазина</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.lbl{font-size:12px;font-weight:700;color:#667085}
+.in{height:52px;box-sizing:border-box;border-radius:14px;border:1px solid #D0D5DD;padding:0 14px;font-family:inherit;font-size:16px;width:100%;background:#FFFFFF}
+.lg{flex:1 1 0;min-width:0;height:44px;border-radius:10px;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:#344054;white-space:nowrap}
+.lg.on{background:#0B2A3C;color:#FFFFFF}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#F4F5F7}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="PLogin"><div style="width: 390px; height: 844px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-direction: column;">
+  <section style="background: rgb(11, 42, 60); color: rgb(255, 255, 255); padding: 32px 24px 24px; border-radius: 0px 0px 28px 28px; display: flex; flex-direction: column; gap: 10px;">
+    <span style="width: 52px; height: 52px; border-radius: 16px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 24px;">N</span>
+    <b style="font-size: 24px; font-weight: 800;">NurMarket</b>
+    <span style="font-size: 13px; color: rgb(199, 210, 219);">Тот же вход, что на кассе и в вебе</span>
+  </section>
+  
+  <main style="flex-grow: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px;">
+    <span class="lbl">Язык</span>
+    <div role="group" aria-label="Язык" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgb(228, 231, 236);"><button type="button" class="lg on" aria-pressed="true">Рус</button><button type="button" class="lg">Кыр</button><button type="button" class="lg">Eng</button><button type="button" class="lg">Tür</button><button type="button" class="lg">O'zb</button></div>
+    <label class="lbl" for="l1" style="padding-top: 4px;">Логин или телефон</label>
+    <input id="l1" class="in" type="text" value="aigerim.nbs">
+    <label class="lbl" for="l2">Пароль NurCRM</label>
+    <span style="position: relative; display: block;">
+      <input id="l2" class="in" type="password" value="password" style="padding-right: 56px;">
+      <button type="button" aria-label="Показать пароль" style="position: absolute; right: 2px; top: 2px; width: 48px; height: 48px; border: 0px; background: transparent; color: rgb(71, 84, 103); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+    </span>
+    <a href="#" style="align-self: flex-end; min-height: 44px; display: flex; align-items: center; font-size: 14px; font-weight: 700;">Забыли пароль?</a>
+    <span style="font-size: 12px; line-height: 17px; color: rgb(102, 112, 133);">Шаг 1 из 2. После входа — выбор магазина и филиала, если их несколько. Вход по PIN кассира — только на телефоне, уже привязанном к магазину.</span>
+  </main>
+  <div style="padding: 0px 20px 4px; display: flex; flex-direction: column; gap: 10px;">
+    <button type="button" style="height: 56px; border-radius: 16px; border: 0px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); font-family: inherit; font-size: 17px; font-weight: 800;">Войти</button>
+    <button type="button" style="height: 48px; border-radius: 14px; border: 1.5px solid rgb(208, 213, 221); background: rgb(255, 255, 255); color: rgb(52, 64, 84); font-family: inherit; font-size: 14px; font-weight: 700; white-space: nowrap;">Войти по QR с экрана кассы</button>
+  </div>
+  <div class="gest" aria-hidden="true"><i></i></div></div></div></div>
+
+
+
+</body></html>

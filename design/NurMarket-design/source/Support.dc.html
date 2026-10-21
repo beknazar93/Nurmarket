@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Тех. поддержка</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="help" active="Тех. поддержка" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <!-- 2026-10-16: сверено с кодом RemoteSupportWindow.NurSupport.cs — «Нур Поддержка»: код + PIN, 15 минут, согласие из трёх кнопок, полоса сеанса -->
+    <span style="display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Тех. поддержка</span><span style="font-size: 13px; color: #667085">Нур Поддержка — своя удалённая помощь NurMarket, без сторонних программ · оператор видит экран только после вашего «Разрешить»</span></span>
+    <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px">
+      <section style="background: #0B2A3C; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 12px">
+        <span style="display: flex; align-items: center; justify-content: space-between; gap: 10px"><span style="font-size: 18px; font-weight: 800; color: #FFFFFF">Нур Поддержка</span><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #FFD600; white-space: nowrap"><span style="width: 8px; height: 8px; border-radius: 4px; background: #FFD600"></span>Ждём оператора</span></span>
+        <span style="font-size: 13px; color: #C7D2DB; line-height: 20px">Продиктуйте оператору поддержки код и PIN. Без вашего разрешения никто не подключится.</span>
+        <div style="display: flex; align-items: flex-end; gap: 18px; padding: 14px 16px; border-radius: 14px; background: rgba(255,255,255,0.08)">
+          <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #C7D2DB">Код</span><span style="font-size: 30px; font-weight: 800; color: #FFD600; letter-spacing: 0.08em; white-space: nowrap">482 913 605</span></span>
+          <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #C7D2DB">PIN</span><span style="font-size: 30px; font-weight: 800; color: #FFD600; letter-spacing: 0.08em">7316</span></span>
+          <span style="flex-grow: 1"></span>
+          <span style="font-size: 12px; color: #C7D2DB; text-align: right; line-height: 17px; white-space: nowrap">Действует 15 минут<br>до 14:50</span>
+        </div>
+        <span style="display: flex; gap: 10px">
+          <button type="button" style="flex-grow: 1; height: 48px; border-radius: 14px; border: 1.5px solid rgba(255,255,255,0.35); background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: #FFFFFF">Завершить</button>
+        </span>
+      </section>
+      <section style="background: #FFFFFF; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 16px; font-weight: 800">Связаться</span>
+        <span style="display: flex; justify-content: space-between; gap: 10px; padding: 11px 14px; border-radius: 12px; background: #F9FAFB; font-size: 14px"><span>Телефон</span><span style="font-weight: 700; white-space: nowrap">+996 559 340 032</span></span>
+        <span style="display: flex; justify-content: space-between; gap: 10px; padding: 11px 14px; border-radius: 12px; background: #F9FAFB; font-size: 14px"><span>WhatsApp</span><span style="font-weight: 700; white-space: nowrap">тот же номер</span></span>
+        <span style="display: flex; justify-content: space-between; gap: 10px; padding: 11px 14px; border-radius: 12px; background: #F9FAFB; font-size: 14px"><span>Telegram</span><a href="#" style="font-weight: 700; text-decoration: none; white-space: nowrap">Бот поддержки NurCRM ›</a></span>
+        <span style="font-size: 12px; color: #667085">В боте — видео-инструкции и «Связаться с оператором»</span>
+        <button type="button" style="margin-top: auto; height: 46px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Отправить журнал ошибок поддержке</button>
+      </section>
+    </div>
+    <span style="font-size: 13px; font-weight: 700; color: #475467">Когда оператор подключается — окно поверх всех окон (даже если открыта касса). Исключение из правил модалок: без ✕ — ответить нужно кнопкой; без ответа за 60 с — отказ.</span>
+    <div style="display: flex; gap: 16px; align-items: flex-start">
+      <!-- Исключение из правил модалок: у окна согласия нет ✕ — ответить нужно одной из трёх кнопок; без ответа за 60 с — отказ -->
+      <section role="alertdialog" aria-labelledby="supTitle" style="width: 480px; flex-shrink: 0; box-sizing: border-box; background: #FFFFFF; border-radius: 20px; border: 2px solid #F59E0B; box-shadow: 0 24px 60px rgba(11,42,60,0.25); overflow: hidden; display: flex; flex-direction: column">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #EAECF0"><span style="width: 40px; height: 40px; border-radius: 12px; background: #FEF3E2; display: flex; align-items: center; justify-content: center; color: #B54708; font-weight: 800">!</span><span style="flex-grow: 1; display: flex; flex-direction: column"><span id="supTitle" style="font-size: 16px; font-weight: 800">Оператор Азамат хочет подключиться</span><span style="font-size: 12px; color: #667085">Удалённая помощь NurMarket · ответьте за 60 с</span></span></div>
+        <div style="padding: 14px 20px; font-size: 14px; color: #475467; line-height: 21px">Оператор «Азамат» хочет видеть экран и управлять мышью и клавиатурой. «Разрешить» — полный доступ, «Только просмотр» — только экран, без управления.</div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid #EAECF0; background: #FCFCFD"><span title="Осталось 52 секунды" style="flex-grow: 1; font-size: 12px; font-weight: 700; color: #B54708; white-space: nowrap">52 с</span><button type="button" style="height: 44px; padding: 0 12px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054">Отклонить</button><button type="button" style="height: 44px; padding: 0 12px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; color: #344054; white-space: nowrap">Только просмотр</button><button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 13px; font-weight: 800; color: #0B2A3C">Разрешить</button></div>
+      </section>
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 13px; font-weight: 700; color: #344054">Идёт сеанс — красная полоса поверх всех окон</span>
+        <div aria-hidden="true" style="position: relative; height: 150px; border-radius: 14px; background: #E5E7EB; border: 1px solid #D0D5DD; overflow: hidden">
+          <span style="position: absolute; left: 12px; top: 40px; width: 58%; height: 96px; border-radius: 8px; background: #FFFFFF"></span>
+          <span style="position: absolute; right: 12px; top: 40px; width: 34%; height: 96px; border-radius: 8px; background: #FFFFFF"></span>
+          <span style="position: absolute; left: 50%; top: 0; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 7px 8px 7px 14px; border-radius: 0 0 12px 12px; background: #C62828; white-space: nowrap"><span style="font-size: 13px; font-weight: 700; color: #FFFFFF">● Идёт сеанс поддержки: Азамат</span><span style="height: 28px; padding: 0 12px; border-radius: 8px; background: #FFFFFF; color: #B42318; font-size: 12px; font-weight: 800; display: flex; align-items: center">Завершить</span></span>
+        </div>
+        <span style="font-size: 12px; color: #667085; line-height: 18px">«Завершить» сразу отключает оператора. Закрыли окно «Тех. поддержка» — сеанс идёт, полоса остаётся. В режиме «Только просмотр» оператору недоступны мышь и клавиатура.</span>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

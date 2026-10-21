@@ -81,7 +81,8 @@ public partial class OwnerShellWindow
             VerticalAlignment = VerticalAlignment.Center,
             IsVisible = false,
         };
-        _phoneMenuButton.Click += (_, _) => SetPhoneMenu(true);
+        // 2026-10-18: та же ☰ — меню вида «Бургер ☰» на компьютере (OwnerShellWindow.MenuStyle.cs).
+        _phoneMenuButton.Click += (_, _) => MenuButton_Click();
 
         HeaderGrid.ColumnDefinitions.Insert(0, new ColumnDefinition(GridLength.Auto));
         foreach (var child in HeaderGrid.Children.OfType<Control>())
@@ -155,8 +156,9 @@ public partial class OwnerShellWindow
         var columns = RootGrid.ColumnDefinitions;
         // 2026-10-05, снимки владельца: колонка меню шириной 0 не обрезает содержимое — логотип и «≡» меню
         // рисовались поверх шапки раздела (два значка «≡» на логотипе). Закрытое меню на телефоне скрыто целиком.
-        if (RootGrid.Children.OfType<Border>().FirstOrDefault(b => Grid.GetColumn(b) == 0 && Grid.GetRow(b) == 1) is { } sidebar)
-            sidebar.IsVisible = !_phoneLayout || _phoneMenuOpen;
+        // 2026-10-18: колонка меню — по имени (в той же клетке теперь и старое меню, и затемнение бургера); на компьютере
+        // видна по виду меню (NavSidebarShown).
+        NavSidebar.IsVisible = _phoneLayout ? _phoneMenuOpen : NavSidebarShown;
         if (!_phoneLayout)
         {
             // Ширину меню слева ставит ApplySidebarLayout; правая часть — снова на всё остальное.

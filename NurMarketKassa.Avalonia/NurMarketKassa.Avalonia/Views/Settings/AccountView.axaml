@@ -68,7 +68,8 @@
         <Border Classes="SettingsCard" Padding="18">
           <StackPanel Spacing="10">
             <TextBlock Text="{DynamicResource account.loginCard}" Classes="SettingsCardTitle" FontSize="14"/>
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+            <!-- 2026-10-21: «Компания» — первой строкой этой карточки, а не отдельной карточкой с одним словом (пакет 3, п. 141). -->
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
               <Grid.Styles>
                 <Style Selector="TextBlock.k">
                   <Setter Property="FontSize" Value="12.5"/>
@@ -83,29 +84,26 @@
                   <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
                 </Style>
               </Grid.Styles>
-              <TextBlock Grid.Row="0" Grid.Column="0" Classes="k" Text="{DynamicResource account.loginLabel}"/>
-              <TextBlock Grid.Row="0" Grid.Column="1" Classes="v" x:Name="LoginText"/>
-              <TextBlock Grid.Row="1" Grid.Column="0" Classes="k" Text="{DynamicResource account.cashierLabel}"/>
-              <TextBlock Grid.Row="1" Grid.Column="1" Classes="v" x:Name="CashierNameText"/>
-              <TextBlock Grid.Row="2" Grid.Column="0" Classes="k" Text="{DynamicResource account.roleLabel}"/>
-              <TextBlock Grid.Row="2" Grid.Column="1" Classes="v" x:Name="RoleText"/>
-              <TextBlock Grid.Row="3" Grid.Column="0" Classes="k" Text="{DynamicResource account.cashboxLabel}"/>
-              <TextBlock Grid.Row="3" Grid.Column="1" Classes="v" x:Name="CashboxText"/>
-              <TextBlock Grid.Row="4" Grid.Column="0" Classes="k" Text="{DynamicResource account.shiftLabel}"/>
-              <TextBlock Grid.Row="4" Grid.Column="1" Classes="v" x:Name="ShiftText"/>
-              <TextBlock Grid.Row="5" Grid.Column="0" Classes="k" Text="{DynamicResource account.passwordLabel}"/>
-              <TextBlock Grid.Row="5" Grid.Column="1" Classes="v" FontWeight="Normal" FontSize="12.5"
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="k" Text="{DynamicResource account.companyLabel}"/>
+              <StackPanel Grid.Row="0" Grid.Column="1">
+                <TextBlock Classes="v" x:Name="CompanyNameText"/>
+                <TextBlock x:Name="CompanyInnText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,3"/>
+              </StackPanel>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="k" Text="{DynamicResource account.loginLabel}"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Classes="v" x:Name="LoginText"/>
+              <TextBlock Grid.Row="2" Grid.Column="0" Classes="k" Text="{DynamicResource account.cashierLabel}"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Classes="v" x:Name="CashierNameText"/>
+              <TextBlock Grid.Row="3" Grid.Column="0" Classes="k" Text="{DynamicResource account.roleLabel}"/>
+              <TextBlock Grid.Row="3" Grid.Column="1" Classes="v" x:Name="RoleText"/>
+              <TextBlock Grid.Row="4" Grid.Column="0" Classes="k" Text="{DynamicResource account.cashboxLabel}"/>
+              <TextBlock Grid.Row="4" Grid.Column="1" Classes="v" x:Name="CashboxText"/>
+              <TextBlock Grid.Row="5" Grid.Column="0" Classes="k" Text="{DynamicResource account.shiftLabel}"/>
+              <TextBlock Grid.Row="5" Grid.Column="1" Classes="v" x:Name="ShiftText"/>
+              <TextBlock Grid.Row="6" Grid.Column="0" Classes="k" Text="{DynamicResource account.passwordLabel}"/>
+              <TextBlock Grid.Row="6" Grid.Column="1" Classes="v" FontWeight="Normal" FontSize="12.5"
                          Foreground="{DynamicResource BrushTextSoft}"
                          Text="{DynamicResource account.passwordHint}"/>
             </Grid>
-          </StackPanel>
-        </Border>
-
-        <Border Classes="SettingsCard" Padding="18">
-          <StackPanel Spacing="6">
-            <TextBlock Text="{DynamicResource account.companyLabel}" Classes="SettingsCardTitle" FontSize="14"/>
-            <TextBlock x:Name="CompanyNameText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
-            <TextBlock x:Name="CompanyInnText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
           </StackPanel>
         </Border>
 
@@ -160,7 +158,8 @@
               <TextBlock Text="{DynamicResource migrateOffline.cardHint}" FontSize="12" TextWrapping="Wrap"
                          Foreground="{DynamicResource BrushTextSoft}"/>
             </StackPanel>
-            <Button Grid.Column="1" x:Name="MigrateOfflineButton" Classes="btn-primary"
+            <!-- 2026-10-19, этап О7: обводкой — жёлтая на странице одна («Обновить»). -->
+            <Button Grid.Column="1" x:Name="MigrateOfflineButton" Classes="btn-secondary"
                     Content="{DynamicResource migrateOffline.cardButton}"
                     Height="34" Padding="14,4" Click="MigrateOfflineButton_Click"/>
           </Grid>

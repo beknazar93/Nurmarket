@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Воронка</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="clients" active="Воронка" collapsed="1" hint-size="76px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Воронка</span><span style="font-size: 13px; color: #667085">Перетащите карточку в нужный этап или нажмите ◀ ▶ · сделки хранятся на этом компьютере — у NurCRM нет API сделок</span></span>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054; white-space: nowrap">Подтянуть из бота</button>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C; white-space: nowrap">+ Новая сделка</button>
+    </div>
+    <!-- 2026-10-16: этапы как в коде FunnelWindow: Новые обращения → В работе → Договорились → Оплачено / Отказ -->
+    <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{cols}}" as="c" hint-placeholder-count="5">
+        <section style="background: #EEF0F3; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0">
+          <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 2px 4px"><span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; min-width: 0"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{c.dot}}; flex-shrink: 0"></span>{{c.name}}</span><span style="font-size: 12px; font-weight: 700; color: #475467; white-space: nowrap">{{c.count}}</span></span>
+          <sc-if value="{{c.empty}}" hint-placeholder-val="{{false}}">
+            <span style="border: 1.5px dashed #D0D5DD; border-radius: 12px; padding: 16px; font-size: 12px; color: #667085; line-height: 18px">{{c.hint}}</span>
+          </sc-if>
+          <sc-for list="{{c.deals}}" as="d" hint-placeholder-count="2">
+            <article style="background: #FFFFFF; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 2px rgba(16,24,40,0.06)">
+              <span style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px"><span style="font-size: 13px; font-weight: 800; min-width: 0">{{d.client}}</span>
+                <span style="display: flex; gap: 4px; flex-shrink: 0"><button type="button" aria-label="На этап назад" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #475467; font-size: 10px">◀</button><button type="button" aria-label="На этап дальше" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #0B2A3C; font-size: 10px">▶</button></span></span>
+              <span style="font-size: 12px; color: #667085; line-height: 17px">{{d.what}}</span>
+              <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px"><span style="font-size: 13px; font-weight: 800; color: #0B2A3C; white-space: nowrap">{{d.sum}}</span><span style="padding: 2px 8px; border-radius: 6px; background: #F2F4F7; font-size: 11px; font-weight: 700; color: #475467; white-space: nowrap">{{d.src}}</span></span>
+            </article>
+          </sc-for>
+        </section>
+      </sc-for>
+    </div>
+    <span style="font-size: 13px; color: #475467">В работе сделок: 4 на 4&nbsp;640 сом · Оплачено: 1 · Источники: Телеграм-бот 4 (оплачено 1) · WhatsApp 1 · Instagram 1</span>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: единые данные NBS — заказ №10 Умара (бот, сегодня 13:52) новый, как в «Заказах с сайта».
+    const d = (client, what, sum, src) => ({ client, what, sum, src });
+    const cols = [
+      { name: 'Новые обращения', dot: '#FFD600', hint: 'Сделки появятся из WhatsApp и бота, или нажмите «Новая сделка»',
+        deals: [d('Умар', 'Заказ №10 · сегодня 13:52 · самовывоз', '530 сом', 'Телеграм-бот')] },
+      { name: 'В работе', dot: '#B54708', hint: '',
+        deals: [d('Санжар Санжар', 'Пепси нет — предложили Кока-Колу 2л', '170 сом', 'Телеграм-бот'), d('Гулзат', 'Напитки на той: Кока-Кола 2л × 12', '2 040 сом', 'WhatsApp')] },
+      { name: 'Договорились', dot: '#0B2A3C', hint: '',
+        deals: [d('Кафе «Достук»', 'Молоко 1л × 20 по пятницам', '1 900 сом', 'Instagram')] },
+      { name: 'Оплачено', dot: '#16A34A', hint: '',
+        deals: [d('Alma', 'Mars 50г × 24 — коробка', '936 сом', 'Телеграм-бот')] },
+      { name: 'Отказ', dot: '#B42318', hint: '',
+        deals: [d('Мирлан', 'Картошка — нет в продаже', '—', 'Телеграм-бот')] }
+    ].map((c) => ({ ...c, count: c.deals.length, empty: c.deals.length === 0 }));
+    return { cols };
+  }
+}
+</script>
+</body>
+</html>

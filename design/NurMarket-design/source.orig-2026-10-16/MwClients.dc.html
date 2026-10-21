@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб в телефоне — клиенты и долги</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.hb{width:44px;height:44px;border-radius:12px;border:0;background:#F2F4F7;color:#0B2A3C;display:flex;align-items:center;justify-content:center}
+.chip{height:34px;padding:0 12px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.cl{display:flex;align-items:center;gap:10px;padding:12px;border-radius:14px;background:#FFFFFF}
+.wa{width:40px;height:40px;border-radius:12px;border:0;background:#E7F6EC;color:#0E7A3A;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="height: 60px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #EAECF0; display: flex; align-items: center; gap: 10px; padding: 0 12px">
+    <button type="button" class="hb" aria-label="Открыть меню"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+    <b style="font-size: 16px; flex-grow: 1">Клиенты и долги</b>
+  </header>
+  <div style="padding: 10px 16px 6px; display: flex; flex-direction: column; gap: 8px">
+    <section style="border-radius: 16px; background: #0B2A3C; color: #FFFFFF; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center"><span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #C7D2DB">Всего долгов</span><b style="font-size: 20px; color: #FFD600">[сумма]</b></span><button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 12px; font-weight: 800">Напомнить всем</button></section>
+    <div style="display: flex; gap: 6px; overflow: hidden"><button type="button" class="chip">Все</button><button type="button" class="chip on">Должники</button><button type="button" class="chip">Просрочено</button></div>
+  </div>
+  <main style="flex-grow: 1; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+      <div class="cl">
+        <span style="width: 38px; height: 38px; border-radius: 19px; background: #E7EEF3; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; flex-shrink: 0">[ИФ]</span>
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px">[Клиент]</b><span style="font-size: 12px; font-weight: 700; color: {{r.c}}">{{r.due}}</span></span>
+        <b style="color: #B42318">[сумма]</b>
+        <button type="button" class="wa" aria-label="Напомнить в WhatsApp"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 7.7 19.4z"></path></svg></button>
+      </div>
+    </sc-for>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const r = (due, c) => ({ due, c });
+    return { rows: [r('просрочен [N] дн.', '#B42318'), r('просрочен [N] дн.', '#B42318'), r('срок сегодня', '#B54708'), r('через [N] дн.', '#667085'), r('без срока', '#667085')] };
+  }
+}
+</script>
+</body>
+</html>

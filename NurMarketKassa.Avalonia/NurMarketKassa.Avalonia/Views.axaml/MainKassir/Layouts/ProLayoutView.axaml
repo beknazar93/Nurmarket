@@ -5,6 +5,7 @@
                          xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
                          xmlns:vm="using:NurMarketKassa.ViewModels.Main"
                          xmlns:pos="using:NurMarketKassa.Models.Pos"
+                         xmlns:mainViews="using:NurMarketKassa.AvaloniaHost.Views"
                          x:Class="NurMarketKassa.AvaloniaHost.Views.MainKassir.Layouts.ProLayoutView"
                          x:DataType="vm:MainWindowViewModel"
                          x:CompileBindings="True"
@@ -34,7 +35,8 @@
             <Setter Property="BorderThickness" Value="3,0,0,0"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="Width" Value="76"/>
+            <!-- 2026-10-19, К1: полоса 92 (было 76) — подписи целиком на всех 5 языках («Калтырылган», «Kechiktirilgan»). -->
+            <Setter Property="Width" Value="92"/>
             <Setter Property="Height" Value="62"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
@@ -60,12 +62,15 @@
             <Setter Property="Height" Value="22"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
         </Style>
+        <!-- 2026-10-19, К1: подпись без «…» — шире (86) и переносом на 2 строки, если слов несколько. -->
         <Style Selector="Button.pr-rail TextBlock">
             <Setter Property="FontSize" Value="10.5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
-            <Setter Property="MaxWidth" Value="70"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+            <Setter Property="MaxWidth" Value="86"/>
         </Style>
 
         <Style Selector="Border.pr-result">
@@ -126,7 +131,7 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="76"/>
+            <ColumnDefinition Width="92"/>
             <ColumnDefinition Width="*" MinWidth="420"/>
             <ColumnDefinition Width="0.62*" MinWidth="360" MaxWidth="460"/>
         </Grid.ColumnDefinitions>
@@ -210,10 +215,29 @@
             <Border Grid.Row="0" Background="{StaticResource ProRailBrush}" Padding="20,14,20,16"
                     BorderBrush="#1F2937" BorderThickness="0,1,0,0">
                 <Border Classes="lx-field pr-search">
-                    <Grid ColumnDefinitions="Auto,*">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
                         <PathIcon Data="{StaticResource IconSearch}" Width="18" Height="18" Margin="0,0,12,0"/>
                         <TextBox x:Name="ProductSearchBox" Grid.Column="1" Text="{Binding Catalog.SearchText}"
                                  Watermark="{DynamicResource lx.proSearchWatermark}" FontSize="16"/>
+                        <!-- 2026-10-20, проверка фильтров: «Фильтр» в раскладке (было только в «Классике») — число включённых условий,
+                             в подсказке что включено; «✕» сбрасывает. Кнопки не берут фокус (скан — окну кассы). -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center">
+                            <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="32" Padding="10,0"
+                                    ToolTip.Tip="{Binding Catalog.ActiveFilterTip}" Click="OpenFilter_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconFilter}" Width="14" Height="14"/>
+                                    <TextBlock Text="{DynamicResource csh.catalog.filter}" VerticalAlignment="Center"/>
+                                    <Border IsVisible="{Binding Catalog.HasActiveFilter}" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0"
+                                            Background="{DynamicResource BrushAccent}" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Catalog.ActiveFilterCount}" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" Foreground="{DynamicResource BrushAccentForeground}"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+                            <Button Classes="lx-chip" Focusable="False" Height="32" Width="32" Padding="0" Content="✕"
+                                    IsVisible="{Binding Catalog.HasActiveFilter}" ToolTip.Tip="{Binding Catalog.ResetFilterTip}"
+                                    AutomationProperties.Name="{Binding Catalog.ResetFilterTip}" Click="ResetFilter_Click"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
             </Border>
@@ -254,11 +278,14 @@
                         <StackPanel IsVisible="{Binding Catalog.IsCatalogEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Margin="16">
                             <PathIcon Data="{StaticResource IconPackage}" Width="40" Height="40" HorizontalAlignment="Center"
                                       Foreground="{DynamicResource BrushTextSoft}" Opacity="0.6"/>
-                            <TextBlock Text="{Binding Catalog.StatusText}" TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center"
+                            <!-- 2026-10-20 (живой аудит кассы, К9): причина пустого каталога (поиск, вкладка, фильтр), а не число товаров. -->
+                            <TextBlock Text="{Binding Catalog.EmptyStateText}" TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
                         <ScrollViewer Classes="lx-scroll" IsVisible="{Binding Catalog.HasProducts}">
-                            <ListBox x:Name="ResultsList" Classes="lx-tiles"
+                            <!-- 2026-10-20, живая проверка: «верхний ряд плиток срезан» — скан/щелчок выделял товар (SelectedProduct),
+                                 и список сам прокручивался к нему на полряда. Прокрутку к рамке стрелок делает CatalogKeyboardNavigation. -->
+                            <ListBox x:Name="ResultsList" AutoScrollToSelectedItem="False" Classes="lx-tiles"
                                      ItemsSource="{Binding Catalog.Products}"
                                      SelectedItem="{Binding Catalog.SelectedProduct}" SelectionMode="Single">
                                 <ListBox.ItemTemplate>
@@ -285,9 +312,12 @@
                                                         <TextBlock Text="{Binding Barcode}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                     </StackPanel>
+                                                    <!-- 2026-10-19, К1: остаток — мало оранжевым, 0 красным (LayoutStyles). -->
                                                     <TextBlock Grid.Column="2" Text="{Binding StockInfo}" FontSize="12" IsVisible="{Binding !IsService}"
                                                                HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                               Foreground="{DynamicResource BrushCatalogStock}"/>
+                                                               Foreground="{DynamicResource BrushCatalogStock}"
+                                                               Classes.stock-low="{Binding IsLowStock}"
+                                                               Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"/>
                                                     <TextBlock Grid.Column="3" Classes="lx-money" FontSize="15" FontWeight="Bold"
                                                                Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"/>
                                                     <Border Grid.Column="4" Width="30" Height="30" CornerRadius="15" HorizontalAlignment="Right"
@@ -361,7 +391,8 @@
                                 <DataTemplate x:DataType="vm:ReceiptTabVm">
                                     <Button Classes="pr-tab" Classes.active="{Binding IsActive}"
                                             Command="{Binding SelectCommand}" CommandParameter="{Binding}">
-                                        <TextBlock Text="{Binding Title}" MaxWidth="150" TextTrimming="CharacterEllipsis"/>
+                                        <!-- 2026-10-19, К1: 230 — сумма вкладки целиком. -->
+                                        <TextBlock Text="{Binding Title}" MaxWidth="230" TextTrimming="CharacterEllipsis"/>
                                     </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -395,7 +426,8 @@
                                    TextAlignment="Center" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}"/>
                     </StackPanel>
                     <ScrollViewer Classes="lx-scroll" IsVisible="{Binding Basket.HasItems}">
-                        <ItemsControl ItemsSource="{Binding Basket.Lines}">
+                        <!-- 2026-10-19, К1: правый отступ под полосу прокрутки — суммы строк её не задевают (как в «Минимале»). -->
+                        <ItemsControl ItemsSource="{Binding Basket.Lines}" Margin="0,0,12,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:CartLineItemVm">
                                     <Border Classes="pr-line">
@@ -498,15 +530,16 @@
                     </Grid>
                 </StackPanel>
 
+                <!-- 2026-10-19, К1: подписи кнопок переносятся на 2 строки (по-кыргызски обрезались «…»). -->
                 <Grid Grid.Row="6" ColumnDefinitions="*,6,*,6,*,6,Auto" Margin="0,0,0,10">
                     <Button Grid.Column="0" Classes="lx-btn" Padding="6,0" HorizontalAlignment="Stretch" Command="{Binding Basket.DeferCartCommand}">
-                        <TextBlock Text="{DynamicResource onecLayout.holdButton}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{DynamicResource onecLayout.holdButton}" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Grid.Column="2" Classes="lx-btn" Padding="6,0" HorizontalAlignment="Stretch" Command="{Binding Basket.ApplyOrderDiscountCommand}">
-                        <TextBlock Text="{DynamicResource onecLayout.discountButton}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{DynamicResource onecLayout.discountButton}" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Grid.Column="4" Classes="lx-btn" Padding="6,0" HorizontalAlignment="Stretch" Command="{Binding Basket.AddCustomItemCommand}">
-                        <TextBlock Text="{DynamicResource csh.cart.customService}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{DynamicResource csh.cart.customService}" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Grid.Column="6" Classes="lx-btn" Width="40" Padding="0" ToolTip.Tip="{DynamicResource csh.cart.moreTooltip}">
                         <PathIcon Data="{StaticResource IconMore}" Width="16" Height="16"/>

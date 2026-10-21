@@ -12,8 +12,9 @@ using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Services.RemoteSupport;
 
-/// <summary>2026-10-07, владелец: «начни разработку аналога AnyDesk для тех поддержки» (решение 29.09 — «полностью своё, свой VPS»;
-/// 07.10 — сервер на нашем VPS, оператор — отдельная программа). Касса-хост по протоколу NurRemoteSupport/PROTOCOL.md v1:
+/// <summary>2026-10-07, владелец: своя удалённая помощь для тех поддержки (решение 29.09 — «полностью своё, свой VPS»;
+/// 07.10 — сервер на нашем VPS, оператор — отдельная программа). 2026-10-16: «Нур Поддержка» — единственный способ удалённой
+/// помощи, сторонняя программа из кассы убрана. Касса-хост по протоколу NurRemoteSupport/PROTOCOL.md v1:
 /// hello → код и PIN → запрос оператора → согласие кассира → поток экрана (изменившиеся куски JPEG, не больше 2 неподтверждённых
 /// кадров) и ввод оператора (мышь, клавиши, текст) через SendInput. Логика потока — из проверенного FakeHost
 /// (NurRemoteSupport/Tools/FakeHost). Только основной монитор. Никакого доступа без кнопки кассира «Разрешить».</summary>
@@ -21,8 +22,13 @@ public sealed class RemoteSupportHost : IAsyncDisposable
 {
     public enum State { Connecting, WaitingOperator, AskingConsent, InSession, Ended }
 
-    /// <summary>Адрес ретранслятора (wss://…/ws/host). Пока сервер не поставлен на VPS — из файла
-    /// %LOCALAPPDATA%\NurMarketKassa\remote-relay.txt или переменной NURREMOTE_RELAY; пусто — своя поддержка выключена.</summary>
+    /// <summary>2026-10-15: ответ кассира. «Разрешить» даёт экран и управление; «Только просмотр» — экран без ввода
+    /// (касса сама не пропускает мышь и клавиатуру, что бы ни прислал сервер).</summary>
+    public enum Consent { Deny, Allow, ViewOnly }
+
+    /// <summary>Адрес ретранслятора (wss://…/ws/host). 2026-10-16: по умолчанию — боевой <see cref="DefaultRelayUrl"/>, своя
+    /// поддержка включена всегда. Для проверки его заменяет переменная NURREMOTE_RELAY или файл
+    /// %LOCALAPPDATA%\NurMarketKassa\remote-relay.txt (ws:// — только для сервера на этом ПК, см. RunAsync); пустые — боевой адрес.</summary>
     public static string RelayUrl
     {
         get
@@ -33,29 +39,42 @@ public sealed class RemoteSupportHost : IAsyncDisposable
             try
             {
                 var file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NurMarketKassa", "remote-relay.txt");
-                if (File.Exists(file))
-                    return File.ReadAllText(file).Trim();
+                // 2026-10-16: пустой файл больше не выключает поддержку — берётся боевой адрес.
+                if (File.Exists(file) && File.ReadAllText(file).Trim() is { Length: > 0 } fromFile)
+                    return fromFile;
             }
             catch
             {
-                // нет доступа к файлу — считаем, что не настроено
+                // нет доступа к файлу — боевой адрес
             }
             return DefaultRelayUrl;
         }
     }
 
-    /// <summary>Боевой адрес ретранслятора — впишется, когда сервер встанет на VPS.</summary>
-    public const string DefaultRelayUrl = "";
+    /// <summary>2026-10-16: боевой адрес ретранслятора на нашем VPS; путь хоста — /ws/host.</summary>
+    public const string DefaultRelayUrl = "wss://support.nurcrm.kg/ws/host";
+
+    /// <summary>2026-10-16: телефон поддержки NurMarket (тот же, что в окне «Поддержка», AdminSupportWindow) — для сообщения
+    /// «сервер поддержки недоступен».</summary>
+    public const string SupportPhone = "+996 559 340 032";
+
+    /// <summary>2026-10-16: сервер поддержки недоступен — что делать кассиру.</summary>
+    public static string UnreachableText() => Tr.T(
+        $"Сервер поддержки недоступен — позвоните в поддержку по телефону {SupportPhone} (WhatsApp — тот же номер).",
+        $"Колдоо сервери жеткиликсиз — колдоо кызматына {SupportPhone} телефону менен чалыңыз (WhatsApp — ушул эле номер).",
+        $"The support server is unavailable — call support at {SupportPhone} (WhatsApp — the same number).",
+        $"Destek sunucusuna ulaşılamıyor — destek hattını {SupportPhone} numarasından arayın (WhatsApp — aynı numara).",
+        $"Qo'llab-quvvatlash serveri mavjud emas — yordam xizmatiga {SupportPhone} raqami orqali qo'ng'iroq qiling (WhatsApp — shu raqam).");
 
     public event Action<State>? StateChanged;
     public event Action<string, string, int>? CodeReceived;          // код, PIN, секунд до истечения
-    public event Func<string, Task<bool>>? ConsentRequested;          // имя оператора → разрешить?
+    public event Func<string, Task<Consent>>? ConsentRequested;       // 2026-10-15: имя оператора → ответ кассира (было bool)
     public event Action<string>? SessionStarted;                      // имя оператора
     public event Action<string>? Ended;                               // причина словами
 
     public State Current { get; private set; } = State.Connecting;
     public string Operator { get; private set; } = "";
-    public bool ViewOnly => _viewOnly;
+    public bool ViewOnly => _viewOnly || _localViewOnly;
 
     private readonly ClientWebSocket _ws = new();
     private readonly SemaphoreSlim _sendLock = new(1, 1);
@@ -67,6 +86,17 @@ public sealed class RemoteSupportHost : IAsyncDisposable
     // 2026-10-11, проверка безопасности: согласие кассира — только своё, локальное. Без него «started» от сервера
     // не включает показ экрана и управление (сервер с ошибкой или подменённый не подключится без «Разрешить»).
     private volatile bool _consentGranted;
+    // 2026-10-15: «Только просмотр» кассира — ввод оператора не исполняется; сервер («view-only» false) это не снимает.
+    private volatile bool _localViewOnly;
+    // 2026-10-15: согласие привязано к одному запросу и одному оператору: номер запроса, имя одобренного оператора;
+    // замок — чтобы «started» и истечение ожидания после «Разрешить» не перепутались.
+    private readonly object _consentLock = new();
+    private int _consentRound;
+    private string _approvedOperator = "";
+    private const int StartAfterConsentTimeoutMs = 30_000;
+    // 2026-10-16: сколько ждём код от сервера (подключение + «session»). Не пришёл — конец с понятной ошибкой, а не вечное «Подключаюсь…».
+    private const int ConnectingTimeoutMs = 30_000;
+    private volatile bool _connectTimedOut;
     private volatile bool _forceFull = true;
     private volatile int _quality = 60;
     private uint _frameNo;
@@ -87,6 +117,22 @@ public sealed class RemoteSupportHost : IAsyncDisposable
         _screenW = GetSystemMetrics(SM_CXSCREEN);
         _screenH = GetSystemMetrics(SM_CYSCREEN);
         var endReason = "";
+        // 2026-10-16: за 30 с не подключились или сервер не прислал код — сеанс обрывается (причина — в finally).
+        using var connectTimeout = new CancellationTokenSource(ConnectingTimeoutMs);
+        using var connectTimeoutReg = connectTimeout.Token.Register(() =>
+        {
+            if (Current != State.Connecting)
+                return;
+            _connectTimedOut = true;
+            try
+            {
+                _cts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // сеанс уже закрыт
+            }
+        });
         try
         {
             SetState(State.Connecting);
@@ -125,34 +171,63 @@ public sealed class RemoteSupportHost : IAsyncDisposable
                 {
                     continue;
                 }
-                var type = m.TryGetProperty("type", out var t) ? t.GetString() : null;
+                // 2026-10-15: не объект или «type» не строка — пропустить сообщение (раньше исключение рвало сеанс).
+                if (m.ValueKind != JsonValueKind.Object)
+                    continue;
+                var type = Str(m, "type");
                 switch (type)
                 {
                     case "ping":
                         await SendJsonAsync(new { type = "pong" }, ct).ConfigureAwait(false);
                         break;
                     case "session":
+                        // 2026-10-15: кривое сообщение без кода — пропустить, а не обрывать связь «Нет связи».
+                        // 2026-10-16: код и PIN принимаются и строкой, и числом. Без них, пока кода ещё нет (Connecting), —
+                        // конец с понятной ошибкой: раньше сообщение пропускалось и окно навсегда оставалось «Подключаюсь…».
+                        if (StrOrNum(m, "code") is not { } sessCode || StrOrNum(m, "pin") is not { } sessPin)
+                        {
+                            Malformed(type);
+                            if (Current == State.Connecting)
+                                endReason = Tr.T("Сервер поддержки прислал неверный код подключения. Попробуйте ещё раз.",
+                                    "Колдоо сервери туура эмес туташуу кодун жөнөттү. Кайра аракет кылыңыз.",
+                                    "The support server sent an invalid connection code. Please try again.",
+                                    "Destek sunucusu geçersiz bir bağlantı kodu gönderdi. Lütfen tekrar deneyin.",
+                                    "Qo'llab-quvvatlash serveri noto'g'ri ulanish kodini yubordi. Qayta urinib ko'ring.");
+                            break;
+                        }
                         SetState(State.WaitingOperator);
-                        CodeReceived?.Invoke(m.GetProperty("code").GetString() ?? "", m.GetProperty("pin").GetString() ?? "",
-                            m.TryGetProperty("expiresIn", out var exp) ? exp.GetInt32() : 900);
+                        CodeReceived?.Invoke(sessCode, sessPin, TryNum(m, "expiresIn", out var exp) ? (int)Math.Clamp(exp, 0, 86_400) : 900);
                         break;
                     case "join-request":
                         if (Current is State.InSession or State.AskingConsent)
                             break; // 2026-10-11: второй запрос во время сеанса или вопроса кассиру — не сбрасывает их
-                        _ = AskConsentAsync(m.TryGetProperty("operator", out var op) ? op.GetString() ?? "" : "", ct);
+                        _ = AskConsentAsync(Str(m, "operator") ?? "", ct);
                         break;
                     case "started":
-                        if (!_consentGranted || Current == State.InSession)
+                        // 2026-10-15: сеанс — только по согласию на ЭТОТ запрос (ждём «started» сразу после «Разрешить») и только
+                        // для одобренного оператора: другое имя в «started» — отклонено, сеанс не начинается.
+                        var startedOp = Str(m, "operator");
+                        var startOk = false;
+                        lock (_consentLock)
                         {
-                            PosLogger.Log("Удалённая помощь: сервер начал сеанс без согласия кассира — отклонено.", "WARNING");
+                            if (_consentGranted && Current == State.AskingConsent
+                                && (startedOp is null || string.Equals(startedOp, _approvedOperator, StringComparison.Ordinal)))
+                            {
+                                _consentGranted = false; // 2026-10-15: согласие одноразовое
+                                Operator = startedOp ?? _approvedOperator;
+                                SetState(State.InSession);
+                                startOk = true;
+                            }
+                        }
+                        if (!startOk)
+                        {
+                            PosLogger.Log($"Удалённая помощь: сервер начал сеанс без согласия кассира (оператор «{startedOp}», одобрен «{_approvedOperator}») — отклонено.", "WARNING");
                             endReason = Tr.T("Сеанс отклонён: кассир не давал разрешения.", "Сеанс четке кагылды: кассир уруксат берген жок.",
                                 "The session was rejected: the cashier did not allow it.", "Oturum reddedildi: kasiyer izin vermedi.",
                                 "Seans rad etildi: kassir ruxsat bermagan.");
                             break;
                         }
-                        Operator = m.TryGetProperty("operator", out var name) ? name.GetString() ?? "" : "";
-                        PosLogger.Log($"Удалённая помощь: сеанс начат, оператор «{Operator}».", "INFO");
-                        SetState(State.InSession);
+                        PosLogger.Log($"Удалённая помощь: сеанс начат, оператор «{Operator}»{(_localViewOnly ? ", только просмотр" : "")}.", "INFO");
                         SessionStarted?.Invoke(Operator);
                         _streamThread = new Thread(() => StreamLoop(ct)) { IsBackground = true, Name = "RemoteSupportStream" };
                         _streamThread.Start();
@@ -174,30 +249,66 @@ public sealed class RemoteSupportHost : IAsyncDisposable
                     case "end":
                         endReason = EndText(m.TryGetProperty("reason", out var rs) ? rs.GetString() ?? "" : "");
                         break;
+                    // 2026-10-15: ack/quality/view-only без нужных полей (или не того типа) раньше бросали исключение и рвали
+                    // весь сеанс с «Нет связи» — теперь кривое сообщение пишется в журнал и пропускается.
                     case "ack":
-                        var f = m.GetProperty("frame").GetInt64();
+                        if (!TryNum(m, "frame", out var f))
+                        {
+                            Malformed(type);
+                            break;
+                        }
                         if (f > Interlocked.Read(ref _lastAck))
                             Interlocked.Exchange(ref _lastAck, f);
                         _ackSignal.Release();
                         break;
+                    // 2026-10-15: ввод — только в сеансе и не в «только просмотр» (ни серверном, ни выбранном кассиром);
+                    // поле не того типа у мыши/клавиши — пропустить сообщение, а не оборвать сеанс.
                     case "mouse":
-                        if (Current == State.InSession && !_viewOnly)
-                            OnMouse(m);
+                        if (Current == State.InSession && !_viewOnly && !_localViewOnly)
+                        {
+                            try
+                            {
+                                OnMouse(m);
+                            }
+                            catch (InvalidOperationException)
+                            {
+                                Malformed(type);
+                            }
+                        }
                         break;
                     case "key":
-                        if (Current == State.InSession && !_viewOnly)
-                            OnKey(m);
+                        if (Current == State.InSession && !_viewOnly && !_localViewOnly)
+                        {
+                            try
+                            {
+                                OnKey(m);
+                            }
+                            catch (InvalidOperationException)
+                            {
+                                Malformed(type);
+                            }
+                        }
                         break;
                     case "text":
-                        if (Current == State.InSession && !_viewOnly && m.TryGetProperty("text", out var tx))
-                            TypeText(tx.GetString() ?? "");
+                        if (Current == State.InSession && !_viewOnly && !_localViewOnly && Str(m, "text") is { } tx)
+                            TypeText(tx);
                         break;
                     case "quality":
-                        _quality = Math.Clamp(m.GetProperty("value").GetInt32(), 10, 90);
+                        if (!TryNum(m, "value", out var qv))
+                        {
+                            Malformed(type);
+                            break;
+                        }
+                        _quality = (int)Math.Clamp(qv, 10, 90);
                         _forceFull = true;
                         break;
                     case "view-only":
-                        _viewOnly = m.GetProperty("value").GetBoolean();
+                        if (!m.TryGetProperty("value", out var vo) || vo.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                        {
+                            Malformed(type);
+                            break;
+                        }
+                        _viewOnly = vo.GetBoolean();
                         if (_viewOnly)
                             ReleaseAll();
                         break;
@@ -214,8 +325,11 @@ public sealed class RemoteSupportHost : IAsyncDisposable
         catch (Exception ex)
         {
             PosLogger.Log($"Удалённая помощь: соединение не удалось ({ex.Message}).", "WARNING");
-            endReason = Tr.T("Нет связи с сервером поддержки: ", "Колдоо сервери менен байланыш жок: ", "No connection to the support server: ",
-                "Destek sunucusuna bağlantı yok: ", "Qo'llab-quvvatlash serveri bilan aloqa yo'q: ") + ex.Message;
+            // 2026-10-16: до кода сервер не ответил (нет сети, DNS, сервер выключен, 502) — понятное сообщение с телефоном поддержки.
+            endReason = Current == State.Connecting && ex is WebSocketException or System.Net.Http.HttpRequestException or System.Net.Sockets.SocketException or IOException
+                ? UnreachableText()
+                : Tr.T("Нет связи с сервером поддержки: ", "Колдоо сервери менен байланыш жок: ", "No connection to the support server: ",
+                    "Destek sunucusuna bağlantı yok: ", "Qo'llab-quvvatlash serveri bilan aloqa yo'q: ") + ex.Message;
         }
         finally
         {
@@ -234,6 +348,14 @@ public sealed class RemoteSupportHost : IAsyncDisposable
                     // соединение уже оборвано
                 }
             }
+            // 2026-10-16: оборвали по таймауту подключения — так и пишем (а не «Сеанс завершён на кассе» от отмены).
+            // 2026-10-16: + телефон поддержки — других способов удалённой помощи в кассе нет.
+            if (_connectTimedOut)
+                endReason = Tr.T($"Сервер поддержки не ответил за 30 секунд. Проверьте интернет и попробуйте ещё раз или позвоните в поддержку по телефону {SupportPhone}.",
+                    $"Колдоо сервери 30 секунданын ичинде жооп берген жок. Интернетти текшерип, кайра аракет кылыңыз же колдоо кызматына {SupportPhone} телефону менен чалыңыз.",
+                    $"The support server did not respond within 30 seconds. Check the internet connection and try again, or call support at {SupportPhone}.",
+                    $"Destek sunucusu 30 saniye içinde yanıt vermedi. İnternet bağlantısını kontrol edip tekrar deneyin veya destek hattını {SupportPhone} numarasından arayın.",
+                    $"Qo'llab-quvvatlash serveri 30 soniya ichida javob bermadi. Internetni tekshirib, qayta urinib ko'ring yoki yordam xizmatiga {SupportPhone} raqami orqali qo'ng'iroq qiling.");
             if (endReason.Length == 0)
                 endReason = wasSession
                     ? Tr.T("Сеанс поддержки завершён.", "Колдоо сеансы аяктады.", "The support session has ended.", "Destek oturumu sona erdi.", "Qo'llab-quvvatlash seansi tugadi.")
@@ -256,27 +378,118 @@ public sealed class RemoteSupportHost : IAsyncDisposable
 
     private async Task AskConsentAsync(string op, CancellationToken ct)
     {
-        SetState(State.AskingConsent);
-        var accept = false;
+        int round;
+        lock (_consentLock)
+        {
+            round = ++_consentRound;
+            _consentGranted = false;
+            SetState(State.AskingConsent);
+        }
+        var consent = Consent.Deny;
         try
         {
             if (ConsentRequested is { } ask)
             {
                 // Кассир думает не дольше 60 с (сервер сам отказывает через 90 с).
                 var answer = ask(op);
-                accept = await Task.WhenAny(answer, Task.Delay(60_000, ct)).ConfigureAwait(false) == answer && answer.Result;
+                // 2026-10-15: упавший вопрос (ошибка окна) — отказ, а не исключение без ответа серверу.
+                consent = await Task.WhenAny(answer, Task.Delay(60_000, ct)).ConfigureAwait(false) == answer && answer.IsCompletedSuccessfully
+                    ? answer.Result
+                    : Consent.Deny;
             }
         }
         catch (OperationCanceledException)
         {
             return;
         }
-        PosLogger.Log($"Удалённая помощь: оператор «{op}» — {(accept ? "разрешено" : "отказано")} кассиром.", "INFO");
-        _consentGranted = accept;
-        if (!accept)
-            SetState(State.WaitingOperator);
-        await SendJsonAsync(new { type = "consent", accept }, ct).ConfigureAwait(false);
+        var accept = consent != Consent.Deny;
+        var said = consent switch { Consent.Allow => "разрешено", Consent.ViewOnly => "разрешён только просмотр", _ => "отказано" };
+        PosLogger.Log($"Удалённая помощь: оператор «{op}» — {said} кассиром.", "INFO");
+        lock (_consentLock)
+        {
+            if (round != _consentRound || Current != State.AskingConsent)
+                return; // 2026-10-15: сеанс уже закончился или это чужой (устаревший) запрос
+            _consentGranted = accept;
+            _localViewOnly = consent != Consent.Allow;
+            _approvedOperator = op;
+            if (!accept)
+                SetState(State.WaitingOperator);
+        }
+        // 2026-10-16: «Только просмотр» — в ответе поле view_only: true. Раньше уходило просто accept: true, и оператор
+        // не знал, что управления не будет. В протоколе v1 такого поля нет: показать его оператору должен сервер — это ещё
+        // не сделано, внести в ТЗ сервера удалённой поддержки (лишнее поле сервер v1 пропускает). Отдельного сообщения
+        // «только просмотр» от кассы к серверу в v1 тоже нет — «view-only» идёт только от сервера. Касса в любом случае
+        // сама не исполняет ввод (_localViewOnly).
+        var reply = consent == Consent.ViewOnly
+            ? (object)new { type = "consent", accept, view_only = true }
+            : new { type = "consent", accept };
+        await SendJsonAsync(reply, ct).ConfigureAwait(false);
+        if (accept)
+            _ = ExpireConsentAsync(round, ct);
     }
+
+    /// <summary>2026-10-15: после «Разрешить» сервер должен начать сеанс сразу. Не начал за 30 с (оператор ушёл) — согласие
+    /// снимается и касса снова ждёт оператора: новый запрос опять спросит кассира, а не будет молча проигнорирован до истечения кода.</summary>
+    private async Task ExpireConsentAsync(int round, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(StartAfterConsentTimeoutMs, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        lock (_consentLock)
+        {
+            if (round != _consentRound || !_consentGranted || Current != State.AskingConsent)
+                return;
+            _consentGranted = false;
+            _approvedOperator = "";
+            SetState(State.WaitingOperator);
+        }
+        PosLogger.Log("Удалённая помощь: после «Разрешить» сеанс не начался за 30 с — согласие снято, ждём оператора снова.", "WARNING");
+        // 2026-10-16: согласие снято и на сервере — отказом. Раньше снималось только на кассе: сервер считал доступ
+        // данным, поздний «started» касса отклоняла и рвала всю связь с «кассир не давал разрешения». Ошибка отправки
+        // (связь уже рвётся) — не исключение без наблюдателя: конец сеанса покажет основной цикл.
+        try
+        {
+            await SendJsonAsync(new { type = "consent", accept = false }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Удалённая помощь: отказ после истечения согласия не отправлен ({ex.Message}).", "WARNING");
+        }
+    }
+
+    /// <summary>2026-10-15: строковое поле сообщения или null (нет поля / не строка) — без исключений.</summary>
+    private static string? Str(JsonElement m, string name) =>
+        m.TryGetProperty(name, out var e) && e.ValueKind == JsonValueKind.String ? e.GetString() : null;
+
+    /// <summary>2026-10-16: поле-строка или целое число (код и PIN сервер может прислать числом) — как текст; пустое,
+    /// нет поля или другой тип — null.</summary>
+    private static string? StrOrNum(JsonElement m, string name)
+    {
+        if (!m.TryGetProperty(name, out var e))
+            return null;
+        var s = e.ValueKind switch
+        {
+            JsonValueKind.String => e.GetString(),
+            JsonValueKind.Number when e.TryGetInt64(out var n) && n >= 0 => n.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            _ => null,
+        };
+        return string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+    }
+
+    /// <summary>2026-10-15: целое поле сообщения — без исключений на отсутствующее поле или не число.</summary>
+    private static bool TryNum(JsonElement m, string name, out long value)
+    {
+        value = 0;
+        return m.TryGetProperty(name, out var e) && e.ValueKind == JsonValueKind.Number && e.TryGetInt64(out value);
+    }
+
+    private static void Malformed(string? type) =>
+        PosLogger.Log($"Удалённая помощь: сообщение «{type}» без нужных полей — пропущено.", "WARNING");
 
     /// <summary>Завершить сеанс или ожидание кнопкой кассира.</summary>
     public async Task StopAsync()

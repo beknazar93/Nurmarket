@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Пополнение и сроки</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="goods" active="Пополнение и сроки" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Пополнение и сроки</span><span style="font-size: 13px; color: #667085">Что пора заказать — по скорости продаж · прокатные вещи не учитываются</span></span>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054; white-space: nowrap">⟳ Обновить историю продаж</button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px">
+      <div role="tablist" style="display: flex; gap: 24px; border-bottom: 1px solid #E5E7EB; flex-grow: 1">
+        <button type="button" role="tab" aria-selected="true" style="border: 0; background: transparent; padding: 10px 0; border-bottom: 3px solid #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C; white-space: nowrap">Что заказать · 4</button>
+        <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085; white-space: nowrap">Сроки годности · 3</button>
+      </div>
+      <!-- 2026-10-16: горизонт заказа на выбор (а не зашитые 14 дней); скорость — выпадающим списком -->
+      <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #475467; white-space: nowrap">Заказать на
+        <span role="group" aria-label="Горизонт заказа" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 3px">
+          <button type="button" style="height: 32px; padding: 0 12px; border-radius: 9px; border: 0; background: transparent; font-family: inherit; font-size: 12px; font-weight: 600; color: #475467">7 дней</button>
+          <button type="button" style="height: 32px; padding: 0 12px; border-radius: 9px; border: 0; background: #0B2A3C; font-family: inherit; font-size: 12px; font-weight: 700; color: #FFFFFF">14 дней</button>
+          <button type="button" style="height: 32px; padding: 0 12px; border-radius: 9px; border: 0; background: transparent; font-family: inherit; font-size: 12px; font-weight: 600; color: #475467">30 дней</button>
+        </span></span>
+      <button type="button" style="height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 600; color: #344054; white-space: nowrap">Скорость: продажи за месяц ▾</button>
+    </div>
+    <section style="flex-grow: 1; min-height: 0; background: #FFFFFF; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+      <div style="display: grid; grid-template-columns: 28px minmax(0, 2.4fr) minmax(0, 1.6fr) minmax(0, 0.7fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 0.9fr); gap: 12px; padding: 12px 16px; background: #F9FAFB; font-size: 12px; font-weight: 700; color: #475467"><span></span><span>Товар</span><span>Поставщик</span><span>Остаток</span><span>Продаж в день</span><span>Хватит на</span><span style="white-space: nowrap">Заказать (14 дн.)</span></div>
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid #EAECF0; background: {{g.bg}}">
+          <span style="font-size: 13px; font-weight: 800; color: #0B2A3C">{{g.name}}</span>
+          <span style="font-size: 12px; color: #667085; flex-grow: 1">{{g.note}}</span>
+          <sc-if value="{{g.canOrder}}" hint-placeholder-val="{{true}}"><a href="#" style="font-size: 12px; font-weight: 700; text-decoration: none; white-space: nowrap">В заявку этому поставщику ›</a></sc-if>
+        </div>
+        <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="2">
+          <label style="display: grid; grid-template-columns: 28px minmax(0, 2.4fr) minmax(0, 1.6fr) minmax(0, 0.7fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 0.9fr); gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid #F2F4F7">
+            <input type="checkbox" checked="{{r.sel}}" aria-label="Выбрать" style="width: 18px; height: 18px; accent-color: #0B2A3C">
+            <span style="font-size: 13px; font-weight: 700">{{r.name}}</span>
+            <span style="font-size: 12px; color: #475467; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.sup}}</span>
+            <span style="font-size: 13px; color: #475467; white-space: nowrap">{{r.stock}}</span>
+            <span style="font-size: 13px; color: #475467">{{r.rate}}</span>
+            <span><span style="padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; background: {{r.bg}}; color: {{r.fg}}">{{r.days}}</span></span>
+            <span style="font-size: 14px; font-weight: 800; color: #0B2A3C; white-space: nowrap">{{r.order}}</span>
+          </label>
+        </sc-for>
+      </sc-for>
+      <div style="margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-top: 1px solid #EAECF0; background: #FCFCFD">
+        <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #475467">Выбрано 4 товара · <b style="color: #0B2A3C">395 шт</b> · 2 поставщика · хватит меньше 7 дней — красный «срочно», меньше 14 — оранжевый «скоро»</span><span style="font-size: 12px; color: #667085">Заявка поставщику — закупки NurCRM (тариф «Стандарт» и выше)</span></span>
+        <button type="button" style="height: 46px; padding: 0 18px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054; white-space: nowrap">Скачать список</button>
+        <button type="button" style="height: 46px; padding: 0 20px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C; white-space: nowrap">В заявки поставщикам · 2</button>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: те же 4 товара, что на «Складе» (Мало 4) и в меню (7 = 4 + 3); прокатные вещи сюда не попадают.
+    // Заказать = скорость × 14 дн. − остаток (с округлением вверх): Aos 11,14 × 14 − 0 = 156; Эссе 15,81 × 14 − 9 = 213.
+    const H = 14;
+    const row = (name, sup, stock, rate, sel = true) => {
+      const d = stock / rate;
+      const need = Math.max(0, Math.ceil(rate * H - stock - 1e-9));
+      return {
+        name, sup, sel, stock: stock.toLocaleString('ru-RU') + '\u00a0шт', rate: String(rate).replace('.', ','),
+        days: (Math.round(d * 10) / 10).toString().replace('.', ',') + '\u00a0дн.' + (d < 7 ? ' · срочно' : d < H ? ' · скоро' : ''),
+        bg: d < 7 ? '#FDE8E8' : d < H ? '#FEF3E2' : '#E7F6EC', fg: d < 7 ? '#B42318' : d < H ? '#B54708' : '#0E7A3A',
+        order: sel ? need + '\u00a0шт' : '—'
+      };
+    };
+    const A = 'ИП Асанов', B = 'ОсОО «Бишкек Дистрибьюшн»';
+    const groups = [
+      { name: A, note: 'бакалея и хозтовары · 2 товара · 369 шт', bg: '#F9FAFB', canOrder: true, rows: [
+        row('Aos Extra pover 450гр бальзам', A, 0, 11.14), row('Эссе манго', A, 9, 15.81)] },
+      { name: B, note: 'напитки · 2 товара · 26 шт', bg: '#F9FAFB', canOrder: true, rows: [
+        row('Сок Gracio яблочный 1л', B, 2, 1.2), row('Кока-Кола (ПЭТ) 2л', B, 1, 0.8)] },
+      { name: 'Хватит больше чем на 14 дней — не заказываем', note: 'ещё 303 товара', bg: '#FFFFFF', canOrder: false, rows: [
+        row('Хлеб белый', 'ИП Асанов', 40, 2.5, false), row('Mars 50г', B, 48, 1.9, false), row('Чипсы «Пир» ассорти 75г', A, 2, 0.07, false)] }
+    ];
+    return { groups };
+  }
+}
+</script>
+</body>
+</html>

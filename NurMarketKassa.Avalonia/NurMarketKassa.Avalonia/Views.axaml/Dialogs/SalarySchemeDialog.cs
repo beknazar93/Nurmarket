@@ -41,21 +41,42 @@ public sealed class SalarySchemeDialog : Window
     {
         _userId = userId;
         Title = Tr.T("Зарплата по продажам", "Сатуу боюнча эмгек акы", "Sales-based pay", "Satışa göre maaş", "Sotuv bo'yicha ish haqi");
-        Width = 440;
+        // 2026-10-21: общая рамка модалок ModalShell, как у остальных окон — без системной рамки Windows с цветной
+        // полосой; карточка 480 + поля 2×16 под тень (пакет 3, п. 136).
+        Width = 512;
         SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        SystemDecorations = SystemDecorations.None;
         CanResize = false;
+        Bind(BackgroundProperty, this.GetResourceObservable("DialogWindowBackground"));
+        Bind(TransparencyLevelHintProperty, this.GetResourceObservable("DialogTransparencyHint"));
+        // 2026-10-21: отмеченный кружок — цветом текста темы (тёмно-синий), а не системным бирюзовым Fluent (пакет 3, п. 136).
+        if (Application.Current?.FindResource("BrushText") is IBrush checkedBrush)
+        {
+            foreach (var key in new[]
+                     {
+                         "RadioButtonOuterEllipseCheckedStroke", "RadioButtonOuterEllipseCheckedFill",
+                         "RadioButtonOuterEllipseCheckedStrokePointerOver", "RadioButtonOuterEllipseCheckedFillPointerOver",
+                         "RadioButtonOuterEllipseCheckedStrokePressed", "RadioButtonOuterEllipseCheckedFillPressed",
+                     })
+                Resources[key] = checkedBrush;
+        }
+        if (Application.Current?.FindResource("BrushPanel") is IBrush glyphBrush)
+        {
+            Resources["RadioButtonCheckGlyphFill"] = glyphBrush;
+            Resources["RadioButtonCheckGlyphFillPointerOver"] = glyphBrush;
+            Resources["RadioButtonCheckGlyphFillPressed"] = glyphBrush;
+        }
 
-        var panel = new StackPanel { Margin = new Thickness(20), Spacing = 10 };
-        panel.Children.Add(new TextBlock { Text = Title, FontSize = 18, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap });
-        panel.Children.Add(new TextBlock { Text = employeeName, FontSize = 14, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
+        // 2026-10-21: заголовок и имя сотрудника — в шапке ModalShell (пакет 3, п. 136).
+        var panel = new StackPanel { Spacing = 10 };
 
         _statusText = new TextBlock
         {
             Text = Tr.T("Загрузка…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…"),
             FontSize = 12,
-            Foreground = Brushes.Gray,
         };
+        _statusText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
         panel.Children.Add(_statusText);
 
         panel.Children.Add(Label(Tr.T("Схема начисления", "Эсептөө схемасы", "Pay scheme", "Hesaplama şeması", "Hisoblash sxemasi")));
@@ -84,7 +105,7 @@ public sealed class SalarySchemeDialog : Window
         _percentPanel.Children.Add(Label(Tr.T("Процент от личных продаж, %", "Жеке сатуудан пайыз, %", "Percentage of own sales, %",
             "Kişisel satış yüzdesi, %", "Shaxsiy sotuvdan foiz, %")));
         _percentPanel.Children.Add(_percentBox);
-        _percentPanel.Children.Add(new TextBlock
+        _percentPanel.Children.Add(SoftHint(new TextBlock
         {
             Text = Tr.T(
                 "Этот же процент подставляется консультанту в окне оплаты.",
@@ -93,16 +114,15 @@ public sealed class SalarySchemeDialog : Window
                 "Aynı yüzde ödeme penceresinde danışmana otomatik olarak girilir.",
                 "Xuddi shu foiz to'lov oynasida maslahatchiga qo'yiladi."),
             FontSize = 11,
-            Foreground = Brushes.Gray,
             TextWrapping = TextWrapping.Wrap,
-        });
+        }));
         panel.Children.Add(_percentPanel);
 
         _perItemBox = new TextBox { Watermark = "10" };
         _perItemPanel = new StackPanel { Spacing = 4 };
         _perItemPanel.Children.Add(Label(Tr.T("За каждый проданный товар, сом", "Ар бир сатылган товар үчүн, сом", "Per item sold, som", "Satılan her ürün için, som", "Har bir sotilgan mahsulot uchun, so'm")));
         _perItemPanel.Children.Add(_perItemBox);
-        _perItemPanel.Children.Add(new TextBlock
+        _perItemPanel.Children.Add(SoftHint(new TextBlock
         {
             Text = Tr.T(
                 "Штучный товар — за каждую штуку в чеке, весовой — за строку чека. Возврат уменьшает начисление.",
@@ -111,12 +131,12 @@ public sealed class SalarySchemeDialog : Window
                 "Adetli ürün — fişteki her adet için, tartılı ürün — fiş satırı için. İade tutarı azaltır.",
                 "Donali mahsulot — chekdagi har bir dona uchun, tortiladigan — chek qatori uchun. Qaytarish hisobni kamaytiradi."),
             FontSize = 11,
-            Foreground = Brushes.Gray,
             TextWrapping = TextWrapping.Wrap,
-        });
+        }));
         panel.Children.Add(_perItemPanel);
 
-        _errorText = new TextBlock { Foreground = Brushes.Red, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+        _errorText = new TextBlock { TextWrapping = TextWrapping.Wrap, IsVisible = false };
+        _errorText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
         panel.Children.Add(_errorText);
 
         _saveButton = new Button
@@ -125,27 +145,45 @@ public sealed class SalarySchemeDialog : Window
             IsDefault = true,
             IsEnabled = false,
         };
+        // 2026-10-21: одна главная жёлтая «Сохранить», «Отмена» — обводкой (стили modal-* в PosDialogStyles) (пакет 3, п. 136).
+        _saveButton.Classes.Add("modal-primary");
         _saveButton.Click += async (_, _) => await SaveAsync();
         var cancel = new Button { Content = Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), IsCancel = true };
+        cancel.Classes.Add("modal-cancel");
         cancel.Click += (_, _) => Close(false);
         var buttons = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
-            Spacing = 8,
-            Margin = new Thickness(0, 8, 0, 0),
+            Spacing = 10,
         };
         buttons.Children.Add(cancel);
         buttons.Children.Add(_saveButton);
-        panel.Children.Add(buttons);
 
-        Content = panel;
+        // 2026-10-21: шапка (заголовок, сотрудник, ✕ = «Отмена») и низ с кнопками — у ModalShell; середина прокручивается
+        // на невысоком экране (пакет 3, п. 136).
+        Content = new ModalShell
+        {
+            Margin = new Thickness(16), Title = Title, Subtitle = employeeName, Footer = buttons, Content = panel,
+        };
         UpdateFields();
         Opened += async (_, _) => await LoadAsync();
     }
 
-    private static TextBlock Label(string text) =>
-        new() { Text = text, FontSize = 12, Foreground = Brushes.Gray, Margin = new Thickness(0, 4, 0, 0) };
+    // 2026-10-21: подписи — цветом темы (BrushTextSoft), а не серым Windows (пакет 3, п. 136).
+    private static TextBlock Label(string text)
+    {
+        var label = new TextBlock { Text = text, FontSize = 12, Margin = new Thickness(0, 4, 0, 0) };
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushTextSoft"));
+        return label;
+    }
+
+    /// <summary>2026-10-21: пояснение под полем — цветом темы (пакет 3, п. 136).</summary>
+    private static TextBlock SoftHint(TextBlock hint)
+    {
+        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
+        return hint;
+    }
 
     private RadioButton SchemeRadio(string text)
     {

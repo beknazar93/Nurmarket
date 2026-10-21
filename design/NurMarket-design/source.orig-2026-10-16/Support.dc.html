@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Тех. поддержка</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="help" active="Тех. поддержка" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <span style="display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Тех. поддержка</span><span style="font-size: 13px; color: #667085">Оператор видит экран только после вашего «Разрешить»</span></span>
+    <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px">
+      <section style="background: #0B2A3C; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 14px">
+        <span style="font-size: 18px; font-weight: 800; color: #FFFFFF">Удалённая помощь</span>
+        <span style="font-size: 13px; color: #C7D2DB; line-height: 20px">Нажмите «Попросить помощь» и назовите оператору код. Когда оператор подключится, программа спросит разрешения — без него никто не увидит экран.</span>
+        <div style="display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.08)"><span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #C7D2DB">Ваш код</span><span style="font-size: 30px; font-weight: 800; color: #FFD600; letter-spacing: 0.12em">[код]</span></span><span style="flex-grow: 1"></span><span style="font-size: 12px; color: #C7D2DB">Действует 10 минут</span></div>
+        <button type="button" style="height: 52px; border-radius: 14px; border: 0; background: #FFD600; font-family: inherit; font-size: 15px; font-weight: 800; color: #0B2A3C">Попросить помощь</button>
+      </section>
+      <section style="background: #FFFFFF; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+        <span style="font-size: 16px; font-weight: 800">Связаться</span>
+        <span style="display: flex; justify-content: space-between; padding: 12px 14px; border-radius: 12px; background: #F9FAFB; font-size: 14px"><span>Телефон</span><span style="font-weight: 700">[номер поддержки]</span></span>
+        <span style="display: flex; justify-content: space-between; padding: 12px 14px; border-radius: 12px; background: #F9FAFB; font-size: 14px"><span>Telegram</span><span style="font-weight: 700">[бот поддержки]</span></span>
+        <span style="display: flex; justify-content: space-between; padding: 12px 14px; border-radius: 12px; background: #F9FAFB; font-size: 14px"><span>WhatsApp</span><span style="font-weight: 700">[номер]</span></span>
+        <button type="button" style="margin-top: auto; height: 46px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Отправить журнал ошибок поддержке</button>
+      </section>
+    </div>
+    <section role="dialog" aria-labelledby="supTitle" style="align-self: center; width: 560px; background: #FFFFFF; border-radius: 20px; box-shadow: 0 24px 60px rgba(11,42,60,0.25); overflow: hidden; display: flex; flex-direction: column">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 18px 22px; border-bottom: 1px solid #EAECF0"><span style="width: 40px; height: 40px; border-radius: 12px; background: #FEF3E2; display: flex; align-items: center; justify-content: center; color: #B54708; font-weight: 800">!</span><span id="supTitle" style="flex-grow: 1; font-size: 17px; font-weight: 800">Оператор просит подключиться</span></div>
+      <div style="padding: 16px 22px; font-size: 14px; color: #475467; line-height: 21px">Оператор поддержки NurMarket увидит ваш экран и сможет помочь. Вы можете остановить сеанс в любой момент кнопкой «Завершить».</div>
+      <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 14px 22px; border-top: 1px solid #EAECF0; background: #FCFCFD"><button type="button" style="height: 46px; padding: 0 18px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Отклонить</button><button type="button" style="height: 46px; padding: 0 20px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Разрешить</button></div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

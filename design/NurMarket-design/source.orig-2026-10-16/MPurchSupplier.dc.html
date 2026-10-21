@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Окна закупки — поставщик, оплата, отправка</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; align-items: start">
+
+  <section class="m" role="dialog" aria-label="Новый поставщик">
+    <div class="mh"><div class="mt"><b>Новый поставщик</b><span>Появится в закупках и приёмке</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <label class="lbl" for="n1">НАЗВАНИЕ</label><input id="n1" class="in" type="text" placeholder="[поставщик]">
+      <label class="lbl" for="n2">ТЕЛЕФОН ДЛЯ WHATSAPP</label><input id="n2" class="in" type="text" placeholder="[телефон]">
+      <label class="lbl" for="n3">ИНН (НЕОБЯЗАТЕЛЬНО)</label><input id="n3" class="in" type="text" placeholder="[ИНН]">
+      <span class="lbl">ВАЛЮТА ЗАКУПКИ</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip on">Сом</button><button type="button" class="chip">USD</button><button type="button" class="chip">CNY</button><button type="button" class="chip">KZT</button></div>
+      <span class="lbl">ОБЫЧНО ПЛАТИМ</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip">Сразу</button><button type="button" class="chip on">Через [N] дней</button></div>
+    </div>
+    <div class="mf"><span class="tot"></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Оплата поставщику">
+    <div class="mh"><div class="mt"><b>Оплата поставщику</b><span>[поставщик] · заказ [№]</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; background: #FDE2E1; border-radius: 12px; padding: 12px 14px"><span style="font-size: 13px; color: #7A271A; font-weight: 600">Долг</span><b style="font-size: 20px; color: #B42318">[сумма]</b></div>
+      <label class="lbl" for="p1">ПЛАТИМ СЕЙЧАС</label><input id="p1" class="in" type="text" placeholder="[сумма]" style="height: 50px; font-size: 18px; font-weight: 800; border: 2px solid #0B2A3C">
+      <div style="display: flex; gap: 6px"><button type="button" class="chip">Весь долг</button><button type="button" class="chip">Половину</button></div>
+      <span class="lbl">ОТКУДА</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip on">Наличные из кассы 1</button><button type="button" class="chip">Карта</button><button type="button" class="chip">Перевод</button></div>
+      <span style="font-size: 12px; color: #667085">Наличные из кассы уйдут изъятием — смена это учтёт</span>
+    </div>
+    <div class="mf"><span class="tot">Останется долг <b>[сумма]</b></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Оплатить</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Отправить заказ поставщику">
+    <div class="mh"><div class="mt"><b>Отправить заказ</b><span>[поставщик] · WhatsApp</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="background: #E7F6EC; border-radius: 14px 14px 14px 4px; padding: 12px 14px; font-size: 13px; line-height: 20px; color: #0B3B1E; white-space: pre-line">Здравствуйте! Заказ от NBS на [дата]:
+1. Кока-Кола (ПЭТ) 2л — [N] шт
+2. Mars — [N] шт
+3. Сок Gracio яблочный 1л — [N] шт
+4. Салфетки — [N] шт
+Привезти к [дата]. Спасибо!</div>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #0B2A3C">Указать наши закупочные цены</label>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: #0B2A3C">Отметить заказ «отправлен»</label>
+    </div>
+    <div class="mf"><button type="button" class="b2">Копировать</button><span style="flex-grow: 1"></span><button type="button" class="b1">Отправить в WhatsApp</button></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

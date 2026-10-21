@@ -45,8 +45,14 @@ public partial class DeferredCartsDialog : Window
     {
         CartListBox.Items.Clear();
         var items = DeferredCartsStore.LoadAll().OrderByDescending(x => x.SavedAt).ToList();
+        // 2026-10-21 (пакет 6, п. 51): два разных «отложенных» — кнопка «Отложить» оставляет чек вкладкой над чеком,
+        // а сюда чек попадает, только когда вкладок уже 10. Пустая очередь объясняет, где искать отложенный чек.
         SummaryText.Text = items.Count == 0
-            ? Tr.T("Очередь пуста.", "Кезек бош.", "The queue is empty.", "Kuyruk boş.", "Navbat bo'sh.")
+            ? Tr.T("Очередь пуста. Чеки, отложенные кнопкой «Отложить», — во вкладках над чеком («Отложен 18:34»). Сюда чек попадает, только когда открыто уже 10 вкладок.",
+                "Кезек бош. «Калтыруу» баскычы менен калтырылган чектер — чектин үстүндөгү өтмөктөрдө («Калтырылды 18:34»). Бул жерге чек 10 өтмөк ачык болгондо гана түшөт.",
+                "The queue is empty. Receipts held with “Hold” stay as tabs above the receipt (“Held 18:34”). A receipt comes here only when 10 tabs are already open.",
+                "Kuyruk boş. «Beklet» ile bekletilen fişler, fişin üstündeki sekmelerde («Bekletildi 18:34»). Fiş buraya yalnızca 10 sekme açıkken gelir.",
+                "Navbat bo'sh. «Kutish» tugmasi bilan qo'yilgan cheklar — chek ustidagi yorliqlarda («Kutishda 18:34»). Bu yerga chek faqat 10 ta yorliq ochiq bo'lganda tushadi.")
             : Tr.T($"В очереди: {items.Count} чек(ов). Последний: {items[0].SavedAt.LocalDateTime:g}.", $"Кезекте: {items.Count} чек. Акыркысы: {items[0].SavedAt.LocalDateTime:g}.", $"In queue: {items.Count} receipt(s). Latest: {items[0].SavedAt.LocalDateTime:g}.", $"Kuyrukta: {items.Count} fiş. Sonuncusu: {items[0].SavedAt.LocalDateTime:g}.", $"Navbatda: {items.Count} ta chek. Oxirgisi: {items[0].SavedAt.LocalDateTime:g}.");
 
         foreach (var e in items)

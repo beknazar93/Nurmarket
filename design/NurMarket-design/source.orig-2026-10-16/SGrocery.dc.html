@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Касса продуктов</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column; position: relative; overflow: hidden">
+
+  <header style="height: 68px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #E5E7EB; display: flex; align-items: center; gap: 16px; padding: 0 24px">
+    <span style="width: 40px; height: 40px; border-radius: 10px; background: #0B2A3C; color: #FFD600; display: flex; align-items: center; justify-content: center; font-weight: 800">N</span>
+    <span style="display: flex; flex-direction: column"><b style="font-size: 15px">NBS · Касса 1</b><span style="font-size: 12px; color: #667085">Продукты</span></span>
+    <span class="tag" style="background: #FFF7CC; color: #0B2A3C">весы · весовые · быстрые товары</span>
+    <span style="flex-grow: 1"></span>
+    <span class="tag" style="background: #E7F6EC; color: #0E7A3A; padding: 8px 12px">Смена открыта</span>
+    <span style="width: 40px; height: 40px; border-radius: 20px; background: #0B2A3C; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700">КТ</span>
+  </header>
+  <div style="flex-grow: 1; display: flex; min-height: 0">
+    <main style="flex-grow: 1; padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0">
+      <div style="display: flex; gap: 12px">
+        <section style="flex-grow: 1; border-radius: 18px; background: #0B2A3C; color: #FFFFFF; padding: 16px 20px; display: flex; align-items: center; gap: 18px">
+          <span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #C7D2DB">Весы · на площадке</span><b style="font-size: 40px; color: #FFD600">0,860 кг</b></span>
+          <span style="width: 1px; align-self: stretch; background: rgba(255,255,255,.2)"></span>
+          <span style="display: flex; flex-direction: column; flex-grow: 1"><span style="font-size: 12px; color: #C7D2DB">Выбран</span><b style="font-size: 18px">Яблоки · 95 сом/кг</b><span style="font-size: 13px; color: #C7D2DB">= 81,70 сом</span></span>
+          <button type="button" class="b1" style="height: 52px">В чек</button>
+        </section>
+      </div>
+      <div style="display: flex; gap: 8px"><button type="button" class="chip on">Весовые</button><button type="button" class="chip">Частые</button><button type="button" class="chip">Напитки</button><button type="button" class="chip">Хлеб</button><button type="button" class="chip">Скоро истекает · скидка</button></div>
+      <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px">
+        <button type="button" class="card" style="padding: 10px; border: 2px solid #0B2A3C; font-family: inherit; text-align: left"><span style="height: 70px; border-radius: 10px; background: #FDE8E8; display: flex; align-items: center; justify-content: center; font-weight: 800">Ял</span><b style="font-size: 13px">Яблоки</b><span style="font-size: 12px; color: #0B2A3C; font-weight: 800">95 сом/кг</span></button>
+        <button type="button" class="card" style="padding: 10px; font-family: inherit; text-align: left"><span style="height: 70px; border-radius: 10px; background: #FFF4C2; display: flex; align-items: center; justify-content: center; font-weight: 800">Бн</span><b style="font-size: 13px">Бананы</b><span style="font-size: 12px; color: #0B2A3C; font-weight: 800">120 сом/кг</span></button>
+        <button type="button" class="card" style="padding: 10px; font-family: inherit; text-align: left"><span style="height: 70px; border-radius: 10px; background: #FFEBD6; display: flex; align-items: center; justify-content: center; font-weight: 800">Ар</span><b style="font-size: 13px">Арахис соенний</b><span style="font-size: 12px; color: #0B2A3C; font-weight: 800">60 сом</span></button>
+        <button type="button" class="card" style="padding: 10px; font-family: inherit; text-align: left"><span style="height: 70px; border-radius: 10px; background: #FFF4C2; display: flex; align-items: center; justify-content: center; font-weight: 800">Мк</span><b style="font-size: 13px">Макароны «Макфа»</b><span style="font-size: 12px; color: #0B2A3C; font-weight: 800">85 сом</span></button>
+        <button type="button" class="card" style="padding: 10px; font-family: inherit; text-align: left"><span style="height: 70px; border-radius: 10px; background: #FDE8E8; display: flex; align-items: center; justify-content: center; font-weight: 800">Кк</span><b style="font-size: 13px">Кока-Кола 2л</b><span style="font-size: 12px; color: #0B2A3C; font-weight: 800">170 сом</span></button>
+      </div>
+      <div class="row" style="background: #FFFFFF; border: 1px dashed #D0D5DD"><span style="flex-grow: 1">Этикетка весов отсканирована: 2010008045765 → вес 0,220 кг</span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">добавлено</span></div>
+    </main>
+    <section style="width: 400px; flex-shrink: 0; background: #FFFFFF; border-left: 1px solid #E5E7EB; padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; gap: 8px; align-items: center"><span style="padding: 8px 14px; border-radius: 10px; background: #0B2A3C; color: #FFFFFF; font-size: 13px; font-weight: 700">Чек [№]</span><button type="button" class="b2" style="height: 36px; flex-grow: 1; text-align: left">Клиент — выбрать</button></div>
+      <div class="row"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 13px">Бананы</b><span style="font-size: 12px; color: #667085">0,700 кг × 120</span></span><b style="color: #0B2A3C">84</b></div><div class="row"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 13px">Макароны «Макфа» 450г</b><span style="font-size: 12px; color: #667085">2 × 85</span></span><b style="color: #0B2A3C">170</b></div><div class="row"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 13px">Пакет</b><span style="font-size: 12px; color: #667085">1 × [цена]</span></span><b style="color: #0B2A3C">[цена]</b></div>
+      <button type="button" class="b2" style="border-style: dashed">+ Пакет · F7</button>
+      <span style="flex-grow: 1"></span>
+      <div class="rl" style="border-top: 1px dashed #D0D5DD; padding-top: 10px; align-items: baseline"><b style="font-size: 15px">Итого</b><b style="font-size: 26px; color: #0B2A3C">254 + пакет</b></div>
+      <button type="button" class="cta" style="height: 60px; font-size: 18px">Оплатить · F12</button>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

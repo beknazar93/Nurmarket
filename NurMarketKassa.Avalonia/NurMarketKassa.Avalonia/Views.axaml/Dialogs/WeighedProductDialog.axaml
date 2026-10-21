@@ -1,8 +1,9 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.WeighedProductDialog"
         Title="{DynamicResource weigh.title}"
-        Width="620" SizeToContent="Height"
+        Width="672" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI, Inter, sans-serif"
@@ -32,25 +33,6 @@
         </Style>
         <Style Selector="Button.NumBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-        </Style>
-
-        <!-- Главная желтая кнопка (В чек) -->
-        <Style Selector="Button.btn-yellow">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="16"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="MinWidth" Value="0"/>
-            <Setter Property="MinHeight" Value="0"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.btn-yellow:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
         </Style>
 
         <!-- Серые кнопки (Отмена, Подставить с весов) -->
@@ -96,8 +78,9 @@
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Padding" Value="0"/>
-            <Setter Property="Height" Value="36"/>
+            <Setter Property="Height" Value="44"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <!-- 2026-09-15, живой баг ("текст не виден") — раньше здесь стоял BrushText
@@ -106,56 +89,40 @@
              специально предназначенный для текста НА фоне BrushAccent токен, который меняется
              вместе с темой (белый для тёмно-синей/синей/зелёной тем, чёрный для жёлтой) — та же
              пара, что уже используется в PrimaryButton по всему приложению. -->
+        <!-- 2026-10-17, этап 3: выбранный режим — как сегменты модалок: заливка цветом текста темы (у «NurMarket»
+             светлой — тёмно-синяя), надпись цветом карточки — контраст в любой теме. -->
         <Style Selector="Button.ModeTab.Active">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushDialogPanel}"/>
+        </Style>
+        <Style Selector="Button.ModeTab.Active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushDialogPanel}"/>
         </Style>
     </Window.Styles>
 
-    <!-- Внешний контейнер карточки (ClipToBounds решает проблему кривых углов!) -->
-    <Border Margin="12" CornerRadius="{DynamicResource SettingsCardRadius}"
-            Background="{DynamicResource BrushDialogPanel}"
-            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-            ClipToBounds="True"
-            BoxShadow="0 10 25 -5 #20000000">
-        <Grid RowDefinitions="Auto,*">
-
-            <!-- 1. Шапка окна -->
-            <Grid Grid.Row="0" Background="{DynamicResource BrushPanelSoft}" Height="48">
-                <TextBlock Text="{DynamicResource weigh.title}"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           FontSize="16"
-                           FontWeight="Bold"
-                           Foreground="{DynamicResource BrushText}"/>
-                <Button IsCancel="True" Click="Cancel_Click"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
-                        Margin="0,0,12,0"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Foreground="{DynamicResource BrushDanger}"
-                        FontSize="18"
-                        Content="✕"
-                        Cursor="Hand"/>
-            </Grid>
-
-            <Separator Grid.Row="0" VerticalAlignment="Bottom" Height="1" Background="{DynamicResource BrushPanelSoft}"/>
+    <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 640 (было 620 со своей шапкой) —
+         товар и цена за кг в шапке (тексты — в коде), ✕ = Esc = «Отмена»; «Отмена» (обводка) и «В чек»
+         (акцент темы, Enter) снизу справа. Своя цифровая клавиатура окна — как была (не новая).
+         ActionButtonsGrid оставлен пустым и скрытым: его переносит ApplyNarrowLayout (Android). -->
+    <dlg:ModalShell x:Name="Shell" Margin="16">
+        <dlg:ModalShell.Footer>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button x:Name="CancelButton"
+                        Classes="modal-cancel" MaxWidth="200"
+                        IsCancel="True"
+                        Content="{DynamicResource common.cancel}"
+                        Click="Cancel_Click"/>
+                <Button x:Name="OkButton"
+                        Classes="modal-primary" MaxWidth="220"
+                        Content="{DynamicResource weigh.addToReceipt}"
+                        IsDefault="True"
+                        Click="Ok_Click"/>
+            </StackPanel>
+        </dlg:ModalShell.Footer>
 
             <!-- 2. Основной контент -->
-            <StackPanel x:Name="ContentPanel" Grid.Row="1" Margin="24,20,24,24" Spacing="16">
-                <!-- Название товара и цена -->
-                <StackPanel Spacing="4">
-                    <TextBlock x:Name="HeaderTitleText"
-                               Text="Взвесить: 1321312"
-                               FontSize="22"
-                               FontWeight="Bold"
-                               Foreground="{DynamicResource BrushText}"/>
-                    <TextBlock x:Name="PriceBlock"
-                               Text="Цена за кг: 110.00 сом"
-                               FontSize="14"
-                               Foreground="{DynamicResource BrushTextSoft}"/>
-                </StackPanel>
+            <StackPanel x:Name="ContentPanel" Spacing="16">
 
                 <!-- Блок отображения текущих весов: только когда реально подключены весы -->
                 <Border x:Name="LiveScaleBlock"
@@ -169,9 +136,6 @@
                         <TextBlock x:Name="LiveScaleText" Text="0.00 кг" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                     </StackPanel>
                 </Border>
-
-                <!-- Разделитель -->
-                <Separator Height="1" Background="{DynamicResource BrushPanelSoft}" Margin="0,2"/>
 
                 <!-- Сетка: Левая часть (Ввод) и Правая часть (Кнопки быстрых значений + Нумпад) -->
                 <Grid x:Name="BodyGrid" Classes="no-reflow" ColumnDefinitions="*,24,310">
@@ -203,7 +167,8 @@
                                        IsVisible="False"
                                        FontSize="14"
                                        FontWeight="SemiBold"
-                                       Foreground="{DynamicResource BrushAccent}"/>
+                                       Foreground="{DynamicResource BrushMoney}"/>
+                            <!-- 2026-10-17: расчёт цветом денег — жёлтый акцент по белому у «NurMarket» не читался. -->
                         </StackPanel>
 
                         <!-- Кнопка "Подставить с весов" -->
@@ -214,29 +179,8 @@
                                 HorizontalAlignment="Stretch"
                                 Click="FromScale_Click"/>
 
-                        <!-- Нижние кнопки действий -->
-                        <Grid x:Name="ActionButtonsGrid" ColumnDefinitions="*,12,*" Margin="0,32,0,0">
-                            <Button x:Name="CancelButton"
-                                    Grid.Column="0"
-                                    Classes="btn-light"
-                                    Content="{DynamicResource common.cancel}"
-                                    Height="58"
-                                    FontSize="18"
-                                    FontWeight="Bold"
-                                    HorizontalAlignment="Stretch"
-                                    Click="Cancel_Click"/>
-
-                            <Button x:Name="OkButton"
-                                    Grid.Column="2"
-                                    Classes="btn-yellow"
-                                    Content="{DynamicResource weigh.addToReceipt}"
-                                    Height="58"
-                                    FontSize="18"
-                                    FontWeight="Bold"
-                                    HorizontalAlignment="Stretch"
-                                    IsDefault="True"
-                                    Click="Ok_Click"/>
-                        </Grid>
+                        <!-- Кнопки — внизу окна (ModalShell.Footer); пустая сетка нужна ApplyNarrowLayout. -->
+                        <Grid x:Name="ActionButtonsGrid" IsVisible="False"/>
                     </StackPanel>
 
                     <!-- ПРАВАЯ КОЛОНКА (Кнопки быстрых весов + Цифровая клавиатура) -->
@@ -292,6 +236,5 @@
 
                 </Grid>
             </StackPanel>
-        </Grid>
-    </Border>
+    </dlg:ModalShell>
 </Window>

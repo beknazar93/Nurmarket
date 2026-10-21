@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб — заказ с сайта в сборке</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.bo{height:36px;padding:0 12px;border-radius:10px;border:1.5px solid #0B2A3C;background:#FFFFFF;font-family:inherit;font-size:12.5px;font-weight:800;color:#0B2A3C;white-space:nowrap}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Заказы с сайта" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+
+    <!-- 2026-10-16: статусы — одна машина SPEC (Новый → Собираем → Готов к выдаче → Выдан); заказ №10 Умара из SPEC, момент — после «Собрать заказ». -->
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Заказы с сайта</b><span style="font-size: 13px; color: #667085">Заказ №10 · сегодня 13:52 · собирает Кассир Тест с 14:38</span></span>
+      <button type="button" class="b2">Написать покупателю</button><button type="button" class="b2" style="color: #B42318; border-color: #F4B4AE">Отменить заказ…</button>
+      <button type="button" class="b1" disabled aria-disabled="true" title="Сначала решите, что делать с недостающим" style="background: #F2F4F7; color: #98A2B3; cursor: not-allowed">Заказ собран</button>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+      <span class="tag" style="background: #E7F6EC; color: #0E7A3A">✓ Новый 13:52</span><span style="color: #98A2B3">→</span><span class="tag" style="background: #FEF3E2; color: #B54708">● Собираем с 14:38</span><span style="color: #98A2B3">→</span><span class="tag" style="background: #F2F4F7; color: #475467">Готов к выдаче</span><span style="color: #98A2B3">→</span><span class="tag" style="background: #F2F4F7; color: #475467">Выдан</span>
+      <span style="width: 12px"></span><span class="tag" style="background: #EEF4FF; color: #3538CD">из Телеграм-бота</span><span class="tag" style="background: #FFF7CC; color: #7A5A00">оплата при получении</span>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 520px; gap: 2px">
+        <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 8px"><b style="font-size: 15px; white-space: nowrap">Собрано 3 из 6 шт</b><div style="flex-grow: 1; height: 8px; border-radius: 4px; background: #EAECF0"><div style="width: 50%; height: 8px; border-radius: 4px; background: #0E7A3A"></div></div></div>
+        <sc-for list="{{lines}}" as="l" hint-placeholder-count="4">
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 80px 80px 130px; gap: 10px; align-items: center; padding: 10px 6px; border-bottom: 1px solid #F2F4F7; font-size: 13.5px"><span>{{l.name}}</span><b>{{l.got}}</b><span style="color: #475467; white-space: nowrap; text-align: right">{{l.sum}}</span><span><span class="tag" style="background: {{l.sbg}}; color: {{l.sfg}}">{{l.st}}</span></span></div>
+        </sc-for>
+        <div class="row" style="margin-top: 10px; background: #FEF3E2; font-size: 13px; flex-direction: column; align-items: stretch; gap: 8px">
+          <span style="line-height: 19px"><b>Сок Gracio яблочный 1л — нет на полке</b> (по учёту 2 шт). Сборщик предложил замену: <b>Сок Gracio апельсиновый 1л, 125&nbsp;сом (+5)</b>. Вопрос отправлен покупателю в Телеграм-бот в 14:44.</span>
+          <span style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="bo">Покупатель согласен</button><button type="button" class="b2" style="height: 36px">Убрать строку (−120&nbsp;сом)</button><button type="button" class="b2" style="height: 36px">Собрать частично?</button></span>
+        </div>
+        <span style="font-size: 12px; color: #475467; padding-top: 10px">«Заказ собран» станет доступна, когда все строки собраны или по недостающим есть решение (замена, убрать строку, собрать частично).</span>
+        <span style="font-size: 12px; color: #667085; padding-top: 4px">Видно в реальном времени, пока собирают, — нужен push от сервера NurCRM (часть 26; сейчас есть только смена статуса).</span>
+      </section>
+      <aside class="card" style="flex: 1 1 280px; max-width: 360px">
+        <b style="font-size: 15px">Покупатель</b><span style="font-size: 13px">Умар · телефона нет — ответ в Телеграм-боте</span><span style="font-size: 12px; color: #475467">Самовывоз к 16:00 · оплата при получении</span>
+        <b style="font-size: 15px; padding-top: 6px">Сумма</b><div class="rl"><span>В заказе</span><b style="white-space: nowrap">530&nbsp;сом</b></div><div class="rl"><span>С заменой сока</span><b style="white-space: nowrap">535&nbsp;сом</b></div><div class="rl"><span>Без сока</span><b style="white-space: nowrap">410&nbsp;сом</b></div>
+        <b style="font-size: 15px; padding-top: 6px">Сроки</b><span style="font-size: 12.5px; color: #475467; line-height: 18px">Собрать за 20 минут · готовый заказ ждёт до 20:00, потом напоминание покупателю и владельцу</span>
+      </aside>
+    </div>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: состав заказа №10 из SPEC: Макароны ×2 170 + Кока-Кола ×1 170 + Сок Gracio ×1 120 + Хлеб ×2 70 = 530 сом, 6 шт.
+    const ok = { st: 'собрано', sbg: '#E7F6EC', sfg: '#0E7A3A' };
+    const l = (name, got, sum, st) => Object.assign({ name, got, sum: sum + '\u00a0сом' }, st);
+    return {
+      lines: [
+        l('Макароны «Макфа» спагетти 450г', '2 из 2', '170', ok),
+        l('Кока-Кола (ПЭТ) 2л', '1 из 1', '170', ok),
+        l('Сок Gracio яблочный 1л', '0 из 1', '120', { st: 'нет · замена?', sbg: '#FDECEA', sfg: '#B42318' }),
+        l('Хлеб белый', '0 из 2', '70', { st: 'собирают', sbg: '#FEF3E2', sfg: '#B54708' })
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

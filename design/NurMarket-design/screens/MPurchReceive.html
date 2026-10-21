@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Окна закупки — приёмка по заказу</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;flex-shrink:0;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mb{padding:12px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C;white-space:nowrap}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054;white-space:nowrap}
+.b1{height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C;white-space:nowrap}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 10px;font-family:inherit;font-size:13px;width:100%}
+.chip{height:44px;padding:0 14px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.tr{display:grid;grid-template-columns:2fr .8fr .9fr 1fr 1.1fr;gap:8px;padding:6px 0;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.ci{height:44px;box-sizing:border-box;border-radius:8px;border:2px solid #0B2A3C;padding:0 8px;font-family:inherit;font-size:13px;font-weight:800;width:100%}
+.df{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;justify-self:start;white-space:nowrap}
+.pr{display:flex;flex-direction:column;gap:2px;font-size:13px;padding:8px 0;border-bottom:1px solid #F2F4F7}
+.note{font-size:12px;color:#667085;line-height:17px}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="MPurchReceive"><div style="width: 1440px; height: 900px; box-sizing: border-box; background: rgb(221, 226, 232); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); padding: 30px; display: grid; grid-template-columns: 880px 480px; justify-content: center; gap: 20px; align-items: start;">
+  
+
+  <section class="m" role="dialog" aria-label="Приёмка по заказу">
+    <div class="mh"><div class="mt"><b>Приёмка по заказу № 3</b><span>ОсОО «Бишкек Дистрибьюшн» · заказ от 12.10.2026 · привезли 14.10.2026</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: flex; gap: 8px;"><input class="in" type="text" placeholder="Сканируйте товар или введите штрихкод — строка отметится сама" aria-label="Скан товара" style="border: 2px solid rgb(11, 42, 60); box-shadow: rgba(255, 214, 0, 0.45) 0px 0px 0px 4px;"><button type="button" class="b2">Сканировать</button></div>
+      <div class="tr" style="font-size: 11px; font-weight: 700; color: rgb(102, 112, 133);"><span>ТОВАР</span><span>ЗАКАЗАНО</span><span>ПРИШЛО</span><span>РАЗНИЦА</span><span>ЗАКУПКА, СОМ</span></div>
+      
+        <div class="tr" style="background: rgb(255, 248, 247);">
+          <span style="font-weight: 600; padding-left: 6px;"><span class="sc-interp">Кока-Кола (ПЭТ) 2л</span></span>
+          <span style="color: rgb(71, 84, 103);"><span class="sc-interp">12</span></span>
+          <input class="ci" type="text" aria-label="Пришло" value="0" style="border-color: rgb(180, 35, 24);">
+          <span class="df" style="background: rgb(253, 226, 225); color: rgb(180, 35, 24);"><span class="sc-interp">не пришло</span></span>
+          <span style="display: flex; flex-direction: column;"><b style="font-size: 14px;"><span class="sc-interp">—</span></b><span style="font-size: 11px; font-weight: 700; color: rgb(102, 112, 133);"><span class="sc-interp">нет закупки</span></span></span>
+        </div>
+      
+        <div class="tr" style="background: rgb(255, 255, 255);">
+          <span style="font-weight: 600; padding-left: 6px;"><span class="sc-interp">Сок Gracio яблочный 1л</span></span>
+          <span style="color: rgb(71, 84, 103);"><span class="sc-interp">12</span></span>
+          <input class="ci" type="text" aria-label="Пришло" value="12" style="border-color: rgb(22, 163, 74);">
+          <span class="df" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58);"><span class="sc-interp">совпало</span></span>
+          <span style="display: flex; flex-direction: column;"><b style="font-size: 14px;"><span class="sc-interp">96</span></b><span style="font-size: 11px; font-weight: 700; color: rgb(181, 71, 8);"><span class="sc-interp">было 92 · дороже</span></span></span>
+        </div>
+      
+        <div class="tr" style="background: rgb(255, 252, 245);">
+          <span style="font-weight: 600; padding-left: 6px;"><span class="sc-interp">Mars 50г</span></span>
+          <span style="color: rgb(71, 84, 103);"><span class="sc-interp">24</span></span>
+          <input class="ci" type="text" aria-label="Пришло" value="22" style="border-color: rgb(247, 144, 9);">
+          <span class="df" style="background: rgb(254, 243, 226); color: rgb(181, 71, 8);"><span class="sc-interp">меньше на 2</span></span>
+          <span style="display: flex; flex-direction: column;"><b style="font-size: 14px;"><span class="sc-interp">32</span></b><span style="font-size: 11px; font-weight: 700; color: rgb(181, 71, 8);"><span class="sc-interp">было 30 · дороже</span></span></span>
+        </div>
+      
+        <div class="tr" style="background: rgb(255, 255, 255);">
+          <span style="font-weight: 600; padding-left: 6px;"><span class="sc-interp">Snickers 50г</span></span>
+          <span style="color: rgb(71, 84, 103);"><span class="sc-interp">24</span></span>
+          <input class="ci" type="text" aria-label="Пришло" value="24" style="border-color: rgb(22, 163, 74);">
+          <span class="df" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58);"><span class="sc-interp">совпало</span></span>
+          <span style="display: flex; flex-direction: column;"><b style="font-size: 14px;"><span class="sc-interp">55</span></b><span style="font-size: 11px; font-weight: 700; color: rgb(102, 112, 133);"><span class="sc-interp">как было</span></span></span>
+        </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px; border-radius: 12px; background: rgb(254, 243, 226); padding: 8px 12px; font-size: 13px; color: rgb(147, 55, 13);"><b style="flex-grow: 1;">Не пришло: Кока-Кола (ПЭТ) 2л — 12 шт</b><button type="button" class="chip on">Ждём допоставку</button><button type="button" class="chip">Закрыть без неё</button></div>
+      <div style="display: flex; align-items: center; gap: 10px; border-radius: 12px; background: rgb(255, 247, 204); padding: 8px 12px; font-size: 13px; color: rgb(11, 42, 60);"><b style="flex-grow: 1;">Лишний товар: штрихкод 4700123456781 — нет в заказе</b><button type="button" class="chip">Новый товар</button></div>
+      <span class="note">После проведения остатки прибавятся, себестоимость пересчитается — средневзвешенная (уточнить, как считает сервер NurCRM). Подорожали Mars и сок — следом предложим новые цены продажи.</span>
+    </div>
+    <div class="mf"><span class="tot">Принять 3 из 4 позиций · <b>3&nbsp;176 сом</b> · в долг поставщику</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Провести приход</button></div>
+  </section>
+
+  <div style="display: flex; flex-direction: column; gap: 20px;">
+    <section class="m" role="dialog" aria-label="Новый товар при приёмке">
+      <div class="mh"><div class="mt"><b>Новый товар</b><span>Штрихкод 4700123456781 не найден в базе</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <label class="lbl" for="t1">НАЗВАНИЕ</label><input id="t1" class="in" type="text" placeholder="Нур Советник предложит по штрихкоду">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0px, 1fr)); gap: 8px;">
+          <span style="display: flex; flex-direction: column; gap: 4px;"><label class="lbl" for="t2">ЗАКУПКА</label><input id="t2" class="in" type="text" placeholder="по накладной"></span>
+          <span style="display: flex; flex-direction: column; gap: 4px;"><label class="lbl" for="t3">ПРОДАЖА</label><input id="t3" class="in" type="text" placeholder="авто +30 %"></span>
+          <span style="display: flex; flex-direction: column; gap: 4px;"><label class="lbl" for="t4">КОЛ-ВО</label><input id="t4" class="in" type="text" placeholder="сколько пришло"></span>
+        </div>
+        <div style="display: flex; gap: 6px;"><button type="button" class="chip on">шт</button><button type="button" class="chip">кг</button><button type="button" class="chip">л</button><button type="button" class="chip">упак.</button></div>
+      </div>
+      <div class="mf"><span class="tot">Категория: Напитки ▾</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Добавить</button></div>
+    </section>
+
+    <section class="m" role="dialog" aria-label="Цены продажи после приёмки">
+      <div class="mh"><div class="mt"><b>Цены продажи</b><span>Закупка подорожала у 2 товаров</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <div style="display: flex; gap: 6px; align-items: center;"><span class="lbl" style="flex-grow: 1;">НАЦЕНКА</span><button type="button" class="chip">20&nbsp;%</button><button type="button" class="chip on">30&nbsp;%</button><button type="button" class="chip">Своя</button></div>
+        <div class="pr"><b>Mars 50г</b><span style="color: rgb(71, 84, 103);">закупка 30 → <b style="color: rgb(11, 42, 60);">32</b> · продажа 39 → <b style="color: rgb(11, 42, 60);">42</b></span></div>
+        <div class="pr" style="border: 0px;"><b>Сок Gracio яблочный 1л</b><span style="color: rgb(71, 84, 103);">закупка 92 → <b style="color: rgb(11, 42, 60);">96</b> · продажа 120 → <b style="color: rgb(11, 42, 60);">125</b></span></div>
+        <span class="note">Продажа = закупка + 30&nbsp;%, до целого сома: 32&nbsp;+&nbsp;30&nbsp;% = 41,6&nbsp;→&nbsp;42; 96&nbsp;+&nbsp;30&nbsp;% = 124,8&nbsp;→&nbsp;125.</span>
+      </div>
+      <div class="mf"><span class="tot">Snickers — как было</span><button type="button" class="b2">Оставить старые</button><button type="button" class="b1">Обновить цены</button></div>
+    </section>
+  </div></div></div></div>
+
+
+
+</body></html>

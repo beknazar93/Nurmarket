@@ -38,6 +38,11 @@ public sealed class PermissionService : IPermissionService
         if (permission == PosPermissions.ViewSales)
             return true;
 
+        // 2026-10-18: «Интерфейс кассира», «Продажа», «Смены» — со своими правилами (не запирать
+        // владельца/админа и компании, где доступы сотрудникам не выставлены).
+        if (PosPermissions.CashierWork.Contains(permission, StringComparer.OrdinalIgnoreCase))
+            return IsCashierWorkAllowed(permission, _authApi.UserPayload);
+
         // Раньше роль "owner"/"admin" безусловно проходила ЛЮБУЮ проверку, минуя реальные
         // can_view_market_* флаги с сервера (2026-09-06, УБРАНО по явному запросу пользователя).
         // Эти флаги теперь отражают не только права сотрудника, но и тарифный план компании
@@ -60,6 +65,59 @@ public sealed class PermissionService : IPermissionService
         && payload.TryGetProperty("role", out var role)
         && role.ValueKind == JsonValueKind.String
         && string.Equals(role.GetString(), "owner", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>2026-10-18, ревью безопасности: «доступы сотруднику выставлены» — только по ЛИЧНЫМ флагам
+    /// (базовые/секторные доступы формы «Управление доступами», EmployeeAccessFlags). Флаги модулей компании
+    /// (showcase, documents, whatsapp, instagram, telegram и т. п.) сервер ставит сам — по ним не судим.</summary>
+    private static readonly string[] PersonalAccessFlags =
+    {
+        "can_view_cashier", "can_view_sale", "can_view_shifts", "can_view_products", "can_view_analytics",
+        "can_view_clients", "can_view_employees", "can_view_cashbox", "can_view_settings", "can_view_brand_category",
+        // 2026-10-18, повторное ревью: секторный «Документы» и личные доступы «Касса Маркета» (EmployeeAccessFlags).
+        "can_view_document", "can_view_market_discount", "can_view_market_edit_price", "can_view_market_delete_cart_item",
+        "can_view_market_employee_return",
+        // can_view_market_procurement / can_view_market_supplier намеренно не входят: по комментарию выше их сервер
+        // ставит по тарифу («Стандарт»), а не владелец сотруднику. ПРОВЕРИТЬ НА NBS: выдаёт ли сайт их роли сам.
+    };
+
+    /// <summary>2026-10-18: доступы работы на кассе. Разрешено, если: владелец или админ (роль owner/admin
+    /// или доступ «Настройки» — тот же признак, что у EmployeeAccessGate); доступ включён; или сотруднику
+    /// не выставлено ни одного личного доступа (PersonalAccessFlags) — как было до проверки.</summary>
+    private static bool IsCashierWorkAllowed(string permission, JsonElement payload)
+    {
+        var user = OfflineAuthSessionStore.ResolveUserObject(payload);
+        if (user.ValueKind != JsonValueKind.Object)
+            user = payload;
+        if (user.ValueKind == JsonValueKind.Object
+            && user.TryGetProperty("role", out var role)
+            && role.ValueKind == JsonValueKind.String
+            && role.GetString() is { } roleName
+            && (roleName.Equals("owner", StringComparison.OrdinalIgnoreCase) || roleName.Equals("admin", StringComparison.OrdinalIgnoreCase)))
+            return true;
+
+        var names = ExtractPermissionNames(payload);
+        if (names.Contains(PosPermissions.ViewSettings) || names.Contains(permission))
+            return true;
+
+        return !PersonalAccessFlags.Any(names.Contains);
+    }
+
+    /// <summary>2026-10-18: понятный отказ по доступу работы на кассе — что включить на сайте.</summary>
+    public static string CashierWorkDeniedMessage(string permission)
+    {
+        var (ru, ky, en, tr, uz) = permission switch
+        {
+            PosPermissions.Sale => ("Продажа", "Сатуу", "Sale", "Satış", "Sotuv"),
+            PosPermissions.ViewShifts => ("Смены", "Сменалар", "Shifts", "Vardiyalar", "Smenalar"),
+            _ => ("Интерфейс кассира", "Кассир интерфейси", "Cashier interface", "Kasiyer arayüzü", "Kassir interfeysi"),
+        };
+        return Tr.T(
+            $"Нет доступа «{ru}». Попросите владельца включить его на сайте app.nurcrm.kg: Сотрудники → ваш сотрудник → Доступы → «{ru}» (или в кассе владельца: Настройки → Сотрудники → 🔐).",
+            $"«{ky}» укугу жок. Ээсинен аны app.nurcrm.kg сайтында күйгүзүүнү сураныңыз: Кызматкерлер → сиздин кызматкер → Укуктар → «{ky}» (же ээсинин кассасында: Жөндөөлөр → Кызматкерлер → 🔐).",
+            $"No “{en}” permission. Ask the owner to turn it on at app.nurcrm.kg: Employees → your employee → Permissions → “{en}” (or in the owner's till: Settings → Employees → 🔐).",
+            $"«{tr}» erişimi yok. Sahibinden app.nurcrm.kg sitesinde açmasını isteyin: Personel → personeliniz → Erişimler → «{tr}» (veya sahibinin kasasında: Ayarlar → Personel → 🔐).",
+            $"«{uz}» huquqi yo'q. Egasidan uni app.nurcrm.kg saytida yoqishni so'rang: Xodimlar → sizning xodimingiz → Huquqlar → «{uz}» (yoki egasining kassasida: Sozlamalar → Xodimlar → 🔐).");
+    }
 
     public void Demand(string permission)
     {

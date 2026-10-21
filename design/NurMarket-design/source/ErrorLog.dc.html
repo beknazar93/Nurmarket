@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Журнал ошибок</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="help" active="Журнал ошибок" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Журнал ошибок</span><span style="font-size: 13px; color: #667085">Что происходило в программе — простыми словами · сегодня, 12.10.2026</span></span>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054; white-space: nowrap">Открыть папку</button>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C; white-space: nowrap">Отправить поддержке</button>
+    </div>
+    <!-- 2026-10-16: фильтр уровня «Все события · Ошибки · Предупреждения» (одним переключателем) + тема отдельными чипами -->
+    <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+      <div role="group" aria-label="Уровень" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap">Все события · 9</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">Ошибки · 0</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap">Предупреждения · 1</button>
+      </div>
+      <span style="font-size: 13px; color: #475467">Тема:</span>
+      <span style="display: flex; gap: 8px">
+        <button type="button" style="height: 34px; padding: 0 12px; border-radius: 17px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Оплата</button>
+        <button type="button" style="height: 34px; padding: 0 12px; border-radius: 17px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Склад</button>
+        <button type="button" style="height: 34px; padding: 0 12px; border-radius: 17px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Сеть</button>
+        <button type="button" style="height: 34px; padding: 0 12px; border-radius: 17px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600">Программа</button>
+      </span>
+    </div>
+    <section style="flex-grow: 1; min-height: 0; background: #FFFFFF; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="9">
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #F2F4F7; background: {{r.bg}}">
+          <div style="display: flex; gap: 14px; align-items: center">
+            <span style="width: 10px; height: 10px; border-radius: 5px; background: {{r.dot}}; flex-shrink: 0"></span>
+            <span style="width: 48px; flex-shrink: 0; font-size: 13px; font-weight: 700; color: #475467">{{r.time}}</span>
+            <span style="width: 150px; flex-shrink: 0; font-size: 12px; font-weight: 700; color: {{r.levelColor}}; white-space: nowrap">{{r.level}}</span>
+            <span style="flex-grow: 1; min-width: 0; font-size: 14px; font-weight: 600">{{r.text}}</span>
+            <span style="padding: 3px 9px; border-radius: 6px; background: #F2F4F7; font-size: 11px; font-weight: 700; color: #475467; white-space: nowrap">{{r.tag}}</span>
+            <button type="button" aria-label="Подробности для поддержки" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #475467; font-size: 11px; flex-shrink: 0">{{r.chev}}</button>
+          </div>
+          <sc-if value="{{r.open}}" hint-placeholder-val="{{false}}">
+            <div style="margin-left: 250px; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; background: #F2F4F7">
+              <span style="font-size: 11px; font-weight: 700; color: #475467">Для поддержки (технически)</span>
+              <span style="font-size: 12px; line-height: 18px; color: #344054; font-family: Consolas, monospace">{{r.raw}}</span>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: единые данные NBS (47 чеков, 307 товаров, чек №1709 в 14:31); уровень — словом, техническая строка — под раскрытием.
+    const L = { ok: ['✓ готово', '#0E7A3A', '#16A34A'], warn: ['▲ предупреждение', '#B54708', '#F59E0B'], err: ['✕ ошибка', '#B42318', '#B42318'], info: ['событие', '#475467', '#98A2B3'] };
+    const r = (time, lv, text, raw, tag, open) => ({ time, text, raw, tag, open: !!open, chev: open ? '▾' : '▸',
+      level: L[lv][0], levelColor: L[lv][1], dot: L[lv][2], bg: open ? '#FFFBEA' : '#FFFFFF' });
+    return { rows: [
+      r('14:33', 'warn', 'Сервер не отдал 3-ю страницу продаж — показаны все 47 чеков', 'Список продаж: страница 3 за концом списка (чеков 47) — сервер ответил ошибкой, считаю концом.', 'Сеть', true),
+      r('14:31', 'ok', 'Чек №1709 оплачен за 0,5 с', 'PAY quick OK за 497 мс: number=1709, total=120.00', 'Оплата'),
+      r('14:20', 'ok', 'Склады сохранены и отправлены на сервер для всех касс', 'Настройки на сервере: main — WarehouseZonesJson', 'Склад'),
+      r('10:07', 'info', 'Открыт раздел «Редактор сайта»', 'Owner app: раздел «Редактор сайта» открыт.', 'Программа'),
+      r('09:54', 'info', 'Оплата переводом — денежный ящик не открывался', 'Денежный ящик: оплата «transfer» без наличных — не открываю.', 'Оплата'),
+      r('09:43', 'ok', 'Каталог обновлён: 307 товаров', 'CATALOG refresh done: localWas=True, online=True, success=True, count=307', 'Склад'),
+      r('09:43', 'info', 'Найдена программа владельца на этом ПК', 'LAN: найден сосед на этом ПК: Программа владельца · DESKTOP-0VH65NL (порт 47811).', 'Сеть'),
+      r('08:55', 'info', 'Касса 1: смену открыл Кассир Тест', 'SHIFT open: cashier=Кассир Тест, cash=1000.00', 'Программа'),
+      r('08:54', 'info', 'Компания загружена', 'Company loaded. INNConfigured=False, AddressConfigured=True', 'Программа')
+    ] };
+  }
+}
+</script>
+</body>
+</html>

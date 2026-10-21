@@ -11,8 +11,8 @@
 
     <Style Selector="RadioButton.ClickPill">
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
       <Setter Property="Padding" Value="12,6"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="MinHeight" Value="34"/>
@@ -31,23 +31,28 @@
         </ControlTemplate>
       </Setter>
     </Style>
+    <!-- 2026-10-19, этап О7: выбранное — тёмно-синее, как sec-seg (было бледно-жёлтое). -->
     <Style Selector="RadioButton.ClickPill:checked">
-      <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 
+    <!-- 2026-10-19, этап О7: обводкой, без серой заливки. -->
     <Style Selector="Button.SecondaryButton">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Background" Value="Transparent"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
-    <Style Selector="Button.SecondaryButton:pointerover">
-      <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
+    <Style Selector="Button.SecondaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
 
   </UserControl.Styles>

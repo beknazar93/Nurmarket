@@ -620,6 +620,253 @@ public static class ReceiptHistoryService
         }
     }
 
+    /// <summary>2026-10-18, ревью этапа 6: «Печать копии» на плашке «Продажа прошла» — копия ИМЕННО этой продажи.
+    /// «Последний чек смены» (PrintLastReceiptAsync) мог напечатать предыдущий: история сортируется по времени создания
+    /// корзины (оплатили «Чек 2», потом «Чек 1»), у офлайн-чека — по часам ПК, а сервер мог ещё не отдать новую продажу
+    /// в списке. Здесь: продажа на сервере — по её id (как повторная печать в «Продажах»); офлайн, без id или сервер не
+    /// ответил — из корзины этой продажи (как копия офлайн-чека в «Истории чеков»). Та же защита от двойного нажатия.</summary>
+    public static async Task<(bool Ok, string Message)> PrintSaleCopyAsync(
+        NurMarketKassa.ViewModels.Main.LastSaleInfo sale,
+        CancellationToken ct = default)
+    {
+        if (Interlocked.Exchange(ref _printingLast, 1) == 1)
+            return (false, Tr.T("Чек уже печатается.", "Чек басылып жатат.", "The receipt is already being printed.", "Fiş zaten yazdırılıyor.", "Chek allaqachon chop etilmoqda."));
+
+        try
+        {
+            string? text = null;
+            string? number = null;
+            if (!sale.SavedOffline && !string.IsNullOrWhiteSpace(sale.SaleId))
+            {
+                try
+                {
+                    var detail = await App.SalesApi.PosSaleGetAsync(sale.SaleId, ct).ConfigureAwait(false);
+                    number = SalesWindow.TryReceiptNumber(detail);
+                    text = SaleReceiptTextBuilder.Build(
+                        detail,
+                        number,
+                        SalesWindow.ReadSaleDiscount(detail),
+                        SalesWindow.ReadSaleTotal(detail),
+                        isReprint: true);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // Продажа на сервере есть, но сейчас он не ответил — копия из корзины этой продажи (без пометки «ОФФЛАЙН»).
+                    PosLogger.Log($"Копия чека {sale.SaleId}: сервер не отдал продажу ({ex.Message}) — печатаю из корзины.", "PRINTER");
+                    number = null;
+                }
+            }
+
+            text ??= CartReceiptTextBuilder.BuildSimpleReceipt(
+                sale.CartJson ?? "{}",
+                sale.SavedOffline ? "ОФФЛАЙН (ожидает выгрузку)" : null,
+                sale.PaymentMethod,
+                sale.CashReceivedText,
+                receiptTime: sale.SoldAt,
+                isReprint: true);
+
+            var error = await PrintAsync(text).ConfigureAwait(false);
+            if (error != null)
+                return (false, error);
+
+            var label = string.IsNullOrWhiteSpace(number) ? "" : "№" + number.TrimStart('№') + " ";
+            var time = sale.SoldAt.ToString("HH:mm", CultureInfo.InvariantCulture);
+            var sum = Money((decimal)sale.Total);
+            return (true, Tr.T(
+                $"Копия чека {label}({time}, {sum}) напечатана.",
+                $"Чектин {label}көчүрмөсү ({time}, {sum}) басылып чыкты.",
+                $"Copy of receipt {label}({time}, {sum}) printed.",
+                $"Fiş {label}kopyası ({time}, {sum}) yazdırıldı.",
+                $"Chek {label}nusxasi ({time}, {sum}) chop etildi."));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Копия чека с плашки не напечатана: {ex}", "PRINTER");
+            return (false, Tr.T("Не удалось напечатать копию чека: ", "Чектин көчүрмөсүн басып чыгаруу мүмкүн болгон жок: ", "Could not print the receipt copy: ", "Fiş kopyası yazdırılamadı: ", "Chek nusxasini chop etib bo'lmadi: ") + ex.Message);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _printingLast, 0);
+        }
+    }
+
+    // ── 2026-10-20, владелец: «кнопка отправить на сервер — у чека с „Не отправлен на сервер“ должна быть» ──
+
+    /// <summary>Идёт ли сейчас досылка офлайн-очереди (<see cref="SyncService"/>). Службы нет — false.</summary>
+    public static bool IsQueueSending()
+    {
+        try
+        {
+            return App.GetRequiredService<SyncService>().IsSyncInProgress;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>«Отправить на сервер»: тот же проход досылки офлайн-очереди, что <see cref="SyncService"/> делает сам
+    /// раз в 45 с (проверка связи → TriggerSyncNowAsync). Своей отправки здесь нет — логика досылки не меняется.
+    /// Sent — записи чека в очереди больше нет (проведён на сервере).</summary>
+    public static async Task<(bool Sent, string Message)> SendPendingNowAsync(string localId, CancellationToken ct = default)
+    {
+        if (IsAutonomousSession())
+            return (false, Tr.T("Касса работает без сервера (автономный режим) — отправлять чек некуда.",
+                "Касса серверсиз иштеп жатат (автономдук режим) — чекти жөнөтө турган жер жок.",
+                "The till works without a server (autonomous mode) — there is nowhere to send the receipt.",
+                "Kasa sunucusuz çalışıyor (otonom mod) — fişin gönderileceği bir yer yok.",
+                "Kassa serversiz ishlayapti (avtonom rejim) — chekni yuboradigan joy yo'q."));
+
+        SyncService sync;
+        try
+        {
+            sync = App.GetRequiredService<SyncService>();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История чеков: служба досылки недоступна: {ex.Message}", "OFFLINE");
+            return (false, Tr.T("Не удалось отправить: служба отправки недоступна.", "Жөнөтүү мүмкүн болгон жок: жөнөтүү кызматы жеткиликсиз.",
+                "Could not send: the sending service is unavailable.", "Gönderilemedi: gönderme hizmeti kullanılamıyor.", "Yuborib bo'lmadi: yuborish xizmati mavjud emas."));
+        }
+
+        if (sync.IsSyncInProgress)
+            return (false, SendingNowText);
+
+        try
+        {
+            PosLogger.Log($"История чеков: кассир нажал «Отправить на сервер» (чек {localId}) — досылка очереди сейчас.", "OFFLINE");
+            await Task.Run(async () =>
+            {
+                await sync.ProbeNowAsync(ct).ConfigureAwait(false);
+                if (sync.IsOnline)
+                    await sync.TriggerSyncNowAsync(ct).ConfigureAwait(false);
+            }, ct).ConfigureAwait(false);
+
+            var left = await Task.Run(() => OfflinePendingSalesStore.TryGetById(localId), ct).ConfigureAwait(false);
+            if (left == null || string.Equals(left.Status, OfflineSaleEntry.Synced, StringComparison.OrdinalIgnoreCase))
+                return (true, Tr.T("Чек отправлен на сервер.", "Чек серверге жөнөтүлдү.", "The receipt has been sent to the server.",
+                    "Fiş sunucuya gönderildi.", "Chek serverga yuborildi."));
+
+            if (!sync.IsOnline)
+                return (false, Tr.T("Нет связи с сервером — чек уйдёт сам, когда связь появится.",
+                    "Сервер менен байланыш жок — байланыш пайда болгондо чек өзү жөнөтүлөт.",
+                    "No connection to the server — the receipt will be sent automatically when the connection is back.",
+                    "Sunucuyla bağlantı yok — bağlantı geldiğinde fiş kendiliğinden gönderilecek.",
+                    "Server bilan aloqa yo'q — aloqa paydo bo'lganda chek o'zi yuboriladi."));
+
+            if (string.Equals(left.Status, OfflineSaleEntry.Syncing, StringComparison.OrdinalIgnoreCase))
+                return (false, SendingNowText);
+
+            var reason = DescribeUploadError(left.LastError).Text;
+            if (string.Equals(left.Status, OfflineSaleEntry.Failed, StringComparison.OrdinalIgnoreCase))
+                return (false, Tr.T("Сервер не принял чек", "Сервер чекти кабыл алган жок", "The server did not accept the receipt",
+                                   "Sunucu fişi kabul etmedi", "Server chekni qabul qilmadi")
+                               + (reason == null ? "" : ": " + reason) + ". "
+                               + Tr.T("Повторить можно в разделе «Некорректные чеки».", "«Туура эмес чектер» бөлүмүнөн кайталаса болот.",
+                                   "You can retry in “Irregular receipts”.", "«Sorunlu fişler» bölümünden yeniden deneyebilirsiniz.",
+                                   "«Noto'g'ri cheklar» bo'limidan qayta urinish mumkin."));
+
+            return (false, Tr.T("Чек пока не отправлен", "Чек азырынча жөнөтүлгөн жок", "The receipt has not been sent yet",
+                               "Fiş henüz gönderilmedi", "Chek hali yuborilmadi")
+                           + (reason == null ? "" : ": " + reason) + ". "
+                           + Tr.T("Касса повторит отправку сама.", "Касса жөнөтүүнү өзү кайталайт.", "The till will retry by itself.",
+                               "Kasa göndermeyi kendisi tekrarlayacak.", "Kassa yuborishni o'zi takrorlaydi."));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История чеков: «Отправить на сервер» не удалось: {ex}", "OFFLINE");
+            return (false, Tr.T("Не удалось отправить чек: ", "Чекти жөнөтүү мүмкүн болгон жок: ", "Could not send the receipt: ",
+                "Fiş gönderilemedi: ", "Chekni yuborib bo'lmadi: ") + ex.Message);
+        }
+    }
+
+    /// <summary>«Отправляется…» — подпись выключенной кнопки, пока идёт досылка.</summary>
+    public static string SendingNowText => Tr.T("Отправляется…", "Жөнөтүлүүдө…", "Sending…", "Gönderiliyor…", "Yuborilmoqda…");
+
+    /// <summary>Причина неудачной отправки простыми словами — без кода ответа и JSON сервера. FromServer — это ответ
+    /// сервера по существу (а не обрыв связи). Пример из журнала 20.10.2026:
+    /// «отказ 400: items: {"6":"Товар «Nike» имеет размеры/цвета. Выберите размер/цвет."}» → «у товара «Nike» не выбран размер/цвет».</summary>
+    public static (string? Text, bool FromServer) DescribeUploadError(string? error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+            return (null, false);
+
+        var text = error.Trim();
+        var fromServer = false;
+        var status = System.Text.RegularExpressions.Regex.Match(text, @"^(отказ\s+)?\d{3}\s*[:\-—]\s*", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (status.Success)
+        {
+            fromServer = true;
+            text = text[status.Length..];
+        }
+
+        var brace = text.IndexOfAny(new[] { '{', '[' });
+        if (brace >= 0)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(text[brace..]);
+                var parts = new List<string>();
+                CollectStrings(doc.RootElement, parts);
+                if (parts.Count > 0)
+                {
+                    text = string.Join(" ", parts.Distinct());
+                    fromServer = true;
+                }
+            }
+            catch (JsonException)
+            {
+                // Не JSON — оставляем текст как есть.
+            }
+        }
+
+        // Имя поля сервера в начале («items: …»).
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"^[A-Za-z_]+\s*:\s*", "").Trim();
+
+        var variant = System.Text.RegularExpressions.Regex.Match(text, @"Товар\s+«(?<name>[^»]+)»\s+имеет\s+размеры", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (variant.Success)
+        {
+            var name = variant.Groups["name"].Value;
+            return (Tr.T($"у товара «{name}» не выбран размер/цвет", $"«{name}» товарынын өлчөмү/түсү тандалган эмес",
+                $"no size/colour was selected for «{name}»", $"«{name}» ürünü için beden/renk seçilmedi",
+                $"«{name}» mahsuloti uchun o'lcham/rang tanlanmagan"), true);
+        }
+
+        if (text.Length > 240)
+            text = text[..240] + "…";
+        return (text.Length == 0 ? null : text, fromServer);
+    }
+
+    private static void CollectStrings(JsonElement element, List<string> into)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.String when !string.IsNullOrWhiteSpace(element.GetString()):
+                into.Add(element.GetString()!.Trim());
+                break;
+            case JsonValueKind.Object:
+                foreach (var property in element.EnumerateObject())
+                    CollectStrings(property.Value, into);
+                break;
+            case JsonValueKind.Array:
+                foreach (var item in element.EnumerateArray())
+                    CollectStrings(item, into);
+                break;
+        }
+    }
+
     /// <summary>Способ оплаты словами, на языке интерфейса.</summary>
     public static string PaymentLabel(string? method) => (method ?? "").Trim().ToLowerInvariant() switch
     {
@@ -661,7 +908,8 @@ public static class ReceiptHistoryService
         };
     }
 
-    private static string? CurrentShiftId()
+    // 2026-10-20: internal — окно «История чеков» выключает «Эта смена», когда смены нет.
+    internal static string? CurrentShiftId()
     {
         if (!string.IsNullOrWhiteSpace(PosApp.ActiveShiftId))
             return PosApp.ActiveShiftId!.Trim();

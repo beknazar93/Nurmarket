@@ -146,8 +146,25 @@ public partial class WarehouseWindow
         RefreshReceivingSummary();
     }
 
-    private void ReceivingClear_Click(object? sender, RoutedEventArgs e)
+    private async void ReceivingClear_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-10-20, аудит программы владельца: длинная накладная стиралась одним нажатием — при 2+ строках спрашиваем.
+        var count = _viewModel.ReceivingLines.Count;
+        if (count > 1)
+        {
+            var ok = await NurMarketKassa.AvaloniaHost.Views.Dialogs.PosConfirmDialog.ShowModalAsync(this,
+                Tr.T("Очистить список", "Тизмени тазалоо", "Clear the list", "Listeyi temizle", "Ro'yxatni tozalash"),
+                Tr.T($"Убрать из приёмки все строки ({count})? Оприходованное ранее не изменится.",
+                    $"Кабыл алуудан бардык саптарды ({count}) алып салабы? Мурда кирешеге алынгандар өзгөрбөйт.",
+                    $"Remove all lines ({count}) from the receiving? Stock received earlier won't change.",
+                    $"Kabulden tüm satırlar ({count}) kaldırılsın mı? Daha önce alınanlar değişmez.",
+                    $"Qabuldan barcha qatorlar ({count}) olib tashlansinmi? Avval kirim qilinganlar o'zgarmaydi."),
+                Tr.T("Очистить", "Тазалоо", "Clear", "Temizle", "Tozalash"),
+                Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+                NurMarketKassa.AvaloniaHost.Views.Dialogs.PosConfirmAccent.Danger).ConfigureAwait(true);
+            if (!ok)
+                return;
+        }
         ReceivingGrid.CancelEdit();
         _viewModel.ReceivingLines.Clear();
         CloseReceivingPopups();

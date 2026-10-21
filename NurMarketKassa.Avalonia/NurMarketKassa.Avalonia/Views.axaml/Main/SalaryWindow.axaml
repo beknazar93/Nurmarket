@@ -1,6 +1,7 @@
 <Window x:Class="NurMarketKassa.AvaloniaHost.Views.SalaryWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Controls"
         x:CompileBindings="False"
         Title="Зарплата"
         Height="820"
@@ -10,64 +11,44 @@
         Background="{DynamicResource BrushWindowBackdrop}"
         Loaded="Window_Loaded">
 
+    <!-- 2026-10-19, этап О7 (редизайн «Управления»): общий вид разделов — период сегментами sec-seg (выбранный тёмно-синий,
+         были жёлтый и серые), плитки sec-kpi в KpiTileGrid (суммы не обрезаются, «К выплате» цветом текста, не жёлтым),
+         «Обновить» обводкой, пояснение «Как считается» — по кнопке, таблица — карточкой: «Сотрудник и схема» одной колонкой,
+         продажи кассира и консультанта — одной, бонус и комиссия — одной (помещается в 1024 без прокрутки вбок).
+         Расчёт, выплата, схема и запросы не менялись. -->
     <Window.Styles>
-        <Style Selector="Button.period">
-            <Setter Property="Padding" Value="14,7"/>
-            <Setter Property="Margin" Value="0,0,8,0"/>
-            <Setter Property="CornerRadius" Value="8"/>
-        </Style>
-        <Style Selector="Button.period.accent, Button.period.active">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-        </Style>
-        <Style Selector="Button.period.accent /template/ ContentPresenter#PART_ContentPresenter, Button.period.active /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-        </Style>
-        <Style Selector="Button.period.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.period.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-        </Style>
-
-        <Style Selector="Border.card">
-            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Padding" Value="14,12"/>
-            <Setter Property="Margin" Value="0,0,10,0"/>
-        </Style>
-        <Style Selector="TextBlock.cardLabel">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-            <Setter Property="TextWrapping" Value="Wrap"/>
-        </Style>
-        <Style Selector="TextBlock.cardValue">
-            <Setter Property="FontSize" Value="22"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="Margin" Value="0,4,0,0"/>
-        </Style>
         <Style Selector="TextBlock.th">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="VerticalAlignment" Value="Bottom"/>
-            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
         </Style>
         <Style Selector="TextBlock.td">
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
         </Style>
         <Style Selector="TextBlock.sub">
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="11.5"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="Margin" Value="0,2,8,0"/>
+            <Setter Property="Margin" Value="0,2,12,0"/>
+        </Style>
+        <Style Selector="TextBlock.guide">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+        </Style>
+        <Style Selector="Button.row-action">
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
         </Style>
     </Window.Styles>
 
@@ -75,131 +56,164 @@
         <!-- Полоска загрузки, пока расчёт идёт с сервера. -->
         <ProgressBar x:Name="LoadingBar" Grid.Row="0" Margin="0,-8,0,0" IsVisible="False" IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" VerticalAlignment="Top" IsHitTestVisible="False" ZIndex="100" Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
 
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-            <StackPanel Grid.Column="0">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
                 <TextBlock x:Name="TitleText" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-                <TextBlock x:Name="SubtitleText" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"
+                <TextBlock x:Name="SubtitleText" FontSize="12.5" Margin="0,2,0,0" TextWrapping="Wrap"
                            Foreground="{DynamicResource BrushTextSoft}"/>
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button x:Name="RefreshButton" Classes="period accent" Click="Refresh_Click"/>
-                <Button IsCancel="True" x:Name="CloseButton" Classes="period" Click="Close_Click"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                <Button x:Name="GuideButton" Classes="sec-outline" Click="Guide_Click"/>
+                <Button x:Name="RefreshButton" Classes="sec-outline" Click="Refresh_Click"/>
+                <Button IsCancel="True" x:Name="CloseButton" Classes="sec-outline" Click="Close_Click"/>
             </StackPanel>
         </Grid>
 
-        <!-- Как считается зарплата — те же три пункта, что на сайте. -->
-        <Border Grid.Row="1" Background="{DynamicResource BrushAccentSoft}" CornerRadius="10" Padding="14,10" Margin="0,0,0,10">
-            <StackPanel Spacing="3">
+        <!-- Как считается зарплата — те же три пункта, что на сайте. 2026-10-19, О7: по кнопке «Как считается?», не занимает экран. -->
+        <Border Grid.Row="1" x:Name="GuideBox" IsVisible="False" Background="{DynamicResource BrushPanel}"
+                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="{DynamicResource SettingsCardRadius}" Padding="16,12" Margin="0,0,0,12">
+            <StackPanel Spacing="4">
                 <TextBlock x:Name="GuideTitle" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
-                <TextBlock x:Name="GuideStep1" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextMuted}"/>
-                <TextBlock x:Name="GuideStep2" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextMuted}"/>
-                <TextBlock x:Name="GuideStep3" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextMuted}"/>
+                <TextBlock x:Name="GuideStep1" Classes="guide"/>
+                <TextBlock x:Name="GuideStep2" Classes="guide"/>
+                <TextBlock x:Name="GuideStep3" Classes="guide"/>
             </StackPanel>
         </Border>
 
-        <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10">
-            <Button x:Name="ThisMonthButton" Classes="period" Click="ThisMonth_Click"/>
-            <Button x:Name="LastMonthButton" Classes="period" Click="LastMonth_Click"/>
-            <Button x:Name="Last7Button" Classes="period" Click="Last7_Click"/>
-            <CalendarDatePicker x:Name="FromPicker" Width="160" Margin="8,0,0,0" SelectedDateChanged="Period_Changed"/>
-            <TextBlock Text="—" VerticalAlignment="Center" Margin="8,0" Foreground="{DynamicResource BrushTextSoft}"/>
-            <CalendarDatePicker x:Name="ToPicker" Width="160" SelectedDateChanged="Period_Changed"/>
-            <TextBlock x:Name="PeriodText" VerticalAlignment="Center" FontSize="12" Margin="10,0,0,0"
-                       Foreground="{DynamicResource BrushTextSoft}"/>
+        <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,12">
+            <Border Classes="sec-segment" Margin="0,0,12,6">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <Button x:Name="ThisMonthButton" Classes="sec-seg" Click="ThisMonth_Click"/>
+                    <Button x:Name="LastMonthButton" Classes="sec-seg" Click="LastMonth_Click"/>
+                    <Button x:Name="Last7Button" Classes="sec-seg" Click="Last7_Click"/>
+                </StackPanel>
+            </Border>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
+                <CalendarDatePicker x:Name="FromPicker" Width="150" Height="40" SelectedDateChanged="Period_Changed"/>
+                <TextBlock Text="—" VerticalAlignment="Center" Margin="8,0" Foreground="{DynamicResource BrushTextSoft}"/>
+                <CalendarDatePicker x:Name="ToPicker" Width="150" Height="40" SelectedDateChanged="Period_Changed"/>
+                <TextBlock x:Name="PeriodText" VerticalAlignment="Center" FontSize="12.5" Margin="12,0,0,0"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
         </WrapPanel>
 
         <!-- Итоги за период -->
-        <Grid Grid.Row="3" ColumnDefinitions="*,*,*,*,*" Margin="0,0,-10,12">
-            <Border Grid.Column="0" Classes="card">
-                <StackPanel>
-                    <TextBlock x:Name="CardPayrollLabel" Classes="cardLabel"/>
-                    <TextBlock x:Name="CardPayrollValue" Classes="cardValue" Foreground="{DynamicResource BrushAccentStrong}"/>
+        <ctl:KpiTileGrid Grid.Row="3" MinTileWidth="170" Spacing="8" Margin="0,0,0,12">
+            <Border Classes="sec-kpi">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="CardPayrollLabel" Classes="sec-kpi-label"/>
+                    <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="CardPayrollValue" Classes="sec-kpi-value" FontWeight="Bold"/></Viewbox>
+                    <!-- 2026-10-20, аудит владельца: под «Начислено» — «Выплачено · Осталось» (раньше плитка «К выплате» не вычитала выплаченное). -->
+                    <TextBlock x:Name="CardPayrollPaidText" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" IsVisible="False"/>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="1" Classes="card">
-                <StackPanel>
-                    <TextBlock x:Name="CardBaseLabel" Classes="cardLabel"/>
-                    <TextBlock x:Name="CardBaseValue" Classes="cardValue"/>
+            <Border Classes="sec-kpi">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="CardBaseLabel" Classes="sec-kpi-label"/>
+                    <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="CardBaseValue" Classes="sec-kpi-value"/></Viewbox>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="2" Classes="card">
-                <StackPanel>
-                    <TextBlock x:Name="CardBonusLabel" Classes="cardLabel"/>
-                    <TextBlock x:Name="CardBonusValue" Classes="cardValue"/>
+            <Border Classes="sec-kpi">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="CardBonusLabel" Classes="sec-kpi-label"/>
+                    <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="CardBonusValue" Classes="sec-kpi-value"/></Viewbox>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="3" Classes="card">
-                <StackPanel>
-                    <TextBlock x:Name="CardSalesLabel" Classes="cardLabel"/>
-                    <TextBlock x:Name="CardSalesValue" Classes="cardValue"/>
+            <Border Classes="sec-kpi">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="CardSalesLabel" Classes="sec-kpi-label"/>
+                    <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="CardSalesValue" Classes="sec-kpi-value"/></Viewbox>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="4" Classes="card">
-                <StackPanel>
-                    <TextBlock x:Name="CardEmployeesLabel" Classes="cardLabel"/>
-                    <TextBlock x:Name="CardEmployeesValue" Classes="cardValue"/>
+            <Border Classes="sec-kpi">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="CardEmployeesLabel" Classes="sec-kpi-label"/>
+                    <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="CardEmployeesValue" Classes="sec-kpi-value"/></Viewbox>
                 </StackPanel>
             </Border>
-        </Grid>
+        </ctl:KpiTileGrid>
 
-        <!-- Шапка таблицы: колонки те же, что у строк ниже. -->
-        <Border Grid.Row="4" Padding="12,0,12,6" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="*,210,110,125,125,105,115,125,140">
-                <TextBlock Grid.Column="0" x:Name="HeadEmployee" Classes="th"/>
-                <TextBlock Grid.Column="1" x:Name="HeadScheme" Classes="th"/>
-                <TextBlock Grid.Column="2" x:Name="HeadBase" Classes="th"/>
-                <TextBlock Grid.Column="3" x:Name="HeadCashier" Classes="th"/>
-                <TextBlock Grid.Column="4" x:Name="HeadConsultant" Classes="th"/>
-                <TextBlock Grid.Column="5" x:Name="HeadCommission" Classes="th"/>
-                <TextBlock Grid.Column="6" x:Name="HeadBonus" Classes="th"/>
-                <TextBlock Grid.Column="7" x:Name="HeadTotal" Classes="th"/>
-            </Grid>
+        <!-- 2026-10-19, третье ревью (п.3): расходы «Зарплата» без привязки к сотруднику — жёлтая плашка над таблицей. -->
+        <Border Grid.Row="4" x:Name="PayoutWarningBox" IsVisible="False" Margin="0,0,0,10" Padding="12,10" CornerRadius="10"
+                BorderThickness="1" Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}">
+            <TextBlock x:Name="PayoutWarningText" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
         </Border>
 
-        <Grid Grid.Row="5">
-            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                <ItemsControl x:Name="RowsList">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Padding="12,10" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
-                                <Grid ColumnDefinitions="*,210,110,125,125,105,115,125,140">
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Name}" Classes="td" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                        <TextBlock Text="{Binding ProfileNote}" Classes="sub" IsVisible="{Binding HasProfileNote}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding SchemeLabel}" Classes="td" TextWrapping="Wrap"/>
-                                        <TextBlock Text="{Binding SchemeDetails}" Classes="sub"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding BaseText}" Classes="td"/>
-                                        <TextBlock Text="{Binding DaysText}" Classes="sub"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="3" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding CashierSalesText}" Classes="td"/>
-                                        <TextBlock Text="{Binding CashierCountText}" Classes="sub"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="4" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding ConsultantSalesText}" Classes="td"/>
-                                        <TextBlock Text="{Binding ConsultantCountText}" Classes="sub"/>
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="5" Text="{Binding CommissionText}" Classes="td"/>
-                                    <TextBlock Grid.Column="6" Text="{Binding BonusText}" Classes="td"/>
-                                    <TextBlock Grid.Column="7" Text="{Binding TotalText}" Classes="td" FontWeight="Bold"
-                                               Foreground="{DynamicResource BrushAccentStrong}"/>
-                                    <Button Grid.Column="8" Content="{Binding EditText}" Click="EditScheme_Click"
-                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                            Padding="8,6" CornerRadius="8" FontSize="12"/>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-            <TextBlock x:Name="EmptyText" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
-                       TextAlignment="Center" TextWrapping="Wrap" MaxWidth="520" FontSize="14"
-                       Foreground="{DynamicResource BrushTextSoft}"/>
-        </Grid>
+        <!-- Таблица — карточкой. Шапка и строки — одни и те же колонки (звёздочки + колонка кнопок). -->
+        <Border Grid.Row="5" Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="{DynamicResource SettingsCardRadius}" ClipToBounds="True">
+            <Grid RowDefinitions="Auto,*">
+                <Border Grid.Row="0" Padding="16,10,28,10" Background="{DynamicResource BrushPanelSoft}"
+                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
+                    <Grid ColumnDefinitions="1.7*,*,1.3*,1.3*,1.3*,124">
+                        <TextBlock Grid.Column="0" x:Name="HeadEmployee" Classes="th"/>
+                        <TextBlock Grid.Column="1" x:Name="HeadBase" Classes="th"/>
+                        <TextBlock Grid.Column="2" x:Name="HeadCashier" Classes="th"/>
+                        <TextBlock Grid.Column="3" x:Name="HeadBonus" Classes="th"/>
+                        <TextBlock Grid.Column="4" x:Name="HeadTotal" Classes="th"/>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="RowsList" Margin="0,0,12,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16,10,16,10" MinHeight="44" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
+                                    <Grid ColumnDefinitions="1.7*,*,1.3*,1.3*,1.3*,124">
+                                        <!-- Сотрудник и схема -->
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" Classes="td" FontSize="14" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding SchemeLine}" Classes="sub"/>
+                                            <TextBlock Text="{Binding ProfileNote}" Classes="sub" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource BrushDangerOnSoft}" IsVisible="{Binding HasProfileNote}"/>
+                                        </StackPanel>
+                                        <!-- Оклад за период -->
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding BaseText}" Classes="td"/>
+                                            <TextBlock Text="{Binding DaysText}" Classes="sub"/>
+                                        </StackPanel>
+                                        <!-- Продажи: как кассир; как консультант — второй строкой, если были -->
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding CashierSalesText}" Classes="td"/>
+                                            <TextBlock Text="{Binding CashierCountText}" Classes="sub"/>
+                                            <TextBlock Text="{Binding ConsultantLine}" Classes="sub" IsVisible="{Binding HasConsultant}"/>
+                                        </StackPanel>
+                                        <!-- Бонус (% и за товары); комиссия консультанта — второй строкой -->
+                                        <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding BonusText}" Classes="td"/>
+                                            <TextBlock Text="{Binding BonusNote}" Classes="sub" IsVisible="{Binding HasBonusNote}"/>
+                                            <TextBlock Text="{Binding CommissionLine}" Classes="sub" IsVisible="{Binding HasCommission}"/>
+                                        </StackPanel>
+                                        <!-- 2026-10-19: под суммой — «Выплачено: X · Остаток: Y» (выплаты-расходы «Зарплата»). -->
+                                        <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding TotalText}" Classes="td" FontSize="15" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding PaidText}" Classes="sub" IsVisible="{Binding HasPaid}"/>
+                                        </StackPanel>
+                                        <!-- 2026-10-19, решение владельца: «Выплатить» — расход из кассы компании; обводкой (жёлтая кнопка на экране одна). -->
+                                        <StackPanel Grid.Column="5" VerticalAlignment="Center" Spacing="6">
+                                            <Button Content="{Binding PayText}" Click="Pay_Click" Classes="sec-outline row-action" IsEnabled="{Binding PayEnabled}"
+                                                    AutomationProperties.Name="{Binding PayText}"/>
+                                            <Button Content="{Binding EditText}" Click="EditScheme_Click" Classes="sec-outline row-action" FontWeight="Normal"
+                                                    AutomationProperties.Name="{Binding EditText}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Пустое состояние: что значит и что сделать. -->
+                <StackPanel Grid.Row="1" x:Name="EmptyBox" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            MaxWidth="520" Spacing="6" Margin="16,24">
+                    <TextBlock x:Name="EmptyTitle" HorizontalAlignment="Center" TextAlignment="Center" FontSize="16" FontWeight="SemiBold"
+                               TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock x:Name="EmptyText" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" FontSize="13"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 
         <Border Grid.Row="6" Margin="0,10,0,0" Padding="10"
                 Background="{DynamicResource BrushDangerSoft}" CornerRadius="8"

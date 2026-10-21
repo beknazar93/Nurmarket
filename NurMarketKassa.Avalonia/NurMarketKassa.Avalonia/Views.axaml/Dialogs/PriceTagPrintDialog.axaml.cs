@@ -88,7 +88,7 @@ public partial class PriceTagPrintDialog : Window
     private async void EditTemplateButton_Click(object? sender, RoutedEventArgs e)
     {
         var editor = new LabelTemplateEditorDialog(
-            _customTemplate, _product.Title, _product.Barcode ?? "4870145004807", _product.PriceLine,
+            _customTemplate, _product.Title, _product.Barcode ?? "4870145004807", PriceDisplay,
             PriceTagTemplateStore.Save, Tr.T("Редактор ценника", "Баа белгиси редактору", "Price tag editor", "Fiyat etiketi düzenleyici", "Narx yorlig'i muharriri"));
         await editor.ShowDialog(this).ConfigureAwait(true);
         if (editor.Saved)
@@ -124,6 +124,11 @@ public partial class PriceTagPrintDialog : Window
                 : Tr.T("Не найдено ни одного принтера.", "Принтер табылган жок.", "No printers found.", "Hiç yazıcı bulunamadı.", "Hech qanday printer topilmadi.");
     }
 
+    /// <summary>2026-10-20, аудит программы владельца: ценник показывал «85.00 сом» (точка, как хранится PriceLine), а везде —
+    /// запятая. На ценнике и в предпросмотре — с запятой; сам PriceLine (его разбирают другие места) не меняется.</summary>
+    private string PriceDisplay =>
+        System.Text.RegularExpressions.Regex.Replace(_product.PriceLine ?? "", @"(?<=\d)\.(?=\d)", ",");
+
     private PriceTagData BuildData()
     {
         var kind = (KindCombo.SelectedItem as PriceTagKindOption)?.Kind ?? PriceTagKind.Simple;
@@ -138,7 +143,7 @@ public partial class PriceTagPrintDialog : Window
         return new PriceTagData(
             ProductName: _product.Title,
             Barcode: _product.Barcode,
-            PriceText: _product.PriceLine,
+            PriceText: PriceDisplay,
             OldPriceText: oldPrice,
             DiscountText: discount,
             Sku: _product.Article,
@@ -158,7 +163,7 @@ public partial class PriceTagPrintDialog : Window
             var heightMm = (double)(HeightBox.Value ?? 30m);
             using var bmp = option.Kind == PriceTagKind.Custom
                 ? BarcodeLabelService.GenerateLabelBitmap(
-                    _product.Title, _product.Barcode ?? "", _product.PriceLine, _customTemplate,
+                    _product.Title, _product.Barcode ?? "", PriceDisplay, _customTemplate,
                     sku: _product.Article, unit: _product.Unit, storeName: UserPreferences.Instance.StoreName)
                 : PriceTagService.GenerateBitmap(option.Kind, BuildData(), widthMm, heightMm);
             using var ms = new MemoryStream();

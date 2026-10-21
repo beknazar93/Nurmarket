@@ -48,9 +48,20 @@ public static class NarrowStack
             }
             else
             {
+                // 2026-10-18, этап О1 (снимки сводки владельца): прежний объект ColumnDefinitions, вернувшись в сетку, ею
+                // не учитывался — обе колонки ложились друг на друга во всю ширину (правая карточка закрывала левую).
+                // Возвращаем копии колонок и строк.
                 if (originalColumns is not null)
-                    grid.ColumnDefinitions = originalColumns;
-                grid.RowDefinitions = originalRows ?? new RowDefinitions();
+                {
+                    var columns = new ColumnDefinitions();
+                    foreach (var c in originalColumns)
+                        columns.Add(new ColumnDefinition(c.Width) { MinWidth = c.MinWidth, MaxWidth = c.MaxWidth });
+                    grid.ColumnDefinitions = columns;
+                }
+                var rows = new RowDefinitions();
+                foreach (var r in originalRows ?? new RowDefinitions())
+                    rows.Add(new RowDefinition(r.Height) { MinHeight = r.MinHeight, MaxHeight = r.MaxHeight });
+                grid.RowDefinitions = rows;
                 foreach (var (child, column) in originalColumn)
                 {
                     Grid.SetRow(child, 0);

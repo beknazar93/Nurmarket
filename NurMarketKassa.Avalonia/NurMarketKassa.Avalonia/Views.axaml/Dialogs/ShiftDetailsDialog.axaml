@@ -121,30 +121,32 @@
       <!-- Каждая плитка нажимается и открывает подробный отчёт: чеки с товарами или записи
            журнала смены (2026-09-24, ShiftDrillDownDialog). -->
       <!-- 2026-10-04: подписи плиток переносятся на вторую строку, а не обрезаются (кыргызский длиннее). -->
+      <!-- 2026-10-21 (пакет 5, п. 41): плитки «Продажи / Наличные / Безнал» — нейтральные, как второй ряд (были оранжевая,
+           зелёная и синяя — «радуга» без смысла); цветом выделен только долг (красный). -->
       <Grid ColumnDefinitions="*,8,*,8,*,8,*">
-        <Border Grid.Column="0" Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1"
+        <Border Grid.Column="0" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                 CornerRadius="12" Padding="10" Cursor="Hand" Tag="sales" PointerReleased="Tile_PointerReleased">
           <StackPanel>
-            <TextBlock Text="{DynamicResource csh.menu.sales}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushWarning}"/>
+            <TextBlock Text="{DynamicResource csh.menu.sales}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="SalesCountText" FontSize="16" FontWeight="Bold"
-                       Foreground="{DynamicResource BrushWarning}" Margin="0,4,0,0" Text="—"/>
+                       Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
           </StackPanel>
         </Border>
-        <Border Grid.Column="2" Background="{DynamicResource BrushSuccessSoft}" BorderBrush="{DynamicResource BrushUiStatusOk}" BorderThickness="1"
+        <Border Grid.Column="2" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                 CornerRadius="12" Padding="10" Cursor="Hand" Tag="cash" PointerReleased="Tile_PointerReleased">
           <StackPanel>
-            <TextBlock Text="{DynamicResource common.cash}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushUiStatusOk}"/>
+            <TextBlock Text="{DynamicResource common.cash}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="CashText" FontSize="16" FontWeight="Bold"
-                       Foreground="{DynamicResource BrushUiStatusOk}" Margin="0,4,0,0" Text="—"/>
+                       Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
             <!-- 2026-09-28: наличная часть смешанной оплаты — отдельной строкой (отчёт смены сервера, BE-10). -->
             <TextBlock x:Name="CashMixedText" FontSize="10" TextWrapping="Wrap"
-                       Foreground="{DynamicResource BrushUiStatusOk}" IsVisible="False" Text=""/>
+                       Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Text=""/>
           </StackPanel>
         </Border>
-        <Border Grid.Column="4" Background="{DynamicResource BrushDiscountPanelBg}" BorderBrush="{DynamicResource BrushDiscountPanelBorder}" BorderThickness="1"
+        <Border Grid.Column="4" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                 CornerRadius="12" Padding="10" Cursor="Hand" Tag="card" PointerReleased="Tile_PointerReleased">
           <StackPanel>
-            <TextBlock Text="{DynamicResource common.cashless}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+            <TextBlock Text="{DynamicResource common.cashless}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="CardText" FontSize="16" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
             <!-- 2026-09-28: безналичная часть смешанной оплаты (BE-10). -->
@@ -196,6 +198,9 @@
             <TextBlock Text="{DynamicResource loc.owner.shift.debtPayments}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="DebtPaidText" FontSize="15" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
+            <!-- 2026-10-18, ревью: плитка — наличные (в ящике); безнал — подписью ниже. -->
+            <TextBlock x:Name="DebtPaidNonCashText" FontSize="10" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Text=""/>
           </StackPanel>
         </Border>
         <Border Grid.Column="8" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
@@ -222,13 +227,14 @@
           <Grid ColumnDefinitions="*,*">
             <StackPanel Grid.Column="0">
               <TextBlock Text="{DynamicResource loc.owner.shift.deposits}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+              <!-- 2026-10-21 (пакет 5, п. 41): внесения и изъятия — цветом текста (знак «+ / −» уже говорит о направлении). -->
               <TextBlock x:Name="DepositsText" FontSize="16" FontWeight="Bold"
-                         Foreground="{DynamicResource BrushUiStatusOk}" Text="{DynamicResource loc.owner.zeroMoney}"/>
+                         Foreground="{DynamicResource BrushText}" Text="{DynamicResource loc.owner.zeroMoney}"/>
             </StackPanel>
             <StackPanel Grid.Column="1">
               <TextBlock Text="{DynamicResource loc.owner.shift.withdrawalsExpense}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock x:Name="WithdrawalsText" FontSize="16" FontWeight="Bold"
-                         Foreground="{DynamicResource BrushDanger}" Text="{DynamicResource loc.owner.zeroMoney}"/>
+                         Foreground="{DynamicResource BrushText}" Text="{DynamicResource loc.owner.zeroMoney}"/>
             </StackPanel>
           </Grid>
         </StackPanel>

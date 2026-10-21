@@ -124,7 +124,11 @@ public partial class ShiftDrillDownDialog : Window
                     ? Tr.T("За этот период записей нет.", "Бул мезгилде жазуулар жок.", "No records for this period.", "Bu dönemde kayıt yok.", "Bu davrda yozuvlar yo'q.")
                     : Tr.T("За эту смену записей нет.", "Бул сменада жазуулар жок.", "No records for this shift.", "Bu vardiyada kayıt yok.", "Bu smenada yozuvlar yo'q.")
                 : rows.Summary;
-            FooterText.Text = rows.Rows.Count == 0 ? "" : Tr.T("Итого: ", "Жыйынтык: ", "Total: ", "Toplam: ", "Jami: ") + Money(rows.Total);
+            // 2026-10-18, второй круг ревью: у оплаты долгов смены итог — раздельно «наличными» (= плитка) и «безналом»
+            // (_debtFooter), без общей суммы, которая с плиткой не совпадает.
+            FooterText.Text = rows.Rows.Count == 0 ? ""
+                : _kind == KindDebtPaid && !IsPeriod ? _debtFooter
+                : Tr.T("Итого: ", "Жыйынтык: ", "Total: ", "Toplam: ", "Jami: ") + Money(rows.Total);
         }
         catch (Exception ex)
         {
@@ -226,6 +230,9 @@ public partial class ShiftDrillDownDialog : Window
         return (rows, summary, total);
     }
 
+    /// <summary>2026-10-18, второй круг ревью: итог расшифровки оплаты долгов — наличными / безналом.</summary>
+    private string _debtFooter = "";
+
     private (List<Row> Rows, string Summary, double Total) LoadEvents()
     {
         var kind = _kind switch
@@ -236,13 +243,41 @@ public partial class ShiftDrillDownDialog : Window
             _ => ShiftEventsStore.KindDebtPayment,
         };
 
-        var events = ShiftEventsStore.ListForShift(_shift!.Id, kind);
+        // 2026-10-18, ревью: у оплаты долгов — и наличные, и безнал (свой вид события); способ подписывается при показе.
+        var events = ShiftEventsStore.ListForShift(_shift!.Id, kind)
+            .Select(e => (e.CreatedAt, e.Amount, e.Note, NonCash: false)).ToList();
+        if (kind == ShiftEventsStore.KindDebtPayment)
+            events = events
+                .Concat(ShiftEventsStore.ListForShift(_shift!.Id, ShiftEventsStore.KindDebtPaymentNonCash).Select(e => (e.CreatedAt, e.Amount, e.Note, NonCash: true)))
+                .OrderBy(e => e.CreatedAt).ToList();
         var rows = events
             .Select(e => new Row(
                 e.CreatedAt == DateTime.MinValue ? "—" : e.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
                 Money(e.Amount),
-                e.Note ?? ""))
+                kind != ShiftEventsStore.KindDebtPayment
+                    ? e.Note ?? ""
+                    : string.Join(" · ", new[]
+                    {
+                        e.Note,
+                        e.NonCash
+                            ? Tr.T("безнал", "накталай эмес", "non-cash", "nakitsiz", "naqd emas")
+                            : Tr.T("наличные", "накталай", "cash", "nakit", "naqd"),
+                    }.Where(x => !string.IsNullOrWhiteSpace(x)))))
             .ToList();
+        if (kind == ShiftEventsStore.KindDebtPayment)
+        {
+            // 2026-10-18, второй круг ревью: наличные (= плитка «Оплата долгов») и безнал — отдельно.
+            var cashText = Money(events.Where(e => !e.NonCash).Sum(e => e.Amount));
+            var nonCashText = Money(events.Where(e => e.NonCash).Sum(e => e.Amount));
+            _debtFooter = Tr.T($"Наличными: {cashText} · безналом: {nonCashText}", $"Накталай: {cashText} · накталай эмес: {nonCashText}",
+                $"Cash: {cashText} · non-cash: {nonCashText}", $"Nakit: {cashText} · nakitsiz: {nonCashText}", $"Naqd: {cashText} · naqd emas: {nonCashText}");
+            return (rows, Tr.T($"Записей: {events.Count} · наличными: {cashText} · безналом: {nonCashText}",
+                $"Жазуулар: {events.Count} · накталай: {cashText} · накталай эмес: {nonCashText}",
+                $"Records: {events.Count} · cash: {cashText} · non-cash: {nonCashText}",
+                $"Kayıt: {events.Count} · nakit: {cashText} · nakitsiz: {nonCashText}",
+                $"Yozuvlar: {events.Count} · naqd: {cashText} · naqd emas: {nonCashText}"),
+                events.Where(e => !e.NonCash).Sum(e => e.Amount));
+        }
         var total = events.Sum(e => e.Amount);
         var totalText = Money(total);
         return (rows, Tr.T($"Записей: {events.Count} · на сумму {totalText}",

@@ -1302,7 +1302,9 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
 
     /// <summary>2026-10-04, п. 9: фоновые печати чеков идут строго по одной и по порядку продаж — два чека
     /// подряд не должны перемешаться в одном принтере.</summary>
-    private static readonly SemaphoreSlim BackgroundPrintGate = new(1, 1);
+    // 2026-10-15: та же очередь, что у импульса денежного ящика (ReceiptPrintService.PrinterGate) — импульс
+    // больше не попадает в печать следующего чека.
+    private static SemaphoreSlim BackgroundPrintGate => ReceiptPrintService.PrinterGate;
 
     private Task<bool> PrintReceiptInBackground(
         string cartJson,
@@ -1397,11 +1399,32 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             // на каждой попытке (не один раз до цикла), т.к. график может ещё не быть готов сразу
             // после checkout.
             var delays = new[] { 3, 8, 15, 30 };
+            // 2026-10-15, ревью: ключ идемпотентности — ОДИН на все попытки этой предоплаты. Раньше PosPayDebtAsync
+            // создавал новый на каждый вызов: ответ потерялся (таймаут) — следующая попытка гасила долг второй раз.
+            // 2026-10-16, ревью: один ключ на ВСЕ попытки ломал сами повторы — они нужны, чтобы пережить ранний отказ
+            // (график ещё не готов → 400, «Максимум: …»), а installment_id каждый раз читается заново: тот же ключ с
+            // другим телом сервер мог отвергнуть или вернуть сохранённый 400 — деньги так и не зачлись. Теперь прежний
+            // ключ — только для того же тела (взнос + сумма) и только если исход прошлой попытки неизвестен (таймаут,
+            // обрыв, 5xx/408/429); после отказа по существу (4xx) или с другим телом — новый (см. PendingIdempotencyKey).
+            var payKey = new PendingIdempotencyKey();
+            // 2026-10-16, ревью: прошлая оплата осталась без ответа — какой был взнос и остаток долга перед ней. Новый
+            // ключ на изменившееся тело не должен провести вторую оплату, если первая дошла (взнос после неё уже
+            // погашен — тело и меняется): перед следующей попыткой сверяем сделку (DebtPaymentLooksApplied).
+            (string? InstallmentId, decimal? DebtBefore)? unknownPayment = null;
             for (var attempt = 1; attempt <= delays.Length + 1; attempt++)
             {
                 try
                 {
                     var deal = await _salesApi.ClientDealGetAsync(clientId, dealId, cancellationToken).ConfigureAwait(false);
+
+                    if (unknownPayment is { } unknown
+                        && DebtPaymentLooksApplied(deal, unknown.InstallmentId, unknown.DebtBefore, amount))
+                    {
+                        PosLogger.Log(
+                            $"Initial debt payment applied by an earlier attempt (its reply was lost): sale={saleId}, deal={dealId}, installment={unknown.InstallmentId ?? "(none)"}, amount={amount:0.00}",
+                            "PAYMENT");
+                        return true;
+                    }
 
                     // 2026-09-26, найдено при стресс-тесте: сервер сам записывает предоплату из
                     // checkout (cash_received) в сделку — «prepayment: 23, debt_amount: 128» при
@@ -1420,7 +1443,22 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                     }
 
                     var installmentId = TryFindPayableInstallmentId(deal);
-                    await _salesApi.PosPayDebtAsync(clientId, dealId, installmentId, amount, cancellationToken).ConfigureAwait(false);
+                    var payIdempotencyKey = payKey.Get(installmentId + "|" + amount.ToString("0.00", CultureInfo.InvariantCulture));
+                    try
+                    {
+                        await _salesApi.PosPayDebtAsync(clientId, dealId, installmentId, amount, cancellationToken, payIdempotencyKey).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        // 2026-10-16, ревью: отказ по существу (4xx) — ключ забыт, этой оплаты не было. Исход неизвестен —
+                        // запоминаем взнос и остаток долга перед ПЕРВОЙ такой попыткой: сверка ловит любую дошедшую.
+                        if (payKey.OnError(ex))
+                            unknownPayment ??= (installmentId,
+                                deal.ValueKind == JsonValueKind.Object && TryReadDecimal(deal, "remaining_debt", out var debtBefore)
+                                    ? debtBefore
+                                    : (decimal?)null);
+                        throw;
+                    }
                     PosLogger.Log(
                         $"Initial debt payment applied: sale={saleId}, deal={dealId}, installment={installmentId ?? "(none)"}, amount={amount:0.00}, attempt={attempt}",
                         "PAYMENT");
@@ -1444,6 +1482,28 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             PosLogger.Log($"Initial debt payment failed for sale {saleId}: {ex}", "PAYMENT");
             return false;
         }
+    }
+
+    /// <summary>2026-10-16, ревью: оплата, ответ на которую не дошёл (таймаут, обрыв, 5xx), всё-таки прошла? Да, если
+    /// остаток долга сделки с тех пор уменьшился хотя бы на сумму оплаты или взнос той попытки уже погашен (paid_on).
+    /// Без этого повтор с новым телом (взнос уже погашен — касса берёт следующий) и новым ключом гасил бы долг дважды.</summary>
+    private static bool DebtPaymentLooksApplied(JsonElement deal, string? installmentId, decimal? debtBefore, double amount)
+    {
+        if (deal.ValueKind != JsonValueKind.Object)
+            return false;
+        if (debtBefore is { } before && TryReadDecimal(deal, "remaining_debt", out var debtNow)
+            && (double)(before - debtNow) >= amount - 0.005)
+            return true;
+        if (string.IsNullOrWhiteSpace(installmentId)
+            || !deal.TryGetProperty("installments", out var installments)
+            || installments.ValueKind != JsonValueKind.Array)
+            return false;
+        return installments.EnumerateArray().Any(installment =>
+            installment.ValueKind == JsonValueKind.Object
+            && installment.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String
+            && string.Equals(idEl.GetString(), installmentId, StringComparison.OrdinalIgnoreCase)
+            && installment.TryGetProperty("paid_on", out var paidOn) && paidOn.ValueKind == JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(paidOn.GetString()));
     }
 
     /// <summary>2026-09-15: подтверждено живым захватом DevTools реального успешного платежа
@@ -1572,6 +1632,11 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             return cartJson;
         var cart = CartJsonHelper.ParseObjectOrEmpty(cartJson);
         cart["debt_due_date"] = plan.LastDueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        // 2026-10-20, владелец (долг Д5): клиент долга — в чек (CartReceiptTextBuilder) и в журнал продажи кассы.
+        if (!string.IsNullOrWhiteSpace(request.ClientNameForReceipt))
+            cart["debt_client_name"] = request.ClientNameForReceipt.Trim();
+        if (!string.IsNullOrWhiteSpace(request.ClientPhoneForReceipt))
+            cart["debt_client_phone"] = request.ClientPhoneForReceipt.Trim();
         var payments = new System.Text.Json.Nodes.JsonArray();
         foreach (var p in plan.Payments)
             payments.Add(new System.Text.Json.Nodes.JsonObject

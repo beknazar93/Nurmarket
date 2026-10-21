@@ -1,3 +1,4 @@
+using System.Text.Json;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Services.Api;
 
@@ -105,6 +106,34 @@ public sealed class ShiftStateService : IShiftStateService
             ActiveShiftId = PosApp.ActiveShiftId,
             CashBalance = balance,
         });
+    }
+
+    /// <summary>2026-10-21 (пакет 5, п. 36): запасной остаток смены (offline_pos_state.json) — из КАЖДОГО ответа
+    /// списка открытых смен, а не только из RefreshAsync. Остаток после возврата, внесения/изъятия и оплаты долга шапка
+    /// кассы берёт отдельным запросом (MainWindow.RefreshShiftBalanceQuietAsync), и файл оставался со старым числом:
+    /// пропала связь сразу после возврата — касса без сервера показывала остаток ДО возврата (живая проверка П3:
+    /// −40 167,04 в файле при −40 187,04 на экране). Вызывается из ShiftApiService после запроса ?status=open.
+    /// Без открытой смены и без остатка в ответе файл не трогается; одинаковое значение не переписывается.</summary>
+    public static void RememberFallbackBalance(JsonElement openShifts)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(PosApp.ActiveShiftId)
+                || ShiftBalanceHelper.FindOpenShiftBalance(openShifts, PosApp.PosCashboxId) is not { } balance)
+                return;
+
+            if (OfflinePosStateStore.TryLoad() is { } saved
+                && saved.ShiftCashBalance == balance
+                && string.Equals(saved.ActiveShiftId, PosApp.ActiveShiftId, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(saved.PosCashboxId, PosApp.PosCashboxId, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            OfflinePosStateStore.SaveFromApp(balance);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Запасной остаток смены не сохранён: {ex.GetType().Name}: {ex.Message}", "SHIFT");
+        }
     }
 
     /// <summary>Кассу, которую кассир сам закрепил в настройках, смена с другой кассы не

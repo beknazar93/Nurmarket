@@ -5,17 +5,20 @@
   <UserControl.Styles>
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
     <Style Selector="RadioButton.LayoutOption">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Padding" Value="16"/>
       <Setter Property="MinHeight" Value="92"/>
       <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
+    <!-- 2026-10-19, этап О7: выбранный вариант — рамка цветом текста (тёмно-синяя) на белом, как выбранные карточки; был
+         бледно-жёлтый. Заливку не ставим: внутри карточки свой текст и картинка. -->
     <Style Selector="RadioButton.LayoutOption:checked">
-      <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderThickness" Value="2"/>
     </Style>
   </UserControl.Styles>
 
@@ -321,15 +324,18 @@
 
       <Border Grid.Row="1" Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1,1,1,0"
               Padding="12" Margin="0,12,0,0">
-        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
-          <Button Classes="SettingsFlatButton" Content="{DynamicResource posSettings.monitor.open}" Click="OpenDisplay_Click"/>
-          <Button Grid.Column="1" Classes="SettingsFlatButton" Content="{DynamicResource posSettings.monitor.show}" Click="ShowDisplay_Click"/>
-          <Button Grid.Column="2" Classes="SettingsFlatButton" Content="{DynamicResource common.close}" Click="CloseDisplay_Click"/>
-          <Button Grid.Column="3" Classes="SettingsFlatButton" Content="{DynamicResource monitorSettings.previewButton}" Click="Preview_Click"/>
-          <TextBlock Grid.Column="4" Text="{Binding StatusMessage}" VerticalAlignment="Center"
-                     Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
-          <Button Grid.Column="5" Height="42" Padding="22,0" Background="{DynamicResource BrushWarning}"
-                  Foreground="{DynamicResource BrushText}" CornerRadius="10" Content="{DynamicResource common.save}" Click="Save_Click"/>
+        <!-- 2026-10-19, этап О7: кнопки экрана — обводкой с промежутком (были слипшиеся серые); «Сохранить» — общая жёлтая
+             btn-primary (была коричнево-оранжевая BrushWarning). Статус переносится, а не обрезается. -->
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Classes="SettingsFlatButton" Content="{DynamicResource posSettings.monitor.open}" Click="OpenDisplay_Click"/>
+            <Button Classes="SettingsFlatButton" Content="{DynamicResource posSettings.monitor.show}" Click="ShowDisplay_Click"/>
+            <Button Classes="SettingsFlatButton" Content="{DynamicResource common.close}" Click="CloseDisplay_Click"/>
+            <Button Classes="SettingsFlatButton" Content="{DynamicResource monitorSettings.previewButton}" Click="Preview_Click"/>
+          </StackPanel>
+          <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" VerticalAlignment="Center" Margin="12,0"
+                     Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" FontSize="12.5"/>
+          <Button Grid.Column="2" Classes="btn-primary" Height="42" MinWidth="140" Padding="22,0" Content="{DynamicResource common.save}" Click="Save_Click"/>
         </Grid>
       </Border>
     </Grid>

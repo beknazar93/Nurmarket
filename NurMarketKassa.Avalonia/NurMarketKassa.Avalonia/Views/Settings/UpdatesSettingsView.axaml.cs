@@ -12,7 +12,17 @@ public partial class UpdatesSettingsView : UserControl
         InitializeComponent();
         RenderTesterState();
         RenderOwnerAppState();
+        // 2026-10-21: версия — «1.17.58», без служебного «.0» в конце (её ставит PosSettingsWindow: Version.ToString()) (пакет 3, п. 141).
+        AppVersionText.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == TextBlock.TextProperty && ShortVersion(AppVersionText.Text) is { } shorter && shorter != AppVersionText.Text)
+                AppVersionText.Text = shorter;
+        };
     }
+
+    /// <summary>2026-10-21: «1.17.58.0» → «1.17.58»; не версия — null (пакет 3, п. 141).</summary>
+    private static string? ShortVersion(string? text) =>
+        System.Version.TryParse(text?.Trim(), out var v) && v.Revision == 0 ? v.ToString(3) : null;
 
     /// <summary>2026-09-30: «Программа владельца» на этом компьютере — ярлык «NurMarket Владелец».
     /// Карточка только в кассе (не в самой программе владельца и не в отдельном её пакете).</summary>
@@ -55,6 +65,9 @@ public partial class UpdatesSettingsView : UserControl
     private void RenderTesterState()
     {
         var tester = UpdateChannel.IsTester;
+        // 2026-10-21: «Тестовые версии / Код тестировщика» — для тестировщиков кассы; владельцу блок не нужен. Уже включённый
+        // тестовый канал остаётся виден — чтобы его можно было выключить (пакет 3, п. 141).
+        TesterCard.IsVisible = !AppMode.IsOwner || tester;
         TesterCodeBox.IsVisible = !tester;
         TesterActivateButton.IsVisible = !tester;
         TesterOffButton.IsVisible = tester;

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Вид кассы — 1С</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column; position: relative; overflow: hidden">
+
+  <header style="height: 58px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 18px; background: #FFFFFF; border-bottom: 1px solid #EAECF0"><span style="width: 34px; height: 34px; border-radius: 10px; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800">N</span><span style="display: flex; flex-direction: column"><b style="font-size: 14px">Рабочее место кассира</b><span style="font-size: 11px; color: #667085">NBS · Касса 1 · смена открыта</span></span><span style="flex-grow: 1"></span><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #0E7A3A"><span style="width: 8px; height: 8px; border-radius: 50%; background: #0E7A3A"></span>в сети</span><span style="font-size: 13px; font-weight: 700">Кассир Тест</span><button type="button" class="nv" aria-label="Меню" style="width: 38px; height: 38px">☰</button></header>
+  <div style="flex-grow: 1; display: flex; gap: 14px; padding: 14px; min-height: 0">
+    <section style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <label style="height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #98A2B3; background: #FFFFFF"><b style="font-size: 13px; width: 90px">Штрихкод:</b><input type="text" placeholder="сканируйте товар" aria-label="Штрихкод" style="flex-grow: 1; border: 0; outline: 0; font-family: Consolas, monospace; font-size: 18px; background: transparent"></label>
+      <div style="padding: 16px 20px; border-radius: 14px; background: #FFFFFF; border: 2px solid #0B2A3C; display: flex; flex-direction: column; gap: 6px"><span class="lbl">ТЕКУЩАЯ СТРОКА</span><b style="font-size: 30px; font-weight: 800">Mars</b><span style="font-size: 24px; color: #475467">3 × 65,00 = <b style="color: #0B2A3C">195,00</b></span></div>
+      <div style="flex-grow: 1; background: #FFFFFF; border-radius: 12px; border: 1px solid #D0D5DD; overflow: hidden; display: flex; flex-direction: column">
+        <div class="lbl" style="display: grid; grid-template-columns: 40px 1fr 90px 90px 110px; gap: 8px; padding: 10px 12px; background: #F2F4F7"><span>N</span><span>НОМЕНКЛАТУРА</span><span>КОЛ-ВО</span><span>ЦЕНА</span><span style="text-align: right">СУММА</span></div>
+        <div style="display: grid; grid-template-columns: 40px 1fr 90px 90px 110px; gap: 8px; padding: 0 12px; height: 38px; align-items: center; font-size: 14px; border-bottom: 1px solid #EAECF0; "><span>1</span><span>Кока-Кола (ПЭТ) 2л</span><span>2</span><span>120,00</span><b style="text-align: right">240,00</b></div><div style="display: grid; grid-template-columns: 40px 1fr 90px 90px 110px; gap: 8px; padding: 0 12px; height: 38px; align-items: center; font-size: 14px; border-bottom: 1px solid #EAECF0; "><span>2</span><span>Сок Gracio яблочный 1л</span><span>1</span><span>145,00</span><b style="text-align: right">145,00</b></div><div style="display: grid; grid-template-columns: 40px 1fr 90px 90px 110px; gap: 8px; padding: 0 12px; height: 38px; align-items: center; font-size: 14px; border-bottom: 1px solid #EAECF0; "><span>3</span><span>Хлеб белый</span><span>2</span><span>35,00</span><b style="text-align: right">70,00</b></div><div style="display: grid; grid-template-columns: 40px 1fr 90px 90px 110px; gap: 8px; padding: 0 12px; height: 38px; align-items: center; font-size: 14px; border-bottom: 1px solid #EAECF0; background: #FFF7CC"><span>4</span><span>Mars</span><span>3</span><span>65,00</span><b style="text-align: right">195,00</b></div>
+      </div>
+      <span class="lbl">ИЗБРАННОЕ</span>
+      <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px"><button type="button" class="b2" style="height: 50px; padding: 0 8px; font-size: 12px">Хлеб белый</button><button type="button" class="b2" style="height: 50px; padding: 0 8px; font-size: 12px">Пакет</button><button type="button" class="b2" style="height: 50px; padding: 0 8px; font-size: 12px">Вода 1,5л</button><button type="button" class="b2" style="height: 50px; padding: 0 8px; font-size: 12px">Молоко 1л</button><button type="button" class="b2" style="height: 50px; padding: 0 8px; font-size: 12px">Яйца 10 шт</button><button type="button" class="b2" style="height: 50px; padding: 0 8px; font-size: 12px">Сахар 1кг</button></div>
+    </section>
+    <aside style="width: 330px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="background: #FFFFFF; border-radius: 14px; border: 1px solid #D0D5DD; padding: 16px; display: flex; flex-direction: column; gap: 6px">
+        <div class="rl" style="font-size: 15px"><span>Сумма</span><b>650,00</b></div><div class="rl" style="font-size: 15px"><span>Скидка</span><b>0,00</b></div>
+        <span class="lbl" style="padding-top: 8px">К ОПЛАТЕ</span><b style="font-size: 46px; font-weight: 800; color: #0B2A3C; text-align: right">650,00</b>
+      </div>
+      <span style="flex-grow: 1"></span>
+      <button type="button" class="b1" style="height: 64px; font-size: 16px">Оплата наличными · F9</button>
+      <button type="button" class="b2" style="height: 54px; font-size: 15px">Оплата картой · F10</button>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px"><button type="button" class="b2">Сторно · Del</button><button type="button" class="b2">Отложить чек</button></div>
+    </aside>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

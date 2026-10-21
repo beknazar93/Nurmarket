@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Настройки — оплата, терминал и QR</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+/* 2026-10-16: цели касания ≥ 44 px (✕, кнопки, поля, чипы, сегменты) */
+.x{width:44px;height:44px;flex-shrink:0;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b1,.b2,.bd{white-space:nowrap}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:44px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:44px;padding:0 14px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:44px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="PaySettings"><div style="width: 1440px; height: 900px; box-sizing: border-box; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); display: flex; flex-direction: column; position: relative; overflow: hidden;"><header style="height: 60px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0px 20px; background: rgb(255, 255, 255); border-bottom: 1px solid rgb(234, 236, 240);"><b style="font-size: 18px; font-weight: 800; flex-grow: 1;">Настройки</b><input class="in" type="text" placeholder="Найти настройку" aria-label="Найти настройку" style="width: 280px;"><button type="button" class="x" aria-label="Закрыть">✕</button></header><div style="flex-grow: 1; display: flex; min-height: 0px;"><nav aria-label="Разделы настроек" style="width: 220px; flex-shrink: 0; padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; background: rgb(255, 255, 255); border-right: 1px solid rgb(234, 236, 240);"><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: rgb(52, 64, 84); font-weight: 600;">Магазин и чек</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: rgb(52, 64, 84); font-weight: 600;">Касса и продажа</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: rgb(52, 64, 84); font-weight: 600;">ККМ и налоги</a><a href="#" aria-current="page" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; background: rgb(255, 247, 204); box-shadow: rgb(255, 214, 0) 4px 0px 0px inset; color: rgb(11, 42, 60); font-weight: 800;">Оплата и банки</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: rgb(52, 64, 84); font-weight: 600;">Бонусы и сертификаты</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: rgb(52, 64, 84); font-weight: 600;">Оформление</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: rgb(52, 64, 84); font-weight: 600;">Принтеры и ящик</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: rgb(52, 64, 84); font-weight: 600;">Весы и сканер</a><a href="#" style="padding: 13px 12px; border-radius: 10px; text-decoration: none; font-size: 13.5px; color: rgb(52, 64, 84); font-weight: 600;">Сотрудники и доступ</a></nav><main style="flex-grow: 1; min-width: 0px; padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; overflow: hidden;">
+      <span style="display: flex; flex-direction: column;"><b style="font-size: 20px; font-weight: 800;">Оплата и банки</b><span style="font-size: 12px; color: rgb(102, 112, 133);">Касса узнаёт об оплате сама — только через API банка и по договору с ним. Без API — ручное подтверждение с PIN админа.</span></span>
+      <span class="lbl">БАНКОВСКИЙ ТЕРМИНАЛ</span>
+      <div class="card" style="padding: 14px; flex-direction: row; align-items: center; gap: 14px;"><span style="width: 54px; height: 70px; border-radius: 10px; background: rgb(31, 41, 55); position: relative; flex-shrink: 0;"><span style="position: absolute; left: 7px; right: 7px; top: 8px; height: 24px; border-radius: 4px; background: rgb(59, 130, 246);"></span></span>
+        <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;"><b style="font-size: 15px;">Терминал MBANK · PAX A920</b><span style="font-size: 12px; color: rgb(102, 112, 133);">по Wi-Fi · сумма уходит на терминал сама · чек терминала печатается на кассе</span><span style="font-size: 11px; color: rgb(102, 112, 133);">нужен ECR-протокол банка и договор; без него кассир вводит сумму на терминале сам</span></span>
+        <span class="tag" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58);">на связи</span><button type="button" class="b2">Проверить</button></div>
+      
+      <span style="display: flex; justify-content: space-between; gap: 12px;"><span class="lbl">QR-ОПЛАТА</span><span style="font-size: 11px; color: rgb(102, 112, 133);">автоподтверждение — нужен мерчант-API банка (статус платежа) и договор</span></span>
+      <div class="row" style="background: rgb(255, 247, 204); border: 2px solid rgb(11, 42, 60); gap: 12px; padding: 8px 12px;"><span style="width: 36px; height: 36px; border-radius: 10px; background: rgb(11, 42, 60); color: rgb(255, 255, 255); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">E</span><span style="flex-grow: 1; min-width: 0px;"><b>ELQR · один QR для всех банков</b><br><span style="font-size: 11px; color: rgb(71, 84, 103);">покупатель платит из приложения любого банка КР · деньги и подтверждение — через банк-эквайер</span></span><span style="display: flex; flex-direction: column; gap: 2px; width: 170px; flex-shrink: 0;"><button type="button" class="in" style="display: flex; align-items: center; justify-content: space-between; text-align: left; color: rgb(17, 24, 39);">MBANK<span aria-hidden="true" style="color: rgb(71, 84, 103);">▾</span></button><span style="font-size: 10.5px; color: rgb(71, 84, 103);">банк-эквайер · подтверждает оплату</span></span></div>
+      <div class="row" style="background: rgb(255, 255, 255); border: 1px solid rgb(234, 236, 240); gap: 12px; padding: 8px 12px;"><span style="width: 36px; height: 36px; border-radius: 10px; background: rgb(0, 163, 224); color: rgb(255, 255, 255); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">M</span><span style="flex-grow: 1; min-width: 0px;"><b>MBANK</b><br><span style="font-size: 11px; color: rgb(102, 112, 133);">эквайер · QR и терминал · договор подписан</span></span><span style="display: flex; flex-direction: column; gap: 2px; width: 130px; flex-shrink: 0;"><input class="in" type="text" aria-label="Комиссия MBANK, %" value="1,5 %" style="height: 44px;"><span style="font-size: 10.5px; color: rgb(102, 112, 133);">комиссия · из договора</span></span><span class="tag" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58); white-space: nowrap;">✓ автоподтверждение · API</span></div>
+      <div class="row" style="background: rgb(255, 255, 255); border: 1px solid rgb(234, 236, 240); gap: 12px; padding: 8px 12px;"><span style="width: 36px; height: 36px; border-radius: 10px; background: rgb(227, 6, 19); color: rgb(255, 255, 255); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">O</span><span style="flex-grow: 1; min-width: 0px;"><b>Optima Bank</b><br><span style="font-size: 11px; color: rgb(102, 112, 133);">свой QR · договор не подписан</span></span><span style="display: flex; flex-direction: column; gap: 2px; width: 130px; flex-shrink: 0;"><input class="in" type="text" placeholder="—" aria-label="Комиссия Optima Bank, %" style="height: 44px;"><span style="font-size: 10.5px; color: rgb(102, 112, 133);">комиссия · из договора</span></span><span class="tag" style="background: rgb(242, 244, 247); color: rgb(71, 84, 103); white-space: nowrap;">вручную · PIN админа</span><button type="button" class="chip">Подключить API</button></div>
+      <div class="row" style="background: rgb(255, 255, 255); border: 1px solid rgb(234, 236, 240); gap: 12px; padding: 8px 12px;"><span style="width: 36px; height: 36px; border-radius: 10px; background: rgb(123, 44, 191); color: rgb(255, 255, 255); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">O</span><span style="flex-grow: 1; min-width: 0px;"><b>O!Bank</b><br><span style="font-size: 11px; color: rgb(102, 112, 133);">свой QR · договор не подписан</span></span><span style="display: flex; flex-direction: column; gap: 2px; width: 130px; flex-shrink: 0;"><input class="in" type="text" placeholder="—" aria-label="Комиссия O!Bank, %" style="height: 44px;"><span style="font-size: 10.5px; color: rgb(102, 112, 133);">комиссия · из договора</span></span><span class="tag" style="background: rgb(242, 244, 247); color: rgb(71, 84, 103); white-space: nowrap;">вручную · PIN админа</span><button type="button" class="chip">Подключить API</button></div>
+      <div class="row" style="background: rgb(255, 255, 255); border: 1px solid rgb(234, 236, 240); gap: 12px; padding: 8px 12px;"><span style="width: 36px; height: 36px; border-radius: 10px; background: rgb(0, 132, 61); color: rgb(255, 255, 255); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">B</span><span style="flex-grow: 1; min-width: 0px;"><b>Bakai Bank</b><br><span style="font-size: 11px; color: rgb(102, 112, 133);">QR</span></span><button type="button" class="chip">Подключить</button></div>
+    </main><aside style="width: 320px; flex-shrink: 0; padding: 18px; display: flex; flex-direction: column; gap: 10px; background: rgb(255, 255, 255); border-left: 1px solid rgb(234, 236, 240);">
+      <b style="font-size: 15px;">Как показывать QR</b>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px;"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0px; flex-shrink: 0; accent-color: rgb(11, 42, 60);">На экране покупателя, крупно, с суммой</label>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px;"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0px; flex-shrink: 0; accent-color: rgb(11, 42, 60);">На кассе, если экрана покупателя нет</label>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px;"><input type="checkbox" style="width: 18px; height: 18px; margin: 0px; flex-shrink: 0; accent-color: rgb(11, 42, 60);">Печатать QR на чеке-счёте для оплаты позже</label>
+      <span class="lbl">ЖДАТЬ ОПЛАТУ</span>
+      <div class="sg"><button type="button" class="seg">1 мин</button><button type="button" class="seg on">3 мин</button><button type="button" class="seg">5 мин</button></div>
+      <span class="lbl">ЕСЛИ БАНК НЕ ОТВЕТИЛ</span>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px;"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0px; flex-shrink: 0; accent-color: rgb(11, 42, 60);">Разрешить подтвердить вручную — с PIN админа; запись в журнал и в сверку смены</label>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px;"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0px; flex-shrink: 0; accent-color: rgb(11, 42, 60);">Терминал не ответил — сначала «Проверить статус последней операции» (без двойного списания)</label>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px;"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0px; flex-shrink: 0; accent-color: rgb(11, 42, 60);">Платёж без чека → в список «Непривязанные»</label>
+      <span class="lbl">В КОНЦЕ СМЕНЫ</span>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px;"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0px; flex-shrink: 0; accent-color: rgb(11, 42, 60);">Сверка итогов терминала и QR с банком при закрытии смены</label>
+      <span style="flex-grow: 1;"></span><button type="button" class="b1">Сохранить</button>
+    </aside></div></div></div></div>
+
+
+
+</body></html>

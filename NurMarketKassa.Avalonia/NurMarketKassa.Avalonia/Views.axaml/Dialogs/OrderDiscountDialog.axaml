@@ -1,8 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.OrderDiscountDialog"
         Title="{DynamicResource discount.title}"
-        Width="480" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -11,13 +12,6 @@
         Background="{DynamicResource DialogWindowBackground}">
 
     <Window.Styles>
-        <!-- Кастомный стиль для ToggleSwitch (On/Off) -->
-        <Style Selector="ToggleSwitch">
-            <Setter Property="OffContent" Value=""/>
-            <Setter Property="OnContent" Value=""/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
         <!-- Стиль для Чекбокса -->
         <Style Selector="CheckBox">
             <Setter Property="Cursor" Value="Hand"/>
@@ -27,130 +21,96 @@
         </Style>
     </Window.Styles>
 
-    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-            Background="{DynamicResource BrushDialogPanel}"
-            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-            BoxShadow="0 12 32 0 #33101828"
-            Padding="28,24">
+    <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 480 — заголовок и ✕ сверху,
+         «Отмена» (обводка, Esc) и «Применить» (акцент темы, Enter) снизу справа, «Сбросить» — слева внизу.
+         Тумблер «Процент / Сумма» заменён сегментами «%» / «сом» у поля (макет MCart); состояние по-прежнему
+         хранит DiscountTypeToggle (скрыт) — логика скидки и запоминание режима не менялись. -->
+    <dlg:ModalShell x:Name="Shell" Margin="16" Title="{DynamicResource discount.title}">
+        <dlg:ModalShell.Hint>
+            <Button Classes="modal-secondary" MaxWidth="200" FontSize="14"
+                    HorizontalAlignment="Left"
+                    Content="{DynamicResource csh.filter.reset}"
+                    Click="Clear_Click"/>
+        </dlg:ModalShell.Hint>
+        <dlg:ModalShell.Footer>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button IsCancel="True"
+                        Classes="modal-cancel" MaxWidth="200"
+                        Content="{DynamicResource common.cancel}"
+                        Click="Cancel_Click"/>
+                <Button Classes="modal-primary" MaxWidth="200"
+                        Content="{DynamicResource csh.filter.apply}"
+                        IsDefault="True"
+                        Click="Apply_Click"/>
+            </StackPanel>
+        </dlg:ModalShell.Footer>
 
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-
-            <!-- Заголовок диалога -->
-            <TextBlock x:Name="HeaderTitleText" Text="{DynamicResource discount.title}"
-                       FontSize="20" FontWeight="Bold"
-                       Foreground="{DynamicResource BrushText}"
-                       HorizontalAlignment="Center"
-                       TextAlignment="Center"
-                       Margin="0,0,0,8"/>
-
+        <StackPanel Spacing="12">
             <TextBlock x:Name="ItemTitleLabel" IsVisible="False"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource BrushTextMuted}"
-                       HorizontalAlignment="Center"
-                       TextAlignment="Center"
-                       Margin="0,0,0,12"/>
+                       FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushText}"/>
 
             <!-- Выбор: Чекбокс для применимости к отдельному товару -->
-            <StackPanel x:Name="ScopePanel" HorizontalAlignment="Center" Margin="0,0,0,16" Width="320">
+            <StackPanel x:Name="ScopePanel">
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="{DynamicResource discount.applyToSelected}"
-                               FontSize="14" FontWeight="Medium"
+                               FontSize="14" FontWeight="Medium" TextWrapping="Wrap"
                                Foreground="{DynamicResource BrushText}"
                                VerticalAlignment="Center"/>
 
                     <CheckBox x:Name="ScopeCheckBox"
                               Grid.Column="1"
                               IsChecked="False"
+                              Margin="12,0,0,0"
                               VerticalAlignment="Center"/>
                 </Grid>
             </StackPanel>
 
-            <!-- Переключатель On/Off: Тип скидки (Процент / Сумма) -->
-            <StackPanel HorizontalAlignment="Center" Margin="0,0,0,16" Width="320">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock x:Name="DiscountTypeLabel" Text="{DynamicResource discount.modeAmountLabel}"
-                               FontSize="14" FontWeight="Medium"
-                               Foreground="{DynamicResource BrushText}"
-                               VerticalAlignment="Center"/>
+            <!-- Подпись режима и тумблер — скрыты (их текст и состояние по-прежнему ведёт код). -->
+            <TextBlock x:Name="DiscountTypeLabel" IsVisible="False"/>
+            <ToggleSwitch x:Name="DiscountTypeToggle"
+                          IsVisible="False"
+                          IsChecked="False"
+                          IsCheckedChanged="DiscountType_Changed"/>
 
-                    <ToggleSwitch x:Name="DiscountTypeToggle"
-                                  Grid.Column="1"
-                                  IsChecked="False"
-                                  IsCheckedChanged="DiscountType_Changed"/>
+            <!-- Ввод значения и режим «%» / «сом» -->
+            <StackPanel Spacing="6">
+                <TextBlock x:Name="ValueLabel" Text="{DynamicResource discount.enterAmountLabel}"
+                           FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+                <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+                    <TextBox x:Name="ValueBox"
+                             Height="46"
+                             Padding="12,0"
+                             FontSize="18"
+                             FontWeight="Bold"
+                             VerticalContentAlignment="Center"
+                             CornerRadius="10"
+                             BorderBrush="{DynamicResource BrushBorder}"
+                             BorderThickness="1.5"
+                             Background="{DynamicResource BrushInput}"/>
+                    <!-- 2026-10-21 (пакет 6, п. 18): поле было серым (BrushPanelSoft), как неактивное, — теперь цвет обычного поля ввода. -->
+                    <RadioButton x:Name="PercentSegment" Grid.Column="2" Classes="modal-seg"
+                                 GroupName="DiscountMode" MinWidth="64" MinHeight="46" Focusable="False"
+                                 Content="%"
+                                 IsCheckedChanged="ModeSegment_Changed"/>
+                    <RadioButton x:Name="SumSegment" Grid.Column="4" Classes="modal-seg"
+                                 GroupName="DiscountMode" MinWidth="64" MinHeight="46" Focusable="False"
+                                 Content="{DynamicResource csh.catalog.currency}"
+                                 IsCheckedChanged="ModeSegment_Changed"/>
                 </Grid>
             </StackPanel>
 
-            <!-- Ввод значения -->
-            <StackPanel Width="320" HorizontalAlignment="Center" Margin="0,0,0,12">
-                <TextBlock x:Name="ValueLabel" Text="{DynamicResource discount.enterAmountLabel}"
-                           FontSize="13" FontWeight="Medium"
-                           Foreground="{DynamicResource BrushTextSoft}"
-                           HorizontalAlignment="Center"
-                           Margin="0,0,0,6"/>
-
-                <TextBox x:Name="ValueBox"
-                         Height="44"
-                         Padding="12,10"
-                         FontSize="15"
-                         HorizontalContentAlignment="Center"
-                         VerticalContentAlignment="Center"
-                         CornerRadius="10"
-                         BorderBrush="{DynamicResource BrushBorder}"
-                         BorderThickness="1.5"
-                         Background="{DynamicResource BrushPanelSoft}"/>
-            </StackPanel>
+            <!-- 2026-10-21 (пакет 6, п. 18): предпросмотр — «Было 120,00 → станет 108,00 сом (скидка 12,00)». Текст — в коде. -->
+            <TextBlock x:Name="PreviewText" IsVisible="False"
+                       FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushText}"/>
 
             <!-- Текст ошибки -->
             <TextBlock x:Name="ErrorText"
                        Foreground="{DynamicResource BrushDanger}"
-                       FontSize="13"
-                       HorizontalAlignment="Center"
-                       TextAlignment="Center"
-                       IsVisible="False"
-                       Margin="0,0,0,12"/>
-
-            <!-- Кнопки действий -->
-            <Grid ColumnDefinitions="*,8,*,8,*" Width="410" HorizontalAlignment="Center" Margin="0,8,0,0">
-                <Button Grid.Column="0" Content="{DynamicResource csh.filter.reset}"
-                        Height="44"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Background="{DynamicResource BrushInputAlt}"
-                        Foreground="{DynamicResource BrushTextMuted}"
-                        FontWeight="SemiBold"
-                        CornerRadius="10"
-                        Cursor="Hand"
-                        Click="Clear_Click"/>
-
-                <Button IsCancel="True" Grid.Column="2" Content="{DynamicResource common.cancel}"
-                        Height="44"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Background="{DynamicResource BrushPanel}"
-                        Foreground="{DynamicResource BrushText}"
-                        BorderBrush="{DynamicResource BrushBorder}"
-                        BorderThickness="1.5"
-                        FontWeight="SemiBold"
-                        CornerRadius="10"
-                        Cursor="Hand"
-                        Click="Cancel_Click"/>
-
-                <Button Grid.Column="4" Content="{DynamicResource csh.filter.apply}"
-                        Height="44"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Background="{DynamicResource BrushAccent}"
-                        Foreground="{DynamicResource BrushAccentForeground}"
-                        FontWeight="SemiBold"
-                        CornerRadius="10"
-                        Cursor="Hand"
-                        IsDefault="True"
-                        Click="Apply_Click"/>
-            </Grid>
-
+                       FontSize="13" TextWrapping="Wrap"
+                       IsVisible="False"/>
         </StackPanel>
-    </Border>
+    </dlg:ModalShell>
 </Window>

@@ -5,32 +5,19 @@
         x:DataType="dialogs:PriceTagPrintDialog"
         x:CompileBindings="False"
         Title="{DynamicResource priceTag.title}"
-        Width="560" Height="800" MinWidth="520" MinHeight="700"
+        Width="912" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True"
+        CanResize="False"
         FontFamily="Segoe UI, Inter, Noto Sans"
-        Background="{DynamicResource BrushPanel}">
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
 
+    <!-- 2026-10-20, этап О9б (редизайн ценников): общая оболочка ModalShell — заголовок и ✕ сверху, «Закрыть» и «Печать»
+         снизу всегда видны (было окно 560×800: на экране 768 кнопки уходили под край и нужно было листать). Две колонки:
+         слева предпросмотр ценника (что напечатается — не менялось) и сообщения, справа настройки. «Куда печатать» —
+         сегменты (выбранный тёмно-синий), «Редактировать шаблон» — обводкой. Имена элементов и обработчики — прежние. -->
     <Window.Styles>
-        <Style Selector="Button.btn-primary">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Padding" Value="16,10"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.btn-primary:disabled">
-            <Setter Property="Opacity" Value="0.5"/>
-        </Style>
-        <Style Selector="Button.btn-secondary">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Padding" Value="16,10"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
         <Style Selector="ComboBox">
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="MinHeight" Value="40"/>
@@ -52,80 +39,89 @@
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
         </Style>
+        <Style Selector="TextBlock.field-label">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
     </Window.Styles>
 
-    <ScrollViewer>
-        <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+    <dialogs:ModalShell Margin="16"
+                        Title="{DynamicResource priceTag.header}"
+                        Subtitle="{DynamicResource priceTag.subtitle}">
+        <dialogs:ModalShell.Footer>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="modal-cancel" Click="CloseButton_Click"/>
+                <Button x:Name="PrintButton" Content="{DynamicResource labelPrint.printButton}" Classes="modal-primary" Click="PrintButton_Click"/>
+            </StackPanel>
+        </dialogs:ModalShell.Footer>
 
-            <TextBlock Grid.Row="0" Text="{DynamicResource priceTag.header}" FontSize="18" FontWeight="Bold"
-                       Foreground="{DynamicResource BrushText}" Margin="0,0,0,4"/>
-            <TextBlock x:Name="ProductNameText" Grid.Row="1" FontSize="13"
-                       Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" Margin="0,0,0,12"/>
-
-            <StackPanel Grid.Row="2" Spacing="4" Margin="0,0,0,12">
-                <TextBlock Text="{DynamicResource priceTag.templateLabel}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
-                <ComboBox x:Name="KindCombo" HorizontalAlignment="Stretch" SelectionChanged="KindCombo_SelectionChanged"/>
-                <Button x:Name="EditTemplateButton" Content="{DynamicResource priceTag.editTemplate}" Classes="btn-secondary"
-                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,6,0,0"
-                        IsVisible="False" Click="EditTemplateButton_Click"/>
+        <Grid ColumnDefinitions="380,24,*">
+            <!-- Слева: товар, предпросмотр, сообщения -->
+            <StackPanel Grid.Column="0" Spacing="10">
+                <TextBlock x:Name="ProductNameText" FontSize="15" FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                <Border Background="White" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                        CornerRadius="10" Padding="10" Height="270">
+                    <Image x:Name="PreviewImage" Stretch="Uniform"/>
+                </Border>
+                <TextBlock x:Name="StatusText" FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
             </StackPanel>
 
-            <Border Grid.Row="3" Background="White" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                    CornerRadius="10" Padding="8" MinHeight="180" Margin="0,0,0,12">
-                <Image x:Name="PreviewImage" Stretch="Uniform"/>
-            </Border>
-
-            <Grid Grid.Row="4" ColumnDefinitions="*,*" Margin="0,0,0,12">
-                <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,8,0">
-                    <TextBlock Text="{DynamicResource labelEditor.widthLabel}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
-                    <NumericUpDown x:Name="WidthBox" Minimum="15" Maximum="150" Increment="1" FormatString="0" ValueChanged="Size_Changed"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Spacing="4" Margin="8,0,0,0">
-                    <TextBlock Text="{DynamicResource labelEditor.heightLabel}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
-                    <NumericUpDown x:Name="HeightBox" Minimum="10" Maximum="150" Increment="1" FormatString="0" ValueChanged="Size_Changed"/>
-                </StackPanel>
-            </Grid>
-
-            <StackPanel x:Name="PromoFieldsPanel" Grid.Row="5" IsVisible="False" Spacing="10" Margin="0,0,0,12">
+            <!-- Справа: шаблон, размер, акция, куда и сколько печатать -->
+            <StackPanel Grid.Column="2" Spacing="12">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="{DynamicResource priceTag.oldPriceLabel}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
-                    <TextBox x:Name="OldPriceBox" TextChanged="PromoFields_Changed"/>
+                    <TextBlock Classes="field-label" Text="{DynamicResource priceTag.templateLabel}"/>
+                    <ComboBox x:Name="KindCombo" HorizontalAlignment="Stretch" SelectionChanged="KindCombo_SelectionChanged"/>
+                    <Button x:Name="EditTemplateButton" Content="{DynamicResource priceTag.editTemplate}" Classes="modal-secondary"
+                            HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                            IsVisible="False" Click="EditTemplateButton_Click"/>
                 </StackPanel>
-                <StackPanel Spacing="4">
-                    <TextBlock Text="{DynamicResource priceTag.discountLabel}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
-                    <TextBox x:Name="DiscountBox" Watermark="-20%" TextChanged="PromoFields_Changed"/>
-                </StackPanel>
-            </StackPanel>
 
-            <StackPanel Grid.Row="6" Spacing="4" Margin="0,0,0,12">
-                <TextBlock Text="{DynamicResource priceTag.targetLabel}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
-                <StackPanel Orientation="Horizontal" Spacing="16">
-                    <RadioButton x:Name="TargetThermalRadio" GroupName="PriceTagTarget"
-                                 Content="{DynamicResource priceTag.targetThermal}" IsChecked="True" Click="Target_Changed"/>
-                    <RadioButton x:Name="TargetA4Radio" GroupName="PriceTagTarget"
-                                 Content="{DynamicResource priceTag.targetA4}" Click="Target_Changed"/>
-                </StackPanel>
-            </StackPanel>
-
-            <StackPanel Grid.Row="7" Spacing="4" Margin="0,0,0,12">
-                <TextBlock Text="{DynamicResource common.printer}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
-                <ComboBox x:Name="PrinterCombo" HorizontalAlignment="Stretch"/>
-            </StackPanel>
-
-            <StackPanel Grid.Row="8" Spacing="4" Margin="0,0,0,4">
-                <TextBlock Text="{DynamicResource labelPrint.copiesLabel}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
-                <NumericUpDown x:Name="CopiesBox" Value="1" Minimum="1" Maximum="200" Increment="1" FormatString="0"/>
-            </StackPanel>
-
-            <StackPanel Grid.Row="9" Spacing="10" Margin="0,8,0,0">
-                <TextBlock x:Name="StatusText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
-                <Grid ColumnDefinitions="*,Auto,Auto">
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
-                        <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="btn-secondary" Click="CloseButton_Click"/>
-                        <Button x:Name="PrintButton" Content="{DynamicResource labelPrint.printButton}" Classes="btn-primary" Click="PrintButton_Click"/>
+                <Grid ColumnDefinitions="*,12,*">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Classes="field-label" Text="{DynamicResource labelEditor.widthLabel}"/>
+                        <NumericUpDown x:Name="WidthBox" Minimum="15" Maximum="150" Increment="1" FormatString="0" ValueChanged="Size_Changed"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Spacing="4">
+                        <TextBlock Classes="field-label" Text="{DynamicResource labelEditor.heightLabel}"/>
+                        <NumericUpDown x:Name="HeightBox" Minimum="10" Maximum="150" Increment="1" FormatString="0" ValueChanged="Size_Changed"/>
                     </StackPanel>
                 </Grid>
+
+                <Grid x:Name="PromoFieldsPanel" IsVisible="False" ColumnDefinitions="*,12,*">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Classes="field-label" Text="{DynamicResource priceTag.oldPriceLabel}" TextWrapping="Wrap"/>
+                        <TextBox x:Name="OldPriceBox" TextChanged="PromoFields_Changed"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Spacing="4">
+                        <TextBlock Classes="field-label" Text="{DynamicResource priceTag.discountLabel}" TextWrapping="Wrap"/>
+                        <TextBox x:Name="DiscountBox" Watermark="-20%" TextChanged="PromoFields_Changed"/>
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="field-label" Text="{DynamicResource priceTag.targetLabel}"/>
+                    <Border Classes="sec-segment">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <RadioButton x:Name="TargetThermalRadio" GroupName="PriceTagTarget" Classes="sec-seg"
+                                         Content="{DynamicResource priceTag.targetThermal}" IsChecked="True" Click="Target_Changed"/>
+                            <RadioButton x:Name="TargetA4Radio" GroupName="PriceTagTarget" Classes="sec-seg"
+                                         Content="{DynamicResource priceTag.targetA4}" Click="Target_Changed"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="field-label" Text="{DynamicResource common.printer}"/>
+                    <ComboBox x:Name="PrinterCombo" HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="field-label" Text="{DynamicResource labelPrint.copiesLabel}"/>
+                    <NumericUpDown x:Name="CopiesBox" Value="1" Minimum="1" Maximum="200" Increment="1" FormatString="0" HorizontalAlignment="Left" MinWidth="180"/>
+                </StackPanel>
             </StackPanel>
         </Grid>
-    </ScrollViewer>
+    </dialogs:ModalShell>
 </Window>

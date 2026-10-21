@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- 2026-10-16: ретранслятор удалённой помощи NurMarket (замена AnyDesk). Только сам фреймворк, без пакетов NuGet. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NurRemoteSupport.Server</RootNamespace>
+    <AssemblyName>NurRemoteSupport.Server</AssemblyName>
+    <Version>1.0.0</Version>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- 2026-10-16: маленький VPS — обычный (не серверный) сборщик мусора бережёт память. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 2026-10-16: страница оператора лежит рядом с dll и после обычной сборки (запуск из bin без dotnet run). -->
+    <Content Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

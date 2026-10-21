@@ -62,7 +62,8 @@ public partial class PackageChoiceDialog : Window
         _wholePackPrice = ParsePriceLine(wholePackPriceLine);
 
         Title = Tr.T("Как добавить в корзину?", "Себетке кантип кошуу керек?", "How should it be added to the cart?", "Sepete nasıl eklenir?", "Savatga qanday qo'shilsin?");
-        HeaderTitleText.Text = productTitle;
+        // 2026-10-17, этап 3: товар и остаток — в шапке общей оболочки модалки (Shell.Title / Shell.Subtitle).
+        Shell.Title = productTitle;
         // Раньше здесь был обобщённый вопрос "Как добавить в корзину?" — при наличии
         // поштучной опции (единственный случай, когда это окно вообще открывается, см.
         // MainWindow.Dialogs.cs AddProductFromCatalogAsync) кассир должен сразу видеть тот же
@@ -74,16 +75,18 @@ public partial class PackageChoiceDialog : Window
         WholePackTitle.Text = Tr.T("Целая пачка", "Бүтүн пачка", "Whole pack", "Tam paket", "Butun paket");
         WholePackSubtitle.Text = string.IsNullOrWhiteSpace(wholePackPriceLine)
             ? ""
-            : $"{wholePackPriceLine} {Tr.T("за пачку", "пачка үчүн", "per pack", "paket başına", "paket uchun")}";
+            // 2026-10-20, живая проверка: «20.00 сом за пачку» — сумма тем же видом, что в чеке («20,00 сом»).
+            : $"{MoneyText.SomFromText(wholePackPriceLine)} {Tr.T("за пачку", "пачка үчүн", "per pack", "paket başına", "paket uchun")}";
 
         if (pieceOption != null)
         {
             PieceTitle.Text = Tr.T("Поштучно", "Даанадан", "By the piece", "Adet olarak", "Donalab");
+            // 2026-10-20 (живой аудит кассы, К18): «15,00 сом за шт» (MoneyText), как «20,00 сом за пачку» выше.
             PieceSubtitle.Text = Tr.T(
-                $"{pieceOption.PieceUnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} сом за шт " +
+                $"{MoneyText.Som(pieceOption.PieceUnitPrice)} за шт " +
                 $"({FormatQty(pieceOption.QuantityInPackage)} шт в пачке)",
-                $"{pieceOption.PieceUnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} сом даанасы " +
-                $"(пачкада {FormatQty(pieceOption.QuantityInPackage)} даана)", $"{pieceOption.PieceUnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} som per pc ({FormatQty(pieceOption.QuantityInPackage)} pcs per pack)", $"{pieceOption.PieceUnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} som/adet (pakette {FormatQty(pieceOption.QuantityInPackage)} adet)", $"Donasi {pieceOption.PieceUnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} so'm (paketda {FormatQty(pieceOption.QuantityInPackage)} dona)");
+                $"{MoneyText.Som(pieceOption.PieceUnitPrice)} даанасы " +
+                $"(пачкада {FormatQty(pieceOption.QuantityInPackage)} даана)", $"{MoneyText.Som(pieceOption.PieceUnitPrice)} per pc ({FormatQty(pieceOption.QuantityInPackage)} pcs per pack)", $"{MoneyText.Som(pieceOption.PieceUnitPrice)}/adet (pakette {FormatQty(pieceOption.QuantityInPackage)} adet)", $"Donasi {MoneyText.Som(pieceOption.PieceUnitPrice)} (paketda {FormatQty(pieceOption.QuantityInPackage)} dona)");
         }
         else
         {
@@ -138,7 +141,7 @@ public partial class PackageChoiceDialog : Window
     private void Option_Checked(object? sender, RoutedEventArgs e)
     {
         // Конструктор ещё не отработал при первом Checked обычной радиокнопки — поля могут быть не готовы.
-        if (StockText == null)
+        if (Shell == null)
             return;
 
         // Читать PieceOption.IsChecked здесь ненадёжно: когда WholePackOption только что стал
@@ -208,7 +211,7 @@ public partial class PackageChoiceDialog : Window
 
     private void SetStockText(bool isPieceMode)
     {
-        StockText.Text = isPieceMode
+        Shell.Subtitle = isPieceMode
             ? $"{Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq")}: {FormatQty(_stockQuantity * _pieceOption!.QuantityInPackage)} {Tr.T("шт", "даана", "pcs", "adet", "dona")}"
             : $"{Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq")}: {FormatQty(_stockQuantity)} {Tr.T("шт", "даана", "pcs", "adet", "dona")}";
     }

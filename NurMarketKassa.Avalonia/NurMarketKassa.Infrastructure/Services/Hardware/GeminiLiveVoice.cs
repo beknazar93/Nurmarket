@@ -26,8 +26,10 @@ public sealed class GeminiLiveVoice
     private static readonly string[] Models = { "gemini-3.1-flash-live-preview", "gemini-2.5-flash-native-audio-latest" };
     private static string? _workingModel;
 
+    // 2026-10-21: ключ — заголовком x-goog-api-key, а не «?key=» в адресе (адрес попадает в журналы прокси и антивирусов).
+    // Так подключается и официальный SDK Google (python-genai, live.py: ws_connect(uri, additional_headers={'x-goog-api-key': …})) (пакет 7, п. 159).
     private const string Endpoint =
-        "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=";
+        "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
 
     private static readonly WaveFormat MicFormat = new(16000, 16, 1);
     private static readonly WaveFormat SpeakerFormat = new(24000, 16, 1);
@@ -208,12 +210,13 @@ public sealed class GeminiLiveVoice
         {
             using var ws = new ClientWebSocket();
             ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+            ws.Options.SetRequestHeader("x-goog-api-key", key);
             var watch = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 using var connect = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 connect.CancelAfter(TimeSpan.FromSeconds(15));
-                await ws.ConnectAsync(new Uri(Endpoint + key), connect.Token).ConfigureAwait(false);
+                await ws.ConnectAsync(new Uri(Endpoint), connect.Token).ConfigureAwait(false);
             }
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
@@ -529,10 +532,13 @@ public sealed class GeminiLiveVoice
         return "Google: " + (t.Length > 160 ? t[..160] : t);
     }
 
-    /// <summary>Ключ ИИ стоит в адресе соединения — в сообщениях об ошибках его быть не должно.</summary>
+    /// <summary>Ключа ИИ в сообщениях об ошибках (и в журнале) быть не должно.
+    /// 2026-10-21: и ключа, которым звонок подключался на самом деле (TelegramAiChat.AiKey), и любого «key=…» (пакет 7, п. 159).</summary>
     private static string Clean(string text)
     {
-        var key = UserPreferences.Instance.TelegramAiKey;
-        return string.IsNullOrEmpty(key) ? text : text.Replace(key, "***");
+        foreach (var key in new[] { UserPreferences.Instance.TelegramAiKey, TelegramAiChat.AiKey })
+            if (!string.IsNullOrEmpty(key))
+                text = text.Replace(key, "***");
+        return System.Text.RegularExpressions.Regex.Replace(text, @"(?i)\bkey=[^&\s""']+", "key=***");
     }
 }

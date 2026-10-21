@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Воронка</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="Funnel"><div style="width: 1440px; height: 900px; display: flex; background: rgb(244, 245, 247); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39);">
+  <div class="sc-host" data-sc-name="OwnerNav"><div style="height: 900px; display: flex; font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39);">
+  <nav aria-label="Группы разделов" style="width: 76px; background: rgb(11, 42, 60); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 0px 14px;">
+    <div style="width: 44px; height: 44px; border-radius: 12px; background: rgb(255, 214, 0); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; margin-bottom: 10px;">N</div>
+    
+      
+      
+        <button type="button" aria-label="Главная" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Главная</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Товары" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Товары</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Продажи" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2 12h11l2-8H7M9 20h.01M17 20h.01"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Продажи</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Отчёты" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Отчёты</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Сайт" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Сайт</span></span></button>
+      
+    
+      
+        <button type="button" aria-label="Клиенты" aria-current="true" style="width: 68px; border-radius: 14px; border: 0px; background: rgba(255, 214, 0, 0.16); color: rgb(255, 214, 0); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21a7 7 0 0 1 14 0M17 11a3 3 0 1 0 0-6M22 21a6 6 0 0 0-4-5.6"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Клиенты</span></span></button>
+      
+      
+    
+      
+      
+        <button type="button" aria-label="Управление" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12l2-1-1-3-2 .5-1.5-1.5.5-2-3-1-1 2h-2l-1-2-3 1 .5 2L6 8.5 4 8l-1 3 2 1v2l-2 1 1 3 2-.5L7.5 18 7 20l3 1 1-2h2l1 2 3-1-.5-2 1.5-1.5 2 .5 1-3-2-1z"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Управление</span></span></button>
+      
+    
+      
+      
+        <button type="button" aria-label="Помощь" style="width: 68px; border-radius: 14px; border: 0px; background: transparent; color: rgb(199, 210, 219); padding: 7px 0px 6px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01"></path></svg>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 66px; overflow-wrap: anywhere;"><span class="sc-interp">Помощь</span></span></button>
+      
+    
+    <div style="flex-grow: 1;"></div>
+    
+    <button type="button" aria-label="Тема: светлая или тёмная" style="width: 68px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg><span style="font-size: 10px; font-weight: 600;">Тема</span></button>
+    <button type="button" aria-label="Выйти на рабочий стол" style="width: 68px; border: 0px; border-radius: 12px; background: transparent; color: rgb(199, 210, 219); padding: 6px 0px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"></path></svg><span style="font-size: 10px; font-weight: 600;">Выйти</span></button>
+    <button type="button" aria-label="Нурбек Т., владелец — сменить пользователя" style="width: 40px; height: 40px; margin-top: 4px; border: 0px; border-radius: 20px; background: rgb(255, 255, 255); color: rgb(11, 42, 60); display: flex; align-items: center; justify-content: center; font-family: inherit; font-size: 13px; font-weight: 800;">NT</button>
+  </nav>
+  </div></div>
+  <main style="flex-grow: 1; min-width: 0px; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="flex-grow: 1; display: flex; flex-direction: column;"><span style="font-size: 24px; font-weight: 800;">Воронка</span><span style="font-size: 13px; color: rgb(102, 112, 133);">Перетащите карточку в нужный этап или нажмите ◀ ▶ · сделки хранятся на этом компьютере — у NurCRM нет API сделок</span></span>
+      <button type="button" style="height: 44px; padding: 0px 16px; border-radius: 12px; border: 1.5px solid rgb(208, 213, 221); background: rgb(255, 255, 255); font-family: inherit; font-size: 14px; font-weight: 700; color: rgb(52, 64, 84); white-space: nowrap;">Подтянуть из бота</button>
+      <button type="button" style="height: 44px; padding: 0px 16px; border-radius: 12px; border: 0px; background: rgb(255, 214, 0); font-family: inherit; font-size: 14px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;">+ Новая сделка</button>
+    </div>
+    
+    <div style="flex-grow: 1; min-height: 0px; display: grid; grid-template-columns: repeat(5, minmax(0px, 1fr)); gap: 12px;">
+      
+        <section style="background: rgb(238, 240, 243); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0px;">
+          <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 2px 4px;"><span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; min-width: 0px;"><span style="width: 10px; height: 10px; border-radius: 5px; background: rgb(255, 214, 0); flex-shrink: 0;"></span><span class="sc-interp">Новые обращения</span></span><span style="font-size: 12px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">1</span></span></span>
+          
+          
+            <article style="background: rgb(255, 255, 255); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px;">
+              <span style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;"><span style="font-size: 13px; font-weight: 800; min-width: 0px;"><span class="sc-interp">Умар</span></span>
+                <span style="display: flex; gap: 4px; flex-shrink: 0;"><button type="button" aria-label="На этап назад" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(71, 84, 103); font-size: 10px;">◀</button><button type="button" aria-label="На этап дальше" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-size: 10px;">▶</button></span></span>
+              <span style="font-size: 12px; color: rgb(102, 112, 133); line-height: 17px;"><span class="sc-interp">Заказ №10 · сегодня 13:52 · самовывоз</span></span>
+              <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px;"><span style="font-size: 13px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">530 сом</span></span><span style="padding: 2px 8px; border-radius: 6px; background: rgb(242, 244, 247); font-size: 11px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">Телеграм-бот</span></span></span>
+            </article>
+          
+        </section>
+      
+        <section style="background: rgb(238, 240, 243); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0px;">
+          <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 2px 4px;"><span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; min-width: 0px;"><span style="width: 10px; height: 10px; border-radius: 5px; background: rgb(181, 71, 8); flex-shrink: 0;"></span><span class="sc-interp">В работе</span></span><span style="font-size: 12px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">2</span></span></span>
+          
+          
+            <article style="background: rgb(255, 255, 255); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px;">
+              <span style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;"><span style="font-size: 13px; font-weight: 800; min-width: 0px;"><span class="sc-interp">Санжар Санжар</span></span>
+                <span style="display: flex; gap: 4px; flex-shrink: 0;"><button type="button" aria-label="На этап назад" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(71, 84, 103); font-size: 10px;">◀</button><button type="button" aria-label="На этап дальше" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-size: 10px;">▶</button></span></span>
+              <span style="font-size: 12px; color: rgb(102, 112, 133); line-height: 17px;"><span class="sc-interp">Пепси нет — предложили Кока-Колу 2л</span></span>
+              <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px;"><span style="font-size: 13px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">170 сом</span></span><span style="padding: 2px 8px; border-radius: 6px; background: rgb(242, 244, 247); font-size: 11px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">Телеграм-бот</span></span></span>
+            </article>
+          
+            <article style="background: rgb(255, 255, 255); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px;">
+              <span style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;"><span style="font-size: 13px; font-weight: 800; min-width: 0px;"><span class="sc-interp">Гулзат</span></span>
+                <span style="display: flex; gap: 4px; flex-shrink: 0;"><button type="button" aria-label="На этап назад" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(71, 84, 103); font-size: 10px;">◀</button><button type="button" aria-label="На этап дальше" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-size: 10px;">▶</button></span></span>
+              <span style="font-size: 12px; color: rgb(102, 112, 133); line-height: 17px;"><span class="sc-interp">Напитки на той: Кока-Кола 2л × 12</span></span>
+              <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px;"><span style="font-size: 13px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">2 040 сом</span></span><span style="padding: 2px 8px; border-radius: 6px; background: rgb(242, 244, 247); font-size: 11px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">WhatsApp</span></span></span>
+            </article>
+          
+        </section>
+      
+        <section style="background: rgb(238, 240, 243); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0px;">
+          <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 2px 4px;"><span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; min-width: 0px;"><span style="width: 10px; height: 10px; border-radius: 5px; background: rgb(11, 42, 60); flex-shrink: 0;"></span><span class="sc-interp">Договорились</span></span><span style="font-size: 12px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">1</span></span></span>
+          
+          
+            <article style="background: rgb(255, 255, 255); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px;">
+              <span style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;"><span style="font-size: 13px; font-weight: 800; min-width: 0px;"><span class="sc-interp">Кафе «Достук»</span></span>
+                <span style="display: flex; gap: 4px; flex-shrink: 0;"><button type="button" aria-label="На этап назад" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(71, 84, 103); font-size: 10px;">◀</button><button type="button" aria-label="На этап дальше" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-size: 10px;">▶</button></span></span>
+              <span style="font-size: 12px; color: rgb(102, 112, 133); line-height: 17px;"><span class="sc-interp">Молоко 1л × 20 по пятницам</span></span>
+              <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px;"><span style="font-size: 13px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">1 900 сом</span></span><span style="padding: 2px 8px; border-radius: 6px; background: rgb(242, 244, 247); font-size: 11px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">Instagram</span></span></span>
+            </article>
+          
+        </section>
+      
+        <section style="background: rgb(238, 240, 243); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0px;">
+          <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 2px 4px;"><span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; min-width: 0px;"><span style="width: 10px; height: 10px; border-radius: 5px; background: rgb(22, 163, 74); flex-shrink: 0;"></span><span class="sc-interp">Оплачено</span></span><span style="font-size: 12px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">1</span></span></span>
+          
+          
+            <article style="background: rgb(255, 255, 255); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px;">
+              <span style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;"><span style="font-size: 13px; font-weight: 800; min-width: 0px;"><span class="sc-interp">Alma</span></span>
+                <span style="display: flex; gap: 4px; flex-shrink: 0;"><button type="button" aria-label="На этап назад" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(71, 84, 103); font-size: 10px;">◀</button><button type="button" aria-label="На этап дальше" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-size: 10px;">▶</button></span></span>
+              <span style="font-size: 12px; color: rgb(102, 112, 133); line-height: 17px;"><span class="sc-interp">Mars 50г × 24 — коробка</span></span>
+              <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px;"><span style="font-size: 13px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">936 сом</span></span><span style="padding: 2px 8px; border-radius: 6px; background: rgb(242, 244, 247); font-size: 11px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">Телеграм-бот</span></span></span>
+            </article>
+          
+        </section>
+      
+        <section style="background: rgb(238, 240, 243); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0px;">
+          <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 2px 4px;"><span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; min-width: 0px;"><span style="width: 10px; height: 10px; border-radius: 5px; background: rgb(180, 35, 24); flex-shrink: 0;"></span><span class="sc-interp">Отказ</span></span><span style="font-size: 12px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">1</span></span></span>
+          
+          
+            <article style="background: rgb(255, 255, 255); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: rgba(16, 24, 40, 0.06) 0px 1px 2px;">
+              <span style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;"><span style="font-size: 13px; font-weight: 800; min-width: 0px;"><span class="sc-interp">Мирлан</span></span>
+                <span style="display: flex; gap: 4px; flex-shrink: 0;"><button type="button" aria-label="На этап назад" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(71, 84, 103); font-size: 10px;">◀</button><button type="button" aria-label="На этап дальше" style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgb(229, 231, 235); background: rgb(255, 255, 255); color: rgb(11, 42, 60); font-size: 10px;">▶</button></span></span>
+              <span style="font-size: 12px; color: rgb(102, 112, 133); line-height: 17px;"><span class="sc-interp">Картошка — нет в продаже</span></span>
+              <span style="display: flex; justify-content: space-between; align-items: center; gap: 6px;"><span style="font-size: 13px; font-weight: 800; color: rgb(11, 42, 60); white-space: nowrap;"><span class="sc-interp">—</span></span><span style="padding: 2px 8px; border-radius: 6px; background: rgb(242, 244, 247); font-size: 11px; font-weight: 700; color: rgb(71, 84, 103); white-space: nowrap;"><span class="sc-interp">Телеграм-бот</span></span></span>
+            </article>
+          
+        </section>
+      
+    </div>
+    <span style="font-size: 13px; color: rgb(71, 84, 103);">В работе сделок: 4 на 4&nbsp;640 сом · Оплачено: 1 · Источники: Телеграм-бот 4 (оплачено 1) · WhatsApp 1 · Instagram 1</span>
+  </main></div></div></div>
+
+
+
+</body></html>

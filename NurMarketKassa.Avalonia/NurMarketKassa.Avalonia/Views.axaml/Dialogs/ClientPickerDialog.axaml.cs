@@ -28,6 +28,43 @@ public partial class ClientPickerDialog : Window
         DataContext = _viewModel;
         InitializeComponent();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        // 2026-10-21 (пакет 6, п. 26): пустой результат поиска — «не найдено» с подсказкой, а не пустая рамка.
+        _viewModel.ClientSearchResults.CollectionChanged += OnClientResultsChanged;
+        UpdateNotFound();
+        NewClientExpander.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Expander.IsExpandedProperty)
+                OnNewClientExpanded();
+        };
+    }
+
+    /// <summary>2026-10-21 (пакет 6, п. 26): форма «Новый клиент» — вместо списка (на экране 768 они вместе не помещались,
+    /// и список сжимался в полоску 10 px); свернули форму — список снова виден.</summary>
+    private void OnNewClientExpanded()
+    {
+        var expanded = NewClientExpander.IsExpanded;
+        ClientListBorder.IsVisible = !expanded;
+        PickerGrid.RowDefinitions[2].Height = expanded ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
+    }
+
+    private void OnClientResultsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => UpdateNotFound();
+
+    private void UpdateNotFound()
+    {
+        var empty = _viewModel.ClientSearchResults.Count == 0 && !_viewModel.IsLoadingClients
+            && string.IsNullOrEmpty(_viewModel.ErrorMessage);
+        NotFoundText.IsVisible = empty;
+        if (!empty)
+            return;
+        var query = (_viewModel.ClientSearchText ?? "").Trim();
+        NotFoundText.Text = query.Length > 0
+            ? Tr.T($"Клиент «{query}» не найден. Проверьте имя или телефон — или добавьте нового клиента ниже.",
+                $"«{query}» кардары табылган жок. Атын же телефонун текшериңиз — же төмөндө жаңы кардар кошуңуз.",
+                $"No client “{query}” found. Check the name or phone — or add a new client below.",
+                $"«{query}» müşterisi bulunamadı. İsmi veya telefonu kontrol edin — ya da aşağıdan yeni müşteri ekleyin.",
+                $"«{query}» mijozi topilmadi. Ism yoki telefonni tekshiring — yoki quyida yangi mijoz qo'shing.")
+            : Tr.T("Клиентов пока нет — добавьте нового ниже.", "Азырынча кардарлар жок — төмөндө жаңысын кошуңуз.",
+                "No clients yet — add a new one below.", "Henüz müşteri yok — aşağıdan yeni ekleyin.", "Hozircha mijozlar yo'q — quyida yangisini qo'shing.");
     }
 
     public static System.Threading.Tasks.Task Open(Window owner, CheckoutViewModel viewModel) =>
@@ -40,6 +77,7 @@ public partial class ClientPickerDialog : Window
     {
         var dialog = new ClientPickerDialog(viewModel);
         dialog.NewClientExpander.IsExpanded = true;
+        dialog.OnNewClientExpanded();
         dialog.Opened += (_, _) => dialog.NewClientNameBox.Focus();
         return dialog.ShowDialog(owner);
     }
@@ -50,11 +88,14 @@ public partial class ClientPickerDialog : Window
     {
         if (e.PropertyName == nameof(CheckoutViewModel.HasSelectedClient) && _viewModel.HasSelectedClient)
             Close();
+        else if (e.PropertyName is nameof(CheckoutViewModel.IsLoadingClients) or nameof(CheckoutViewModel.ErrorMessage))
+            UpdateNotFound();
     }
 
     protected override void OnClosed(System.EventArgs e)
     {
         _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        _viewModel.ClientSearchResults.CollectionChanged -= OnClientResultsChanged;
         base.OnClosed(e);
     }
 

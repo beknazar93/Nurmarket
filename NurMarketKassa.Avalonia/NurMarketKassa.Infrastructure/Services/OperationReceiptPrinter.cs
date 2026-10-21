@@ -76,7 +76,8 @@ public static class OperationReceiptPrinter
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Чек {what} не напечатан: {ex}", "PRINTER");
+            // 2026-10-20 (живой аудит кассы, К7/К18): уровнем Warning — ошибка печати видна в «Логи и ошибки» (было Information).
+            PosLogger.Log($"Чек {what} не напечатан: {ex}", "PRINTER-WARNING");
             return Tr.T(
                 $"Операция проведена, но чек не напечатался: {ex.Message}",
                 $"Операция жасалды, бирок чек басылган жок: {ex.Message}",

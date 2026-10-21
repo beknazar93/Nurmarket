@@ -18,6 +18,19 @@ public partial class FinanceDateRangeDialog : Window
         RangeCalendar.SelectedDate = DateTime.Today;
     }
 
+    /// <summary>2026-10-20, проверка фильтров: окно «Спец. дата» открывается на выбранном периоде (было — всегда на сегодня).</summary>
+    public FinanceDateRangeDialog(DateTime from, DateTime to) : this()
+    {
+        if (from.Date > to.Date)
+            (from, to) = (to, from);
+        FromDatePicker.SelectedDate = from.Date;
+        ToDatePicker.SelectedDate = to.Date;
+        RangeCalendar.SelectedDate = to.Date;
+        RangeCalendar.DisplayDate = to.Date;
+        FromDate = from.Date;
+        ToDate = to.Date;
+    }
+
     private void Quick_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string tag })

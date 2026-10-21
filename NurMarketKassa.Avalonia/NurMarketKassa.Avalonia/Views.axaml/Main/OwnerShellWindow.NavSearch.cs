@@ -14,15 +14,13 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// 30 разделов в 8 группах, и нужный приходилось искать прокруткой. Теперь:
 /// • поиск раздела вверху меню — по названию, группе и привычным словам («долг», «прибыль», «принтер»…); Ctrl+K — из
 ///   любого раздела, Enter открывает первый найденный, Esc очищает;
-/// • заголовок группы сворачивает и разворачивает её (запоминается — UserPreferences.OwnerNavCollapsedGroups);
-///   открытый раздел виден и в свёрнутой группе.
-/// В меню «только иконки» поиска и сворачивания нет — там групп не видно.</summary>
+/// • заголовок группы сворачивал и разворачивал её — 2026-10-18, этап О2: меню в две колонки (OwnerShellWindow.Nav.cs),
+///   в колонке пунктов одна группа за раз, поиск — внизу колонки и по всем группам; при свёрнутой колонке Ctrl+K раскрывает её.</summary>
 public partial class OwnerShellWindow
 {
     private sealed record NavEntry(string Key, string Title, string? GroupKey, Button Button, Action Open);
 
     private readonly List<NavEntry> _navEntries = new();
-    private readonly Dictionary<string, (Button Header, Path Chevron, string Title)> _navGroupHeaders = new();
     private TextBlock? _navNoMatch;
     private bool _navSearchWired;
 
@@ -35,12 +33,14 @@ public partial class OwnerShellWindow
         ["warehouse"] = "товар остаток остатки приёмка приемка ревизия инвентаризация списание перемещение этикетка ценник штрихкод кампа кампаны товарлар калдык",
         ["calculator"] = "наценка цена себестоимость",
         ["restock"] = "заказать закупка срок годности просрочка толуктоо мөөнөт",
+        // 2026-10-20, этап П1: раздел «Поставщики» — и по-кыргызски, и по-английски.
+        ["suppliers"] = "поставщик поставщики поставщику долг поставщику закупка закупки жеткирүүчү жеткирүүчүлөр supplier suppliers tedarikçi yetkazib",
         ["supplierreturns"] = "поставщик брак",
         ["branches"] = "филиал перемещение склад филиалдар",
-        ["sales"] = "чек чеки история возврат сатуу сатуулар",
+        // 2026-10-18: «Продажи» и «Финансы» — один пункт (OwnerShellWindow.SalesFinance.cs): слова обоих + названия частей.
+        ["salesfinance"] = "продажи финансы чек чеки история возврат возвраты сатуу сатуулар выручка касса смена смены отчёт каржы чектер",
         ["debts"] = "долг долги рассрочка должник карыз карыздар карызкор",
         ["rentals"] = "прокат аренда ижара",
-        ["finance"] = "выручка касса смена смены отчёт каржы финансы",
         ["analytics"] = "отчёт сезонность график аналитика талдоо",
         ["abc"] = "abc авс",
         ["profitcash"] = "прибыль доход расход деньги пайда киреше акча",
@@ -52,43 +52,9 @@ public partial class OwnerShellWindow
         ["salary"] = "сотрудник кассир зарплата эмгек айлык кызматкер табель",
         ["marketplace"] = "купить функция тариф",
         ["settings"] = "принтер весы язык тема тариф аккаунт жөндөө жөндөөлөр",
-        ["support"] = "помощь anydesk",
+        ["support"] = "помощь удалённо", // 2026-10-16: удалённая помощь — своя «Нур Поддержка»
         ["logs"] = "ошибка журнал",
     };
-
-    private static HashSet<string> CollapsedNavGroups() =>
-        new((UserPreferences.Instance.OwnerNavCollapsedGroups ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-            StringComparer.OrdinalIgnoreCase);
-
-    private bool NavIconsOnly => UserPreferences.Instance.OwnerSidebarCollapsed && !_phoneLayout;
-
-    private Control NavGroupHeader(string key, string title)
-    {
-        var text = new TextBlock { Text = title.ToUpper(UiCulture), VerticalAlignment = VerticalAlignment.Center };
-        var chevron = new Path { Margin = new Thickness(6, 0, 2, 0), RenderTransformOrigin = RelativePoint.Center };
-        if (this.TryFindResource("ChevronDownIcon", out var icon) && icon is Geometry geometry)
-            chevron.Data = geometry;
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        grid.Children.Add(text);
-        Grid.SetColumn(chevron, 1);
-        grid.Children.Add(chevron);
-        var header = new Button { Content = grid, Classes = { "navGroupBtn" } };
-        ToolTip.SetTip(header, Tr.T("Свернуть или развернуть группу", "Топту жыйноо же ачуу", "Collapse or expand the group", "Grubu daralt veya genişlet",
-            "Guruhni yig'ish yoki ochish"));
-        header.Click += (_, _) => ToggleNavGroup(key);
-        _navGroupHeaders[key] = (header, chevron, title);
-        return header;
-    }
-
-    private void ToggleNavGroup(string key)
-    {
-        var collapsed = CollapsedNavGroups();
-        if (!collapsed.Remove(key))
-            collapsed.Add(key);
-        UserPreferences.Instance.OwnerNavCollapsedGroups = collapsed.Count == 0 ? null : string.Join(",", collapsed);
-        UserPreferences.Instance.SaveToDisk();
-        ApplyNavFilter();
-    }
 
     private static bool NavMatches(NavEntry entry, string groupTitle, string query)
     {
@@ -97,25 +63,29 @@ public partial class OwnerShellWindow
         return words.All(w => haystack.Contains(w, StringComparison.CurrentCultureIgnoreCase));
     }
 
-    /// <summary>Что видно в меню: при поиске — найденное (группы без находок прячутся), без поиска — всё, кроме
-    /// пунктов свёрнутых групп (открытый раздел виден всегда).</summary>
+    /// <summary>Что видно в колонке пунктов: без поиска — пункты выбранной группы; при поиске (Ctrl+K) — найденное во ВСЕХ
+    /// группах, с подписью группы над найденным. 2026-10-18, этап О2: группы сворачивались заголовком — теперь одна группа за раз.</summary>
     private void ApplyNavFilter()
     {
         WireNavSearch();
         NavSearchText.Watermark = Tr.T("Найти раздел", "Бөлүмдү табуу", "Find a section", "Bölüm bul", "Bo'limni topish");
-        var iconsOnly = NavIconsOnly;
-        var query = iconsOnly ? "" : (NavSearchText.Text ?? "").Trim();
+        var query = (NavSearchText.Text ?? "").Trim();
         var filtering = query.Length > 0;
-        var collapsedGroups = CollapsedNavGroups();
-        var activeKey = _activeSection?.Key ?? "overview";
+        // 2026-10-18: старый вид — все группы списком, свёрнутые заголовком (OwnerShellWindow.MenuStyle.cs).
+        if (OldMenu)
+        {
+            ShowNavNoMatch(ApplyOldNavVisibility(query) == 0);
+            UpdateTabsBar(); // 2026-10-19: полоса вкладок прячется (вид сменили на «Старое»)
+            return;
+        }
+        if (_navGroup is null || !_navGroups.Any(g => g.Key == _navGroup && g.Rail != null))
+            _navGroup = GroupOfKey(_activeSection?.Key ?? "overview") ?? _navGroups.FirstOrDefault(g => g.Rail != null)?.Key;
         var groupsWithItems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var shown = 0;
         foreach (var entry in _navEntries)
         {
-            var groupTitle = entry.GroupKey != null && _navGroupHeaders.TryGetValue(entry.GroupKey, out var g) ? g.Title : "";
-            var visible = filtering
-                ? NavMatches(entry, groupTitle, query)
-                : iconsOnly || entry.GroupKey is null || !collapsedGroups.Contains(entry.GroupKey) || entry.Key == activeKey;
+            var groupTitle = _navGroups.FirstOrDefault(g => g.Key == entry.GroupKey)?.Title ?? "";
+            var visible = filtering ? NavMatches(entry, groupTitle, query) : entry.GroupKey == _navGroup;
             entry.Button.IsVisible = visible;
             if (visible)
             {
@@ -124,12 +94,21 @@ public partial class OwnerShellWindow
                     groupsWithItems.Add(entry.GroupKey);
             }
         }
-        foreach (var (key, (header, chevron, _)) in _navGroupHeaders)
+        foreach (var group in _navGroups)
         {
-            header.IsVisible = !filtering || groupsWithItems.Contains(key);
-            chevron.RenderTransform = !filtering && collapsedGroups.Contains(key) ? new RotateTransform(-90) : null;
+            group.Caption.IsVisible = filtering && groupsWithItems.Contains(group.Key);
+            group.Rail?.Classes.Set("active", group.Key == _navGroup);
         }
+        var current = _navGroups.FirstOrDefault(g => g.Key == _navGroup);
+        NavGroupTitle.Text = current?.Title ?? "";
+        NavGroupTitle.IsVisible = !filtering && current != null;
+        ShowNavNoMatch(filtering && shown == 0);
+        // 2026-10-19, вид «Вкладки»: вкладки группы открытого раздела (OwnerShellWindow.Tabs.cs).
+        UpdateTabsBar();
+    }
 
+    private void ShowNavNoMatch(bool show)
+    {
         if (_navNoMatch == null || !NavPanel.Children.Contains(_navNoMatch))
         {
             _navNoMatch = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(12, 14, 8, 0) };
@@ -138,7 +117,7 @@ public partial class OwnerShellWindow
         }
         _navNoMatch.Text = Tr.T("Такого раздела нет. Попробуйте другое слово.", "Мындай бөлүм жок. Башка сөздү байкап көрүңүз.",
             "No such section. Try another word.", "Böyle bir bölüm yok. Başka bir kelime deneyin.", "Bunday bo'lim yo'q. Boshqa so'zni sinab ko'ring.");
-        _navNoMatch.IsVisible = filtering && shown == 0;
+        _navNoMatch.IsVisible = show;
     }
 
     private void WireNavSearch()
@@ -165,8 +144,15 @@ public partial class OwnerShellWindow
         // 2026-10-06, владелец: «чтобы наш ИИ напрямую открывал программу и показывал наглядно изменения».
         ProductActionPlan.OpenSection = key => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
+            // 2026-10-18: «sales» и «finance» советника — объединённый раздел «Продажи и финансы» (вкладка «Чеки»).
+            if (key is not null && (key.Equals("sales", StringComparison.OrdinalIgnoreCase) || key.Equals("finance", StringComparison.OrdinalIgnoreCase)))
+                key = SalesFinanceKey;
             if (_navEntries.FirstOrDefault(x => string.Equals(x.Key, key, StringComparison.OrdinalIgnoreCase)) is { } entry)
+            {
                 entry.Button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if (entry.Key == SalesFinanceKey)
+                    OpenSalesFinance("checks");
+            }
         });
         ProductActionPlan.NavigateByWords = NavigateByWords;
         // 2026-10-07, владелец: «открывай вкладки только после команды открыть» — после «Выполнить» склад сам не открывается:
@@ -204,6 +190,9 @@ public partial class OwnerShellWindow
         if (best is null || !open)
             return best?.Title;
         best.Button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        // 2026-10-18: «Продажи и финансы» — на вкладке по словам фразы («смены», «возвраты», «история»; иначе «Чеки»).
+        if (best.Key == SalesFinanceKey)
+            OpenSalesFinance(SalesFinanceTabFromWords(phrase));
         PosLogger.Log($"Owner app: ИИ-советник открыл раздел «{best.Title}» по фразе владельца.", "UI");
         return best.Title;
     }
@@ -211,7 +200,8 @@ public partial class OwnerShellWindow
     private void UpdateNavSearchLook()
     {
         var focused = NavSearchText.IsFocused;
-        NavSearchBox.Bind(Border.BorderBrushProperty, this.GetResourceObservable(focused ? "BrushAccent" : "BrushBorder"));
+        // 2026-10-18, этап О2: рамка в фокусе — BrushFocusRing (жёлтая по белому почти не видна, контраст ~1,4:1).
+        NavSearchBox.Bind(Border.BorderBrushProperty, this.GetResourceObservable(focused ? "BrushFocusRing" : "BrushBorder"));
         // Подсказка Ctrl+K — только пока поле пустое и не в фокусе (на телефоне клавиатуры нет).
         NavSearchKeyHint.IsVisible = !focused && string.IsNullOrEmpty(NavSearchText.Text) && !_phoneLayout;
     }
@@ -234,7 +224,17 @@ public partial class OwnerShellWindow
             if (!string.IsNullOrEmpty(NavSearchText.Text))
                 NavSearchText.Text = "";
             else
+            {
                 Focus();
+                // 2026-10-18, этап О2: колонка была раскрыта для поиска (Ctrl+K при свёрнутой) — свернуть обратно.
+                // Вид «Бургер ☰»: Esc при пустом поиске закрывает меню (окно-обработчик в OwnerShellWindow.MenuStyle.cs).
+                SetBurgerOpen(false);
+                if (_navPeek)
+                {
+                    _navPeek = false;
+                    ApplySidebarLayout();
+                }
+            }
         }
     }
 
@@ -262,8 +262,20 @@ public partial class OwnerShellWindow
     {
         if (_phoneLayout)
             SetPhoneMenu(true);
-        else if (UserPreferences.Instance.OwnerSidebarCollapsed)
-            Collapse_Click(null, new RoutedEventArgs());
+        else if (BurgerMenu)
+            SetBurgerOpen(true); // 2026-10-18: вид «Бургер ☰» — меню выезжает, поиск в нём
+        else if (OldMenu)
+        {
+            // 2026-10-18: старый вид «только значки» — развернуть с подписями (поиска в значках нет), как в выпуске 1.17.58.
+            if (UserPreferences.Instance.OwnerSidebarCollapsed)
+                OldCollapse_Click(null, new RoutedEventArgs());
+        }
+        else if (!NavItemsOpen)
+        {
+            // 2026-10-18, этап О2: колонка пунктов свёрнута — раскрыть её до выбора раздела (поиск внизу колонки).
+            _navPeek = true;
+            ApplySidebarLayout();
+        }
         Activate();
         NavSearchText.Focus();
         NavSearchText.SelectAll();

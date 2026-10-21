@@ -8,11 +8,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Shapes;
+using Avalonia.Controls.Templates;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
@@ -104,12 +108,13 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
     {
         Title = Tr.T("Заказы с сайта", "Сайттан заказдар", "Website orders", "Web sitesi siparişleri", "Saytdan buyurtmalar");
         TitleText.Text = Title;
+        // 2026-10-21: шапка говорит, откуда заказы (сайт и Telegram-бот) — эта фраза ушла из длинного текста под витриной (пакет 4, п. 123).
         SubtitleText.Text = Tr.T(
-            $"Витрина магазина и заказы NurCRM. Список обновляется сам каждые {RefreshInterval.TotalSeconds:0} с.",
-            $"Дүкөндүн витринасы жана NurCRM заказдары. Тизме ар {RefreshInterval.TotalSeconds:0} с сайын өзү жаңырат.",
-            $"The store showcase and NurCRM orders. The list refreshes itself every {RefreshInterval.TotalSeconds:0} s.",
-            $"Mağaza vitrini ve NurCRM siparişleri. Liste her {RefreshInterval.TotalSeconds:0} saniyede kendini yeniler.",
-            $"Do'kon vitrinasi va NurCRM buyurtmalari. Ro'yxat har {RefreshInterval.TotalSeconds:0} soniyada o'zi yangilanadi.");
+            $"Заказы покупателей с сайта и из Telegram-бота. Список обновляется сам каждые {RefreshInterval.TotalSeconds:0} с.",
+            $"Кардарлардын сайттан жана Telegram-боттон заказдары. Тизме ар {RefreshInterval.TotalSeconds:0} с сайын өзү жаңырат.",
+            $"Customer orders from the website and the Telegram bot. The list refreshes itself every {RefreshInterval.TotalSeconds:0} s.",
+            $"Web sitesinden ve Telegram botundan gelen müşteri siparişleri. Liste her {RefreshInterval.TotalSeconds:0} saniyede kendini yeniler.",
+            $"Saytdan va Telegram-botdan xaridorlar buyurtmalari. Ro'yxat har {RefreshInterval.TotalSeconds:0} soniyada o'zi yangilanadi.");
         RefreshButton.Content = Tr.T("Обновить", "Жаңылоо", "Refresh", "Yenile", "Yangilash");
         CloseButton.Content = Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish");
         OpenShowcaseButton.Content = Tr.T("Открыть витрину", "Витринаны ачуу", "Open showcase", "Vitrini aç", "Vitrinani ochish");
@@ -275,6 +280,9 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         CopyLinkButton.IsVisible = hasLink;
         ShowcaseLinkText.IsVisible = hasLink;
         ShowcaseLinkText.Text = hasLink ? ShowcaseApiService.CatalogUrl(slug) : "";
+        // 2026-10-21: заголовок состояния виден только при проблеме — ниже, когда витрина работает, он прячется (пакет 4, п. 123).
+        ShowcaseStateText.IsVisible = true;
+        ToolTip.SetTip(ShowcaseHowText, null);
 
         if (!connected)
         {
@@ -321,24 +329,55 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
             : Tr.T("Витрина работает", "Витрина иштеп жатат", "The showcase is live", "Vitrin yayında", "Vitrina ishlayapti");
 
         // 2026-10-05: NurCRM хранит заказы витрины (с сайта и из Telegram-бота) — они в списке ниже.
+        // 2026-10-19, этап О10 (аудит: номер «996771830438» без пробелов): номер в тексте — с пробелами, «+996 771 830 438».
         var how = phone.Length > 0
-            ? Tr.T($"Заказы с сайта и из Telegram-бота сохраняются на сервере NurCRM и появляются в списке ниже; номер WhatsApp для связи с покупателями — {phone}. Под заказ товар сразу резервируется: «Отменить» вернёт его на остаток.",
-                $"Сайттан жана Telegram-боттон келген заказдар NurCRM серверинде сакталып, төмөнкү тизмеде чыгат; кардарлар менен байланыш үчүн WhatsApp номери — {phone}. Заказ үчүн товар дароо резервделет: «Жокко чыгаруу» аны калдыкка кайтарат.",
-                $"Orders from the website and the Telegram bot are saved on the NurCRM server and appear in the list below; the WhatsApp number for customers is {phone}. Stock is reserved for an order right away: “Cancel” returns it to stock.",
-                $"Web sitesinden ve Telegram botundan gelen siparişler NurCRM sunucusunda saklanır ve aşağıdaki listede görünür; müşteriler için WhatsApp numarası — {phone}. Sipariş için stok hemen ayrılır: «İptal» onu stoğa geri verir.",
-                $"Saytdan va Telegram-botdan kelgan buyurtmalar NurCRM serverida saqlanadi va quyidagi ro'yxatda chiqadi; xaridorlar bilan aloqa uchun WhatsApp raqami — {phone}. Buyurtma uchun mahsulot darhol band qilinadi: «Bekor qilish» uni qoldiqqa qaytaradi.")
+            ? Tr.T($"Заказы с сайта и из Telegram-бота сохраняются на сервере NurCRM и появляются в списке ниже; номер WhatsApp для связи с покупателями — {PrettyPhone(phone)}. Под заказ товар сразу резервируется: «Отменить» вернёт его на остаток.",
+                $"Сайттан жана Telegram-боттон келген заказдар NurCRM серверинде сакталып, төмөнкү тизмеде чыгат; кардарлар менен байланыш үчүн WhatsApp номери — {PrettyPhone(phone)}. Заказ үчүн товар дароо резервделет: «Жокко чыгаруу» аны калдыкка кайтарат.",
+                $"Orders from the website and the Telegram bot are saved on the NurCRM server and appear in the list below; the WhatsApp number for customers is {PrettyPhone(phone)}. Stock is reserved for an order right away: “Cancel” returns it to stock.",
+                $"Web sitesinden ve Telegram botundan gelen siparişler NurCRM sunucusunda saklanır ve aşağıdaki listede görünür; müşteriler için WhatsApp numarası — {PrettyPhone(phone)}. Sipariş için stok hemen ayrılır: «İptal» onu stoğa geri verir.",
+                $"Saytdan va Telegram-botdan kelgan buyurtmalar NurCRM serverida saqlanadi va quyidagi ro'yxatda chiqadi; xaridorlar bilan aloqa uchun WhatsApp raqami — {PrettyPhone(phone)}. Buyurtma uchun mahsulot darhol band qilinadi: «Bekor qilish» uni qoldiqqa qaytaradi.")
             : Tr.T("Заказы с сайта и из Telegram-бота сохраняются на сервере NurCRM и появляются в списке ниже. Номер WhatsApp для связи с покупателями не задан — задайте его в «Настройки сайта».",
                 "Сайттан жана Telegram-боттон келген заказдар NurCRM серверинде сакталып, төмөнкү тизмеде чыгат. Кардарлар менен байланыш үчүн WhatsApp номери коюлган эмес — аны «Сайттын жөндөөлөрү» бөлүмүндө коюңуз.",
                 "Orders from the website and the Telegram bot are saved on the NurCRM server and appear in the list below. No WhatsApp number for customers is set — set it in “Website settings”.",
                 "Web sitesinden ve Telegram botundan gelen siparişler NurCRM sunucusunda saklanır ve aşağıdaki listede görünür. Müşteriler için WhatsApp numarası belirlenmemiş — «Web sitesi ayarları»nda belirleyin.",
                 "Saytdan va Telegram-botdan kelgan buyurtmalar NurCRM serverida saqlanadi va quyidagi ro'yxatda chiqadi. Xaridorlar bilan aloqa uchun WhatsApp raqami kiritilmagan — uni «Sayt sozlamalari»da kiriting.");
+        // 2026-10-21 (пакет 4, п. 123; аудит: «длинный текст с WhatsApp в шапке Заказов», «Витрина работает» — и здесь, и в
+        // «Настройках сайта»): витрина работает — полоса из ссылки и одной короткой строки; «Витрина работает · товаров: N»,
+        // номер WhatsApp и «Скопировать ссылку» — в «Настройках сайта», полный текст — в подсказке строки.
+        ShowcaseStateText.IsVisible = false;
+        CopyLinkButton.IsVisible = false;
+        ToolTip.SetTip(ShowcaseHowText, how);
+        var shortHow = phone.Length > 0
+            ? Tr.T("Под заказ товар сразу резервируется: «Отменить заказ» вернёт его на остаток.",
+                "Заказ үчүн товар дароо резервделет: «Заказды жокко чыгаруу» аны калдыкка кайтарат.",
+                "Stock is reserved for an order right away: “Cancel order” returns it to stock.",
+                "Sipariş için stok hemen ayrılır: «Siparişi iptal et» onu stoğa geri verir.",
+                "Buyurtma uchun mahsulot darhol band qilinadi: «Buyurtmani bekor qilish» uni qoldiqqa qaytaradi.")
+            : Tr.T("Номер WhatsApp для связи с покупателями не задан — задайте его в «Настройки сайта».",
+                "Кардарлар менен байланыш үчүн WhatsApp номери коюлган эмес — аны «Сайттын жөндөөлөрү» бөлүмүндө коюңуз.",
+                "No WhatsApp number for customers is set — set it in “Website settings”.",
+                "Müşteriler için WhatsApp numarası belirlenmemiş — «Web sitesi ayarları»nda belirleyin.",
+                "Xaridorlar bilan aloqa uchun WhatsApp raqami kiritilmagan — uni «Sayt sozlamalari»da kiriting.");
+        if (phone.Length == 0)
+            SetDot("BrushWarning");
         var phoneCheck = ShowcaseApiService.CheckShowcasePhone(phone);
         if (phone.Length > 0 && (phoneCheck.Warning ?? phoneCheck.Error) is { } problem)
         {
             SetDot("BrushWarning");
-            how = problem + " " + how;
+            shortHow = problem + " " + shortHow;
         }
-        ShowcaseHowText.Text = how;
+        ShowcaseHowText.Text = shortHow;
+    }
+
+    /// <summary>2026-10-19, этап О10: номер для чтения — «+996 771 830 438» (только показ; в настройках хранится как был).</summary>
+    internal static string PrettyPhone(string phone)
+    {
+        var d = new string((phone ?? "").Where(char.IsDigit).ToArray());
+        if (d.Length == 12 && d.StartsWith("996", StringComparison.Ordinal))
+            return $"+996 {d.Substring(3, 3)} {d.Substring(6, 3)} {d.Substring(9, 3)}";
+        if (d.Length == 10 && d.StartsWith("0", StringComparison.Ordinal))
+            return $"{d.Substring(0, 4)} {d.Substring(4, 3)} {d.Substring(7, 3)}";
+        return phone ?? "";
     }
 
     private void SetDot(string brushKey) => UseBrush(ShowcaseStateDot, Border.BackgroundProperty, brushKey);
@@ -368,10 +407,14 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
 
     private void RenderList()
     {
+        // 2026-10-20: выбор с клавиатуры — после перестройки списка фокус остаётся на выбранной строке.
+        var hadFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is Visual focused && OrdersList.IsVisualAncestorOf(focused);
         OrdersList.Children.Clear();
         var shown = Filtered().ToList();
         foreach (var order in shown)
             OrdersList.Children.Add(BuildRow(order));
+        if (hadFocus && OrdersList.Children.OfType<Button>().FirstOrDefault(b => b.Tag is string id && string.Equals(id, _selectedId, StringComparison.OrdinalIgnoreCase)) is { } again)
+            Dispatcher.UIThread.Post(() => again.Focus(NavigationMethod.Tab), DispatcherPriority.Background);
 
         EmptyText.IsVisible = shown.Count == 0;
         EmptyText.Text = _accessError
@@ -438,8 +481,27 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         stack.Children.Add(metaText);
 
         row.Child = stack;
-        row.Tapped += (_, _) => Select(order.Id);
-        return row;
+        // 2026-10-20 (живой аудит: строки заказов — только текст, диктор/UIA и клавиатура выбрать заказ не могут): строка — кнопка
+        // без своего оформления (вид даёт Border.orderRow), Tab доходит до неё, Enter/пробел открывают заказ, диктор читает имя.
+        var rowButton = new Button
+        {
+            Content = row,
+            Tag = order.Id,
+            Margin = new Thickness(0, 0, 0, 8), // отступ строки — у кнопки, рамка строки — без него
+            Padding = new Thickness(0),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Template = new FuncControlTemplate<Button>((b, _) => new ContentPresenter
+            {
+                Name = "PART_ContentPresenter",
+                [!ContentPresenter.ContentProperty] = b[!ContentControl.ContentProperty],
+                [!ContentPresenter.HorizontalContentAlignmentProperty] = b[!ContentControl.HorizontalContentAlignmentProperty],
+            }),
+        };
+        row.Margin = new Thickness(0);
+        Avalonia.Automation.AutomationProperties.SetName(rowButton, string.Join(", ", new[] { NumberText(order), StatusLabel(order.Status), who, meta }.Where(s => !string.IsNullOrWhiteSpace(s))));
+        rowButton.Click += (_, _) => Select(order.Id);
+        return rowButton;
     }
 
     private void Select(string id)
@@ -517,10 +579,10 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         Field(Tr.T("Телефон", "Телефон", "Phone", "Telefon", "Telefon"), order.Phone, PhoneButtons(order.Phone));
         Field(Tr.T("Дата заказа", "Заказдын күнү", "Order date", "Sipariş tarihi", "Buyurtma sanasi"), OrderDateText(order));
         Field(Tr.T("Отдел", "Бөлүм", "Department", "Departman", "Bo'lim"), order.Department);
-        Field(Tr.T("Получение", "Алуу", "Delivery", "Teslimat", "Olish"), order.Delivery);
+        Field(Tr.T("Получение", "Алуу", "Delivery", "Teslimat", "Olish"), DeliveryText(order.Delivery));
         Field(Tr.T("Адрес", "Дарек", "Address", "Adres", "Manzil"), order.Address);
         Field(Tr.T("Комментарий", "Комментарий", "Comment", "Yorum", "Izoh"), order.Comment);
-        Field(Tr.T("Источник", "Булак", "Source", "Kaynak", "Manba"), order.Source);
+        Field(Tr.T("Источник", "Булак", "Source", "Kaynak", "Manba"), SourceText(order.Source, order.Comment));
         DetailPanel.Children.Add(fields);
 
         DetailPanel.Children.Add(BuildItemsTable(order));
@@ -641,15 +703,51 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         if (digits.Length < 9)
             return null;
         var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Top };
-        var wa = new Button { Content = "WhatsApp", Padding = new Thickness(10, 3), FontSize = 12, CornerRadius = new CornerRadius(8) };
+        // 2026-10-19, этап О10: маленькие кнопки обводкой (класс period), не серые залитые.
+        var wa = new Button { Content = "WhatsApp", Padding = new Thickness(10, 3), FontSize = 12, MinHeight = 28, Margin = new Thickness(0), Classes = { "period" } };
         ToolTip.SetTip(wa, Tr.T("Написать покупателю в WhatsApp", "Кардарга WhatsApp'та жазуу", "Message the customer on WhatsApp", "Müşteriye WhatsApp'tan yaz", "Xaridorga WhatsApp'da yozish"));
         wa.Click += (_, _) => OpenUrl("https://wa.me/" + digits);
         panel.Children.Add(wa);
-        var copy = new Button { Content = Tr.T("Копировать", "Көчүрүү", "Copy", "Kopyala", "Nusxalash"), Padding = new Thickness(10, 3), FontSize = 12, CornerRadius = new CornerRadius(8) };
+        var copy = new Button { Content = Tr.T("Копировать", "Көчүрүү", "Copy", "Kopyala", "Nusxalash"), Padding = new Thickness(10, 3), FontSize = 12, MinHeight = 28, Margin = new Thickness(0), Classes = { "period" } };
         copy.Click += async (_, _) => await CopyAsync(phone).ConfigureAwait(true);
         panel.Children.Add(copy);
         return panel;
     }
+
+    // 2026-10-20 (живой аудит: «Комментарий: Заказ через телеграм-бота», а «Источник: Сайт (витрина)»): наш Телеграм-бот
+    // оформляет заказ через публичный адрес витрины (ShowcaseApiService, delivery pickup), и сервер пишет ему source «showcase».
+    // Отличить можно только по комментарию, который ставит сам бот: «Заказ через телеграм-бота» или «Телеграм-бот: …».
+    private static string? SourceText(string? source, string? comment)
+    {
+        var c = (comment ?? "").Trim();
+        if (c.StartsWith("Заказ через телеграм-бота", StringComparison.OrdinalIgnoreCase) || c.StartsWith("Телеграм-бот:", StringComparison.OrdinalIgnoreCase))
+        {
+            var s = (source ?? "").Trim().ToLowerInvariant();
+            if (s is "" or "showcase" or "site" or "website" or "web")
+                return SourceText("telegram");
+        }
+        return SourceText(source);
+    }
+
+    /// <summary>2026-10-19, этап О10 (аудит: в карточке «Источник: showcase» — слово сервера): откуда заказ — простыми словами.</summary>
+    private static string? SourceText(string? source) => (source ?? "").Trim().ToLowerInvariant() switch
+    {
+        "" => null,
+        "showcase" or "site" or "website" or "web" => Tr.T("Сайт (витрина)", "Сайт (витрина)", "Website (showcase)", "Web sitesi (vitrin)", "Sayt (vitrina)"),
+        "telegram" or "telegram_bot" or "bot" or "tg" => Tr.T("Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram bot"),
+        "app" or "mobile" or "nurcrm_app" => Tr.T("Приложение NurCRM", "NurCRM тиркемеси", "NurCRM app", "NurCRM uygulaması", "NurCRM ilovasi"),
+        "crm" or "manual" => Tr.T("Добавлен в NurCRM", "NurCRMге кошулган", "Added in NurCRM", "NurCRM'de eklendi", "NurCRMda qo'shilgan"),
+        _ => source,
+    };
+
+    /// <summary>2026-10-20 (живой аудит: «Получение: pickup» — слово сервера): способ получения — простыми словами на языке программы.</summary>
+    private static string? DeliveryText(string? delivery) => (delivery ?? "").Trim().ToLowerInvariant() switch
+    {
+        "" => null,
+        "pickup" or "self_pickup" or "self-pickup" or "selfpickup" or "self" => Tr.T("Самовывоз", "Өзү алып кетүү", "Pickup", "Gel-al", "Olib ketish"),
+        "delivery" or "courier" or "shipping" => Tr.T("Доставка", "Жеткирүү", "Delivery", "Teslimat", "Yetkazib berish"),
+        _ => delivery,
+    };
 
     private static IEnumerable<(string Text, string Status, bool Accent)> ActionsFor(string status)
     {
@@ -845,6 +943,9 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         if (_settings is { Slug.Length: > 0 } s)
             OpenUrl(ShowcaseApiService.CatalogUrl(s.Slug));
     }
+
+    // 2026-10-21: подчёркнутая ссылка на витрину открывает её, как «Открыть витрину» (пакет 4, п. 123).
+    private void ShowcaseLink_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e) => OpenShowcase_Click(sender, e);
 
     private async void CopyLink_Click(object? sender, RoutedEventArgs e)
     {

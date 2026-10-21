@@ -51,11 +51,14 @@
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
     </Style>
 
-    <!-- Кнопка внутри строки DataGrid -->
+    <!-- Кнопка внутри строки DataGrid.
+         2026-10-19, К1 (аудит 19.10, проблема 4: восемь бледно-жёлтых «Выбрать», текст почти не виден) — обводкой,
+         текст цветом текста; выбрать чек можно и двойным щелчком по строке (SalesDataGrid_DoubleTapped). -->
     <Style Selector="Button.btn-table">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="FontSize" Value="12"/>
@@ -64,15 +67,28 @@
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Button.btn-table:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <!-- 2026-10-19, К1: выключенная главная («Вернуть выбранные», пока ничего не отмечено) — бледная, не жёлтая. -->
+    <Style Selector="Button.btn-primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:disabled">
+      <Setter Property="Opacity" Value="0.5"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
 
     <!-- Поле ввода поиска -->
     <Style Selector="TextBox.ModernInput">
       <Setter Property="Height" Value="38"/>
       <Setter Property="Padding" Value="10,6"/>
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="8"/>
@@ -121,20 +137,34 @@
             <Grid>
               <DataGrid x:Name="SalesDataGrid"
                         x:CompileBindings="False"
+                        DoubleTapped="SalesDataGrid_DoubleTapped"
                         ItemsSource="{Binding FilteredSales}"
                         AutoGenerateColumns="False"
                         IsReadOnly="True"
                         GridLinesVisibility="Horizontal"
                         HeadersVisibility="Column">
                 <DataGrid.Columns>
-                  <DataGridTextColumn Header="{DynamicResource returnSale.colReceiptNo}" Binding="{ReflectionBinding DisplayNumber}" Width="110"/>
-                  <DataGridTextColumn Header="{DynamicResource common.date}" Binding="{ReflectionBinding SaleDateDisplay}" Width="*"/>
-                  <DataGridTextColumn Header="{DynamicResource common.amount}" Binding="{ReflectionBinding TotalAmountDisplay}" Width="110"/>
-                  <DataGridTemplateColumn Header="" Width="110">
+                  <!-- 2026-10-19, К1: сумма шире (126) — «1 382,50 сом» целиком; № и кнопка уже, дата получает остальное (на 1024 — «20.10.26 01:41»). -->
+                  <DataGridTextColumn Header="{DynamicResource returnSale.colReceiptNo}" Binding="{ReflectionBinding DisplayNumber}" Width="88"/>
+                  <!-- 2026-10-21 (пакет 6, п. 35): под датой — пометка «↩ возвращён» / «↩ частично» (в одну строку на 1024 не помещалась). -->
+                  <DataGridTemplateColumn Header="{DynamicResource common.date}" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <StackPanel VerticalAlignment="Center" Margin="12,2">
+                          <TextBlock Text="{ReflectionBinding SaleDateDisplay}" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Text="{ReflectionBinding ReturnMark}" IsVisible="{ReflectionBinding HasReturnMark}"
+                                     FontSize="11.5" FontWeight="SemiBold"
+                                     TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTextColumn Header="{DynamicResource common.amount}" Binding="{ReflectionBinding TotalAmountDisplay}" Width="126" FontWeight="SemiBold"/>
+                  <DataGridTemplateColumn Header="" Width="94">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
                         <Button Content="{DynamicResource common.select}" Tag="{ReflectionBinding SaleId}" Click="SelectSale_Click"
-                                Classes="btn-table" Height="30" Margin="4"
+                                Classes="btn-table" Height="34" Margin="4"
                                 HorizontalAlignment="Stretch"/>
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -144,6 +174,14 @@
 
               <ProgressBar IsIndeterminate="True" Height="4" VerticalAlignment="Top"
                            IsVisible="{Binding IsBusy}"/>
+              <!-- 2026-10-19, К1: пустой список — подсказка, что делать (а не пустая таблица). -->
+              <StackPanel IsVisible="{Binding HasNoSales}" IsHitTestVisible="False"
+                          HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16,48,16,16" Spacing="6" MaxWidth="360">
+                <TextBlock Text="{Binding NoSalesTitle}" FontSize="15" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushText}"/>
+                <TextBlock Text="{Binding NoSalesHint}" FontSize="13" TextAlignment="Center" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+              </StackPanel>
             </Grid>
           </Border>
         </DockPanel>
@@ -180,13 +218,15 @@
                       Click="ClearReturnSelection_Click"/>
             </StackPanel>
             <Grid ColumnDefinitions="*,8,*">
+              <!-- 2026-10-19, К1 (аудит 19.10, проблема 4): «Вернуть выбранные» — главная и активна, только когда что-то
+                   отмечено (CanReturnSelected); «Вернуть весь чек» — обводкой. Обработчики прежние. -->
               <Button x:Name="ReturnSelectedButton" Grid.Column="0"
                       Classes="btn-primary" Content="{DynamicResource returnSale.returnSelected}"
                       Height="44" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                      IsEnabled="{Binding !IsBusy}"
+                      IsEnabled="{Binding CanReturnSelected}"
                       Click="ReturnSelected_Click"/>
               <Button x:Name="ReturnWholeReceiptButton" Grid.Column="2"
-                      Classes="btn-primary" Content="{DynamicResource returnSale.returnWholeReceipt}"
+                      Classes="btn-secondary" Content="{DynamicResource returnSale.returnWholeReceipt}"
                       Height="44" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                       IsEnabled="{Binding !IsBusy}"
                       Click="ReturnWholeReceipt_Click"/>
@@ -209,20 +249,22 @@
             <ItemsControl ItemsSource="{Binding Lines}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="pos:ReturnSaleLineVm">
+                  <!-- 2026-10-19, К1: строка — белая карточка, сумма к возврату крупно справа цветом текста. -->
                   <Border CornerRadius="10" Padding="12,10" Margin="0,0,0,8"
-                          Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
-                    <Grid ColumnDefinitions="Auto,*">
+                          Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
                       <CheckBox Grid.Column="0" VerticalAlignment="Center"
                                 Margin="0,0,12,0"
                                 IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                 IsEnabled="{Binding CanReturn}"/>
                       <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Text="{Binding Title}"/>
-                        <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
+                        <TextBlock Margin="0,4,0,0" FontSize="13" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"
                                    Text="{Binding SubLine}"/>
-                        <TextBlock Margin="0,2,0,0" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushUiStatusOk}"
-                                   Text="{Binding LineSumText}"/>
                       </StackPanel>
+                      <TextBlock Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Classes="num"
+                                 FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"
+                                 Text="{Binding LineSumText}"/>
                     </Grid>
                   </Border>
                 </DataTemplate>

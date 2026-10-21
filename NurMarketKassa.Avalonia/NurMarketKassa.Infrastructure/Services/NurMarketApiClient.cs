@@ -296,6 +296,25 @@ public sealed partial class NurMarketApiClient : IDisposable
         CompanyInfoService.Clear();
     }
 
+    /// <summary>2026-10-18, аудит («Сменить кассира» с неверным паролем): полный снимок текущего входа —
+    /// токены, профиль пользователя (роль, доступы, id, email), филиал и ИНН компании. Вход нового кассира
+    /// при ошибке стирает всё это (ClearSession), а восстановление через RestoreOfflineSession возвращало
+    /// только токены — до перезапуска у владельца пропадали Настройки/склад.</summary>
+    public sealed record SessionState(string? AccessToken, string? RefreshToken, JsonElement UserPayload, string? ActiveBranchId, string StoreInn);
+
+    public SessionState CaptureSessionState() =>
+        new(AccessToken, RefreshToken, UserPayload.ValueKind == JsonValueKind.Undefined ? default : UserPayload.Clone(), ActiveBranchId,
+            UserPreferences.Instance.StoreInn ?? string.Empty);
+
+    public void RestoreSessionState(SessionState state)
+    {
+        AccessToken = state.AccessToken;
+        RefreshToken = state.RefreshToken;
+        UserPayload = state.UserPayload;
+        ActiveBranchId = state.ActiveBranchId;
+        UserPreferences.Instance.StoreInn = state.StoreInn;
+    }
+
     /// <summary>Восстановление сессии из локального кэша (офлайн-вход).</summary>
     public void RestoreOfflineSession(OfflineAuthSession session)
     {
@@ -491,7 +510,23 @@ public sealed partial class NurMarketApiClient : IDisposable
 
             var created = ParseEmployeeList(WrapAsSingleElementArray(data))?.FirstOrDefault()
                 ?? new EmployeeInfoDto { Email = email, FullName = $"{firstName} {lastName}".Trim() };
-            PosLogger.Log($"Employee created via {path} (password returned: {created.Password != null})", "API");
+            // 2026-10-18, аудит: id в ответе на создание не разбирался (живая проверка) — у новой карточки не было
+            // «Доступов», а удаление не шло на сервер. Ищем id во вложенном объекте или числом, иначе — в списке
+            // сотрудников по email (как в «Загрузить с сайта»).
+            created.Id ??= FindEmployeeIdDeep(data, 0);
+            if (string.IsNullOrWhiteSpace(created.Id))
+            {
+                try
+                {
+                    var all = await GetEmployeesAsync(ct).ConfigureAwait(false);
+                    created.Id = all?.FirstOrDefault(e => string.Equals(e.Email?.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase))?.Id;
+                }
+                catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+                {
+                    PosLogger.Log($"Employee created, id not found in list: {ex.GetType().Name}", "API");
+                }
+            }
+            PosLogger.Log($"Employee created via {path} (password returned: {created.Password != null}, id: {(created.Id != null ? "yes" : "no")})", "API");
             return created;
         }
 
@@ -671,6 +706,27 @@ public sealed partial class NurMarketApiClient : IDisposable
         }
 
         PosLogger.Log($"Role deleted via {deletedByPath}{roleId}/ (verified: no longer in the list)", "API");
+    }
+
+    /// <summary>2026-10-18: id сотрудника в ответе на создание — верхний уровень или вложенный объект
+    /// (user/employee/data/result), строкой или числом.</summary>
+    private static string? FindEmployeeIdDeep(JsonElement obj, int depth)
+    {
+        if (obj.ValueKind != JsonValueKind.Object || depth > 3)
+            return null;
+        foreach (var name in new[] { "id", "user_id", "uuid", "pk" })
+        {
+            if (!obj.TryGetProperty(name, out var v))
+                continue;
+            if (v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString()))
+                return v.GetString()!.Trim();
+            if (v.ValueKind == JsonValueKind.Number)
+                return v.GetRawText();
+        }
+        foreach (var name in new[] { "user", "employee", "data", "result" })
+            if (obj.TryGetProperty(name, out var nested) && FindEmployeeIdDeep(nested, depth + 1) is { } id)
+                return id;
+        return null;
     }
 
     /// <summary>Оборачивает одиночный объект (ответ на POST) в массив из одного элемента, чтобы
@@ -1577,8 +1633,9 @@ public sealed partial class NurMarketApiClient : IDisposable
         }
     }
 
-    /// <summary>Разворачивает ответ (массив или {results:[…]}) в список элементов. Используется доменными сервисами.</summary>
-    internal static List<JsonElement> UnwrapList(JsonElement data)
+    /// <summary>Разворачивает ответ (массив или {results:[…]}) в список элементов. Используется доменными сервисами.
+    /// 2026-10-19: public — им же разбирает ответы выплата зарплаты программы владельца (SalaryPayoutService).</summary>
+    public static List<JsonElement> UnwrapList(JsonElement data)
     {
         var list = new List<JsonElement>();
         if (data.ValueKind == JsonValueKind.Array)

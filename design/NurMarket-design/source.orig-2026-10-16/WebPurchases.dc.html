@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Закупки — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.tab{height:40px;padding:0 14px;border-radius:10px;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:#475467}
+.tab.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.pill{height:34px;padding:0 12px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:700;color:#344054}
+.pill.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.tr{display:grid;grid-template-columns:.7fr 1.5fr .9fr .7fr 1fr 1.1fr 1fr;gap:8px;padding:12px 14px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.st{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;justify-self:start}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Закупки" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Закупки</b><span style="font-size: 13px; color: #667085">Заказ поставщику → в пути → приёмка → оплата</span></span>
+      <button type="button" class="b2">Из «Пополнения»</button>
+      <button type="button" class="b1">+ Заказ поставщику</button>
+    </div>
+    <span style="display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC; align-self: flex-start"><button type="button" class="tab on">Заказы</button><button type="button" class="tab">Поставщики</button><button type="button" class="tab">Долги поставщикам</button></span>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section style="flex: 999 1 600px; min-width: 0; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden">
+        <div style="padding: 12px 14px; border-bottom: 1px solid #EAECF0; display: flex; flex-wrap: wrap; gap: 6px"><button type="button" class="pill on">Все</button><button type="button" class="pill">Черновики</button><button type="button" class="pill">Отправлены</button><button type="button" class="pill">В пути</button><button type="button" class="pill">Приняты</button></div>
+        <div style="overflow-x: auto"><div style="min-width: 780px">
+          <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span>Заказ</span><span>Поставщик</span><span>Дата</span><span>Позиций</span><span>Сумма</span><span>Статус</span><span>Оплата</span></div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+            <div class="tr">
+              <b>[№]</b><span>[поставщик]</span><span style="color: #475467">[дата]</span><span>{{r.n}}</span><b style="color: #0B2A3C">[сумма]</b>
+              <span class="st" style="background: {{r.sbg}}; color: {{r.sfg}}">{{r.st}}</span>
+              <span class="st" style="background: {{r.pbg}}; color: {{r.pfg}}">{{r.pay}}</span>
+            </div>
+          </sc-for>
+        </div></div>
+      </section>
+
+      <aside style="flex: 1 1 280px; max-width: 340px; display: flex; flex-direction: column; gap: 12px">
+        <section class="card" style="background: #0B2A3C; border-color: #0B2A3C; color: #FFFFFF"><span style="font-size: 12px; color: #C7D2DB">Должны поставщикам</span><b style="font-size: 26px; color: #FFD600">[сумма]</b><span style="font-size: 12px; color: #C7D2DB">[N] поставщиков · ближайший срок [дата]</span><button type="button" class="b1" style="align-self: flex-start">Оплатить</button></section>
+        <section class="card"><b style="font-size: 15px">Едет к вам</b>
+          <div style="display: flex; justify-content: space-between; font-size: 13px"><span>[поставщик]</span><b>сегодня</b></div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px"><span>[поставщик]</span><b>[дата]</b></div>
+          <button type="button" class="b2">Принять по заказу</button>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const S = {
+      draft: { st: 'черновик', sbg: '#F2F4F7', sfg: '#475467' },
+      sent: { st: 'отправлен', sbg: '#E7EEF3', sfg: '#0B2A3C' },
+      way: { st: 'в пути', sbg: '#FFF7CC', sfg: '#0B2A3C' },
+      part: { st: 'принят частично', sbg: '#FEF3E2', sfg: '#B54708' },
+      done: { st: 'принят', sbg: '#E7F6EC', sfg: '#0E7A3A' }
+    };
+    const P = {
+      paid: { pay: 'оплачен', pbg: '#E7F6EC', pfg: '#0E7A3A' },
+      debt: { pay: 'долг', pbg: '#FDE2E1', pfg: '#B42318' },
+      none: { pay: '—', pbg: 'transparent', pfg: '#98A2B3' }
+    };
+    const r = (n, s, p) => Object.assign({ n }, S[s], P[p]);
+    return { rows: [r('4', 'draft', 'none'), r('[N]', 'sent', 'none'), r('[N]', 'way', 'none'), r('[N]', 'part', 'debt'), r('[N]', 'done', 'debt'), r('[N]', 'done', 'paid')] };
+  }
+}
+</script>
+</body>
+</html>

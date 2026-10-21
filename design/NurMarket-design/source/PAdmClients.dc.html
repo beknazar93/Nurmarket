@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Клиенты и долги</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.seg{flex:1 1 0;min-width:0;height:44px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;white-space:nowrap}
+.cl{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:16px;background:#FFFFFF}
+.sm{flex-grow:1;height:48px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:800;white-space:nowrap}
+.mo{width:48px;height:48px;flex-shrink:0;border-radius:12px;border:1px solid #D0D5DD;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.role{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#E7EEF3;color:#0B2A3C;white-space:nowrap}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#F4F5F7}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <button type="button" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 14px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 18px; font-weight: 800">Клиенты</b><span><span class="role">Администратор</span></span></span>
+      <button type="button" aria-label="Новый клиент" style="width: 48px; height: 48px; border-radius: 14px; border: 0; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+    </div>
+    <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC"><button type="button" class="seg" style="background: transparent; color: #344054">Все · 1&nbsp;284</button><button type="button" class="seg" aria-pressed="true" style="background: #0B2A3C; color: #FFFFFF">Должники · 17</button></span>
+    <section style="border-radius: 16px; background: #0B2A3C; color: #FFFFFF; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center"><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #C7D2DB">Долги клиентов · 17</span><b style="font-size: 22px; color: #FFD600; white-space: nowrap">811&nbsp;889&nbsp;сом</b></span><span style="font-size: 12px; color: #C7D2DB; text-align: right">больше 30 дней<br><b style="color: #FFFFFF; font-size: 15px; white-space: nowrap">8 клиентов</b></span></section>
+  </header>
+
+  <main style="flex-grow: 1; padding: 0 16px 8px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+      <!-- 2026-10-17: одна кнопка в карточке («Принять оплату»), «Напомнить в WhatsApp» — в «⋯»; красная сумма — только у просрочки -->
+      <section class="cl">
+        <div style="display: flex; align-items: center; gap: 10px"><span style="width: 40px; height: 40px; border-radius: 20px; background: #E7EEF3; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; flex-shrink: 0">{{r.ini}}</span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px">{{r.name}}</b><span style="font-size: 12px; color: #667085">{{r.info}}</span></span><span style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px"><b style="color: {{r.sc}}; white-space: nowrap">{{r.sum}}</b><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; background: {{r.bg}}; color: {{r.c}}">{{r.due}}</span></span></div>
+        <div style="display: flex; gap: 8px"><button type="button" class="sm" style="border: 1.5px solid #0B2A3C; background: #FFFFFF; color: #0B2A3C">Принять оплату</button><button type="button" class="mo" aria-label="{{r.more}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg></button></div>
+      </section>
+    </sc-for>
+    <span style="font-size: 12px; color: #667085; text-align: center">«⋯» — напомнить в WhatsApp (по одному, с личного номера) или добавить номер</span>
+  </main>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-17: должники из единых данных NBS (давность долга, телефоны; у Умара номера нет)
+    const n = '\u00a0';
+    const late = { c: '#B42318', bg: '#FDE2E1', sc: '#B42318' };
+    const norm = { c: '#344054', bg: '#F2F4F7', sc: '#0B2A3C' };
+    const r = (ini, name, info, sum, due, st, more) => Object.assign({ ini, name, info, sum: sum + n + 'сом', due, more }, st);
+    return {
+      rows: [
+        r('У', 'Умар', 'нет номера · 6 чеков · с 31.08', '64' + n + '500', 'просрочен · 42 дня', late, 'Ещё: добавить номер'),
+        r('А', 'Арслан', '+996 700 41-22-08 · с 09.09', '38' + n + '200', 'просрочен · 33 дня', late, 'Ещё: напомнить в WhatsApp'),
+        r('Б', 'Бакыт', '+996 555 30-17-64 · с 24.09', '21' + n + '750', '18 дней', norm, 'Ещё: напомнить в WhatsApp'),
+        r('А', 'Айпери', '+996 777 82-45-19 · с 07.10', '9' + n + '800', '5 дней', norm, 'Ещё: напомнить в WhatsApp')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

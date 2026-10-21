@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — клиент и долг</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:36px;height:36px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mb{padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.mf{display:flex;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.hint{flex-grow:1;font-size:12px;color:#667085}
+.tot{flex-grow:1;font-size:13px;color:#475467}
+.tot b{font-size:17px;color:#0B2A3C}
+.b2{height:44px;padding:0 16px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:14px;font-weight:700;color:#344054}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:12px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:46px;box-sizing:border-box;border-radius:12px;border:1px solid #D0D5DD;padding:0 14px;font-family:inherit;font-size:15px}
+.inb{height:52px;box-sizing:border-box;border-radius:12px;border:2px solid #0B2A3C;padding:0 14px;font-family:inherit;font-size:22px;font-weight:800;color:#0B2A3C}
+.li{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid #F2F4F7;background:#FFFFFF;font-family:inherit;text-align:left;width:100%;box-sizing:border-box}
+.li.on{border:2px solid #0B2A3C;background:#FFF7CC}
+.av{width:36px;height:36px;border-radius:18px;background:#F2F4F7;color:#0B2A3C;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.opt{height:48px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.opt.on{border:2px solid #0B2A3C;background:#FFF7CC;color:#0B2A3C;font-weight:800}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 40px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: start">
+
+  <section class="m" role="dialog" aria-label="Выбрать клиента">
+    <div class="mh"><div class="mt"><b>Клиент для чека</b><span>Для долга, баллов и истории покупок</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <input class="in" type="text" placeholder="Имя или телефон" aria-label="Поиск клиента">
+      <button type="button" class="li on"><span class="av">TE</span><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Te</span><span style="font-size: 12px; color: #667085">909898789</span></span><span style="font-size: 12px; font-weight: 700; color: #B42318">долг 221 507</span></button>
+      <button type="button" class="li"><span class="av">ПР</span><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Проверочный</span><span style="font-size: 12px; color: #667085">123321</span></span><span style="font-size: 12px; font-weight: 700; color: #B42318">долг 137 811</span></button>
+      <button type="button" class="li"><span class="av">УМ</span><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Умар</span><span style="font-size: 12px; color: #B54708">нет номера</span></span></button>
+      <button type="button" class="b2" style="border-style: dashed">+ Новый клиент</button>
+    </div>
+    <div class="mf"><span class="hint">↑ ↓ — выбрать · Enter</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Выбрать</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Оплата долга">
+    <div class="mh"><div class="mt"><b>Оплата долга · Te</b><span>6 чеков · с 24.09.2026</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="border-radius: 14px; background: #0B2A3C; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center"><span style="font-size: 13px; color: #C7D2DB">Должен</span><span style="font-size: 26px; font-weight: 800; color: #FFD600">221 507 сом</span></div>
+      <label class="lbl" for="d1">ПЛАТИТ СЕЙЧАС</label>
+      <input id="d1" class="inb" type="text" value="[сумма]">
+      <div style="display: flex; gap: 6px"><button type="button" class="b2" style="height: 36px; font-size: 12px">Весь долг</button><button type="button" class="b2" style="height: 36px; font-size: 12px">Ближайший взнос</button></div>
+      <div class="seg"><button type="button" class="opt on">Наличные</button><button type="button" class="opt">Перевод</button><button type="button" class="opt">QR</button></div>
+    </div>
+    <div class="mf"><span class="tot">Останется: <b>[сумма]</b></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Принять</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Отложенные чеки">
+    <div class="mh"><div class="mt"><b>Отложенные чеки</b><span>Не пропадут при закрытии смены</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <button type="button" class="li on"><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Отложен · 2 товара</span><span style="font-size: 12px; color: #667085">[время] · [покупатель]</span></span><span style="font-size: 15px; font-weight: 800; color: #0B2A3C">[сумма]</span></button>
+      <button type="button" class="li"><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Отложен · [N] товаров</span><span style="font-size: 12px; color: #667085">[время]</span></span><span style="font-size: 15px; font-weight: 800; color: #0B2A3C">[сумма]</span></button>
+      <button type="button" class="li"><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Отложен · [N] товаров</span><span style="font-size: 12px; color: #B54708">товар закончился на складе</span></span><span style="font-size: 15px; font-weight: 800; color: #0B2A3C">[сумма]</span></button>
+    </div>
+    <div class="mf"><button type="button" class="b2" style="color: #C0362C; border-color: #FDE2E1">Удалить</button><span style="flex-grow: 1"></span><button type="button" class="b1">Вернуть в работу</button></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

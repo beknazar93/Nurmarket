@@ -33,13 +33,17 @@ public sealed class BranchesWindow : Window, IOwnerSection
     private readonly NurMarketApiClient _api;
     private readonly Grid _root = new() { Margin = new Thickness(24, 16, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*") };
     private readonly TextBlock _title = new() { FontSize = 22, FontWeight = FontWeight.Bold };
-    private readonly StackPanel _tabs = new() { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 12) };
-    private readonly Grid _branchesPage = new() { RowDefinitions = new RowDefinitions("Auto,Auto,*") };
+    private readonly StackPanel _tabs = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
+    // 2026-10-20, этап О9б: + строка плиток на обеих вкладках (KpiTileGrid).
+    private readonly Grid _branchesPage = new() { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*") };
     private readonly Grid _transfersPage = new() { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*"), IsVisible = false };
 
     // Филиалы
     private readonly TextBox _branchSearch;
-    private readonly TextBlock _branchSummary = new() { FontSize = 15, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
+    // 2026-10-20, этап О9б: строка состояния — «Загружаю…» и ошибка обычным текстом; итоги — плитками.
+    private readonly TextBlock _branchSummary = new() { FontSize = 13.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
+    private readonly NurMarketKassa.AvaloniaHost.Views.Controls.KpiTileGrid _branchKpi = new() { MinTileWidth = 170, Spacing = 8, MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 14), IsVisible = false };
+    private readonly NurMarketKassa.AvaloniaHost.Views.Controls.KpiTileGrid _transferKpi = new() { MinTileWidth = 190, Spacing = 8, MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 14), IsVisible = false };
     private readonly StackPanel _branchList = new() { Spacing = 10 };
     private List<Branch> _branches = new();
     private readonly Dictionary<string, string> _branchStats = new();
@@ -50,7 +54,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
     private readonly StackPanel _directionChips = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
     private readonly WrapPanel _transferFilters = new();
     private readonly TextBox _transferSearch;
-    private readonly TextBlock _transferSummary = new() { FontSize = 15, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
+    private readonly TextBlock _transferSummary = new() { FontSize = 13.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
     private readonly StackPanel _transferList = new() { Spacing = 10 };
     private readonly Dictionary<string, JsonElement> _transferDetails = new();
     private readonly HashSet<string> _expanded = new();
@@ -117,11 +121,13 @@ public sealed class BranchesWindow : Window, IOwnerSection
         Grid.SetColumn(create, 2);
         branchTools.Children.Add(create);
         branchTools.Classes.Add("no-reflow");
-        Use(_branchSummary, TextBlock.ForegroundProperty, "BrushText");
+        Use(_branchSummary, TextBlock.ForegroundProperty, "BrushTextSoft");
         var branchScroll = new ScrollViewer { Content = _branchList, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
-        Grid.SetRow(_branchSummary, 1);
-        Grid.SetRow(branchScroll, 2);
+        Grid.SetRow(_branchKpi, 1);
+        Grid.SetRow(_branchSummary, 2);
+        Grid.SetRow(branchScroll, 3);
         _branchesPage.Children.Add(branchTools);
+        _branchesPage.Children.Add(_branchKpi);
         _branchesPage.Children.Add(_branchSummary);
         _branchesPage.Children.Add(branchScroll);
 
@@ -137,8 +143,11 @@ public sealed class BranchesWindow : Window, IOwnerSection
             await LoadTransfersAsync(reset: true).ConfigureAwait(true);
         };
         filterRow.Children.Add(_transferBranch);
-        _directionChips.Margin = new Thickness(0, 0, 8, 8);
-        filterRow.Children.Add(_directionChips);
+        // 2026-10-20, этап О9б: «Все / Входящие / Исходящие» — сегменты в рамке (рамка скрыта вместе с ними).
+        var directionSegment = UiKit.Segment(_directionChips);
+        directionSegment.Margin = new Thickness(0, 0, 8, 8);
+        directionSegment.Bind(Visual.IsVisibleProperty, _directionChips.GetObservable(Visual.IsVisibleProperty));
+        filterRow.Children.Add(directionSegment);
         var transferTools = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(0, 0, 0, 12) };
         _transferSearch = UiKit.Input(this, T("Поиск: номер, комментарий…", "Издөө: номер, комментарий…", "Search: number, comment…", "Ara: numara, yorum…", "Qidirish: raqam, izoh…"), 40);
         var searchTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
@@ -164,28 +173,33 @@ public sealed class BranchesWindow : Window, IOwnerSection
         Grid.SetColumn(newTransfer, 2);
         transferTools.Children.Add(newTransfer);
         transferTools.Classes.Add("no-reflow");
-        Use(_transferSummary, TextBlock.ForegroundProperty, "BrushText");
+        Use(_transferSummary, TextBlock.ForegroundProperty, "BrushTextSoft");
         var transferScroll = new ScrollViewer { Content = _transferList, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
-        _transferFilters.Margin = new Thickness(0, 0, 0, 4);
-        Grid.SetRow(_transferFilters, 1);
+        // 2026-10-20, этап О9б: склад, направление, период и статус — одной строкой (на узком окне переносятся), а не тремя.
+        _transferFilters.Margin = new Thickness(0, 0, 0, 0);
+        filterRow.Children.Add(_transferFilters);
         Grid.SetRow(transferTools, 2);
-        var listHost = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
+        var listHost = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*") };
+        listHost.Children.Add(_transferKpi);
+        Grid.SetRow(_transferSummary, 1);
         listHost.Children.Add(_transferSummary);
-        Grid.SetRow(transferScroll, 1);
+        Grid.SetRow(transferScroll, 2);
         listHost.Children.Add(transferScroll);
         Grid.SetRow(listHost, 3);
         _transfersPage.Children.Add(filterRow);
-        _transfersPage.Children.Add(_transferFilters);
         _transfersPage.Children.Add(transferTools);
         _transfersPage.Children.Add(listHost);
 
+        // 2026-10-20, этап О9б (правило 2): вкладки «Филиалы / Перемещения» — сегменты в рамке, как в «Складе».
+        var tabsSegment = UiKit.Segment(_tabs);
+        tabsSegment.Margin = new Thickness(0, 0, 0, 14);
         Grid.SetRow(hint, 1);
-        Grid.SetRow(_tabs, 2);
+        Grid.SetRow(tabsSegment, 2);
         Grid.SetRow(_branchesPage, 3);
         Grid.SetRow(_transfersPage, 3);
         _root.Children.Add(_title);
         _root.Children.Add(hint);
-        _root.Children.Add(_tabs);
+        _root.Children.Add(tabsSegment);
         _root.Children.Add(_branchesPage);
         _root.Children.Add(_transfersPage);
         Content = _root;
@@ -233,7 +247,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
                      ("transfers", T("Перемещения", "Жылдыруулар", "Transfers", "Transferler", "Ko'chirishlar")),
                  })
         {
-            var chip = UiKit.Chip(this, text, key == active);
+            var chip = UiKit.Seg(text, key == active); // 2026-10-20, этап О9б: сегмент
             chip.Click += async (_, _) => await ShowTabAsync(key).ConfigureAwait(true);
             _tabs.Children.Add(chip);
         }
@@ -280,6 +294,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
         {
             if (gen != _branchGen)
                 return;
+            _branchSummary.IsVisible = true;
             _branchSummary.Text = T("Не удалось загрузить: ", "Жүктөө мүмкүн болгон жок: ", "Couldn't load: ", "Yüklenemedi: ", "Yuklab bo'lmadi: ") + ServerTelegramBotApi.DescribeFields(ex);
             PosLogger.Log($"Филиалы: не загружены ({ex.Message}).", "WARNING");
         }
@@ -329,21 +344,34 @@ public sealed class BranchesWindow : Window, IOwnerSection
     {
         _branchList.Children.Clear();
         var active = _branches.Count(b => b.IsActive);
-        _branchSummary.Text = _branches.Count == 0
-            ? T("Филиалов пока нет. Создайте первый — товар можно будет перемещать с главного склада в филиал.",
-                "Азырынча филиал жок. Биринчисин түзүңүз — товарды башкы кампадан филиалга жылдырса болот.",
-                "No branches yet. Create the first one to move goods from the main warehouse to it.",
-                "Henüz şube yok. İlkini oluşturun — ürünleri ana depodan şubeye taşıyabilirsiniz.",
-                "Hozircha filial yo'q. Birinchisini yarating — mahsulotni asosiy ombordan filialga ko'chirish mumkin bo'ladi.")
-            : T($"Филиалов: {_branches.Count} из {MaxBranches} · активных: {active}", $"Филиалдар: {_branches.Count} / {MaxBranches} · активдүү: {active}",
-                $"Branches: {_branches.Count} of {MaxBranches} · active: {active}", $"Şubeler: {_branches.Count} / {MaxBranches} · aktif: {active}",
-                $"Filiallar: {_branches.Count} / {MaxBranches} · faol: {active}");
+        // 2026-10-20, этап О9б: итоги — плитками «Филиалов N из 3 · Активных · Выключено»; пусто — подсказкой по центру списка.
+        _branchSummary.IsVisible = false;
+        _branchKpi.Children.Clear();
+        _branchKpi.IsVisible = _branches.Count > 0;
+        if (_branches.Count > 0)
+        {
+            _branchKpi.Children.Add(UiKit.Kpi(T("Филиалов", "Филиалдар", "Branches", "Şubeler", "Filiallar"),
+                T($"{_branches.Count} из {MaxBranches}", $"{_branches.Count} / {MaxBranches}", $"{_branches.Count} of {MaxBranches}", $"{_branches.Count} / {MaxBranches}", $"{_branches.Count} / {MaxBranches}")));
+            _branchKpi.Children.Add(UiKit.Kpi(T("Активных", "Активдүү", "Active", "Aktif", "Faol"), active.ToString(CultureInfo.InvariantCulture)));
+            _branchKpi.Children.Add(UiKit.Kpi(T("Выключено", "Өчүрүлгөн", "Disabled", "Kapalı", "O'chirilgan"), (_branches.Count - active).ToString(CultureInfo.InvariantCulture)));
+        }
+        else
+        {
+            _branchList.Children.Add(SectionCards.Empty(this, T("Филиалов пока нет. Нажмите «＋ Новый филиал» — потом товар можно будет перемещать с главного склада в филиал (вкладка «Перемещения»). Можно до 3 филиалов.",
+                "Азырынча филиал жок. «＋ Жаңы филиал» басыңыз — анан товарды башкы кампадан филиалга жылдырса болот («Жылдыруулар» өтмөгү). 3 филиалга чейин болот.",
+                "No branches yet. Press “＋ New branch” — then you can move goods from the main warehouse to it (the “Transfers” tab). Up to 3 branches.",
+                "Henüz şube yok. «＋ Yeni şube»ye basın — sonra ürünleri ana depodan şubeye taşıyabilirsiniz («Transferler» sekmesi). En fazla 3 şube.",
+                "Hozircha filial yo'q. «＋ Yangi filial»ni bosing — keyin mahsulotni asosiy ombordan filialga ko'chirish mumkin («Ko'chirishlar» bo'limi). 3 tagacha filial.")));
+            return;
+        }
         var query = (_branchSearch.Text ?? "").Trim();
         var shown = _branches.Where(b => query.Length == 0
             || new[] { b.Name, b.Code, b.Address, b.Phone, b.Email }.Any(x => x.Contains(query, StringComparison.CurrentCultureIgnoreCase))).ToList();
         if (_branches.Count > 0 && shown.Count == 0)
         {
-            _branchList.Children.Add(Hint(T("Ничего не найдено.", "Эч нерсе табылган жок.", "Nothing found.", "Hiçbir şey bulunamadı.", "Hech narsa topilmadi.")));
+            _branchList.Children.Add(SectionCards.Empty(this, T("Ничего не найдено. Ищется по названию, коду, адресу, телефону и почте.", "Эч нерсе табылган жок. Аталышы, коду, дареги, телефону жана почтасы боюнча изделет.",
+                "Nothing found. The search looks at name, code, address, phone and email.", "Hiçbir şey bulunamadı. Ad, kod, adres, telefon ve e-postaya göre aranır.",
+                "Hech narsa topilmadi. Nomi, kodi, manzili, telefoni va pochtasi bo'yicha qidiriladi.")));
             return;
         }
         foreach (var b in shown)
@@ -363,8 +391,15 @@ public sealed class BranchesWindow : Window, IOwnerSection
         head.Children.Add(Pill(b.IsActive ? T("Активен", "Активдүү", "Active", "Aktif", "Faol") : T("Выключен", "Өчүрүлгөн", "Disabled", "Kapalı", "O'chirilgan"),
             b.IsActive ? "BrushSuccessSoft" : "BrushWarningSoft", b.IsActive ? "BrushSuccess" : "BrushWarning"));
         body.Children.Add(head);
-        foreach (var line in new[] { b.Address, b.Phone, b.Email }.Where(x => x.Length > 0))
-            body.Children.Add(Hint(line));
+        // 2026-10-20, этап О9б: карточка плотнее — адрес строкой, телефон и почта одной строкой, пояс и код — одной.
+        if (b.Address.Length > 0)
+        {
+            var address = new TextBlock { Text = b.Address, FontSize = 13.5, TextWrapping = TextWrapping.Wrap };
+            Use(address, TextBlock.ForegroundProperty, "BrushText");
+            body.Children.Add(address);
+        }
+        if (string.Join("  ·  ", new[] { b.Phone, b.Email }.Where(x => x.Length > 0)) is { Length: > 0 } contacts)
+            body.Children.Add(Hint(contacts));
         body.Children.Add(Hint(T("Часовой пояс: ", "Убакыт алкагы: ", "Time zone: ", "Saat dilimi: ", "Vaqt mintaqasi: ") + TimezoneName(b.Timezone)
                                + (b.Code.Length > 0 ? T(" · код: ", " · коду: ", " · code: ", " · kod: ", " · kod: ") + b.Code : "")));
         body.Children.Add(Hint(_branchStats.TryGetValue(b.Id, out var stats) ? stats : T("Считаю товары и сотрудников…", "Товарлар жана кызматкерлер эсептелүүдө…",
@@ -394,7 +429,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
             await LoadTransfersAsync(reset: true).ConfigureAwait(true);
         });
         var delete = Small(T("Удалить", "Өчүрүү (жок кылуу)", "Delete", "Sil", "O'chirib tashlash"), () => DeleteBranchAsync(b));
-        Use(delete, Button.ForegroundProperty, "BrushDanger");
+        delete.Classes.Add("danger"); // 2026-10-20, этап О9б: красная обводка стилем sec-outline.danger (и при наведении), как «Отменить перемещение»
         body.Children.Add(buttons);
         card.Child = body;
         return card;
@@ -508,8 +543,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
                      ("out", T("Исходящие", "Кеткендер", "Outgoing", "Giden", "Chiquvchi")),
                  })
         {
-            var chip = UiKit.Chip(this, text, key == _direction);
-            chip.MinHeight = 36;
+            var chip = UiKit.Seg(text, key == _direction); // 2026-10-20, этап О9б: сегменты вместо чипов
             chip.Click += async (_, _) =>
             {
                 _direction = key;
@@ -519,23 +553,31 @@ public sealed class BranchesWindow : Window, IOwnerSection
             _directionChips.Children.Add(chip);
         }
 
+        // 2026-10-20, этап О9б (правило 2): период и статус — две группы сегментов (выбранный тёмно-синий), а не 7 одинаковых чипов.
         _transferFilters.Children.Clear();
+        var periods = new StackPanel { Orientation = Orientation.Horizontal };
+        var statuses = new StackPanel { Orientation = Orientation.Horizontal };
+        // 2026-10-20, проверка фильтров: даты периода рядом с его сегментами («01.10–20.10»).
+        foreach (var group in new[] { UiKit.WithPeriodLabel(UiKit.Segment(periods), _transferPeriodLabel), UiKit.Segment(statuses) })
+        {
+            group.Margin = new Thickness(0, 0, 8, 8);
+            _transferFilters.Children.Add(group);
+        }
+        _transferPeriodLabel.Text = TransferPeriodFrom() is { } periodFrom ? PeriodRange.Label(periodFrom, DateTime.Today) : "";
         foreach (var (key, text) in new[]
                  {
                      ("week", T("Неделя", "Апта", "Week", "Hafta", "Hafta")), ("month", T("Месяц", "Ай", "Month", "Ay", "Oy")),
                      ("quarter", T("3 месяца", "3 ай", "3 months", "3 ay", "3 oy")), ("all", T("Всё время", "Бардык убакыт", "All time", "Tüm zamanlar", "Butun davr")),
                  })
         {
-            var chip = UiKit.Chip(this, text, key == _period);
-            chip.MinHeight = 36;
-            chip.Margin = new Thickness(0, 0, 8, 8);
+            var chip = UiKit.Seg(text, key == _period);
             chip.Click += async (_, _) =>
             {
                 _period = key;
                 BuildTransferFilters();
                 await LoadTransfersAsync(reset: true).ConfigureAwait(true);
             };
-            _transferFilters.Children.Add(chip);
+            periods.Children.Add(chip);
         }
         foreach (var (key, text) in new[]
                  {
@@ -544,18 +586,28 @@ public sealed class BranchesWindow : Window, IOwnerSection
                      ("cancelled", T("Отменено", "Жокко чыгарылды", "Cancelled", "İptal edildi", "Bekor qilindi")),
                  })
         {
-            var chip = UiKit.Chip(this, text, key == _status);
-            chip.MinHeight = 36;
-            chip.Margin = new Thickness(0, 0, 8, 8);
+            var chip = UiKit.Seg(text, key == _status);
             chip.Click += async (_, _) =>
             {
                 _status = key;
                 BuildTransferFilters();
                 await LoadTransfersAsync(reset: true).ConfigureAwait(true);
             };
-            _transferFilters.Children.Add(chip);
+            statuses.Children.Add(chip);
         }
     }
+
+    // 2026-10-20, проверка фильтров: одни правила периода во всех окнах (PeriodRange) — «Неделя» = 7 дней включая сегодня (было 8:
+    // сегодня−7), «Месяц» — с 1-го числа (было сегодня−30), «3 месяца» — 90 дней включая сегодня (было 91).
+    private readonly TextBlock _transferPeriodLabel = new();
+
+    private DateTime? TransferPeriodFrom() => _period switch
+    {
+        "week" => PeriodRange.WeekFrom(DateTime.Today),
+        "month" => PeriodRange.MonthFrom(DateTime.Today),
+        "quarter" => DateTime.Today.AddDays(-89),
+        _ => (DateTime?)null,
+    };
 
     private async Task LoadTransfersAsync(bool reset)
     {
@@ -571,13 +623,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
             // Как на сайте: у выбранного филиала — «Входящие» (to_branch), «Исходящие» (from_branch) или все его (branch).
             query[_direction switch { "in" => "to_branch", "out" => "from_branch", _ => "branch" }] = branch;
         }
-        var from = _period switch
-        {
-            "week" => DateTime.Today.AddDays(-7),
-            "month" => DateTime.Today.AddDays(-30),
-            "quarter" => DateTime.Today.AddDays(-90),
-            _ => (DateTime?)null,
-        };
+        var from = TransferPeriodFrom();
         if (from is { } f)
         {
             query["date_from"] = f.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -588,7 +634,10 @@ public sealed class BranchesWindow : Window, IOwnerSection
         if ((_transferSearch.Text ?? "").Trim() is { Length: > 0 } search)
             query["search"] = search;
         if (reset)
+        {
+            _transferSummary.IsVisible = true;
             _transferSummary.Text = T("Загружаю перемещения…", "Жылдыруулар жүктөлүүдө…", "Loading transfers…", "Transferler yükleniyor…", "Ko'chirishlar yuklanmoqda…");
+        }
         try
         {
             var data = await _api.RequestAsync(HttpMethod.Get, "api/main/branch-transfers/", null, query, CancellationToken.None, TimeSpan.FromSeconds(30)).ConfigureAwait(true);
@@ -602,23 +651,29 @@ public sealed class BranchesWindow : Window, IOwnerSection
                 _transferList.Children.Clear();
             else if (_transferList.Children.Count > 0 && _transferList.Children[^1] is Button { Tag: "more" } moreButton)
                 _transferList.Children.Remove(moreButton);
+            _transferSummary.IsVisible = false;
             if (count == 0)
             {
-                _transferSummary.Text = T("Перемещений нет. Перенесите товар с главного склада в филиал или между филиалами — «＋ Новое перемещение».",
-                    "Жылдыруу жок. Товарды башкы кампадан филиалга же филиалдардын ортосунда жылдырыңыз — «＋ Жаңы жылдыруу».",
-                    "No transfers. Move goods from the main warehouse to a branch or between branches — \"＋ New transfer\".",
-                    "Transfer yok. Ürünleri ana depodan şubeye veya şubeler arasında taşıyın — \"＋ Yeni transfer\".",
-                    "Ko'chirishlar yo'q. Mahsulotni asosiy ombordan filialga yoki filiallar o'rtasida ko'chiring — «＋ Yangi ko'chirish».");
+                // 2026-10-20, этап О9б: пусто — подсказкой по центру списка, плиток нет.
+                _transferKpi.IsVisible = false;
+                _transferList.Children.Add(SectionCards.Empty(this, T("Перемещений за этот период нет. Чтобы перенести товар с главного склада в филиал или между филиалами, нажмите «＋ Новое перемещение». Прошлые — «Всё время».",
+                    "Бул мезгилде жылдыруу жок. Товарды башкы кампадан филиалга же филиалдардын ортосунда жылдыруу үчүн «＋ Жаңы жылдыруу» басыңыз. Мурункулары — «Бардык убакыт».",
+                    "No transfers for this period. To move goods from the main warehouse to a branch or between branches, press “＋ New transfer”. Older ones — “All time”.",
+                    "Bu dönemde transfer yok. Ürünleri ana depodan şubeye veya şubeler arasında taşımak için «＋ Yeni transfer»e basın. Eskiler — «Tüm zamanlar».",
+                    "Bu davrda ko'chirishlar yo'q. Mahsulotni asosiy ombordan filialga yoki filiallar o'rtasida ko'chirish uchun «＋ Yangi ko'chirish»ni bosing. Oldingilari — «Butun davr».")));
                 return;
             }
             foreach (var row in rows)
                 _transferList.Children.Add(BuildTransferCard(row));
             var completed = rows.Where(r => Str(r, "status") == "completed").ToList();
-            _transferSummary.Text = T($"Перемещений: {count} · проведено на этой странице: {Qty(completed.Sum(r => Num(r, "total_quantity")))} ед. на {Money(completed.Sum(r => Num(r, "total_amount")))}",
-                $"Жылдыруулар: {count} · бул баракта өткөрүлгөнү: {Qty(completed.Sum(r => Num(r, "total_quantity")))} бирдик, {Money(completed.Sum(r => Num(r, "total_amount")))}",
-                $"Transfers: {count} · completed on this page: {Qty(completed.Sum(r => Num(r, "total_quantity")))} units for {Money(completed.Sum(r => Num(r, "total_amount")))}",
-                $"Transferler: {count} · bu sayfada tamamlanan: {Qty(completed.Sum(r => Num(r, "total_quantity")))} birim, {Money(completed.Sum(r => Num(r, "total_amount")))}",
-                $"Ko'chirishlar: {count} · bu sahifada o'tkazilgan: {Qty(completed.Sum(r => Num(r, "total_quantity")))} birlik, {Money(completed.Sum(r => Num(r, "total_amount")))}");
+            // 2026-10-20, этап О9б: итоги — плитками (суммы не обрезаются); «на этой странице» — как и раньше, по загруженным строкам.
+            _transferKpi.Children.Clear();
+            _transferKpi.Children.Add(UiKit.Kpi(T("Перемещений", "Жылдыруулар", "Transfers", "Transferler", "Ko'chirishlar"), count.ToString(CultureInfo.InvariantCulture)));
+            _transferKpi.Children.Add(UiKit.Kpi(T("Проведено на этой странице", "Бул баракта өткөрүлдү", "Completed on this page", "Bu sayfada tamamlanan", "Bu sahifada o'tkazildi"),
+                T($"{Qty(completed.Sum(r => Num(r, "total_quantity")))} ед.", $"{Qty(completed.Sum(r => Num(r, "total_quantity")))} бирдик", $"{Qty(completed.Sum(r => Num(r, "total_quantity")))} units",
+                    $"{Qty(completed.Sum(r => Num(r, "total_quantity")))} birim", $"{Qty(completed.Sum(r => Num(r, "total_quantity")))} birlik")));
+            _transferKpi.Children.Add(UiKit.Kpi(T("На сумму", "Суммасы", "Amount", "Tutar", "Summa"), Money(completed.Sum(r => Num(r, "total_amount")))));
+            _transferKpi.IsVisible = true;
             if (hasNext)
             {
                 var more = UiKit.Ghost(this, T("Показать ещё", "Дагы көрсөтүү", "Show more", "Daha fazla göster", "Yana ko'rsatish"));
@@ -636,6 +691,11 @@ public sealed class BranchesWindow : Window, IOwnerSection
         {
             if (gen != _transferGen)
                 return;
+            // 2026-10-20: проверка фильтров — при ошибке под новым фильтром оставались перемещения прошлого.
+            if (reset)
+                _transferList.Children.Clear();
+            _transferKpi.IsVisible = false;
+            _transferSummary.IsVisible = true;
             _transferSummary.Text = T("Не удалось загрузить: ", "Жүктөө мүмкүн болгон жок: ", "Couldn't load: ", "Yüklenemedi: ", "Yuklab bo'lmadi: ") + ServerTelegramBotApi.DescribeFields(ex);
             PosLogger.Log($"Перемещения филиалов: не загружены ({ex.Message}).", "WARNING");
         }
@@ -659,8 +719,9 @@ public sealed class BranchesWindow : Window, IOwnerSection
         var number = new TextBlock { Text = Str(row, "number") is { Length: > 0 } nm ? nm : "—", FontSize = 15, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
         Use(number, TextBlock.ForegroundProperty, "BrushText");
         titleRow.Children.Add(number);
+        // 2026-10-20, этап О9б (правило 4): «Отменено» — нейтральной плашкой (красный — только долг и убыток).
         titleRow.Children.Add(cancelled
-            ? Pill(T("Отменено", "Жокко чыгарылды", "Cancelled", "İptal edildi", "Bekor qilindi"), "BrushDangerSoft", "BrushDanger")
+            ? Pill(T("Отменено", "Жокко чыгарылды", "Cancelled", "İptal edildi", "Bekor qilindi"), "BrushPanelSoft", "BrushTextSoft")
             : Pill(T("Проведено", "Өткөрүлдү", "Completed", "Tamamlandı", "O'tkazildi"), "BrushSuccessSoft", "BrushSuccess"));
         left.Children.Add(titleRow);
         var direction = SelectedTransferBranchId() is { } selected
@@ -684,38 +745,33 @@ public sealed class BranchesWindow : Window, IOwnerSection
                                    + (DateTime.TryParse(Str(row, "cancelled_at"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var ca) ? " " + ca.ToString("dd.MM.yyyy HH:mm", Ru) : "")
                                    + (Str(row, "cancel_reason") is { Length: > 0 } reason ? ": " + reason : "")));
         head.Children.Add(left);
-        var sum = new TextBlock { Text = Money(Num(row, "total_amount")), FontSize = 17, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Right };
-        Use(sum, TextBlock.ForegroundProperty, "BrushText");
+        var sum = new TextBlock { Text = Money(Num(row, "total_amount")), FontSize = 17, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(12, 0, 0, 0) };
+        sum.Classes.Add("num");
+        Use(sum, TextBlock.ForegroundProperty, cancelled ? "BrushTextSoft" : "BrushText");
         Grid.SetColumn(sum, 1);
         head.Children.Add(sum);
         body.Children.Add(head);
 
         var expanded = _expanded.Contains(id);
-        var more = new TextBlock
-        {
-            Text = expanded ? T("▴ Скрыть товары", "▴ Товарларды жашыруу", "▴ Hide products", "▴ Ürünleri gizle", "▴ Mahsulotlarni yashirish")
-                : T("▾ Товары, отмена, повтор", "▾ Товарлар, жокко чыгаруу, кайталоо", "▾ Products, cancel, repeat", "▾ Ürünler, iptal, tekrar", "▾ Mahsulotlar, bekor qilish, takrorlash"),
-            FontSize = 12.5,
-        };
-        Use(more, TextBlock.ForegroundProperty, "BrushAccentStrong");
+        // 2026-10-20, этап О9б: цветом текста (был жёлтый на белом), состав — таблицей с ровными числами.
+        var more = SectionCards.Toggle(this, expanded ? T("Скрыть товары ▴", "Товарларды жашыруу ▴", "Hide products ▴", "Ürünleri gizle ▴", "Mahsulotlarni yashirish ▴")
+            : T("Товары, отмена, повтор ▾", "Товарлар, жокко чыгаруу, кайталоо ▾", "Products, cancel, repeat ▾", "Ürünler, iptal, tekrar ▾", "Mahsulotlar, bekor qilish, takrorlash ▾"));
         body.Children.Add(more);
         if (expanded)
         {
             if (_transferDetails.TryGetValue(id, out var detail))
             {
                 if (detail.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+                {
+                    var table = new List<(string, string, string, string)>();
                     foreach (var it in items.EnumerateArray())
                     {
                         var unit = Str(it, "unit") is { Length: > 0 } u ? u : T("шт", "даана", "pcs", "adet", "dona");
-                        var line = new TextBlock
-                        {
-                            Text = $"{Str(it, "name")} — {Qty(Num(it, "quantity"))} {unit} × {Money(Num(it, "price"))} = {Money(Num(it, "amount"))}"
-                                   + (Str(it, "barcode") is { Length: > 0 } bc ? "  ·  " + bc : ""),
-                            FontSize = 13, TextWrapping = TextWrapping.Wrap,
-                        };
-                        Use(line, TextBlock.ForegroundProperty, "BrushText");
-                        body.Children.Add(line);
+                        table.Add((Str(it, "name") + (Str(it, "barcode") is { Length: > 0 } bc ? "  ·  " + bc : ""), $"{Qty(Num(it, "quantity"))} {unit}", Money(Num(it, "price")), Money(Num(it, "amount"))));
                     }
+                    body.Children.Add(SectionCards.LinesTable(this, table, T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), T("Кол-во", "Саны", "Qty", "Adet", "Soni"),
+                        T("Цена", "Баасы", "Price", "Fiyat", "Narx"), T("Сумма", "Суммасы", "Amount", "Tutar", "Summa")));
+                }
                 var actions = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
                 var repeat = UiKit.Ghost(this, T("↻ Повторить", "↻ Кайталоо", "↻ Repeat", "↻ Tekrarla", "↻ Takrorlash"));
                 repeat.Height = 38;
@@ -726,7 +782,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
                 {
                     var cancel = UiKit.Ghost(this, T("Отменить перемещение", "Жылдырууну жокко чыгаруу", "Cancel the transfer", "Transferi iptal et", "Ko'chirishni bekor qilish"));
                     cancel.Height = 38;
-                    Use(cancel, Button.ForegroundProperty, "BrushDanger");
+                    cancel.Classes.Add("danger"); // 2026-10-18, ревью О3: красная обводка стилем sec-outline.danger (и при наведении)
                     cancel.Click += async (_, _) => await CancelTransferAsync(row).ConfigureAwait(true);
                     actions.Children.Add(cancel);
                 }
@@ -844,12 +900,10 @@ public sealed class BranchesWindow : Window, IOwnerSection
     private async Task<string?> AskAsync(string text, bool withNo, TextBox? reasonBox)
     {
         var tcs = new TaskCompletionSource<string?>();
-        var dialog = new Window
-        {
-            Width = 480, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner, CanResize = false, Title = Title,
-        };
-        Use(dialog, BackgroundProperty, "BrushWindowBackdrop");
-        var panel = new StackPanel { Margin = new Thickness(20), Spacing = 16 };
+        // 2026-10-20, этап О9б: вопрос — в общей оболочке ModalShell (✕ и Esc — как «Нет»); ответы и порядок — прежние.
+        var dialog = new Window { Title = Title };
+        SectionCards.AsModal(dialog, 512);
+        var panel = new StackPanel { Spacing = 14 };
         var label = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 14 };
         Use(label, TextBlock.ForegroundProperty, "BrushText");
         panel.Children.Add(label);
@@ -858,19 +912,18 @@ public sealed class BranchesWindow : Window, IOwnerSection
             reasonBox.MaxLength = 500;
             panel.Children.Add(reasonBox);
         }
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
-        var yes = UiKit.Primary(this, withNo ? T("Да", "Ооба", "Yes", "Evet", "Ha") : "OK");
+        var row = SectionCards.Buttons();
+        var yes = SectionCards.Primary(withNo ? T("Да", "Ооба", "Yes", "Evet", "Ha") : "OK");
         yes.Click += (_, _) => { tcs.TrySetResult((reasonBox?.Text ?? "").Trim()); dialog.Close(); };
         if (withNo)
         {
-            var no = UiKit.Ghost(this, T("Нет", "Жок", "No", "Hayır", "Yo'q"));
+            var no = SectionCards.Cancel(T("Нет", "Жок", "No", "Hayır", "Yo'q"));
             no.Click += (_, _) => { tcs.TrySetResult(null); dialog.Close(); };
             row.Children.Add(no);
         }
         dialog.Closed += (_, _) => tcs.TrySetResult(withNo ? null : "");
         row.Children.Add(yes);
-        panel.Children.Add(row);
-        dialog.Content = panel;
+        dialog.Content = SectionCards.Shell(Title, null, panel, row);
         await dialog.ShowDialog(this).ConfigureAwait(true);
         return await tcs.Task.ConfigureAwait(true);
     }
@@ -920,15 +973,10 @@ public sealed class BranchEditDialog : Window
         Title = branch == null
             ? T("Новый филиал", "Жаңы филиал", "New branch", "Yeni şube", "Yangi filial")
             : T("Изменить филиал", "Филиалды өзгөртүү", "Edit branch", "Şubeyi düzenle", "Filialni o'zgartirish");
-        Width = 560;
-        SizeToContent = SizeToContent.Height;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Use(this, BackgroundProperty, "BrushWindowBackdrop");
+        // 2026-10-20, этап О9б: окно в общей оболочке ModalShell (заголовок и ✕ сверху, кнопки снизу на месте). Поля — прежние.
+        SectionCards.AsModal(this, 592);
 
-        var panel = new StackPanel { Spacing = 6, Margin = new Thickness(20) };
-        var title = new TextBlock { Text = Title, FontSize = 20, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 0, 0, 6) };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
-        panel.Children.Add(title);
+        var panel = new StackPanel { Spacing = 6 };
 
         TextBox Field(string label, string watermark, string value, int max)
         {
@@ -959,18 +1007,22 @@ public sealed class BranchEditDialog : Window
         Use(_active, ForegroundProperty, "BrushText");
         panel.Children.Add(_active);
 
-        Use(_error, TextBlock.ForegroundProperty, "BrushDanger");
-        panel.Children.Add(_error);
+        var errorBox = SectionCards.ErrorBox(this, _error);
+        errorBox.Margin = new Thickness(0, 6, 0, 0);
+        panel.Children.Add(errorBox);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
-        var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        var cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => Close(false);
-        _save = UiKit.Primary(this, T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"));
+        _save = SectionCards.Primary(T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"));
         _save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
-        buttons.Children.Add(cancel);
-        buttons.Children.Add(_save);
-        panel.Children.Add(buttons);
-        Content = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        var hint = new TextBlock
+        {
+            Text = T("* — обязательно. Филиал общий с сайтом NurCRM.", "* — милдеттүү. Филиал NurCRM сайты менен жалпы.", "* — required. The branch is shared with the NurCRM website.",
+                "* — zorunlu. Şube NurCRM sitesiyle ortaktır.", "* — majburiy. Filial NurCRM sayti bilan umumiy."),
+            FontSize = 12, TextWrapping = TextWrapping.Wrap, MinWidth = 140,
+        };
+        Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
+        Content = SectionCards.Shell(Title, null, panel, SectionCards.Buttons(cancel, _save), hint);
     }
 
     private void ShowError(string text)
@@ -1078,19 +1130,15 @@ public sealed class BranchTransferDialog : Window
     {
         _api = App.GetRequiredService<NurMarketApiClient>();
         Title = T("Новое перемещение", "Жаңы жылдыруу", "New transfer", "Yeni transfer", "Yangi ko'chirish");
-        Width = 760;
-        Height = 860;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Use(this, BackgroundProperty, "BrushWindowBackdrop");
+        // 2026-10-20, этап О9б: окно в общей оболочке ModalShell — итог и «Провести перемещение» внизу всегда видны,
+        // содержимое прокручивается между шапкой и низом. Поля, поиск и проверки — прежние.
+        SectionCards.AsModal(this, 792);
 
         // Только активные филиалы — как на сайте («Отправитель/получатель неактивен»).
         _places = new List<(string? Id, string Name)> { (null, BranchesWindow.MainWarehouse) };
         _places.AddRange(branches.Where(b => b.IsActive).Select(b => ((string?)b.Id, b.Name)));
 
-        var panel = new StackPanel { Spacing = 8, Margin = new Thickness(20) };
-        var title = new TextBlock { Text = Title, FontSize = 20, FontWeight = FontWeight.Bold };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
-        panel.Children.Add(title);
+        var panel = new StackPanel { Spacing = 8 };
 
         var route = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,*") };
         var fromBox = new StackPanel { Spacing = 4 };
@@ -1137,25 +1185,34 @@ public sealed class BranchTransferDialog : Window
         };
         panel.Children.Add(_search);
         panel.Children.Add(_results);
-        panel.Children.Add(_lines);
+        // 2026-10-20, этап О9б: добавленные товары — в рамке (видна, когда строки есть).
+        var linesGroup = SectionCards.Group(this, _lines);
+        linesGroup.IsVisible = false;
+        _lines.Children.CollectionChanged += (_, _) => linesGroup.IsVisible = _lines.Children.Count > 0;
+        panel.Children.Add(linesGroup);
 
         _comment = UiKit.Input(this, T("Комментарий (необязательно)", "Комментарий (милдеттүү эмес)", "Comment (optional)", "Yorum (isteğe bağlı)", "Izoh (ixtiyoriy)"), 40);
         _comment.MaxLength = 500;
+        _comment.Margin = new Thickness(0, 6, 0, 0);
         panel.Children.Add(_comment);
+        // 2026-10-20, этап О9б: итог — слева на строке кнопок, ошибка — красной плашкой.
+        _total.FontSize = 14;
+        _total.TextWrapping = TextWrapping.Wrap;
+        _total.MinWidth = 140;
         Use(_total, TextBlock.ForegroundProperty, "BrushText");
-        panel.Children.Add(_total);
-        Use(_error, TextBlock.ForegroundProperty, "BrushDanger");
-        panel.Children.Add(_error);
+        var errorBox = SectionCards.ErrorBox(this, _error);
+        errorBox.Margin = new Thickness(0, 6, 0, 0);
+        panel.Children.Add(errorBox);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
-        var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        var cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => Close(false);
-        _save = UiKit.Primary(this, T("Провести перемещение", "Жылдырууну өткөрүү", "Make the transfer", "Transferi gerçekleştir", "Ko'chirishni o'tkazish"));
+        _save = SectionCards.Primary(T("Провести перемещение", "Жылдырууну өткөрүү", "Make the transfer", "Transferi gerçekleştir", "Ko'chirishni o'tkazish"));
         _save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
-        buttons.Children.Add(cancel);
-        buttons.Children.Add(_save);
-        panel.Children.Add(buttons);
-        Content = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        Content = SectionCards.Shell(Title,
+            T("Остатки изменятся сразу — у отправителя уменьшатся, у получателя прибавятся.", "Калдыктар дароо өзгөрөт — жөнөтүүчүдө азаят, алуучуда көбөйөт.",
+                "Stock changes right away — down at the sender, up at the receiver.", "Stok hemen değişir — gönderende azalır, alıcıda artar.",
+                "Qoldiqlar darhol o'zgaradi — jo'natuvchida kamayadi, qabul qiluvchida ko'payadi."),
+            panel, SectionCards.Buttons(cancel, _save), _total);
 
         // Откуда/куда: по умолчанию главный склад → выбранный в списке филиал (или первый активный).
         var fromIndex = 0;
@@ -1433,25 +1490,17 @@ public sealed class BranchTransferDialog : Window
     private async Task<bool> ConfirmAsync(string text)
     {
         var tcs = new TaskCompletionSource<bool>();
-        var dialog = new Window
-        {
-            Width = 480, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner, CanResize = false, Title = Title,
-        };
-        Use(dialog, BackgroundProperty, "BrushWindowBackdrop");
-        var panel = new StackPanel { Margin = new Thickness(20), Spacing = 16 };
+        // 2026-10-20, этап О9б: подтверждение — в общей оболочке ModalShell (✕ и Esc — как «Нет»).
+        var dialog = new Window { Title = Title };
+        SectionCards.AsModal(dialog, 512);
         var label = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 14 };
         Use(label, TextBlock.ForegroundProperty, "BrushText");
-        panel.Children.Add(label);
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
-        var yes = UiKit.Primary(this, T("Провести", "Өткөрүү", "Do it", "Gerçekleştir", "O'tkazish"));
-        var no = UiKit.Ghost(this, T("Нет", "Жок", "No", "Hayır", "Yo'q"));
+        var yes = SectionCards.Primary(T("Провести", "Өткөрүү", "Do it", "Gerçekleştir", "O'tkazish"));
+        var no = SectionCards.Cancel(T("Нет", "Жок", "No", "Hayır", "Yo'q"));
         yes.Click += (_, _) => { tcs.TrySetResult(true); dialog.Close(); };
         no.Click += (_, _) => { tcs.TrySetResult(false); dialog.Close(); };
         dialog.Closed += (_, _) => tcs.TrySetResult(false);
-        row.Children.Add(no);
-        row.Children.Add(yes);
-        panel.Children.Add(row);
-        dialog.Content = panel;
+        dialog.Content = SectionCards.Shell(Title, null, label, SectionCards.Buttons(no, yes));
         await dialog.ShowDialog(this).ConfigureAwait(true);
         return await tcs.Task.ConfigureAwait(true);
     }

@@ -13,107 +13,118 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Денежный ящик открывается после каждой продажи наличными — сразу после печати чека; чек больше не обрывается на середине",
-        "Нур Советник: накладная на нескольких фото или PDF (до 10 страниц) читается как одна; «Отредактировать» — таблица: название в накладной и в чеке, количество, закупка, продажа",
-        "Склад, приёмка: товары выбранного поставщика с последней закупкой; ✕ у строки и «Очистить список»; поле «Принято» можно стереть; подсказки закрываются по Esc и ✕. Ревизия: «Очистить список» и ✕ у строки",
-        "Окно товара: вкладки «Основное» (с горячей клавишей и оптовой ценой), «Доп. штрих-коды» (с артикулом, штрихкод можно исправить ✎), «Упаковка» с минимальным остатком (хранится на сервере), «Описание» с категорией и брендом",
-        "Смена: сумма при открытии и закрытии не может быть отрицательной, при закрытии нужна фактическая сумма наличных (0, если их нет)",
-        "Исправлено: двойное нажатие в возврате; при обрыве связи скан неизвестного штрихкода не предлагает создать дубль товара; пустое перемещение не остаётся в списке; «Обновить» на складе показывает загрузку",
+        "Возврат учитывает скидку на чек и долг: к выдаче — только то, что реально оплачено; в истории чека виден блок «Возвраты»",
+        "Долг: срок возврата (обычно 30 дней) печатается в чеке — «Вернуть до …»; оплата долга — список долгов клиента, Enter и подтверждение «Погасить»",
+        "Закрытие смены с разбивкой продаж и возвратов и строкой «Ожидается N»; X-отчёт — без закрытия смены",
+        "Поставщики: поставщик в карточке товара, долг поставщику при приёмке и его оплата",
+        "Прокат — во всех видах магазина; в программе владельца во вкладке «Клиенты» — КП, счёт и накладная (PDF, Word, печать, WhatsApp)",
+        "Нур Советник отвечает быстрее (1–3 секунды) и точнее, показывает «откуда цифры» и таблицу в Excel; утренний отчёт в 9:00 и напоминания должникам",
+        "Telegram-бот: владелец подтверждает себя одноразовым кодом, выручка с сервера, быстрые ответы, меню кнопками",
+        "Новый вид окон и меню ☰, тёмная тема без жёлтых цен, много мелких исправлений",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Акча кутусу накталай ар бир сатуудан кийин ачылат — чек басылгандан кийин дароо; чек ортосунан үзүлбөйт",
-        "Нур Кеңешчи: бир нече сүрөттөгү же PDFтеги (10 баракка чейин) накладной бир накладной катары окулат; «Оңдоо» — таблица: накладнойдогу жана чектеги аталыш, саны, сатып алуу, сатуу",
-        "Кампа, кабыл алуу: тандалган жеткирүүчүнүн товарлары акыркы баасы менен; саптагы ✕ жана «Тизмени тазалоо»; «Кабыл алынды» талаасын өчүрсө болот; сунуштар Esc жана ✕ менен жабылат. Ревизия: «Тизмени тазалоо» жана саптагы ✕",
-        "Товардын терезеси: «Негизги» (ысык баскыч жана дүң баа менен), «Кошумча штрихкоддор» (артикул менен, штрихкодду ✎ менен оңдосо болот), минималдуу калдык менен «Таңгак» (серверде сакталат), категория жана бренд менен «Сүрөттөмө»",
-        "Смена: ачууда жана жабууда сумма терс боло албайт, жабууда нак акчанын чыныгы суммасы керек (жок болсо 0)",
-        "Оңдолду: кайтарууда эки жолу басуу; байланыш үзүлгөндө белгисиз штрихкодду сканерлөө товардын дублун түзүүнү сунуштабайт; бош жылдыруу тизмеде калбайт; кампадагы «Жаңыртуу» жүктөөнү көрсөтөт",
+        "Кайтаруу чектеги арзандатууну жана карызды эске алат: чыныгы төлөнгөнү гана берилет; чектин тарыхында «Кайтаруулар» бөлүгү көрүнөт",
+        "Карыз: кайтаруу мөөнөтү (адатта 30 күн) чекте басылат — «… чейин кайтаруу»; карызды төлөө — кардардын карыздарынын тизмеси, Enter жана «Жабуу» ырастоосу",
+        "Сменаны жабуу сатуулардын жана кайтаруулардын бөлүнүшү жана «Күтүлөт N» сабы менен; X-отчёт — сменаны жаппай",
+        "Жеткирүүчүлөр: товардын карточкасында жеткирүүчү, кабыл алууда жеткирүүчүгө карыз жана аны төлөө",
+        "Прокат — дүкөндүн бардык түрлөрүндө; ээсинин программасында «Кардарлар» өтмөгүндө — КП, эсеп жана накладной (PDF, Word, басып чыгаруу, WhatsApp)",
+        "Нур Кеңешчи тезирээк (1–3 секунд) жана тагыраак жооп берет, «сандар кайдан» жана Excel таблицасын көрсөтөт; саат 9:00дө эртең мененки отчёт жана карыздарга эскертүүлөр",
+        "Telegram-бот: ээси өзүн бир жолку код менен ырастайт, түшкөн акча серверден, тез жооптор, баскычтар менен меню",
+        "Терезелердин жана ☰ менюнун жаңы көрүнүшү, баалары сары эмес караңгы тема, көп майда оңдоолор",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "The cash drawer opens after every cash sale — right after the receipt is printed; the receipt is no longer cut off in the middle",
-        "Nur Advisor: an invoice on several photos or PDFs (up to 10 pages) is read as one; “Edit” — a table: name on the invoice and on the receipt, quantity, purchase and selling price",
-        "Warehouse, receiving: products of the chosen supplier with the last purchase price; ✕ on a row and “Clear list”; the “Received” field can be erased; suggestions close with Esc and ✕. Stocktake: “Clear list” and ✕ on a row",
-        "Product window: “Main” (with hotkey and wholesale price), “Extra barcodes” (with article, a barcode can be corrected with ✎), “Packaging” with minimum stock (kept on the server), “Description” with category and brand",
-        "Shift: the amount at opening and closing cannot be negative; closing needs the counted cash (0 if there is none)",
-        "Fixed: double tap in returns; when the connection drops, scanning an unknown barcode no longer offers to create a duplicate product; an empty transfer no longer stays in the list; “Refresh” in the warehouse shows loading",
+        "Returns take the receipt discount and debt into account: only what was actually paid is given back; the receipt history shows a “Returns” block",
+        "Debt: the due date (usually 30 days) is printed on the receipt — “Return by …”; paying a debt shows the client's debts, Enter and a “Pay off” confirmation",
+        "Closing a shift shows sales and returns separately and an “Expected N” line; the X-report works without closing the shift",
+        "Suppliers: the supplier in the product card, a supplier debt at receiving and paying it",
+        "Rentals in every store type; in the owner app the “Clients” tab has quotes, invoices and waybills (PDF, Word, print, WhatsApp)",
+        "Nur Advisor answers faster (1–3 seconds) and more accurately, shows “where the numbers come from” and an Excel table; a morning report at 9:00 and reminders to debtors",
+        "Telegram bot: the owner confirms with a one-time code, revenue from the server, fast replies, a button menu",
+        "New look of windows and the ☰ menu, a dark theme without yellow prices, many small fixes",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Para çekmecesi her nakit satıştan sonra açılır — fiş basıldıktan hemen sonra; fiş artık ortasında kesilmez",
-        "Nur Danışman: birkaç fotoğraf veya PDF'teki (10 sayfaya kadar) fatura tek fatura olarak okunur; «Düzenle» — tablo: faturadaki ve fişteki ad, miktar, alış, satış",
-        "Depo, mal kabul: seçilen tedarikçinin ürünleri son alış fiyatıyla; satırda ✕ ve «Listeyi temizle»; «Kabul edilen» alanı silinebilir; öneriler Esc ve ✕ ile kapanır. Sayım: «Listeyi temizle» ve satırda ✕",
-        "Ürün penceresi: «Ana» (kısayol tuşu ve toptan fiyatla), «Ek barkodlar» (stok koduyla, barkod ✎ ile düzeltilebilir), minimum stoklu «Ambalaj» (sunucuda saklanır), kategori ve markalı «Açıklama»",
-        "Vardiya: açılış ve kapanış tutarı negatif olamaz; kapanışta sayılan nakit gerekir (yoksa 0)",
-        "Düzeltildi: iadede çift dokunma; bağlantı kesilince bilinmeyen barkodu okutmak ürün kopyası oluşturmayı önermez; boş transfer listede kalmaz; depoda «Yenile» yüklemeyi gösterir",
+        "İade, fiş indirimini ve borcu dikkate alır: yalnızca gerçekten ödenen geri verilir; fiş geçmişinde «İadeler» bölümü görünür",
+        "Borç: geri ödeme tarihi (genelde 30 gün) fişe basılır — «… tarihine kadar iade»; borç ödemede müşterinin borçları, Enter ve «Kapat» onayı",
+        "Vardiya kapanışı satışları ve iadeleri ayrı ve «Beklenen N» satırıyla gösterir; X raporu vardiyayı kapatmadan çalışır",
+        "Tedarikçiler: ürün kartında tedarikçi, mal kabulde tedarikçiye borç ve ödemesi",
+        "Kiralama tüm mağaza türlerinde; sahip programında «Müşteriler» sekmesinde teklif, fatura ve irsaliye (PDF, Word, yazdırma, WhatsApp)",
+        "Nur Danışman daha hızlı (1–3 saniye) ve daha doğru yanıt verir, «rakamlar nereden» ve Excel tablosu gösterir; 9:00'da sabah raporu ve borçlulara hatırlatmalar",
+        "Telegram botu: sahip kendini tek kullanımlık kodla doğrular, ciro sunucudan, hızlı yanıtlar, düğmeli menü",
+        "Pencerelerin ve ☰ menüsünün yeni görünümü, sarı fiyatsız koyu tema, birçok küçük düzeltme",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Pul qutisi har bir naqd sotuvdan keyin ochiladi — chek bosilgandan keyin darhol; chek endi o'rtasida uzilmaydi",
-        "Nur Maslahatchi: bir nechta rasm yoki PDFdagi (10 sahifagacha) nakladnoy bitta nakladnoy sifatida o'qiladi; «Tahrirlash» — jadval: nakladnoydagi va chekdagi nom, miqdor, xarid, sotuv",
-        "Ombor, qabul qilish: tanlangan yetkazib beruvchining mahsulotlari oxirgi xarid narxi bilan; qatordagi ✕ va «Ro'yxatni tozalash»; «Qabul qilindi» maydonini o'chirish mumkin; takliflar Esc va ✕ bilan yopiladi. Reviziya: «Ro'yxatni tozalash» va qatordagi ✕",
-        "Mahsulot oynasi: «Asosiy» (tezkor tugma va ulgurji narx bilan), «Qo'shimcha shtrix-kodlar» (artikul bilan, shtrix-kodni ✎ bilan tuzatish mumkin), minimal qoldiqli «Qadoq» (serverda saqlanadi), toifa va brendli «Tavsif»",
-        "Smena: ochish va yopishda summa manfiy bo'lishi mumkin emas; yopishda sanalgan naqd pul kerak (bo'lmasa 0)",
-        "Tuzatildi: qaytarishda ikki marta bosish; aloqa uzilganda noma'lum shtrix-kodni skanerlash mahsulot nusxasini yaratishni taklif qilmaydi; bo'sh ko'chirish ro'yxatda qolmaydi; ombordagi «Yangilash» yuklanishni ko'rsatadi",
+        "Qaytarish chekdagi chegirma va qarzni hisobga oladi: faqat haqiqatda to'langani qaytariladi; chek tarixida «Qaytarishlar» bloki ko'rinadi",
+        "Qarz: qaytarish muddati (odatda 30 kun) chekda bosiladi — «… gacha qaytarish»; qarzni to'lashda mijozning qarzlari ro'yxati, Enter va «Yopish» tasdig'i",
+        "Smenani yopish sotuvlar va qaytarishlarni alohida hamda «Kutilmoqda N» qatori bilan ko'rsatadi; X-hisobot smenani yopmasdan ishlaydi",
+        "Yetkazib beruvchilar: mahsulot kartasida yetkazib beruvchi, qabul qilishda yetkazib beruvchiga qarz va uni to'lash",
+        "Prokat do'konning barcha turlarida; egasining dasturida «Mijozlar» bo'limida tijorat taklifi, hisob va nakladnoy (PDF, Word, chop etish, WhatsApp)",
+        "Nur Maslahatchi tezroq (1–3 soniya) va aniqroq javob beradi, «raqamlar qayerdan» va Excel jadvalini ko'rsatadi; soat 9:00 da ertalabki hisobot va qarzdorlarga eslatmalar",
+        "Telegram-bot: egasi o'zini bir martalik kod bilan tasdiqlaydi, tushum serverdan, tezkor javoblar, tugmali menyu",
+        "Oynalar va ☰ menyuning yangi ko'rinishi, sariq narxlarsiz qorong'i mavzu, ko'plab mayda tuzatishlar",
     ];
 
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно
     // «Касса обновлена» показывало пункты десктопа («на вашем компьютере», «сведения о компьютере») —
     // у Android свой список, тот же, что в выпуске Nurmarket-Android.
+    // 2026-10-21: Android 1.17.59 (тестовая) — то же, что на Windows в 1.17.59, без пунктов только для компьютера.
     // 2026-10-11: Android 1.17.58 (после 1.17.53 — всё, что вышло на Windows в 1.17.54–1.17.58).
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
-        "ИИ-советник теперь «Нур Советник»: сам загружает данные и показывает таблицей (чеки за день или неделю, сотрудники, табель, зарплата, должники); разделы открывает по команде «открой»",
-        "Нур Советник работает с товарами: приход, списание, цены, фото из интернета; накладная по фото — на нескольких страницах, с наценкой не ниже 20 % и редактором «Отредактировать»",
-        "Новый склад: плитки остатков, кнопка «±», фото в строке; приёмка с товарами поставщика, ✕ у строки и «Очистить список»; ревизия — «Очистить список»",
-        "Окно товара: вкладки «Основное», «Доп. штрих-коды» (исправление ✎), «Упаковка» с минимальным остатком, «Описание»; новый товар — штрихкод по названию из barcode-list.ru для сверки",
-        "Редактор сайта: темы и публикация; «Смотреть сайт» открывает market.nurcrm.kg",
-        "Денежный ящик открывается после печати чека каждый раз; смена не принимает отрицательную сумму; «Финансы» не пишут «Нет связи» при большом числе чеков",
+        "Возврат учитывает скидку на чек и долг: к выдаче — только то, что реально оплачено; в истории чека виден блок «Возвраты»",
+        "Долг: срок возврата (обычно 30 дней) печатается в чеке — «Вернуть до …»; оплата долга — список долгов клиента и подтверждение «Погасить»",
+        "Закрытие смены с разбивкой продаж и возвратов и строкой «Ожидается N»; X-отчёт — без закрытия смены",
+        "Поставщики: поставщик в карточке товара, долг поставщику при приёмке и его оплата; прокат — во всех видах магазина",
+        "Нур Советник отвечает быстрее (1–3 секунды) и точнее, показывает «откуда цифры»; утренний отчёт в 9:00 и напоминания должникам",
+        "Новый вид окон и меню, тёмная тема без жёлтых цен, много мелких исправлений",
     ];
 
     public static readonly string[] AndroidLatestKy =
     [
-        "ИИ-кеңешчи эми «Нур Кеңешчи»: маалыматты өзү жүктөп, таблица менен көрсөтөт (күндүк же жумалык чектер, кызматкерлер, табель, эмгек акы, карыздар); бөлүмдөрдү «ач» буйругу менен ачат",
-        "Нур Кеңешчи товарлар менен иштейт: кирим, чыгым, баалар, интернеттен сүрөт; сүрөт боюнча накладной — бир нече баракта, 20 %дан кем эмес үстөк баа жана «Оңдоо» редактору менен",
-        "Жаңы кампа: калдыктардын плиткалары, «±» баскычы, саптагы сүрөт; жеткирүүчүнүн товарлары менен кабыл алуу, саптагы ✕ жана «Тизмени тазалоо»; ревизия — «Тизмени тазалоо»",
-        "Товардын терезеси: «Негизги», «Кошумча штрихкоддор» (✎ менен оңдоо), минималдуу калдык менен «Таңгак», «Сүрөттөмө»; жаңы товар — салыштыруу үчүн barcode-list.ru'дан аталышы боюнча штрихкод",
-        "Сайттын редактору: темалар жана жарыялоо; «Сайтты көрүү» market.nurcrm.kg ачат",
-        "Акча кутусу ар дайым чек басылгандан кийин ачылат; смена терс сумманы кабыл албайт; чек көп болгондо «Финансылар» «Байланыш жок» деп жазбайт",
+        "Кайтаруу чектеги арзандатууну жана карызды эске алат: чыныгы төлөнгөнү гана берилет; чектин тарыхында «Кайтаруулар» бөлүгү көрүнөт",
+        "Карыз: кайтаруу мөөнөтү (адатта 30 күн) чекте басылат — «… чейин кайтаруу»; карызды төлөө — кардардын карыздарынын тизмеси жана «Жабуу» ырастоосу",
+        "Сменаны жабуу сатуулардын жана кайтаруулардын бөлүнүшү жана «Күтүлөт N» сабы менен; X-отчёт — сменаны жаппай",
+        "Жеткирүүчүлөр: товардын карточкасында жеткирүүчү, кабыл алууда жеткирүүчүгө карыз жана аны төлөө; прокат — дүкөндүн бардык түрлөрүндө",
+        "Нур Кеңешчи тезирээк (1–3 секунд) жана тагыраак жооп берет, «сандар кайдан» көрсөтөт; саат 9:00дө эртең мененки отчёт жана карыздарга эскертүүлөр",
+        "Терезелердин жана менюнун жаңы көрүнүшү, баалары сары эмес караңгы тема, көп майда оңдоолор",
     ];
 
     public static readonly string[] AndroidLatestEn =
     [
-        "The AI advisor is now “Nur Advisor”: it loads data itself and shows tables (receipts for a day or week, staff, timesheet, salary, debtors); it opens sections on an “open” command",
-        "Nur Advisor works with products: receiving, write-offs, prices, photos from the web; an invoice by photo — on several pages, with a markup of at least 20 % and an “Edit” table",
-        "New warehouse: stock tiles, the “±” button, a photo in the row; receiving with the supplier's products, ✕ on a row and “Clear list”; stocktake — “Clear list”",
-        "Product window: “Main”, “Extra barcodes” (edit with ✎), “Packaging” with minimum stock, “Description”; a new product gets barcode suggestions by name from barcode-list.ru to check",
-        "Website editor: themes and publishing; “View website” opens market.nurcrm.kg",
-        "The cash drawer opens after the receipt is printed, every time; a shift does not accept a negative amount; “Finance” no longer says “No connection” with many receipts",
+        "Returns take the receipt discount and debt into account: only what was actually paid is given back; the receipt history shows a “Returns” block",
+        "Debt: the due date (usually 30 days) is printed on the receipt — “Return by …”; paying a debt shows the client's debts and a “Pay off” confirmation",
+        "Closing a shift shows sales and returns separately and an “Expected N” line; the X-report works without closing the shift",
+        "Suppliers: the supplier in the product card, a supplier debt at receiving and paying it; rentals in every store type",
+        "Nur Advisor answers faster (1–3 seconds) and more accurately, shows “where the numbers come from”; a morning report at 9:00 and reminders to debtors",
+        "New look of windows and the menu, a dark theme without yellow prices, many small fixes",
     ];
 
     public static readonly string[] AndroidLatestTr =
     [
-        "Yapay zekâ danışmanı artık «Nur Danışman»: verileri kendisi yükler ve tablo olarak gösterir (günün veya haftanın fişleri, personel, puantaj, maaş, borçlular); bölümleri «aç» komutuyla açar",
-        "Nur Danışman ürünlerle çalışır: mal kabul, düşüm, fiyatlar, internetten fotoğraf; fotoğraftan fatura — birkaç sayfa, en az %20 kâr payı ve «Düzenle» tablosuyla",
-        "Yeni depo: stok kutucukları, «±» düğmesi, satırda fotoğraf; tedarikçinin ürünleriyle mal kabul, satırda ✕ ve «Listeyi temizle»; sayım — «Listeyi temizle»",
-        "Ürün penceresi: «Ana», «Ek barkodlar» (✎ ile düzeltme), minimum stoklu «Ambalaj», «Açıklama»; yeni ürün — karşılaştırmak için barcode-list.ru'dan ada göre barkod",
-        "Site düzenleyici: temalar ve yayınlama; «Siteyi gör» market.nurcrm.kg'yi açar",
-        "Para çekmecesi her seferinde fiş basıldıktan sonra açılır; vardiya negatif tutarı kabul etmez; çok fiş olduğunda «Finans» «Bağlantı yok» demez",
+        "İade, fiş indirimini ve borcu dikkate alır: yalnızca gerçekten ödenen geri verilir; fiş geçmişinde «İadeler» bölümü görünür",
+        "Borç: geri ödeme tarihi (genelde 30 gün) fişe basılır — «… tarihine kadar iade»; borç ödemede müşterinin borçları ve «Kapat» onayı",
+        "Vardiya kapanışı satışları ve iadeleri ayrı ve «Beklenen N» satırıyla gösterir; X raporu vardiyayı kapatmadan çalışır",
+        "Tedarikçiler: ürün kartında tedarikçi, mal kabulde tedarikçiye borç ve ödemesi; kiralama tüm mağaza türlerinde",
+        "Nur Danışman daha hızlı (1–3 saniye) ve daha doğru yanıt verir, «rakamlar nereden» gösterir; 9:00'da sabah raporu ve borçlulara hatırlatmalar",
+        "Pencerelerin ve menünün yeni görünümü, sarı fiyatsız koyu tema, birçok küçük düzeltme",
     ];
 
     public static readonly string[] AndroidLatestUz =
     [
-        "SI maslahatchi endi «Nur Maslahatchi»: ma'lumotlarni o'zi yuklaydi va jadval qilib ko'rsatadi (kunlik yoki haftalik cheklar, xodimlar, tabel, ish haqi, qarzdorlar); bo'limlarni «och» buyrug'i bilan ochadi",
-        "Nur Maslahatchi mahsulotlar bilan ishlaydi: kirim, hisobdan chiqarish, narxlar, internetdan rasm; rasm bo'yicha nakladnoy — bir nechta sahifada, kamida 20 % ustama va «Tahrirlash» jadvali bilan",
-        "Yangi ombor: qoldiq plitkalari, «±» tugmasi, qatorda rasm; yetkazib beruvchi mahsulotlari bilan qabul, qatordagi ✕ va «Ro'yxatni tozalash»; reviziya — «Ro'yxatni tozalash»",
-        "Mahsulot oynasi: «Asosiy», «Qo'shimcha shtrix-kodlar» (✎ bilan tuzatish), minimal qoldiqli «Qadoq», «Tavsif»; yangi mahsulot — solishtirish uchun barcode-list.ru dan nomi bo'yicha shtrix-kod",
-        "Sayt muharriri: mavzular va e'lon qilish; «Saytni ko'rish» market.nurcrm.kg ni ochadi",
-        "Pul qutisi har safar chek bosilgandan keyin ochiladi; smena manfiy summani qabul qilmaydi; cheklar ko'p bo'lsa «Moliya» «Aloqa yo'q» demaydi",
+        "Qaytarish chekdagi chegirma va qarzni hisobga oladi: faqat haqiqatda to'langani qaytariladi; chek tarixida «Qaytarishlar» bloki ko'rinadi",
+        "Qarz: qaytarish muddati (odatda 30 kun) chekda bosiladi — «… gacha qaytarish»; qarzni to'lashda mijozning qarzlari ro'yxati va «Yopish» tasdig'i",
+        "Smenani yopish sotuvlar va qaytarishlarni alohida hamda «Kutilmoqda N» qatori bilan ko'rsatadi; X-hisobot smenani yopmasdan ishlaydi",
+        "Yetkazib beruvchilar: mahsulot kartasida yetkazib beruvchi, qabul qilishda yetkazib beruvchiga qarz va uni to'lash; prokat do'konning barcha turlarida",
+        "Nur Maslahatchi tezroq (1–3 soniya) va aniqroq javob beradi, «raqamlar qayerdan» ko'rsatadi; soat 9:00 da ertalabki hisobot va qarzdorlarga eslatmalar",
+        "Oynalar va menyuning yangi ko'rinishi, sariq narxlarsiz qorong'i mavzu, ko'plab mayda tuzatishlar",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

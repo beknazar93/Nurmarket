@@ -22,11 +22,14 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private readonly NurMarketApiClient _api;
-    private readonly Grid _root = new() { Margin = new Thickness(24, 16, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,*") };
+    // 2026-10-20, этап О9б: + строка плиток (KpiTileGrid) между инструментами и списком.
+    private readonly Grid _root = new() { Margin = new Thickness(24, 16, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto,*") };
     private readonly TextBlock _title = new() { FontSize = 22, FontWeight = FontWeight.Bold };
     private readonly StackPanel _periods = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
     private readonly TextBox _search;
-    private readonly TextBlock _summary = new() { FontSize = 15, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
+    // 2026-10-20, этап О9б: строка состояния — только «Загружаю…» и ошибка (обычным текстом); итоги — плитками.
+    private readonly TextBlock _summary = new() { FontSize = 13.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
+    private readonly NurMarketKassa.AvaloniaHost.Views.Controls.KpiTileGrid _kpi = new() { MinTileWidth = 190, Spacing = 8, Margin = new Thickness(0, 0, 0, 14), IsVisible = false };
     private readonly StackPanel _list = new() { Spacing = 10 };
     private readonly HashSet<string> _expanded = new();
     private string _period = "month";
@@ -73,7 +76,9 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
 
         var tools = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto"), Margin = new Thickness(0, 0, 0, 12) };
         BuildPeriods();
-        tools.Children.Add(_periods);
+        // 2026-10-20, этап О9б (правило 2): период — сегменты в рамке (выбранный тёмно-синий), как в «Продажах» и «Прокате».
+        var periodsSegment = UiKit.WithPeriodLabel(UiKit.Segment(_periods), _periodLabel);
+        tools.Children.Add(periodsSegment);
         _search = UiKit.Input(this, T("Поиск: поставщик, товар, комментарий…", "Издөө: жеткирүүчү, товар, комментарий…", "Search: supplier, product, comment…", "Ara: tedarikçi, ürün, yorum…", "Qidirish: yetkazib beruvchi, mahsulot, izoh…"), 40);
         _search.Margin = new Thickness(12, 0, 0, 0);
         var searchTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
@@ -106,15 +111,17 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         tools.Children.Add(create);
         tools.Classes.Add("no-reflow");
 
-        Use(_summary, TextBlock.ForegroundProperty, "BrushText");
+        Use(_summary, TextBlock.ForegroundProperty, "BrushTextSoft");
         var scroll = new ScrollViewer { Content = _list, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         Grid.SetRow(hint, 1);
         Grid.SetRow(tools, 2);
-        Grid.SetRow(_summary, 3);
-        Grid.SetRow(scroll, 4);
+        Grid.SetRow(_kpi, 3);
+        Grid.SetRow(_summary, 4);
+        Grid.SetRow(scroll, 5);
         _root.Children.Add(_title);
         _root.Children.Add(hint);
         _root.Children.Add(tools);
+        _root.Children.Add(_kpi);
         _root.Children.Add(_summary);
         _root.Children.Add(scroll);
         Content = _root;
@@ -124,7 +131,7 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         {
             tools.ColumnDefinitions = new ColumnDefinitions(narrow ? "*,Auto,Auto" : "Auto,*,Auto,Auto");
             tools.RowDefinitions = narrow ? new RowDefinitions("Auto,8,Auto") : new RowDefinitions();
-            Grid.SetColumnSpan(_periods, narrow ? 3 : 1);
+            Grid.SetColumnSpan(periodsSegment, narrow ? 3 : 1);
             Grid.SetRow(_search, narrow ? 2 : 0);
             Grid.SetColumn(_search, narrow ? 0 : 1);
             _search.Margin = new Thickness(narrow ? 0 : 12, 0, 0, 0);
@@ -133,6 +140,24 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
             Grid.SetRow(create, narrow ? 2 : 0);
             Grid.SetColumn(create, narrow ? 2 : 3);
         });
+
+        // 2026-10-20, этап О9б: на 1024 (раздел ~950 точек) поиск — второй строкой во всю ширину: подсказка в нём обрезалась.
+        if (!OperatingSystem.IsAndroid())
+        {
+            bool? twoRows = null;
+            tools.SizeChanged += (_, e) =>
+            {
+                var two = e.NewSize.Width < 1060;
+                if (twoRows == two)
+                    return;
+                twoRows = two;
+                tools.RowDefinitions = two ? new RowDefinitions("Auto,Auto") : new RowDefinitions();
+                Grid.SetRow(_search, two ? 1 : 0);
+                Grid.SetColumn(_search, two ? 0 : 1);
+                Grid.SetColumnSpan(_search, two ? 4 : 1);
+                _search.Margin = two ? new Thickness(0, 10, 0, 0) : new Thickness(12, 0, 0, 0);
+            };
+        }
 
         _summary.Text = T("Загружаю возвраты…", "Кайтаруулар жүктөлүүдө…", "Loading returns…", "İadeler yükleniyor…", "Qaytarishlar yuklanmoqda…");
         Opened += async (_, _) => await LoadAsync().ConfigureAwait(true);
@@ -153,8 +178,7 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
                      ("month", T("Месяц", "Ай", "Month", "Ay", "Oy")), ("all", T("Всё время", "Бардык убакыт", "All time", "Tüm zamanlar", "Butun davr")),
                  })
         {
-            var chip = UiKit.Chip(this, text, key == _period);
-            chip.MinHeight = 36;
+            var chip = UiKit.Seg(text, key == _period); // 2026-10-20, этап О9б: сегмент вместо отдельного чипа
             chip.Click += async (_, _) =>
             {
                 _period = key;
@@ -163,19 +187,25 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
             };
             _periods.Children.Add(chip);
         }
+        _periodLabel.Text = PeriodFrom() is { } from ? PeriodRange.Label(from, DateTime.Today) : "";
     }
+
+    // 2026-10-20, проверка фильтров: общие правила периода (PeriodRange) и подпись дат рядом с сегментами.
+    private readonly TextBlock _periodLabel = new();
+
+    private DateTime? PeriodFrom() => _period switch
+    {
+        "today" => DateTime.Today,
+        "week" => PeriodRange.WeekFrom(DateTime.Today),
+        "month" => PeriodRange.MonthFrom(DateTime.Today),
+        _ => (DateTime?)null,
+    };
 
     private async Task LoadAsync()
     {
         var gen = ++_loadGen;
         var query = new Dictionary<string, string> { ["page"] = "1", ["limit"] = "200" };
-        var from = _period switch
-        {
-            "today" => DateTime.Today,
-            "week" => DateTime.Today.AddDays(-6),
-            "month" => new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1),
-            _ => (DateTime?)null,
-        };
+        var from = PeriodFrom();
         if (from is { } f)
         {
             query["date_from"] = f.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -192,16 +222,25 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
             var count = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("count", out var c) && c.TryGetInt32(out var n) ? n : rows.ValueKind == JsonValueKind.Array ? rows.GetArrayLength() : 0;
             var total = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("meta", out var meta) ? Num(meta, "total_amount") : 0;
             _list.Children.Clear();
+            _summary.IsVisible = false;
             if (rows.ValueKind != JsonValueKind.Array || rows.GetArrayLength() == 0)
             {
-                _summary.Text = T("Возвратов поставщикам за этот период нет.", "Бул мезгилде жеткирүүчүлөргө кайтаруу жок.", "No returns to suppliers for this period.",
-                    "Bu dönemde tedarikçiye iade yok.", "Bu davrda yetkazib beruvchilarga qaytarish yo'q.");
+                // 2026-10-20, этап О9б: пусто — подсказкой по центру: что здесь будет и что нажать.
+                _kpi.IsVisible = false;
+                _list.Children.Add(SectionCards.Empty(this, (_search.Text ?? "").Trim().Length > 0
+                    ? T("По этому запросу возвратов нет. Проверьте написание или выберите «Всё время».", "Бул сурам боюнча кайтаруу жок. Жазылышын текшериңиз же «Бардык убакыт» тандаңыз.",
+                        "No returns match this search. Check the spelling or choose “All time”.", "Bu aramaya uyan iade yok. Yazımı kontrol edin veya «Tüm zamanlar»ı seçin.",
+                        "Bu so'rov bo'yicha qaytarishlar yo'q. Yozilishini tekshiring yoki «Butun davr»ni tanlang.")
+                    : T("Возвратов поставщикам за этот период нет. Брак, излишек или просрочку оформите кнопкой «＋ Новый возврат» — остаток уменьшится, деньги вернутся в кассу или в счёт долга поставщику.",
+                        "Бул мезгилде жеткирүүчүлөргө кайтаруу жок. Бузук, ашыкча же мөөнөтү өткөн товарды «＋ Жаңы кайтаруу» баскычы менен тариздеңиз — калдык азаят, акча кассага же жеткирүүчүнүн карызынын эсебине кайтат.",
+                        "No returns to suppliers for this period. Register defects, surplus or expired goods with “＋ New return” — stock goes down, money goes back to the till or against the debt to the supplier.",
+                        "Bu dönemde tedarikçiye iade yok. Kusurlu, fazla veya süresi geçmiş ürünü «＋ Yeni iade» ile kaydedin — stok azalır, para kasaya ya da tedarikçi borcuna döner.",
+                        "Bu davrda yetkazib beruvchilarga qaytarish yo'q. Brak, ortiqcha yoki muddati o'tgan mahsulotni «＋ Yangi qaytarish» tugmasi bilan rasmiylashtiring — qoldiq kamayadi, pul kassaga yoki yetkazib beruvchi qarzi hisobiga qaytadi.")));
                 return;
             }
             if (total <= 0)
                 total = rows.EnumerateArray().Sum(x => Num(x, "total_amount"));
-            _summary.Text = T($"Возвратов: {count} на {Money(total)}", $"Кайтаруулар: {count}, суммасы {Money(total)}", $"Returns: {count}, total {Money(total)}",
-                $"İadeler: {count}, toplam {Money(total)}", $"Qaytarishlar: {count}, jami {Money(total)}");
+            RenderKpi(count, total, rows);
             foreach (var row in rows.EnumerateArray())
                 _list.Children.Add(BuildCard(row));
             PosLogger.Log($"Возвраты поставщикам: {count} шт.", "INFO");
@@ -210,9 +249,28 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         {
             if (gen != _loadGen)
                 return;
+            // 2026-10-20: проверка фильтров — при ошибке под новым периодом оставались карточки прошлого.
+            _list.Children.Clear();
+            _kpi.IsVisible = false;
+            _summary.IsVisible = true;
             _summary.Text = T("Не удалось загрузить: ", "Жүктөө мүмкүн болгон жок: ", "Couldn't load: ", "Yüklenemedi: ", "Yuklab bo'lmadi: ") + ServerTelegramBotApi.DescribeFields(ex);
             PosLogger.Log($"Возвраты поставщикам: не загружены ({ex.Message}).", "WARNING");
         }
+    }
+
+    /// <summary>2026-10-20, этап О9б: итоги плитками (суммы не обрезаются — Viewbox в UiKit.Kpi): сколько возвратов, на какую сумму,
+    /// сколько из них вернули деньгами в кассу и сколько ушло в счёт долга поставщику (по загруженным строкам).</summary>
+    private void RenderKpi(int count, double total, JsonElement rows)
+    {
+        string Comp(JsonElement x) => Str(x, "compensation") is { Length: > 0 } c ? c : Str(x, "compensation_type");
+        var cash = rows.EnumerateArray().Where(x => Comp(x) == "cash").Sum(x => Num(x, "total_amount"));
+        var debt = rows.EnumerateArray().Where(x => Comp(x) == "debt_offset").Sum(x => Num(x, "total_amount"));
+        _kpi.Children.Clear();
+        _kpi.Children.Add(UiKit.Kpi(T("Возвратов", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar"), count.ToString(CultureInfo.InvariantCulture)));
+        _kpi.Children.Add(UiKit.Kpi(T("На сумму", "Суммасы", "Total", "Toplam", "Jami summa"), Money(total)));
+        _kpi.Children.Add(UiKit.Kpi(T("Деньги вернули в кассу", "Кассага кайтарылды", "Money back to the till", "Kasaya iade edilen", "Kassaga qaytarildi"), Money(cash)));
+        _kpi.Children.Add(UiKit.Kpi(T("В счёт долга поставщику", "Жеткирүүчүнүн карызынын эсебине", "Against the supplier debt", "Tedarikçi borcuna", "Yetkazib beruvchi qarzi hisobiga"), Money(debt)));
+        _kpi.IsVisible = true;
     }
 
     private Control BuildCard(JsonElement row)
@@ -223,17 +281,20 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         Use(card, Border.BorderBrushProperty, "BrushBorder");
         var body = new StackPanel { Spacing = 6 };
         var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        var who = new StackPanel { Spacing = 2 };
-        var name = new TextBlock { Text = Str(row, "supplier_name") is { Length: > 0 } s ? s : "—", FontSize = 15, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
+        var who = new StackPanel { Spacing = 3 };
+        // 2026-10-20, этап О9б: поставщик и причина плашкой в одной строке; ниже — дата, что с деньгами, кто оформил.
+        var nameRow = new WrapPanel();
+        var name = new TextBlock { Text = Str(row, "supplier_name") is { Length: > 0 } s ? s : "—", FontSize = 15, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
         Use(name, TextBlock.ForegroundProperty, "BrushText");
-        who.Children.Add(name);
+        nameRow.Children.Add(name);
+        nameRow.Children.Add(SectionCards.Pill(this, ReasonName(Str(row, "reason"))));
+        who.Children.Add(nameRow);
         DateTime.TryParse(Str(row, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var at);
         var meta = new TextBlock
         {
             Text = string.Join(" · ", new[]
             {
                 at == default ? "" : at.ToLocalTime().ToString("dd.MM.yyyy HH:mm", Ru),
-                ReasonName(Str(row, "reason")),
                 CompensationName(Str(row, "compensation") is { Length: > 0 } comp ? comp : Str(row, "compensation_type")),
                 Str(row, "created_by_name"),
             }.Where(x => x.Length > 0)),
@@ -248,7 +309,8 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
             who.Children.Add(note);
         }
         head.Children.Add(who);
-        var sum = new TextBlock { Text = Money(Num(row, "total_amount")), FontSize = 17, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Right };
+        var sum = new TextBlock { Text = Money(Num(row, "total_amount")), FontSize = 17, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(12, 0, 0, 0) };
+        sum.Classes.Add("num");
         Use(sum, TextBlock.ForegroundProperty, "BrushText");
         Grid.SetColumn(sum, 1);
         head.Children.Add(sum);
@@ -257,30 +319,24 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         var lines = row.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array ? items
             : row.TryGetProperty("lines", out var l) && l.ValueKind == JsonValueKind.Array ? l : default;
         var expanded = _expanded.Contains(id);
-        var more = new TextBlock
-        {
-            Text = expanded ? T("▴ Скрыть товары", "▴ Товарларды жашыруу", "▴ Hide products", "▴ Ürünleri gizle", "▴ Mahsulotlarni yashirish")
-                : T($"▾ Товары ({(lines.ValueKind == JsonValueKind.Array ? lines.GetArrayLength() : 0)})", $"▾ Товарлар ({(lines.ValueKind == JsonValueKind.Array ? lines.GetArrayLength() : 0)})",
-                    $"▾ Products ({(lines.ValueKind == JsonValueKind.Array ? lines.GetArrayLength() : 0)})", $"▾ Ürünler ({(lines.ValueKind == JsonValueKind.Array ? lines.GetArrayLength() : 0)})",
-                    $"▾ Mahsulotlar ({(lines.ValueKind == JsonValueKind.Array ? lines.GetArrayLength() : 0)})"),
-            FontSize = 12.5,
-        };
-        Use(more, TextBlock.ForegroundProperty, "BrushAccentStrong");
+        // 2026-10-20, этап О9б: «Товары (N) ▾» цветом текста (был жёлтый на белом — не читался), состав — таблицей.
+        var more = SectionCards.Toggle(this, expanded ? T("Скрыть товары ▴", "Товарларды жашыруу ▴", "Hide products ▴", "Ürünleri gizle ▴", "Mahsulotlarni yashirish ▴")
+            : T($"Товары ({(lines.ValueKind == JsonValueKind.Array ? lines.GetArrayLength() : 0)}) ▾", $"Товарлар ({(lines.ValueKind == JsonValueKind.Array ? lines.GetArrayLength() : 0)}) ▾",
+                $"Products ({(lines.ValueKind == JsonValueKind.Array ? lines.GetArrayLength() : 0)}) ▾", $"Ürünler ({(lines.ValueKind == JsonValueKind.Array ? lines.GetArrayLength() : 0)}) ▾",
+                $"Mahsulotlar ({(lines.ValueKind == JsonValueKind.Array ? lines.GetArrayLength() : 0)}) ▾"));
         body.Children.Add(more);
         if (expanded && lines.ValueKind == JsonValueKind.Array)
         {
+            var table = new List<(string, string, string, string)>();
             foreach (var line in lines.EnumerateArray())
             {
                 var qty = Num(line, "qty");
                 var price = Num(line, "purchase_price");
-                var text = new TextBlock
-                {
-                    Text = $"{Str(line, "product_name")} — {qty.ToString("0.###", Ru)} {Str(line, "unit")} × {Money(price)} = {Money(Num(line, "line_total") is > 0 and var lt ? lt : qty * price)}",
-                    FontSize = 13, TextWrapping = TextWrapping.Wrap,
-                };
-                Use(text, TextBlock.ForegroundProperty, "BrushText");
-                body.Children.Add(text);
+                table.Add((Str(line, "product_name"), $"{qty.ToString("0.###", Ru)} {Str(line, "unit")}".Trim(), Money(price),
+                    Money(Num(line, "line_total") is > 0 and var lt ? lt : qty * price)));
             }
+            body.Children.Add(SectionCards.LinesTable(this, table, T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), T("Кол-во", "Саны", "Qty", "Adet", "Soni"),
+                T("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), T("Сумма", "Суммасы", "Amount", "Tutar", "Summa")));
         }
         card.Child = body;
         card.PointerPressed += (_, _) =>
@@ -348,25 +404,25 @@ public sealed class SupplierReturnDialog : Window
     {
         _api = App.GetRequiredService<NurMarketApiClient>();
         Title = T("Новый возврат поставщику", "Жеткирүүчүгө жаңы кайтаруу", "New return to supplier", "Tedarikçiye yeni iade", "Yetkazib beruvchiga yangi qaytarish");
-        Width = 720;
-        Height = 820;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Use(this, BackgroundProperty, "BrushWindowBackdrop");
+        // 2026-10-20, этап О9б: окно в общей оболочке ModalShell (заголовок и ✕ сверху, сумма и кнопки снизу не прокручиваются,
+        // на 1024×768 «Оформить возврат» всегда видна). Поля, их порядок и обработчики — прежние.
+        SectionCards.AsModal(this, 672);
 
-        var panel = new StackPanel { Spacing = 10, Margin = new Thickness(20) };
-        var title = new TextBlock { Text = Title, FontSize = 20, FontWeight = FontWeight.Bold };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
-        panel.Children.Add(title);
+        var panel = new StackPanel { Spacing = 8 };
 
         panel.Children.Add(Label(T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi")));
         _supplier.SelectionChanged += async (_, _) => await OnSupplierChangedAsync().ConfigureAwait(true);
         panel.Children.Add(_supplier);
 
         panel.Children.Add(Label(T("Что возвращаем", "Эмнени кайтарабыз", "What is returned", "Ne iade ediliyor", "Nima qaytariladi")));
-        panel.Children.Add(_sourceChips);
+        panel.Children.Add(UiKit.Segment(_sourceChips)); // 2026-10-20, этап О9б: «По приходу / Со склада» — сегменты
         _receipt.SelectionChanged += async (_, _) => await LoadReceiptLinesAsync().ConfigureAwait(true);
         panel.Children.Add(_receipt);
-        panel.Children.Add(_lines);
+        // 2026-10-20, этап О9б: строки товаров — в рамке (видна, когда строки есть).
+        var linesGroup = SectionCards.Group(this, _lines);
+        linesGroup.IsVisible = false;
+        _lines.Children.CollectionChanged += (_, _) => linesGroup.IsVisible = _lines.Children.Count > 0;
+        panel.Children.Add(linesGroup);
 
         panel.Children.Add(Label(T("Причина", "Себеп", "Reason", "Neden", "Sabab")));
         panel.Children.Add(_reasonChips);
@@ -377,23 +433,28 @@ public sealed class SupplierReturnDialog : Window
         cashboxPanel.Children.Add(_cashbox);
         _cashboxPanel = cashboxPanel;
         panel.Children.Add(cashboxPanel);
+        _comment.Margin = new Thickness(0, 6, 0, 0);
         panel.Children.Add(_comment);
 
+        // 2026-10-20, этап О9б: сумма — слева на строке кнопок, ошибка — красной плашкой.
+        _total.FontSize = 15;
+        _total.TextWrapping = TextWrapping.Wrap;
+        _total.MinWidth = 140;
         Use(_total, TextBlock.ForegroundProperty, "BrushText");
-        panel.Children.Add(_total);
-        Use(_error, TextBlock.ForegroundProperty, "BrushDanger");
-        panel.Children.Add(_error);
+        var errorBox = SectionCards.ErrorBox(this, _error);
+        errorBox.Margin = new Thickness(0, 6, 0, 0);
+        panel.Children.Add(errorBox);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
-        var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        var cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => Close(false);
-        _save = UiKit.Primary(this, T("Оформить возврат", "Кайтарууну тариздөө", "Make the return", "İadeyi kaydet", "Qaytarishni rasmiylashtirish"));
+        _save = SectionCards.Primary(T("Оформить возврат", "Кайтарууну тариздөө", "Make the return", "İadeyi kaydet", "Qaytarishni rasmiylashtirish"));
         _save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
-        buttons.Children.Add(cancel);
-        buttons.Children.Add(_save);
-        panel.Children.Add(buttons);
 
-        Content = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        Content = SectionCards.Shell(Title,
+            T("Товар уйдёт со склада поставщику. Цена — закупочная.", "Товар кампадан жеткирүүчүгө кетет. Баасы — сатып алуу баасы.",
+                "The goods leave the stock back to the supplier. Price — the purchase price.", "Ürün stoktan tedarikçiye gider. Fiyat — alış fiyatı.",
+                "Mahsulot ombordan yetkazib beruvchiga ketadi. Narx — xarid narxi."),
+            panel, SectionCards.Buttons(cancel, _save), _total);
         BuildChips();
         UpdateTotal();
         Opened += async (_, _) => await LoadSuppliersAsync().ConfigureAwait(true);
@@ -415,8 +476,7 @@ public sealed class SupplierReturnDialog : Window
                      (false, T("Со склада", "Кампадан", "From stock", "Stoktan", "Ombordan")),
                  })
         {
-            var chip = UiKit.Chip(this, text, byReceipt == _byReceipt);
-            chip.MinHeight = 34;
+            var chip = UiKit.Seg(text, byReceipt == _byReceipt); // 2026-10-20, этап О9б: сегмент
             chip.Click += async (_, _) =>
             {
                 _byReceipt = byReceipt;
@@ -456,8 +516,11 @@ public sealed class SupplierReturnDialog : Window
                  })
         {
             var chip = UiKit.Chip(this, text, comp == _compensation);
-            chip.MinHeight = 34;
-            chip.HorizontalAlignment = HorizontalAlignment.Left;
+            chip.MinHeight = 38;
+            // 2026-10-20, этап О9б: варианты «что с деньгами» — во всю ширину, текст слева (как строки выбора), выбранный тёмно-синий.
+            chip.HorizontalAlignment = HorizontalAlignment.Stretch;
+            chip.HorizontalContentAlignment = HorizontalAlignment.Left;
+            chip.CornerRadius = new CornerRadius(10);
             chip.Click += (_, _) =>
             {
                 _compensation = comp;

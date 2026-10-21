@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Окна долгов</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700}
+.ck{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;font-size:13px}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="ODebts"><div style="width: 1440px; height: 900px; box-sizing: border-box; background: rgb(221, 226, 232); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); padding: 30px; display: grid; grid-template-columns: 640px 480px; justify-content: center; gap: 22px; align-items: start;">
+
+  <div style="display: flex; flex-direction: column; gap: 22px;">
+  <section class="m" role="dialog" aria-label="Оплата долга" style="width: 640px;">
+    <div class="mh"><div class="mt"><b>Оплата долга · Умар</b><span>6 чеков в долг · с 31.08.2026 (42 дня) · номера телефона нет</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; background: rgb(253, 226, 225); border-radius: 12px; padding: 12px 14px;"><span style="font-size: 13px; font-weight: 600; color: rgb(122, 39, 26);">Должен всего</span><b style="font-size: 22px; color: rgb(180, 35, 24); white-space: nowrap;">64 500&nbsp;сом</b></div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px;">
+        <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0px;">
+          <span class="lbl">КАК ПЛАТИТ</span>
+          <span style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgb(228, 231, 236);"><button type="button" class="seg" style="background: transparent; color: rgb(71, 84, 103);">Полностью</button><button type="button" class="seg" style="background: rgb(255, 255, 255); color: rgb(11, 42, 60);">Частично</button><button type="button" class="seg" style="background: transparent; color: rgb(71, 84, 103);">По чекам</button></span>
+          <label class="lbl" for="dp">СУММА СЕЙЧАС</label>
+          <input id="dp" class="in" type="text" value="20 000 сом" style="height: 52px; font-size: 20px; font-weight: 800; border: 2px solid rgb(11, 42, 60);">
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;"><button type="button" class="chip">Половину</button><button type="button" class="chip">Старый чек</button><button type="button" class="chip">Своя сумма</button></div>
+          <span style="font-size: 12px; color: rgb(102, 112, 133); line-height: 17px;">Частичная оплата закрывает сначала самые старые чеки: 20 000 закроет №1012 (12 400) и часть №1088</span>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0px;">
+          <span class="lbl">СПОСОБ</span>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;"><button type="button" class="chip on">Наличными — через кассу</button><button type="button" class="chip">Картой или QR</button><button type="button" class="chip">Переводом</button></div>
+          <label class="lbl" for="dshift" style="padding-top: 4px;">КАССА И СМЕНА</label>
+          <button id="dshift" type="button" class="in" style="height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: rgb(255, 255, 255); text-align: left; font-family: inherit; color: rgb(17, 24, 39);"><span style="min-width: 0px; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 13px; font-weight: 700; white-space: nowrap;">Касса 1 · смена Кассир Тест</span><span style="font-size: 12px; color: rgb(14, 122, 58); font-weight: 600; white-space: nowrap;">● открыта с 08:55</span></span><span aria-hidden="true">▾</span></button>
+          <span style="font-size: 12px; color: rgb(102, 112, 133); line-height: 17px;">Наличные проходят только через открытую смену — так касса сходится. Кассир подтвердит приём в своей смене.</span>
+          <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: rgb(102, 112, 133); padding-top: 2px;"><input type="checkbox" disabled="" style="width: 18px; height: 18px; margin: 0px; flex-shrink: 0; accent-color: rgb(11, 42, 60);"><span>Квитанция в WhatsApp — у клиента нет номера. <a href="#" style="font-weight: 700; color: rgb(11, 42, 60);">Добавить номер</a></span></label>
+        </div>
+      </div>
+    </div>
+    <div class="mf"><span class="tot">Останется долг <b style="white-space: nowrap;">44 500&nbsp;сом</b></span><button type="button" class="b2">Отмена</button><button type="button" class="b1" style="white-space: nowrap;">Отправить на кассу</button></div>
+  </section>
+    <section class="m" role="dialog" aria-label="Напоминание о долге" style="width: 640px;">
+      <div class="mh"><div class="mt"><b>Напомнить о долге · Арслан</b><span>WhatsApp · +996 555 41-27-09 · с личного номера — по одному</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb"><div style="background: rgb(231, 246, 236); border-radius: 14px 14px 14px 4px; padding: 10px 12px; font-size: 13px; line-height: 19px; color: rgb(11, 59, 30);">Здравствуйте, Арслан! Напоминаем о долге в NBS: 38 200 сом (с 09.09.2026). Оплатить можно на кассе или по QR. Спасибо!</div>
+        
+        <a href="#" style="align-self: flex-start; font-size: 13px; font-weight: 700; color: rgb(11, 42, 60);">✎ Изменить текст</a></div>
+      <div class="mf"><span class="tot">Откроется чат WhatsApp с этим текстом</span><button type="button" class="b2">Отмена</button><button type="button" class="b1" style="white-space: nowrap;">Открыть WhatsApp</button></div>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 22px;">
+  <section class="m" role="dialog" aria-label="Оплата по чекам" style="width: 480px;">
+    <div class="mh"><div class="mt"><b>Закрыть по чекам · Умар</b><span>Отметьте чеки, которые клиент оплачивает</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb" style="gap: 6px;">
+      <label class="ck" style="background: rgb(255, 247, 204);"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);"><span style="flex-grow: 1; display: flex; flex-direction: column;"><b>Чек №1012 · 31.08</b><span style="font-size: 11px; color: rgb(180, 35, 24); font-weight: 700;">в долгу 42 дня</span></span><b style="white-space: nowrap;">12 400&nbsp;сом</b></label>
+      <label class="ck" style="background: rgb(255, 247, 204);"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);"><span style="flex-grow: 1; display: flex; flex-direction: column;"><b>Чек №1088 · 05.09</b><span style="font-size: 11px; color: rgb(180, 35, 24); font-weight: 700;">в долгу 37 дней</span></span><b style="white-space: nowrap;">9 800&nbsp;сом</b></label>
+      <label class="ck"><input type="checkbox" style="width: 18px; height: 18px; accent-color: rgb(11, 42, 60);"><span style="flex-grow: 1; display: flex; flex-direction: column;"><b>Чек №1156 · 12.09</b><span style="font-size: 11px; color: rgb(102, 112, 133);">в долгу 30 дней</span></span><b style="white-space: nowrap;">15 300&nbsp;сом</b></label>
+      <span style="font-size: 12px; color: rgb(102, 112, 133); padding: 0px 10px;">Ещё 3 чека: №1240, №1391, №1532 — 27 000 сом</span>
+      
+      <div style="padding: 8px 10px; border-radius: 10px; background: rgb(242, 244, 247); font-size: 12px; line-height: 17px; color: rgb(71, 84, 103);"><b>Пеня за просрочку</b> — позже: нужен договор с покупателем и сервер NurCRM</div>
+    </div>
+    <div class="mf"><span class="tot">2 чека · <b style="white-space: nowrap;">22 200&nbsp;сом</b></span><button type="button" class="b2">Назад</button><button type="button" class="b1">Дальше</button></div>
+  </section>
+
+    <section class="m" role="dialog" aria-label="Продажа в долг" style="width: 480px;">
+      <div class="mh"><div class="mt"><b>Продажа в долг · Айпери</b><span>Окно кассы · долг 9 800 из лимита 20 000 сом</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <span style="display: flex; flex-direction: column; gap: 4px;"><label class="lbl" for="pre">ПРЕДОПЛАТА</label><input id="pre" class="in" type="text" placeholder="0"></span>
+          <span style="display: flex; flex-direction: column; gap: 4px;"><label class="lbl" for="due">ВЕРНУТЬ ДО</label><input id="due" class="in" type="text" value="26.10.2026"></span>
+        </div>
+        <div style="display: flex; gap: 6px;"><button type="button" class="chip">7 дней</button><button type="button" class="chip on">14 дней</button><button type="button" class="chip">30 дней</button></div>
+      </div>
+      <div class="mf"><span class="tot">В долг <b style="white-space: nowrap;">340&nbsp;сом</b></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Продать</button></div>
+    </section>
+  </div></div></div></div>
+
+
+
+</body></html>

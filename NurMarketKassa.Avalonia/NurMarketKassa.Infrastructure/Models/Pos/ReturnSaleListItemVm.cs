@@ -12,4 +12,7 @@ public sealed class ReturnSaleListItemVm
     // ����� ��������
     public DateTime SaleDate { get; init; }
     public decimal TotalAmount { get; init; }
+
+    /// <summary>2026-10-21 (пакет 6, п. 35): status продажи с сервера (returned, partially_returned…) — пометка в списке возврата.</summary>
+    public string? Status { get; init; }
 }

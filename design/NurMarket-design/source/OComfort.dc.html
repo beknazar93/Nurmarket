@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Удобства</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<!-- 2026-10-16: Ctrl+K программы владельца: «Enter — открыть» (чека здесь нет), результаты по группам и состояние «ничего не найдено»;
+     F1/F2/F12 убраны — в кассе F1–F12 это быстрые товары; подсказки по клавишам — кнопка «?» в шапке или Ctrl+/ -->
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: 640px minmax(0, 1fr); gap: 22px; align-items: start">
+  <div style="display: flex; flex-direction: column; gap: 22px">
+  <section class="m" role="dialog" aria-label="Поиск всего" style="width: 640px">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #EAECF0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <input type="text" value="мак" aria-label="Поиск по всей программе" style="flex-grow: 1; border: 0; outline: 0; font-family: inherit; font-size: 18px; font-weight: 600">
+      <span class="tag" style="background: #F2F4F7; color: #475467">Ctrl+K</span>
+    </div>
+    <div class="mb" style="gap: 4px">
+      <span class="lbl">ТОВАРЫ · 1</span>
+      <div class="row" style="background: #FFF7CC"><span style="flex-grow: 1"><b>Мак</b>ароны «Макфа» спагетти 450г</span><span style="color: #475467; white-space: nowrap">50 шт · 85 сом</span><span class="tag" style="background: #FFFFFF; color: #0B2A3C; white-space: nowrap">Enter — открыть</span></div>
+      <span class="lbl" style="padding-top: 6px">КЛИЕНТЫ · 1</span>
+      <div class="row"><span style="flex-grow: 1"><b>Мак</b>сат Жумабеков · +996 700 55-12-40</span><span style="color: #667085; white-space: nowrap">12 покупок · долга нет</span></div>
+      <span class="lbl" style="padding-top: 6px">РАЗДЕЛЫ И ДЕЙСТВИЯ · 2</span>
+      <div class="row"><span style="flex-grow: 1">Склад — карточка «<b>Мак</b>ароны…»: цена, остаток, мин. остаток</span><span class="tag" style="background: #F2F4F7; color: #475467">раздел</span></div>
+      <div class="row"><span style="flex-grow: 1">Ценники — напечатать для «<b>Мак</b>ароны…»</span><span class="tag" style="background: #F2F4F7; color: #475467">действие</span></div>
+      <span class="lbl" style="padding-top: 6px">ЧЕКИ · 1</span>
+      <div class="row"><span style="flex-grow: 1">Чек №1709 · <b>Мак</b>ароны × 1 + Хлеб белый × 1</span><span style="color: #667085; white-space: nowrap">сегодня 14:31 · 120 сом</span></div>
+    </div>
+    <div class="mf"><span class="tot">↑↓ выбрать · Enter — открыть · Esc — закрыть</span></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Поиск — ничего не найдено" style="width: 640px">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #EAECF0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <input type="text" value="vjkjrj" aria-label="Поиск по всей программе" style="flex-grow: 1; border: 0; outline: 0; font-family: inherit; font-size: 18px; font-weight: 600">
+      <span class="tag" style="background: #F2F4F7; color: #475467">Ctrl+K</span>
+    </div>
+    <div class="mb" style="gap: 6px">
+      <b style="font-size: 15px">Ничего не найдено по «vjkjrj»</b>
+      <span style="font-size: 13px; color: #667085">Ищем в товарах, клиентах, разделах и чеках NBS</span>
+      <div class="row"><span style="flex-grow: 1">Похоже, другая раскладка — искать «<b>молоко</b>»</span><span class="tag" style="background: #F2F4F7; color: #475467">Enter</span></div>
+      <div class="row"><span style="flex-grow: 1">Спросить Нур Советника</span><span class="tag" style="background: #F2F4F7; color: #475467">раздел</span></div>
+      <div class="row"><span style="flex-grow: 1">Новый товар «vjkjrj»</span><span class="tag" style="background: #F2F4F7; color: #475467">действие</span></div>
+    </div>
+    <div class="mf"><span class="tot">↑↓ выбрать · Enter — открыть · Esc — закрыть</span></div>
+  </section>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 22px">
+    <section style="background: #0B2A3C; color: #FFFFFF; border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 16px 40px rgba(11,42,60,.3)">
+      <span style="width: 32px; height: 32px; border-radius: 16px; background: #16A34A; display: flex; align-items: center; justify-content: center">✓</span>
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><b style="font-size: 14px">Строка удалена</b><span style="font-size: 12px; color: #C7D2DB">Возврат поставщику · Mars 50г × 12</span></span>
+      <!-- 2026-10-16: в тосте — обводка, жёлтая главная кнопка остаётся одна на экране -->
+      <button type="button" style="height: 36px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #FFD600; background: transparent; color: #FFD600; font-family: inherit; font-size: 13px; font-weight: 800; white-space: nowrap">Отменить · 5 с · Ctrl+Z</button>
+    </section>
+
+    <section class="m" aria-label="Пустой раздел">
+      <div class="mb" style="align-items: center; text-align: center; padding: 28px 24px; gap: 10px">
+        <span style="width: 64px; height: 64px; border-radius: 20px; background: #FFF7CC; color: #0B2A3C; display: flex; align-items: center; justify-content: center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5"></path></svg></span>
+        <b style="font-size: 17px">Товаров пока нет</b>
+        <span style="font-size: 13px; color: #667085; line-height: 19px; max-width: 320px">Загрузите список из Excel, снимите полку умной камерой или добавьте первый товар вручную</span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding-top: 4px"><button type="button" class="b2">Из Excel</button><button type="button" class="b2">Умная камера</button><button type="button" class="b1">+ Товар</button></div>
+      </div>
+    </section>
+
+    <section class="m" aria-label="Подсказка горячих клавиш">
+      <div class="mh"><div class="mt"><b>Быстрее с клавиатурой</b><span>Показывается один раз, потом — кнопка «?» в шапке или Ctrl+/</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px">
+        <span class="row"><span class="tag" style="background: #FFFFFF; color: #0B2A3C">Ctrl+K</span>найти что угодно</span>
+        <span class="row"><span class="tag" style="background: #FFFFFF; color: #0B2A3C">↑↓ Enter</span>выбрать и открыть</span>
+        <span class="row"><span class="tag" style="background: #FFFFFF; color: #0B2A3C">Esc</span>закрыть окно</span>
+        <span class="row"><span class="tag" style="background: #FFFFFF; color: #0B2A3C">Ctrl+Z</span>вернуть удалённое</span>
+        <span class="row" style="grid-column: 1 / -1"><span style="width: 28px; height: 28px; border-radius: 14px; border: 1.5px solid #D0D5DD; background: #FFFFFF; color: #0B2A3C; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0">?</span>в шапке раздела — открыть эту подсказку · <span class="tag" style="background: #FFFFFF; color: #0B2A3C">Ctrl+/</span></span>
+        <span style="grid-column: 1 / -1; font-size: 12px; color: #667085">F1–F12 здесь не заняты: в кассе это быстрые товары</span>
+      </div>
+    </section>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

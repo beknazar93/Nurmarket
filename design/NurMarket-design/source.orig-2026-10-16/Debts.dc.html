@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Долги клиентов</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="sales" active="Долги клиентов" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Долги клиентов</span><span style="font-size: 13px; color: #667085">Все долги магазина в одном месте</span></span>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Напомнить всем с номером</button>
+    </div>
+    <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 14px">
+      <div style="background: #0B2A3C; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #C7D2DB">Всего должны</span><span style="font-size: 30px; font-weight: 800; color: #FFD600">811 889 сом</span><span style="font-size: 12px; color: #C7D2DB">17 клиентов</span></div>
+      <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 16px; border: 2px solid #0B2A3C; padding: 16px; font-family: inherit; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 12px; font-weight: 600; color: #667085">До 7 дней</span><span style="font-size: 22px; font-weight: 800; color: #0B2A3C">[сумма]</span><span style="font-size: 12px; color: #667085">[N] клиентов</span></button>
+      <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 16px; border: 1px solid #E5E7EB; padding: 16px; font-family: inherit; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 12px; font-weight: 600; color: #667085">8–30 дней</span><span style="font-size: 22px; font-weight: 800; color: #B54708">[сумма]</span><span style="font-size: 12px; color: #667085">[N] клиентов</span></button>
+      <button type="button" style="text-align: left; background: #FFFFFF; border-radius: 16px; border: 1px solid #E5E7EB; padding: 16px; font-family: inherit; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 12px; font-weight: 600; color: #667085">Старше 30 дней</span><span style="font-size: 22px; font-weight: 800; color: #B42318">[сумма]</span><span style="font-size: 12px; color: #667085">[N] клиентов · красным в списке</span></button>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; display: flex; gap: 14px">
+      <section style="flex-grow: 1; min-width: 0; background: #FFFFFF; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+        <div style="display: grid; grid-template-columns: 1.8fr 1fr 0.6fr 0.9fr 1.2fr; gap: 12px; padding: 12px 16px; background: #F9FAFB; font-size: 12px; font-weight: 700; color: #667085"><span>Клиент</span><span style="text-align: right">Долг</span><span style="text-align: right">Чеков</span><span>С какого дня</span><span></span></div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+          <div style="display: grid; grid-template-columns: 1.8fr 1fr 0.6fr 0.9fr 1.2fr; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid #F2F4F7; background: {{r.bg}}">
+            <span style="display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">{{r.name}}</span><span style="font-size: 12px; color: {{r.phoneColor}}">{{r.phone}}</span></span>
+            <span style="text-align: right; font-size: 14px; font-weight: 800; color: {{r.sumColor}}">{{r.sum}}</span>
+            <span style="text-align: right; font-size: 13px; color: #475467">{{r.checks}}</span>
+            <span style="font-size: 13px; color: #475467">{{r.since}}</span>
+            <span style="display: flex; gap: 6px; justify-content: flex-end">
+              <sc-if value="{{r.canRemind}}" hint-placeholder-val="{{true}}"><button type="button" style="height: 34px; padding: 0 10px; border-radius: 10px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #0E7A3A">WhatsApp</button></sc-if>
+              <sc-if value="{{r.noPhone}}" hint-placeholder-val="{{false}}"><button type="button" disabled="" title="Нет номера телефона" style="height: 34px; padding: 0 10px; border-radius: 10px; border: 1px solid #F2F4F7; background: #F9FAFB; font-family: inherit; font-size: 12px; font-weight: 600; color: #98A2B3">Нет номера</button></sc-if>
+              <button type="button" style="height: 34px; padding: 0 12px; border-radius: 10px; border: 0; background: #FFD600; font-family: inherit; font-size: 12px; font-weight: 800; color: #0B2A3C">Принять оплату</button>
+            </span>
+          </div>
+        </sc-for>
+        <div style="padding: 12px 16px; border-top: 1px solid #F2F4F7; font-size: 12px; color: #667085">и ещё 14 клиентов — листайте вниз</div>
+      </section>
+      <aside aria-label="Клиент" style="width: 300px; flex-shrink: 0; background: #FFFFFF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+        <span style="font-size: 16px; font-weight: 800">Te</span>
+        <span style="font-size: 13px; color: #667085">тел. 909898789</span>
+        <div style="border-radius: 14px; background: #F9FAFB; padding: 14px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #667085">Долг</span><span style="font-size: 24px; font-weight: 800; color: #0B2A3C">221 507 сом</span><span style="font-size: 12px; color: #667085">6 чеков · с 24.09.2026</span></div>
+        <span style="font-size: 12px; font-weight: 700; color: #667085">ВЗНОСЫ</span>
+        <span style="display: flex; justify-content: space-between; font-size: 13px"><span>[дата] · по графику</span><span style="font-weight: 700">[сумма]</span></span>
+        <span style="display: flex; justify-content: space-between; font-size: 13px"><span>[дата] · по графику</span><span style="font-weight: 700">[сумма]</span></span>
+        <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px">
+          <button type="button" style="height: 46px; border-radius: 12px; border: 0; background: #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Принять оплату</button>
+          <button type="button" style="height: 46px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Напомнить в WhatsApp</button>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const data = [
+      ['Te', 'тел. 909898789', '221 507 сом', '6', '24.09.2026', true, '#B42318'],
+      ['Проверочный', 'тел. 123321', '137 811 сом', '1', '02.10.2026', true, '#B54708'],
+      ['Умар', 'номер не указан', '[сумма]', '[N]', '42 дня назад', false, '#B42318'],
+      ['[клиент]', 'тел. [номер]', '[сумма]', '[N]', '[дата]', true, '#0B2A3C'],
+      ['[клиент]', 'тел. [номер]', '[сумма]', '[N]', '[дата]', true, '#0B2A3C']
+    ];
+    const rows = data.map(([name, phone, sum, checks, since, has, sumColor], i) => ({
+      name, phone, sum, checks, since, sumColor, canRemind: has, noPhone: !has,
+      phoneColor: has ? '#667085' : '#B54708', bg: i === 0 ? '#FFFBEA' : '#FFFFFF'
+    }));
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

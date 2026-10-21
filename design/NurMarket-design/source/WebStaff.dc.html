@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Сотрудники и зарплата — веб</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.tab{height:40px;padding:0 14px;border-radius:10px;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:#475467}
+.tab.on{background:#0B2A3C;color:#FFFFFF}
+.b1{height:44px;padding:0 18px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:14px;font-weight:800;color:#0B2A3C}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.tr{display:grid;grid-template-columns:1.6fr .9fr 1.5fr 1.3fr 1fr 1fr;gap:8px;padding:12px 14px;border-bottom:1px solid #F2F4F7;font-size:13px;align-items:center}
+.dv{font-size:12px;font-weight:600;color:#475467;white-space:nowrap}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Зарплата" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Зарплата</b><span style="font-size: 13px; color: #667085">Сотрудники, права и выплаты · октябрь 2026 (01–12.10)</span></span>
+      <button type="button" class="b2">Права по ролям</button>
+      <button type="button" class="b1">+ Пригласить</button>
+    </div>
+    <span style="display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px; background: #E4E7EC; align-self: flex-start"><button type="button" class="tab on">Сотрудники и права</button><button type="button" class="tab">Табель</button><button type="button" class="tab">Зарплата за месяц</button></span>
+
+    <section style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden">
+      <div style="overflow-x: auto"><div style="min-width: 820px">
+        <div class="tr" style="font-size: 12px; font-weight: 700; color: #667085"><span>Сотрудник</span><span>Роль</span><span>Где входит</span><span>Оплата</span><span>Начислено</span><span>Сейчас</span></div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+          <div class="tr">
+            <span style="display: flex; align-items: center; gap: 10px"><span style="width: 34px; height: 34px; border-radius: 17px; background: {{r.av}}; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px">{{r.ini}}</span><b style="font-weight: 600">{{r.name}}</b></span>
+            <span>{{r.role}}</span>
+            <span style="display: flex; gap: 8px; flex-wrap: wrap"><span class="dv">{{r.k}}</span><span class="dv">{{r.ph}}</span><span class="dv">{{r.web}}</span></span>
+            <span style="color: #475467">{{r.pay}}</span>
+            <b style="color: #0B2A3C; white-space: nowrap">{{r.sum}}</b>
+            <span style="font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; justify-self: start; background: {{r.sbg}}; color: {{r.sfg}}">{{r.state}}</span>
+          </div>
+        </sc-for>
+      </div></div>
+    </section>
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 14px 16px">
+      <span style="flex-grow: 1; font-size: 13px; color: #475467">Начислено 31&nbsp;500 · аванс выплачен 9&nbsp;600 · <b style="color: #0B2A3C; font-size: 16px">к выплате 21&nbsp;900 сом</b><br>Наличными — только через открытую смену кассы (Касса 1 · Кассир Тест ▾), иначе переводом на карту. «Где входит» — нужен сервер NurCRM.</span>
+      <button type="button" class="b2">Ведомость PDF</button>
+      <button type="button" class="b1">Выплатить…</button>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: 4 роли доступа (Владелец, Администратор, Кассир, Кладовщик); «консультант» — схема оплаты, не роль. Входы — ✓/✕ словами.
+    const on = { sbg: '#E7F6EC', sfg: '#0E7A3A', state: 'в смене' };
+    const off = { sbg: '#F2F4F7', sfg: '#475467', state: 'не в смене' };
+    const y = (v, t) => (v ? '✓ ' : '✕ ') + t;
+    const r = (ini, name, role, d, pay, sum, s, av) => Object.assign({ ini, name, role, k: y(d[0], 'Касса'), ph: y(d[1], 'Телефон'), web: y(d[2], 'Веб'), pay, sum, av }, s);
+    return {
+      rows: [
+        r('НА', 'Нурлан Абдыкадыров', 'Администратор', [1, 1, 1], 'Оклад', '12 000 сом', on, '#E7EEF3'),
+        r('КТ', 'Кассир Тест', 'Кассир', [1, 1, 0], '% от продаж', '7 400 сом', on, '#FFD600'),
+        r('АС', 'Айгерим Садыкова', 'Кассир', [1, 1, 0], 'Оклад + % (консультант)', '6 900 сом', on, '#F2F4F7'),
+        r('БО', 'Бекзат Осмонов', 'Кладовщик', [0, 1, 0], 'Оклад', '5 200 сом', off, '#F2F4F7')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

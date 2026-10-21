@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — товар, размеры, ценники</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:12px;flex-shrink:0;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:10px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:13px;color:#475467}
+.tot b{font-size:16px;color:#0B2A3C}
+.b2{height:44px;white-space:nowrap;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:44px;white-space:nowrap;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px}
+.st{border-radius:10px;background:#F9FAFB;padding:10px;display:flex;flex-direction:column;gap:2px;text-align:center}
+.st span{font-size:11px;color:#667085}
+.st b{font-size:16px;white-space:nowrap}
+.hint{flex-grow:1;font-size:12px;color:#667085}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:7px 0;border-bottom:1px solid #F2F4F7}
+.kv span{color:#475467}
+.sz{height:60px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.sz b{font-size:15px}
+.sz span{font-size:12px;font-weight:600;color:#475467}
+.sz.on{border:2px solid #0B2A3C;background:#0B2A3C;color:#FFFFFF}
+.sz.on span{color:#FFFFFF}
+.sz.off{border:1.5px dashed #D0D5DD;background:#F9FAFB;color:#475467}
+.sz.off span{color:#B42318;font-weight:700}
+.chip{height:44px;padding:0 16px;border-radius:22px;white-space:nowrap;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 24px 40px; display: flex; justify-content: center; gap: 40px; align-items: flex-start">
+  <!-- 2026-10-16: карточка и ценники — 640 px, выбор размера — 480 px; кассир видит товар без закупки и наценки; фото — нейтральная заглушка; «нет» у размера — красным словом, не бледно -->
+  <div style="width: 640px; display: flex; flex-direction: column; gap: 24px">
+    <section class="m" role="dialog" aria-label="Карточка товара">
+      <div class="mh"><div class="mt"><b>Сок Gracio яблочный 1л</b><span>Напитки · код 0112 · вы вошли как кассир</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb" style="flex-direction: row; gap: 16px; align-items: flex-start">
+        <span role="img" aria-label="Фото товара" style="width: 140px; height: 140px; border-radius: 14px; background: #EEF0F3; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg></span>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><div class="st"><span>Цена</span><b>120&nbsp;сом</b></div><div class="st" style="background: #FEF3E2"><span style="color: #7A2E0E">Остаток</span><b style="color: #B54708">2 шт · мало</b></div><div class="st"><span>Мин. остаток</span><b>10 шт</b></div></div>
+          <div class="kv"><span>Штрихкод</span><b>4870009123453</b></div>
+          <div class="kv" style="border: 0"><span>Поставщик</span><b>ОсОО «Бишкек Дистрибьюшн»</b></div>
+          <span style="border-radius: 10px; background: #F2F4F7; padding: 8px 10px; font-size: 12px; color: #475467">Закупку и наценку видят только администратор и владелец — кассир видит товар без закупки.</span>
+        </div>
+      </div>
+      <div class="mf"><button type="button" class="b2">Ценник</button><span class="hint">Enter — в чек</span><button type="button" class="b2">Изменить…</button><button type="button" class="b1">В чек</button></div>
+    </section>
+
+    <section class="m" role="dialog" aria-label="Печать ценников">
+      <div class="mh"><div class="mt"><b>Печать ценников</b><span>3 товара выбрано · принтер этикеток Xprinter XP-365B</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <div style="display: flex; gap: 8px"><button type="button" class="chip on">Ценник 58×40</button><button type="button" class="chip">Этикетка 40×30</button><button type="button" class="chip">Крупный A6</button></div>
+        <div style="display: grid; grid-template-columns: 250px 1fr; gap: 14px; align-items: start">
+          <div style="border-radius: 12px; background: #F2F4F7; padding: 12px; display: flex; justify-content: center">
+            <div style="width: 210px; background: #FFFFFF; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 2px 8px rgba(16,24,40,.1)"><span style="font-size: 12px; font-weight: 700">Макароны «Макфа» спагетти 450г</span><span style="font-size: 26px; font-weight: 800; color: #0B2A3C">85 сом</span><span style="height: 22px; background: repeating-linear-gradient(90deg,#111827 0 2px,#FFFFFF 2px 4px)"></span><span style="font-size: 10px; color: #475467">4702154000047 · NBS</span></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0">
+            <div class="kv"><span style="color: #111827; font-weight: 700">Макароны «Макфа» спагетти 450г</span><b>85&nbsp;сом</b></div>
+            <div class="kv"><span style="color: #111827; font-weight: 700">Mars 50г</span><b>39&nbsp;сом</b></div>
+            <div class="kv"><span style="color: #111827; font-weight: 700">Сок Gracio яблочный 1л</span><b>120&nbsp;сом</b></div>
+            <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px"><label class="lbl" for="pt1">КОПИЙ КАЖДОГО</label><input id="pt1" class="in" type="text" value="1" style="width: 70px"></div>
+          </div>
+        </div>
+      </div>
+      <div class="mf"><span class="tot">3 ценника</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Печать</button></div>
+    </section>
+  </div>
+
+  <div style="width: 480px; display: flex; flex-direction: column; gap: 24px">
+    <section class="m" role="dialog" aria-label="Выбор размера">
+      <div class="mh"><div class="mt"><b>Брюки классические</b><span>2 400 сом · выберите цвет и размер</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <span style="border-radius: 10px; background: #F2F4F7; padding: 8px 10px; font-size: 12px; color: #475467">Только у вида «Одежда и обувь» (пример — Бутик «Айсулуу»). У NBS («Продукты») этого окна нет.</span>
+        <span class="lbl">ЦВЕТ</span>
+        <div style="display: flex; gap: 8px"><button type="button" class="chip">Чёрный</button><button type="button" class="chip on">Синий</button></div>
+        <span class="lbl">РАЗМЕР · ОСТАТОК</span>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+          <button type="button" class="sz"><b>44</b><span style="color: #B54708; font-weight: 700">1 шт · мало</span></button>
+          <button type="button" class="sz on"><b>46</b><span>2 шт</span></button>
+          <button type="button" class="sz"><b>48</b><span>2 шт</span></button>
+          <button type="button" class="sz off" disabled=""><b>50</b><span>нет</span></button>
+        </div>
+        <span style="font-size: 12px; color: #475467">Скан этикетки размера сразу добавит нужный вариант.</span>
+      </div>
+      <div class="mf"><span class="tot">46 · Синий · <b>2&nbsp;400 сом</b></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">В чек</button></div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

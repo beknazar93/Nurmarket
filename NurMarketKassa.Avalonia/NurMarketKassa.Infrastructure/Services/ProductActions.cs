@@ -88,17 +88,36 @@ public static class ProductActions
         if (Math.Abs(target - current) < 0.0005)
             return new Result(true, T($"«{product.Title}»: остаток уже {Qty(current)}.", $"«{product.Title}»: калдык мурунтан {Qty(current)}.", $"“{product.Title}”: stock is already {Qty(current)}.", $"«{product.Title}»: stok zaten {Qty(current)}.", $"«{product.Title}»: qoldiq allaqachon {Qty(current)}."));
 
+        string? sessionId = null;
         try
         {
             var note = string.IsNullOrWhiteSpace(reason) ? "Изменение остатка" : reason.Trim();
-            var sessionId = await api.CreateSessionAsync(note, new[] { new InventorySessionItem(product.Id, target) }, ct).ConfigureAwait(false);
+            // 2026-10-16: у сервера есть только документ ревизии с итоговым количеством (прихода/списания «на разницу» нет). Вчерашний
+            // цикл (2026-10-15) создавал черновик и лишь потом перечитывал остаток: изменился — черновик бросался непроведённым, и на
+            // NurCRM копились «висящие» ревизии со старым абсолютным итогом (до 3 на строку) — проведи такую кто-то с сайта, остаток
+            // откатился бы. Удалить/отменить черновик API не умеет (IInventoryApiService: только create и apply), поэтому теперь:
+            // свежий остаток читается с сервера прямо перед созданием (выше, без кеша), итог считается от него, черновик создаётся и
+            // сразу проводится — один документ на действие, брошенных нет. Остаётся узкое окно: продажа другой кассы между чтением
+            // остатка и «провести» (два запроса) будет перетёрта итогом документа; закрыть его можно только серверным
+            // приходом/списанием «на разницу».
+            sessionId = await api.CreateSessionAsync(note, new[] { new InventorySessionItem(product.Id, target) }, ct).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(sessionId))
                 return new Result(false, T("Сервер не создал документ — ничего не изменено.", "Сервер документ түзгөн жок — эч нерсе өзгөргөн жок.", "The server didn't create the document — nothing changed.", "Sunucu belgeyi oluşturmadı — hiçbir şey değişmedi.", "Server hujjat yaratmadi — hech narsa o'zgarmadi."));
-            await api.ApplySessionAsync(sessionId, allowNegative: false, ct).ConfigureAwait(false);
+            // 2026-10-16: черновик уже на сервере — проводим без отмены (CancellationToken.None): отмена между «создать» и «провести»
+            // оставила бы на NurCRM непроведённую ревизию со старым итогом.
+            await api.ApplySessionAsync(sessionId, allowNegative: false, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            // 2026-10-16: тайм-аут «провести» — номер черновика в журнал (как ниже), ошибка идёт дальше, как раньше.
+            PosLogger.Log($"Действие с товаром: «{product.Title}» — тайм-аут проведения, черновик ревизии {sessionId} мог остаться непроведённым — проверьте его на NurCRM.", "WARNING");
+            throw;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            PosLogger.Log($"Действие с товаром: остаток «{product.Title}» не изменён ({ex.Message}).", "WARNING");
+            // 2026-10-16: не провёлся созданный черновик — его номер в журнал: удалить его можно только на NurCRM (API удаления нет).
+            PosLogger.Log($"Действие с товаром: остаток «{product.Title}» не изменён ({ex.Message})"
+                          + (string.IsNullOrWhiteSpace(sessionId) ? "." : $"; черновик ревизии {sessionId} мог остаться непроведённым — проверьте его на NurCRM."), "WARNING");
             return new Result(false, T("Не удалось изменить остаток: ", "Калдыкты өзгөртүү мүмкүн болгон жок: ", "Couldn't change the stock: ", "Stok değiştirilemedi: ", "Qoldiqni o'zgartirib bo'lmadi: ") + ex.Message);
         }
 

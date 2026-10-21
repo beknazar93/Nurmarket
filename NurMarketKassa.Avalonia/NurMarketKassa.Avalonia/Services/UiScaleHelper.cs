@@ -361,6 +361,8 @@ public static class UiScaleHelper
 
     /// <summary>Одна строка в журнал на каждый новый экран — чтобы по журналу с кассы было
     /// видно разрешение, масштаб Windows и итоговый масштаб, не спрашивая владельца.</summary>
+    private static readonly HashSet<string> LoggedScreensThisRun = new(StringComparer.Ordinal);
+
     private static void LogScreenOnce(RootState state, ScreenDip screen, double designWidth, double designHeight, double scale)
     {
         // 2026-10-04: в ключе и в строке журнала — ещё и вид (обычный/компактный).
@@ -370,6 +372,11 @@ public static class UiScaleHelper
             return;
 
         state.LastLoggedScreen = key;
+        // 2026-10-21 (пакет 6, п. 65): одно и то же окно (например, «Настройки кассы») при каждом открытии писало ту же
+        // строку — теперь один раз за запуск на вид окна, экран и масштаб.
+        var processKey = $"{state.Window?.GetType().Name}|{key}|{designWidth:0}x{designHeight:0}|{scale:0.###}";
+        if (!LoggedScreensThisRun.Add(processKey))
+            return;
         PosLogger.Log(
             $"UI scale: work area {screen.PixelWidth}x{screen.PixelHeight} px, Windows scale {screen.Scaling * 100:0}%, " +
             $"design {designWidth:0}x{designHeight:0}{layout}, preference {UserPreferences.Instance.UiScalePercent:0}% -> applied {scale * 100:0}%",

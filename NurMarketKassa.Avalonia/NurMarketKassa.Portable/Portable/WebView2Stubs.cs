@@ -18,6 +18,9 @@ namespace Microsoft.Web.WebView2.Core
         public void GoForward() { }
         public void Reload() { }
         public void Navigate(string url) => NavigationCompleted?.Invoke(this, EventArgs.Empty);
+        // 2026-10-20: «Редактор сайта» ограничивает предпросмотр скриптом страницы — здесь страницы нет.
+        public Task<string> AddScriptToExecuteOnDocumentCreatedAsync(string javaScript) => Task.FromResult("");
+        public Task<string> ExecuteScriptAsync(string javaScript) => Task.FromResult("null");
     }
 }
 

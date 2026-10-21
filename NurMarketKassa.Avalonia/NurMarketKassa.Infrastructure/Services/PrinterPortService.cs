@@ -108,6 +108,14 @@ public static class PrinterPortService
         var attemptCount = Math.Clamp(retries, 1, 8);
         Exception? last = null;
 
+        // 2026-10-16, проверка кода: это и есть общая очередь порта для ВСЕХ записей на принтер — чеки продаж, возврата
+        // и обмена (OperationReceiptPrinter), повторная печать из «Продаж», импульс ящика, keep-alive, этикетки, табло:
+        // все идут сюда, ключ — нормализованный порт (NormalizePort: без \\.\ и «:», заглавными). ReceiptPrintService.PrinterGate
+        // поверх неё только задаёт порядок (фоновые чеки продаж по очереди, ящик после них). Не дождались порта за 15 с —
+        // ошибка, а не запись «мимо очереди»: параллельная запись перемешала бы байты чеков на LPT/COM/WinUSB/Android, а
+        // в очереди Windows второй чек ждал бы за первым и мог сниматься как «застрявший» (WaitForJob). Блокировка держится только в
+        // синхронном коде этого метода (без await), а способы записи (WritePayload, Android-транспорт) сюда не возвращаются —
+        // повторного входа с другого потока нет; зависшая запись отпускает порт по WriteTimeout.
         var portLock = GetPortLock(port);
         if (!Monitor.TryEnter(portLock, PortWaitLimit))
         {

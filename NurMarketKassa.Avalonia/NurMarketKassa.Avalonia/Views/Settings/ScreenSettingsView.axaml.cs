@@ -53,11 +53,19 @@ public partial class ScreenSettingsView : UserControl
         var wrap = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal };
         foreach (var (key, title) in SectionVisibility.Catalog)
         {
-            var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, Width = 250, Margin = new Avalonia.Thickness(0, 0, 12, 6) };
-            var check = new CheckBox { Classes = { "ToggleSwitch" }, IsChecked = !SectionVisibility.IsHidden(key) };
+            // 2026-10-19: длинная подпись («Продажи и финансы — часть «Продажи»», ky/uz) наезжала на соседний переключатель —
+            // строка в своей ширине 250, подпись переносится (было StackPanel: текст выходил за 250).
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Width = 250, Margin = new Avalonia.Thickness(0, 0, 12, 6) };
+            var check = new CheckBox { Classes = { "ToggleSwitch" }, IsChecked = !SectionVisibility.IsHidden(key), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
             check.IsCheckedChanged += (_, _) => SectionVisibility.Set(key, check.IsChecked != true);
             row.Children.Add(check);
-            var label = new TextBlock { Text = title, FontSize = 13, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            var label = new TextBlock
+            {
+                Text = title, FontSize = 13, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap, Margin = new Avalonia.Thickness(8, 0, 0, 0),
+            };
+            Grid.SetColumn(label, 1);
+            Avalonia.Automation.AutomationProperties.SetName(check, title);
             label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
             row.Children.Add(label);
             wrap.Children.Add(row);
@@ -65,6 +73,56 @@ public partial class ScreenSettingsView : UserControl
         stack.Children.Add(wrap);
         card.Child = stack;
         CardList.Children.Add(card);
+    }
+
+    /// <summary>2026-10-18: «Вид меню» программы владельца (новое / бургер ☰ / старое) — те же карточки, что в окне кнопки «Вид»
+    /// внизу меню (OwnerMenuStylePicker); нажатие меняет меню сразу.</summary>
+    /// 2026-10-19: та же карточка — в кассе для меню ☰ (catalog = KassaMenuStyles.Catalog, «Старое» / «Новое»).
+    private void BuildOwnerMenuStyleCard(MenuStyleCatalog? catalog = null)
+    {
+        var kassa = catalog is not null;
+        var card = new Border { Classes = { "SettingsCard" }, Padding = new Avalonia.Thickness(14) };
+        var stack = new StackPanel { Spacing = 4 };
+        stack.Children.Add(new TextBlock
+        {
+            Text = Tr.T("Вид меню", "Менюнун көрүнүшү", "Menu layout", "Menü görünümü", "Menyu ko'rinishi"),
+            Classes = { "SettingsCardTitle" }, FontSize = 14,
+        });
+        var hint = new TextBlock
+        {
+            Text = kassa
+                ? Tr.T("Как выглядит меню ☰ кассы. Меняется сразу; пункты и права — те же.",
+                    "Кассанын ☰ менюсу кандай көрүнөт. Дароо өзгөрөт; пункттар жана укуктар ошол эле.",
+                    "How the till's ☰ menu looks. Changes right away; items and rights stay the same.",
+                    "Kasanın ☰ menüsünün görünümü. Hemen değişir; öğeler ve yetkiler aynı kalır.",
+                    "Kassaning ☰ menyusi qanday ko'rinadi. Darhol o'zgaradi; bandlar va huquqlar o'sha-o'sha.")
+                : Tr.T("Как показывать разделы слева. Меняется сразу, открытый раздел остаётся.",
+                "Бөлүмдөрдү сол жакта кантип көрсөтүү. Дароо өзгөрөт, ачык бөлүм калат.",
+                "How the sections are shown on the left. Changes right away; the open section stays.",
+                "Bölümlerin solda nasıl gösterileceği. Hemen değişir, açık bölüm kalır.",
+                "Bo'limlarni chapda qanday ko'rsatish. Darhol o'zgaradi, ochiq bo'lim qoladi."),
+            FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        };
+        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        stack.Children.Add(hint);
+        stack.Children.Add(new OwnerMenuStylePicker { Margin = new Avalonia.Thickness(0, 8, 0, 0), Catalog = catalog ?? OwnerMenuStyles.Catalog });
+        card.Child = stack;
+        CardList.Children.Add(card);
+    }
+
+    /// <summary>2026-10-18, владелец: карточка «Оплата долга» (DebtPaymentSettingsCard) — сразу после группы, где
+    /// переключатель предоплаты долга.</summary>
+    private void InsertDebtPaymentCard()
+    {
+        Control? group = DebtPrepayChoiceCheck;
+        while (group is not null && !ReferenceEquals(group.Parent, CardList))
+            group = group.Parent as Control;
+        var index = group is null ? CardList.Children.Count : CardList.Children.IndexOf(group) + 1;
+        // 2026-10-20, аудит программы владельца: «Оплата долга» — общая настройка компании, у владельца пряталась под
+        // свёрнутыми группами кассы; в программе владельца — первой карточкой под заголовком страницы. Касса — как было.
+        if (AppMode.IsOwner && CardList.Children.Count > 0)
+            index = 1;
+        CardList.Children.Insert(index, new DebtPaymentSettingsCard());
     }
 
     public ScreenSettingsView()
@@ -81,7 +139,13 @@ public partial class ScreenSettingsView : UserControl
                     row.IsVisible = false;
             }
         }
+        // 2026-10-18, владелец: «вид меню на выбор» — в программе владельца карточки трёх видов меню перед «Разделами меню».
+        if (AppMode.IsOwner)
+            BuildOwnerMenuStyleCard();
+        else
+            BuildOwnerMenuStyleCard(KassaMenuStyles.Catalog); // 2026-10-19: вид меню ☰ кассы (старое / новое)
         BuildSectionsCard();
+        InsertDebtPaymentCard();
         CashboxCombo.ItemsSource =new[] { new CashboxOption(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)")) };
         CashboxCombo.SelectedIndex = 0;
 

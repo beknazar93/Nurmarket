@@ -53,7 +53,9 @@ public static class SaleReceiptTextBuilder
         void Line(string s = "") => sb.Append(s).Append('\n');
         void Dash() => Line(new string('-', w));
 
-        Line(ReceiptLineLayout.Center("Контрольно-кассовый чек", w));
+        // 2026-10-16, решение владельца: чек нефискальный (ККМ не подключена) — «Контрольно-кассовый чек»
+        // выдавал его за фискальный документ, это риск для магазина перед ГНС.
+        Line(ReceiptLineLayout.Center("Товарный чек", w));
         Line();
 
         if (prefs.ShowStoreName)
@@ -175,10 +177,38 @@ public static class SaleReceiptTextBuilder
             Line(ReceiptLineLayout.FormatLabelAmount(
                 "Сдача", ReceiptLineLayout.WithSom(change.ToString("N2", CultureInfo.CurrentCulture)), w));
         }
-        if (method == "debt" && Money(sale, "remaining_debt") is { } remaining)
+        if (method == "debt")
         {
+            // 2026-10-20, владелец (долг Д5): в копии чека продажи «в долг» — «Оплачено» (если вносили), «В долг», «Вернуть до»
+            // или график рассрочки, клиент с телефоном маской. Срок и график у сервера в продаже не хранятся — берём их из
+            // журнала кассы (SaleReturnLedger, запись при оплате); нет записи — как раньше, только остаток долга.
+            var ledger = SaleReturnLedger.Get(Str(sale, "id"));
+            var paidNow = ledger is { Total: > 0m } ? ledger.PaidCash + ledger.PaidNonCash : received ?? 0m;
+            if (paidNow > 0.005m)
+                Line(ReceiptLineLayout.FormatLabelAmount(
+                    "Оплачено", ReceiptLineLayout.WithSom(paidNow.ToString("N2", CultureInfo.CurrentCulture)), w));
+            var debtNow = ledger is { Total: > 0m } ? ledger.Debt : Math.Max(0m, due - paidNow);
             Line(ReceiptLineLayout.FormatLabelAmount(
-                "Остаток долга", ReceiptLineLayout.WithSom(remaining.ToString("N2", CultureInfo.CurrentCulture)), w));
+                "В долг", ReceiptLineLayout.WithSom(debtNow.ToString("N2", CultureInfo.CurrentCulture)), w));
+            if (ledger is { DebtSchedule.Count: > 1 })
+            {
+                Line($"Рассрочка: {ledger.DebtSchedule.Count} плат.");
+                var no = 0;
+                foreach (var p in ledger.DebtSchedule)
+                    Line(ReceiptLineLayout.FormatLabelAmount($"{++no}) {p.Date:dd.MM.yyyy}",
+                        p.Amount.ToString("N2", CultureInfo.CurrentCulture), w));
+            }
+            else if (ledger?.DebtDueDate is { } dueDate)
+            {
+                Line($"Вернуть до: {dueDate:dd.MM.yyyy}");
+            }
+            if (Money(sale, "remaining_debt") is { } remaining)
+            {
+                Line(ReceiptLineLayout.FormatLabelAmount(
+                    "Остаток долга", ReceiptLineLayout.WithSom(remaining.ToString("N2", CultureInfo.CurrentCulture)), w));
+            }
+            if (ledger?.ClientPhone is { Length: > 0 } phone && CartReceiptTextBuilder.MaskPhone(phone) is { Length: > 0 } masked)
+                Line($"Телефон клиента: {masked}");
         }
 
         Line(ReceiptLineLayout.FormatLabelAmount(

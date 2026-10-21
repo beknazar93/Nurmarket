@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Новый товар — описание, фото, поиск в интернете</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: 1.6fr 1fr; gap: 22px; align-items: start">
+
+  <section class="m" role="dialog" aria-label="Новый товар">
+    <div class="mh"><div class="mt"><b>Новый товар</b><span>Штрихкод 4870001234567 · найдено в интернете, проверьте</span></div><button type="button" class="b2" style="height: 36px; display: flex; align-items: center; gap: 6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg>Найти в интернете</button><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb" style="display: grid; grid-template-columns: 250px 1fr; gap: 16px">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span class="lbl">ФОТО · ПЕРВОЕ — ГЛАВНОЕ</span>
+        <span style="height: 230px; border-radius: 14px; background: #FFEBD6; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #B54708; font-weight: 700; position: relative">[фото из интернета]<span class="tag" style="position: absolute; top: 8px; left: 8px; background: #FFFFFF; color: #0B2A3C">главное</span></span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px"><span style="height: 70px; border-radius: 10px; background: #FFF4C2"></span><span style="height: 70px; border-radius: 10px; background: #F2F4F7"></span><button type="button" class="b2" aria-label="Добавить фото" style="height: 70px; border-style: dashed; padding: 0">+</button></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px"><button type="button" class="b2" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"></path></svg>С компьютера</button><button type="button" class="b2" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>Камерой</button></div>
+        <button type="button" class="b2" style="display: flex; align-items: center; justify-content: center; gap: 6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg>Ещё фото из интернета</button>
+        <span style="font-size: 11px; color: #667085">Фон фото можно убрать одной кнопкой — товар на белом</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label class="lbl" for="np1">НАЗВАНИЕ</label><input id="np1" class="in" type="text" value="Сок Gracio яблочный 1л">
+        <div style="display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px">
+          <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="np2">ШТРИХКОД</label><input id="np2" class="in" type="text" value="4870001234567"></span>
+          <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="np3">КАТЕГОРИЯ</label><input id="np3" class="in" type="text" value="Напитки"></span>
+          <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="np4">БРЕНД</label><input id="np4" class="in" type="text" value="Gracio"></span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+          <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="np5">ЗАКУПКА</label><input id="np5" class="in" type="text" placeholder="[цена]"></span>
+          <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="np6">ЦЕНА ПРОДАЖИ</label><input id="np6" class="in" type="text" placeholder="авто +30 %" style="border: 2px solid #0B2A3C"></span>
+          <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="np7">ЕДИНИЦА</label><input id="np7" class="in" type="text" value="шт"></span>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between"><label class="lbl" for="np8">ОПИСАНИЕ — ДЛЯ САЙТА И БОТА</label><button type="button" class="chip" style="display: flex; align-items: center; gap: 4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path></svg>Написать с Нур Советником</button></div>
+        <textarea id="np8" style="height: 104px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D0D5DD; padding: 10px 12px; font-family: inherit; font-size: 13px; line-height: 19px; resize: none">Яблочный сок прямого отжима, 1 литр. Без добавления сахара. Хранить при температуре до +25 °C, после вскрытия — в холодильнике до 3 дней.</textarea>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="tag" style="background: #E7F6EC; color: #0E7A3A">название — из интернета</span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">фото — из интернета</span><span class="tag" style="background: #FEF3E2; color: #B54708">цену проверьте сами</span></div>
+      </div>
+    </div>
+    <div class="mf"><label style="display: flex; align-items: center; gap: 8px; font-size: 13px; flex-grow: 1"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: #0B2A3C">Показывать на сайте и в боте</label><button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить товар</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Найти товар в интернете">
+    <div class="mh"><div class="mt"><b>Найти в интернете</b><span>По штрихкоду, названию или фото</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: flex; gap: 6px"><input class="in" type="text" value="4870001234567" aria-label="Что искать"><button type="button" class="b1" style="flex-shrink: 0">Найти</button></div>
+      <div style="display: flex; gap: 6px"><button type="button" class="chip on">Штрихкод</button><button type="button" class="chip">Название</button><button type="button" class="chip">По фото</button></div>
+      <span class="lbl">НАЙДЕНО · 3</span>
+      <div class="row" style="background: #FFF7CC; border: 2px solid #0B2A3C; align-items: flex-start"><span style="width: 64px; height: 64px; border-radius: 10px; background: #FFEBD6; flex-shrink: 0"></span><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px"><b>Сок Gracio яблочный 1л</b><span style="font-size: 11px; color: #667085">[сайт] · штрихкод совпал</span><span style="font-size: 12px; color: #475467">Яблочный сок прямого отжима…</span></span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">точно</span></div>
+      <div class="row" style="align-items: flex-start"><span style="width: 64px; height: 64px; border-radius: 10px; background: #FFF4C2; flex-shrink: 0"></span><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px"><b>Gracio Apple Juice 1L</b><span style="font-size: 11px; color: #667085">[сайт] · похожее</span></span></div>
+      <div class="row" style="align-items: flex-start"><span style="width: 64px; height: 64px; border-radius: 10px; background: #F2F4F7; flex-shrink: 0"></span><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px"><b>Сок яблочный 1л</b><span style="font-size: 11px; color: #667085">[сайт] · только фото</span></span></div>
+      <span class="lbl" style="padding-top: 4px">ЧТО ВЗЯТЬ</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><label class="chip on" style="display: flex; align-items: center">✓ Название</label><label class="chip on" style="display: flex; align-items: center">✓ Фото</label><label class="chip on" style="display: flex; align-items: center">✓ Описание</label><label class="chip" style="display: flex; align-items: center">Категория</label></div>
+    </div>
+    <div class="mf"><span class="tot">Цена из интернета не берётся</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Заполнить</button></div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -91,9 +91,13 @@ public partial class CalculatorWindow : Window, IOwnerSection
         UpdateAuditStamp();
     }
 
-    private void UpdateAuditStamp() =>
-        AuditRefreshButton.Content = Tr.T("Обновить", "Жаңыртуу", "Refresh", "Yenile", "Yangilash")
-            + " · " + DateTime.Now.ToString("HH:mm", CultureInfo.InvariantCulture);
+    // 2026-10-21 (пакет 1, п. 111): «Обновить · 14:53» не походило на кнопку — на кнопке только «Обновить», время — подписью рядом.
+    private void UpdateAuditStamp()
+    {
+        AuditRefreshButton.Content = Tr.T("Обновить", "Жаңыртуу", "Refresh", "Yenile", "Yangilash");
+        var time = DateTime.Now.ToString("HH:mm", CultureInfo.InvariantCulture);
+        AuditStampText.Text = Tr.T($"данные на {time}", $"{time} абалы", $"as of {time}", $"{time} itibarıyla", $"{time} holatiga");
+    }
 
     private async void AuditRefresh_Click(object? sender, RoutedEventArgs e)
     {
@@ -176,6 +180,7 @@ public partial class CalculatorWindow : Window, IOwnerSection
         ModeMarkupButton.Content = Tr.T("От наценки %", "Үстөктөн %", "From markup %", "Kâr oranına göre %", "Ustama % bo'yicha");
         ModeMarginButton.Content = Tr.T("От маржи %", "Маржадан %", "From margin %", "Marja göre %", "Marja % bo'yicha");
         ModePriceButton.Content = Tr.T("Проверить цену", "Бааны текшерүү", "Check price", "Fiyatı kontrol et", "Narxni tekshirish");
+        UpdateModeUnit();
         TaxLabel.Text = Tr.T("Налог с выручки, %", "Түшүмдөн салык, %", "Tax on revenue, %", "Ciro vergisi, %", "Tushumdan soliq, %");
         TaxHint.Text = Tr.T(
             "Кыргызстан: единый налог для торговли — 0,5% при выручке до 50 млн сом в год (выше — 4% наличные / 2% безнал); налог с продаж — 1–2%; патент — 0%. Ставку уточните у бухгалтера.",
@@ -200,7 +205,20 @@ public partial class CalculatorWindow : Window, IOwnerSection
         // 2. Партия
         ExtraCostsLabel.Text = Tr.T("Доп. расходы на партию (доставка, таможня), сом", "Партияга кошумча чыгым (жеткирүү, бажы), сом",
             "Extra costs for the batch (delivery, customs), som", "Parti ek masrafları (nakliye, gümrük), som", "Partiya uchun qo'shimcha xarajatlar (yetkazib berish, bojxona), so'm");
-        RateLabel.Text = Tr.T("Курс валюты закупки (1 — если в сомах)", "Сатып алуу валютасынын курсу (сом болсо 1)", "Purchase currency rate (1 if in som)", "Alış para biriminin kuru (som ise 1)", "Xarid valyutasi kursi (so'mda bo'lsa — 1)");
+        // 2026-10-21 (пакет 1, п. 111): «Курс валюты закупки (1 — если в сомах)» — коротко, а пояснение с примером под полем.
+        RateLabel.Text = Tr.T("Курс валюты к сому", "Валютанын сомго курсу", "Currency rate to som", "Kurun soma oranı", "Valyutaning so'mga kursi");
+        RateHint.Text = Tr.T("Цены в сомах — оставьте 1. В долларах — впишите курс, например 87,5.",
+            "Баалар сом менен болсо — 1 калтырыңыз. Доллар менен болсо — курсту жазыңыз, мисалы 87,5.",
+            "Prices in som — leave 1. In dollars — enter the rate, e.g. 87.5.",
+            "Fiyatlar somsa 1 bırakın. Dolarsa kuru yazın, örneğin 87,5.",
+            "Narxlar so'mda bo'lsa — 1 qoldiring. Dollarda bo'lsa — kursni yozing, masalan 87,5.");
+        // 2026-10-21 (пакет 1, п. 74): пустая таблица без подсказки, что делать.
+        BatchHint.Text = Tr.T(
+            "Впишите товары накладной: название, количество и цену закупки (нажмите на ячейку таблицы). Доставку и другие расходы программа разделит между строками и покажет себестоимость единицы и цену продажи.",
+            "Накладнойдун товарларын жазыңыз: аты, саны жана сатып алуу баасы (таблицанын уячасын басыңыз). Жеткирүү жана башка чыгымдарды программа саптарга бөлүштүрүп, бирдиктин өздүк наркын жана сатуу баасын көрсөтөт.",
+            "Enter the items of the delivery note: name, quantity and purchase price (click a table cell). The app splits delivery and other costs between the rows and shows the landed unit cost and selling price.",
+            "İrsaliyedeki ürünleri girin: ad, miktar ve alış fiyatı (tablo hücresine tıklayın). Program nakliye ve diğer masrafları satırlara dağıtır, birim maliyeti ve satış fiyatını gösterir.",
+            "Nakladnoydagi mahsulotlarni yozing: nomi, soni va xarid narxi (jadval katagini bosing). Dastur yetkazib berish va boshqa xarajatlarni qatorlarga taqsimlab, birlik tannarxi va sotuv narxini ko'rsatadi.");
         BatchMarkupLabel.Text = Tr.T("Наценка для цены продажи, %", "Сатуу баасы үчүн үстөк, %", "Markup for the selling price, %", "Satış fiyatı için kâr oranı, %", "Sotuv narxi uchun ustama, %");
         SplitLabel.Text = Tr.T("Расходы распределить", "Чыгымды бөлүштүрүү", "Split costs by", "Masrafları dağıt", "Xarajatlarni taqsimlash");
         SplitSumButton.Content = Tr.T("по сумме", "сумма боюнча", "amount", "tutara göre", "summa bo'yicha");
@@ -219,7 +237,7 @@ public partial class CalculatorWindow : Window, IOwnerSection
         for (var i = 0; i < batchHeaders.Length && i < BatchGrid.Columns.Count; i++)
             BatchGrid.Columns[i].Header = batchHeaders[i];
         AddRowButton.Content = Tr.T("+ Строка", "+ Сап", "+ Row", "+ Satır", "+ Qator");
-        RemoveRowButton.Content = Tr.T("Удалить строку", "Сапты өчүрүү", "Delete row", "Satırı sil", "Qatorni o'chirish");
+        RemoveRowButton.Content = Tr.T("Удалить выбранную строку", "Тандалган сапты өчүрүү", "Delete selected row", "Seçili satırı sil", "Tanlangan qatorni o'chirish");
 
         // 3. Проверка цен
         StockCostLabel.Text = Tr.T("Склад по закупке", "Кампа сатып алуу баасы боюнча", "Stock at cost", "Stok değeri (alış)", "Ombor (xarid narxida)");
@@ -244,7 +262,10 @@ public partial class CalculatorWindow : Window, IOwnerSection
             AuditGrid.Columns[i].Header = auditHeaders[i];
 
         // 4. Безубыточность
-        CostsTitle.Text = Tr.T("Расходы в месяц и показатели", "Айлык чыгымдар жана көрсөткүчтөр", "Monthly costs and figures", "Aylık giderler ve göstergeler", "Oylik xarajatlar va ko'rsatkichlar");
+        // 2026-10-21 (пакет 1, п. 111): поля — тремя группами: расходы, продажи, цель.
+        CostsTitle.Text = Tr.T("Расходы в месяц", "Айлык чыгымдар", "Monthly costs", "Aylık giderler", "Oylik xarajatlar");
+        SalesFiguresTitle.Text = Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar");
+        GoalTitle.Text = Tr.T("Цель", "Максат", "Goal", "Hedef", "Maqsad");
         RentLabel.Text = Tr.T("Аренда, сом", "Ижара, сом", "Rent, som", "Kira, som", "Ijara, so'm");
         SalaryCostLabel.Text = Tr.T("Зарплата, сом", "Эмгек акы, сом", "Salaries, som", "Maaşlar, som", "Ish haqi, so'm");
         UtilitiesLabel.Text = Tr.T("Коммунальные, интернет, сом", "Коммуналдык, интернет, сом", "Utilities, internet, som", "Faturalar, internet, som", "Kommunal xizmatlar, internet, so'm");
@@ -289,11 +310,13 @@ public partial class CalculatorWindow : Window, IOwnerSection
             var chip = new Button { Content = rate.ToString("0.#", UiNumber) + "%", Tag = rate, Classes = { "chip" } };
             chip.Click += (_, _) =>
             {
-                TaxBox.Text = rate.ToString("0.##", CultureInfo.InvariantCulture);
+                // 2026-10-21 (пакет 1, п. 111): «0,5», а не «0.5» — запятая, как во всей программе.
+                TaxBox.Text = rate.ToString("0.##", UiNumber);
                 BeTaxBox.Text = TaxBox.Text;
             };
             TaxChips.Children.Add(chip);
         }
+        SyncTaxChips();
 
         RoundChips.Children.Clear();
         foreach (var step in RoundSteps)
@@ -397,7 +420,8 @@ public partial class CalculatorWindow : Window, IOwnerSection
 
         var p = choice.Product;
         _currentPrice = LocalCartService.ParsePrice(p.PriceLine);
-        CostBox.Text = p.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture);
+        // 2026-10-21 (пакет 1, п. 111): «38,5», а не «38.5».
+        CostBox.Text = p.PurchasePrice.ToString("0.##", UiNumber);
         SelectedProductText.Text = Tr.T($"Выбран: {p.Title}", $"Тандалды: {p.Title}", $"Selected: {p.Title}", $"Seçilen: {p.Title}", $"Tanlandi: {p.Title}");
         SelectedProductText.IsVisible = true;
         ProductMatches.IsVisible = false;
@@ -415,10 +439,23 @@ public partial class CalculatorWindow : Window, IOwnerSection
         ModeValueBox.Text = mode switch
         {
             "margin" => "25",
-            "price" => _currentPrice is > 0 ? _currentPrice.Value.ToString("0.##", CultureInfo.InvariantCulture) : "0",
+            "price" => _currentPrice is > 0 ? _currentPrice.Value.ToString("0.##", UiNumber) : "0",
             _ => "30",
         };
+        UpdateModeUnit();
         RecalcPrice();
+    }
+
+    // 2026-10-21 (пакет 1, п. 111): «30» без «%» — знак внутри поля: «%» у наценки и маржи, «сом» у проверки цены.
+    private void UpdateModeUnit() =>
+        ModeValueBox.InnerRightContent = new TextBlock { Classes = { "unit" }, Text = _mode == "price" ? Som() : "%" };
+
+    // 2026-10-21 (пакет 1, п. 111): в поле налога 0, а ни один чип не выбран — выбранным становится чип с этой ставкой.
+    private void SyncTaxChips()
+    {
+        var tax = Num(TaxBox.Text);
+        foreach (var chip in TaxChips.Children.OfType<Button>())
+            chip.Classes.Set("active", chip.Tag is double rate && Math.Abs(rate - tax) < 0.001);
     }
 
     private void PriceInputs_Changed(object? sender, TextChangedEventArgs e) => RecalcPrice();
@@ -431,6 +468,7 @@ public partial class CalculatorWindow : Window, IOwnerSection
         var cost = Num(CostBox.Text);
         var value = Num(ModeValueBox.Text);
         var tax = Num(TaxBox.Text) / 100;
+        SyncTaxChips();
         ResWarning.IsVisible = false;
 
         double price;
@@ -684,8 +722,9 @@ public partial class CalculatorWindow : Window, IOwnerSection
             {
                 var margin = Card(c30, "margin_percent");
                 var avg = Card(c30, "avg_check");
+                // 2026-10-21 (пакет 1, п. 111): «25,5», а не «25.5».
                 if (margin > 0)
-                    AvgMarginBox.Text = margin.ToString("0.#", CultureInfo.InvariantCulture);
+                    AvgMarginBox.Text = margin.ToString("0.#", UiNumber);
                 if (avg > 0)
                     AvgCheckBox.Text = avg.ToString("0", CultureInfo.InvariantCulture);
             }
@@ -749,12 +788,50 @@ public partial class CalculatorWindow : Window, IOwnerSection
 
         var breakEven = fixedCosts / effective;
         var goalRevenue = (fixedCosts + goal) / effective;
-        BeMonthValue.Text = Money(breakEven);
-        BeDayText.Text = PerDayText(breakEven / days, avgCheck);
-        GoalMonthValue.Text = Money(goalRevenue);
-        GoalDayText.Text = PerDayText(goalRevenue / days, avgCheck);
+        // 2026-10-21 (пакет 1, п. 111, 75): при пустых расходах было «0 сом» и сразу «100% от безубыточности» с полной
+        // зелёной полосой — противоречие. Без расходов безубыточность не считается: прочерк и подсказка, что вписать.
+        var noCosts = fixedCosts <= 0;
+        if (FactBar.Parent is Control factTrack)
+            factTrack.IsVisible = !noCosts && _monthRevenue is not null;
+        if (noCosts)
+        {
+            BeMonthValue.Text = "—";
+            BeDayText.Text = Tr.T("Впишите расходы в месяц слева — аренду, зарплату, коммунальные. Тогда посчитаю, сколько нужно продавать без убытка.",
+                "Сол жакка айлык чыгымдарды жазыңыз — ижара, эмгек акы, коммуналдык. Ошондо зыянсыз болуш үчүн канча сатуу керектигин эсептейм.",
+                "Enter the monthly costs on the left — rent, salaries, utilities. Then I will show how much you need to sell to break even.",
+                "Soldaki aylık giderleri girin — kira, maaş, faturalar. Sonra zarar etmemek için ne kadar satmanız gerektiğini hesaplarım.",
+                "Chapdagi oylik xarajatlarni yozing — ijara, ish haqi, kommunal. Shunda zarar ko'rmaslik uchun qancha sotish kerakligini hisoblayman.");
+        }
+        else
+        {
+            BeMonthValue.Text = Money(breakEven);
+            BeDayText.Text = PerDayText(breakEven / days, avgCheck);
+        }
+        if (noCosts && goal <= 0)
+        {
+            GoalMonthValue.Text = "—";
+            GoalDayText.Text = Tr.T("Впишите желаемую прибыль в месяц.", "Айына каалаган пайданы жазыңыз.", "Enter the target profit per month.",
+                "Hedef aylık kârı girin.", "Oyiga istalgan foydani yozing.");
+        }
+        else
+        {
+            GoalMonthValue.Text = Money(goalRevenue);
+            GoalDayText.Text = PerDayText(goalRevenue / days, avgCheck);
+        }
 
-        if (_monthRevenue is { } revenue)
+        if (_monthRevenue is { } monthRevenue && noCosts)
+        {
+            // Факт месяца без расходов: выручка и прогноз видны, сравнения с безубыточностью нет (и полосы тоже).
+            var today = DateTime.Today;
+            var forecast = monthRevenue / today.Day * DateTime.DaysInMonth(today.Year, today.Month);
+            FactValue.Text = Money(monthRevenue);
+            FactText.Text = Tr.T($"Прогноз на месяц: {Money(forecast)}. Сравню с безубыточностью, когда впишете расходы.",
+                $"Айга болжол: {Money(forecast)}. Чыгымдарды жазганыңызда зыянсыздык менен салыштырам.",
+                $"Monthly forecast: {Money(forecast)}. I will compare it with break-even once you enter the costs.",
+                $"Ay tahmini: {Money(forecast)}. Giderleri girdiğinizde başabaş noktasıyla karşılaştırırım.",
+                $"Oylik prognoz: {Money(forecast)}. Xarajatlarni yozganingizda zararsizlik bilan solishtiraman.");
+        }
+        else if (_monthRevenue is { } revenue)
         {
             var today = DateTime.Today;
             var daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
@@ -917,7 +994,8 @@ public partial class CalculatorWindow : Window, IOwnerSection
             Cost = cost;
             Price = price;
             Stock = stock;
-            Unit = unit;
+            // 2026-10-21 (пакет 1, п. 111): «шт» и «шт.» вперемешку — единица без точки на конце.
+            Unit = (unit ?? "").Trim().TrimEnd('.');
             Markup = cost > 0 ? (price - cost) / cost * 100 : double.NaN;
             Margin = price > 0 && cost > 0 ? (price - cost) / price * 100 : double.NaN;
             StockProfit = cost > 0 && stock > 0 ? (price - cost) * stock : 0;

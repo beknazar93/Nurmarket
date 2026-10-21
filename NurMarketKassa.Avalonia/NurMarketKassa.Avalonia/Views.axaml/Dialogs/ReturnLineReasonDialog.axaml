@@ -1,53 +1,17 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ReturnLineReasonDialog"
         Title="{DynamicResource returnReason.title}"
-        Width="520" Height="520"
-        MinHeight="420" MinWidth="420"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True"
+        CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
 
   <Window.Styles>
-    <!-- Главная кнопка (Вернуть) -->
-    <Style Selector="Button.btn-primary">
-      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="FontSize" Value="14"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    </Style>
-
-    <!-- Вторичная кнопка (Отмена) -->
-    <Style Selector="Button.btn-secondary">
-      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-      <Setter Property="BorderThickness" Value="1.5"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="FontSize" Value="14"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-    </Style>
-
     <!-- Поле ввода причины -->
     <Style Selector="TextBox.ModernTextArea">
       <Setter Property="Padding" Value="12,10"/>
@@ -58,78 +22,54 @@
       <Setter Property="FontSize" Value="14"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
-    <Style Selector="TextBox.ModernTextArea:focus /template/ Border#PART_BorderElement">
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-    </Style>
   </Window.Styles>
 
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="24">
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+  <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 480 — заголовок и ✕ сверху,
+       «Отмена» (обводка, Esc) и «Вернуть» (акцент темы) снизу справа. Высота — по содержимому (раньше
+       окно 520 / 420 задавалось в коде), не выше 85 % экрана. Enter в поле — новая строка, как и раньше. -->
+  <dlg:ModalShell Margin="16" Title="{DynamicResource returnReason.header}">
+    <dlg:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button IsCancel="True"
+                Classes="modal-cancel" MaxWidth="200"
+                Content="{DynamicResource common.cancel}"
+                Click="Cancel_Click"/>
+        <Button Classes="modal-primary" MaxWidth="200"
+                Content="{DynamicResource csh.cart.restore}"
+                IsDefault="True"
+                Click="Ok_Click"/>
+      </StackPanel>
+    </dlg:ModalShell.Footer>
 
-      <!-- Заголовок -->
-      <TextBlock Grid.Row="0"
-                 Text="{DynamicResource returnReason.header}"
-                 FontSize="18" FontWeight="Bold"
-                 Foreground="{DynamicResource BrushText}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"/>
-
-      <!-- Подсказка -->
-      <TextBlock x:Name="HintText" Grid.Row="1"
-                 Margin="0,8,0,16"
+    <StackPanel Spacing="12">
+      <!-- Подсказка (текст — в коде) -->
+      <TextBlock x:Name="HintText"
                  TextWrapping="Wrap"
-                 FontSize="14"
-                 Foreground="{DynamicResource BrushTextSoft}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"/>
+                 FontSize="13.5"
+                 Foreground="{DynamicResource BrushTextSoft}"/>
 
       <!-- 2026-10-06 (О-33, магазин одежды): частые причины одной кнопкой и отметка «Брак» — бракованный товар
            сервер не возвращает на склад (is_defect). Кнопки и подписи — в коде. -->
-      <StackPanel x:Name="QuickReasonsPanel" Grid.Row="2" Spacing="8" Margin="0,0,0,12">
+      <StackPanel x:Name="QuickReasonsPanel" Spacing="8">
         <WrapPanel x:Name="QuickReasonsWrap" Orientation="Horizontal"/>
         <CheckBox x:Name="DefectCheck" FontSize="13" Foreground="{DynamicResource BrushText}"/>
       </StackPanel>
 
       <!-- Многострочное поле ввода -->
-      <TextBox x:Name="ReasonBox" Grid.Row="3"
+      <TextBox x:Name="ReasonBox"
                Classes="ModernTextArea"
-               Margin="0,0,0,12"
+               MinHeight="110"
                Watermark="{DynamicResource returnReason.watermark}"
                TextWrapping="Wrap"
                AcceptsReturn="True"/>
 
       <!-- Текст ошибки -->
-      <TextBlock x:Name="ErrorText" Grid.Row="4"
-                 Margin="0,0,0,12"
+      <TextBlock x:Name="ErrorText"
                  FontSize="13"
                  FontWeight="Medium"
+                 TextWrapping="Wrap"
                  Foreground="{DynamicResource BrushDanger}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
                  IsVisible="False"/>
-
-      <!-- Кнопки управления -->
-      <Grid Grid.Row="5" ColumnDefinitions="*,12,*">
-        <Button IsCancel="True" Grid.Column="0"
-                Classes="btn-secondary"
-                Content="{DynamicResource common.cancel}"
-                Height="44"
-                HorizontalAlignment="Stretch"
-                Click="Cancel_Click"/>
-        <Button Grid.Column="2"
-                Classes="btn-primary"
-                Content="{DynamicResource csh.cart.restore}"
-                Height="44"
-                HorizontalAlignment="Stretch"
-                IsDefault="True"
-                Click="Ok_Click"/>
-      </Grid>
-
-    </Grid>
-  </Border>
+    </StackPanel>
+  </dlg:ModalShell>
 </Window>

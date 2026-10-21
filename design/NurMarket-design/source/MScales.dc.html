@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Модалки — весы</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:12px;flex-shrink:0;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:10px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:13px;color:#475467}
+.b2{height:44px;white-space:nowrap;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:44px;white-space:nowrap;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px}
+.opt{height:60px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.opt span{font-size:12px;font-weight:500;color:#475467}
+.opt.on{border:2px solid #0B2A3C;background:#0B2A3C;color:#FFFFFF}
+.opt.on span{color:#C7D2DB}
+.hint{flex-grow:1;font-size:12px;color:#667085}
+.cap{font-size:12px;font-weight:700;color:#475467;letter-spacing:.04em}
+.sg{display:flex;gap:4px}
+.sg button{height:44px;padding:0 14px;border-radius:10px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.sg button.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.pr{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid #EAECF0}
+.pf{width:44px;height:44px;border-radius:10px;background:#FFF7CC;border:1.5px solid #0B2A3C;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#0B2A3C;flex-shrink:0}
+.ex{font-family:Consolas,monospace;font-size:12px;color:#344054;line-height:18px}
+.chip{height:44px;padding:0 13px;border-radius:22px;white-space:nowrap;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.dev{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 20px 40px; display: flex; justify-content: center; gap: 40px; align-items: flex-start">
+  <!-- 2026-10-16: модалки 480 / 640 px; добавлены правила штрихкода весовых этикеток (20 — вес, 25 — сумма, как в программе WeightBarcodeParser и старых настройках) и «Табло цены»; «Товары в весы» — полоса без блокировки; плейсхолдеры заполнены -->
+  <div style="width: 480px; display: flex; flex-direction: column; gap: 20px">
+    <section class="m" role="dialog" aria-label="Подключение весов">
+      <div class="mh"><div class="mt"><b>Подключить весы</b><span>Шаг 1 из 2 · весы на кассе</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px"><button type="button" class="opt on">Весы на кассе<span>вес сразу в чек</span></button><button type="button" class="opt">С этикетками<span>печатают штрихкод</span></button></div>
+        <span class="lbl">МОДЕЛЬ</span>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip on">CAS</button><button type="button" class="chip">Штрих</button><button type="button" class="chip">Dahua</button><button type="button" class="chip">Rongta</button><button type="button" class="chip">Другая</button></div>
+        <div style="display: flex; gap: 10px; align-items: end"><span style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1"><label class="lbl" for="sc1">ПОРТ</label><input id="sc1" class="in" type="text" value="COM3 — найден сам"></span><button type="button" class="b2">Проверить</button></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-radius: 12px; background: #E7F6EC; padding: 10px 14px"><span style="font-size: 13px; font-weight: 700; color: #0E7A3A">✓ Весы отвечают</span><span style="font-size: 22px; font-weight: 800; color: #0B2A3C; white-space: nowrap">0,860 кг</span></div>
+      </div>
+      <div class="mf"><span class="tot" style="font-size: 12px">Положите груз — вес должен измениться</span><button type="button" class="b2">Назад</button><button type="button" class="b1">Готово</button></div>
+    </section>
+
+    <section class="m" role="dialog" aria-label="Поиск весов в сети">
+      <div class="mh"><div class="mt"><b>Весы в сети</b><span>Ищу в 192.168.1.* · 64 %</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <div style="height: 8px; border-radius: 4px; background: #F2F4F7; overflow: hidden"><span style="display: block; width: 64%; height: 8px; background: #0B2A3C"></span></div>
+        <div class="dev"><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Dahua TM-30F</span><span style="font-size: 12px; color: #475467">192.168.1.50 · этикетки</span></span><span style="font-size: 12px; font-weight: 700; color: #0E7A3A; white-space: nowrap">✓ выбраны</span></div>
+        <div class="dev"><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Rongta RLS1000</span><span style="font-size: 12px; color: #475467">192.168.1.64 · этикетки</span></span><button type="button" class="b2">Использовать</button></div>
+        <input class="in" type="text" placeholder="Не нашлись? Адрес вручную: 192.168.1.70" aria-label="Адрес вручную">
+      </div>
+      <div class="mf"><span class="hint">Весы и компьютер — в одной сети</span><button type="button" class="b2">Искать снова</button><button type="button" class="b1">Готово</button></div>
+    </section>
+  </div>
+
+  <div style="width: 640px; display: flex; flex-direction: column; gap: 20px">
+    <section class="m" role="dialog" aria-label="Штрихкод с весов: вес или сумма">
+      <div class="mh"><div class="mt"><b>Штрихкод с весов: вес или сумма</b><span>Весы с этикетками · Dahua TM-30F · префикс — первые две цифры</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <span style="font-size: 12px; color: #475467; line-height: 18px">После кода товара весы печатают ВЕС или СУММУ. Правило кассы важнее режима компании и действует сразу. Для префиксов 21–24 и 26–29 без правила касса спросит при первом скане.</span>
+        <div class="pr"><span class="pf">20</span><div class="sg"><button type="button" class="on">Вес</button><button type="button">Сумма</button></div><span class="ex">2000012008603 → Яблоки:<br>0,860 кг × 95 = 81,70 сом</span></div>
+        <div class="pr"><span class="pf">25</span><div class="sg"><button type="button">Вес</button><button type="button" class="on">Сумма</button></div><span class="ex">2500031171604 → Сыр «Российский»:<br>171,60 сом ÷ 780 = 0,220 кг</span></div>
+        <div style="display: flex; gap: 8px"><button type="button" class="b2">Настроить по этикетке…</button><button type="button" class="b2">Все префиксы 20–29</button></div>
+      </div>
+      <div class="mf"><span class="hint">По умолчанию: 20 — вес, 25 — сумма</span><button type="button" class="b2">Сбросить</button><button type="button" class="b1">Сохранить</button></div>
+    </section>
+
+    <section class="m" role="dialog" aria-label="Табло цены">
+      <div class="mh"><div class="mt"><b>Табло цены</b><span>Отдельная коробочка с табло на COM-порту — не второй монитор</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb">
+        <div class="sg"><button type="button" class="on">Текст, 2 строки (CD5220)</button><button type="button">Цифры «0.00» (8 цифр, LED)</button></div>
+        <div style="display: grid; grid-template-columns: 1fr 260px; gap: 12px; align-items: center">
+          <div style="display: flex; gap: 8px; align-items: end"><span style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1"><label class="lbl" for="pd1">УСТРОЙСТВО</label><input id="pd1" class="in" type="text" value="COM4 ▾"></span><button type="button" class="b2">Найти табло</button></div>
+          <div aria-label="Как выглядит табло" style="border-radius: 10px; background: #0F1F12; padding: 8px 12px; font-family: Consolas, monospace; font-size: 14px; line-height: 20px; color: #7CFC9A; white-space: pre">Mars 50г   5 x 39
+ИТОГО       650.00</div>
+        </div>
+      </div>
+      <div class="mf"><span class="hint">CD5220 подходит большинству табло — проверьте «Тестом»</span><button type="button" class="b2">Тест дисплея</button><button type="button" class="b1">Сохранить</button></div>
+    </section>
+
+    <section role="status" aria-label="Товары в весы" style="background: #FFFFFF; border-radius: 14px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 12px 30px rgba(11,42,60,.18)">
+      <div style="display: flex; align-items: center; gap: 10px"><b style="font-size: 14px; flex-grow: 1">Товары в весы Dahua TM-30F · 1 из 2</b><button type="button" class="b2">Остановить</button></div>
+      <div style="height: 8px; border-radius: 4px; background: #F2F4F7; overflow: hidden"><span style="display: block; width: 50%; height: 8px; background: #0B2A3C"></span></div>
+      <span style="font-size: 12px; color: #475467">Яблоки — <b style="color: #0E7A3A">✓ PLU 12</b> · Сыр «Российский» — <b style="color: #B54708">загружается…</b> · окно не мешает продавать; цены на весах обновятся сами</span>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -83,10 +83,27 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _salesViewSource.Filter += FilterSales;
             DataContext = this;
 
+            // 2026-10-18, этап О4 (аудит «Продажи»): поле поиска чека — с подсказкой (был пустой прямоугольник); чеки — вкладкой.
+            SearchReceiptBox.Watermark = Tr.T("Поиск чека: номер или товар", "Чек издөө: номери же товар", "Find a receipt: number or product",
+                "Fiş ara: numara veya ürün", "Chek qidirish: raqam yoki mahsulot");
+            Avalonia.Automation.AutomationProperties.SetName(SearchReceiptBox, SearchReceiptBox.Watermark);
+            ChecksTab.Header = Tr.T("Чеки", "Чектер", "Receipts", "Fişler", "Cheklar");
+            // 2026-10-18, доводка О4: пустая таблица — с подсказкой, что делать.
+            UiKit.EmptyHint(SalesGrid, Tr.T("Чеков за этот период нет. Выберите другой период — или проверьте строку поиска.",
+                "Бул мезгилде чек жок. Башка мезгилди тандаңыз — же издөө сабын текшериңиз.",
+                "No receipts for this period. Pick another period — or check the search box.",
+                "Bu dönemde fiş yok. Başka bir dönem seçin — ya da arama kutusunu kontrol edin.",
+                "Bu davrda chek yo'q. Boshqa davrni tanlang — yoki qidiruv qatorini tekshiring."));
+
             FullscreenHelper.Apply(this);
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _clockTimer.Tick += (_, _) => CurrentTimeText.Text = DateTime.Now.ToString("HH:mm:ss   dd.MM.yyyy");
+            // 2026-10-18, доводка О4: время сразу, а не через секунду — пустой рамки часов не бывает.
+            CurrentTimeText.Text = DateTime.Now.ToString("HH:mm:ss   dd.MM.yyyy");
+            // На телефоне шапка узкая, время и так видно в строке состояния — часы не показываем.
+            if (OperatingSystem.IsAndroid())
+                ClockBadge.IsVisible = false;
             _clockTimer.Start();
         }
 
@@ -107,10 +124,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             PosDataEvents.SalesChanged += OnSalesChangedExternally;
 
-            FromPicker.SelectedDate = new DateTimeOffset(_historyFrom);
-            ToPicker.SelectedDate = new DateTimeOffset(_historyTo);
+            SyncDatePickers(_historyFrom, _historyTo);
             CustomDatePill.IsChecked = false;
-            CustomDatePanel.IsVisible = false;
             await LoadDataAsync(_historyFrom, _historyTo);
         }
 
@@ -132,20 +147,48 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _clockTimer?.Stop();
             RootGrid.Margin = OwnerSectionLayout.Margin;
 
+            // 2026-10-18, этап О4 (аудит «Продажи»): период — в строку шапки слева (сначала период, потом цифры, как в
+            // «Финансах»); на телефоне — своей строкой над плитками, как в разметке.
+            if (!OperatingSystem.IsAndroid())
+            {
+                RootGrid.Children.Remove(PeriodBar);
+                PeriodBar.Margin = new Thickness(0, 0, 12, 0);
+                PeriodBar.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+                Grid.SetRow(PeriodBar, 0);
+                Grid.SetColumn(PeriodBar, 0);
+                HeaderRow.Children.Add(PeriodBar);
+                HeaderRow.Margin = new Thickness(0, 0, 0, 14);
+
+                // Поиск чека — над таблицей во вкладке «Чеки» (как в «Продажах и финансах»): с периодом в шапке на 1024 он не
+                // помещался бы.
+                var search = (Control)SearchReceiptBox.Parent ?? SearchReceiptBox;
+                (search.Parent as Panel)?.Children.Remove(search);
+                search.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+                search.Margin = new Thickness(0, 4, 0, 8);
+                ChecksTab.Content = null;
+                var checks = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
+                Grid.SetRow(SalesGrid, 1);
+                checks.Children.Add(search);
+                checks.Children.Add(SalesGrid);
+                ChecksTab.Content = checks;
+            }
+
             LowerTabs.Items.Remove(MetricsTab);
-            AbcTab.Header = "ABC";
-            LowerTabs.SelectedItem = AbcTab;
-            LowerTabs.Classes.Add("ownerTabs");
-            // Нижняя часть теперь только ABC — ей половина высоты, а не две пятых: в две пятых
-            // помещались лишь вкладки срезов и легенда.
-            SalesBody.RowDefinitions[0].Height = new GridLength(1, GridUnitType.Star);
-            SalesBody.RowDefinitions[1].Height = new GridLength(1, GridUnitType.Star);
+            // 2026-10-18, этап О4: «Чеки» и «ABC-анализ» — две вкладки на всю высоту (раньше ABC — одной вкладкой «ABC» в
+            // нижней половине, с прокруткой внутри окошка); открыты «Чеки».
+            LowerTabs.SelectedItem = ChecksTab;
+            // На вкладке ABC плитки скрыты — ей вся высота раздела (как в «Продажах и финансах»).
+            LowerTabs.SelectionChanged += (_, e) =>
+            {
+                if (ReferenceEquals(e.Source, LowerTabs) && LowerTabs.SelectedItem != null)
+                    KpiTiles.IsVisible = !ReferenceEquals(LowerTabs.SelectedItem, AbcTab);
+            };
             AbcSection.SliceKeys = new[]
             {
                 AnalyticsReportData.KeyQuantity, AnalyticsReportData.KeyCategory, AnalyticsReportData.KeyBrand,
             };
             AbcSection.ShowSeasonality = false;
-            AbcSection.TableMaxHeight = 360;
+            AbcSection.TableMaxHeight = 520; // 2026-10-18, этап О4: как в «Финансах» — вкладка теперь на всю высоту
             AbcSection.ProductAnalyticsRequested += ShowProductAnalytics;
         }
 
@@ -177,6 +220,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// историю продаж за период, и на большом магазине это заметно подвесило бы окно.</summary>
         private async Task RefreshAbcAsync(DateTime from, DateTime to, CancellationToken token)
         {
+            // 2026-10-18: в «Продажах и финансах» своего ABC нет — срезы во вкладке «ABC» окна «Финансов» (SalesWindow.Embedded.cs).
+            if (_embeddedInFinance)
+                return;
             try
             {
                 // Сезонность читает всю историю продаж — без её вкладки (программа владельца) не считаем.
@@ -312,10 +358,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }
 
                 var sales = await listTask;
+                // 2026-10-18, ревью: период сменили, пока грузился список, — старый результат не показываем.
+                token.ThrowIfCancellationRequested();
 
                 AssignFallbackReceiptNumbers(sales);
 
                 var refunds = await refundsTask;
+                token.ThrowIfCancellationRequested();
 
                 UpdateCollections(sales, refunds);
                 UpdateStats(sales, refunds);
@@ -348,6 +397,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     if (_serverSummary?.GrossProfit == null)
                     {
                         NetProfitText.Text = "—";
+                        MarkLoss(NetProfitText, false);
                         MarginPercentText.Text = "—";
                     }
                     _ = LoadReceiptContentsAsync(sales);
@@ -926,8 +976,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// Период берётся ровно тот, что выбран на экране, — чтобы цифры в файле совпадали с
         /// теми, что кассир видит перед собой. Отчёт строится из локальных данных кассы и не
         /// требует интернета: выгрузку часто просят тогда, когда связи уже нет.</summary>
+        // 2026-10-19, владелец: «при нажатии на Excel просто выведи все продажи, а не аналитику» — Excel: все чеки периода
+        // (лист «Чеки» и «Товары», SalesExcelExport); Word — аналитика, как была.
         private async void ExportExcel_Click(object? sender, RoutedEventArgs e) =>
-            await ExportAnalyticsAsync(toWord: false).ConfigureAwait(true);
+            await SalesExcelExport.RunAsync(this, _historyFrom, _historyTo, message => ErrorMessage = message,
+                () => AvaloniaHost.Services.NoticeBanner.Apply(NoticeBox, NoticeText, success: true)).ConfigureAwait(true);
 
         private async void ExportWord_Click(object? sender, RoutedEventArgs e) =>
             await ExportAnalyticsAsync(toWord: true).ConfigureAwait(true);
@@ -1082,14 +1135,19 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // totalSales * 0.6m, поэтому маржа ВСЕГДА показывала ровно 40% независимо от
             // реальных продаж). Пока построчные данные не загрузились — плейсхолдер загрузки.
             NetProfitText.Text = totalSales > 0 ? "…" : "—";
+            MarkLoss(NetProfitText, false);
             MarginPercentText.Text = totalSales > 0 ? "…" : "—";
             // 2026-09-28: прибыль и маржа сайта известны сразу — не ждём построчной загрузки чеков.
             if (_serverSummary is { GrossProfit: { } serverProfit, MarginPercent: { } serverMargin })
             {
                 NetProfitText.Text = $"{serverProfit:N2} {Som}";
+                MarkLoss(NetProfitText, serverProfit < 0);
                 MarginPercentText.Text = $"{serverMargin:F1}%";
             }
         }
+
+        /// <summary>2026-10-18, ревью О3: прибыль в минусе (убыток) — красным (класс danger у sec-kpi-value), иначе цветом текста.</summary>
+        private static void MarkLoss(TextBlock text, bool loss) => text?.Classes.Set("danger", loss);
 
         /// <summary>2026-09-17: раньше здесь были ДВЕ проблемы разом:
         /// 1) N+1 — по одному последовательному запросу PosSaleGetAsync НА КАЖДЫЙ чек периода,
@@ -1206,17 +1264,20 @@ namespace NurMarketKassa.AvaloniaHost.Views
             {
                 // Как у сайта — «Валовая прибыль» и маржа сервера (см. ServerSalesSummary).
                 NetProfitText.Text = $"{serverProfit:N2} {Som}";
+                MarkLoss(NetProfitText, serverProfit < 0);
                 MarginPercentText.Text = $"{serverMargin:F1}%";
             }
             else if (totalRevenueFromItems > 0)
             {
                 var netProfit = totalRevenueFromItems - totalCostFromItems;
                 NetProfitText.Text = $"{netProfit:N2} {Som}";
+                MarkLoss(NetProfitText, netProfit < 0);
                 MarginPercentText.Text = $"{netProfit / totalRevenueFromItems * 100:F1}%";
             }
             else
             {
                 NetProfitText.Text = "—";
+                MarkLoss(NetProfitText, false);
                 MarginPercentText.Text = "—";
             }
         }
@@ -1439,6 +1500,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private void CloseReceiptDetails_Click(object sender, RoutedEventArgs e) =>
             ReceiptDetailsPopup.IsOpen = false;
 
+        // 2026-10-18, этап О3: выбранная кнопка периода — чтобы вернуть её, если окно «Спец. дата» закрыли без выбора.
+        private RadioButton _quickDatePill;
+
         // Быстрые даты
         private async void QuickDate_Click(object sender, RoutedEventArgs e)
         {
@@ -1449,43 +1513,88 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // Переиспользуем тот же диалог выбора периода, что и в «Финансы».
             if (tag == "Custom")
             {
-                var dlg = new FinanceDateRangeDialog();
+                // 2026-10-20, проверка фильтров: окно дат открывается на текущем периоде, а не на сегодня.
+                var dlg = new FinanceDateRangeDialog(_historyFrom, _historyTo);
+                // 2026-10-18, этап О3: выбранный период теперь виден (сегменты sec-seg) — после выбора дат «Спец. дата»
+                // остаётся выбранной, при отмене выбор возвращается на прежнюю кнопку (раньше после окна дат не было
+                // выбрано ничего). Даты и загрузка — как были.
+                var previous = _quickDatePill ?? (CustomDatePill.Parent as Panel)?.Children.OfType<RadioButton>()
+                    .FirstOrDefault(r => "Today".Equals(r.Tag));
                 if (await dlg.ShowDialog<bool>(this) == true)
                 {
+                    // Отмечается сразу, до загрузки: пока грузится, могли нажать другой период — тогда его выбор не трогаем.
+                    _quickDatePill = CustomDatePill;
+                    CustomDatePill.IsChecked = true;
                     _historyFrom = dlg.FromDate;
                     _historyTo = dlg.ToDate;
-                    FromPicker.SelectedDate = new DateTimeOffset(dlg.FromDate);
-                    ToPicker.SelectedDate = new DateTimeOffset(dlg.ToDate);
+                    SyncDatePickers(dlg.FromDate, dlg.ToDate);
                     await LoadDataAsync(_historyFrom, _historyTo);
+                    if (ReferenceEquals(_quickDatePill, CustomDatePill))
+                        CustomDatePill.IsChecked = true;
                 }
-                CustomDatePill.IsChecked = false;
+                else if (previous != null && !ReferenceEquals(previous, CustomDatePill))
+                    previous.IsChecked = true;
+                else
+                    CustomDatePill.IsChecked = ReferenceEquals(previous, CustomDatePill);
                 return;
             }
+            _quickDatePill = rb;
 
             DateTime from, to;
             DateTime today = DateTime.Today;
             switch (tag)
             {
                 case "Yesterday": from = to = today.AddDays(-1); break;
-                // Неделя начинается с понедельника (СНГ), а не с воскресенья, как в (int)DayOfWeek по умолчанию —
-                // иначе по воскресеньям диапазон схлопывался в один сегодняшний день без вчерашних продаж.
-                case "Week": from = today.AddDays(-(((int)today.DayOfWeek + 6) % 7)); to = today; break;
-                case "Month": from = new DateTime(today.Year, today.Month, 1); to = today; break;
+                // 2026-10-20, проверка фильтров: одно правило во всех окнах (PeriodRange) — «Неделя» = последние 7 дней
+                // включая сегодня (было — с понедельника), «Месяц» — с 1-го числа.
+                case "Week": from = PeriodRange.WeekFrom(today); to = today; break;
+                case "Month": from = PeriodRange.MonthFrom(today); to = today; break;
                 default: from = to = today; break;
             }
             _historyFrom = from;
             _historyTo = to;
-            FromPicker.SelectedDate = new DateTimeOffset(from);
-            ToPicker.SelectedDate = new DateTimeOffset(to);
+            SyncDatePickers(from, to);
             await LoadDataAsync(from, to);
-            CustomDatePill.IsChecked = false;
+            // 2026-10-18, ревью О3: снимаем «Спец. дату», только если за время загрузки не выбрали другой период.
+            if (ReferenceEquals(_quickDatePill, rb))
+                CustomDatePill.IsChecked = false;
         }
 
-        private async void DatePicker_DateChanged(object sender, EventArgs e)
+        // 2026-10-20, проверка фильтров (владелец: «фильтры не работают»): поля «с / по» раньше были скрыты и не подписаны
+        // на изменение. Теперь ввод даты — загрузка за этот период, выбранным становится «Спец. дата»; сегменты и окно дат
+        // ставят даты в поля сами (без повторной загрузки — флаг _syncingPickers).
+        private bool _syncingPickers;
+
+        private void SyncDatePickers(DateTime from, DateTime to)
         {
-            if (sender == FromPicker) _historyFrom = FromPicker.SelectedDate?.DateTime ?? DateTime.Today;
-            else if (sender == ToPicker) _historyTo = ToPicker.SelectedDate?.DateTime ?? DateTime.Today;
-            await LoadDataAsync(_historyFrom, _historyTo);
+            _syncingPickers = true;
+            try
+            {
+                FromPicker.SelectedDate = from.Date;
+                ToPicker.SelectedDate = to.Date;
+            }
+            finally
+            {
+                _syncingPickers = false;
+            }
+        }
+
+        private async void DatePicker_DateChanged(object sender, Avalonia.Controls.SelectionChangedEventArgs e)
+        {
+            if (_syncingPickers || FromPicker.SelectedDate is not { } fromPicked || ToPicker.SelectedDate is not { } toPicked)
+                return;
+            var from = fromPicked.Date;
+            var to = toPicked.Date;
+            if (from > to)
+                (from, to) = (to, from);
+            if (from == _historyFrom.Date && to == _historyTo.Date)
+                return;
+            _historyFrom = from;
+            _historyTo = to;
+            SyncDatePickers(from, to);
+            _quickDatePill = CustomDatePill;
+            CustomDatePill.IsChecked = true;
+            await LoadDataAsync(from, to);
         }
 
         // INPC

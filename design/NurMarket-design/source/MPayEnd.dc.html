@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Терминал и QR — сверка итогов, возврат на карту, платёж без чека</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+/* 2026-10-16: цели касания ≥ 44 px (✕, кнопки, поля, чипы, сегменты) */
+.x{width:44px;height:44px;flex-shrink:0;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C;white-space:nowrap}
+.b1,.b2,.bd{white-space:nowrap}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:44px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:44px;padding:0 14px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:44px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+.k{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;background:rgba(11,42,60,.12);vertical-align:1px}
+.bd .k{background:rgba(255,255,255,.22)}
+.note{font-size:11.5px;line-height:16px;color:#475467}
+.tr{display:grid;grid-template-columns:minmax(0,1fr) 100px 100px 64px;gap:8px;align-items:center;font-size:13px;padding:7px 0;border-bottom:1px solid #EAECF0}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 24px; display: flex; justify-content: center; gap: 20px; align-items: flex-start">
+  <!-- 2026-10-16: сверка — за прошлую смену № 41 (10.10.2026), числа сходятся с Z-отчётом MKkm (карта и QR 17 120) -->
+
+  <div style="width: 640px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px">
+  <section class="m" role="dialog" aria-label="Сверка итогов">
+    <div class="mh"><div class="mt"><b>Сверка итогов терминала и QR</b><span>Закрытие смены № 41 · 10.10.2026 · Касса 1 · Кассир Тест</span></div><button type="button" class="x" aria-label="Закрыть · Esc">✕</button></div>
+    <div class="mb" style="gap: 0">
+      <div class="tr lbl" style="padding: 0 0 4px"><span></span><span style="text-align: right">КАССА</span><span style="text-align: right">БАНК</span><span></span></div>
+      <div class="tr"><span>Карты · терминал MBANK</span><b style="text-align: right">12&nbsp;480</b><b style="text-align: right; color: #111827">12&nbsp;480</b><span class="tag" style="background: #E7F6EC; color: #0E7A3A; justify-self: end">✓ ок</span></div>
+      <div class="tr"><span>MBANK QR (ELQR)</span><b style="text-align: right">3&nbsp;120</b><b style="text-align: right; color: #111827">3&nbsp;120</b><span class="tag" style="background: #E7F6EC; color: #0E7A3A; justify-self: end">✓ ок</span></div>
+      <div class="tr"><span>Optima QR</span><b style="text-align: right">1&nbsp;520</b><b style="text-align: right; color: #111827">1&nbsp;520</b><span class="tag" style="background: #E7F6EC; color: #0E7A3A; justify-self: end">✓ ок</span></div>
+      <div class="tr"><span>O!Bank QR</span><b style="text-align: right">0</b><b style="text-align: right; color: #B42318">450</b><span class="tag" style="background: #FDECEA; color: #B42318; justify-self: end">≠ 450</span></div>
+      <div class="tr" style="border-bottom: 0"><b>Итого карта и QR</b><b style="text-align: right">17&nbsp;120</b><b style="text-align: right">17&nbsp;570</b><span></span></div>
+      <div class="row" style="background: #F2F4F7; font-size: 12px; line-height: 17px; margin-top: 6px"><span style="flex-grow: 1">Подтверждено вручную с PIN админа: 1 платёж · Optima QR 120 · 14:05 · Нурлан Абдыкадыров</span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">банк подтвердил</span></div>
+      <div class="row" style="background: #FDECEA; font-size: 12px; line-height: 17px; margin-top: 6px">O!Bank: пришло 450 без чека 10.10 в 13:18. Привяжите платёж к чеку или верните деньги.</div>
+    </div>
+    <div class="mf"><button type="button" class="b2">Отчёт банка</button><span class="tot"></span><button type="button" class="b1">Разобрать<span class="k">Enter</span></button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Платёж без чека">
+    <div class="mh"><div class="mt"><b>Платёж без чека</b><span>O!Bank QR · 450 · 10.10.2026 13:18</span></div><button type="button" class="x" aria-label="Закрыть · Esc">✕</button></div>
+    <div class="mb">
+      <span style="font-size: 13px; line-height: 19px; color: #475467">Деньги пришли, а чек закрыли «наличными». Похожие чеки этого времени:</span>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+        <div class="row" style="background: #FFF7CC; border: 2px solid #0B2A3C"><span style="flex-grow: 1"><b>Чек № 000455 · 450</b><br><span style="font-size: 11px; color: #475467">13:17 · закрыт «наличными»</span></span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">совпадает</span></div>
+        <div class="row"><span style="flex-grow: 1"><b>Чек № 000456 · 460</b><br><span style="font-size: 11px; color: #475467">13:21 · наличные</span></span></div>
+      </div>
+      <!-- 2026-10-16: способ оплаты в отправленном в ОФД чеке молча не меняем — чек коррекции или возврат + новая продажа -->
+      <span class="lbl">КАК ИСПРАВИТЬ ЧЕК № 000455</span>
+      <div class="sg"><button type="button" class="seg on">Чек коррекции · если есть у ОФД</button><button type="button" class="seg">Возврат + новая продажа O!Bank QR</button></div>
+      <span class="note">Чек уже в ОФД как «наличные» — тихая правка в базе разойдётся с ОФД и НсП. Есть ли чек коррекции — уточнить у ОФД.</span>
+    </div>
+    <div class="mf"><button type="button" class="b2">Вернуть деньги</button><span class="tot"></span><button type="button" class="b1">Привязать и исправить<span class="k">Enter</span></button></div>
+  </section>
+  </div>
+
+  <!-- 2026-10-16: возврат на карту — чек № 000477 (оплачен картой ****4417); 000482 = MBANK QR -->
+  <section class="m" role="dialog" aria-label="Возврат на карту" style="width: 480px; flex-shrink: 0">
+    <div class="mh"><div class="mt"><b>Возврат на карту</b><span>Чек № 000477 · 12.10.2026 · оплачен картой ****4417</span></div><button type="button" class="x" aria-label="Закрыть · Esc">✕</button></div>
+    <div class="mb">
+      <div class="row"><span style="flex-grow: 1">Сок Gracio яблочный 1л × 1</span><b>120</b></div>
+      <span class="lbl">КАК ВЕРНУТЬ</span>
+      <div class="row" style="background: #FFF7CC; border: 2px solid #0B2A3C"><span style="flex-grow: 1"><b>На ту же карту через терминал</b><br><span style="font-size: 11px; color: #475467">покупатель прикладывает карту ****4417 · срок зачисления — по правилам банка</span></span></div>
+      <div class="row" style="background: #F9FAFB"><span style="flex-grow: 1; color: #475467"><b>Наличными</b><br><span style="font-size: 11px">по карточной покупке — только если владелец включил это в настройках; каждый такой возврат — в журнал</span></span><span class="tag" style="background: #F2F4F7; color: #475467">выключено</span></div>
+      <div class="row" style="background: #EEF4FF; font-size: 12px; line-height: 17px; display: block">Оплата по QR возвращается иначе: возврат по QR делает магазин — через API банка или переводом вручную; касса запишет его в журнал и в сверку смены.</div>
+    </div>
+    <div class="mf"><span class="tot"><b>Вернуть 120 сом</b></span><button type="button" class="b2">Отмена</button><button type="button" class="bd">Вернуть на карту<span class="k">Enter</span></button></div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

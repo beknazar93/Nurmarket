@@ -35,6 +35,13 @@ public partial class BulkImportWindow : Window
     public BulkImportWindow()
     {
         InitializeComponent();
+        // 2026-10-19, этап О9: пустой предпросмотр — что делать.
+        EmptyHintTitle.Text = Tr.T("Файл ещё не выбран", "Файл тандала элек", "No file selected yet", "Henüz dosya seçilmedi", "Fayl hali tanlanmagan");
+        EmptyHintText.Text = Tr.T("Скачайте шаблон CSV, впишите товары (название, штрихкод, количество, цену) и нажмите «Выбрать файл…» — здесь появится проверка каждой строки.",
+            "CSV үлгүсүн жүктөп алып, товарларды жазыңыз (аты, штрихкод, саны, баасы) жана «Файлды тандоо…» баскычын басыңыз — бул жерде ар бир сап текшерилет.",
+            "Download the CSV template, fill in the products (name, barcode, quantity, price) and press «Choose file…» — each row will be checked here.",
+            "CSV şablonunu indirin, ürünleri yazın (ad, barkod, miktar, fiyat) ve «Dosya seç…»e basın — her satır burada kontrol edilir.",
+            "CSV shablonini yuklab oling, mahsulotlarni yozing (nomi, shtrix-kod, miqdor, narx) va «Faylni tanlash…»ni bosing — har bir qator shu yerda tekshiriladi.");
         _catalogApi = App.AppHost?.Services.GetService<ICatalogApiService>();
         // Окно закрыли посреди загрузки — остальные строки не отправляем: иначе товары
         // продолжали бы создаваться невидимо, без итога и без возможности остановить.
@@ -329,6 +336,13 @@ public partial class BulkImportWindow : Window
     }
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>2026-10-20: окно без системной рамки — двигается за шапку (как ShiftsHistoryWindow).</summary>
+    private void Header_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && e.Source is not Button)
+            BeginMoveDrag(e);
+    }
 
     private sealed class PreviewRowVm : INotifyPropertyChanged
     {

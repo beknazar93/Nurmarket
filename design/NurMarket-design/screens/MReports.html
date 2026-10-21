@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Модалки — отчёты</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:17px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:12px;flex-shrink:0;border:1px solid #E5E7EB;background:#FFFFFF;font-size:15px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:10px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:13px;color:#475467}
+.b2{height:44px;white-space:nowrap;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:44px;white-space:nowrap;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%}
+.chip{height:44px;padding:0 16px;border-radius:22px;white-space:nowrap;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.row{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:8px 0;border-bottom:1px solid #F2F4F7}
+.row b{white-space:nowrap}
+.hint{flex-grow:1;font-size:12px;color:#667085}
+.per{display:flex;gap:2px;padding:3px;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;align-self:flex-start}
+.per button{height:44px;padding:0 14px;border-radius:9px;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:#344054;white-space:nowrap}
+.per button.on{background:#0B2A3C;color:#FFFFFF}
+.row span{color:#475467}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center;font-size:12px}
+.cal span{height:44px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="MReports"><div style="width: 1440px; height: 900px; box-sizing: border-box; background: rgb(221, 226, 232); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); padding: 20px 40px; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+  
+  <section class="m" role="dialog" aria-label="Период" style="width: 880px;">
+    <div class="mh"><div class="mt"><b>Период отчёта</b><span>Применится ко всем разделам отчётов</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb" style="flex-direction: row; gap: 24px; align-items: flex-start;">
+      <div class="cal" style="width: 332px; flex-shrink: 0;">
+        <span style="height: 20px; color: rgb(102, 112, 133); font-weight: 700;"><span class="sc-interp">Пн</span></span><span style="height: 20px; color: rgb(102, 112, 133); font-weight: 700;"><span class="sc-interp">Вт</span></span><span style="height: 20px; color: rgb(102, 112, 133); font-weight: 700;"><span class="sc-interp">Ср</span></span><span style="height: 20px; color: rgb(102, 112, 133); font-weight: 700;"><span class="sc-interp">Чт</span></span><span style="height: 20px; color: rgb(102, 112, 133); font-weight: 700;"><span class="sc-interp">Пт</span></span><span style="height: 20px; color: rgb(102, 112, 133); font-weight: 700;"><span class="sc-interp">Сб</span></span><span style="height: 20px; color: rgb(102, 112, 133); font-weight: 700;"><span class="sc-interp">Вс</span></span>
+        <span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp"></span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp"></span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp"></span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">1</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">2</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">3</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">4</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">5</span></span><span style="background: rgb(11, 42, 60); color: rgb(255, 255, 255); font-weight: 700;"><span class="sc-interp">6</span></span><span style="background: rgb(255, 247, 204); color: rgb(17, 24, 39); font-weight: 700;"><span class="sc-interp">7</span></span><span style="background: rgb(255, 247, 204); color: rgb(17, 24, 39); font-weight: 700;"><span class="sc-interp">8</span></span><span style="background: rgb(255, 247, 204); color: rgb(17, 24, 39); font-weight: 700;"><span class="sc-interp">9</span></span><span style="background: rgb(255, 247, 204); color: rgb(17, 24, 39); font-weight: 700;"><span class="sc-interp">10</span></span><span style="background: rgb(255, 247, 204); color: rgb(17, 24, 39); font-weight: 700;"><span class="sc-interp">11</span></span><span style="background: rgb(11, 42, 60); color: rgb(255, 255, 255); font-weight: 700;"><span class="sc-interp">12</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">13</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">14</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">15</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">16</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">17</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">18</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">19</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">20</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">21</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">22</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">23</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">24</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">25</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">26</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">27</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">28</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">29</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">30</span></span><span style="background: transparent; color: rgb(17, 24, 39); font-weight: 400;"><span class="sc-interp">31</span></span>
+      </div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 12px;">
+        <div class="per" role="group" aria-label="Период"><button type="button">Сегодня</button><button type="button">Вчера</button><button type="button" class="on">Неделя</button><button type="button">Месяц</button><button type="button">Даты…</button></div>
+        <span style="font-size: 13px; color: rgb(71, 84, 103);">7 дней: 06.10–12.10.2026 · сегодня, понедельник 12.10, — неполный день</span>
+        <div style="display: flex; align-items: center; gap: 8px;"><button type="button" class="b2" aria-label="Сентябрь" style="width: 44px; padding: 0px;">‹</button><b style="flex-grow: 1; text-align: center; font-size: 15px;">Октябрь 2026</b><button type="button" class="b2" aria-label="Ноябрь" style="width: 44px; padding: 0px;">›</button></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0px, 1fr)); gap: 10px;"><span style="display: flex; flex-direction: column; gap: 4px;"><label class="lbl" for="r1">С</label><input id="r1" class="in" type="text" value="06.10.2026"></span><span style="display: flex; flex-direction: column; gap: 4px;"><label class="lbl" for="r2">ПО</label><input id="r2" class="in" type="text" value="12.10.2026"></span></div>
+      </div>
+    </div>
+    <div class="mf"><span class="tot">Неделя 06–12.10 · выручка 45&nbsp;260 сом</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Показать</button></div>
+  </section>
+
+  <div style="display: flex; gap: 40px; align-items: flex-start;">
+    <section class="m" role="dialog" aria-label="Смена" style="width: 640px;">
+      <div class="mh"><div class="mt"><b>Смена № 42 · Кассир Тест</b><span>Касса 1 · открыта 12.10.2026 в 08:55 · X-отчёт на 14:35</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb" style="gap: 8px;">
+        <div style="border-radius: 14px; background: rgb(11, 42, 60); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: rgb(199, 210, 219);">Выручка · 31 чек · средний чек 92 сом</span><span style="font-size: 24px; font-weight: 800; color: rgb(255, 214, 0); white-space: nowrap;">2&nbsp;860 сом</span></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0px, 1fr)); column-gap: 24px;">
+          <div class="row"><span>Наличные</span><b>1&nbsp;545 сом</b></div><div class="row"><span>Карта</span><b>1&nbsp;035 сом</b></div>
+          <div class="row"><span>QR</span><b>280 сом</b></div><div class="row"><span>Возвраты</span><b>0 сом</b></div>
+          <div class="row" style="border: 0px;"><span>Размен</span><b>1&nbsp;000 сом</b></div><div class="row" style="border: 0px;"><span>В ящике по программе</span><b>2&nbsp;545 сом</b></div>
+        </div>
+        <span style="border-radius: 10px; background: rgb(242, 244, 247); padding: 8px 10px; font-size: 12px; color: rgb(71, 84, 103);">Весь магазин сегодня: 47 чеков · 4&nbsp;300 сом · средний чек 91 сом (Касса 1 + телефон + веб-касса)</span>
+      </div>
+      <div class="mf"><button type="button" class="b2">Все чеки смены</button><span class="hint"></span><button type="button" class="b1">Печать X-отчёта</button></div>
+    </section>
+
+    <section class="m" role="dialog" aria-label="История кассы" style="width: 480px;">
+      <div class="mh"><div class="mt"><b>Деньги в кассе</b><span>Внесения и изъятия · смена № 42</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+      <div class="mb" style="gap: 8px;">
+        <div style="display: flex; gap: 8px;"><button type="button" class="chip on">Все</button><button type="button" class="chip">Внесения</button><button type="button" class="chip">Изъятия</button></div>
+        <div style="border-radius: 12px; border: 1.5px dashed rgb(208, 213, 221); padding: 10px 14px; font-size: 13px; color: rgb(71, 84, 103);"><b style="color: rgb(17, 24, 39);">За смену № 42 движений не было.</b> Внести или изъять — кнопка ниже.</div>
+        <span class="lbl">ПРОШЛЫЕ СМЕНЫ</span>
+        <div class="row"><span>10.10 · смена № 41 · изъятие · инкассация</span><b style="color: rgb(180, 35, 24);">−5&nbsp;000 сом</b></div>
+        <div class="row" style="border: 0px;"><span>09.10 · смена № 40 · внесение · размен</span><b style="color: rgb(14, 122, 58);">+500 сом</b></div>
+      </div>
+      <div class="mf"><span class="hint"></span><button type="button" class="b2">Закрыть</button><button type="button" class="b1">Внести / изъять</button></div>
+    </section>
+  </div></div></div></div>
+
+
+
+</body></html>

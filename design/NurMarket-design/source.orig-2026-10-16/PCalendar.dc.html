@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Телефон — календарь и напоминания</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column; position: relative; overflow: hidden">
+
+  <header style="padding: 18px 16px 8px; display: flex; align-items: center; gap: 12px"><button type="button" class="nv" aria-label="Назад"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button><b style="font-size: 18px; font-weight: 800; flex-grow: 1">Календарь</b><button type="button" class="nv" aria-label="Задачи"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"></path></svg></button></header>
+  <main style="padding: 0 16px 10px; display: flex; flex-direction: column; gap: 10px; flex-grow: 1; overflow: hidden">
+    <div class="pc" style="gap: 4px">
+      <div style="display: flex; align-items: center; justify-content: space-between"><button type="button" class="chip" aria-label="Прошлый месяц">‹</button><b>[месяц]</b><button type="button" class="chip" aria-label="Следующий месяц">›</button></div>
+      <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center"><b class="lbl">Пн</b><b class="lbl">Вт</b><b class="lbl">Ср</b><b class="lbl">Чт</b><b class="lbl">Пт</b><b class="lbl">Сб</b><b class="lbl">Вс</b><span></span><span></span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">1</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">2</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">3</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">4</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">5<span style="width: 5px; height: 5px; border-radius: 50%; background: #7A5A00"></span></span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">6</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">7</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">8</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">9</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">10</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">11</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; background: #0B2A3C; color: #FFFFFF; font-weight: 800">12<span style="width: 5px; height: 5px; border-radius: 50%; background: #FFD600"></span></span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">13</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">14<span style="width: 5px; height: 5px; border-radius: 50%; background: #3538CD"></span></span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">15</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">16<span style="width: 5px; height: 5px; border-radius: 50%; background: #0E7A3A"></span></span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">17</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">18</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">19</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">20<span style="width: 5px; height: 5px; border-radius: 50%; background: #7A5A00"></span></span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">21</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">22</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">23</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">24</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">25<span style="width: 5px; height: 5px; border-radius: 50%; background: #7A5A00"></span></span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">26</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">27</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">28</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">29</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">30</span><span style="height: 38px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; ">31</span></div>
+    </div>
+    <span class="lbl">СЕГОДНЯ · 3</span>
+    <div class="pc" style="flex-direction: row; gap: 10px; align-items: center; background: #EEF4FF"><b style="width: 44px; font-size: 13px">09:00</b><span style="flex-grow: 1; font-size: 13px"><b>Пересчитать напитки</b><br><span style="font-size: 11px; color: #667085">задача · Кассир Тест · сделано</span></span></div>
+    <div class="pc" style="flex-direction: row; gap: 10px; align-items: center; background: #EEF4FF"><b style="width: 44px; font-size: 13px">14:00</b><span style="flex-grow: 1; font-size: 13px"><b>Выложить поставку</b><br><span style="font-size: 11px; color: #667085">задача · все кассиры</span></span></div>
+    <div class="pc" style="flex-direction: row; gap: 10px; align-items: center; background: #FFF7CC"><b style="width: 44px; font-size: 13px">18:00</b><span style="flex-grow: 1; font-size: 13px"><b>Позвонить поставщику</b><br><span style="font-size: 11px; color: #667085">напоминание себе</span></span></div>
+  </main>
+  <div style="padding: 10px 16px 22px; background: #FFFFFF; border-top: 1px solid #EAECF0; display: flex; gap: 8px"><button type="button" class="b2" style="height: 56px; flex: 1 1 0; border-radius: 16px">+ Задача</button><button type="button" class="cta" style="flex: 1 1 0">+ Напоминание</button></div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

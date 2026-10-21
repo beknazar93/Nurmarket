@@ -23,7 +23,8 @@ public sealed class AppShopWindow : Window, IOwnerSection
     private readonly NurMarketApiClient _api;
     private readonly Grid _root = new() { Margin = new Thickness(24, 16, 24, 24), RowDefinitions = new RowDefinitions("Auto,*,Auto") };
     private readonly TextBlock _title = new() { FontSize = 22, FontWeight = FontWeight.Bold };
-    private readonly StackPanel _body = new() { Spacing = 12, MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Left };
+    // 2026-10-20 (живой аудит: форма на левой половине, справа пусто): форма шириной до 900 по центру раздела (Stretch + MaxWidth).
+    private readonly StackPanel _body = new() { Spacing = 12, MaxWidth = 900 };
     private readonly TextBlock _status = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly Button _save;
     private JsonElement _data;
@@ -52,6 +53,12 @@ public sealed class AppShopWindow : Window, IOwnerSection
         Width = 1000;
         Height = 820;
         Use(this, BackgroundProperty, "BrushWindowBackdrop");
+        // 2026-10-21 (пакет 4, п. 124; аудит: «галочки бирюзовые — ещё один цвет»): переключатели — как в Настройках
+        // (CheckBox.ToggleSwitch из SettingsSharedStyles), а не синие галочки Fluent.
+        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://NurMarketKassa.Avalonia/"))
+        {
+            Source = new Uri("avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"),
+        });
         _title.Text = Title;
         Use(_title, TextBlock.ForegroundProperty, "BrushText");
         var head = new StackPanel { Spacing = 4 };
@@ -62,7 +69,7 @@ public sealed class AppShopWindow : Window, IOwnerSection
         Grid.SetRow(scroll, 1);
         _root.Children.Add(scroll);
 
-        var bottom = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 12, 0, 0) };
+        var bottom = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 12, 0, 0), MaxWidth = 900 };
         Use(_status, TextBlock.ForegroundProperty, "BrushTextSoft");
         bottom.Children.Add(_status);
         _save = UiKit.Primary(this, T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"));
@@ -76,6 +83,11 @@ public sealed class AppShopWindow : Window, IOwnerSection
         _status.Text = T("Загружаю…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…");
         Opened += async (_, _) => await LoadAsync().ConfigureAwait(true);
     }
+
+    /// <summary>2026-10-20 (живой аудит: «Процент от покупки 4.00» — с точкой): процент с сервера — числом по культуре программы
+    /// (4; 2,5). Сохранение и так принимает и запятую, и точку.</summary>
+    private static string PercentText(string raw) =>
+        double.TryParse(raw, NumberStyles.Float, Inv, out var p) ? p.ToString("0.##", CultureInfo.CurrentCulture) : raw;
 
     public void AsOwnerSection()
     {
@@ -110,13 +122,20 @@ public sealed class AppShopWindow : Window, IOwnerSection
         _branches.Clear();
 
         // Заметка: бесплатно и что это даёт.
+        // 2026-10-21 (пакет 4, п. 124): плашка — светлая карточка с зелёной точкой «бесплатно», а не жёлтая: жёлтая на экране
+        // одна — «Сохранить».
         var note = new Border { CornerRadius = new CornerRadius(14), Padding = new Thickness(18, 14), BorderThickness = new Thickness(1) };
-        Use(note, Border.BackgroundProperty, "BrushAccentSoft");
-        Use(note, Border.BorderBrushProperty, "BrushAccentStrong");
+        Use(note, Border.BackgroundProperty, "BrushPanel");
+        Use(note, Border.BorderBrushProperty, "BrushBorder");
         var noteStack = new StackPanel { Spacing = 4 };
-        var noteTitle = new TextBlock { Text = "★ " + FreeNote, FontSize = 17, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap };
+        var noteTitle = new TextBlock { Text = FreeNote, FontSize = 17, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
         Use(noteTitle, TextBlock.ForegroundProperty, "BrushText");
-        noteStack.Children.Add(noteTitle);
+        var noteDot = new Avalonia.Controls.Shapes.Ellipse { Width = 10, Height = 10, VerticalAlignment = VerticalAlignment.Center };
+        Use(noteDot, Avalonia.Controls.Shapes.Shape.FillProperty, "BrushSuccess");
+        var noteHead = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+        noteHead.Children.Add(noteDot);
+        noteHead.Children.Add(noteTitle);
+        noteStack.Children.Add(noteHead);
         noteStack.Children.Add(Hint(T("Покупатели находят ваш магазин в приложении NurCRM на карте, смотрят товары и цены, копят и тратят бонусные баллы. Подключение и работа — без оплаты.",
             "Кардарлар дүкөнүңүздү NurCRM тиркемесинен картадан табышат, товарларды жана бааларды көрүшөт, бонус упайларын топтоп, сарпташат. Кошуу жана иштөө — акысыз.",
             "Customers find your shop on the map in the NurCRM app, browse products and prices, and earn and spend bonus points. Connecting and using it costs nothing.",
@@ -126,19 +145,34 @@ public sealed class AppShopWindow : Window, IOwnerSection
         _body.Children.Add(note);
 
         var main = Card(T("Магазин", "Дүкөн", "Shop", "Mağaza", "Do'kon"));
-        _show = new CheckBox { Content = T("Показывать магазин в приложении NurCRM", "Дүкөндү NurCRM тиркемесинде көрсөтүү", "Show the shop in the NurCRM app", "Mağazayı NurCRM uygulamasında göster", "Do'konni NurCRM ilovasida ko'rsatish"), IsChecked = Flag(_data, "show_in_app") == true, FontWeight = FontWeight.SemiBold };
-        Use(_show, CheckBox.ForegroundProperty, "BrushText");
+        _show = Toggle(T("Показывать магазин в приложении NurCRM", "Дүкөндү NurCRM тиркемесинде көрсөтүү", "Show the shop in the NurCRM app", "Mağazayı NurCRM uygulamasında göster", "Do'konni NurCRM ilovasida ko'rsatish"), Flag(_data, "show_in_app") == true, bold: true);
         main.Children.Add(_show);
         _name = Field(main, T("Название в приложении", "Тиркемедеги аталышы", "Name in the app", "Uygulamadaki ad", "Ilovadagi nomi"), Str(_data, "display_name"));
         _address = Field(main, T("Адрес (город, улица, дом)", "Дарек (шаар, көчө, үй)", "Address (city, street, building)", "Adres (şehir, sokak, bina)", "Manzil (shahar, ko'cha, uy)"), Str(_data, "address"));
-        _phone = Field(main, T("Телефон", "Телефон", "Phone", "Telefon", "Telefon"), Str(_data, "phone"));
-        _hours = Field(main, T("Часы работы (например: ежедневно 9:00–21:00)", "Иштөө убактысы (мисалы: күн сайын 9:00–21:00)", "Opening hours (e.g. daily 9:00–21:00)", "Çalışma saatleri (ör. her gün 9:00–21:00)", "Ish vaqti (masalan: har kuni 9:00–21:00)"), Str(_data, "hours"));
+        // 2026-10-21 (пакет 4, п. 124): «Телефон» и «Часы работы» — в одну строку (форма короче, не нужно листать до «Сохранить»).
+        var pair = Pair(main);
+        _phone = Field(pair.Left, T("Телефон", "Телефон", "Phone", "Telefon", "Telefon"), Str(_data, "phone"));
+        // Пример — подсказкой в пустом поле, чтобы подписи двух полей были одной высоты.
+        _hours = Field(pair.Right, T("Часы работы", "Иштөө убактысы", "Opening hours", "Çalışma saatleri", "Ish vaqti"), Str(_data, "hours"));
+        _hours.Watermark = T("например: ежедневно 9:00–21:00", "мисалы: күн сайын 9:00–21:00", "e.g. daily 9:00–21:00", "ör. her gün 9:00–21:00", "masalan: har kuni 9:00–21:00");
 
-        var map = new Grid { ColumnDefinitions = new ColumnDefinitions("*,8,*,8,Auto") };
-        _lat = new TextBox { Text = Str(_data, "latitude"), Watermark = T("широта, 42.8746", "кеңдик, 42.8746", "latitude, 42.8746", "enlem, 42.8746", "kenglik, 42.8746"), MinHeight = 38 };
-        _lon = new TextBox { Text = Str(_data, "longitude"), Watermark = T("долгота, 74.5698", "узундук, 74.5698", "longitude, 74.5698", "boylam, 74.5698", "uzunlik, 74.5698"), MinHeight = 38 };
+        // 2026-10-19, этап О10 (аудит: «Точка на карте — два поля с числами без подписей»): над полями — «Широта» и «Долгота».
+        var map = new Grid { ColumnDefinitions = new ColumnDefinitions("*,8,*,8,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto") };
+        var latLabel = Hint(T("Широта", "Кеңдик", "Latitude", "Enlem", "Kenglik"));
+        var lonLabel = Hint(T("Долгота", "Узундук", "Longitude", "Boylam", "Uzunlik"));
+        latLabel.Margin = lonLabel.Margin = new Thickness(2, 0, 0, 4);
+        Grid.SetColumn(lonLabel, 2);
+        map.Children.Add(latLabel);
+        map.Children.Add(lonLabel);
+        _lat = new TextBox { Text = Str(_data, "latitude"), Watermark = T("широта, 42.8746", "кеңдик, 42.8746", "latitude, 42.8746", "enlem, 42.8746", "kenglik, 42.8746"), MinHeight = 38, VerticalContentAlignment = VerticalAlignment.Center };
+        _lon = new TextBox { Text = Str(_data, "longitude"), Watermark = T("долгота, 74.5698", "узундук, 74.5698", "longitude, 74.5698", "boylam, 74.5698", "uzunlik, 74.5698"), MinHeight = 38, VerticalContentAlignment = VerticalAlignment.Center };
         Grid.SetColumn(_lon, 2);
+        Grid.SetRow(_lat, 1);
+        Grid.SetRow(_lon, 1);
         var openMap = UiKit.Ghost(this, T("Открыть на карте", "Картада ачуу", "Open on the map", "Haritada aç", "Xaritada ochish"));
+        // 2026-10-21 (пакет 4, п. 124): кнопка высотой с поля (было 46 — поля «Широта/Долгота» растягивались выше остальных).
+        openMap.Height = openMap.MinHeight = 38;
+        openMap.VerticalAlignment = VerticalAlignment.Center;
         openMap.Click += (_, _) =>
         {
             var lat = (_lat.Text ?? "").Trim().Replace(',', '.');
@@ -149,6 +183,7 @@ public sealed class AppShopWindow : Window, IOwnerSection
             SiteOrdersWindow.OpenUrl(url);
         };
         Grid.SetColumn(openMap, 4);
+        Grid.SetRow(openMap, 1);
         map.Children.Add(_lat);
         map.Children.Add(_lon);
         map.Children.Add(openMap);
@@ -168,10 +203,9 @@ public sealed class AppShopWindow : Window, IOwnerSection
                 "Xaritada nuqta bo'lmasa, server manzilni o'zi qidiradi. Aniqroq — kenglik va uzunlikni kiritish.")));
 
         var points = Card(T("Бонусные баллы", "Бонус упайлары", "Bonus points", "Bonus puanlar", "Bonus ballari"));
-        _pointsOn = new CheckBox { Content = T("Начислять баллы покупателям", "Кардарларга упай берүү", "Give customers points", "Müşterilere puan ver", "Xaridorlarga ball berish"), IsChecked = Flag(_data, "points_enabled") != false };
-        Use(_pointsOn, CheckBox.ForegroundProperty, "BrushText");
+        _pointsOn = Toggle(T("Начислять баллы покупателям", "Кардарларга упай берүү", "Give customers points", "Müşterilere puan ver", "Xaridorlarga ball berish"), Flag(_data, "points_enabled") != false);
         points.Children.Add(_pointsOn);
-        _percent = Field(points, T("Процент от покупки, %", "Сатып алуудан пайыз, %", "Percent of the purchase, %", "Alışverişin yüzdesi, %", "Xariddan foiz, %"), Str(_data, "points_percent"));
+        _percent = Field(points, T("Процент от покупки, %", "Сатып алуудан пайыз, %", "Percent of the purchase, %", "Alışverişin yüzdesi, %", "Xariddan foiz, %"), PercentText(Str(_data, "points_percent")));
         _percent.Width = 140;
         _percent.HorizontalAlignment = HorizontalAlignment.Left;
         points.Children.Add(Hint(T("Этот процент начисляют все кассы магазина, покупатель видит баланс в приложении NurCRM и тратит его при оплате.",
@@ -189,16 +223,30 @@ public sealed class AppShopWindow : Window, IOwnerSection
                 var box = new Border { CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1), Padding = new Thickness(12, 10) };
                 Use(box, Border.BorderBrushProperty, "BrushBorder");
                 var stack = new StackPanel { Spacing = 6 };
-                var show = new CheckBox { Content = (Str(b, "branch_name") is { Length: > 0 } bn ? bn : "—") + " — " + T("показывать в приложении", "тиркемеде көрсөтүү", "show in the app", "uygulamada göster", "ilovada ko'rsatish"), IsChecked = Flag(b, "show_in_app") != false, FontWeight = FontWeight.SemiBold };
-                Use(show, CheckBox.ForegroundProperty, "BrushText");
+                // 2026-10-21 (пакет 4, п. 124): нет branch_name — имя филиала из «Названия» (было «— — показывать…»); переключатель вместо галочки.
+                var branchName = Str(b, "branch_name") is { Length: > 0 } bn ? bn : Str(b, "display_name") is { Length: > 0 } dn ? dn : "—";
+                var show = Toggle(branchName + " — " + T("показывать в приложении", "тиркемеде көрсөтүү", "show in the app", "uygulamada göster", "ilovada ko'rsatish"), Flag(b, "show_in_app") != false, bold: true);
                 stack.Children.Add(show);
                 var name = Field(stack, T("Название", "Аталышы", "Name", "Ad", "Nomi"), Str(b, "display_name"));
                 var address = Field(stack, T("Адрес", "Дарек", "Address", "Adres", "Manzil"), Str(b, "address"));
-                var phone = Field(stack, T("Телефон", "Телефон", "Phone", "Telefon", "Telefon"), Str(b, "phone"));
-                var hours = Field(stack, T("Часы работы", "Иштөө убактысы", "Opening hours", "Çalışma saatleri", "Ish vaqti"), Str(b, "hours"));
+                var branchPair = Pair(stack);
+                var phone = Field(branchPair.Left, T("Телефон", "Телефон", "Phone", "Telefon", "Telefon"), Str(b, "phone"));
+                var hours = Field(branchPair.Right, T("Часы работы", "Иштөө убактысы", "Opening hours", "Çalışma saatleri", "Ish vaqti"), Str(b, "hours"));
                 if (Str(b, "geocode_status") == "not_found")
-                    stack.Children.Add(Hint(T("⚠ Адрес филиала не нашёлся на карте — уточните его.", "⚠ Филиалдын дареги картадан табылган жок — тактаңыз.", "⚠ The branch address wasn't found on the map — make it more precise.",
-                        "⚠ Şube adresi haritada bulunamadı — netleştirin.", "⚠ Filial manzili xaritada topilmadi — aniqlang.")));
+                {
+                    // 2026-10-19, этап О10 (аудит: «адрес не нашёлся на карте», но нет кнопки «на карте»): рядом — поиск адреса на карте.
+                    var geoRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,8,Auto") };
+                    var geoHint = Hint(T("⚠ Адрес филиала не нашёлся на карте — уточните его.", "⚠ Филиалдын дареги картадан табылган жок — тактаңыз.", "⚠ The branch address wasn't found on the map — make it more precise.",
+                        "⚠ Şube adresi haritada bulunamadı — netleştirin.", "⚠ Filial manzili xaritada topilmadi — aniqlang."));
+                    geoHint.VerticalAlignment = VerticalAlignment.Center;
+                    geoRow.Children.Add(geoHint);
+                    var findOnMap = UiKit.Ghost(this, T("Найти на карте", "Картадан табуу", "Find on the map", "Haritada bul", "Xaritada topish"));
+                    findOnMap.Height = 36;
+                    findOnMap.Click += (_, _) => SiteOrdersWindow.OpenUrl($"https://www.google.com/maps/search/{Uri.EscapeDataString(address.Text ?? "")}");
+                    Grid.SetColumn(findOnMap, 2);
+                    geoRow.Children.Add(findOnMap);
+                    stack.Children.Add(geoRow);
+                }
                 box.Child = stack;
                 card.Children.Add(box);
                 _branches.Add((Str(b, "branch_id"), show, name, address, phone, hours));
@@ -224,7 +272,8 @@ public sealed class AppShopWindow : Window, IOwnerSection
                 if (Flag(p, "pointsEnabled") == true)
                 {
                     var pts = new TextBlock { Text = "★ " + T($"Баллы {Str(p, "pointsPercent")} %", $"Упайлар {Str(p, "pointsPercent")} %", $"Points {Str(p, "pointsPercent")} %", $"Puan %{Str(p, "pointsPercent")}", $"Ballar {Str(p, "pointsPercent")} %"), FontSize = 13, FontWeight = FontWeight.SemiBold };
-                    Use(pts, TextBlock.ForegroundProperty, "BrushAccentStrong");
+                    // 2026-10-19, этап О10: цветом текста — жёлтый текст по светлому не читался.
+                    Use(pts, TextBlock.ForegroundProperty, "BrushText");
                     st.Children.Add(pts);
                 }
                 tile.Child = st;
@@ -320,14 +369,36 @@ public sealed class AppShopWindow : Window, IOwnerSection
     private TextBox Field(StackPanel host, string label, string value)
     {
         host.Children.Add(Label(label));
-        var box = new TextBox { Text = value, MinHeight = 38 };
+        var box = new TextBox { Text = value, MinHeight = 38, VerticalContentAlignment = VerticalAlignment.Center };
         host.Children.Add(box);
         return box;
     }
 
+    /// <summary>2026-10-21 (пакет 4, п. 124): переключатель в стиле Настроек (CheckBox.ToggleSwitch, подпись цветом текста).</summary>
+    private CheckBox Toggle(string text, bool isChecked, bool bold = false)
+    {
+        var check = new CheckBox { Content = text, IsChecked = isChecked, FontWeight = bold ? FontWeight.SemiBold : FontWeight.Normal, Margin = new Thickness(0, 2, 0, 2) };
+        check.Classes.Add("ToggleSwitch");
+        Avalonia.Automation.AutomationProperties.SetName(check, text);
+        return check;
+    }
+
+    /// <summary>2026-10-21 (пакет 4, п. 124): два поля в одну строку (левое и правое), с промежутком 12.</summary>
+    private static (StackPanel Left, StackPanel Right) Pair(StackPanel host)
+    {
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,12,*") };
+        var left = new StackPanel { Spacing = 8 };
+        var right = new StackPanel { Spacing = 8 };
+        Grid.SetColumn(right, 2);
+        grid.Children.Add(left);
+        grid.Children.Add(right);
+        host.Children.Add(grid);
+        return (left, right);
+    }
+
     private TextBlock Label(string text)
     {
-        var t = new TextBlock { Text = text, FontSize = 13, Margin = new Thickness(0, 4, 0, 0) };
+        var t = new TextBlock { Text = text, FontSize = 13, Margin = new Thickness(0, 4, 0, 0), TextWrapping = TextWrapping.Wrap };
         Use(t, TextBlock.ForegroundProperty, "BrushTextSoft");
         return t;
     }

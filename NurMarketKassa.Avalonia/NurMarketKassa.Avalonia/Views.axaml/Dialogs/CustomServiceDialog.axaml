@@ -1,8 +1,9 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CustomServiceDialog"
         Title="{DynamicResource customService.title}"
-        Width="460" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -19,7 +20,7 @@
     <Window.Styles>
         <Style Selector="TextBox">
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="Padding" Value="12,8"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
@@ -27,71 +28,57 @@
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
-        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
-        </Style>
         <Style Selector="TextBlock.FieldLabel">
             <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
-        <Style Selector="RadioButton.TypePill">
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="0,9"/>
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="9"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{TemplateBinding CornerRadius}"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter Content="{TemplateBinding Content}"
-                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalAlignment="Center"/>
-                    </Border>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-        <Style Selector="RadioButton.TypePill:checked">
-            <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushSuccess}"/>
-        </Style>
-        <Style Selector="RadioButton.TypePill.expense:checked">
-            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        <!-- «Расход» выбран — красным, как и было: кассир сразу видит, что строка уменьшит чек. -->
+        <Style Selector="RadioButton.modal-seg.expense:checked">
+            <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
         </Style>
     </Window.Styles>
 
-    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-            Background="{DynamicResource BrushDialogPanel}"
-            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-            BoxShadow="0 12 32 0 #33101828"
-            Padding="28,24">
-        <StackPanel Spacing="14">
-            <TextBlock Text="{DynamicResource customService.title}"
-                       FontSize="20" FontWeight="Bold"
-                       Foreground="{DynamicResource BrushText}"/>
+    <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 480 — заголовок и ✕ сверху,
+         «Отмена» (обводка, Esc) и «Добавить» (акцент темы, Enter) снизу справа; «Доход / Расход» —
+         сегментами 44 px (modal-seg). -->
+    <dlg:ModalShell Margin="16"
+                    Title="{DynamicResource customService.title}"
+                    Hint="{DynamicResource modal.hintEnter}">
+        <dlg:ModalShell.Footer>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="modal-cancel" MaxWidth="200"
+                        Content="{DynamicResource common.cancel}"
+                        IsCancel="True"
+                        Click="Cancel_Click"/>
+                <Button x:Name="AddButton" Classes="modal-primary" MaxWidth="200"
+                        Content="{DynamicResource customService.addButton}"
+                        IsDefault="True"
+                        Click="Add_Click"/>
+            </StackPanel>
+        </dlg:ModalShell.Footer>
 
+        <StackPanel Spacing="14">
             <StackPanel>
                 <TextBlock Classes="FieldLabel" Text="{DynamicResource customService.typeLabel}"/>
                 <Grid ColumnDefinitions="*,8,*">
-                    <RadioButton x:Name="IncomeRadio" Grid.Column="0" Classes="TypePill" GroupName="ServiceType"
+                    <RadioButton x:Name="IncomeRadio" Grid.Column="0" Classes="modal-seg" GroupName="ServiceType"
                                  IsChecked="True" Content="{DynamicResource customService.typeIncome}"/>
-                    <RadioButton x:Name="ExpenseRadio" Grid.Column="2" Classes="TypePill expense" GroupName="ServiceType"
+                    <RadioButton x:Name="ExpenseRadio" Grid.Column="2" Classes="modal-seg expense" GroupName="ServiceType"
                                  Content="{DynamicResource customService.typeExpense}"/>
                 </Grid>
-                <TextBlock Text="{DynamicResource customService.typeHint}" FontSize="11"
-                           Foreground="{DynamicResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                <TextBlock Text="{DynamicResource customService.typeHint}" FontSize="12"
+                           Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                <!-- 2026-10-21 (пакет 6, п. 43): «Расход» при пустом чеке — это изъятие наличных из кассы; говорим об этом
+                     прямо в окне (текст — в коде, CustomServiceDialog.UpdateExpenseNote). -->
+                <Border x:Name="ExpenseNoteBorder" IsVisible="False" Margin="0,8,0,0" Padding="10,8" CornerRadius="8"
+                        Background="{DynamicResource BrushWarningSoft}">
+                    <TextBlock x:Name="ExpenseNoteText" FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushText}"/>
+                </Border>
             </StackPanel>
 
             <StackPanel>
@@ -115,35 +102,6 @@
             <TextBlock x:Name="ErrorText"
                        Foreground="{DynamicResource BrushDanger}"
                        FontSize="13" IsVisible="False" TextWrapping="Wrap"/>
-
-            <Grid ColumnDefinitions="*,8,*" Margin="0,4,0,0">
-                <Button Grid.Column="0" Content="{DynamicResource common.cancel}"
-                        Height="44"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Background="{DynamicResource BrushPanel}"
-                        Foreground="{DynamicResource BrushText}"
-                        BorderBrush="{DynamicResource BrushBorder}"
-                        BorderThickness="1.5"
-                        FontWeight="SemiBold"
-                        CornerRadius="10"
-                        Cursor="Hand"
-                        IsCancel="True"
-                        Click="Cancel_Click"/>
-                <Button Grid.Column="2" Content="{DynamicResource customService.addButton}"
-                        Height="44"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Background="{DynamicResource BrushAccent}"
-                        Foreground="{DynamicResource BrushAccentForeground}"
-                        FontWeight="SemiBold"
-                        CornerRadius="10"
-                        Cursor="Hand"
-                        IsDefault="True"
-                        Click="Add_Click"/>
-            </Grid>
         </StackPanel>
-    </Border>
+    </dlg:ModalShell>
 </Window>

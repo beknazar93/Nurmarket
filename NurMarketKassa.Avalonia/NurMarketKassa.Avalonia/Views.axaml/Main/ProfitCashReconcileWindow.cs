@@ -19,11 +19,14 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// • «Сверка» (GET api/main/analytics/reconcile/): 7 проверок сервера — сходятся ли отчёты между собой,
 ///   с разницей и примерами чеков.
 /// Окно собрано в коде, как «Телеграм-бот»; цвета — из темы.
+/// 2026-10-18, редизайн владельца (этап О3, макет ProfitCash.dc.html): без своего крупного заголовка (название раздела уже в
+/// полосе программы владельца), период — сегменты справа (UiKit.Seg), строки отчёта — линиями без заливки, итог «Операционная
+/// прибыль» / «Чистое движение денег» — плашкой, красной только при минусе (убыток). Расчёты и запросы — прежние.
 /// </summary>
 public sealed class ProfitCashReconcileWindow : Window
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
-    private readonly StackPanel _periods = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
+    private readonly StackPanel _periods = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
     private readonly StackPanel _pnl = new() { Spacing = 6 };
     private readonly StackPanel _cash = new() { Spacing = 6 };
     private readonly StackPanel _checks = new() { Spacing = 6 };
@@ -38,29 +41,25 @@ public sealed class ProfitCashReconcileWindow : Window
         Height = 820;
         Use(this, BackgroundProperty, "BrushWindowBackdrop");
 
-        var root = new Grid { Margin = new Thickness(24, 16, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*") };
-        var title = new TextBlock
-        {
-            Text = Tr.T("Прибыль, движение денег и сверка", "Пайда, акчанын кыймылы жана салыштыруу", "Profit, cash flow and reconciliation",
-                "Kâr, nakit akışı ve mutabakat", "Foyda, pul harakati va solishtirish"),
-            FontSize = 22,
-            FontWeight = FontWeight.Bold,
-        };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
+        // 2026-10-18, этап О3: шапка — одна строка: слева пояснение «Период: … Цифры — с сервера NurCRM» (переносится), справа
+        // период сегментами. Крупный заголовок «Прибыль, движение денег и сверка» убран — он повторял название раздела.
+        var root = new Grid { Margin = OwnerSectionLayout.Margin, RowDefinitions = new RowDefinitions("Auto,*") };
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 16) };
         Use(_status, TextBlock.ForegroundProperty, "BrushTextSoft");
-        _status.Margin = new Thickness(0, 6, 0, 12);
-        _periods.Margin = new Thickness(0, 0, 0, 16);
-        Grid.SetRow(_status, 1);
-        Grid.SetRow(_periods, 2);
-        root.Children.Add(title);
-        root.Children.Add(_status);
-        root.Children.Add(_periods);
+        _status.VerticalAlignment = VerticalAlignment.Center;
+        _status.Margin = new Thickness(0, 0, 16, 0);
+        var periods = UiKit.WithPeriodLabel(UiKit.Segment(_periods), _periodLabel);
+        Grid.SetColumn(periods, 1);
+        header.Children.Add(_status);
+        header.Children.Add(periods);
+        root.Children.Add(header);
 
         var columns = new Grid { ColumnDefinitions = new ColumnDefinitions("*,16,*,16,*") };
-        columns.Children.Add(Card(Tr.T("Прибыль (P&L)", "Пайда (P&L)", "Profit (P&L)", "Kâr (P&L)", "Foyda (P&L)"), _pnl, 0));
+        // 2026-10-19, этап О10 (аудит: «Прибыль (P&L)» — слово бухгалтера): просто «Прибыль».
+        columns.Children.Add(Card(Tr.T("Прибыль", "Пайда", "Profit", "Kâr", "Foyda"), _pnl, 0));
         columns.Children.Add(Card(Tr.T("Движение денег", "Акчанын кыймылы", "Cash flow", "Nakit akışı", "Pul harakati"), _cash, 2));
         columns.Children.Add(Card(Tr.T("Сверка отчётов", "Отчёттарды салыштыруу", "Report reconciliation", "Rapor mutabakatı", "Hisobotlarni solishtirish"), _checks, 4));
-        Grid.SetRow(columns, 3);
+        Grid.SetRow(columns, 1);
         root.Children.Add(columns);
         Content = root;
 
@@ -69,12 +68,15 @@ public sealed class ProfitCashReconcileWindow : Window
         Closed += (_, _) => _cts?.Cancel();
     }
 
+    // 2026-10-20, проверка фильтров: общие правила периода (PeriodRange) и подпись дат рядом с сегментами.
+    private readonly TextBlock _periodLabel = new();
+
     private (DateTime From, DateTime To) Range() => _period switch
     {
         "today" => (DateTime.Today, DateTime.Today),
-        "week" => (DateTime.Today.AddDays(-6), DateTime.Today),
+        "week" => (PeriodRange.WeekFrom(DateTime.Today), DateTime.Today),
         "quarter" => (DateTime.Today.AddMonths(-3).AddDays(1), DateTime.Today),
-        _ => (new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1), DateTime.Today),
+        _ => (PeriodRange.MonthFrom(DateTime.Today), DateTime.Today),
     };
 
     private void BuildPeriods()
@@ -82,9 +84,8 @@ public sealed class ProfitCashReconcileWindow : Window
         _periods.Children.Clear();
         void Add(string key, string text)
         {
-            var b = new Button { Content = text, Padding = new Thickness(14, 6) };
-            if (key == _period)
-                Use(b, Button.BackgroundProperty, "BrushAccentSoft");
+            // 2026-10-18, этап О3: сегмент; выбранный — тёмно-синий (было: серые кнопки и светло-жёлтая выбранная).
+            var b = UiKit.Seg(text, key == _period);
             b.Click += (_, _) =>
             {
                 _period = key;
@@ -98,6 +99,8 @@ public sealed class ProfitCashReconcileWindow : Window
         Add("week", Tr.T("7 дней", "7 күн", "7 days", "7 gün", "7 kun"));
         Add("month", Tr.T("Этот месяц", "Бул ай", "This month", "Bu ay", "Shu oy"));
         Add("quarter", Tr.T("3 месяца", "3 ай", "3 months", "3 ay", "3 oy"));
+        var (from, to) = Range();
+        _periodLabel.Text = PeriodRange.Label(from, to);
     }
 
     private async Task LoadAsync()
@@ -169,8 +172,9 @@ public sealed class ProfitCashReconcileWindow : Window
         }
 
         _pnl.Children.Add(Row(Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum"), Money(d, "revenue"), false));
-        _pnl.Children.Add(Row(Tr.T("Себестоимость проданного", "Сатылгандын өздүк наркы", "Cost of goods sold", "Satılan malın maliyeti", "Sotilgan tovar tannarxi"), "− " + Money(d, "cogs"), false));
-        _pnl.Children.Add(Row(Tr.T("Валовая прибыль", "Дүң пайда", "Gross profit", "Brüt kâr", "Yalpi foyda"),
+        // 2026-10-19, этап О10: простые слова и те же названия прибыли, что на Сводке и в Аналитике (ProfitTerms).
+        _pnl.Children.Add(Row(Tr.T("Закупочная цена проданного", "Сатылгандын сатып алуу баасы", "Purchase cost of goods sold", "Satılanların alış fiyatı", "Sotilganlarning xarid narxi"), "− " + Money(d, "cogs"), false));
+        _pnl.Children.Add(Row(ProfitTerms.Gross,
             Money(d, "gross_profit") + (Num(d, "margin_percent") is { } m ? $"  ·  {m.ToString("0.#", Ru)} %" : ""), true));
         if (d.TryGetProperty("opex", out var opex) && opex.ValueKind == JsonValueKind.Object)
         {
@@ -186,9 +190,14 @@ public sealed class ProfitCashReconcileWindow : Window
                 if (Num(opex, key) is > 0.004)
                     _pnl.Children.Add(Row("   " + title, "− " + Money(opex, key), false));
             }
-            _pnl.Children.Add(Row(Tr.T("Операционные расходы", "Операциялык чыгымдар", "Operating expenses", "Faaliyet giderleri", "Operatsion xarajatlar"), "− " + Money(opex, "total"), false));
+            // 2026-10-19, этап О10 (аудит: «Прочие расходы» и «Операционные расходы» с одной суммой путают): итог — «Расходы всего».
+            _pnl.Children.Add(Row(Tr.T("Расходы всего", "Бардык чыгымдар", "Total expenses", "Toplam giderler", "Jami xarajatlar"), "− " + Money(opex, "total"), true));
         }
-        _pnl.Children.Add(Row(Tr.T("Операционная прибыль", "Операциялык пайда", "Operating profit", "Faaliyet kârı", "Operatsion foyda"), Money(d, "operating_profit"), true));
+        // 2026-10-19, этап О10: «Операционная прибыль» сервера (валовая − расходы) — «Чистая прибыль», как в Аналитике; под итогом —
+        // как считается.
+        _pnl.Children.Add(Row(ProfitTerms.Net, Money(d, "operating_profit"), true,
+            result: Num(d, "operating_profit") ?? 0));
+        _pnl.Children.Add(Soft(ProfitTerms.GrossHow + ".\n" + ProfitTerms.NetHow + "."));
         _pnl.Children.Add(Soft(Tr.T("Закупка товара прибыль не уменьшает, пока товар не продан: в прибыль идёт себестоимость проданных строк.",
             "Товар сатылмайынча сатып алуу пайданы азайтпайт: пайдага сатылган саптардын өздүк наркы кирет.",
             "Buying stock does not reduce profit until the goods are sold: profit uses the cost of the lines sold.",
@@ -235,7 +244,16 @@ public sealed class ProfitCashReconcileWindow : Window
             _cash.Children.Add(Row(Tr.T("Итого расход", "Жалпы чыгым", "Total outflow", "Toplam çıkış", "Jami chiqim"), "− " + Money(outflow, "total"), false));
         }
 
-        _cash.Children.Add(Row(Tr.T("Чистое движение денег", "Акчанын таза кыймылы", "Net cash flow", "Net nakit akışı", "Sof pul harakati"), Money(d, "net"), true));
+        _cash.Children.Add(Row(Tr.T("Чистое движение денег", "Акчанын таза кыймылы", "Net cash flow", "Net nakit akışı", "Sof pul harakati"), Money(d, "net"), true,
+            result: Num(d, "net") ?? 0));
+        // 2026-10-20, аудит программы владельца: «Продажи наличными / безналом» здесь ≠ «Доход по способам» ниже — без пояснения
+        // путало. Это два разных отчёта сервера (cashflow — деньги по оплатам, finance — выручка по способу оплаты чека); цифры не меняем.
+        _cash.Children.Add(Soft(Tr.T(
+            "Наличные и безнал здесь и в «Доходе по способам» считаются по-разному: «Движение денег» — деньги, которые пришли по оплатам (возвраты покупателям — отдельной строкой в расходе, погашения долгов — в приходе); «Доход по способам» — выручка продаж по способу оплаты чека. Поэтому суммы могут не совпадать.",
+            "Накталай жана накталай эмес бул жерде жана «Төлөм түрлөрү боюнча кирешеде» ар башкача эсептелет: «Акчанын кыймылы» — төлөмдөр боюнча келген акча (сатып алуучуларга кайтаруу — чыгымда өзүнчө сап, карыз төлөө — кириште); «Төлөм түрлөрү боюнча киреше» — чектин төлөм түрү боюнча сатуу түшүмү. Ошондуктан суммалар дал келбеши мүмкүн.",
+            "Cash and non-cash here and in “Income by payment method” are counted differently: “Cash flow” is money received from payments (customer refunds are a separate outflow line, debt repayments are in inflow); “Income by method” is sales revenue by the receipt's payment method. So the amounts may differ.",
+            "Nakit ve nakitsiz burada ve «Ödeme yöntemine göre gelir»de farklı hesaplanır: «Nakit akışı» — ödemelerle gelen para (müşteri iadeleri giderde ayrı satır, borç ödemeleri girişte); «Yönteme göre gelir» — fişin ödeme yöntemine göre satış cirosu. Bu yüzden tutarlar tutmayabilir.",
+            "Naqd va naqdsiz bu yerda va «To'lov usullari bo'yicha daromad»da turlicha hisoblanadi: «Pul harakati» — to'lovlar bo'yicha kelgan pul (xaridorlarga qaytarish — chiqimda alohida qator, qarz to'lovlari — kirimda); «Usullar bo'yicha daromad» — chekning to'lov usuli bo'yicha sotuv tushumi. Shuning uchun summalar mos kelmasligi mumkin.")));
     }
 
     /// <summary>Доход от продаж по способам оплаты и оплаты долгов (analytics/finance/) — под «Движением денег».</summary>
@@ -279,21 +297,29 @@ public sealed class ProfitCashReconcileWindow : Window
             return;
         }
 
-        var allOk = d.TryGetProperty("all_ok", out var ok) && ok.ValueKind == JsonValueKind.True;
+        // 2026-10-20, аудит программы владельца: сервер отдавал ok=false при разнице 0,00 — «⚠ разница 0,00» и «Есть
+        // расхождения» пугали зря. Разница меньше копейки и без чеков-примеров — совпадение (цифры сервера не меняем).
+        static bool ZeroDiff(JsonElement c) =>
+            Math.Abs(Num(c, "diff") ?? 0) < 0.01
+            && !(c.TryGetProperty("examples", out var e) && e.ValueKind == JsonValueKind.Array && e.GetArrayLength() > 0);
+        static bool CheckOk(JsonElement c) =>
+            (c.TryGetProperty("ok", out var o) && o.ValueKind == JsonValueKind.True) || ZeroDiff(c);
+        var allOk = (d.TryGetProperty("all_ok", out var ok) && ok.ValueKind == JsonValueKind.True)
+                    || checks.EnumerateArray().All(CheckOk);
         _checks.Children.Add(Row(allOk
                 ? Tr.T("✅ Все отчёты сходятся", "✅ Бардык отчёттор дал келет", "✅ All reports match", "✅ Tüm raporlar tutuyor", "✅ Barcha hisobotlar mos")
                 : Tr.T("⚠ Есть расхождения", "⚠ Айырмачылыктар бар", "⚠ There are mismatches", "⚠ Uyuşmazlıklar var", "⚠ Farqlar bor"),
-            "", !allOk));
+            "", !allOk, check: allOk ? CheckState.Ok : CheckState.Warn));
         foreach (var c in checks.EnumerateArray())
         {
-            var good = c.TryGetProperty("ok", out var o) && o.ValueKind == JsonValueKind.True;
+            var good = CheckOk(c);
             var name = c.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
             var diff = Num(c, "diff") ?? 0;
             var right = good ? "✅" : "⚠ " + Tr.T("разница ", "айырма ", "diff ", "fark ", "farq ") + diff.ToString("N2", Ru);
             if (!good && c.TryGetProperty("examples", out var ex) && ex.ValueKind == JsonValueKind.Array && ex.GetArrayLength() > 0)
                 right += Tr.T(" · чеки: ", " · чектер: ", " · receipts: ", " · fişler: ", " · cheklar: ")
                          + string.Join(", ", ex.EnumerateArray().Take(8).Select(x => "№" + x.ToString()));
-            _checks.Children.Add(Row(name, right, !good, stacked: !good));
+            _checks.Children.Add(Row(name, right, false, stacked: !good, check: good ? CheckState.Ok : CheckState.Warn));
         }
         _checks.Children.Add(Soft(Tr.T("Сверку считает сервер NurCRM. Расхождение — повод написать в поддержку NurCRM с номерами чеков.",
             "Салыштырууну NurCRM сервери эсептейт. Айырмачылык болсо — чектердин номерлери менен NurCRM колдоосуна жазыңыз.",
@@ -321,7 +347,7 @@ public sealed class ProfitCashReconcileWindow : Window
 
     private Border Card(string header, Control body, int column)
     {
-        var head = new TextBlock { Text = header, FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 10) };
+        var head = new TextBlock { Text = header, FontSize = 16, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 0, 0, 8) };
         Use(head, TextBlock.ForegroundProperty, "BrushText");
         DockPanel.SetDock(head, Dock.Top);
         var scroll = new ScrollViewer
@@ -329,34 +355,52 @@ public sealed class ProfitCashReconcileWindow : Window
             Content = body,
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            Padding = new Thickness(0, 0, 10, 0),
+            // 2026-10-19, этап О10: суммы не упираются в полосу прокрутки (было 10).
+            Padding = new Thickness(0, 0, 16, 0),
         };
         var card = new Border
         {
-            CornerRadius = new CornerRadius(12),
             BorderThickness = new Thickness(1),
-            Padding = new Thickness(16, 14),
+            Padding = new Thickness(18, 16),
             Child = new DockPanel { LastChildFill = true, Children = { head, scroll } },
         };
         Use(card, Border.BackgroundProperty, "BrushPanel");
         Use(card, Border.BorderBrushProperty, "BrushBorder");
+        Use(card, Border.CornerRadiusProperty, "SettingsCardRadius");
         Grid.SetColumn(card, column);
         return card;
     }
 
     private TextBlock Head(string text)
     {
-        var t = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) };
+        var t = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 10, 0, 2) };
         Use(t, TextBlock.ForegroundProperty, "BrushTextSoft");
         return t;
     }
 
-    private Border Row(string left, string right, bool highlight, bool stacked = false)
+    private enum CheckState { None, Ok, Warn }
+
+    /// <summary>Строка отчёта. 2026-10-18, этап О3 (макет ProfitCash): обычная строка — линия снизу без заливки, итог
+    /// (<paramref name="highlight"/>) — жирным; <paramref name="result"/> — итог раздела плашкой (минус — красная: убыток);
+    /// <paramref name="check"/> — строка сверки на мягкой подложке, расхождение — цветом предупреждения.</summary>
+    private Border Row(string left, string right, bool highlight, bool stacked = false, double? result = null, CheckState check = CheckState.None)
     {
-        var a = new TextBlock { Text = left, FontSize = 13, FontWeight = highlight ? FontWeight.Bold : FontWeight.Normal, TextWrapping = TextWrapping.Wrap };
+        var loss = result is < -0.004;
+        // Итог — подпись над суммой: в узкой колонке (экран 1024) крупная сумма рядом рвала «Операционная» по буквам.
+        stacked |= result is not null;
+        // Вложенная статья («   Зарплата») — отступом, а не пробелами: пробелы при переносе уводили слово на вторую строку.
+        var indent = left.StartsWith("   ", StringComparison.Ordinal);
+        if (indent)
+            left = left.TrimStart();
+        var a = new TextBlock { Margin = new Thickness(indent ? 12 : 0, 0, 0, 0), Text = left, FontSize = result is null ? 13.5 : 14.5, FontWeight = highlight ? FontWeight.Bold : FontWeight.Normal, TextWrapping = TextWrapping.Wrap };
         Use(a, TextBlock.ForegroundProperty, "BrushText");
-        var b = new TextBlock { Text = right, FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = stacked ? TextWrapping.Wrap : TextWrapping.NoWrap };
-        Use(b, TextBlock.ForegroundProperty, "BrushText");
+        var b = new TextBlock
+        {
+            Text = right, FontSize = result is null ? 13.5 : 18, FontWeight = result is null ? FontWeight.SemiBold : FontWeight.Bold,
+            TextWrapping = stacked ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center,
+        };
+        b.FontFeatures = TabularNumbers;
+        Use(b, TextBlock.ForegroundProperty, loss ? "BrushDanger" : check == CheckState.Warn ? "BrushWarning" : "BrushText");
         Control content;
         if (stacked)
         {
@@ -372,15 +416,38 @@ public sealed class ProfitCashReconcileWindow : Window
             content = grid;
         }
 
-        var row = new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 7), BorderThickness = new Thickness(1), Child = content };
-        Use(row, Border.BackgroundProperty, highlight ? "BrushAccentSoft" : "BrushPanelSoft");
-        Use(row, Border.BorderBrushProperty, highlight ? "BrushAccent" : "BrushBorder");
+        var row = new Border { Child = content };
+        if (result is not null)
+        {
+            // Итог раздела — плашкой: минус — убыток (мягкий красный), иначе — нейтральная.
+            row.Padding = new Thickness(14, 10);
+            row.Margin = new Thickness(0, 6, 0, 2);
+            Use(row, Border.CornerRadiusProperty, "SettingsCardRadius");
+            Use(row, Border.BackgroundProperty, loss ? "BrushDangerSoft" : "BrushSurfaceSubtle");
+            row.BorderThickness = new Thickness(1);
+            Use(row, Border.BorderBrushProperty, loss ? "BrushDangerSoft" : "BrushBorder");
+        }
+        else if (check != CheckState.None)
+        {
+            row.Padding = new Thickness(12, 8);
+            Use(row, Border.CornerRadiusProperty, "SettingsButtonRadius");
+            Use(row, Border.BackgroundProperty, check == CheckState.Warn ? "BrushWarningSoft" : "BrushSurfaceSubtle");
+        }
+        else
+        {
+            // Обычная строка — линия снизу, как таблица.
+            row.Padding = new Thickness(0, 7);
+            row.BorderThickness = new Thickness(0, 0, 0, 1);
+            Use(row, Border.BorderBrushProperty, "BrushBorder");
+        }
         return row;
     }
 
+    private static readonly FontFeatureCollection TabularNumbers = new() { new FontFeature { Tag = "tnum", Value = 1 } };
+
     private TextBlock Soft(string text)
     {
-        var t = new TextBlock { Text = text, FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
+        var t = new TextBlock { Text = text, FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
         Use(t, TextBlock.ForegroundProperty, "BrushTextSoft");
         return t;
     }

@@ -31,6 +31,9 @@ public sealed class AvaloniaPosCheckoutUiFlow : IPosCheckoutUiFlow
             if (owner == null)
                 return true;
 
+            // 2026-10-18, редизайн (этап 6): новая оплата — плашка «Продажа прошла» прошлого чека убирается.
+            owner.DismissSaleDoneBar();
+
             var issues = StockAvailabilityService.EvaluateCurrentCart(
                 _cart,
                 additionalReservedLookup: _bridge.GetOtherOpenReceiptQuantity);
@@ -87,15 +90,22 @@ public sealed class AvaloniaPosCheckoutUiFlow : IPosCheckoutUiFlow
         if (dialog is null || dialogTask is null)
             return;
 
-        dialog.ShowResult(isSuccess, message);
         if (isSuccess)
         {
             // 2026-10-04, отчёт о производительности (п. 9): «Платёж принят» — 0,6 с вместо 1,2 с, а первая
             // же клавиша (следующий скан) закрывает окно сразу (PaymentStatusDialog.OnKeyDown) — тогда и
             // ждать здесь больше нечего.
-            await Task.WhenAny(Task.Delay(600), dialogTask).ConfigureAwait(true);
+            // 2026-10-18, редизайн (этап 6, макет MAfterPay): «Продажа прошла» — не окно, а плашка внизу главного
+            // окна (MainWindow.SaleDoneBar.cs, по CheckoutSucceeded). Окно ожидания закрывается сразу, без 0,6 с;
+            // остальное после оплаты (экран покупателя, сброс чека, отложенный чек) идёт как раньше после
+            // закрытия окна — просто без паузы, как и раньше при нажатии клавиши в эти 0,6 с.
+            _bridge.Window?.NoteSaleDoneMessage(message);
             if (dialog.IsVisible)
                 dialog.Close(true);
+        }
+        else
+        {
+            dialog.ShowResult(isSuccess, message);
         }
 
         try

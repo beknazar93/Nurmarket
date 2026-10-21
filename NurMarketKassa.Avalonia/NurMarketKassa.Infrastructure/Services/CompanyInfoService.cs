@@ -59,6 +59,9 @@ public static class CompanyInfoService
             _ = ServerLoyalty.AfterCompanyRefreshAsync(company?.Id);
             // 2026-10-05: настройки аккаунта с сервера (SettingsCloudSync) — один раз на вход в компанию.
             _ = SettingsCloudSync.PullOnceAsync(company?.Id);
+            // 2026-10-18: общие настройки «Оплата долга» (облако кассы, и у владельца тоже) — сразу и затем раз в 2 минуты.
+            _ = DebtPaymentSettings.RefreshAsync();
+            DebtPaymentSettings.StartAutoRefresh();
             // 2026-09-28: вид магазина, заданный на сервере, — всем кассам компании (BE-18).
             // null с сервера локальный выбор не трогает (см. MarketSphereSync).
             try

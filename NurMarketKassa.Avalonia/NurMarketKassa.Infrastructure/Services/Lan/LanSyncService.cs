@@ -421,6 +421,35 @@ public sealed class LanSyncService
                 PosLogger.Log($"LAN: обработка данных соседей не удалась: {ex.Message}", "LAN");
             }
         }
+
+        // 2026-10-18: сосед принял оплату долга — открытые окна этого клиента перечитывают долг с сервера.
+        List<string> debtClients;
+        lock (_debtPaidClients)
+        {
+            debtClients = _debtPaidClients.ToList();
+            _debtPaidClients.Clear();
+        }
+        foreach (var clientId in debtClients)
+            PosDataEvents.RaiseClientDebtChanged(clientId);
+    }
+
+    /// <summary>2026-10-18: клиенты из новых событий «debt_paid» соседей за этот круг опроса (каждый — одно оповещение).</summary>
+    private readonly HashSet<string> _debtPaidClients = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>2026-10-18: свежие (не старше 15 минут) оплаты долга среди только что сохранённых событий соседа. Старые
+    /// события (сосед забирается с начала после перезапуска) окна не дёргают — долг они и так читают при открытии.</summary>
+    private void CollectDebtPaid(IReadOnlyList<LanEvent> events)
+    {
+        foreach (var e in events)
+        {
+            if (e.Kind != LanJournal.KindDebtPaid
+                || !DateTime.TryParse(e.CreatedAt, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var at)
+                || DateTime.UtcNow - at > TimeSpan.FromMinutes(15)
+                || LanJournal.DebtPaidClientId(e) is not { } clientId)
+                continue;
+            lock (_debtPaidClients)
+                _debtPaidClients.Add(clientId);
+        }
     }
 
     /// <summary>Забирает новые события одного соседа. true — появились новые.</summary>
@@ -450,7 +479,10 @@ public sealed class LanSyncService
             var newLast = events.Count > 0 ? events.Max(e => e.Seq) : Math.Max(after, 0);
             if (events.Count == 0 && response.Last > after)
                 newLast = after;
-            anyNew |= LanJournal.SavePeerEvents(peer.DeviceId, response.N, response.R, events, newLast) > 0;
+            var saved = LanJournal.SavePeerEvents(peer.DeviceId, response.N, response.R, events, newLast);
+            anyNew |= saved > 0;
+            if (saved > 0)
+                CollectDebtPaid(events);
             if (events.Count < PageSize)
                 break;
             after = newLast;

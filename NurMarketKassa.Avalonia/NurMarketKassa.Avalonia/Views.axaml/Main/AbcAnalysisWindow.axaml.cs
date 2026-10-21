@@ -19,7 +19,11 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// локальная история остаётся запасным вариантом.</summary>
 public partial class AbcAnalysisWindow : Window, IOwnerSection
 {
-    private DateTime _from = DateTime.Today.AddDays(-30);
+    // 2026-10-20: проверка фильтров — было AddDays(-30) (31 день): ни один сегмент не совпадал, окно открывалось без
+    // выбранного периода. Теперь «Месяц» по общему правилу (PeriodRange: с 1-го числа) — выбран при открытии.
+    private DateTime _from = NurMarketKassa.AvaloniaHost.Services.PeriodRange.MonthFrom(DateTime.Today);
+    // 2026-10-20: нажатый сегмент — когда у двух сегментов одни даты (7-го числа «Неделя» = «Месяц»), подсвечен нажатый.
+    private Button? _chosenPreset;
     private DateTime _to = DateTime.Today;
     private CancellationTokenSource? _cts;
     private bool _suppressPickerEvents;
@@ -104,13 +108,19 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
         RootGrid.Margin = OwnerSectionLayout.Margin;
     }
 
-    private async void Today_Click(object? sender, RoutedEventArgs e) => await SetPeriodAsync(DateTime.Today, DateTime.Today);
+    private async void Today_Click(object? sender, RoutedEventArgs e) => await SetPresetAsync(TodayButton, DateTime.Today);
 
-    private async void Week_Click(object? sender, RoutedEventArgs e) => await SetPeriodAsync(DateTime.Today.AddDays(-6), DateTime.Today);
+    private async void Week_Click(object? sender, RoutedEventArgs e) => await SetPresetAsync(WeekButton, NurMarketKassa.AvaloniaHost.Services.PeriodRange.WeekFrom(DateTime.Today));
 
-    private async void Month_Click(object? sender, RoutedEventArgs e) => await SetPeriodAsync(DateTime.Today.AddDays(-29), DateTime.Today);
+    private async void Month_Click(object? sender, RoutedEventArgs e) => await SetPresetAsync(MonthButton, NurMarketKassa.AvaloniaHost.Services.PeriodRange.MonthFrom(DateTime.Today));
 
-    private async void Quarter_Click(object? sender, RoutedEventArgs e) => await SetPeriodAsync(DateTime.Today.AddDays(-89), DateTime.Today);
+    private async void Quarter_Click(object? sender, RoutedEventArgs e) => await SetPresetAsync(QuarterButton, DateTime.Today.AddDays(-89));
+
+    private async Task SetPresetAsync(Button preset, DateTime from)
+    {
+        _chosenPreset = preset;
+        await SetPeriodAsync(from, DateTime.Today);
+    }
 
     private async void Period_Changed(object? sender, SelectionChangedEventArgs e)
     {
@@ -127,6 +137,7 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
         if (_from > _to)
             (_from, _to) = (_to, _from);
 
+        _chosenPreset = null;
         SyncPickers();
         await ReloadAsync();
     }
@@ -147,7 +158,8 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
         _suppressPickerEvents = false;
 
         var days = (_to - _from).Days + 1;
-        PeriodText.Text = Tr.T("период", "мезгил", "period", "dönem", "davr") + $": {days} " + Tr.T("дн.", "күн", "days", "gün", "kun");
+        PeriodText.Text = Tr.T("период", "мезгил", "period", "dönem", "davr") + $": {days} " + Tr.T("дн.", "күн", "days", "gün", "kun")
+            + " · " + NurMarketKassa.AvaloniaHost.Services.PeriodRange.Label(_from, _to); // 2026-10-20: даты периода
         HighlightActivePeriod();
     }
 
@@ -161,14 +173,17 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
         var presets = new (Button Button, DateTime From, DateTime To)[]
         {
             (TodayButton, today, today),
-            (WeekButton, today.AddDays(-6), today),
-            (MonthButton, today.AddDays(-29), today),
+            (WeekButton, NurMarketKassa.AvaloniaHost.Services.PeriodRange.WeekFrom(today), today),
+            (MonthButton, NurMarketKassa.AvaloniaHost.Services.PeriodRange.MonthFrom(today), today),
             (QuarterButton, today.AddDays(-89), today),
         };
 
+        // 2026-10-20, проверка фильтров: подсвечен один сегмент — нажатый, если его даты совпадают, иначе первый подходящий.
+        var matching = presets.Where(p => _from.Date == p.From && _to.Date == p.To).Select(p => p.Button).ToList();
+        var chosen = _chosenPreset != null && matching.Contains(_chosenPreset) ? _chosenPreset : matching.FirstOrDefault();
         foreach (var (button, from, to) in presets)
         {
-            var isActive = _from.Date == from && _to.Date == to;
+            var isActive = ReferenceEquals(button, chosen);
             if (isActive && !button.Classes.Contains("active"))
                 button.Classes.Add("active");
             else if (!isActive)

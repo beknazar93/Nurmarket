@@ -33,6 +33,37 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
         CatalogKeyboardNavigation.Attach(CardsListBox, () => DataContext as CatalogPanelViewModel);
         CatalogKeyboardNavigation.Attach(TableListBox, () => DataContext as CatalogPanelViewModel);
         // 2026-10-04, редизайн под любые Android-устройства: плитки — по ширине ряда (см. FitTilesToRow).
+        // 2026-10-19, К1 (аудит 19.10, проблема 3: на 1366 три столбца и пустая полоса ~150 px справа): и в Windows/Linux
+        // плитки растягиваются на всю ширину ряда (FitTilesToRowDesktop) — 4 столбца на 1366, на 1024 — сколько влезает
+        // без обрезки. Размер темы и «Размер карточек» по-прежнему задают желаемую ширину.
+        if (!OperatingSystem.IsAndroid())
+        {
+            CardsListBox.SizeChanged += (_, _) => Dispatcher.UIThread.Post(FitTilesToRowDesktop, DispatcherPriority.Background);
+            ResourcesChanged += (_, _) => Dispatcher.UIThread.Post(FitTilesToRowDesktop, DispatcherPriority.Background);
+            // 2026-10-20, живая проверка («верхний ряд плиток срезан»): новая страница каталога открывалась
+            // прокрученной туда же, где была прежняя, — как на Android (ниже), показываем её с начала.
+            CatalogPanelViewModel? pagedVm = null;
+            void OnPageChanged(object? s, System.ComponentModel.PropertyChangedEventArgs e)
+            {
+                // 2026-10-21: и после «Фильтр → Применить» / «✕ Сбросить» (страница остаётся первой, а список был
+                // прокручен на середину) — с начала (пакет 6, п. 15).
+                if (e.PropertyName is not (nameof(CatalogPanelViewModel.CurrentPage) or nameof(CatalogPanelViewModel.ActiveFilterTip)))
+                    return;
+                foreach (var list in new[] { CardsListBox, TableListBox })
+                {
+                    list.FindAncestorOfType<ScrollViewer>()?.ScrollToHome();
+                    list.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault()?.ScrollToHome();
+                }
+            }
+            DataContextChanged += (_, _) =>
+            {
+                if (pagedVm is not null)
+                    pagedVm.PropertyChanged -= OnPageChanged;
+                pagedVm = DataContext as CatalogPanelViewModel;
+                if (pagedVm is not null)
+                    pagedVm.PropertyChanged += OnPageChanged;
+            };
+        }
         if (OperatingSystem.IsAndroid())
         {
             CardsListBox.SizeChanged += (_, _) => Dispatcher.UIThread.Post(FitTilesToRow, DispatcherPriority.Background);
@@ -143,6 +174,47 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
     /// считается. Товар под рамкой добавляет Num + (<see cref="TryAddHighlightedProduct"/>) —
     /// 2026-09-27, владелец: «добавление товара из каталога не через Enter, а через + на нумпаде»;
     /// Enter теперь всегда оплачивает.</summary>
+    /// <summary>2026-10-19, К1: плитки на всю ширину ряда на компьютере. Столбцов — с округлением вверх от желаемой
+    /// ширины темы (190 → на 1366 четыре по ~175), но плитка не уже 85 % желаемой и не уже 150 (иначе цена «12 450,00»
+    /// не помещается) — тогда на столбец меньше, а плитки шире. Высота — как у темы (у Android она ужимается, здесь
+    /// нет: 204 посчитаны по содержимому карточки). Своё значение кладётся в ресурсы самой панели — другие окна
+    /// (группы быстрых клавиш) берут прежний размер из приложения.</summary>
+    private void FitTilesToRowDesktop()
+    {
+        if (Application.Current is not { } app
+            || !app.TryGetResource("CatalogTileWidth", app.ActualThemeVariant, out var wValue) || wValue is not double preferredWidth
+            || !app.TryGetResource("CatalogTileHeight", app.ActualThemeVariant, out var hValue) || hValue is not double preferredHeight
+            || preferredWidth <= 0)
+            return;
+        var scroller = CardsListBox.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+        var available = scroller is { Viewport.Width: > 1 } ? scroller.Viewport.Width : CardsListBox.Bounds.Width;
+        available -= 2; // запас на округление — иначе последняя плитка ряда переносится
+        if (available < preferredWidth + TileSlotMargin)
+            return;
+        var minWidth = Math.Max(150, preferredWidth * 0.85);
+        var columns = Math.Max(1, (int)Math.Ceiling(available / (preferredWidth + TileSlotMargin)));
+        while (columns > 1 && available / columns - TileSlotMargin < minWidth)
+            columns--;
+        var width = Math.Floor(available / columns - TileSlotMargin);
+        if (Resources.TryGetValue("CatalogTileWidth", out var oldW) && oldW is double ow && Math.Abs(ow - width) < 0.5
+            && Resources.TryGetValue("CatalogTileHeight", out var oldH) && oldH is double oh && Math.Abs(oh - preferredHeight) < 0.5)
+            return;
+        Resources["CatalogTileWidth"] = width;
+        Resources["CatalogTileHeight"] = preferredHeight;
+    }
+
+    /// <summary>2026-10-19, К1: правая кнопка мыши или долгое нажатие по плитке — карточка товара (как значок «i»),
+    /// только там, где значок показывается (одежда и услуги или у товара есть описание). Товар в чек не добавляется.</summary>
+    private void Tile_ContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is not CatalogProductTileVm product
+            || DataContext is not CatalogPanelViewModel vm
+            || !(vm.ShowProductDetails || !string.IsNullOrEmpty(product.Description)))
+            return;
+        e.Handled = true;
+        ProductDetails_Click(sender, new RoutedEventArgs());
+    }
+
     public bool HasKeyboardCursor => HighlightedProduct is not null;
 
     /// <summary>Товар под клавиатурной рамкой; null — рамки нет.</summary>
@@ -198,14 +270,21 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
 
     private void OpenFilter_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not CatalogPanelViewModel catalog)
-            return;
+        if (DataContext is CatalogPanelViewModel catalog)
+            OpenFilterFor(catalog, this);
+    }
 
+    /// <summary>2026-10-20, проверка фильтров: окно «Фильтр» — одно для «Классики» и раскладок (KassaLayoutBase).</summary>
+    internal static void OpenFilterFor(CatalogPanelViewModel catalog, Visual owner)
+    {
         var filter = catalog.CreateFilterViewModel();
         var dialog = new FilterWindow(filter);
-        if (PosDialogHost.Show(dialog, TopLevel.GetTopLevel(this) as Window) == true)
+        if (PosDialogHost.Show(dialog, TopLevel.GetTopLevel(owner) as Window) == true)
             catalog.ApplyAdvancedFilter(filter.BuildCriteria());
     }
+
+    /// <summary>2026-10-20: «✕» рядом с «Фильтр» — сбросить условия окна «Фильтр» (поиск остаётся).</summary>
+    private void ResetFilter_Click(object? sender, RoutedEventArgs e) => (DataContext as CatalogPanelViewModel)?.ResetAdvancedFilter();
 
     private void CardView_Click(object? sender, RoutedEventArgs e)
     {

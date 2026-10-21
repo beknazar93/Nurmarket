@@ -92,11 +92,30 @@
                                 Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=5}"/>
                     </StackPanel>
                 </ScrollViewer>
-                <Border Grid.Column="1" Classes="lx-field" CornerRadius="22" Width="260" Margin="16,0,0,0" VerticalAlignment="Center">
-                    <Grid ColumnDefinitions="Auto,*">
+                <Border Grid.Column="1" Classes="lx-field" CornerRadius="22" Width="300" Margin="16,0,0,0" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
                         <PathIcon Data="{StaticResource IconSearch}" Margin="2,0,8,0"/>
                         <TextBox x:Name="ProductSearchBox" Grid.Column="1" Text="{Binding Catalog.SearchText}"
                                  Watermark="{DynamicResource csh.catalog.searchWatermark}"/>
+                        <!-- 2026-10-20, проверка фильтров: «Фильтр» в раскладке (было только в «Классике») — число включённых условий,
+                             в подсказке что включено; «✕» сбрасывает. Кнопки не берут фокус (скан — окну кассы). -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center">
+                            <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="32" Padding="10,0"
+                                    ToolTip.Tip="{Binding Catalog.ActiveFilterTip}" Click="OpenFilter_Click"
+                                    AutomationProperties.Name="{DynamicResource csh.catalog.filter}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconFilter}" Width="14" Height="14"/>
+                                    <Border IsVisible="{Binding Catalog.HasActiveFilter}" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0"
+                                            Background="{DynamicResource BrushAccent}" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Catalog.ActiveFilterCount}" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" Foreground="{DynamicResource BrushAccentForeground}"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+                            <Button Classes="lx-chip" Focusable="False" Height="32" Width="32" Padding="0" Content="✕"
+                                    IsVisible="{Binding Catalog.HasActiveFilter}" ToolTip.Tip="{Binding Catalog.ResetFilterTip}"
+                                    AutomationProperties.Name="{Binding Catalog.ResetFilterTip}" Click="ResetFilter_Click"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
             </Grid>
@@ -105,11 +124,14 @@
                 <StackPanel IsVisible="{Binding Catalog.IsCatalogEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                     <PathIcon Data="{StaticResource IconPackage}" Width="44" Height="44" HorizontalAlignment="Center"
                               Foreground="{DynamicResource BrushTextSoft}" Opacity="0.6"/>
-                    <TextBlock Text="{Binding Catalog.StatusText}" TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center"
+                    <!-- 2026-10-20 (живой аудит кассы, К9): причина пустого каталога (поиск, вкладка, фильтр), а не число товаров. -->
+                    <TextBlock Text="{Binding Catalog.EmptyStateText}" TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center"
                                Foreground="{DynamicResource BrushTextSoft}"/>
                 </StackPanel>
                 <ScrollViewer Classes="lx-scroll" IsVisible="{Binding Catalog.HasProducts}">
-                    <ListBox x:Name="TilesList" Classes="lx-tiles"
+                    <!-- 2026-10-20, живая проверка: «верхний ряд плиток срезан» — скан/щелчок выделял товар (SelectedProduct),
+                         и список сам прокручивался к нему на полряда. Прокрутку к рамке стрелок делает CatalogKeyboardNavigation. -->
+                    <ListBox x:Name="TilesList" AutoScrollToSelectedItem="False" Classes="lx-tiles"
                              ItemsSource="{Binding Catalog.Products}"
                              SelectedItem="{Binding Catalog.SelectedProduct}" SelectionMode="Single">
                         <ListBox.ItemsPanel>
@@ -119,7 +141,8 @@
                         </ListBox.ItemsPanel>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="pos:CatalogProductTileVm">
-                                <Button Classes="lx-tile" Width="156" Height="156" Margin="0,0,16,16"
+                                <!-- 2026-10-19, К1: ширина — по ряду (KassaLayoutBase.FitTilesToRow, желаемая 156). -->
+                                <Button Classes="lx-tile" Width="{DynamicResource LxTileWidth}" Height="156" Margin="0,0,16,16"
                                         Command="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).Catalog.SelectProductCommand}"
                                         CommandParameter="{Binding}">
                                     <Border Classes="mn-tile lx-tile-face">
@@ -221,8 +244,9 @@
                         <TextBlock Text="{DynamicResource lx.emptySaleHint}" FontSize="13" TextWrapping="Wrap" MaxWidth="260"
                                    TextAlignment="Center" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}" Opacity="0.8"/>
                     </StackPanel>
+                    <!-- 2026-10-19, К1: правый отступ 14 под полосу прокрутки — суммы строк («260,00») её не задевают. -->
                     <ScrollViewer Classes="lx-scroll" IsVisible="{Binding Basket.HasItems}">
-                        <ItemsControl ItemsSource="{Binding Basket.Lines}">
+                        <ItemsControl ItemsSource="{Binding Basket.Lines}" Margin="0,0,14,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:CartLineItemVm">
                                     <Border Classes="mn-line">
@@ -316,18 +340,19 @@
                     </StackPanel>
                 </Button>
 
+                <!-- 2026-10-19, К1: подписи кнопок переносятся на 2 строки (по-кыргызски обрезались «…»). -->
                 <UniformGrid Grid.Row="6" Columns="4" Margin="0,12,0,0">
-                    <Button Classes="lx-ghost" Padding="4,0" Command="{Binding Basket.DeferCartCommand}">
-                        <TextBlock Text="{DynamicResource onecLayout.holdButton}" TextTrimming="CharacterEllipsis"/>
+                    <Button Classes="lx-ghost" Padding="1,0" Command="{Binding Basket.DeferCartCommand}">
+                        <TextBlock Text="{DynamicResource onecLayout.holdButton}" FontSize="10.5" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
-                    <Button Classes="lx-ghost" Padding="4,0" Command="{Binding Basket.ApplyOrderDiscountCommand}">
-                        <TextBlock Text="{DynamicResource onecLayout.discountButton}" TextTrimming="CharacterEllipsis"/>
+                    <Button Classes="lx-ghost" Padding="1,0" Command="{Binding Basket.ApplyOrderDiscountCommand}">
+                        <TextBlock Text="{DynamicResource onecLayout.discountButton}" FontSize="10.5" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
-                    <Button Classes="lx-ghost" Padding="4,0" Command="{Binding Basket.AddCustomItemCommand}">
-                        <TextBlock Text="{DynamicResource csh.cart.customService}" TextTrimming="CharacterEllipsis"/>
+                    <Button Classes="lx-ghost" Padding="1,0" Command="{Binding Basket.AddCustomItemCommand}">
+                        <TextBlock Text="{DynamicResource csh.cart.customService}" FontSize="10.5" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
-                    <Button Classes="lx-ghost" Padding="4,0">
-                        <TextBlock Text="{DynamicResource csh.cart.more}" TextTrimming="CharacterEllipsis"/>
+                    <Button Classes="lx-ghost" Padding="1,0">
+                        <TextBlock Text="{DynamicResource csh.cart.more}" FontSize="10.5" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                         <Button.Flyout>
                             <MenuFlyout Placement="TopEdgeAlignedRight">
                                 <MenuItem Header="{DynamicResource csh.cart.restore}" Command="{Binding Basket.RestoreLastHeldReceiptCommand}"/>

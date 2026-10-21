@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Продажи</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827">
+  <dc-import name="OwnerNav" group="sales" active="Продажи" hint-size="308px,900px"></dc-import>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 24px; font-weight: 800">Продажи</span><span style="font-size: 13px; color: #667085">Воскресенье, 11.10.2026 · период общий для всех разделов</span></span>
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Сегодня</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0B2A3C; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700">Вчера</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Неделя</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Месяц</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #475467; font-family: inherit; font-size: 13px; font-weight: 600">Даты…</button>
+      </div>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #344054">Скачать отчёт ▾</button>
+    </div>
+    <div role="tablist" style="display: flex; gap: 24px; border-bottom: 1px solid #E5E7EB">
+      <button type="button" role="tab" aria-selected="true" style="border: 0; background: transparent; padding: 10px 0; border-bottom: 3px solid #FFD600; font-family: inherit; font-size: 14px; font-weight: 800; color: #0B2A3C">Чеки</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Финансы</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Графики</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">ABC-анализ</button>
+      <button type="button" role="tab" aria-selected="false" style="border: 0; background: transparent; padding: 10px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #667085">Возвраты</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="5">
+        <div style="background: #FFFFFF; border-radius: 16px; padding: 16px; box-shadow: 0 1px 2px rgba(16,24,40,0.05), 0 6px 16px rgba(11,42,60,0.06); display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; font-weight: 600; color: #667085">{{k.label}}</span>
+          <span style="font-size: 24px; font-weight: 800; color: #0B2A3C">{{k.value}}</span>
+          <span style="font-size: 12px; color: #667085">{{k.note}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <section style="flex-grow: 1; min-height: 0; background: #FFFFFF; border-radius: 16px; box-shadow: 0 1px 2px rgba(16,24,40,0.05); overflow: hidden; display: flex; flex-direction: column">
+      <div style="display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #F2F4F7">
+        <label style="flex-grow: 1; display: flex; align-items: center; gap: 8px; height: 40px; box-sizing: border-box; padding: 0 12px; border: 1px solid #E5E7EB; border-radius: 10px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          <input type="text" placeholder="Номер чека, товар или кассир" style="border: 0; outline: 0; flex-grow: 1; font-family: inherit; font-size: 13px"></label>
+        <button type="button" style="height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 600; color: #344054">Оплата: все ▾</button>
+      </div>
+      <div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1.4fr 1.2fr 1fr 0.4fr; gap: 12px; padding: 10px 16px; background: #F9FAFB; font-size: 12px; font-weight: 700; color: #667085"><span>Чек</span><span>Время</span><span>Кассир</span><span>Оплата</span><span style="text-align: right">Сумма</span><span></span></div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+        <div style="border-top: 1px solid #F2F4F7">
+          <div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1.4fr 1.2fr 1fr 0.4fr; gap: 12px; align-items: center; padding: 11px 16px; background: {{r.bg}}">
+            <span style="font-size: 13px; font-weight: 800; color: #0B2A3C">№{{r.no}}</span>
+            <span style="font-size: 13px; color: #475467">{{r.time}}</span>
+            <span style="font-size: 13px; color: #475467">Кассир Тест</span>
+            <span><span style="padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: {{r.payBg}}; color: {{r.payFg}}">{{r.pay}}</span></span>
+            <span style="text-align: right; font-size: 14px; font-weight: 800">{{r.sum}}</span>
+            <span style="text-align: right; font-size: 14px; color: #667085">{{r.chev}}</span>
+          </div>
+          <sc-if value="{{r.open}}" hint-placeholder-val="{{false}}">
+            <div style="padding: 4px 16px 14px 16px; background: #FFFBEA; display: flex; flex-direction: column; gap: 6px">
+              <span style="display: flex; justify-content: space-between; font-size: 13px"><span>Макароны «Макфа» спагетти 450г · 1 × 85</span><span style="font-weight: 700">85 сом</span></span>
+              <span style="display: flex; justify-content: space-between; font-size: 13px"><span>Патроны для степлера · 1 × 35</span><span style="font-weight: 700">35 сом</span></span>
+              <span style="display: flex; gap: 8px; margin-top: 4px"><button type="button" style="height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #0B2A3C">Печать</button><button type="button" style="height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #0B2A3C">Возврат</button></span>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const kpis = [
+      { label: 'Выручка', value: '4 300 сом', note: '47 чеков' },
+      { label: 'Средний чек', value: '91 сом', note: 'за день' },
+      { label: 'Прибыль', value: '910 сом', note: 'маржа 21,2 %' },
+      { label: 'Наличные', value: '2 265 сом', note: '52,7 %' },
+      { label: 'Безналичные', value: '2 035 сом', note: '47,3 %' }
+    ];
+    const data = [
+      ['1709', '09:54', 'Безналичные', '120 сом', true],
+      ['1708', '09:54', 'Наличные', '135 сом', false],
+      ['1707', '09:54', 'Наличные', '85 сом', false],
+      ['1706', '09:53', 'Безналичные', '170 сом', false],
+      ['1695', '09:51', 'Наличные', '85 сом', false],
+      ['1694', '09:51', 'Безналичные', '170 сом', false],
+      ['1693', '09:51', 'Наличные', '85 сом', false]
+    ];
+    const rows = data.map(([no, time, pay, sum, open]) => ({
+      no, time, pay, sum, open, chev: open ? '▴' : '▾', bg: open ? '#FFFBEA' : '#FFFFFF',
+      payBg: pay === 'Наличные' ? '#E7F6EC' : '#E3F2FD', payFg: pay === 'Наличные' ? '#0E7A3A' : '#1D4ED8'
+    }));
+    return { kpis, rows };
+  }
+}
+</script>
+</body>
+</html>

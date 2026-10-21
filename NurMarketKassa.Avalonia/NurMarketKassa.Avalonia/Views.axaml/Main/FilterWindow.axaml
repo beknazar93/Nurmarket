@@ -31,6 +31,65 @@
       <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
       <Setter Property="TextElement.Foreground" Value="White"/>
     </Style>
+
+    <!-- 2026-10-21: списки «Тип / Категория / Бренд» — в стиле кассы (пакет 5, п. 17): во всю ширину, как «Поиск»
+         и «Цена» (были узкими по тексту); выпадающий список — панелью темы со скруглением, строки крупные (палец),
+         выбранная — мягким фоном и жирным текстом (был серый список Fluent с голубым выделением); не выше 320 px
+         (открывался вверх через полэкрана). -->
+    <Style Selector="ComboBox.filter-combo">
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="MinHeight" Value="42"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Padding" Value="12,6"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="MaxDropDownHeight" Value="320"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="ComboBox.filter-combo:pointerover /template/ Border#Background">
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="ComboBox.filter-combo:focus-within /template/ Border#Background">
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
+    </Style>
+    <Style Selector="ComboBox.filter-combo /template/ Border#PopupBorder">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="4"/>
+    </Style>
+    <Style Selector="ComboBox.filter-combo ComboBoxItem">
+      <Setter Property="MinHeight" Value="40"/>
+      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="ComboBox.filter-combo ComboBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <Style Selector="ComboBox.filter-combo ComboBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="ComboBox.filter-combo ComboBoxItem:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="ComboBox.filter-combo ComboBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ComboBox.filter-combo ComboBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="ComboBox.filter-combo ComboBoxItem:selected">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
   </Window.Styles>
 
   <Border Margin="10" CornerRadius="{DynamicResource SettingsCardRadius}"
@@ -43,11 +102,12 @@
         <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="12,6">
           <Border Grid.ColumnSpan="2" Background="Transparent"
                   PointerPressed="TitleBar_PointerPressed"/>
+          <!-- 2026-10-21 (пакет 5, п. 17): значок — цветом текста на мягком фоне; жёлтый на бледно-жёлтом не читался. -->
           <Border Width="30" Height="30" CornerRadius="9"
-                  Background="{DynamicResource BrushAccentSoft}" VerticalAlignment="Center"
+                  Background="{DynamicResource BrushPanelSoft}" VerticalAlignment="Center"
                   IsHitTestVisible="False">
             <TextBlock Text="⚲" FontSize="17" FontWeight="Bold"
-                       Foreground="{DynamicResource BrushAccentStrong}"
+                       Foreground="{DynamicResource BrushText}"
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
           <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
@@ -55,9 +115,12 @@
             <TextBlock Text="Nur Market" FontSize="10" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock Text="{DynamicResource csh.filter.title}" FontSize="14" FontWeight="SemiBold"/>
           </StackPanel>
+          <!-- 2026-10-21: имена для экранного диктора и UIA (пакет 5, п. 17) — у кнопок-значков «—» и «×» имени не было. -->
           <Button Grid.Column="2" Classes="chrome-button" Content="—"
+                  AutomationProperties.Name="{DynamicResource csh.filter.minimizeTooltip}"
                   ToolTip.Tip="{DynamicResource csh.filter.minimizeTooltip}" Click="Minimize_Click"/>
           <Button IsCancel="True" Grid.Column="3" Classes="chrome-button chrome-close" Content="×"
+                  AutomationProperties.Name="{DynamicResource csh.filter.closeTooltip}"
                   ToolTip.Tip="{DynamicResource csh.filter.closeTooltip}" Click="Cancel_Click"/>
         </Grid>
       </Border>
@@ -75,12 +138,14 @@
 
         <ScrollViewer Grid.Row="1" Padding="24,20" VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="16">
-            <Border Background="{DynamicResource BrushAccentSoft}"
-                    BorderBrush="{DynamicResource BrushAccentStrong}" BorderThickness="1"
+            <!-- 2026-10-21 (пакет 5, п. 17): сводка — нейтральной плашкой: жёлтый заголовок на бледно-жёлтом фоне
+                 (#EBC500 на #FFF7CC) не читался; жёлтый в окне один — «Применить». -->
+            <Border Background="{DynamicResource BrushSurfaceSubtle}"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                     CornerRadius="12" Padding="14,11">
               <StackPanel Spacing="4">
                 <TextBlock Text="{DynamicResource csh.filter.summaryTitle}" FontSize="12" FontWeight="Bold"
-                           Foreground="{DynamicResource BrushAccentStrong}"/>
+                           Foreground="{DynamicResource BrushTextSoft}"/>
                 <TextBlock Text="{Binding SummaryText}" FontSize="13" TextWrapping="Wrap"/>
               </StackPanel>
             </Border>
@@ -88,30 +153,36 @@
             <StackPanel Spacing="6">
               <TextBlock Text="{DynamicResource csh.filter.search}" FontSize="13" FontWeight="SemiBold"/>
               <TextBox x:Name="SearchBox" Text="{Binding SearchText}"
+                       AutomationProperties.Name="{DynamicResource csh.filter.search}"
                        Watermark="{DynamicResource csh.filter.searchWatermark}" MinHeight="42"/>
             </StackPanel>
 
             <Grid ColumnDefinitions="*,16,*">
               <StackPanel Grid.Column="0" Spacing="6">
                 <TextBlock Text="{DynamicResource csh.filter.kind}" FontSize="13" FontWeight="SemiBold"/>
-                <ComboBox x:Name="CatalogKindCombo" MinHeight="42"/>
+                <ComboBox x:Name="CatalogKindCombo" Classes="filter-combo"
+                          AutomationProperties.Name="{DynamicResource csh.filter.kind}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Spacing="6">
                 <TextBlock Text="{DynamicResource csh.filter.category}" FontSize="13" FontWeight="SemiBold"/>
-                <ComboBox x:Name="CategoryCombo" MinHeight="42"/>
+                <ComboBox x:Name="CategoryCombo" Classes="filter-combo"
+                          AutomationProperties.Name="{DynamicResource csh.filter.category}"/>
               </StackPanel>
             </Grid>
 
             <StackPanel Spacing="6">
               <TextBlock Text="{DynamicResource csh.filter.brand}" FontSize="13" FontWeight="SemiBold"/>
-              <ComboBox x:Name="BrandCombo" MinHeight="42"/>
+              <ComboBox x:Name="BrandCombo" Classes="filter-combo"
+                        AutomationProperties.Name="{DynamicResource csh.filter.brand}"/>
             </StackPanel>
 
             <StackPanel Spacing="6">
               <TextBlock Text="{DynamicResource csh.filter.priceRange}" FontSize="13" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="*,16,*">
-                <TextBox x:Name="PriceMinBox" Grid.Column="0" Watermark="{DynamicResource csh.filter.priceFrom}" MinHeight="42"/>
-                <TextBox x:Name="PriceMaxBox" Grid.Column="2" Watermark="{DynamicResource csh.filter.priceTo}" MinHeight="42"/>
+                <TextBox x:Name="PriceMinBox" Grid.Column="0" Watermark="{DynamicResource csh.filter.priceFrom}" MinHeight="42"
+                         AutomationProperties.Name="{DynamicResource csh.filter.priceFrom}"/>
+                <TextBox x:Name="PriceMaxBox" Grid.Column="2" Watermark="{DynamicResource csh.filter.priceTo}" MinHeight="42"
+                         AutomationProperties.Name="{DynamicResource csh.filter.priceTo}"/>
               </Grid>
             </StackPanel>
 

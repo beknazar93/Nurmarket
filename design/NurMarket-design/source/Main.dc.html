@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Касса — продажа</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+
+  <!-- Шапка (16.10.2026: единая «Классика»: статус, смена с деньгами в кассе, кассир, ☰; дата убрана — её показывает Windows) -->
+  <header style="height: 72px; flex-shrink: 0; box-sizing: border-box; background: #FFFFFF; border-bottom: 1px solid #E5E7EB; display: flex; align-items: center; gap: 16px; padding: 0 20px">
+    <div style="display: flex; align-items: center; gap: 12px; min-width: 196px">
+      <div style="width: 40px; height: 40px; border-radius: 10px; background: #0B2A3C; color: #FFD600; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px">N</div>
+      <div style="display: flex; flex-direction: column">
+        <span style="font-weight: 700; font-size: 15px">NBS · Касса 1</span>
+        <span style="font-size: 12px; color: #475467">Кассир Тест</span>
+      </div>
+    </div>
+    <nav style="display: flex; gap: 4px; flex-grow: 1; justify-content: center">
+      <a href="#" style="display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 10px; background: #FFF7CC; color: #0B2A3C; font-weight: 700; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg>Продажа</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 10px; color: #475467; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>Чеки</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 10px; color: #475467; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h11a5 5 0 0 1 0 10h-3"></path></svg>Возврат</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 10px; color: #475467; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Долги</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 10px; color: #475467; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="4"></circle><path d="M2 21a7 7 0 0 1 14 0"></path><path d="M17 11a3 3 0 1 0 0-6M22 21a6 6 0 0 0-4-5.6"></path></svg>Клиенты</a>
+    </nav>
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="display: flex; align-items: center; gap: 8px; height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; background: #F2F4F7; color: #344054; font-size: 13px; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 4px; background: #16A34A"></span>В сети</span>
+      <button type="button" title="Меню смены: X-отчёт, внесение и изъятие, закрыть смену" style="height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 22px; border: 0; background: #E7F6EC; color: #0E7A3A; font-family: inherit; font-size: 13px; font-weight: 600">Смена с 08:55<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+      <div style="width: 40px; height: 40px; border-radius: 20px; background: #0B2A3C; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700">КТ</div>
+      <button type="button" aria-label="Меню" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg></button>
+    </div>
+  </header>
+
+  <div style="flex-grow: 1; display: flex; min-height: 0; padding-right: {{padRight}}">
+
+    <!-- Категории -->
+    <aside style="width: 104px; flex-shrink: 0; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E5E7EB; padding: 16px 12px; display: flex; flex-direction: column; gap: 8px">
+      <sc-for list="{{cats}}" as="c" hint-placeholder-count="7">
+        <sc-if value="{{c.active}}" hint-placeholder-val="{{false}}">
+          <button type="button" style="border: 0; border-radius: 14px; background: #FFD600; color: #0B2A3C; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 700; box-shadow: 0 6px 14px rgba(255,214,0,0.35)">
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: rgba(11,42,60,0.12); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">{{c.short}}</span>{{c.name}}</button>
+        </sc-if>
+        <sc-if value="{{c.idle}}" hint-placeholder-val="{{true}}">
+          <button type="button" style="border: 0; border-radius: 14px; background: transparent; color: #475467; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 600">
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: #F2F4F7; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">{{c.short}}</span>{{c.name}}</button>
+        </sc-if>
+      </sc-for>
+    </aside>
+
+    <!-- Товары (16.10.2026: плитки с фото, 6 колонок на 1440, быстрые группы F1–F12 как в программе) -->
+    <main style="flex-grow: 1; min-width: 0; min-height: 0; overflow: hidden; box-sizing: border-box; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; gap: 8px; flex-shrink: 0">
+      <label style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 48px; flex-shrink: 0; box-sizing: border-box; padding: 0 16px; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"></path></svg>
+        <input type="text" placeholder="Сканируйте штрихкод или введите название…" style="border: 0; outline: 0; flex-grow: 1; min-width: 0; font-family: inherit; font-size: 14px; background: transparent">
+        <span style="font-size: 12px; color: #475467; border: 1px solid #D0D5DD; border-radius: 6px; padding: 2px 6px; white-space: nowrap">Ctrl+F</span>
+      </label>
+      <!-- 2026-10-16: избранное, фильтр по виду (весовые, штучные, поштучно, комплекты, услуги) и вид каталога — как в старой кассе -->
+      <div style="display: flex; gap: 8px; flex-shrink: 0">
+        <button type="button" aria-label="Избранное" title="Избранное" style="width: 48px; height: 48px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #B54708; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg></button>
+        <button type="button" aria-label="Фильтр: весовые, штучные, поштучно, комплекты, услуги" title="Весовые · Штучные · Поштучно · Комплекты · Услуги" style="width: 48px; height: 48px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"></path></svg></button>
+        <button type="button" aria-label="Вид каталога: плитки или список" title="Плитки / список" style="width: 48px; height: 48px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"></rect><rect x="13" y="4" width="7" height="7" rx="1"></rect><rect x="4" y="13" width="7" height="7" rx="1"></rect><rect x="13" y="13" width="7" height="7" rx="1"></rect></svg></button>
+      </div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-shrink: 0; overflow: hidden">
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="8">
+          <button type="button" style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 22px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap"><span style="font-size: 11px; font-weight: 800; color: #0B2A3C; background: #F2F4F7; border-radius: 6px; padding: 2px 5px">{{g.key}}</span>{{g.name}}</button>
+        </sc-for>
+      </div>
+      <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); align-content: start; gap: 10px; overflow: hidden">
+        <sc-for list="{{products}}" as="p" hint-placeholder-count="24">
+          <button type="button" style="border: 0; text-align: left; background: #FFFFFF; border-radius: 14px; padding: 8px; box-shadow: 0 1px 2px rgba(16,24,40,0.06), 0 4px 12px rgba(11,42,60,0.06); display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer; min-width: 0; color: #111827">
+            <span role="img" aria-label="Фото товара" style="height: 80px; border-radius: 10px; background: #EEF0F3; display: flex; align-items: center; justify-content: center; position: relative">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 17-5-5-9 8"></path></svg>
+              <sc-if value="{{p.low}}" hint-placeholder-val="{{false}}"><span style="position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #FEF0C7; color: #7A2E0E">Мало: {{p.stock}}</span></sc-if>
+              <sc-if value="{{p.out}}" hint-placeholder-val="{{false}}"><span style="position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #FEE4E2; color: #B42318">Нет в наличии</span></sc-if>
+              <sc-if value="{{p.tagged}}" hint-placeholder-val="{{false}}"><span style="position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #0B2A3C; color: #FFFFFF">{{p.tag}}</span></sc-if>
+            </span>
+            <span style="font-size: 12.5px; font-weight: 600; line-height: 16px; height: 32px; overflow: hidden">{{p.name}}</span>
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 4px"><span style="font-size: 15px; font-weight: 800; color: #0B2A3C; white-space: nowrap">{{p.price}}</span><span style="font-size: 11.5px; color: #475467; white-space: nowrap">{{p.left}}</span></span>
+          </button>
+        </sc-for>
+      </div>
+    </main>
+
+    <!-- Чек -->
+    <section style="width: 400px; flex-shrink: 0; min-height: 0; overflow: hidden; box-sizing: border-box; background: #FFFFFF; border-left: 1px solid #E5E7EB; padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; gap: 8px; align-items: center">
+        <span style="height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 14px; border-radius: 10px; background: #0B2A3C; color: #FFFFFF; font-size: 13px; font-weight: 700; white-space: nowrap">{{tabMain}}</span>
+        <span style="height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 14px; border-radius: 10px; background: #F2F4F7; color: #344054; font-size: 13px; font-weight: 600; white-space: nowrap">{{tabSecond}}</span>
+        <button type="button" aria-label="Новый чек" style="margin-left: auto; width: 44px; height: 44px; flex-shrink: 0; border-radius: 10px; border: 1px dashed #98A2B3; background: #FFFFFF; color: #0B2A3C; font-size: 20px; font-family: inherit">+</button>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button type="button" style="flex-grow: 1; min-width: 0; height: 44px; border-radius: 10px; border: 1px solid {{clientBorder}}; background: {{clientBg}}; color: {{clientColor}}; font-family: inherit; font-size: 13px; font-weight: 600; text-align: left; padding: 0 12px; display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex-shrink: 0"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span style="overflow: hidden; text-overflow: ellipsis">{{client}}</span></button>
+        <div role="group" aria-label="Цены чека" style="display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: #E4E7EC; flex-shrink: 0">
+          <button type="button" style="height: 38px; padding: 0 10px; border-radius: 9px; border: 0; background: {{retailBg}}; color: #0B2A3C; font-family: inherit; font-size: 12.5px; font-weight: 700">Розница</button>
+          <button type="button" style="height: 38px; padding: 0 10px; border-radius: 9px; border: 0; background: {{optBg}}; color: #0B2A3C; font-family: inherit; font-size: 12.5px; font-weight: 700">Опт</button>
+        </div>
+      </div>
+      <sc-if value="{{showTitle}}" hint-placeholder-val="{{true}}"><div style="font-size: 14px; font-weight: 700; display: flex; justify-content: space-between"><span>Товары в чеке</span><span style="color: #475467; font-weight: 500">{{positions}}</span></div></sc-if>
+      <div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+        <sc-for list="{{lines}}" as="l" hint-placeholder-count="5">
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; border-radius: 14px; background: {{l.bg}}; border: 1px solid {{l.border}}">
+            <div style="display: flex; gap: 8px; align-items: center">
+              <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 600; line-height: 16px; max-height: 32px; overflow: hidden">{{l.name}}</span><span style="font-size: 12.5px; color: #475467">{{l.unit}}</span><sc-if value="{{l.hasNote}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; font-weight: 700; color: {{l.noteColor}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{l.note}}</span></sc-if></span>
+              <span style="display: flex; align-items: center; gap: 2px; flex-shrink: 0">
+                <button type="button" aria-label="Меньше · Num −" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #D0D5DD; background: #FFFFFF; font-size: 18px; font-family: inherit; color: #0B2A3C">−</button>
+                <span style="min-width: 32px; text-align: center; font-weight: 700; font-size: 14px">{{l.qty}}</span>
+                <button type="button" aria-label="Больше · Num +" style="width: 44px; height: 44px; border-radius: 12px; border: 0; background: #0B2A3C; color: #FFFFFF; font-size: 18px; font-family: inherit">+</button>
+              </span>
+              <span style="width: 52px; flex-shrink: 0; text-align: right; font-size: 14px; font-weight: 800; color: #0B2A3C">{{l.sum}}</span>
+            </div>
+            <sc-if value="{{l.selected}}" hint-placeholder-val="{{false}}">
+              <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+                <button type="button" style="height: 44px; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #0B2A3C">% Скидка</button>
+                <button type="button" style="height: 44px; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #0B2A3C">Опт</button>
+                <button type="button" style="height: 44px; border-radius: 10px; border: 1px solid #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #0B2A3C">Кол-во</button>
+                <button type="button" style="height: 44px; border-radius: 10px; border: 1px solid #FDE2E1; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 700; color: #C0362C">Убрать</button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{upsell}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 10px; flex-shrink: 0; border-radius: 14px; background: #FFF7CC; border: 1px solid #F5E08A">
+            <span style="flex-grow: 1; min-width: 0; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><span style="color: #475467">Часто берут: </span><b style="font-size: 13px">Пакет · 5 сом</b></span>
+            <button type="button" style="height: 44px; padding: 0 14px; border-radius: 10px; border: 0; background: #FFD600; font-family: inherit; font-size: 13px; font-weight: 800; color: #0B2A3C">Добавить</button>
+            <button type="button" aria-label="Пропустить" style="width: 44px; height: 44px; border-radius: 10px; border: 1px solid #E5E7EB; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 16px">✕</button>
+          </div>
+        </sc-if>
+      </div>
+      <sc-if value="{{showActions}}" hint-placeholder-val="{{true}}">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 0.75fr 1.25fr; gap: 8px">
+          <button type="button" style="height: 56px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 600; color: #344054; padding: 0 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="4" width="4" height="16" rx="1"></rect><rect x="15" y="4" width="4" height="16" rx="1"></rect></svg>Отложить</button>
+          <button type="button" title="Ctrl+D" style="height: 56px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 600; color: #344054; padding: 0 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M19 5 5 19"></path><circle cx="7" cy="7" r="2.5"></circle><circle cx="17" cy="17" r="2.5"></circle></svg>Скидка</button>
+          <button type="button" title="Доп. услуга, отложенные, перевзвесить, экран покупателя" style="height: 56px; border-radius: 12px; border: 1px solid #E5E7EB; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 600; color: #344054; padding: 0 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg>Ещё</button>
+          <button type="button" title="Ctrl+F1" style="height: 56px; border-radius: 12px; border: 1px solid #FDE2E1; background: #FFFFFF; font-family: inherit; font-size: 12px; font-weight: 600; color: #C0362C; padding: 0 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>Удалить чек</button>
+        </div>
+      </sc-if>
+      <div style="border-top: 1px dashed #D0D5DD; padding-top: 10px; display: flex; flex-direction: column; gap: 4px; font-size: 13px">
+        <div style="display: flex; justify-content: space-between; color: #475467"><span>Сумма</span><span>{{sumGross}}</span></div>
+        <div style="display: flex; justify-content: space-between; color: #475467"><span>{{discLabel}}</span><span>{{disc}}</span></div>
+        <sc-if value="{{hasBonus}}" hint-placeholder-val="{{false}}"><div style="display: flex; justify-content: space-between; color: #0E7A3A"><span>Начислим бонусов (5 %)</span><span>+26</span></div></sc-if>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px"><span style="font-size: 15px; font-weight: 700">Итого</span><span style="font-size: 26px; font-weight: 800; color: #0B2A3C">{{total}}</span></div>
+      </div>
+      <sc-if value="{{showActions}}" hint-placeholder-val="{{true}}">
+        <button type="button" style="height: 60px; flex-shrink: 0; border-radius: 14px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 12px; box-shadow: 0 8px 20px rgba(255,214,0,0.35)">Оплатить {{total}}<span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: rgba(11,42,60,0.12)">Enter</span></button>
+      </sc-if>
+      <sc-if value="{{payOpen}}" hint-placeholder-val="{{false}}">
+        <div style="height: 60px; flex-shrink: 0; box-sizing: border-box; border-radius: 14px; border: 1.5px dashed #D0D5DD; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; color: #475467">Оплата справа →<span style="font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #F2F4F7; color: #0B2A3C">Esc</span>вернуться к чеку</div>
+      </sc-if>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"mode":{"editor":"enum","options":["sale","full","pay"],"default":"sale"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 16.10.2026: единый демо-набор NBS (одна цена товара на всех досках), режимы: sale — продажа,
+    // full — все функции старой кассы (ФК1), pay — открыта панель оплаты (чек остаётся виден слева от неё).
+    const mode = this.props.mode ?? 'sale';
+    const full = mode === 'full';
+    const pay = mode === 'pay';
+    const cats = [
+      ['Все', 'Вс'], ['Напитки', 'Нп'], ['Сладости', 'Сл'], ['Бакалея', 'Бк'], ['Молочное', 'Мл'], ['Хлеб', 'Хл'], ['Химия', 'Хм']
+    ].map(([name, short], i) => ({ name, short, active: i === 0, idle: i !== 0 }));
+    const groups = [['F1', 'Хлеб'], ['F2', 'Молочка'], ['F3', 'Напитки'], ['F4', 'Сладости'], ['F5', 'Весовые'], ['F6', 'Бакалея'], ['F7–F12', '…']]
+      .map(([key, name]) => ({ key, name }));
+    // 2026-10-16: цены и остатки — как в SPEC.md (единые данные NBS); мало/нет — словом
+    const products = [
+      ['Кока-Кола (ПЭТ) 2л', '170 сом', 1, 6], ['Mars 50г', '39 сом', 48, 12], ['Сок Gracio яблочный 1л', '120 сом', 2, 10], ['Хлеб белый', '35 сом', 40, 5],
+      ['Молоко 1л', '95 сом', 24, 5], ['Snickers 50г', '70 сом', 36, 5], ['Макароны «Макфа» спагетти 450г', '85 сом', 50, 10], ['Чипсы «Пир» ассорти 75г', '65 сом', 2, 5],
+      ['Sprite Мохито 1л', '80 сом', 40, 5], ['Вафли «Лесной орех» 220г', '114 сом', 7, 5], ['Вода «Адыгене» 1,5л', '45 сом', 60, 10], ['Сахар 1кг', '85 сом', 40, 5],
+      ['Яйца 10 шт', '140 сом', 30, 5], ['Кефир 1л', '90 сом', 12, 5], ['Масло подсолнечное 1л', '160 сом', 22, 5], ['Чай «Пиала» 100 пак.', '210 сом', 18, 5],
+      ['Сыр «Российский»', '780/кг', -1, 0], ['Яблоки', '95/кг', -1, 0], ['Квас «Шоро» 1л', '60 сом', 15, 5], ['Эссе манго', '130 сом', 9, 10],
+      ['Салфетки «Мягкие» 100 шт', '45 сом', 20, 5], ['MR PROPER Универсал Лимон 400г', '191 сом', 11, 3], ['Aos Extra power 450г бальзам', '50 сом', 0, 5], ['Набор «Чай + печенье»', '250 сом', -2, 0]
+    ].map(([name, price, st, min]) => ({
+      name, price,
+      low: st > 0 && st <= min, out: st === 0, stock: st + ' шт',
+      tagged: st < 0, tag: st === -1 ? 'весовой' : 'комплект',
+      left: st >= 0 ? st + ' шт' : ''
+    }));
+    const plain = { bg: '#F9FAFB', border: '#F2F4F7', selected: false, hasNote: false, note: '', noteColor: '#0E7A3A' };
+    const lines = full ? [
+      { ...plain, name: 'Кока-Кола (ПЭТ) 2л', unit: '170 сом × 1', qty: 1, sum: '170' },
+      { ...plain, name: 'Сок Gracio яблочный 1л', unit: '120 сом × 1', qty: 1, sum: '108', bg: '#FFFBEB', border: '#0B2A3C', selected: true, hasNote: true, note: 'Скидка 10 % · −12', noteColor: '#B54708' },
+      { ...plain, name: 'Яблоки', unit: '0,860 кг × 95 сом', qty: '0,86', sum: '81,70' },
+      { ...plain, name: 'Mars 50г', unit: '5 × 33 сом', qty: 5, sum: '165', hasNote: true, note: 'Опт от 5 шт (розн. 39)', noteColor: '#175CD3' }
+    ] : [
+      { ...plain, name: 'Кока-Кола (ПЭТ) 2л', unit: '170 сом × 1', qty: 1, sum: '170' },
+      { ...plain, name: 'Сок Gracio яблочный 1л', unit: '120 сом × 1', qty: 1, sum: '120' },
+      { ...plain, name: 'Молоко 1л', unit: '95 сом × 1', qty: 1, sum: '95' },
+      { ...plain, name: 'Хлеб белый', unit: '35 сом × 2', qty: 2, sum: '70' },
+      { ...plain, name: 'Mars 50г', unit: '39 сом × 5', qty: 5, sum: '195' }
+    ];
+    return {
+      cats, groups, products, lines,
+      padRight: pay ? '440px' : '0px',
+      showActions: !pay, payOpen: pay, upsell: full, hasBonus: full, showTitle: !full,
+      tabMain: full ? 'Чек № 1710 · 4' : 'Чек № 1710',
+      tabSecond: full ? 'Чек 2 · 1 тов.' : 'Отложен · 2 тов.',
+      client: full ? 'Гулзат М. · 326 бонусов' : 'Клиент — выбрать',
+      clientBg: full ? '#EEF4FF' : '#F9FAFB', clientBorder: full ? '#B2CCFF' : '#E5E7EB', clientColor: full ? '#0B2A3C' : '#475467',
+      retailBg: '#FFFFFF', optBg: 'transparent',
+      positions: full ? '4 позиции' : '5 позиций · 10 шт',
+      sumGross: full ? '536,70 сом' : '650 сом',
+      discLabel: full ? 'Скидка на строки' : 'Скидка',
+      disc: full ? '−12 сом' : '0 сом',
+      total: full ? '524,70 сом' : '650 сом'
+    };
+  }
+}
+</script>
+</body>
+</html>

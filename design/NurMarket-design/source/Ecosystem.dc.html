@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Единая экосистема NurMarket</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.node{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 6px 16px rgba(11,42,60,.06)}
+.nh{display:flex;align-items:center;gap:12px}
+.ic{width:44px;height:44px;border-radius:12px;background:#FFF7CC;color:#0B2A3C;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.nt{display:flex;flex-direction:column;gap:2px}
+.nt b{font-size:16px;font-weight:800}
+.nt span{font-size:12px;color:#667085}
+.ul{margin:0;padding:0 0 0 18px;font-size:13px;color:#344054;line-height:20px}
+.tag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;background:#F2F4F7;color:#344054}
+.link{display:flex;align-items:center;justify-content:center;color:#98A2B3}
+.role{border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.role b{font-size:15px;font-weight:800}
+.role span{font-size:13px;line-height:19px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 36px 40px; display: flex; flex-direction: column; gap: 18px; justify-content: space-between">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 26px; font-weight: 800">Один магазин — все устройства</span>
+      <span style="font-size: 14px; color: #475467">Один вход NurCRM, одна база товаров, остатков, чеков и клиентов. Что продали на телефоне — сразу видно на кассе, в вебе и у владельца.</span>
+    </div>
+    <span style="display: flex; gap: 8px"><span class="tag">Windows</span><span class="tag">Linux</span><span class="tag">Android</span><span class="tag">Браузер (и iPhone)</span></span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+    <section class="node">
+      <div class="nh"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg></span><span class="nt"><b>Касса</b><span>Windows, Linux и Android · весы, принтер, ящик</span></span></div>
+      <ul class="ul"><li>Продажа, возврат, смена</li><li>Работает без интернета — чеки уходят позже</li></ul>
+    </section>
+    <section class="node">
+      <div class="nh"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3"></rect><path d="M11 18h2"></path></svg></span><span class="nt"><b>Телефон</b><span>Android · камера = сканер · iPhone — через веб</span></span></div>
+      <ul class="ul"><li>Кассир: продажа, чеки, склад</li><li>Администратор: всё управление</li></ul>
+    </section>
+    <section class="node">
+      <div class="nh"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M2 9h20M6 6.5h.01M9 6.5h.01"></path></svg></span><span class="nt"><b>Веб — NurCRM в браузере</b><span>app.nurcrm.kg · без установки, и с iPhone</span></span></div>
+      <ul class="ul"><li>Админка NurCRM: товары, отчёты, сотрудники, права</li><li>Веб-касса — пилот на сервере NurCRM</li></ul>
+    </section>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+    <span class="link" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"></path></svg></span>
+    <span class="link" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"></path></svg></span>
+    <span class="link" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"></path></svg></span>
+  </div>
+
+  <section style="border-radius: 20px; background: #0B2A3C; color: #FFFFFF; padding: 20px 24px; display: flex; align-items: center; gap: 20px">
+    <span style="width: 56px; height: 56px; border-radius: 16px; background: #FFD600; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; flex-shrink: 0">N</span>
+    <span style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1">
+      <b style="font-size: 18px; font-weight: 800">Сервер NurCRM — одна база магазина</b>
+      <span style="font-size: 13px; color: #C7D2DB">Товары и цены · остатки по складам · чеки и смены · клиенты и долги · сотрудники и права · настройки компании</span>
+    </span>
+    <span style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 420px">
+      <span style="font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,.12)">Один вход на всех устройствах</span>
+      <span style="font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,.12)">Без связи — чеки уходят позже</span>
+    </span>
+  </section>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+    <span class="link" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"></path></svg></span>
+    <span class="link" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"></path></svg></span>
+    <span class="link" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"></path></svg></span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+    <section class="node">
+      <div class="nh"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 21h18M5 21V8l7-5 7 5v13"></path><path d="M9 21v-6h6v6"></path></svg></span><span class="nt"><b>Программа владельца</b><span>Та же программа кассы — вход владельца</span></span></div>
+      <ul class="ul"><li>Сводка, склад, продажи, отчёты, филиалы</li><li>Windows и Linux · Нур Советник</li></ul>
+    </section>
+    <section class="node">
+      <div class="nh"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg></span><span class="nt"><b>Сайт-витрина</b><span>market.nurcrm.kg/nbs · 307 товаров</span></span></div>
+      <ul class="ul"><li>Заказы покупателей приходят на кассу</li><li>Цены и остатки — из той же базы</li></ul>
+    </section>
+    <section class="node">
+      <div class="nh"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l6 2 2 6 3-4 5 4z"></path></svg></span><span class="nt"><b>Телеграм-бот и WhatsApp</b><span>@kssirBot · WhatsApp магазина</span></span></div>
+      <ul class="ul"><li>Заказ из бота, чек покупателю</li><li>Напоминание о долге — по одному клиенту</li></ul>
+    </section>
+  </div>
+
+  <!-- 2026-10-16: 4 роли доступа (как в NurCRM и Конструкторе), без пустой зоны над ними -->
+  <span style="font-size: 16px; font-weight: 800; margin-top: 4px">Роли доступа — одни на всех устройствах <span style="font-size: 13px; font-weight: 600; color: #667085">· права выдаются в NurCRM (сервер)</span></span>
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px">
+    <div class="role" style="background: #0B2A3C; color: #FFFFFF"><b>Владелец</b><span style="color: #D0D5DD">Всё, что у администратора, плюс филиалы, подписка, функции и деньги компании.</span></div>
+    <div class="role" style="background: #E7EEF3; color: #0B2A3C"><b>Администратор</b><span>Всё, что у кассира, плюс товары и цены, отчёты, долги, сотрудники, сайт и настройки.</span></div>
+    <div class="role" style="background: #FFF7CC; color: #0B2A3C"><b>Кассир</b><span>Продажа, сканер, свои чеки и смена, остатки. Цены, отчёты и сотрудники скрыты.</span></div>
+    <div class="role" style="background: #FFFFFF; color: #0B2A3C; border: 1px solid #E5E7EB"><b>Кладовщик</b><span>Склад: приёмка, ревизия, списание, перемещение, остатки. Продажа и деньги скрыты.</span></div>
+  </div>
+  <span style="font-size: 13px; color: #475467">Без связи касса и телефон продают дальше — чеки уходят на сервер, когда связь вернётся. Веб и веб-касса без связи не продают.</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -21,6 +21,15 @@ public static class PosPermissions
     public const string ViewShifts = "can_view_shifts";
     public const string ViewCashier = "can_view_cashier";
 
+    // 2026-10-18, аудит доступов: «Продажа» на сайте — флаг can_view_sale (не can_view_sales — тот
+    // открыт всем кассирам для просмотра продаж по решению владельца).
+    public const string Sale = "can_view_sale";
+
+    /// <summary>2026-10-18: доступы работы на кассе — вход в интерфейс кассы, продажа/оплата,
+    /// открытие/закрытие смены. Раньше не проверялись вовсе. Владельца/админа и компании, где
+    /// доступы сотрудникам не выставлены, не запирают (см. PermissionService).</summary>
+    public static readonly string[] CashierWork = { ViewCashier, Sale, ViewShifts };
+
     // 2026-10-01, «доступы работают некорректно»: разделы — теми же флагами, что на сайте NurCRM
     // (Моя компания → Сотрудники → доступы; сайт: employeeAccessLabels и меню). Раньше Склад
     // проверялся флагом «Закупки», а Аналитика, ABC, Финансы, Клиенты и Заказы — ничем

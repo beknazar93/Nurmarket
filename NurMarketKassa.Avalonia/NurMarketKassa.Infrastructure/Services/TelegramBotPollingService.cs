@@ -200,16 +200,42 @@ public sealed partial class TelegramBotPollingService
         }
     }
 
+    /// <summary>Не больше стольких принятых, но не отвеченных сообщений: дальше новые ждут у Telegram (он хранит их сутки),
+    /// а файл очереди остаётся маленьким.</summary>
+    private const int MaxPendingUpdates = 300;
+
     private async Task RunAsync(CancellationToken ct)
     {
-        // Первый круг делаем с offset = -1: Telegram отдаёт только ПОСЛЕДНЕЕ сообщение, и бот
-        // не начнёт отвечать на всё, что владелец писал, пока касса была выключена.
+        // 2026-10-21 (бот, К4 и ВАЖНО 1): сообщения — в очередь по чатам (TelegramBotPollingService.Queue.cs), offset и необработанные
+        // update_id — на диске: после перезапуска бот продолжает с того же места без повторных ответов.
+        Interlocked.Increment(ref _activePollers);
+        _inbox = UpdateInbox.Open(TelegramBotOwner.BotId(UserPreferences.Instance.TelegramBotToken) ?? "bot");
+        _offset = _inbox.NextOffset;
+        foreach (var (id, update, attempts) in _inbox.TakeRecovered())
+        {
+            if (attempts > 2 || IsStale(update))
+            {
+                if (attempts > 2)
+                    PosLogger.Log("Телеграм-бот: сообщение дважды прерывало работу при запуске — пропускаю его.", "WARNING");
+                _inbox.Done(id);
+                continue;
+            }
+            Dispatch(id, update, ct);
+        }
+        _inbox.Flush();
+        var flusher = FlushLoopAsync(ct);
+        _ = PublishCommandsAsync(ct);
+
         var first = true;
 
         while (!ct.IsCancellationRequested)
         {
             try
             {
+                // Очередь переполнена (наплыв сообщений) — новые подождут у Telegram, пока бот отвечает на принятые.
+                while (_inbox.PendingCount >= MaxPendingUpdates && !ct.IsCancellationRequested)
+                    await Task.Delay(200, ct).ConfigureAwait(false);
+
                 // 2026-10-01, ТЗ часть 5: бот перенесён на сервер NurCRM (вебхук, работает и при
                 // выключенной программе) — здесь Telegram не опрашиваем, только раз в 5 минут
                 // проверяем, не вернули ли бота на этот компьютер.
@@ -226,8 +252,9 @@ public sealed partial class TelegramBotPollingService
                 // 2026-10-01, владелец: «опять сдох» — сообщения, пришедшие, пока касса перезапускалась
                 // (обновление, 1–3 минуты), раньше выбрасывались все. Теперь первый круг берёт все
                 // накопившиеся (offset 0), а старше StaleAfter пропускаются — на вчерашнее бот не отвечает.
+                // 2026-10-21: первый круг — с сохранённого offset (на диске), а не с 0: уже отвеченное не приходит повторно.
                 var (updates, error) = await TelegramBotService
-                    .GetUpdatesAsync(first ? 0 : _offset, first ? 0 : LongPollSeconds, ct)
+                    .GetUpdatesAsync(_offset, first ? 0 : LongPollSeconds, ct)
                     .ConfigureAwait(false);
 
                 if (error != null && error.Contains("webhook", StringComparison.OrdinalIgnoreCase))
@@ -266,33 +293,45 @@ public sealed partial class TelegramBotPollingService
 
                 foreach (var update in updates)
                 {
-                    if (update.TryGetProperty("update_id", out var id) && id.TryGetInt64(out var updateId))
-                        _offset = Math.Max(_offset, updateId + 1);
-
-                    if (IsStale(update))
-                        continue;   // пришло давно, пока бот был выключен, — не отвечаем
-
-                    await HandleUpdateAsync(update, ct).ConfigureAwait(false);
+                    if (!update.TryGetProperty("update_id", out var id) || !id.TryGetInt64(out var updateId))
+                        continue;
+                    // Старше StaleAfter (пришло, пока бот был выключен) — не отвечаем; уже принятое — не повторяем.
+                    if (_inbox.Accept(updateId, update, IsStale(update)))
+                        Dispatch(updateId, update, ct);
                 }
 
+                _offset = _inbox.NextOffset;
+                // На диск ДО следующего getUpdates: он подтверждает Telegram эту пачку.
+                _inbox.Flush();
                 first = false;
             }
             catch (OperationCanceledException)
             {
-                return;
+                break;
             }
             catch (Exception ex)
             {
-                PosLogger.Log($"Телеграм-бот: сбой обработки ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+                // Сбой самого опроса (не обработки сообщения — та в своей очереди): короткая пауза, ответы в очереди идут дальше.
+                PosLogger.Log($"Телеграм-бот: сбой опроса ({ex.GetType().Name}: {ex.Message}).", "WARNING");
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+                    await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
-                    return;
+                    break;
                 }
             }
+        }
+
+        try
+        {
+            await flusher.ConfigureAwait(false);
+            await StopWorkersAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _activePollers);
         }
     }
 
@@ -328,6 +367,47 @@ public sealed partial class TelegramBotPollingService
 
         var text = message.TryGetProperty("text", out var textElement) ? textElement.GetString() : null;
 
+        // 2026-10-21 (бот, К1 и ВАЖНО 4): роли — по человеку (from.id), а не только по чату. В группе владельца отчёты видят все
+        // участники, а должники, ИИ с данными магазина, «да / нет» и «Выполнить» — только подтверждённый кодом владелец. Личный чат
+        // подтверждённого владельца — тоже чат владельца (если сводки идут в группу).
+        var prefs = UserPreferences.Instance;
+        var chatType = chat.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : null;
+        var isGroup = chatType is "group" or "supergroup" or "channel" || chatId!.StartsWith('-');
+        var hasFrom = message.TryGetProperty("from", out var sender);
+        long? fromId = hasFrom && sender.TryGetProperty("id", out var fromIdElement) && fromIdElement.TryGetInt64(out var fid) ? fid : null;
+        var languageCode = hasFrom && sender.TryGetProperty("language_code", out var lcElement) ? lcElement.GetString() : null;
+        var isOwnerChat = string.Equals(chatId, prefs.TelegramChatId, StringComparison.Ordinal);
+        if (isOwnerChat && !isGroup && fromId is { } privateOwner)
+            TelegramBotOwner.LearnFromPrivateChat(privateOwner);
+        var ownerUser = TelegramBotOwner.IsOwnerUser(fromId);
+        var isOwner = isOwnerChat || (!isGroup && ownerUser);
+        var isOwnerFull = isOwner && (!isGroup || ownerUser);
+        // 2026-10-21 (бот, идея 10): язык ответа — владельцу язык программы, покупателю язык его Telegram.
+        var customerLanguage = TelegramBotText.FromCode(languageCode);
+        TelegramBotText.Use(isOwner ? prefs.Language : customerLanguage ?? prefs.Language);
+        if (!isOwner && customerLanguage is { } rememberLanguage)
+            TelegramBotText.Remember(chatId, rememberLanguage);
+        var ownerMenu = isOwner ? TelegramBotText.OwnerKeyboard() : null;
+        var customerMenu = isOwner || isGroup ? null : TelegramBotText.CustomerKeyboard();
+        var senderName = hasFrom && sender.TryGetProperty("first_name", out var senderFirst) ? senderFirst.GetString() : null;
+
+        // 2026-10-21 (К1): код подтверждения владельца из программы («123456», «/code 123456», «/start own_123456»).
+        if (text != null && TelegramBotOwner.TryHandle(text, chatId, TelegramBotOwner.ChatTitle(chat), fromId, out var codeReply))
+        {
+            if (codeReply != null)
+                await SendReplyAsync(chatId, codeReply, ct,
+                    string.Equals(chatId, prefs.TelegramChatId, StringComparison.Ordinal) ? TelegramBotText.OwnerKeyboard() : null).ConfigureAwait(false);
+            return;
+        }
+
+        // 2026-10-21 (ВАЖНО 3): номер телефона кнопкой «Подтвердить номер» — сверка с карточкой клиента.
+        if (message.TryGetProperty("contact", out var contact))
+        {
+            if (!isGroup)
+                await HandleContactAsync(chatId, fromId, contact, senderName, ct).ConfigureAwait(false);
+            return;
+        }
+
         // 2026-10-01, владелец: «ответ голосом тоже реализуй в боте». Голосовое → текст (Gemini),
         // дальше — как обычное сообщение; ответ уходит текстом (с расшифровкой) и голосом.
         var isVoice = false;
@@ -342,7 +422,8 @@ public sealed partial class TelegramBotPollingService
             text = audio == null ? null : await TelegramVoice.TranscribeAsync(audio, ct).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(text))
             {
-                await SendReplyAsync(chatId!, "Не расслышал 🙂 Повторите, пожалуйста, или напишите текстом.", ct).ConfigureAwait(false);
+                await SendReplyAsync(chatId!, TelegramBotText.T("Не расслышал 🙂 Повторите, пожалуйста, или напишите текстом.", "Угулбай калды 🙂 Кайталаңызчы же текст менен жазыңыз.",
+                    "I didn't catch that 🙂 Please repeat or type it.", "Anlayamadım 🙂 Lütfen tekrarlayın ya da yazın.", "Eshitmadim 🙂 Iltimos, takrorlang yoki yozing."), ct).ConfigureAwait(false);
                 return;
             }
 
@@ -351,39 +432,45 @@ public sealed partial class TelegramBotPollingService
         }
 
         if (string.IsNullOrWhiteSpace(text))
+        {
+            // 2026-10-21 (бот, идея 12): стикер, фото, пустое сообщение — подсказка вместо тишины (в группе молчим: там общаются люди).
+            if (!isGroup)
+                await SendReplyAsync(chatId, isOwner ? TelegramReportBuilder.BuildHelp() : CustomerHint(nonText: true), ct, ownerMenu ?? customerMenu).ConfigureAwait(false);
             return;
+        }
 
-        var isOwner = string.Equals(chatId, UserPreferences.Instance.TelegramChatId, StringComparison.Ordinal);
         var command = text!.Trim();
 
         // 2026-10-01, владелец: «фиксируй количество обращений клиентов к боту» — каждое сообщение
         // покупателя записывается (TelegramInquiryStore); владелец спрашивает «сколько обращений».
-        var senderName = message.TryGetProperty("from", out var sender) && sender.TryGetProperty("first_name", out var senderFirst)
-            ? senderFirst.GetString()
-            : null;
         if (!isOwner)
             TelegramInquiryStore.Record(chatId!, senderName, (isVoice ? "🎤 " : "") + text!);
 
+        // 2026-10-21 (бот, идея 3): кнопка меню («📊 Сегодня», «💳 Мой долг» на любом из 5 языков) — как команда.
+        if (TelegramBotText.CommandForButton(command, isOwner) is { } buttonCommand)
+            text = command = "/" + buttonCommand;
+
         // 2026-10-06, владелец: «к ИИ и боту дай полный доступ к товарам». Ответ «да» / «нет» на предложенные ИИ действия
         // с товарами (кнопки — в HandleProductActionCallbackAsync; текстом и голосом — здесь).
-        if (isOwner && ProductActionPlan.PendingToken(chatId!) is { } pendingToken && (ProductActionPlan.IsYes(text!) || ProductActionPlan.IsNo(text!)))
+        if (isOwnerFull && ProductActionPlan.PendingToken(chatId!) is { } pendingToken && (ProductActionPlan.IsYes(text!) || ProductActionPlan.IsNo(text!)))
         {
-            var steps = ProductActionPlan.Take(pendingToken, chatId!);
+            // 2026-10-16: со временем карточки — старая карточка, такая же как уже выполненная, отвечает «карточка устарела».
+            var steps = ProductActionPlan.Take(pendingToken, chatId!, out var proposedUtc);
             if (steps is null)
                 return;
             if (ProductActionPlan.IsNo(text!))
             {
-                await SendReplyAsync(chatId!, "Хорошо, ничего не меняю.", ct).ConfigureAwait(false);
+                await SendReplyAsync(chatId!, NothingChangedText(), ct).ConfigureAwait(false);
                 return;
             }
             _ = TelegramBotService.SendTypingAsync(chatId!, ct);
-            var done = await ProductActionPlan.ExecuteAllAsync(steps, "Телеграм-бот", ct).ConfigureAwait(false);
+            var done = await ProductActionPlan.ExecuteAllAsync(steps, "Телеграм-бот", ct, proposedUtc).ConfigureAwait(false);
             await SendReplyAsync(chatId!, Escape(done), ct).ConfigureAwait(false);
             return;
         }
 
         // Просьба изменить товар («спиши 5 молока», «опиши кока-колу», «срок годности хлеба до…») — сразу к ИИ, а не в готовые отчёты.
-        if (isOwner && TelegramAiChat.IsConfigured && !text!.TrimStart().StartsWith('/') && ProductActionPlan.LooksLikeAction(text))
+        if (isOwnerFull && TelegramAiChat.IsConfigured && !text!.TrimStart().StartsWith('/') && ProductActionPlan.LooksLikeAction(text))
         {
             await AskOwnerAiAsync(chatId!, text, ct).ConfigureAwait(false);
             return;
@@ -396,9 +483,17 @@ public sealed partial class TelegramBotPollingService
         if (space > 0)
             command = command[..space];
         if (at > 0 && (space < 0 || at < space))
+        {
+            // 2026-10-21 (бот, S1 «startother»): «/start@ДругойБот …» — команда другому боту, не нам.
+            var addressee = command[(at + 1)..];
+            if (command.StartsWith('/') && !string.IsNullOrWhiteSpace(prefs.TelegramBotUsername)
+                && System.Text.RegularExpressions.Regex.IsMatch(addressee, "^[A-Za-z0-9_]{3,}$")
+                && !string.Equals(addressee, prefs.TelegramBotUsername!.Trim().TrimStart('@'), StringComparison.OrdinalIgnoreCase))
+                return;
             command = command[..at];
+        }
 
-        command = command.TrimStart('/').ToLowerInvariant();
+        command = TelegramBotText.Alias(command.TrimStart('/').ToLowerInvariant());
 
         // 2026-09-30: помощник — обычный текст без «/» понимается по смыслу («сколько заработали
         // сегодня», «кто должен», «цена кола»), см. TelegramAssistant. Бесплатно и без интернета.
@@ -410,11 +505,11 @@ public sealed partial class TelegramBotPollingService
                 return;
             }
 
-            var (mapped, direct, isChat) = TelegramAssistant.Understand(text, isOwner);
+            var (mapped, direct, isChat) = TelegramAssistant.Understand(text, isOwner, isOwnerFull);
 
             // Разговор (приветствие, «почему…», непонятный вопрос) — отвечает нейросеть, если
             // владелец вписал бесплатный ключ Google Gemini; иначе — готовая подсказка помощника.
-            if (isChat && isOwner && TelegramAiChat.IsConfigured)
+            if (isChat && isOwnerFull && TelegramAiChat.IsConfigured)
             {
                 // 2026-10-06: владельцу — ответ ИИ с возможными действиями с товарами (кнопки подтверждения).
                 var error = await AskOwnerAiAsync(chatId!, text, ct).ConfigureAwait(false);
@@ -423,27 +518,35 @@ public sealed partial class TelegramBotPollingService
 
                 PosLogger.Log($"ИИ-помощник: {error}", "TELEGRAM");
                 if (direct != null)
-                    direct = $"<i>ИИ сейчас недоступен: {Escape(error)}</i>\n\n" + direct;
+                    direct = TelegramBotText.T("<i>ИИ сейчас недоступен — отвечаю сам.</i>\n\n", "<i>ЖИ азыр иштебей жатат — өзүм жооп берем.</i>\n\n",
+                        "<i>The AI is unavailable right now — answering myself.</i>\n\n", "<i>Yapay zekâ şu an kullanılamıyor — kendim yanıtlıyorum.</i>\n\n",
+                        "<i>SI hozir ishlamayapti — o'zim javob beraman.</i>\n\n") + direct;
             }
 
             if (direct != null)
             {
-                await SendReplyAsync(chatId!, direct, ct).ConfigureAwait(false);
+                await SendReplyAsync(chatId!, direct, ct, ownerMenu).ConfigureAwait(false);
                 return;
             }
 
             // 2026-09-30, решение владельца «консультант для всех»: покупатель (не владелец) пишет
             // обычный текст не про свой долг — отвечает ИИ-продавец только по каталогу (товары, цены,
             // наличие). Выручка, долги и чужие данные в его сводку не попадают вовсе.
-            if (mapped == null && !isOwner && TelegramAiChat.IsConfigured)
+            // 2026-10-21 (К4): не больше 8 вопросов ИИ одновременно; без ИИ — поиск по каталогу (раньше покупатель без ключа ИИ получал тишину).
+            if (mapped == null && !isOwner && !isGroup)
             {
-                _ = TelegramBotService.SendTypingAsync(chatId!, ct);
-                var (answer, error) = await TelegramAiChat.AskCustomerAsync(chatId!, text, ct).ConfigureAwait(false);
-                if (answer == null)
-                    PosLogger.Log($"ИИ-консультант: {error}", "TELEGRAM");
+                string? answer = null;
+                if (TelegramAiChat.IsConfigured)
+                {
+                    _ = TelegramBotService.SendTypingAsync(chatId!, ct);
+                    var (aiAnswer, error) = await AskCustomerLimitedAsync(chatId!, text, ct).ConfigureAwait(false);
+                    if (aiAnswer == null)
+                        PosLogger.Log($"ИИ-консультант: {error}", "TELEGRAM");
+                    answer = aiAnswer;
+                }
                 // ИИ недоступен — отвечаем сами по каталогу, а не пустым «извините».
                 await SendReplyAsync(chatId!, answer ?? TelegramAssistant.CustomerFallback(text,
-                        UserPreferences.Instance.StoreName, UserPreferences.Instance.OwnerPhone), ct)
+                        UserPreferences.Instance.StoreName, UserPreferences.Instance.OwnerPhone), ct, answer == null ? customerMenu : null)
                     .ConfigureAwait(false);
                 return;
             }
@@ -460,40 +563,65 @@ public sealed partial class TelegramBotPollingService
             _ = TelegramBotService.SendTypingAsync(chatId!, ct);
         var watch = System.Diagnostics.Stopwatch.StartNew();
 
+        // 2026-10-21: команды владельца от покупателя — короткий ответ с меню (раньше тишина); должники в группе — только владельцу.
+        var ownerCommand = command is "segodnya" or "сегодня" or "nedelya" or "неделя" or "mesyac" or "top" or "топ" or "abc" or "абс" or "авс"
+            or "sezon" or "сезон" or "сезонность" or "soveti" or "советы" or "рекомендации" or "zakaz" or "заказ" or "ostatki" or "остатки"
+            or "dolgi" or "долги";
+        object? markup = null;
         var reply = command switch
         {
-            "start" when !string.IsNullOrWhiteSpace(argument) => SubscribeClient(chatId!, argument, message),
-            "start" when isOwner => TelegramReportBuilder.BuildHelp(),
-            // 2026-09-30: с ИИ-консультантом — приглашение спросить о товарах.
-            "start" when TelegramAiChat.IsConfigured =>
-                $"Здравствуйте! Я помощник магазина «{Escape(UserPreferences.Instance.StoreName)}». "
-                + "Спросите меня о товарах, ценах и наличии — отвечу сразу.",
-            "start" => "Здравствуйте! Чтобы получать напоминания о задолженности, откройте ссылку, которую вам дали на кассе.",
+            "start" when !string.IsNullOrWhiteSpace(argument) => null,
+            "start" or "menu" when isOwner => TelegramReportBuilder.BuildHelp(),
+            "start" or "menu" when !isGroup => CustomerGreeting(),
             "help" or "помощь" when isOwner => TelegramReportBuilder.BuildHelp(),
-            "segodnya" or "сегодня" when isOwner => TelegramReportBuilder.BuildRevenue(1, "Сегодня"),
-            "nedelya" or "неделя" when isOwner => TelegramReportBuilder.BuildRevenue(7, "За 7 дней"),
-            "top" or "топ" when isOwner => TelegramReportBuilder.BuildTopProducts(7),
-            "abc" or "абс" or "авс" when isOwner => TelegramReportBuilder.BuildAbc(30),
-            "sezon" or "сезон" or "сезонность" when isOwner => TelegramReportBuilder.BuildSeasonality(),
-            "soveti" or "советы" or "рекомендации" when isOwner => TelegramReportBuilder.BuildRecommendations(30),
-            "zakaz" or "заказ" when isOwner => TelegramReportBuilder.BuildRestockSuggestions(),
+            "help" when !isGroup => CustomerGreeting(),
+            _ when ownerCommand && !isOwner => isGroup ? "" : OwnerOnlyForCustomer(),
+            "dolgi" or "долги" when !isOwnerFull => OwnerOnlyInGroup(),
+            "top" or "топ" => TelegramReportBuilder.BuildTopProducts(7),
+            "abc" or "абс" or "авс" => TelegramReportBuilder.BuildAbc(30),
+            "sezon" or "сезон" or "сезонность" => TelegramReportBuilder.BuildSeasonality(),
+            "soveti" or "советы" or "рекомендации" => TelegramReportBuilder.BuildRecommendations(30),
+            "zakaz" or "заказ" => TelegramReportBuilder.BuildRestockSuggestions(),
+            // 2026-10-21 (К2): выручка — с сервера, как «Сводка» программы владельца (асинхронно, ниже).
+            "segodnya" or "сегодня" or "nedelya" or "неделя" or "mesyac" => null,
             // 2026-09-28: остатки теперь спрашиваются у сервера (quantity_lte, BE-05) — асинхронно,
             // ниже; каталог кассы — запасной путь.
-            "ostatki" or "остатки" when isOwner => null,
+            "ostatki" or "остатки" => null,
             // Долги живут только на сервере — эти две команды требуют запроса и обрабатываются
             // ниже, асинхронно.
-            "dolgi" or "долги" when isOwner => null,
+            "dolgi" or "долги" => null,
             "dolg" or "долг" => null,
+            "catalog" when !isGroup => TelegramAssistant.CatalogOverview(UserPreferences.Instance.StoreName),
+            "call" when !isGroup => ShopPhoneText(),
+            "address" when !isGroup => ShopAddressText(),
             _ when isOwner => TelegramReportBuilder.BuildHelp(),
-            _ => null,
+            // 2026-10-21 (идея 12): неизвестная команда покупателя — подсказка с меню (в группе молчим).
+            _ => isGroup ? "" : CustomerHint(nonText: false),
         };
+        if (reply != null)
+            markup = isOwner ? ownerMenu : customerMenu;
 
         if (watch.ElapsedMilliseconds > 3000)
             PosLogger.Log($"Телеграм-бот: /{command} считался {watch.ElapsedMilliseconds / 1000.0:0.#} с.", "TELEGRAM");
 
         if (reply != null)
         {
-            await SendReplyAsync(chatId!, reply, ct).ConfigureAwait(false);
+            if (reply.Length > 0)
+                await SendReplyAsync(chatId!, reply, ct, markup).ConfigureAwait(false);
+            return;
+        }
+
+        if (command == "start")
+        {
+            var (startText, startMarkup) = await StartWithArgumentAsync(chatId, isOwner, isGroup, argument, ct).ConfigureAwait(false);
+            await SendReplyAsync(chatId, startText, ct, startMarkup).ConfigureAwait(false);
+            return;
+        }
+
+        if (isOwner && command is "segodnya" or "сегодня" or "nedelya" or "неделя" or "mesyac")
+        {
+            var period = command is "segodnya" or "сегодня" ? "today" : command == "mesyac" ? "month" : "week";
+            await SendReplyAsync(chatId, await TelegramReportBuilder.BuildRevenueAsync(period, ct).ConfigureAwait(false), ct).ConfigureAwait(false);
             return;
         }
 
@@ -505,25 +633,32 @@ public sealed partial class TelegramBotPollingService
             return;
         }
 
-        if (isOwner && command is "dolgi" or "долги")
+        if (isOwnerFull && command is "dolgi" or "долги")
         {
             await SendReplyAsync(chatId!, await BuildDebtorsReportAsync(ct).ConfigureAwait(false), ct)
                 .ConfigureAwait(false);
             return;
         }
 
-        if (command is "dolg" or "долг")
+        if (command is "dolg" or "долг" && !isGroup)
         {
             var clientId = TelegramSubscriberStore.GetClientId(chatId!);
             // 2026-09-28: подписался через другую кассу — связка есть только на сервере (BE-04).
             if (string.IsNullOrWhiteSpace(clientId))
                 clientId = await FindClientByChatOnServerAsync(chatId!, ct).ConfigureAwait(false);
             var answer = string.IsNullOrWhiteSpace(clientId)
-                ? "Вы ещё не привязаны к карточке клиента. Откройте ссылку, которую вам дали на кассе."
+                ? TelegramBotText.T("Вы ещё не привязаны к карточке клиента. Откройте ссылку, которую вам дали на кассе.",
+                    "Сиз азырынча кардардын картасына байланган жоксуз. Кассадан берилген шилтемени ачыңыз.",
+                    "You are not linked to a customer card yet. Open the link you were given at the till.",
+                    "Henüz bir müşteri kartına bağlı değilsiniz. Kasada size verilen bağlantıyı açın.",
+                    "Siz hali mijoz kartasiga bog'lanmagansiz. Kassada berilgan havolani oching.")
                 : await BuildClientDebtAsync(clientId!, ct).ConfigureAwait(false);
-            await SendReplyAsync(chatId!, answer, ct).ConfigureAwait(false);
+            await SendReplyAsync(chatId!, answer, ct, customerMenu).ConfigureAwait(false);
         }
     }
+
+    private static string NothingChangedText() => TelegramBotText.T("Хорошо, ничего не меняю.", "Макул, эч нерсе өзгөртпөйм.", "OK, I'm not changing anything.",
+        "Tamam, hiçbir şeyi değiştirmiyorum.", "Yaxshi, hech narsani o'zgartirmayman.");
 
     /// <summary>2026-09-30: ответ с проверкой. Раньше ошибка Telegram (например, «не удалось разобрать
     /// разметку») терялась молча — владелец просто не получал ответа. Теперь причина пишется в
@@ -541,13 +676,28 @@ public sealed partial class TelegramBotPollingService
         if (answer == null)
             return error ?? "нет ответа";
         await SendReplyAsync(chatId, answer, ct).ConfigureAwait(false);
+        // 2026-10-19: шаги накладной (приход, новые товары с количеством) бот не проводит и «Выполнить» к ним не показывает — сразу
+        // текст, куда идти; кнопки — только если остались другие действия.
+        if (steps.Any(ProductActionPlan.IsPurchaseStep))
+        {
+            await SendReplyAsync(chatId, ProductActionPlan.PurchaseOnlyText(), ct).ConfigureAwait(false);
+            PosLogger.Log($"Телеграм-бот: шаги накладной ({steps.Count(ProductActionPlan.IsPurchaseStep)}) — только закупкой в программе владельца.", "TELEGRAM");
+            steps = steps.Where(st => !ProductActionPlan.IsPurchaseStep(st)).ToList();
+        }
         if (steps.Count > 0)
         {
             var token = ProductActionPlan.Remember(chatId, steps);
-            var list = "<b>Подтвердите изменения:</b>\n" + string.Join("\n", steps.Select(st => "• " + Escape(ProductActionPlan.Describe(st))))
-                       + "\n\n<i>Можно ответить «да» или «нет».</i>";
+            var list = TelegramBotText.T("<b>Подтвердите изменения:</b>\n", "<b>Өзгөртүүлөрдү ырастаңыз:</b>\n", "<b>Confirm the changes:</b>\n",
+                           "<b>Değişiklikleri onaylayın:</b>\n", "<b>O'zgarishlarni tasdiqlang:</b>\n")
+                       + string.Join("\n", steps.Select(st => "• " + Escape(ProductActionPlan.Describe(st))))
+                       + TelegramBotText.T("\n\n<i>Можно ответить «да» или «нет».</i>", "\n\n<i>«ооба» же «жок» деп жооп берсе болот.</i>",
+                           "\n\n<i>You can reply “yes” or “no”.</i>", "\n\n<i>«evet» veya «hayır» diye yanıtlayabilirsiniz.</i>", "\n\n<i>«ha» yoki «yo'q» deb javob berish mumkin.</i>");
             var sendError = await TelegramBotService.SendWithButtonsAsync(chatId, list,
-                new[] { ("✅ Выполнить", "pa:" + token + ":y"), ("✖ Отмена", "pa:" + token + ":n") }, ct).ConfigureAwait(false);
+                new[]
+                {
+                    (TelegramBotText.T("✅ Выполнить", "✅ Аткаруу", "✅ Do it", "✅ Uygula", "✅ Bajarish"), "pa:" + token + ":y"),
+                    (TelegramBotText.T("✖ Отмена", "✖ Жокко чыгаруу", "✖ Cancel", "✖ İptal", "✖ Bekor qilish"), "pa:" + token + ":n"),
+                }, ct).ConfigureAwait(false);
             if (sendError != null)
                 await SendReplyAsync(chatId, list, ct).ConfigureAwait(false);
             PosLogger.Log($"Телеграм-бот: ИИ предложил действий с товарами: {steps.Count}.", "TELEGRAM");
@@ -575,35 +725,45 @@ public sealed partial class TelegramBotPollingService
             await TelegramBotService.AnswerCallbackAsync(id, null, null, null, ct).ConfigureAwait(false);
             return;
         }
-        if (!string.Equals(chatId, UserPreferences.Instance.TelegramChatId, StringComparison.Ordinal))
+        // 2026-10-21 (бот, ВАЖНО 4): нажать «Выполнить» может только сам владелец (from.id), а не любой участник группы владельца.
+        TelegramBotText.Use(UserPreferences.Instance.Language);
+        long? pressedBy = callback.TryGetProperty("from", out var from) && from.TryGetProperty("id", out var fromIdEl) && fromIdEl.TryGetInt64(out var f) ? f : null;
+        var isGroupChat = chatId.StartsWith('-');
+        if (!string.Equals(chatId, UserPreferences.Instance.TelegramChatId, StringComparison.Ordinal) && !(!isGroupChat && TelegramBotOwner.IsOwnerUser(pressedBy))
+            || (isGroupChat && !TelegramBotOwner.IsOwnerUser(pressedBy))
+            || (!isGroupChat && pressedBy is { } p && p.ToString(CultureInfo.InvariantCulture) != chatId))
         {
-            await TelegramBotService.AnswerCallbackAsync(id, "Только владелец может подтверждать изменения.", null, null, ct).ConfigureAwait(false);
+            await TelegramBotService.AnswerCallbackAsync(id, TelegramBotText.T("Только владелец может подтверждать изменения.", "Өзгөртүүлөрдү ээси гана ырастай алат.",
+                "Only the owner can confirm changes.", "Değişiklikleri yalnızca sahip onaylayabilir.", "O'zgarishlarni faqat ega tasdiqlay oladi."), null, null, ct).ConfigureAwait(false);
             return;
         }
-        var steps = ProductActionPlan.Take(parts[1], chatId);
+        // 2026-10-16: владелец дважды прислал ту же накладную — два ключа; нажатая старая карточка после выполнения новой отвечает
+        // «карточка устарела» (ExecuteAllAsync по времени карточки), приход второй раз не проходит.
+        var steps = ProductActionPlan.Take(parts[1], chatId, out var proposedUtc);
         if (steps is null)
         {
-            await TelegramBotService.AnswerCallbackAsync(id, "Уже выполнено или устарело.", chatId, messageId, ct).ConfigureAwait(false);
+            await TelegramBotService.AnswerCallbackAsync(id, TelegramBotText.T("Уже выполнено или устарело.", "Аткарылган же эскирген.", "Already done or outdated.",
+                "Zaten yapıldı veya eskidi.", "Allaqachon bajarilgan yoki eskirgan."), chatId, messageId, ct).ConfigureAwait(false);
             return;
         }
         if (parts[2] != "y")
         {
-            await TelegramBotService.AnswerCallbackAsync(id, "Отменено", chatId, messageId, ct).ConfigureAwait(false);
-            await SendReplyAsync(chatId, "Хорошо, ничего не меняю.", ct).ConfigureAwait(false);
+            await TelegramBotService.AnswerCallbackAsync(id, TelegramBotText.T("Отменено", "Жокко чыгарылды", "Cancelled", "İptal edildi", "Bekor qilindi"), chatId, messageId, ct).ConfigureAwait(false);
+            await SendReplyAsync(chatId, NothingChangedText(), ct).ConfigureAwait(false);
             return;
         }
-        await TelegramBotService.AnswerCallbackAsync(id, "Выполняю…", chatId, messageId, ct).ConfigureAwait(false);
-        var done = await ProductActionPlan.ExecuteAllAsync(steps, "Телеграм-бот", ct).ConfigureAwait(false);
+        await TelegramBotService.AnswerCallbackAsync(id, TelegramBotText.T("Выполняю…", "Аткарып жатам…", "Working on it…", "Uyguluyorum…", "Bajaryapman…"), chatId, messageId, ct).ConfigureAwait(false);
+        var done = await ProductActionPlan.ExecuteAllAsync(steps, "Телеграм-бот", ct, proposedUtc).ConfigureAwait(false);
         await SendReplyAsync(chatId, Escape(done), ct).ConfigureAwait(false);
     }
 
-    private static async Task SendReplyAsync(string chatId, string text, CancellationToken ct)
+    private static async Task SendReplyAsync(string chatId, string text, CancellationToken ct, object? markup = null)
     {
         var transcript = ReplyVoiceTranscript.Value;
         ReplyVoiceTranscript.Value = null;
         if (transcript != null)
         {
-            var error0 = await TelegramBotService.SendToAsync(chatId, $"<i>🎤 {Escape(transcript)}</i>\n\n" + text, ct).ConfigureAwait(false);
+            var error0 = await TelegramBotService.SendToAsync(chatId, $"<i>🎤 {Escape(transcript)}</i>\n\n" + text, ct, markup).ConfigureAwait(false);
             if (error0 == null)
             {
                 _ = SendVoiceReplyAsync(chatId, text, ct);
@@ -611,15 +771,11 @@ public sealed partial class TelegramBotPollingService
             }
         }
 
-        var error = await TelegramBotService.SendToAsync(chatId, text, ct).ConfigureAwait(false);
-        if (error == null)
-            return;
-
-        PosLogger.Log($"Телеграм-бот: ответ не отправлен ({error}) — повторяю простым текстом.", "TELEGRAM");
-        var plain = System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(text, "<[^>]+>", ""));
-        var retry = await TelegramBotService.SendToAsync(chatId, Escape(plain), ct).ConfigureAwait(false);
-        if (retry != null)
-            PosLogger.Log($"Телеграм-бот: и простым текстом не отправлено ({retry}).", "TELEGRAM");
+        // 2026-10-21 (бот, ВАЖНО 7): часть с битой разметкой SendToAsync сам повторяет простым текстом — весь ответ заново не шлём
+        // (раньше часть 1 длинного отчёта дублировалась, а на 403 шли бесполезные повторы).
+        var error = await TelegramBotService.SendToAsync(chatId, text, ct, markup).ConfigureAwait(false);
+        if (error != null && !TelegramBotService.IsBlocked(chatId) && !ct.IsCancellationRequested)
+            PosLogger.Log($"Телеграм-бот: ответ не отправлен ({error}).", "TELEGRAM");
     }
 
     /// <summary>Голосовой ответ вдогонку к текстовому: не задерживает текст, ошибка — только в журнал.</summary>
@@ -640,25 +796,8 @@ public sealed partial class TelegramBotPollingService
         }
     }
 
-    /// <summary>«/start &lt;id клиента&gt;» — покупатель перешёл по персональной ссылке с чека и
-    /// тем самым разрешил боту себе писать. Без этого шага Telegram написать ему не позволит.</summary>
-    private string SubscribeClient(string chatId, string clientId, JsonElement message)
-    {
-        var name = message.TryGetProperty("from", out var from) && from.TryGetProperty("first_name", out var first)
-            ? first.GetString()
-            : null;
-
-        // 2026-09-29: повторное «Старт» по той же ссылке — связка уже есть, сервер не трогаем.
-        var alreadyBound = string.Equals(TelegramSubscriberStore.GetClientId(chatId), clientId.Trim(), StringComparison.OrdinalIgnoreCase);
-        TelegramSubscriberStore.Subscribe(chatId, clientId.Trim(), name);
-        PosLogger.Log($"Телеграм-бот: подписан клиент {clientId}.", "TELEGRAM");
-        // 2026-09-28: и в карточку клиента на сервере — раньше связка жила только в этой кассе.
-        if (!alreadyBound)
-            PushSubscriberToServer(chatId, clientId.Trim());
-
-        return "Готово! Теперь напоминания о задолженности и об акциях будут приходить сюда.\n"
-             + "Команда /dolg покажет ваш текущий долг.";
-    }
+    // 2026-10-21 (бот, ВАЖНО 3): «/start <id клиента>» больше не подписывает сразу — см. StartWithArgumentAsync (подпись ссылки и
+    // сверка телефона) в TelegramBotPollingService.Menu.cs; подписка — CompleteSubscription.
 
     /// <summary>Список должников для владельца. У каждого — сумма и готовая ссылка WhatsApp с
     /// уже набранным текстом: Telegram написать по номеру телефона не даёт, а WhatsApp по
@@ -666,17 +805,28 @@ public sealed partial class TelegramBotPollingService
     public async Task<string> BuildDebtorsReportAsync(CancellationToken ct)
     {
         // 2026-09-28: сводка сервера одним запросом (BE-03); ниже — старый путь, запасной.
+        // 2026-10-21, «Нур Советник до 10» (О2): суммы — тот же точный расчёт, что «Сводка» и «Долги клиентов» программы
+        // (ExactDebtorsProvider), телефоны и чаты — из сводки сервера. Быстрые списки не вычитали оплаты по сделкам (245 856 вместо 225 856).
+        var exactDebtors = await TryExactDebtorsAsync(ct).ConfigureAwait(false);
         if (await TryLoadServerDebtorsAsync(ct).ConfigureAwait(false) is { } serverDebtors)
-            return BuildDebtorsReportFromServer(serverDebtors, TelegramSubscriberStore.TryGetChatId);
+            return BuildDebtorsReportFromServer(exactDebtors is null ? serverDebtors : MergeExactDebtors(exactDebtors, serverDebtors), TelegramSubscriberStore.TryGetChatId);
+        if (exactDebtors is not null)
+            return BuildDebtorsReportFromServer(exactDebtors, TelegramSubscriberStore.TryGetChatId);
 
         List<JsonElement> debts;
         try
         {
             debts = await _sales.PosDebtSalesAsync(null, ct).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            return "Не удалось получить долги с сервера: " + Escape(ex.Message);
+            // 2026-10-21 (бот, S9): владельцу — понятный текст, техническая причина — в журнал (раньше сырой текст исключения).
+            PosLogger.Log($"Телеграм-бот: долги с сервера не получены ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+            return TelegramBotText.T("Сервер NurCRM сейчас не отвечает — список должников не получен. Попробуйте через пару минут или откройте «Долги клиентов» в программе.",
+                "NurCRM сервери азыр жооп бербей жатат — карызкорлордун тизмеси алынган жок. Бир нече мүнөттөн кийин кайталаңыз же программадан «Кардарлардын карыздарын» ачыңыз.",
+                "The NurCRM server is not responding — the debtor list was not received. Try again in a couple of minutes or open “Customer debts” in the program.",
+                "NurCRM sunucusu şu an yanıt vermiyor — borçlu listesi alınamadı. Birkaç dakika sonra tekrar deneyin veya programda «Müşteri borçları»nı açın.",
+                "NurCRM serveri hozir javob bermayapti — qarzdorlar ro'yxati olinmadi. Bir necha daqiqadan keyin urinib ko'ring yoki dasturda «Mijozlar qarzlari»ni oching.");
         }
 
         var byClient = new Dictionary<string, (string Name, double Amount, int Count)>(StringComparer.OrdinalIgnoreCase);
@@ -692,155 +842,174 @@ public sealed partial class TelegramBotPollingService
             if (amount <= 0.005)
                 continue;
 
-            var name = ReadString(debt, "client_name") ?? "Без имени";
+            var name = ReadString(debt, "client_name") ?? "";
             if (byClient.TryGetValue(clientId!, out var existing))
                 byClient[clientId!] = (existing.Name, existing.Amount + amount, existing.Count + 1);
             else
                 byClient[clientId!] = (name, amount, 1);
         }
 
-        var sb = new StringBuilder();
-        sb.AppendLine("<b>Должники</b>");
+        // 2026-10-21: тот же вид и те же 5 языков, что у отчёта по сводке сервера.
+        var phones = byClient.Count == 0 ? new Dictionary<string, string>() : await LoadPhonesAsync(ct).ConfigureAwait(false);
+        var list = byClient.Select(kv => new DebtorInfo(kv.Key, kv.Value.Name, phones.GetValueOrDefault(kv.Key), null, kv.Value.Amount, kv.Value.Count, null)).ToList();
+        return BuildDebtorsReportFromServer(list, TelegramSubscriberStore.TryGetChatId);
+    }
 
-        if (byClient.Count == 0)
-        {
-            sb.AppendLine();
-            sb.AppendLine("Непогашенных долгов нет.");
-            return sb.ToString();
-        }
+    private static string NoDebtText() => TelegramBotText.T("За вами задолженности нет. Спасибо!", "Сизде карыз жок. Рахмат!", "You have no debt. Thank you!",
+        "Borcunuz yok. Teşekkürler!", "Sizda qarz yo'q. Rahmat!");
 
-        var phones = await LoadPhonesAsync(ct).ConfigureAwait(false);
-        var total = byClient.Values.Sum(v => v.Amount);
-
-        sb.AppendLine($"Всего: {total.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"))} сом " +
-                      $"у {byClient.Count} чел.");
-        sb.AppendLine();
-
-        foreach (var (clientId, info) in byClient.OrderByDescending(x => x.Value.Amount).Take(25))
-        {
-            var amountText = info.Amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
-            sb.AppendLine($"<b>{Escape(info.Name)}</b> — {amountText} сом ({info.Count} чек.)");
-
-            if (TelegramSubscriberStore.TryGetChatId(clientId) is { } subscriberChat
-                && !string.IsNullOrWhiteSpace(subscriberChat))
-            {
-                sb.AppendLine("  подписан на бота — напоминание уйдёт автоматически");
-            }
-            else if (phones.TryGetValue(clientId, out var phone) && !string.IsNullOrWhiteSpace(phone))
-            {
-                var digits = new string(phone.Where(char.IsDigit).ToArray());
-                var reminder = Uri.EscapeDataString(
-                    $"Здравствуйте, {info.Name}! Напоминаем о задолженности {amountText} сом. Спасибо!");
-                sb.AppendLine($"  <a href=\"https://wa.me/{digits}?text={reminder}\">написать в WhatsApp</a>");
-            }
-            else
-            {
-                sb.AppendLine("  <i>нет телефона в карточке клиента</i>");
-            }
-        }
-
-        return sb.ToString();
+    private static string DebtText(double amount)
+    {
+        var sum = amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
+        return TelegramBotText.T($"Ваша задолженность: <b>{sum} сом</b>.", $"Сиздин карызыңыз: <b>{sum} сом</b>.", $"Your debt: <b>{sum} som</b>.",
+            $"Borcunuz: <b>{sum} som</b>.", $"Sizning qarzingiz: <b>{sum} so'm</b>.");
     }
 
     /// <summary>Долг конкретного клиента — ответ на «/dolg» самому покупателю.</summary>
     private async Task<string> BuildClientDebtAsync(string clientId, CancellationToken ct)
     {
-        // 2026-09-28: долг клиента — из сводки должников сервера (BE-03); нет в сводке — долга нет.
-        // 2026-09-29: сводка не старше минуты — см. TryLoadServerDebtorsAsync.
-        if (await TryLoadServerDebtorsAsync(ct, DebtorsCacheForClients).ConfigureAwait(false) is { } serverDebtors)
-        {
-            var owed = serverDebtors
-                .Where(d => string.Equals(d.ClientId, clientId, StringComparison.OrdinalIgnoreCase))
-                .Sum(d => d.DebtTotal);
-            return owed <= 0.005
-                ? "За вами задолженности нет. Спасибо!"
-                : $"Ваша задолженность: <b>{owed.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"))} сом</b>.";
-        }
-
+        // 2026-10-21 (бот, S9): покупатель ждёт не дольше 15 с, даже если NurCRM «висит» (раньше — до 55 с, вместе со всеми).
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(15));
         try
         {
-            var debts = await _sales.PosDebtSalesAsync(clientId, ct).ConfigureAwait(false);
-            var total = debts.Sum(d => ReadDouble(d, "debt_amount") ?? ReadDouble(d, "total") ?? 0);
+            // 2026-09-28: долг клиента — из сводки должников сервера (BE-03); нет в сводке — долга нет.
+            // 2026-09-29: сводка не старше минуты — см. TryLoadServerDebtorsAsync.
+            if (await TryLoadServerDebtorsAsync(timeout.Token, DebtorsCacheForClients).ConfigureAwait(false) is { } serverDebtors)
+            {
+                var owed = serverDebtors
+                    .Where(d => string.Equals(d.ClientId, clientId, StringComparison.OrdinalIgnoreCase))
+                    .Sum(d => d.DebtTotal);
+                return owed <= 0.005 ? NoDebtText() : DebtText(owed);
+            }
 
-            return total <= 0.005
-                ? "За вами задолженности нет. Спасибо!"
-                : $"Ваша задолженность: <b>{total.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"))} сом</b>.";
+            var debts = await _sales.PosDebtSalesAsync(clientId, timeout.Token).ConfigureAwait(false);
+            var total = debts.Sum(d => ReadDouble(d, "debt_amount") ?? ReadDouble(d, "total") ?? 0);
+            return total <= 0.005 ? NoDebtText() : DebtText(total);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            PosLogger.Log($"Телеграм-бот: долг клиента не получен ({ex.Message}).", "WARNING");
-            return "Сейчас не получается проверить долг. Попробуйте позже.";
+            PosLogger.Log($"Телеграм-бот: долг клиента не получен ({ex.GetType().Name}).", "WARNING");
+            return TelegramBotText.T("Сейчас не получается проверить долг. Попробуйте позже.", "Азыр карызды текшерүү мүмкүн эмес. Кийинчерээк кайталаңыз.",
+                "I can't check the debt right now. Please try later.", "Şu an borcu kontrol edemiyorum. Lütfen daha sonra deneyin.",
+                "Hozir qarzni tekshirib bo'lmayapti. Keyinroq urinib ko'ring.");
         }
     }
 
+    /// <summary>Сколько подписчиков пропущено в последней рассылке: им уже писали меньше 20 часов назад.</summary>
+    public int LastRemindersSkippedRecent { get; private set; }
+
     /// <summary>Рассылает напоминания о долге ТЕМ, КТО ПОДПИСАН на бота. Возвращает, сколько
     /// сообщений ушло. Неподписанным написать нельзя — их владелец видит в /dolgi со ссылкой
-    /// на WhatsApp.</summary>
+    /// на WhatsApp.
+    /// 2026-10-21 (бот, ВАЖНО 8): одному чату — не чаще раза в 20 часов (журнал «кому когда»: telegram-reminders.json); в тексте —
+    /// название магазина и язык покупателя; заблокировавшие бота (403) отписываются и здесь, и в карточке на сервере.</summary>
     public async Task<int> SendDebtRemindersAsync(CancellationToken ct = default)
     {
+        LastRemindersSkippedRecent = 0;
         // 2026-09-28: должники и chat_id — с сервера (BE-03/BE-04): напоминание получит и тот,
         // кто нажал «Старт» через другую кассу; chat_id этой кассы — если на сервере его нет.
+        List<(string ClientId, double Amount, string? ServerChat)> targets;
         if (await TryLoadServerDebtorsAsync(ct).ConfigureAwait(false) is { } serverDebtors)
         {
-            var sentFromServer = 0;
-            foreach (var debtor in serverDebtors.Where(d => d.DebtTotal > 0.005))
+            targets = serverDebtors.Where(d => d.DebtTotal > 0.005).Select(d => (d.ClientId, d.DebtTotal, d.TelegramChatId)).ToList();
+        }
+        else
+        {
+            List<JsonElement> debts;
+            try
             {
-                var debtorChat = !string.IsNullOrWhiteSpace(debtor.TelegramChatId)
-                    ? debtor.TelegramChatId
-                    : TelegramSubscriberStore.TryGetChatId(debtor.ClientId);
-                if (string.IsNullOrWhiteSpace(debtorChat))
-                    continue;
-
-                var reminder = $"Напоминаем о задолженности: <b>{debtor.DebtTotal.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"))} сом</b>.";
-                if (await TelegramBotService.SendToAsync(debtorChat!, reminder, ct).ConfigureAwait(false) == null)
-                    sentFromServer++;
-                // 2026-09-29: не больше ~25 сообщений в секунду — предел Telegram около 30; без паузы
-                // на сотнях подписчиков шли отказы 429.
-                await Task.Delay(ReminderPauseMs, ct).ConfigureAwait(false);
+                debts = await _sales.PosDebtSalesAsync(null, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Телеграм-бот: напоминания не отправлены ({ex.Message}).", "WARNING");
+                return 0;
             }
 
-            PosLogger.Log($"Телеграм-бот: напоминаний о долге отправлено {sentFromServer} (сводка сервера).", "TELEGRAM");
-            return sentFromServer;
+            var byClient = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            foreach (var debt in debts)
+            {
+                var clientId = ReadString(debt, "client");
+                if (string.IsNullOrWhiteSpace(clientId))
+                    continue;
+
+                var amount = ReadDouble(debt, "debt_amount") ?? ReadDouble(debt, "total") ?? 0;
+                if (amount > 0.005)
+                    byClient[clientId!] = byClient.GetValueOrDefault(clientId!) + amount;
+            }
+            targets = byClient.Select(kv => (kv.Key, kv.Value, (string?)null)).ToList();
         }
 
-        List<JsonElement> debts;
+        var shop = Escape(UserPreferences.Instance.StoreName);
+        var sent = 0;
+        var blocked = 0;
         try
         {
-            debts = await _sales.PosDebtSalesAsync(null, ct).ConfigureAwait(false);
+            foreach (var (clientId, amount, serverChat) in targets)
+            {
+                var chatId = !string.IsNullOrWhiteSpace(serverChat) ? serverChat : TelegramSubscriberStore.TryGetChatId(clientId);
+                if (string.IsNullOrWhiteSpace(chatId))
+                    continue;
+                if (TelegramReminderLog.SentRecently(chatId!))
+                {
+                    LastRemindersSkippedRecent++;
+                    continue;
+                }
+
+                TelegramBotText.Use(TelegramBotText.ForChat(chatId!));
+                var sum = amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
+                var text = TelegramBotText.T(
+                    $"<b>{shop}</b>\nНапоминаем о задолженности: <b>{sum} сом</b>. Спасибо, что вы с нами!\nУточнить долг — кнопка «💳 Мой долг».",
+                    $"<b>{shop}</b>\nКарызыңызды эскертебиз: <b>{sum} сом</b>. Биз менен болгонуңузга рахмат!\nКарызды тактоо — «💳 Менин карызым» баскычы.",
+                    $"<b>{shop}</b>\nA friendly reminder of your debt: <b>{sum} som</b>. Thank you for being with us!\nCheck the debt — the “💳 My debt” button.",
+                    $"<b>{shop}</b>\nBorcunuzu hatırlatırız: <b>{sum} som</b>. Bizi tercih ettiğiniz için teşekkürler!\nBorcu görmek için — «💳 Borcum» düğmesi.",
+                    $"<b>{shop}</b>\nQarzingizni eslatamiz: <b>{sum} so'm</b>. Biz bilan bo'lganingiz uchun rahmat!\nQarzni bilish — «💳 Mening qarzim» tugmasi.");
+                var error = await TelegramBotService.SendToAsync(chatId!, text, ct, TelegramBotText.CustomerKeyboard()).ConfigureAwait(false);
+                if (error == null)
+                {
+                    sent++;
+                    TelegramReminderLog.MarkSent(chatId!, clientId, amount);
+                }
+                else if (TelegramBotService.IsBlocked(chatId!))
+                {
+                    // Заблокировал бота — отписываем: в следующий раз ему не пишем и не засоряем журнал.
+                    blocked++;
+                    TelegramSubscriberStore.Unsubscribe(chatId!);
+                    if (!string.IsNullOrWhiteSpace(serverChat))
+                        ClearSubscriberOnServer(clientId);
+                }
+                // 2026-09-29: не больше ~25 сообщений в секунду — предел Telegram около 30; без паузы
+                // на сотнях подписчиков шли отказы 429. 2026-10-21: темп держит и TelegramBotRateLimiter.
+                await Task.Delay(ReminderPauseMs, ct).ConfigureAwait(false);
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            PosLogger.Log($"Телеграм-бот: напоминания не отправлены ({ex.Message}).", "WARNING");
-            return 0;
+            TelegramReminderLog.Flush();
         }
 
-        var byClient = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-        foreach (var debt in debts)
-        {
-            var clientId = ReadString(debt, "client");
-            if (string.IsNullOrWhiteSpace(clientId))
-                continue;
-
-            var amount = ReadDouble(debt, "debt_amount") ?? ReadDouble(debt, "total") ?? 0;
-            if (amount > 0.005)
-                byClient[clientId!] = byClient.GetValueOrDefault(clientId!) + amount;
-        }
-
-        var sent = 0;
-        foreach (var (clientId, amount) in byClient)
-        {
-            var chatId = TelegramSubscriberStore.TryGetChatId(clientId);
-            if (string.IsNullOrWhiteSpace(chatId))
-                continue;
-
-            var text = $"Напоминаем о задолженности: <b>{amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"))} сом</b>.";
-            if (await TelegramBotService.SendToAsync(chatId!, text, ct).ConfigureAwait(false) == null)
-                sent++;
-            await Task.Delay(ReminderPauseMs, ct).ConfigureAwait(false);
-        }
-
-        PosLogger.Log($"Телеграм-бот: напоминаний о долге отправлено {sent}.", "TELEGRAM");
+        PosLogger.Log($"Телеграм-бот: напоминаний о долге отправлено {sent}; уже писали за 20 ч — {LastRemindersSkippedRecent}; заблокировали бота и отписаны — {blocked}.", "TELEGRAM");
         return sent;
+    }
+
+    /// <summary>403 при рассылке: убрать chat_id из карточки клиента на сервере (иначе другие кассы продолжат слать).</summary>
+    private void ClearSubscriberOnServer(string clientId)
+    {
+        if (_debtsApi == null || !Guid.TryParse(clientId, out _))
+            return;
+        var api = _debtsApi;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await ApiThrottle.RunBulkAsync(() => api.SetClientTelegramChatIdAsync(clientId, null)).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Телеграм-бот: отписка клиента {clientId} на сервере не сохранена ({ex.GetType().Name}).", "WARNING");
+            }
+        });
     }
 
     private async Task<Dictionary<string, string>> LoadPhonesAsync(CancellationToken ct)

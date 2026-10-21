@@ -71,11 +71,11 @@ public partial class ScaleBarcodeSetupPanel : UserControl
             _ => L("«авто»: 25 — сумма, остальные — вес", "«авто»: 25 — сумма, калгандары — салмак", "“auto”: 25 = amount, others = weight", "“otomatik”: 25 = tutar, diğerleri = ağırlık", "«avto»: 25 — summa, qolganlari — vazn"),
         };
         RulesDescText.Text = L(
-            $"Что весы печатают в штрихкоде после кода товара — ВЕС или СУММУ. Выберите для каждого префикса (первые две цифры штрихкода). Правило кассы важнее режима компании с сайта ({modeText}) и действует сразу, без перезапуска. Для префиксов 21–24 и 26–29 без правила касса спросит при первом скане этикетки.",
-            $"Тараза штрих-коддо товар кодунан кийин эмнени басат — САЛМАКТЫ же СУММАНЫ. Ар бир префикс үчүн тандаңыз (штрих-коддун алгачкы эки саны). Кассанын эрежеси сайттагы компаниянын режиминен ({modeText}) маанилүүрөөк жана дароо, кайра жүргүзбөй иштейт. Эрежеси жок 21–24 жана 26–29 префикстер үчүн касса этикетканы биринчи сканерлегенде сурайт.",
-            $"What the scale prints in the barcode after the item code — WEIGHT or AMOUNT. Choose for each prefix (the first two digits of the barcode). The till's rule overrides the company mode from the website ({modeText}) and works immediately, no restart. For prefixes 21–24 and 26–29 without a rule the till asks on the first label scan.",
-            $"Tartının barkodda ürün kodundan sonra ne bastığı — AĞIRLIK mı TUTAR mı. Her önek için seçin (barkodun ilk iki hanesi). Kasa kuralı sitedeki şirket modundan ({modeText}) önceliklidir ve hemen, yeniden başlatmadan çalışır. Kuralı olmayan 21–24 ve 26–29 önekleri için kasa ilk etiket okutmasında sorar.",
-            $"Tarozi shtrix-kodda tovar kodidan keyin nimani chop etadi — VAZNNI yoki SUMMANI. Har bir prefiks uchun tanlang (shtrix-kodning dastlabki ikki raqami). Kassa qoidasi saytdagi kompaniya rejimidan ({modeText}) ustun va darhol, qayta ishga tushirmasdan ishlaydi. Qoidasi yo‘q 21–24 va 26–29 prefikslari uchun kassa yorliqni birinchi skanerlashda so‘raydi.");
+            $"Что весы печатают в штрихкоде после кода товара — вес или сумму. Выберите для каждого префикса (первые две цифры штрихкода). Правило кассы важнее режима компании с сайта ({modeText}) и действует сразу, без перезапуска. Для префиксов 21–24 и 26–29 без правила касса спросит при первом скане этикетки.",
+            $"Тараза штрих-коддо товар кодунан кийин эмнени басат — салмакты же сумманы. Ар бир префикс үчүн тандаңыз (штрих-коддун алгачкы эки саны). Кассанын эрежеси сайттагы компаниянын режиминен ({modeText}) маанилүүрөөк жана дароо, кайра жүргүзбөй иштейт. Эрежеси жок 21–24 жана 26–29 префикстер үчүн касса этикетканы биринчи сканерлегенде сурайт.",
+            $"What the scale prints in the barcode after the item code — weight or amount. Choose for each prefix (the first two digits of the barcode). The till's rule overrides the company mode from the website ({modeText}) and works immediately, no restart. For prefixes 21–24 and 26–29 without a rule the till asks on the first label scan.",
+            $"Tartının barkodda ürün kodundan sonra ne bastığı — ağırlık mı tutar mı. Her önek için seçin (barkodun ilk iki hanesi). Kasa kuralı sitedeki şirket modundan ({modeText}) önceliklidir ve hemen, yeniden başlatmadan çalışır. Kuralı olmayan 21–24 ve 26–29 önekleri için kasa ilk etiket okutmasında sorar.",
+            $"Tarozi shtrix-kodda tovar kodidan keyin nimani chop etadi — vaznni yoki summani. Har bir prefiks uchun tanlang (shtrix-kodning dastlabki ikki raqami). Kassa qoidasi saytdagi kompaniya rejimidan ({modeText}) ustun va darhol, qayta ishga tushirmasdan ishlaydi. Qoidasi yo‘q 21–24 va 26–29 prefikslari uchun kassa yorliqni birinchi skanerlashda so‘raydi.");
 
         var prefixes = _showAllPrefixes
             ? ScaleBarcodeRules.AllPrefixes.ToList()
@@ -282,13 +282,13 @@ public partial class ScaleBarcodeSetupPanel : UserControl
             $"Yorliqda nima chop etilgan? Mos variantni bosing — kassa uni {reading.Prefix} prefiksi uchun eslab qoladi:");
 
         var hasPrice = reading.PricePerKg > 0;
-        WeightOptionKind.Text = L("ВЕС", "САЛМАК", "WEIGHT", "AĞIRLIK", "VAZN");
+        WeightOptionKind.Text = L("Вес", "Салмак", "Weight", "Ağırlık", "Vazn"); // 2026-10-19, О7: без ЗАГЛАВНЫХ
         WeightOptionValue.Text = ScaleBarcodeRules.Kg(reading.WeightKg);
         WeightOptionDetail.Text = hasPrice
             ? ScaleBarcodeRules.LineText(reading.WeightKg, reading.PricePerKg)
             : L($"цифры {reading.ValueDigits} — граммы", $"{reading.ValueDigits} сандары — грамм", $"digits {reading.ValueDigits} are grams", $"{reading.ValueDigits} haneleri gram", $"{reading.ValueDigits} raqamlari — gramm");
 
-        AmountOptionKind.Text = L("СУММА", "СУММА", "AMOUNT", "TUTAR", "SUMMA");
+        AmountOptionKind.Text = L("Сумма", "Сумма", "Amount", "Tutar", "Summa");
         AmountOptionValue.Text = ScaleBarcodeRules.Money(reading.AmountSom) + " " + ScaleBarcodeRules.Som();
         AmountOptionDetail.Text = hasPrice
             ? "= " + ScaleBarcodeRules.LineText(reading.WeightFromAmountKg, reading.PricePerKg)
@@ -332,8 +332,8 @@ public partial class ScaleBarcodeSetupPanel : UserControl
             ? $"{p.Title}: " + ScaleBarcodeRules.LineText(kind == WeightBarcodeValueKind.Amount ? _reading.WeightFromAmountKg : _reading.WeightKg, _reading.PricePerKg)
             : "";
         var kindUpper = kind == WeightBarcodeValueKind.Amount
-            ? L("СУММУ", "СУММА", "AMOUNT", "TUTAR", "SUMMA")
-            : L("ВЕС", "САЛМАК", "WEIGHT", "AĞIRLIK", "VAZN");
+            ? L("«сумму»", "«сумма»", "“amount”", "«tutar»", "«summa»")
+            : L("«вес»", "«салмак»", "“weight”", "«ağırlık»", "«vazn»");
         ShowWizardResult("✓ " + L($"Готово: этикетки с префиксом {_reading.Prefix} касса читает как {kindUpper}.",
                              $"Даяр: {_reading.Prefix} префикстүү этикеткаларды касса {kindUpper} катары окуйт.",
                              $"Done: the till reads labels with prefix {_reading.Prefix} as {kindUpper}.",

@@ -1,0 +1,84 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:path_provider/path_provider.dart';
+
+/// 14.10, владелец: «журнал аудита добавь». Кто, когда и что сделал на этом телефоне: продажи, возвраты, скидки,
+/// удаление строк, цены, товары, приёмка, внесения/изъятия, смены, настройки. Пишется строками JSON в файл
+/// (быстро, без перестройки базы); хранится последние 5000 записей. У сервера NurCRM API журнала нет — журнал этого
+/// телефона (как «Удалено из чека»).
+class AuditEntry {
+  final DateTime at;
+  final String user;
+  final String kind;
+  final String text;
+  final double? amount;
+  const AuditEntry(this.at, this.user, this.kind, this.text, this.amount);
+
+  Map<String, dynamic> toJson() => {'at': at.toIso8601String(), 'user': user, 'kind': kind, 'text': text, if (amount != null) 'amount': amount};
+
+  static AuditEntry? fromJson(String line) {
+    try {
+      final m = jsonDecode(line) as Map<String, dynamic>;
+      return AuditEntry(DateTime.parse(m['at'] as String), '${m['user'] ?? ''}', '${m['kind'] ?? ''}', '${m['text'] ?? ''}', (m['amount'] as num?)?.toDouble());
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+class Audit {
+  static const kinds = ['sale', 'cart', 'return', 'discount', 'delete', 'price', 'product', 'receive', 'cash', 'shift', 'settings', 'login', 'open'];
+
+  /// Кто сейчас работает (ставит app.dart при входе/выходе) — пишется в каждую запись.
+  static String currentUser = '';
+  static const _max = 5000;
+
+  /// Только для тестов: папка вместо папки приложения.
+  static Directory? testDirectory;
+
+  static Future<File> _file() async => File('${(testDirectory ?? await getApplicationDocumentsDirectory()).path}/audit.jsonl');
+
+  static final List<String> _pending = [];
+  static Future<void>? _flushing;
+
+  /// Записать действие. Ошибки записи не мешают работе кассы.
+  /// 14.10, стресс-тест: раньше каждая запись открывала файл и сбрасывала его на диск — 6000 записей подряд не
+  /// успевали за 30 с. Теперь записи копятся и уходят в файл пачкой (одна запись на диск на пачку).
+  static Future<void> log(String kind, String text, {double? amount}) {
+    _pending.add('${jsonEncode(AuditEntry(DateTime.now(), currentUser, kind, text, amount).toJson())}\n');
+    return _flushing ??= _flush();
+  }
+
+  static Future<void> _flush() async {
+    try {
+      await Future<void>.delayed(Duration.zero); // дать накопиться записям этого же такта
+      final f = await _file();
+      while (_pending.isNotEmpty) {
+        final batch = _pending.join();
+        _pending.clear();
+        try {
+          await f.writeAsString(batch, mode: FileMode.append, flush: true);
+        } catch (_) {
+          // журнал не записался — продажа важнее
+        }
+      }
+    } finally {
+      _flushing = null;
+    }
+  }
+
+  /// Новые сверху. Лишнее сверх 5000 записей при чтении обрезается в файле.
+  static Future<List<AuditEntry>> read() async {
+    await _flushing;
+    try {
+      final f = await _file();
+      if (!await f.exists()) return [];
+      final lines = await f.readAsLines();
+      if (lines.length > _max) await f.writeAsString('${lines.sublist(lines.length - _max).join('\n')}\n');
+      return [for (final l in lines.reversed.take(_max)) ?AuditEntry.fromJson(l)];
+    } catch (_) {
+      return [];
+    }
+  }
+}

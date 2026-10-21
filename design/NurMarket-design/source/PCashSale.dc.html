@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Кассир — продажа</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:#FFFFFF;border-top:1px solid #EAECF0;padding:6px 4px 2px}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#667085;text-decoration:none;padding:6px 0}
+.nav a.on{color:#0B2A3C;font-weight:800}
+.nav a.on span{background:#FFD600}
+.nav span{width:44px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+.chip{height:44px;padding:0 14px;border-radius:18px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF}
+.line{display:flex;align-items:center;gap:10px;padding:10px;border-radius:16px;background:#FFFFFF}
+.ph{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#0B2A3C;flex-shrink:0}
+.st{width:44px;height:44px;border-radius:22px;font-family:inherit;font-size:18px;display:flex;align-items:center;justify-content:center}
+.prod{border:0;border-radius:16px;background:#FFFFFF;padding:8px;display:flex;flex-direction:column;gap:6px;font-family:inherit;text-align:left}
+.act{flex:1 1 0;min-width:0;height:56px;border-radius:12px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:700;color:#344054;white-space:nowrap;padding:0 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.role{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#E7EEF3;color:#0B2A3C;white-space:nowrap}
+.gest{height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#FFFFFF}
+.gest i{width:134px;height:5px;border-radius:3px;background:rgba(11,42,60,.25)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-direction: column">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px; background: #FFFFFF; border-bottom: 1px solid #EAECF0">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <span style="display: flex; align-items: center; gap: 8px"><b style="font-size: 18px; font-weight: 800">Новый чек</b><span class="role">Кассир</span></span>
+      <button type="button" style="height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: #F2F4F7; font-family: inherit; font-size: 12px; font-weight: 700; color: #344054; white-space: nowrap">Отложено · 1</button>
+    </div>
+    <div style="display: flex; gap: 8px">
+      <label style="flex-grow: 1; height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: #F9FAFB">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input type="text" placeholder="Товар или штрихкод" aria-label="Поиск товара" style="border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 16px; width: 100%">
+      </label>
+      <button type="button" aria-label="Сканировать камерой" style="width: 48px; height: 48px; border-radius: 12px; border: 0; background: #0B2A3C; color: #FFD600; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path><path d="M8 9v6M12 9v6M16 9v6"></path></svg></button>
+    </div>
+    <div style="display: flex; gap: 6px; overflow: hidden"><button type="button" class="chip on">Избранное</button><button type="button" class="chip">Весовые</button><button type="button" class="chip">Напитки</button><button type="button" class="chip">Сладости</button></div>
+  </header>
+
+  <main style="flex-grow: 1; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden">
+    <!-- 2026-10-17: пока в чеке есть строки, ряд плиток свёрнут — место строкам чека (на 360×640 тоже) -->
+    <button type="button" style="height: 48px; border-radius: 12px; border: 1px dashed #D0D5DD; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 600; color: #344054; display: flex; align-items: center; justify-content: center; gap: 6px">Плитки «Избранное» свёрнуты · Показать<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+
+    <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; padding-top: 4px"><span>В чеке</span><span style="color: #667085; font-weight: 500">2 позиции · 3 шт</span></div>
+    <div class="line">
+      <span class="ph" style="background: #FFF4C2">Мк</span>
+      <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Макароны «Макфа» спагетти 450г</span><span style="font-size: 12px; color: #667085">85 × 2</span><b style="font-size: 14px; color: #0B2A3C; white-space: nowrap">170&nbsp;сом</b></span>
+      <span style="display: flex; align-items: center; gap: 6px"><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="min-width: 16px; text-align: center">2</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></span>
+    </div>
+    <div class="line">
+      <span class="ph" style="background: #F1E8FD">Ms</span>
+      <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">Mars</span><span style="font-size: 12px; color: #667085">39 × 1</span><b style="font-size: 14px; color: #0B2A3C; white-space: nowrap">39&nbsp;сом</b></span>
+      <span style="display: flex; align-items: center; gap: 6px"><button type="button" class="st" aria-label="Меньше" style="border: 1px solid #D0D5DD; background: #FFFFFF">−</button><b style="min-width: 16px; text-align: center">1</b><button type="button" class="st" aria-label="Больше" style="border: 0; background: #0B2A3C; color: #FFFFFF">+</button></span>
+    </div>
+    <span style="font-size: 12px; color: #667085; text-align: center">Смахните строку влево, чтобы убрать — с причиной<br>(журнал «Удалено из чека»)</span>
+  </main>
+
+  <!-- 2026-10-17: строка действий чека над итогом (во Flutter уже есть скидка, опт, клиент, долг) -->
+  <div style="padding: 0 16px 8px; display: flex; gap: 6px">
+    <button type="button" class="act"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5 5 19"></path><circle cx="7" cy="7" r="2.5"></circle><circle cx="17" cy="17" r="2.5"></circle></svg>Скидка</button><button type="button" class="act"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>Клиент</button><button type="button" class="act"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M8 10.5v5M12 12.5v5M16 10.5v5"></path></svg>Опт</button><button type="button" class="act"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"></path><path d="M8 9h8M8 13h5"></path></svg>Долг</button><button type="button" class="act" aria-label="Ещё действия: бонусы, комментарий, отменить чек"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg>Ещё</button>
+  </div>
+  <div style="padding: 0 16px 12px; display: flex; gap: 8px">
+    <button type="button" style="height: 56px; padding: 0 12px; border-radius: 16px; border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; font-family: inherit; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; white-space: nowrap"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Отложить</button>
+    <button type="button" style="flex-grow: 1; height: 56px; border-radius: 16px; border: 0; background: #FFD600; color: #0B2A3C; font-family: inherit; font-size: 17px; font-weight: 800; white-space: nowrap; box-shadow: 0 8px 20px rgba(255,214,0,.35)">Оплатить 209&nbsp;сом</button>
+  </div>
+
+  <nav class="nav" aria-label="Разделы кассира">
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"></path></svg></span>Главная</a>
+    <a href="#" class="on" aria-current="page"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.5 11h11L21 7H6.5"></path><circle cx="9" cy="19.5" r="1.5"></circle><circle cx="17" cy="19.5" r="1.5"></circle></svg></span>Продажа</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path><path d="M8 9v6M12 9v6M16 9v6"></path></svg></span>Сканер</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg></span>Чеки</a>
+    <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg></span>Товары</a>
+  </nav>
+  <div class="gest" aria-hidden="true"><i></i></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

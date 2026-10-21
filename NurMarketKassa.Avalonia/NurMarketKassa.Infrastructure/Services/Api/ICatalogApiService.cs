@@ -66,6 +66,11 @@ public interface ICatalogApiService
     /// <summary>Поставщики компании: GET clients/?type=suppliers.</summary>
     Task<JsonElement> ListSuppliersAsync(CancellationToken ct = default);
 
+    /// <summary>2026-10-20: новый поставщик — POST clients/ с type=suppliers (так его создаёт форма товара сайта,
+    /// «+ Создать поставщика»: тот же справочник клиентов, тип «suppliers»).</summary>
+    // 2026-10-20, этап П1: requisites — реквизиты поставщика (email, llc, inn, okpo, score, bik, address), только заполненные.
+    Task<JsonElement> CreateSupplierAsync(string fullName, string phone, CancellationToken ct = default, IReadOnlyDictionary<string, string>? requisites = null);
+
     /// <summary>Приход от поставщика: POST suppliers/{id}/receipt/ — документ «Закупки» сайта.
     /// Остаток товаров прибавляет сам сервер.</summary>
     Task<JsonElement> CreateSupplierReceiptAsync(string supplierId, object body, CancellationToken ct = default);
@@ -174,6 +179,9 @@ public sealed class ProductEditRequest
     /// <summary>2026-10-11, тестировщик (склад.md, 2.1.3): «Минимальный остаток» на вкладке «Упаковка». null — поле не трогаем
     /// (значение с сервера не прочитано), число — пишем в minimum_quantity.</summary>
     public double? MinimumQuantity { get; set; }
+    /// <summary>2026-10-20, владелец: поставщик товара — поле «client» товара NurCRM (id поставщика из clients/?type=suppliers;
+    /// так его пишет форма товара сайта). null — поле не трогаем (кассир поставщика не менял), "" — убрать поставщика.</summary>
+    public string? SupplierId { get; set; }
     public double? DiscountPercent { get; set; }
     public string? Description { get; set; }
     public string? HotkeyGroup { get; set; }

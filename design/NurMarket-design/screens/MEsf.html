@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ru"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>ЭСФ — выписать, входящий в приёмку, сверка ЭСФ 2.0</title>
+<style>x-dc{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+/* 2026-10-16: цели касания ≥ 44 px (✕, кнопки, поля, чипы, сегменты) */
+.x{width:44px;height:44px;flex-shrink:0;border-radius:12px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b1,.b2,.bd{white-space:nowrap}
+.b2{height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:44px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:44px;padding:0 14px;border-radius:22px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:44px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+.k{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;background:rgba(11,42,60,.12);vertical-align:1px}
+.bd .k{background:rgba(255,255,255,.22)}
+.tr{display:grid;grid-template-columns:minmax(0,1fr) 70px 124px;gap:8px;align-items:center;font-size:13px;min-height:36px;border-bottom:1px solid #EAECF0}
+.note{font-size:11.5px;line-height:16px;color:#475467}
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="MEsf"><div style="width: 1440px; height: 900px; box-sizing: border-box; background: rgb(221, 226, 232); font-family: Montserrat, system-ui, sans-serif; color: rgb(17, 24, 39); padding: 24px; display: flex; justify-content: center; gap: 20px; align-items: flex-start;">
+  
+
+  <div style="width: 480px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px;">
+  <section class="m" role="dialog" aria-label="Выписать ЭСФ">
+    <div class="mh"><div class="mt"><b>Выписать ЭСФ</b><span>Продажа юрлицу · чек № 000479 · 18&nbsp;400 сом</span></div><button type="button" class="x" aria-label="Закрыть · Esc">✕</button></div>
+    <div class="mb">
+      <div style="display: grid; grid-template-columns: 180px 1fr; gap: 8px; align-items: end;"><span style="display: flex; flex-direction: column; gap: 4px;"><label class="lbl" for="e1">ИНН ПОКУПАТЕЛЯ</label><input id="e1" class="in" type="text" value="02509201810045"></span><div class="row" style="background: rgb(231, 246, 236); padding: 4px 10px; min-height: 44px; box-sizing: border-box;"><span style="flex-grow: 1; line-height: 16px;"><b>ОсОО «Ала-Тоо Кофе»</b><br><span style="font-size: 11px; color: rgb(71, 84, 103);">найден в ГНС · плательщик НДС</span></span></div></div>
+      <span class="lbl">ФОРМА ОПЛАТЫ</span>
+      <div class="sg" role="radiogroup"><button type="button" class="seg" style="font-size: 12px;">Наличная</button><button type="button" class="seg on" style="font-size: 12px;">Безналичная</button><button type="button" class="seg" style="font-size: 12px;">Товарообмен</button><button type="button" class="seg" style="font-size: 12px;">Безвозмездная</button></div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;"><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0px;"><label class="lbl" for="e2">ДАТА ПОСТАВКИ</label><input id="e2" class="in" type="text" value="12.10.2026"></span><span style="display: flex; flex-direction: column; gap: 4px; min-width: 0px;"><label class="lbl" for="e3">ДОГОВОР</label><input id="e3" class="in" type="text" value="№ 14 от 01.09.2026"></span></div>
+      <div class="rl"><span>5 позиций · коды товаров подставлены</span><b style="white-space: nowrap;">18&nbsp;400 сом</b></div>
+      <div class="rl" style="padding-top: 0px;"><span>НДС</span><b>Без НДС</b></div>
+      <span class="note">Код товара — уточнить классификатор на esf.salyk.kg. NBS на едином налоге — не плательщик НДС. Отправка — через API ЭСФ ГНС с ЭЦП компании.</span>
+    </div>
+    <div class="mf"><button type="button" class="b2">Черновик</button><span class="tot"></span><button type="button" class="b1">Отправить в налоговую<span class="k">Enter</span></button></div>
+  </section>
+
+  
+  <section class="m" role="dialog" aria-label="Отклонить ЭСФ">
+    <div class="mh"><div class="mt"><b>Отклонить ЭСФ поставщика?</b><span>ОсОО «Бишкек Дистрибьюшн» · ЭСФ № 0012-4471 · 7&nbsp;886 сом</span></div><button type="button" class="x" aria-label="Закрыть · Esc">✕</button></div>
+    <div class="mb">
+      <span style="display: flex; flex-direction: column; gap: 4px;"><label class="lbl" for="e4">ПРИЧИНА</label><button id="e4" type="button" class="in" style="display: flex; align-items: center; justify-content: space-between; text-align: left; color: rgb(17, 24, 39);">Не совпадает количество или цена<span aria-hidden="true" style="color: rgb(71, 84, 103);">▾</span></button></span>
+      <input class="in" type="text" aria-label="Комментарий поставщику" value="Салфетки «Мягкие»: в заказе не было">
+      <span class="note">Отказ уходит в систему ЭСФ ГНС и виден поставщику — отменить его нельзя.</span>
+    </div>
+    <div class="mf"><button type="button" class="b2">Отмена</button><span class="tot"></span><button type="button" class="bd">Отклонить ЭСФ<span class="k">Enter</span></button></div>
+  </section>
+  </div>
+
+  <div style="width: 640px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px;">
+  <section class="m" role="dialog" aria-label="Входящий ЭСФ">
+    <div class="mh"><div class="mt"><b>Входящий ЭСФ → приёмка</b><span>ОсОО «Бишкек Дистрибьюшн» · ЭСФ № 0012-4471 от 11.10.2026</span></div><button type="button" class="x" aria-label="Закрыть · Esc">✕</button></div>
+    <div class="mb" style="gap: 0px;">
+      <div class="tr lbl" style="min-height: 22px;"><span>ТОВАР</span><span style="text-align: right;">КОЛ-ВО</span><span></span></div>
+      <div class="tr"><span>Кока-Кола (ПЭТ) 2л</span><b style="text-align: right;">24 шт</b><span class="tag" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58); justify-self: end;">✓ найден</span></div>
+      <div class="tr"><span>Сок Gracio яблочный 1л</span><b style="text-align: right;">12 шт</b><span class="tag" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58); justify-self: end;">✓ найден</span></div>
+      <div class="tr"><span>Mars 50г</span><b style="text-align: right;">48 шт</b><span class="tag" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58); justify-self: end;">✓ найден</span></div>
+      <div class="tr"><span>Макароны «Макфа» спагетти 450г</span><b style="text-align: right;">20 шт</b><span class="tag" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58); justify-self: end;">✓ найден</span></div>
+      <div class="tr" style="background: rgb(254, 243, 226); padding: 0px 0px 0px 8px; border-radius: 8px; border-bottom: 0px; margin-top: 4px;"><span>Салфетки «Мягкие» 100 шт · <span style="color: rgb(181, 71, 8); font-weight: 700;">нет в базе</span></span><b style="text-align: right;">10 шт</b><button type="button" class="chip" style="padding: 0px 10px;">Создать товар</button></div>
+      <div class="rl" style="padding-top: 10px;"><span>Сумма ЭСФ</span><b style="white-space: nowrap;">7&nbsp;886 сом · в т.ч. НДС 12&nbsp;% — 844,93</b></div>
+      <div style="display: flex; gap: 18px;"><label style="display: flex; align-items: center; gap: 8px; font-size: 13px; min-height: 36px;"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0px; flex-shrink: 0; accent-color: rgb(11, 42, 60);">Подтвердить ЭСФ в налоговой после приёмки</label>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; min-height: 36px;"><input type="checkbox" checked="" style="width: 18px; height: 18px; margin: 0px; flex-shrink: 0; accent-color: rgb(11, 42, 60);">Обновить закупочные цены</label></div>
+    </div>
+    <div class="mf"><span class="tot" style="white-space: nowrap;"><b>5 позиций · 7&nbsp;886 сом</b></span><button type="button" class="b2">Отклонить…</button><button type="button" class="b1">Принять на склад<span class="k">Enter</span></button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Сверка остатков ЭСФ 2.0">
+    <div class="mh"><div class="mt"><b>Сверка с ЭСФ 2.0</b><span>Товары с прослеживаемостью · пилот с 01.09.2026</span></div><button type="button" class="x" aria-label="Закрыть · Esc">✕</button></div>
+    <div class="mb" style="gap: 6px;">
+      <div class="lbl" style="display: grid; grid-template-columns: 1fr 70px 70px 60px; gap: 6px;"><span>ТОВАР</span><span>У ВАС</span><span>В ГНС</span><span></span></div>
+      <div style="display: grid; grid-template-columns: 1fr 70px 70px 60px; gap: 6px; align-items: center; font-size: 13px; padding: 6px 0px; border-bottom: 1px solid rgb(234, 236, 240);"><span>Холодильник Artel HD 395</span><b>4</b><b>4</b><span class="tag" style="background: rgb(231, 246, 236); color: rgb(14, 122, 58);">✓ ок</span></div>
+      <div style="display: grid; grid-template-columns: 1fr 70px 70px 60px; gap: 6px; align-items: center; font-size: 13px; padding: 6px 0px; border-bottom: 1px solid rgb(234, 236, 240);"><span>Телевизор Yasin 43UA1</span><b>7</b><b style="color: rgb(180, 35, 24);">9</b><span class="tag" style="background: rgb(253, 236, 234); color: rgb(180, 35, 24);">−2</span></div>
+      
+      <div class="row" style="background: rgb(254, 243, 226); font-size: 12px; line-height: 17px; display: flex; gap: 12px;"><span style="flex-grow: 1;">2 телевизора в ГНС числятся у вас, а на складе их нет — скорее всего, проданы без ЭСФ.</span><button type="button" class="chip" style="flex-shrink: 0;">Найти продажи / выписать ЭСФ</button></div>
+      <span class="note">Списание — только актом с причиной (брак, кража), не для сверки.</span>
+    </div>
+    <div class="mf"><button type="button" class="b2">Excel</button><span class="tot"></span><button type="button" class="b1">Готово<span class="k">Enter</span></button></div>
+  </section>
+  </div></div></div></div>
+
+
+
+</body></html>

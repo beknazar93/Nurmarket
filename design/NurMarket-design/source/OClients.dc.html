@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Окна клиентов и бонусов</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#0B2A3C;color:#FFFFFF}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<!-- 2026-10-16: окна ровно 640 и 480 px (правило модалок); данные NBS -->
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: 640px 480px; justify-content: center; gap: 22px; align-items: start">
+  <div style="display: flex; flex-direction: column; gap: 22px">
+  <section class="m" role="dialog" aria-label="Новый клиент" style="width: 640px">
+    <div class="mh"><div class="mt"><b>Новый клиент</b><span>Хватит имени и телефона</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px">
+      <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="c1">ИМЯ</label><input id="c1" class="in" type="text" value="Жылдыз"></span>
+      <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="c2">ТЕЛЕФОН · WHATSAPP</label><input id="c2" class="in" type="text" value="+996 700 12-45-78"></span>
+      <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="c3">ДЕНЬ РОЖДЕНИЯ</label><input id="c3" class="in" type="text" value="14.03"></span>
+      <span style="display: flex; flex-direction: column; gap: 4px"><label class="lbl" for="c4">ЛИМИТ ДОЛГА</label><input id="c4" class="in" type="text" value="5 000 сом"></span>
+      <span style="display: flex; flex-direction: column; gap: 4px"><span class="lbl">ПОСТОЯННАЯ СКИДКА</span>
+      <span style="display: flex; gap: 6px"><button type="button" class="chip on">Нет</button><button type="button" class="chip">3 %</button><button type="button" class="chip">5 %</button><button type="button" class="chip">Своя</button></span></span>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; align-self: end; min-height: 34px"><input type="checkbox" checked="" style="width: 18px; height: 18px; accent-color: #0B2A3C">Присылать чеки в WhatsApp</label>
+    </div>
+    <div class="mf"><span class="tot"></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить</button></div>
+  </section>
+
+
+  <!-- 2026-10-16: в программе владельца чека нет — «В чек» убрали (это кнопка кассы) -->
+  <section class="m" role="dialog" aria-label="Карточка клиента" style="width: 640px">
+    <div class="mh"><span style="width: 44px; height: 44px; border-radius: 22px; background: #E7EEF3; color: #0B2A3C; display: flex; align-items: center; justify-content: center; font-weight: 800">А</span><div class="mt"><b>Айпери</b><span>+996 777 30-11-52 · с нами с 14.03.2025</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+        <span class="row" style="flex-direction: column; align-items: flex-start; gap: 2px"><span style="font-size: 11px; color: #667085">Покупок</span><b>58</b></span>
+        <span class="row" style="flex-direction: column; align-items: flex-start; gap: 2px"><span style="font-size: 11px; color: #667085">Потратила</span><b style="white-space: nowrap">41 300&nbsp;сом</b></span>
+        <span class="row" style="flex-direction: column; align-items: flex-start; gap: 2px"><span style="font-size: 11px; color: #667085">Средний чек</span><b style="white-space: nowrap">712&nbsp;сом</b></span>
+      </div>
+      <div class="row" style="background: #FDE2E1"><span style="flex-grow: 1">Долг · с 07.10.2026 · 1 чек</span><b style="color: #B42318; white-space: nowrap">9 800&nbsp;сом</b><button type="button" class="chip">Принять оплату</button></div>
+      <div class="row" style="background: #E7EEF3"><span style="flex-grow: 1">Рассрочка · следующий платёж 20.10.2026</span><b style="white-space: nowrap">2 500&nbsp;сом</b><button type="button" class="chip">График</button></div>
+      <span class="lbl">ЧАСТО БЕРЁТ</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="tag" style="background: #F2F4F7; color: #344054">Кока-Кола (ПЭТ) 2л</span><span class="tag" style="background: #F2F4F7; color: #344054">Mars 50г</span><span class="tag" style="background: #F2F4F7; color: #344054">Сок Gracio яблочный 1л</span></div>
+    </div>
+    <div class="mf"><span class="tot">Последняя покупка 07.10.2026</span><button type="button" class="b2">Все чеки</button><button type="button" class="b1">Изменить</button></div>
+  </section>
+  </div>
+
+  <section class="m" role="dialog" aria-label="Бонусы клиента" style="width: 480px">
+    <div class="mh"><div class="mt"><b>Бонусы · Айпери</b><span>1 бонус = 1 сом при оплате</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; background: #FFF7CC; border-radius: 12px; padding: 12px 14px"><span style="font-size: 13px; font-weight: 600">На счету</span><b style="font-size: 22px; color: #0B2A3C; white-space: nowrap">240 бонусов</b></div>
+      <span class="sg"><button type="button" class="seg on">Начислить</button><button type="button" class="seg">Списать</button></span>
+      <label class="lbl" for="bn">СКОЛЬКО</label><input id="bn" class="in big" type="text" value="100">
+      <span class="lbl">ЗА ЧТО</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" class="chip on">День рождения</button><button type="button" class="chip">Отзыв</button><button type="button" class="chip">Извинение</button><button type="button" class="chip">Другое</button></div>
+      <div class="rl" style="color: #667085"><span>Последнее начисление</span><span>07.10.2026 · +50</span></div>
+      <!-- 2026-10-16: ручные бонусы — только нарисовано, нужен счёт бонусов на сервере -->
+      <span style="font-size: 12px; color: #475467; background: #F2F4F7; border-radius: 10px; padding: 8px 10px; line-height: 17px">Позже: начислять и списывать вручную можно будет, когда в NurCRM появится серверный счёт бонусов</span>
+    </div>
+    <div class="mf"><span class="tot">Станет <b style="white-space: nowrap">340 бонусов</b></span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Начислить</button></div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

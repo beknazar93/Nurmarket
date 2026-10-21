@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Касса — удаление из чека: причина, PIN, контроль</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:44px;height:44px;border-radius:12px;flex-shrink:0;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{white-space:nowrap;height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{white-space:nowrap;height:44px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{white-space:nowrap;height:44px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:44px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:44px;white-space:nowrap;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#0B2A3C;color:#FFFFFF}
+.ck{display:flex;align-items:center;gap:12px;min-height:44px;font-size:13px}
+.ck span{flex-grow:1}
+.ck>input[type=checkbox]{width:18px;height:18px;accent-color:#0B2A3C;flex-shrink:0}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #DDE2E8; font-family: Montserrat, system-ui, sans-serif; color: #111827; padding: 30px; display: grid; grid-template-columns: 480px 640px; justify-content: center; gap: 30px; align-items: start">
+  <!-- 2026-10-17: окна 480 / 640; товар из главного чека № 1710; причину спрашиваем не всегда, а после пречека или дороже порога (не тормозим кассира); PIN — полем ввода (без своей цифровой клавиатуры, на сенсоре — osk); «запрос на телефон» и Телеграм — помечены «нужен сервер NurCRM»; низ окон по правилам -->
+  <div style="display: flex; flex-direction: column; gap: 20px">
+  <section class="m" role="dialog" aria-label="Убрать из чека">
+    <div class="mh"><div class="mt"><b>Убрать из чека?</b><span>Mars 50г · 5 шт · 195&nbsp;сом · чек № 1710 после пречека</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <span class="lbl">ПРИЧИНА — ПОПАДЁТ В ЖУРНАЛ «УДАЛЕНО ИЗ ЧЕКА»</span>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <button type="button" class="chip on" style="height: 44px; border-radius: 12px; text-align: left; padding: 0 14px">Покупатель передумал</button>
+      <button type="button" class="chip" style="height: 44px; border-radius: 12px; text-align: left; padding: 0 14px">Ошибка сканирования</button>
+      <button type="button" class="chip" style="height: 44px; border-radius: 12px; text-align: left; padding: 0 14px">Не хватило денег</button>
+      <button type="button" class="chip" style="height: 44px; border-radius: 12px; text-align: left; padding: 0 14px">Брак или просрочка</button>
+      </div>
+      <input class="in" type="text" placeholder="Другое — напишите" aria-label="Другая причина">
+      <div class="sg"><button type="button" class="seg on">Всю строку · 5 шт</button><button type="button" class="seg">Только 1 шт</button></div>
+    </div>
+    <div class="mf"><span class="tot">Enter — убрать · Esc — оставить</span><button type="button" class="b2">Оставить</button><button type="button" class="bd">Убрать</button></div>
+  </section>
+
+  <section class="m" role="dialog" aria-label="Подтверждение администратора">
+    <div class="mh"><div class="mt"><b>Нужен PIN администратора</b><span>Удаление после пречека · Mars 50г · 195&nbsp;сом</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <div class="row" style="background: #FEF3E2"><span style="flex-grow: 1">Чек уже распечатан как пречек — удаление увидит владелец</span></div>
+      <label class="lbl" for="pin1">PIN АДМИНИСТРАТОРА · НУРЛАН АБДЫКАДЫРОВ</label>
+      <input id="pin1" class="in" type="password" value="12" style="height: 48px; font-size: 20px; letter-spacing: .3em; border: 2px solid #0B2A3C; box-shadow: 0 0 0 4px rgba(255,214,0,.45)">
+      <button type="button" class="b2" style="display: flex; align-items: center; justify-content: center; gap: 6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"></path></svg>Запросить с телефона админа</button>
+      <span style="font-size: 11px; color: #667085">Запрос на телефон — нужен сервер NurCRM; без него — только PIN здесь</span>
+    </div>
+    <div class="mf"><span class="tot">Enter — подтвердить</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Подтвердить</button></div>
+  </section>
+  </div>
+
+  <section class="m" role="dialog" aria-label="Контроль удалений">
+    <div class="mh"><div class="mt"><b>Контроль удалений</b><span>Настройки → Касса · эта касса (одна настройка на все кассы — нужен сервер NurCRM)</span></div><button type="button" class="x" aria-label="Закрыть">✕</button></div>
+    <div class="mb">
+      <label class="ck"><input type="checkbox" checked=""><span>Спрашивать причину удаления — после пречека или если строка дороже</span><input class="in" type="text" value="1 000 сом" aria-label="Сумма для причины" style="width: 130px"></label>
+      <span style="font-size: 12px; color: #475467; margin: -4px 0 4px 30px">Обычное удаление до оплаты — без окна, сразу (с «Отменить» в плашке), но в журнал пишется всегда.</span>
+      <label class="ck"><input type="checkbox" checked=""><span>PIN админа после пречека</span></label>
+      <label class="ck"><input type="checkbox" checked=""><span>PIN админа, если удаляют больше чем на</span><input class="in" type="text" value="1 000 сом" aria-label="Сумма для PIN" style="width: 130px"></label>
+      <label class="ck"><input type="checkbox" checked=""><span>PIN на «Очистить корзину» (Ctrl + F1) и отмену чека</span></label>
+      <label class="ck"><input type="checkbox"><span>Сообщать мне в Телеграм-бот, если за смену больше<br><small style="color: #667085">нужен сервер NurCRM</small></span><input class="in" type="text" value="10 удалений" aria-label="Порог удалений" style="width: 130px"></label>
+      <label class="ck"><input type="checkbox" checked=""><span>Удалённое — строкой в отчёте смены (журнал «Удалено из чека»)</span></label>
+    </div>
+    <div class="mf"><span class="tot">Применится со следующего чека</span><button type="button" class="b2">Отмена</button><button type="button" class="b1">Сохранить</button></div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

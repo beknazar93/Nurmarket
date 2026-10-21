@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Веб — платежи и банки</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B2A3C}a:hover{color:#123B52}
+.m{background:#FFFFFF;border-radius:20px;box-shadow:0 24px 60px rgba(11,42,60,.22);display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #EAECF0}
+.mt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+.mt b{font-size:16px;font-weight:800}
+.mt span{font-size:12px;color:#667085}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid #E5E7EB;background:#FFFFFF;font-size:14px;color:#344054;font-family:inherit}
+.mb{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.mf{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.tot{flex-grow:1;font-size:12px;color:#475467}
+.tot b{font-size:14px;color:#0B2A3C}
+.b2{height:42px;padding:0 14px;border-radius:12px;border:1.5px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;color:#344054}
+.b1{height:42px;padding:0 16px;border-radius:12px;border:0;background:#FFD600;font-family:inherit;font-size:13px;font-weight:800;color:#0B2A3C}
+.bd{height:42px;padding:0 16px;border-radius:12px;border:0;background:#C0362C;font-family:inherit;font-size:13px;font-weight:800;color:#FFFFFF}
+.lbl{font-size:11px;font-weight:700;color:#667085;letter-spacing:.03em}
+.in{height:42px;box-sizing:border-box;border-radius:10px;border:1px solid #D0D5DD;padding:0 12px;font-family:inherit;font-size:14px;width:100%;background:#FFFFFF}
+.big{height:52px;font-size:20px;font-weight:800;border:2px solid #0B2A3C}
+.chip{height:34px;padding:0 10px;border-radius:17px;border:1px solid #D0D5DD;background:#FFFFFF;font-family:inherit;font-size:12px;font-weight:600;color:#344054;white-space:nowrap}
+.chip.on{border:0;background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.sg{display:flex;gap:4px;padding:4px;border-radius:12px;background:#E4E7EC}
+.seg{flex-grow:1;height:40px;border-radius:10px;border:0;font-family:inherit;font-size:13px;font-weight:700;background:transparent;color:#475467}
+.seg.on{background:#FFFFFF;color:#0B2A3C;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F9FAFB;font-size:13px}
+.rl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
+.tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.kpi b span{font-size:inherit;font-weight:inherit;color:inherit}
+.pr{height:36px;padding:0 14px;border-radius:9px;border:0;background:transparent;color:#475467;font-family:inherit;font-size:13px;font-weight:600;white-space:nowrap}
+.pr.on{background:#0B2A3C;color:#FFFFFF;font-weight:700}
+.bo{height:34px;padding:0 12px;border-radius:10px;border:1.5px solid #0B2A3C;background:#FFFFFF;font-family:inherit;font-size:12.5px;font-weight:800;color:#0B2A3C;white-space:nowrap}
+.card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;font-weight:600;color:#667085}
+.kpi b{font-size:22px;font-weight:800;color:#0B2A3C}
+.nv{width:44px;height:44px;border-radius:14px;border:1px solid #E5E7EB;background:#FFFFFF;color:#344054;display:flex;align-items:center;justify-content:center}
+.pc{background:#FFFFFF;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.cta{height:56px;border-radius:16px;border:0;background:#FFD600;color:#0B2A3C;font-family:inherit;font-size:17px;font-weight:800;width:100%}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: #F4F5F7; font-family: Montserrat, system-ui, sans-serif; color: #111827; display: flex; flex-wrap: wrap">
+  <div style="flex: 1 1 240px; max-width: 260px; display: flex"><dc-import name="WebNav" active="Платежи и банки" hint-size="260px,900px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <span style="display: flex; flex-direction: column; flex-grow: 1"><b style="font-size: 24px; font-weight: 800">Платежи и банки</b><span style="font-size: 13px; color: #667085">Каждый безналичный платёж из банка привязан к чеку</span></span>
+      <button type="button" class="b2">Подключить банк</button>
+    </div>
+    <!-- 2026-10-16: один переключатель периода, как в Сводке; суммы дня — из SPEC (карта 1 455 + QR 580 = 2 035). -->
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+      <div role="group" aria-label="Период" style="display: flex; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px"><button type="button" class="pr on">Сегодня</button><button type="button" class="pr">Вчера</button><button type="button" class="pr">Неделя</button><button type="button" class="pr">Месяц</button><button type="button" class="pr">Даты…</button></div>
+      <span style="font-size: 13px; color: #667085">12.10.2026 · обновлено в 14:35</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px">
+      <div class="kpi"><span>Безнал по чекам</span><b style="white-space: nowrap">2&nbsp;035&nbsp;сом</b></div><div class="kpi"><span>Доля безнала (из 4&nbsp;300)</span><b>47&nbsp;%</b></div><div class="kpi"><span>Комиссия банков</span><b style="white-space: nowrap">32&nbsp;сом</b></div>
+      <a href="#" class="kpi" aria-label="Показать платежи без чека" style="border-color: #B42318; text-decoration: none; color: inherit"><span>Без чека — разобрать ↓</span><b style="color: #B42318; white-space: nowrap">1 · 450&nbsp;сом</b></a>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 560px; gap: 2px">
+        <div class="lbl" style="display: grid; grid-template-columns: 60px minmax(0, 1fr) 90px 100px 130px; gap: 10px; padding: 0 10px 8px"><span>ВРЕМЯ</span><span>ИСТОЧНИК</span><span style="text-align: right">СУММА</span><span>ЧЕК</span><span>СТАТУС</span></div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+          <div style="border-radius: 10px; background: {{r.bg}}; border: {{r.border}}">
+            <div style="display: grid; grid-template-columns: 60px minmax(0, 1fr) 90px 100px 130px; gap: 10px; align-items: center; padding: 11px 10px; font-size: 13px"><span style="color: #475467">{{r.time}}</span><b>{{r.src}}</b><b style="text-align: right; white-space: nowrap">{{r.sum}}</b><span style="white-space: nowrap">{{r.no}}</span><span><span class="tag" style="background: {{r.sbg}}; color: {{r.sfg}}">{{r.st}}</span></span></div>
+            <sc-if value="{{r.orphan}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 10px 10px 80px"><span style="flex-grow: 1; font-size: 12px; color: #475467">Деньги пришли, а чека нет: найдите чек на 450 сом около 13:18 или верните покупателю.</span><button type="button" class="bo">Привязать к чеку</button><button type="button" class="b2" style="height: 34px">Вернуть…</button></div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <span style="font-size: 12px; color: #667085; padding: 10px 10px 0">Номер чека выдаёт сервер NurCRM — сейчас постоянного номера у продажи нет, нужна доработка (поле number).</span>
+      </section>
+      <aside class="card" style="flex: 1 1 300px; max-width: 380px">
+        <b style="font-size: 15px">Банки · сегодня</b>
+        <div class="rl"><span>Терминал MBANK (карта)</span><b style="white-space: nowrap">1&nbsp;455&nbsp;сом</b></div><div class="rl"><span>MBANK QR</span><b style="white-space: nowrap">360&nbsp;сом</b></div><div class="rl"><span>Optima QR</span><b style="white-space: nowrap">220&nbsp;сом</b></div><div class="rl"><span>O!Bank QR · без чека</span><b style="white-space: nowrap">450&nbsp;сом</b></div>
+        <span style="font-size: 12px; color: #475467">Пришло в банки 2&nbsp;485&nbsp;сом = 2&nbsp;035 по чекам + 450 без чека.</span>
+        <span class="lbl" style="padding-top: 6px">ЗАЧИСЛЕНИЯ НА СЧЁТ</span>
+        <div class="rl"><span>Вчера · MBANK</span><span><span class="tag" style="background: #E7F6EC; color: #0E7A3A">пришло</span></span></div><div class="rl"><span>Вчера · Optima</span><span><span class="tag" style="background: #FEF3E2; color: #B54708">ждём</span></span></div>
+        <span style="font-size: 12px; color: #667085; line-height: 17px">Карта — терминал подключён к кассе на ПК (через программу банка), из браузера не управляется. QR — через API банка на сервере.</span>
+      </aside>
+    </div>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 2026-10-16: номера чеков — как в SPEC (№17xx), у платежа «без чека» — действия «Привязать к чеку / Вернуть…».
+    const LINK = { st: 'привязан', sbg: '#E7F6EC', sfg: '#0E7A3A' };
+    const r = (time, src, sum, no, st, extra) => Object.assign({ time, src, sum: sum + '\u00a0сом', no, orphan: false, bg: 'transparent', border: '0' }, st, extra || {});
+    return {
+      rows: [
+        r('14:48', 'MBANK QR', '95', '№1711', LINK),
+        r('14:40', 'Терминал MBANK', '170', '№1710', LINK),
+        r('13:18', 'O!Bank QR', '450', '—', { st: 'без чека', sbg: '#FDECEA', sfg: '#B42318' }, { orphan: true, bg: '#FDECEA', border: '1px solid #F4B4AE' }),
+        r('12:05', 'Optima QR', '120', '№1688', LINK),
+        r('11:40', 'Терминал MBANK', '255', '№1679', { st: 'возврат 39\u00a0сом', sbg: '#EEF4FF', sfg: '#3538CD' })
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -79,6 +79,8 @@ public sealed class TelegramBotAnalyticsWindow : Window
     private List<TelegramInquiryStore.Entry>? _server;
     private bool _serverMode;
     private bool _loading;
+    /// <summary>2026-10-20: настройки бота с сервера — по ним же и строка статуса (см. Render).</summary>
+    private NurMarketKassa.Services.Api.ServerBotSettings? _serverSettings;
 
     private async Task RenderAsync()
     {
@@ -92,6 +94,7 @@ public sealed class TelegramBotAnalyticsWindow : Window
             {
                 var settings = await api.GetSettingsAsync().ConfigureAwait(true);
                 TelegramBotStatusChips.Fill(_chips, settings);
+                _serverSettings = settings;
                 _serverMode = settings?.IsServerMode == true;
                 if (_serverMode)
                 {
@@ -154,6 +157,21 @@ public sealed class TelegramBotAnalyticsWindow : Window
         var month = all.Where(e => e.At.Date > DateTime.Today.AddDays(-30)).ToList();
 
         var prefs = UserPreferences.Instance;
+        // 2026-10-20, аудит программы владельца: «Бот не подключён — Настройки → Операции…» стояло рядом с зелёными плашками
+        // «Бот на сервере · отвечает всегда» и «Связь с Telegram». Строка брала токен бота из настроек ЭТОГО компьютера
+        // (у программы владельца своя папка — там его нет), плашки — с сервера NurCRM. Бот на сервере — строка по данным сервера.
+        if (_serverMode && _serverSettings is { } s)
+        {
+            var name = string.IsNullOrWhiteSpace(s.BotUsername) ? "" : " @" + s.BotUsername!.TrimStart('@');
+            var aiOn = s.AiEnabled && s.AiKeySet;
+            _status.Text = Tr.T($"Бот подключён{name} — работает на сервере NurCRM круглые сутки", $"Бот туташкан{name} — NurCRM серверинде күнү-түнү иштейт",
+                    $"Bot connected{name} — runs on the NurCRM server around the clock", $"Bot bağlı{name} — NurCRM sunucusunda günün her saati çalışır",
+                    $"Bot ulangan{name} — NurCRM serverida kecha-kunduz ishlaydi")
+                + " · " + (aiOn
+                    ? Tr.T("ИИ-консультант включён", "ЖИ-кеңешчи күйүк", "AI assistant on", "YZ asistanı açık", "SI maslahatchi yoqilgan")
+                    : Tr.T("ИИ выключен", "ЖИ өчүк", "AI off", "YZ kapalı", "SI o'chirilgan"));
+        }
+        else
         _status.Text = (TelegramBotService.IsConfigured
                 ? Tr.T($"Бот подключён: @{prefs.TelegramBotUsername}", $"Бот туташкан: @{prefs.TelegramBotUsername}", $"Bot connected: @{prefs.TelegramBotUsername}", $"Bot bağlı: @{prefs.TelegramBotUsername}", $"Bot ulangan: @{prefs.TelegramBotUsername}")
                 : Tr.T("Бот не подключён — Настройки → Операции → «Телеграм-бот владельца».", "Бот туташкан эмес — Жөндөөлөр → Операциялар.", "Bot is not connected — Settings → Operations.", "Bot bağlı değil — Ayarlar → İşlemler.", "Bot ulanmagan — Sozlamalar → Operatsiyalar."))

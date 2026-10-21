@@ -42,9 +42,33 @@ public partial class CrmWebViewWindow : Window, IOwnerSection
             Title = caption;
             AddressLabel.Text = caption;
         }
+        ApplyPurpose();
         WebHost.WebViewReady += OnWebViewReady;
         WebHost.InitializationFailed += OnInitializationFailed;
         WebHost.Navigate(homeUrl);
+    }
+
+    private bool IsWhatsApp => _homeUrl.StartsWith(WhatsAppWebUrl, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>2026-10-21 (пакет 4, п. 130; аудит: «нет пояснения, зачем раздел»): у WhatsApp Web — строка под кнопками, зачем
+    /// он в программе и как войти; «Открыть в браузере» и тексты загрузки/ошибки — про WhatsApp, а не про nurcrm.kg.</summary>
+    private void ApplyPurpose()
+    {
+        var browser = Tr.T("Открыть в браузере", "Браузерде ачуу", "Open in browser", "Tarayıcıda aç", "Brauzerda ochish");
+        OpenInBrowserButton.Content = browser;
+        Avalonia.Automation.AutomationProperties.SetName(OpenInBrowserButton, browser);
+        if (!IsWhatsApp)
+            return;
+        PurposeText.IsVisible = true;
+        PurposeText.Text = Tr.T(
+            "WhatsApp магазина прямо в программе — переписка с покупателями и напоминания должникам. Если ниже QR-код — войдите один раз: на телефоне WhatsApp → «Связанные устройства» → «Привязка устройства» и наведите камеру на код.",
+            "Дүкөндүн WhatsApp'ы түз программада — кардарлар менен кат алышуу жана карыздарга эскертүү. Төмөндө QR-код болсо — бир жолу кириңиз: телефондо WhatsApp → «Байланышкан түзмөктөр» → «Түзмөктү байланыштыруу» жана камераны кодго буруңуз.",
+            "The shop's WhatsApp right in the program — chat with customers and remind debtors. If you see a QR code below, sign in once: on your phone open WhatsApp → “Linked devices” → “Link a device” and point the camera at the code.",
+            "Mağazanın WhatsApp'ı doğrudan programda — müşterilerle yazışma ve borçlulara hatırlatma. Aşağıda QR kod varsa bir kez giriş yapın: telefonda WhatsApp → «Bağlı cihazlar» → «Cihaz bağla» ve kamerayı koda tutun.",
+            "Do'konning WhatsApp'i to'g'ridan-to'g'ri dasturda — xaridorlar bilan yozishma va qarzdorlarga eslatma. Quyida QR-kod bo'lsa — bir marta kiring: telefonda WhatsApp → «Bog'langan qurilmalar» → «Qurilmani bog'lash» va kamerani kodga qarating.");
+        LoadingText.Text = Tr.T("Загрузка WhatsApp Web…", "WhatsApp Web жүктөлүүдө…", "Loading WhatsApp Web…", "WhatsApp Web yükleniyor…", "WhatsApp Web yuklanmoqda…");
+        ErrorOpenButton.Content = Tr.T("Открыть WhatsApp Web в браузере", "WhatsApp Web'ди браузерде ачуу", "Open WhatsApp Web in the browser",
+            "WhatsApp Web'i tarayıcıda aç", "WhatsApp Web'ni brauzerda ochish");
     }
 
     private void OnWebViewReady(CoreWebView2 webView)

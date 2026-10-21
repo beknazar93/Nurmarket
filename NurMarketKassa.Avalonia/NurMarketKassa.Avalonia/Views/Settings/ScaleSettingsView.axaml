@@ -10,17 +10,63 @@
     <UserControl.Styles>
         <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
 
+        <!-- 2026-10-21 (пакет 5, п. 63): «Весы» — крупнее и спокойнее (живой аудит 20.10: «очень много мелкого текста»):
+             пояснения 12 → 13,5 и не длиннее трёх строк (полный текст — в подсказке), подписи полей 14, поля и
+             кнопки 42 (палец), вкладки разделов 14. Тексты те же — короче их делает предел строк. -->
+        <Style Selector="TextBlock.SettingsCardBody">
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="LineHeight" Value="19"/>
+            <Setter Property="MaxLines" Value="3"/>
+            <Setter Property="TextTrimming" Value="WordEllipsis"/>
+            <Setter Property="ToolTip.Tip" Value="{Binding $self.Text}"/>
+        </Style>
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="TextBlock.SettingsCardTitle">
+            <Setter Property="FontSize" Value="16"/>
+        </Style>
+        <Style Selector="TextBox.ModernTextBox, ComboBox.TouchComboBox">
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="FontSize" Value="15"/>
+        </Style>
+
+        <!-- 2026-10-19, этап О7: «Проверить», «Тест табло», «Найти табло» — обводкой; жёлтая (класс main) одна —
+             «+ Добавить весы»; на «Весах на кассе» главная — «Сохранить». -->
         <Style Selector="Button.ScaleGoldButton">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="16,6"/>
-            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="18,6"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="HorizontalAlignment" Value="Left"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- 2026-10-19, О7: выключенная — бледная обводка, не серая заливка Fluent. -->
+        <Style Selector="Button.ScaleGoldButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="Button.ScaleGoldButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.ScaleGoldButton.main">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.ScaleGoldButton.main:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         </Style>
 
         <!-- 2026-09-28: разделы страницы «Весы» — переключатель-«сегменты» вместо одной длинной
@@ -43,17 +89,18 @@
         <Style Selector="RadioButton.SectionTab:pointerover /template/ Border#seg">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         </Style>
+        <!-- 2026-10-19, этап О7: выбранный раздел весов — тёмно-синий (как вкладки Настроек и sec-seg), был жёлтый. -->
         <Style Selector="RadioButton.SectionTab:checked /template/ Border#seg">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="RadioButton.SectionTab:checked">
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="RadioButton.SectionTab TextBlock">
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="TextAlignment" Value="Center"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="14"/>
         </Style>
         <Style Selector="RadioButton.SectionTab TextBlock.mdl2">
             <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
@@ -120,7 +167,7 @@
                 <Border Classes="SettingsCard" Padding="14">
                     <StackPanel Spacing="14">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="{DynamicResource scaleSetup.weighing.title}" Classes="SettingsCardTitle" FontSize="14"/>
+                            <TextBlock Text="{DynamicResource scaleSetup.weighing.title}" Classes="SettingsCardTitle"/>
                             <TextBlock Text="{DynamicResource scaleSetup.weighing.desc}" Classes="SettingsCardBody"/>
                         </StackPanel>
 
@@ -145,17 +192,17 @@
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="{DynamicResource scaleSettings.comPortLabel}" Classes="FieldLabel"/>
                                 <ComboBox x:Name="ScaleComCombo" x:FieldModifier="public"
-                                          Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                                          Classes="TouchComboBox" HorizontalAlignment="Stretch"
                                           IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
                                 <TextBlock x:Name="StatusScalePortText" x:FieldModifier="public"
-                                           Text="{DynamicResource scaleSettings.comNotFound}" FontSize="11"
+                                           Text="{DynamicResource scaleSettings.comNotFound}" FontSize="12.5"
                                            Foreground="{DynamicResource BrushDanger}" Margin="2,2,0,0"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="2" Spacing="4">
                                 <TextBlock Text="{DynamicResource posSettings.scale.baudRate}" Classes="FieldLabel"/>
                                 <TextBox x:Name="ScaleBaudBox" x:FieldModifier="public"
-                                         Text="9600" Classes="ModernTextBox" Height="36"
+                                         Text="9600" Classes="ModernTextBox"
                                          IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
                             </StackPanel>
                         </Grid>
@@ -165,7 +212,7 @@
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="{DynamicResource posSettings.scale.weightRequestHex}" Classes="FieldLabel"/>
                                 <TextBox x:Name="ScaleHexBox" x:FieldModifier="public"
-                                         Classes="ModernTextBox" Height="36"
+                                         Classes="ModernTextBox"
                                          IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"
                                          Watermark="{DynamicResource posSettings.scale.hexExample}"/>
                             </StackPanel>
@@ -173,7 +220,7 @@
                             <StackPanel Grid.Column="2" Spacing="4">
                                 <TextBlock Text="{DynamicResource posSettings.scale.pollInterval}" Classes="FieldLabel"/>
                                 <TextBox x:Name="ScalePollBox" x:FieldModifier="public"
-                                         Text="0" Classes="ModernTextBox" Height="36"
+                                         Text="0" Classes="ModernTextBox"
                                          IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
                             </StackPanel>
                         </Grid>
@@ -192,7 +239,7 @@
 
                             <Border x:Name="ScaleAlert" x:FieldModifier="public" Classes="AlertBlock" IsVisible="False" Margin="0" Padding="10" CornerRadius="6">
                                 <TextBlock x:Name="ScaleAlertText" x:FieldModifier="public"
-                                           TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                                           TextWrapping="Wrap" FontSize="13.5" Foreground="{DynamicResource BrushText}"/>
                             </Border>
                         </StackPanel>
                         </StackPanel>
@@ -207,7 +254,7 @@
                     <StackPanel Spacing="12">
                         <TextBlock x:Name="ExtraScalesTitle" x:FieldModifier="public" Text="Дополнительные весы"
                                    FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
-                        <TextBlock x:Name="ExtraScalesDesc" x:FieldModifier="public" FontSize="11"
+                        <TextBlock x:Name="ExtraScalesDesc" x:FieldModifier="public" FontSize="12.5"
                                    Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                         <Grid ColumnDefinitions="Auto,10,80,*,16,120" RowDefinitions="Auto,10,Auto">
                             <CheckBox Grid.Row="0" Grid.Column="0" x:Name="Scale2EnabledCheck" x:FieldModifier="public"
@@ -215,10 +262,10 @@
                             <TextBlock Grid.Row="0" Grid.Column="2" x:Name="Scale2Label" x:FieldModifier="public" Text="Весы 2"
                                        VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
                             <ComboBox Grid.Row="0" Grid.Column="3" x:Name="Scale2ComCombo" x:FieldModifier="public"
-                                      Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                                      Classes="TouchComboBox" HorizontalAlignment="Stretch"
                                       IsEnabled="{Binding IsChecked, ElementName=Scale2EnabledCheck}"/>
                             <TextBox Grid.Row="0" Grid.Column="5" x:Name="Scale2BaudBox" x:FieldModifier="public"
-                                     Text="9600" Classes="ModernTextBox" Height="36"
+                                     Text="9600" Classes="ModernTextBox"
                                      IsEnabled="{Binding IsChecked, ElementName=Scale2EnabledCheck}"/>
 
                             <CheckBox Grid.Row="2" Grid.Column="0" x:Name="Scale3EnabledCheck" x:FieldModifier="public"
@@ -226,10 +273,10 @@
                             <TextBlock Grid.Row="2" Grid.Column="2" x:Name="Scale3Label" x:FieldModifier="public" Text="Весы 3"
                                        VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
                             <ComboBox Grid.Row="2" Grid.Column="3" x:Name="Scale3ComCombo" x:FieldModifier="public"
-                                      Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                                      Classes="TouchComboBox" HorizontalAlignment="Stretch"
                                       IsEnabled="{Binding IsChecked, ElementName=Scale3EnabledCheck}"/>
                             <TextBox Grid.Row="2" Grid.Column="5" x:Name="Scale3BaudBox" x:FieldModifier="public"
-                                     Text="9600" Classes="ModernTextBox" Height="36"
+                                     Text="9600" Classes="ModernTextBox"
                                      IsEnabled="{Binding IsChecked, ElementName=Scale3EnabledCheck}"/>
                         </Grid>
                     </StackPanel>
@@ -246,10 +293,10 @@
                          LabelScaleEditWindow («Настроить…»). -->
                     <Border Classes="SettingsCard" Padding="14">
                         <StackPanel Spacing="10">
-                            <TextBlock Text="{DynamicResource scaleSetup.list.title}" Classes="SettingsCardTitle" FontSize="14"/>
+                            <TextBlock Text="{DynamicResource scaleSetup.list.title}" Classes="SettingsCardTitle"/>
                             <TextBlock Text="{DynamicResource scaleSetup.list.desc}" Classes="SettingsCardBody"/>
                             <StackPanel x:Name="ScaleListHost" Spacing="8"/>
-                            <Button Classes="ScaleGoldButton" Content="{DynamicResource scaleSetup.list.add}" Click="AddScale_Click"/>
+                            <Button Classes="ScaleGoldButton main" Content="{DynamicResource scaleSetup.list.add}" Click="AddScale_Click"/>
                         </StackPanel>
                     </Border>
 
@@ -275,14 +322,14 @@
                             <TextBlock Text="{DynamicResource posSettings.scale.poleDisplayTitle}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
                         </StackPanel>
                         <TextBlock x:Name="PoleDisplayDescText" x:FieldModifier="public" Text="{DynamicResource posSettings.scale.poleDisplayDesc}"
-                                   FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                                   Classes="SettingsCardBody"/>
 
                         <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
 
                         <StackPanel Spacing="4">
                             <TextBlock x:Name="PoleDisplayProtocolLabel" x:FieldModifier="public" Text="Тип табло" Classes="FieldLabel"/>
                             <ComboBox x:Name="PoleDisplayProtocolCombo" x:FieldModifier="public"
-                                      Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                                      Classes="TouchComboBox" HorizontalAlignment="Stretch"
                                       IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"/>
                         </StackPanel>
 
@@ -290,13 +337,13 @@
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="{DynamicResource posSettings.scale.poleDisplayPort}" Classes="FieldLabel"/>
                                 <ComboBox x:Name="PoleDisplayComCombo" x:FieldModifier="public"
-                                          Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                                          Classes="TouchComboBox" HorizontalAlignment="Stretch"
                                           IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Spacing="4">
                                 <TextBlock Text="{DynamicResource posSettings.scale.baudRate}" Classes="FieldLabel"/>
                                 <TextBox x:Name="PoleDisplayBaudBox" x:FieldModifier="public"
-                                         Text="2400" Classes="ModernTextBox" Height="36"
+                                         Text="2400" Classes="ModernTextBox"
                                          IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"/>
                             </StackPanel>
                         </Grid>
@@ -328,7 +375,7 @@
 
                             <Border x:Name="PoleDisplayAlert" x:FieldModifier="public" Classes="AlertBlock" IsVisible="False" Margin="0" Padding="10" CornerRadius="6">
                                 <TextBlock x:Name="PoleDisplayAlertText" x:FieldModifier="public"
-                                           TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                                           TextWrapping="Wrap" FontSize="13.5" Foreground="{DynamicResource BrushText}"/>
                             </Border>
                         </StackPanel>
                     </StackPanel>

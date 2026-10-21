@@ -92,7 +92,12 @@ internal sealed class AndroidApkUpdateService : IAppUpdateService
         try
         {
             var releases = await LoadReleasesAsync(cancellationToken).ConfigureAwait(false);
-            var latest = releases.FirstOrDefault(r => !r.Prerelease);
+            // 2026-10-21, тестовый выпуск 1.17.59 «только для тестеров»: как на Windows (VelopackUpdateService,
+            // GithubSource prerelease: tester) — тестовые (pre-release) версии берёт только касса с кодом тестировщика
+            // (UpdateChannel.IsTester), обычная касса по-прежнему видит лишь выпущенные. Раньше Android не брал
+            // pre-release никогда — тестировщик на планшете не мог получить тестовую версию кнопкой «Обновить».
+            var tester = UpdateChannel.IsTester;
+            var latest = releases.FirstOrDefault(r => tester || !r.Prerelease);
             var newer = latest is not null && latest.Version > current;
             _pending = newer ? latest : null;
             var testing = releases.FirstOrDefault(r => r.Prerelease && r.Version > current && (latest is null || r.Version > latest.Version));
