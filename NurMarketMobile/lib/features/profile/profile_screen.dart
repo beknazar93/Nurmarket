@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
+import '../../core/sync/outbox_meta.dart';
+import '../../core/theme/brand_mark.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../admin/advisor.dart';
@@ -213,6 +215,11 @@ class ProfileScreen extends ConsumerWidget {
             },
             child: Text(l.logout),
           ),
+          // 2026-10-22, брендбук NUR CRM: логотип внизу профиля («о приложении»).
+          Padding(
+            padding: const EdgeInsets.only(top: 28, bottom: 8),
+            child: Center(child: BrandLogo(width: 130, variant: pal.dark ? BrandVariant.dark : BrandVariant.light)),
+          ),
         ],
       ),
     );
@@ -229,11 +236,13 @@ class SyncScreen extends ConsumerStatefulWidget {
 class _SyncScreenState extends ConsumerState<SyncScreen> {
   bool _busy = false;
   String? _catalogAt;
+  String? _legacyOwner;
 
   @override
   void initState() {
     super.initState();
     ref.read(databaseProvider).getSetting('catalog.syncedAt').then((v) => mounted ? setState(() => _catalogAt = v) : null);
+    ref.read(databaseProvider).getSetting(OutboxMeta.legacyOwnerSetting).then((v) => mounted ? setState(() => _legacyOwner = v) : null);
   }
 
   Future<void> _now() async {
@@ -272,7 +281,8 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
       body: StreamBuilder<List<OutboxData>>(
         stream: ref.read(databaseProvider).watchOutbox(),
         builder: (c, snap) {
-          final rows = (snap.data ?? []).take(100).toList();
+          final rows = (snap.data ?? []).where((r) => r.status != OutboxMeta.dropped).take(100).toList();
+          final me = OutboxMeta.ownerOf(ref.read(sessionProvider));
           if (rows.isEmpty) {
             return Center(
               child: Text(l.nothingToSend, style: TextStyle(color: pal.textSoft)),
@@ -284,8 +294,11 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (c, i) {
               final r = rows[i];
+              // 2026-10-22 (мобилка, деньги, К-6): запись другого аккаунта — ждёт входа своим логином, не отправляется.
+              final foreignOwner = r.status == 'sent' || OutboxMeta.belongsTo(r, me, legacyOwner: _legacyOwner) ? null : (OutboxMeta.ownerOfRow(r) ?? _legacyOwner ?? '');
               final (color, label) = switch (r.status) {
                 'sent' => (T.success, l.sent),
+                _ when foreignOwner != null => (T.warn, l.otherAccount),
                 'failed' => (T.danger, l.notAccepted),
                 _ => (T.warn, l.waitsForNetwork),
               };
@@ -306,6 +319,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 12.5, color: pal.textSoft),
                           ),
+                          if (foreignOwner != null) Text(l.otherAccountHint(foreignOwner), style: TextStyle(fontSize: 12, color: color)),
                           if (r.status != 'sent' && r.lastError != null) Text(r.lastError!, style: TextStyle(fontSize: 12, color: color)),
                         ],
                       ),
@@ -318,13 +332,32 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
                           label,
                           style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: color),
                         ),
-                        if (r.status == 'failed')
+                        if (r.status == 'failed' && foreignOwner == null)
                           TextButton(
                             onPressed: () async {
                               await ref.read(databaseProvider).retryFailed(r.id);
                               await _now();
                             },
                             child: Text(l.sendAgain),
+                          ),
+                        // 2026-10-22 (мобилка, деньги): не принятое сервером можно снять — не уйдёт и не держит смену.
+                        if (r.status == 'failed' && foreignOwner == null)
+                          TextButton(
+                            style: TextButton.styleFrom(foregroundColor: T.danger),
+                            onPressed: () async {
+                              final ok = await showDialog<bool>(
+                                context: context,
+                                builder: (c) => AlertDialog(
+                                  content: Text(r.kind == 'sale' ? l.dropRowAsk : l.dropRowAskStock),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+                                    FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.dropRow)),
+                                  ],
+                                ),
+                              );
+                              if (ok == true) await OutboxMeta.drop(ref.read(databaseProvider), r);
+                            },
+                            child: Text(l.dropRow),
                           ),
                       ],
                     ),

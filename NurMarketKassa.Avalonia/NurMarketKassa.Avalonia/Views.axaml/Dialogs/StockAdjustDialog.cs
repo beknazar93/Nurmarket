@@ -24,6 +24,7 @@ public sealed class StockAdjustDialog : Window
     private readonly TextBlock _preview = new() { FontSize = 14, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private readonly Button _apply;
+    private readonly ModalShell _shell;
     private string _mode = "in";
     private string _reason = "";
 
@@ -35,14 +36,17 @@ public sealed class StockAdjustDialog : Window
         Title = T("Изменить остаток", "Калдыкты өзгөртүү", "Change stock", "Stoğu değiştir", "Qoldiqni o'zgartirish");
         // 2026-10-20, аудит программы владельца: было окно с системной рамкой Windows (бирюзовая полоса, «свернуть/развернуть»),
         // остальные диалоги — без рамки, в общей оболочке ModalShell (заголовок и ✕ сверху, кнопки снизу). Теперь так же.
-        Width = 552;
+        // 2026-10-22 (модалки, пакет 3): ширина по сетке — S = 512 (было 552).
+        Width = 512;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         SystemDecorations = SystemDecorations.None;
         Bind(BackgroundProperty, this.GetResourceObservable("DialogWindowBackground"));
         Bind(TransparencyLevelHintProperty, this.GetResourceObservable("DialogTransparencyHint"));
-        KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(false); };
+        // 2026-10-22 (модалки, пакет 0): во время проведения Esc окно не закрывает — иначе запрос доходил до сервера,
+        // а окно уже закрыто и кассир проводил изменение ещё раз.
+        KeyDown += (_, e) => { if (e.Key == Key.Escape && !_shell.IsBusy) Close(false); };
 
         var root = new StackPanel { Spacing = 10 };
         var name = new TextBlock { Text = product.Title, FontSize = 15, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
@@ -65,7 +69,8 @@ public sealed class StockAdjustDialog : Window
         _qty.KeyDown += async (_, e) => { if (e.Key == Key.Enter) await ApplyAsync().ConfigureAwait(true); };
         root.Children.Add(_qty);
         root.Children.Add(_reasons);
-        _note = UiKit.Input(this, T("Комментарий (необязательно)", "Комментарий (милдеттүү эмес)", "Comment (optional)", "Yorum (isteğe bağlı)", "Izoh (ixtiyoriy)"), 40);
+        // 2026-10-22 (модалки, пакет 3): поле комментария 44 px (было 40).
+        _note = UiKit.Input(this, T("Комментарий (необязательно)", "Комментарий (милдеттүү эмес)", "Comment (optional)", "Yorum (isteğe bağlı)", "Izoh (ixtiyoriy)"), 44);
         root.Children.Add(_note);
         Use(_preview, TextBlock.ForegroundProperty, "BrushText");
         root.Children.Add(_preview);
@@ -80,7 +85,8 @@ public sealed class StockAdjustDialog : Window
         _apply.Click += async (_, _) => await ApplyAsync().ConfigureAwait(true);
         buttons.Children.Add(cancel);
         buttons.Children.Add(_apply);
-        Content = new ModalShell { Margin = new Thickness(16), Title = Title, Footer = buttons, Content = root };
+        _shell = new ModalShell { Margin = new Thickness(16), Title = Title, Footer = buttons, Content = root };
+        Content = _shell;
 
         BuildModes();
         Opened += (_, _) => { _qty.Focus(); _qty.SelectAll(); };
@@ -101,6 +107,7 @@ public sealed class StockAdjustDialog : Window
                  })
         {
             var chip = UiKit.Chip(this, text, _mode == key);
+            chip.MinHeight = 44; // 2026-10-22 (модалки, пакет 3): чип 44 px (UiKit.Chip — 40)
             var k = key;
             chip.Click += (_, _) =>
             {
@@ -126,7 +133,8 @@ public sealed class StockAdjustDialog : Window
             foreach (var r in reasons)
             {
                 var chip = UiKit.Chip(this, r, r == _reason);
-                chip.Margin = new Thickness(0, 0, 6, 6);
+                chip.Margin = new Thickness(0, 0, 8, 8);
+                chip.MinHeight = 44; // 2026-10-22 (модалки, пакет 3): чип 44 px, между соседними — 8
                 var reason = r;
                 chip.Click += (_, _) =>
                 {
@@ -163,6 +171,11 @@ public sealed class StockAdjustDialog : Window
 
     private async Task ApplyAsync()
     {
+        // 2026-10-22 (модалки, пакет 0), СРОЧНО: повторный Enter в поле количества (или Enter + клик) во время запроса
+        // проводил изменение остатка ДВАЖДЫ — кнопка «Провести» выключалась, но Enter в поле её не спрашивал. Теперь окно
+        // занято (ModalShell.IsBusy): второй вызов сразу выходит, кнопки, ✕ и Esc выключены до ответа сервера.
+        if (_shell.IsBusy)
+            return;
         if (ParsedQty() is not { } q || (q <= 0 && _mode != "set"))
         {
             _error.Text = T("Укажите количество больше нуля.", "Нөлдөн көп санды көрсөтүңүз.", "Enter a quantity above zero.", "Sıfırdan büyük bir miktar girin.", "Noldan katta miqdorni kiriting.");
@@ -176,6 +189,8 @@ public sealed class StockAdjustDialog : Window
             "out" => T("Списание", "Эсептен чыгаруу", "Write-off", "Düşüm", "Hisobdan chiqarish") + ": " + _reason + (note.Length > 0 ? " — " + note : ""),
             _ => T("Ревизия", "Ревизия", "Stock count", "Sayım", "Reviziya") + (note.Length > 0 ? ": " + note : ""),
         };
+        if (!_shell.TryBeginBusy())
+            return;
         _apply.IsEnabled = false;
         try
         {
@@ -195,6 +210,7 @@ public sealed class StockAdjustDialog : Window
         finally
         {
             _apply.IsEnabled = true;
+            _shell.EndBusy();
         }
     }
 

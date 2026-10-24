@@ -28,7 +28,13 @@ public sealed class PosSessionService : IPosSessionService
         if (!silent)
         {
             var shouldTryOpen = await _userPrompts.ConfirmAsync(
-                "Смена не открыта на этой кассе.\n\nОткрыть смену сейчас?").ConfigureAwait(false);
+                // 2026-10-22 (аудит новой сборки, П1): сервер закрыл смену сам — говорим об этом прямо.
+                (ServerShiftClosedState.Current is { } closedByServer
+                    ? ServerShiftClosedState.BlockText(closedByServer)
+                    : "Смена не открыта на этой кассе.") + "\n\nОткрыть смену сейчас?",
+                // 2026-10-22 (модалки, пакет 1): глагол вместо «Продолжить». В Core нет Tr (переводов) — по-русски,
+                // как и сам вопрос.
+                "Открыть смену").ConfigureAwait(false);
 
             if (shouldTryOpen)
             {

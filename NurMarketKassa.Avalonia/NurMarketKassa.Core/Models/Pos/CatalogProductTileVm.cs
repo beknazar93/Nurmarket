@@ -134,6 +134,10 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     public string Title { get; }
     public string PriceLine { get; }
 
+    /// <summary>2026-10-22 (модалки, пакет 1, живой аудит): экранный диктор читал у плитки каталога имя класса
+    /// «CatalogProductTileVm» (элемент списка без своего имени) — теперь название товара.</summary>
+    public override string ToString() => Title;
+
     /// <summary>2026-10-06, редизайн программы владельца: цена в таблице склада — с разрядами, как закупка рядом
     /// («1 800,00 сом», было «1800.00 сом»). Только для показа; везде, где цену считают, — прежний <see cref="PriceLine"/>.</summary>
     public string PriceLineDisplay

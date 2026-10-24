@@ -89,16 +89,14 @@ public partial class WarehouseWindow
             e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number ? v.ToString() : "";
 
         var ru = CultureInfo.GetCultureInfo("ru-RU");
+        // 2026-10-22 (модалки, пакет 3): окно без рамки ОС в общей оболочке ModalShell (M = 672): заголовок и ✕ сверху,
+        // «Закрыть» в закреплённом подвале (раньше — жёлтая в самом конце прокрутки, без Esc); Esc, Enter и ✕ закрывают.
         var dialog = new Window
         {
-            Width = 640, Height = 640, WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Title = Tr.T("Дубли штрихкодов", "Кайталанган штрихкоддор", "Duplicate barcodes", "Yinelenen barkodlar", "Takroriy shtrix-kodlar"),
         };
-        dialog.Bind(BackgroundProperty, this.GetResourceObservable("BrushWindowBackdrop"));
-        var panel = new StackPanel { Margin = new Thickness(20), Spacing = 10 };
-        var title = new TextBlock { Text = dialog.Title, FontSize = 20, FontWeight = FontWeight.Bold };
-        title.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
-        panel.Children.Add(title);
+        SectionCards.AsModal(dialog, 672);
+        var panel = new StackPanel { Spacing = 10 };
         var hint = new TextBlock
         {
             Text = Tr.T("Эти штрихкоды стоят у нескольких товаров — так было до запрета сервера. Касса при сканировании может взять не тот товар. Оставьте у штрихкода один товар: лишний удалите или поменяйте ему штрихкод (поиск по складу — по названию).",
@@ -106,7 +104,7 @@ public partial class WarehouseWindow
                 "These barcodes are on several products — created before the server banned it. When scanning, the till may pick the wrong product. Keep one product per barcode: delete the extra one or change its barcode.",
                 "Bu barkodlar birden fazla üründe — sunucu yasaklamadan önce oluşturuldu. Kasa tararken yanlış ürünü alabilir. Her barkodda bir ürün bırakın: fazlasını silin veya barkodunu değiştirin.",
                 "Bu shtrix-kodlar bir nechta mahsulotda — server taqiqlagunga qadar shunday bo'lgan. Kassa skanerlaganda boshqa mahsulotni olishi mumkin. Shtrix-kodda bitta mahsulot qoldiring: ortiqchasini o'chiring yoki shtrix-kodini almashtiring."),
-            FontSize = 12.5, TextWrapping = TextWrapping.Wrap,
+            FontSize = 13, TextWrapping = TextWrapping.Wrap,
         };
         hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
         panel.Children.Add(hint);
@@ -140,11 +138,14 @@ public partial class WarehouseWindow
             panel.Children.Add(card);
         }
 
-        var ok = UiKit.Primary(this, Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
-        ok.HorizontalAlignment = HorizontalAlignment.Right;
-        ok.Click += (_, _) => dialog.Close();
-        panel.Children.Add(ok);
-        dialog.Content = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        // Окно только для чтения: одна кнопка «Закрыть» обводкой (Esc и Enter), жёлтой главной здесь нет.
+        var close = SectionCards.Cancel(Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
+        close.IsDefault = true;
+        close.Click += (_, _) => dialog.Close();
+        dialog.Content = SectionCards.Shell(dialog.Title ?? "",
+            Tr.T($"Штрихкодов с дублями: {groups.Count}", $"Кайталанган штрихкоддор: {groups.Count}", $"Barcodes with duplicates: {groups.Count}",
+                $"Yinelenen barkod sayısı: {groups.Count}", $"Takroriy shtrix-kodlar: {groups.Count}"),
+            panel, SectionCards.Buttons(close));
         await dialog.ShowDialog(this).ConfigureAwait(true);
     }
 }

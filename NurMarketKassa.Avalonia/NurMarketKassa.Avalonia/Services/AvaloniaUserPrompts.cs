@@ -13,7 +13,11 @@ public sealed class AvaloniaUserPrompts : IUserPrompts
     // 2026-10-04, Android-касса: подтверждения ждём асинхронно (без вложенного цикла, которого у
     // Avalonia на Android нет), сообщения показываем без ожидания. Окна и тексты — как в Windows
     // (PosMessageBox: «Подтвердить оплату?» — отдельное окно оплаты, остальное — «Да / Нет»).
-    public Task<bool> ConfirmAsync(string message) =>
+    public Task<bool> ConfirmAsync(string message) => ConfirmAsync(message, null);
+
+    // 2026-10-22 (модалки, пакет 0): кнопки — глаголы: по умолчанию «Продолжить» / «Отмена» (было «Да» / «Нет»),
+    // свои — confirmText/cancelText, danger — красная главная.
+    public Task<bool> ConfirmAsync(string message, string? confirmText, string? cancelText = null, bool danger = false) =>
         RunOnUiTaskAsync(async () =>
             string.Equals(message, "Подтвердить оплату?", StringComparison.Ordinal)
                 ? await PaymentConfirmationDialog.ShowModalAsync(null).ConfigureAwait(true)
@@ -21,8 +25,9 @@ public sealed class AvaloniaUserPrompts : IUserPrompts
                     null,
                     Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"),
                     message,
-                    confirmText: Tr.T("Да", "Ооба", "Yes", "Evet", "Ha"),
-                    cancelText: Tr.T("Нет", "Жок", "No", "Hayır", "Yo'q")).ConfigureAwait(true));
+                    confirmText: confirmText,
+                    cancelText: cancelText,
+                    accent: danger ? PosConfirmAccent.Danger : PosConfirmAccent.Primary).ConfigureAwait(true));
 
     public void ShowToast(string message, bool isWarning = false) =>
         RunOnUi(() => _ = PosAlertDialog.ShowAsync(null,
@@ -51,10 +56,16 @@ public sealed class AvaloniaUserPrompts : IUserPrompts
         return await Dispatcher.UIThread.InvokeAsync(func);
     }
 #else
-    public async Task<bool> ConfirmAsync(string message)
+    public Task<bool> ConfirmAsync(string message) => ConfirmAsync(message, null);
+
+    // 2026-10-22 (модалки, пакет 0): кнопки — глаголы: по умолчанию «Продолжить» / «Отмена» (было «Да» / «Нет»),
+    // свои — confirmText/cancelText, danger — красная главная. Через PosMessageBox, как и раньше («Подтвердить оплату?»
+    // по-прежнему открывает окно оплаты).
+    public async Task<bool> ConfirmAsync(string message, string? confirmText, string? cancelText = null, bool danger = false)
     {
         return await RunOnUiAsync(() =>
-            PosMessageBox.Show(message, Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), MessageBoxButton.YesNo, MessageBoxImage.Question)
+            PosMessageBox.Show(null, message, Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), MessageBoxButton.YesNo, MessageBoxImage.Question,
+                MessageBoxResult.OK, confirmText, cancelText, danger)
             == MessageBoxResult.Yes).ConfigureAwait(true);
     }
 

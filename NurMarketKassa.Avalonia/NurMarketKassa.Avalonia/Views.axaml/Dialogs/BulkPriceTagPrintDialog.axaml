@@ -20,7 +20,8 @@
     <Window.Styles>
         <Style Selector="ComboBox, NumericUpDown">
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="MinHeight" Value="38"/>
+            <!-- 2026-10-22 (модалки, пакет 3): поля 44 px (было 38–40) — касание пальцем. -->
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
@@ -47,7 +48,8 @@
         </Style>
     </Window.Styles>
 
-    <dialogs:ModalShell Margin="16"
+    <!-- 2026-10-22 (модалки, пакет 3): фокус в поиск при открытии (InitialFocus); на время печати окно занято (IsBusy). -->
+    <dialogs:ModalShell x:Name="Shell" Margin="16" InitialFocus="SearchBox"
                         Title="{DynamicResource priceTagBulk.header}"
                         Subtitle="{DynamicResource priceTagBulk.subtitle}"
                         ContentScroll="Disabled">
@@ -73,7 +75,7 @@
         <Grid ColumnDefinitions="*,20,280">
             <Grid Grid.Column="0" RowDefinitions="Auto,*">
                 <TextBox Grid.Row="0" x:Name="SearchBox" Watermark="{DynamicResource warehouse.productSearchWatermark}"
-                         TextChanged="SearchBox_TextChanged" Margin="0,0,0,10" MinHeight="40" CornerRadius="10"/>
+                         TextChanged="SearchBox_TextChanged" Margin="0,0,0,10" MinHeight="44" CornerRadius="10"/>
 
                 <!-- MinHeight (не "*") — на маленьком/квадратном экране список товаров ужимается сам
                      через собственный скролл DataGrid, а не выталкивает нижние кнопки печати за

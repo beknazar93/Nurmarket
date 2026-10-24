@@ -47,16 +47,7 @@ public partial class HotkeySettingsWindow : Window, INotifyPropertyChanged
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
-    private void TitleBar_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (e.Source is Button || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-            return;
-
-        BeginMoveDrag(e);
-    }
-
-    private void Minimize_Click(object? sender, RoutedEventArgs e) =>
-        WindowState = WindowState.Minimized;
+    // 2026-10-24 (аудит круга 8, С-7, П-10): свои TitleBar_PointerPressed/Minimize_Click убраны — шапку и ✕ даёт ModalShell.
 
     private void OnGestureKeyDown(object? sender, KeyEventArgs e)
     {

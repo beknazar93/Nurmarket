@@ -32,12 +32,17 @@
       </StackPanel>
     </dlg:ModalShell.Footer>
 
-    <StackPanel Spacing="10">
+    <!-- 2026-10-22 (модалки, пакет 2): подписи над полями — после ввода видно, что за поле (был только watermark). -->
+    <StackPanel Spacing="8">
+      <TextBlock Text="{DynamicResource switchCashier.emailWatermark}" FontSize="13" FontWeight="SemiBold"
+                 Foreground="{DynamicResource BrushTextSoft}"/>
       <TextBox x:Name="EmailBox"
                Watermark="{DynamicResource switchCashier.emailWatermark}"
                Height="46" FontSize="15"
                VerticalContentAlignment="Center"
                KeyDown="InputBox_KeyDown"/>
+      <TextBlock Text="{DynamicResource switchCashier.passwordWatermark}" FontSize="13" FontWeight="SemiBold"
+                 Foreground="{DynamicResource BrushTextSoft}" Margin="0,8,0,0"/>
       <TextBox x:Name="PasswordBox"
                PasswordChar="•"
                Watermark="{DynamicResource switchCashier.passwordWatermark}"
@@ -46,8 +51,8 @@
                KeyDown="InputBox_KeyDown"/>
 
       <TextBlock x:Name="ErrorText"
-                 FontSize="12.5"
-                 Foreground="{DynamicResource BrushDanger}"
+                 FontSize="13"
+                 Foreground="{DynamicResource BrushDangerOnSoft}"
                  TextWrapping="Wrap"
                  IsVisible="False"/>
     </StackPanel>

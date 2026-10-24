@@ -24,7 +24,8 @@ String printerProblemText(AppLocalizations l, PrinterException e) => switch (e.p
 };
 
 /// Печать чека с любого экрана (после оплаты, «Чек», «Чеки»). [silentIfNone] — автопечать: принтера нет — молчим.
-Future<void> printReceiptUi(BuildContext context, Receipt r, {bool silentIfNone = false}) async {
+/// 2026-10-22 (мобилка, админ): П6 — [afterSale]: экран «Оплачено» — с импульсом денежного ящика (если включён).
+Future<void> printReceiptUi(BuildContext context, Receipt r, {bool silentIfNone = false, bool afterSale = false}) async {
   final l = context.l;
   final service = ProviderScope.containerOf(context, listen: false).read(printerProvider);
   final c = await service.load();
@@ -33,7 +34,7 @@ Future<void> printReceiptUi(BuildContext context, Receipt r, {bool silentIfNone 
     return;
   }
   try {
-    await service.printReceipt(r, config: c);
+    await service.printReceipt(r, config: c, afterSale: afterSale);
     if (context.mounted) toast(context, l.prnSent);
   } on PrinterException catch (e) {
     if (context.mounted) toast(context, printerProblemText(l, e), error: true);
@@ -171,6 +172,22 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
         setState(() => _note = l.prnTestHint);
         toast(context, l.prnTestSent);
       }
+    } on PrinterException catch (e) {
+      if (mounted) setState(() => _note = printerProblemText(l, e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _testDrawer() async {
+    final l = context.l;
+    await _save();
+    if (!mounted) return;
+    setState(() => _busy = true);
+    try {
+      if (_c.kind == PrinterKind.bluetooth && !await _btReady()) return;
+      await _service.openDrawerTest(_c);
+      if (mounted) toast(context, l.prnDrawerSent);
     } on PrinterException catch (e) {
       if (mounted) setState(() => _note = printerProblemText(l, e));
     } finally {
@@ -337,6 +354,49 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
               _save();
             },
           ),
+          // 2026-10-22 (мобилка, админ): П6 — QR на бумаге и денежный ящик через принтер (как на ПК).
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(l.prnQr, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(l.prnQrHint, style: TextStyle(color: pal.textSoft, fontSize: 12)),
+            value: _c.qr,
+            onChanged: (v) {
+              setState(() => _c = _c.copyWith(qr: v));
+              _save();
+            },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(l.prnDrawer, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(l.prnDrawerHint, style: TextStyle(color: pal.textSoft, fontSize: 12)),
+            value: _c.drawer,
+            onChanged: (v) {
+              setState(() => _c = _c.copyWith(drawer: v));
+              _save();
+            },
+          ),
+          if (_c.drawer)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                for (final pin in [0, 1])
+                  ChoiceChip(
+                    label: Text(l.prnDrawerPin(pin == 1 ? 5 : 2)),
+                    selected: _c.drawerPin == pin,
+                    onSelected: (_) {
+                      setState(() => _c = _c.copyWith(drawerPin: pin));
+                      _save();
+                    },
+                  ),
+                OutlinedButton.icon(
+                  onPressed: _busy || !_c.ready ? null : _testDrawer,
+                  icon: const Icon(Icons.point_of_sale_rounded),
+                  label: Text(l.prnDrawerTest),
+                ),
+              ],
+            ),
         ],
       ),
       bottomNavigationBar: SafeArea(

@@ -141,6 +141,30 @@ class EscPos {
 
   void text(String s, {bool bold = false, bool big = false, bool center = false}) => line(PrintLine(s, bold: bold, big: big, center: center));
 
+  /// 2026-10-22 (мобилка, админ): П6 — импульс денежного ящика (ящик подключён к принтеру, разъём DK), как на ПК
+  /// (EscPosCommands.WriteOpenCashDrawer + WriteRealtimeDrawerPulse): ESC p m 25 250 и следом DLE DC4 1 m 2 — второй
+  /// выполняется сразу, даже пока принтер допечатывает чек. [pin]: 0 — контакт 2, 1 — контакт 5.
+  void openDrawer({int pin = 0}) {
+    final m = pin == 1 ? 1 : 0;
+    _b.add([0x1B, 0x70, m, 25, 250]);
+    _b.add([0x10, 0x14, 0x01, m, 2]);
+  }
+
+  /// 2026-10-22 (мобилка, админ): П6 — QR-код командой принтера GS ( k (модель 2, коррекция M), по центру.
+  /// Принтеры без QR эти байты пропускают. Длинная строка (> 700 байт) не печатается — QR вышел бы нечитаемым.
+  void qr(String data, {int size = 6}) {
+    final d = data.codeUnits.where((c) => c < 0x80).toList();
+    if (d.isEmpty || d.length > 700) return;
+    final n = d.length + 3;
+    _b.add([0x1B, 0x61, 1]);
+    _b.add([0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]); // модель 2
+    _b.add([0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, size.clamp(1, 16)]); // размер точки
+    _b.add([0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x31]); // коррекция M
+    _b.add([0x1D, 0x28, 0x6B, n & 0xFF, n >> 8, 0x31, 0x50, 0x30, ...d]); // данные
+    _b.add([0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30]); // печать
+    _b.add([0x0A, 0x1B, 0x61, 0]);
+  }
+
   /// Протяжка и отрезка (у принтера без ножа GS V просто игнорируется).
   void feedAndCut({int lines = 4}) {
     _b.add([0x1B, 0x61, 0, 0x1D, 0x21, 0, 0x1B, 0x45, 0]);
@@ -178,7 +202,10 @@ List<PrintLine> receiptLines(Receipt r, int width) {
   out.add(dash);
   if (r.discount > 0) out.addAll(twoColumns('Скидка', '-${money(r.discount)}', width).map(PrintLine.new));
   out.addAll(twoColumns('ИТОГО', '${money(r.total)} сом', width).map((s) => PrintLine(s, bold: true)));
-  out.addAll(twoColumns(r.paymentText, money(r.received ?? r.total), width).map(PrintLine.new));
+  // 2026-10-22 (мобилка, деньги): долг — внесено / долг / «Вернуть до».
+  for (final (k, v) in r.paymentLines) {
+    out.addAll(twoColumns(k, v, width).map(PrintLine.new));
+  }
   if (r.change > 0) out.addAll(twoColumns('Сдача', money(r.change), width).map(PrintLine.new));
   final f = r.fiscal;
   if (f != null) {
@@ -198,15 +225,45 @@ List<PrintLine> receiptLines(Receipt r, int width) {
 
 double _gross(ReceiptLine l) => (l.qty * l.price * 100).roundToDouble() / 100;
 
-/// Готовые байты чека для принтера.
-Uint8List receiptToEscPos(Receipt r, {int paperMm = 58, PrinterCodepage codepage = PrinterCodepage.cp866, int? codeTable}) {
+/// 2026-10-22 (мобилка, админ): П6 — что зашить в QR на бумаге: проверка фискального чека или электронный чек.
+String? receiptQrData(Receipt r) {
+  final u = (r.fiscal?.checkUrl ?? r.eReceiptUrl ?? '').trim();
+  return u.isEmpty ? null : u;
+}
+
+/// Ящик открывается только при наличных (или смешанной) оплате продажи — как TryOpenCashDrawerAfterSale на ПК.
+bool receiptNeedsDrawer(Receipt r) => !r.isReturn && (r.payment == 'cash' || r.payment == 'mixed');
+
+/// Готовые байты чека для принтера. [qr] — QR проверки/электронного чека под чеком; [openDrawer] — импульс ящика
+/// после отрезки (в том же задании, без сброса принтера — чек не обрывается).
+Uint8List receiptToEscPos(
+  Receipt r, {
+  int paperMm = 58,
+  PrinterCodepage codepage = PrinterCodepage.cp866,
+  int? codeTable,
+  bool qr = true,
+  bool openDrawer = false,
+  int drawerPin = 0,
+}) {
   final p = EscPos(codepage, codeTable: codeTable);
   for (final l in receiptLines(r, lineWidth(paperMm))) {
     p.line(l);
   }
+  final data = qr ? receiptQrData(r) : null;
+  if (data != null) {
+    p.text(r.fiscal?.checkUrl != null ? 'Проверка чека' : 'Электронный чек', center: true);
+    p.qr(data, size: paperMm >= 80 ? 7 : 5);
+  }
   p.feedAndCut();
+  if (openDrawer) p.openDrawer(pin: drawerPin);
   return p.bytes();
 }
+
+/// Только импульс ящика (кнопка проверки в настройках): со сбросом ESC @, как на ПК, — принтер без дела.
+Uint8List drawerPulse({int pin = 0}) => (BytesBuilder()
+      ..add([0x1B, 0x40])
+      ..add([0x1B, 0x70, pin == 1 ? 1 : 0, 25, 250]))
+    .toBytes();
 
 /// Пробная страница: ширина ленты, кириллица и обе таблицы — по ней видно, что выбрать.
 Uint8List testPage({int paperMm = 58, PrinterCodepage codepage = PrinterCodepage.cp866, int? codeTable, String title = 'NurMarket'}) {

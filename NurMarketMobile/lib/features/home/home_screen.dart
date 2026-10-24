@@ -7,6 +7,7 @@ import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
 
 /// Главная кассира (Т1): смена и мои продажи за смену, четыре плитки, «Заканчиваются N товаров».
@@ -43,7 +44,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _countLow(AppDatabase db) async {
-    final low = await (db.select(db.products)..where((p) => p.quantity.isSmallerOrEqualValue(3) & p.isService.equals(false))).get();
+    // 2026-10-22 (мобилка, админ, П11): порог как на ПК — остаток меньше 10 (lowStockLimit), было ≤ 3.
+    final low = await (db.select(db.products)..where((p) => lowStockSql(p) & p.isService.equals(false))).get();
     if (mounted) setState(() => _low = low.length);
   }
 
@@ -161,6 +163,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
           ),
+          // 2026-10-22 (мобилка, деньги, К-1): на этой кассе смена другого кассира — продавать в неё нельзя, откройте свою.
+          if (!shift.isOpen && shift.foreignShift) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: context.pal.warnSoft, borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_off_outlined, color: T.warn, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(l.foreignShiftHint, style: const TextStyle(color: T.warn, fontSize: 12.5)),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (shift.error != null) ...[
             const SizedBox(height: 10),
             Container(

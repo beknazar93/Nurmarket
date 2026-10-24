@@ -123,11 +123,21 @@ public partial class PackageChoiceDialog : Window
             Closed += (_, _) => _voiceControl.CommandRecognized -= OnVoiceAnswer;
         }
 
+        // 2026-10-22 (модалки, пакет 1): окно открывается сканом — Enter сканера (серия быстрых клавиш) не нажимает «Далее»
+        // и не добавляет количество (раньше Enter конца кода сразу проводил выбор). Подключено раньше обработчика окна.
+
         // Tunnel, а не обычный (Bubble) KeyDown: Tab-навигация может увести фокус на
         // "Кийинки"/радиокнопку, и её собственная обработка Enter/Space иначе перехватывала
         // бы событие раньше, чем оно дойдёт до окна. Tunnel гарантированно срабатывает
         // первым, независимо от того, что именно сейчас в фокусе.
         AddHandler(KeyDownEvent, OnDialogKeyDown, RoutingStrategies.Tunnel);
+        // 2026-10-22 (модалки, пакет 1): охранник скана подключён ПОСЛЕ обработчика окна: у Tunnel-маршрута Avalonia обработчики одного окна идут в обратном порядке, и охранник должен сработать раньше OnDialogKeyDown.
+        ScannerEnterGuard.Attach(this, () => ShowQuantityError(Tr.T(
+            "Скан штрихкода не принят. Выберите вариант и нажмите «Далее» или Enter.",
+            "Штрихкод кабыл алынган жок. Вариантты тандап, «Кийинки» же Enter басыңыз.",
+            "The barcode scan was ignored. Choose an option and press Next or Enter.",
+            "Barkod okutması kabul edilmedi. Bir seçenek seçip «İleri» veya Enter'a basın.",
+            "Shtrix-kod qabul qilinmadi. Variantni tanlang va «Keyingi» yoki Enter tugmasini bosing.")));
 
         // См. _manualInteraction — ЛЮБОЙ физический ввод внутри диалога (клик мышью ИЛИ клавиша
         // — стрелки/Tab/Enter/печать в поле количества) навсегда отключает голосовые ответы для
@@ -240,8 +250,11 @@ public partial class PackageChoiceDialog : Window
         Step1Panel.IsVisible = true;
     }
 
-    private void QuantityBox_TextChanged(object? sender, Avalonia.Controls.TextChangedEventArgs e) =>
+    private void QuantityBox_TextChanged(object? sender, Avalonia.Controls.TextChangedEventArgs e)
+    {
+        QuantityErrorText.IsVisible = false; // 2026-10-22 (модалки, пакет 1)
         UpdatePriceCalc();
+    }
 
     private double MaxAllowedQuantity =>
         IsPieceMode ? _stockQuantity * _pieceOption!.QuantityInPackage : _stockQuantity;
@@ -298,8 +311,8 @@ public partial class PackageChoiceDialog : Window
         var qty = ParseQuantity();
         if (qty is not { } value)
         {
-            PosMessageBox.Show(this, Tr.T("Укажите количество.", "Санды көрсөтүңүз.", "Enter the quantity.", "Miktarı belirtin.", "Miqdorni ko'rsating."), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            // 2026-10-22 (модалки, пакет 1): под полем, а не всплывающим окном.
+            ShowQuantityError(Tr.T("Укажите количество.", "Санды көрсөтүңүз.", "Enter the quantity.", "Miktarı belirtin.", "Miqdorni ko'rsating."));
             return;
         }
 
@@ -319,13 +332,15 @@ public partial class PackageChoiceDialog : Window
             var answer = PosMessageBox.Show(
                 this,
                 Tr.T(
-                    $"На складе только {FormatQty(maxAllowed)} {unit}. Продолжить и пополнить склад?",
-                    $"Кампада болгону {FormatQty(maxAllowed)} {unit}. Улантып, кампаны толуктайсызбы?",
-                    $"Only {FormatQty(maxAllowed)} {unit} in stock. Continue and restock?",
-                    $"Depoda yalnızca {FormatQty(maxAllowed)} {unit} var. Devam edilsin ve stok eklensin mi?",
-                    $"Omborda faqat {FormatQty(maxAllowed)} {unit} bor. Davom etib, omborni to'ldirasizmi?"),
+                    $"На складе только {FormatQty(maxAllowed)} {unit}. Можно добавить в чек больше и пополнить склад.",
+                    $"Кампада болгону {FormatQty(maxAllowed)} {unit}. Чекке көбүрөөк кошуп, кампаны толуктаса болот.",
+                    $"Only {FormatQty(maxAllowed)} {unit} in stock. You can add more to the receipt and restock.",
+                    $"Depoda yalnızca {FormatQty(maxAllowed)} {unit} var. Fişe daha fazla ekleyip stoğu tamamlayabilirsiniz.",
+                    $"Omborda faqat {FormatQty(maxAllowed)} {unit} bor. Chekka ko'proq qo'shib, omborni to'ldirish mumkin."),
                 Tr.T("Недостаточно остатка", "Калдык жетишсиз", "Not enough stock", "Stok yetersiz", "Qoldiq yetarli emas"),
-                MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                // 2026-10-22 (модалки, пакет 1): глагол вместо «Продолжить?» / «Да»; ответ и дальнейшая логика прежние.
+                confirmText: Tr.T("Добавить и пополнить склад", "Кошуп, кампаны толуктоо", "Add and restock", "Ekle ve stoğu tamamla", "Qo'shish va omborni to'ldirish"));
 
             if (answer != MessageBoxResult.Yes)
                 return;
@@ -336,6 +351,19 @@ public partial class PackageChoiceDialog : Window
     }
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
+
+    /// <summary>2026-10-22 (модалки, пакет 1): ошибка — красной строкой под полем количества (на шаге 1 — под вариантами);
+    /// на шаге 2 фокус в поле, значение выделено. Снимается, когда кассир меняет количество.</summary>
+    private void ShowQuantityError(string message)
+    {
+        QuantityErrorText.Text = message;
+        QuantityErrorText.IsVisible = true;
+        if (Step2Panel.IsVisible)
+        {
+            QuantityBox.Focus();
+            QuantityBox.SelectAll();
+        }
+    }
 
     /// <summary>На шаге выбора способа продажи стрелки переключают между "Целая пачка" и
     /// "Поштучно" — сами RadioButton в обычном StackPanel такой навигации не поддерживают.

@@ -114,7 +114,10 @@ public partial class CustomServiceDialog : Window
                 Content = $"{product.Title} — {product.PriceLine}" + (product.Quantity > 0 ? "" : Tr.T(" (нет в наличии)", " (калдыкта жок)", " (out of stock)", " (stokta yok)", " (mavjud emas)")),
                 HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left,
                 Padding = new Thickness(10, 6), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1),
+                // 2026-10-22 (модалки, пакет 1): подсказка-товар — 44 px под палец (была ~34), текст переносится.
+                MinHeight = 44, VerticalContentAlignment = VerticalAlignment.Center,
             };
+            Avalonia.Automation.AutomationProperties.SetName(b, product.Title);
             b.Bind(Button.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
             b.Bind(Button.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
             b.Bind(Button.ForegroundProperty, this.GetResourceObservable("BrushText"));

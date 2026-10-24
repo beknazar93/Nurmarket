@@ -603,6 +603,61 @@
   "advisorQ3": "Что заказать?",
   "advisorQ4": "Как прошла неделя?",
   "advisorNew": "Новый разговор",
+  "advisorNoKey": "Добавьте ключ ИИ в программе владельца: Нур Советник → ⚙ → Модели ИИ и ключи",
+  "advisorStageData": "Собираю данные магазина…",
+  "advisorStageAsk": "Спрашиваю ИИ…",
+  "advisorError": "Советник не ответил: {error}",
+  "@advisorError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "callTitle": "Разговор",
+  "callConnecting": "Подключаюсь…",
+  "callPreparing": "Готовлю данные магазина…",
+  "callListening": "Слушаю…",
+  "callThinking": "Думаю…",
+  "callSpeaking": "Говорю… (нажмите, чтобы перебить)",
+  "callEnded": "Звонок завершён",
+  "callEnd": "Завершить",
+  "callMicOff": "Микрофон выкл.",
+  "callMicOn": "Микрофон вкл.",
+  "callSpeakerOn": "Громкая связь",
+  "callSpeakerOff": "Без громкой связи",
+  "callCost": "Звонок длится до {n} мин и расходует лимит ключа ИИ быстрее, чем чат.",
+  "@callCost": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "callLimitSoon": "Через минуту звонок завершится",
+  "callEndedLimit": "Звонок завершён: прошло {n} мин. Можно позвонить снова.",
+  "@callEndedLimit": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "callEndedFocus": "Звонок прерван: входящий звонок или приложение свёрнуто.",
+  "callFailed": "Звонок не удался: {error}",
+  "@callFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "callNoMic": "Нет доступа к микрофону. Разрешите микрофон для NurMarket в настройках телефона.",
+  "callOpenSettings": "Открыть настройки",
+  "callUnsupported": "Голосовой звонок работает на телефоне Android.",
+  "callTableReady": "Таблица с цифрами будет в чате после звонка",
+  "callClose": "Закрыть",
+  "callYou": "Вы",
   "checkTab": "Чек · {n}",
   "@checkTab": {
     "placeholders": {
@@ -732,7 +787,7 @@
   "grpTeam": "Сотрудники",
   "findSection": "Найти раздел",
   "liveAuto": "Авто",
-  "liveHintSale": "Наведите на товар — снимок сам через 2 секунды или нажмите",
+  "liveHintSale": "Наведите на товар и нажмите «Сканировать»",
   "liveHintShelf": "Наведите на полку с товарами",
   "liveHintInvoice": "Наведите на накладную целиком",
   "liveHintLabels": "Наведите на ценники и этикетки",
@@ -749,7 +804,7 @@
   "auditSettings": "Настройки",
   "auditLogin": "Вход и выход",
   "auditOpen": "Открыл экран",
-  "teachCamera": "Научить умную камеру: 3 фото + штрихкод",
+  "teachCamera": "Научить умную камеру: 3–5 фото + штрихкод",
   "teachRight": "1 из 3 · товар справа",
   "teachLeft": "2 из 3 · товар слева",
   "teachTop": "3 из 3 · товар сверху",
@@ -763,6 +818,75 @@
       }
     }
   },
+  "scanShoot": "Сканировать",
+  "scanBusy": "Сканирую…",
+  "scanNext": "Следующий товар — снова «Сканировать»",
+  "scanChecking": "Сверяю с обученными товарами…",
+  "scanTook": "за {sec} с",
+  "@scanTook": {
+    "placeholders": {
+      "sec": {
+        "type": "String"
+      }
+    }
+  },
+  "teachPhotoOf": "Фото {a} из {b}",
+  "@teachPhotoOf": {
+    "placeholders": {
+      "a": {
+        "type": "int"
+      },
+      "b": {
+        "type": "int"
+      }
+    }
+  },
+  "teachAngleRight": "товар справа",
+  "teachAngleLeft": "товар слева",
+  "teachAngleTop": "товар сверху",
+  "teachAngleFront": "этикетка спереди",
+  "teachAngleBack": "товар сзади",
+  "teachCanFinish": "Можно нажать «Готово» или снять ещё ракурс",
+  "teachRetake": "Переснять",
+  "weighAim": "Положите товар на весы, наведите на табло и нажмите «Сканировать»",
+  "weighAimDisplay": "Табло весов не видно — наведите камеру на окно веса, выключите фонарик и нажмите «Сканировать»",
+  "aiErrNoNet": "Нет интернета — проверьте связь и нажмите «Сканировать» ещё раз",
+  "aiErrSlow": "ИИ не ответил вовремя (медленная связь) — попробуйте ещё раз",
+  "aiErrLimit": "Кончился бесплатный лимит запросов ИИ — попробуйте через минуту",
+  "aiErrBusy": "ИИ сейчас перегружен — попробуйте через минуту",
+  "aiErrOther": "ИИ не смог распознать снимок",
+  "addAgain": "«{name}» уже в чеке. Добавить ещё?",
+  "@addAgain": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "yesAdd": "Добавить",
+  "shelfAddAsk": "Снимок полки — это товар, который уже стоит на полке. Прибавить эти количества к остатку как поставку?",
+  "isItProduct": "Это «{name}»?",
+  "@isItProduct": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "notFoundOffline": "Код {code} не найден на телефоне, а сервер не отвечает. Проверьте связь — товар может быть уже заведён на ПК, не создавайте второй.",
+  "@notFoundOffline": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "scaleLabelsTitle": "Этикетки весов",
+  "scaleLabelsHint": "Штрихкод этикетки весов начинается с префикса (20–29). Укажите, какие префиксы несут СУММУ, а какие — ВЕС. Для всех телефонов компании.",
+  "scaleAmountPrefixes": "Префиксы «сумма»",
+  "scaleWeightPrefixes": "Префиксы «вес»",
+  "cameraShotFailed": "Камера не сделала снимок — нажмите «Сканировать» ещё раз",
+  "saved": "Сохранено",
   "exactMatch": "точно",
   "noAccess": "Нет доступа",
   "noAccessHint": "Этот раздел или действие закрыты для вашей учётной записи. Доступ включает владелец: NurCRM → Сотрудники → доступы.",
@@ -1554,5 +1678,513 @@
         "type": "String"
       }
     }
-  }
+  },
+  "payOutcomeUnknown": "Сервер не ответил — продажа могла пройти. Нажмите «Оплатить» ещё раз, ничего не меняя: повтор второй раз не проведётся. Без связи долг и списание бонусов не оформляются.",
+  "debtDueLabel": "Вернуть до",
+  "debtDueDays": "{n} дн.",
+  "@debtDueDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "debtDueNotSaved": "Срок долга не записан на сервере — поправьте его на сайте (по умолчанию 30 дней).",
+  "returnAmount": "Сумма возврата: {sum} сом",
+  "@returnAmount": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "returnGive": "Выдать покупателю: {what}",
+  "@returnGive": {
+    "placeholders": {
+      "what": {
+        "type": "String"
+      }
+    }
+  },
+  "returnInCash": "наличными {sum} сом",
+  "@returnInCash": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "returnToCard": "на карту/перевод {sum} сом",
+  "@returnToCard": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "returnDebtReduced": "Долг клиента уменьшен на {sum} сом — эти деньги не выдаются.",
+  "@returnDebtReduced": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "returnDebtUnknown": "Внимание: остаток долга клиента с сервера не получен. По расчёту долг уменьшен на {sum} сом, но если клиент уже погасил долг по этому чеку — ему нужно вернуть до {sum} сом. Проверьте долг клиента перед выдачей.",
+  "@returnDebtUnknown": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "returnViaBank": "Часть на карту/перевод — вернуть через банк, не из кассы.",
+  "returnPaidInfo": "Оплачено по чеку: {paid} сом · уже возвращено: {done} сом",
+  "@returnPaidInfo": {
+    "placeholders": {
+      "paid": {
+        "type": "String"
+      },
+      "done": {
+        "type": "String"
+      }
+    }
+  },
+  "returnedQty": "уже возвращено: {qty}",
+  "@returnedQty": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "returnNothingLeft": "По этому чеку всё уже возвращено.",
+  "cashOutTooMuch": "Изъятие больше, чем в кассе ({sum} сом).",
+  "@cashOutTooMuch": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "payDebtToDebt": "В счёт долга: {sum} сом",
+  "@payDebtToDebt": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "payDebtOverCard": "Переводом — не больше долга.",
+  "receiveNotAccepted": "Приход не принят сервером: {reason}. Запись — в «Синхронизации».",
+  "@receiveNotAccepted": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "auditApply": "Провести ревизию",
+  "auditApplyHint": "Остатки станут равны пересчитанным — как ревизия на кассе ПК. Нужна связь.",
+  "auditApplyAsk": "Проверено товаров: {n}, расхождений: {a}. Остатки станут равны пересчитанным. Провести?",
+  "@auditApplyAsk": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "a": {
+        "type": "int"
+      }
+    }
+  },
+  "auditApplied": "Ревизия проведена — остатки обновлены.",
+  "auditApplyQueued": "Акт ревизии создан — проведение уйдёт при связи.",
+  "auditOnlineOnly": "Ревизия проводится только при связи с сервером — пересчёт сохранён, повторите позже.",
+  "auditContinue": "Продолжить пересчёт ({n} товаров)",
+  "@auditContinue": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "countedCash": "Пересчитано",
+  "openingCashLabel": "На начало смены",
+  "closeShiftFailed": "Сервер не принял {n} чеков — они не попадут в отчёт смены. Отправьте их снова или снимите в «Синхронизации».",
+  "@closeShiftFailed": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "closeShiftAsk": "Закрыть смену?",
+  "closeShiftAskSub": "После закрытия продавать в эту смену нельзя.",
+  "xReport": "X-отчёт",
+  "foreignShiftHint": "На этой кассе открыта смена другого кассира — продавать в неё нельзя. Откройте свою смену.",
+  "loadMore": "Ещё",
+  "dropRow": "Снять",
+  "dropRowAsk": "Снять чек из очереди? Он не уйдёт на сервер, товар вернётся в остаток телефона. Если деньги взяты — верните их покупателю или пробейте чек заново.",
+  "dropRowAskStock": "Снять запись из очереди? Она не уйдёт на сервер — проверьте остатки товара вручную.",
+  "otherAccount": "другой аккаунт",
+  "otherAccountHint": "Записано под входом {email} — уйдёт после входа этим логином.",
+  "@otherAccountHint": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "pAStockUnclear": "{name}: прошлая попытка осталась без ответа сервера, а остаток с тех пор изменился (сейчас {now}, до прибавки было {before}). Повторно НЕ прибавлено, чтобы не задвоить. Проверьте остаток ревизией: если прибавилось — удалите строку, если нет — удалите её и добавьте товар заново.",
+  "@pAStockUnclear": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "now": {
+        "type": "String"
+      },
+      "before": {
+        "type": "String"
+      }
+    }
+  },
+  "pAWeightLabel": "Это этикетка весов (вес одной покупки) — в приёмку её не берём. Отсканируйте штрихкод товара или найдите его по названию.",
+  "pANoServerCheck": "Нет связи с сервером — не проверить, есть ли уже товар с этим штрихкодом. Повторите, когда появится связь.",
+  "pALinesLeft": "Не принято строк: {n} — они остались в списке, поправьте и проведите снова.",
+  "@pALinesLeft": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pAPluLabel": "PLU для весов",
+  "pAPluHint": "пусто — назначится сам",
+  "pAStockAdd": "Прибавить к остатку",
+  "pAStockSet": "Задать остаток",
+  "pAStockAddHint": "Количество из файла прибавится к остатку, как приход.",
+  "pAStockSetHint": "Остаток станет равен количеству из файла (замена, не приход).",
+  "pADupRow": "Повтор строки {n} — пропускается",
+  "@pADupRow": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pAUploaded": "загружено",
+  "rightCashier": "Интерфейс кассира",
+  "rightOrders": "Заказы с сайта",
+  "rightProcurement": "Закупки",
+  "rightSuppliers": "Поставщики",
+  "rightSelfLocked": "Свои права выключить нельзя — это делает владелец или другой администратор.",
+  "staffYou": "это вы",
+  "screenUnavailable": "Экран открылся заново, и его данные не сохранились. Вернитесь назад и откройте его ещё раз.",
+  "cancelOrder": "Отменить заказ",
+  "cancelOrderAsk": "Отменить заказ №{number}? Покупатель его не получит.",
+  "@cancelOrderAsk": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "pickShortAsk": "Собрано {got} из {need}. Отметить заказ собранным с недобором?",
+  "@pickShortAsk": {
+    "placeholders": {
+      "got": {
+        "type": "String"
+      },
+      "need": {
+        "type": "String"
+      }
+    }
+  },
+  "pickupCodeLabel": "Код выдачи: {code}",
+  "@pickupCodeLabel": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "torchToggle": "Фонарик",
+  "payTransferQr": "Перевод / QR",
+  "reportLoadFailed": "Отчёт не загрузился. Проверьте связь и нажмите «Повторить».",
+  "rentalLatePerDay": "Пеня за сутки просрочки",
+  "rentalLateHint": "Просрочка {n} сут. × {rate} = {sum} сом (по условиям проката)",
+  "@rentalLateHint": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "rate": {
+        "type": "String"
+      },
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "rentalBackDeposit": "Вернуть клиенту залог: {sum} сом",
+  "@rentalBackDeposit": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "rentalWithheld": "удержано {sum} сом",
+  "@rentalWithheld": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "rentalBackDocument": "Вернуть клиенту документ: {doc}",
+  "@rentalBackDocument": {
+    "placeholders": {
+      "doc": {
+        "type": "String"
+      }
+    }
+  },
+  "rentalExcess": "Штраф сверх залога: {sum} сом — добавится в чек",
+  "@rentalExcess": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "rentalPenaltyLine": "Штраф по прокату №{n}",
+  "@rentalPenaltyLine": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "rentalPenaltyInCart": "Возврат принят. Штраф {sum} сом добавлен в чек — проведите оплату.",
+  "@rentalPenaltyInCart": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "waybillDoc": "Накладная",
+  "waybillsFilter": "Накладные",
+  "docPayMarkOnly": "Это только отметка в документе: деньги в кассу смены и долг клиента в NurCRM не записываются. Чтобы провести деньги через кассу, используйте «Провести продажу».",
+  "docPayMarkOk": "Отметить оплату",
+  "docSellCartBusy": "В чеке уже есть товары. Заменить их товарами документа?",
+  "docSellReplace": "Заменить",
+  "docSentToSale": "Передан в продажу",
+  "docSellMissing": "Нет в каталоге телефона — добавьте вручную: {names}",
+  "@docSellMissing": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "docVatIncl": "В т.ч. НДС {p}%",
+  "@docVatIncl": {
+    "placeholders": {
+      "p": {
+        "type": "String"
+      }
+    }
+  },
+  "prnQr": "QR-код на чеке",
+  "prnQrHint": "Проверка фискального чека или электронный чек. Если принтер печатает вместо QR лишние знаки — выключите.",
+  "prnDrawer": "Денежный ящик через принтер",
+  "prnDrawerHint": "Открывается после продажи за наличные (ящик подключён к принтеру кабелем).",
+  "prnDrawerPin": "Контакт {n}",
+  "@prnDrawerPin": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "prnDrawerTest": "Открыть ящик",
+  "prnDrawerSent": "Команда ящику отправлена. Не открылся — выберите другой контакт.",
+  "stepPhoto": "Фото",
+  "stepBarcode": "Штрихкод",
+  "bindTitle": "Фото сохранены ✓ — теперь отсканируйте штрихкод товара",
+  "bindSub": "Если на товаре нет штрихкода — нажмите «Пропустить»",
+  "bindSkip": "Пропустить",
+  "bindManual": "Ввести вручную",
+  "bindManualHint": "Цифры под штрихкодом",
+  "bindChecking": "Проверяю штрихкод…",
+  "bindWillLink": "Штрихкод {code} будет привязан к «{name}»",
+  "@bindWillLink": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "bindWillLinkNew": "Штрихкод {code} будет привязан к новому товару",
+  "@bindWillLinkNew": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "bindAlreadyOwn": "Штрихкод {code} уже привязан к «{name}» — менять ничего не нужно",
+  "@bindAlreadyOwn": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "bindTakenTitle": "Штрихкод уже у другого товара",
+  "bindTakenAsk": "Штрихкод {code} уже привязан к «{name}».\n«Заменить» — штрихкод перейдёт к этому товару.\n«Оставить» — останется у «{name}», этот товар будет без штрихкода.",
+  "@bindTakenAsk": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "bindTakenAskNew": "Штрихкод {code} уже привязан к «{name}» — возможно, этот товар уже есть на складе.\n«Оставить» — штрихкод останется у «{name}», новый товар будет без штрихкода.",
+  "@bindTakenAskNew": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "bindReplace": "Заменить",
+  "bindKeep": "Оставить",
+  "bindRescan": "Сканировать заново",
+  "bindLinked": "Штрихкод {code} привязан к «{name}»",
+  "@bindLinked": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teachNext": "Снимите товар с 3–5 сторон, затем «Готово» — следующим шагом штрихкод",
+  "teachNextNoCode": "Снимите товар с 3–5 сторон, затем нажмите «Готово»",
+  "liveNextSale": "Найденные товары появятся ниже — нажмите товар, и он ляжет в чек",
+  "liveNextList": "После снимка камера покажет список найденного — его можно поправить",
+  "scanCodesHint": "Наведите рамку на штрихкод — код запишется сам. Затем нажмите «Готово»",
+  "weighNext": "Камера узнает товар, прочитает вес и добавит в чек",
+  "weighManualBtn": "Без камеры — выбрать товар и ввести вес",
+  "peEdit": "Редактировать товар",
+  "peName": "Название",
+  "peMinQty": "Минимальный остаток",
+  "peMinQtyHint": "Меньше — товар попадёт в «Заканчивается»",
+  "peStock": "Остаток",
+  "peStockHint": "Остаток меняется только документом — приходом, списанием или ревизией с причиной, как на ПК. Так не бывает расхождений.",
+  "peIncome": "Приход",
+  "peWriteOff": "Списание",
+  "peRecount": "Ревизия",
+  "peQtyIn": "Сколько пришло",
+  "peQtyOut": "Сколько списать",
+  "peQtyFact": "Сколько на самом деле",
+  "peReason": "Причина",
+  "peReasonNeed": "Укажите причину.",
+  "peReasonExpired": "Просрочка",
+  "peReasonDefect": "Брак",
+  "peReasonSpoiled": "Порча",
+  "peReasonTheft": "Кража",
+  "peReasonOther": "Другое",
+  "peReasonSupplier": "Поставка",
+  "peReasonCount": "Пересчёт",
+  "peApply": "Провести",
+  "peStockDone": "Остаток: {from} → {to}",
+  "@peStockDone": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "peStockSame": "Остаток уже {qty} — ничего не изменено.",
+  "@peStockSame": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "peStockQueued": "Документ создан — проведётся сам при связи.",
+  "peStockOffline": "Нет связи с сервером — остаток не получен, ничего не изменено.",
+  "peStockBelowZero": "Списать больше остатка нельзя (есть {qty}).",
+  "@peStockBelowZero": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "peSaved": "Товар сохранён.",
+  "peNoChanges": "Изменений нет.",
+  "pePriceRestored": "Сервер пересчитал цену продажи по наценке — введённая цена {price} возвращена.",
+  "@pePriceRestored": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "pePriceLocked": "Цены меняет сотрудник с правом «Изменение цены».",
+  "peLoadFailed": "Карточка товара не загружена с сервера — править можно при связи.",
+  "peNameNeed": "Введите название.",
+  "peBarcodeTaken": "Штрихкод {code} уже у товара «{name}».",
+  "@peBarcodeTaken": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "peBarcodeTwice": "Штрихкод {code} указан дважды.",
+  "@peBarcodeTwice": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "peScan": "Сканировать",
+  "pePackQty": "в упаковке {qty}",
+  "@pePackQty": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "peNoAccess": "Править товар может сотрудник с правом «Склад» или администратор."
 }

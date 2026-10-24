@@ -55,8 +55,12 @@ public partial class PasswordPromptDialog : Window
 
     private void PasswordBox_KeyDown(object? sender, KeyEventArgs e)
     {
+        // 2026-10-22 (модалки, пакет 2): Enter обработан здесь — кнопка по умолчанию не проверяет пароль второй раз.
         if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
             TryConfirm();
+        }
     }
 
     private void TryConfirm()

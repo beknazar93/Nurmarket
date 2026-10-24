@@ -979,6 +979,99 @@ class AppLocalizationsEn extends AppLocalizations {
   String get advisorNew => 'New conversation';
 
   @override
+  String get advisorNoKey =>
+      'Add an AI key in the owner\'s program: Nur Advisor → ⚙ → AI models and keys';
+
+  @override
+  String get advisorStageData => 'Gathering shop data…';
+
+  @override
+  String get advisorStageAsk => 'Asking the AI…';
+
+  @override
+  String advisorError(String error) {
+    return 'The advisor did not answer: $error';
+  }
+
+  @override
+  String get callTitle => 'Voice call';
+
+  @override
+  String get callConnecting => 'Connecting…';
+
+  @override
+  String get callPreparing => 'Preparing shop data…';
+
+  @override
+  String get callListening => 'Listening…';
+
+  @override
+  String get callThinking => 'Thinking…';
+
+  @override
+  String get callSpeaking => 'Speaking… (tap to interrupt)';
+
+  @override
+  String get callEnded => 'Call ended';
+
+  @override
+  String get callEnd => 'End';
+
+  @override
+  String get callMicOff => 'Mic off';
+
+  @override
+  String get callMicOn => 'Mic on';
+
+  @override
+  String get callSpeakerOn => 'Speaker';
+
+  @override
+  String get callSpeakerOff => 'Earpiece';
+
+  @override
+  String callCost(int n) {
+    return 'The call lasts up to $n min and uses the AI key\'s quota faster than chat.';
+  }
+
+  @override
+  String get callLimitSoon => 'The call will end in a minute';
+
+  @override
+  String callEndedLimit(int n) {
+    return 'The call ended: $n min passed. You can call again.';
+  }
+
+  @override
+  String get callEndedFocus =>
+      'The call was interrupted: an incoming call or the app was minimised.';
+
+  @override
+  String callFailed(String error) {
+    return 'The call failed: $error';
+  }
+
+  @override
+  String get callNoMic =>
+      'No microphone access. Allow the microphone for NurMarket in the phone settings.';
+
+  @override
+  String get callOpenSettings => 'Open settings';
+
+  @override
+  String get callUnsupported => 'Voice calls work on an Android phone.';
+
+  @override
+  String get callTableReady =>
+      'A table with the figures will be in the chat after the call';
+
+  @override
+  String get callClose => 'Close';
+
+  @override
+  String get callYou => 'You';
+
+  @override
   String checkTab(int n) {
     return 'Receipt · $n';
   }
@@ -1241,8 +1334,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get liveAuto => 'Auto';
 
   @override
-  String get liveHintSale =>
-      'Point at the product — it shoots by itself in 2 s, or tap';
+  String get liveHintSale => 'Point at the product and tap «Scan»';
 
   @override
   String get liveHintShelf => 'Point at the shelf';
@@ -1293,7 +1385,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditOpen => 'Opened screen';
 
   @override
-  String get teachCamera => 'Teach the smart camera: 3 photos + barcode';
+  String get teachCamera => 'Teach the smart camera: 3–5 photos + barcode';
 
   @override
   String get teachRight => '1 of 3 · product from the right';
@@ -1314,6 +1406,118 @@ class AppLocalizationsEn extends AppLocalizations {
   String teachShots(int n) {
     return 'For the smart camera: $n photos';
   }
+
+  @override
+  String get scanShoot => 'Scan';
+
+  @override
+  String get scanBusy => 'Scanning…';
+
+  @override
+  String get scanNext => 'Next product — tap «Scan» again';
+
+  @override
+  String get scanChecking => 'Checking against trained products…';
+
+  @override
+  String scanTook(String sec) {
+    return 'in $sec s';
+  }
+
+  @override
+  String teachPhotoOf(int a, int b) {
+    return 'Photo $a of $b';
+  }
+
+  @override
+  String get teachAngleRight => 'product from the right';
+
+  @override
+  String get teachAngleLeft => 'product from the left';
+
+  @override
+  String get teachAngleTop => 'product from the top';
+
+  @override
+  String get teachAngleFront => 'label from the front';
+
+  @override
+  String get teachAngleBack => 'product from the back';
+
+  @override
+  String get teachCanFinish => 'Tap «Done» or shoot one more angle';
+
+  @override
+  String get teachRetake => 'Retake';
+
+  @override
+  String get weighAim =>
+      'Put the item on the scale, point at the display and tap «Scan»';
+
+  @override
+  String get weighAimDisplay =>
+      'The scale display is not visible — point at the weight window, turn off the flashlight and tap «Scan»';
+
+  @override
+  String get aiErrNoNet =>
+      'No internet — check the connection and tap «Scan» again';
+
+  @override
+  String get aiErrSlow =>
+      'The AI did not answer in time (slow connection) — try again';
+
+  @override
+  String get aiErrLimit =>
+      'The free AI request limit is used up — try again in a minute';
+
+  @override
+  String get aiErrBusy =>
+      'The AI is overloaded right now — try again in a minute';
+
+  @override
+  String get aiErrOther => 'The AI could not recognize the photo';
+
+  @override
+  String addAgain(String name) {
+    return '«$name» is already in the receipt. Add another?';
+  }
+
+  @override
+  String get yesAdd => 'Add';
+
+  @override
+  String get shelfAddAsk =>
+      'A shelf photo shows goods already on the shelf. Add these quantities to stock as a delivery?';
+
+  @override
+  String isItProduct(String name) {
+    return 'Is it «$name»?';
+  }
+
+  @override
+  String notFoundOffline(String code) {
+    return 'Code $code is not on the phone and the server is not answering. Check the connection — the product may already exist on the PC, don\'t create a duplicate.';
+  }
+
+  @override
+  String get scaleLabelsTitle => 'Scale labels';
+
+  @override
+  String get scaleLabelsHint =>
+      'A scale label barcode starts with a prefix (20–29). Set which prefixes carry the AMOUNT and which carry the WEIGHT. For all company phones.';
+
+  @override
+  String get scaleAmountPrefixes => '«Amount» prefixes';
+
+  @override
+  String get scaleWeightPrefixes => '«Weight» prefixes';
+
+  @override
+  String get cameraShotFailed =>
+      'The camera did not take the photo — tap «Scan» again';
+
+  @override
+  String get saved => 'Saved';
 
   @override
   String get exactMatch => 'exact';
@@ -2571,4 +2775,583 @@ class AppLocalizationsEn extends AppLocalizations {
   String quoteRenumbered(String from, String to) {
     return 'Number $from is taken — the document is now $to';
   }
+
+  @override
+  String get payOutcomeUnknown =>
+      'The server did not reply — the sale may have gone through. Tap “Pay” again without changing anything: a repeat will not be posted twice. Debt and bonus redemption need a connection.';
+
+  @override
+  String get debtDueLabel => 'Repay by';
+
+  @override
+  String debtDueDays(int n) {
+    return '$n days';
+  }
+
+  @override
+  String get debtDueNotSaved =>
+      'The debt due date was not saved on the server — fix it on the website (default is 30 days).';
+
+  @override
+  String returnAmount(String sum) {
+    return 'Refund amount: $sum som';
+  }
+
+  @override
+  String returnGive(String what) {
+    return 'Give the customer: $what';
+  }
+
+  @override
+  String returnInCash(String sum) {
+    return 'in cash $sum som';
+  }
+
+  @override
+  String returnToCard(String sum) {
+    return 'to the card/transfer $sum som';
+  }
+
+  @override
+  String returnDebtReduced(String sum) {
+    return 'The client\'s debt is reduced by $sum som — this money is not paid out.';
+  }
+
+  @override
+  String returnDebtUnknown(String sum) {
+    return 'Warning: the client\'s remaining debt was not received from the server. By calculation the debt is reduced by $sum som, but if the client has already paid off this receipt\'s debt, up to $sum som must be refunded. Check the client\'s debt before paying out.';
+  }
+
+  @override
+  String get returnViaBank =>
+      'Card/transfer part — refund through the bank, not from the till.';
+
+  @override
+  String returnPaidInfo(String paid, String done) {
+    return 'Paid for the receipt: $paid som · already refunded: $done som';
+  }
+
+  @override
+  String returnedQty(String qty) {
+    return 'already returned: $qty';
+  }
+
+  @override
+  String get returnNothingLeft =>
+      'Everything on this receipt has already been returned.';
+
+  @override
+  String cashOutTooMuch(String sum) {
+    return 'The withdrawal is more than the drawer holds ($sum som).';
+  }
+
+  @override
+  String payDebtToDebt(String sum) {
+    return 'Towards the debt: $sum som';
+  }
+
+  @override
+  String get payDebtOverCard => 'By transfer — no more than the debt.';
+
+  @override
+  String receiveNotAccepted(String reason) {
+    return 'The receipt of goods was not accepted by the server: $reason. The record is in “Sync”.';
+  }
+
+  @override
+  String get auditApply => 'Post the stock count';
+
+  @override
+  String get auditApplyHint =>
+      'Stock will be set to the counted quantities — like a stock count on the PC till. A connection is needed.';
+
+  @override
+  String auditApplyAsk(int n, int a) {
+    return 'Products checked: $n, differences: $a. Stock will be set to the counted quantities. Post?';
+  }
+
+  @override
+  String get auditApplied => 'Stock count posted — stock updated.';
+
+  @override
+  String get auditApplyQueued =>
+      'The stock count act is created — posting will be sent when online.';
+
+  @override
+  String get auditOnlineOnly =>
+      'A stock count is posted only with a server connection — the count is saved, try again later.';
+
+  @override
+  String auditContinue(int n) {
+    return 'Continue the count ($n products)';
+  }
+
+  @override
+  String get countedCash => 'Counted';
+
+  @override
+  String get openingCashLabel => 'At shift start';
+
+  @override
+  String closeShiftFailed(int n) {
+    return 'The server did not accept $n receipts — they will not be in the shift report. Send them again or remove them in “Sync”.';
+  }
+
+  @override
+  String get closeShiftAsk => 'Close the shift?';
+
+  @override
+  String get closeShiftAskSub =>
+      'After closing, no sales can be made in this shift.';
+
+  @override
+  String get xReport => 'X report';
+
+  @override
+  String get foreignShiftHint =>
+      'Another cashier\'s shift is open on this till — you cannot sell in it. Open your own shift.';
+
+  @override
+  String get loadMore => 'More';
+
+  @override
+  String get dropRow => 'Remove';
+
+  @override
+  String get dropRowAsk =>
+      'Remove the receipt from the queue? It will not reach the server, the goods return to the phone\'s stock. If money was taken, give it back or ring the sale up again.';
+
+  @override
+  String get dropRowAskStock =>
+      'Remove the record from the queue? It will not reach the server — check the product stock manually.';
+
+  @override
+  String get otherAccount => 'other account';
+
+  @override
+  String otherAccountHint(String email) {
+    return 'Recorded under the sign-in $email — will be sent after signing in with that login.';
+  }
+
+  @override
+  String pAStockUnclear(String name, String now, String before) {
+    return '$name: the previous attempt got no reply from the server, and the stock has changed since (now $now, before adding it was $before). It was NOT added again to avoid doubling. Check the stock with a stock count: if it was added, remove the line; if not, remove it and add the product again.';
+  }
+
+  @override
+  String get pAWeightLabel =>
+      'This is a scale label (the weight of one purchase) — it is not used in receiving. Scan the product barcode or find it by name.';
+
+  @override
+  String get pANoServerCheck =>
+      'No connection to the server — cannot check whether a product with this barcode already exists. Try again when online.';
+
+  @override
+  String pALinesLeft(int n) {
+    return 'Lines not received: $n — they stay in the list, fix them and post again.';
+  }
+
+  @override
+  String get pAPluLabel => 'PLU for the scale';
+
+  @override
+  String get pAPluHint => 'empty — assigned automatically';
+
+  @override
+  String get pAStockAdd => 'Add to stock';
+
+  @override
+  String get pAStockSet => 'Set stock';
+
+  @override
+  String get pAStockAddHint =>
+      'The quantity from the file is added to the stock, like a delivery.';
+
+  @override
+  String get pAStockSetHint =>
+      'The stock becomes equal to the quantity in the file (replaced, not added).';
+
+  @override
+  String pADupRow(int n) {
+    return 'Repeats row $n — skipped';
+  }
+
+  @override
+  String get pAUploaded => 'uploaded';
+
+  @override
+  String get rightCashier => 'Cashier interface';
+
+  @override
+  String get rightOrders => 'Website orders';
+
+  @override
+  String get rightProcurement => 'Purchasing';
+
+  @override
+  String get rightSuppliers => 'Suppliers';
+
+  @override
+  String get rightSelfLocked =>
+      'You cannot turn off your own rights — the owner or another administrator does it.';
+
+  @override
+  String get staffYou => 'this is you';
+
+  @override
+  String get screenUnavailable =>
+      'The screen was reopened and its data was lost. Go back and open it again.';
+
+  @override
+  String get cancelOrder => 'Cancel order';
+
+  @override
+  String cancelOrderAsk(String number) {
+    return 'Cancel order #$number? The customer will not receive it.';
+  }
+
+  @override
+  String pickShortAsk(String got, String need) {
+    return '$got of $need picked. Mark the order as picked with items missing?';
+  }
+
+  @override
+  String pickupCodeLabel(String code) {
+    return 'Pickup code: $code';
+  }
+
+  @override
+  String get torchToggle => 'Flashlight';
+
+  @override
+  String get payTransferQr => 'Transfer / QR';
+
+  @override
+  String get reportLoadFailed =>
+      'The report did not load. Check the connection and tap “Retry”.';
+
+  @override
+  String get rentalLatePerDay => 'Late fee per day';
+
+  @override
+  String rentalLateHint(int n, String rate, String sum) {
+    return 'Overdue $n d × $rate = $sum som (per the rental terms)';
+  }
+
+  @override
+  String rentalBackDeposit(String sum) {
+    return 'Give back the deposit: $sum som';
+  }
+
+  @override
+  String rentalWithheld(String sum) {
+    return 'withheld $sum som';
+  }
+
+  @override
+  String rentalBackDocument(String doc) {
+    return 'Give back the document: $doc';
+  }
+
+  @override
+  String rentalExcess(String sum) {
+    return 'Penalty above the deposit: $sum som — will be added to the receipt';
+  }
+
+  @override
+  String rentalPenaltyLine(int n) {
+    return 'Rental #$n penalty';
+  }
+
+  @override
+  String rentalPenaltyInCart(String sum) {
+    return 'Return accepted. The $sum som penalty is in the receipt — take the payment.';
+  }
+
+  @override
+  String get waybillDoc => 'Waybill';
+
+  @override
+  String get waybillsFilter => 'Waybills';
+
+  @override
+  String get docPayMarkOnly =>
+      'This is only a mark in the document: money is not recorded in the shift till and the customer\'s debt in NurCRM is not changed. To put money through the till, use \"Make the sale\".';
+
+  @override
+  String get docPayMarkOk => 'Mark as paid';
+
+  @override
+  String get docSellCartBusy =>
+      'The receipt already has items. Replace them with the document\'s items?';
+
+  @override
+  String get docSellReplace => 'Replace';
+
+  @override
+  String get docSentToSale => 'Sent to the sale';
+
+  @override
+  String docSellMissing(String names) {
+    return 'Not in the phone\'s catalogue — add manually: $names';
+  }
+
+  @override
+  String docVatIncl(String p) {
+    return 'Incl. VAT $p%';
+  }
+
+  @override
+  String get prnQr => 'QR code on the receipt';
+
+  @override
+  String get prnQrHint =>
+      'Fiscal check or e-receipt link. If the printer prints stray characters instead of the QR, turn it off.';
+
+  @override
+  String get prnDrawer => 'Cash drawer via the printer';
+
+  @override
+  String get prnDrawerHint =>
+      'Opens after a cash sale (the drawer is cabled to the printer).';
+
+  @override
+  String prnDrawerPin(int n) {
+    return 'Pin $n';
+  }
+
+  @override
+  String get prnDrawerTest => 'Open the drawer';
+
+  @override
+  String get prnDrawerSent =>
+      'Drawer command sent. If it did not open, choose the other pin.';
+
+  @override
+  String get stepPhoto => 'Photos';
+
+  @override
+  String get stepBarcode => 'Barcode';
+
+  @override
+  String get bindTitle => 'Photos saved ✓ — now scan the product barcode';
+
+  @override
+  String get bindSub => 'If the product has no barcode, tap “Skip”';
+
+  @override
+  String get bindSkip => 'Skip';
+
+  @override
+  String get bindManual => 'Enter manually';
+
+  @override
+  String get bindManualHint => 'Digits under the barcode';
+
+  @override
+  String get bindChecking => 'Checking the barcode…';
+
+  @override
+  String bindWillLink(String code, String name) {
+    return 'Barcode $code will be linked to “$name”';
+  }
+
+  @override
+  String bindWillLinkNew(String code) {
+    return 'Barcode $code will be linked to the new product';
+  }
+
+  @override
+  String bindAlreadyOwn(String code, String name) {
+    return 'Barcode $code is already linked to “$name” — nothing to change';
+  }
+
+  @override
+  String get bindTakenTitle => 'The barcode belongs to another product';
+
+  @override
+  String bindTakenAsk(String code, String name) {
+    return 'Barcode $code is already linked to “$name”.\n“Replace” — the barcode moves to this product.\n“Keep” — it stays with “$name”, this product gets no barcode.';
+  }
+
+  @override
+  String bindTakenAskNew(String code, String name) {
+    return 'Barcode $code is already linked to “$name” — maybe this product is already in stock.\n“Keep” — the barcode stays with “$name”, the new product gets no barcode.';
+  }
+
+  @override
+  String get bindReplace => 'Replace';
+
+  @override
+  String get bindKeep => 'Keep';
+
+  @override
+  String get bindRescan => 'Scan again';
+
+  @override
+  String bindLinked(String code, String name) {
+    return 'Barcode $code linked to “$name”';
+  }
+
+  @override
+  String get teachNext =>
+      'Shoot the product from 3–5 sides, then “Done” — the barcode comes next';
+
+  @override
+  String get teachNextNoCode =>
+      'Shoot the product from 3–5 sides, then tap “Done”';
+
+  @override
+  String get liveNextSale =>
+      'Found products appear below — tap one to add it to the receipt';
+
+  @override
+  String get liveNextList =>
+      'After the shot the camera shows what it found — you can correct the list';
+
+  @override
+  String get scanCodesHint =>
+      'Point the frame at a barcode — the code is saved automatically. Then tap “Done”';
+
+  @override
+  String get weighNext =>
+      'The camera recognises the item, reads the weight and adds it to the receipt';
+
+  @override
+  String get weighManualBtn =>
+      'Without the camera — choose the item and enter the weight';
+
+  @override
+  String get peEdit => 'Edit product';
+
+  @override
+  String get peName => 'Name';
+
+  @override
+  String get peMinQty => 'Minimum stock';
+
+  @override
+  String get peMinQtyHint => 'Below this the product shows in \"Running low\"';
+
+  @override
+  String get peStock => 'Stock';
+
+  @override
+  String get peStockHint =>
+      'Stock changes only by a document — receipt, write-off or stock count with a reason, as on the PC. This keeps the numbers consistent.';
+
+  @override
+  String get peIncome => 'Receipt';
+
+  @override
+  String get peWriteOff => 'Write-off';
+
+  @override
+  String get peRecount => 'Stock count';
+
+  @override
+  String get peQtyIn => 'How many arrived';
+
+  @override
+  String get peQtyOut => 'How many to write off';
+
+  @override
+  String get peQtyFact => 'Actual quantity';
+
+  @override
+  String get peReason => 'Reason';
+
+  @override
+  String get peReasonNeed => 'Enter the reason.';
+
+  @override
+  String get peReasonExpired => 'Expired';
+
+  @override
+  String get peReasonDefect => 'Defect';
+
+  @override
+  String get peReasonSpoiled => 'Spoiled';
+
+  @override
+  String get peReasonTheft => 'Theft';
+
+  @override
+  String get peReasonOther => 'Other';
+
+  @override
+  String get peReasonSupplier => 'Delivery';
+
+  @override
+  String get peReasonCount => 'Recount';
+
+  @override
+  String get peApply => 'Post';
+
+  @override
+  String peStockDone(String from, String to) {
+    return 'Stock: $from → $to';
+  }
+
+  @override
+  String peStockSame(String qty) {
+    return 'Stock is already $qty — nothing changed.';
+  }
+
+  @override
+  String get peStockQueued =>
+      'The document is created — it will be posted automatically when online.';
+
+  @override
+  String get peStockOffline =>
+      'No connection to the server — stock not received, nothing changed.';
+
+  @override
+  String peStockBelowZero(String qty) {
+    return 'You can\'t write off more than the stock ($qty).';
+  }
+
+  @override
+  String get peSaved => 'Product saved.';
+
+  @override
+  String get peNoChanges => 'No changes.';
+
+  @override
+  String pePriceRestored(String price) {
+    return 'The server recalculated the selling price from the markup — your price $price was restored.';
+  }
+
+  @override
+  String get pePriceLocked =>
+      'Prices are changed by staff with the \"Price change\" permission.';
+
+  @override
+  String get peLoadFailed =>
+      'The product card did not load from the server — editing works when online.';
+
+  @override
+  String get peNameNeed => 'Enter the name.';
+
+  @override
+  String peBarcodeTaken(String code, String name) {
+    return 'Barcode $code already belongs to \"$name\".';
+  }
+
+  @override
+  String peBarcodeTwice(String code) {
+    return 'Barcode $code is entered twice.';
+  }
+
+  @override
+  String get peScan => 'Scan';
+
+  @override
+  String pePackQty(String qty) {
+    return '$qty per pack';
+  }
+
+  @override
+  String get peNoAccess =>
+      'Products can be edited by staff with the \"Stock\" permission or an administrator.';
 }

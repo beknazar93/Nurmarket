@@ -20,21 +20,23 @@
     <Window.Styles>
         <Style Selector="ComboBox">
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="MinHeight" Value="40"/>
+            <!-- 2026-10-22 (модалки, пакет 3): поля 44 px (было 38–40) — касание пальцем. -->
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
         </Style>
         <Style Selector="NumericUpDown">
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
         </Style>
         <Style Selector="TextBox">
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
@@ -46,7 +48,8 @@
         </Style>
     </Window.Styles>
 
-    <dialogs:ModalShell Margin="16"
+    <!-- 2026-10-22 (модалки, пакет 3): на время печати окно занято (IsBusy: «Закрыть», ✕ и Esc выключены). -->
+    <dialogs:ModalShell x:Name="Shell" Margin="16"
                         Title="{DynamicResource priceTag.header}"
                         Subtitle="{DynamicResource priceTag.subtitle}">
         <dialogs:ModalShell.Footer>

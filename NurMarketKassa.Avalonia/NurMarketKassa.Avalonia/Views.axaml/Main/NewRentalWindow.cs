@@ -45,6 +45,7 @@ public sealed class NewRentalWindow : Window
     private readonly TextBox _note;
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap };
     private readonly Button _create;
+    private ModalShell? _shell;
     private readonly List<RentalItem> _chosenItems = new();
     private (string Id, string Name)? _client;
     // 2026-10-02, владелец: «список клиентов не открывается; если нет клиента — добавить клиента тоже сделай».
@@ -74,11 +75,9 @@ public sealed class NewRentalWindow : Window
     public NewRentalWindow()
     {
         Title = T("Новый прокат", "Жаңы прокат", "New rental", "Yeni kiralama", "Yangi prokat");
-        Width = 760;
-        Height = 860;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Use(this, BackgroundProperty, "BrushDialogPanel");
-        KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(null); };
+        // 2026-10-22 (модалки, пакет 2): общая оболочка модалки (M 672, ModalShell) вместо окна с рамкой Windows 760×860:
+        // ✕ и Esc = «Отмена», подвал закреплён, форма прокручивается своей прокруткой (колесо над датами — см. ниже).
+        SectionCards.AsModal(this, 672);
 
         _clientSearch = UiKit.Input(this, T("Имя или телефон клиента", "Кардардын аты же телефону", "Client name or phone", "Müşteri adı veya telefonu", "Mijoz ismi yoki telefoni"));
         _itemSearch = UiKit.Input(this, T("Что выдаём: название товара", "Эмне беребиз: товардын аталышы", "What to rent: product name", "Ne kiralanıyor: ürün adı", "Nima beriladi: mahsulot nomi"));
@@ -98,15 +97,12 @@ public sealed class NewRentalWindow : Window
 
         // 2026-10-02, владелец: «сделай редизайн всего, что добавили нового». Шаги — пронумерованными
         // карточками, залог — двумя большими плитками, кнопки — внизу окна вне прокрутки.
-        var root = new StackPanel { Margin = new Thickness(26, 20, 26, 12), Spacing = 14 };
-        var title = new TextBlock { Text = Title, FontSize = 22, FontWeight = FontWeight.Bold };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
-        root.Children.Add(title);
+        var root = new StackPanel { Margin = new Thickness(0, 0, 10, 0), Spacing = 14 };
 
         // 1. Клиент
         Use(_clientChosen, TextBlock.ForegroundProperty, "BrushSuccess");
         var addClient = UiKit.Ghost(this, "+  " + T("Новый клиент", "Жаңы кардар", "New client", "Yeni müşteri", "Yangi mijoz"));
-        addClient.Height = 40;
+        addClient.Height = 44;
         addClient.HorizontalAlignment = HorizontalAlignment.Left;
         addClient.Click += (_, _) =>
         {
@@ -124,7 +120,8 @@ public sealed class NewRentalWindow : Window
         };
         _newClientName = UiKit.Input(this, T("Имя и фамилия", "Аты-жөнү", "Full name", "Ad soyad", "Ism familiya"));
         _newClientPhone = UiKit.Input(this, T("Телефон, например +996 700 123 456", "Телефон, мисалы +996 700 123 456", "Phone, e.g. +996 700 123 456", "Telefon, örn. +996 700 123 456", "Telefon, masalan +996 700 123 456"));
-        var saveClient = UiKit.Primary(this, T("Сохранить клиента", "Кардарды сактоо", "Save client", "Müşteriyi kaydet", "Mijozni saqlash"));
+        // 2026-10-22 (модалки, пакет 2): «Сохранить клиента» — обводкой: жёлтая в окне одна («Оформить прокат»).
+        var saveClient = UiKit.Ghost(this, T("Сохранить клиента", "Кардарды сактоо", "Save client", "Müşteriyi kaydet", "Mijozni saqlash"));
         saveClient.HorizontalAlignment = HorizontalAlignment.Left;
         saveClient.Click += async (_, _) => await CreateClientAsync().ConfigureAwait(true);
         _newClientPanel.Children.Add(_newClientName);
@@ -196,20 +193,14 @@ public sealed class NewRentalWindow : Window
         Use(_error, TextBlock.ForegroundProperty, "BrushDanger");
         root.Children.Add(_error);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Right };
-        var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        // Enter не оформляет прокат: в форме поиски клиента и вещей, там Enter — выбор найденного.
+        var cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => Close(null);
-        _create = UiKit.Primary(this, T("Оформить прокат", "Прокатты түзүү", "Create rental", "Kiralamayı oluştur", "Prokatni rasmiylashtirish"));
-        _create.MinWidth = 220;
+        _create = SectionCards.Primary(T("Оформить прокат", "Прокатты түзүү", "Create rental", "Kiralamayı oluştur", "Prokatni rasmiylashtirish"));
+        _create.MinWidth = 200;
         _create.Click += async (_, _) => await CreateAsync().ConfigureAwait(true);
-        buttons.Children.Add(cancel);
-        buttons.Children.Add(_create);
 
-        var footer = new Border { Padding = new Thickness(26, 12, 26, 16), BorderThickness = new Thickness(0, 1, 0, 0), Child = buttons };
-        Use(footer, Border.BorderBrushProperty, "BrushBorder");
-        var layout = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
-        var scroll = new ScrollViewer { Content = root };
-        layout.Children.Add(scroll);
+        var scroll = new ScrollViewer { Content = root, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         // 2026-10-02, проверка: колесо мыши над полем даты меняло дату (при прокрутке формы «по» уехало
         // с 03.10 на 18.10, сумма проката выросла в 16 раз). Над датами колесо прокручивает форму.
         foreach (var picker in new[] { _from, _to })
@@ -220,9 +211,9 @@ public sealed class NewRentalWindow : Window
                 scroll.Offset = new Vector(scroll.Offset.X, Math.Max(0, scroll.Offset.Y - e.Delta.Y * 60));
             }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         }
-        Grid.SetRow(footer, 1);
-        layout.Children.Add(footer);
-        Content = layout;
+        _shell = SectionCards.Shell(Title, null, scroll, SectionCards.Buttons(cancel, _create));
+        _shell.ContentScroll = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
+        Content = _shell;
         UpdateTotal();
         RenderItems();
         Opened += (_, _) => _clientSearch.Focus();
@@ -429,6 +420,7 @@ public sealed class NewRentalWindow : Window
         if (text.Length >= 4 && (LocalProductRepository.Instance.TryGetTileByBarcode(text) ?? LocalProductRepository.Instance.TryGetTileBySku(text)) is { } byCode)
         {
             var chip = UiKit.Chip(this, byCode.Title, false);
+            chip.MinHeight = 44;
             chip.Margin = new Thickness(0, 0, 8, 8);
             chip.Click += async (_, _) => await PickProductAsync(byCode).ConfigureAwait(true);
             _itemResults.Children.Add(chip);
@@ -447,7 +439,9 @@ public sealed class NewRentalWindow : Window
         }
         foreach (var p in found)
         {
+            // 2026-10-22 (модалки, пакет 2): чипы найденных вещей 44 px (было 40).
             var b = UiKit.Chip(this, p.Title, false);
+            b.MinHeight = 44;
             b.Margin = new Thickness(0, 0, 8, 8);
             b.Click += async (_, _) => await PickProductAsync(p).ConfigureAwait(true);
             _itemResults.Children.Add(b);
@@ -496,7 +490,8 @@ public sealed class NewRentalWindow : Window
             var name = new TextBlock { Text = item.Label + (item.Qty > 1 ? $" × {item.Qty:0.###}" : ""), FontSize = 15, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
             Use(name, TextBlock.ForegroundProperty, "BrushText");
             g.Children.Add(name);
-            var remove = new Button { Content = "✕", Width = 32, Height = 32, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Focusable = false,
+            // 2026-10-22 (модалки, пакет 2): ✕ вещи 44×44 (было 32).
+            var remove = new Button { Content = "✕", Width = 44, Height = 44, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Focusable = false,
                 HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center };
             remove.Click += (_, _) => { _chosenItems.Remove(item); RenderItems(); };
             Grid.SetColumn(remove, 1);
@@ -534,6 +529,10 @@ public sealed class NewRentalWindow : Window
             return;
         }
 
+        // 2026-10-22 (модалки, пакет 2): пока прокат оформляется на сервере — второе нажатие ничего не делает, Esc и ✕ окно не закрывают
+        // (иначе прокат мог создаться, а окно закрыться без результата).
+        if (_shell is not null && !_shell.TryBeginBusy())
+            return;
         _create.IsEnabled = false;
         try
         {
@@ -560,6 +559,10 @@ public sealed class NewRentalWindow : Window
             _error.Text = T("Не удалось оформить прокат: ", "Прокатты түзүү болбой калды: ", "Could not create the rental: ", "Kiralama oluşturulamadı: ", "Prokatni rasmiylashtirib bo'lmadi: ") + RentalsApi.Describe(ex);
             PosLogger.Log($"Прокат: создание не удалось ({RentalsApi.Describe(ex)}).", "WARNING");
             _create.IsEnabled = true;
+        }
+        finally
+        {
+            _shell?.EndBusy();
         }
     }
 
@@ -592,23 +595,19 @@ public sealed class ReturnRentalWindow : Window
     private readonly Button _confirm;
     private Border _okTile = null!;
     private Border _damagedTile = null!;
+    private readonly ModalShell _shell;
 
     public ReturnRentalWindow(RentalDto rental)
     {
         _rental = rental;
         Title = Tr.T($"Возврат проката №{rental.Number}", $"Прокат №{rental.Number} кайтаруу", $"Return of rental #{rental.Number}", $"Kiralama №{rental.Number} iadesi", $"Prokat №{rental.Number} qaytarilishi");
-        Width = 560;
-        SizeToContent = SizeToContent.Height;
-        CanResize = false;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Use(this, BackgroundProperty, "BrushDialogPanel");
-        KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(null); };
+        // 2026-10-22 (модалки, пакет 2): общая оболочка модалки (S 512, ModalShell) вместо окна с рамкой Windows 560, где кнопки
+        // лежали в теле без прокрутки — на 1024×600, 1093×614 и 910×512 «Отмена / Принять возврат» уходили за край. Теперь подвал
+        // закреплён, тело прокручивается; фокус — в штрафе (значение выделено), Enter = «Принять возврат», Esc и ✕ = «Отмена».
+        SectionCards.AsModal(this, 512);
 
         // 2026-10-02, редизайн: карточка проката, состояние — двумя плитками, итог «вернуть клиенту» сразу.
-        var root = new StackPanel { Margin = new Thickness(26, 22), Spacing = 14 };
-        var title = new TextBlock { Text = Title, FontSize = 21, FontWeight = FontWeight.Bold };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
-        root.Children.Add(title);
+        var root = new StackPanel { Spacing = 14 };
 
         var info = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 12) };
         Use(info, Border.BackgroundProperty, "BrushPanelSoft");
@@ -676,18 +675,16 @@ public sealed class ReturnRentalWindow : Window
         Use(sumCard, Border.BackgroundProperty, "BrushAccentSoft");
         root.Children.Add(sumCard);
 
-        Use(_error, TextBlock.ForegroundProperty, "BrushDanger");
+        Use(_error, TextBlock.ForegroundProperty, "BrushDangerOnSoft");
         root.Children.Add(_error);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 0, 0) };
-        var cancel = UiKit.Ghost(this, Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        var cancel = SectionCards.Cancel(Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => Close(null);
-        _confirm = UiKit.Primary(this, Tr.T("Принять возврат", "Кайтарууну кабыл алуу", "Take back", "İadeyi al", "Qaytarishni qabul qilish"));
+        _confirm = SectionCards.Primary(Tr.T("Принять возврат", "Кайтарууну кабыл алуу", "Take back", "İadeyi al", "Qaytarishni qabul qilish"), isDefault: true);
         _confirm.Click += async (_, _) => await ConfirmAsync().ConfigureAwait(true);
-        buttons.Children.Add(cancel);
-        buttons.Children.Add(_confirm);
-        root.Children.Add(buttons);
-        Content = root;
+        _shell = SectionCards.Shell(Title, rental.ClientName, root, SectionCards.Buttons(cancel, _confirm));
+        _shell.InitialFocus = _penalty;
+        Content = _shell;
         Refresh();
     }
 
@@ -739,6 +736,21 @@ public sealed class ReturnRentalWindow : Window
     }
 
     private async Task ConfirmAsync()
+    {
+        // 2026-10-22 (модалки, пакет 2): второе нажатие/Enter во время запроса — ничего; Esc и ✕ окно не закрывают.
+        if (!_shell.TryBeginBusy())
+            return;
+        try
+        {
+            await ConfirmCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            _shell.EndBusy();
+        }
+    }
+
+    private async Task ConfirmCoreAsync()
     {
         _error.Text = "";
         var penalty = Penalty;

@@ -157,7 +157,9 @@ public partial class ScalesPluWindow
 
     private void KeySheet_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-10-22 (модалки, пакет 3): общий вид меню действий (row-menu): пункты 44 px, фон и рамка темы.
         var flyout = new MenuFlyout { Placement = PlacementMode.TopEdgeAlignedRight };
+        flyout.FlyoutPresenterClasses.Add("row-menu");
         var print = new MenuItem { Header = Tr.T("Печать на A4", "A4 басып чыгаруу", "Print on A4", "A4 yazdır", "A4 chop etish") };
         foreach (var printer in ScaleKeySheetService.InstalledPrinters())
         {

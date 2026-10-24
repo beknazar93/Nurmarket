@@ -166,6 +166,20 @@ public partial class EmployeesSettingsView : UserControl
     /// подробности (сами коды, удаление) открываются по клику в EmployeeDetailDialog, а не
     /// разворачиваются прямо в списке (по просьбе владельца — раньше все карточки были
     /// развёрнуты сразу).</summary>
+    /// <summary>2026-10-22 (аудит 1.17.59, П-Г): эта карточка — владелец/админ, который сейчас в программе (по id на сайте,
+    /// по почте или по имени). Коды ему не нужны, поэтому «действия под кодом закрыты» про него не пишем.</summary>
+    private static bool IsSignedInOwnerRow(EmployeeAccessCode employee)
+    {
+        var auth = AuthApi;
+        if (!(AppMode.IsOwner || (auth is not null && PermissionService.IsOwnerOrAdmin(auth.UserPayload))))
+            return false;
+        var id = NurMarketKassa.PosApp.CurrentUserId;
+        if (!string.IsNullOrWhiteSpace(id) && string.Equals(employee.ServerId, id, System.StringComparison.OrdinalIgnoreCase))
+            return true;
+        var name = NurMarketKassa.PosApp.CurrentUserDisplayName;
+        return !string.IsNullOrWhiteSpace(name) && string.Equals((employee.Name ?? "").Trim(), name.Trim(), System.StringComparison.OrdinalIgnoreCase);
+    }
+
     private Control BuildEmployeeRow(EmployeeAccessCode employee)
     {
         // 2026-10-18: коды хранятся хэшем — считаем по EmployeeAccessGate.
@@ -186,9 +200,14 @@ public partial class EmployeesSettingsView : UserControl
             // 2026-10-18: кодов теперь пять (+ приём оплаты долга) — число берётся из EmployeeAccessGate.
             // 2026-10-19, этап О7: простыми словами («Кодов заполнено: 0/4» было непонятно), цвет — из темы (в тёмной читается).
             Text = (filledCount == 0
-                ? Tr.T("Личных кодов нет — действия под кодом ему закрыты", "Жеке коддор жок — код менен аракеттер жабык",
-                    "No personal codes — code-protected actions are closed", "Kişisel kod yok — kodlu işlemler kapalı",
-                    "Shaxsiy kodlar yo'q — kod bilan amallar yopiq")
+                ? (IsSignedInOwnerRow(employee)
+                    // 2026-10-22 (аудит 1.17.59, П-Г): у владельца/админа, который сейчас в кассе, кодов нет и не нужно —
+                    // он работает без кода; надпись «действия закрыты» его пугала.
+                    ? Tr.T("Владелец — работает без личного кода", "Ээси — жеке кодсуз иштейт", "Owner — works without a personal code",
+                        "Sahibi — kişisel kod olmadan çalışır", "Egasi — shaxsiy kodsiz ishlaydi")
+                    : Tr.T("Личных кодов нет — действия под кодом ему закрыты", "Жеке коддор жок — код менен аракеттер жабык",
+                        "No personal codes — code-protected actions are closed", "Kişisel kod yok — kodlu işlemler kapalı",
+                        "Shaxsiy kodlar yo'q — kod bilan amallar yopiq"))
                 : Tr.T($"Личные коды: {filledCount} из {EmployeeAccessGate.ActionCount}", $"Жеке коддор: {filledCount} / {EmployeeAccessGate.ActionCount}",
                     $"Personal codes: {filledCount} of {EmployeeAccessGate.ActionCount}", $"Kişisel kodlar: {filledCount} / {EmployeeAccessGate.ActionCount}",
                     $"Shaxsiy kodlar: {filledCount} / {EmployeeAccessGate.ActionCount}")) + shortNote,
@@ -730,7 +749,9 @@ public partial class EmployeesSettingsView : UserControl
     {
         var dialog = new SimpleInputDialog(
             Tr.T("Новая роль", "Жаңы роль", "New role", "Yeni rol", "Yangi rol"),
-            Tr.T("Название роли", "Ролдун аты", "Role name", "Rol adı", "Rol nomi"));
+            Tr.T("Название роли", "Ролдун аты", "Role name", "Rol adı", "Rol nomi"),
+            // 2026-10-22 (модалки, пакет 4): глагол вместо «OK».
+            confirmText: Tr.T("Создать роль", "Роль түзүү", "Create role", "Rol oluştur", "Rol yaratish"));
         var owner = TopLevel.GetTopLevel(this) as Window;
         var confirmed = PosDialogHost.Show(dialog, owner);
         if (confirmed != true)

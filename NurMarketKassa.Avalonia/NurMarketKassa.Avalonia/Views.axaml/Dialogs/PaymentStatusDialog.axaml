@@ -1,19 +1,32 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PaymentStatusDialog"
         Title="{DynamicResource paymentStatus.title}"
-        Width="440"
+        Width="512"
         SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         SystemDecorations="None"
-        Background="{DynamicResource BrushPanel}">
+        FontFamily="Segoe UI"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
 
-  <Border Padding="34,30"
-          Background="{DynamicResource BrushPanel}"
-          BorderBrush="{DynamicResource BrushBorder}"
-          BorderThickness="1"
-          CornerRadius="18">
+  <!-- 2026-10-22 (модалки, пакет 1): общая оболочка ModalShell 512 (тень, прозрачный фон окна темы) вместо своей
+       Border 440 без тени на квадратном фоне BrushPanel. ✕ нет: пока оплата идёт, окно закрывать нельзя (как раньше —
+       кнопка и Esc появляются через 20 с или при ошибке). Кнопка — в закреплённом подвале: при ошибке красная
+       «Понятно» (modal-primary danger вместо #DC2626/#FFFFFF), при долгом ожидании — обводкой «Закрыть окно» (код);
+       Enter и Esc нажимают её, только когда она видна. -->
+  <dlg:ModalShell x:Name="Shell" Margin="16" ShowClose="False" Title="{DynamicResource paymentStatus.title}">
+    <dlg:ModalShell.Footer>
+      <Button x:Name="CloseButton"
+              Classes="modal-primary danger"
+              MinWidth="200" MaxWidth="280"
+              IsDefault="True"
+              IsVisible="False"
+              Click="CloseButton_Click"/>
+    </dlg:ModalShell.Footer>
+
     <StackPanel HorizontalAlignment="Center">
       <Grid x:Name="LoadingPanel"
             Width="104"
@@ -57,12 +70,13 @@
                  FontWeight="Bold"
                  Foreground="{DynamicResource BrushText}"
                  TextAlignment="Center"
+                 TextWrapping="Wrap"
                  HorizontalAlignment="Center"/>
 
       <TextBlock x:Name="AmountText"
                  FontSize="18"
                  FontWeight="SemiBold"
-                 Foreground="{DynamicResource BrushAccent}"
+                 Foreground="{DynamicResource BrushAccentStrong}"
                  TextAlignment="Center"
                  HorizontalAlignment="Center"
                  Margin="0,8,0,0"/>
@@ -73,22 +87,9 @@
                  Foreground="{DynamicResource BrushTextSoft}"
                  TextAlignment="Center"
                  TextWrapping="Wrap"
-                 MaxWidth="350"
+                 MaxWidth="400"
                  HorizontalAlignment="Center"
                  Margin="0,10,0,0"/>
-
-      <Button x:Name="CloseButton"
-              Content="{DynamicResource common.gotIt}"
-              Width="280"
-              Height="48"
-              HorizontalContentAlignment="Center"
-              Background="#DC2626"
-              Foreground="#FFFFFF"
-              FontWeight="Bold"
-              CornerRadius="10"
-              IsVisible="False"
-              Margin="0,22,0,0"
-              Click="CloseButton_Click"/>
     </StackPanel>
-  </Border>
+  </dlg:ModalShell>
 </Window>

@@ -17,6 +17,9 @@
       <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Padding" Value="14,7"/>
+      <!-- 2026-10-22 (модалки, пакет 3): кнопки, поля и списки — 44 px (касание пальцем). -->
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Button.btn-primary">
@@ -26,6 +29,8 @@
       <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Padding" Value="14,7"/>
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Border.card">
@@ -56,7 +61,8 @@
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
       <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="MinHeight" Value="32"/>
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="TabControl.scaletabs TabItem">
       <Setter Property="FontSize" Value="14"/>
@@ -74,7 +80,7 @@
 
     <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
       <TextBlock x:Name="SubnetLabel" Classes="label" Margin="0,0,10,0"/>
-      <ComboBox Grid.Column="1" x:Name="SubnetBox" HorizontalAlignment="Stretch" MinHeight="34"/>
+      <ComboBox Grid.Column="1" x:Name="SubnetBox" HorizontalAlignment="Stretch" MinHeight="44"/>
       <Button Grid.Column="2" x:Name="StartButton" Classes="btn-primary" Margin="10,0,0,0" Click="Start_Click"/>
     </Grid>
 
@@ -88,7 +94,7 @@
         <CheckBox x:Name="TempAddressBox"/>
         <Grid x:Name="TempRow" ColumnDefinitions="Auto,*,Auto,190" IsVisible="False">
           <TextBlock x:Name="AdapterLabel" Classes="label" Margin="0,0,10,0"/>
-          <ComboBox Grid.Column="1" x:Name="AdapterBox" HorizontalAlignment="Stretch" MinHeight="32"/>
+          <ComboBox Grid.Column="1" x:Name="AdapterBox" HorizontalAlignment="Stretch" MinHeight="44"/>
           <TextBlock Grid.Column="2" x:Name="TempIpLabel" Classes="label" Margin="14,0,10,0"/>
           <TextBox Grid.Column="3" x:Name="TempIpBox"/>
         </Grid>
@@ -113,10 +119,11 @@
 
     <Grid Grid.Row="5" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
       <Border x:Name="ResultBorder" CornerRadius="8" Padding="10,8" BorderThickness="1"
-              Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}">
+              Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}">
         <TextBlock x:Name="ResultText" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource BrushText}"/>
       </Border>
-      <Button Grid.Column="1" Classes="btn-ok" Margin="10,0,0,0" VerticalAlignment="Center"
+      <!-- 2026-10-22 (модалки, пакет 3): Esc = «Закрыть» (IsCancel). -->
+      <Button Grid.Column="1" Classes="btn-ok" Margin="10,0,0,0" VerticalAlignment="Center" IsCancel="True"
               Content="{DynamicResource common.close}" Click="Close_Click"/>
     </Grid>
   </Grid>

@@ -4,111 +4,60 @@
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.HotkeySettingsWindow"
         x:DataType="local:HotkeySettingsWindow"
         Title="{DynamicResource hotkeys.title}"
-        Width="760" Height="650"
-        MinWidth="660" MinHeight="520"
+        Width="792" Height="650"
         WindowStartupLocation="CenterOwner"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         CanResize="False"
-        Background="{DynamicResource DialogWindowBackground}"
-        Foreground="{DynamicResource BrushText}">
-  <Window.Styles>
-    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Shared/MainViewStyles.axaml"/>
-    <Style Selector="Button.chrome-button">
-      <Setter Property="Width" Value="38"/>
-      <Setter Property="Height" Value="34"/>
-      <Setter Property="Padding" Value="0"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="FontSize" Value="17"/>
-    </Style>
-    <Style Selector="Button.chrome-button:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-    </Style>
-    <Style Selector="Button.chrome-close:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
-      <Setter Property="TextElement.Foreground" Value="White"/>
-    </Style>
-  </Window.Styles>
+        FontFamily="Segoe UI"
+        Background="{DynamicResource DialogWindowBackground}">
 
-  <Border Margin="10" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 14 36 -10 #70000000" ClipToBounds="True">
-    <Grid RowDefinitions="48,*">
-      <Border Grid.Row="0" Background="{DynamicResource BrushPanelElevated}"
-              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="12,6">
-          <Border Grid.ColumnSpan="2" Background="Transparent"
-                  PointerPressed="TitleBar_PointerPressed"/>
-          <Border Width="30" Height="30" CornerRadius="9"
-                  Background="{DynamicResource BrushAccentSoft}" VerticalAlignment="Center"
-                  IsHitTestVisible="False">
-            <TextBlock Text="⌨" FontSize="15" FontWeight="Bold"
-                       Foreground="{DynamicResource BrushAccentStrong}"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Border>
-          <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
-                      IsHitTestVisible="False">
-            <TextBlock Text="Nur Market" FontSize="10" Foreground="{DynamicResource BrushTextSoft}"/>
-            <TextBlock Text="{DynamicResource hotkeys.subtitle}" FontSize="14" FontWeight="SemiBold"/>
-          </StackPanel>
-          <Button Grid.Column="2" Classes="chrome-button" Content="—"
-                  ToolTip.Tip="{DynamicResource csh.filter.minimizeTooltip}" Click="Minimize_Click"/>
-          <Button IsCancel="True" Grid.Column="3" Classes="chrome-button chrome-close" Content="×"
-                  ToolTip.Tip="{DynamicResource csh.filter.closeTooltip}" Click="Cancel_Click"/>
-        </Grid>
+  <!-- 2026-10-24 (аудит круга 8, С-7, пакет П-10): окно переведено на общую оболочку ModalShell (карточка 760) —
+       шапка «Горячие клавиши кассы» с подзаголовком и ✕ 44 px, внизу «По умолчанию» слева, «Отмена» (Esc, ✕) и
+       «Сохранить» (Enter) справа, кнопки 46 px. Свои заголовок/✕/«Свернуть» убраны. Логика назначения клавиш
+       (OnGestureKeyDown, Save/Reset) не менялась; список прокручивается сам, поле ошибки — под списком. -->
+  <local:ModalShell x:Name="Shell" Margin="16" Title="{DynamicResource hotkeys.header}"
+                    Subtitle="{DynamicResource hotkeys.instructions}" ContentScroll="Disabled">
+    <local:ModalShell.Hint>
+      <Button Classes="modal-secondary" MaxWidth="240" HorizontalAlignment="Left"
+              Content="{DynamicResource hotkeys.resetDefault}" Click="Reset_Click"/>
+    </local:ModalShell.Hint>
+    <local:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button IsCancel="True" Classes="modal-cancel" MaxWidth="200"
+                Content="{DynamicResource common.cancel}" Click="Cancel_Click"/>
+        <Button IsDefault="True" Classes="modal-primary" MaxWidth="220"
+                Content="{DynamicResource common.save}" Click="Save_Click"/>
+      </StackPanel>
+    </local:ModalShell.Footer>
+
+    <Grid RowDefinitions="*,Auto">
+      <Border Grid.Row="0" Background="{DynamicResource BrushPanel}"
+              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+              CornerRadius="16" Padding="8">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="local:HotkeyRow">
+                <Grid ColumnDefinitions="*,220" Margin="12,8">
+                  <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,12,0">
+                    <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Description}" FontSize="12"
+                               Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <TextBox Grid.Column="1" Classes="modal-field" Text="{Binding Display, Mode=OneWay}" Tag="{Binding Action}"
+                           IsReadOnly="True" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                           FontSize="16" FontWeight="Bold" Watermark="{DynamicResource hotkeys.pressKeysWatermark}"/>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
       </Border>
 
-      <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" Margin="28,22,28,24">
-        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,20">
-          <StackPanel Spacing="6">
-            <TextBlock Text="{DynamicResource hotkeys.header}" FontSize="26" FontWeight="Bold"/>
-            <TextBlock Text="{DynamicResource hotkeys.instructions}"
-                       FontSize="14" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
-          </StackPanel>
-          <Border Grid.Column="1" Background="{DynamicResource BrushAccentSoft}"
-                  CornerRadius="12" Padding="14,8" VerticalAlignment="Center">
-            <TextBlock Text="{DynamicResource hotkeys.cheatsheet}" FontWeight="SemiBold"
-                       Foreground="{DynamicResource BrushAccentStrong}"/>
-          </Border>
-        </Grid>
-
-        <Border Grid.Row="1" Background="{DynamicResource BrushPanel}"
-                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                CornerRadius="16" Padding="8">
-          <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding Rows}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="local:HotkeyRow">
-                  <Grid ColumnDefinitions="*,220" Margin="12,8">
-                    <StackPanel Spacing="3" VerticalAlignment="Center">
-                      <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold"/>
-                      <TextBlock Text="{Binding Description}" FontSize="12"
-                                 Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
-                    </StackPanel>
-                    <TextBox Grid.Column="1" Text="{Binding Display, Mode=OneWay}" Tag="{Binding Action}"
-                             IsReadOnly="True" HorizontalContentAlignment="Center"
-                             FontSize="16" FontWeight="Bold" Watermark="{DynamicResource hotkeys.pressKeysWatermark}"/>
-                  </Grid>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </ScrollViewer>
-        </Border>
-
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,18,0,0">
-          <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource BrushDanger}"
-                     VerticalAlignment="Center" TextWrapping="Wrap"/>
-          <Button Grid.Column="1" Classes="main-ghost" Content="{DynamicResource hotkeys.resetDefault}"
-                  Margin="8,0" Click="Reset_Click"/>
-          <Button Grid.Column="2" Classes="main-secondary" Content="{DynamicResource common.cancel}"
-                  Margin="8,0" Click="Cancel_Click"/>
-          <Button Grid.Column="3" Classes="main-primary" Content="{DynamicResource common.save}"
-                  Margin="8,0,0,0" Click="Save_Click"/>
-        </Grid>
-      </Grid>
+      <TextBlock Grid.Row="1" Text="{Binding ErrorText}" Foreground="{DynamicResource BrushDanger}"
+                 TextWrapping="Wrap" Margin="0,10,0,0"
+                 IsVisible="{Binding ErrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
     </Grid>
-  </Border>
+  </local:ModalShell>
 </Window>

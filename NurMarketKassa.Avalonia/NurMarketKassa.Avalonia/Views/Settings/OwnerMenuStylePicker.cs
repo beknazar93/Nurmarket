@@ -353,7 +353,8 @@ public sealed class OwnerMenuStylePicker : UserControl
         {
             var isActive = id == current;
             var title = new TextBlock { Text = Catalog.Label(id), FontSize = 14, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
-            title.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            // 2026-10-23: подписка на сам элемент, а не на страницу — иначе снятые карточки не собираются GC (утечка при пересборке)
+            title.Bind(TextBlock.ForegroundProperty, title.GetResourceObservable("BrushText"));
             var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 10, 0, 4) };
             header.Children.Add(title);
             if (isActive)
@@ -364,14 +365,14 @@ public sealed class OwnerMenuStylePicker : UserControl
                     Text = Tr.T("✓ Выбрано", "✓ Тандалган", "✓ Selected", "✓ Seçili", "✓ Tanlangan"),
                     FontSize = 11, FontWeight = FontWeight.SemiBold,
                 };
-                badgeText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushPanel"));
+                badgeText.Bind(TextBlock.ForegroundProperty, badgeText.GetResourceObservable("BrushPanel"));
                 var badge = new Border { CornerRadius = new CornerRadius(6), Padding = new Thickness(8, 2), VerticalAlignment = VerticalAlignment.Center, Child = badgeText };
-                badge.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushText"));
+                badge.Bind(Border.BackgroundProperty, badge.GetResourceObservable("BrushText"));
                 Grid.SetColumn(badge, 1);
                 header.Children.Add(badge);
             }
             var description = new TextBlock { Text = Catalog.Description(id), FontSize = 12, TextWrapping = TextWrapping.Wrap };
-            description.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            description.Bind(TextBlock.ForegroundProperty, description.GetResourceObservable("BrushTextSoft"));
 
             var card = new Button
             {
@@ -389,8 +390,8 @@ public sealed class OwnerMenuStylePicker : UserControl
             };
             // Тот же класс, что у карточек вида кассы (наведение — стиль Button.LayoutCard ниже).
             card.Classes.Add("LayoutCard");
-            card.Bind(Button.BackgroundProperty, this.GetResourceObservable("BrushPanel"));
-            card.Bind(Button.BorderBrushProperty, this.GetResourceObservable(isActive ? "BrushText" : "BrushBorder"));
+            card.Bind(Button.BackgroundProperty, card.GetResourceObservable("BrushPanel"));
+            card.Bind(Button.BorderBrushProperty, card.GetResourceObservable(isActive ? "BrushText" : "BrushBorder"));
             Avalonia.Automation.AutomationProperties.SetName(card, Catalog.Label(id) + (isActive ? " — " + Tr.T("выбрано", "тандалган", "selected", "seçili", "tanlangan") : ""));
             card.Click += (_, _) => Catalog.Set(id);
             _panel.Children.Add(card);

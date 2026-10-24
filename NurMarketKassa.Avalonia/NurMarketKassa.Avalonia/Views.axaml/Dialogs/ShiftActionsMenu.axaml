@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:NurMarketKassa.ViewModels"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ShiftActionsMenu"
@@ -101,18 +101,11 @@
         </StackPanel>
       </Button>
 
+      <!-- 2026-10-22 (модалки, пакет 2): «Отмена» — общая кнопка модалки (обводка, 46 px, Esc), была серой 42 px. -->
       <Button Content="{DynamicResource common.cancel}"
-              Height="42"
+              Classes="modal-cancel"
               Margin="0,8,0,0"
               HorizontalAlignment="Stretch"
-              HorizontalContentAlignment="Center"
-              VerticalContentAlignment="Center"
-              Background="{DynamicResource BrushInputAlt}"
-              Foreground="{DynamicResource BrushTextMuted}"
-              FontWeight="SemiBold"
-              CornerRadius="10"
-              BorderThickness="0"
-              Cursor="Hand"
               IsCancel="True"
               Click="Cancel_Click"/>
     </StackPanel>

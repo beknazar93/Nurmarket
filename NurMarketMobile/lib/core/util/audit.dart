@@ -47,7 +47,16 @@ class Audit {
   /// успевали за 30 с. Теперь записи копятся и уходят в файл пачкой (одна запись на диск на пачку).
   static Future<void> log(String kind, String text, {double? amount}) {
     _pending.add('${jsonEncode(AuditEntry(DateTime.now(), currentUser, kind, text, amount).toJson())}\n');
-    return _flushing ??= _flush();
+    return _flushing ??= _serial(_flush);
+  }
+
+  // 2026-10-22 (мобилка, админ): П16 — запись пачки и обрезка файла идут строго по очереди. Раньше read() перезаписывал
+  // файл, пока в него дописывалась новая пачка, — записи между чтением и перезаписью пропадали.
+  static Future<void> _chain = Future.value();
+  static Future<T> _serial<T>(Future<T> Function() f) {
+    final r = _chain.then((_) => f());
+    _chain = r.then((_) {}, onError: (_) {});
+    return r;
   }
 
   static Future<void> _flush() async {
@@ -72,11 +81,19 @@ class Audit {
   static Future<List<AuditEntry>> read() async {
     await _flushing;
     try {
-      final f = await _file();
-      if (!await f.exists()) return [];
-      final lines = await f.readAsLines();
-      if (lines.length > _max) await f.writeAsString('${lines.sublist(lines.length - _max).join('\n')}\n');
-      return [for (final l in lines.reversed.take(_max)) ?AuditEntry.fromJson(l)];
+      return await _serial(() async {
+        final f = await _file();
+        if (!await f.exists()) return <AuditEntry>[];
+        final lines = await f.readAsLines();
+        // 2026-10-22 (мобилка, админ): П16 — обрезка через временный файл и переименование: обрыв посреди записи
+        // (выключили телефон) больше не оставляет пустой или половинный журнал.
+        if (lines.length > _max) {
+          final tmp = File('${f.path}.tmp');
+          await tmp.writeAsString('${lines.sublist(lines.length - _max).join('\n')}\n', flush: true);
+          await tmp.rename(f.path);
+        }
+        return [for (final l in lines.reversed.take(_max)) ?AuditEntry.fromJson(l)];
+      });
     } catch (_) {
       return [];
     }

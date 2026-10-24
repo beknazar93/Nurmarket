@@ -413,10 +413,11 @@
   <x:String x:Key="closeShift.header">Smenani yopish (Z-hisobot)</x:String>
   <x:String x:Key="closeShift.instructions">Kassadagi naqd pulni sanang va haqiqiy qoldiqni kiriting.</x:String>
   <x:String x:Key="shift.systemBalance">Tizim bo'yicha qoldiq</x:String>
+  <x:String x:Key="shift.retryBalance">Qayta urinish</x:String>
   <x:String x:Key="closeShift.actualBalanceLabel">Kassadagi haqiqiy qoldiq</x:String>
   <x:String x:Key="closeShift.discrepancyLabel">Farq</x:String>
   <x:String x:Key="closeShift.openingCashLabel">Boshlang'ich summa</x:String>
-  <x:String x:Key="closeShift.totalSalesLabel">Jami sotuvlar</x:String>
+  <x:String x:Key="closeShift.totalSalesLabel">Tushum (qarzsiz)</x:String>
   <x:String x:Key="closeShift.cashSalesLabel">Naqd</x:String>
   <x:String x:Key="closeShift.nonCashSalesLabel">Naqdsiz</x:String>
   <x:String x:Key="openShift.instructions">Smena boshida kassadagi naqd pul summasini kiriting.</x:String>
@@ -577,7 +578,7 @@
   <x:String x:Key="shiftDetails.openedLabel">Ochilgan</x:String>
   <x:String x:Key="shiftDetails.closedLabel">Yopilgan</x:String>
   <x:String x:Key="shiftDetails.totalsSection">Yakunlar</x:String>
-  <x:String x:Key="shiftDetails.revenueLabel">Smena tushumi</x:String>
+  <x:String x:Key="shiftDetails.revenueLabel">Tushum (qarzsiz)</x:String>
   <x:String x:Key="shiftDetails.print">Chop etish</x:String>
 
   <!-- Vaznli mahsulot oynasi, qarz to'lash oynasi -->
@@ -1297,7 +1298,7 @@
     <x:String x:Key="loc.kassa.weigh.quick2">2 kg</x:String>
     <x:String x:Key="loc.kassa.weigh.quick5">5 kg</x:String>
     <x:String x:Key="loc.owner.shift.writeOffs">Hisobdan chiqarishlar</x:String>
-    <x:String x:Key="loc.owner.shift.debtPayments">Qarz to'lovlari</x:String>
+    <x:String x:Key="loc.owner.shift.debtPayments">To'langan qarzlar</x:String>
     <x:String x:Key="loc.owner.shift.cashDrawerTitle">Smenadagi pul qutisi</x:String>
     <x:String x:Key="loc.owner.shift.deposits">Kirimlar</x:String>
     <x:String x:Key="loc.owner.shift.withdrawalsExpense">Chiqimlar (xarajat)</x:String>

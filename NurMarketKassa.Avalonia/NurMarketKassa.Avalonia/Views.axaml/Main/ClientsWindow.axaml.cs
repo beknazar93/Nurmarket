@@ -454,7 +454,8 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
     }
 
     /// <summary>2026-10-19, этап О8: окно «Новый клиент» (ModalShell). Сохранение — прежний запрос CreateClientAsync.</summary>
-    internal Window CreateNewClientDialog() => new NurMarketKassa.AvaloniaHost.Views.Dialogs.NewClientDialog(AddClientAsync, _allClients.ToList());
+    internal Window CreateNewClientDialog() => new NurMarketKassa.AvaloniaHost.Views.Dialogs.NewClientDialog(AddClientAsync, _allClients.ToList(),
+        pickExisting: row => { _searchText = ""; OnPropertyChanged(nameof(SearchText)); ApplyFilter(); SelectedClient = _allClients.FirstOrDefault(c => c.Id == row.Id); }); // 2026-10-23: дубль телефона — открыть существующего
 
     /// <summary>Добавляет клиента на сервере (раньше — форма над списком). Удалось — клиент первым в списке и подсвечен
     /// («новый»), поиск и «Только должники» сброшены, чтобы его было видно; вернёт null. Не удалось — текст ошибки для окна.</summary>
@@ -577,7 +578,10 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
 
         var confirmed = NurMarketKassa.AvaloniaHost.Services.PosDialogs.ConfirmYesNo(
             this,
-            Tr.T($"Удалить клиента «{client.FullName}»?", $"«{client.FullName}» клиентин өчүрөсүзбү?", $"Delete client “{client.FullName}”?", $"«{client.FullName}» müşterisi silinsin mi?", $"«{client.FullName}» mijozini o'chirasizmi?"));
+            Tr.T($"Удалить клиента «{client.FullName}»?", $"«{client.FullName}» клиентин өчүрөсүзбү?", $"Delete client “{client.FullName}”?", $"«{client.FullName}» müşterisi silinsin mi?", $"«{client.FullName}» mijozini o'chirasizmi?"),
+            // 2026-10-22 (модалки, пакет 2): глагол и красная кнопка вместо «Да/Нет».
+            confirmText: Tr.T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"),
+            danger: true);
         if (!confirmed)
             return;
 

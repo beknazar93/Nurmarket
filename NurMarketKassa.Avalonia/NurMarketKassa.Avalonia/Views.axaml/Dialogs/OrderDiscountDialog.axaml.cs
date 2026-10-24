@@ -194,6 +194,9 @@ public partial class OrderDiscountDialog : Window
         {
             ErrorText.Text = error;
             ErrorText.IsVisible = true;
+            // 2026-10-22 (модалки, пакет 1): ошибка под полем — фокус в поле, значение выделено.
+            ValueBox.Focus();
+            ValueBox.SelectAll();
             return;
         }
 

@@ -26,6 +26,19 @@
     </Window.Resources>
 
     <Window.Styles>
+        <!-- 2026-10-22 (аудит 1.17.59, П-И, Б10): на низком окне плитки сводки без пояснения (оно в подсказке плитки). -->
+        <Style Selector="Window.wh-compact TextBlock.kpi-sub">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <!-- 2026-10-22 (аудит новой сборки, П5): на низком окне (1366×768) оставалось ~6 строк — плитки сводки ниже, подписи
+             «Единица продажи»/«Наличие» скрыты (сегменты понятны сами, подпись — во всплывающей подсказке), и обе группы фильтров
+             встают в один ряд, а не в два. -->
+        <Style Selector="Window.wh-compact Border.sec-kpi.compact">
+            <Setter Property="Padding" Value="12,4"/>
+        </Style>
+        <Style Selector="Window.wh-compact WrapPanel#WarehouseFiltersRow TextBlock.seg-label">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
         <!-- Остаток: цвет из темы, красный — только при малом количестве. -->
         <Style Selector="TextBlock.stock-low">
             <Setter Property="Foreground" Value="{DynamicResource BrushCatalogStockLow}"/>
@@ -503,7 +516,7 @@
 
             <!-- Вкладка 1: Товары -->
             <TabItem x:Name="ProductsTabItem" Header="{DynamicResource warehouse.tabProducts}">
-                <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
+                <Border x:Name="ProductsTabBorder" Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
                     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
                         <!-- 2026-10-06, владелец: «проведи полный редизайн склада». Сводка склада — плитками сверху (была строкой
                              под таблицей): товары, стоимость по закупке и по продаже, «Заканчивается», «Нет в наличии», «Срок
@@ -511,7 +524,7 @@
                         <!-- 2026-10-19, О9 (аудит, проблема 4): плитки sec-kpi в KpiTileGrid — на 1024 суммы не обрезаются «65 087 с…». -->
                         <ctl:KpiTileGrid Grid.Row="0" x:Name="WarehouseKpiPanel" MinTileWidth="128" Spacing="8" Margin="0,0,0,14"/>
 
-                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,12">
+                        <Grid x:Name="ProductsSearchRow" Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,12">
                             <!-- 2026-10-06, владелец: «сделай редизайн кнопок, расположение, удобство» — у поиска значок и «✕» очистки. -->
                             <TextBox Grid.Column="0" x:Name="ProductSearchBox"
                                      Watermark="{DynamicResource warehouse.productSearchWatermark}"
@@ -553,12 +566,12 @@
 
                         <!-- Фильтр "Единица продажи" (2026-09-07, по образцу stage.nurcrm.kg/crm/sklad) -->
                         <!-- 2026-10-06: слева — фильтры (единица продажи, наличие), справа — вид списка (это не фильтр). -->
-                        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                        <Grid x:Name="ProductsFilterRow" Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
                         <!-- 2026-10-19, О9: группы — сегментами sec-segment/sec-seg (выбранный тёмно-синий, как «Продажи» и «Клиенты»). -->
                         <WrapPanel Grid.Column="0" x:Name="WarehouseFiltersRow" Orientation="Horizontal">
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
                             <TextBlock Classes="seg-label" Text="{DynamicResource warehouse.saleUnitFilterLabel}"/>
-                            <Border Classes="sec-segment">
+                            <Border Classes="sec-segment" ToolTip.Tip="{DynamicResource warehouse.saleUnitFilterLabel}">
                                 <StackPanel Orientation="Horizontal" Spacing="2">
                                     <RadioButton x:Name="SaleUnitAllRadio" GroupName="SaleUnitFilter" Classes="sec-seg" IsChecked="True"
                                                  Content="{DynamicResource warehouse.saleUnitAll}" Click="SaleUnitFilter_Changed"/>
@@ -679,7 +692,8 @@
                                 <!-- Цена прижата вправо: у чисел сравнивают разряды, а по центру единицы,
                                      десятки и тысячи стоят вразнобой и колонку приходится читать построчно. -->
                                 <!-- 2026-10-06: сортировка по числу (PriceValue), а не по строке цены. -->
-                                <DataGridTemplateColumn Width="124" SortMemberPath="PriceValue">
+                                <!-- 2026-10-22 (аудит новой сборки, П5): 124 → 152 — «615 000,10 сом» (жирным, 14) обрезалось «615 000,10 со». -->
+                                <DataGridTemplateColumn Width="152" SortMemberPath="PriceValue">
                                     <DataGridTemplateColumn.Header>
                                         <TextBlock Text="{DynamicResource csh.catalog.colPrice}" TextAlignment="Right"/>
                                     </DataGridTemplateColumn.Header>

@@ -56,7 +56,8 @@ public sealed class VariantPickerWindow : Window
     private readonly Ellipse _stockDot = new() { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _stock = new() { FontSize = 13.5, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _qtyText = new() { FontSize = 18, FontWeight = FontWeight.Bold, MinWidth = 48, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-    private readonly Button _add = new() { Padding = new Thickness(22, 0), Height = 50, MinWidth = 220, CornerRadius = new CornerRadius(12), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, FontSize = 15, FontWeight = FontWeight.Bold };
+    // 2026-10-22 (модалки, пакет 1): вид главной кнопки — класс modal-primary (подвал ModalShell), без своих размеров и кистей.
+    private readonly Button _add = new() { MinWidth = 200 };
 
     private string? _size;
     private string? _color;
@@ -75,23 +76,13 @@ public sealed class VariantPickerWindow : Window
         _variants = variants.Where(v => v.IsActive).ToList();
         _basePrice = LocalCartService.ParsePrice(product.PriceLine);
         Title = product.Title;
-        Width = 640;
-        SizeToContent = SizeToContent.Height;
-        CanResize = false;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        SystemDecorations = SystemDecorations.None;
-        Use(this, BackgroundProperty, "BrushDialogPanel");
-        KeyDown += (_, e) =>
-        {
-            if (e.Key == Key.Escape)
-                Close();
-            else if (e.Key == Key.Enter && _add.IsEnabled)
-                Confirm();
-        };
+        // 2026-10-22 (модалки, пакет 1): общая оболочка ModalShell (M 672) вместо своей рамки 640 — тело прокручивается,
+        // подвал «Отмена» / «Добавить в чек» закреплён (на 910×512 «−», «+» и «Отмена» были за краем). Esc/✕ — «Отмена»
+        // (IsCancel), Enter — главная (IsDefault), вместо своего KeyDown.
+        SectionCards.AsModal(this, 672);
 
         AddChipStyles();
-        var root = new StackPanel { Margin = new Thickness(28, 24, 28, 24), Spacing = 18 };
-        root.Children.Add(BuildHeader(product));
+        var root = new StackPanel { Spacing = 16 };
 
         var sizes = Sizes();
         if (sizes.Count > 0)
@@ -110,12 +101,10 @@ public sealed class VariantPickerWindow : Window
         _colorsHead.Tag = colorBlock;   // скрываем весь блок, если цветов нет
 
         root.Children.Add(BuildPriceCard());
-        root.Children.Add(BuildBottom());
+        root.Children.Add(BuildQuantity());
 
-        var frame = new Border { BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(18), Child = root, ClipToBounds = true };
-        Use(frame, Border.BorderBrushProperty, "BrushBorderStrong");
-        Use(frame, Border.BackgroundProperty, "BrushDialogPanel");
-        Content = frame;
+        var meta = string.Join(" · ", new[] { product.Brand, product.Category }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        Content = SectionCards.Shell(product.Title, meta.Length > 0 ? meta : null, root, BuildFooter());
 
         // Сразу выбираем первый размер, где что-то есть, и первый его цвет.
         _size = sizes.FirstOrDefault(s => _variants.Any(v => v.Size == s && v.Quantity > 0)) ?? sizes.FirstOrDefault();
@@ -143,50 +132,22 @@ public sealed class VariantPickerWindow : Window
         Styles.Add(Hover(true));
     }
 
-    private Control BuildHeader(CatalogProductTileVm product)
+    /// <summary>2026-10-22 (модалки, пакет 1): название и бренд/категория — в шапке ModalShell (с ✕ 44 px вместо своего
+    /// 36 px); здесь только фото товара, если есть, — слева от карточки цены. Нет фото — null.</summary>
+    private static Control? BuildPhoto(CatalogProductTileVm product)
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
-
         // Фото товара, если есть, — как на плитке каталога.
         if (ShowProductPhotoConverter.Instance.Convert(product.ProductImagePath, typeof(bool), null, CultureInfo.CurrentCulture) is true
             && AssetPathToBitmapConverter.Instance.Convert(product.ProductImagePath, typeof(IImage), "thumb", CultureInfo.CurrentCulture) is IImage img)
         {
-            var photo = new Border
+            return new Border
             {
-                Width = 64, Height = 64, CornerRadius = new CornerRadius(12), ClipToBounds = true, Margin = new Thickness(0, 0, 16, 0),
+                Width = 72, Height = 72, CornerRadius = new CornerRadius(12), ClipToBounds = true, Margin = new Thickness(0, 0, 16, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 Child = new Image { Source = img, Stretch = Stretch.UniformToFill },
             };
-            grid.Children.Add(photo);
         }
-
-        var texts = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
-        var title = new TextBlock { Text = product.Title, FontSize = 21, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
-        texts.Children.Add(title);
-        var meta = string.Join(" · ", new[] { product.Brand, product.Category }.Where(x => !string.IsNullOrWhiteSpace(x)));
-        if (meta.Length > 0)
-        {
-            var sub = new TextBlock { Text = meta, FontSize = 13 };
-            Use(sub, TextBlock.ForegroundProperty, "BrushTextSoft");
-            texts.Children.Add(sub);
-        }
-        Grid.SetColumn(texts, 1);
-        grid.Children.Add(texts);
-
-        var close = new Button
-        {
-            Width = 36, Height = 36, Padding = new Thickness(0), CornerRadius = new CornerRadius(18), Focusable = false,
-            VerticalAlignment = VerticalAlignment.Top, HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
-            Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(12, 0, 0, 0),
-            Content = new TextBlock { Text = "✕", FontSize = 16 },
-        };
-        ToolTip.SetTip(close, Tr.T("Закрыть (Esc)", "Жабуу (Esc)", "Close (Esc)", "Kapat (Esc)", "Yopish (Esc)"));
-        Use((TextBlock)close.Content, TextBlock.ForegroundProperty, "BrushTextSoft");
-        close.Click += (_, _) => Close();
-        Grid.SetColumn(close, 2);
-        grid.Children.Add(close);
-        return grid;
+        return null;
     }
 
     private Control BuildPriceCard()
@@ -195,10 +156,12 @@ public sealed class VariantPickerWindow : Window
         Use(card, Border.BackgroundProperty, "BrushPanelSoft");
 
         var stack = new StackPanel { Spacing = 6 };
-        var priceRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var priceRow = new WrapPanel { Orientation = Orientation.Horizontal };
         Use(_price, TextBlock.ForegroundProperty, "BrushCatalogPrice");
         Use(_oldPrice, TextBlock.ForegroundProperty, "BrushTextMuted");
-        Use(_badge, Border.BackgroundProperty, "BrushDanger");
+        // 2026-10-22 (модалки, пакет 1): плашка скидки — мягкий красный фон темы и текст цвета ошибки (был белый
+        // текст Brushes.White на BrushDanger — жёсткий цвет, в тёмной теме не по правилам).
+        Use(_badge, Border.BackgroundProperty, "BrushDangerSoft");
         priceRow.Children.Add(_price);
         priceRow.Children.Add(_oldPrice);
         priceRow.Children.Add(_badge);
@@ -211,20 +174,31 @@ public sealed class VariantPickerWindow : Window
         stack.Children.Add(stockRow);
 
         card.Child = stack;
-        return card;
+
+        var photo = BuildPhoto(_product);
+        if (photo is null)
+            return card;
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        row.Children.Add(photo);
+        Grid.SetColumn(card, 1);
+        row.Children.Add(card);
+        return row;
     }
 
-    private Control BuildBottom()
+    /// <summary>2026-10-22 (модалки, пакет 1): количество «− 1 +» — в теле с подписью (кнопки 44×44 с именами для
+    /// диктора); кнопки окна — в закреплённом подвале ModalShell.</summary>
+    private Control BuildQuantity()
     {
-        var bottom = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
+        var block = new StackPanel { Spacing = 8 };
+        block.Children.Add(HeadRow(Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor"), new TextBlock()));
 
         // Количество: «− 1 +» в одной рамке.
-        var stepper = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Height = 50, Padding = new Thickness(4), VerticalAlignment = VerticalAlignment.Center };
+        var stepper = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Padding = new Thickness(4), HorizontalAlignment = HorizontalAlignment.Left };
         Use(stepper, Border.BorderBrushProperty, "BrushBorder");
         Use(stepper, Border.BackgroundProperty, "BrushInput");
         var qtyPanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        var minus = StepButton("−");
-        var plus = StepButton("+");
+        var minus = StepButton("−", Tr.T("Убавить", "Азайтуу", "Decrease", "Azalt", "Kamaytirish"));
+        var plus = StepButton("+", Tr.T("Прибавить", "Көбөйтүү", "Increase", "Artır", "Ko'paytirish"));
         minus.Click += (_, _) => { _qty = Math.Max(1, _qty - 1); Refresh(); };
         plus.Click += (_, _) => { _qty += 1; Refresh(); };
         Use(_qtyText, TextBlock.ForegroundProperty, "BrushText");
@@ -232,40 +206,37 @@ public sealed class VariantPickerWindow : Window
         qtyPanel.Children.Add(_qtyText);
         qtyPanel.Children.Add(plus);
         stepper.Child = qtyPanel;
-        bottom.Children.Add(stepper);
-
-        var cancel = new Button
-        {
-            Content = Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
-            Height = 50, Padding = new Thickness(20, 0), MinWidth = 110, CornerRadius = new CornerRadius(12), Focusable = false,
-            HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
-            BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 12, 0), FontSize = 14,
-        };
-        Use(cancel, Button.BackgroundProperty, "BrushDialogPanel");
-        Use(cancel, Button.BorderBrushProperty, "BrushBorder");
-        Use(cancel, Button.ForegroundProperty, "BrushText");
-        cancel.Click += (_, _) => Close();
-        Grid.SetColumn(cancel, 2);
-        bottom.Children.Add(cancel);
-
-        Use(_add, Button.BackgroundProperty, "BrushAccent");
-        Use(_add, Button.ForegroundProperty, "BrushAccentForeground");
-        _add.Focusable = false;
-        _add.Click += (_, _) => Confirm();
-        Grid.SetColumn(_add, 3);
-        bottom.Children.Add(_add);
-        return bottom;
+        block.Children.Add(stepper);
+        return block;
     }
 
-    private Button StepButton(string text)
+    /// <summary>2026-10-22 (модалки, пакет 1): подвал — «Отмена» (обводка, Esc и ✕) слева и одна главная «Добавить в чек ·
+    /// сумма» справа (Enter; классы modal-cancel / modal-primary вместо своих кистей).</summary>
+    private Control BuildFooter()
+    {
+        var cancel = SectionCards.Cancel(Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        cancel.Focusable = false;
+        cancel.Click += (_, _) => Close();
+
+        _add.Classes.Add("modal-primary");
+        _add.IsDefault = true;
+        _add.Focusable = false;
+        _add.Click += (_, _) => Confirm();
+        return SectionCards.Buttons(cancel, _add);
+    }
+
+    private Button StepButton(string text, string name)
     {
         var b = new Button
         {
-            Content = text, Width = 42, Height = 40, FontSize = 20, Padding = new Thickness(0), CornerRadius = new CornerRadius(9), Focusable = false,
+            Content = text, Width = 44, Height = 44, FontSize = 20, Padding = new Thickness(0), CornerRadius = new CornerRadius(9), Focusable = false,
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
             Background = Brushes.Transparent, BorderThickness = new Thickness(0),
         };
         Use(b, Button.ForegroundProperty, "BrushText");
+        // 2026-10-22 (модалки, пакет 1): диктор читает «Убавить, Футболка белая» вместо «−» (кнопка без имени).
+        Avalonia.Automation.AutomationProperties.SetName(b, $"{name}, {_product.Title}");
+        ToolTip.SetTip(b, name);
         return b;
     }
 
@@ -345,8 +316,8 @@ public sealed class VariantPickerWindow : Window
                 Text = Tr.T($"Скидка −{pct}%", $"Арзандатуу −{pct}%", $"Sale −{pct}%", $"İndirim −{pct}%", $"Chegirma −{pct}%"),
                 FontSize = 12.5,
                 FontWeight = FontWeight.Bold,
-                Foreground = Brushes.White,
             };
+            Use((TextBlock)_badge.Child, TextBlock.ForegroundProperty, "BrushDangerOnSoft");
         }
 
         var enough = sel != null && sel.Quantity >= _qty;

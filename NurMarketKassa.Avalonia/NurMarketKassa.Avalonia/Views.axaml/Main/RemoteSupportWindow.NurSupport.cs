@@ -123,6 +123,10 @@ public partial class RemoteSupportWindow
         {
             if (Owner is Window owner)
             {
+                // 2026-10-23: Opened приходит при каждом показе (раздел владельца прячут и показывают), а Closed снимал подписку
+                // один раз — остальные держали закрытое окно через главное. Сначала снимаем прежнюю.
+                if (_nurWatchedOwner is { } prev)
+                    prev.PropertyChanged -= OnNurOwnerPropertyChanged;
                 _nurWatchedOwner = owner;
                 owner.PropertyChanged += OnNurOwnerPropertyChanged;
             }
@@ -507,9 +511,13 @@ public static class RemoteSupportSession
         allow.Click += (_, _) => Answer(RemoteSupportHost.Consent.Allow);
         viewOnly.Click += (_, _) => Answer(RemoteSupportHost.Consent.ViewOnly);
         deny.Click += (_, _) => Answer(RemoteSupportHost.Consent.Deny);
+        // 2026-10-22 (модалки, пакет 2): без заголовка Windows поверх карточки (рамка была двойной) — карточка как у модалок:
+        // скругление, фон панели, тень, поля окна под тень; рамка цвета предупреждения остаётся (это вопрос о доступе).
+        // ✕ нет намеренно (макет): ответ — только кнопкой, Esc = «Отказать».
         var frame = new Border
         {
-            Padding = new Thickness(20), BorderThickness = new Thickness(2),
+            Padding = new Thickness(20), BorderThickness = new Thickness(2), Margin = new Thickness(16),
+            CornerRadius = new CornerRadius(14), BoxShadow = BoxShadows.Parse("0 12 32 0 #33101828"),
             Child = new StackPanel
             {
                 Spacing = 14,
@@ -521,13 +529,16 @@ public static class RemoteSupportSession
             },
         };
         frame.Bind(Border.BorderBrushProperty, frame.GetResourceObservable("BrushWarning"));
+        frame.Bind(Border.BackgroundProperty, frame.GetResourceObservable("BrushDialogPanel"));
         dialog = new Window
         {
             Title = Tr.T("Удалённая помощь NurMarket", "NurMarket алыстан жардам", "NurMarket remote support", "NurMarket uzaktan destek", "NurMarket masofaviy yordam"),
             SizeToContent = SizeToContent.WidthAndHeight, CanResize = false, Topmost = true, ShowInTaskbar = true,
+            SystemDecorations = SystemDecorations.None,
             WindowStartupLocation = WindowStartupLocation.CenterScreen, Content = frame,
         };
-        dialog.Bind(Window.BackgroundProperty, dialog.GetResourceObservable("BrushPanel"));
+        dialog.Bind(Window.BackgroundProperty, dialog.GetResourceObservable("DialogWindowBackground"));
+        dialog.Bind(TopLevel.TransparencyLevelHintProperty, dialog.GetResourceObservable("DialogTransparencyHint"));
         dialog.KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape)
@@ -572,9 +583,28 @@ public static class RemoteSupportSession
         var end = new Button
         {
             Content = Tr.T("Завершить", "Аяктоо", "End", "Bitir", "Tugatish"), Background = Brushes.White, Foreground = new SolidColorBrush(Color.FromRgb(0xB0, 0x10, 0x10)),
-            FontWeight = FontWeight.Bold, Padding = new Thickness(14, 4), Margin = new Thickness(14, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+            FontWeight = FontWeight.Bold, Padding = new Thickness(16, 4), Margin = new Thickness(14, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+            // 2026-10-22 (модалки, пакет 2): «Завершить» 44 px — пальцем на сенсорной кассе (было ~30 px).
+            MinHeight = 44, VerticalContentAlignment = VerticalAlignment.Center,
         };
-        end.Click += async (_, _) => await StopAsync().ConfigureAwait(true);
+        // Повторное нажатие, пока сеанс завершается, — ничего (было: второй вызов StopAsync).
+        var stopping = false;
+        end.Click += async (_, _) =>
+        {
+            if (stopping)
+                return;
+            stopping = true;
+            end.IsEnabled = false;
+            try
+            {
+                await StopAsync().ConfigureAwait(true);
+            }
+            finally
+            {
+                stopping = false;
+                end.IsEnabled = true;
+            }
+        };
         var text = new TextBlock
         {
             Text = Tr.T($"Идёт сеанс поддержки: {op}", $"Колдоо сеансы жүрүп жатат: {op}", $"Support session: {op}", $"Destek oturumu: {op}", $"Yordam seansi: {op}"),
@@ -584,7 +614,7 @@ public static class RemoteSupportSession
         {
             SystemDecorations = SystemDecorations.None, Topmost = true, ShowInTaskbar = false, CanResize = false, SizeToContent = SizeToContent.WidthAndHeight,
             Background = new SolidColorBrush(Color.FromRgb(0xC6, 0x28, 0x28)), ShowActivated = false,
-            Content = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(16, 6), Children = { text, end } },
+            Content = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(16, 4), Children = { text, end } },
         };
         _banner.Opened += (_, _) =>
         {

@@ -1,90 +1,64 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.MigrateToOfflineDialog"
         Title="{DynamicResource migrateOffline.title}"
-        Width="460" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="28,24">
-    <StackPanel>
-      <TextBlock Text="{DynamicResource migrateOffline.title}"
-                 FontSize="18" FontWeight="Bold"
-                 Foreground="{DynamicResource BrushText}"
-                 Margin="0,0,0,8"/>
-      <TextBlock Text="{DynamicResource migrateOffline.message}"
-                 FontSize="13" TextWrapping="Wrap"
-                 Foreground="{DynamicResource BrushTextSoft}"
-                 Margin="0,0,0,16"/>
+  <!-- 2026-10-22 (модалки, пакет 2): общая оболочка ModalShell 512 (была своя рамка 460 без ✕ и без прокрутки):
+       тело прокручивается, подвал закреплён; фокус в поле ключа; поля 46 px; пока идёт перенос — Esc/✕ не закрывают. -->
+  <dlg:ModalShell x:Name="Shell" Margin="16"
+                  Title="{DynamicResource migrateOffline.title}"
+                  Subtitle="{DynamicResource migrateOffline.message}"
+                  InitialFocus="KeyBox">
+    <dlg:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button IsCancel="True" x:Name="CancelButton"
+                Classes="modal-cancel" MaxWidth="200"
+                Content="{DynamicResource common.cancel}"
+                Click="CancelButton_Click"/>
+        <Button x:Name="ConfirmButton"
+                Classes="modal-primary" MaxWidth="220"
+                Content="{DynamicResource migrateOffline.startButton}"
+                IsDefault="True"
+                Click="ConfirmButton_Click"/>
+      </StackPanel>
+    </dlg:ModalShell.Footer>
 
-      <StackPanel x:Name="FormPanel">
-        <TextBlock Text="{DynamicResource login.autonomous.keyLabel}" FontSize="12"
-                   Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,4"/>
+    <StackPanel Spacing="8">
+      <StackPanel x:Name="FormPanel" Spacing="8">
+        <TextBlock Text="{DynamicResource login.autonomous.keyLabel}" FontSize="13" FontWeight="SemiBold"
+                   Foreground="{DynamicResource BrushTextSoft}"/>
         <TextBox x:Name="KeyBox"
                  Watermark="{DynamicResource login.autonomous.keyWatermark}"
-                 Height="42" FontSize="15"
-                 Margin="0,0,0,10"/>
+                 Height="46" FontSize="15" VerticalContentAlignment="Center"/>
 
-        <TextBlock Text="{DynamicResource migrateOffline.newLoginLabel}" FontSize="12"
-                   Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,4"/>
+        <TextBlock Text="{DynamicResource migrateOffline.newLoginLabel}" FontSize="13" FontWeight="SemiBold"
+                   Foreground="{DynamicResource BrushTextSoft}" Margin="0,8,0,0"/>
         <TextBox x:Name="EmailBox"
                  Watermark="{DynamicResource csh.login.email}"
-                 Height="42" FontSize="15"
-                 Margin="0,0,0,10"/>
+                 Height="46" FontSize="15" VerticalContentAlignment="Center"/>
         <TextBox x:Name="PasswordBox"
                  PasswordChar="•"
                  Watermark="{DynamicResource csh.login.passwordWatermark}"
-                 Height="42" FontSize="15"
-                 Margin="0,0,0,10"/>
+                 Height="46" FontSize="15" VerticalContentAlignment="Center"/>
       </StackPanel>
 
       <TextBlock x:Name="StatusText"
                  FontSize="13" TextWrapping="Wrap"
                  Foreground="{DynamicResource BrushTextSoft}"
-                 IsVisible="False"
-                 Margin="0,0,0,10"/>
+                 IsVisible="False"/>
 
       <TextBlock x:Name="ErrorText"
-                 FontSize="12"
-                 Foreground="{DynamicResource BrushDanger}"
+                 FontSize="13"
+                 Foreground="{DynamicResource BrushDangerOnSoft}"
                  TextWrapping="Wrap"
-                 IsVisible="False"
-                 Margin="0,0,0,10"/>
-
-      <Grid ColumnDefinitions="*,12,*">
-        <Button IsCancel="True" x:Name="CancelButton"
-                Grid.Column="0"
-                Content="{DynamicResource common.cancel}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                Background="{DynamicResource BrushPanel}"
-                Foreground="{DynamicResource BrushText}"
-                BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1.5"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Click="CancelButton_Click"/>
-        <Button x:Name="ConfirmButton"
-                Grid.Column="2"
-                Content="{DynamicResource migrateOffline.startButton}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                Background="{DynamicResource BrushAccent}"
-                Foreground="{DynamicResource BrushAccentForeground}"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                IsDefault="True"
-                Click="ConfirmButton_Click"/>
-      </Grid>
+                 IsVisible="False"/>
     </StackPanel>
-  </Border>
+  </dlg:ModalShell>
 </Window>

@@ -23,6 +23,14 @@ public sealed class NewClientDialog : Window
     private readonly TextBox? _company;
     private readonly TextBox? _inn;
     private readonly bool _supplier;
+    // 2026-10-23: «Выбрать существующего» при дубле телефона (аудит, круг 6); null — кнопки нет.
+    private readonly Action<ClientRow>? _pickExisting;
+    private readonly Button _pickExistingButton = new() { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left, IsVisible = false };
+    private ClientRow? _sameRow;
+    // 2026-10-24 (аудит, круг 8, С-6): как в кассе — дубль телефона красным, «Добавить клиента» выключена до «Всё равно добавить».
+    private readonly Button _addAnywayButton = new() { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
+    private readonly StackPanel _duplicateButtons = new() { Orientation = Orientation.Horizontal, Spacing = 10, IsVisible = false };
+    private bool _forceAdd;
 
     /// <summary>Компания и ИНН (только при companyFields) — читает сохранение.</summary>
     public string Company => (_company?.Text ?? "").Trim();
@@ -38,8 +46,9 @@ public sealed class NewClientDialog : Window
 
     /// <param name="supplier">2026-10-20, владелец: «+ Новый поставщик» в карточке товара — то же окно, только имя и телефон
     /// (адрес и email не показываются), подписи про поставщика.</param>
-    public NewClientDialog(Func<string, string, string, string, Task<string?>> save, IReadOnlyList<ClientRow> existing, bool supplier = false, bool companyFields = false)
+    public NewClientDialog(Func<string, string, string, string, Task<string?>> save, IReadOnlyList<ClientRow> existing, bool supplier = false, bool companyFields = false, Action<ClientRow>? pickExisting = null)
     {
+        _pickExisting = pickExisting;
         _save = save;
         _existing = existing;
         _supplier = supplier;
@@ -63,6 +72,23 @@ public sealed class NewClientDialog : Window
         _phone = Field(root, T("Телефон *", "Телефон *", "Phone *", "Telefon *", "Telefon *"), "+996 555 123 456");
         Use(_duplicate, TextBlock.ForegroundProperty, "BrushText");
         root.Children.Add(_duplicate);
+        _pickExistingButton.Classes.Add("modal-secondary");
+        _pickExistingButton.Content = T("Выбрать существующего", "Бар кардарды тандоо", "Select the existing one", "Mevcut olanı seç", "Mavjudini tanlash");
+        _pickExistingButton.Click += (_, _) =>
+        {
+            if (_sameRow is { } row && _pickExisting != null)
+            {
+                _pickExisting(row);
+                Close();
+            }
+        };
+        // 2026-10-24 (С-6): «Всё равно добавить» — рядом с «Выбрать существующего»; включает «Добавить клиента» до следующей правки телефона.
+        _addAnywayButton.Classes.Add("modal-secondary");
+        _addAnywayButton.Content = T("Всё равно добавить", "Баары бир кошуу", "Add anyway", "Yine de ekle", "Baribir qo'shish");
+        _addAnywayButton.Click += (_, _) => { _forceAdd = true; UpdateState(); };
+        _duplicateButtons.Children.Add(_pickExistingButton);
+        _duplicateButtons.Children.Add(_addAnywayButton);
+        root.Children.Add(_duplicateButtons);
         if (companyFields && !supplier)
         {
             _company = Field(root, T("Компания (необязательно)", "Компания (милдеттүү эмес)", "Company (optional)", "Şirket (isteğe bağlı)", "Kompaniya (ixtiyoriy)"),
@@ -130,7 +156,7 @@ public sealed class NewClientDialog : Window
         };
 
         _name.TextChanged += (_, _) => UpdateState();
-        _phone.TextChanged += (_, _) => UpdateState();
+        _phone.TextChanged += (_, _) => { _forceAdd = false; UpdateState(); }; // 2026-10-24 (С-6): «Всё равно» действует до правки телефона
         Opened += (_, _) => _name.Focus();
         Closing += (_, e) =>
         {
@@ -153,12 +179,22 @@ public sealed class NewClientDialog : Window
 
     private void UpdateState()
     {
-        _ok.IsEnabled = !_saving && !string.IsNullOrWhiteSpace(_name.Text) && !string.IsNullOrWhiteSpace(_phone.Text);
         _errorBox.IsVisible = false;
-        // Такой номер уже есть — подсказка с именем (сравниваем последние 9 цифр: «0555…» и «+996 555…» — один номер).
+        // Такой номер уже есть — подсказка с именами (сравниваем последние 9 цифр: «0555…» и «+996 555…» — один номер).
         var digits = Digits(_phone.Text);
-        var same = digits.Length >= 9 ? _existing.FirstOrDefault(c => Digits(c.Phone) is { Length: >= 9 } d && d[^9..] == digits[^9..]) : null;
+        // 2026-10-24 (аудит, круг 8, С-6): совпавших может быть несколько — показываем всех, а не первого.
+        var sameAll = digits.Length >= 9 ? _existing.Where(c => Digits(c.Phone) is { Length: >= 9 } d && d[^9..] == digits[^9..]).ToList() : new List<ClientRow>();
+        var same = sameAll.FirstOrDefault();
+        var names = string.Join(", ", sameAll.Select(c => c.FullName));
         _duplicate.IsVisible = same != null;
+        _sameRow = same;
+        // Клиент с дублем номера: «Добавить клиента» выключена, пока не нажали «Всё равно добавить» (у поставщика прежнее предупреждение).
+        var blocked = same != null && !_supplier && !_forceAdd;
+        _ok.IsEnabled = !_saving && !string.IsNullOrWhiteSpace(_name.Text) && !string.IsNullOrWhiteSpace(_phone.Text) && !blocked;
+        _duplicateButtons.IsVisible = same != null && !_supplier;
+        _pickExistingButton.IsVisible = same != null && _pickExisting != null && !_supplier;
+        _addAnywayButton.IsVisible = same != null && !_supplier && !_forceAdd;
+        Use(_duplicate, TextBlock.ForegroundProperty, same != null && !_supplier ? "BrushDanger" : "BrushText");
         if (same != null && _supplier)
             _duplicate.Text = T($"Поставщик с этим номером уже есть: {same.FullName}. Его можно выбрать в списке.",
                 $"Бул номер менен жеткирүүчү бар: {same.FullName}. Аны тизмеден тандаса болот.",
@@ -166,11 +202,11 @@ public sealed class NewClientDialog : Window
                 $"Bu numarayla bir tedarikçi zaten var: {same.FullName}. Listeden seçebilirsiniz.",
                 $"Bu raqamli yetkazib beruvchi allaqachon bor: {same.FullName}. Uni ro'yxatdan tanlash mumkin.");
         else if (same != null)
-            _duplicate.Text = T($"Клиент с этим номером уже есть: {same.FullName}. Добавить ещё одного можно.",
-                $"Бул номер менен кардар бар: {same.FullName}. Дагы бирөөнү кошсо болот.",
-                $"A client with this number already exists: {same.FullName}. You can still add another one.",
-                $"Bu numarayla bir müşteri zaten var: {same.FullName}. Yine de ekleyebilirsiniz.",
-                $"Bu raqamli mijoz allaqachon bor: {same.FullName}. Yana qo'shish mumkin.");
+            _duplicate.Text = T($"Клиент с этим номером уже есть: {names}.",
+                $"Бул номер менен кардар бар: {names}.",
+                $"A client with this number already exists: {names}.",
+                $"Bu numarayla bir müşteri zaten var: {names}.",
+                $"Bu raqamli mijoz allaqachon bor: {names}.");
     }
 
     private static string Digits(string? s) => new((s ?? "").Where(char.IsDigit).ToArray());

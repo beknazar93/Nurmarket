@@ -137,7 +137,9 @@ public partial class StockTransferDialog
         if (sender is not Button button || _branchPlaces.Count == 0)
             return;
         var target = Equals(button.Tag, "to") ? ToBox : FromBox;
+        // 2026-10-22 (модалки, пакет 3): общий вид меню (row-menu): пункты 44 px, фон и рамка темы.
         var menu = new MenuFlyout();
+        menu.FlyoutPresenterClasses.Add("row-menu");
         foreach (var place in _branchPlaces)
         {
             var name = place.Name;
@@ -170,18 +172,23 @@ public partial class StockTransferDialog
 
     private async Task ShipToServerAsync((string? FromId, string? ToId, string FromName, string ToName) route)
     {
-        if (_transfer is null)
+        if (_transfer is null || _serverBusy)
             return;
         SaveHeader();
+        ShowWarning(null);
         var items = StockTransferService.Instance.LoadItems(_transferId);
         if (items.Count == 0)
         {
-            PosDialogs.Warning(this, T("Добавьте товары в перемещение.", "Жылдырууга товар кошуңуз.", "Add products to the transfer.", "Transfere ürün ekleyin.", "Ko'chirishga mahsulot qo'shing."));
+            // 2026-10-22 (модалки, пакет 3): ошибка ввода — текстом в окне над кнопками, не всплывающим окном.
+            ShowWarning(T("Добавьте товары в перемещение.", "Жылдырууга товар кошуңуз.", "Add products to the transfer.", "Transfere ürün ekleyin.", "Ko'chirishga mahsulot qo'shing."));
             return;
         }
 
         var api = App.GetRequiredService<NurMarketApiClient>();
         ShipButton.IsEnabled = false;
+        // 2026-10-22 (модалки, пакет 3): пока идёт запрос к серверу, окно не закрывается (Esc, «Закрыть», Alt+F4) — иначе
+        // кладовщик не узнал бы, провелось ли перемещение, и мог провести его второй раз.
+        _serverBusy = true;
         try
         {
             // Товар и остаток — со склада отправителя: у главного склада и у филиала свои карточки товара (свой id).
@@ -204,8 +211,9 @@ public partial class StockTransferDialog
             }
             if (problems.Count > 0)
             {
-                PosDialogs.Warning(this, T("Перемещение не проведено:", "Жылдыруу өткөрүлгөн жок:", "The transfer was not made:", "Transfer yapılmadı:", "Ko'chirish o'tkazilmadi:")
-                                         + "\n• " + string.Join("\n• ", problems));
+                // 2026-10-22 (модалки, пакет 3): чего не хватает — списком в окне (видно, пока правят состав), не всплывающим окном.
+                ShowWarning(T("Перемещение не проведено:", "Жылдыруу өткөрүлгөн жок:", "The transfer was not made:", "Transfer yapılmadı:", "Ko'chirish o'tkazilmadi:")
+                            + "\n• " + string.Join("\n• ", problems));
                 return;
             }
 
@@ -215,7 +223,10 @@ public partial class StockTransferDialog
                     $"Жылдырууну серверде өткөрөсүзбү: {route.FromName} → {route.ToName}, {lines.Count} позиция, {qtyTotal:0.###} бирдик? Калдыктар дароо өзгөрөт.",
                     $"Make the transfer on the server: {route.FromName} → {route.ToName}, {lines.Count} items, {qtyTotal:0.###} units? Stock changes right away.",
                     $"Transfer sunucuda yapılsın mı: {route.FromName} → {route.ToName}, {lines.Count} kalem, {qtyTotal:0.###} birim? Stok hemen değişir.",
-                    $"Ko'chirish serverda o'tkazilsinmi: {route.FromName} → {route.ToName}, {lines.Count} pozitsiya, {qtyTotal:0.###} birlik? Qoldiqlar darhol o'zgaradi.")))
+                    $"Ko'chirish serverda o'tkazilsinmi: {route.FromName} → {route.ToName}, {lines.Count} pozitsiya, {qtyTotal:0.###} birlik? Qoldiqlar darhol o'zgaradi."),
+                    // 2026-10-22 (модалки, пакет 3): глагол вместо «Продолжить»; «Отмена» — по умолчанию.
+                    T("Перемещение на сервере", "Сервердеги жылдыруу", "Transfer on the server", "Sunucuda transfer", "Serverda ko'chirish"),
+                    T("Провести", "Өткөрүү", "Make transfer", "Transferi yap", "O'tkazish")))
                 return;
 
             var comment = T($"Склад кассы, документ {_transfer.Number}", $"Кассанын кампасы, документ {_transfer.Number}", $"Till warehouse, document {_transfer.Number}",
@@ -247,8 +258,19 @@ public partial class StockTransferDialog
         }
         finally
         {
+            _serverBusy = false;
             Reload();
         }
+    }
+
+    // 2026-10-22 (модалки, пакет 3): идёт запрос к серверу (отправка или отмена) — окно не закрывается (StockTransferDialog: Closing).
+    private bool _serverBusy;
+
+    /// <summary>2026-10-22 (модалки, пакет 3): предупреждение текстом в окне над кнопками (null — спрятать).</summary>
+    private void ShowWarning(string? text)
+    {
+        WarningText.Text = text ?? "";
+        WarningBox.IsVisible = !string.IsNullOrWhiteSpace(text);
     }
 
     /// <summary>Товар на складе отправителя: по id (если касса работает с тем же складом), иначе по штрихкоду, иначе по названию.</summary>
@@ -277,10 +299,23 @@ public partial class StockTransferDialog
 
     private async Task CancelTransferAsync()
     {
-        if (_transfer is null)
+        if (_transfer is null || _serverBusy)
             return;
+        ShowWarning(null);
         if (ServerTransferId() is not { } serverId || _transfer.Status != StockTransferService.StatusInTransit)
         {
+            // 2026-10-22 (модалки, пакет 3): отмена необратима — спрашиваем и у перемещения на этой кассе (раньше отменялось
+            // сразу одним нажатием); красная «Отменить перемещение», безопасная «Не отменять».
+            if (!await PosDialogs.ConfirmYesNoModalAsync(this, T(
+                    $"Отменить перемещение {_transfer.Number}? Вернуть его в работу будет нельзя.",
+                    $"{_transfer.Number} жылдыруусун жокко чыгарасызбы? Аны кайра иштетүүгө болбойт.",
+                    $"Cancel transfer {_transfer.Number}? It cannot be resumed.",
+                    $"{_transfer.Number} transferi iptal edilsin mi? Yeniden açılamaz.",
+                    $"{_transfer.Number} ko'chirish bekor qilinsinmi? Uni qayta tiklab bo'lmaydi."),
+                    T("Отмена перемещения", "Жылдырууну жокко чыгаруу", "Cancel transfer", "Transfer iptali", "Ko'chirishni bekor qilish"),
+                    T("Отменить перемещение", "Жылдырууну жокко чыгаруу", "Cancel transfer", "Transferi iptal et", "Ko'chirishni bekor qilish"),
+                    T("Не отменять", "Жокко чыгарбоо", "Keep it", "İptal etme", "Bekor qilmaslik"), danger: true))
+                return;
             ChangeStatus(StockTransferService.StatusCancelled);
             return;
         }
@@ -290,9 +325,15 @@ public partial class StockTransferDialog
                 $"Жылдырууну серверде да жокко чыгарасызбы? Товар кайтат: {_transfer.ToPlaceName} → {_transfer.FromPlaceName}.",
                 $"Cancel the transfer on the server too? The goods go back: {_transfer.ToPlaceName} → {_transfer.FromPlaceName}.",
                 $"Transfer sunucuda da iptal edilsin mi? Ürünler geri döner: {_transfer.ToPlaceName} → {_transfer.FromPlaceName}.",
-                $"Ko'chirish serverda ham bekor qilinsinmi? Mahsulot qaytadi: {_transfer.ToPlaceName} → {_transfer.FromPlaceName}.")))
+                $"Ko'chirish serverda ham bekor qilinsinmi? Mahsulot qaytadi: {_transfer.ToPlaceName} → {_transfer.FromPlaceName}."),
+                // 2026-10-22 (модалки, пакет 0): вопрос «Отменить…?» с кнопкой «Отмена» путал бы.
+                // 2026-10-22 (модалки, пакет 3): глаголы — «Отменить перемещение» (красная) / «Не отменять».
+                T("Отмена перемещения", "Жылдырууну жокко чыгаруу", "Cancel transfer", "Transfer iptali", "Ko'chirishni bekor qilish"),
+                confirmText: T("Отменить перемещение", "Жылдырууну жокко чыгаруу", "Cancel transfer", "Transferi iptal et", "Ko'chirishni bekor qilish"),
+                cancelText: T("Не отменять", "Жокко чыгарбоо", "Keep it", "İptal etme", "Bekor qilmaslik"), danger: true))
             return;
         CancelTransferButton.IsEnabled = false;
+        _serverBusy = true;
         try
         {
             var body = new Dictionary<string, object?>
@@ -312,6 +353,10 @@ public partial class StockTransferDialog
             PosDialogs.Warning(this, T("Не отменено на сервере: ", "Серверде жокко чыгарылган жок: ", "Not canceled on the server: ", "Sunucuda iptal edilmedi: ", "Serverda bekor qilinmadi: ")
                                      + ServerTelegramBotApi.DescribeFields(ex));
             Reload();
+        }
+        finally
+        {
+            _serverBusy = false;
         }
     }
 }

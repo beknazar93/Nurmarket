@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,6 +13,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../admin/admin_repository.dart';
 import '../admin/admin_screens.dart';
+import '../scan/code_lookup.dart';
 import '../scan/scan_animations.dart';
 import '../scan/weigh_camera.dart';
 import 'cart.dart';
@@ -38,6 +40,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    HardwareKeyboard.instance.removeHandler(_onKey);
     super.dispose();
   }
 
@@ -45,6 +48,66 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
   void initState() {
     super.initState();
     _reload();
+    HardwareKeyboard.instance.addHandler(_onKey);
+    unawaited(ScaleRulesLoader.ensure(ref.read(databaseProvider), ref.read(apiProvider)).catchError((_) {}));
+  }
+
+  /// 2026-10-22 (аудит П5): ручной сканер-клавиатура (Bluetooth, ТСД Sunmi/Urovo). Сканер «печатает» код быстро
+  /// (между знаками меньше 60 мс) и жмёт Enter. Если поле поиска не в фокусе — ловим такие нажатия сами; в поле поиска
+  /// код приходит через [_submitScan] (Enter). Раньше код только фильтровал список, товар в чек не попадал.
+  final _keys = StringBuffer();
+  DateTime _lastKey = DateTime(2000);
+
+  bool _onKey(KeyEvent e) {
+    if (e is! KeyDownEvent) return false;
+    final focused = FocusManager.instance.primaryFocus?.context?.widget;
+    if (focused is EditableText) return false; // печатает человек или сканер в поле — там свой Enter
+    final now = DateTime.now();
+    if (now.difference(_lastKey) > const Duration(milliseconds: 80)) _keys.clear();
+    _lastKey = now;
+    if (e.logicalKey == LogicalKeyboardKey.enter || e.logicalKey == LogicalKeyboardKey.numpadEnter) {
+      final code = _keys.toString();
+      _keys.clear();
+      if (code.length >= 4) {
+        _submitScan(code);
+        return true;
+      }
+      return false;
+    }
+    final ch = e.character;
+    if (ch != null && ch.length == 1 && RegExp(r'[0-9A-Za-zА-Яа-я\-]').hasMatch(ch)) _keys.write(ch);
+    return false;
+  }
+
+  bool _scanBusy = false;
+
+  /// Enter в поиске или код ручного сканера: точный штрихкод (на телефоне, потом на сервере) — сразу в чек.
+  /// Не код — обычный поиск.
+  Future<void> _submitScan(String raw) async {
+    final q = raw.trim();
+    if (q.isEmpty || _scanBusy) return;
+    _scanBusy = true;
+    try {
+      final l = context.l;
+      final hit = await CodeLookup.find(ref.read(databaseProvider), ref.read(apiProvider), q);
+      if (!mounted) return;
+      final p = hit.product;
+      if (p != null) {
+        await addProduct(context, ref, p, qty: hit.qty);
+        if (!mounted) return;
+        toast(context, l.addedToCheckName(p.name));
+        if (_search.text.isNotEmpty) {
+          _search.clear();
+          await _reload();
+        }
+        return;
+      }
+      if (RegExp(r'^\d{6,}$').hasMatch(q.replaceAll(' ', ''))) {
+        toast(context, hit.unavailable ? l.notFoundOffline(q) : l.barcodeNotFound(q), error: true);
+      }
+    } finally {
+      _scanBusy = false;
+    }
   }
 
   Future<void> _reload() async {
@@ -87,6 +150,8 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                 Expanded(
                   child: TextField(
                     controller: _search,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: _submitScan,
                     // поиск после паузы в наборе, а не на каждую букву (на слабых телефонах ввод подтормаживал)
                     onChanged: (_) {
                       _debounce?.cancel();

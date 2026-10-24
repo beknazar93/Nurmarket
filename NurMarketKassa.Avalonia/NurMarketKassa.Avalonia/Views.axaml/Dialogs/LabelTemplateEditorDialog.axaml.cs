@@ -105,6 +105,9 @@ public partial class LabelTemplateEditorDialog : Window
         if (!string.IsNullOrWhiteSpace(titleOverride))
             Title = titleOverride;
 
+        // 2026-10-22 (модалки, пакет 3): видимая подпись у кнопок масштаба холста (раньше — только всплывающая подсказка).
+        ZoomCaption.Text = Tr.T("Масштаб", "Масштаб", "Zoom", "Yakınlaştırma", "Masshtab");
+
         LabelWidthBox.Value = (decimal)_template.WidthMm;
         LabelHeightBox.Value = (decimal)_template.HeightMm;
         LabelWidthBox.ValueChanged += LabelSize_Changed;
@@ -506,7 +509,7 @@ public partial class LabelTemplateEditorDialog : Window
         };
         PropertiesPanel.Children.Add(fontCombo);
 
-        var sizeLabel = new TextBlock { Text = Tr.T("Размер шрифта, px (0 — автоматически)", "Шрифттин өлчөмү, px (0 — автоматтык түрдө)", "Font size, px (0 = automatic)", "Yazı boyutu, px (0 — otomatik)", "Shrift o'lchami, px (0 — avtomatik)"), FontSize = 11.5, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        var sizeLabel = new TextBlock { Text = Tr.T("Размер шрифта, px (0 — автоматически)", "Шрифттин өлчөмү, px (0 — автоматтык түрдө)", "Font size, px (0 = automatic)", "Yazı boyutu, px (0 — otomatik)", "Shrift o'lchami, px (0 — avtomatik)"), FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         sizeLabel.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
         PropertiesPanel.Children.Add(sizeLabel);
 
@@ -568,7 +571,7 @@ public partial class LabelTemplateEditorDialog : Window
         PropertiesPanel.Children.Add(formatCombo);
         PropertiesPanel.Children.Add(digitsCheck);
 
-        var marginLabel = new TextBlock { Text = Tr.T("Плотность (поля), модулей", "Тыгыздык (четтер), модуль", "Margins (quiet zone), modules", "Kenar boşluğu (sessiz bölge), modül", "Zichlik (chetlar), modul"), FontSize = 11, Margin = new Thickness(0, 6, 0, 0) };
+        var marginLabel = new TextBlock { Text = Tr.T("Плотность (поля), модулей", "Тыгыздык (четтер), модуль", "Margins (quiet zone), modules", "Kenar boşluğu (sessiz bölge), modül", "Zichlik (chetlar), modul"), FontSize = 12, Margin = new Thickness(0, 6, 0, 0) };
         PropertiesPanel.Children.Add(marginLabel);
         var marginBox = new NumericUpDown
         {
@@ -622,7 +625,7 @@ public partial class LabelTemplateEditorDialog : Window
 
     private void BuildSkuProperties()
     {
-        var overrideLabel = new TextBlock { Text = Tr.T("Заменить текст (пусто — реальный артикул товара)", "Текстти алмаштыруу (бош болсо — товардын чыныгы артикулу)", "Replace text (empty = the product's actual SKU)", "Metni değiştir (boşsa ürünün gerçek stok kodu)", "Matnni almashtirish (bo'sh bo'lsa — mahsulotning haqiqiy artikuli)"), FontSize = 11, Margin = new Thickness(0, 6, 0, 0), TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        var overrideLabel = new TextBlock { Text = Tr.T("Заменить текст (пусто — реальный артикул товара)", "Текстти алмаштыруу (бош болсо — товардын чыныгы артикулу)", "Replace text (empty = the product's actual SKU)", "Metni değiştir (boşsa ürünün gerçek stok kodu)", "Matnni almashtirish (bo'sh bo'lsa — mahsulotning haqiqiy artikuli)"), FontSize = 12, Margin = new Thickness(0, 6, 0, 0), TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         PropertiesPanel.Children.Add(overrideLabel);
 
         var overrideBox = new TextBox { Text = _template.SkuCustomText, HorizontalAlignment = HorizontalAlignment.Stretch };

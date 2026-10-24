@@ -80,10 +80,12 @@ public partial class BundleItemPickerDialog : Window
 
     private Control BuildRow(PickerItem item)
     {
+        // 2026-10-22 (модалки, пакет 3): строка 44 px (было 32) — касание пальцем.
         var checkBox = new CheckBox
         {
             IsChecked = item.IsSelected,
-            Margin = new Avalonia.Thickness(0, 0, 0, 4),
+            Margin = new Avalonia.Thickness(0, 0, 0, 2),
+            MinHeight = 44,
         };
 
         var stockText = item.Product.MustWeigh
@@ -97,13 +99,7 @@ public partial class BundleItemPickerDialog : Window
             Children =
             {
                 new TextBlock { Text = item.Product.Title, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center },
-                new TextBlock
-                {
-                    Text = $"· {(string.IsNullOrWhiteSpace(item.Product.Category) ? "—" : item.Product.Category)} · {stockText}",
-                    Foreground = TryGetBrush("BrushTextSoft"),
-                    FontSize = 12,
-                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                },
+                SoftText($"· {(string.IsNullOrWhiteSpace(item.Product.Category) ? "—" : item.Product.Category)} · {stockText}"),
             },
         };
 
@@ -120,11 +116,14 @@ public partial class BundleItemPickerDialog : Window
         return checkBox;
     }
 
-    private Avalonia.Media.IBrush? TryGetBrush(string key) =>
-        Avalonia.Application.Current?.TryFindResource(key, ActualThemeVariant, out var value) == true
-        && value is Avalonia.Media.IBrush brush
-            ? brush
-            : null;
+    /// <summary>2026-10-22 (модалки, пакет 3): серый текст строки — привязкой к теме (раньше цвет читался один раз и не
+    /// менялся вместе с темой).</summary>
+    private TextBlock SoftText(string text)
+    {
+        var t = new TextBlock { Text = text, FontSize = 12, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        return t;
+    }
 
     private void SelectAllCheckBox_Click(object? sender, RoutedEventArgs e)
     {

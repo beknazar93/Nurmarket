@@ -88,6 +88,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 "Fiş ara: numara veya ürün", "Chek qidirish: raqam yoki mahsulot");
             Avalonia.Automation.AutomationProperties.SetName(SearchReceiptBox, SearchReceiptBox.Watermark);
             ChecksTab.Header = Tr.T("Чеки", "Чектер", "Receipts", "Fişler", "Cheklar");
+            // 2026-10-24 (аудит, круг 8, С-5): плитки выручки и чеков — без продаж в долг (как в «Аналитике»); возвраты — подпись,
+            // что возвращённые чеки уже не в выручке. Суммы плиток не менялись.
+            RevenueLabel.Text = Tr.T("Выручка (без долга)", "Түшүм (карызсыз)", "Revenue (excl. credit)", "Ciro (veresiyesiz)", "Tushum (qarzsiz)");
+            ReceiptsLabel.Text = Tr.T("Чеки (без долга)", "Чектер (карызсыз)", "Receipts (excl. credit)", "Fişler (veresiyesiz)", "Cheklar (qarzsiz)");
+            RefundsNoteText.Text = Tr.T("возвращённые чеки уже не в выручке", "кайтарылган чектер киреше эсебинде жок", "returned receipts are already not in revenue",
+                "iade fişleri artık gelirde değil", "qaytarilgan cheklar tushumda yo'q");
             // 2026-10-18, доводка О4: пустая таблица — с подсказкой, что делать.
             UiKit.EmptyHint(SalesGrid, Tr.T("Чеков за этот период нет. Выберите другой период — или проверьте строку поиска.",
                 "Бул мезгилде чек жок. Башка мезгилди тандаңыз — же издөө сабын текшериңиз.",
@@ -98,7 +104,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             FullscreenHelper.Apply(this);
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            _clockTimer.Tick += (_, _) => CurrentTimeText.Text = DateTime.Now.ToString("HH:mm:ss   dd.MM.yyyy");
+            // 2026-10-22 (оптимизация): раздел спрятан (программа владельца прячет, а не закрывает) — часы не обновляем: секундный тик
+            // пересчитывал разметку невидимого окна всё время, пока оно стоит в памяти.
+            _clockTimer.Tick += (_, _) => { if (IsVisible) CurrentTimeText.Text = DateTime.Now.ToString("HH:mm:ss   dd.MM.yyyy"); };
             // 2026-10-18, доводка О4: время сразу, а не через секунду — пустой рамки часов не бывает.
             CurrentTimeText.Text = DateTime.Now.ToString("HH:mm:ss   dd.MM.yyyy");
             // На телефоне шапка узкая, время и так видно в строке состояния — часы не показываем.
@@ -1371,8 +1379,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 // два разных формата, и кассир видел на экране одно, а на бумаге другое.
                 var receiptDiscount = ReadSaleDiscount(json);
                 var receiptTotal = ReadSaleTotal(json);
-                PopupReceiptText.Text = SaleReceiptTextBuilder.Build(
-                    json, receiptNumber, receiptDiscount, receiptTotal);
+                // 2026-10-23, владелец: «чек красивым как в мобилке» — карточка вместо моноширинного текста (печать — прежним текстом).
+                PopupReceiptHost.Content = SaleReceiptCardView.Build(
+                    SaleReceiptCardData.Build(json, receiptNumber, receiptDiscount, receiptTotal));
 
                 PopupTitle.Text = Tr.T("Чек ", "Чек ", "Receipt ", "Fiş ", "Chek ") + receiptNumber;
                 _currentReceiptJson = json;

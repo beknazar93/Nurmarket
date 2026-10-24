@@ -413,10 +413,11 @@
   <x:String x:Key="closeShift.header">Закрыть смену (Z-отчёт)</x:String>
   <x:String x:Key="closeShift.instructions">Пересчитайте наличные в кассе и укажите фактический остаток.</x:String>
   <x:String x:Key="shift.systemBalance">Остаток по системе</x:String>
+  <x:String x:Key="shift.retryBalance">Повторить</x:String>
   <x:String x:Key="closeShift.actualBalanceLabel">Фактический остаток в кассе</x:String>
   <x:String x:Key="closeShift.discrepancyLabel">Расхождение</x:String>
   <x:String x:Key="closeShift.openingCashLabel">Начальная сумма</x:String>
-  <x:String x:Key="closeShift.totalSalesLabel">Продажи всего</x:String>
+  <x:String x:Key="closeShift.totalSalesLabel">Выручка (без долга)</x:String>
   <x:String x:Key="closeShift.cashSalesLabel">Наличными</x:String>
   <x:String x:Key="closeShift.nonCashSalesLabel">Безналичными</x:String>
   <x:String x:Key="openShift.instructions">Укажите сумму наличных в кассе на начало смены.</x:String>
@@ -577,7 +578,7 @@
   <x:String x:Key="shiftDetails.openedLabel">Открыта</x:String>
   <x:String x:Key="shiftDetails.closedLabel">Закрыта</x:String>
   <x:String x:Key="shiftDetails.totalsSection">Итоги</x:String>
-  <x:String x:Key="shiftDetails.revenueLabel">Выручка за смену</x:String>
+  <x:String x:Key="shiftDetails.revenueLabel">Выручка (без долга)</x:String>
   <x:String x:Key="shiftDetails.print">Печать</x:String>
 
   <!-- Weighed product dialog, pay debt dialog -->
@@ -1297,7 +1298,7 @@
     <x:String x:Key="loc.kassa.weigh.quick2">2 кг</x:String>
     <x:String x:Key="loc.kassa.weigh.quick5">5 кг</x:String>
     <x:String x:Key="loc.owner.shift.writeOffs">Списания</x:String>
-    <x:String x:Key="loc.owner.shift.debtPayments">Оплата долгов</x:String>
+    <x:String x:Key="loc.owner.shift.debtPayments">Оплачено долгов</x:String>
     <x:String x:Key="loc.owner.shift.cashDrawerTitle">Денежный ящик за смену</x:String>
     <x:String x:Key="loc.owner.shift.deposits">Внесения</x:String>
     <x:String x:Key="loc.owner.shift.withdrawalsExpense">Изъятия (расход)</x:String>

@@ -179,7 +179,8 @@ public sealed class InvoiceEditorWindow : Window
             new ColumnDefinition(32, GridUnitType.Pixel), new ColumnDefinition(96, GridUnitType.Pixel),
             new ColumnDefinition(2, GridUnitType.Star) { MinWidth = 130 }, new ColumnDefinition(2, GridUnitType.Star) { MinWidth = 130 },
             new ColumnDefinition(132, GridUnitType.Pixel), new ColumnDefinition(70, GridUnitType.Pixel), new ColumnDefinition(88, GridUnitType.Pixel),
-            new ColumnDefinition(88, GridUnitType.Pixel), new ColumnDefinition(94, GridUnitType.Pixel), new ColumnDefinition(44, GridUnitType.Pixel),
+            // 2026-10-22 (модалки, пакет 2): последняя колонка 48 (было 44) — ✕ строки теперь 44×44 плюс отступ 4.
+            new ColumnDefinition(88, GridUnitType.Pixel), new ColumnDefinition(94, GridUnitType.Pixel), new ColumnDefinition(48, GridUnitType.Pixel),
         },
     };
     private readonly List<TextBox> _navBoxes = new();
@@ -246,7 +247,8 @@ public sealed class InvoiceEditorWindow : Window
         var supplierLabel = new TextBlock { Text = T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"), FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
         Res(supplierLabel, TextBlock.ForegroundProperty, "BrushTextSoft");
         _changeSupplier = UiKit.Ghost(this, T("Сменить", "Алмаштыруу", "Change", "Değiştir", "O'zgartirish"));
-        _changeSupplier.Height = 34;
+        // 2026-10-22 (модалки, пакет 2): касание 44 px (было 34–36) — кнопки, поля строк, ✕ строки, пункты поставщиков.
+        _changeSupplier.Height = 44;
         _changeSupplier.Click += (_, _) =>
         {
             _supplierPicker.IsVisible = true;
@@ -255,7 +257,7 @@ public sealed class InvoiceEditorWindow : Window
             _supplierSearch?.Focus();
         };
         var refresh = UiKit.Ghost(this, T("⟳ Обновить список", "⟳ Тизмени жаңыртуу", "⟳ Refresh list", "⟳ Listeyi yenile", "⟳ Ro'yxatni yangilash"));
-        refresh.Height = 34;
+        refresh.Height = 44;
         refresh.Click += async (_, _) => await LoadSuppliersAsync(force: true).ConfigureAwait(true);
         var supplierHead = new DockPanel { LastChildFill = true };
         var headRight = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _changeSupplier, refresh } };
@@ -319,7 +321,7 @@ public sealed class InvoiceEditorWindow : Window
         _paidNow = new RadioButton
         {
             GroupName = "invoice-pay", IsChecked = draft.PaidNow, VerticalContentAlignment = VerticalAlignment.Center,
-            Content = T("Оплачено сразу (из кассы расходов)", "Дароо төлөндү (чыгым кассасынан)", "Paid now (from the expense cashbox)", "Hemen ödendi (gider kasasından)", "Darhol to'landi (xarajat kassasidan)"),
+            Content = T("Оплачено сразу (из основной кассы компании)", "Дароо төлөндү (компаниянын негизги кассасынан)", "Paid now (from the company main till)", "Hemen ödendi (şirket ana kasasından)", "Darhol to'landi (kompaniyaning asosiy kassasidan)"),
         };
         _debt = new RadioButton
         {
@@ -356,7 +358,7 @@ public sealed class InvoiceEditorWindow : Window
 
         // ── строки ──
         var addRow = UiKit.Ghost(this, T("+ Добавить строку", "+ Сап кошуу", "+ Add a line", "+ Satır ekle", "+ Qator qo'shish"));
-        addRow.Height = 36;
+        addRow.Height = 44;
         addRow.HorizontalAlignment = HorizontalAlignment.Left;
         addRow.Margin = new Thickness(4, 8, 0, 0);
         addRow.Click += (_, _) =>
@@ -470,7 +472,7 @@ public sealed class InvoiceEditorWindow : Window
         foreach (var s in found.Take(200))
         {
             var text = new TextBlock { Text = s.Name + (string.IsNullOrWhiteSpace(s.Inn) ? "" : $"  · {T("ИНН", "ИНН", "TIN", "VKN", "STIR")} {s.Inn}"), TextTrimming = TextTrimming.CharacterEllipsis };
-            _supplierList.Items.Add(new ListBoxItem { Content = text, Tag = s, Padding = new Thickness(10, 6), MinHeight = 34 });
+            _supplierList.Items.Add(new ListBoxItem { Content = text, Tag = s, Padding = new Thickness(10, 6), MinHeight = 44 });
         }
         _supplierList.IsVisible = found.Count > 0;
         if (_draft.Suppliers is not null && found.Count == 0)
@@ -524,8 +526,9 @@ public sealed class InvoiceEditorWindow : Window
             Res(info, TextBlock.ForegroundProperty, "BrushText");
             if (match is not null)
             {
-                var pick = UiKit.Primary(this, T($"Выбрать «{match.Name}»", $"«{match.Name}» тандоо", $"Choose “{match.Name}”", $"«{match.Name}» seç", $"«{match.Name}»ni tanlash"));
-                pick.Height = 34;
+                // 2026-10-22 (модалки, пакет 2): обводкой — жёлтая в окне одна («Провести закупку»).
+                var pick = UiKit.Ghost(this, T($"Выбрать «{match.Name}»", $"«{match.Name}» тандоо", $"Choose “{match.Name}”", $"«{match.Name}» seç", $"«{match.Name}»ni tanlash"));
+                pick.Height = 44;
                 pick.FontSize = 13;
                 pick.Margin = new Thickness(8, 0, 0, 0);
                 pick.MaxWidth = 320;
@@ -579,7 +582,7 @@ public sealed class InvoiceEditorWindow : Window
             {
                 var box = new TextBox
                 {
-                    Text = text, Watermark = watermark, MinHeight = 36, Margin = new Thickness(4, 3), IsReadOnly = readOnly, Tag = row,
+                    Text = text, Watermark = watermark, MinHeight = 44, Margin = new Thickness(4, 3), IsReadOnly = readOnly, Tag = row,
                     HorizontalContentAlignment = right ? HorizontalAlignment.Right : HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Center,
                 };
                 if (readOnly)
@@ -619,8 +622,8 @@ public sealed class InvoiceEditorWindow : Window
             purchase.TextChanged += (_, _) => { Sum(); UpdateTotal(); };
             var remove = UiKit.Ghost(this, "✕");
             remove.Classes.Add("danger");
-            remove.Width = 34;
-            remove.Height = 34;
+            remove.Width = 44;
+            remove.Height = 44;
             remove.Padding = new Thickness(0);
             remove.Margin = new Thickness(4, 0, 0, 0);
             Avalonia.Automation.AutomationProperties.SetName(remove, T("Удалить строку", "Сапты өчүрүү", "Remove the line", "Satırı sil", "Qatorni o'chirish"));

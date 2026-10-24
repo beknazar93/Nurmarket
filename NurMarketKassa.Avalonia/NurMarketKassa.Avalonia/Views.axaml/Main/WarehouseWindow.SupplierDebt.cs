@@ -50,6 +50,28 @@ public partial class WarehouseWindow
         var term = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { label, _receivingDebtDays, due } };
         column.Children.Insert(column.Children.IndexOf(row) + 1, term);
 
+        // 2026-10-22 (закупки как в вебе): приём с оплатой «предоплата» / «из ящика смены», заказы поставщикам, рекомендуемый заказ, история и
+        // накладная — в разделе «Закупки». Здесь — быстрый приём сканом (без поставщика, размеры одежды, новые товары), а в «Закупки» — ссылкой.
+        if (!Avalonia.Controls.Design.IsDesignMode)
+        {
+            var purchases = new Button
+            {
+                Content = Tr.T("Закупки ›", "Сатып алуулар ›", "Purchases ›", "Satın alma ›", "Xaridlar ›"), MinHeight = 40, Padding = new Thickness(12, 0),
+                CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1), VerticalAlignment = VerticalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
+            };
+            purchases.Classes.Add("sec-outline");
+            var tip = Tr.T("Раздел «Закупки»: история приходов, заказы поставщикам, рекомендуемый заказ, приём с предоплатой и накладная PDF — как на сайте NurCRM.",
+                "«Сатып алуулар» бөлүмү: кирүүлөр тарыхы, жеткирүүчүлөргө буйрутмалар, сунушталган буйрутма, алдын ала төлөм менен кабыл алуу жана PDF накладной.",
+                "The “Purchases” section: delivery history, supplier orders, recommended order, receiving with prepayment and a PDF invoice — as on the NurCRM website.",
+                "«Satın alma» bölümü: giriş geçmişi, tedarikçi siparişleri, önerilen sipariş, ön ödemeli kabul ve PDF fatura.",
+                "«Xaridlar» bo'limi: kirimlar tarixi, buyurtmalar, tavsiya etilgan buyurtma, oldindan to'lov bilan qabul va PDF nakladnoy.");
+            ToolTip.SetTip(purchases, tip);
+            Avalonia.Automation.AutomationProperties.SetName(purchases, Tr.T("Открыть «Закупки»", "«Сатып алууларды» ачуу", "Open “Purchases”", "«Satın alma»yı aç", "«Xaridlar»ni ochish"));
+            purchases.Click += (_, _) => PurchasesWindow.Open(this);
+            purchases.IsVisible = !TariffGate.IsStartTariff;
+            row.Children.Add(purchases);
+        }
+
         void Update() => term.IsVisible = _viewModel.HasReceivingSupplier && ReceivingDebtRadio.IsChecked == true;
         ReceivingDebtRadio.IsCheckedChanged += (_, _) => Update();
         _viewModel.PropertyChanged += (_, e) =>

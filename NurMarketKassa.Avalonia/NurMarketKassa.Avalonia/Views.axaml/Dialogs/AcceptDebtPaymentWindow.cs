@@ -100,7 +100,8 @@ public sealed class AcceptDebtPaymentWindow : Window
         Title = T("Принять оплату долга", "Карыз төлөмүн кабыл алуу", "Accept a debt payment", "Borç ödemesi al", "Qarz to'lovini qabul qilish");
         // Как у обмена (ModalShell): карточка 640, окно 672 с полями под тень; высота под экран — у ModalShell (85 %).
         Width = 672;
-        Height = 860;
+        // 2026-10-22 (модалки, пакет 2): высота по содержимому (было Height 860 — пустое поле вокруг карточки на больших экранах).
+        SizeToContent = SizeToContent.Height;
         MinWidth = 360;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         SystemDecorations = SystemDecorations.None;
@@ -119,11 +120,12 @@ public sealed class AcceptDebtPaymentWindow : Window
         Use(_total, TextBlock.ForegroundProperty, "BrushDanger");
         Use(_totalCaption, TextBlock.ForegroundProperty, "BrushTextSoft");
         Use(_meta, TextBlock.ForegroundProperty, "BrushTextSoft");
-        _totalCaption.Text = T("Долг сейчас (по данным сервера)", "Азыркы карыз (сервердин маалыматы боюнча)", "Debt now (from the server)",
-            "Şu anki borç (sunucu verisi)", "Hozirgi qarz (server ma'lumoti bo'yicha)");
+        // 2026-10-24 (приёмка, ПР-1b): «по данным сервера» — только когда сумма совпала со сводкой сервера (CheckServerTotalAsync).
+        _totalCaption.Text = DealsCaption;
         _retryLoad = UiKit.Ghost(this, T("Повторить", "Кайталоо", "Retry", "Tekrar dene", "Qayta urinish"));
-        _retryLoad.Height = 36;
-        _retryLoad.MinHeight = 36;
+        // 2026-10-22 (модалки, пакет 2): касание 44 px (было 36–38) у «Повторить», «Не на сайте», «Есть на сайте», «Понятно».
+        _retryLoad.Height = 44;
+        _retryLoad.MinHeight = 44;
         _retryLoad.IsVisible = false;
         _retryLoad.HorizontalAlignment = HorizontalAlignment.Left;
         _retryLoad.Click += async (_, _) => await LoadAsync().ConfigureAwait(true);
@@ -174,6 +176,15 @@ public sealed class AcceptDebtPaymentWindow : Window
                 e.Handled = true;
         }, RoutingStrategies.Tunnel);
         _amount.TextChanged += (_, _) => UpdateState();
+        // 2026-10-22 (модалки, пакет 2): Enter в сумме — «Принять» (кнопки UiKit без фокуса, IsDefault у них не срабатывал).
+        _amount.KeyDown += async (_, e) =>
+        {
+            if (e.Key != Key.Enter)
+                return;
+            e.Handled = true;
+            if (_go.IsEnabled && !_running)
+                await SafelyAsync(GoAsync, "приём оплаты (Enter)").ConfigureAwait(true);
+        };
         _fillAll = UiKit.Ghost(this, T("Весь долг", "Бүт карыз", "Whole debt", "Tüm borç", "Butun qarz"));
         _fillAll.Height = 52;
         _fillAll.MinHeight = 52;
@@ -203,14 +214,14 @@ public sealed class AcceptDebtPaymentWindow : Window
         Use(_successBox, Border.BackgroundProperty, "BrushSuccessSoft");
         _unlock = UiKit.Ghost(this, DebtPaymentRunner.UnlockLabel);
         _unlock.Classes.Add("danger");
-        _unlock.Height = 38;
-        _unlock.MinHeight = 38;
+        _unlock.Height = 44;
+        _unlock.MinHeight = 44;
         _unlock.HorizontalAlignment = HorizontalAlignment.Left;
         _unlock.IsVisible = false;
         _unlock.Click += async (_, _) => await SafelyAsync(() => ResolveAsync(DebtResolution.NotOnSite), "решение «оплаты нет»").ConfigureAwait(true);
         _paidOnSite = UiKit.Ghost(this, DebtPaymentRunner.PaidOnSiteLabel);
-        _paidOnSite.Height = 38;
-        _paidOnSite.MinHeight = 38;
+        _paidOnSite.Height = 44;
+        _paidOnSite.MinHeight = 44;
         _paidOnSite.Margin = new Thickness(0, 0, 8, 8);
         _paidOnSite.IsVisible = false;
         _paidOnSite.Click += async (_, _) => await SafelyAsync(() => ResolveAsync(DebtResolution.PaidOnSite), "решение «оплата есть»").ConfigureAwait(true);
@@ -222,8 +233,8 @@ public sealed class AcceptDebtPaymentWindow : Window
         Use(_warningBox, Border.BorderBrushProperty, "BrushWarning");
         Use(_warning, TextBlock.ForegroundProperty, "BrushText");
         var warningClose = UiKit.Ghost(this, T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli"));
-        warningClose.Height = 36;
-        warningClose.MinHeight = 36;
+        warningClose.Height = 44;
+        warningClose.MinHeight = 44;
         warningClose.Margin = new Thickness(10, 0, 0, 0);
         warningClose.Click += (_, _) => _warningBox.IsVisible = false;
         var warningGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
@@ -309,6 +320,38 @@ public sealed class AcceptDebtPaymentWindow : Window
     private double Total => _rows.Where(r => r.Amount > 0.005 && !r.RemainingUnknown).Sum(r => r.Amount);
 
     private double MaxAmount => _bySale ? (_selectedRow is { RemainingUnknown: false } row ? row.Amount : 0) : Total;
+
+    private static string DealsCaption => T("Долг по сделкам клиента", "Кардардын келишимдери боюнча карыз", "Debt by the customer's deals",
+        "Müşterinin işlemlerine göre borç", "Mijoz bitimlari bo'yicha qarz");
+
+    private static string ServerCaption => T("Долг сейчас (по данным сервера)", "Азыркы карыз (сервердин маалыматы боюнча)", "Debt now (from the server)",
+        "Şu anki borç (sunucu verisi)", "Hozirgi qarz (server ma'lumoti bo'yicha)");
+
+    private int _captionGen;
+
+    /// <summary>2026-10-24 (приёмка, ПР-1b): подпись «Долг сейчас (по данным сервера)» — только если сумма долга совпала с суммой клиента в
+    /// сводке сервера (clients/debtors); иначе (нет связи, расхождение, остаток по части чеков уточняется) — «Долг по сделкам клиента».</summary>
+    private async Task CheckServerTotalAsync(double total, bool anyUnknown)
+    {
+        var gen = ++_captionGen;
+        _totalCaption.Text = DealsCaption;
+        if (anyUnknown || !Online || App.AppHost?.Services.GetService<ClientDebtsApiService>() is not { } api)
+            return;
+        try
+        {
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var debtors = await api.GetDebtorsAsync(0.01, cts.Token).ConfigureAwait(true);
+            if (gen != _captionGen)
+                return;
+            var server = debtors.Where(d => string.Equals(d.ClientId, _clientId, StringComparison.OrdinalIgnoreCase)).Sum(d => d.DebtTotal);
+            if (Math.Abs(server - total) <= 0.01)
+                _totalCaption.Text = ServerCaption;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Владелец: сумма долга клиента {_clientId} со сводкой сервера не сверена ({ex.GetType().Name}).", "WARNING");
+        }
+    }
 
     private static bool Online => !OfflineModeHelper.IsServerOutage && !OfflineModeHelper.UseLocalOperations;
 
@@ -398,10 +441,11 @@ public sealed class AcceptDebtPaymentWindow : Window
             }
         }
         else if (!_noAutoSelect)
-            _selectedRow = _rows.FirstOrDefault();
+            _selectedRow = _rows.FirstOrDefault(r => !r.IsNoSale) ?? _rows.FirstOrDefault(); // 2026-10-23: «долг без продажи» по чеку не принимается — по умолчанию не он
         var total = Total;
         _total.Text = Money(total);
         Use(_total, TextBlock.ForegroundProperty, total > 0.005 ? "BrushDanger" : "BrushSuccess");
+        _ = CheckServerTotalAsync(total, _rows.Any(r => r.RemainingUnknown)); // 2026-10-24 (приёмка, ПР-1b): подпись суммы по сверке с сервером
         if (_rows.Count == 0)
         {
             _meta.Text = T("Долгов нет — клиент рассчитался.", "Карыз жок — кардар эсептешти.", "No debts — the customer has paid.",
@@ -635,7 +679,7 @@ public sealed class AcceptDebtPaymentWindow : Window
             return;
         // 2026-10-18, второй круг ревью: при «по чеку» без выбранного чека — первый (после «чек уже погашен» выбор снят).
         if (bySale && _selectedRow is null && !_unknownOutcome && !_noAutoSelect)
-            _selectedRow = _rows.FirstOrDefault();
+            _selectedRow = _rows.FirstOrDefault(r => !r.IsNoSale) ?? _rows.FirstOrDefault(); // 2026-10-23: «долг без продажи» по чеку не принимается — по умолчанию не он
         _bySale = bySale;
         _salesBlock.IsVisible = bySale;
         _fillAll.Content = bySale
@@ -678,6 +722,8 @@ public sealed class AcceptDebtPaymentWindow : Window
             var date = row.CreatedAt == default ? row.DateDisplay : row.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
             var title = string.Join(" · ", new[] { date, row.Number.Length > 0 ? "№" + row.Number : null, row.FirstItemName }
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
+            if (row.IsNoSale)
+                title += T("  (только «Одной суммой»)", "  («Бир сумма менен» гана)", "  (only “One sum”)", "  (yalnızca “Tek tutar”)", "  (faqat «Bir summada»)"); // 2026-10-23: у долга без продажи нет чека
             var name = new TextBlock { Text = title, FontSize = 14, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
             Use(name, TextBlock.ForegroundProperty, "BrushText");
             // 2026-10-18, девятый круг: точного остатка нет — «остаток уточняется» вместо суммы.
@@ -691,7 +737,7 @@ public sealed class AcceptDebtPaymentWindow : Window
             {
                 GroupName = "debtPaySale", IsChecked = selected, Content = g, HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center,
-                IsEnabled = !_unknownOutcome && !_done && !_running,
+                IsEnabled = !_unknownOutcome && !_done && !_running && !row.IsNoSale,
             };
             Avalonia.Automation.AutomationProperties.SetName(radio, title + " — " + Money(row.Amount));
             radio.IsCheckedChanged += (_, _) =>
@@ -974,6 +1020,30 @@ public sealed class AcceptDebtPaymentWindow : Window
         _running = true;
         UpdateState();
         RenderSales();
+        // 2026-10-22 (модалки, пакет 2): новая оплата — после подтверждения суммы, способа и остатка, как в кассе
+        // (PayDebtDialog «Принять N сом»); «Повторить» записи с неизвестным исходом — без вопроса (сумма уже отправлялась).
+        if (unknownRecord is null)
+        {
+            var amountText = Money(amount);
+            var leftText = Money(Math.Max(0, Total - amount));
+            var methodTitle = DebtPaymentFlow.MethodTitle(method);
+            var question = T($"Принять от «{_clientName}» {amountText} в счёт долга ({methodTitle})?\nОстанется долг: {leftText}",
+                $"«{_clientName}» кардардан карыз үчүн {amountText} кабыл алынсынбы ({methodTitle})?\nКалган карыз: {leftText}",
+                $"Accept {amountText} from “{_clientName}” towards the debt ({methodTitle})?\nDebt left: {leftText}",
+                $"«{_clientName}» müşterisinden borç için {amountText} alınsın mı ({methodTitle})?\nKalan borç: {leftText}",
+                $"«{_clientName}» mijozdan qarz uchun {amountText} qabul qilinsinmi ({methodTitle})?\nQolgan qarz: {leftText}");
+            if (!await PosDialogs.ConfirmYesNoModalAsync(this, question,
+                    T("Принять оплату долга", "Карыз төлөмүн кабыл алуу", "Accept a debt payment", "Borç ödemesi al", "Qarz to'lovini qabul qilish"),
+                    confirmText: T($"Принять {amountText}", $"{amountText} кабыл алуу", $"Accept {amountText}", $"{amountText} al", $"{amountText} qabul qilish"))
+                    .ConfigureAwait(true))
+            {
+                _running = false;
+                UpdateState();
+                RenderSales();
+                _amount.Focus();
+                return;
+            }
+        }
         var api = App.AppHost?.Services.GetService<ClientDebtsApiService>();
         // Код сотрудника на приём оплаты (если включён в «Оплате долга» и вошёл не владелец/администратор).
         bool granted;

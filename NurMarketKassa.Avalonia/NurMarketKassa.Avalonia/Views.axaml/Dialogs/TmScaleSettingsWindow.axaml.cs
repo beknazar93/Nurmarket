@@ -121,7 +121,7 @@ public partial class TmScaleSettingsWindow : Window
             "“Bağlantıyı kontrol et”: tartıya bağlanır ve PLU No. 1 kaydını OKUMA komutu (!0J0001A) gönderir — tartı hiçbir şeyi değiştirmez. Tüm iletişim günlüğe yazılır («İletişim günlüğü» düğmesi).",
             "«Aloqani tekshirish»: taroziga ulanish va PLU №1 yozuvini O‘QISH buyrug‘i (!0J0001A) — tarozi hech narsani o‘zgartirmaydi. Butun almashuv jurnalga yoziladi («Almashuv jurnali» tugmasi)."), "hint"));
 
-        _checkButton = MakeButton(L("Проверить связь", "Байланышты текшерүү", "Check connection", "Bağlantıyı kontrol et", "Aloqani tekshirish"), true, async (_, _) => await CheckAsync().ConfigureAwait(true));
+        _checkButton = MakeButton(L("Проверить связь", "Байланышты текшерүү", "Check connection", "Bağlantıyı kontrol et", "Aloqani tekshirish"), false, async (_, _) => await CheckAsync().ConfigureAwait(true));
         body.Children.Add(ButtonRow(
             _checkButton,
             MakeButton(L("Найти весы в сети…", "Тармактан тараза табуу…", "Find scales on the network…", "Ağda tartı bul…", "Tarmoqda tarozi topish…"), false, async (_, _) =>
@@ -134,7 +134,7 @@ public partial class TmScaleSettingsWindow : Window
                 }
             }),
             MakeButton(L("Журнал обмена", "Алмашуу журналы", "Exchange log", "İletişim günlüğü", "Almashuv jurnali"), false, (_, _) => OpenExchangeLog()),
-            MakeButton(L("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"), false, (_, _) =>
+            MakeButton(L("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"), true, (_, _) =>
             {
                 SaveConnection();
                 ShowResult(L("Сохранено.", "Сакталды.", "Saved.", "Kaydedildi.", "Saqlandi."), false);
@@ -258,7 +258,8 @@ public partial class TmScaleSettingsWindow : Window
               "Kompyuter va tarozi bir tarmoqda bo‘lishi kerak: manzilning dastlabki uch soni mos keladi (255.255.255.0 niqobida). Aks holda tarozi manzilini tarmoq modulida o‘zgartiring yoki kompyuterga shu tarmoqda ikkinchi manzil qo‘shing."),
             out var body);
         _subnets = ScaleNetworkScanner.GetLocalSubnets();
-        _networkText = new TextBlock { FontFamily = new FontFamily("Consolas, Segoe UI"), FontSize = 13, TextWrapping = TextWrapping.Wrap, Foreground = ThemeBrush(this, "BrushText", Brushes.Black) };
+        // 2026-10-22 (модалки, пакет 3): цвета окна весов — привязкой к теме (ScaleUi.Themed), а не разовым чтением.
+        _networkText = Themed(this, new TextBlock { FontFamily = new FontFamily("Consolas, Segoe UI"), FontSize = 13, TextWrapping = TextWrapping.Wrap }, TextBlock.ForegroundProperty, "BrushText", Brushes.Black);
         body.Children.Add(new Border { Classes = { "card" }, Child = _networkText });
         panel.Children.Add(card);
         UpdateNetwork();
@@ -340,13 +341,13 @@ public partial class TmScaleSettingsWindow : Window
         _samplePrice.ValueChanged += (_, _) => UpdateSample();
         body.Children.Add(Row(L("Цена за кг, сом", "Кг баасы, сом", "Price per kg, som", "Kg fiyatı, som", "Kg narxi, so‘m"), _samplePrice));
 
-        _sampleText = new TextBlock { FontSize = 22, FontWeight = FontWeight.Bold, FontFamily = new FontFamily("Consolas, Segoe UI"), Foreground = ThemeBrush(this, "BrushText", Brushes.Black) };
+        _sampleText = Themed(this, new TextBlock { FontSize = 22, FontWeight = FontWeight.Bold, FontFamily = new FontFamily("Consolas, Segoe UI") }, TextBlock.ForegroundProperty, "BrushText", Brushes.Black);
         body.Children.Add(_sampleText);
         _verdictText = new TextBlock { Classes = { "label" }, TextWrapping = TextWrapping.Wrap };
         body.Children.Add(_verdictText);
 
         body.Children.Add(ButtonRow(
-            MakeButton(L("Рекомендуемый для кассы", "Касса үчүн сунушталган", "Recommended for the till", "Kasa için önerilen", "Kassa uchun tavsiya"), true, (_, _) =>
+            MakeButton(L("Рекомендуемый для кассы", "Касса үчүн сунушталган", "Recommended for the till", "Kasa için önerilen", "Kassa uchun tavsiya"), false, (_, _) =>
             {
                 var byWeight = !string.Equals(WeightBarcodeParser.Mode, "amount", StringComparison.OrdinalIgnoreCase);
                 _formatBox.SelectedIndex = DahuaTmBarcodeFormat.Variants.ToList().IndexOf(DahuaTmBarcodeFormat.Recommended(byWeight));
@@ -420,7 +421,7 @@ public partial class TmScaleSettingsWindow : Window
     private void SetVerdict(bool ok, string message)
     {
         _verdictText.Text = (ok ? "✓ " : "⚠ " + L("Касса НЕ узнает товар: ", "Касса товарды ТААНЫБАЙТ: ", "The till will NOT recognise the item: ", "Kasa ürünü TANIMAZ: ", "Kassa tovarni TANIMAYDI: ")) + message;
-        _verdictText.Foreground = ThemeBrush(this, ok ? "BrushSuccess" : "BrushWarning", ok ? Brushes.Green : Brushes.DarkOrange);
+        Themed(this, _verdictText, TextBlock.ForegroundProperty, ok ? "BrushSuccess" : "BrushWarning", ok ? Brushes.Green : Brushes.DarkOrange);
     }
 
     // =====================================================================================
@@ -470,7 +471,7 @@ public partial class TmScaleSettingsWindow : Window
                 SaveUpload();
                 ShowResult(L("Сохранено.", "Сакталды.", "Saved.", "Kaydedildi.", "Saqlandi."), false);
             }),
-            MakeButton(L("Открыть окно «Весы» (TM-30F)", "«Таразалар» терезесин ачуу (TM-30F)", "Open the “Scales” window (TM-30F)", "«Tartı» penceresini aç (TM-30F)", "«Tarozi» oynasini ochish (TM-30F)"), true,
+            MakeButton(L("Открыть окно «Весы» (TM-30F)", "«Таразалар» терезесин ачуу (TM-30F)", "Open the “Scales” window (TM-30F)", "«Tartı» penceresini aç (TM-30F)", "«Tarozi» oynasini ochish (TM-30F)"), false,
                 (_, _) =>
                 {
                     SaveAll();
@@ -509,8 +510,10 @@ public partial class TmScaleSettingsWindow : Window
     private void ShowResult(string text, bool isError)
     {
         ResultText.Text = text;
-        ResultBorder.BorderBrush = ThemeBrush(this, isError ? "BrushWarning" : "BrushBorder", Brushes.Gray);
-        ResultBorder.Background = ThemeBrush(this, isError ? "BrushWarningSoft" : "BrushSurfaceSubtle", Brushes.Transparent);
+        Themed(this, ResultBorder, Border.BorderBrushProperty, isError ? "BrushWarning" : "BrushBorder", Brushes.Gray);
+        // 2026-10-22 (модалки, пакет 3): BrushSurfaceSubtle в теме нет — был запасной цвет (в тёмной теме не тот); мягкий фон темы.
+        // Цвета — привязкой к теме (ScaleUi.Themed): меняются вместе с темой.
+        Themed(this, ResultBorder, Border.BackgroundProperty, isError ? "BrushWarningSoft" : "BrushPanelSoft", Brushes.Transparent);
     }
 
     private void Close_Click(object? sender, RoutedEventArgs e)

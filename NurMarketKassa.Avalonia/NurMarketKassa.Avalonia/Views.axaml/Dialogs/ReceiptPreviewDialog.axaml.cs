@@ -17,8 +17,9 @@ public partial class ReceiptPreviewDialog : Window
             : content;
     }
 
+    // 2026-10-22 (модалки, пакет 1): заголовок — в шапке общей оболочки ModalShell.
     public ReceiptPreviewDialog(string title, string content) : this(content) =>
-        TitleText.Text = title;
+        Shell.Title = title;
 
     public ReceiptPreviewDialog(object? title, object? content)
         : this(title?.ToString() ?? Tr.T("Предпросмотр чека", "Чекти алдын ала көрүү", "Receipt preview", "Fiş önizleme", "Chekni oldindan ko'rish"), content?.ToString() ?? "")

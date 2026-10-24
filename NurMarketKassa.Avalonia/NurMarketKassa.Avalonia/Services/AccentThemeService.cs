@@ -73,6 +73,12 @@ public static class AccentThemeService
     /// их не во всех начертаниях, поэтому первым в списке идёт вшитый Noto Sans.</summary>
     private const string KyrgyzSafeFont = "avares://NurMarketKassa.Avalonia/Assets/Fonts#Noto Sans";
 
+    /// <summary>2026-10-22, брендбук NUR CRM (разд. 5): основной шрифт — Montserrat (OFL, вшит в Assets/Fonts: Regular,
+    /// SemiBold, Bold; кириллица и ң, ө, ү есть). Заголовки брендбука — TT Firs Neue (коммерческий, не вшит): когда
+    /// появится лицензия, шрифт заменяется здесь и в App.axaml (AppFontFamily) — больше нигде. Noto Sans остаётся запасным
+    /// (глиф на глиф), Segoe UI — системным.</summary>
+    private const string BrandFont = "avares://NurMarketKassa.Avalonia/Assets/Fonts#Montserrat";
+
     // ------------------------------------------------------------------ базовые палитры
     // Значения совпадают с Themes/AppThemeLight.axaml и AppTheme.axaml — от них темы берут
     // отсчёт через `with`, меняя только то, что делает их собой. Так ни один ключ не забывается.
@@ -81,10 +87,10 @@ public static class AccentThemeService
         Window: "#EFF3F8", WindowAlt: "#FFFFFF", Panel: "#FFFFFF", PanelElevated: "#FFFFFF", PanelSoft: "#E2E8F0",
         Input: "#FFFFFF", InputAlt: "#F1F5F9", Border: "#CBD5E1", BorderStrong: "#94A3B8",
         Text: "#0F172A", TextMuted: "#334155", TextSoft: "#64748B",
-        Accent: "#F7D617", AccentStrong: "#D6B500", AccentSoft: "#FFF7C2", AccentForeground: "#000000",
+        Accent: "#FFB208", AccentStrong: "#E69F00", AccentSoft: "#FFF1DB", AccentForeground: "#191919", // 2026-10-22: брендовый жёлтый (было #F7D617)
         TileBg: "#FFFFFF", TileBorder: "#E2E8F0", Price: "#A16207", Meta: "#94A3B8", Stock: "#475569",
-        TabBg: "#E2E8F0", TabBgHover: "#CBD5E1", TabBgSelected: "#F7D617", TabBorderSelected: "#D6B500",
-        Focus: "#F7D617", Money: "#0F172A", SurfaceSubtle: "#F8FAFC");
+        TabBg: "#E2E8F0", TabBgHover: "#CBD5E1", TabBgSelected: "#FFB208", TabBorderSelected: "#E69F00",
+        Focus: "#FFB208", Money: "#0F172A", SurfaceSubtle: "#F8FAFC");
 
     private static readonly Palette BaseDark = new(
         Window: "#1E1E1E", WindowAlt: "#252526", Panel: "#252526", PanelElevated: "#2B2B2C", PanelSoft: "#333333",
@@ -103,41 +109,37 @@ public static class AccentThemeService
         // тёмном, прямые углы.
         ["classic"] = new(BaseLight, BaseDark, ButtonRadius: 0, CardRadius: 0, FontSize: 14),
 
-        // 2026-10-16, редизайн (этап 1): фирменная тема по макетам и design/…/nurcrm/tokens.json.
-        // Решение владельца: тёмно-синий #0B2A3C — текст и навигация, жёлтый #FFD600 — главное
-        // действие и выбранное (текст на жёлтом — тёмно-синий, 10,5:1); остальное — из токенов:
-        // поверхности #FFFFFF / #F9FAFB / #E5E7EB, второстепенный текст #666666, тёмный вариант
-        // #111827 / #1C2536 / #26314A, текст #E5E7EB / #98A2B3, скругления 8 (кнопки) и 12 (карточки).
-        // Рамка фокуса — тёмно-синяя (жёлтая по белому — 1,4:1, её не видно), в тёмном — жёлтая.
-        // Главная кнопка диалогов (btn-primary) — тоже жёлтая (AccentPrimaryAction).
-        // Цвета ошибки/успеха оставлены прежними: #FB2C36 и #16A34A из токенов с белым текстом
-        // дают 3,8:1 и 3,3:1 — мелкий текст не читается.
+        // 2026-10-22, брендбук NUR CRM (docs/Брендбук NUR CRM — применение в программах (22.10.2026).md): «NurMarket» —
+        // брендовая тема. Golden Light #FFB208 — главное действие и выбранное, Deep Night #191919 — текст и тёмный фон,
+        // серая шкала брендбука (#3D3D3D … #EEE) — поверхности и границы. Текст на жёлтом — только #191919 (9,7:1);
+        // белый на #FFB208 даёт 1,8:1 — не используется. Рамка фокуса — #191919 (в тёмном — жёлтая). Скругления 12/18
+        // (в брендбуке — крупные), главная кнопка диалогов — жёлтая. Цвета ошибки/успеха — функциональные, прежние.
+        // (До 22.10: тёмно-синий #0B2A3C и жёлтый #FFD600 по макетам «Coca».)
         ["nurmarket"] = new(
             BaseLight with
             {
-                Window = "#F9FAFB", WindowAlt = "#FFFFFF", Panel = "#FFFFFF", PanelElevated = "#FFFFFF",
-                PanelSoft = "#E5E7EB", Input = "#FFFFFF", InputAlt = "#F9FAFB",
-                Border = "#D1D5DB", BorderStrong = "#9CA3AF",
-                Text = "#0B2A3C", TextMuted = "#374151", TextSoft = "#666666",
-                Accent = "#FFD600", AccentStrong = "#EBC500", AccentSoft = "#FFF7CC", AccentForeground = "#0B2A3C",
-                TileBg = "#FFFFFF", TileBorder = "#E5E7EB", Price = "#0B2A3C", Meta = "#666666", Stock = "#374151",
-                TabBg = "#E5E7EB", TabBgHover = "#D1D5DB", TabBgSelected = "#FFD600", TabBorderSelected = "#EBC500",
-                Focus = "#0B2A3C", Money = "#0B2A3C", SurfaceSubtle = "#F9FAFB",
+                Window = "#F4F4F4", WindowAlt = "#FFFFFF", Panel = "#FFFFFF", PanelElevated = "#FFFFFF",
+                PanelSoft = "#EEEEEE", Input = "#FFFFFF", InputAlt = "#F4F4F4",
+                Border = "#DDDDDD", BorderStrong = "#AAAAAA",
+                Text = "#191919", TextMuted = "#3D3D3D", TextSoft = "#666666",
+                Accent = "#FFB208", AccentStrong = "#E69F00", AccentSoft = "#FFF1DB", AccentForeground = "#191919",
+                TileBg = "#FFFFFF", TileBorder = "#EEEEEE", Price = "#191919", Meta = "#666666", Stock = "#3D3D3D",
+                TabBg = "#EEEEEE", TabBgHover = "#DDDDDD", TabBgSelected = "#FFB208", TabBorderSelected = "#E69F00",
+                Focus = "#191919", Money = "#191919", SurfaceSubtle = "#F9F9F9",
             },
             BaseDark with
             {
-                Window = "#111827", WindowAlt = "#1C2536", Panel = "#1C2536", PanelElevated = "#212B3F",
-                PanelSoft = "#26314A", Input = "#1C2536", InputAlt = "#212B3F",
-                Border = "#3A4251", BorderStrong = "#585F6C",
-                Text = "#E5E7EB", TextMuted = "#C6CBD5", TextSoft = "#98A2B3",
-                Accent = "#FFD600", AccentStrong = "#FFE14D", AccentSoft = "#40412D", AccentForeground = "#0B2A3C",
-                // 2026-10-21: цена — цветом текста, как в светлом варианте (пакет 5, п. 19): жёлтыми были ВСЕ цены
-                // каталога — акцент без смысла; жёлтый остаётся только у главного действия и выбранного.
-                TileBg = "#1C2536", TileBorder = "#3A4251", Price = "#E5E7EB", Meta = "#98A2B3", Stock = "#C6CBD5",
-                TabBg = "#212B3F", TabBgHover = "#26314A", TabBgSelected = "#FFD600", TabBorderSelected = "#FFE14D",
-                Focus = "#FFD600", Money = "#E5E7EB", SurfaceSubtle = "#1C2536",
+                Window = "#191919", WindowAlt = "#202020", Panel = "#222222", PanelElevated = "#2A2A2A",
+                PanelSoft = "#333333", Input = "#222222", InputAlt = "#2A2A2A",
+                Border = "#3D3D3D", BorderStrong = "#666666",
+                Text = "#F5F5F5", TextMuted = "#CCCCCC", TextSoft = "#AAAAAA",
+                Accent = "#FFB208", AccentStrong = "#FFC84D", AccentSoft = "#3A2D10", AccentForeground = "#191919",
+                // Цена — цветом текста (пакет 5, п. 19, 2026-10-21): жёлтый — только у главного действия и выбранного.
+                TileBg = "#222222", TileBorder = "#3D3D3D", Price = "#F5F5F5", Meta = "#AAAAAA", Stock = "#CCCCCC",
+                TabBg = "#2A2A2A", TabBgHover = "#333333", TabBgSelected = "#FFB208", TabBorderSelected = "#FFC84D",
+                Focus = "#FFB208", Money = "#F5F5F5", SurfaceSubtle = "#222222",
             },
-            ButtonRadius: 8, CardRadius: 12, FontSize: 14, ControlHeight: 40, AccentPrimaryAction: true),
+            ButtonRadius: 12, CardRadius: 18, FontSize: 14, ControlHeight: 40, AccentPrimaryAction: true),
 
         // Строгий монохром: ни одного цветного пятна, кроме самой кнопки действия. Поверхности
         // холодно-серые, цена чёрная, углы заметно скруглены — вид делового приложения.
@@ -248,7 +250,9 @@ public static class AccentThemeService
             },
             ButtonRadius: 0, CardRadius: 0, FontSize: 15.5,
             TileNameSize: 15, TilePriceSize: 26, TileStockSize: 14,
-            ControlHeight: 42, BorderThickness: 2),
+            // 2026-10-22 (аудит новой сборки, П3): «Сохранить» и др. главные кнопки в «Контрастной» были синими (вне темы
+            // «чёрное, белое, жёлтое») — теперь акцент темы, жёлтый с чёрным текстом.
+            ControlHeight: 42, BorderThickness: 2, AccentPrimaryAction: true),
 
         // Моноширинный «ламповый» вид старых касс: текст ровной сеткой, зелёный по тёмному.
         // Светлый вариант — та же сетка на бумаге.
@@ -415,14 +419,14 @@ public static class AccentThemeService
             DescUz = "Kassaning asl ko'rinishi: yorug' rejimda sariq, qorong'i rejimda ko'k urg'u, to'g'ri burchaklar. Kassa shu mavzu bilan o'rnatiladi.",
         },
         // 2026-10-16, редизайн (этап 1): фирменная тема по макетам.
-        new("nurmarket", "NurMarket", "NurMarket", "",
-            "Фирменный вид по новым макетам: тёмно-синий текст и навигация, жёлтая главная кнопка и выбранное, мягкие скругления, хорошо заметная рамка у поля ввода.",
-            "Жаңы макеттер боюнча фирмалык көрүнүш: кочкул көк текст жана навигация, сары негизги баскыч жана тандалган, жумшак бурчтар, киргизүү талаасынын даана көрүнгөн алкагы.")
+        new("nurmarket", "NUR CRM", "NUR CRM", "",
+            "Фирменный стиль NUR CRM по брендбуку: жёлтый Golden Light и чёрный Deep Night, шрифт Montserrat, крупные скругления; жёлтая главная кнопка и выбранное.",
+            "NUR CRM брендбугу боюнча фирмалык стиль: сары Golden Light жана кара Deep Night, Montserrat шрифти, чоң тегеректелген бурчтар; сары негизги баскыч жана тандалган.")
         {
-            LabelEn = "NurMarket", LabelTr = "NurMarket", LabelUz = "NurMarket",
-            DescEn = "The brand look from the new designs: dark navy text and navigation, a yellow main button and selection, soft rounding and a clearly visible frame around the active field.",
-            DescTr = "Yeni tasarımlardaki marka görünümü: lacivert metin ve gezinme, sarı ana düğme ve seçim, yumuşak köşeler ve etkin alanın etrafında net görünen çerçeve.",
-            DescUz = "Yangi maketlar bo'yicha brend ko'rinishi: to'q ko'k matn va navigatsiya, sariq asosiy tugma va tanlangan element, yumshoq burchaklar, faol maydon atrofida aniq ko'rinadigan ramka.",
+            LabelEn = "NUR CRM", LabelTr = "NUR CRM", LabelUz = "NUR CRM",
+            DescEn = "The NUR CRM brand book look: Golden Light yellow and Deep Night black, Montserrat font, large rounded corners; a yellow main button and selection.",
+            DescTr = "NUR CRM marka kılavuzu görünümü: Golden Light sarısı ve Deep Night siyahı, Montserrat yazı tipi, büyük yuvarlak köşeler; sarı ana düğme ve seçim.",
+            DescUz = "NUR CRM brendbuk ko'rinishi: sariq Golden Light va qora Deep Night, Montserrat shrifti, katta yumaloq burchaklar; sariq asosiy tugma va tanlangan element.",
         },
         new("graphite", "Графит", "Графит", "",
             "Строгий монохром без цветных пятен: холодно-серые поверхности, чёрная цена, заметно скруглённые кнопки и карточки.",
@@ -523,6 +527,18 @@ public static class AccentThemeService
         // из Themes/AppThemeLight/AppThemeDark, поэтому снятие ключа их не трогает.
         "BrushSuccess", "BrushSuccessSoft", "BrushWarning", "BrushWarningSoft", "BrushDanger", "BrushDangerSoft",
         "BrushUiStatusOk", "BrushUiStatusWarn",
+        // 2026-10-22: галочка/переключатели Fluent у брендовой темы — жёлтые с тёмной галочкой, а не системные синие.
+        "CheckBoxCheckBackgroundFillChecked", "CheckBoxCheckBackgroundFillCheckedPointerOver", "CheckBoxCheckBackgroundFillCheckedPressed",
+        "CheckBoxCheckBackgroundStrokeChecked", "CheckBoxCheckBackgroundStrokeCheckedPointerOver", "CheckBoxCheckBackgroundStrokeCheckedPressed",
+        "CheckBoxCheckGlyphForegroundChecked", "CheckBoxCheckGlyphForegroundCheckedPointerOver", "CheckBoxCheckGlyphForegroundCheckedPressed",
+        // 2026-10-22 (аудит новой сборки, П3): радиокнопки и переключатели — цвета темы, а не системный бирюзовый.
+        "RadioButtonOuterEllipseCheckedFill", "RadioButtonOuterEllipseCheckedFillPointerOver", "RadioButtonOuterEllipseCheckedFillPressed",
+        "RadioButtonOuterEllipseCheckedStroke", "RadioButtonOuterEllipseCheckedStrokePointerOver", "RadioButtonOuterEllipseCheckedStrokePressed",
+        "RadioButtonCheckGlyphFill", "RadioButtonCheckGlyphFillPointerOver", "RadioButtonCheckGlyphFillPressed",
+        "RadioButtonCheckGlyphStroke", "RadioButtonCheckGlyphStrokePointerOver", "RadioButtonCheckGlyphStrokePressed",
+        "ToggleSwitchFillOn", "ToggleSwitchFillOnPointerOver", "ToggleSwitchFillOnPressed",
+        "ToggleSwitchStrokeOn", "ToggleSwitchStrokeOnPointerOver", "ToggleSwitchStrokeOnPressed",
+        "ToggleSwitchKnobFillOn", "ToggleSwitchKnobFillOnPointerOver", "ToggleSwitchKnobFillOnPressed",
     ];
 
     /// <summary>Применяет тему поверх выбранного светлого/тёмного варианта.</summary>
@@ -643,7 +659,7 @@ public static class AccentThemeService
         // молча остаётся прежним. Системные начертания перечисляем сами, а вшитый Noto Sans
         // держим для тем без собственного шрифта: кыргызские ң, ө, ү есть не везде.
         app.Resources["AppFontFamily"] = string.IsNullOrWhiteSpace(skin.FontFamily)
-            ? new FontFamily($"{KyrgyzSafeFont}, Segoe UI")
+            ? new FontFamily($"{BrandFont}, Noto Sans, Segoe UI")  // одна ссылка на папку — все имена из неё (формат Avalonia)
             : new FontFamily(skin.FontFamily);
         app.Resources["AppFontSize"] = skin.FontSize;
         // Цифры одинаковой ширины (OpenType tnum) для сумм и цен: столбцы чисел в чеке не «пляшут»
@@ -729,13 +745,33 @@ public static class AccentThemeService
 
         // Основная кнопка диалогов (btn-primary): у тем без орнамента — прежний синий.
         // 2026-10-16: у «NurMarket» (AccentPrimaryAction) — акцент темы, жёлтый с тёмно-синим текстом.
-        var ornament = (skin.Ornament is not null && custom is null) || skin.AccentPrimaryAction;
+        // 2026-10-23 (аудит Б-9): главная кнопка настроек — акцент темы у ВСЕХ тем (было синее #2563EB у тем без орнамента).
+        var ornament = true;
         app.Resources["BrushPrimaryAction"] = ornament
             ? (app.Resources.TryGetValue("BrushAccent", out var accent) && accent is IBrush a ? a : Brush(p.Accent))
             : Brush("#2563EB");
         app.Resources["BrushPrimaryActionHover"] = Brush(ornament ? p.AccentStrong : "#3B82F6");
         app.Resources["BrushPrimaryActionPressed"] = Brush(ornament ? PressedAccent(p) : "#1D4ED8"); // 2026-10-18: нажатая темнее наведения
         app.Resources["BrushPrimaryActionForeground"] = Brush(ornament ? p.AccentForeground : "#FFFFFF");
+
+        // 2026-10-22, брендбук: у брендовой темы галочка CheckBox — Golden Light с галочкой Deep Night (контраст 9,7:1), а не синяя.
+        // 2026-10-22 (аудит новой сборки, П3): то же для ВСЕХ тем и для радиокнопок/переключателей — раньше в «Контрастной»,
+        // «Классической» и др. они брали системный акцент Windows (бирюзовый/синий). Цвет — акцент темы, значок — текст на акценте
+        // (в «NUR CRM» и «Классической» жёлтый с тёмным, в «Графите» нейтральный).
+        foreach (var st in new[] { "", "PointerOver", "Pressed" })
+        {
+            var fill = st == "" ? p.Accent : st == "PointerOver" ? p.AccentStrong : PressedAccent(p);
+            app.Resources["CheckBoxCheckBackgroundFillChecked" + st] = Brush(fill);
+            app.Resources["CheckBoxCheckBackgroundStrokeChecked" + st] = Brush(fill);
+            app.Resources["CheckBoxCheckGlyphForegroundChecked" + st] = Brush(p.AccentForeground);
+            app.Resources["RadioButtonOuterEllipseCheckedFill" + st] = Brush(fill);
+            app.Resources["RadioButtonOuterEllipseCheckedStroke" + st] = Brush(fill);
+            app.Resources["RadioButtonCheckGlyphFill" + st] = Brush(p.AccentForeground);
+            app.Resources["RadioButtonCheckGlyphStroke" + st] = Brush(p.AccentForeground);
+            app.Resources["ToggleSwitchFillOn" + st] = Brush(fill);
+            app.Resources["ToggleSwitchStrokeOn" + st] = Brush(fill);
+            app.Resources["ToggleSwitchKnobFillOn" + st] = Brush(p.AccentForeground);
+        }
 
         app.Resources["BrushWindowBackdrop"] = backdrop;
         app.Resources["BrushOrnamentBand"] = band;

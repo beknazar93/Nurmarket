@@ -105,6 +105,24 @@ public static class VoiceModelDownloadService
         }
     }
 
+    /// <summary>2026-10-24 (аудит, круг 8, С-9): стоит ли модель в КАССЕ этого компьютера. Программа владельца хранит данные в
+    /// своей папке (NurMarketOwner), а голос работает только в кассе — поэтому владельцу показываем статус папки кассы
+    /// (%APPDATA%\NurMarketKassa\VoiceModel\имя_модели); имена папок моделей — те же, что у самой кассы. Только чтение.</summary>
+    public static bool IsInstalledInKassa(VoiceModelLanguage language)
+    {
+        try
+        {
+            var dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "NurMarketKassa", "VoiceModel", Models[language].FolderName);
+            return Directory.Exists(dir) && Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Any();
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Путь к папке модели для предпочтительного языка — с откатом на второй язык, если
     /// предпочтительный не установлен (например, кассир поставил только русскую модель, но
     /// интерфейс переключён на кыргызский). null, если не установлена ни одна.</summary>

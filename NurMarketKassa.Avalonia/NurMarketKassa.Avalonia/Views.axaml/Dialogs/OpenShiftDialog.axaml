@@ -38,6 +38,10 @@
                     <!-- 2026-10-16: сумма цветом денег, а не акцента — жёлтый по серой карточке не читался (≈1,2:1). -->
                     <TextBlock x:Name="SystemBalanceText" Classes="num" FontSize="18" FontWeight="Bold"
                                Foreground="{DynamicResource BrushMoney}" Margin="0,4,0,0" Text="—"/>
+                    <!-- 2026-10-23: остаток не загрузился — повтор (кнопка «Открыть смену» всё равно доступна). -->
+                    <Button x:Name="RetryBalanceButton" Classes="modal-secondary" IsVisible="False" Margin="0,6,0,0"
+                            HorizontalAlignment="Left" Padding="12,4" FontSize="12" Click="RetryBalance_Click"
+                            Content="{DynamicResource shift.retryBalance}"/>
                 </StackPanel>
             </Border>
 
@@ -45,6 +49,9 @@
                        Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,6"/>
             <TextBox x:Name="OpeningCashBox" Text="0.00" Height="48" FontSize="18" CornerRadius="8"
                      VerticalContentAlignment="Center"/>
+            <!-- 2026-10-22 (модалки, пакет 2): ошибка суммы — текстом под полем (было всплывающее окно). -->
+            <TextBlock x:Name="OpeningCashError" FontSize="13" TextWrapping="Wrap" Margin="0,6,0,0" IsVisible="False"
+                       Foreground="{DynamicResource BrushDangerOnSoft}"/>
         </StackPanel>
     </dlg:ModalShell>
 </Window>

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'receipt_pdf.dart';
 
 import 'package:flutter/material.dart';
@@ -19,6 +21,7 @@ import '../../core/util/audit.dart';
 import 'debt_access.dart';
 import '../../core/print/printer_service.dart';
 import '../profile/printer_settings.dart';
+import '../ops/return_ledger.dart';
 
 enum ReceiptTo { whatsapp, qr, none }
 
@@ -45,6 +48,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   /// 18.10: «Доступ к долгу» (правила владельца) — подсказка под «В долг» и проверка при оплате.
   List<DebtRule>? _debtRules;
   String _debtHint = '';
+
+  /// 2026-10-22 (мобилка, деньги): срок долга «Вернуть до» — как окно оплаты кассы (по умолчанию 30 дней, как сервер).
+  DateTime _debtDue = DateUtils.dateOnly(DateTime.now()).add(const Duration(days: 30));
 
   @override
   void initState() {
@@ -200,6 +206,39 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ],
             ),
           ),
+          // 2026-10-22 (мобилка, деньги): срок долга «Вернуть до» — печатается в чеке и записывается в сделку долга.
+          if (_method == PayMethod.debt) ...[
+            const SizedBox(height: 10),
+            FieldLabel(l.debtDueLabel),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final days in const [7, 14, 30])
+                  ChoiceChip(
+                    label: Text(l.debtDueDays(days)),
+                    selected: _debtDue == DateUtils.dateOnly(DateTime.now()).add(Duration(days: days)),
+                    onSelected: (_) => setState(() => _debtDue = DateUtils.dateOnly(DateTime.now()).add(Duration(days: days))),
+                  ),
+                ActionChip(
+                  avatar: const Icon(Icons.event_outlined, size: 18),
+                  label: Text(
+                    '${_debtDue.day.toString().padLeft(2, '0')}.${_debtDue.month.toString().padLeft(2, '0')}.${_debtDue.year}',
+                  ),
+                  onPressed: () async {
+                    final today = DateUtils.dateOnly(DateTime.now());
+                    final d = await showDatePicker(
+                      context: context,
+                      initialDate: _debtDue,
+                      firstDate: today.add(const Duration(days: 1)),
+                      lastDate: today.add(const Duration(days: 730)),
+                    );
+                    if (d != null && mounted) setState(() => _debtDue = DateUtils.dateOnly(d));
+                  },
+                ),
+              ],
+            ),
+          ],
           // Бонусы: списать часть или максимум (не больше баланса и не больше чека), предпросмотр начисления.
           if (_client != null && _bonusEnabled && (_bonusBalance ?? 0) > 0) ...[
             const SizedBox(height: 10),
@@ -319,7 +358,20 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   Future<void> _pay() async {
+    // 2026-10-22 (мобилка, деньги, К-2): занятость — сразу, до первой паузы (проверка «Доступа к долгу» ждёт базу):
+    // второе нажатие раньше успевало начать вторую оплату.
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _payCore();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _payCore() async {
     final l = context.l;
+    final messenger = ScaffoldMessenger.maybeOf(context);
     final baseCart = ref.read(cartProvider);
     final redeem = _redeemSum(baseCart);
     final cart = _payCart(baseCart);
@@ -328,10 +380,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       toast(context, l.openShiftFirst, error: true);
       return;
     }
+    final method = _method;
+    final client = _client;
     final received = parseNum(_received.text);
+    final debtDue = method == PayMethod.debt ? _debtDue : null;
     // 18.10: «Доступ к долгу» — запрет или лимит на сумму, которая уходит в долг (итог минус внесённое сейчас).
-    final debtAmount = _method == PayMethod.debt ? roundMoney(cart.total - (received ?? 0)) : 0.0;
-    if (_method == PayMethod.debt) {
+    final debtAmount = method == PayMethod.debt ? roundMoney(cart.total - (received ?? 0)) : 0.0;
+    if (method == PayMethod.debt) {
       final repo = ref.read(debtAccessRepoProvider);
       final problem = await repo.check(l, ref.read(sessionProvider), _debtRules ?? await repo.load(), debtAmount);
       if (problem != null) {
@@ -339,27 +394,56 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         return;
       }
     }
-    setState(() => _busy = true);
+    final CheckoutResult result;
     try {
-      final result = await ref
+      result = await ref
           .read(salesRepoProvider)
           .checkout(
             cart: cart,
             shiftId: shift.id,
-            method: _method,
-            received: _method == PayMethod.card ? null : (received ?? (_method == PayMethod.cash ? cart.total : null)),
-            client: _client,
+            method: method,
+            received: method == PayMethod.card ? null : (received ?? (method == PayMethod.cash ? cart.total : null)),
+            client: client,
+            // Бонусы без сервера не списать — такая продажа только при связи (в очередь не встаёт).
+            requireOnline: redeem > 0,
           );
+    } on CheckoutUnknownException {
+      // Сервер не ответил — продажа могла пройти. Ключ сохранён: повтор той же оплаты второй раз не проведётся.
+      if (mounted) toast(context, l.payOutcomeUnknown, error: true);
+      return;
+    } on ApiException catch (e) {
+      if (mounted) toast(context, e.message, error: true);
+      return;
+    } catch (e) {
+      if (mounted) toast(context, l.payOutcomeUnknown, error: true);
+      return;
+    }
+    // Чек уже проведён (или в очереди) — корзину очищаем в любом случае, даже если экран успели закрыть;
+    // дальше ошибки (бонусы, срок долга, журнал) не прячут экран «Оплачено».
+    ref.read(cartProvider.notifier).clear();
+    final saleId = result.response == null ? null : str(result.response, 'id');
+    try {
       // 14.10: журнал аудита.
       Audit.log(
         'sale',
-        '${l.auditSale} ${result.number ?? ''} · ${_method.api}${_client == null ? '' : ' · ${_client!.display}'}${result.queued ? ' · offline' : ''}',
+        '${l.auditSale} ${result.number ?? ''} · ${method.api}${client == null ? '' : ' · ${client.display}'}${result.queued ? ' · offline' : ''}',
         amount: cart.total,
       );
+      // 2026-10-22 (мобилка, деньги, К-3): как заплатили — для расчёта будущего возврата (доля скидки на чек, долг).
+      if (saleId != null) {
+        final prepaid = method == PayMethod.debt ? (received ?? 0) : cart.total;
+        await ReturnLedger(ref.read(databaseProvider)).rememberPayment(
+          saleId: saleId,
+          total: result.total,
+          method: method.api,
+          paidCash: method == PayMethod.card ? 0 : (prepaid < result.total ? prepaid : result.total),
+          paidNonCash: method == PayMethod.card ? result.total : 0,
+          linesTotal: roundMoney(cart.subtotal - cart.lineDiscounts),
+        );
+      }
       // 13.10: бонусы клиента на сервере — сначала списание, потом начисление, с id продажи (как у кассы).
-      final client = _client;
-      if (client != null && _bonusEnabled) {
-        final saleId = result.response == null ? null : str(result.response, 'id');
+      // 2026-10-22: только у проведённой продажи (в очереди нет id продажи — начисление не к чему привязать).
+      if (client != null && _bonusEnabled && !result.queued) {
         final earned = _bonusPercent > 0 ? (cart.total * _bonusPercent / 100 * 100).roundToDouble() / 100 : 0.0;
         final loyalty = ref.read(loyaltyRepoProvider);
         try {
@@ -369,33 +453,43 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           if (mounted) toast(context, e.message, error: true);
         }
       }
-      if (_method == PayMethod.debt) await ref.read(debtAccessRepoProvider).recordSale(ref.read(sessionProvider)?.userId ?? '', debtAmount);
-      // Чек уже проведён (или в очереди) — корзину очищаем в любом случае, даже если экран успели закрыть.
-      ref.read(cartProvider.notifier).clear();
-      ref.read(shiftProvider.notifier).refresh();
-      if (!mounted) return;
-      final receipt = Receipt.fromCart(
-        session: ref.read(sessionProvider),
-        cart: cart,
-        number: result.number,
-        payment: _method.api,
-        received: _method == PayMethod.cash ? (received ?? cart.total) : null,
-        client: _client?.display ?? '',
-        response: result.response,
-        offline: result.queued,
-      );
-      // 13.10, владелец: чек клиенту — PDF-файлом (WhatsApp, Telegram…), а не текстом.
-      if (_receipt == ReceiptTo.whatsapp) await shareReceiptPdf(receipt);
-      if (!mounted) return;
-      context.pushReplacement(
-        '/paid',
-        extra: PaidInfo(result, _method == PayMethod.cash ? change(received ?? cart.total, cart.total) : 0, receipt, showQr: _receipt == ReceiptTo.qr),
-      );
-    } on ApiException catch (e) {
-      if (mounted) toast(context, e.message, error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      if (method == PayMethod.debt) {
+        await ref.read(debtAccessRepoProvider).recordSale(ref.read(sessionProvider)?.userId ?? '', debtAmount);
+        // 2026-10-22 (мобилка, деньги): срок «Вернуть до» — в сделку долга (фоном, оплату не держит).
+        if (client != null && saleId != null && debtDue != null && debtAmount > 0) {
+          final sales = ref.read(salesRepoProvider);
+          final warn = l.debtDueNotSaved;
+          unawaited(
+            sales.setDebtDue(clientId: client.id, saleId: saleId, due: debtDue).then((ok) {
+              if (!ok) messenger?.showSnackBar(SnackBar(content: Text(warn)));
+            }),
+          );
+        }
+      }
+    } catch (_) {
+      // продажа проведена — второстепенное не мешает показать «Оплачено»
     }
+    ref.read(shiftProvider.notifier).refresh();
+    if (!mounted) return;
+    final receipt = Receipt.fromCart(
+      session: ref.read(sessionProvider),
+      cart: cart,
+      number: result.number,
+      payment: method.api,
+      received: method == PayMethod.card ? null : (method == PayMethod.cash ? (received ?? cart.total) : (received ?? 0)),
+      client: client?.display ?? '',
+      response: result.response,
+      offline: result.queued,
+      debtDue: debtDue,
+    );
+    final sharePdf = _receipt == ReceiptTo.whatsapp;
+    // 2026-10-22: сначала «Оплачено», потом PDF — ошибка отправки PDF больше не прячет сдачу.
+    context.pushReplacement(
+      '/paid',
+      extra: PaidInfo(result, method == PayMethod.cash ? change(received ?? cart.total, cart.total) : 0, receipt, showQr: _receipt == ReceiptTo.qr),
+    );
+    // 13.10, владелец: чек клиенту — PDF-файлом (WhatsApp, Telegram…), а не текстом.
+    if (sharePdf) unawaited(shareReceiptPdf(receipt).catchError((_) {}));
   }
 }
 
@@ -429,8 +523,19 @@ class _PaidScreenState extends State<PaidScreen> {
   }
 
   Future<void> _autoPrint() async {
-    final c = await ProviderScope.containerOf(context, listen: false).read(printerProvider).load();
-    if (c.ready && c.autoPrint && mounted) await printReceiptUi(context, info.receipt);
+    final service = ProviderScope.containerOf(context, listen: false).read(printerProvider);
+    final c = await service.load();
+    if (!c.ready || !mounted) return;
+    // 2026-10-22 (мобилка, админ): П6 — после продажи за наличные ящик открывается (с чеком или без автопечати).
+    if (c.autoPrint) {
+      await printReceiptUi(context, info.receipt, afterSale: true);
+    } else {
+      try {
+        await service.drawerAfterSale(info.receipt, c);
+      } catch (_) {
+        // ящик не открылся — продажа уже проведена
+      }
+    }
   }
 
   void _showQr() => ReceiptQrScreen.show(
@@ -483,7 +588,7 @@ class _PaidScreenState extends State<PaidScreen> {
               // 2026-10-20: печать на принтер чеков (Bluetooth / сеть / USB).
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                onPressed: () => printReceiptUi(context, info.receipt),
+                onPressed: () => printReceiptUi(context, info.receipt, afterSale: true),
                 icon: const Icon(Icons.print_outlined),
                 label: Text(l.prnPrint),
               ),

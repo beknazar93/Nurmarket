@@ -1,54 +1,41 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ReceiptPreviewDialog"
         Title="{DynamicResource receiptPreview.title}"
-        Width="520" Height="720"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True"
-        MinWidth="420" MinHeight="520"
-        Background="{DynamicResource BrushInputAlt}">
-  <Grid Margin="20" RowDefinitions="Auto,*,Auto">
-    <TextBlock x:Name="TitleText"
-               Grid.Row="0"
-               Text="{DynamicResource receiptPreview.title}"
-               FontSize="20"
-               FontWeight="Bold"
-               Foreground="{DynamicResource BrushText}"
-               HorizontalAlignment="Center"
-               Margin="0,0,0,16"/>
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+  <!-- 2026-10-22 (модалки, пакет 1): общая оболочка ModalShell 512 вместо системной рамки Windows 520×720 — высота по
+       чеку (не выше 85 % экрана), длинный чек прокручивается между шапкой и закреплённым подвалом. Подвал: «Закрыть»
+       (обводка, Esc и ✕) и одна главная «Печать» (Enter). Заголовок можно задать из кода (Shell.Title). -->
+  <dlg:ModalShell x:Name="Shell" Margin="16" Title="{DynamicResource receiptPreview.title}">
+    <dlg:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button IsCancel="True" Classes="modal-cancel" MaxWidth="200"
+                Content="{DynamicResource common.close}"
+                Click="CloseButton_Click"/>
+        <Button x:Name="PrintButton" IsDefault="True" Classes="modal-primary" MaxWidth="220"
+                Content="{DynamicResource common.printAction}"
+                Click="PrintButton_Click"/>
+      </StackPanel>
+    </dlg:ModalShell.Footer>
 
-    <Border Grid.Row="1"
-            Background="{DynamicResource BrushPanel}"
+    <!-- Чек — «бумагой» на панели темы, моноширинным шрифтом. -->
+    <Border Background="{DynamicResource BrushPanel}"
             BorderBrush="{DynamicResource BrushBorder}"
             BorderThickness="1"
             CornerRadius="10"
-            Padding="20">
-      <ScrollViewer VerticalScrollBarVisibility="Auto"
-                    HorizontalScrollBarVisibility="Disabled">
-        <TextBlock x:Name="ReceiptText"
-                   FontFamily="Cascadia Mono,Consolas"
-                   FontSize="14"
-                   Foreground="{DynamicResource BrushText}"
-                   TextWrapping="Wrap"/>
-      </ScrollViewer>
+            Padding="16">
+      <TextBlock x:Name="ReceiptText"
+                 FontFamily="Cascadia Mono,Consolas"
+                 FontSize="14"
+                 Foreground="{DynamicResource BrushText}"
+                 TextWrapping="Wrap"/>
     </Border>
-
-    <Grid Grid.Row="2" ColumnDefinitions="*,*" Margin="0,16,0,0">
-      <Button IsCancel="True" Grid.Column="0"
-              Content="{DynamicResource common.close}"
-              Height="46"
-              Margin="0,0,6,0"
-              HorizontalContentAlignment="Center"
-              Click="CloseButton_Click"/>
-      <Button Grid.Column="1"
-              Content="{DynamicResource common.printAction}"
-              Height="46"
-              Margin="6,0,0,0"
-              HorizontalContentAlignment="Center"
-              Background="{DynamicResource BrushAccent}"
-              Foreground="{DynamicResource BrushAccentForeground}"
-              FontWeight="Bold"
-              Click="PrintButton_Click"/>
-    </Grid>
-  </Grid>
+  </dlg:ModalShell>
 </Window>

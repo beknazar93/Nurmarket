@@ -82,7 +82,8 @@ public partial class PayDebtDialog
     {
         DebtSales.CollectionChanged += (_, _) =>
         {
-            OneSum = DebtPaymentFlow.OneSumRule(DebtSales, owner: false);
+            // 2026-10-24 (приёмка, ПР-1): «похоже на двойную запись» в «одной суммой» не входит (как у поставщика, П-4).
+            OneSum = DebtPaymentFlow.OneSumRule(DebtSales.Where(r => !r.IsSuspectedDuplicate), owner: false);
             OnPropertyChanged(nameof(ShowPayAllBlock));
             OnPropertyChanged(nameof(HasRemainingUnknown));
             OnPropertyChanged(nameof(CanPayAll));
@@ -97,15 +98,18 @@ public partial class PayDebtDialog
 
     private void OnDebtSalesReloaded()
     {
-        var total = DebtSales.Where(s => !s.RemainingUnknown).Sum(s => s.Amount);
-        PayAllAmountText = total > 0.005 ? total.ToString("0.00", CultureInfo.InvariantCulture) : "";
+        var total = DebtSales.Where(s => !s.RemainingUnknown && !s.IsSuspectedDuplicate).Sum(s => s.Amount); // 2026-10-24 (ПР-1): без «двойной записи»
+        PayAllAmountText = total > 0.005 ? DebtSaleRow.InputText(total) : "";
         _payAllDefault = PayAllAmountText;
         OnPropertyChanged(nameof(ShowPayAllBlock));
     }
 
+    /// <summary>2026-10-22 (модалки, пакет 2): открыт вопрос «Принять …» — второе нажатие/Enter не открывает второй вопрос.</summary>
+    private bool _confirmingPayAll;
+
     private async void PayAll_Click(object? sender, RoutedEventArgs e)
     {
-        if (_selectedClient is not { } client || _paying)
+        if (_selectedClient is not { } client || _paying || _confirmingPayAll)
             return;
 
         ErrorMessage = "";
@@ -131,7 +135,7 @@ public partial class PayDebtDialog
         var totalOwed = oneSum.Limit;
         if (amount > totalOwed + 0.005)
         {
-            var owedText = totalOwed.ToString("0.00", CultureInfo.InvariantCulture);
+            var owedText = DebtSaleRow.InputText(totalOwed);
             ErrorMessage = Tr.T(
                 $"Сумма не может превышать долг клиента ({owedText} сом).",
                 $"Сумма кардардын карызынан ({owedText} сом) ашпашы керек.",
@@ -143,7 +147,9 @@ public partial class PayDebtDialog
 
         // 2026-10-21 (пакет 6, п. 13 аудита кассы): «Погасить» — только после подтверждения суммы, способа и остатка
         // (было одним нажатием, а после оплаты поле снова = весь остаток: второе нажатие гасило весь долг).
-        var leftAfter = Math.Max(0, totalOwed - amount);
+        // 2026-10-24 (приёмка, ПР-1): «похоже на двойную запись» не оплачивается, но остаётся в долге клиента (сервер его считает) — «Останется долг» с ним.
+        var suspects = DebtSales.Where(r => r.IsSuspectedDuplicate && !r.RemainingUnknown).ToList();
+        var leftAfter = Math.Max(0, totalOwed - amount) + suspects.Sum(r => r.Amount);
         var methodTitle = DebtPaymentFlow.MethodTitle(SelectedMethod);
         var amountText = DebtPaymentFlow.Money(amount);
         var leftText = DebtPaymentFlow.Money(leftAfter);
@@ -153,11 +159,35 @@ public partial class PayDebtDialog
             $"«{client.Name}» müşterisinden borç için {amountText} alınsın mı ({methodTitle})?\nKalan borç: {leftText}",
             $"«{client.Name}» mijozdan qarz uchun {amountText} qabul qilinsinmi ({methodTitle})?\nQolgan qarz: {leftText}");
         // 2026-10-21 (ревью денег, A2): долг без продажи в общем долге — честно, что раскладку по чекам делает сервер.
-        var noSaleTotal = DebtSales.Where(r => r.IsNoSale).Sum(r => r.Amount);
+        var noSaleTotal = DebtSales.Where(r => r.IsNoSale && !r.IsSuspectedDuplicate).Sum(r => r.Amount);
         if (noSaleTotal > 0.005)
             confirm += "\n\n" + DebtPaymentFlow.NoSalePlanNote(noSaleTotal);
-        if (!await PosDialogs.ConfirmYesNoModalAsync(this, confirm,
-                Tr.T("Погасить долг", "Карызды төлөө", "Pay off debt", "Borcu öde", "Qarzni to'lash")).ConfigureAwait(true))
+        // 2026-10-24 (приёмка, ПР-1): по строке на каждую «двойную запись» — в сумму оплаты не входит.
+        foreach (var suspect in suspects)
+        {
+            var sd = suspect.CreatedAt == default ? suspect.DateDisplay : suspect.CreatedAt.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture);
+            var sm = DebtPaymentFlow.Money(suspect.Amount);
+            confirm += "\n" + Tr.T($"Долг от {sd} на {sm} похож на двойную запись — в сумму не входит, но сервер гасит долги от старых к новым и может зачесть оплату на него: проверьте на сайте NurCRM.",
+                $"{sd} күнүндөгү {sm} карыз эки жолку жазууга окшош — сумманын ичине кирбейт, бирок сервер карыздарды эскиден жаңыга карай жабат жана төлөмдү ага эсептеши мүмкүн: NurCRM сайтынан текшериңиз.",
+                $"The debt from {sd} for {sm} looks like a double entry — it is not in the amount, but the server pays debts from oldest to newest and may apply the payment to it: check on the NurCRM website.",
+                $"{sd} tarihli {sm} borç çift kayda benziyor — tutara dahil değil, ancak sunucu borçları eskiden yeniye kapatır ve ödemeyi buna sayabilir: NurCRM sitesinde kontrol edin.",
+                $"{sd} dagi {sm} qarz ikki marta yozilganga o'xshaydi — summaga kirmaydi, lekin server qarzlarni eskidan yangiga yopadi va to'lovni unga hisoblashi mumkin: NurCRM saytida tekshiring.");
+        }
+        // 2026-10-22 (модалки, пакет 2): кнопка-глагол «Принять N сом» вместо «Да/Нет».
+        bool confirmed;
+        _confirmingPayAll = true;
+        try
+        {
+            confirmed = await PosDialogs.ConfirmYesNoModalAsync(this, confirm,
+                Tr.T("Погасить долг", "Карызды төлөө", "Pay off debt", "Borcu öde", "Qarzni to'lash"),
+                confirmText: Tr.T($"Принять {amountText}", $"{amountText} кабыл алуу", $"Accept {amountText}",
+                    $"{amountText} al", $"{amountText} qabul qilish")).ConfigureAwait(true);
+        }
+        finally
+        {
+            _confirmingPayAll = false;
+        }
+        if (!confirmed)
             return;
         if (_paying || !ReferenceEquals(_selectedClient, client))
             return;

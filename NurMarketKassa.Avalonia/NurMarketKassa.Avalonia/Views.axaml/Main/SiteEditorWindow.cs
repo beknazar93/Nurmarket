@@ -608,7 +608,10 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             "Жарыялана элек бардык өзгөртүүлөрдү жокко чыгарасызбы? Сайт кардарлардагыдай калат.",
             "Discard all unpublished changes? The website stays as customers see it now.",
             "Yayınlanmamış tüm değişiklikler geri alınsın mı? Site müşterilerin şu an gördüğü gibi kalır.",
-            "E'lon qilinmagan barcha o'zgarishlar bekor qilinsinmi? Sayt xaridorlar hozir ko'rgandek qoladi.")).ConfigureAwait(true);
+            "E'lon qilinmagan barcha o'zgarishlar bekor qilinsinmi? Sayt xaridorlar hozir ko'rgandek qoladi."),
+            // 2026-10-22 (модалки, пакет 4): глаголы, необратимое — красной; «Оставить» вместо «Нет».
+            T("Отменить изменения", "Өзгөртүүлөрдү жокко чыгаруу", "Discard changes", "Değişiklikleri geri al", "O'zgarishlarni bekor qilish"),
+            T("Оставить", "Калтыруу", "Keep", "Koru", "Qoldirish"), danger: true).ConfigureAwait(true);
         if (!ok)
             return;
         _saveTimer.Stop();
@@ -730,29 +733,23 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
         }
     }
 
-    private async Task<bool> ConfirmAsync(string text)
+    /// <summary>2026-10-22 (модалки, пакет 4): вопрос в общей рамке ModalShell (S 512) вместо системной рамки 460 с «Да/Нет»:
+    /// кнопки — глаголы, ✕ и Esc — отмена, опасное — красной (Enter его не нажимает, фокус — на отмене).</summary>
+    private async Task<bool> ConfirmAsync(string text, string confirmText, string cancelText, bool danger = false)
     {
         var tcs = new TaskCompletionSource<bool>();
-        var dialog = new Window
-        {
-            Width = 460, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner, CanResize = false,
-            Title = Title,
-        };
-        Use(dialog, BackgroundProperty, "BrushWindowBackdrop");
-        var panel = new StackPanel { Margin = new Thickness(20), Spacing = 16 };
+        var dialog = new Window { Title = Title };
+        SectionCards.AsModal(dialog, 512);
         var label = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 14 };
         Use(label, TextBlock.ForegroundProperty, "BrushText");
-        panel.Children.Add(label);
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
-        var yes = UiKit.Primary(this, T("Да", "Ооба", "Yes", "Evet", "Ha"));
-        var no = UiKit.Ghost(this, T("Нет", "Жок", "No", "Hayır", "Yo'q"));
+        var yes = danger ? SectionCards.Danger(confirmText) : SectionCards.Primary(confirmText, isDefault: true);
+        var no = SectionCards.Cancel(cancelText);
         yes.Click += (_, _) => { tcs.TrySetResult(true); dialog.Close(); };
         no.Click += (_, _) => { tcs.TrySetResult(false); dialog.Close(); };
         dialog.Closed += (_, _) => tcs.TrySetResult(false);
-        row.Children.Add(no);
-        row.Children.Add(yes);
-        panel.Children.Add(row);
-        dialog.Content = panel;
+        var shell = SectionCards.Shell(Title, null, label, SectionCards.Buttons(no, yes));
+        shell.InitialFocus = danger ? no : yes;
+        dialog.Content = shell;
         await dialog.ShowDialog(this).ConfigureAwait(true);
         return await tcs.Task.ConfigureAwait(true);
     }
@@ -1162,7 +1159,9 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             $"«{theme.Name}» teması uygulansın mı? Renkler, yazı tipi, blok görünümleri ve resimler değişir. Ad, telefon ve ürünler kalır. "
             + "Müşteriler «Yayınla»dan sonra görür; o zamana kadar düzenleyebilir ya da «Değişiklikleri geri al»a basabilirsiniz.",
             $"«{theme.Name}» mavzusi qo'llansinmi? Ranglar, shrift, bloklar ko'rinishi va rasmlar o'zgaradi. Nomi, telefoni va mahsulotlar qoladi. "
-            + "Xaridorlar «E'lon qilish»dan keyin ko'radi; ungacha hammasini tuzatish yoki «O'zgarishlarni bekor qilish»ni bosish mumkin.")).ConfigureAwait(true);
+            + "Xaridorlar «E'lon qilish»dan keyin ko'radi; ungacha hammasini tuzatish yoki «O'zgarishlarni bekor qilish»ni bosish mumkin."),
+            // 2026-10-22 (модалки, пакет 4): глагол «Применить тему» вместо «Да».
+            T("Применить тему", "Теманы колдонуу", "Apply theme", "Temayı uygula", "Mavzuni qo'llash"), T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true);
         if (!ok)
             return false;
         _saveTimer.Stop();
@@ -1543,11 +1542,12 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
                 swatch.Background = new SolidColorBrush(c);
         }
         Paint(current);
-        var palette = new WrapPanel { Width = 6 * 34 };
+        // 2026-10-22 (модалки, пакет 4): клетки палитры 44 px (были 28) — попадать пальцем на моноблоке.
+        var palette = new WrapPanel { Width = 6 * 50 };
         var flyout = new Flyout { Content = palette, Placement = PlacementMode.BottomEdgeAlignedLeft };
         foreach (var hex in Palette)
         {
-            var cell = new Button { Width = 28, Height = 28, Margin = new Thickness(3), Padding = new Thickness(0), CornerRadius = new CornerRadius(6), Background = new SolidColorBrush(Color.Parse(hex)), BorderThickness = new Thickness(1) };
+            var cell = new Button { Width = 44, Height = 44, Margin = new Thickness(3), Padding = new Thickness(0), CornerRadius = new CornerRadius(6), Background = new SolidColorBrush(Color.Parse(hex)), BorderThickness = new Thickness(1) };
             Use(cell, Button.BorderBrushProperty, "BrushBorder");
             ToolTip.SetTip(cell, hex);
             cell.Click += (_, _) =>

@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using NurMarketKassa.AvaloniaHost.Views;
 using NurMarketKassa.Models;
 using NurMarketKassa.Services;
 
@@ -35,28 +36,33 @@ public sealed class AddEmployeeDialog : Window
     public AddEmployeeDialog(IReadOnlyList<RoleInfoDto> roles)
     {
         Title = Tr.T("Новый сотрудник", "Жаңы кызматкер", "New employee", "Yeni personel", "Yangi xodim");
-        Width = 560;
-        Height = 680;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        CanResize = true;
+        // 2026-10-22 (модалки, пакет 4): общая рамка ModalShell (M 672) вместо системной рамки Windows 560×680 — кнопки
+        // были 28 px, Esc не закрывал, цвета Gray/Red не менялись с темой. Поля и доступы прокручиваются, «Отмена» и
+        // «Создать» закреплены внизу (видны на 910×512); Esc и ✕ — «Отмена»; фокус — в Email; ошибка — под полями.
+        SectionCards.AsModal(this, 672);
 
-        TextBlock Label(string text) => new() { Text = text, FontSize = 12, Foreground = Brushes.Gray };
+        TextBlock Label(string text)
+        {
+            var label = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 4, 0, 0) };
+            label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            return label;
+        }
 
-        var topFields = new StackPanel { Margin = new Thickness(16, 16, 16, 0), Spacing = 10 };
+        var topFields = new StackPanel { Spacing = 8 };
 
-        _emailBox = new TextBox { Watermark = "user@mail.com" };
-        _firstNameBox = new TextBox();
-        _lastNameBox = new TextBox();
-        _roleBox = new ComboBox
+        _emailBox = SectionCards.Field(new TextBox { Watermark = "user@mail.com" });
+        _firstNameBox = SectionCards.Field(new TextBox());
+        _lastNameBox = SectionCards.Field(new TextBox());
+        _roleBox = SectionCards.Field(new ComboBox
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
             ItemsSource = roles,
             PlaceholderText = Tr.T("Выберите роль", "Ролду тандаңыз", "Select a role", "Rol seçin", "Rolni tanlang"),
-        };
+        });
         _roleBox.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<RoleInfoDto>(
             (role, _) => new TextBlock { Text = role?.Name ?? "" });
 
-        _errorText = new TextBlock { Foreground = Brushes.Red, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+        _errorText = SectionCards.ErrorText(this);
 
         topFields.Children.Add(Label("Email *"));
         topFields.Children.Add(_emailBox);
@@ -70,37 +76,23 @@ public sealed class AddEmployeeDialog : Window
 
         var (accessView, accessBoxes) = EmployeeAccessChecklist.Build();
         _accessBoxes = accessBoxes;
-        accessView.Margin = new Thickness(16, 8, 16, 0);
+        // Доступы — в общей прокрутке тела окна: своя прокрутка чек-листа внутри неё не нужна.
+        var accessPanel = (Control)accessView.Content!;
+        accessView.Content = null;
 
-        var buttons = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Spacing = 8,
-            Margin = new Thickness(16),
-        };
-        var btnCancel = new Button { Content = Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), Width = 100, Height = 28 };
+        var btnCancel = SectionCards.Cancel(Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         btnCancel.Click += (_, _) => Close(false);
-        var btnCreate = new Button
-        {
-            Content = Tr.T("Создать", "Түзүү", "Create", "Oluştur", "Yaratish"),
-            IsDefault = true,
-            Width = 100,
-            Height = 28,
-        };
+        var btnCreate = SectionCards.Primary(Tr.T("Создать", "Түзүү", "Create", "Oluştur", "Yaratish"), isDefault: true);
         btnCreate.Click += (_, _) => TryConfirm();
-        buttons.Children.Add(btnCancel);
-        buttons.Children.Add(btnCreate);
 
-        var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto") };
-        Grid.SetRow(topFields, 0);
-        Grid.SetRow(accessView, 1);
-        Grid.SetRow(buttons, 2);
-        root.Children.Add(topFields);
-        root.Children.Add(accessView);
-        root.Children.Add(buttons);
-
-        Content = root;
+        var shell = SectionCards.Shell(Title,
+            Tr.T("Сотрудник будет создан и на сайте app.nurcrm.kg.", "Кызматкер app.nurcrm.kg сайтында да түзүлөт.",
+                "The employee will also be created on app.nurcrm.kg.", "Personel app.nurcrm.kg sitesinde de oluşturulacak.",
+                "Xodim app.nurcrm.kg saytida ham yaratiladi."),
+            new StackPanel { Spacing = 8, Children = { topFields, accessPanel } },
+            SectionCards.Buttons(btnCancel, btnCreate));
+        shell.InitialFocus = _emailBox;
+        Content = shell;
     }
 
     private void TryConfirm()
@@ -112,13 +104,14 @@ public sealed class AddEmployeeDialog : Window
 
         if (email.Length == 0 || first.Length == 0 || last.Length == 0 || role?.Id is null)
         {
-            _errorText.Text = Tr.T(
+            // 2026-10-22 (модалки, пакет 4): ошибка под полями, фокус — в первое незаполненное.
+            Control firstEmpty = email.Length == 0 ? _emailBox : first.Length == 0 ? _firstNameBox : last.Length == 0 ? _lastNameBox : _roleBox;
+            SectionCards.ShowError(_errorText, Tr.T(
                 "Заполните Email, Имя, Фамилию и выберите роль.",
                 "Email'ди, атын жана фамилиясын толтуруп, ролду тандаңыз.",
                 "Fill in the email, first name and last name, and select a role.",
                 "E-posta, Ad ve Soyad alanlarını doldurun ve bir rol seçin.",
-                "Email, ism va familiyani kiriting hamda rolni tanlang.");
-            _errorText.IsVisible = true;
+                "Email, ism va familiyani kiriting hamda rolni tanlang."), firstEmpty);
             return;
         }
 

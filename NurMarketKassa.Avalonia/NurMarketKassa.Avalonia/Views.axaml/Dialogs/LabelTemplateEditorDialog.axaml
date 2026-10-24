@@ -192,12 +192,16 @@
                     <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,10" Padding="4"
                             Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                             CornerRadius="{DynamicResource SettingsCardRadius}">
-                        <StackPanel Orientation="Horizontal" Spacing="2">
-                            <Button Content="−" Width="34" MinHeight="32" Height="32" Classes="sec-outline" Padding="0" Click="ZoomOut_Click"
+                        <!-- 2026-10-22 (модалки, пакет 3): кнопки масштаба 44×44 (были 34×32) — касание пальцем; подпись «Масштаб»
+                             видна рядом (раньше смысл кнопок был только во всплывающей подсказке). Текст ставит код (Tr.T). -->
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="ZoomCaption" VerticalAlignment="Center" Margin="6,0,4,0" FontSize="12.5"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                            <Button Content="−" Width="44" MinHeight="44" Height="44" Classes="sec-outline" Padding="0" Click="ZoomOut_Click"
                                     ToolTip.Tip="{DynamicResource labelEditor.zoomOut}" AutomationProperties.Name="{DynamicResource labelEditor.zoomOut}"/>
                             <TextBlock x:Name="ZoomLabel" Text="100%" VerticalAlignment="Center" Width="46" TextAlignment="Center" FontSize="12.5"
                                        Foreground="{DynamicResource BrushText}"/>
-                            <Button Content="+" Width="34" MinHeight="32" Height="32" Classes="sec-outline" Padding="0" Click="ZoomIn_Click"
+                            <Button Content="+" Width="44" MinHeight="44" Height="44" Classes="sec-outline" Padding="0" Click="ZoomIn_Click"
                                     ToolTip.Tip="{DynamicResource labelEditor.zoomIn}" AutomationProperties.Name="{DynamicResource labelEditor.zoomIn}"/>
                         </StackPanel>
                     </Border>
@@ -239,7 +243,7 @@
                                 <CheckBox x:Name="LabelPageFromTemplateCheck" VerticalAlignment="Bottom" Margin="0,0,0,12"
                                           Foreground="{DynamicResource BrushText}"/>
                             </WrapPanel>
-                            <TextBlock x:Name="LabelCalibHint" FontSize="11.5" TextWrapping="Wrap"
+                            <TextBlock x:Name="LabelCalibHint" FontSize="12" TextWrapping="Wrap"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
                         </ScrollViewer>

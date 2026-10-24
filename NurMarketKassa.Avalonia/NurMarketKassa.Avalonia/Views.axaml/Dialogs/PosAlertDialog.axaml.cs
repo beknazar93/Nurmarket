@@ -21,7 +21,7 @@ public partial class PosAlertDialog : Window
 
     public PosAlertDialog() => InitializeComponent();
 
-    public PosAlertDialog(string title, string message, PosAlertKind kind = PosAlertKind.Info, string? buttonText = null)
+    public PosAlertDialog(string title, string message, PosAlertKind kind = PosAlertKind.Info, string? buttonText = null, bool info = false)
     {
         InitializeComponent();
         Title = title;
@@ -38,22 +38,23 @@ public partial class PosAlertDialog : Window
         // ошибку" появляется сразу везде без правки каждого места по отдельности.
         var isErrorOrWarning = kind is PosAlertKind.Error or PosAlertKind.Warning;
         OkButton.Content = isErrorOrWarning ? Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish") : buttonText ?? Tr.T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli");
-        DeferButton.IsVisible = isErrorOrWarning;
+        // 2026-10-23: info — предупреждение-напоминание (смена 23 ч), не ошибка: «Отложить ошибку» не нужна.
+        DeferButton.IsVisible = isErrorOrWarning && !info;
 
         // 2026-10-16: красная главная кнопка — класс danger оболочки (тот же #DC2626, но с наведением).
         if (kind == PosAlertKind.Error)
             OkButton.Classes.Add("danger");
     }
 
-    public static void Show(Window? owner, string title, string message, PosAlertKind kind = PosAlertKind.Info, string? buttonText = null)
+    public static void Show(Window? owner, string title, string message, PosAlertKind kind = PosAlertKind.Info, string? buttonText = null, bool info = false)
     {
-        var dlg = new PosAlertDialog(title, message, kind, buttonText);
+        var dlg = new PosAlertDialog(title, message, kind, buttonText, info);
         PosDialogHost.Show(dlg, owner);
     }
 
-    public static Task ShowAsync(Window? owner, string title, string message, PosAlertKind kind = PosAlertKind.Info, string? buttonText = null)
+    public static Task ShowAsync(Window? owner, string title, string message, PosAlertKind kind = PosAlertKind.Info, string? buttonText = null, bool info = false)
     {
-        var dlg = new PosAlertDialog(title, message, kind, buttonText);
+        var dlg = new PosAlertDialog(title, message, kind, buttonText, info);
         return PosDialogHost.ShowAsync(dlg, owner);
     }
 

@@ -42,6 +42,16 @@ class ProductRefs {
     return data!.buffer.asUint8List();
   }
 
+  /// 2026-10-22 (аудит У-4): эталон — сам снимок камеры (JPEG 640×480, 40–80 КБ), а не PNG 384 px (150–300 КБ):
+  /// запрос сверки с 6 товарами по 3 снимка был 6–12 МБ и на мобильной сети не успевал. Большой снимок или не JPEG —
+  /// уменьшается до 320 px.
+  static bool _isJpeg(Uint8List b) => b.length > 2 && b[0] == 0xFF && b[1] == 0xD8;
+
+  static Future<Uint8List> compact(Uint8List image) async => _isJpeg(image) && image.length <= 150 * 1024 ? image : await shrink(image, width: 320);
+
+  /// Сколько снимков товара отправлять в сверку (лучшие первые: справа, слева, сверху).
+  static const maxPerProduct = 3;
+
   static Future<void> save(AppDatabase db, String productId, List<Uint8List> shots) async {
     if (productId.isEmpty || shots.isEmpty) return;
     final dir = await _dir();
@@ -52,9 +62,10 @@ class ProductRefs {
       } catch (_) {}
     }
     final paths = <String>[];
-    for (var i = 0; i < shots.length; i++) {
-      final f = File('${dir.path}/${productId}_$i.png');
-      await f.writeAsBytes(await shrink(shots[i]));
+    for (var i = 0; i < shots.length && i < maxPerProduct; i++) {
+      final bytes = await compact(shots[i]);
+      final f = File('${dir.path}/${productId}_$i.${_isJpeg(bytes) ? 'jpg' : 'png'}');
+      await f.writeAsBytes(bytes);
       paths.add(f.path);
     }
     index[productId] = paths;
@@ -65,7 +76,7 @@ class ProductRefs {
 
   static Future<List<Uint8List>> load(AppDatabase db, String productId) async {
     final out = <Uint8List>[];
-    for (final p in (await _index(db))[productId] ?? const <String>[]) {
+    for (final p in ((await _index(db))[productId] ?? const <String>[]).take(maxPerProduct)) {
       try {
         out.add(await File(p).readAsBytes());
       } catch (_) {}
@@ -74,12 +85,14 @@ class ProductRefs {
   }
 
   /// Фото товара с сервера как эталон (для товаров, обученных на другом телефоне).
+  /// 2026-10-22: сроки под мобильную сеть — 3 + 4 с (было 8 + 15 с на каждое фото), лёгкое фото не перекодируется.
+  static final _dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 3), receiveTimeout: const Duration(seconds: 4)));
+
   static Future<Uint8List?> fromUrl(String url) async {
     try {
-      final r = await Dio(BaseOptions(connectTimeout: const Duration(seconds: 8), receiveTimeout: const Duration(seconds: 15)))
-          .get<List<int>>(url, options: Options(responseType: ResponseType.bytes));
+      final r = await _dio.get<List<int>>(url, options: Options(responseType: ResponseType.bytes));
       final bytes = r.data;
-      return bytes == null ? null : await shrink(Uint8List.fromList(bytes));
+      return bytes == null ? null : await compact(Uint8List.fromList(bytes));
     } catch (_) {
       return null;
     }

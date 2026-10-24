@@ -22,7 +22,11 @@
            некоторых POS-терминалах оказывается урезанной сборкой без кириллических расширений
            и рисует эти буквы квадратами); Segoe UI оставлена вторым вариантом на случай, если в
            Noto Sans не найдётся какой-то другой символ. -->
-      <FontFamily x:Key="AppFontFamily">avares://NurMarketKassa.Avalonia/Assets/Fonts#Noto Sans, Segoe UI</FontFamily>
+      <!-- 2026-10-22, брендбук NUR CRM: основной шрифт Montserrat (вшит), Noto Sans — запасной для глифов. -->
+      <FontFamily x:Key="AppFontFamily">avares://NurMarketKassa.Avalonia/Assets/Fonts#Montserrat, Noto Sans, Segoe UI</FontFamily>
+      <!-- 2026-10-22, брендбук NUR CRM: шрифт заголовков и крупных чисел — Onest Bold (OFL, вшит), ближайший бесплатный к TT Firs Neue Bold;
+           класс TextBlock.brand-h; когда появится TT Firs Neue — заменить только эту строку. -->
+      <FontFamily x:Key="AppHeadingFontFamily">avares://NurMarketKassa.Avalonia/Assets/Fonts#Onest Heading</FontFamily>
       <x:Double x:Key="AppFontSize">14</x:Double>
 
       <!-- Раскладка каталога и элементов — базовые значения «как всегда было». Тема из
@@ -42,10 +46,12 @@
       <SolidColorBrush x:Key="BrushOrnamentBand" Color="Transparent"/>
       <!-- Основная кнопка диалогов и настроек (btn-primary, PosDialogStyles) — синяя во всех
            темах, кроме «Кыргыз» (там акцент темы). -->
-      <SolidColorBrush x:Key="BrushPrimaryAction" Color="#2563EB"/>
-      <SolidColorBrush x:Key="BrushPrimaryActionHover" Color="#3B82F6"/>
-      <SolidColorBrush x:Key="BrushPrimaryActionPressed" Color="#1D4ED8"/>
-      <SolidColorBrush x:Key="BrushPrimaryActionForeground" Color="#FFFFFF"/>
+      <!-- 2026-10-23 (аудит Б-9): по умолчанию — брендовый жёлтый (как sec-primary / UiKit.Primary), было синее #2563EB;
+           у каждой темы AccentThemeService.ApplyCore подставляет акцент темы. -->
+      <SolidColorBrush x:Key="BrushPrimaryAction" Color="#FFB208"/>
+      <SolidColorBrush x:Key="BrushPrimaryActionHover" Color="#E69F00"/>
+      <SolidColorBrush x:Key="BrushPrimaryActionPressed" Color="#CC8800"/>
+      <SolidColorBrush x:Key="BrushPrimaryActionForeground" Color="#191919"/>
       <!-- 2026-10-16, редизайн: рамка поля в фокусе в модалках (ModalShell); тема задаёт свою
            (AccentThemeService.ApplyCore — цвет фокуса темы, если он заметен на поле, иначе цвет текста). -->
       <SolidColorBrush x:Key="BrushFocusRing" Color="#2563EB"/>
@@ -91,6 +97,11 @@
       <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
     </Style>
     <!-- Суммы и цены: цифры одинаковой ширины (редизайн 2026-09-28, см. AccentThemeService). -->
+    <!-- 2026-10-22: заголовки разделов и крупные числа — Onest Bold (класс brand-h); цифры остаются табличными (num). -->
+    <Style Selector="TextBlock.brand-h">
+      <Setter Property="FontFamily" Value="{DynamicResource AppHeadingFontFamily}"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
     <Style Selector="TextBlock.num">
       <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}"/>
     </Style>

@@ -19,7 +19,8 @@
     <Window.Styles>
         <Style Selector="TextBox">
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="MinHeight" Value="40"/>
+            <!-- 2026-10-22 (модалки, пакет 2): поля 44 px (было 40). -->
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="Padding" Value="10,8"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
@@ -77,7 +78,11 @@
                 <Button x:Name="MinimizeButton" Click="MinimizeButton_Click"/>
             </Panel>
 
-            <StackPanel Grid.Row="1" Spacing="10" Margin="0,0,0,14">
+            <!-- 2026-10-22 (модалки, пакет 2): верхний блок (клиент, «одной суммой», плашки, ошибки) — в своей прокрутке не выше
+                 ~45 % окна (TopScroll.MaxHeight в коде): на 910×512 он больше не сжимает таблицу долгов до нуля. -->
+            <ScrollViewer x:Name="TopScroll" Grid.Row="1" Margin="0,0,0,14"
+                          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="10" Margin="0,0,8,0">
                 <TextBlock x:Name="ClientLabelText" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
 
                 <!-- Выбранный клиент: компактная плашка вместо списка — освобождает место под
@@ -110,7 +115,8 @@
                             BorderThickness="1"
                             CornerRadius="8"
                             IsVisible="{Binding HasClientSearchResults}">
-                        <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                        <!-- 2026-10-22 (аудит 1.17.59, П-Б): список клиентов выше (было 220 — 5 строк, ниже пусто). -->
+                        <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding ClientSearchResults}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -193,7 +199,7 @@
                         <TextBlock Text="{Binding UnknownPaymentText}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{DynamicResource BrushDangerOnSoft}"/>
                         <WrapPanel Orientation="Horizontal">
-                            <Button x:Name="RetryUnknownButton" Classes="modal-primary" Margin="0,0,8,8"
+                            <Button x:Name="RetryUnknownButton" Classes="modal-secondary" Margin="0,0,8,8"
                                     IsEnabled="{Binding CanRetryUnknown}"
                                     Content="{Binding UnknownRetryLabel}" Click="RetryUnknown_Click"/>
                             <!-- 2026-10-18, пятый круг: два решения после проверки на сайте NurCRM (оба — с подтверждением и кодом). -->
@@ -214,7 +220,7 @@
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Text="{Binding WarningMessage}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"
                                    VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
-                        <Button Grid.Column="1" Classes="modal-secondary" MinHeight="36" Margin="10,0,0,0"
+                        <Button Grid.Column="1" Classes="modal-secondary" MinHeight="44" Margin="10,0,0,0"
                                 Content="{Binding WarningCloseLabel}" Click="CloseWarning_Click"/>
                     </Grid>
                 </Border>
@@ -232,6 +238,7 @@
                            IsVisible="{Binding !!SuccessMessage}"
                            TextWrapping="Wrap"/>
             </StackPanel>
+            </ScrollViewer>
 
             <Grid Grid.Row="2" RowDefinitions="Auto,Auto,*" IsVisible="{Binding HasSelectedClient}">
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
@@ -240,11 +247,11 @@
                     <!-- Вкладки — сегменты: выбранная тёмно-синяя (правило 2), как у владельца. -->
                     <Border Grid.Column="1" Classes="sec-segment">
                         <StackPanel Orientation="Horizontal" Spacing="2">
-                            <Button x:Name="UnpaidTabButton" Classes="sec-seg"
+                            <Button x:Name="UnpaidTabButton" Classes="sec-seg" MinHeight="44"
                                     Classes.active="{Binding ShowUnpaid}"
                                     Content="{Binding UnpaidTabLabel}"
                                     Click="ShowUnpaidTab_Click"/>
-                            <Button x:Name="HistoryTabButton" Classes="sec-seg"
+                            <Button x:Name="HistoryTabButton" Classes="sec-seg" MinHeight="44"
                                     Classes.active="{Binding ShowHistory}"
                                     Content="{Binding HistoryTabLabel}"
                                     Click="ShowHistoryTab_Click"/>
@@ -275,7 +282,7 @@
                                     <TextBox Text="{Binding AmountToPayText, Mode=TwoWay}" IsVisible="{Binding CanPayByReceipt}"
                                              IsEnabled="{Binding DataContext.CanEditPayment, RelativeSource={RelativeSource AncestorType=Window}}"
                                              FontWeight="Bold"
-                                             MinHeight="38"
+                                             MinHeight="44"
                                              Padding="8,4"
                                              Margin="0,4"/>
                                     </Panel>
@@ -286,7 +293,7 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Button Classes="modal-secondary" FontSize="13" IsVisible="{Binding CanPayByReceipt}"
-                                            MinWidth="0" MinHeight="38" Padding="12,0" Margin="6,0"
+                                            MinWidth="0" MinHeight="44" Padding="12,0" Margin="6,0"
                                             HorizontalAlignment="Stretch"
                                             IsEnabled="{Binding DataContext.CanEditPayment, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Content="{Binding DataContext.PayButtonLabel, RelativeSource={RelativeSource AncestorType=Window}}"

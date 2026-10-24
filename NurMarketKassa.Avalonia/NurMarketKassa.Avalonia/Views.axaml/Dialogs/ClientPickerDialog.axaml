@@ -1,14 +1,13 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:NurMarketKassa.ViewModels"
-        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ClientPickerDialog"
         x:DataType="vm:CheckoutViewModel"
         x:CompileBindings="False"
         Title="{DynamicResource csh.checkout.chooseClient}"
-        Width="512" Height="720" MinWidth="380" MinHeight="420"
+        Width="460" MinWidth="320" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True"
+        CanResize="False"
         SystemDecorations="None"
         FontFamily="Segoe UI"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
@@ -21,40 +20,86 @@
         <Style Selector="Button.ClientRow:pressed /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
         </Style>
+        <!-- 2026-10-23 (ТЗ компактной оплаты, П-2): поле в фокусе — заметная рамка 2 px, как было внутри ModalShell. -->
+        <Style Selector="Border.PickerCard TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
     </Window.Styles>
 
-    <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 480 (окно 512 × 600, не выше 85 %
-         экрана) — заголовок и ✕ сверху, «Закрыть» (обводка, Esc — как прежний ✕) внизу справа. Список клиентов
-         прокручивается сам (ContentScroll="Disabled"), поиск над ним на месте. Клиент выбирается касанием строки. -->
-    <dlg:ModalShell Margin="16"
-                    Title="{DynamicResource csh.checkout.chooseClient}"
-                    ContentScroll="Disabled">
-        <dlg:ModalShell.Footer>
-            <Button IsCancel="True"
-                    Classes="modal-cancel" MaxWidth="200"
-                    Content="{DynamicResource common.close}"
-                    Click="Close_Click"/>
-        </dlg:ModalShell.Footer>
+    <!-- 2026-10-23 (ТЗ «Окно оплаты — компактный вид», П-2): выбор клиента — компактная карточка без ModalShell
+         (было: окно 512 × 720 с оболочкой 220 px и 6 строками; на экране 600 — 2 строки). Окно без рамки ОС и прозрачное
+         (поля 10 — под тень), видимая карточка — внешний Border: CornerRadius 12, рамка BrushBorderStrong, фон BrushDialogPanel.
+         Место и число строк списка задаёт код (ClientPickerDialog.PlaceFor): под строкой клиента окна оплаты.
+         Режим «список»: поиск + «Новый клиент» + ✕ в одной строке. Режим «новый клиент»: «‹ Назад», заголовок, ✕;
+         список остаётся виден (2 строки), ниже поля 44 px и «Добавить клиента». Esc закрывает карточку (код). -->
+    <Border Classes="PickerCard" Margin="10" Padding="10" CornerRadius="12"
+            Background="{DynamicResource BrushDialogPanel}"
+            BorderBrush="{DynamicResource BrushBorderStrong}" BorderThickness="1"
+            BoxShadow="0 8 24 0 #33101828">
+        <!-- 2026-09-24, редизайн по просьбе владельца: вместо плашек с переносом — обычный
+             список. Слева кружок с инициалами, имя крупно, телефон под ним; поиск прижат сверху. -->
+        <Grid x:Name="PickerGrid" RowDefinitions="Auto,Auto,Auto,*">
+            <!-- Строка 0: шапка. Режим «список» -->
+            <Grid x:Name="ListHeader" Grid.Row="0" ColumnDefinitions="*,Auto,Auto">
+                <!-- 2026-10-24 (приёмка, ПР-9→ПР-8): подсказка поиска («Имя или телефон…») и её имя для UIA ставит код (короче прежней
+                     csh.checkout.clientSearchWatermark, которая не влезала рядом с «Новый клиент»). -->
+                <TextBox x:Name="SearchBox" Grid.Column="0" Text="{Binding ClientSearchText}"
+                         Height="44" MinHeight="44" FontSize="13" VerticalContentAlignment="Center"/>
+                <Button x:Name="NewClientButton" Grid.Column="1" Classes="modal-secondary"
+                        Margin="8,0,0,0" Height="44" MinHeight="44" MinWidth="0" Padding="10,0"
+                        FontSize="13" Click="NewClient_Click">
+                    <TextBlock Text="{DynamicResource csh.checkout.newClient}" TextTrimming="CharacterEllipsis"/>
+                </Button>
+                <Button Grid.Column="2" Classes="modal-close" Margin="8,0,0,0"
+                        IsTabStop="False" Focusable="False"
+                        AutomationProperties.Name="{DynamicResource common.close}"
+                        Click="Close_Click">
+                    <PathIcon Data="{DynamicResource IconClose}" Width="16" Height="16"/>
+                </Button>
+            </Grid>
+            <!-- Режим «новый клиент» -->
+            <Grid x:Name="FormHeader" Grid.Row="0" ColumnDefinitions="Auto,*,Auto" IsVisible="False">
+                <Button x:Name="BackButton" Grid.Column="0" Classes="modal-secondary"
+                        Height="44" MinHeight="44" MinWidth="0" Padding="12,0"
+                        FontSize="13" Click="Back_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="‹" FontSize="18" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource common.back}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <TextBlock Grid.Column="1" Text="{DynamicResource csh.checkout.newClient}"
+                           FontSize="16" FontWeight="Bold" Margin="12,0,8,0"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource BrushText}"/>
+                <Button Grid.Column="2" Classes="modal-close"
+                        IsTabStop="False" Focusable="False"
+                        AutomationProperties.Name="{DynamicResource common.close}"
+                        Click="Close_Click">
+                    <PathIcon Data="{DynamicResource IconClose}" Width="16" Height="16"/>
+                </Button>
+            </Grid>
 
-            <!-- 2026-09-24, редизайн по просьбе владельца: вместо плашек с переносом — обычный
-                 список. Слева кружок с инициалами, имя крупно, телефон под ним; поиск прижат
-                 сверху, «Новый клиент» раскрывается отдельно внизу и не отнимает место у списка. -->
-            <Grid x:Name="PickerGrid" RowDefinitions="Auto,Auto,*,Auto,Auto">
-                <TextBox Grid.Row="0" Text="{Binding ClientSearchText}"
-                         Watermark="{DynamicResource csh.checkout.clientSearchWatermark}"
-                         Height="46" FontSize="15" Margin="0,0,0,10" VerticalContentAlignment="Center"/>
-
-                <TextBlock Grid.Row="1" Text="{DynamicResource csh.checkout.loadingClients}"
+            <!-- Строка 1: загрузка и ошибка — только когда есть что показать (пустой строки ошибки нет). -->
+            <StackPanel Grid.Row="1" Spacing="6">
+                <TextBlock Text="{DynamicResource csh.checkout.loadingClients}"
                            IsVisible="{Binding IsLoadingClients}"
-                           FontSize="12" Margin="2,0,0,8"
+                           FontSize="12" Margin="2,8,0,0"
                            Foreground="{DynamicResource BrushTextSoft}"/>
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Foreground="{DynamicResource BrushDanger}"
+                           FontSize="13"
+                           FontWeight="Medium"
+                           TextWrapping="Wrap"
+                           Margin="2,8,0,0"
+                           IsVisible="{Binding HasError}"/>
+            </StackPanel>
 
-                <!-- 2026-10-21 (пакет 6, п. 26): окно 720 (было 600 — видно 4 строки), раскрытый «Новый клиент» больше не сжимает
-                     список в полоску — пока форма открыта, список скрыт (ClientPickerDialog.OnNewClientExpanded); пустой поиск — «не найдено» (NotFoundText, текст в коде). -->
-                <Border x:Name="ClientListBorder" Grid.Row="2" CornerRadius="10" MinHeight="112"
-                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                        ClipToBounds="True">
-                    <Grid>
+            <!-- Строка 2: список. Высоту (6 строк по 48 px; в форме 2) ставит код: Border.MaxHeight; пустой поиск — «не найдено» (NotFoundText, текст в коде). -->
+            <Border x:Name="ClientListBorder" Grid.Row="2" CornerRadius="10" Margin="0,8,0,0" MinHeight="96"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                    ClipToBounds="True">
+                <Grid>
                     <TextBlock x:Name="NotFoundText" IsVisible="False" Margin="16"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                TextAlignment="Center" TextWrapping="Wrap" FontSize="13.5"
@@ -66,73 +111,91 @@
                                     <Button Classes="ClientRow"
                                             HorizontalAlignment="Stretch"
                                             HorizontalContentAlignment="Stretch"
-                                            Padding="12,9" MinHeight="56"
+                                            VerticalContentAlignment="Center"
+                                            Padding="10,0" Height="48" MinHeight="48"
                                             CornerRadius="0"
                                             Background="Transparent"
                                             BorderBrush="{DynamicResource BrushBorder}"
                                             BorderThickness="0,0,0,1"
                                             Cursor="Hand"
+                                            AutomationProperties.Name="{ReflectionBinding Name}"
                                             Command="{Binding DataContext.SelectClientCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}">
                                         <Grid ColumnDefinitions="Auto,*,Auto">
-                                            <Border Grid.Column="0" Width="38" Height="38" CornerRadius="19"
+                                            <Border Grid.Column="0" Width="32" Height="32" CornerRadius="16"
                                                     Background="{DynamicResource BrushAccentSoft}"
                                                     VerticalAlignment="Center">
                                                 <TextBlock Text="{ReflectionBinding Initials}"
-                                                           FontSize="14" FontWeight="Bold"
+                                                           FontSize="12" FontWeight="Bold"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource BrushText}"/>
                                                 <!-- 2026-10-17: буквы цветом текста — жёлтые по светло-жёлтому кружку у «NurMarket» не читались. -->
                                             </Border>
-                                            <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center" Spacing="2">
+                                            <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
                                                 <TextBlock Text="{ReflectionBinding Name}"
-                                                           FontSize="14.5" FontWeight="SemiBold"
+                                                           FontSize="14" FontWeight="SemiBold"
                                                            TextTrimming="CharacterEllipsis"
                                                            Foreground="{DynamicResource BrushText}"/>
                                                 <TextBlock Text="{ReflectionBinding Phone}"
                                                            IsVisible="{ReflectionBinding HasPhone}"
-                                                           FontSize="12.5"
+                                                           FontSize="12"
+                                                           TextTrimming="CharacterEllipsis"
                                                            Foreground="{DynamicResource BrushTextSoft}"/>
                                             </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="›" FontSize="20"
-                                                       VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource BrushTextMuted}"/>
+                                            <!-- 2026-10-23: метка долга справа (из быстрого списка долгов) — высота строки не меняется, когда данные пришли. -->
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <TextBlock Text="{ReflectionBinding DebtText}"
+                                                           IsVisible="{ReflectionBinding HasDebt}"
+                                                           FontSize="12" FontWeight="SemiBold"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource BrushDanger}"/>
+                                                <TextBlock Text="›" FontSize="20"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource BrushTextMuted}"/>
+                                            </StackPanel>
                                         </Grid>
                                     </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Строка 3: форма «Новый клиент» — только в режиме формы (вместо Expander). 2026-10-04: имена — для скана QR клиента NurCRM:
+                 окно открывается сразу в режиме формы с подставленным телефоном и курсором в имени (ClientPickerDialog.OpenForNewClient).
+                 Если окно ниже формы, форма прокручивается сама, список выше остаётся виден. -->
+            <ScrollViewer x:Name="NewClientForm" Grid.Row="3" IsVisible="False" Margin="0,8,0,0"
+                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <!-- 2026-10-24 (приёмка, ПР-8): справа и по краям поля 1–2 px — иначе ScrollViewer срезал правую рамку полей. -->
+                <StackPanel Spacing="8" Margin="1,1,3,1">
+                    <TextBox x:Name="NewClientNameBox" Text="{Binding NewClientName}" Watermark="{DynamicResource csh.checkout.newClientNameWatermark}"
+                             Height="44" MinHeight="44" VerticalContentAlignment="Center"
+                             AutomationProperties.Name="{DynamicResource csh.checkout.newClientNameWatermark}"/>
+                    <TextBox Text="{Binding NewClientPhone}" Watermark="{DynamicResource csh.checkout.newClientPhoneWatermark}"
+                             Height="44" MinHeight="44" VerticalContentAlignment="Center"
+                             AutomationProperties.Name="{DynamicResource csh.checkout.newClientPhoneWatermark}"/>
+                    <!-- 2026-10-23: телефон уже у другого клиента — предупреждение и выбор существующего (CheckoutViewModel.DuplicateClient). -->
+                    <!-- 2026-10-24 (приёмка, ПР-8): текст и кнопка — в одну строку (так карточка с двумя строками списка и дублем не выше 440);
+                         текст ставит код (DuplicateText) — перечисляет ВСЕХ клиентов с этим телефоном, а не одного (модель называла первого). -->
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasDuplicateClient}">
+                        <TextBlock x:Name="DuplicateText" Grid.Column="0" FontSize="12" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
+                        <Button Grid.Column="1" Classes="modal-secondary" Content="{Binding SelectDuplicateClientText}" Command="{Binding SelectDuplicateClientCommand}"
+                                Margin="8,0,0,0" FontSize="13" Padding="10,0" MinHeight="44" MinWidth="0"/>
                     </Grid>
-                </Border>
-
-                <!-- 2026-10-04: имена — для скана QR клиента NurCRM: окно открывается сразу на «Новом клиенте»
-                     с подставленным телефоном и курсором в имени (ClientPickerDialog.OpenForNewClient). -->
-                <Expander x:Name="NewClientExpander" Grid.Row="3" Margin="0,12,0,0"
-                          Header="{DynamicResource csh.checkout.newClient}"
-                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                    <StackPanel Spacing="8" Margin="0,8,0,0">
-                        <TextBox x:Name="NewClientNameBox" Text="{Binding NewClientName}" Watermark="{DynamicResource csh.checkout.newClientNameWatermark}" Height="40"/>
-                        <TextBox Text="{Binding NewClientPhone}" Watermark="{DynamicResource csh.checkout.newClientPhoneWatermark}" Height="40"/>
-                        <!-- Адрес необязателен, но при продаже в долг он и нужен: телефон
-                             должника может не отвечать. -->
-                        <TextBox Text="{Binding NewClientAddress}" Watermark="{DynamicResource clients.addressOptionalWatermark}" Height="40"/>
-                        <Button Classes="PrimaryButton"
-                                Content="{DynamicResource csh.checkout.addClient}"
-                                Command="{Binding AddClientCommand}"
-                                IsEnabled="{Binding !IsAddingClient}"
-                                HorizontalAlignment="Left"
-                                Padding="16,9"/>
-                    </StackPanel>
-                </Expander>
-
-                <TextBlock Grid.Row="4" Text="{Binding ErrorMessage}"
-                           Foreground="{DynamicResource BrushDanger}"
-                           FontSize="13"
-                           FontWeight="Medium"
-                           TextWrapping="Wrap"
-                           Margin="0,8,0,0"
-                           IsVisible="{Binding !!ErrorMessage}"/>
-            </Grid>
-    </dlg:ModalShell>
+                    <!-- Адрес необязателен, но при продаже в долг он и нужен: телефон
+                         должника может не отвечать. -->
+                    <TextBox Text="{Binding NewClientAddress}" Watermark="{DynamicResource clients.addressOptionalWatermark}"
+                             Height="44" MinHeight="44" VerticalContentAlignment="Center"
+                             AutomationProperties.Name="{DynamicResource clients.addressOptionalWatermark}"/>
+                    <Button Classes="modal-primary"
+                            Content="{DynamicResource csh.checkout.addClient}"
+                            Command="{Binding AddClientCommand}"
+                            IsEnabled="{Binding !IsAddingClient}"
+                            HorizontalAlignment="Stretch" MinHeight="44" MinWidth="0"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Border>
 </Window>

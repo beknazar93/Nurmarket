@@ -486,7 +486,10 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
                             $"Remove shift {shift.ShiftNumber} from the local list?",
                             $"Vardiya {shift.ShiftNumber} yerel listeden silinsin mi?",
                             $"Smena {shift.ShiftNumber} mahalliy ro'yxatdan o'chirilsinmi?"),
-                        Tr.T("Удаление", "Өчүрүү", "Delete", "Silme", "O'chirish"), MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                        Tr.T("Удаление", "Өчүрүү", "Delete", "Silme", "O'chirish"), MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                        // 2026-10-22 (модалки, пакет 2): глагол вместо «Да/Нет», красная кнопка — смена исчезает из списка.
+                        confirmText: Tr.T("Убрать смену", "Сменаны алып салуу", "Remove shift", "Vardiyayı kaldır", "Smenani olib tashlash"),
+                        danger: true) == MessageBoxResult.Yes)
                 {
                     AllShifts.Remove(shift);
                     SelectedShift = AllShifts.FirstOrDefault();

@@ -75,7 +75,10 @@ public partial class IrregularReceiptsWindow : Window
                             $"{failed.Count} fiş sunucuya yeniden gönderilsin mi?\n\n{list}\n\nSunucu bunları bir kez reddetti. Yalnızca tutar doğruysa ve neden giderildiyse gönderin.",
                             $"{failed.Count} ta chek serverga qayta yuborilsinmi?\n\n{list}\n\nServer ularni bir marta rad etgan. Faqat summa to'g'ri va sabab bartaraf etilgan bo'lsa yuboring."),
                         Tr.T("Отправить повторно", "Кайра жөнөтүү", "Resend", "Yeniden gönder", "Qayta yuborish"),
-                        MessageBoxButton.YesNo, MessageBoxImage.Warning).ConfigureAwait(true) != MessageBoxResult.Yes)
+                        MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                        // 2026-10-22 (модалки, пакет 4): глагол «Отправить» вместо «Продолжить».
+                        confirmText: Tr.T("Отправить", "Жөнөтүү", "Send", "Gönder", "Yuborish"),
+                        cancelText: Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true) != MessageBoxResult.Yes)
                     return;
             }
 

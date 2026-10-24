@@ -119,6 +119,12 @@
                 <TextBlock x:Name="PriceCalcText" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextMuted}"/>
                 <TextBlock x:Name="AvailableText" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             </StackPanel>
+
+            <!-- 2026-10-22 (модалки, пакет 1): ошибка ввода количества и «скан не принят» — строкой в окне, под полем
+                 (было всплывающее окно поверх). -->
+            <TextBlock x:Name="QuantityErrorText" IsVisible="False" Margin="0,10,0,0"
+                       FontSize="13" FontWeight="Medium" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushDanger}"/>
         </StackPanel>
     </dlg:ModalShell>
 </Window>

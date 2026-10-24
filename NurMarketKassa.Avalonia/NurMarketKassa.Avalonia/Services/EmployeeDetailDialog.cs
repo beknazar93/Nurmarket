@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using NurMarketKassa.AvaloniaHost.Views;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Services;
 
@@ -25,15 +26,28 @@ public sealed class EmployeeDetailDialog : Window
     public EmployeeDetailDialog(EmployeeAccessCode employee, Func<Task>? onDelete)
     {
         Title = employee.Name.Length > 0 ? employee.Name : Tr.T("Сотрудник", "Кызматкер", "Employee", "Personel", "Xodim");
-        Width = 420;
-        Height = 480;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        CanResize = false;
+        // 2026-10-22 (модалки, пакет 4): общая рамка ModalShell (S 512) вместо системной 420×480. Раньше «Готово» и
+        // «Удалить сотрудника» лежали в конце прокрутки — на 910×512 их не было видно; теперь закреплены внизу.
+        // Esc/✕/Enter — «Готово», поля и кнопки 44 px, подсказки и ошибки — строкой под полем, цвета темы.
+        SectionCards.AsModal(this, 512);
 
-        var panel = new StackPanel { Margin = new Thickness(16), Spacing = 10 };
+        var panel = new StackPanel { Spacing = 8 };
 
-        TextBlock Label(string text) => new() { Text = text, FontSize = 12, Foreground = Brushes.Gray };
+        TextBlock Label(string text)
+        {
+            var label = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
+            label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            return label;
+        }
 
+        TextBlock Note()
+        {
+            var note = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap };
+            note.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            return note;
+        }
+
+        ModalShell? shell = null;
         var nameBox = new TextBox
         {
             Text = employee.Name,
@@ -44,7 +58,10 @@ public sealed class EmployeeDetailDialog : Window
         {
             employee.Name = nameBox.Text ?? "";
             Title = employee.Name.Length > 0 ? employee.Name : Tr.T("Сотрудник", "Кызматкер", "Employee", "Personel", "Xodim");
+            if (shell is not null)
+                shell.Title = Title;
         };
+        SectionCards.Field(nameBox);
 
         // 2026-10-18, аудит: коды хранятся только хэшем — прежний код не показать. Поле пустое: ввод нового
         // кода заменяет прежний (пустое поле — прежний остаётся), «Убрать» — код снимается совсем.
@@ -59,33 +76,33 @@ public sealed class EmployeeDetailDialog : Window
                     "Kod o'rnatilgan — almashtirish uchun yangisini kiriting (6 raqam)")
             : Tr.T("Код не задан (6 цифр)", "Код коюлган эмес (6 цифра)", "No code set (6 digits)", "Kod ayarlanmadı (6 hane)", "Kod o'rnatilmagan (6 raqam)");
 
+        // 2026-10-22 (модалки, пакет 4): что с кодом сейчас — строкой под полем (длинная подсказка в самом поле
+        // обрезалась на ky), в поле — только «6 цифр».
+        string SixDigits() => Tr.T("6 цифр", "6 цифра", "6 digits", "6 hane", "6 raqam");
+
         void CodeField(string label, string action)
         {
             panel.Children.Add(Label(label));
-            var box = new TextBox { Text = "", Watermark = CodeWatermark(action) };
-            var clearButton = new Button
-            {
-                Content = Tr.T("Убрать", "Алып салуу", "Remove", "Kaldır", "Olib tashlash"),
-                Margin = new Thickness(8, 0, 0, 0),
-                IsVisible = EmployeeAccessGate.HasCode(action, employee),
-            };
-            var codeError = new TextBlock
-            {
-                Text = Tr.T("Код — 6 цифр", "Код — 6 цифра", "The code must be 6 digits", "Kod 6 haneli olmalı", "Kod — 6 raqam"),
-                Foreground = Brushes.Red,
-                FontSize = 11,
-                IsVisible = false,
-            };
+            var box = SectionCards.Field(new TextBox { Text = "", Watermark = SixDigits(), MaxLength = 6 });
+            Avalonia.Automation.AutomationProperties.SetName(box, label);
+            var state = Note();
+            state.Text = CodeWatermark(action);
+            var clearButton = SectionCards.Secondary(Tr.T("Убрать", "Алып салуу", "Remove", "Kaldır", "Olib tashlash"));
+            clearButton.Margin = new Thickness(8, 0, 0, 0);
+            clearButton.IsVisible = EmployeeAccessGate.HasCode(action, employee);
+            var codeError = SectionCards.ErrorText(this);
             box.TextChanged += (_, _) =>
             {
                 // 2026-10-18: принимается только код из 6 цифр; иначе прежний код остаётся, под полем — ошибка.
                 var text = box.Text?.Trim() ?? "";
                 var valid = EmployeeAccessGate.IsSixDigits(text);
                 EmployeeAccessGate.SetPendingCode(action, employee, valid ? text : null);
-                codeError.IsVisible = text.Length > 0 && !valid;
+                SectionCards.ShowError(codeError, text.Length > 0 && !valid
+                    ? Tr.T("Код — 6 цифр", "Код — 6 цифра", "The code must be 6 digits", "Kod 6 haneli olmalı", "Kod — 6 raqam")
+                    : null);
                 clearButton.IsVisible = EmployeeAccessGate.HasCode(action, employee);
                 // 2026-10-18: набран верный новый код — пометка «короткий код» в подсказке больше не нужна.
-                box.Watermark = valid
+                state.Text = valid
                     ? Tr.T("Новый код (6 цифр)", "Жаңы код (6 цифра)", "New code (6 digits)", "Yeni kod (6 hane)", "Yangi kod (6 raqam)")
                     : CodeWatermark(action);
             };
@@ -93,7 +110,7 @@ public sealed class EmployeeDetailDialog : Window
             {
                 box.Text = "";
                 EmployeeAccessGate.ClearCode(action, employee);
-                box.Watermark = CodeWatermark(action);
+                state.Text = CodeWatermark(action);
                 clearButton.IsVisible = false;
             };
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
@@ -101,6 +118,7 @@ public sealed class EmployeeDetailDialog : Window
             row.Children.Add(box);
             row.Children.Add(clearButton);
             panel.Children.Add(row);
+            panel.Children.Add(state);
             panel.Children.Add(codeError);
         }
 
@@ -129,22 +147,12 @@ public sealed class EmployeeDetailDialog : Window
             Tr.T("Код на приём оплаты долга", "Карыз төлөмүн кабыл алуу коду", "Debt payment code", "Borç ödemesi kodu", "Qarz to'lovini qabul qilish kodi"),
             EmployeeAccessGate.DebtPayment);
 
-        _errorText = new TextBlock { Foreground = Brushes.Red, TextWrapping = TextWrapping.Wrap, IsVisible = false };
-        panel.Children.Add(_errorText);
+        _errorText = new TextBlock { TextWrapping = TextWrapping.Wrap, IsVisible = false, FontSize = 13 };
+        panel.Children.Add(SectionCards.ErrorBox(this, _errorText));
 
-        var buttons = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Spacing = 8,
-            Margin = new Thickness(0, 8, 0, 0),
-        };
-
-        _deleteButton = new Button
-        {
-            Content = Tr.T("Удалить сотрудника", "Кызматкерди өчүрүү", "Delete employee", "Personeli sil", "Xodimni o'chirish"),
-            Foreground = Brushes.Red,
-        };
+        // Удаление — второстепенная опасная кнопка слева в подвале (красная обводка); «Готово» — главная справа.
+        _deleteButton = SectionCards.Secondary(Tr.T("Удалить сотрудника", "Кызматкерди өчүрүү", "Delete employee", "Personeli sil", "Xodimni o'chirish"));
+        _deleteButton.Classes.Add("danger");
         _deleteButton.Click += async (_, _) =>
         {
             // 2026-10-18, аудит: удаление без подтверждения — одно случайное нажатие удаляло сотрудника и на сайте.
@@ -175,60 +183,70 @@ public sealed class EmployeeDetailDialog : Window
                 return;
             }
 
-            _deleteButton.IsEnabled = false;
+            // 2026-10-22 (модалки, пакет 4): пока идёт запрос на сайт — окно занято (IsBusy): кнопки, ✕ и Esc выключены,
+            // повторное нажатие не шлёт второй запрос, окно не закрывается посреди удаления.
+            if (shell is null || !shell.TryBeginBusy())
+                return;
             _errorText.IsVisible = false;
             try
             {
                 await onDelete();
                 DeleteRequested = true;
+                shell.EndBusy();
                 Close(true);
             }
             catch (Exception ex)
             {
+                shell.EndBusy();
                 _errorText.Text = ex.Message;
                 _errorText.IsVisible = true;
-                _deleteButton.IsEnabled = true;
+                _errorText.BringIntoView();
             }
         };
 
-        var btnClose = new Button
-        {
-            Content = Tr.T("Готово", "Даяр", "Done", "Tamam", "Tayyor"),
-            IsDefault = true,
-        };
+        var btnClose = SectionCards.Primary(Tr.T("Готово", "Даяр", "Done", "Tamam", "Tayyor"), isDefault: true);
+        // Правки применяются сразу (сохраняет страница «Сотрудники»), поэтому Esc и ✕ — то же «Готово».
+        btnClose.IsCancel = true;
         btnClose.Click += (_, _) => Close(false);
 
-        buttons.Children.Add(_deleteButton);
-        buttons.Children.Add(btnClose);
-        panel.Children.Add(buttons);
-
-        Content = new ScrollViewer { Content = panel };
+        shell = SectionCards.Shell(Title,
+            Tr.T("Коды доступа на этой кассе. Сохранит их кнопка «Сохранить» на странице «Сотрудники».",
+                "Бул кассадагы кирүү коддору. Аларды «Кызматкерлер» барагындагы «Сактоо» баскычы сактайт.",
+                "Access codes on this till. The “Save” button on the “Employees” page saves them.",
+                "Bu kasadaki erişim kodları. «Personel» sayfasındaki «Kaydet» düğmesi bunları kaydeder.",
+                "Shu kassadagi kirish kodlari. Ularni «Xodimlar» sahifasidagi «Saqlash» tugmasi saqlaydi."),
+            panel, SectionCards.Buttons(btnClose), _deleteButton);
+        shell.InitialFocus = employee.ServerId != null ? btnClose : nameBox;
+        Content = shell;
     }
 
     private Grid BuildCopyableField(string label, string value)
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        // 2026-10-22 (модалки, пакет 4): подпись цветом темы, поле и «Копировать» 44 px.
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto") };
 
-        var textPanel = new StackPanel { Spacing = 4 };
-        textPanel.Children.Add(new TextBlock { Text = label, FontSize = 12, Foreground = Brushes.Gray });
-        textPanel.Children.Add(new TextBox { Text = value, IsReadOnly = true });
-        Grid.SetColumn(textPanel, 0);
+        var caption = new TextBlock { Text = label, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 8) };
+        caption.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        Grid.SetColumnSpan(caption, 2);
+        var box = SectionCards.Field(new TextBox { Text = value, IsReadOnly = true });
+        Grid.SetRow(box, 1);
 
-        var copyButton = new Button
-        {
-            Content = Tr.T("Копировать", "Көчүрүү", "Copy", "Kopyala", "Nusxalash"),
-            Margin = new Thickness(8, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Bottom,
-        };
+        var copyButton = SectionCards.Secondary(Tr.T("Копировать", "Көчүрүү", "Copy", "Kopyala", "Nusxalash"));
+        copyButton.Margin = new Thickness(8, 0, 0, 0);
+        Grid.SetRow(copyButton, 1);
         Grid.SetColumn(copyButton, 1);
         copyButton.Click += async (_, _) =>
         {
             var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
             if (clipboard != null)
+            {
                 await clipboard.SetTextAsync(value);
+                copyButton.Content = Tr.T("Скопировано ✓", "Көчүрүлдү ✓", "Copied ✓", "Kopyalandı ✓", "Nusxalandi ✓");
+            }
         };
 
-        grid.Children.Add(textPanel);
+        grid.Children.Add(caption);
+        grid.Children.Add(box);
         grid.Children.Add(copyButton);
         return grid;
     }

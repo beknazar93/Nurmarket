@@ -35,8 +35,9 @@
                 <Button x:Name="CancelButton" IsCancel="True"
                         Classes="modal-cancel" MaxWidth="200"
                         Click="Cancel_Click"/>
+                <!-- 2026-10-22 (модалки, пакет 3): списание уменьшает остаток — опасное действие красной кнопкой. -->
                 <Button x:Name="WriteOffButton"
-                        Classes="modal-primary" MaxWidth="200"
+                        Classes="modal-primary danger" MaxWidth="200"
                         Click="WriteOff_Click"/>
             </StackPanel>
         </dlg:ModalShell.Footer>

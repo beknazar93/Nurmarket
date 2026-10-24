@@ -12,7 +12,7 @@ public partial class AddBankDialog : Window
     public AddBankDialog()
     {
         InitializeComponent();
-        Opened += (_, _) => NameBox.Focus();
+        // 2026-10-22 (модалки, пакет 3): фокус в «Название» ставит ModalShell (InitialFocus).
     }
 
     /// <summary>Возвращает выбранное или введённое название банка либо null при отмене.</summary>
@@ -48,7 +48,11 @@ public partial class AddBankDialog : Window
     private void NameBox_KeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
+        {
+            // 2026-10-22 (модалки, пакет 3): Enter обработан здесь — IsDefault «Добавить» не повторит его вторым Close.
+            e.Handled = true;
             TryConfirm();
+        }
     }
 
     private void TryConfirm()

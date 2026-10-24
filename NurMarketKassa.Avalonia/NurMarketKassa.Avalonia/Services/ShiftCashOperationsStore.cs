@@ -55,6 +55,9 @@ public static class ShiftCashOperationsStore
                 Comment = operation.Note,
                 UserId = operation.Cashier,
                 ShiftId = NurMarketKassa.PosApp.ActiveShiftId,
+                ArticleKey = operation.ArticleKey,
+                ArticleRu = operation.ArticleRu,
+                ArticleComment = operation.ArticleComment,
             });
             SaveStored(list);
         }
@@ -106,10 +109,12 @@ public static class ShiftCashOperationsStore
     public const string ShiftDrawerInflowKind = "shift_drawer_inflow";
 
     /// <summary>Внесения и изъятия смены, которые ещё не записаны на сервер.</summary>
-    public static IReadOnlyList<(string Id, string Type, decimal Amount, string Comment)> PendingForShift(string? shiftId)
+    /// <remarks>2026-10-22 (статьи изъятия): и статья операции (ключ, русское название, комментарий отдельно) — на сервер
+    /// уходит её category и название «Изъятие: Аренда — …» (ShiftCashFlowSync).</remarks>
+    public static IReadOnlyList<(string Id, string Type, decimal Amount, string Comment, string? ArticleKey, string? ArticleRu, string? ArticleComment)> PendingForShift(string? shiftId)
     {
         if (string.IsNullOrWhiteSpace(shiftId))
-            return Array.Empty<(string, string, decimal, string)>();
+            return Array.Empty<(string, string, decimal, string, string?, string?, string?)>();
 
         return LoadStored()
             .Where(x => string.Equals(x.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)
@@ -117,7 +122,29 @@ public static class ShiftCashOperationsStore
                         && !string.IsNullOrEmpty(x.Id)
                         && CashOperationModel.ResolveKind(x.Type) is CashOperationKind.Deposit or CashOperationKind.Withdrawal)
             .OrderBy(x => x.CreatedAt)
-            .Select(x => (x.Id!, x.Type ?? "", x.Amount, x.Comment))
+            .Select(x => (x.Id!, x.Type ?? "", x.Amount, x.Comment, x.ArticleKey, x.ArticleRu, x.ArticleComment))
+            .ToList();
+    }
+
+    /// <summary>2026-10-22 (статьи изъятия): суммы смены по статьям (окно закрытия смены): «Аренда 5 000 · Инкассация 20 000».
+    /// Операции без статьи — одной строкой «без статьи».</summary>
+    public static IReadOnlyList<(string Title, decimal Amount, bool IsCollection)> ArticleSumsForShift(string? shiftId, bool withdrawal)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId))
+            return Array.Empty<(string, decimal, bool)>();
+
+        var want = withdrawal ? CashOperationKind.Withdrawal : CashOperationKind.Deposit;
+        return LoadStored()
+            .Where(x => string.Equals(x.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)
+                        && CashOperationModel.ResolveKind(x.Type) == want)
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.ArticleKey) ? "" : x.ArticleKey!)
+            .Select(g => (
+                Title: g.Key.Length == 0
+                    ? Tr.T("без статьи", "беренесиз", "no category", "kalemsiz", "moddasiz")
+                    : CashArticles.TitleFor(withdrawal, g.Key, g.First().ArticleRu),
+                Amount: g.Sum(x => x.Amount),
+                IsCollection: g.Key == CashArticles.CollectionKey))
+            .OrderByDescending(r => r.Amount)
             .ToList();
     }
 
@@ -225,6 +252,9 @@ public static class ShiftCashOperationsStore
                 ? (NurMarketKassa.AvaloniaHost.App.CurrentUserId ?? "—")
                 : entry.UserId,
             Comment = entry.Comment,
+            ArticleKey = entry.ArticleKey,
+            ArticleRu = entry.ArticleRu,
+            ArticleComment = entry.ArticleComment,
         };
     }
 
@@ -243,5 +273,10 @@ public static class ShiftCashOperationsStore
         /// <summary>source_kind движения на сервере (2026-09-28): «shift_drawer_inflow» —
         /// внесение вошло в expected_cash смены; пусто — записано раньше как «manual».</summary>
         public string? ServerSourceKind { get; set; }
+        /// <summary>2026-10-22 (статьи изъятия): ключ статьи (CashArticles), её русское название и комментарий кассира.
+        /// Comment по-прежнему — полная строка «Аренда — комментарий» (для старых мест, где показывается причина).</summary>
+        public string? ArticleKey { get; set; }
+        public string? ArticleRu { get; set; }
+        public string? ArticleComment { get; set; }
     }
 }

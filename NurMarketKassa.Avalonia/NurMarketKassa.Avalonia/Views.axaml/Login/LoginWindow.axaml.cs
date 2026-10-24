@@ -159,6 +159,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     NurMarketKassa.Services.Lan.LanSyncService.Instance.Start();
                 }
 
+                // 2026-10-23 (аудит, круг 8, В-1): после входа через окно входа id и имя кассира лежат только в сессии —
+                // без этой синхронизации PosApp остаётся пустым, меню ☰ показывает «—», а следующий SyncToSession
+                // затирал и сессию. Ставим ДО записи IsOfflineBootstrap ниже, чтобы она не перетёрлась из сессии.
+                NurMarketKassa.App.SyncFromSession(App.GetRequiredService<IAppSession>());
+
                 // 2026-09-09: PosApp.IsOfflineBootstrap управляет OfflineModeHelper.UseLocalOperations,
                 // который уже используется по всему приложению (PosCheckoutService, CashShiftService,
                 // ShiftStateService, CatalogCacheService) — включив его, автономный режим бесплатно

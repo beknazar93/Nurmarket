@@ -13,6 +13,8 @@ import '../../core/theme/tokens.dart';
 import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
 import '../sale/sale_screen.dart';
+import 'live_shot.dart';
+import 'cam_label.dart';
 import 'smart_camera.dart';
 
 /// 2026-10-20, владелец: «умная камера должна работать так: ставить картошку или весовой товар, и умной камерой
@@ -33,7 +35,25 @@ class WeighResult {
   /// Ошибка ИИ (нет связи, нет ключа) — дальше ручной ввод.
   final String? error;
   final bool noKey;
-  const WeighResult({this.seenName = '', this.candidates = const [], this.kg, this.stable = false, this.confidence = 0, this.error, this.noKey = false});
+
+  /// 2026-10-22 (аудит У-1, У-3): первый кандидат — эталон обучения; стоимость с табло (если ИИ её видел).
+  final bool exact;
+  final double? total;
+
+  /// 2026-10-22: кассир нажал «Без камеры — выбрать товар и ввести вес».
+  final bool manual;
+  const WeighResult({
+    this.seenName = '',
+    this.candidates = const [],
+    this.kg,
+    this.stable = false,
+    this.confidence = 0,
+    this.error,
+    this.noKey = false,
+    this.exact = false,
+    this.total,
+    this.manual = false,
+  });
 
   Product? get best => candidates.isNotEmpty && candidates.first.$2 >= 0.5 ? candidates.first.$1 : null;
 }
@@ -49,7 +69,8 @@ class WeighCameraPage extends ConsumerStatefulWidget {
 }
 
 class _WeighCameraPageState extends ConsumerState<WeighCameraPage> with WidgetsBindingObserver {
-  static const _maxShots = 10;
+  // 2026-10-22 (аудит У-13): не больше 6 платных запросов на одно взвешивание (было 10)
+  static const _maxShots = 6;
   CameraController? _camera;
   String? _error;
   bool _torch = false;
@@ -62,46 +83,70 @@ class _WeighCameraPageState extends ConsumerState<WeighCameraPage> with WidgetsB
   List<(Product, double)> _candidates = const [];
   double _confidence = 0;
   Future<List<SeenMatch>>? _exact;
+  bool _exactFound = false;
+  double? _total;
+
+  /// 2026-10-22 (аудит У-11): весовые товары магазина — один раз за открытие (раньше до 3000 товаров при каждом нажатии).
+  late final Future<List<String>> _names = () async {
+    try {
+      return [for (final p in await ref.read(databaseProvider).searchProducts('', limit: 3000)) if (p.isWeight) p.name];
+    } catch (_) {
+      return const <String>[];
+    }
+  }();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _start();
+    _names.ignore();
   }
 
+  bool _starting = false;
+
+  /// 2026-10-22, владелец: «умный сканер при нажатии сам сразу сканирует — добавь кнопку». Камера открывается и ждёт:
+  /// чтение весов начинается только кнопкой «Сканировать» (раньше — само через 1,2 с после открытия).
+  /// Камера — через [CameraGate]: не включается, пока сканер штрихкодов или прошлая умная камера её не отпустили.
   Future<void> _start() async {
+    if (_starting || _closed) return;
+    _starting = true;
     try {
-      final cams = await availableCameras();
-      final back = cams.firstWhere((c) => c.lensDirection == CameraLensDirection.back, orElse: () => cams.first);
       // high (≈720p) — цифры табло читаются, а кадр уходит в ИИ быстро
-      final c = CameraController(back, ResolutionPreset.high, enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
-      await c.initialize();
-      try {
-        await c.setFocusMode(FocusMode.auto);
-      } catch (_) {
-        // не все камеры умеют
-      }
-      if (!mounted) {
-        await c.dispose();
+      final c = await CameraGate.open(ResolutionPreset.high);
+      if (!mounted || _closed) {
+        CameraGate.release(c);
         return;
       }
       setState(() => _camera = c);
-      await Future<void>.delayed(const Duration(milliseconds: 1200)); // кассир наводит камеру
-      if (mounted) _run();
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      if (mounted) setState(() => _error = context.l.cameraUnavailable); // 2026-10-22 (аудит У-9): без сырого текста
+    } finally {
+      _starting = false;
     }
+  }
+
+  void _stopCamera() {
+    final c = _camera;
+    if (c == null) return;
+    _camera = null;
+    CameraGate.release(c);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final c = _camera;
-    if (state == AppLifecycleState.inactive && c != null) {
-      _camera = null;
-      c.dispose();
-    } else if (state == AppLifecycleState.resumed && _camera == null && !_closed) {
-      _start();
+    switch (state) {
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+        if (_camera != null && !_running) {
+          _stopCamera();
+          if (mounted) setState(() {});
+        }
+      case AppLifecycleState.resumed:
+        if (_camera == null && !_starting && !_closed) _start();
+      case AppLifecycleState.detached:
+        break;
     }
   }
 
@@ -109,13 +154,16 @@ class _WeighCameraPageState extends ConsumerState<WeighCameraPage> with WidgetsB
   void dispose() {
     _closed = true;
     WidgetsBinding.instance.removeObserver(this);
-    _camera?.dispose();
+    _stopCamera();
     super.dispose();
   }
 
-  void _finish(WeighResult r) {
+  /// Закрыть: камеру отпускаем сразу, чтобы сканер штрихкодов за этим экраном включился без чёрного экрана.
+  void _finish(WeighResult? r) {
     if (_closed || !mounted) return;
     _closed = true;
+    _stopCamera();
+    setState(() {});
     Navigator.of(context).pop(r);
   }
 
@@ -140,6 +188,7 @@ class _WeighCameraPageState extends ConsumerState<WeighCameraPage> with WidgetsB
     try {
       final exact = await f.timeout(const Duration(seconds: 6));
       if (exact.isEmpty) return _candidates;
+      _exactFound = true;
       final ids = {for (final e in exact) e.candidates.first.$1.id};
       return [for (final e in exact) e.candidates.first, ..._candidates.where((c) => !ids.contains(c.$1.id))];
     } catch (_) {
@@ -148,21 +197,38 @@ class _WeighCameraPageState extends ConsumerState<WeighCameraPage> with WidgetsB
   }
 
   Future<void> _run() async {
-    if (_running) return;
-    _running = true;
+    if (_running || _camera == null) return;
+    setState(() => _running = true);
     final l = context.l;
     final vision = ref.read(visionProvider);
-    final db = ref.read(databaseProvider);
     // весовые товары магазина — ИИ называет товар так же, как в каталоге
-    final names = [for (final p in await db.searchProducts('', limit: 3000)) if (p.isWeight) p.name];
+    final names = await _names;
+    var noDisplay = 0;
+    // 2026-10-22, владелец: «умная камера очень долго думает». Было: кадр → ответ ИИ → пауза 0,7 с → следующий кадр,
+    // а для устойчивого веса нужны 2 ответа подряд (≈ 2 ответа ИИ + 1 с). Теперь следующий кадр снимается и уходит в ИИ,
+    // пока читается предыдущий (не больше 2 запросов сразу), — вес готов примерно через один ответ ИИ + 0,5 с.
+    final inflight = <Future<ScaleReading>>[];
+    final jpegs = <Uint8List>[];
+    var shots = 0;
     try {
-      for (var shot = 0; shot < _maxShots && !_closed; shot++) {
-        if (mounted) setState(() => _status = _seen.isEmpty ? l.weighReading : l.weighWaiting);
-        final jpeg = await _snap();
-        if (jpeg == null || _closed) return;
-        final first = _seen.isEmpty;
-        final r = await vision.readScale(jpeg, withProduct: first, names: names);
+      if (mounted) setState(() => _status = l.weighReading);
+      while (!_closed) {
+        while (inflight.length < 2 && shots < _maxShots && !_closed) {
+          final jpeg = await _snap();
+          if (jpeg == null || _closed) return;
+          // товар спрашиваем, пока он не узнан (второй кадр уходит раньше, чем пришёл ответ на первый)
+          final f = vision.readScale(jpeg, withProduct: _seen.isEmpty, names: names);
+          f.ignore(); // ошибку получим при await ниже; брошенный запрос (экран закрыт) не шумит
+          inflight.add(f);
+          jpegs.add(jpeg);
+          shots++;
+          if (inflight.length < 2) await Future<void>.delayed(const Duration(milliseconds: 400));
+        }
+        if (inflight.isEmpty) break;
+        final jpeg = jpegs.removeAt(0);
+        final r = await inflight.removeAt(0);
         if (_closed) return;
+        final first = _seen.isEmpty;
         if (first && r.product.isNotEmpty) {
           _seen = r.product;
           _confidence = r.confidence;
@@ -170,11 +236,26 @@ class _WeighCameraPageState extends ConsumerState<WeighCameraPage> with WidgetsB
           // штучный товар — вес не нужен, сразу дальше
           final best = _candidates.isNotEmpty && _candidates.first.$2 >= 0.5 ? _candidates.first.$1 : null;
           if (best != null && !best.isWeight) {
-            _finish(WeighResult(seenName: _seen, candidates: await _withExact(), stable: true, confidence: _confidence));
+            final list = await _withExact();
+            _finish(WeighResult(seenName: _seen, candidates: list, exact: _exactFound, total: _total, stable: true, confidence: _confidence));
             return;
           }
         } else if (!first && r.confidence > 0) {
           _confidence = (_confidence + r.confidence) / 2;
+          // 2026-10-22 (аудит У-3): второй ответ назвал другой товар — не уверены, кассир выберет сам
+          if (r.product.isNotEmpty && VisionService.nameScore(r.product, _seen) < 0.5) {
+            _confidence = _confidence.clamp(0, 0.5).toDouble();
+            final more = await vision.match([SeenItem(name: r.product)]);
+            final have = {for (final c in _candidates) c.$1.id};
+            _candidates = [..._candidates, for (final m in more) ...m.candidates.where((c) => have.add(c.$1.id))];
+          }
+        }
+        if (r.total != null) _total = r.total;
+        // 2026-10-22 (аудит У-13): 3 ответа подряд «табло не видно» — не тратим запросы, подсказываем
+        noDisplay = r.hasWeight ? 0 : noDisplay + 1;
+        if (noDisplay >= 3) {
+          if (mounted) setState(() => _status = l.weighAimDisplay);
+          return;
         }
         final stable = _stab.add(r.weightKg);
         if (mounted) {
@@ -184,19 +265,21 @@ class _WeighCameraPageState extends ConsumerState<WeighCameraPage> with WidgetsB
           });
         }
         if (stable != null && _seen.isNotEmpty) {
-          _finish(WeighResult(seenName: _seen, candidates: await _withExact(), kg: stable, stable: true, confidence: _confidence));
+          final list = await _withExact();
+          _finish(WeighResult(seenName: _seen, candidates: list, exact: _exactFound, total: _total, kg: stable, stable: true, confidence: _confidence));
           return;
         }
-        await Future<void>.delayed(const Duration(milliseconds: 700));
       }
       // вес так и не установился — кассир проверит прочитанное
-      _finish(WeighResult(seenName: _seen, candidates: await _withExact(), kg: _lastKg, confidence: _confidence));
+      final list = await _withExact();
+      _finish(WeighResult(seenName: _seen, candidates: list, exact: _exactFound, total: _total, kg: _lastKg, confidence: _confidence));
     } on VisionException catch (e) {
       _finish(WeighResult(seenName: _seen, candidates: _candidates, kg: _lastKg, error: e.noKey ? l.aiKeyNeeded : e.message, noKey: e.noKey));
     } catch (e) {
       _finish(WeighResult(seenName: _seen, candidates: _candidates, kg: _lastKg, error: '$e'));
     } finally {
       _running = false;
+      if (mounted && !_closed) setState(() {});
     }
   }
 
@@ -204,99 +287,141 @@ class _WeighCameraPageState extends ConsumerState<WeighCameraPage> with WidgetsB
   Widget build(BuildContext context) {
     final l = context.l;
     final c = _camera;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (c != null && c.value.isInitialized)
-            LayoutBuilder(
-              builder: (context, box) => FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: c.value.previewSize?.height ?? box.maxWidth,
-                  height: c.value.previewSize?.width ?? box.maxHeight,
-                  child: CameraPreview(c),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _finish(null);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (c != null && c.value.isInitialized)
+              LayoutBuilder(
+                builder: (context, box) => FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: c.value.previewSize?.height ?? box.maxWidth,
+                    height: c.value.previewSize?.width ?? box.maxHeight,
+                    child: CameraPreview(c),
+                  ),
                 ),
+              )
+            else
+              Center(
+                child: _error != null
+                    ? Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
+                            const SizedBox(height: 12),
+                            FilledButton.icon(onPressed: _start, icon: const Icon(Icons.refresh_rounded), label: Text(l.retry)),
+                          ],
+                        ),
+                      )
+                    : const CircularProgressIndicator(color: T.accent),
               ),
-            )
-          else
-            Center(
-              child: _error != null
-                  ? Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(_error!, style: const TextStyle(color: Colors.white70)),
-                    )
-                  : const CircularProgressIndicator(color: T.accent),
-            ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: Row(
-                children: [
-                  IconButton.filledTonal(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back_rounded)),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(l.weighTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
-                  ),
-                  IconButton.filledTonal(
-                    onPressed: c == null
-                        ? null
-                        : () async {
-                            _torch = !_torch;
-                            try {
-                              await c.setFlashMode(_torch ? FlashMode.torch : FlashMode.off);
-                            } catch (_) {}
-                            if (mounted) setState(() {});
-                          },
-                    icon: Icon(_torch ? Icons.flash_on_rounded : Icons.flash_off_rounded),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 24 + MediaQuery.paddingOf(context).bottom,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: const Color(0xCC0B1F33), borderRadius: BorderRadius.circular(18)),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _status.isEmpty ? l.weighHint : _status,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  if (_seen.isNotEmpty || _lastKg != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      [if (_seen.isNotEmpty) _seen, if (_lastKg != null) '${kgText(_lastKg!)} ${l.kgUnit}'].join(' · '),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: T.accent, fontSize: 22, fontWeight: FontWeight.w800),
+            // 2026-10-22: верхняя панель — сверху (в Stack с fit: expand она растягивалась и вставала посреди экрана)
+            Align(alignment: Alignment.topCenter, child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: Row(
+                  children: [
+                    IconButton.filledTonal(onPressed: () => _finish(null), icon: const Icon(Icons.arrow_back_rounded)),
+                    const SizedBox(width: 10),
+                    // 2026-10-22 (подпись «Умная камера»): заголовок на тёмной пилюле — виден на любом кадре
+                    Expanded(child: Align(alignment: Alignment.centerLeft, child: CamLabel(l.weighTitle, icon: Icons.scale_rounded))),
+                    IconButton.filledTonal(
+                      onPressed: c == null
+                          ? null
+                          : () async {
+                              _torch = !_torch;
+                              try {
+                                await c.setFlashMode(_torch ? FlashMode.torch : FlashMode.off);
+                              } catch (_) {}
+                              if (mounted) setState(() {});
+                            },
+                      icon: Icon(_torch ? Icons.flash_on_rounded : Icons.flash_off_rounded),
                     ),
                   ],
-                  const SizedBox(height: 8),
-                  // точки — сколько показаний подряд совпало
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      for (var i = 0; i < _stab.need; i++)
-                        Container(
-                          width: 10,
-                          height: 10,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: i < _stab.run.length ? T.accent : Colors.white24),
-                        ),
+                ),
+              ),
+            )),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 24 + MediaQuery.paddingOf(context).bottom,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: const Color(0xCC0B1F33), borderRadius: BorderRadius.circular(18)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _status.isEmpty ? l.weighAim : _status,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                    // 2026-10-22: что будет после «Сканировать» — пока камера ещё ничего не прочитала
+                    if (_status.isEmpty && !_running) ...[
+                      const SizedBox(height: 4),
+                      Text(l.weighNext, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 14)),
                     ],
-                  ),
-                ],
+                    if (_seen.isNotEmpty || _lastKg != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        [if (_seen.isNotEmpty) _seen, if (_lastKg != null) '${kgText(_lastKg!)} ${l.kgUnit}'].join(' · '),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: T.accent, fontSize: 22, fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    // точки — сколько показаний подряд совпало
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (var i = 0; i < _stab.need; i++)
+                          Container(
+                            width: 10,
+                            height: 10,
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: i < _stab.run.length ? T.accent : Colors.white24),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: T.accent,
+                        foregroundColor: T.navy,
+                        disabledBackgroundColor: T.accent.withValues(alpha: .55),
+                        disabledForegroundColor: T.navy,
+                        minimumSize: const Size.fromHeight(60),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      ),
+                      onPressed: c != null && !_running && !_closed ? _run : null,
+                      icon: _running
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3, color: T.navy))
+                          : const Icon(Icons.center_focus_strong_rounded, size: 28),
+                      label: Text(_running ? l.scanBusy : l.scanShoot),
+                    ),
+                    // 2026-10-22: выход без камеры — табло не читается, товар не узнаётся
+                    TextButton.icon(
+                      style: TextButton.styleFrom(foregroundColor: Colors.white, minimumSize: const Size.fromHeight(48)),
+                      onPressed: _closed ? null : () => _finish(WeighResult(kg: _lastKg, manual: true)),
+                      icon: const Icon(Icons.edit_note_rounded),
+                      label: Text(l.weighManualBtn, textAlign: TextAlign.center),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -366,17 +491,24 @@ Future<void> weighForSale(BuildContext context, WidgetRef ref) async {
   if (!context.mounted) return;
   final r = await WeighCameraPage.open(context);
   if (r == null || !context.mounted) return;
+  if (r.manual) {
+    await _manual(context, ref, kg: r.kg);
+    return;
+  }
   if (r.error != null) {
     toast(context, '${l.weighNoAi}\n${r.error}', error: true);
     await _manual(context, ref, kg: r.kg);
     return;
   }
   final best = r.best;
-  // уверенно: товар узнан (эталон или совпадение названия ≥ 0,75), ИИ уверен, вес устойчив и разумен
+  // уверенно: товар узнан (эталон или совпадение названия ≥ 0,75), ИИ уверен, вес устойчив и разумен.
+  // 2026-10-22 (аудит У-1, У-2, У-3): и первый кандидат заметно лучше второго («Картофель» и «Картофель молодой» —
+  // спросить), вес весового товара не больше 30 кг, стоимость на табло (если видна) сходится с ценой × вес.
   final sure = best != null &&
       r.candidates.first.$2 >= 0.75 &&
+      (r.exact || clearWinner([for (final c in r.candidates) c.$2])) &&
       r.confidence >= 0.75 &&
-      (!best.isWeight || (r.stable && checkWeight(r.kg) == WeightCheck.ok));
+      (!best.isWeight || (r.stable && checkWeight(r.kg, maxKg: 30) == WeightCheck.ok && totalAgrees(r.total, best.price, r.kg) != false));
   if (sure) {
     await _addWeighed(context, ref, best, r.kg);
     return;

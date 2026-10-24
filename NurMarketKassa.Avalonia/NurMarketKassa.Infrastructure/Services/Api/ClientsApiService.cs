@@ -20,7 +20,34 @@ public sealed class ClientsApiService : IClientsApiService
     {
         var result = new List<JsonElement>();
 
-        for (var page = 1; page <= MaxPages; page++)
+        // 2026-10-23 (аудит, круг 6: «Клиенты» у владельца 3,1 с): страницы шли строго по очереди. Первая страница даёт
+        // count и размер страницы — остальные берём параллельно (по 4), те же запросы, без новых. Нет count — как раньше.
+        var (first, firstNext, count) = await GetClientsPageCoreAsync(1, search, ct).ConfigureAwait(false);
+        if (first.Count == 0)
+            return result;
+        result.AddRange(first);
+        if (!firstNext)
+            return result;
+
+        if (count > first.Count)
+        {
+            var pages = Math.Min(MaxPages, (int)Math.Ceiling(count / (double)first.Count));
+            if (pages >= 3)
+            {
+                var gate = new SemaphoreSlim(4);
+                var tasks = Enumerable.Range(2, pages - 1).Select(async n =>
+                {
+                    await gate.WaitAsync(ct).ConfigureAwait(false);
+                    try { return (await GetClientsPageCoreAsync(n, search, ct).ConfigureAwait(false)).Items; }
+                    finally { gate.Release(); }
+                }).ToList();
+                foreach (var items in await Task.WhenAll(tasks).ConfigureAwait(false))
+                    result.AddRange(items);
+                return result;
+            }
+        }
+
+        for (var page = 2; page <= MaxPages; page++)
         {
             var (pageItems, hasNext) = await GetClientsPageAsync(page, search, ct).ConfigureAwait(false);
             if (pageItems.Count == 0)
@@ -40,6 +67,13 @@ public sealed class ClientsApiService : IClientsApiService
     public async Task<(List<JsonElement> Items, bool HasNext)> GetClientsPageAsync(
         int page, string? search, CancellationToken ct = default)
     {
+        var (items, hasNext, _) = await GetClientsPageCoreAsync(page, search, ct).ConfigureAwait(false);
+        return (items, hasNext);
+    }
+
+    private async Task<(List<JsonElement> Items, bool HasNext, int Count)> GetClientsPageCoreAsync(
+        int page, string? search, CancellationToken ct)
+    {
         var query = new Dictionary<string, string>
         {
             ["page"] = Math.Max(1, page).ToString(CultureInfo.InvariantCulture),
@@ -56,7 +90,8 @@ public sealed class ClientsApiService : IClientsApiService
             && data.ValueKind == JsonValueKind.Object
             && data.TryGetProperty("next", out var next)
             && next.ValueKind == JsonValueKind.String;
-        return (pageItems, hasNext && pageItems.Count > 0);
+        var count = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("count", out var c) && c.ValueKind == JsonValueKind.Number && c.TryGetInt32(out var n) ? n : 0;
+        return (pageItems, hasNext && pageItems.Count > 0, count);
     }
 
     public Task<JsonElement> CreateClientAsync(

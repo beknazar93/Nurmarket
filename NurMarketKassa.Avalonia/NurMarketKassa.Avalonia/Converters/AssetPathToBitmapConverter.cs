@@ -69,6 +69,7 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
             result = null;
         }
 
+        AddNativePressure(result);
         _cache[cacheKey] = result;
         if (thumb)
             TouchThumb(cacheKey);
@@ -103,6 +104,35 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
                 ThumbNodes.Remove(oldest.Value);
                 _cache.TryRemove(oldest.Value, out _);
             }
+        }
+    }
+
+    // 2026-10-23 (живой аудит, круг 6: Склад растёт на 6–8 МБ Private за открытие; стенд p10-leak): пиксели миниатюры лежат в
+    // родной памяти Skia (≈0,3 МБ), а управляемый объект Bitmap крошечный — сборщик мусора не видит давления и не запускает
+    // сборку второго поколения, так что вытесненные из кэша миниатюры висели сотнями МБ (стенд: 750 МБ за 8 проходов по 300
+    // товаров, после GC.Collect — 100). Сообщаем сборщику размер пикселей; снимается, когда Bitmap собран (финализатор метки).
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Bitmap, NativePressure> PressureTokens = new();
+
+    private sealed class NativePressure
+    {
+        private readonly long _bytes;
+        public NativePressure(long bytes) { _bytes = bytes; GC.AddMemoryPressure(bytes); }
+        ~NativePressure() => GC.RemoveMemoryPressure(_bytes);
+    }
+
+    private static void AddNativePressure(Bitmap? bitmap)
+    {
+        if (bitmap is null)
+            return;
+        try
+        {
+            var bytes = (long)bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4;
+            if (bytes > 0)
+                PressureTokens.Add(bitmap, new NativePressure(bytes));
+        }
+        catch
+        {
+            // давление памяти — только подсказка сборщику; ошибка не должна ломать показ картинки
         }
     }
 

@@ -13,118 +13,129 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Возврат учитывает скидку на чек и долг: к выдаче — только то, что реально оплачено; в истории чека виден блок «Возвраты»",
-        "Долг: срок возврата (обычно 30 дней) печатается в чеке — «Вернуть до …»; оплата долга — список долгов клиента, Enter и подтверждение «Погасить»",
-        "Закрытие смены с разбивкой продаж и возвратов и строкой «Ожидается N»; X-отчёт — без закрытия смены",
-        "Поставщики: поставщик в карточке товара, долг поставщику при приёмке и его оплата",
-        "Прокат — во всех видах магазина; в программе владельца во вкладке «Клиенты» — КП, счёт и накладная (PDF, Word, печать, WhatsApp)",
-        "Нур Советник отвечает быстрее (1–3 секунды) и точнее, показывает «откуда цифры» и таблицу в Excel; утренний отчёт в 9:00 и напоминания должникам",
-        "Telegram-бот: владелец подтверждает себя одноразовым кодом, выручка с сервера, быстрые ответы, меню кнопками",
-        "Новый вид окон и меню ☰, тёмная тема без жёлтых цен, много мелких исправлений",
+        "Новое окно оплаты: компактное, в две колонки; клиент выбирается карточкой, при долге видны сумма чека и «Получить сейчас»",
+        "Маркетплейс как магазин приложений: витрина, страница «Подробнее» со слайдами, анимацией, «Чем поможет» и ценой; темы и виды с превью, купленное помечено «Куплено»",
+        "Красивый чек-«бумага» в истории чеков; значок «Подробнее» и карточка товара",
+        "Склад: массовое добавление товаров сканером; у поставщика «Погасить весь долг» (двойные записи не оплачиваются)",
+        "Долг клиента считается как на сервере, двойные записи помечены; «Выручка (без долга)» везде одинаково",
+        "Z-отчёт совпадает с X, в нём раскладка «в ящике должно быть»; остаток при открытии смены берётся из последней закрытой; предупреждение о смене старше 22 часов",
+        "Воронка: клик по клиенту открывает чат (WhatsApp, Instagram, Telegram), стрелки «назад» и «вперёд» крупнее",
+        "Программа владельца: Сводка обновляется сама раз в минуту, пустой счёт нельзя выставить, дубль телефона клиента виден сразу",
+        "«Горячие клавиши» и «Импорт» в общем стиле, История чеков — по размеру окна кассы, «Пополнение» без услуг, окна не уходят под панель задач",
+        "После входа виден кассир за кассой; исправлены утечки памяти (закрытые окна, миниатюры, темы)",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Кайтаруу чектеги арзандатууну жана карызды эске алат: чыныгы төлөнгөнү гана берилет; чектин тарыхында «Кайтаруулар» бөлүгү көрүнөт",
-        "Карыз: кайтаруу мөөнөтү (адатта 30 күн) чекте басылат — «… чейин кайтаруу»; карызды төлөө — кардардын карыздарынын тизмеси, Enter жана «Жабуу» ырастоосу",
-        "Сменаны жабуу сатуулардын жана кайтаруулардын бөлүнүшү жана «Күтүлөт N» сабы менен; X-отчёт — сменаны жаппай",
-        "Жеткирүүчүлөр: товардын карточкасында жеткирүүчү, кабыл алууда жеткирүүчүгө карыз жана аны төлөө",
-        "Прокат — дүкөндүн бардык түрлөрүндө; ээсинин программасында «Кардарлар» өтмөгүндө — КП, эсеп жана накладной (PDF, Word, басып чыгаруу, WhatsApp)",
-        "Нур Кеңешчи тезирээк (1–3 секунд) жана тагыраак жооп берет, «сандар кайдан» жана Excel таблицасын көрсөтөт; саат 9:00дө эртең мененки отчёт жана карыздарга эскертүүлөр",
-        "Telegram-бот: ээси өзүн бир жолку код менен ырастайт, түшкөн акча серверден, тез жооптор, баскычтар менен меню",
-        "Терезелердин жана ☰ менюнун жаңы көрүнүшү, баалары сары эмес караңгы тема, көп майда оңдоолор",
+        "Төлөмдүн жаңы терезеси: ыкчам, эки тилкелүү; кардар карточка менен тандалат, карызда чектин суммасы жана «Азыр алуу» көрүнөт",
+        "Маркетплейс колдонмолор дүкөнүндөй: витрина, слайддар, анимация, «Эмне жардам берет» жана баасы бар «Кененирээк» барагы; алдын ала көрүүсү бар темалар жана көрүнүштөр, сатып алынганы «Сатып алынды» деп белгиленет",
+        "Чектердин тарыхында кооз кагаз чек; «Кененирээк» белгиси жана товардын карточкасы",
+        "Кампа: товарларды сканер менен жапырт кошуу; жеткирүүчүдө «Бүт карызды төлөө» (кош жазуулар төлөнбөйт)",
+        "Кардардын карызы сервердегидей эсептелет, кош жазуулар белгиленет; «Түшүм (карызсыз)» бардык жерде бирдей",
+        "Z-отчёт X менен дал келет, ичинде «ящикте болушу керек» бөлүштүрүү бар; смена ачылганда калдык акыркы жабылгандан алынат; 22 сааттан эски смена жөнүндө эскертүү",
+        "Воронка: кардарды чыкылдатсаңыз чат ачылат (WhatsApp, Instagram, Telegram), «артка» жана «алдыга» жебелери чоңураак",
+        "Ээсинин программасы: Жыйынтык мүнөтүнө бир жолу өзү жаңыланат, бош эсепти чыгарууга болбойт, кардардын телефону кайталанса дароо көрүнөт",
+        "«Ысык баскычтар» жана «Импорт» жалпы стилде, Чектердин тарыхы кассанын терезесине жараша, «Толуктоо» кызматтарсыз, терезелер тапшырмалар панелинин астына кирбейт",
+        "Киргенден кийин кассада ким отурганы көрүнөт; эс тутумдун агып кетүүлөрү оңдолду (жабылган терезелер, миниатюралар, темалар)",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Returns take the receipt discount and debt into account: only what was actually paid is given back; the receipt history shows a “Returns” block",
-        "Debt: the due date (usually 30 days) is printed on the receipt — “Return by …”; paying a debt shows the client's debts, Enter and a “Pay off” confirmation",
-        "Closing a shift shows sales and returns separately and an “Expected N” line; the X-report works without closing the shift",
-        "Suppliers: the supplier in the product card, a supplier debt at receiving and paying it",
-        "Rentals in every store type; in the owner app the “Clients” tab has quotes, invoices and waybills (PDF, Word, print, WhatsApp)",
-        "Nur Advisor answers faster (1–3 seconds) and more accurately, shows “where the numbers come from” and an Excel table; a morning report at 9:00 and reminders to debtors",
-        "Telegram bot: the owner confirms with a one-time code, revenue from the server, fast replies, a button menu",
-        "New look of windows and the ☰ menu, a dark theme without yellow prices, many small fixes",
+        "New payment window: compact, two columns; the client is picked with a card, and with a debt it shows the receipt total and “Receive now”",
+        "Marketplace like an app store: a showcase, a “Details” page with slides, animation, “How it helps” and the price; themes and looks with previews, purchased items marked “Purchased”",
+        "A nicer paper-style receipt in the receipt history; the “Details” badge and the product card",
+        "Stock: bulk adding of products with a scanner; the supplier has “Pay off the whole debt” (duplicate entries are not paid)",
+        "A client's debt is counted as on the server, duplicate entries are marked; “Revenue (without debt)” is the same everywhere",
+        "The Z-report matches the X-report and has the “should be in the drawer” breakdown; the opening balance of a shift comes from the last closed one; a warning for a shift older than 22 hours",
+        "Funnel: clicking a client opens a chat (WhatsApp, Instagram, Telegram), larger back and forward arrows",
+        "Owner app: the Summary refreshes itself every minute, an empty invoice cannot be issued, a duplicate client phone is shown at once",
+        "“Hotkeys” and “Import” in the common style, the receipt history follows the till window size, “Restocking” without services, windows no longer go under the taskbar",
+        "The cashier at the till is shown after login; memory leaks fixed (closed windows, thumbnails, themes)",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "İade, fiş indirimini ve borcu dikkate alır: yalnızca gerçekten ödenen geri verilir; fiş geçmişinde «İadeler» bölümü görünür",
-        "Borç: geri ödeme tarihi (genelde 30 gün) fişe basılır — «… tarihine kadar iade»; borç ödemede müşterinin borçları, Enter ve «Kapat» onayı",
-        "Vardiya kapanışı satışları ve iadeleri ayrı ve «Beklenen N» satırıyla gösterir; X raporu vardiyayı kapatmadan çalışır",
-        "Tedarikçiler: ürün kartında tedarikçi, mal kabulde tedarikçiye borç ve ödemesi",
-        "Kiralama tüm mağaza türlerinde; sahip programında «Müşteriler» sekmesinde teklif, fatura ve irsaliye (PDF, Word, yazdırma, WhatsApp)",
-        "Nur Danışman daha hızlı (1–3 saniye) ve daha doğru yanıt verir, «rakamlar nereden» ve Excel tablosu gösterir; 9:00'da sabah raporu ve borçlulara hatırlatmalar",
-        "Telegram botu: sahip kendini tek kullanımlık kodla doğrular, ciro sunucudan, hızlı yanıtlar, düğmeli menü",
-        "Pencerelerin ve ☰ menüsünün yeni görünümü, sarı fiyatsız koyu tema, birçok küçük düzeltme",
+        "Yeni ödeme penceresi: kompakt, iki sütunlu; müşteri kartla seçilir, borçta fiş tutarı ve «Şimdi al» görünür",
+        "Uygulama mağazası gibi Pazar yeri: vitrin, slaytlar, animasyon, «Nasıl yardımcı olur» ve fiyatlı «Ayrıntılı» sayfası; önizlemeli temalar ve görünümler, satın alınanlar «Satın alındı» diye işaretlenir",
+        "Fiş geçmişinde güzel kâğıt fiş; «Ayrıntılı» simgesi ve ürün kartı",
+        "Depo: ürünlerin tarayıcıyla toplu eklenmesi; tedarikçide «Tüm borcu öde» (çift kayıtlar ödenmez)",
+        "Müşteri borcu sunucudaki gibi hesaplanır, çift kayıtlar işaretlenir; «Ciro (borçsuz)» her yerde aynı",
+        "Z raporu X ile aynıdır, içinde «çekmecede olması gereken» dökümü var; vardiya açılırken bakiye son kapanan vardiyadan alınır; 22 saatten eski vardiya uyarısı",
+        "Satış hunisi: müşteriye tıklamak sohbeti açar (WhatsApp, Instagram, Telegram), geri ve ileri okları daha büyük",
+        "Sahip programı: Özet dakikada bir kendiliğinden yenilenir, boş fatura kesilemez, müşteri telefonu tekrarı hemen görünür",
+        "«Kısayol tuşları» ve «İçe aktar» ortak tarzda, Fiş geçmişi kasa penceresinin boyutuna göre, «Stok yenileme» hizmetsiz, pencereler görev çubuğunun altına girmez",
+        "Girişten sonra kasadaki kasiyer görünür; bellek sızıntıları giderildi (kapatılan pencereler, küçük resimler, temalar)",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Qaytarish chekdagi chegirma va qarzni hisobga oladi: faqat haqiqatda to'langani qaytariladi; chek tarixida «Qaytarishlar» bloki ko'rinadi",
-        "Qarz: qaytarish muddati (odatda 30 kun) chekda bosiladi — «… gacha qaytarish»; qarzni to'lashda mijozning qarzlari ro'yxati, Enter va «Yopish» tasdig'i",
-        "Smenani yopish sotuvlar va qaytarishlarni alohida hamda «Kutilmoqda N» qatori bilan ko'rsatadi; X-hisobot smenani yopmasdan ishlaydi",
-        "Yetkazib beruvchilar: mahsulot kartasida yetkazib beruvchi, qabul qilishda yetkazib beruvchiga qarz va uni to'lash",
-        "Prokat do'konning barcha turlarida; egasining dasturida «Mijozlar» bo'limida tijorat taklifi, hisob va nakladnoy (PDF, Word, chop etish, WhatsApp)",
-        "Nur Maslahatchi tezroq (1–3 soniya) va aniqroq javob beradi, «raqamlar qayerdan» va Excel jadvalini ko'rsatadi; soat 9:00 da ertalabki hisobot va qarzdorlarga eslatmalar",
-        "Telegram-bot: egasi o'zini bir martalik kod bilan tasdiqlaydi, tushum serverdan, tezkor javoblar, tugmali menyu",
-        "Oynalar va ☰ menyuning yangi ko'rinishi, sariq narxlarsiz qorong'i mavzu, ko'plab mayda tuzatishlar",
+        "Yangi to'lov oynasi: ixcham, ikki ustunli; mijoz karta orqali tanlanadi, qarzda chek summasi va «Hozir olish» ko'rinadi",
+        "Ilovalar do'koni kabi Marketplace: vitrina, slaydlar, animatsiya, «Qanday yordam beradi» va narxli «Batafsil» sahifasi; oldindan ko'rish bilan mavzular va ko'rinishlar, sotib olingani «Sotib olingan» deb belgilanadi",
+        "Cheklar tarixida chiroyli qog'oz chek; «Batafsil» belgisi va mahsulot kartasi",
+        "Ombor: mahsulotlarni skaner bilan ommaviy qo'shish; yetkazib beruvchida «Butun qarzni to'lash» (qo'sh yozuvlar to'lanmaydi)",
+        "Mijoz qarzi serverdagidek hisoblanadi, qo'sh yozuvlar belgilanadi; «Tushum (qarzsiz)» hamma joyda bir xil",
+        "Z-hisobot X bilan mos keladi, unda «tortmada bo'lishi kerak» taqsimoti bor; smena ochilganda qoldiq oxirgi yopilgan smenadan olinadi; 22 soatdan eski smena haqida ogohlantirish",
+        "Voronka: mijozga bosish chatni ochadi (WhatsApp, Instagram, Telegram), orqaga va oldinga strelkalari kattaroq",
+        "Egasining dasturi: Xulosa daqiqada bir marta o'zi yangilanadi, bo'sh hisobni chiqarib bo'lmaydi, mijoz telefoni takrori darhol ko'rinadi",
+        "«Tezkor tugmalar» va «Import» umumiy uslubda, Cheklar tarixi kassa oynasi o'lchamiga qarab, «To'ldirish» xizmatlarsiz, oynalar vazifalar paneli ostiga kirmaydi",
+        "Kirgandan keyin kassada kim ekani ko'rinadi; xotira oqishlari tuzatildi (yopilgan oynalar, kichik rasmlar, mavzular)",
     ];
 
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно
     // «Касса обновлена» показывало пункты десктопа («на вашем компьютере», «сведения о компьютере») —
     // у Android свой список, тот же, что в выпуске Nurmarket-Android.
+    // 2026-10-24: Android 1.17.60 (тестовая) — то же, что на Windows в 1.17.60, без пунктов только для компьютера (воронка, окна и панель задач, горячие клавиши, импорт) и без программы владельца.
     // 2026-10-21: Android 1.17.59 (тестовая) — то же, что на Windows в 1.17.59, без пунктов только для компьютера.
     // 2026-10-11: Android 1.17.58 (после 1.17.53 — всё, что вышло на Windows в 1.17.54–1.17.58).
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
-        "Возврат учитывает скидку на чек и долг: к выдаче — только то, что реально оплачено; в истории чека виден блок «Возвраты»",
-        "Долг: срок возврата (обычно 30 дней) печатается в чеке — «Вернуть до …»; оплата долга — список долгов клиента и подтверждение «Погасить»",
-        "Закрытие смены с разбивкой продаж и возвратов и строкой «Ожидается N»; X-отчёт — без закрытия смены",
-        "Поставщики: поставщик в карточке товара, долг поставщику при приёмке и его оплата; прокат — во всех видах магазина",
-        "Нур Советник отвечает быстрее (1–3 секунды) и точнее, показывает «откуда цифры»; утренний отчёт в 9:00 и напоминания должникам",
-        "Новый вид окон и меню, тёмная тема без жёлтых цен, много мелких исправлений",
+        "Новое окно оплаты: компактное, в две колонки; клиент выбирается карточкой, при долге видны сумма чека и «Получить сейчас»",
+        "Маркетплейс как магазин приложений: витрина, страница «Подробнее» со слайдами, анимацией, «Чем поможет» и ценой; темы и виды с превью, купленное помечено «Куплено»",
+        "Красивый чек-«бумага» в истории чеков; значок «Подробнее» и карточка товара",
+        "Долг клиента считается как на сервере, двойные записи помечены; «Выручка (без долга)» везде одинаково",
+        "Z-отчёт совпадает с X, в нём раскладка «в ящике должно быть»; остаток при открытии смены берётся из последней закрытой; предупреждение о смене старше 22 часов",
+        "После входа виден кассир за кассой; исправлены утечки памяти (закрытые окна, миниатюры, темы)",
     ];
 
     public static readonly string[] AndroidLatestKy =
     [
-        "Кайтаруу чектеги арзандатууну жана карызды эске алат: чыныгы төлөнгөнү гана берилет; чектин тарыхында «Кайтаруулар» бөлүгү көрүнөт",
-        "Карыз: кайтаруу мөөнөтү (адатта 30 күн) чекте басылат — «… чейин кайтаруу»; карызды төлөө — кардардын карыздарынын тизмеси жана «Жабуу» ырастоосу",
-        "Сменаны жабуу сатуулардын жана кайтаруулардын бөлүнүшү жана «Күтүлөт N» сабы менен; X-отчёт — сменаны жаппай",
-        "Жеткирүүчүлөр: товардын карточкасында жеткирүүчү, кабыл алууда жеткирүүчүгө карыз жана аны төлөө; прокат — дүкөндүн бардык түрлөрүндө",
-        "Нур Кеңешчи тезирээк (1–3 секунд) жана тагыраак жооп берет, «сандар кайдан» көрсөтөт; саат 9:00дө эртең мененки отчёт жана карыздарга эскертүүлөр",
-        "Терезелердин жана менюнун жаңы көрүнүшү, баалары сары эмес караңгы тема, көп майда оңдоолор",
+        "Төлөмдүн жаңы терезеси: ыкчам, эки тилкелүү; кардар карточка менен тандалат, карызда чектин суммасы жана «Азыр алуу» көрүнөт",
+        "Маркетплейс колдонмолор дүкөнүндөй: витрина, слайддар, анимация, «Эмне жардам берет» жана баасы бар «Кененирээк» барагы; алдын ала көрүүсү бар темалар жана көрүнүштөр, сатып алынганы «Сатып алынды» деп белгиленет",
+        "Чектердин тарыхында кооз кагаз чек; «Кененирээк» белгиси жана товардын карточкасы",
+        "Кардардын карызы сервердегидей эсептелет, кош жазуулар белгиленет; «Түшүм (карызсыз)» бардык жерде бирдей",
+        "Z-отчёт X менен дал келет, ичинде «ящикте болушу керек» бөлүштүрүү бар; смена ачылганда калдык акыркы жабылгандан алынат; 22 сааттан эски смена жөнүндө эскертүү",
+        "Киргенден кийин кассада ким отурганы көрүнөт; эс тутумдун агып кетүүлөрү оңдолду (жабылган терезелер, миниатюралар, темалар)",
     ];
 
     public static readonly string[] AndroidLatestEn =
     [
-        "Returns take the receipt discount and debt into account: only what was actually paid is given back; the receipt history shows a “Returns” block",
-        "Debt: the due date (usually 30 days) is printed on the receipt — “Return by …”; paying a debt shows the client's debts and a “Pay off” confirmation",
-        "Closing a shift shows sales and returns separately and an “Expected N” line; the X-report works without closing the shift",
-        "Suppliers: the supplier in the product card, a supplier debt at receiving and paying it; rentals in every store type",
-        "Nur Advisor answers faster (1–3 seconds) and more accurately, shows “where the numbers come from”; a morning report at 9:00 and reminders to debtors",
-        "New look of windows and the menu, a dark theme without yellow prices, many small fixes",
+        "New payment window: compact, two columns; the client is picked with a card, and with a debt it shows the receipt total and “Receive now”",
+        "Marketplace like an app store: a showcase, a “Details” page with slides, animation, “How it helps” and the price; themes and looks with previews, purchased items marked “Purchased”",
+        "A nicer paper-style receipt in the receipt history; the “Details” badge and the product card",
+        "A client's debt is counted as on the server, duplicate entries are marked; “Revenue (without debt)” is the same everywhere",
+        "The Z-report matches the X-report and has the “should be in the drawer” breakdown; the opening balance of a shift comes from the last closed one; a warning for a shift older than 22 hours",
+        "The cashier at the till is shown after login; memory leaks fixed (closed windows, thumbnails, themes)",
     ];
 
     public static readonly string[] AndroidLatestTr =
     [
-        "İade, fiş indirimini ve borcu dikkate alır: yalnızca gerçekten ödenen geri verilir; fiş geçmişinde «İadeler» bölümü görünür",
-        "Borç: geri ödeme tarihi (genelde 30 gün) fişe basılır — «… tarihine kadar iade»; borç ödemede müşterinin borçları ve «Kapat» onayı",
-        "Vardiya kapanışı satışları ve iadeleri ayrı ve «Beklenen N» satırıyla gösterir; X raporu vardiyayı kapatmadan çalışır",
-        "Tedarikçiler: ürün kartında tedarikçi, mal kabulde tedarikçiye borç ve ödemesi; kiralama tüm mağaza türlerinde",
-        "Nur Danışman daha hızlı (1–3 saniye) ve daha doğru yanıt verir, «rakamlar nereden» gösterir; 9:00'da sabah raporu ve borçlulara hatırlatmalar",
-        "Pencerelerin ve menünün yeni görünümü, sarı fiyatsız koyu tema, birçok küçük düzeltme",
+        "Yeni ödeme penceresi: kompakt, iki sütunlu; müşteri kartla seçilir, borçta fiş tutarı ve «Şimdi al» görünür",
+        "Uygulama mağazası gibi Pazar yeri: vitrin, slaytlar, animasyon, «Nasıl yardımcı olur» ve fiyatlı «Ayrıntılı» sayfası; önizlemeli temalar ve görünümler, satın alınanlar «Satın alındı» diye işaretlenir",
+        "Fiş geçmişinde güzel kâğıt fiş; «Ayrıntılı» simgesi ve ürün kartı",
+        "Müşteri borcu sunucudaki gibi hesaplanır, çift kayıtlar işaretlenir; «Ciro (borçsuz)» her yerde aynı",
+        "Z raporu X ile aynıdır, içinde «çekmecede olması gereken» dökümü var; vardiya açılırken bakiye son kapanan vardiyadan alınır; 22 saatten eski vardiya uyarısı",
+        "Girişten sonra kasadaki kasiyer görünür; bellek sızıntıları giderildi (kapatılan pencereler, küçük resimler, temalar)",
     ];
 
     public static readonly string[] AndroidLatestUz =
     [
-        "Qaytarish chekdagi chegirma va qarzni hisobga oladi: faqat haqiqatda to'langani qaytariladi; chek tarixida «Qaytarishlar» bloki ko'rinadi",
-        "Qarz: qaytarish muddati (odatda 30 kun) chekda bosiladi — «… gacha qaytarish»; qarzni to'lashda mijozning qarzlari ro'yxati va «Yopish» tasdig'i",
-        "Smenani yopish sotuvlar va qaytarishlarni alohida hamda «Kutilmoqda N» qatori bilan ko'rsatadi; X-hisobot smenani yopmasdan ishlaydi",
-        "Yetkazib beruvchilar: mahsulot kartasida yetkazib beruvchi, qabul qilishda yetkazib beruvchiga qarz va uni to'lash; prokat do'konning barcha turlarida",
-        "Nur Maslahatchi tezroq (1–3 soniya) va aniqroq javob beradi, «raqamlar qayerdan» ko'rsatadi; soat 9:00 da ertalabki hisobot va qarzdorlarga eslatmalar",
-        "Oynalar va menyuning yangi ko'rinishi, sariq narxlarsiz qorong'i mavzu, ko'plab mayda tuzatishlar",
+        "Yangi to'lov oynasi: ixcham, ikki ustunli; mijoz karta orqali tanlanadi, qarzda chek summasi va «Hozir olish» ko'rinadi",
+        "Ilovalar do'koni kabi Marketplace: vitrina, slaydlar, animatsiya, «Qanday yordam beradi» va narxli «Batafsil» sahifasi; oldindan ko'rish bilan mavzular va ko'rinishlar, sotib olingani «Sotib olingan» deb belgilanadi",
+        "Cheklar tarixida chiroyli qog'oz chek; «Batafsil» belgisi va mahsulot kartasi",
+        "Mijoz qarzi serverdagidek hisoblanadi, qo'sh yozuvlar belgilanadi; «Tushum (qarzsiz)» hamma joyda bir xil",
+        "Z-hisobot X bilan mos keladi, unda «tortmada bo'lishi kerak» taqsimoti bor; smena ochilganda qoldiq oxirgi yopilgan smenadan olinadi; 22 soatdan eski smena haqida ogohlantirish",
+        "Kirgandan keyin kassada kim ekani ko'rinadi; xotira oqishlari tuzatildi (yopilgan oynalar, kichik rasmlar, mavzular)",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

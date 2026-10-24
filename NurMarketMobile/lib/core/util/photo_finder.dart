@@ -78,16 +78,39 @@ class PhotoFinder {
     }
   }
 
-  /// Скачать выбранное фото (для отправки в карточку товара). null — не скачалось или это не картинка.
+  /// 2026-10-22 (мобилка, админ): П16 — предел размера фото: больше 8 МБ не качаем (трафик, память, сервер не примет).
+  static const maxBytes = 8 * 1024 * 1024;
+
+  /// 2026-10-22 (мобилка, админ): П16 — настоящий тип картинки по первым байтам ('jpeg' | 'png' | 'webp'), null —
+  /// не картинка. Сайты отдают HTML-заглушку или SVG с заголовком image/* — по заголовку им верить нельзя.
+  static String? imageType(List<int> b) {
+    bool at(int i, List<int> sig) => b.length >= i + sig.length && [for (var k = 0; k < sig.length; k++) b[i + k] == sig[k]].every((x) => x);
+    if (at(0, const [0xFF, 0xD8, 0xFF])) return 'jpeg';
+    if (at(0, const [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) return 'png';
+    if (at(0, const [0x52, 0x49, 0x46, 0x46]) && at(8, const [0x57, 0x45, 0x42, 0x50])) return 'webp';
+    return null;
+  }
+
+  /// Скачать выбранное фото (для отправки в карточку товара). null — не скачалось, больше [maxBytes] или это не картинка.
   static Future<Uint8List?> download(String url) async {
     try {
-      final r = await _http.get<List<int>>(
+      // 2026-10-22 (мобилка, админ): П16 — поток с пределом: огромный файл обрывается на [maxBytes], а не качается целиком.
+      final r = await _http.get<ResponseBody>(
         url,
-        options: Options(responseType: ResponseType.bytes, headers: {'Accept': 'image/webp,image/jpeg,image/png,image/*;q=0.8'}),
+        options: Options(responseType: ResponseType.stream, headers: {'Accept': 'image/webp,image/jpeg,image/png,image/*;q=0.8'}),
       );
-      final type = r.headers.value('content-type') ?? '';
-      if ((r.statusCode ?? 0) >= 400 || r.data == null || r.data!.length < 2000 || !(type.startsWith('image/') || type.isEmpty)) return null;
-      return Uint8List.fromList(r.data!);
+      final body = r.data;
+      if ((r.statusCode ?? 0) >= 400 || body == null) return null;
+      final declared = int.tryParse(r.headers.value('content-length') ?? '');
+      if (declared != null && declared > maxBytes) return null;
+      final out = BytesBuilder(copy: false);
+      await for (final chunk in body.stream) {
+        out.add(chunk);
+        if (out.length > maxBytes) return null;
+      }
+      final bytes = out.takeBytes();
+      if (bytes.length < 2000 || imageType(bytes) == null) return null;
+      return bytes;
     } catch (_) {
       return null;
     }

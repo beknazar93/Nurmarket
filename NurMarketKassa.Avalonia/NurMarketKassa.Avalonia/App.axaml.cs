@@ -152,6 +152,8 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // 2026-10-23: закрытое окно с бегущей полосой загрузки оставалось в памяти (утечка владельца, круг 5) — см. WindowLeakGuard.
+        NurMarketKassa.AvaloniaHost.Services.WindowLeakGuard.Install();
         AppHost = Host.CreateDefaultBuilder()
             .ConfigureServices(ConfigureServices)
             .Build();

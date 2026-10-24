@@ -21,7 +21,7 @@
   <Border Classes="SettingsContentHost">
     <ScrollViewer Classes="SettingsPageScroll">
 
-      <StackPanel Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch" Margin="0,16">
+      <StackPanel x:Name="OpsCardList" Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch" Margin="0,16">
 
         <!-- Шапка -->
         <Border Classes="SettingsHeaderCard" HorizontalAlignment="Stretch">
@@ -88,6 +88,30 @@
           <StackPanel x:Name="ExchangeRulesPanel" Spacing="10"/>
         </Border>
 
+        <!-- 2026-10-22 (аудит 1.17.59, П-Г): «Предоплата при продаже в долг» и штрафы за просрочку переехали сюда из «Экрана»;
+             карточка «Оплата долга» (DebtPaymentSettingsCard) вставляется следом из кода — всё про долги в «Операциях». -->
+        <Border x:Name="DebtSaleCard" Classes="SettingsCard" Padding="16">
+          <StackPanel Spacing="8">
+            <TextBlock x:Name="DebtSaleTitle" Classes="SettingsCardTitle" FontSize="14"/>
+              <!-- 2026-10-03, клиент: «предоплата куда падает? Надо выбор, как он даёт предоплату; включать в настройках». -->
+              <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{DynamicResource settings.debtPrepayChoice}" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                  <TextBlock Text="{DynamicResource settings.debtPrepayChoiceHint}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                </StackPanel>
+                <CheckBox Grid.Column="1" x:Name="DebtPrepayChoiceCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Center"/>
+              </Grid>
+              <!-- 2026-10-06, владелец: штраф за просрочку — в чеке долга и проката. Надписи — в коде (5 языков). -->
+              <StackPanel Spacing="4" Margin="0,8,0,0">
+                <TextBlock x:Name="DebtPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                <TextBox x:Name="DebtPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36" MaxLength="120"/>
+                <TextBlock x:Name="RentalPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                <TextBox x:Name="RentalPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36" Width="160" HorizontalAlignment="Left" Watermark="0"/>
+              </StackPanel>
+          </StackPanel>
+        </Border>
+
+
         <!-- Телеграм-бот владельца. 2026-10-05: на «Старте» — только если куплен в Маркетплейсе (TelegramCard, код). -->
         <Border x:Name="TelegramCard" Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="10">
@@ -143,7 +167,11 @@
                  Есть ключ — на разговорные вопросы отвечает нейросеть (TelegramAiChat). -->
             <!-- 2026-10-05: ключи ИИ — только на «Стандарте» (TariffGate.CanUseAi), на «Старте» — строка о тарифе. -->
             <TextBlock x:Name="AiTariffLockText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Margin="0,8,0,0"/>
+            <!-- 2026-10-22 (аудит 1.17.59, П-Г, Б3): кассиру ключи не показываются вовсе — только «задан / не задан»;
+                 владельцу и админу — скрыты (••••) и по кнопке «Показать». -->
+            <TextBlock x:Name="AiKeysHiddenText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Margin="0,8,0,0"/>
             <StackPanel x:Name="AiKeysPanel" Spacing="10">
+            <Button x:Name="AiKeysRevealButton" Classes="btn-secondary" HorizontalAlignment="Left" Click="AiKeysReveal_Click"/>
             <TextBlock Text="{DynamicResource loc.settings.telegram.aiTitle}" FontWeight="SemiBold" Margin="0,8,0,0"/>
             <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
                        Text="{DynamicResource loc.settings.telegram.aiHint}"/>

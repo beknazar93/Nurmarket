@@ -509,7 +509,10 @@ public partial class CalculatorWindow : Window, IOwnerSection
 
         var taxPerUnit = price * tax;
         var profit = price - cost - taxPerUnit;
-        ResPriceValue.Text = Money(price);
+        // 2026-10-22 (аудит 1.17.59, П-З): пустой ввод (цена 0) — не жёлтая плашка с «0 сом», а нейтральная карточка с прочерком.
+        var hasPrice = price > 0;
+        ResMainCard.Classes.Set("main", hasPrice);
+        ResPriceValue.Text = hasPrice ? Money(price) : "—";
         ResProfitValue.Text = Money(profit);
         ResTaxValue.Text = Money(taxPerUnit);
         ResMarkupValue.Text = cost > 0 ? Percent((price - cost) / cost * 100) : "—";
@@ -545,6 +548,7 @@ public partial class CalculatorWindow : Window, IOwnerSection
 
     private void ClearPriceResults()
     {
+        ResMainCard.Classes.Set("main", false);
         foreach (var t in new[] { ResPriceValue, ResProfitValue, ResTaxValue, ResMarkupValue, ResMarginValue })
             t.Text = "—";
         ResExactPriceText.IsVisible = false;

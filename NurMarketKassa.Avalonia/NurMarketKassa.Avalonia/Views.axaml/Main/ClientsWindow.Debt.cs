@@ -202,7 +202,7 @@ public partial class ClientsWindow
             if (known && _debtsByClient.TryGetValue(row.Id, out var d))
             {
                 row.Debt = d.Total;
-                row.DebtSalesCount = d.Sales.Count;
+                row.DebtSalesCount = d.Sales.Count(s => !s.Id.StartsWith("deal:", StringComparison.Ordinal)); // 2026-10-22 (аудит 1.17.59, П-Е): «чеков» — без долга без продажи
                 row.DebtSince = d.Sales.Count > 0 ? d.Oldest : null;
             }
             else
@@ -294,6 +294,16 @@ public partial class ClientsWindow
                 $"receipts on credit: {n} · since {since:dd.MM.yyyy} ({DebtsView.Days(since)})", $"veresiye fiş: {n} · {since:dd.MM.yyyy} tarihinden ({DebtsView.Days(since)})",
                 $"qarzga cheklar: {n} · {since:dd.MM.yyyy} dan ({DebtsView.Days(since)})")
             : T($"чеков в долг: {n}", $"карыз чектер: {n}", $"receipts on credit: {n}", $"veresiye fiş: {n}", $"qarzga cheklar: {n}");
+        // 2026-10-22 (аудит 1.17.59, П-Е): «Долг без продажи» — отдельной подписью (в «чеках» его нет).
+        var noSale = _debtsByClient.TryGetValue(client.Id, out var debtor)
+            ? debtor.Sales.Where(s => s.Id.StartsWith("deal:", StringComparison.Ordinal)).Sum(s => s.Left) : 0;
+        if (noSale > 0.005)
+        {
+            var noSaleText = noSale.ToString("N2", ru) + " " + Som;
+            var label = T($"долг без продажи: {noSaleText}", $"сатуусуз карыз: {noSaleText}", $"debt without a sale: {noSaleText}",
+                $"satışsız borç: {noSaleText}", $"sotuvsiz qarz: {noSaleText}");
+            CardDebtDetail.Text = n > 0 ? CardDebtDetail.Text + " · " + label : label;
+        }
         PayDebtButton.IsVisible = AppMode.IsOwner;
     }
 
@@ -371,16 +381,15 @@ public partial class ClientsWindow
     {
         var api = App.GetRequiredService<NurMarketApiClient>();
         var tcs = new TaskCompletionSource<string?>();
+        // 2026-10-22 (модалки, пакет 2): общая оболочка модалки (SectionCards.AsModal 512 + ModalShell) вместо окна с рамкой Windows:
+        // ✕ и Esc = «Отмена», Enter = «Записать долг», тело прокручивается (на 910×512 кнопки были за краем), фокус в сумме,
+        // срок — выбором даты (было текстом «ГГГГ-ММ-ДД»), пока долг записывается — окно не закрывается.
         var dialog = new Window
         {
-            Width = 460, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner, CanResize = false,
             Title = T("Долг без продажи", "Сатуусуз карыз", "Debt without a sale", "Satışsız borç", "Sotuvsiz qarz"),
         };
-        dialog.Bind(BackgroundProperty, this.GetResourceObservable("BrushWindowBackdrop"));
-        var panel = new StackPanel { Margin = new Thickness(20), Spacing = 6 };
-        var title = new TextBlock { Text = dialog.Title + " — " + client.FullName, FontSize = 18, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap };
-        title.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
-        panel.Children.Add(title);
+        SectionCards.AsModal(dialog, 512);
+        var panel = new StackPanel { Spacing = 8 };
         var hint = new TextBlock
         {
             Text = T("Для долга, который был до кассы (тетрадь, другая программа). Продажа не создаётся, товар со склада не списывается. Оплачивают его как обычный долг.",
@@ -388,7 +397,7 @@ public partial class ClientsWindow
                 "For a debt from before the till (notebook, another program). No sale is created and no stock is written off. It is paid like any other debt.",
                 "Kasadan önceki bir borç için (defter, başka program). Satış oluşturulmaz, stoktan düşülmez. Normal borç gibi ödenir.",
                 "Kassagacha bo'lgan qarz uchun (daftar, boshqa dastur). Sotuv yaratilmaydi, ombordan chiqarilmaydi. Oddiy qarz kabi to'lanadi."),
-            FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6),
+            FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6),
         };
         hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
         panel.Children.Add(hint);
@@ -396,7 +405,7 @@ public partial class ClientsWindow
         TextBox Field(string label, string watermark, string value)
         {
             panel.Children.Add(UiKit.Label(this, label));
-            var box = UiKit.Input(this, watermark, 42);
+            var box = SectionCards.Field(UiKit.Input(this, watermark, 44));
             box.Text = value;
             panel.Children.Add(box);
             return box;
@@ -406,34 +415,40 @@ public partial class ClientsWindow
         var comment = Field(T("Комментарий", "Комментарий", "Comment", "Yorum", "Izoh"),
             T("Например: долг из тетради за сентябрь", "Мисалы: сентябрдагы дептерден карыз", "E.g. September notebook debt", "Örn.: eylül defterinden borç", "Masalan: sentyabr daftaridagi qarz"), "");
         comment.MaxLength = 500;
-        var due = Field(T("Вернуть до (ГГГГ-ММ-ДД)", "Кайтаруу мөөнөтү (ЖЖЖЖ-АА-КК)", "Due date (YYYY-MM-DD)", "Son ödeme (YYYY-AA-GG)", "Qaytarish muddati (YYYY-OO-KK)"),
-            "2026-11-05", DateTime.Today.AddDays(30).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
-        var error = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
-        error.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+        panel.Children.Add(UiKit.Label(this, T("Вернуть до", "Кайтаруу мөөнөтү", "Due date", "Son ödeme", "Qaytarish muddati")));
+        var due = SectionCards.Field(new CalendarDatePicker
+        {
+            SelectedDate = DateTime.Today.AddDays(30),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        });
+        panel.Children.Add(due);
+        var error = SectionCards.ErrorText(this);
         panel.Children.Add(error);
 
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
-        var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        var cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => dialog.Close();
-        var save = UiKit.Primary(this, T("Записать долг", "Карызды жазуу", "Record the debt", "Borcu kaydet", "Qarzni yozish"));
+        var save = SectionCards.Primary(T("Записать долг", "Карызды жазуу", "Record the debt", "Borcu kaydet", "Qarzni yozish"), isDefault: true);
+        var shell = SectionCards.Shell(dialog.Title + " — " + client.FullName, null, panel, SectionCards.Buttons(cancel, save));
+        shell.InitialFocus = amount;
+        amount.TextChanged += (_, _) => SectionCards.ShowError(error, null);
         save.Click += async (_, _) =>
         {
-            void Fail(string text)
-            {
-                error.Text = text;
-                error.IsVisible = true;
-            }
+            void Fail(string text, Control? field = null) => SectionCards.ShowError(error, text, field);
 
             if (!decimal.TryParse((amount.Text ?? "").Trim().Replace(" ", "").Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var sum) || sum <= 0)
             {
-                Fail(T("Введите сумму больше нуля.", "Нөлдөн чоң сумма жазыңыз.", "Enter an amount above zero.", "Sıfırdan büyük bir tutar girin.", "Noldan katta summa kiriting."));
+                Fail(T("Введите сумму больше нуля.", "Нөлдөн чоң сумма жазыңыз.", "Enter an amount above zero.", "Sıfırdan büyük bir tutar girin.", "Noldan katta summa kiriting."), amount);
                 return;
             }
-            if (!DateTime.TryParseExact((due.Text ?? "").Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dueDate))
+            if (due.SelectedDate is not { } dueDate)
             {
-                Fail(T("Дату укажите в виде 2026-11-05.", "Датаны 2026-11-05 түрүндө жазыңыз.", "Enter the date as 2026-11-05.", "Tarihi 2026-11-05 biçiminde girin.", "Sanani 2026-11-05 ko'rinishida kiriting."));
+                Fail(T("Выберите дату, до которой вернуть долг.", "Карызды кайтаруу датасын тандаңыз.", "Choose the date the debt is due.", "Borcun son ödeme tarihini seçin.", "Qarzni qaytarish sanasini tanlang."), due);
                 return;
             }
+            dueDate = dueDate.Date;
+            // Повторное нажатие/Enter во время записи — ничего не делает; Esc и ✕ окно не закрывают.
+            if (!shell.TryBeginBusy())
+                return;
             var body = new Dictionary<string, object?>
             {
                 ["amount"] = sum.ToString("0.00", CultureInfo.InvariantCulture),
@@ -442,7 +457,7 @@ public partial class ClientsWindow
             if ((comment.Text ?? "").Trim() is { Length: > 0 } note)
                 body["comment"] = note;
             save.IsEnabled = false;
-            error.IsVisible = false;
+            SectionCards.ShowError(error, null);
             try
             {
                 await api.RequestAsync(HttpMethod.Post, $"api/main/clients/{Uri.EscapeDataString(client.Id)}/debts/", body, null, CancellationToken.None, TimeSpan.FromSeconds(30))
@@ -459,13 +474,11 @@ public partial class ClientsWindow
             }
             finally
             {
+                shell.EndBusy();
                 save.IsEnabled = true;
             }
         };
-        row.Children.Add(cancel);
-        row.Children.Add(save);
-        panel.Children.Add(row);
-        dialog.Content = panel;
+        dialog.Content = shell;
         dialog.Closed += (_, _) => tcs.TrySetResult(null);
         await dialog.ShowDialog(this).ConfigureAwait(true);
         var result = await tcs.Task.ConfigureAwait(true);
@@ -478,19 +491,19 @@ public partial class ClientsWindow
         return result;
     }
 
+    /// <summary>2026-10-22 (модалки, пакет 2): сообщение в общей оболочке модалки (было окно с рамкой Windows и «OK» без перевода,
+    /// ни Enter, ни Esc его не закрывали): «Понятно» — и Enter, и Esc, и ✕.</summary>
     private async Task InfoAsync(string text)
     {
-        var dialog = new Window { Width = 440, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner, CanResize = false, Title = Title };
-        dialog.Bind(BackgroundProperty, this.GetResourceObservable("BrushWindowBackdrop"));
-        var panel = new StackPanel { Margin = new Thickness(20), Spacing = 16 };
+        var dialog = new Window { Title = Title };
+        SectionCards.AsModal(dialog, 512);
         var label = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 14 };
         label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
-        panel.Children.Add(label);
-        var ok = UiKit.Primary(this, "OK");
-        ok.HorizontalAlignment = HorizontalAlignment.Right;
+        var ok = SectionCards.Cancel(T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli"));
+        ok.IsDefault = true;
         ok.Click += (_, _) => dialog.Close();
-        panel.Children.Add(ok);
-        dialog.Content = panel;
+        dialog.Content = SectionCards.Shell(T("Долг записан", "Карыз жазылды", "Debt recorded", "Borç kaydedildi", "Qarz yozildi"), null, label,
+            SectionCards.Buttons(ok));
         await dialog.ShowDialog(this).ConfigureAwait(true);
     }
 }

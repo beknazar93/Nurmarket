@@ -300,7 +300,8 @@ public sealed class UserPreferences
     /// прежний набор тем снят, значение по умолчанию — "classic", родной вид кассы. Старые
     /// значения ("gold", "navy", "glass"…) в уже сохранённых настройках не мешают: неизвестный
     /// id сводится к "classic".</summary>
-    public string AccentTheme { get; set; } = "classic";
+    // 2026-10-22: для новых установок и настроек без сохранённого выбора — брендовая тема «NUR CRM» (id "nurmarket"); сохранённый выбор не трогаем.
+    public string AccentTheme { get; set; } = "nurmarket";
 
     /// <summary>Раскладка главного экрана кассы (2026-09-06): "standard" — текущая (каталог +
     /// корзина рядом, resizable), "onec" — альтернативная, в стиле 1С "Рабочее место кассира"
@@ -755,6 +756,10 @@ public sealed class UserPreferences
     /// в выпуске 1.17.58 (по умолчанию, у кассиров ничего не меняется), "new" — по макету KassaMenus (две колонки групп,
     /// все пункты сразу). Личная настройка.</summary>
     public string? KassaMenuStyle { get; set; }
+    /// <summary>2026-10-22 (меню, сворачиваемые разделы), владелец: «в кассе разделы сделай сворачиваемыми» — свёрнутые группы нового
+    /// вида меню ☰ кассы, ключи через запятую (sales, money, goods, work, reports, screen, system). null — все раскрыты. Только этот ПК:
+    /// в облако не уходит (нет в списках SettingsCloudSync).</summary>
+    public string? KassaMenuCollapsedGroups { get; set; }
     /// <summary>2026-10-19, владелец: «Выплатить» в «Зарплате» — касса компании, из которой выплачивалась зарплата в прошлый
     /// раз (id кассы NurCRM). Личная настройка; касса другой компании в списке не найдётся — выберется касса по умолчанию.</summary>
     public string? SalaryPayoutCashboxId { get; set; }
@@ -1379,6 +1384,7 @@ public sealed class UserPreferences
             p.OwnerNavCollapsedGroups = fromFile.OwnerNavCollapsedGroups;
             p.OwnerMenuStyle = fromFile.OwnerMenuStyle;
             p.KassaMenuStyle = fromFile.KassaMenuStyle;
+            p.KassaMenuCollapsedGroups = fromFile.KassaMenuCollapsedGroups;
             p.SalaryPayoutCashboxId = fromFile.SalaryPayoutCashboxId;
             p.SalaryCategoryIds = fromFile.SalaryCategoryIds;
             if (fromFile.AiMinMarkupPercent is > 0) p.AiMinMarkupPercent = fromFile.AiMinMarkupPercent.Value;
@@ -1656,6 +1662,7 @@ public sealed class UserPreferences
                 OwnerNavCollapsedGroups = OwnerNavCollapsedGroups,
                 OwnerMenuStyle = OwnerMenuStyle,
                 KassaMenuStyle = KassaMenuStyle,
+                KassaMenuCollapsedGroups = KassaMenuCollapsedGroups,
                 SalaryPayoutCashboxId = SalaryPayoutCashboxId,
                 SalaryCategoryIds = SalaryCategoryIds,
                 AiMinMarkupPercent = AiMinMarkupPercent,
@@ -1956,6 +1963,7 @@ public sealed class UserPreferences
         public string? OwnerNavCollapsedGroups { get; set; }
         public string? OwnerMenuStyle { get; set; }
         public string? KassaMenuStyle { get; set; }
+        public string? KassaMenuCollapsedGroups { get; set; }
         public string? SalaryPayoutCashboxId { get; set; }
         public string? SalaryCategoryIds { get; set; }
         public double? AiMinMarkupPercent { get; set; }

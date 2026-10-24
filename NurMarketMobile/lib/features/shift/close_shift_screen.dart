@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/providers.dart';
+import '../../core/sync/outbox_meta.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 
@@ -19,23 +20,88 @@ class _CloseShiftScreenState extends ConsumerState<CloseShiftScreen> {
   final _cash = TextEditingController();
   bool _busy = false;
 
+  /// 2026-10-22 (мобилка, деньги): внесения и изъятия смены — в итогах и X-отчёте.
+  double? _inflow;
+  double? _outflow;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(shiftProvider.notifier).refresh());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  }
+
+  @override
+  void dispose() {
+    _cash.dispose();
+    super.dispose();
+  }
+
+  Future<void> _reload() async {
+    await ref.read(shiftProvider.notifier).refresh();
+    final shift = ref.read(shiftProvider).shift;
+    if (shift == null) return;
+    try {
+      final rows = await ref.read(opsRepoProvider).shiftCashFlows(shift.id);
+      if (!mounted) return;
+      setState(() {
+        _inflow = rows.where((r) => !r.$4).fold<double>(0, (s, r) => s + r.$3);
+        _outflow = rows.where((r) => r.$4).fold<double>(0, (s, r) => s + r.$3);
+      });
+    } on ApiException {
+      // без связи — без строк внесений
+    }
+  }
+
+  /// 2026-10-22 (мобилка, деньги): неотправленное и не принятое ЭТОГО аккаунта — прямо из базы, а не по счётчику,
+  /// который мог устареть (закрытие смены по старому числу пропускало только что вставшие в очередь чеки).
+  Future<(int pending, int failed)> _queueCounts() async {
+    final db = ref.read(databaseProvider);
+    final me = OutboxMeta.ownerOf(ref.read(sessionProvider));
+    final legacy = await db.getSetting(OutboxMeta.legacyOwnerSetting);
+    final rows = await (db.select(db.outbox)..where((o) => o.status.isIn(const ['pending', 'failed']))).get();
+    final mine = rows.where((r) => OutboxMeta.belongsTo(r, me, legacyOwner: legacy));
+    return (mine.where((r) => r.status == 'pending').length, mine.where((r) => r.status == 'failed' && r.kind == 'sale').length);
   }
 
   Future<void> _close() async {
     final l = context.l;
+    if (_busy) return;
     setState(() => _busy = true);
     try {
       await ref.read(syncProvider).runOnce();
-      final pending = ref.read(pendingCountProvider).value ?? 0;
+      final (pending, failed) = await _queueCounts();
       if (pending > 0) {
         if (mounted) toast(context, l.closeShiftPending(pending), error: true);
         return;
       }
-      await ref.read(shiftProvider.notifier).close(parseNum(_cash.text));
+      if (failed > 0) {
+        // Не принятые сервером чеки не попадут в отчёт смены — сначала разобрать их.
+        if (mounted) toast(context, l.closeShiftFailed(failed), error: true);
+        return;
+      }
+      if (!mounted) return;
+      final shift = ref.read(shiftProvider).shift;
+      final counted = parseNum(_cash.text);
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: Text(l.closeShiftAsk),
+          content: Text(
+            [
+              '${l.revenue}: ${money(shift?.salesTotal ?? 0)} ${l.som}',
+              '${l.shouldBeInDrawer}: ${money(shift?.expectedCash ?? 0)} ${l.som}',
+              if (counted != null) '${l.countedCash}: ${money(counted)} ${l.som}',
+              l.closeShiftAskSub,
+            ].join('\n'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.closeShift)),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      await ref.read(shiftProvider.notifier).close(counted);
       if (!mounted) return;
       toast(context, l.shiftClosedOk);
       context.go('/home');
@@ -44,6 +110,40 @@ class _CloseShiftScreenState extends ConsumerState<CloseShiftScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// 2026-10-22 (мобилка, деньги): X-отчёт — итоги смены без закрытия (свежие с сервера), как на кассе ПК.
+  Future<void> _xReport() async {
+    final l = context.l;
+    await _reload();
+    if (!mounted) return;
+    final s = ref.read(shiftProvider).shift;
+    if (s == null) return;
+    final (pending, failed) = await _queueCounts();
+    if (!mounted) return;
+    String row(String k, double v) => '$k: ${money(v)} ${l.som}';
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l.xReport),
+        content: Text(
+          [
+            if (s.openedAt != null) l.sinceChecks(TimeOfDay.fromDateTime(s.openedAt!).format(context), s.salesCount),
+            row(l.openingCashLabel, s.openingCash),
+            row(l.cash, s.cashSales),
+            row(l.card, s.nonCashSales),
+            if (s.debtSales > 0) row(l.debt, s.debtSales),
+            row(l.revenue, s.salesTotal),
+            if (_inflow != null) row(l.cashIn, _inflow!),
+            if (_outflow != null) row(l.cashOut, _outflow!),
+            row(l.shouldBeInDrawer, s.expectedCash),
+            if (pending > 0) l.closeShiftPending(pending),
+            if (failed > 0) l.closeShiftFailed(failed),
+          ].join('\n'),
+        ),
+        actions: [FilledButton(onPressed: () => Navigator.pop(c), child: Text(l.done))],
+      ),
+    );
   }
 
   @override
@@ -85,8 +185,18 @@ class _CloseShiftScreenState extends ConsumerState<CloseShiftScreen> {
                 if ((shift?.debtSales ?? 0) > 0) row(l.debt, shift!.debtSales),
                 const Divider(height: 18),
                 row(l.revenue, shift?.salesTotal ?? 0, bold: true),
+                // 2026-10-22: начало смены, внесения и изъятия — откуда «должно быть в кассе».
+                if ((shift?.openingCash ?? 0) > 0) row(l.openingCashLabel, shift!.openingCash),
+                if ((_inflow ?? 0) > 0) row(l.cashIn, _inflow!),
+                if ((_outflow ?? 0) > 0) row(l.cashOut, -_outflow!),
               ],
             ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _busy || shift == null ? null : _xReport,
+            icon: const Icon(Icons.receipt_long_outlined),
+            label: Text(l.xReport),
           ),
           const SizedBox(height: 12),
           Container(

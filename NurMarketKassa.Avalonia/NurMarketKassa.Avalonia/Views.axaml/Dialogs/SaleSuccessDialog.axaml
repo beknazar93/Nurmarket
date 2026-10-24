@@ -1,75 +1,49 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.SaleSuccessDialog"
         Title="{DynamicResource saleSuccess.title}"
-        Width="480" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
-        Background="{DynamicResource BrushPanel}">
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
 
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="28,24">
+  <!-- 2026-10-22 (модалки, пакет 1): общая оболочка ModalShell 512 вместо своей Border на квадратном фоне BrushPanel
+       (на снимке был виден квадрат под карточкой) и трёх кнопок столбиком. Подвал: слева «Предпросмотр чека» (без
+       рамки), справа «Закрыть» (обводка, Esc и ✕) и одна главная «Напечатать чек» (Enter; Enter сканера — нет). -->
+  <dlg:ModalShell x:Name="Shell" Margin="16" Title="{DynamicResource saleSuccess.title}">
+    <dlg:ModalShell.Hint>
+      <Button x:Name="PreviewButton" Classes="modal-ghost"
+              Content="{DynamicResource receiptPreview.title}"
+              Click="PreviewButton_Click"/>
+    </dlg:ModalShell.Hint>
+    <dlg:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button x:Name="CloseButton" IsCancel="True" Classes="modal-cancel" MaxWidth="180"
+                Content="{DynamicResource common.close}"
+                Click="CloseButton_Click"/>
+        <Button x:Name="PrintButton" IsDefault="True" Classes="modal-primary" MaxWidth="240"
+                Content="{DynamicResource csh.checkout.printReceipt}"
+                Click="PrintButton_Click"/>
+      </StackPanel>
+    </dlg:ModalShell.Footer>
 
-    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-      <TextBlock Text="{DynamicResource saleSuccess.title}"
-                 FontSize="20" FontWeight="Bold"
-                 Foreground="{DynamicResource BrushText}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 Margin="0,0,0,8"/>
-
+    <StackPanel HorizontalAlignment="Center" Spacing="6" Margin="0,8">
+      <Border Width="64" Height="64" CornerRadius="32" HorizontalAlignment="Center"
+              Background="{DynamicResource BrushSuccessSoft}">
+        <TextBlock Text="✓" FontSize="34" FontWeight="Bold"
+                   Foreground="{DynamicResource BrushUiStatusOk}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+      </Border>
       <TextBlock x:Name="AmountText"
+                 Classes="num"
                  FontSize="32" FontWeight="Bold"
                  Foreground="{DynamicResource BrushUiStatusOk}"
                  HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 Margin="0,0,0,24"/>
-
-      <Button x:Name="PrintButton"
-              Content="{DynamicResource csh.checkout.printReceipt}"
-              Height="46" Width="280"
-              HorizontalAlignment="Center"
-              HorizontalContentAlignment="Center"
-              VerticalContentAlignment="Center"
-              Margin="0,0,0,10"
-              Background="{DynamicResource BrushAccent}"
-              Foreground="{DynamicResource BrushAccentForeground}"
-              FontWeight="SemiBold"
-              CornerRadius="10"
-              Cursor="Hand"
-              Click="PrintButton_Click"/>
-
-      <Button Content="{DynamicResource receiptPreview.title}"
-              Height="46" Width="280"
-              HorizontalAlignment="Center"
-              HorizontalContentAlignment="Center"
-              VerticalContentAlignment="Center"
-              Margin="0,0,0,10"
-              Background="{DynamicResource BrushInputAlt}"
-              Foreground="{DynamicResource BrushText}"
-              FontWeight="SemiBold"
-              CornerRadius="10"
-              Cursor="Hand"
-              Click="PreviewButton_Click"/>
-
-      <Button IsCancel="True" Content="{DynamicResource common.close}"
-              Height="46" Width="280"
-              HorizontalAlignment="Center"
-              HorizontalContentAlignment="Center"
-              VerticalContentAlignment="Center"
-              Background="{DynamicResource BrushPanel}"
-              Foreground="{DynamicResource BrushText}"
-              BorderBrush="{DynamicResource BrushBorder}"
-              BorderThickness="1"
-              FontWeight="SemiBold"
-              CornerRadius="10"
-              Cursor="Hand"
-              Click="CloseButton_Click"/>
+                 TextAlignment="Center"/>
     </StackPanel>
-  </Border>
+  </dlg:ModalShell>
 </Window>

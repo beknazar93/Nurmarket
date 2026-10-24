@@ -49,10 +49,29 @@ public partial class CheckoutDialog : Window
         this.ClampToScreenHeight();
         // 2026-10-21 (пакет 6, п. 27): строка «Консультант: …» над кнопками — всегда видна, блок выбора — в прокрутке.
         UpdateConsultantSummary();
+        // 2026-10-22 (аудит новой сборки, П4): строка «Консультант: …» внизу — только если блок консультанта вне экрана.
+        ContentScroll.ScrollChanged += (_, _) => UpdateConsultantSummaryVisibility();
+        ContentScroll.LayoutUpdated += (_, _) => UpdateConsultantSummaryVisibility();
+        UpdateErrorVisibility();
+        // 2026-10-24 (повторная приёмка, Б-1): список клиентов грузится не в потоке окна — событие приходит из чужого потока,
+        // а обновление интерфейса из него падало («Call from invalid thread»). Обработчик выполняется в потоке окна.
+        void OnViewModelPropertyChanged(string? propertyName)
+        {
+            UpdateErrorVisibility();
+            if (propertyName is nameof(CheckoutViewModel.SelectedConsultant) or nameof(CheckoutViewModel.IsConsultantEnabled))
+                UpdateConsultantSummary();
+            // 2026-10-22 (аудит 1.17.59, П-В, Б8): клиент выбран в режиме «В долг» — прокручиваем к предоплате и сроку.
+            if (propertyName is nameof(CheckoutViewModel.HasSelectedClient) or nameof(CheckoutViewModel.IsDebtMode)
+                && _viewModel.IsDebtMode && _viewModel.HasSelectedClient)
+                Dispatcher.UIThread.Post(() => this.FindControl<Control>("DebtSection")?.BringIntoView(), DispatcherPriority.Background);
+        }
         _viewModel.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(CheckoutViewModel.SelectedConsultant) or nameof(CheckoutViewModel.IsConsultantEnabled))
-                UpdateConsultantSummary();
+            var name = e.PropertyName;
+            if (Dispatcher.UIThread.CheckAccess())
+                OnViewModelPropertyChanged(name);
+            else
+                Dispatcher.UIThread.Post(() => OnViewModelPropertyChanged(name));
         };
 
         // Сумма наличными сразу выделена — кассир может просто начать печатать цифры,
@@ -65,7 +84,7 @@ public partial class CheckoutDialog : Window
 
         Opened += (_, _) =>
         {
-            // 2026-10-17: место панели ещё раз — уже с настоящим масштабом экрана и после общей подгонки
+            // 2026-10-17: место окна ещё раз — уже с настоящим масштабом экрана и после общей подгонки
             // окон под экран (DialogScreenFit.RegisterForAllWindows ставит свой MaxHeight).
             if (_dockOwner is { } dockOwner)
             {
@@ -80,6 +99,9 @@ public partial class CheckoutDialog : Window
             }
         };
         Closed += (_, _) => DetachDockOwner();
+        // 2026-10-23 (ТЗ компактной оплаты): высота окна теперь по содержимому, поэтому после её смены (другой способ оплаты, клиент,
+        // консультант) место окна пересчитывается: низ остаётся у низа главного окна, окно растёт вверх.
+        SizeChanged += (_, e) => OnOwnSizeChanged(e);
 
         // Tunnel: RadioButton сам забирает Enter (отмечает себя), ComboBox — Enter и стрелки,
         // а ScrollViewer правой колонки — прокрутку. Разбираем клавиши раньше них.
@@ -297,6 +319,23 @@ public partial class CheckoutDialog : Window
         };
     }
 
+    // 2026-10-24 (приёмка, ПР-9): после Enter без клиента в «В долг» показывались две подсказки об одном и том же: тёмная
+    // PayBlockedHint «Чтобы продать в долг, выберите клиента.» и красная ErrorMessage «Для продажи в долг выберите клиента.».
+    // Пока видна подсказка, красную с тем же смыслом прячем; любые другие ошибки показываются как раньше.
+    // Текст ошибки — тот же Tr.T, что в CheckoutViewModel.ExecutePay (модель не трогаем).
+    private static bool IsDebtNeedsClientError(string? text) =>
+        !string.IsNullOrEmpty(text) && text == Tr.T("Для продажи в долг выберите клиента.",
+            "Карызга сатуу үчүн клиентти тандаңыз.",
+            "Select a client to sell on credit.",
+            "Veresiye satış için müşteri seçin.",
+            "Qarzga sotish uchun mijozni tanlang.");
+
+    private void UpdateErrorVisibility()
+    {
+        var hintShown = _viewModel.HasPayBlockedHint && _viewModel.IsDebtMode && !_viewModel.HasSelectedClient;
+        ErrorText.IsVisible = _viewModel.HasError && !(hintShown && IsDebtNeedsClientError(_viewModel.ErrorMessage));
+    }
+
     /// <summary>2026-10-21 (пакет 6, п. 27): «Консультант: Айгерим» / «Консультант: не выбран — выбрать» над кнопками.</summary>
     private void UpdateConsultantSummary()
     {
@@ -304,6 +343,23 @@ public partial class CheckoutDialog : Window
         ConsultantSummaryText.Text = _viewModel.ConsultantTitleText + ": " + (string.IsNullOrWhiteSpace(name)
             ? Tr.T("не выбран — выбрать ›", "тандалган жок — тандоо ›", "not chosen — choose ›", "seçilmedi — seç ›", "tanlanmagan — tanlash ›")
             : name + "  ›");
+    }
+
+    /// <summary>2026-10-22 (аудит новой сборки, П4): строка «Консультант: …» над кнопками нужна, пока блок консультанта не виден
+    /// на экране (он внизу прокрутки). Когда блок на виду — строка скрыта: слово «Консультант» не стоит дважды, подвал ниже.</summary>
+    private void UpdateConsultantSummaryVisibility()
+    {
+        var show = _viewModel.ShowConsultantSection;
+        if (show && ConsultantSection.IsEffectivelyVisible && ConsultantSection.Bounds.Height > 0
+            && ConsultantSection.TranslatePoint(new Point(0, 0), ContentScroll) is { } top)
+        {
+            // Гистерезис: пока строка показана, окно прокрутки ниже на её высоту — считаем по высоте «как без неё», иначе на границе мигало бы.
+            var viewport = ContentScroll.Viewport.Height + (ConsultantSummaryButton.IsVisible ? ConsultantSummaryButton.Bounds.Height + 6 : 0);
+            var inView = viewport > 0 && top.Y >= 0 && top.Y + Math.Min(ConsultantSection.Bounds.Height, 64) <= viewport + 1;
+            show = !inView;
+        }
+        if (ConsultantSummaryButton.IsVisible != show)
+            ConsultantSummaryButton.IsVisible = show;
     }
 
     /// <summary>2026-10-21: касание строки консультанта — прокрутка к его блоку (он внизу прокручиваемой части).</summary>
@@ -337,32 +393,75 @@ public partial class CheckoutDialog : Window
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
 
-    private async void ChooseClient_Click(object? sender, RoutedEventArgs e) =>
+    private async void ChooseClient_Click(object? sender, RoutedEventArgs e)
+    {
         await ClientPickerDialog.Open(this, _viewModel).ConfigureAwait(true);
+        RestoreFocusAfterClientPicker();
+    }
 
-    // ------------------------------------------------------------------ панель у края главного окна
-    // 2026-10-17, редизайн (этап 2), макет Pay: оплата — панелью справа во всю высоту главного окна,
-    // чек кассы остаётся виден. Окно по-прежнему модальное (ShowDialog), меняются только его место и
-    // размер. Деньги, привязки и клавиши не затронуты.
+    /// <summary>2026-10-23 (ТЗ компактной оплаты): карточка выбора клиента закрылась — фокус возвращается в окно оплаты: наличные — в «Получено»
+    /// с выделенной суммой (не Android), иначе — на выбранную плитку способа оплаты. Тогда Enter = «Оплатить», а не повторное открытие выбора
+    /// клиента (фокус оставался на кнопке «Выбрать клиента»).</summary>
+    private void RestoreFocusAfterClientPicker() =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsVisible)
+                return;
+            if (_viewModel.IsCashMode && !OperatingSystem.IsAndroid())
+            {
+                CashReceivedBox.Focus();
+                CashReceivedBox.SelectAll();
+            }
+            else
+            {
+                Array.Find(PaymentOptions, option => option.IsChecked == true)?.Focus();
+            }
+        }, DispatcherPriority.Loaded);
 
-    /// <summary>Уже/ниже этого главное окно — панель не ставим, окно оплаты по центру, как раньше.</summary>
+    // ------------------------------------------------------------------ окно у края главного окна
+    // 2026-10-17, редизайн (этап 2), макет Pay: оплата — окном справа в главном окне, чек кассы остаётся виден. Окно по-прежнему
+    // модальное (ShowDialog), меняются только его место и размер. Деньги, привязки и клавиши не затронуты.
+    // 2026-10-23 (ТЗ компактной оплаты): раньше окно было «панелью во всю высоту» главного окна (Height = MaxHeight = высота клиентской
+    // области) — на 1296×879 всегда 879 px, внизу пустота, на 1024×600 всегда прокрутка. Теперь высота — по содержимому
+    // (SizeToContent=Height, потолок MaxHeight), низ окна прижат к низу главного окна, а при ширине главного окна от 1000 окно в две колонки.
+
+    /// <summary>Уже/ниже этого главное окно — окно оплаты не прилипает, стоит по центру, как раньше.</summary>
     private const double MinDockOwnerWidth = 760;
     private const double MinDockOwnerHeight = 480;
 
-    /// <summary>Ниже этого панель плотнее (класс compact): 1024×768 и 1366×768 дают ≈ 697.</summary>
+    /// <summary>От этой ширины главного окна окно оплаты — в две колонки (класс two-col), уже — в одну.</summary>
+    private const double TwoColOwnerWidth = 1000;
+
+    /// <summary>Ширина самого окна оплаты, от которой не прилипшее окно (Android-планшет, маленькое главное окно) тоже делится на две колонки.</summary>
+    private const double TwoColWindowWidth = 680;
+
+    /// <summary>Отступ окна от края главного окна: снизу и сверху (для потолка высоты) и справа, когда чека слева нет.</summary>
+    private const double DockMargin = 8;
+
+    /// <summary>Ниже этой доступной высоты окно плотнее (класс compact): 1366×768 даёт ≈ 712.</summary>
     private const double CompactPanelHeight = 760;
+
+    /// <summary>Ниже этой доступной высоты — самый плотный вид (класс tiny): моноблок 1024×600.</summary>
+    private const double TinyPanelHeight = 650;
+
+    /// <summary>Высота окна, которую ещё не успели измерить (до показа): по ней первый раз ставится низ окна, после показа место уточняется.</summary>
+    private const double GuessWindowHeight = 460;
 
     private Window? _dockOwner;
     private bool _redockQueued;
 
-    /// <summary>Ширина панели: треть главного окна, но 400…480 точек (на 1024 — 400, на 1366 — 451,
+    /// <summary>Ширина окна в одну колонку: треть главного окна, но 400…480 точек (на 1024 — 400, на 1366 — 451,
     /// с 1455 — 480) и не шире самого окна.</summary>
     internal static double PanelWidthFor(double ownerWidth) =>
         Math.Min(ownerWidth, Math.Clamp(Math.Round(ownerWidth * 0.33), 400, 480));
 
-    /// <summary>Ставит окно оплаты панелью у правого края главного окна (вызывать до ShowDialog — так окно
+    /// <summary>Ширина окна в две колонки: 60 % главного окна, но 680…800 точек (1296 — 778, 1024 — 680).</summary>
+    internal static double TwoColWidthFor(double ownerWidth) =>
+        Math.Clamp(Math.Round(ownerWidth * 0.6), 680, 800);
+
+    /// <summary>Ставит окно оплаты у правого края главного окна (вызывать до ShowDialog — так окно
     /// сразу появляется на месте, без прыжка из центра). Если справа на главном экране чек (раскладки
-    /// «Классика», «Карточки», «Минимал», «Профи»), панель встаёт вплотную слева от чека — чек виден.
+    /// «Классика», «Карточки», «Минимал», «Профи») и слева от него хватает места, окно встаёт вплотную слева от чека — чек виден.
     /// Нет подходящего окна (маленькое, свёрнуто, экран покупателя) или Android — false, окно по центру.</summary>
     public bool DockTo(Window owner)
     {
@@ -400,8 +499,9 @@ public partial class CheckoutDialog : Window
         && window.ClientSize.Width >= MinDockOwnerWidth
         && window.ClientSize.Height >= MinDockOwnerHeight;
 
-    /// <summary>Считает и ставит место и размер панели по клиентской области окна target
-    /// (в пределах рабочей области его экрана).</summary>
+    /// <summary>Считает и ставит место и размер окна по клиентской области окна target (в пределах рабочей области его экрана):
+    /// ширина и число колонок — по ширине главного окна; потолок высоты (MaxHeight) — его высота минус 2×8; низ окна — у низа
+    /// клиентской области минус 8; по горизонтали — слева от чека, если он справа и слева от него хватает места, иначе — у правого края минус 8.</summary>
     private bool ApplyDock(Window target)
     {
         try
@@ -409,48 +509,72 @@ public partial class CheckoutDialog : Window
             if (!IsDockable(target))
                 return false;
             var client = target.ClientSize;
-            var width = PanelWidthFor(client.Width);
-            var left = client.Width - width;
+            var twoCol = client.Width >= TwoColOwnerWidth;
+            var width = twoCol ? TwoColWidthFor(client.Width) : PanelWidthFor(client.Width);
+            var left = client.Width - DockMargin - width;
 
             var receipt = FindReceipt(target);
             if (receipt.Span is { } span && span.Width > 0)
             {
-                // Чек хотя бы на четверть ушёл бы под панель — ставим панель слева от него.
+                // Чек хотя бы на четверть ушёл бы под окно, а слева от него есть место — ставим окно левым краем чека, чек виден.
                 var overlap = Math.Min(client.Width, span.Right) - Math.Max(left, span.Left);
-                if (overlap > span.Width * 0.25)
-                    left = Math.Max(0, span.Left - width);
+                if (overlap > span.Width * 0.25 && span.Left >= width + DockMargin)
+                    left = span.Left - width;
             }
             ShowLinesCount(receipt.Lines);
 
-            var rect = new PixelRect(
-                target.PointToScreen(new Point(left, 0)),
-                target.PointToScreen(new Point(left + width, client.Height)));
+            var scaling = target.RenderScaling > 0 ? target.RenderScaling : 1.0;
+            var origin = target.PointToScreen(new Point(0, 0));
+            var area = new PixelRect(origin, new PixelSize((int)Math.Round(client.Width * scaling), (int)Math.Round(client.Height * scaling)));
             var screen = target.Screens.ScreenFromWindow(target);
             if (screen is not null)
-                rect = rect.Intersect(screen.WorkingArea);
-            var scaling = target.RenderScaling > 0 ? target.RenderScaling : 1.0;
-            if (rect.Width < 300 * scaling || rect.Height < 360 * scaling)
+                area = area.Intersect(screen.WorkingArea);
+            if (area.Width < 300 * scaling || area.Height < 360 * scaling)
                 return false;
 
-            var panelWidth = rect.Width / scaling;
-            var panelHeight = rect.Height / scaling;
-            SizeToContent = SizeToContent.Manual;
+            // Потолок высоты: доступная область минус отступы сверху и снизу; от него считаются плотность (compact/tiny) и прокрутка тела.
+            var maxHeight = area.Height / scaling - 2 * DockMargin;
+            var height = Bounds.Height > 0 ? Bounds.Height : Math.Min(GuessWindowHeight, maxHeight);
+
+            var x = origin.X + (int)Math.Round(left * scaling);
+            x = Math.Clamp(x, area.X, Math.Max(area.X, area.Right - (int)Math.Round(width * scaling)));
+            var y = area.Bottom - (int)Math.Round((height + DockMargin) * scaling);
+            y = Math.Max(area.Y, y);
+
+            SizeToContent = SizeToContent.Height;
             WindowStartupLocation = WindowStartupLocation.Manual;
             MinWidth = 0;
             MinHeight = 0;
-            MaxWidth = panelWidth;
-            MaxHeight = panelHeight;
-            Width = panelWidth;
-            Height = panelHeight;
-            Position = rect.Position;
-            Classes.Set("compact", panelHeight < CompactPanelHeight);
+            MaxWidth = width;
+            MaxHeight = maxHeight;
+            if (double.IsNaN(Width) || Math.Abs(Width - width) > 0.5)
+                Width = width; // 2026-10-23: ту же ширину заново не ставим — иначе бесконечный пересчёт («качели»)
+            Position = new PixelPoint(x, y);
+            Classes.Set("two-col", twoCol);
+            Classes.Set("compact", maxHeight < CompactPanelHeight);
+            Classes.Set("tiny", maxHeight < TinyPanelHeight); // 2026-10-23: моноблок 1024×600 (аудит круг 3, Б-6)
             return true;
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Окно оплаты: место панели: {ex.Message}", "WARNING");
+            PosLogger.Log($"Окно оплаты: место окна: {ex.Message}", "WARNING");
             return false;
         }
+    }
+
+    /// <summary>2026-10-23 (ТЗ компактной оплаты): высота окна изменилась — окно у края главного окна ставится заново (низ на месте, рост вверх);
+    /// не прилипшее окно (Android, маленькое главное окно) делится на две колонки по своей фактической ширине.</summary>
+    private void OnOwnSizeChanged(SizeChangedEventArgs e)
+    {
+        if (_dockOwner is not null)
+        {
+            if (e.HeightChanged)
+                QueueRedock();
+            return;
+        }
+        var twoCol = Bounds.Width >= TwoColWindowWidth;
+        if (Classes.Contains("two-col") != twoCol)
+            Classes.Set("two-col", twoCol);
     }
 
     /// <summary>Строки чека на главном экране — список, привязанный к строкам корзины (CartLineItemVm),
@@ -483,7 +607,9 @@ public partial class CheckoutDialog : Window
         var ru = mod10 == 1 && mod100 != 11 ? "позиция"
             : mod10 is >= 2 and <= 4 && mod100 is < 12 or > 14 ? "позиции"
             : "позиций";
-        LinesText.Text = Tr.T($"{lines} {ru}", $"{lines} позиция", lines == 1 ? "1 item" : $"{lines} items",
+        // 2026-10-22 (аудит новой сборки, П4): ky — «сап» вместо русского «позиция». 2026-10-23: «· 3 позиции» стоит рядом с заголовком в одной строке.
+        LinesText.Text = "· " + Tr.T($"{lines} {ru}", $"{lines} сап",
+            lines == 1 ? "1 item" : $"{lines} items",
             $"{lines} ürün", $"{lines} ta pozitsiya");
         LinesText.IsVisible = true;
         SubtitleText.IsVisible = false;

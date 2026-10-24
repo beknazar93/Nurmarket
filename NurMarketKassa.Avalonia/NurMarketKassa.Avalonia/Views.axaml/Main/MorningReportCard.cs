@@ -244,7 +244,10 @@ public sealed class MorningReportSettingsWindow : Window
     public MorningReportSettingsWindow()
     {
         Title = T("Утренний отчёт", "Эртең мененки отчёт", "Morning report", "Sabah raporu", "Ertalabki hisobot");
-        SectionCards.AsModal(this, 480);
+        // 2026-10-22 (модалки, пакет 4): M 672 вместо 480 — три кнопки (~440 px) не помещались в подвал 480 и «Сохранить»
+        // уходила за край на всех экранах. «Показать отчёт сейчас» — слева в подвале (второстепенная), справа «Закрыть» и
+        // «Сохранить»; правило про тихие часы — строкой в теле. Поле времени 44 px, фокус — в нём.
+        SectionCards.AsModal(this, 672);
         var s = OwnerMorningReport.Settings;
 
         _enabled.Content = T("Готовить утренний отчёт каждый день", "Эртең мененки отчётту күн сайын даярдоо", "Prepare the morning report every day",
@@ -255,7 +258,7 @@ public sealed class MorningReportSettingsWindow : Window
         var timeLabel = new TextBlock { Text = T("Время (ЧЧ:ММ)", "Убакыт (СС:ММ)", "Time (HH:MM)", "Saat (SS:DD)", "Vaqt (SS:DD)"), FontSize = 13, FontWeight = FontWeight.SemiBold,
             VerticalAlignment = VerticalAlignment.Center };
         MorningReportCard.Use(timeLabel, TextBlock.ForegroundProperty, "BrushTextSoft");
-        _time = UiKit.Input(this, "09:00", 40);
+        _time = UiKit.Input(this, "09:00", 44);
         _time.Width = 96;
         _time.MaxLength = 5;
         _time.Text = s.Time;
@@ -263,7 +266,9 @@ public sealed class MorningReportSettingsWindow : Window
         var timeRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { timeLabel, _time } };
 
         _telegram.Content = T("Присылать владельцу в Telegram", "Ээсине Telegram'га жөнөтүү", "Send to the owner in Telegram", "Sahibine Telegram'dan gönder", "Egasiga Telegram'da yuborish");
-        _telegram.IsChecked = s.Telegram;
+        // 2026-10-23: без токена бота галочка выключена и недоступна, подсказка ниже (аудит Б-5)
+        _telegram.IsChecked = s.Telegram && TelegramBotService.IsConfigured;
+        _telegram.IsEnabled = TelegramBotService.IsConfigured;
         AutomationProperties.SetName(_telegram, _telegram.Content!.ToString()!);
 
         var botHint = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Text = BotStateText() };
@@ -275,7 +280,19 @@ public sealed class MorningReportSettingsWindow : Window
         MorningReportCard.Use(journalHead, TextBlock.ForegroundProperty, "BrushText");
         RenderJournal();
 
-        var panel = new StackPanel { Spacing = 10, Children = { _enabled, timeRow, _telegram, botHint, journalHead, _journal, _status, SectionCards.ErrorBox(this, _error) } };
+        var quietHint = new TextBlock
+        {
+            Text = T("В Telegram — не чаще раза в день и не в тихие часы 21:00–09:00 (тогда — только в окне Нур Советника).",
+                "Telegram'га — күнүнө бир жолудан көп эмес жана тынч саатта 21:00–09:00 эмес (анда — Нур Кеңешчи терезесинде гана).",
+                "Telegram: at most once a day and never in quiet hours 21:00–09:00 (then only in the Nur Advisor window).",
+                "Telegram: günde en fazla bir kez, sessiz saatlerde 21:00–09:00 asla (o zaman yalnızca Nur Danışman penceresinde).",
+                "Telegram: kuniga ko'pi bilan bir marta va tinch soatlarda 21:00–09:00 emas (unda — faqat Nur Maslahatchi oynasida)."),
+            FontSize = 13, TextWrapping = TextWrapping.Wrap,
+        };
+        MorningReportCard.Use(quietHint, TextBlock.ForegroundProperty, "BrushTextSoft");
+        botHint.FontSize = 13;
+
+        var panel = new StackPanel { Spacing = 10, Children = { _enabled, timeRow, _telegram, botHint, quietHint, journalHead, _journal, _status, SectionCards.ErrorBox(this, _error) } };
 
         _showNow = new Button { Content = T("Показать отчёт сейчас", "Отчётту азыр көрсөтүү", "Show the report now", "Raporu şimdi göster", "Hisobotni hozir ko'rsatish") };
         _showNow.Classes.Add("modal-secondary");
@@ -297,12 +314,9 @@ public sealed class MorningReportSettingsWindow : Window
                 "Every morning: yesterday's and the week's revenue, profit, debts, what is running out, expiry dates and unusual things. The app counts the numbers; AI only writes a short conclusion.",
                 "Her sabah: dünün ve haftanın cirosu, kâr, borçlar, tükenenler, son kullanma tarihleri ve olağandışı durumlar. Rakamları program hesaplar, YZ yalnızca kısa bir sonuç yazar.",
                 "Har ertalab: kechagi va haftalik tushum, foyda, qarzlar, tugayotganlar, muddatlar va g'alati holatlar. Raqamlarni dastur hisoblaydi, SI — faqat qisqa xulosa."),
-            panel, SectionCards.Buttons(_showNow, close, save),
-            T("В Telegram — не чаще раза в день и не в тихие часы 21:00–09:00 (тогда — только в окне Нур Советника).",
-                "Telegram'га — күнүнө бир жолудан көп эмес жана тынч саатта 21:00–09:00 эмес (анда — Нур Кеңешчи терезесинде гана).",
-                "Telegram: at most once a day and never in quiet hours 21:00–09:00 (then only in the Nur Advisor window).",
-                "Telegram: günde en fazla bir kez, sessiz saatlerde 21:00–09:00 asla (o zaman yalnızca Nur Danışman penceresinde).",
-                "Telegram: kuniga ko'pi bilan bir marta va tinch soatlarda 21:00–09:00 emas (unda — faqat Nur Maslahatchi oynasida)."));
+            panel, SectionCards.Buttons(close, save), _showNow);
+        if (Content is Dialogs.ModalShell shell)
+            shell.InitialFocus = _time;
         Closing += (_, e) =>
         {
             if (_busy)

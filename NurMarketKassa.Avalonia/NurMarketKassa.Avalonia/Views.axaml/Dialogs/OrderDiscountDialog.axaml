@@ -25,7 +25,9 @@
          «Отмена» (обводка, Esc) и «Применить» (акцент темы, Enter) снизу справа, «Сбросить» — слева внизу.
          Тумблер «Процент / Сумма» заменён сегментами «%» / «сом» у поля (макет MCart); состояние по-прежнему
          хранит DiscountTypeToggle (скрыт) — логика скидки и запоминание режима не менялись. -->
-    <dlg:ModalShell x:Name="Shell" Margin="16" Title="{DynamicResource discount.title}">
+    <!-- 2026-10-22 (модалки, пакет 1): фокус при открытии — в поле значения с выделением (InitialFocus); флажок
+         «к выбранному товару» — зона 44×44; ошибка — сразу под полем (была ниже предпросмотра). -->
+    <dlg:ModalShell x:Name="Shell" Margin="16" Title="{DynamicResource discount.title}" InitialFocus="ValueBox">
         <dlg:ModalShell.Hint>
             <Button Classes="modal-secondary" MaxWidth="200" FontSize="14"
                     HorizontalAlignment="Left"
@@ -61,6 +63,7 @@
                     <CheckBox x:Name="ScopeCheckBox"
                               Grid.Column="1"
                               IsChecked="False"
+                              MinWidth="44" MinHeight="44"
                               Margin="12,0,0,0"
                               VerticalAlignment="Center"/>
                 </Grid>
@@ -99,6 +102,11 @@
                                  Content="{DynamicResource csh.catalog.currency}"
                                  IsCheckedChanged="ModeSegment_Changed"/>
                 </Grid>
+                <!-- Текст ошибки — под полем -->
+                <TextBlock x:Name="ErrorText"
+                           Foreground="{DynamicResource BrushDanger}"
+                           FontSize="13" TextWrapping="Wrap"
+                           IsVisible="False"/>
             </StackPanel>
 
             <!-- 2026-10-21 (пакет 6, п. 18): предпросмотр — «Было 120,00 → станет 108,00 сом (скидка 12,00)». Текст — в коде. -->
@@ -106,11 +114,6 @@
                        FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushText}"/>
 
-            <!-- Текст ошибки -->
-            <TextBlock x:Name="ErrorText"
-                       Foreground="{DynamicResource BrushDanger}"
-                       FontSize="13" TextWrapping="Wrap"
-                       IsVisible="False"/>
         </StackPanel>
     </dlg:ModalShell>
 </Window>

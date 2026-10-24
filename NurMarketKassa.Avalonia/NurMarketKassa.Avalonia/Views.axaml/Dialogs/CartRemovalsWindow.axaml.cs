@@ -194,7 +194,7 @@ public partial class CartRemovalsWindow : Window
             var block = Themed(new TextBlock
             {
                 Text = text,
-                FontSize = isHeader ? 11.5 : 13,
+                FontSize = isHeader ? 12.5 : 13, // 2026-10-22 (модалки, пакет 1): шапка таблицы 12,5 (было 11,5 — мельче стандарта 12)
                 FontWeight = isHeader || bold ? FontWeight.SemiBold : FontWeight.Normal,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 TextWrapping = TextWrapping.NoWrap,

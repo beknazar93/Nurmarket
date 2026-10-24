@@ -10,7 +10,8 @@
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
-  <!-- 2026-10-16, редизайн (этап 1): общая оболочка ModalShell. Слева «Нет/Отмена» (обводка, Esc и ✕),
+  <!-- 2026-10-22 (модалки, пакет 0): тексты кнопок ставит код (по умолчанию «Продолжить» / «Отмена», 5 языков).
+       2026-10-16, редизайн (этап 1): общая оболочка ModalShell. Слева «Нет/Отмена» (обводка, Esc и ✕),
        справа главная (Enter; опасное действие — красная, класс danger). Длинный текст прокручивается,
        кнопки остаются на виду (2026-09-24, живой случай: описание версии целиком уводило окно за край). -->
   <dlg:ModalShell x:Name="Shell" Margin="16">
@@ -18,11 +19,10 @@
       <StackPanel Orientation="Horizontal" Spacing="10">
         <Button IsCancel="True" x:Name="CancelButton" Classes="modal-cancel"
                 MaxWidth="200"
-                Content="{DynamicResource common.no}"
                 Click="CancelButton_Click"/>
+        <!-- 2026-10-24: суммы в «Оплатить N сом» (миллионы) переносились на 2 строки при 200 — главной кнопке шире. -->
         <Button x:Name="ConfirmButton" Classes="modal-primary"
-                MaxWidth="200"
-                Content="{DynamicResource common.yes}"
+                MaxWidth="260"
                 IsDefault="True"
                 Click="ConfirmButton_Click"/>
       </StackPanel>

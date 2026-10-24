@@ -60,6 +60,10 @@ public sealed class SalaryPayoutDialog : Window
     private readonly Button _go;
 
     private List<SalaryPayoutService.PayoutCashbox> _cashboxes = new();
+    // 2026-10-22 (зарплата: источник, статьи): пункты выбора источника — ящик открытой смены, кассы компании, карман владельца.
+    private List<SalaryPayoutService.PayoutSource> _sources = new();
+    /// <summary>Подпись под выбором: остаток источника, предупреждение «в кассе меньше выплаты», пояснение про карман владельца.</summary>
+    private readonly TextBlock _sourceInfo = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private bool _loaded;
     private bool _running;
     private bool _done;
@@ -130,8 +134,9 @@ public sealed class SalaryPayoutDialog : Window
         _lockNotPaid.Classes.Add("danger");
         foreach (var b in new[] { _lockCheck, _lockPaid, _lockNotPaid })
         {
-            b.Height = 38;
-            b.MinHeight = 38;
+            // 2026-10-22 (модалки, пакет 4): кнопки замка 44 px (было 38) — касание пальцем.
+            b.Height = 44;
+            b.MinHeight = 44;
             b.HorizontalAlignment = HorizontalAlignment.Stretch;
         }
         _lockCheck.Click += async (_, _) => await LockCheckAsync().ConfigureAwait(true);
@@ -155,18 +160,21 @@ public sealed class SalaryPayoutDialog : Window
         Avalonia.Automation.AutomationProperties.SetName(_amount, T("Сумма, сом", "Сумма, сом", "Amount, som", "Tutar, som", "Summa, so'm"));
         root.Children.Add(Block(T("Сумма, сом", "Сумма, сом", "Amount, som", "Tutar, som", "Summa, so'm"), _amount, _amountError));
 
-        _cashbox.PlaceholderText = T("Загрузка касс…", "Кассалар жүктөлүүдө…", "Loading cash desks…", "Kasalar yükleniyor…", "Kassalar yuklanmoqda…");
+        _cashbox.PlaceholderText = T("Загрузка источников…", "Булактар жүктөлүүдө…", "Loading sources…", "Kaynaklar yükleniyor…", "Manbalar yuklanmoqda…");
         _cashbox.IsEnabled = false;
         _cashbox.SelectionChanged += (_, _) => UpdateState();
-        Avalonia.Automation.AutomationProperties.SetName(_cashbox, T("Касса компании", "Компаниянын кассасы", "Company cash desk", "Şirket kasası", "Kompaniya kassasi"));
+        Avalonia.Automation.AutomationProperties.SetName(_cashbox, T("Откуда выплатить", "Төлөө булагы", "Pay from", "Ödeme kaynağı", "To'lov manbasi"));
+        Use(_sourceInfo, TextBlock.ForegroundProperty, "BrushTextSoft");
         _cashboxWarning.Text = SalaryPayoutService.SalesCashboxWarning;
         Use(_cashboxWarning, TextBlock.ForegroundProperty, "BrushDanger");
-        root.Children.Add(Block(T("Касса компании", "Компаниянын кассасы", "Company cash desk", "Şirket kasası", "Kompaniya kassasi"), _cashbox, _cashboxWarning,
-            Small(T("Из этой кассы уйдёт расход — как расход на сайте NurCRM. Смена кассира не меняется.",
-                "Чыгым ушул кассадан кетет — NurCRM сайтындагы чыгым сыяктуу. Кассирдин сменасы өзгөрбөйт.",
-                "The expense comes out of this cash desk — like an expense on the NurCRM website. The cashier's shift is not affected.",
-                "Gider bu kasadan çıkar — NurCRM sitesindeki gider gibi. Kasiyerin vardiyası değişmez.",
-                "Xarajat shu kassadan chiqadi — NurCRM saytidagi xarajat kabi. Kassir smenasi o'zgarmaydi."))));
+        // 2026-10-22 (зарплата: источник, статьи): владелец — «Выплатить» даёт выбор источника: ящик открытой смены, касса компании
+        // (из списка касс сервера, с остатком) или карман владельца. По умолчанию ничего не выбрано.
+        root.Children.Add(Block(T("Откуда выплатить", "Төлөө булагы", "Pay from", "Ödeme kaynağı", "To'lov manbasi"), _cashbox, _sourceInfo, _cashboxWarning,
+            Small(T("Выберите, откуда уйдут деньги. Любая выплата попадает в расходы со статьёй «Зарплата».",
+                "Акча кайдан кетерин тандаңыз. Ар бир төлөм «Эмгек акы» беренеси менен чыгымдарга кирет.",
+                "Choose where the money comes from. Every payout goes to expenses under the “Salary” category.",
+                "Paranın nereden çıkacağını seçin. Her ödeme «Maaş» kalemiyle giderlere girer.",
+                "Pul qayerdan chiqishini tanlang. Har bir to'lov «Ish haqi» moddasi bilan xarajatlarga kiradi."))));
 
         _comment = UiKit.Input(this, T("Например: аванс", "Мисалы: аванс", "For example: advance", "Örneğin: avans", "Masalan: avans"));
         _comment.MaxLength = 120;
@@ -185,10 +193,12 @@ public sealed class SalaryPayoutDialog : Window
         root.Children.Add(_messageBox);
         _messageBox.Child = _message;
 
-        _cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        // 2026-10-22 (модалки, пакет 4): кнопки подвала — общие стили модалки (modal-cancel / modal-primary) вместо sec-*;
+        // обработчики и порядок — прежние, Enter «Выплатить» по-прежнему не нажимает.
+        _cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         _cancel.IsCancel = true;
         _cancel.Click += (_, _) => { if (!_running) Close(); };
-        _go = UiKit.Primary(this, T("Выплатить", "Төлөө", "Pay out", "Öde", "To'lash"));
+        _go = SectionCards.Primary(T("Выплатить", "Төлөө", "Pay out", "Öde", "To'lash"));
         _go.MinWidth = 220;
         _go.IsEnabled = false;
         _go.Click += async (_, _) => await GoAsync().ConfigureAwait(true);
@@ -298,12 +308,14 @@ public sealed class SalaryPayoutDialog : Window
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             _cashboxes = await SalaryPayoutService.LoadCashboxesAsync(cts.Token).ConfigureAwait(true);
-            _cashbox.ItemsSource = _cashboxes.Select(b => b.Name).ToList();
-            _cashbox.SelectedIndex = SalaryPayoutService.DefaultCashboxIndex(_cashboxes);
-            _cashbox.PlaceholderText = _cashboxes.Count == 0
-                ? T("Касс нет — добавьте кассу на сайте NurCRM", "Кассалар жок — NurCRM сайтында касса кошуңуз", "No cash desks — add one on the NurCRM website",
-                    "Kasa yok — NurCRM sitesinde kasa ekleyin", "Kassalar yo'q — NurCRM saytida kassa qo'shing")
-                : T("Выберите кассу", "Кассаны тандаңыз", "Choose a cash desk", "Kasa seçin", "Kassani tanlang");
+            _sources = await BuildSourcesAsync(cts.Token).ConfigureAwait(true);
+            // 2026-10-22 (аудит новой сборки, П6): недоступный источник (нет открытой смены) — серый пункт с пояснением, выбрать нельзя.
+            _cashbox.ItemsSource = _sources.Select(s => (object)new ComboBoxItem { Content = SourceText(s), IsEnabled = s.Unavailable is null }).ToList();
+            _cashbox.SelectedIndex = -1; // осознанный выбор: по умолчанию ничего
+            _cashbox.PlaceholderText = _sources.Count == 0
+                ? T("Источников нет — добавьте кассу на сайте NurCRM", "Булактар жок — NurCRM сайтында касса кошуңуз", "No sources — add a cash desk on the NurCRM website",
+                    "Kaynak yok — NurCRM sitesinde kasa ekleyin", "Manbalar yo'q — NurCRM saytida kassa qo'shing")
+                : T("Выберите источник", "Булакты тандаңыз", "Choose a source", "Kaynak seçin", "Manbani tanlang");
             _loaded = true;
         }
         catch (Exception ex)
@@ -426,8 +438,62 @@ public sealed class SalaryPayoutDialog : Window
     private double? Value =>
         CashAmountInput.TryParse(_amount.Text, out var v) ? (double)Math.Round(v, 2, MidpointRounding.AwayFromZero) : null;
 
-    private SalaryPayoutService.PayoutCashbox? SelectedCashbox =>
-        _cashbox.SelectedIndex >= 0 && _cashbox.SelectedIndex < _cashboxes.Count ? _cashboxes[_cashbox.SelectedIndex] : null;
+    private SalaryPayoutService.PayoutSource? SelectedSource =>
+        _cashbox.SelectedIndex >= 0 && _cashbox.SelectedIndex < _sources.Count && _sources[_cashbox.SelectedIndex].Unavailable is null ? _sources[_cashbox.SelectedIndex] : null;
+
+    private SalaryPayoutService.PayoutCashbox? SelectedCashbox => SelectedSource?.Cashbox;
+
+    /// <summary>Порядок: ящики открытых смен, кассы компании по названиям с остатками, карман владельца. «Сейф» и т. п. — только если такая
+    /// касса реально есть на сервере (названия — как у сервера, ничего не выдумываем и не создаём).</summary>
+    private async Task<List<SalaryPayoutService.PayoutSource>> BuildSourcesAsync(CancellationToken ct)
+    {
+        var list = await SalaryPayoutService.LoadShiftSourcesAsync(_cashboxes, ct).ConfigureAwait(true);
+        list.AddRange(_cashboxes.Select(b => new SalaryPayoutService.PayoutSource(SalaryPayoutService.PayoutSourceKind.Cashbox, b.Name, b, null, b.Balance)));
+        if (SalaryPayoutService.OwnerPocketCashbox(_cashboxes) is { } pocketBox)
+            list.Add(new SalaryPayoutService.PayoutSource(SalaryPayoutService.PayoutSourceKind.OwnerPocket, PocketLabel, pocketBox, null, null));
+        return list;
+    }
+
+    private static string PocketLabel => T("Из кармана владельца (личные деньги)", "Ээсинин чөнтөгүнөн (жеке акча)", "From the owner's pocket (personal money)",
+        "Sahibin cebinden (kişisel para)", "Egasining cho'ntagidan (shaxsiy pul)");
+
+    private static string SourceText(SalaryPayoutService.PayoutSource s) =>
+        s.Unavailable is { } why ? s.Label + " — " + why :
+        s.Label + (s.Balance is { } b && s.Kind != SalaryPayoutService.PayoutSourceKind.OwnerPocket
+            ? " · " + T("остаток", "калдык", "balance", "bakiye", "qoldiq") + " " + SalaryWindow.Money(b) + " " + Som
+            : "");
+
+    /// <summary>Подпись под выбором: пояснение источника и предупреждение, если в кассе меньше суммы выплаты.</summary>
+    private void UpdateSourceInfo(double? value)
+    {
+        string? text = null;
+        var danger = false;
+        if (SelectedSource is { } src)
+        {
+            if (src.Kind == SalaryPayoutService.PayoutSourceKind.OwnerPocket)
+                text = T("Деньги владельца: касса не уменьшится, зарплата попадёт в расходы.",
+                    "Ээсинин акчасы: касса азаймайт, эмгек акы чыгымдарга кирет.",
+                    "Owner's money: the cash desk will not decrease, the salary goes to expenses.",
+                    "Sahibin parası: kasa azalmaz, maaş giderlere girer.",
+                    "Egasining puli: kassa kamaymaydi, ish haqi xarajatlarga kiradi.");
+            else if (src.Kind == SalaryPayoutService.PayoutSourceKind.Shift)
+                text = T("Деньги уйдут из ящика открытой смены как изъятие со статьёй «Зарплата».",
+                    "Акча ачык смена суунун ящигинен «Эмгек акы» беренеси менен алынат.",
+                    "The money leaves the open shift's drawer as a withdrawal under “Salary”.",
+                    "Para açık vardiyanın çekmecesinden «Maaş» kalemiyle çıkar.",
+                    "Pul ochiq smena g'aznasidan «Ish haqi» moddasi bilan chiqadi.");
+            if (src.Kind != SalaryPayoutService.PayoutSourceKind.OwnerPocket && src.Balance is { } bal && value is > 0 && value > bal + 0.005)
+            {
+                danger = true;
+                text = T($"В кассе меньше выплаты: остаток {SalaryWindow.Money(bal)} {Som}.", $"Кассада төлөмдөн аз: калдык {SalaryWindow.Money(bal)} {Som}.",
+                    $"The cash desk has less than the payout: balance {SalaryWindow.Money(bal)} {Som}.", $"Kasada ödemeden az var: bakiye {SalaryWindow.Money(bal)} {Som}.",
+                    $"Kassada to'lovdan kam: qoldiq {SalaryWindow.Money(bal)} {Som}.");
+            }
+        }
+        _sourceInfo.Text = text ?? "";
+        _sourceInfo.IsVisible = text is not null;
+        Use(_sourceInfo, TextBlock.ForegroundProperty, danger ? "BrushDanger" : "BrushTextSoft");
+    }
 
     private bool Blocked => _journalBroken || _lock is not null;
 
@@ -462,12 +528,13 @@ public sealed class SalaryPayoutDialog : Window
             Use(_amountError, TextBlock.ForegroundProperty, _amountErrorHard ? "BrushDanger" : "BrushTextSoft");
         }
 
-        _cashboxWarning.IsVisible = SelectedCashbox is { } box && SalaryPayoutService.IsSalesCashbox(box);
+        UpdateSourceInfo(value);
+        _cashboxWarning.IsVisible = SelectedSource is { Kind: SalaryPayoutService.PayoutSourceKind.Cashbox, Cashbox: { } box } && SalaryPayoutService.IsSalesCashbox(box);
         var ok = _loaded && !Blocked && !_running && !_done && problem is null && value is > 0 && SelectedCashbox is not null;
         _go.Content = T("Выплатить", "Төлөө", "Pay out", "Öde", "To'lash") + (value is > 0 and var a && problem is null ? $" {Short(a)} {Som}" : "");
         _go.IsEnabled = ok;
         _amount.IsEnabled = _comment.IsEnabled = !_running && !_done && !Blocked;
-        _cashbox.IsEnabled = !_running && !_done && !Blocked && _cashboxes.Count > 0;
+        _cashbox.IsEnabled = !_running && !_done && !Blocked && _sources.Count > 0;
         _lockCheck.IsEnabled = _lockPaid.IsEnabled = _lockNotPaid.IsEnabled = !_running && _lock is not null;
         _cancel.IsEnabled = !_running;
         if (_done)
@@ -477,7 +544,7 @@ public sealed class SalaryPayoutDialog : Window
     private async Task GoAsync()
     {
         // Защита от двойного нажатия: флаг ставится до первого await.
-        if (_running || Blocked || _done || Value is not { } amount || amount <= 0 || SelectedCashbox is not { } cashbox || amount > MaxAmount)
+        if (_running || Blocked || _done || Value is not { } amount || amount <= 0 || SelectedSource is not { Cashbox: { } cashbox } source || amount > MaxAmount)
             return;
 
         _running = true;
@@ -487,7 +554,7 @@ public sealed class SalaryPayoutDialog : Window
         bool confirmed;
         try
         {
-            confirmed = await new SalaryPayoutConfirmDialog(amount, _employee, cashbox).ShowDialog<bool>(this).ConfigureAwait(true);
+            confirmed = await new SalaryPayoutConfirmDialog(amount, _employee, cashbox, source).ShowDialog<bool>(this).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -505,11 +572,13 @@ public sealed class SalaryPayoutDialog : Window
         {
             // Пятая проверка (п.3): время на категорию (15 с) и на расход (45 с) PayAsync отмеряет сам.
             var result = await SalaryPayoutService.PayAsync(
-                new SalaryPayoutService.PayoutRequest(key, _userId, _employee, _from, _to, amount, cashbox, _comment.Text), CancellationToken.None).ConfigureAwait(true);
+                new SalaryPayoutService.PayoutRequest(key, _userId, _employee, _from, _to, amount, cashbox, _comment.Text,
+                    source.Kind == SalaryPayoutService.PayoutSourceKind.Shift ? source.ShiftId : null,
+                    source.Kind == SalaryPayoutService.PayoutSourceKind.OwnerPocket), CancellationToken.None).ConfigureAwait(true);
             switch (result.Outcome)
             {
                 case SalaryPayoutService.PayoutOutcome.Done:
-                    Done(amount, cashbox, result.Status);
+                    Done(amount, cashbox, result.Status, source);
                     break;
                 case SalaryPayoutService.PayoutOutcome.Rejected:
                     ShowMessage(T("Выплата не прошла: ", "Төлөм өткөн жок: ", "The payout failed: ", "Ödeme yapılmadı: ", "To'lov o'tmadi: ") + result.Error, "danger");
@@ -542,21 +611,22 @@ public sealed class SalaryPayoutDialog : Window
         }
     }
 
-    private void Done(double amount, SalaryPayoutService.PayoutCashbox? cashbox, string? status)
+    private void Done(double amount, SalaryPayoutService.PayoutCashbox? cashbox, string? status, SalaryPayoutService.PayoutSource? source = null)
     {
         _done = true;
         _paidAny = true;
-        if (cashbox is not null && UserPreferences.Instance.SalaryPayoutCashboxId != cashbox.Id)
+        if (cashbox is not null && source?.Kind == SalaryPayoutService.PayoutSourceKind.Cashbox && UserPreferences.Instance.SalaryPayoutCashboxId != cashbox.Id)
         {
             UserPreferences.Instance.SalaryPayoutCashboxId = cashbox.Id;
             UserPreferences.Instance.SaveToDisk();
         }
         var pending = status is { Length: > 0 } s && !string.Equals(s, "approved", StringComparison.OrdinalIgnoreCase);
-        ShowMessage(T($"Выплачено {Short(amount)} {Som}: расход «Зарплата» из кассы «{cashbox?.Name}».",
-                $"{Short(amount)} {Som} төлөндү: «{cashbox?.Name}» кассасынан «Эмгек акы» чыгымы.",
-                $"Paid {Short(amount)} {Som}: a “Salary” expense from the “{cashbox?.Name}” cash desk.",
-                $"{Short(amount)} {Som} ödendi: «{cashbox?.Name}» kasasından «Maaş» gideri.",
-                $"{Short(amount)} {Som} to'landi: «{cashbox?.Name}» kassasidan «Ish haqi» xarajati.")
+        var from = source is null ? $"«{cashbox?.Name}»" : $"«{source.Label}»";
+        ShowMessage(T($"Выплачено {Short(amount)} {Som}: расход «Зарплата», источник — {from}.",
+                $"{Short(amount)} {Som} төлөндү: «Эмгек акы» чыгымы, булак — {from}.",
+                $"Paid {Short(amount)} {Som}: a “Salary” expense, source — {from}.",
+                $"{Short(amount)} {Som} ödendi: «Maaş» gideri, kaynak — {from}.",
+                $"{Short(amount)} {Som} to'landi: «Ish haqi» xarajati, manba — {from}.")
             + (pending ? " " + T("Ждёт подтверждения на сайте.", "Сайтта ырастоону күтөт.", "Awaiting approval on the website.", "Sitede onay bekliyor.", "Saytda tasdiqni kutmoqda.") : ""),
             "success");
     }
@@ -615,8 +685,10 @@ internal sealed class SalaryPayoutConfirmDialog : Window
 
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
 
-    public SalaryPayoutConfirmDialog(double amount, string employee, SalaryPayoutService.PayoutCashbox cashbox)
+    public SalaryPayoutConfirmDialog(double amount, string employee, SalaryPayoutService.PayoutCashbox cashbox, SalaryPayoutService.PayoutSource? source = null)
     {
+        // 2026-10-22 (зарплата: источник, статьи): в вопросе — выбранный источник (ящик смены / касса / карман владельца).
+        var from = source?.Label ?? cashbox.Name;
         Title = T("Подтвердите выплату", "Төлөмдү ырастаңыз", "Confirm the payout", "Ödemeyi onaylayın", "To'lovni tasdiqlang");
         Width = 512;
         SizeToContent = SizeToContent.Height;
@@ -632,14 +704,26 @@ internal sealed class SalaryPayoutConfirmDialog : Window
         big.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
         var question = new TextBlock
         {
-            Text = T($"Выплатить {money} сом — {employee} из кассы «{cashbox.Name}»?", $"{money} сом төлөнсүнбү — {employee}, «{cashbox.Name}» кассасынан?",
-                $"Pay {money} som to {employee} from the “{cashbox.Name}” cash desk?", $"{employee} için «{cashbox.Name}» kasasından {money} som ödensin mi?",
-                $"{employee}ga «{cashbox.Name}» kassasidan {money} so'm to'lansinmi?"),
+            Text = T($"Выплатить {money} сом — {employee} из «{from}»?", $"{money} сом төлөнсүнбү — {employee}, «{from}» булагынан?",
+                $"Pay {money} som to {employee} from “{from}”?", $"{employee} için «{from}» kaynağından {money} som ödensin mi?",
+                $"{employee}ga «{from}» manbasidan {money} so'm to'lansinmi?"),
             FontSize = 15, TextWrapping = TextWrapping.Wrap,
         };
         question.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
         var content = new StackPanel { Spacing = 10, Children = { big, question } };
-        if (SalaryPayoutService.IsSalesCashbox(cashbox))
+        if (source?.Kind == SalaryPayoutService.PayoutSourceKind.OwnerPocket)
+        {
+            var own = new TextBlock
+            {
+                Text = T("Деньги владельца: касса не уменьшится, зарплата попадёт в расходы.", "Ээсинин акчасы: касса азаймайт, эмгек акы чыгымдарга кирет.",
+                    "Owner's money: the cash desk will not decrease, the salary goes to expenses.", "Sahibin parası: kasa azalmaz, maaş giderlere girer.",
+                    "Egasining puli: kassa kamaymaydi, ish haqi xarajatlarga kiradi."),
+                FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
+            };
+            own.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            content.Children.Add(own);
+        }
+        if (source is null or { Kind: SalaryPayoutService.PayoutSourceKind.Cashbox } && SalaryPayoutService.IsSalesCashbox(cashbox))
         {
             var warn = new TextBlock
             {

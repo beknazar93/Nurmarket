@@ -978,6 +978,100 @@ class AppLocalizationsUz extends AppLocalizations {
   String get advisorNew => 'Yangi suhbat';
 
   @override
+  String get advisorNoKey =>
+      'Egasi dasturida SI kalitini qo\'shing: Nur Maslahatchi → ⚙ → SI modellari va kalitlari';
+
+  @override
+  String get advisorStageData => 'Do\'kon ma\'lumotlari yig\'ilmoqda…';
+
+  @override
+  String get advisorStageAsk => 'SIdan so\'ralmoqda…';
+
+  @override
+  String advisorError(String error) {
+    return 'Maslahatchi javob bermadi: $error';
+  }
+
+  @override
+  String get callTitle => 'Suhbat';
+
+  @override
+  String get callConnecting => 'Ulanmoqda…';
+
+  @override
+  String get callPreparing => 'Do\'kon ma\'lumotlari tayyorlanmoqda…';
+
+  @override
+  String get callListening => 'Tinglayapman…';
+
+  @override
+  String get callThinking => 'O\'ylayapman…';
+
+  @override
+  String get callSpeaking => 'Gapiryapman… (to\'xtatish uchun bosing)';
+
+  @override
+  String get callEnded => 'Qo\'ng\'iroq tugadi';
+
+  @override
+  String get callEnd => 'Tugatish';
+
+  @override
+  String get callMicOff => 'Mikrofon o\'chiq';
+
+  @override
+  String get callMicOn => 'Mikrofon yoqiq';
+
+  @override
+  String get callSpeakerOn => 'Baland ovoz';
+
+  @override
+  String get callSpeakerOff => 'Quloqchin';
+
+  @override
+  String callCost(int n) {
+    return 'Qo\'ng\'iroq $n daqiqagacha davom etadi va SI kaliti limitini chatdan tezroq sarflaydi.';
+  }
+
+  @override
+  String get callLimitSoon => 'Bir daqiqadan so\'ng qo\'ng\'iroq tugaydi';
+
+  @override
+  String callEndedLimit(int n) {
+    return 'Qo\'ng\'iroq tugadi: $n daqiqa o\'tdi. Yana qo\'ng\'iroq qilish mumkin.';
+  }
+
+  @override
+  String get callEndedFocus =>
+      'Qo\'ng\'iroq uzildi: kiruvchi qo\'ng\'iroq yoki ilova yig\'ildi.';
+
+  @override
+  String callFailed(String error) {
+    return 'Qo\'ng\'iroq amalga oshmadi: $error';
+  }
+
+  @override
+  String get callNoMic =>
+      'Mikrofonga ruxsat yo\'q. Telefon sozlamalarida NurMarket uchun mikrofonga ruxsat bering.';
+
+  @override
+  String get callOpenSettings => 'Sozlamalarni ochish';
+
+  @override
+  String get callUnsupported =>
+      'Ovozli qo\'ng\'iroq Android telefonida ishlaydi.';
+
+  @override
+  String get callTableReady =>
+      'Raqamli jadval qo\'ng\'iroqdan keyin chatda bo\'ladi';
+
+  @override
+  String get callClose => 'Yopish';
+
+  @override
+  String get callYou => 'Siz';
+
+  @override
   String checkTab(int n) {
     return 'Chek · $n';
   }
@@ -1241,8 +1335,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get liveAuto => 'Avto';
 
   @override
-  String get liveHintSale =>
-      'Mahsulotga qarating — 2 soniyadan keyin o\'zi oladi';
+  String get liveHintSale => 'Mahsulotga qarating va «Skanerlash»ni bosing';
 
   @override
   String get liveHintShelf => 'Javonga qarating';
@@ -1293,7 +1386,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get auditOpen => 'Ekran ochdi';
 
   @override
-  String get teachCamera => 'Aqlli kamerani o\'rgatish: 3 rasm + shtrixkod';
+  String get teachCamera => 'Aqlli kamerani o\'rgatish: 3–5 rasm + shtrixkod';
 
   @override
   String get teachRight => '3 dan 1 · o\'ngdan';
@@ -1314,6 +1407,118 @@ class AppLocalizationsUz extends AppLocalizations {
   String teachShots(int n) {
     return 'Aqlli kamera uchun: $n rasm';
   }
+
+  @override
+  String get scanShoot => 'Skanerlash';
+
+  @override
+  String get scanBusy => 'Skanerlanmoqda…';
+
+  @override
+  String get scanNext => 'Keyingi mahsulot — yana «Skanerlash»';
+
+  @override
+  String get scanChecking => 'O\'rgatilgan mahsulotlar bilan solishtirilmoqda…';
+
+  @override
+  String scanTook(String sec) {
+    return '$sec soniyada';
+  }
+
+  @override
+  String teachPhotoOf(int a, int b) {
+    return '$b ta rasmdan $a';
+  }
+
+  @override
+  String get teachAngleRight => 'o\'ngdan';
+
+  @override
+  String get teachAngleLeft => 'chapdan';
+
+  @override
+  String get teachAngleTop => 'yuqoridan';
+
+  @override
+  String get teachAngleFront => 'oldidan yorliq';
+
+  @override
+  String get teachAngleBack => 'orqasidan';
+
+  @override
+  String get teachCanFinish => '«Tayyor»ni bosing yoki yana bir tomondan oling';
+
+  @override
+  String get teachRetake => 'Qayta olish';
+
+  @override
+  String get weighAim =>
+      'Mahsulotni taroziga qo\'ying, tabloga qarating va «Skanerlash»ni bosing';
+
+  @override
+  String get weighAimDisplay =>
+      'Tarozi tablosi ko\'rinmayapti — og\'irlik oynasiga qarating, chiroqni o\'chiring va «Skanerlash»ni bosing';
+
+  @override
+  String get aiErrNoNet =>
+      'Internet yo\'q — aloqani tekshirib, yana «Skanerlash»ni bosing';
+
+  @override
+  String get aiErrSlow =>
+      'Sun\'iy intellekt o\'z vaqtida javob bermadi (aloqa sekin) — qayta urinib ko\'ring';
+
+  @override
+  String get aiErrLimit =>
+      'Sun\'iy intellektning bepul limiti tugadi — bir daqiqadan keyin urinib ko\'ring';
+
+  @override
+  String get aiErrBusy =>
+      'Sun\'iy intellekt hozir band — bir daqiqadan keyin urinib ko\'ring';
+
+  @override
+  String get aiErrOther => 'Sun\'iy intellekt suratni taniy olmadi';
+
+  @override
+  String addAgain(String name) {
+    return '«$name» chekda bor. Yana qo\'shilsinmi?';
+  }
+
+  @override
+  String get yesAdd => 'Qo\'shish';
+
+  @override
+  String get shelfAddAsk =>
+      'Javon surati — javonda turgan mahsulot. Bu miqdorlar qoldiqqa yetkazib berish sifatida qo\'shilsinmi?';
+
+  @override
+  String isItProduct(String name) {
+    return 'Bu «$name»mi?';
+  }
+
+  @override
+  String notFoundOffline(String code) {
+    return '$code kodi telefonda yo\'q, server javob bermayapti. Aloqani tekshiring — mahsulot kompyuterda allaqachon bo\'lishi mumkin, ikkinchisini yaratmang.';
+  }
+
+  @override
+  String get scaleLabelsTitle => 'Tarozi yorliqlari';
+
+  @override
+  String get scaleLabelsHint =>
+      'Tarozi yorlig\'i shtrix-kodi prefiks bilan boshlanadi (20–29). Qaysi prefikslar SUMMA, qaysilari OG\'IRLIK ekanini ko\'rsating. Kompaniyaning barcha telefonlari uchun.';
+
+  @override
+  String get scaleAmountPrefixes => '«Summa» prefikslari';
+
+  @override
+  String get scaleWeightPrefixes => '«Og\'irlik» prefikslari';
+
+  @override
+  String get cameraShotFailed =>
+      'Kamera suratga olmadi — yana «Skanerlash»ni bosing';
+
+  @override
+  String get saved => 'Saqlandi';
 
   @override
   String get exactMatch => 'aniq';
@@ -2576,4 +2781,586 @@ class AppLocalizationsUz extends AppLocalizations {
   String quoteRenumbered(String from, String to) {
     return '$from raqami band — hujjat endi $to';
   }
+
+  @override
+  String get payOutcomeUnknown =>
+      'Server javob bermadi — sotuv o\'tgan bo\'lishi mumkin. Hech narsani o\'zgartirmay «To\'lash»ni yana bosing: takror ikkinchi marta o\'tmaydi. Aloqasiz qarz va bonus yechish rasmiylashtirilmaydi.';
+
+  @override
+  String get debtDueLabel => 'Qaytarish muddati';
+
+  @override
+  String debtDueDays(int n) {
+    return '$n kun';
+  }
+
+  @override
+  String get debtDueNotSaved =>
+      'Qarz muddati serverga yozilmadi — saytda tuzating (odatiy 30 kun).';
+
+  @override
+  String returnAmount(String sum) {
+    return 'Qaytarish summasi: $sum so\'m';
+  }
+
+  @override
+  String returnGive(String what) {
+    return 'Xaridorga berish: $what';
+  }
+
+  @override
+  String returnInCash(String sum) {
+    return 'naqd $sum so\'m';
+  }
+
+  @override
+  String returnToCard(String sum) {
+    return 'kartaga/o\'tkazma bilan $sum so\'m';
+  }
+
+  @override
+  String returnDebtReduced(String sum) {
+    return 'Mijozning qarzi $sum so\'mga kamaydi — bu pul berilmaydi.';
+  }
+
+  @override
+  String returnDebtUnknown(String sum) {
+    return 'Diqqat: mijoz qarzining qoldig\'i serverdan olinmadi. Hisob bo\'yicha qarz $sum so\'mga kamaydi, lekin mijoz bu chek bo\'yicha qarzini to\'lab bo\'lgan bo\'lsa — unga $sum so\'mgacha qaytarish kerak. Berishdan oldin mijoz qarzini tekshiring.';
+  }
+
+  @override
+  String get returnViaBank =>
+      'Karta/o\'tkazma qismi — kassadan emas, bank orqali qaytaring.';
+
+  @override
+  String returnPaidInfo(String paid, String done) {
+    return 'Chek bo\'yicha to\'langan: $paid so\'m · qaytarilgan: $done so\'m';
+  }
+
+  @override
+  String returnedQty(String qty) {
+    return 'qaytarilgan: $qty';
+  }
+
+  @override
+  String get returnNothingLeft => 'Bu chek bo\'yicha hammasi qaytarilgan.';
+
+  @override
+  String cashOutTooMuch(String sum) {
+    return 'Olinadigan summa kassadagidan ko\'p ($sum so\'m).';
+  }
+
+  @override
+  String payDebtToDebt(String sum) {
+    return 'Qarz hisobiga: $sum so\'m';
+  }
+
+  @override
+  String get payDebtOverCard => 'O\'tkazma bilan — qarzdan ko\'p emas.';
+
+  @override
+  String receiveNotAccepted(String reason) {
+    return 'Kirim server tomonidan qabul qilinmadi: $reason. Yozuv — «Sinxronlash»da.';
+  }
+
+  @override
+  String get auditApply => 'Inventarizatsiyani o\'tkazish';
+
+  @override
+  String get auditApplyHint =>
+      'Qoldiqlar sanalganiga teng bo\'ladi — kompyuterdagi kassadagi inventarizatsiya kabi. Aloqa kerak.';
+
+  @override
+  String auditApplyAsk(int n, int a) {
+    return 'Tekshirilgan mahsulot: $n, farq: $a. Qoldiqlar sanalganiga teng bo\'ladi. O\'tkazilsinmi?';
+  }
+
+  @override
+  String get auditApplied =>
+      'Inventarizatsiya o\'tkazildi — qoldiqlar yangilandi.';
+
+  @override
+  String get auditApplyQueued =>
+      'Inventarizatsiya akti yaratildi — o\'tkazish aloqa bo\'lganda yuboriladi.';
+
+  @override
+  String get auditOnlineOnly =>
+      'Inventarizatsiya faqat server bilan aloqa bo\'lganda o\'tkaziladi — sanash saqlandi, keyinroq qaytaring.';
+
+  @override
+  String auditContinue(int n) {
+    return 'Sanashni davom ettirish ($n ta mahsulot)';
+  }
+
+  @override
+  String get countedCash => 'Sanaldi';
+
+  @override
+  String get openingCashLabel => 'Smena boshida';
+
+  @override
+  String closeShiftFailed(int n) {
+    return 'Server $n ta chekni qabul qilmadi — ular smena hisobotiga kirmaydi. Qayta yuboring yoki «Sinxronlash»da olib tashlang.';
+  }
+
+  @override
+  String get closeShiftAsk => 'Smena yopilsinmi?';
+
+  @override
+  String get closeShiftAskSub =>
+      'Yopilgandan keyin bu smenada sotib bo\'lmaydi.';
+
+  @override
+  String get xReport => 'X-hisobot';
+
+  @override
+  String get foreignShiftHint =>
+      'Bu kassada boshqa kassirning smenasi ochiq — unga sotib bo\'lmaydi. O\'z smenangizni oching.';
+
+  @override
+  String get loadMore => 'Yana';
+
+  @override
+  String get dropRow => 'Olib tashlash';
+
+  @override
+  String get dropRowAsk =>
+      'Chek navbatdan olib tashlansinmi? U serverga ketmaydi, mahsulot telefondagi qoldiqqa qaytadi. Pul olingan bo\'lsa — xaridorga qaytaring yoki chekni qayta uring.';
+
+  @override
+  String get dropRowAskStock =>
+      'Yozuv navbatdan olib tashlansinmi? U serverga ketmaydi — mahsulot qoldig\'ini qo\'lda tekshiring.';
+
+  @override
+  String get otherAccount => 'boshqa hisob';
+
+  @override
+  String otherAccountHint(String email) {
+    return '$email kirishi bilan yozilgan — shu login bilan kirilgandan keyin yuboriladi.';
+  }
+
+  @override
+  String pAStockUnclear(String name, String now, String before) {
+    return '$name: oldingi urinish serverdan javobsiz qoldi, qoldiq esa o\'shandan beri o\'zgardi (hozir $now, qo\'shishdan oldin $before edi). Ikki baravar bo\'lmasligi uchun qayta QO\'SHILMADI. Qoldiqni inventarizatsiya bilan tekshiring: qo\'shilgan bo\'lsa — qatorni o\'chiring, qo\'shilmagan bo\'lsa — o\'chirib, mahsulotni qayta qo\'shing.';
+  }
+
+  @override
+  String get pAWeightLabel =>
+      'Bu tarozi yorlig\'i (bitta xaridning og\'irligi) — qabulga olinmaydi. Mahsulot shtrix-kodini skanerlang yoki nomi bo\'yicha toping.';
+
+  @override
+  String get pANoServerCheck =>
+      'Server bilan aloqa yo\'q — bu shtrix-kodli mahsulot bor-yo\'qligini tekshirib bo\'lmaydi. Aloqa paydo bo\'lganda qayta urining.';
+
+  @override
+  String pALinesLeft(int n) {
+    return 'Qabul qilinmagan qatorlar: $n — ular ro\'yxatda qoldi, tuzatib qayta o\'tkazing.';
+  }
+
+  @override
+  String get pAPluLabel => 'Tarozi uchun PLU';
+
+  @override
+  String get pAPluHint => 'bo\'sh — o\'zi beriladi';
+
+  @override
+  String get pAStockAdd => 'Qoldiqqa qo\'shish';
+
+  @override
+  String get pAStockSet => 'Qoldiqni belgilash';
+
+  @override
+  String get pAStockAddHint =>
+      'Fayldagi miqdor kirim kabi qoldiqqa qo\'shiladi.';
+
+  @override
+  String get pAStockSetHint =>
+      'Qoldiq fayldagi miqdorga teng bo\'ladi (almashtirish, kirim emas).';
+
+  @override
+  String pADupRow(int n) {
+    return '$n-qatorning takrori — o\'tkazib yuboriladi';
+  }
+
+  @override
+  String get pAUploaded => 'yuklandi';
+
+  @override
+  String get rightCashier => 'Kassir interfeysi';
+
+  @override
+  String get rightOrders => 'Saytdan buyurtmalar';
+
+  @override
+  String get rightProcurement => 'Xaridlar';
+
+  @override
+  String get rightSuppliers => 'Yetkazib beruvchilar';
+
+  @override
+  String get rightSelfLocked =>
+      'O\'z huquqlaringizni o\'chirib bo\'lmaydi — buni egasi yoki boshqa administrator qiladi.';
+
+  @override
+  String get staffYou => 'bu siz';
+
+  @override
+  String get screenUnavailable =>
+      'Ekran qayta ochildi va uning ma\'lumotlari saqlanmadi. Orqaga qayting va uni yana oching.';
+
+  @override
+  String get cancelOrder => 'Buyurtmani bekor qilish';
+
+  @override
+  String cancelOrderAsk(String number) {
+    return '№$number buyurtma bekor qilinsinmi? Xaridor uni olmaydi.';
+  }
+
+  @override
+  String pickShortAsk(String got, String need) {
+    return '$need tadan $got ta yig\'ildi. Buyurtma to\'liq emas yig\'ilgan deb belgilansinmi?';
+  }
+
+  @override
+  String pickupCodeLabel(String code) {
+    return 'Berish kodi: $code';
+  }
+
+  @override
+  String get torchToggle => 'Fonar';
+
+  @override
+  String get payTransferQr => 'O\'tkazma / QR';
+
+  @override
+  String get reportLoadFailed =>
+      'Hisobot yuklanmadi. Aloqani tekshiring va «Qayta urinish»ni bosing.';
+
+  @override
+  String get rentalLatePerDay => 'Kechikkan har sutka uchun penya';
+
+  @override
+  String rentalLateHint(int n, String rate, String sum) {
+    return 'Kechikish $n sutka × $rate = $sum so\'m (prokat shartlari bo\'yicha)';
+  }
+
+  @override
+  String rentalBackDeposit(String sum) {
+    return 'Garovni qaytaring: $sum so\'m';
+  }
+
+  @override
+  String rentalWithheld(String sum) {
+    return 'ushlab qolindi $sum so\'m';
+  }
+
+  @override
+  String rentalBackDocument(String doc) {
+    return 'Hujjatni qaytaring: $doc';
+  }
+
+  @override
+  String rentalExcess(String sum) {
+    return 'Garovdan ortiq jarima: $sum so\'m — chekka qo\'shiladi';
+  }
+
+  @override
+  String rentalPenaltyLine(int n) {
+    return 'Prokat №$n bo\'yicha jarima';
+  }
+
+  @override
+  String rentalPenaltyInCart(String sum) {
+    return 'Qaytarish qabul qilindi. $sum so\'m jarima chekka qo\'shildi — to\'lovni o\'tkazing.';
+  }
+
+  @override
+  String get waybillDoc => 'Yuk xati';
+
+  @override
+  String get waybillsFilter => 'Yuk xatlari';
+
+  @override
+  String get docPayMarkOnly =>
+      'Bu faqat hujjatdagi belgi: pul smena kassasiga va mijoz qarzi NurCRMga yozilmaydi. Pulni kassa orqali o\'tkazish uchun \"Sotuvni o\'tkazish\"dan foydalaning.';
+
+  @override
+  String get docPayMarkOk => 'To\'lovni belgilash';
+
+  @override
+  String get docSellCartBusy =>
+      'Chekda mahsulotlar bor. Ularni hujjat mahsulotlari bilan almashtiraymi?';
+
+  @override
+  String get docSellReplace => 'Almashtirish';
+
+  @override
+  String get docSentToSale => 'Sotuvga berildi';
+
+  @override
+  String docSellMissing(String names) {
+    return 'Telefon katalogida yo\'q — qo\'lda qo\'shing: $names';
+  }
+
+  @override
+  String docVatIncl(String p) {
+    return 'Shu jumladan QQS $p%';
+  }
+
+  @override
+  String get prnQr => 'Chekda QR-kod';
+
+  @override
+  String get prnQrHint =>
+      'Fiskal chekni tekshirish yoki elektron chek. Printer QR o\'rniga ortiqcha belgilar bossa — o\'chiring.';
+
+  @override
+  String get prnDrawer => 'Printer orqali pul qutisi';
+
+  @override
+  String get prnDrawerHint =>
+      'Naqd sotuvdan keyin ochiladi (quti printerga kabel bilan ulangan).';
+
+  @override
+  String prnDrawerPin(int n) {
+    return 'Kontakt $n';
+  }
+
+  @override
+  String get prnDrawerTest => 'Qutini ochish';
+
+  @override
+  String get prnDrawerSent =>
+      'Qutiga buyruq yuborildi. Ochilmasa — boshqa kontaktni tanlang.';
+
+  @override
+  String get stepPhoto => 'Rasm';
+
+  @override
+  String get stepBarcode => 'Shtrix-kod';
+
+  @override
+  String get bindTitle =>
+      'Rasmlar saqlandi ✓ — endi mahsulot shtrix-kodini skanerlang';
+
+  @override
+  String get bindSub =>
+      'Mahsulotda shtrix-kod bo\'lmasa — «O\'tkazib yuborish»ni bosing';
+
+  @override
+  String get bindSkip => 'O\'tkazib yuborish';
+
+  @override
+  String get bindManual => 'Qo\'lda kiritish';
+
+  @override
+  String get bindManualHint => 'Shtrix-kod ostidagi raqamlar';
+
+  @override
+  String get bindChecking => 'Shtrix-kod tekshirilmoqda…';
+
+  @override
+  String bindWillLink(String code, String name) {
+    return '$code shtrix-kodi «$name» mahsulotiga bog\'lanadi';
+  }
+
+  @override
+  String bindWillLinkNew(String code) {
+    return '$code shtrix-kodi yangi mahsulotga bog\'lanadi';
+  }
+
+  @override
+  String bindAlreadyOwn(String code, String name) {
+    return '$code shtrix-kodi allaqachon «$name» ga bog\'langan — hech narsani o\'zgartirish shart emas';
+  }
+
+  @override
+  String get bindTakenTitle => 'Shtrix-kod boshqa mahsulotda bor';
+
+  @override
+  String bindTakenAsk(String code, String name) {
+    return '$code shtrix-kodi allaqachon «$name» ga bog\'langan.\n«Almashtirish» — shtrix-kod shu mahsulotga o\'tadi.\n«Qoldirish» — «$name» da qoladi, bu mahsulot shtrix-kodsiz bo\'ladi.';
+  }
+
+  @override
+  String bindTakenAskNew(String code, String name) {
+    return '$code shtrix-kodi allaqachon «$name» ga bog\'langan — balki bu mahsulot omborda bordir.\n«Qoldirish» — shtrix-kod «$name» da qoladi, yangi mahsulot shtrix-kodsiz bo\'ladi.';
+  }
+
+  @override
+  String get bindReplace => 'Almashtirish';
+
+  @override
+  String get bindKeep => 'Qoldirish';
+
+  @override
+  String get bindRescan => 'Qayta skanerlash';
+
+  @override
+  String bindLinked(String code, String name) {
+    return '$code shtrix-kodi «$name» ga bog\'landi';
+  }
+
+  @override
+  String get teachNext =>
+      'Mahsulotni 3–5 tomondan oling, so\'ng «Tayyor» — keyingi qadam shtrix-kod';
+
+  @override
+  String get teachNextNoCode =>
+      'Mahsulotni 3–5 tomondan oling, so\'ng «Tayyor»ni bosing';
+
+  @override
+  String get liveNextSale =>
+      'Topilgan mahsulotlar pastda chiqadi — chekka qo\'shish uchun bosing';
+
+  @override
+  String get liveNextList =>
+      'Suratdan keyin kamera topilganlar ro\'yxatini ko\'rsatadi — uni tuzatish mumkin';
+
+  @override
+  String get scanCodesHint =>
+      'Ramkani shtrix-kodga qarating — kod o\'zi yoziladi. So\'ng «Tayyor»ni bosing';
+
+  @override
+  String get weighNext =>
+      'Kamera mahsulotni taniydi, og\'irlikni o\'qiydi va chekka qo\'shadi';
+
+  @override
+  String get weighManualBtn =>
+      'Kamerasiz — mahsulotni tanlab, og\'irlikni kiritish';
+
+  @override
+  String get peEdit => 'Mahsulotni tahrirlash';
+
+  @override
+  String get peName => 'Nomi';
+
+  @override
+  String get peMinQty => 'Minimal qoldiq';
+
+  @override
+  String get peMinQtyHint =>
+      'Bundan kam bo\'lsa — mahsulot \"Tugayapti\" ro\'yxatiga tushadi';
+
+  @override
+  String get peStock => 'Qoldiq';
+
+  @override
+  String get peStockHint =>
+      'Qoldiq faqat hujjat bilan o\'zgaradi — sababli kirim, hisobdan chiqarish yoki inventarizatsiya, kompyuterdagidek. Shunda farq bo\'lmaydi.';
+
+  @override
+  String get peIncome => 'Kirim';
+
+  @override
+  String get peWriteOff => 'Hisobdan chiqarish';
+
+  @override
+  String get peRecount => 'Inventarizatsiya';
+
+  @override
+  String get peQtyIn => 'Qancha keldi';
+
+  @override
+  String get peQtyOut => 'Qanchasini hisobdan chiqarish';
+
+  @override
+  String get peQtyFact => 'Aslida qancha';
+
+  @override
+  String get peReason => 'Sabab';
+
+  @override
+  String get peReasonNeed => 'Sababni kiriting.';
+
+  @override
+  String get peReasonExpired => 'Muddati o\'tgan';
+
+  @override
+  String get peReasonDefect => 'Nuqsonli';
+
+  @override
+  String get peReasonSpoiled => 'Buzilgan';
+
+  @override
+  String get peReasonTheft => 'O\'g\'irlik';
+
+  @override
+  String get peReasonOther => 'Boshqa';
+
+  @override
+  String get peReasonSupplier => 'Yetkazib berish';
+
+  @override
+  String get peReasonCount => 'Qayta sanash';
+
+  @override
+  String get peApply => 'O\'tkazish';
+
+  @override
+  String peStockDone(String from, String to) {
+    return 'Qoldiq: $from → $to';
+  }
+
+  @override
+  String peStockSame(String qty) {
+    return 'Qoldiq allaqachon $qty — hech narsa o\'zgarmadi.';
+  }
+
+  @override
+  String get peStockQueued =>
+      'Hujjat yaratildi — aloqa bo\'lganda o\'zi o\'tkaziladi.';
+
+  @override
+  String get peStockOffline =>
+      'Server bilan aloqa yo\'q — qoldiq olinmadi, hech narsa o\'zgarmadi.';
+
+  @override
+  String peStockBelowZero(String qty) {
+    return 'Qoldiqdan ko\'p hisobdan chiqarib bo\'lmaydi (bor $qty).';
+  }
+
+  @override
+  String get peSaved => 'Mahsulot saqlandi.';
+
+  @override
+  String get peNoChanges => 'O\'zgarish yo\'q.';
+
+  @override
+  String pePriceRestored(String price) {
+    return 'Server sotuv narxini ustama bo\'yicha qayta hisobladi — kiritilgan $price narxi qaytarildi.';
+  }
+
+  @override
+  String get pePriceLocked =>
+      'Narxlarni \"Narxni o\'zgartirish\" huquqi bor xodim o\'zgartiradi.';
+
+  @override
+  String get peLoadFailed =>
+      'Mahsulot kartasi serverdan yuklanmadi — aloqa bo\'lganda tahrirlash mumkin.';
+
+  @override
+  String get peNameNeed => 'Nomini kiriting.';
+
+  @override
+  String peBarcodeTaken(String code, String name) {
+    return '$code shtrix-kodi allaqachon \"$name\" mahsulotida.';
+  }
+
+  @override
+  String peBarcodeTwice(String code) {
+    return '$code shtrix-kodi ikki marta kiritilgan.';
+  }
+
+  @override
+  String get peScan => 'Skanerlash';
+
+  @override
+  String pePackQty(String qty) {
+    return 'qadoqda $qty';
+  }
+
+  @override
+  String get peNoAccess =>
+      'Mahsulotni \"Ombor\" huquqi bor xodim yoki administrator tahrirlay oladi.';
 }

@@ -29,28 +29,28 @@ internal static class CashWithdrawalGuard
             return null;
         var have = Math.Max(0m, cash);
         return Tr.T(
-            $"В кассе только {have:0.00} сом — изъять {amount:0.00} сом нельзя.",
-            $"Кассада болгону {have:0.00} сом бар — {amount:0.00} сом алууга болбойт.",
-            $"There is only {have:0.00} som in the till — {amount:0.00} som cannot be taken out.",
-            $"Kasada yalnızca {have:0.00} som var — {amount:0.00} som çekilemez.",
-            $"Kassada faqat {have:0.00} so'm bor — {amount:0.00} so'm olib bo'lmaydi.");
+            $"В кассе только {MoneyText.Amount(have)} сом — изъять {MoneyText.Amount(amount)} сом нельзя.",
+            $"Кассада болгону {MoneyText.Amount(have)} сом бар — {MoneyText.Amount(amount)} сом алууга болбойт.",
+            $"There is only {MoneyText.Amount(have)} som in the till — {MoneyText.Amount(amount)} som cannot be taken out.",
+            $"Kasada yalnızca {MoneyText.Amount(have)} som var — {MoneyText.Amount(amount)} som çekilemez.",
+            $"Kassada faqat {MoneyText.Amount(have)} so'm bor — {MoneyText.Amount(amount)} so'm olib bo'lmaydi.");
     }
 
     /// <summary>Вопрос перед изъятием: сумма и сколько останется в кассе.</summary>
     public static string ConfirmText(decimal amount) =>
         DrawerCash() is { } cash
             ? Tr.T(
-                $"Изъять {amount:0.00} сом из кассы? В кассе станет {cash - amount:0.00} сом.",
-                $"Кассадан {amount:0.00} сом алынсынбы? Кассада {cash - amount:0.00} сом калат.",
-                $"Take {amount:0.00} som out of the till? {cash - amount:0.00} som will remain.",
-                $"Kasadan {amount:0.00} som çekilsin mi? Kasada {cash - amount:0.00} som kalacak.",
-                $"Kassadan {amount:0.00} so'm olinsinmi? Kassada {cash - amount:0.00} so'm qoladi.")
+                $"Изъять {MoneyText.Amount(amount)} сом из кассы? В кассе станет {MoneyText.Amount(cash - amount)} сом.",
+                $"Кассадан {MoneyText.Amount(amount)} сом алынсынбы? Кассада {MoneyText.Amount(cash - amount)} сом калат.",
+                $"Take {MoneyText.Amount(amount)} som out of the till? {MoneyText.Amount(cash - amount)} som will remain.",
+                $"Kasadan {MoneyText.Amount(amount)} som çekilsin mi? Kasada {MoneyText.Amount(cash - amount)} som kalacak.",
+                $"Kassadan {MoneyText.Amount(amount)} so'm olinsinmi? Kassada {MoneyText.Amount(cash - amount)} so'm qoladi.")
             : Tr.T(
-                $"Изъять {amount:0.00} сом из кассы?",
-                $"Кассадан {amount:0.00} сом алынсынбы?",
-                $"Take {amount:0.00} som out of the till?",
-                $"Kasadan {amount:0.00} som çekilsin mi?",
-                $"Kassadan {amount:0.00} so'm olinsinmi?");
+                $"Изъять {MoneyText.Amount(amount)} сом из кассы?",
+                $"Кассадан {MoneyText.Amount(amount)} сом алынсынбы?",
+                $"Take {MoneyText.Amount(amount)} som out of the till?",
+                $"Kasadan {MoneyText.Amount(amount)} som çekilsin mi?",
+                $"Kassadan {MoneyText.Amount(amount)} so'm olinsinmi?");
 
     public static string Title => Tr.T("Изъятие", "Акча алуу", "Cash out", "Para çıkışı", "Chiqim");
 }

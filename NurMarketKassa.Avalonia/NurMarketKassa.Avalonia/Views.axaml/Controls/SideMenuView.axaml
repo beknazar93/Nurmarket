@@ -1,6 +1,7 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+             xmlns:brand="using:NurMarketKassa.AvaloniaHost.Controls"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.SideMenuView"
              x:DataType="vm:SideMenuViewModel"
              x:CompileBindings="True">
@@ -8,6 +9,8 @@
     <UserControl.Resources>
         <StreamGeometry x:Key="HomeIcon">M3,11 L12,3 L21,11 V21 H15 V15 H9 V21 H3 Z</StreamGeometry>
         <StreamGeometry x:Key="WarehouseIcon">M4,7 L12,3 L20,7 V17 L12,21 L4,17 Z M4,7 L12,11 L20,7 M12,11 V21</StreamGeometry>
+        <!-- 2026-10-22 (закупки как в вебе): «Закупки» — сумка со стрелкой «внутрь» (тот же значок, что в программе владельца). -->
+        <StreamGeometry x:Key="PurchasesIcon">M5,8 H19 L18,21 H6 Z M9,8 V6 A3,3 0 0 1 15,6 V8 M12,11 V17 M9.5,14.5 L12,17 L14.5,14.5</StreamGeometry>
         <StreamGeometry x:Key="ShiftIcon">M12,3 A9,9 0 1 1 11.99,3 M12,7 V12 L16,14</StreamGeometry>
         <StreamGeometry x:Key="CashOperationsIcon">M5,4 H19 V9 H5 Z M4,9 H20 V20 H4 Z M7,13 H12 M15,13 H17 M7,17 H17</StreamGeometry>
         <StreamGeometry x:Key="ReturnIcon">M9,7 L4,12 L9,17 M5,12 H14 A6,6 0 0 1 20,18</StreamGeometry>
@@ -92,10 +95,12 @@
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         </Style>
 
-        <!-- 2026-10-20, владелец о виде «Новое» («это вообще кошмар что за дизайн???»): новое меню ☰ — выезжающая слева панель
-             400 (на окне ≤ 1100 — 360): шапка-карточка смены, поиск действий, плитки быстрых действий, списки групп со значками.
-             Цвета — только кисти темы (меню красится всеми темами маркетплейса и тёмной темой). Кнопки фокус не берут
-             (стиль окна кассы :is(Button)) — выбор с клавиатуры подсвечивается классом km-kb (SideMenuView.axaml.cs). -->
+        <!-- 2026-10-21 (меню ☰, жалоба владельца): «не удобно и не красиво меню» — вид «Новое» третий раз: вместо плоского списка
+             строк (мелкие серые значки, серые подзаголовки, пустоты) — сетка крупных плиток по группам на фоне окна: плитка-карточка
+             3 в ряд, значок 24 в «таблетке» 40 (продажи — мягкий акцент, деньги — мягкий зелёный, остальное — нейтрально), подпись 14,
+             счётчик бейджем в углу (красный — только «Некорректные чеки»), клавиша — мелкой подписью. Тёмная тема — переключатель.
+             Цвета — только кисти темы (меню красится всеми темами маркетплейса и тёмной темой). Кнопки фокус не берут (стиль окна
+             кассы :is(Button)) — выбор с клавиатуры подсвечивается классом km-kb (SideMenuView.axaml.cs). -->
         <Style Selector="Path.km-ic">
             <Setter Property="Width" Value="20"/>
             <Setter Property="Height" Value="20"/>
@@ -115,30 +120,58 @@
             <Setter Property="HorizontalAlignment" Value="Center"/>
         </Style>
 
-        <!-- Плитка быстрого действия: 84, скругление 14, мягкий фон панели; наведение — рамка акцентом. -->
+        <!-- Плитка: карточка (фон — приподнятая панель, рамка), скругление 14, высота от 92; наведение — рамка акцентом. -->
         <Style Selector="Button.km-tile">
-            <Setter Property="MinHeight" Value="84"/>
+            <Setter Property="MinHeight" Value="92"/>
             <Setter Property="Margin" Value="4"/>
-            <Setter Property="Padding" Value="6,10"/>
+            <Setter Property="Padding" Value="5,10,5,9"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="VerticalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Stretch"/>
-            <Setter Property="Background" Value="{DynamicResource BrushSurfaceSubtle}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="14"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
+        <Style Selector="Button.km-tile StackPanel.km-tile-body">
+            <Setter Property="Spacing" Value="7"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <!-- «Таблетка» значка 40×40: нейтральная; у продаж — мягкий акцент темы, у денег — мягкий зелёный. -->
+        <Style Selector="Border.km-ic-chip">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="Button.km-tile.sales Border.km-ic-chip">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        </Style>
+        <Style Selector="Button.km-tile.money Border.km-ic-chip">
+            <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+        </Style>
         <Style Selector="Button.km-tile TextBlock.km-tile-text">
-            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="LineHeight" Value="16"/>
+            <Setter Property="LineHeight" Value="17"/>
             <Setter Property="TextAlignment" Value="Center"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <!-- Мелкая подпись под названием: клавиша (Ctrl+M) или пояснение («без закрытия смены»). -->
+        <Style Selector="TextBlock.km-tile-hint">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,-4,0,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
         </Style>
         <Style Selector="Button.km-tile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
@@ -149,7 +182,59 @@
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         </Style>
 
-        <!-- Строка группы: 48, значок 20, название, справа клавиша и/или число; наведение — мягкий фон. -->
+        <!-- Переключатель «Тёмная тема»: карточка во всю ширину, справа — дорожка 46×28 с бегунком (положение — код). -->
+        <Style Selector="Button.km-switch">
+            <Setter Property="MinHeight" Value="60"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="Padding" Value="10,8,12,8"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.km-switch:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+        </Style>
+        <Style Selector="Button.km-switch:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="Button.km-switch TextBlock.km-switch-text">
+            <Setter Property="FontSize" Value="14.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Border.km-track">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.km-track.on">
+            <Setter Property="Background" Value="{DynamicResource BrushSuccess}"/>
+        </Style>
+        <Style Selector="Border.km-track Ellipse">
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Margin" Value="3,0"/>
+            <Setter Property="Fill" Value="#FFFFFF"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.km-track.on Ellipse">
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+        </Style>
+
+        <!-- Строка — только ✕ в поле поиска. -->
         <Style Selector="Button.km-row">
             <Setter Property="MinHeight" Value="48"/>
             <Setter Property="Margin" Value="0,1"/>
@@ -162,53 +247,19 @@
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="FontSize" Value="14.5"/>
             <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.km-row TextBlock.km-row-text">
-            <Setter Property="FontSize" Value="14.5"/>
-            <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="Button.km-row:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
-        <Style Selector="Button.km-row:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-        </Style>
-        <Style Selector="Button.km-row:pointerover Path.km-ic">
-            <Setter Property="Stroke" Value="{DynamicResource BrushText}"/>
-        </Style>
 
-        <!-- Заголовок группы — мелко, обычными буквами. «Система» — кнопкой со стрелкой (сворачивается). -->
+        <!-- Заголовок группы — тёмным полужирным (не серым): сразу видно, где «Продажи», где «Деньги». -->
         <Style Selector="TextBlock.km-caption">
-            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-            <Setter Property="Margin" Value="12,20,0,6"/>
-        </Style>
-        <Style Selector="Button.km-group">
-            <Setter Property="MinHeight" Value="44"/>
-            <Setter Property="Margin" Value="0,10,0,0"/>
-            <Setter Property="Padding" Value="10.5,0"/>
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="1.5"/>
-            <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.km-group TextBlock.km-caption">
-            <Setter Property="Margin" Value="0"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-        <Style Selector="Button.km-group:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Margin" Value="4,14,0,6"/>
         </Style>
 
         <!-- Выбор с клавиатуры (↑↓, Tab): рамка цветом фокуса темы. -->
@@ -216,11 +267,8 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
             <Setter Property="BorderThickness" Value="2"/>
         </Style>
-        <Style Selector="Button.km-row.km-kb /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-        </Style>
 
-        <!-- Подсказка-клавиша и счётчик справа в строке. -->
+        <!-- Подсказка-клавиша (Ctrl+K в поле поиска) и счётчик-бейдж в углу плитки. -->
         <Style Selector="Border.km-chip">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
@@ -235,26 +283,28 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
         </Style>
         <Style Selector="Border.km-count">
-            <Setter Property="MinWidth" Value="22"/>
-            <Setter Property="Height" Value="22"/>
+            <Setter Property="MinWidth" Value="24"/>
+            <Setter Property="Height" Value="24"/>
             <Setter Property="Padding" Value="7,0"/>
-            <Setter Property="CornerRadius" Value="11"/>
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Margin" Value="0,-6,-2,0"/>
             <Setter Property="IsVisible" Value="False"/>
         </Style>
         <Style Selector="Border.km-count TextBlock">
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
         </Style>
         <Style Selector="Border.km-count.danger">
-            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
         </Style>
         <Style Selector="Border.km-count.danger TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
         </Style>
         <Style Selector="Border.km-count.shown">
             <Setter Property="IsVisible" Value="True"/>
@@ -262,33 +312,49 @@
 
         <!-- Поле «Найти действие…». -->
         <Style Selector="TextBox.km-search">
-            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="MinHeight" Value="48"/>
             <Setter Property="Padding" Value="40,0,72,0"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="FontSize" Value="14.5"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="FontSize" Value="15"/>
             <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
-        <!-- Шапка-карточка: фон и светлый текст задаёт код (ApplyHeroColors) от варианта темы. -->
+        <!-- Шапка-карточка: фон и светлый текст задаёт код (ApplyHeroColors) от варианта темы. Кнопки шапки — значок над
+             подписью, три в ряд: смена, сменить кассира, выйти. -->
         <Style Selector="Button.km-hero">
-            <Setter Property="MinHeight" Value="44"/>
-            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="MinHeight" Value="58"/>
+            <Setter Property="Padding" Value="6"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        <Style Selector="Button.km-hero TextBlock">
+        <!-- Подпись — всегда высотой в две строки: значки трёх кнопок на одной линии, даже если одна подпись переносится. -->
+        <Style Selector="Button.km-hero TextBlock, Button.km-hero-primary TextBlock">
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="LineHeight" Value="16"/>
+            <Setter Property="MinHeight" Value="32"/>
+        </Style>
+        <Style Selector="Path.hero-ic">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Fill" Value="Transparent"/>
+            <Setter Property="StrokeThickness" Value="1.8"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
         </Style>
         <Style Selector="Button.km-hero:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
@@ -298,7 +364,7 @@
         <Style Selector="Button.km-hero Border.km-hl">
             <Setter Property="Opacity" Value="0"/>
             <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="Margin" Value="-8,-4"/>
+            <Setter Property="Margin" Value="-6"/>
         </Style>
         <Style Selector="Button.km-hero:pointerover Border.km-hl">
             <Setter Property="Opacity" Value="0.14"/>
@@ -312,9 +378,11 @@
         <Style Selector="Button.km-hero.km-close">
             <Setter Property="Width" Value="44"/>
             <Setter Property="Height" Value="44"/>
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="22"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
         </Style>
         <Style Selector="Button.km-hero.km-close Border.km-hl">
             <Setter Property="Margin" Value="0"/>
@@ -324,14 +392,15 @@
         </Style>
         <!-- «Открыть смену» — залитая светлым (цвет текста шапки), надпись — цветом шапки: читается в любой теме. -->
         <Style Selector="Button.km-hero-primary">
-            <Setter Property="MinHeight" Value="44"/>
-            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="MinHeight" Value="58"/>
+            <Setter Property="Padding" Value="6"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
@@ -350,37 +419,8 @@
             <Setter Property="BorderThickness" Value="2"/>
         </Style>
 
-        <!-- Низ: «Сменить кассира» и «Выйти» — обводкой со значком. -->
-        <Style Selector="Button.km-foot">
-            <Setter Property="MinHeight" Value="44"/>
-            <Setter Property="Padding" Value="10,4"/>
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-            <Setter Property="BorderThickness" Value="1.5"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="FontSize" Value="13.5"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.km-foot TextBlock">
-            <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-        <Style Selector="Button.km-foot:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-        </Style>
-        <Style Selector="Button.km-foot:pointerover Path.km-ic">
-            <Setter Property="Stroke" Value="{DynamicResource BrushText}"/>
-        </Style>
-
         <!-- Как у остальных кнопок кассы: наведение не «прыгает» масштабом. -->
-        <Style Selector="Button.km-tile:pointerover, Button.km-row:pointerover, Button.km-group:pointerover, Button.km-hero:pointerover, Button.km-hero-primary:pointerover, Button.km-foot:pointerover">
+        <Style Selector="Button.km-tile:pointerover, Button.km-switch:pointerover, Button.km-row:pointerover, Button.km-hero:pointerover, Button.km-hero-primary:pointerover">
             <Setter Property="RenderTransform" Value="scale(1)"/>
         </Style>
     </UserControl.Styles>
@@ -544,6 +584,26 @@
                                   Data="{StaticResource WarehouseIcon}"/>
                             <TextBlock Grid.Column="2"
                                        Text="{DynamicResource csh.menu.warehouse}"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
+                    <!-- 2026-10-22 (закупки как в вебе): «Закупки» рядом со «Складом» (подпись — в коде, 5 языков). -->
+                    <Button x:Name="OldPurchasesButton" Classes="sidebar-menu-item"
+                            IsVisible="{Binding CanViewPurchases}"
+                            Command="{Binding NavigatePurchasesCommand}">
+                        <Grid ColumnDefinitions="24,12,*" HorizontalAlignment="Stretch">
+                            <Path Grid.Column="0"
+                                  Width="20" Height="20"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.7"
+                                  StrokeLineCap="Round"
+                                  StrokeJoin="Round"
+                                  Data="{StaticResource PurchasesIcon}"/>
+                            <TextBlock Grid.Column="2" x:Name="OldPurchasesText"
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"/>
                         </Grid>
@@ -1040,447 +1100,467 @@
         </DockPanel>
     </Border>
 
-    <!-- 2026-10-20, владелец о прежнем виде «Новое» по макету KassaMenus («это вообще кошмар что за дизайн??? исправь, изучи
-         дизайны бургер-меню красивые и удобные»): выезжающая слева панель 400 (на окне ≤ 1100 — 360) на всю высоту, с тенью и
-         появлением 150 мс; сверху — шапка-карточка смены (магазин · касса, кассир, «Смена открыта», сумма в кассе, «Внесение /
-         изъятие» и «Закрыть смену»), поле «Найти действие…» (Ctrl+K), плитки быстрых действий, ниже группы списком со значками,
-         «Система» сворачивается; внизу «Сменить кассира», «Выйти» и номер версии. Пункты, права, видимость и команды — те же
-         (SideMenuViewModel; «Экран покупателя», «Клавиатура», «Тема», «Горячие клавиши», «Отложенные чеки», смена — те же
-         команды, что у кнопок шапки и раскладок). Каждый пункт — в ячейке km-cell: её видимость (права + поиск) ставит код. -->
-    <Border x:Name="NewMenuRoot" IsVisible="False" Width="400"
-            Background="{DynamicResource BrushPanel}"
+    <!-- 2026-10-21 (меню ☰, жалоба владельца): «не удобно и не красиво меню» (снимок: плоский список строк «Работа»/«Экран», мелкие
+         серые значки, пустоты) — вид «Новое» третий раз. Выезжающая слева панель 440 (окно ≤ 1100 — 408, телефон — по окну − 48)
+         на всю высоту, одна общая прокрутка, фон — цвет окна темы. Сверху шапка-карточка смены: кассир, «магазин · касса», «Смена
+         открыта», сумма в кассе и три кнопки (Закрыть/Открыть смену, Сменить кассира, Выйти); поле «Найти действие…» (Ctrl+K);
+         ниже — сетка плиток 3 в ряд по группам: «Продажи», «Смена и деньги», «Товары», «Работа», «Отчёты», «Экран» (тёмная тема —
+         переключатель), «Настройки и помощь». Пункты, права, видимость и команды — те же, что были (SideMenuViewModel; экран
+         покупателя, клавиатура, тема, горячие клавиши, отложенные, смена — те же команды, что у кнопок шапки и раскладок).
+         Каждый пункт — в ячейке km-cell: её видимость (права + поиск) и ширину (треть ряда) ставит код. -->
+    <Border x:Name="NewMenuRoot" IsVisible="False" Width="440"
+            Background="{DynamicResource BrushWindow}"
             BorderBrush="{DynamicResource BrushBorder}"
             BorderThickness="0,0,1,0"
             BoxShadow="6 0 28 0 #38000000">
         <Border.RenderTransform>
             <TranslateTransform/>
         </Border.RenderTransform>
-        <DockPanel>
-            <Border DockPanel.Dock="Bottom" Padding="16,12,16,10"
-                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
-                <StackPanel Spacing="8">
-                    <Grid ColumnDefinitions="*,8,*">
-                        <Panel Classes="km-cell km-fixed">
-                            <Button x:Name="MiSwitchCashier" Classes="km-foot km-act" Command="{Binding SwitchCashierCommand}">
-                                <!-- 2026-10-20: Grid, а не StackPanel — длинная кыргызская/узбекская подпись переносится, а не обрезается. -->
-                                <Grid ColumnDefinitions="Auto,8,*" HorizontalAlignment="Center">
-                                    <Path Classes="km-ic" Width="18" Height="18" Data="{StaticResource SwitchCashierIcon}"/>
-                                    <TextBlock Grid.Column="2" Text="{DynamicResource csh.menu.switchCashier}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Grid.Column="2" Classes="km-cell km-fixed">
-                            <Button x:Name="MiExit" Classes="km-foot km-act" Command="{Binding ExitApplicationCommand}"
-                                    ToolTip.Tip="{DynamicResource csh.menu.exitApp}">
-                                <Grid ColumnDefinitions="Auto,8,*" HorizontalAlignment="Center">
-                                    <Path Classes="km-ic" Width="18" Height="18" Data="{StaticResource ExitAppIcon}"/>
-                                    <TextBlock Grid.Column="2" x:Name="NewExitText"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                    </Grid>
-                    <TextBlock x:Name="NewVersionText" FontSize="11" HorizontalAlignment="Center"
-                               Foreground="{DynamicResource BrushTextSoft}"/>
-                </StackPanel>
-            </Border>
-
-            <ScrollViewer x:Name="NewMenuScroll" BringIntoViewOnFocusChange="False" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="NewMenuContent" Margin="12,12,12,12">
-                    <!-- Шапка-карточка смены. -->
-                    <Border x:Name="NewHero" CornerRadius="16" Padding="16,12,8,16">
-                        <StackPanel>
-                            <!-- Кассир (кружок с инициалами), под ним «магазин · касса»; ✕ — своя колонка в углу. -->
-                            <Grid ColumnDefinitions="Auto,*,Auto">
-                                <Panel Width="44" Height="44" VerticalAlignment="Center">
-                                    <Border Classes="hero-fill" CornerRadius="22" Opacity="0.16"/>
-                                    <TextBlock x:Name="NewInitials" FontSize="16" FontWeight="Bold"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <ScrollViewer x:Name="NewMenuScroll" BringIntoViewOnFocusChange="False" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="NewMenuContent" Margin="12,12,12,14">
+                <!-- Шапка-карточка смены. -->
+                <Border x:Name="NewHero" CornerRadius="16" Padding="16,12,8,14">
+                    <StackPanel>
+                        <!-- 2026-10-22, брендбук NUR CRM: горизонтальный логотип в шапке (фон шапки всегда тёмный — вариант «на чёрном»). -->
+                        <brand:BrandLogo Kind="Horizontal" Variant="Dark" Width="104" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+                        <!-- Кассир (кружок с инициалами), под ним «магазин · касса»; ✕ — своя колонка в углу. -->
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Panel Width="44" Height="44" VerticalAlignment="Center">
+                                <Border Classes="hero-fill" CornerRadius="22" Opacity="0.16"/>
+                                <TextBlock x:Name="NewInitials" FontSize="16" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Panel>
+                            <StackPanel Grid.Column="1" Margin="12,0,8,0" Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding CashierName}" FontSize="16" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="NewMenuTitle" FontSize="12.5" Opacity="0.75" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                            <Button Grid.Column="2" x:Name="NewMenuCloseButton" Classes="km-hero km-close"
+                                    Margin="0,-4,0,0" Command="{Binding CloseMenuCommand}">
+                                <Panel>
+                                    <Border Classes="km-hl hero-fill"/>
+                                    <Path x:Name="NewCloseGlyph" Data="M6,6 L18,18 M18,6 L6,18" Width="14" Height="14" Stretch="Uniform"
+                                          StrokeThickness="2" StrokeLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Panel>
-                                <StackPanel Grid.Column="1" Margin="12,0,8,0" Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding CashierName}" FontSize="16" FontWeight="SemiBold"
-                                               TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock x:Name="NewMenuTitle" FontSize="12.5" Opacity="0.75" TextTrimming="CharacterEllipsis"/>
+                            </Button>
+                        </Grid>
+                        <!-- «В кассе» слева, плашка смены справа (смена закрыта — плашка слева, суммы нет). -->
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,12,8,0">
+                            <TextBlock x:Name="NewInTillCaption" FontSize="12.5" Opacity="0.75" VerticalAlignment="Center"
+                                       IsVisible="{Binding IsShiftOpen}"/>
+                            <Panel x:Name="NewShiftPill" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Border Classes="hero-fill" CornerRadius="11" Opacity="0.13"/>
+                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="9,3,11,4">
+                                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{DynamicResource BrushSuccess}"
+                                             IsVisible="{Binding IsShiftOpen}"/>
+                                    <Ellipse x:Name="NewShiftClosedDot" Width="8" Height="8" VerticalAlignment="Center" Opacity="0.55"
+                                             IsVisible="{Binding !IsShiftOpen}"/>
+                                    <TextBlock x:Name="NewShiftText" Text="{Binding ShiftStateText}" FontSize="12" FontWeight="SemiBold"
+                                               VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <Button Grid.Column="2" x:Name="NewMenuCloseButton" Classes="km-hero km-close" VerticalAlignment="Top"
-                                        Margin="0,-4,0,0" Command="{Binding CloseMenuCommand}">
+                            </Panel>
+                        </Grid>
+                        <TextBlock x:Name="NewBalanceText" IsVisible="{Binding IsShiftOpen}" Text="{Binding ShiftBalanceText}"
+                                   Margin="0,2,8,0" FontSize="26" FontWeight="Bold" TextWrapping="Wrap" Classes="num"/>
+                        <!-- Три кнопки: смена (закрыть — обводкой; открыть — залитая), сменить кассира, выйти. -->
+                        <Grid ColumnDefinitions="*,8,*,8,*" Margin="0,12,8,0">
+                            <Panel Classes="km-cell km-fixed">
+                                <Button x:Name="MiCloseShift" Classes="km-hero km-act" IsVisible="{Binding IsShiftOpen}" Click="CloseShift_Click">
                                     <Panel>
                                         <Border Classes="km-hl hero-fill"/>
-                                        <Path x:Name="NewCloseGlyph" Data="M6,6 L18,18 M18,6 L6,18" Width="14" Height="14" Stretch="Uniform"
-                                              StrokeThickness="2" StrokeLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                                            <Path Classes="hero-ic" Data="M6,11 H18 V21 H6 Z M8,11 V7 A4,4 0 0 1 16,7 V11"/>
+                                            <TextBlock Text="{DynamicResource csh.toolbar.closeShift}"/>
+                                        </StackPanel>
                                     </Panel>
                                 </Button>
-                            </Grid>
-                            <!-- «В кассе» слева, плашка смены справа (смена закрыта — плашка слева, суммы нет). -->
-                            <Grid ColumnDefinitions="*,Auto" Margin="0,14,8,0">
-                                <TextBlock x:Name="NewInTillCaption" FontSize="12.5" Opacity="0.75" VerticalAlignment="Center"
-                                           IsVisible="{Binding IsShiftOpen}"/>
-                                <Panel x:Name="NewShiftPill" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                    <Border Classes="hero-fill" CornerRadius="11" Opacity="0.13"/>
-                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="9,3,11,4">
-                                        <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{DynamicResource BrushSuccess}"
-                                                 IsVisible="{Binding IsShiftOpen}"/>
-                                        <Ellipse x:Name="NewShiftClosedDot" Width="8" Height="8" VerticalAlignment="Center" Opacity="0.55"
-                                                 IsVisible="{Binding !IsShiftOpen}"/>
-                                        <TextBlock x:Name="NewShiftText" Text="{Binding ShiftStateText}" FontSize="12" FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Panel>
-                            </Grid>
-                            <TextBlock x:Name="NewBalanceText" IsVisible="{Binding IsShiftOpen}" Text="{Binding ShiftBalanceText}"
-                                       Margin="0,2,8,0" FontSize="26" FontWeight="Bold" TextWrapping="Wrap" Classes="num"/>
-                            <Grid IsVisible="{Binding IsShiftOpen}" ColumnDefinitions="*,8,*" Margin="0,14,8,0">
-                                <Panel Classes="km-cell km-fixed">
-                                    <Button x:Name="MiCashOperation" Classes="km-hero km-act" Command="{Binding OpenCashOperationCommand}">
-                                        <Panel>
-                                            <Border Classes="km-hl hero-fill"/>
-                                            <TextBlock Text="{DynamicResource csh.menu.cashOperation}"/>
-                                        </Panel>
-                                    </Button>
-                                </Panel>
-                                <Panel Grid.Column="2" Classes="km-cell km-fixed">
-                                    <Button x:Name="MiCloseShift" Classes="km-hero km-act" Click="CloseShift_Click">
-                                        <Panel>
-                                            <Border Classes="km-hl hero-fill"/>
-                                            <TextBlock Text="{DynamicResource csh.toolbar.closeShift}"/>
-                                        </Panel>
-                                    </Button>
-                                </Panel>
-                            </Grid>
-                            <Panel Classes="km-cell km-fixed" Margin="0,14,8,0">
+                            </Panel>
+                            <Panel Classes="km-cell km-fixed">
                                 <Button x:Name="MiOpenShift" Classes="km-hero-primary km-act" IsVisible="{Binding !IsShiftOpen}" Click="OpenShift_Click">
-                                    <TextBlock Text="{DynamicResource csh.toolbar.openShift}"/>
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <Path x:Name="NewOpenShiftIcon" Classes="hero-ic" Data="M6,11 H18 V21 H6 Z M8,11 V7 A4,4 0 0 1 15.5,5"/>
+                                        <TextBlock Text="{DynamicResource csh.toolbar.openShift}"/>
+                                    </StackPanel>
                                 </Button>
                             </Panel>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Поиск действия: фокус только по щелчку или по первой букве (сканер — см. SideMenuView.axaml.cs). -->
-                    <Panel x:Name="NewSearchPanel" Margin="0,12,0,0">
-                        <TextBox x:Name="MenuSearchBox" Classes="km-search"/>
-                        <Path Classes="km-ic" Width="16" Height="16" HorizontalAlignment="Left" Margin="15,0,0,0"
-                              IsHitTestVisible="False" Data="M11,4 A7,7 0 1 1 10.99,4 M16,16 L20,20"/>
-                        <Border x:Name="SearchKeyChip" Classes="km-chip" HorizontalAlignment="Right" Margin="0,0,10,0"
-                                IsHitTestVisible="False">
-                            <TextBlock Text="Ctrl+K"/>
-                        </Border>
-                        <Button x:Name="SearchClearButton" Classes="km-row" IsVisible="False" Width="44" MinHeight="44" Height="44"
-                                Padding="0" Margin="0" HorizontalAlignment="Right" HorizontalContentAlignment="Center"
-                                Click="SearchClear_Click">
-                            <Path Classes="km-ic" Width="12" Height="12" StrokeThickness="2" Data="M6,6 L18,18 M18,6 L6,18"/>
-                        </Button>
-                    </Panel>
-                    <TextBlock x:Name="NewNothingFound" IsVisible="False" Margin="12,20,12,8" FontSize="13.5" TextWrapping="Wrap"
-                               Foreground="{DynamicResource BrushTextSoft}"/>
-
-                    <!-- Только в поиске: действия шапки и низа тоже находятся по названию. -->
-                    <StackPanel x:Name="NewGroupSearchOnly">
-                        <Panel Classes="km-cell km-searchonly">
-                            <Button x:Name="MiFindCashOperation" Classes="km-row km-act" IsVisible="{Binding IsShiftOpen}" Command="{Binding OpenCashOperationCommand}">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="{StaticResource CashOperationsIcon}"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.cashOperation}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell km-searchonly">
-                            <Button x:Name="MiFindCloseShift" Classes="km-row km-act" IsVisible="{Binding IsShiftOpen}" Click="CloseShift_Click">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="M6,11 H18 V21 H6 Z M8,11 V7 A4,4 0 0 1 16,7 V11"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.toolbar.closeShift}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell km-searchonly">
-                            <Button x:Name="MiFindOpenShift" Classes="km-row km-act" IsVisible="{Binding !IsShiftOpen}" Click="OpenShift_Click">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="M6,11 H18 V21 H6 Z M8,11 V7 A4,4 0 0 1 15.5,5"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.toolbar.openShift}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell km-searchonly">
-                            <Button x:Name="MiFindSwitchCashier" Classes="km-row km-act" Command="{Binding SwitchCashierCommand}">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="{StaticResource SwitchCashierIcon}"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.switchCashier}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell km-searchonly">
-                            <Button x:Name="MiFindExit" Classes="km-row km-act" Command="{Binding ExitApplicationCommand}">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="{StaticResource ExitAppIcon}"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.exitApp}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
+                            <Panel Grid.Column="2" Classes="km-cell km-fixed">
+                                <Button x:Name="MiSwitchCashier" Classes="km-hero km-act" Command="{Binding SwitchCashierCommand}">
+                                    <Panel>
+                                        <Border Classes="km-hl hero-fill"/>
+                                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                                            <Path Classes="hero-ic" Data="{StaticResource SwitchCashierIcon}"/>
+                                            <TextBlock Text="{DynamicResource csh.menu.switchCashier}"/>
+                                        </StackPanel>
+                                    </Panel>
+                                </Button>
+                            </Panel>
+                            <Panel Grid.Column="4" Classes="km-cell km-fixed">
+                                <Button x:Name="MiExit" Classes="km-hero km-act" Command="{Binding ExitApplicationCommand}"
+                                        ToolTip.Tip="{DynamicResource csh.menu.exitApp}">
+                                    <Panel>
+                                        <Border Classes="km-hl hero-fill"/>
+                                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                                            <Path Classes="hero-ic" Data="{StaticResource ExitAppIcon}"/>
+                                            <TextBlock x:Name="NewExitText"/>
+                                        </StackPanel>
+                                    </Panel>
+                                </Button>
+                            </Panel>
+                        </Grid>
                     </StackPanel>
+                </Border>
 
-                    <!-- Быстрые действия: плитки 3 в ряд (ширину ячейки ставит код), скрытые не занимают места. -->
-                    <TextBlock x:Name="NewCaptionQuick" Classes="km-caption"/>
-                    <WrapPanel x:Name="NewTiles" Margin="-4,0">
+                <!-- Поиск действия: фокус только по щелчку или по первой букве (сканер — см. SideMenuView.axaml.cs). -->
+                <Panel x:Name="NewSearchPanel" Margin="0,12,0,0">
+                    <TextBox x:Name="MenuSearchBox" Classes="km-search"/>
+                    <Path Classes="km-ic" Width="16" Height="16" HorizontalAlignment="Left" Margin="15,0,0,0"
+                          IsHitTestVisible="False" Data="M11,4 A7,7 0 1 1 10.99,4 M16,16 L20,20"/>
+                    <Border x:Name="SearchKeyChip" Classes="km-chip" HorizontalAlignment="Right" Margin="0,0,10,0"
+                            IsHitTestVisible="False">
+                        <TextBlock Text="Ctrl+K"/>
+                    </Border>
+                    <Button x:Name="SearchClearButton" Classes="km-row" IsVisible="False" Width="44" MinHeight="44" Height="44"
+                            Padding="0" Margin="0,0,2,0" HorizontalAlignment="Right" HorizontalContentAlignment="Center"
+                            Click="SearchClear_Click">
+                        <Path Classes="km-ic" Width="12" Height="12" StrokeThickness="2" Data="M6,6 L18,18 M18,6 L6,18"/>
+                    </Button>
+                </Panel>
+                <TextBlock x:Name="NewNothingFound" IsVisible="False" Margin="8,20,8,8" FontSize="14" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+
+                <!-- Только в поиске: действия шапки тоже находятся по названию. -->
+                <StackPanel x:Name="NewGroupSearchOnly" Classes="km-group-box" Margin="0,10,0,0">
+                    <WrapPanel Classes="km-grid" Margin="-4,0">
+                        <Panel Classes="km-cell km-searchonly">
+                            <Button x:Name="MiFindCloseShift" Classes="km-tile km-act" IsVisible="{Binding IsShiftOpen}" Click="CloseShift_Click">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M6,11 H18 V21 H6 Z M8,11 V7 A4,4 0 0 1 16,7 V11"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.toolbar.closeShift}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell km-searchonly">
+                            <Button x:Name="MiFindOpenShift" Classes="km-tile km-act" IsVisible="{Binding !IsShiftOpen}" Click="OpenShift_Click">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M6,11 H18 V21 H6 Z M8,11 V7 A4,4 0 0 1 15.5,5"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.toolbar.openShift}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell km-searchonly">
+                            <Button x:Name="MiFindSwitchCashier" Classes="km-tile km-act" Command="{Binding SwitchCashierCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource SwitchCashierIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.switchCashier}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell km-searchonly">
+                            <Button x:Name="MiFindExit" Classes="km-tile km-act" Command="{Binding ExitApplicationCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource ExitAppIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.exitApp}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                    </WrapPanel>
+                </StackPanel>
+
+                <!-- Продажи. -->
+                <StackPanel x:Name="NewGroupSales" Classes="km-group-box">
+                    <TextBlock x:Name="NewCaptionSales" Classes="km-caption"/>
+                    <WrapPanel Classes="km-grid" Margin="-4,0">
                         <Panel Classes="km-cell">
-                            <Button x:Name="MiReceipts" Classes="km-tile km-act" Command="{Binding NavigateReceiptHistoryCommand}">
-                                <StackPanel Spacing="6" VerticalAlignment="Center">
-                                    <Path Classes="km-ic big" Data="{StaticResource ReceiptHistoryIcon}"/>
+                            <Button x:Name="MiReceipts" Classes="km-tile sales km-act" Command="{Binding NavigateReceiptHistoryCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource ReceiptHistoryIcon}"/></Border>
                                     <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.receiptHistory}"/>
                                 </StackPanel>
                             </Button>
                         </Panel>
                         <Panel Classes="km-cell">
-                            <Button x:Name="MiReturn" Classes="km-tile km-act" IsVisible="{Binding CanViewReturn}" Command="{Binding NavigateReturnCommand}">
-                                <StackPanel Spacing="6" VerticalAlignment="Center">
-                                    <Path Classes="km-ic big" Data="{StaticResource ReturnIcon}"/>
+                            <Button x:Name="MiReturn" Classes="km-tile sales km-act" IsVisible="{Binding CanViewReturn}" Command="{Binding NavigateReturnCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource ReturnIcon}"/></Border>
                                     <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.return}"/>
                                 </StackPanel>
                             </Button>
                         </Panel>
                         <Panel Classes="km-cell">
-                            <Button x:Name="MiPayDebt" Classes="km-tile km-act" IsVisible="{Binding CanViewPayDebt}" Command="{Binding NavigatePayDebtCommand}">
-                                <StackPanel Spacing="6" VerticalAlignment="Center">
-                                    <Path Classes="km-ic big" Data="M21,12 V7 H5 A2,2 0 0 1 5,3 H19 V7 M3,5 V19 A2,2 0 0 0 5,21 H21 V16 M18,12 A2,2 0 0 0 18,16 H22 V12 Z"/>
+                            <Button x:Name="MiDeferredCarts" Classes="km-tile sales km-act" Click="DeferredCarts_Click">
+                                <Panel>
+                                    <StackPanel Classes="km-tile-body">
+                                        <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M12,3 A9,9 0 1 1 11.99,3 M10,9 V15 M14,9 V15"/></Border>
+                                        <TextBlock x:Name="NewDeferredCartsText" Classes="km-tile-text"/>
+                                    </StackPanel>
+                                    <Border x:Name="DeferredCartsCount" Classes="km-count"><TextBlock/></Border>
+                                </Panel>
+                            </Button>
+                        </Panel>
+                    </WrapPanel>
+                </StackPanel>
+
+                <!-- Смена и деньги: внесение/изъятие и X-отчёт (только открытая смена), оплата долга, клиенты. -->
+                <StackPanel x:Name="NewGroupMoney" Classes="km-group-box">
+                    <TextBlock x:Name="NewCaptionMoney" Classes="km-caption"/>
+                    <WrapPanel Classes="km-grid" Margin="-4,0">
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiCashOperation" Classes="km-tile money km-act" IsVisible="{Binding IsShiftOpen}" Command="{Binding OpenCashOperationCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource CashOperationsIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.cashOperation}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <!-- 2026-10-20 (живой аудит кассы, К16): X-отчёт — цифры открытой смены без её закрытия. -->
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiXReport" Classes="km-tile money km-act" IsVisible="{Binding IsShiftOpen}" Click="XReport_Click">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M6,3 H18 V21 H6 Z M9,8 L15,14 M15,8 L9,14 M9,17 H15"/></Border>
+                                    <TextBlock x:Name="NewXReportText" Classes="km-tile-text"/>
+                                    <TextBlock x:Name="NewXReportHint" Classes="km-tile-hint"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiPayDebt" Classes="km-tile money km-act" IsVisible="{Binding CanViewPayDebt}" Command="{Binding NavigatePayDebtCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M21,12 V7 H5 A2,2 0 0 1 5,3 H19 V7 M3,5 V19 A2,2 0 0 0 5,21 H21 V16 M18,12 A2,2 0 0 0 18,16 H22 V12 Z"/></Border>
                                     <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.payDebt}"/>
                                 </StackPanel>
                             </Button>
                         </Panel>
                         <Panel Classes="km-cell">
+                            <Button x:Name="MiClients" Classes="km-tile money km-act" IsVisible="{Binding CanViewClients}" Command="{Binding NavigateClientsCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M16,21 V19 A4,4 0 0 0 12,15 H6 A4,4 0 0 0 2,19 V21 M9,3 A4,4 0 1 1 9,11 A4,4 0 1 1 9,3 M22,21 V19 A4,4 0 0 0 19,15.13 M16,3.13 A4,4 0 0 1 16,10.88"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.clients}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                    </WrapPanel>
+                </StackPanel>
+
+                <!-- Товары (в кассе — в автономном режиме и на «Старте», как раньше). -->
+                <StackPanel x:Name="NewGroupGoods" Classes="km-group-box">
+                    <TextBlock x:Name="NewCaptionGoods" Classes="km-caption"/>
+                    <WrapPanel Classes="km-grid" Margin="-4,0">
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiWarehouse" Classes="km-tile km-act" IsVisible="{Binding CanViewWarehouse}" Command="{Binding NavigateWarehouseCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource WarehouseIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.warehouse}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <!-- 2026-10-22 (закупки как в вебе): «Закупки» — рядом со «Складом». -->
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiPurchases" Classes="km-tile km-act" IsVisible="{Binding CanViewPurchases}" Command="{Binding NavigatePurchasesCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource PurchasesIcon}"/></Border>
+                                    <TextBlock x:Name="NewPurchasesText" Classes="km-tile-text"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiRestock" Classes="km-tile km-act" IsVisible="{Binding CanViewRestock}" Command="{Binding NavigateRestockCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource RestockIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.restock}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                    </WrapPanel>
+                </StackPanel>
+
+                <!-- Работа. -->
+                <StackPanel x:Name="NewGroupWork" Classes="km-group-box">
+                    <TextBlock x:Name="NewCaptionWork" Classes="km-caption"/>
+                    <WrapPanel Classes="km-grid" Margin="-4,0">
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiTimesheet" Classes="km-tile km-act" IsVisible="{Binding CanViewStaffTimesheet}" Command="{Binding NavigateStaffTimesheetCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource StaffTimesheetIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.staffTimesheet}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiIrregular" Classes="km-tile km-act" IsVisible="{Binding CanViewDeferredReceipts}" Command="{Binding NavigateDeferredReceiptsCommand}">
+                                <Panel>
+                                    <StackPanel Classes="km-tile-body">
+                                        <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M6,3 H18 V21 L15,19 L12,21 L9,19 L6,21 Z M12,7.5 V12 M12,15.5 V15.6"/></Border>
+                                        <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.deferredReceipts}"/>
+                                    </StackPanel>
+                                    <Border x:Name="IrregularCount" Classes="km-count danger"><TextBlock/></Border>
+                                </Panel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiRemovals" Classes="km-tile km-act" IsVisible="{Binding CanViewSettings}" Command="{Binding NavigateCartRemovalsCommand}">
+                                <Panel>
+                                    <StackPanel Classes="km-tile-body">
+                                        <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M4 6 L20 6 M9 6 L9 4 L15 4 L15 6 M6 6 L7 20 L17 20 L18 6 M10 10 L10 16 M14 10 L14 16"/></Border>
+                                        <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.cartRemovals}"/>
+                                    </StackPanel>
+                                    <Border x:Name="RemovalsCount" Classes="km-count"><TextBlock/></Border>
+                                </Panel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
                             <Button x:Name="MiRental" Classes="km-tile km-act" IsVisible="{Binding ShowRental}" Command="{Binding NavigateRentalCommand}">
-                                <StackPanel Spacing="6" VerticalAlignment="Center">
-                                    <Path Classes="km-ic big" Data="M12 3 L12 5 M12 5 C14 5 15 6.5 13.5 8 L4 14.5 C3 15.2 3.5 17 5 17 L19 17 C20.5 17 21 15.2 20 14.5 L13.5 10 M7 20 L17 20"/>
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M12 3 L12 5 M12 5 C14 5 15 6.5 13.5 8 L4 14.5 C3 15.2 3.5 17 5 17 L19 17 C20.5 17 21 15.2 20 14.5 L13.5 10 M7 20 L17 20"/></Border>
                                     <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.rental}"/>
                                 </StackPanel>
                             </Button>
                         </Panel>
                         <Panel Classes="km-cell">
-                            <Button x:Name="MiClients" Classes="km-tile km-act" IsVisible="{Binding CanViewClients}" Command="{Binding NavigateClientsCommand}">
-                                <StackPanel Spacing="6" VerticalAlignment="Center">
-                                    <Path Classes="km-ic big" Data="M16,21 V19 A4,4 0 0 0 12,15 H6 A4,4 0 0 0 2,19 V21 M9,3 A4,4 0 1 1 9,11 A4,4 0 1 1 9,3 M22,21 V19 A4,4 0 0 0 19,15.13 M16,3.13 A4,4 0 0 1 16,10.88"/>
-                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.clients}"/>
+                            <Button x:Name="MiLogs" Classes="km-tile km-act" IsVisible="{Binding CanViewErrorLogs}" Command="{Binding NavigateErrorLogsCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource ErrorLogIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.errorLogs}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                    </WrapPanel>
+                </StackPanel>
+
+                <!-- Отчёты (в кассе — в автономном режиме и на «Старте», как раньше). -->
+                <StackPanel x:Name="NewGroupReports" Classes="km-group-box">
+                    <TextBlock x:Name="NewCaptionReports" Classes="km-caption"/>
+                    <WrapPanel Classes="km-grid" Margin="-4,0">
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiSalesFinance" Classes="km-tile km-act" IsVisible="{Binding CanViewSalesFinance}" Command="{Binding NavigateFinanceCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource FinanceIcon}"/></Border>
+                                    <Panel HorizontalAlignment="Center">
+                                        <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.salesFinance}" IsVisible="{Binding SalesFinanceShowsBoth}"/>
+                                        <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.sales}" IsVisible="{Binding SalesFinanceShowsSalesOnly}"/>
+                                        <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.finance}" IsVisible="{Binding SalesFinanceShowsFinanceOnly}"/>
+                                    </Panel>
                                 </StackPanel>
                             </Button>
                         </Panel>
                         <Panel Classes="km-cell">
-                            <Button x:Name="MiDeferredCarts" Classes="km-tile km-act" Click="DeferredCarts_Click">
-                                <Panel>
-                                    <StackPanel Spacing="6" VerticalAlignment="Center">
-                                        <Path Classes="km-ic big" Data="M12,3 A9,9 0 1 1 11.99,3 M10,9 V15 M14,9 V15"/>
-                                        <TextBlock x:Name="NewDeferredCartsText" Classes="km-tile-text"/>
-                                    </StackPanel>
-                                    <Border x:Name="DeferredCartsCount" Classes="km-count" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                            Margin="0,-4,-2,0">
-                                        <TextBlock/>
-                                    </Border>
-                                </Panel>
+                            <Button x:Name="MiAbc" Classes="km-tile km-act" IsVisible="{Binding CanViewSales}" Command="{Binding NavigateAbcCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M3,20 L7,5 L11,20 M4.5,15 H9.5 M14,5 H17.5 A3.5,3.5 0 0 1 17.5,12 H14 Z M14,12 H18 A4,4 0 0 1 18,20 H14 Z"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.abc}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiSalary" Classes="km-tile km-act" IsVisible="{Binding CanViewSalary}" Command="{Binding NavigateSalaryCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource SalaryIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.salary}"/>
+                                </StackPanel>
                             </Button>
                         </Panel>
                     </WrapPanel>
-
-                    <!-- Работа. -->
-                    <StackPanel x:Name="NewGroupWork">
-                        <TextBlock x:Name="NewCaptionWork" Classes="km-caption"/>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiWarehouse" Classes="km-row km-act" IsVisible="{Binding CanViewWarehouse}" Command="{Binding NavigateWarehouseCommand}">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="{StaticResource WarehouseIcon}"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.warehouse}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiRestock" Classes="km-row km-act" IsVisible="{Binding CanViewRestock}" Command="{Binding NavigateRestockCommand}">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="{StaticResource RestockIcon}"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.restock}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiTimesheet" Classes="km-row km-act" IsVisible="{Binding CanViewStaffTimesheet}" Command="{Binding NavigateStaffTimesheetCommand}">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="{StaticResource StaffTimesheetIcon}"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.staffTimesheet}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <!-- 2026-10-20 (живой аудит кассы, К16): X-отчёт — цифры открытой смены без её закрытия. -->
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiXReport" Classes="km-row km-act" IsVisible="{Binding IsShiftOpen}" Click="XReport_Click">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="M6,3 H18 V21 H6 Z M9,8 L15,14 M15,8 L9,14 M9,17 H15"/>
-                                    <TextBlock x:Name="NewXReportText" Grid.Column="2" Classes="km-row-text"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiIrregular" Classes="km-row km-act" IsVisible="{Binding CanViewDeferredReceipts}" Command="{Binding NavigateDeferredReceiptsCommand}">
-                                <Grid ColumnDefinitions="20,12,*,Auto">
-                                    <Path Classes="km-ic" Data="M6,3 H18 V21 L15,19 L12,21 L9,19 L6,21 Z M12,7.5 V12 M12,15.5 V15.6"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.deferredReceipts}"/>
-                                    <Border Grid.Column="3" x:Name="IrregularCount" Classes="km-count danger" Margin="8,0,0,0">
-                                        <TextBlock/>
-                                    </Border>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiRemovals" Classes="km-row km-act" IsVisible="{Binding CanViewSettings}" Command="{Binding NavigateCartRemovalsCommand}">
-                                <Grid ColumnDefinitions="20,12,*,Auto">
-                                    <Path Classes="km-ic" Data="M4 6 L20 6 M9 6 L9 4 L15 4 L15 6 M6 6 L7 20 L17 20 L18 6 M10 10 L10 16 M14 10 L14 16"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.cartRemovals}"/>
-                                    <Border Grid.Column="3" x:Name="RemovalsCount" Classes="km-count" Margin="8,0,0,0">
-                                        <TextBlock/>
-                                    </Border>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                    </StackPanel>
-
-                    <!-- Отчёты (в кассе — в автономном режиме и на «Старте», как раньше). -->
-                    <StackPanel x:Name="NewGroupReports">
-                        <TextBlock x:Name="NewCaptionReports" Classes="km-caption"/>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiSalesFinance" Classes="km-row km-act" IsVisible="{Binding CanViewSalesFinance}" Command="{Binding NavigateFinanceCommand}">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="{StaticResource FinanceIcon}"/>
-                                    <Panel Grid.Column="2">
-                                        <TextBlock Classes="km-row-text" Text="{DynamicResource csh.menu.salesFinance}" IsVisible="{Binding SalesFinanceShowsBoth}"/>
-                                        <TextBlock Classes="km-row-text" Text="{DynamicResource csh.menu.sales}" IsVisible="{Binding SalesFinanceShowsSalesOnly}"/>
-                                        <TextBlock Classes="km-row-text" Text="{DynamicResource csh.menu.finance}" IsVisible="{Binding SalesFinanceShowsFinanceOnly}"/>
-                                    </Panel>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiAbc" Classes="km-row km-act" IsVisible="{Binding CanViewSales}" Command="{Binding NavigateAbcCommand}">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="M3,20 L7,5 L11,20 M4.5,15 H9.5 M14,5 H17.5 A3.5,3.5 0 0 1 17.5,12 H14 Z M14,12 H18 A4,4 0 0 1 18,20 H14 Z"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.abc}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiSalary" Classes="km-row km-act" IsVisible="{Binding CanViewSalary}" Command="{Binding NavigateSalaryCommand}">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="{StaticResource SalaryIcon}"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.salary}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                    </StackPanel>
-
-                    <!-- Экран. -->
-                    <StackPanel x:Name="NewGroupScreen">
-                        <TextBlock x:Name="NewCaptionScreen" Classes="km-caption"/>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiCustomerDisplay" Classes="km-row km-act" Click="CustomerDisplay_Click">
-                                <Grid ColumnDefinitions="20,12,*,Auto">
-                                    <Path Classes="km-ic" Data="M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20"/>
-                                    <TextBlock Grid.Column="2" x:Name="NewCustomerDisplayText" Classes="km-row-text"/>
-                                    <Border Grid.Column="3" x:Name="CustomerDisplayKeyChip" Classes="km-chip" Margin="8,0,0,0">
-                                        <TextBlock x:Name="CustomerDisplayKeyText"/>
-                                    </Border>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiKeyboard" Classes="km-row km-act" Click="Keyboard_Click">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="M2,6 H22 V18 H2 Z M6,10 H6.01 M10,10 H10.01 M14,10 H14.01 M18,10 H18.01 M6,14 H6.01 M18,14 H18.01 M9.5,14 H14.5"/>
-                                    <TextBlock Grid.Column="2" x:Name="NewKeyboardText" Classes="km-row-text"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiTheme" Classes="km-row km-act" Click="Theme_Click">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path x:Name="NewThemeIcon" Classes="km-ic" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.5,6.5 0 0 0 20,14.5 Z"/>
-                                    <TextBlock Grid.Column="2" x:Name="NewThemeText" Classes="km-row-text"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="NewMenuStyleButton" Classes="km-row km-act" Click="MenuStyle_Click">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="M4,4 H20 A1,1 0 0 1 21,5 V19 A1,1 0 0 1 20,20 H4 A1,1 0 0 1 3,19 V5 A1,1 0 0 1 4,4 Z M8,4 V20 M12,8 H17 M12,12 H17 M12,16 H15"/>
-                                    <TextBlock Grid.Column="2" x:Name="NewMenuStyleText" Classes="km-row-text"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <Panel Classes="km-cell">
-                            <Button x:Name="MiHotkeys" Classes="km-row km-act" Click="Hotkeys_Click">
-                                <Grid ColumnDefinitions="20,12,*">
-                                    <Path Classes="km-ic" Data="M13,3 L5,13 H11 L10,21 L19,10 H13 Z"/>
-                                    <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource mainWindow.hotkeysTooltip}"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                    </StackPanel>
-
-                    <!-- Система: сворачивается, по умолчанию свёрнута (IsSystemSectionExpanded — общее с «Старым» видом, помнится до выхода). -->
-                    <StackPanel x:Name="NewGroupSystem">
-                        <Panel Classes="km-cell km-fixed">
-                            <Button x:Name="NewSystemToggle" Classes="km-group" Command="{Binding ToggleSystemSectionCommand}">
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock x:Name="NewCaptionSystem" Classes="km-caption"/>
-                                    <Path Grid.Column="1" x:Name="NewSystemChevron" Classes="km-ic" Width="14" Height="14" StrokeThickness="2"
-                                          Data="M6,9 L12,15 L18,9" RenderTransformOrigin="50%,50%"/>
-                                </Grid>
-                            </Button>
-                        </Panel>
-                        <StackPanel x:Name="NewSystemItems">
-                            <Panel Classes="km-cell">
-                                <Button x:Name="MiSettings" Classes="km-row km-act" IsVisible="{Binding CanViewSettings}" Command="{Binding NavigateSettingsCommand}">
-                                    <Grid ColumnDefinitions="20,12,*">
-                                        <Path Classes="km-ic" StrokeThickness="1.5" Data="{StaticResource SettingsIcon}"/>
-                                        <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.settings}"/>
-                                    </Grid>
-                                </Button>
-                            </Panel>
-                            <Panel Classes="km-cell">
-                                <Button x:Name="MiMarketplace" Classes="km-row km-act" IsVisible="{Binding CanViewMarketplace}" Command="{Binding NavigateMarketplaceCommand}">
-                                    <Grid ColumnDefinitions="20,12,*">
-                                        <Path Classes="km-ic" Data="{StaticResource MarketplaceIcon}"/>
-                                        <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.marketplace}"/>
-                                    </Grid>
-                                </Button>
-                            </Panel>
-                            <Panel Classes="km-cell">
-                                <Button x:Name="MiCrm" Classes="km-row km-act" IsVisible="{Binding CanViewCrm}" Command="{Binding NavigateCrmCommand}">
-                                    <Grid ColumnDefinitions="20,12,*">
-                                        <Path Classes="km-ic" Data="{StaticResource CrmIcon}"/>
-                                        <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.crm}"/>
-                                    </Grid>
-                                </Button>
-                            </Panel>
-                            <Panel Classes="km-cell">
-                                <Button x:Name="MiLogs" Classes="km-row km-act" IsVisible="{Binding CanViewErrorLogs}" Command="{Binding NavigateErrorLogsCommand}">
-                                    <Grid ColumnDefinitions="20,12,*">
-                                        <Path Classes="km-ic" Data="{StaticResource ErrorLogIcon}"/>
-                                        <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.errorLogs}"/>
-                                    </Grid>
-                                </Button>
-                            </Panel>
-                            <Panel Classes="km-cell">
-                                <Button x:Name="MiSupport" Classes="km-row km-act" IsVisible="{Binding CanViewRemoteSupport}" Command="{Binding NavigateRemoteSupportCommand}">
-                                    <Grid ColumnDefinitions="20,12,*">
-                                        <Path Classes="km-ic" Data="{StaticResource RemoteSupportIcon}"/>
-                                        <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.remoteSupport}"/>
-                                    </Grid>
-                                </Button>
-                            </Panel>
-                            <Panel Classes="km-cell">
-                                <Button x:Name="MiKnowledgeBase" Classes="km-row km-act" IsVisible="{Binding CanViewKnowledgeBase}" Command="{Binding NavigateKnowledgeBaseCommand}">
-                                    <Grid ColumnDefinitions="20,12,*">
-                                        <Path Classes="km-ic" Data="{StaticResource KnowledgeBaseIcon}"/>
-                                        <TextBlock Grid.Column="2" Classes="km-row-text" Text="{DynamicResource csh.menu.knowledgeBase}"/>
-                                    </Grid>
-                                </Button>
-                            </Panel>
-                        </StackPanel>
-                    </StackPanel>
                 </StackPanel>
-            </ScrollViewer>
-        </DockPanel>
+
+                <!-- Экран: тёмная тема — переключателем (меню не закрывается), ниже три плитки. -->
+                <StackPanel x:Name="NewGroupScreen" Classes="km-group-box">
+                    <TextBlock x:Name="NewCaptionScreen" Classes="km-caption"/>
+                    <Panel Classes="km-cell">
+                        <Button x:Name="MiTheme" Classes="km-switch km-act" Click="Theme_Click">
+                            <Grid ColumnDefinitions="Auto,12,*,12,Auto">
+                                <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.5,6.5 0 0 0 20,14.5 Z"/></Border>
+                                <TextBlock Grid.Column="2" x:Name="NewThemeText" Classes="km-switch-text"/>
+                                <Border Grid.Column="4" x:Name="ThemeSwitchTrack" Classes="km-track"><Ellipse/></Border>
+                            </Grid>
+                        </Button>
+                    </Panel>
+                    <WrapPanel Classes="km-grid" Margin="-4,0">
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiCustomerDisplay" Classes="km-tile km-act" Click="CustomerDisplay_Click">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20"/></Border>
+                                    <TextBlock x:Name="NewCustomerDisplayText" Classes="km-tile-text"/>
+                                    <TextBlock x:Name="CustomerDisplayKeyText" Classes="km-tile-hint"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiKeyboard" Classes="km-tile km-act" Click="Keyboard_Click">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M2,6 H22 V18 H2 Z M6,10 H6.01 M10,10 H10.01 M14,10 H14.01 M18,10 H18.01 M6,14 H6.01 M18,14 H18.01 M9.5,14 H14.5"/></Border>
+                                    <TextBlock x:Name="NewKeyboardText" Classes="km-tile-text"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiHotkeys" Classes="km-tile km-act" Click="Hotkeys_Click">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M13,3 L5,13 H11 L10,21 L19,10 H13 Z"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource mainWindow.hotkeysTooltip}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                    </WrapPanel>
+                </StackPanel>
+
+                <!-- Настройки и помощь (раньше «Система», свёрнутая по умолчанию; теперь плитки видны сразу) и «Вид меню». -->
+                <StackPanel x:Name="NewGroupSystem" Classes="km-group-box">
+                    <TextBlock x:Name="NewCaptionSystem" Classes="km-caption"/>
+                    <WrapPanel Classes="km-grid" Margin="-4,0">
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiSettings" Classes="km-tile km-act" IsVisible="{Binding CanViewSettings}" Command="{Binding NavigateSettingsCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" StrokeThickness="1.5" Data="{StaticResource SettingsIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.settings}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiMarketplace" Classes="km-tile km-act" IsVisible="{Binding CanViewMarketplace}" Command="{Binding NavigateMarketplaceCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource MarketplaceIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.marketplace}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiCrm" Classes="km-tile km-act" IsVisible="{Binding CanViewCrm}" Command="{Binding NavigateCrmCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource CrmIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.crm}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiSupport" Classes="km-tile km-act" IsVisible="{Binding CanViewRemoteSupport}" Command="{Binding NavigateRemoteSupportCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource RemoteSupportIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.remoteSupport}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiKnowledgeBase" Classes="km-tile km-act" IsVisible="{Binding CanViewKnowledgeBase}" Command="{Binding NavigateKnowledgeBaseCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource KnowledgeBaseIcon}"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.knowledgeBase}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="NewMenuStyleButton" Classes="km-tile km-act" Click="MenuStyle_Click">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M4,4 H20 A1,1 0 0 1 21,5 V19 A1,1 0 0 1 20,20 H4 A1,1 0 0 1 3,19 V5 A1,1 0 0 1 4,4 Z M8,4 V20 M12,8 H17 M12,12 H17 M12,16 H15"/></Border>
+                                    <TextBlock x:Name="NewMenuStyleText" Classes="km-tile-text"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                    </WrapPanel>
+                </StackPanel>
+
+                <TextBlock x:Name="NewVersionText" FontSize="11.5" HorizontalAlignment="Center" Margin="0,18,0,0"
+                           Foreground="{DynamicResource BrushTextMuted}"/>
+            </StackPanel>
+        </ScrollViewer>
     </Border>
     </Panel>
 </UserControl>

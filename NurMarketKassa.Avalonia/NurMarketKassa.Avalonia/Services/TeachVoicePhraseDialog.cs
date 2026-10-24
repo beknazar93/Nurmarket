@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using NurMarketKassa.AvaloniaHost.Views;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
 
@@ -25,14 +26,21 @@ public sealed class TeachVoicePhraseDialog : Window
     public TeachVoicePhraseDialog(string phrase, System.Collections.Generic.IReadOnlyList<CatalogProductTileVm> products)
     {
         Title = Tr.T("Товар не найден — обучить?", "Товар табылган жок — үйрөтөсүзбү?", "Product not found — teach it?", "Ürün bulunamadı — öğretilsin mi?", "Mahsulot topilmadi — o'rgatilsinmi?");
-        Width = 420;
-        SizeToContent = SizeToContent.Height;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        CanResize = false;
+        // 2026-10-22 (модалки, пакет 4): общая рамка ModalShell (S 512) вместо системной: Esc/✕ — «Не сейчас», кнопки и
+        // поля 44 px, цвета темы вместо Gray/Red, ошибка — под полем товара. В многострочном поле фраз Enter переносит
+        // строку, «Привязать» — Ctrl+Enter (подсказка слева в подвале) или клик; Enter в поле товара — «Привязать».
+        SectionCards.AsModal(this, 512);
 
-        var panel = new StackPanel { Margin = new Thickness(16), Spacing = 10 };
+        TextBlock Label(string text)
+        {
+            var label = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
+            label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            return label;
+        }
 
-        panel.Children.Add(new TextBlock
+        var panel = new StackPanel { Spacing = 8 };
+
+        var intro = new TextBlock
         {
             Text = Tr.T(
                 "Голос не нашёл товар по этой фразе. Привяжите её к товару сейчас — можно сразу дописать ещё варианты, как ещё могут это сказать (по одной фразе на строку, лучше от 3) — чем больше вариантов, тем надёжнее распознавание в следующий раз.",
@@ -40,21 +48,26 @@ public sealed class TeachVoicePhraseDialog : Window
                 "Voice search couldn't match this phrase to a product. Link it now and add other ways people might say it (one per line, ideally 3+) — the more variants, the better recognition next time.",
                 "Sesli komut bu ifadeyle bir ürün bulamadı. İfadeyi şimdi bir ürüne bağlayın — söylenebilecek başka varyantları da hemen ekleyebilirsiniz (her satıra bir ifade, tercihen 3 veya daha fazla). Varyant ne kadar çoksa, bir dahaki sefere tanıma o kadar güvenilir olur.",
                 "Ovozli qidiruv bu ibora bo'yicha mahsulotni topmadi. Iborani hozir mahsulotga bog'lang — darhol boshqa aytilish variantlarini ham yozib qo'yish mumkin (har qatorga bitta ibora, yaxshisi kamida 3 ta) — variantlar qancha ko'p bo'lsa, keyingi safar tanib olish shuncha ishonchli bo'ladi."),
-            FontSize = 12,
-            Foreground = Brushes.Gray,
+            FontSize = 13,
             TextWrapping = TextWrapping.Wrap,
-        });
+        };
+        intro.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        panel.Children.Add(intro);
 
-        panel.Children.Add(new TextBlock { Text = Tr.T("Фразы (по одной на строку)", "Фразалар (ар бир сапка бирден)", "Phrases (one per line)", "İfadeler (her satıra bir tane)", "Iboralar (har qatorga bittadan)"), FontSize = 12, Foreground = Brushes.Gray });
-        _phraseBox = new TextBox { Text = phrase, AcceptsReturn = true, Height = 70, TextWrapping = TextWrapping.Wrap };
+        var phrasesLabel = Tr.T("Фразы (по одной на строку)", "Фразалар (ар бир сапка бирден)", "Phrases (one per line)", "İfadeler (her satıra bir tane)", "Iboralar (har qatorga bittadan)");
+        panel.Children.Add(Label(phrasesLabel));
+        _phraseBox = SectionCards.Field(new TextBox { Text = phrase, AcceptsReturn = true, MinHeight = 88, MaxHeight = 160, TextWrapping = TextWrapping.Wrap });
+        Avalonia.Automation.AutomationProperties.SetName(_phraseBox, phrasesLabel);
         panel.Children.Add(_phraseBox);
 
-        panel.Children.Add(new TextBlock { Text = Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), FontSize = 12, Foreground = Brushes.Gray });
-        _productBox = new AutoCompleteBox
+        var productLabel = Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot");
+        panel.Children.Add(Label(productLabel));
+        _productBox = SectionCards.Field(new AutoCompleteBox
         {
             ItemsSource = products,
             Watermark = Tr.T("Начните вводить название товара…", "Товардын атын жаза баштаңыз…", "Start typing the product name…", "Ürün adını yazmaya başlayın…", "Mahsulot nomini yoza boshlang…"),
-        };
+        });
+        Avalonia.Automation.AutomationProperties.SetName(_productBox, productLabel);
         _productBox.ItemFilter = (search, item) =>
             item is CatalogProductTileVm p && p.Title.Contains(search ?? "", StringComparison.OrdinalIgnoreCase);
         _productBox.ItemSelector = (search, item) => item is CatalogProductTileVm p ? p.Title : "";
@@ -62,30 +75,36 @@ public sealed class TeachVoicePhraseDialog : Window
             (p, _) => new TextBlock { Text = p?.Title ?? "" });
         panel.Children.Add(_productBox);
 
-        _errorText = new TextBlock { Foreground = Brushes.Red, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+        _errorText = SectionCards.ErrorText(this);
         panel.Children.Add(_errorText);
 
-        var buttons = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Spacing = 8,
-            Margin = new Thickness(0, 8, 0, 0),
-        };
-        var btnCancel = new Button { Content = Tr.T("Не сейчас", "Азыр эмес", "Not now", "Şimdi değil", "Hozir emas") };
+        var btnCancel = SectionCards.Cancel(Tr.T("Не сейчас", "Азыр эмес", "Not now", "Şimdi değil", "Hozir emas"));
         btnCancel.Click += (_, _) => Close(false);
-        _saveButton = new Button
-        {
-            Content = Tr.T("Привязать", "Байланыштыруу", "Link", "Bağla", "Bog'lash"),
-            IsDefault = true,
-            Classes = { "btn-primary" },
-        };
+        _saveButton = SectionCards.Primary(Tr.T("Привязать", "Байланыштыруу", "Link", "Bağla", "Bog'lash"), isDefault: true);
         _saveButton.Click += Save_Click;
-        buttons.Children.Add(btnCancel);
-        buttons.Children.Add(_saveButton);
-        panel.Children.Add(buttons);
 
-        Content = panel;
+        // Ctrl+Enter в поле фраз — «Привязать» (обычный Enter переносит строку).
+        _phraseBox.AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key == Avalonia.Input.Key.Enter && e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
+            {
+                e.Handled = true;
+                Save_Click(_saveButton, new Avalonia.Interactivity.RoutedEventArgs());
+            }
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+
+        var hint = new TextBlock
+        {
+            Text = Tr.T("Ctrl+Enter — привязать", "Ctrl+Enter — байланыштыруу", "Ctrl+Enter — link", "Ctrl+Enter — bağla", "Ctrl+Enter — bog'lash"),
+            FontSize = 13,
+            TextWrapping = TextWrapping.Wrap,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+
+        var shell = SectionCards.Shell(Title, null, panel, SectionCards.Buttons(btnCancel, _saveButton), hint);
+        shell.InitialFocus = _productBox;
+        Content = shell;
     }
 
     private void Save_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -100,13 +119,12 @@ public sealed class TeachVoicePhraseDialog : Window
 
         if (phrases.Count == 0 || product is null)
         {
-            _errorText.Text = Tr.T(
+            SectionCards.ShowError(_errorText, Tr.T(
                 "Укажите хотя бы одну фразу и выберите товар из списка.",
                 "Жок дегенде бир фразаны жазып, тизмеден товарды тандаңыз.",
                 "Enter at least one phrase and select a product from the list.",
                 "En az bir ifade girin ve listeden bir ürün seçin.",
-                "Kamida bitta ibora kiriting va ro'yxatdan mahsulotni tanlang.");
-            _errorText.IsVisible = true;
+                "Kamida bitta ibora kiriting va ro'yxatdan mahsulotni tanlang."), phrases.Count == 0 ? _phraseBox : _productBox);
             return;
         }
 

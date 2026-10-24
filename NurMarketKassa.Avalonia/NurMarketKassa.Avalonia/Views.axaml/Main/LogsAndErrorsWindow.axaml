@@ -88,7 +88,7 @@
             <TextBlock Grid.Column="0" x:Name="TitleText" Text="{DynamicResource csh.menu.errorLogs}"
                        FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
+                <Button x:Name="RefreshButton" Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
                         Margin="0,0,10,0" Click="Refresh_Click"/>
                 <Button x:Name="OpenFolderButton" Content="{DynamicResource logs.openFolder}" Classes="SecondaryActionButton"
                         Margin="0,0,10,0" Click="OpenFolder_Click"/>
@@ -107,9 +107,9 @@
                 <DataGrid.Columns>
                     <!-- 2026-10-20 (живой аудит кассы, К18): «Время» обрезалось («13:36:3») и заголовок «Врем»; примечание — переносом
                          (до 3 строк, полный текст — во всплывающей подсказке). -->
-                    <DataGridTextColumn Header="{DynamicResource common.date}" Width="72" Binding="{ReflectionBinding DateText}"/>
-                    <DataGridTextColumn Header="{DynamicResource common.time}" Width="100" Binding="{ReflectionBinding TimeText}"/>
-                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="160">
+                    <DataGridTextColumn Header="{DynamicResource common.date}" Width="110" MinWidth="96" Binding="{ReflectionBinding DateText}"/>
+                    <DataGridTextColumn Header="{DynamicResource common.time}" Width="110" MinWidth="96" Binding="{ReflectionBinding TimeText}"/>
+                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="170" MinWidth="130">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border Classes="StatusBadge" Classes.warn="{ReflectionBinding IsWarning}"

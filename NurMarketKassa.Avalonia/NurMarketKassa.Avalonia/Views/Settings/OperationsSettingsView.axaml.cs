@@ -31,6 +31,10 @@ public partial class OperationsSettingsView : UserControl
     public OperationsSettingsView()
     {
         InitializeComponent();
+        // 2026-10-22 (аудит 1.17.59, П-Г): всё про долги — рядом в «Операциях»: «Предоплата при продаже в долг» (DebtSaleCard)
+        // и общая настройка компании «Оплата долга» следом за ней (раньше она была на вкладке «Экран»).
+        DebtSaleTitle.Text = Tr.T("Продажа в долг", "Карызга сатуу", "Sale on credit", "Veresiye satış", "Qarzga sotuv");
+        OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(DebtSaleCard) + 1, new DebtPaymentSettingsCard());
         AttachedToVisualTree += Lan_Attached;
         DetachedFromVisualTree += Lan_Detached;
     }
@@ -302,13 +306,12 @@ public partial class OperationsSettingsView : UserControl
         TelegramSummaryCheck.IsChecked = prefs.TelegramShiftSummaryEnabled;
         TelegramCommandsCheck.IsChecked = prefs.TelegramCommandsEnabled;
         OwnerPhoneBox.Text = prefs.OwnerPhone ?? "";
-        TelegramAiKeyBox.Text = prefs.TelegramAiKey ?? "";
-        GroqKeyBox.Text = prefs.GroqApiKey ?? "";
-        OpenRouterKeyBox.Text = prefs.OpenRouterApiKey ?? "";
+        RefreshAiKeyBoxes();
         // 2026-10-05, владелец: «строго соблюдай разделение тарифов». Бот на «Старте» — только купленный в
         // Маркетплейсе; ИИ (ключи Gemini, Groq, OpenRouter) — только «Стандарт».
         TelegramCard.IsVisible = TariffGate.CanUseTelegramBot;
-        AiKeysPanel.IsVisible = TariffGate.CanUseAi;
+        AiKeysPanel.IsVisible = TariffGate.CanUseAi && CanSeeAiKeys;
+        AiKeysHiddenText.IsVisible = TariffGate.CanUseAi && !CanSeeAiKeys;
         AiTariffLockText.IsVisible = !TariffGate.CanUseAi;
         AiTariffLockText.Text = TariffGate.AiLockedMessage;
         UpdateTelegramStatus();
@@ -558,14 +561,85 @@ public partial class OperationsSettingsView : UserControl
     /// <summary>2026-09-30: ключ ИИ-помощника бота (Google Gemini, бесплатный). Пустое поле — ИИ выключен.</summary>
     private void TelegramAiKey_LostFocus(object? sender, RoutedEventArgs e) => SaveTelegramAiKey();
 
+    // 2026-10-22 (аудит 1.17.59, П-Г, Б3): ключи ИИ видны кассиру открытым текстом. Теперь: кассир их не видит вовсе (только
+    // «задан / не задан»); владелец/админ — поля пустые с пометкой «ключ задан» (ключ в Text не лежит, его не прочитать
+    // ни глазом, ни через автоматизацию), «Показать» вставляет ключи в поля. Пустое скрытое поле = «не менялось».
+    private bool _aiKeysRevealed;
+
+    private static bool CanSeeAiKeys
+    {
+        get
+        {
+            if (NurMarketKassa.Services.AppMode.IsOwner)
+                return true;
+            if (App.AppHost?.Services is not { } sp)
+                return false;
+            if (Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<NurMarketKassa.Core.Contracts.IAutonomousAuthService>(sp) is { IsCurrentSessionAutonomous: true })
+                return true;
+            return Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<NurMarketKassa.Services.Api.IAuthApiService>(sp) is { } auth
+                   && PermissionService.IsOwnerOrAdmin(auth.UserPayload);
+        }
+    }
+
+    private void RefreshAiKeyBoxes()
+    {
+        var prefs = UserPreferences.Instance;
+        var canSee = CanSeeAiKeys;
+        if (!canSee)
+            _aiKeysRevealed = false;
+        static string State(string? key) => string.IsNullOrWhiteSpace(key)
+            ? Tr.T("не задан", "коюлган эмес", "not set", "ayarlanmadı", "kiritilmagan")
+            : Tr.T("задан", "коюлган", "set", "ayarlandı", "kiritilgan");
+        AiKeysHiddenText.Text = Tr.T(
+            $"Ключи ИИ: Gemini — {State(prefs.TelegramAiKey)}, Groq — {State(prefs.GroqApiKey)}, OpenRouter — {State(prefs.OpenRouterApiKey)}. Смотреть и менять их может только владелец.",
+            $"ЖИ ачкычтары: Gemini — {State(prefs.TelegramAiKey)}, Groq — {State(prefs.GroqApiKey)}, OpenRouter — {State(prefs.OpenRouterApiKey)}. Аларды ээси гана көрүп, өзгөртө алат.",
+            $"AI keys: Gemini — {State(prefs.TelegramAiKey)}, Groq — {State(prefs.GroqApiKey)}, OpenRouter — {State(prefs.OpenRouterApiKey)}. Only the owner can view and change them.",
+            $"YZ anahtarları: Gemini — {State(prefs.TelegramAiKey)}, Groq — {State(prefs.GroqApiKey)}, OpenRouter — {State(prefs.OpenRouterApiKey)}. Yalnızca sahibi görebilir ve değiştirebilir.",
+            $"SI kalitlari: Gemini — {State(prefs.TelegramAiKey)}, Groq — {State(prefs.GroqApiKey)}, OpenRouter — {State(prefs.OpenRouterApiKey)}. Faqat egasi ko'ra va o'zgartira oladi.");
+        if (!canSee)
+        {
+            TelegramAiKeyBox.Text = GroqKeyBox.Text = OpenRouterKeyBox.Text = "";
+            return;
+        }
+
+        AiKeysRevealButton.Content = _aiKeysRevealed
+            ? Tr.T("Скрыть ключи", "Ачкычтарды жашыруу", "Hide keys", "Anahtarları gizle", "Kalitlarni yashirish")
+            : Tr.T("Показать ключи", "Ачкычтарды көрсөтүү", "Show keys", "Anahtarları göster", "Kalitlarni ko'rsatish");
+        void Set(TextBox box, string? key, string hint)
+        {
+            box.PasswordChar = _aiKeysRevealed ? '\0' : '•';
+            box.Text = _aiKeysRevealed ? key ?? "" : "";
+            box.Watermark = !_aiKeysRevealed && !string.IsNullOrWhiteSpace(key)
+                ? "•••••••• " + Tr.T("(ключ задан)", "(ачкыч коюлган)", "(key is set)", "(anahtar ayarlı)", "(kalit kiritilgan)")
+                : hint;
+        }
+        Set(TelegramAiKeyBox, prefs.TelegramAiKey, "AIza...");
+        Set(GroqKeyBox, prefs.GroqApiKey, "gsk_...");
+        Set(OpenRouterKeyBox, prefs.OpenRouterApiKey, "sk-or-...");
+    }
+
+    private void AiKeysReveal_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!CanSeeAiKeys)
+            return;
+        // Что набрано в скрытом поле — сначала сохраняем, потом переключаем вид.
+        SaveTelegramAiKey();
+        SaveProviderKey(GroqKeyBox, isGroq: true);
+        SaveProviderKey(OpenRouterKeyBox, isGroq: false);
+        _aiKeysRevealed = !_aiKeysRevealed;
+        RefreshAiKeyBoxes();
+    }
+
     private void SaveTelegramAiKey()
     {
         var prefs = UserPreferences.Instance;
         var key = (TelegramAiKeyBox.Text ?? "").Trim();
-        if ((prefs.TelegramAiKey ?? "") == key)
+        if ((prefs.TelegramAiKey ?? "") == key || (!_aiKeysRevealed && key.Length == 0))
             return;
         prefs.TelegramAiKey = string.IsNullOrEmpty(key) ? null : key;
         prefs.SaveToDisk();
+        if (!_aiKeysRevealed)
+            RefreshAiKeyBoxes();
     }
 
     private void TelegramAiGetKey_Click(object? sender, RoutedEventArgs e)
@@ -611,17 +685,19 @@ public partial class OperationsSettingsView : UserControl
 
     private void OpenRouterKey_LostFocus(object? sender, RoutedEventArgs e) => SaveProviderKey(OpenRouterKeyBox, isGroq: false);
 
-    private static void SaveProviderKey(TextBox box, bool isGroq)
+    private void SaveProviderKey(TextBox box, bool isGroq)
     {
         var prefs = UserPreferences.Instance;
         var key = (box.Text ?? "").Trim();
-        if (((isGroq ? prefs.GroqApiKey : prefs.OpenRouterApiKey) ?? "") == key)
+        if (((isGroq ? prefs.GroqApiKey : prefs.OpenRouterApiKey) ?? "") == key || (!_aiKeysRevealed && key.Length == 0))
             return;
         if (isGroq)
             prefs.GroqApiKey = string.IsNullOrEmpty(key) ? null : key;
         else
             prefs.OpenRouterApiKey = string.IsNullOrEmpty(key) ? null : key;
         prefs.SaveToDisk();
+        if (!_aiKeysRevealed)
+            RefreshAiKeyBoxes();
     }
 
     private void GroqGetKey_Click(object? sender, RoutedEventArgs e) => OpenKeyPage("https://console.groq.com/keys", GroqStatusText);
@@ -646,7 +722,7 @@ public partial class OperationsSettingsView : UserControl
     private async void OpenRouterTest_Click(object? sender, RoutedEventArgs e) =>
         await TestProviderKeyAsync(OpenRouterKeyBox, OpenRouterTestButton, OpenRouterStatusText, isGroq: false).ConfigureAwait(true);
 
-    private static async Task TestProviderKeyAsync(TextBox box, Button button, TextBlock status, bool isGroq)
+    private async Task TestProviderKeyAsync(TextBox box, Button button, TextBlock status, bool isGroq)
     {
         SaveProviderKey(box, isGroq);
         var key = isGroq ? UserPreferences.Instance.GroqApiKey : UserPreferences.Instance.OpenRouterApiKey;
@@ -755,6 +831,7 @@ public partial class OperationsSettingsView : UserControl
             return;
 
         if (PosMessageBox.Show(
+                TopLevel.GetTopLevel(this) as Window,
                 Tr.T(
                     $"Удалить банк {setting.BankName} из списка вместе с загруженным QR-кодом?",
                     $"{setting.BankName} банкын жүктөлгөн QR-коду менен кошо тизмеден өчүрөсүзбү?",
@@ -763,7 +840,11 @@ public partial class OperationsSettingsView : UserControl
                     $"{setting.BankName} banki yuklangan QR-kodi bilan birga ro'yxatdan o'chirilsinmi?"),
                 Tr.T("Удаление банка", "Банкты өчүрүү", "Remove bank", "Bankayı sil", "Bankni o'chirish"),
                 MessageBoxButton.YesNo,
-                MessageBoxImage.Question) != MessageBoxResult.Yes)
+                MessageBoxImage.Question,
+                // 2026-10-22 (модалки, пакет 4): «Удалить» красной вместо «Продолжить».
+                confirmText: Tr.T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"),
+                cancelText: Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+                danger: true) != MessageBoxResult.Yes)
         {
             return;
         }
@@ -855,10 +936,15 @@ public partial class OperationsSettingsView : UserControl
             return;
 
         if (PosMessageBox.Show(
+                TopLevel.GetTopLevel(this) as Window,
                 Tr.T($"Убрать QR-код банка {setting.BankName}?", $"{setting.BankName} банкынын QR-кодун өчүрөсүзбү?", $"Remove the QR code for {setting.BankName}?", $"{setting.BankName} bankasının QR kodu kaldırılsın mı?", $"{setting.BankName} bankining QR-kodi olib tashlansinmi?"),
                 Tr.T("Удаление QR-кода", "QR-кодду өчүрүү", "Remove QR code", "QR kodunu kaldır", "QR-kodni olib tashlash"),
                 MessageBoxButton.YesNo,
-                MessageBoxImage.Question) != MessageBoxResult.Yes)
+                MessageBoxImage.Question,
+                // 2026-10-22 (модалки, пакет 4): «Убрать» красной вместо «Продолжить».
+                confirmText: Tr.T("Убрать", "Алып салуу", "Remove", "Kaldır", "Olib tashlash"),
+                cancelText: Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+                danger: true) != MessageBoxResult.Yes)
         {
             return;
         }

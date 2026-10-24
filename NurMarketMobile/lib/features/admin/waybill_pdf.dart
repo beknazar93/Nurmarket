@@ -22,12 +22,22 @@ String docTitle(DocKind k) => switch (k) {
   DocKind.quote => 'КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ',
 };
 
+/// 2026-10-22 (мобилка, админ): П13 — НДС «в том числе», как на ПК (ClientDoc.VatAmount): итог × ставка / (100 + ставка).
+double vatIncluded(double total, double percent) => percent > 0 ? ((total * percent / (100 + percent)) * 100 + (total >= 0 ? 1e-9 : -1e-9)).roundToDouble() / 100 : 0;
+
+/// Строка НДС под итогом; null — без НДС.
+String? vatLine(double total, double percent) {
+  if (percent <= 0) return null;
+  final p = percent == percent.roundToDouble() ? percent.toStringAsFixed(0) : percent.toString().replaceAll('.', ',');
+  return 'В т.ч. НДС $p%: ${money(vatIncluded(total, percent))} сом';
+}
+
 /// basis — «Основание» (по умолчанию — продажа по чеку); note — строка под итогом (срок оплаты, срок действия КП).
 /// 2026-10-21, проверка КП и счетов: бланк был одной страницей (pw.Page) — у КП на 30+ строк таблица, итог и подписи
 /// обрезались без предупреждения. Теперь страниц сколько нужно (pw.MultiPage, внизу «стр. N из M»); цены и суммы
 /// с разрядами («12 500,00», как итог); у КП нет строки «Основание»; [requisites] — реквизиты магазина для счёта (банк,
 /// р/с, БИК, телефон) под названием; [paid] — оплачено по счёту и остаток к оплате.
-Future<List<int>> docPdfBytes(Receipt r, DocKind kind, {String? basis, String? note, String requisites = '', double paid = 0}) async {
+Future<List<int>> docPdfBytes(Receipt r, DocKind kind, {String? basis, String? note, String requisites = '', double paid = 0, double vatPercent = 0}) async {
   final regular = pw.Font.ttf(await rootBundle.load('assets/fonts/Montserrat-Regular.ttf'));
   final bold = pw.Font.ttf(await rootBundle.load('assets/fonts/Montserrat-Bold.ttf'));
   final doc = pw.Document(title: '${docTitle(kind)} ${r.number}', author: r.shop, creator: 'NurMarket');
@@ -151,6 +161,8 @@ Future<List<int>> docPdfBytes(Receipt r, DocKind kind, {String? basis, String? n
           right('Скидка: −${m2.format(subtotal - r.total)}'),
         ],
         right('Итого: ${money(r.total)} сом', size: 12, b: true),
+        // 2026-10-22 (мобилка, админ): П13 — НДС документа (поле vat общего списка с ПК) в PDF.
+        if (vatLine(r.total, vatPercent) case final v?) right(v),
         if (paid > 0.005) ...[
           right('Оплачено: ${money(paid)} сом'),
           right('К оплате: ${money(left)} сом', b: true),
@@ -182,7 +194,7 @@ Future<List<int>> docPdfBytes(Receipt r, DocKind kind, {String? basis, String? n
   return doc.save();
 }
 
-Future<void> shareDocPdf(Receipt r, DocKind kind, {String? basis, String? note, String requisites = '', double paid = 0}) async {
+Future<void> shareDocPdf(Receipt r, DocKind kind, {String? basis, String? note, String requisites = '', double paid = 0, double vatPercent = 0}) async {
   final dir = await getTemporaryDirectory();
   final name =
       '${switch (kind) {
@@ -192,7 +204,7 @@ Future<void> shareDocPdf(Receipt r, DocKind kind, {String? basis, String? note, 
         DocKind.quote => 'kp',
       }}-${r.number.replaceAll(RegExp(r'[^\w-]'), '')}';
   final file = File('${dir.path}/$name.pdf');
-  await file.writeAsBytes(await docPdfBytes(r, kind, basis: basis, note: note, requisites: requisites, paid: paid));
+  await file.writeAsBytes(await docPdfBytes(r, kind, basis: basis, note: note, requisites: requisites, paid: paid, vatPercent: vatPercent));
   await SharePlus.instance.share(
     ShareParams(
       files: [XFile(file.path, mimeType: 'application/pdf', name: '$name.pdf')],

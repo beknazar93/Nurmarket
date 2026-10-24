@@ -110,21 +110,6 @@ public partial class ScreenSettingsView : UserControl
         CardList.Children.Add(card);
     }
 
-    /// <summary>2026-10-18, владелец: карточка «Оплата долга» (DebtPaymentSettingsCard) — сразу после группы, где
-    /// переключатель предоплаты долга.</summary>
-    private void InsertDebtPaymentCard()
-    {
-        Control? group = DebtPrepayChoiceCheck;
-        while (group is not null && !ReferenceEquals(group.Parent, CardList))
-            group = group.Parent as Control;
-        var index = group is null ? CardList.Children.Count : CardList.Children.IndexOf(group) + 1;
-        // 2026-10-20, аудит программы владельца: «Оплата долга» — общая настройка компании, у владельца пряталась под
-        // свёрнутыми группами кассы; в программе владельца — первой карточкой под заголовком страницы. Касса — как было.
-        if (AppMode.IsOwner && CardList.Children.Count > 0)
-            index = 1;
-        CardList.Children.Insert(index, new DebtPaymentSettingsCard());
-    }
-
     public ScreenSettingsView()
     {
         InitializeComponent();
@@ -145,7 +130,7 @@ public partial class ScreenSettingsView : UserControl
         else
             BuildOwnerMenuStyleCard(KassaMenuStyles.Catalog); // 2026-10-19: вид меню ☰ кассы (старое / новое)
         BuildSectionsCard();
-        InsertDebtPaymentCard();
+        // 2026-10-22 (аудит 1.17.59, П-Г): карточка «Оплата долга» и «Предоплата при продаже в долг» переехали во вкладку «Операции» (OperationsSettingsView).
         CashboxCombo.ItemsSource =new[] { new CashboxOption(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)")) };
         CashboxCombo.SelectedIndex = 0;
 

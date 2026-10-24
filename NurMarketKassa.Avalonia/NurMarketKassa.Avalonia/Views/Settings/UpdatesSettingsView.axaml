@@ -1,5 +1,6 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:brand="using:NurMarketKassa.AvaloniaHost.Controls"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.UpdatesSettingsView"
              x:CompileBindings="False"
              VerticalAlignment="Stretch"
@@ -55,11 +56,8 @@
         <!-- Заголовок страницы и главный переключатель прижаты влево -->
         <Border Classes="SettingsHeaderCard" Padding="12">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
-            <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}"
-                    BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
-              <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="16"
-                         Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Border>
+            <!-- 2026-10-22, брендбук NUR CRM: логотип на странице «О программе / Обновления» (было: значок обновления). -->
+            <brand:BrandLogo Kind="Horizontal" Variant="Auto" Width="110" VerticalAlignment="Center"/>
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="{DynamicResource posSettings.navUpdates}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Left"/>
               <TextBlock Text="{DynamicResource posSettings.updates.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Left"/>

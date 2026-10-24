@@ -69,7 +69,7 @@ class ReceiptQrScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: context.pal.panel,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: context.pal.border),
                 ),
@@ -79,9 +79,10 @@ class ReceiptQrScreen extends StatelessWidget {
                   errorCorrectionLevel: url != null ? QrErrorCorrectLevel.M : QrErrorCorrectLevel.L,
                   size: MediaQuery.sizeOf(context).width - 72,
                   // 13.10, владелец: QR в цветах темы (тёмная — светлые точки на тёмном)
-                  backgroundColor: context.pal.panel,
-                  eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: context.pal.dark ? context.pal.text : T.navy),
-                  dataModuleStyle: QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: context.pal.dark ? context.pal.text : T.navy),
+                  // 2026-10-22 (мобилка): QR всегда тёмный на белом — светлый на тёмном многие сканеры не читают.
+                  backgroundColor: Colors.white,
+                  eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: T.navy),
+                  dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: T.navy),
                 ),
               ),
               const SizedBox(height: 18),

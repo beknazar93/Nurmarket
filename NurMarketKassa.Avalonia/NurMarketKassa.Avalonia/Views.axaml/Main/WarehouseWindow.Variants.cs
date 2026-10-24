@@ -178,7 +178,11 @@ public partial class WarehouseWindow
         }
         if (!await PosDialogs.ConfirmYesNoModalAsync(this, Tr.T($"Напечатать этикетки на принятые размеры: {total} шт.?", $"Кабыл алынган өлчөмдөргө этикетка басылсынбы: {total} даана?",
                     $"Print labels for the received sizes: {total} pcs?", $"Kabul edilen bedenler için etiket yazdırılsın mı: {total} adet?",
-                    $"Qabul qilingan o'lchamlarga yorliq chop etilsinmi: {total} dona?") + missingNote))
+                    $"Qabul qilingan o'lchamlarga yorliq chop etilsinmi: {total} dona?") + missingNote,
+                // 2026-10-22 (модалки, пакет 3): глагол с числом вместо «Продолжить», «Не печатать» вместо «Отмена».
+                Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"),
+                Tr.T($"Напечатать {total} шт.", $"{total} даана басуу", $"Print {total}", $"{total} adet yazdır", $"{total} dona chop etish"),
+                Tr.T("Не печатать", "Баспоо", "Don't print", "Yazdırma", "Chop etmaslik")))
             return;
         var printer = UserPreferences.Instance.LabelPrinterDevicePath;
         if (string.IsNullOrWhiteSpace(printer))

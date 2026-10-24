@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -59,8 +59,8 @@ public partial class ShiftDrillDownDialog : Window
         _kind = kind;
         _periodSales = sales;
         _periodEvents = events;
-        TitleText.Text = TitleFor(kind);
-        SubtitleText.Text = subtitle;
+        Shell.Title = TitleFor(kind);
+        Shell.Subtitle = subtitle;
         Opened += async (_, _) => await LoadAsync();
     }
 
@@ -69,11 +69,11 @@ public partial class ShiftDrillDownDialog : Window
         _shift = shift;
         _kind = kind;
         _saleRows = saleRows;
-        TitleText.Text = TitleFor(kind);
+        Shell.Title = TitleFor(kind);
         var number = string.IsNullOrWhiteSpace(shift.ShiftNumber)
             ? "—"
             : shift.ShiftNumber[..Math.Min(8, shift.ShiftNumber.Length)].ToUpperInvariant();
-        SubtitleText.Text = Tr.T($"Смена {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
+        Shell.Subtitle = Tr.T($"Смена {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
                 $"Смена {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
                 $"Shift {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
                 $"Vardiya {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",

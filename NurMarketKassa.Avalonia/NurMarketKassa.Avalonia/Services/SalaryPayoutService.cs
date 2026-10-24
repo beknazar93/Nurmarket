@@ -67,8 +67,9 @@ internal static class SalaryPayoutService
     public static string PartialNote => Tr.T("(проверено частично)", "(жарым-жартылай текшерилди)", "(partially checked)",
         "(kısmen kontrol edildi)", "(qisman tekshirildi)");
 
-    public static string ByNameNote => Tr.T("(часть — по ФИО в названии)", "(бир бөлүгү — аталыштагы аты-жөнү боюнча)", "(partly by the name in the title)",
-        "(bir kısmı başlıktaki ada göre)", "(bir qismi — nomdagi F.I.Sh. bo'yicha)");
+    public static string ByNameNote => // 2026-10-22 (аудит 1.17.59, П-З): простыми словами.
+    Tr.T("(часть выплат найдена по имени в расходе — сверьте на сайте)", "(төлөмдүн бир бөлүгү чыгымдагы ат боюнча табылды — сайттан салыштырыңыз)", "(some payouts matched by the name in the expense — check on the website)",
+        "(bazı ödemeler giderdeki ada göre bulundu — sitede kontrol edin)", "(ba'zi to'lovlar xarajatdagi ism bo'yicha topildi — saytda solishtiring)");
 
     public static string CoverageNote(PaidCoverage coverage) => coverage switch
     {
@@ -176,7 +177,76 @@ internal static class SalaryPayoutService
 
     // ── Кассы компании ─────────────────────────────────────────────────────────────
 
-    public sealed record PayoutCashbox(string Id, string Name, string Role, bool? IsConsumption);
+    // 2026-10-22 (зарплата: источник, статьи): Balance — остаток кассы с сервера (current_balance / balance) для подписи в выборе источника.
+    public sealed record PayoutCashbox(string Id, string Name, string Role, bool? IsConsumption, double? Balance = null);
+
+    /// <summary>2026-10-22 (зарплата: источник, статьи): откуда уходят деньги выплаты. Shift — ящик открытой смены (изъятие со статьёй
+    /// «Зарплата», вид shift_drawer_outflow, как изъятие кассира); Cashbox — касса компании из списка сервера (расход без смены);
+    /// OwnerPocket — личные деньги владельца: касса не уменьшается, зарплата — расход магазина (см. PayAsync).</summary>
+    public enum PayoutSourceKind { Shift, Cashbox, OwnerPocket }
+
+    /// <summary>Пункт выбора источника. Cashbox — касса, на которую пишется расход (у ящика смены — касса смены; у кармана
+    /// владельца — касса расходов, куда парой записывается «Вложение владельца»). Balance — остаток для подсказки.</summary>
+    public sealed record PayoutSource(PayoutSourceKind Kind, string Label, PayoutCashbox? Cashbox, string? ShiftId, double? Balance, string? Unavailable = null);
+
+    /// <summary>Открытые смены компании как источники «Из кассы смены (ящик)». Остаток — expected_cash смены. Нет смен или сервер
+    /// не ответил — пустой список (пункт просто не показывается).</summary>
+    public static async Task<List<PayoutSource>> LoadShiftSourcesAsync(IReadOnlyList<PayoutCashbox> cashboxes, CancellationToken ct)
+    {
+        var list = new List<PayoutSource>();
+        string? unavailable = null;
+        try
+        {
+            var data = await App.ShiftApi.ConstructionShiftsListAsync(true, ct).ConfigureAwait(false);
+            foreach (var x in NurMarketApiClient.UnwrapList(data))
+            {
+                var id = IdOf(x) ?? Opt(x, "uuid");
+                var status = Opt(x, "status");
+                if (string.IsNullOrEmpty(id) || (status is { Length: > 0 } && !string.Equals(status, "open", StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                var cashboxId = IdOf(x, "cashbox") ?? Opt(x, "cashbox_id");
+                var box = cashboxes.FirstOrDefault(b => string.Equals(b.Id, cashboxId, StringComparison.OrdinalIgnoreCase));
+                if (box is null && !string.IsNullOrEmpty(cashboxId))
+                    box = new PayoutCashbox(cashboxId, Opt(x, "cashbox_name") ?? cashboxId[..Math.Min(8, cashboxId.Length)], "pos_shift", false);
+                if (box is null)
+                    continue;
+                double? expected = double.TryParse(Opt(x, "expected_cash"), NumberStyles.Number, CultureInfo.InvariantCulture, out var e) ? e : null;
+                var who = Opt(x, "cashier_display") ?? Opt(x, "user_display") ?? Opt(x, "cashier_name") ?? "";
+                var label = Tr.T("Из кассы смены", "Смена кассасынан", "From the shift till", "Vardiya kasasından", "Smena kassasidan")
+                            + $": {box.Name}" + (who.Length > 0 ? $" · {who}" : "");
+                list.Add(new PayoutSource(PayoutSourceKind.Shift, label, box, id, expected));
+            }
+            // 2026-10-22 (аудит новой сборки, П6): смен нет — пункт не пропадает молча, а стоит серым с пояснением.
+            if (list.Count == 0)
+                unavailable = Tr.T("нет открытой смены — откройте смену в кассе", "ачык смена жок — кассада сменаны ачыңыз", "no open shift — open a shift in the till",
+                    "açık vardiya yok — kasada vardiya açın", "ochiq smena yo'q — kassada smenani oching");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Выплата зарплаты: открытые смены не получены ({ex.Message}) — пункт «Из кассы смены» показан серым.", "WARNING");
+            unavailable = Tr.T("не удалось получить смены с сервера", "сервердеги смендерди алуу мүмкүн болгон жок", "could not load shifts from the server",
+                "vardiyalar sunucudan alınamadı", "smenalarni serverdan olib bo'lmadi");
+        }
+        if (unavailable is not null)
+            list.Add(new PayoutSource(PayoutSourceKind.Shift, Tr.T("Из кассы смены", "Смена кассасынан", "From the shift till", "Vardiya kasasından", "Smena kassasidan"), null, null, null, unavailable));
+        return list;
+    }
+
+    /// <summary>Касса расходов для «из кармана владельца» (is_consumption / expense_variable / «Прочие расходы»). null — такой кассы
+    /// у компании нет, пункт скрыт (кассу не создаём).</summary>
+    public static PayoutCashbox? OwnerPocketCashbox(IReadOnlyList<PayoutCashbox> list)
+    {
+        var i = IndexOf(list, b => b.IsConsumption == true);
+        if (i < 0)
+            i = IndexOf(list, b => string.Equals(b.Role, "expense_variable", StringComparison.OrdinalIgnoreCase));
+        if (i < 0)
+            i = IndexOf(list, b => b.Name.Contains("прочие расход", StringComparison.OrdinalIgnoreCase) || b.Name.Contains("переменные расход", StringComparison.OrdinalIgnoreCase));
+        return i >= 0 ? list[i] : null;
+    }
 
     public static async Task<List<PayoutCashbox>> LoadCashboxesAsync(CancellationToken ct)
     {
@@ -192,7 +262,12 @@ internal static class SalaryPayoutService
             bool? consumption = x.TryGetProperty("is_consumption", out var c) && c.ValueKind is JsonValueKind.True or JsonValueKind.False
                 ? c.GetBoolean()
                 : null;
-            list.Add(new PayoutCashbox(id, name, role, consumption));
+            double? balance = null;
+            foreach (var field in new[] { "current_balance", "balance" })
+                if (balance is null && x.TryGetProperty(field, out var bv)
+                    && double.TryParse(bv.ValueKind == JsonValueKind.String ? bv.GetString() : bv.GetRawText(), NumberStyles.Number, CultureInfo.InvariantCulture, out var bd))
+                    balance = bd;
+            list.Add(new PayoutCashbox(id, name, role, consumption, balance));
         }
         // Кратко и один раз за запуск: какие кассы и роли отдаёт сервер (по ним выбирается касса по умолчанию).
         if (Interlocked.Exchange(ref _cashboxesLogged, 1) == 0)
@@ -381,21 +456,103 @@ internal static class SalaryPayoutService
     // ── Выплата ────────────────────────────────────────────────────────────────────
 
     public sealed record PayoutRequest(string Key, string UserId, string Employee, DateTime From, DateTime To, double Amount,
-        PayoutCashbox Cashbox, string? Comment);
+        PayoutCashbox Cashbox, string? Comment, string? ShiftId = null, bool OwnerPocket = false);
 
     public enum PayoutOutcome { Done, Rejected, Unknown }
 
     public sealed record PayoutResult(PayoutOutcome Outcome, string? FlowId, string? Status, string? Error);
 
     private static bool IsOwnerRole =>
-        App.AuthApi.UserPayload is { ValueKind: JsonValueKind.Object } p
+        App.AuthApi?.UserPayload is { ValueKind: JsonValueKind.Object } p
         && p.TryGetProperty("role", out var r) && r.ValueKind == JsonValueKind.String
         && string.Equals(r.GetString(), "owner", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>true — владелец: расход сразу «approved», как у сайта; иначе «pending» (ждёт подтверждения на сайте).</summary>
     public static bool ApprovedRightAway => IsOwnerRole;
 
+    /// <summary>2026-10-22 (зарплата: источник, статьи): «из кармана владельца». В NurCRM расход без кассы не создать (cashbox
+    /// обязателен), поэтому на кассу расходов ПАРОЙ записываются приход «Вложение владельца» и расход «Зарплата» на ту же сумму:
+    /// касса не меняется, прибыль магазина уменьшается. Приход идёт первым со своим ключом; расход не прошёл (отказ) — приход
+    /// удаляется (DELETE cashflows/{id}/), не удалось — об этом в тексте ошибки. Ответ на расход не дошёл (замок) — приход НЕ трогаем.</summary>
     public static async Task<PayoutResult> PayAsync(PayoutRequest req, CancellationToken ct)
+    {
+        if (!req.OwnerPocket)
+            return await PayCoreAsync(req, ct).ConfigureAwait(false);
+
+        if ((JournalBrokenText ?? CompanyUnknownText) is { } closed)
+            return new PayoutResult(PayoutOutcome.Rejected, null, null, closed);
+        var (readable, locked) = LockFor(req.UserId);
+        if (!readable)
+            return new PayoutResult(PayoutOutcome.Rejected, null, null, JournalUnavailableText);
+        if (locked is not null)
+            return new PayoutResult(PayoutOutcome.Rejected, null, null, LockText(locked));
+
+        var amount = Math.Round(req.Amount, 2).ToString("0.00", CultureInfo.InvariantCulture);
+        string? incomeId;
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(45));
+            var created = await App.ShiftApi.ConstructionCashFlowCreateAsync(new Dictionary<string, string>
+            {
+                ["cashbox"] = req.Cashbox.Id,
+                ["type"] = "income",
+                // Без слова «зарплата»: приход не должен попасть в поиск выплат (IsSalaryLike).
+                ["name"] = "Вложение владельца на выплату сотруднику: " + req.Employee.Trim() + " [" + req.Key[..8] + "]",
+                ["amount"] = amount,
+                ["status"] = ApprovedRightAway ? "approved" : "pending",
+                ["source_id"] = req.Key + ":owner-in",
+                ["idempotency_key"] = req.Key + ":owner-in",
+                ["payment_method"] = "cash",
+            }, cts.Token).ConfigureAwait(false);
+            incomeId = IdOf(created) ?? Opt(created, "uuid");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Выплата зарплаты из кармана владельца: приход «Вложение владельца» не записан ({Describe(ex)}), ключ {req.Key}.", "WARNING");
+            var tail = PendingIdempotencyKey.IsOutcomeUnknown(ex)
+                ? " " + Tr.T("Проверьте на сайте кассу «" + req.Cashbox.Name + "»: мог записаться приход «Вложение владельца» — зарплата не выплачена.",
+                    "Сайтта «" + req.Cashbox.Name + "» кассасын текшериңиз: «Ээсинин салымы» кириши жазылып калышы мүмкүн — эмгек акы төлөнгөн жок.",
+                    "Check the “" + req.Cashbox.Name + "” cash desk on the website: an “Owner contribution” income may have been recorded — the salary was not paid.",
+                    "Sitede «" + req.Cashbox.Name + "» kasasını kontrol edin: «Sahip katkısı» girişi kaydedilmiş olabilir — maaş ödenmedi.",
+                    "Saytda «" + req.Cashbox.Name + "» kassasini tekshiring: «Egasining hissasi» kirimi yozilgan bo'lishi mumkin — ish haqi to'lanmadi.")
+                : "";
+            return new PayoutResult(PayoutOutcome.Rejected, null, null, Describe(ex) + tail);
+        }
+        PosLogger.Log($"Выплата зарплаты из кармана владельца: приход «Вложение владельца» {amount} сом на кассу «{req.Cashbox.Name}» записан ({incomeId ?? "?"}), ключ {req.Key}.", "PAYMENT");
+
+        var result = await PayCoreAsync(req, ct).ConfigureAwait(false);
+        if (result.Outcome == PayoutOutcome.Rejected)
+        {
+            var removed = false;
+            if (!string.IsNullOrEmpty(incomeId))
+            {
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    await Api.RequestAsync(HttpMethod.Delete, $"api/construction/cashflows/{Uri.EscapeDataString(incomeId)}/", null, null, cts.Token, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+                    removed = true;
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Выплата зарплаты из кармана владельца: расход не прошёл, приход {incomeId} удалить не удалось ({Describe(ex)}).", "WARNING");
+                }
+            }
+            if (!removed)
+                return result with
+                {
+                    Error = result.Error + " " + Tr.T(
+                        "Приход «Вложение владельца» " + amount + " сом на кассе «" + req.Cashbox.Name + "» остался — удалите его на сайте NurCRM.",
+                        "«Ээсинин салымы» кириши " + amount + " сом «" + req.Cashbox.Name + "» кассасында калды — аны NurCRM сайтынан өчүрүңүз.",
+                        "The “Owner contribution” income of " + amount + " som on the “" + req.Cashbox.Name + "” cash desk was left — delete it on the NurCRM website.",
+                        "«" + req.Cashbox.Name + "» kasasındaki " + amount + " som «Sahip katkısı» girişi kaldı — NurCRM sitesinden silin.",
+                        "«" + req.Cashbox.Name + "» kassasidagi " + amount + " so'm «Egasining hissasi» kirimi qoldi — NurCRM saytidan o'chiring."),
+                };
+        }
+        return result;
+    }
+
+    private static async Task<PayoutResult> PayCoreAsync(PayoutRequest req, CancellationToken ct)
     {
         // Журнал выплат повреждён или компания не загружена — без них не защититься от двойной выплаты: не платим.
         if ((JournalBrokenText ?? CompanyUnknownText) is { } closed)
@@ -468,7 +625,15 @@ internal static class SalaryPayoutService
         };
         if (!string.IsNullOrEmpty(categoryId))
             body["category"] = categoryId;
-        if (!_sourceKindRejected)
+        if (req.ShiftId is { Length: > 0 } shiftId)
+        {
+            // 2026-10-22 (зарплата: источник, статьи): из ящика открытой смены — как изъятие кассира со статьёй «Зарплата»
+            // (вид shift_drawer_outflow входит в expected_cash смены). Сервер не принял поле — снимается как прочие (RejectedField).
+            body["shift"] = shiftId;
+            body["source_kind"] = "shift_drawer_outflow";
+            body["payment_method"] = "cash";
+        }
+        else if (!_sourceKindRejected)
             body["source_kind"] = SourceKind;
 
         // Повтор — только после явного 400 по одному из полей (запрос не записан). Третье ревью (п.8): до 5 попыток — по
@@ -646,7 +811,7 @@ internal static class SalaryPayoutService
     /// <summary>Поле, которое сервер назвал в отказе 400 (category / source_kind / source_id — без них расход всё равно верен).</summary>
     private static string? RejectedField(ApiException ex, Dictionary<string, string> body)
     {
-        foreach (var field in new[] { "category", "source_kind", "source_id" })
+        foreach (var field in new[] { "category", "source_kind", "source_id", "shift" })
         {
             if (!body.ContainsKey(field))
                 continue;

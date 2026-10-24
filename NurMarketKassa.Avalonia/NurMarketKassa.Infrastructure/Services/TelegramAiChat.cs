@@ -778,11 +778,12 @@ public static class TelegramAiChat
 
     /// <summary>2026-10-01, решение владельца «обращения → заказы с сайта». Создание заказа витрины —
     /// ставит программа (ShowcaseApiService.CreateBotOrderAsync); null — заказы из бота не подключены.</summary>
-    public static Func<string, string, IReadOnlyList<(string ProductId, double Qty)>, string?, CancellationToken,
+    /// 2026-10-22 (витрина одежды): у строки — ещё вариант (размер/цвет), если покупатель его назвал.
+    public static Func<string, string, IReadOnlyList<(string ProductId, double Qty, string? VariantId)>, string?, CancellationToken,
         Task<(string Id, string Number, decimal Total)>>? OrderCreator { get; set; }
 
     private sealed record PendingCustomerOrder(string Name, string Phone, string Comment,
-        IReadOnlyList<(string ProductId, double Qty)> Items, IReadOnlyList<string> Titles, DateTime CreatedUtc);
+        IReadOnlyList<(string ProductId, double Qty, string? VariantId)> Items, IReadOnlyList<string> Titles, DateTime CreatedUtc);
 
     private static readonly object PendingCustomerOrdersLock = new();
     private static readonly Dictionary<string, PendingCustomerOrder> PendingCustomerOrders = new();
@@ -864,7 +865,7 @@ public static class TelegramAiChat
         if (!match.Success)
             return answer;
         string name, phone, comment;
-        var items = new List<(string ProductId, double Qty)>();
+        var items = new List<(string ProductId, double Qty, string? VariantId)>();
         var titles = new List<string>();
         try
         {
@@ -893,8 +894,13 @@ public static class TelegramAiChat
                     var product = TelegramAssistant.FindProductByTitle(title);
                     if (product != null && double.IsFinite(qty) && qty is > 0 and <= 10000)
                     {
-                        items.Add((product.Id, qty));
-                        titles.Add($"{product.Title} × {qty:0.###}");
+                        // 2026-10-22 (витрина одежды): размер/цвет из строки → вариант товара (кеш вариантов бота, ≤ 3 с).
+                        var size = it.TryGetProperty("size", out var sz) && sz.ValueKind == JsonValueKind.String ? sz.GetString()?.Trim() ?? "" : "";
+                        var color = it.TryGetProperty("color", out var cl) && cl.ValueKind == JsonValueKind.String ? cl.GetString()?.Trim() ?? "" : "";
+                        var variant = FindOrderVariant(product.Id, size, color);
+                        items.Add((product.Id, qty, variant?.Id));
+                        var variantText = variant is null ? "" : string.Join(", ", new[] { variant.Size, variant.Color }.Where(v => !string.IsNullOrWhiteSpace(v)));
+                        titles.Add(variantText.Length > 0 ? $"{product.Title} — {variantText} × {qty:0.###}" : $"{product.Title} × {qty:0.###}");
                     }
                 }
             }
@@ -922,6 +928,23 @@ public static class TelegramAiChat
         return "Проверьте заказ:\n" + string.Join("\n", titles.Select(t => "• " + t))
                + (string.IsNullOrWhiteSpace(name) ? "" : "\nИмя: " + name) + "\nТелефон: " + phone
                + "\n\nОформить заказ? Ответьте «Оформить заказ» или «Отменить заказ».";
+    }
+
+    /// <summary>2026-10-22 (витрина одежды): вариант по размеру и цвету, которые назвал ИИ (без учёта регистра и «ё»).
+    /// Только продающийся и с остатком; один подходящий — берём, иначе null (заказ уйдёт без размера, как раньше).</summary>
+    private static NurMarketKassa.Services.Api.ProductVariantDto? FindOrderVariant(string productId, string size, string color)
+    {
+        if (size.Length == 0 && color.Length == 0)
+            return null;
+        var list = ProductVariantCache.Get(productId, TimeSpan.FromSeconds(3));
+        if (list is null || list.Count == 0)
+            return null;
+        static string N(string? v) => (v ?? "").Trim().Replace('ё', 'е').Replace('Ё', 'Е').ToLowerInvariant();
+        var matches = list.Where(v => v.IsActive && v.Quantity > 0
+                                      && (size.Length == 0 || N(v.Size) == N(size))
+                                      && (color.Length == 0 || N(v.Color) == N(color)))
+            .ToList();
+        return matches.Count == 1 ? matches[0] : null;
     }
 
     private static string Esc(string? t) => (t ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
@@ -961,8 +984,9 @@ public static class TelegramAiChat
         + "и номер телефона. Когда всё известно, добавь в конце ответа отдельную строку-ЧЕРНОВИК, чтобы программа показала "
         + "состав заказа и запросила отдельное подтверждение. Черновик НЕ является согласием и не создаёт заказ. Никогда не пиши, "
         + "что заказ оформлен, пока покупатель отдельно не ответил «Оформить заказ»: "
-        + "ЗАКАЗ: {\"name\":\"Имя\",\"phone\":\"+996...\",\"items\":[{\"title\":\"точное название из каталога\",\"qty\":1}],\"comment\":\"\"} "
-        + "— размер и цвет пиши в comment (например «Джинсы: 32, синий»). Эту строку покупатель не увидит. Сумму не называй в подтверждении — её посчитает магазин. Заказ — самовывоз из магазина."
+        + "ЗАКАЗ: {\"name\":\"Имя\",\"phone\":\"+996...\",\"items\":[{\"title\":\"точное название из каталога\",\"qty\":1,\"size\":\"\",\"color\":\"\"}],\"comment\":\"\"} "
+        // 2026-10-22 (витрина одежды): размер и цвет — в строке товара (size, color), чтобы заказ пришёл с нужным вариантом.
+        + "— у одежды с размерами пиши в size и color выбранный размер и цвет точно как в каталоге, иначе оставь пустыми; размер и цвет продублируй в comment (например «Джинсы: 32, синий»). Эту строку покупатель не увидит. Сумму не называй в подтверждении — её посчитает магазин. Заказ — самовывоз из магазина."
         + ListRules;
 
     /// <summary>2026-10-04: последние реплики покупателя (новые первыми) — чтобы на «какие размеры есть?»

@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
@@ -19,7 +20,9 @@ internal static class DialogScreenFit
         if (workingHeight <= 0)
             return;
 
-        window.MaxHeight = Math.Max(minHeight, workingHeight - margin);
+        // 2026-10-22 (модалки, пакет 0): MaxHeight — высота ВНУТРИ рамки; у окна с рамкой ОС заголовок и края
+        // добавляются сверху, и низ окна уходил под панель задач. Вычитаем их.
+        window.MaxHeight = Math.Max(minHeight, workingHeight - margin - ChromeSize(window).Height);
     }
 
     /// <summary>2026-09-21, живой баг владельца (фото маленького квадратного POS-экрана):
@@ -45,8 +48,11 @@ internal static class DialogScreenFit
         if (workingWidth <= 0 || workingHeight <= 0)
             return;
 
-        var maxWidth = Math.Max(window.MinWidth, workingWidth - margin);
-        var maxHeight = Math.Max(window.MinHeight, workingHeight - margin);
+        // 2026-10-22 (модалки, пакет 0): размеры окна — без рамки ОС; вычитаем заголовок и края, иначе окно
+        // с рамкой выше рабочей области на 30–40 px и низ с кнопками — под панелью задач.
+        var chrome = ChromeSize(window);
+        var maxWidth = Math.Max(window.MinWidth, workingWidth - margin - chrome.Width);
+        var maxHeight = Math.Max(window.MinHeight, workingHeight - margin - chrome.Height);
 
         window.MaxWidth = maxWidth;
         window.MaxHeight = maxHeight;
@@ -88,8 +94,13 @@ internal static class DialogScreenFit
         if (workingWidth <= 0 || workingHeight <= 0)
             return;
 
-        var maxWidth = Math.Max(320, workingWidth - margin);
-        var maxHeight = Math.Max(240, workingHeight - margin);
+        // 2026-10-22 (модалки, пакет 0): Width/Height/MaxHeight окна — без рамки ОС. У окна с системной рамкой
+        // (≈35 окон: весы, редакторы, сотрудники, Настройки/Продажи/Прокат) заголовок и края добавлялись сверху —
+        // низ с кнопками уходил под панель задач на 15–40 px (стенд модалок, отчёт «Сенсорный моноблок» п. 5.2).
+        // Теперь вся рамка окна (заголовок + края) помещается в рабочую область минус отступ.
+        var chrome = ChromeSize(window);
+        var maxWidth = Math.Max(320, workingWidth - margin - chrome.Width);
+        var maxHeight = Math.Max(240, workingHeight - margin - chrome.Height);
         if (window.MinWidth > maxWidth)
             window.MinWidth = maxWidth;
         if (window.MinHeight > maxHeight)
@@ -102,8 +113,10 @@ internal static class DialogScreenFit
             window.Height = maxHeight;
 
         // Окно целиком на экране кассы — оставляем там, где его поставил CenterOwner.
-        var width = (double.IsNaN(window.Width) ? window.Bounds.Width : window.Width) * scaling;
-        var height = (double.IsNaN(window.Height) ? window.Bounds.Height : window.Height) * scaling;
+        // 2026-10-22 (модалки, пакет 0): проверяем и ставим по центру всю рамку окна (с заголовком), а не только
+        // его содержимое — Position у Windows — левый верхний угол рамки.
+        var width = ((double.IsNaN(window.Width) ? window.Bounds.Width : window.Width) + chrome.Width) * scaling;
+        var height = ((double.IsNaN(window.Height) ? window.Bounds.Height : window.Height) + chrome.Height) * scaling;
         if (width <= 0 || height <= 0)
             return;
         var pos = window.Position;
@@ -115,6 +128,33 @@ internal static class DialogScreenFit
         window.Position = new Avalonia.PixelPoint(
             area.X + (int)Math.Max(0, (area.Width - width) / 2),
             area.Y + (int)Math.Max(0, (area.Height - height) / 2));
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 0): сколько добавляет к окну рамка ОС (заголовок и края), в единицах
+    /// Avalonia. Окно без рамки (SystemDecorations.None — все модалки на ModalShell) — 0, поведение у них прежнее.
+    /// Окно уже показано — точная разница FrameSize − ClientSize; до показа (или если система её не сообщает,
+    /// Linux/X11) — заголовок 32 + края 8 по высоте и 16 по ширине (Windows 10/11 при 100–150 %).</summary>
+    internal static Size ChromeSize(Window window)
+    {
+        try
+        {
+            if (window.SystemDecorations == SystemDecorations.None || window.WindowState == WindowState.FullScreen)
+                return default;
+            var client = window.ClientSize;
+            if (window.FrameSize is { } frame && client.Width > 0 && client.Height > 0
+                && frame.Height > client.Height && frame.Width >= client.Width)
+            {
+                // Разумный предел: чужие числа (окно ещё не измерено) не должны «съесть» пол-экрана.
+                return new Size(Math.Min(frame.Width - client.Width, 40), Math.Min(frame.Height - client.Height, 80));
+            }
+            if (window.SystemDecorations == SystemDecorations.BorderOnly || window.ExtendClientAreaToDecorationsHint)
+                return new Size(16, 8);
+            return new Size(16, 40);
+        }
+        catch
+        {
+            return default;
+        }
     }
 
     private static bool _registered;
@@ -143,12 +183,43 @@ internal static class DialogScreenFit
                 if (ReferenceEquals(main, window))
                     return;
                 window.FitToKassaScreen();
+                // 2026-10-23: окно с SizeToContent растёт вниз, когда внутри появляется ошибка/подсказка, а позиция остаётся —
+                // подвал с кнопками уходил под панель задач (жалоба владельца). Каждый рост возвращает окно в рабочую область.
+                window.SizeChanged += (w, _) => KeepInsideWorkingArea((Window)w!);
             }
             catch (Exception ex)
             {
                 NurMarketKassa.Services.PosLogger.Log($"Подгонка окна {window.GetType().Name} под экран: {ex.Message}", "WARNING");
             }
         });
+    }
+
+    /// <summary>2026-10-23: если нижний край обычного окна ушёл за рабочую область экрана (после роста по содержимому) —
+    /// поднимает окно, но не выше верхнего края рабочей области.</summary>
+    private static void KeepInsideWorkingArea(Window window)
+    {
+        try
+        {
+            if (window.WindowState != WindowState.Normal || !window.IsVisible)
+                return;
+            var screen = window.Screens.ScreenFromWindow(window) ?? KassaScreen(window);
+            if (screen is null)
+                return;
+            var scale = window.RenderScaling > 0 ? window.RenderScaling : 1.0;
+            var heightPx = (int)Math.Ceiling((window.FrameSize ?? window.ClientSize).Height * scale);
+            var area = screen.WorkingArea;
+            var bottom = window.Position.Y + heightPx;
+            var overflow = bottom - (area.Y + area.Height);
+            if (overflow <= 0)
+                return;
+            var newY = Math.Max(area.Y, window.Position.Y - overflow);
+            if (newY != window.Position.Y)
+                window.Position = new Avalonia.PixelPoint(window.Position.X, newY);
+        }
+        catch
+        {
+            // позиция — удобство, не ошибка
+        }
     }
 
     /// <summary>Экран главного окна кассы (или программы владельца); если его не определить —

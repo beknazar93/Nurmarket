@@ -283,7 +283,7 @@
                     <Border Grid.Column="2" Classes="card" VerticalAlignment="Top">
                         <StackPanel Spacing="12">
                             <TextBlock x:Name="PriceResultTitle" Classes="h"/>
-                            <Border Classes="result main">
+                            <Border x:Name="ResMainCard" Classes="result main">
                                 <StackPanel>
                                     <TextBlock x:Name="ResPriceLabel" Classes="rLabel"/>
                                     <TextBlock x:Name="ResPriceValue" Classes="rValue" FontSize="30" Text="—"/>

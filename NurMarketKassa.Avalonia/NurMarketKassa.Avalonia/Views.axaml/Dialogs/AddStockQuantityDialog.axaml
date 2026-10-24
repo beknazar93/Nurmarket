@@ -13,7 +13,8 @@
 
     <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 480 — заголовок и ✕ сверху,
          «Отмена» (обводка, Esc) и «Подтвердить» (акцент темы, Enter) снизу справа. -->
-    <dlg:ModalShell Margin="16"
+    <!-- 2026-10-22 (модалки, пакет 3): фокус в количество с выделением (InitialFocus) — кассир сразу печатает своё число. -->
+    <dlg:ModalShell Margin="16" InitialFocus="QuantityBox"
                     Title="{DynamicResource addStock.header}"
                     Hint="{DynamicResource modal.hintEnter}">
         <dlg:ModalShell.Footer>

@@ -18,7 +18,9 @@ public static class ClientDocRenderer
     public const string Classic = "classic";
     public const string Modern = "modern";
     public const string Minimal = "minimal";
-    public static readonly string[] Templates = { Classic, Modern, Minimal };
+    // 2026-10-22, брендбук NUR CRM: четвёртый бланк — «Фирменный NUR CRM» (чёрная шапка со знаком, жёлтая шапка таблицы, полоса паттерна лучей).
+    public const string Brand = "brand";
+    public static readonly string[] Templates = { Classic, Modern, Minimal, Brand };
 
     private static readonly string[] FontStack = { "Arial", "Segoe UI", "DejaVu Sans", "Noto Sans", "Liberation Sans" };
 
@@ -52,6 +54,12 @@ public static class ClientDocRenderer
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private static string M(double v) => v.ToString("N2", Ru);
     private static string Q(double v) => v.ToString("0.###", Ru);
+
+    // 2026-10-22 (закупки как в вебе): документ закупки (приходная накладная, заказ поставщику) рисуется тем же бланком накладной,
+    // но со своим заголовком — Extra["title"] / Extra["title_ky"] документа. У документов клиентов этих полей нет — заголовок прежний.
+    private static string Title(ClientDoc d, L l) =>
+        d.Extra is { } x && x.TryGetValue(l.Ky ? "title_ky" : "title", out var t) && t.ValueKind == System.Text.Json.JsonValueKind.String
+        && t.GetString() is { Length: > 0 } custom ? custom : Title(d.Kind, l);
 
     private static string Title(ClientDocKind kind, L l) => kind switch
     {
@@ -132,6 +140,8 @@ public static class ClientDocRenderer
         {
             Modern => new Palette("#1A1A1A", "#5F6368", "#E3E5E8", accent, accentText, accent, accentText, Mix(accent, "#FFFFFF", 0.88), "#F6F7F9"),
             Minimal => new Palette("#000000", "#555555", "#9A9A9A", "#FFFFFF", "#000000", "#000000", "#FFFFFF", "#FFFFFF", "#FFFFFF"),
+            // Deep Night #191919 + Golden Light #FFB208: текст на жёлтом тёмный (9,7:1), шапка и итог — чёрные с белым текстом.
+            Brand => new Palette("#191919", "#666666", "#DDDDDD", "#FFB208", "#191919", "#191919", "#FFFFFF", "#FFF1DB", "#F7F7F7"),
             _ => new Palette("#000000", "#333333", "#000000", "#E9E9E9", "#000000", "#000000", "#FFFFFF", "#F4F4F4", "#FFFFFF"),
         };
     }
@@ -172,7 +182,9 @@ public static class ClientDocRenderer
         var template = Templates.Contains(input.Template) ? input.Template : DefaultTemplate(d.Kind);
         var pal = PaletteFor(template, input.AccentHex);
         var minimal = template == Minimal;
-        var modern = template == Modern;
+        var modern = template == Modern || template == Brand;
+        // Фирменный бланк строится как «современный» (таблица, итог, подписи) — другие цвета и шапка со знаком.
+        var body = template == Brand ? Modern : template;
         var fontSize = minimal ? 9.5f : 10f;
 
         return Document.Create(container =>
@@ -191,7 +203,8 @@ public static class ClientDocRenderer
                     switch (template)
                     {
                         case Modern:
-                            ModernHeader(col, input, l, pal);
+                        case Brand:
+                            ModernHeader(col, input, l, pal, template == Brand);
                             break;
                         case Minimal:
                             MinimalHeader(col, input, l, pal);
@@ -200,11 +213,11 @@ public static class ClientDocRenderer
                             ClassicHeader(col, input, l, pal);
                             break;
                     }
-                    LinesTable(col, d, l, pal, template);
+                    LinesTable(col, d, l, pal, body);
                     col.Item().ShowEntire().Column(end =>
                     {
                         end.Spacing(minimal ? 5 : 7);
-                        Totals(end, d, l, pal, template);
+                        Totals(end, d, l, pal, body);
                         var term = Term(d, l);
                         if (term.Length > 0)
                             end.Item().Text(term).FontSize(fontSize);
@@ -214,13 +227,13 @@ public static class ClientDocRenderer
                                 t.Span(l.T("Примечание: ", "Эскертүү: ")).SemiBold();
                                 t.Span(d.Note!.Trim());
                             });
-                        Signatures(end, d, input.Seller, l, pal, template);
+                        Signatures(end, d, input.Seller, l, pal, body);
                     });
                 });
 
                 page.Footer().PaddingTop(6).Row(row =>
                 {
-                    row.RelativeItem().Text($"{Title(d.Kind, l)} {d.Number}").FontSize(8).FontColor(pal.Soft);
+                    row.RelativeItem().Text($"{Title(d, l)} {d.Number}").FontSize(8).FontColor(pal.Soft);
                     row.AutoItem().Text(t =>
                     {
                         t.DefaultTextStyle(x => x.FontSize(8).FontColor(pal.Soft));
@@ -297,7 +310,7 @@ public static class ClientDocRenderer
             });
         }
 
-        col.Item().PaddingTop(8).AlignCenter().Text(Title(input.Doc.Kind, l) + " " + NumberLine(d, l)).Bold().FontSize(14);
+        col.Item().PaddingTop(8).AlignCenter().Text(Title(input.Doc, l) + " " + NumberLine(d, l)).Bold().FontSize(14);
         col.Item().LineHorizontal(1.2f).LineColor(pal.Ink);
 
         col.Item().Table(t =>
@@ -323,12 +336,18 @@ public static class ClientDocRenderer
 
     // ── modern ──
 
-    private static void ModernHeader(ColumnDescriptor col, Input input, L l, Palette pal)
+    private static void ModernHeader(ColumnDescriptor col, Input input, L l, Palette pal, bool brand = false)
     {
         var d = input.Doc;
         var s = input.Seller;
         col.Item().Background(pal.Accent).Padding(10).Row(row =>
         {
+            if (brand)
+            {
+                // Горизонтальный логотип NUR CRM с буквами для чёрного фона (брендбук 2.2, 3.2): ≥ 35–40 мм — здесь 40 × 16 мм.
+                row.ConstantItem(40, Unit.Millimetre).Height(16, Unit.Millimetre).Svg(BrandLogoSvg.Build("horizontal", "dark"));
+                row.ConstantItem(5, Unit.Millimetre);
+            }
             if (input.Logo is { Length: > 0 } logo)
             {
                 row.ConstantItem(22, Unit.Millimetre).Height(16, Unit.Millimetre).Background("#FFFFFF").Padding(2).AlignMiddle().AlignCenter().Image(logo).FitArea();
@@ -345,10 +364,16 @@ public static class ClientDocRenderer
             row.ConstantItem(4, Unit.Millimetre);
             row.ConstantItem(72, Unit.Millimetre).AlignMiddle().AlignRight().Column(c =>
             {
-                c.Item().AlignRight().Text(Title(d.Kind, l)).Bold().FontSize(15).FontColor(pal.AccentText);
+                c.Item().AlignRight().Text(Title(d, l)).Bold().FontSize(15).FontColor(pal.AccentText);
                 c.Item().AlignRight().Text(NumberLine(d, l)).FontSize(9.5f).FontColor(pal.AccentText);
             });
         });
+
+        if (brand)
+        {
+            // Полоса паттерна лучей (брендбук 6.1): чёрная, звёзды жёлтые вполсилы — умеренно, без перегруза.
+            col.Item().Height(7, Unit.Millimetre).Background(BrandColors.DeepNight).Svg(BrandGeometry.PatternSvg(BrandColors.GoldenLight, 0.55, 26, 1));
+        }
 
         col.Item().PaddingTop(4).Row(row =>
         {
@@ -400,7 +425,7 @@ public static class ClientDocRenderer
         {
             row.RelativeItem().Column(c =>
             {
-                c.Item().Text(Title(d.Kind, l)).FontSize(16);
+                c.Item().Text(Title(d, l)).FontSize(16);
                 c.Item().Text(NumberLine(d, l)).FontColor(pal.Soft);
             });
             row.RelativeItem().AlignRight().Column(c =>

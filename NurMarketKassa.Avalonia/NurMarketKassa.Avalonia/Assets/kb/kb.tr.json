@@ -470,7 +470,7 @@
       {
        "id": "программа-владельца-что-такое-nurmarket-владелец-и-где-его-н",
        "title": "«NurMarket İşletme Sahibi» nedir ve nerede bulunur",
-       "text": "Шаг 1. «NurMarket İşletme Sahibi» programı kasayla birlikte kurulur: güncellemeden sonra masaüstünde ve «Başlat» menüsünde programın kısayolu görünür (kısayolun adı: «NurMarket Владелец»).\nШаг 2. Programı açın ve NurCRM'deki mağaza sahibi veya yönetici hesabınızla giriş yapın.\nШаг 3. Solda bölüm menüsü, sağda «Özet» bulunur: bugün, bu hafta veya bu ay için ciro, fiş sayısı, ortalama fiş ve kâr; günlere göre ciro, ödeme yöntemleri, son satışlar ve en çok satan ürünler.\nШаг 4. Özet her 20 saniyede bir kendiliğinden yenilenir — kasada yapılan satış, programı yeniden başlatmadan burada görünür.\nВажно: Program başka bir bilgisayarda da çalışabilir: kasa ve işletme sahibi programı verileri aynı NurCRM sunucusundan alır.",
+       "text": "Шаг 1. «NurMarket İşletme Sahibi» programı kasayla birlikte kurulur: güncellemeden sonra masaüstünde ve «Başlat» menüsünde programın kısayolu görünür (kısayolun adı: «NurMarket Владелец»).\nШаг 2. Programı açın ve NurCRM'deki mağaza sahibi veya yönetici hesabınızla giriş yapın.\nШаг 3. Solda bölüm menüsü, sağda «Özet» bulunur: bugün, bu hafta veya bu ay için ciro, fiş sayısı, ortalama fiş ve kâr; günlere göre ciro, ödeme yöntemleri, son satışlar ve en çok satan ürünler.\nШаг 4. Özet dakikada bir kendiliğinden yenilenir, pencereye geri döndüğünüzde ise hemen; ↻ düğmesi şimdi yeniler. Kasada yapılan satış, programı yeniden başlatmadan burada görünür.\nВажно: Program başka bir bilgisayarda da çalışabilir: kasa ve işletme sahibi programı verileri aynı NurCRM sunucusundan alır.",
        "keywords": [
         "sahip",
         "yönetim paneli",

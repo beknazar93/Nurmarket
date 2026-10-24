@@ -204,6 +204,9 @@ public partial class PriceTagPrintDialog : Window
             return;
         }
 
+        // 2026-10-22 (модалки, пакет 3): второй клик во время печати ничего не делает, окно не закрывается (IsBusy).
+        if (!Shell.TryBeginBusy())
+            return;
         PrintButton.IsEnabled = false;
         StatusText.Text = Tr.T("Печать…", "Басып чыгарылууда…", "Printing…", "Yazdırılıyor…", "Chop etilmoqda…");
         try
@@ -236,6 +239,7 @@ public partial class PriceTagPrintDialog : Window
         finally
         {
             PrintButton.IsEnabled = true;
+            Shell.EndBusy();
         }
     }
 

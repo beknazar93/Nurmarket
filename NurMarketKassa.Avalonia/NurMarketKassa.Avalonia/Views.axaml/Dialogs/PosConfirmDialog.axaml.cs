@@ -14,9 +14,19 @@ public enum PosConfirmAccent
 
 public partial class PosConfirmDialog : Window
 {
+    /// <summary>2026-10-22 (модалки, пакет 0): кнопка подтверждения по умолчанию — глагол «Продолжить» (стандарт
+    /// модалки: «Да/Нет/ОК» запрещены). Свои глаголы («Удалить чек», «Закрыть смену») передаёт вызывающий.</summary>
+    public static string DefaultConfirmText => Tr.T("Продолжить", "Улантуу", "Continue", "Devam et", "Davom etish");
+
+    /// <summary>2026-10-22 (модалки, пакет 0): отказ по умолчанию — «Отмена» (Esc и ✕ нажимают её).</summary>
+    public static string DefaultCancelText => Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish");
+
     public PosConfirmDialog()
     {
         InitializeComponent();
+        // 2026-10-22 (модалки, пакет 0): и у окна из DI (без параметров) — «Продолжить» / «Отмена», а не «Да» / «Нет».
+        CancelButton.Content = DefaultCancelText;
+        ConfirmButton.Content = DefaultConfirmText;
     }
 
     public PosConfirmDialog(
@@ -30,8 +40,11 @@ public partial class PosConfirmDialog : Window
         Title = title;
         Shell.Title = title; // 2026-10-16: заголовок — в шапке оболочки ModalShell
         MessageText.Text = message;
-        CancelButton.Content = cancelText ?? Tr.T("Нет", "Жок", "No", "Hayır", "Yo'q");
-        ConfirmButton.Content = confirmText ?? Tr.T("Да", "Ооба", "Yes", "Evet", "Ha");
+        // 2026-10-22 (модалки, пакет 0): умолчания — «Продолжить» / «Отмена» вместо «Да» / «Нет».
+        CancelButton.Content = string.IsNullOrWhiteSpace(cancelText) ? DefaultCancelText : cancelText;
+        ConfirmButton.Content = string.IsNullOrWhiteSpace(confirmText) ? DefaultConfirmText : confirmText;
+        Avalonia.Automation.AutomationProperties.SetName(CancelButton, CancelButton.Content as string);
+        Avalonia.Automation.AutomationProperties.SetName(ConfirmButton, ConfirmButton.Content as string);
 
         // 2026-10-16: опасное действие — красная главная кнопка (класс danger оболочки, тот же #DC2626).
         if (accent == PosConfirmAccent.Danger)

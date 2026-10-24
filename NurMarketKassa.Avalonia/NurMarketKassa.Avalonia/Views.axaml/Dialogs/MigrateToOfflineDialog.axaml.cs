@@ -103,6 +103,8 @@ public partial class MigrateToOfflineDialog : Window
         FormPanel.IsEnabled = false;
         ConfirmButton.Content = Tr.T("Готово — выйти", "Бүттү — чыгуу", "Done — log out", "Tamamlandı — çıkış yap", "Tayyor — chiqish");
         CancelButton.IsVisible = false;
+        // Перенос сделан — окно закрывается только «Готово — выйти» (иначе выход не выполнится).
+        Shell.ShowClose = false;
         ShowStatus(Tr.T(
             $"Каталог подготовлен ({syncResult.Added + syncResult.Changed} товаров). Нажмите «Готово — выйти», затем на экране входа выберите «Работать автономно» и войдите этим email и паролем.",
             $"Каталог даяр ({syncResult.Added + syncResult.Changed} товар). «Бүттү — чыгуу» баскычын басып, андан кийин кирүү экранында «Автономдук иштөө» баскычын тандап, ушул email жана сырсөз менен кириңиз.",
@@ -114,6 +116,8 @@ public partial class MigrateToOfflineDialog : Window
     private void SetRunning(bool running)
     {
         _isRunning = running;
+        // 2026-10-22 (модалки, пакет 2): пока идёт перенос — Esc, ✕ и Alt+F4 окно не закрывают (ModalShell.IsBusy).
+        Shell.IsBusy = running;
         FormPanel.IsEnabled = !running;
         ConfirmButton.IsEnabled = !running;
         CancelButton.IsEnabled = !running;

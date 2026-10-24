@@ -8,6 +8,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../payment/sales_repository.dart';
+import '../sale/cart.dart' show roundMoney;
 import '../sale/catalog_repository.dart';
 import '../sale/sale_screen.dart';
 
@@ -25,39 +26,75 @@ class Rental {
   final double deposit;
   final String document;
   final List<String> items;
-  const Rental(this.id, this.number, this.client, this.status, this.overdue, this.from, this.to, this.deposit, this.document, this.items);
+  /// 2026-10-22 (мобилка, админ): П15 — залог документом (паспорт): деньгами ничего не удерживается.
+  final bool documentDeposit;
+  const Rental(this.id, this.number, this.client, this.status, this.overdue, this.from, this.to, this.deposit, this.document, this.items, {this.documentDeposit = false});
   bool get active => status != 'returned';
+
+  static Rental parse(Map<String, dynamic> m) => Rental(
+    str(m, 'id') ?? '',
+    num0(m, 'number').round(),
+    str(m, 'client_name') ?? '',
+    (str(m, 'status') ?? '').toLowerCase(),
+    m['overdue'] == true || (str(m, 'status') ?? '') == 'overdue',
+    DateTime.tryParse(str(m, 'date_from') ?? ''),
+    DateTime.tryParse(str(m, 'date_to') ?? ''),
+    num0(m, 'deposit_amount'),
+    str(m, 'deposit_document') ?? '',
+    [
+      if (m['items'] is List)
+        for (final i in (m['items'] as List).whereType<Map>())
+          [
+            str(i.cast<String, dynamic>(), 'name'),
+            str(i.cast<String, dynamic>(), 'size'),
+            str(i.cast<String, dynamic>(), 'color'),
+          ].whereType<String>().where((x) => x.isNotEmpty).join(' · '),
+    ],
+    documentDeposit: (str(m, 'deposit_type') ?? '').toLowerCase() == 'document',
+  );
 }
+
+/// 2026-10-22 (мобилка, админ): П15 — расчёт возврата как на ПК (ReturnRentalWindow): сервер удерживает штраф из денежного
+/// залога, но не больше залога. Что сверх залога (или весь штраф при залоге документом) раньше просто терялось — теперь
+/// это [excess], его берут обычной продажей строкой «Штраф по прокату №N».
+({double back, double withheld, double excess}) rentalSettlement(Rental r, double penalty) {
+  final p = penalty < 0 ? 0.0 : penalty;
+  final dep = r.documentDeposit || r.deposit < 0 ? 0.0 : r.deposit;
+  final withheld = roundMoney(p < dep ? p : dep);
+  return (back: roundMoney(dep - withheld), withheld: withheld, excess: roundMoney(p - withheld));
+}
+
+/// 2026-10-22 (мобилка, админ): П15 — пеня как на ПК: сутки просрочки × пеня за сутки из условий проката (0 — не просрочен).
+({int days, double sum}) rentalLateFee(DateTime? to, DateTime today, double perDay) {
+  if (to == null || perDay <= 0) return (days: 0, sum: 0);
+  final days = DateTime(today.year, today.month, today.day).difference(DateTime(to.year, to.month, to.day)).inDays;
+  return days <= 0 ? (days: 0, sum: 0) : (days: days, sum: roundMoney(days * perDay));
+}
+
+/// 2026-10-22 (мобилка, админ): П15 — пеня за сутки по номеру проката (хранится на телефоне, как RentalReceiptInfoStore ПК).
+const rentalLateDefaultKey = 'rental.latePerDay';
+String rentalLateKey(int number) => 'rental.terms.$number.latePerDay';
 
 class RentalsRepository {
   final ApiClient api;
   RentalsRepository(this.api);
 
+  /// 2026-10-22 (мобилка, админ): П15 — раньше бралась только 1-я страница всех прокатов (вместе с возвращёнными), и часть
+  /// вещей на руках не была видна. Теперь status=active и status=overdue, все страницы (до 50), без повторов.
   Future<List<Rental>> list() async {
-    final data = await api.get('api/rentals/');
-    return [
-      for (final m in asList(data))
-        Rental(
-          str(m, 'id') ?? '',
-          num0(m, 'number').round(),
-          str(m, 'client_name') ?? '',
-          (str(m, 'status') ?? '').toLowerCase(),
-          m['overdue'] == true || (str(m, 'status') ?? '') == 'overdue',
-          DateTime.tryParse(str(m, 'date_from') ?? ''),
-          DateTime.tryParse(str(m, 'date_to') ?? ''),
-          num0(m, 'deposit_amount'),
-          str(m, 'deposit_document') ?? '',
-          [
-            if (m['items'] is List)
-              for (final i in (m['items'] as List).whereType<Map>())
-                [
-                  str(i.cast<String, dynamic>(), 'name'),
-                  str(i.cast<String, dynamic>(), 'size'),
-                  str(i.cast<String, dynamic>(), 'color'),
-                ].whereType<String>().where((x) => x.isNotEmpty).join(' · '),
-          ],
-        ),
-    ];
+    final seen = <String>{};
+    final out = <Rental>[];
+    for (final status in const ['active', 'overdue']) {
+      for (var page = 1; page <= 50; page++) {
+        final data = await api.get('api/rentals/', query: {'status': status, 'page': page});
+        for (final m in asList(data)) {
+          final r = Rental.parse(m);
+          if (seen.add(r.id.isEmpty ? '#${r.number}' : r.id)) out.add(r);
+        }
+        if (data is! Map || data['next'] == null) break;
+      }
+    }
+    return out;
   }
 
   Future<int> create({
@@ -106,6 +143,9 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen> {
   List<Rental>? _rows;
   String? _error;
 
+  /// 2026-10-22 (мобилка, админ): П15 — возврат уже отправлен: второе нажатие не шлёт второй возврат.
+  final _returning = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -122,49 +162,100 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen> {
   }
 
   Future<void> _giveBack(Rental r) async {
+    if (_returning.contains(r.id)) return;
     final l = context.l;
     var damaged = false;
-    final penalty = TextEditingController();
+    // 2026-10-22 (мобилка, админ): П15 — пеня за просрочку подставляется сама (сутки × пеня из условий проката), как на ПК.
+    final db = ref.read(databaseProvider);
+    final perDay = parseNum(await db.getSetting(rentalLateKey(r.number)) ?? '') ?? parseNum(await db.getSetting(rentalLateDefaultKey) ?? '') ?? 0;
+    final late = rentalLateFee(r.to, DateTime.now(), perDay);
+    if (!mounted) return;
+    final penalty = TextEditingController(text: late.sum > 0 ? late.sum.toStringAsFixed(2) : '');
+    var closed = false;
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => StatefulBuilder(
-        builder: (c, set) => AlertDialog(
-          title: Text('${l.rentalReturn} · №${r.number}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SegmentedButton<bool>(
-                segments: [
-                  ButtonSegment(value: false, label: Text(l.rentalCondOk)),
-                  ButtonSegment(value: true, label: Text(l.rentalCondDamaged)),
-                ],
-                selected: {damaged},
-                onSelectionChanged: (v) => set(() => damaged = v.first),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: penalty,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(labelText: l.rentalPenalty),
-              ),
+        builder: (c, set) {
+          final s = rentalSettlement(r, parseNum(penalty.text) ?? 0);
+          void close(bool v) {
+            // 2026-10-22 (мобилка, админ): П15 — двойное касание закрывало окно и следом экран проката.
+            if (closed) return;
+            closed = true;
+            Navigator.pop(c, v);
+          }
+
+          return AlertDialog(
+            title: Text('${l.rentalReturn} · №${r.number}'),
+            scrollable: true,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SegmentedButton<bool>(
+                  segments: [
+                    ButtonSegment(value: false, label: Text(l.rentalCondOk)),
+                    ButtonSegment(value: true, label: Text(l.rentalCondDamaged)),
+                  ],
+                  selected: {damaged},
+                  onSelectionChanged: (v) => set(() => damaged = v.first),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: penalty,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(labelText: l.rentalPenalty, suffixText: l.som),
+                  onChanged: (_) => set(() {}),
+                ),
+                if (late.days > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(l.rentalLateHint(late.days, money(perDay), money(late.sum)), style: TextStyle(fontSize: 12.5, color: T.danger)),
+                  ),
+                const SizedBox(height: 10),
+                Text(
+                  r.documentDeposit
+                      ? l.rentalBackDocument(r.document)
+                      : '${l.rentalBackDeposit(money(s.back))}${s.withheld > 0 ? ' (${l.rentalWithheld(money(s.withheld))})' : ''}',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                if (s.excess > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(l.rentalExcess(money(s.excess)), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: T.danger)),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => close(false), child: Text(l.cancel)),
+              FilledButton(onPressed: () => close(true), child: Text(l.rentalReturn)),
             ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
-            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.rentalReturn)),
-          ],
-        ),
+          );
+        },
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
+    final pen = parseNum(penalty.text) ?? 0;
+    setState(() => _returning.add(r.id));
     try {
-      await ref.read(rentalsRepoProvider).giveBack(r.id, damaged, parseNum(penalty.text) ?? 0);
+      await ref.read(rentalsRepoProvider).giveBack(r.id, damaged, pen < 0 ? 0 : pen);
       ref.read(shiftProvider.notifier).refresh();
       if (!mounted) return;
+      // 2026-10-22 (мобилка, админ): П15 — штраф сверх залога не теряется: строка в чек, кассир берёт его обычной продажей.
+      final excess = rentalSettlement(r, pen).excess;
+      if (excess > 0) {
+        ref.read(cartProvider.notifier).addCustom(l.rentalPenaltyLine(r.number), excess, 1);
+        toast(context, l.rentalPenaltyInCart(money(excess)));
+        context.go('/sale');
+        return;
+      }
       toast(context, l.rentalReturned);
       await _load();
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
+      // возврат мог пройти, а ответ потеряться — свежий список покажет правду
+      await _load();
+    } finally {
+      if (mounted) setState(() => _returning.remove(r.id));
     }
   }
 
@@ -227,7 +318,7 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen> {
                                 style: TextStyle(fontSize: 12, color: c.pal.textSoft),
                               ),
                               const SizedBox(height: 8),
-                              OutlinedButton(onPressed: () => _giveBack(r), child: Text(l.rentalReturn)),
+                              OutlinedButton(onPressed: _returning.contains(r.id) ? null : () => _giveBack(r), child: Text(l.rentalReturn)),
                             ],
                           ),
                         );
@@ -253,8 +344,18 @@ class _NewRentalScreenState extends ConsumerState<NewRentalScreen> {
   final _perDay = TextEditingController();
   final _deposit = TextEditingController();
   final _document = TextEditingController();
+  // 2026-10-22 (мобилка, админ): П15 — пеня за сутки просрочки (как на ПК): запоминается для этого проката и по умолчанию.
+  final _late = TextEditingController();
   bool _money = true;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(databaseProvider).getSetting(rentalLateDefaultKey).then((v) {
+      if (mounted && _late.text.isEmpty && (parseNum(v ?? '') ?? 0) > 0) setState(() => _late.text = v!);
+    });
+  }
 
   int get _days {
     final today = DateTime.now();
@@ -364,6 +465,7 @@ class _NewRentalScreenState extends ConsumerState<NewRentalScreen> {
   }
 
   Future<void> _create() async {
+    if (_busy) return;
     final l = context.l;
     if (_client == null) {
       toast(context, l.chooseClient, error: true);
@@ -393,6 +495,10 @@ class _NewRentalScreenState extends ConsumerState<NewRentalScreen> {
           );
       final perDay = parseNum(_perDay.text) ?? 0;
       if (perDay > 0) ref.read(cartProvider.notifier).addCustom(l.rentalLine(number, _days.toString()), perDay * _days, 1);
+      final late = parseNum(_late.text) ?? 0;
+      final db = ref.read(databaseProvider);
+      if (number > 0) await db.setSetting(rentalLateKey(number), late > 0 ? '$late' : '');
+      await db.setSetting(rentalLateDefaultKey, late > 0 ? '$late' : '');
       ref.read(shiftProvider.notifier).refresh();
       if (!mounted) return;
       toast(context, l.rentalCreated(number));
@@ -470,6 +576,12 @@ class _NewRentalScreenState extends ConsumerState<NewRentalScreen> {
               controller: _document,
               decoration: InputDecoration(labelText: l.rentalDocument, hintText: l.rentalDocumentHint),
             ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _late,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: l.rentalLatePerDay, suffixText: l.som),
+          ),
           const SizedBox(height: 18),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),

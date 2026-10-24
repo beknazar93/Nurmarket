@@ -28,6 +28,8 @@ namespace NurMarketKassa.Services;
 public static class ShiftCashFlowSync
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
+    /// <summary>2026-10-22 (статьи изъятия): сервер отказал (400) в category вместе со сменой — до перезапуска не шлём.</summary>
+    private static volatile bool _categoryRejected;
 
     public static async Task PushPendingAsync(string? shiftId)
     {
@@ -79,19 +81,53 @@ public static class ShiftCashFlowSync
                 // закрытия смены сайт показывал баланс меньше ровно на сумму внесений. Проверено на
                 // тестовой смене: внесение 10 сом → expected_cash 905 → 915, изъятие 10 → 905.
                 var sourceKind = withdrawal ? "shift_drawer_outflow" : ShiftCashOperationsStore.ShiftDrawerInflowKind;
+                // 2026-10-22 (статьи изъятия): статья — в category (справочник NurCRM, как выбирает веб) и в названии
+                // («Изъятие: Аренда — за октябрь»): сервер, не принявший category вместе со сменой, всё равно покажет статью.
+                var hasArticle = !string.IsNullOrWhiteSpace(op.ArticleKey);
                 var body = new Dictionary<string, string>
                 {
                     ["cashbox"] = cashboxId,
                     ["shift"] = shiftId,
                     ["type"] = withdrawal ? "expense" : "income",
-                    ["name"] = FlowName(op.Type, op.Comment),
+                    ["name"] = hasArticle ? CashArticles.FlowName(op.Type, op.ArticleRu, op.ArticleComment) : FlowName(op.Type, op.Comment),
                     ["amount"] = op.Amount.ToString("0.00", CultureInfo.InvariantCulture),
                     ["source_kind"] = sourceKind,
                     ["source_id"] = op.Id,
                     ["payment_method"] = "cash",
                 };
+                if (hasArticle && !_categoryRejected)
+                {
+                    string? categoryId = null;
+                    try
+                    {
+                        using var catCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+                        catCts.CancelAfter(TimeSpan.FromSeconds(5));
+                        categoryId = await CashArticles.ServerCategoryIdAsync(withdrawal, op.ArticleKey, op.ArticleRu, catCts.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!cts.IsCancellationRequested)
+                    {
+                        PosLogger.Log($"Статья «{op.ArticleRu}»: справочник NurCRM не ответил за 5 с — {op.Type} без category, статья в названии.", "WARNING");
+                    }
+                    if (!string.IsNullOrEmpty(categoryId))
+                        body["category"] = categoryId;
+                }
 
-                var created = await PosApp.ShiftApi.ConstructionCashFlowCreateAsync(body, cts.Token).ConfigureAwait(false);
+                JsonElement created;
+                try
+                {
+                    created = await PosApp.ShiftApi.ConstructionCashFlowCreateAsync(body, cts.Token).ConfigureAwait(false);
+                }
+                catch (ApiException ex) when (ex.StatusCode == 400 && body.ContainsKey("category")
+                                              && (ex.Message.Contains("category", StringComparison.OrdinalIgnoreCase)
+                                                  || ex.Payload is { ValueKind: JsonValueKind.Object } p && p.TryGetProperty("category", out _)))
+                {
+                    // Отказ 400 по category — движение не записано: повторяем без неё (статья остаётся в названии).
+                    // Сервер не принимает category вместе со сменой — больше не шлём до перезапуска (ТЗ ч. 24.4).
+                    _categoryRejected = true;
+                    PosLogger.Log($"{op.Type}: сервер отверг category статьи «{op.ArticleRu}» ({ex.Message}) — без неё, статья в названии.", "WARNING");
+                    body.Remove("category");
+                    created = await PosApp.ShiftApi.ConstructionCashFlowCreateAsync(body, cts.Token).ConfigureAwait(false);
+                }
                 var flowId = Str(created, "id");
                 // Вид берём из ответа: старый сервер без «shift_drawer_inflow» мог записать другой.
                 var savedKind = Str(created, "source_kind");
@@ -100,8 +136,11 @@ public static class ShiftCashFlowSync
                     string.IsNullOrEmpty(flowId) ? "?" : flowId,
                     string.IsNullOrEmpty(savedKind) ? sourceKind : savedKind);
                 var status = Str(created, "status");
+                var savedCategory = Str(created, "category_title") is { Length: > 0 } catTitle ? catTitle : body.GetValueOrDefault("category") ?? "—";
                 PosLogger.Log(
-                    $"{op.Type} {op.Amount:0.00} записано на сервер (смена {shiftId[..8]}, движение {flowId}, статус {status}).",
+                    $"{op.Type} {op.Amount:0.00} записано на сервер (смена {shiftId[..8]}, движение {flowId}, статус {status}"
+                    + (hasArticle ? $", статья «{op.ArticleRu}», category {savedCategory}" : "")
+                    + ").",
                     string.IsNullOrEmpty(status) || status == "approved" ? "SHIFT" : "WARNING");
             }
         }

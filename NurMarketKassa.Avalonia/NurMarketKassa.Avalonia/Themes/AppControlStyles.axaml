@@ -18,8 +18,10 @@
       </Transitions>
     </Setter>
   </Style>
+  <!-- 2026-10-23: было scale(1.015) — у широкого поля (приём товара, ~1080 px) это +8 px с каждой стороны: поле наезжало на соседнюю
+       кнопку («Товары поставщика»). 1.004 — те же плавность и отклик, но не больше 2–3 px у самых широких полей. -->
   <Style Selector="TextBox:focus">
-    <Setter Property="RenderTransform" Value="scale(1.015)"/>
+    <Setter Property="RenderTransform" Value="scale(1.004)"/>
   </Style>
   <Style Selector="TextBox /template/ Border#PART_BorderElement">
     <Setter Property="Transitions">

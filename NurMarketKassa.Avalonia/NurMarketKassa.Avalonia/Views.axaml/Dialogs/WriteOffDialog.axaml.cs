@@ -114,7 +114,7 @@ public partial class WriteOffDialog : Window
 
     /// <summary>Enter в поле поиска: сканер вводит штрихкод и Enter — ищем товар с этим кодом,
     /// иначе берём первый найденный по названию.</summary>
-    private void SearchBox_KeyDown(object? sender, KeyEventArgs e)
+    private async void SearchBox_KeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter)
             return;
@@ -124,8 +124,39 @@ public partial class WriteOffDialog : Window
         if (text.Length == 0)
             return;
 
-        var byBarcode = CatalogCacheService.Products.FirstOrDefault(p =>
-            string.Equals(p.Barcode, text, StringComparison.OrdinalIgnoreCase));
+        // 2026-10-21: код — тем же поиском, что касса (ProductCodeLookup: доп. штрихкод, 12 ↔ 13 цифр, размер, весовая
+        // этикетка, артикул; нет на этом компьютере — сервер). Раньше — только точный основной штрихкод (склад не находит
+        // товар по скану). Штрихкод из цифр не подменяем первой подсказкой: там мог оказаться чужой товар.
+        var code = ProductCodeLookup.Normalize(text);
+        var byBarcode = ProductCodeLookup.FindLocal(code)?.Product;
+        var digitsOnly = code.Length >= 6 && code.All(char.IsDigit);
+        if (byBarcode is null && (digitsOnly || (WarehouseViewModel.LooksLikeCode(code) && _vm.WriteOffSearchResults.Count == 0)))
+        {
+            SearchBox.Text = "";
+            var server = await ProductCodeLookup.FindOnServerAsync(code).ConfigureAwait(true);
+            byBarcode = server.Hit?.Product;
+            if (byBarcode is null && server.Unavailable)
+            {
+                ShowError(Tr.T(
+                    "Не удалось проверить штрихкод на сервере. Проверьте связь и повторите сканирование; создание нового товара пока недоступно.",
+                    "Штрихкодду серверден текшерүү мүмкүн болгон жок. Байланышты текшерип, кайра сканерлеңиз; азырынча жаңы товар түзүү жеткиликсиз.",
+                    "The barcode could not be verified with the server. Check the connection and scan again; creating a new product is unavailable for now.",
+                    "Barkod sunucuda doğrulanamadı. Bağlantıyı kontrol edip tekrar tarayın; şu anda yeni ürün oluşturma kullanılamıyor.",
+                    "Shtrix-kodni serverda tekshirib bo'lmadi. Ulanishni tekshirib qayta skanerlang; hozircha yangi mahsulot yaratib bo'lmaydi."));
+                return;
+            }
+
+            if (byBarcode is null)
+            {
+                ShowError(Tr.T($"Товар со штрихкодом {code} не найден — ни на этом компьютере, ни на сервере.",
+                    $"{code} штрихкоддуу товар табылган жок — бул компьютерде да, серверде да жок.",
+                    $"No product with barcode {code} was found — neither on this computer nor on the server.",
+                    $"{code} barkodlu ürün bulunamadı — ne bu bilgisayarda ne de sunucuda.",
+                    $"{code} shtrix-kodli mahsulot topilmadi — na shu kompyuterda, na serverda."));
+                return;
+            }
+        }
+
         var product = byBarcode ?? _vm.WriteOffSearchResults.FirstOrDefault();
         if (product == null)
         {

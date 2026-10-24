@@ -40,7 +40,14 @@ class AnalyticsRepository {
   Future<Map<String, dynamic>> _report(String tab, DateTime from, DateTime to) async {
     final data = await api.get(
       'api/main/analytics/market/',
-      query: {'tab': tab, 'period_start': _d(from), 'period_end': _d(to)},
+      query: {
+        'tab': tab,
+        'period_start': _d(from),
+        'period_end': _d(to),
+        // 2026-10-22 (мобилка, деньги): сервер во вкладке «Товары» отдаёт только 20 строк top_by_revenue — ABC считался
+        // по 20 товарам. Как касса (SalesApiService.ReportCache) и сайт: limit — все проданные товары периода.
+        if (tab == 'products') 'limit': '10000',
+      },
       timeout: const Duration(seconds: 40),
     );
     return data is Map ? data.cast<String, dynamic>() : const {};
@@ -105,14 +112,35 @@ Widget periodChips(BuildContext context, String value, ValueChanged<String> onCh
   );
 }
 
+// 2026-10-22 (мобилка, админ, П14): названия способов оплаты — на языке приложения (было только по-русски).
 String paymentName(BuildContext context, String key) => switch (key) {
-  'cash' => 'Наличные',
-  'card' => 'Карта',
-  'transfer' || 'qr' || 'mbank' => 'Перевод / QR',
-  'debt' => 'В долг',
-  'mixed' => 'Смешанная',
+  'cash' => context.l.cash,
+  'card' => context.l.card,
+  'transfer' || 'qr' || 'mbank' => context.l.payTransferQr,
+  'debt' => context.l.debt,
+  'mixed' => context.l.mixed,
   _ => key.isEmpty ? '—' : key,
 };
+
+/// 2026-10-22 (мобилка, админ, П14): отчёт не загрузился — понятный текст на языке приложения и «Повторить»
+/// (было сырое сообщение исключения красным). Подробность сервера — мелко ниже, для поддержки.
+Widget reportError(BuildContext context, Object? error, VoidCallback retry) => Padding(
+  padding: const EdgeInsets.all(24),
+  child: Column(
+    children: [
+      Icon(Icons.cloud_off_rounded, size: 40, color: context.pal.textSoft),
+      const SizedBox(height: 8),
+      Text(context.l.reportLoadFailed, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700)),
+      if (error is ApiException && error.message.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(error.message, textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, color: context.pal.textSoft)),
+        ),
+      const SizedBox(height: 12),
+      FilledButton.icon(onPressed: retry, icon: const Icon(Icons.refresh_rounded), label: Text(context.l.retry)),
+    ],
+  ),
+);
 
 // ================================================================== Сводка
 
@@ -171,12 +199,7 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
                 ),
               );
             } else if (snap.hasError) {
-              children.add(
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text('${snap.error}', style: const TextStyle(color: T.danger)),
-                ),
-              );
+              children.add(reportError(context, snap.error, _load));
             } else {
               final (s, products) = snap.data!;
               Widget kpi(String title, String value, {Color? color}) => Expanded(
@@ -399,12 +422,7 @@ class _AbcScreenState extends ConsumerState<AbcScreen> {
               ),
             );
           } else if (snap.hasError) {
-            children.add(
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text('${snap.error}', style: const TextStyle(color: T.danger)),
-              ),
-            );
+            children.add(reportError(context, snap.error, _load));
           } else {
             final rows = snap.data!.where((p) => _value(p) > 0).toList()..sort((a, b) => _value(b).compareTo(_value(a)));
             final total = rows.fold(0.0, (s, p) => s + _value(p));

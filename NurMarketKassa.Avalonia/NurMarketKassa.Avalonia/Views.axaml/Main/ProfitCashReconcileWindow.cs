@@ -32,6 +32,35 @@ public sealed class ProfitCashReconcileWindow : Window
     private readonly StackPanel _checks = new() { Spacing = 6 };
     private readonly TextBlock _status = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
     private string _period = "month";
+    /// <summary>2026-10-22 (зарплата: источник, статьи): расходы периода по названию статьи (salaries/rent/taxes/utilities); null — не получены.</summary>
+    private Dictionary<string, double>? _named;
+
+    /// <summary>Строка расхода «по названию статьи»: сумма из расходов (cashflow), если она больше серверной (сервер не опознал статью —
+    /// у выплат и изъятий без системного slug там 0,00). Разница вычитается из «Прочих расходов» (итог сервера не меняется).</summary>
+    private double Named(JsonElement block, string key, ref double moved, List<string> notes, string title)
+    {
+        var server = Num(block, key) ?? 0;
+        if (_named is null || !_named.TryGetValue(key, out var byName) || byName <= server + 0.005)
+            return server;
+        moved += byName - server;
+        notes.Add($"{title}: " + Tr.T($"по статьям расходов {byName.ToString("N2", Ru)}, сервер даёт {server.ToString("N2", Ru)}",
+            $"чыгым беренелери боюнча {byName.ToString("N2", Ru)}, сервер {server.ToString("N2", Ru)} берет",
+            $"by expense categories {byName.ToString("N2", Ru)}, the server gives {server.ToString("N2", Ru)}",
+            $"gider kalemlerine göre {byName.ToString("N2", Ru)}, sunucu {server.ToString("N2", Ru)} veriyor",
+            $"xarajat moddalari bo'yicha {byName.ToString("N2", Ru)}, server {server.ToString("N2", Ru)} beradi"));
+        return byName;
+    }
+
+    private TextBlock NamedNote(List<string> notes) => Soft(
+        Tr.T("Строки взяты по названию статьи расхода (зарплата, аренда, налоги — как в разделе «Зарплата» и при изъятии из кассы). ",
+            "Саптар чыгым беренесинин аталышы боюнча алынды (эмгек акы, ижара, салык — «Эмгек акы» бөлүмүндөгүдөй жана кассадан алганда). ",
+            "Lines are taken by expense category name (salary, rent, taxes — as in “Salary” and cash withdrawals). ",
+            "Satırlar gider kalemi adına göre alındı (maaş, kira, vergi — «Maaş» bölümü ve kasadan çıkışlardaki gibi). ",
+            "Qatorlar xarajat moddasi nomi bo'yicha olindi (ish haqi, ijara, soliq — «Ish haqi» bo'limi va kassadan olishdagidek). ")
+        + string.Join("; ", notes) + ". "
+        + Tr.T("Разница вычтена из «Прочих расходов», итог сервера не менялся.", "Айырма «Башка чыгымдардан» алынды, сервердин жыйынтыгы өзгөргөн жок.",
+            "The difference is taken out of “Other expenses”; the server total is unchanged.", "Fark «Diğer giderler»den düşüldü, sunucu toplamı değişmedi.",
+            "Farq «Boshqa xarajatlar»dan ayirildi, server jami o'zgarmadi."));
     private CancellationTokenSource? _cts;
 
     public ProfitCashReconcileWindow()
@@ -143,11 +172,19 @@ public sealed class ProfitCashReconcileWindow : Window
             // способ оплаты — разбивка; оплата долга — приход денег, а не выручка. Проверено 06.10: доход = выручке сводки.
             query["operations"] = "0";
             var financeTask = Get("api/main/analytics/finance/");
+            // 2026-10-22 (статьи изъятия): изъятия из кассы смен по статьям — отчёт pnl делит расходы только на зарплату,
+            // аренду, налоги, коммунальные и «прочие»; остальные статьи (транспорт, хознужды, инкассация…) группируем сами.
+            var articlesTask = CashArticles.WithdrawalsByArticleAsync(api, from, to, ct);
+            // 2026-10-22 (зарплата: источник, статьи): веб считает «Зарплата / Аренда / Налоги» по системной статье (slug) — выплаты и
+            // изъятия со статьёй по названию там дают 0,00. Берём расходы периода и группируем по названию статьи сами.
+            var namedTask = CashArticles.ExpensesByNamedCategoryAsync(api, from, to, ct);
             var pnl = await pnlTask.ConfigureAwait(true);
             var cash = await cashTask.ConfigureAwait(true);
             var check = await checkTask.ConfigureAwait(true);
             var finance = await financeTask.ConfigureAwait(true);
+            _named = await namedTask.ConfigureAwait(true);
             RenderPnl(pnl);
+            RenderArticles(await articlesTask.ConfigureAwait(true));
             RenderCash(cash);
             RenderFinance(finance);
             RenderChecks(check);
@@ -178,6 +215,8 @@ public sealed class ProfitCashReconcileWindow : Window
             Money(d, "gross_profit") + (Num(d, "margin_percent") is { } m ? $"  ·  {m.ToString("0.#", Ru)} %" : ""), true));
         if (d.TryGetProperty("opex", out var opex) && opex.ValueKind == JsonValueKind.Object)
         {
+            double moved = 0;
+            var notes = new List<string>();
             foreach (var (key, title) in new[]
                      {
                          ("salaries", Tr.T("Зарплата", "Эмгек акы", "Salaries", "Maaşlar", "Ish haqi")),
@@ -187,9 +226,13 @@ public sealed class ProfitCashReconcileWindow : Window
                          ("other", Tr.T("Прочие расходы", "Башка чыгымдар", "Other expenses", "Diğer giderler", "Boshqa xarajatlar")),
                      })
             {
-                if (Num(opex, key) is > 0.004)
-                    _pnl.Children.Add(Row("   " + title, "− " + Money(opex, key), false));
+                // 2026-10-22 (зарплата: источник, статьи): «Прочие» считаются последними — из них вычтено перенесённое в именованные строки.
+                var value = key == "other" ? Math.Max(0, (Num(opex, key) ?? 0) - moved) : Named(opex, key, ref moved, notes, title);
+                if (value > 0.004)
+                    _pnl.Children.Add(Row("   " + title, "− " + value.ToString("N2", Ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm"), false));
             }
+            if (notes.Count > 0)
+                _pnl.Children.Add(NamedNote(notes));
             // 2026-10-19, этап О10 (аудит: «Прочие расходы» и «Операционные расходы» с одной суммой путают): итог — «Расходы всего».
             _pnl.Children.Add(Row(Tr.T("Расходы всего", "Бардык чыгымдар", "Total expenses", "Toplam giderler", "Jami xarajatlar"), "− " + Money(opex, "total"), true));
         }
@@ -203,6 +246,28 @@ public sealed class ProfitCashReconcileWindow : Window
             "Buying stock does not reduce profit until the goods are sold: profit uses the cost of the lines sold.",
             "Mal satılana kadar alım kârı azaltmaz: kâra satılan satırların maliyeti yansır.",
             "Tovar sotilmaguncha xarid foydani kamaytirmaydi: foydaga sotilgan qatorlar tannarxi kiradi.")));
+    }
+
+    /// <summary>2026-10-22 (статьи изъятия): под «Прибылью» — изъятия из кассы смен по статьям за период; инкассация —
+    /// отдельной строкой с пометкой «не расход» и пояснением. Нет изъятий или сервер не ответил — блока нет.</summary>
+    private void RenderArticles(IReadOnlyList<CashArticles.ArticleTotal>? rows)
+    {
+        if (rows is not { Count: > 0 })
+            return;
+        _pnl.Children.Add(Head(Tr.T("Изъятия из кассы по статьям", "Кассадан алынган акча беренелер боюнча", "Cash taken from the till by category",
+            "Kalemlere göre kasadan çıkan para", "Kassadan olingan pul moddalar bo'yicha")));
+        foreach (var r in rows)
+        {
+            var title = r.IsCollection
+                ? r.Title + Tr.T(" — не расход", " — чыгым эмес", " — not an expense", " — gider değil", " — xarajat emas")
+                : r.Title;
+            _pnl.Children.Add(Row($"   {title} ({r.Count})", "− " + r.Amount.ToString("N2", Ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm"), false));
+        }
+        var expense = rows.Where(r => !r.IsCollection).Sum(r => r.Amount);
+        _pnl.Children.Add(Row(Tr.T("Изъято на расходы", "Чыгымдарга алынды", "Taken for expenses", "Giderler için alınan", "Xarajatlarga olindi"),
+            "− " + expense.ToString("N2", Ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm"), true));
+        if (rows.Any(r => r.IsCollection))
+            _pnl.Children.Add(Soft(CashArticles.CollectionNote));
     }
 
     private void RenderCash(JsonElement? data)
@@ -231,6 +296,8 @@ public sealed class ProfitCashReconcileWindow : Window
         if (d.TryGetProperty("outflow", out var outflow) && outflow.ValueKind == JsonValueKind.Object)
         {
             _cash.Children.Add(Head(Tr.T("Расход", "Чыгым", "Outflow", "Çıkış", "Chiqim")));
+            double moved = 0;
+            var notes = new List<string>();
             foreach (var (key, title) in new[]
                      {
                          ("suppliers", Tr.T("Поставщикам", "Жеткирүүчүлөргө", "Suppliers", "Tedarikçiler", "Yetkazib beruvchilarga")),
@@ -240,7 +307,15 @@ public sealed class ProfitCashReconcileWindow : Window
                          ("returns", Tr.T("Возвраты покупателям", "Сатып алуучуларга кайтаруу", "Customer refunds", "Müşteri iadeleri", "Xaridorlarga qaytarish")),
                          ("other_expenses", Tr.T("Прочие расходы", "Башка чыгымдар", "Other expenses", "Diğer giderler", "Boshqa xarajatlar")),
                      })
-                _cash.Children.Add(Row("   " + title, "− " + Money(outflow, key), false));
+            {
+                // 2026-10-22 (зарплата: источник, статьи): зарплата / аренда / налоги — по названию статьи расхода, «Прочие» — остаток.
+                var named = key is "salaries" or "rent" or "taxes";
+                var value = key == "other_expenses" ? Math.Max(0, (Num(outflow, key) ?? 0) - moved)
+                    : named ? Named(outflow, key, ref moved, notes, title) : Num(outflow, key) ?? 0;
+                _cash.Children.Add(Row("   " + title, "− " + value.ToString("N2", Ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm"), false));
+            }
+            if (notes.Count > 0)
+                _cash.Children.Add(NamedNote(notes));
             _cash.Children.Add(Row(Tr.T("Итого расход", "Жалпы чыгым", "Total outflow", "Toplam çıkış", "Jami chiqim"), "− " + Money(outflow, "total"), false));
         }
 

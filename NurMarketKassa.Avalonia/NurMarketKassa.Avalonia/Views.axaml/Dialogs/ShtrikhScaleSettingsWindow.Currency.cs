@@ -1045,7 +1045,7 @@ public partial class ShtrikhScaleSettingsWindow
     private void HighlightRow(string? key)
     {
         foreach (var r in _lyRows)
-            r.Host.Background = r.Element.Key == key ? ThemeBrush("BrushSurfaceSubtle", Brushes.LightGray) : Brushes.Transparent;
+            r.Host.Background = r.Element.Key == key ? ThemeBrush("BrushPanelSoft", Brushes.LightGray) /* 2026-10-22 (модалки, пакет 3): ключ есть в теме */ : Brushes.Transparent;
         var selected = _lyRows.FirstOrDefault(r => r.Element.Key == key);
         selected?.Host.BringIntoView();
     }

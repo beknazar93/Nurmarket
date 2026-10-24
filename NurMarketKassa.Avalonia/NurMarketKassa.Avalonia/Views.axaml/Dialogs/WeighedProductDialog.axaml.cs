@@ -281,6 +281,8 @@ public partial class WeighedProductDialog : Window
 
     private void WeightBox_TextChanged(object? sender, TextChangedEventArgs e)
     {
+        // 2026-10-22 (модалки, пакет 1): кассир исправляет значение — ошибка под полем снимается.
+        WeightErrorText.IsVisible = false;
         if (!_suppressPreviewUpdate)
             UpdateComputedPreview();
     }
@@ -345,15 +347,13 @@ public partial class WeighedProductDialog : Window
     {
         if (_scale == null || !_scaleLive)
         {
-            PosMessageBox.Show(this, Tr.T("Весы не подключены — укажите вес вручную.", "Тараза туташтырылган эмес — салмакты кол менен киргизиңиз.", "The scale is not connected — enter the weight manually.", "Tartı bağlı değil — ağırlığı elle girin.", "Tarozi ulanmagan — og'irlikni qo'lda kiriting."), Tr.T("Весы", "Тараза", "Scales", "Tartı", "Tarozi"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowWeightError(Tr.T("Весы не подключены — укажите вес вручную.", "Тараза туташтырылган эмес — салмакты кол менен киргизиңиз.", "The scale is not connected — enter the weight manually.", "Tartı bağlı değil — ağırlığı elle girin.", "Tarozi ulanmagan — og'irlikni qo'lda kiriting."));
             return;
         }
 
         if (_scale.LastWeight is not double w || w <= 0)
         {
-            PosMessageBox.Show(this, Tr.T("Нет веса с весов.", "Таразадан салмак келген жок.", "No weight reading from the scale.", "Tartıdan ağırlık alınamadı.", "Tarozidan og'irlik kelmadi."), Tr.T("Весы", "Тараза", "Scales", "Tartı", "Tarozi"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowWeightError(Tr.T("Нет веса с весов.", "Таразадан салмак келген жок.", "No weight reading from the scale.", "Tartıdan ağırlık alınamadı.", "Tarozidan og'irlik kelmadi."));
             return;
         }
 
@@ -381,8 +381,7 @@ public partial class WeighedProductDialog : Window
             var emptyMessage = _isAmountMode
                 ? Tr.T("Введите сумму.", "Сумманы киргизиңиз.", "Enter the amount.", "Tutarı girin.", "Summani kiriting.")
                 : Tr.T("Введите вес.", "Салмакты киргизиңиз.", "Enter the weight.", "Ağırlığı girin.", "Og'irlikni kiriting.");
-            PosMessageBox.Show(this, emptyMessage, Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowWeightError(emptyMessage);
             return;
         }
 
@@ -391,8 +390,7 @@ public partial class WeighedProductDialog : Window
             var invalidMessage = _isAmountMode
                 ? Tr.T("Сумма должна быть положительным числом.", "Сумма оң сан болушу керек.", "Amount must be a positive number.", "Tutar pozitif bir sayı olmalıdır.", "Summa musbat son bo'lishi kerak.")
                 : Tr.T("Вес должен быть положительным числом.", "Салмак оң сан болушу керек.", "Weight must be a positive number.", "Ağırlık pozitif bir sayı olmalıdır.", "Og'irlik musbat son bo'lishi kerak.");
-            PosMessageBox.Show(this, invalidMessage, Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowWeightError(invalidMessage);
             return;
         }
 
@@ -402,14 +400,12 @@ public partial class WeighedProductDialog : Window
         if (enteredValue >= (_isAmountMode ? 10_000_000m : 10_000m))
         {
             WeightBox.Text = "";
-            PosMessageBox.Show(this,
+            ShowWeightError(
                 Tr.T("Слишком большое число — похоже, в поле попал штрихкод. Введите вес заново.",
                     "Өтө чоң сан — талаага штрихкод түшүп калган окшойт. Салмакты кайра киргизиңиз.",
                     "The number is too large — looks like a barcode got into the field. Enter the weight again.",
                     "Sayı çok büyük — alana barkod girilmiş gibi görünüyor. Ağırlığı yeniden girin.",
-                    "Son juda katta — maydonga shtrix-kod tushib qolganga o'xshaydi. Og'irlikni qayta kiriting."),
-                Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Son juda katta — maydonga shtrix-kod tushib qolganga o'xshaydi. Og'irlikni qayta kiriting."));
             return;
         }
 
@@ -419,10 +415,8 @@ public partial class WeighedProductDialog : Window
         var kg = _isAmountMode && _pricePerKg > 0 ? enteredValue / (decimal)_pricePerKg : enteredValue;
         if (_isAmountMode && kg <= 0)
         {
-            PosMessageBox.Show(this,
-                Tr.T("Не удалось посчитать вес — не задана цена товара.", "Салмакты эсептөө мүмкүн болбоду — товардын баасы көрсөтүлгөн эмес.", "Couldn't calculate the weight — the product price isn't set.", "Ağırlık hesaplanamadı — ürün fiyatı belirtilmemiş.", "Og'irlikni hisoblab bo'lmadi — mahsulot narxi ko'rsatilmagan."),
-                Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowWeightError(
+                Tr.T("Не удалось посчитать вес — не задана цена товара.", "Салмакты эсептөө мүмкүн болбоду — товардын баасы көрсөтүлгөн эмес.", "Couldn't calculate the weight — the product price isn't set.", "Ağırlık hesaplanamadı — ürün fiyatı belirtilmemiş.", "Og'irlikni hisoblab bo'lmadi — mahsulot narxi ko'rsatilmagan."));
             return;
         }
 
@@ -431,6 +425,16 @@ public partial class WeighedProductDialog : Window
     }
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
+
+    /// <summary>2026-10-22 (модалки, пакет 1): ошибка ввода веса/суммы — красной строкой под полем, фокус в поле
+    /// (раньше — всплывающее окно поверх модалки). Скрывается, как только кассир меняет значение.</summary>
+    private void ShowWeightError(string message)
+    {
+        WeightErrorText.Text = message;
+        WeightErrorText.IsVisible = true;
+        WeightBox.Focus();
+        WeightBox.SelectAll();
+    }
 
     #endregion
 }

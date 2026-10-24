@@ -3,7 +3,7 @@
         x:Class="NurMarketKassa.AvaloniaHost.Views.SplashWindow"
         Title="Nur Market"
         Width="440"
-        Height="230"
+        Height="270"
         CanResize="False"
         ShowInTaskbar="True"
         SystemDecorations="None"
@@ -19,7 +19,7 @@
                     <SolidColorBrush x:Key="SplashBorderBrush" Color="#2B3240" />
                     <SolidColorBrush x:Key="SplashTitleBrush" Color="#FFFFFF" />
                     <SolidColorBrush x:Key="SplashSubtitleBrush" Color="#B8C0CC" />
-                    <SolidColorBrush x:Key="SplashProgressBarForeground" Color="#007ACC" />
+                    <SolidColorBrush x:Key="SplashProgressBarForeground" Color="#FFB208" /> <!-- 2026-10-23 (аудит Б-9): брендовый жёлтый, был синий -->
                 </ResourceDictionary>
 
                 <ResourceDictionary x:Key="Light">
@@ -27,7 +27,7 @@
                     <SolidColorBrush x:Key="SplashBorderBrush" Color="#D7DEE8" />
                     <SolidColorBrush x:Key="SplashTitleBrush" Color="#172033" />
                     <SolidColorBrush x:Key="SplashSubtitleBrush" Color="#526176" />
-                    <SolidColorBrush x:Key="SplashProgressBarForeground" Color="#007ACC" />
+                    <SolidColorBrush x:Key="SplashProgressBarForeground" Color="#FFB208" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
@@ -42,6 +42,10 @@
         <StackPanel Spacing="18"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Center">
+            <!-- 2026-10-23 (аудит Б-9): логотип на заставке -->
+            <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png"
+                   Width="56" Height="56" Stretch="Uniform" HorizontalAlignment="Center" />
+
             <TextBlock Text="Nur Market"
                        HorizontalAlignment="Center"
                        FontSize="30"

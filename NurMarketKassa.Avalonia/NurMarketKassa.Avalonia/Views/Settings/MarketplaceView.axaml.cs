@@ -19,22 +19,21 @@ public partial class MarketplaceView : UserControl
     public MarketplaceView()
     {
         InitializeComponent();
+        // 2026-10-23: витрина как в Play Market (MarketplaceStoreView) читает единый каталог (Services/MarketplaceCatalog.cs).
+        // Действия плиток идут сюда, в Run — внутри та же логика, что была в карточках доп. функций.
+        _inlineHost.Child = ExtrasWrapPanel;
+        ExtrasWrapPanel.Children.CollectionChanged += (_, _) =>
+        {
+            ApplyInlineVisibility();
+            ScheduleStoreReload();
+        };
+        Store.InlineControlProvider = ProvideInlineControl;
+        Store.Initialize(new LocalMarketplaceCatalogSource(Run));
         RebuildThemedCards();
         // 2026-10-21: карточки красятся кистями темы в момент сборки — при смене светлой/тёмной (кнопка «Тема» у владельца,
         // редактор тем) пересобираем их, иначе остаются старые цвета. Post — AccentThemeService.Apply кладёт новые кисти
         // уже после смены варианта (App.ApplyTheme).
         ActualThemeVariantChanged += (_, _) => Dispatcher.UIThread.Post(RebuildThemedCards);
-
-        // Вкладка «Виды кассы» (2026-09-28): выбор вида обновляет карточку «1С» в «Доп. функциях»
-        // и предпросмотр экрана покупателя — он меняется вместе с видом кассы.
-        LayoutPicker.LayoutApplied += _ =>
-        {
-            RefreshLayoutModeCard();
-            RefreshCustomerDisplayCard();
-        };
-        AttachedToVisualTree += (_, _) => RefreshCustomerDisplayCard();
-        DetachedFromVisualTree += (_, _) => DisposeCustomerPreview();
-        RefreshCustomerDisplayCard();
 
         // "Список" новых тем/доп. услуг — это, по сути, новая версия кассы (Velopack/GitHub
         // Releases): отдельного каталога на сервере нет, все карточки зашиты в код. Поэтому
@@ -44,9 +43,167 @@ public partial class MarketplaceView : UserControl
         _ = CheckForUpdatesAsync();
     }
 
-    /// <summary>Переключает вкладку "Доп. функции" программно — используется, когда пользователь
-    /// переходит сюда из другой страницы настроек (см. ScreenSettingsView → "Открыть в Маркетплейсе").</summary>
-    public void ShowExtrasTab() => ExtrasTab_Click(this, new RoutedEventArgs());
+    // 2026-10-23: хранилище прежних карточек доп. функций. На экране они не показываются (витрина рисует каталог), но
+    // обработчики активации по-прежнему обновляют их, а любое изменение списка перечитывает каталог (ScheduleStoreReload).
+    // Единственная карточка, которую видно, — «Голосовое управление» (загрузка моделей) на странице функции.
+    private readonly WrapPanel ExtrasWrapPanel = new();
+    private readonly Border _inlineHost = new();
+    private bool _storeReloadPending;
+
+    private void ScheduleStoreReload()
+    {
+        if (_storeReloadPending)
+            return;
+        _storeReloadPending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _storeReloadPending = false;
+            Store.Reload();
+        }, DispatcherPriority.Background);
+    }
+
+    /// <summary>Из прежних карточек видна только «Голосовое управление» (кнопки загрузки моделей, переключатель, проверка);
+    /// шапка и описание скрыты — они уже есть на странице.</summary>
+    private void ApplyInlineVisibility()
+    {
+        foreach (var child in ExtrasWrapPanel.Children)
+        {
+            var show = ReferenceEquals(child, _voiceControlCard);
+            child.IsVisible = show;
+            if (show && child is Border { Child: Panel panel } card)
+            {
+                card.Width = double.NaN;
+                card.Margin = default;
+                for (var i = 0; i < Math.Min(2, panel.Children.Count); i++)
+                    panel.Children[i].IsVisible = false;
+            }
+        }
+    }
+
+    private Control? ProvideInlineControl(string id)
+    {
+        if (id != "voice" || !UserPreferences.Instance.VoiceControlUnlocked)
+            return null;
+        // Блок мог остаться в прежней странице, пока строится новая.
+        if (_inlineHost.Parent is Panel old)
+            old.Children.Remove(_inlineHost);
+        ApplyInlineVisibility();
+        return _inlineHost;
+    }
+
+    /// <summary>Команды действий каталога (см. LocalMarketplaceCatalogSource): существующая логика кассы, без изменений.</summary>
+    private void Run(string command)
+    {
+        try
+        {
+            var e = new RoutedEventArgs();
+            var colon = command.IndexOf(':');
+            var verb = colon < 0 ? command : command[..colon];
+            var id = colon < 0 ? "" : command[(colon + 1)..];
+            switch (verb)
+            {
+                case "unlock":
+                    switch (id)
+                    {
+                        case "voice": VoiceUnlockButton_Click(this, e); break;
+                        case "loyalty": LoyaltyUnlockButton_Click(this, e); break;
+                        case "timesheet": StaffTimesheetUnlockButton_Click(this, e); break;
+                        case "scales": ScalesUnlockButton_Click(this, e); break;
+                        case "analytics": WarehouseAnalyticsUnlockButton_Click(this, e); break;
+                        case "pricetag": PriceTagEditorUnlockButton_Click(this, e); break;
+                        case "bulktag": BulkPriceTagUnlockButton_Click(this, e); break;
+                        case "labeleditor": LabelEditorUnlockButton_Click(this, e); break;
+                        case "export": AnalyticsExportUnlockButton_Click(this, e); break;
+                        case "telegram": TelegramBotUnlockButton_Click(this, e); break;
+                        case "shiftstats": ShiftAnalyticsUnlockButton_Click(this, e); break;
+                        case "language": LanguagePackUnlockButton_Click(this, e); break;
+                        default:
+                            if (id.StartsWith("pack:", StringComparison.Ordinal))
+                            {
+                                var slug = id["pack:".Length..];
+                                var title = StandardPacks().FirstOrDefault(p => p.Slug == slug).Title ?? slug;
+                                UnlockPack(slug, title);
+                            }
+                            break;
+                    }
+                    break;
+                case "open":
+                    OpenFeature(id);
+                    break;
+                case "theme":
+                    App.ApplyAccentTheme(id);
+                    // Предпросмотры рисуются под текущий светлый/тёмный вариант, а отметка — на выбранной теме.
+                    RebuildThemedCards();
+                    break;
+                case "layout":
+                    App.ApplyMainLayoutMode(id);
+                    RefreshLayoutModeCard();
+                    Store.Reload();
+                    break;
+                case "themeeditor":
+                    OpenThemeEditor_Click(this, e);
+                    break;
+                case "customerdisplay":
+                    OpenCustomerDisplayEditor_Click(this, e);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Маркетплейс: действие «{command}» не выполнено: {ex}", "WARNING");
+        }
+    }
+
+    /// <summary>«Открыть» разблокированной функции — те же действия, что были на кнопках карточек доп. функций.</summary>
+    private void OpenFeature(string id)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        switch (id)
+        {
+            case "timesheet":
+                StaffTimesheetWindow.Open(owner);
+                break;
+            case "analytics":
+                // Программа владельца (2026-09-27): аналитика склада — вкладка «Склад» раздела «Аналитика».
+                // В кассе и на тарифе «Старт» — отдельное окно склада, как было.
+                if (owner is { Owner: OwnerShellWindow shell } && shell.OpenAnalyticsStock())
+                    return;
+                var analyticsWindow = App.GetRequiredService<WarehouseWindow>();
+                analyticsWindow.AnalyticsOnly = true;
+                analyticsWindow.Show(owner);
+                break;
+            case "pricetag":
+                App.GetRequiredService<WarehouseWindow>().Show(owner);
+                break;
+            case "bulktag":
+                _ = BulkPriceTagPrintDialog.Open(owner);
+                break;
+            case "labeleditor":
+                _ = new LabelTemplateEditorDialog().ShowDialog(owner);
+                break;
+            case "export":
+                PosAlertDialog.Show(owner,
+                    Tr.T("Где выгрузить", "Кайдан чыгарса болот", "Where to export", "Nereden aktarılır", "Qayerda eksport qilinadi"),
+                    Tr.T("Откройте «Отчёты», выберите период и нажмите «Excel» или «Word» в верхней строке.",
+                         "«Отчёттор» бөлүмүн ачып, мезгилди тандап, жогорку саптагы «Excel» же «Word» баскычын басыңыз.", "Open “Reports”, select a period and click “Excel” or “Word” in the top bar.", "«Raporlar»ı açın, dönemi seçin ve üst satırdaki «Excel» veya «Word» düğmesine basın.", "«Hisobotlar»ni oching, davrni tanlang va yuqori qatordagi «Excel» yoki «Word» tugmasini bosing."),
+                    PosAlertKind.Info);
+                break;
+            case "telegram":
+                _ = new NurMarketKassa.AvaloniaHost.Views.TelegramBotSetupWindow().ShowDialog(owner);
+                break;
+            case "shiftstats":
+                PosAlertDialog.Show(owner,
+                    Tr.T("Где смотреть", "Кайдан көрсө болот", "Where to look", "Nereye bakmalı", "Qayerda ko'rish mumkin"),
+                    Tr.T("Итоги открываются из меню кассы: «Смены» → выбрать смену. Те же цифры печатаются в X/Z-отчёте и приходят в Telegram при закрытии смены.",
+                         "Жыйынтыктар касса менюсунан ачылат: «Смена» → сменаны тандаңыз. Ошол эле сандар X/Z-отчётто басылат жана смена жабылганда Telegram'га келет.", "Totals open from the till menu: “Shifts” → select a shift. The same figures are printed in the X/Z report and sent to Telegram when the shift is closed.", "Özet kasa menüsünden açılır: «Vardiyalar» → vardiyayı seçin. Aynı rakamlar X/Z raporunda yazdırılır ve vardiya kapanınca Telegram'a gelir.", "Yakunlar kassa menyusidan ochiladi: «Smenalar» → smenani tanlang. Xuddi shu raqamlar X/Z-hisobotda chop etiladi va smena yopilganda Telegram'ga keladi."),
+                    PosAlertKind.Info);
+                break;
+        }
+    }
+
+    /// <summary>Открывает витрину на фильтре «Функции» — используется, когда пользователь переходит сюда из другой страницы
+    /// настроек (см. ScreenSettingsView → "Открыть в Маркетплейсе"). Имя прежнее: на него ссылаются другие окна.</summary>
+    public void ShowExtrasTab() => Store.SetFilter(MarketplaceFilter.Features);
 
     private async Task CheckForUpdatesAsync()
     {
@@ -137,86 +294,10 @@ public partial class MarketplaceView : UserControl
         }
     }
 
-    private void ThemesTab_Click(object? sender, RoutedEventArgs e) => ShowTab(0);
-
-    private void ExtrasTab_Click(object? sender, RoutedEventArgs e) => ShowTab(1);
-
-    private void LayoutsTab_Click(object? sender, RoutedEventArgs e) => ShowTab(2);
-
-    /// <summary>Вкладка «Виды кассы» (2026-09-28) — программно, например из карточки «1С».</summary>
-    public void ShowLayoutsTab() => ShowTab(2);
-
-    /// <summary>Три вкладки: 0 — «Темы», 1 — «Доп. функции», 2 — «Виды кассы» (2026-09-28).</summary>
-    private void ShowTab(int index)
-    {
-        ThemesPanel.IsVisible = index == 0;
-        ExtrasPanel.IsVisible = index == 1;
-        LayoutsPanel.IsVisible = index == 2;
-        // 2026-10-19, этап О7: вкладки — сегменты sec-seg, выбранная — класс active (тёмно-синяя).
-        var buttons = new[] { ThemesTabButton, ExtrasTabButton, LayoutsTabButton };
-        for (var i = 0; i < buttons.Length; i++)
-            buttons[i].Classes.Set("active", i == index);
-
-        if (index == 2)
-        {
-            // Вид мог смениться в другом месте (карточка «1С», Настройки → Экран).
-            LayoutPicker.Rebuild();
-            RefreshCustomerDisplayCard();
-        }
-    }
+    /// <summary>Фильтр «Виды кассы» (2026-09-28) — программно, например из карточки «1С».</summary>
+    public void ShowLayoutsTab() => Store.SetFilter(MarketplaceFilter.Layouts);
 
     // ------------------------------------------------------------------ экран покупателя (2026-09-28)
-
-    private NurMarketKassa.AvaloniaHost.ViewModels.CustomerDisplayViewModel? _customerPreviewVm;
-
-    /// <summary>Карточка «Экран покупателя» на вкладке «Виды кассы»: живой предпросмотр в нынешнем
-    /// виде (со своей моделью и образцом чека — настоящий экран не трогается) и подпись, какой вид
-    /// у экрана сейчас.</summary>
-    private void RefreshCustomerDisplayCard()
-    {
-        try
-        {
-            var settings = UserPreferences.Instance.CustomerDisplay;
-            if (_customerPreviewVm is null)
-            {
-                var sample = new CustomerDisplayStateService();
-                sample.UpdateCart(NurMarketKassa.AvaloniaHost.ViewModels.CustomerDisplayViewModel.BuildSampleSnapshot(paid: false));
-                _customerPreviewVm = NurMarketKassa.AvaloniaHost.ViewModels.CustomerDisplayViewModel.CreateDesignPreview(sample, settings);
-                CustomerPreviewView.DataContext = _customerPreviewVm;
-            }
-            else
-            {
-                _customerPreviewVm.ApplySettings(settings);
-            }
-
-            var effective = NurMarketKassa.AvaloniaHost.ViewModels.CustomerDisplayViewModel.ResolveStyle(settings.DisplayStyle);
-            var name = KassaLayouts.All.FirstOrDefault(o => o.Id == effective)?.Label() ?? effective;
-            var follows = string.IsNullOrWhiteSpace(settings.DisplayStyle)
-                          || string.Equals(settings.DisplayStyle, CustomerDisplaySettings.StyleAuto, StringComparison.OrdinalIgnoreCase);
-            CustomerDisplayModeText.Text = follows
-                ? Tr.T($"Второй экран покупателя меняется вместе с видом кассы. Сейчас: «{name}». В редакторе — надписи, цвета и что показывать.",
-                    $"Сатып алуучунун экинчи экраны кассанын көрүнүшү менен бирге өзгөрөт. Азыр: «{name}». Редактордо — жазуулар, түстөр жана эмнени көрсөтүү.",
-                    $"The customer's second screen changes together with the till layout. Now: “{name}”. The editor sets captions, colors and what to show.",
-                    $"Müşterinin ikinci ekranı kasa görünümüyle birlikte değişir. Şu an: «{name}». Düzenleyicide yazılar, renkler ve neyin gösterileceği ayarlanır.",
-                    $"Xaridorning ikkinchi ekrani kassa ko'rinishi bilan birga o'zgaradi. Hozir: «{name}». Muharrirda — yozuvlar, ranglar va nimani ko'rsatish.")
-                : Tr.T($"Второй экран покупателя всегда в виде «{name}» — так выбрано в редакторе.",
-                    $"Сатып алуучунун экинчи экраны дайыма «{name}» көрүнүшүндө — редактордо ушундай тандалган.",
-                    $"The customer's second screen always uses the “{name}” layout — as chosen in the editor.",
-                    $"Müşterinin ikinci ekranı her zaman «{name}» görünümünde — düzenleyicide böyle seçildi.",
-                    $"Xaridorning ikkinchi ekrani doim «{name}» ko'rinishida — muharrirda shunday tanlangan.");
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Карточка экрана покупателя в Маркетплейсе: {ex.Message}", "WARNING");
-        }
-    }
-
-    private void DisposeCustomerPreview()
-    {
-        CustomerPreviewView.DataContext = null;
-        _customerPreviewVm?.Dispose();
-        _customerPreviewVm = null;
-    }
 
     private async void OpenCustomerDisplayEditor_Click(object? sender, RoutedEventArgs e)
     {
@@ -232,261 +313,14 @@ public partial class MarketplaceView : UserControl
         }
         finally
         {
-            RefreshCustomerDisplayCard();
+            Store.Reload(); // 2026-10-23: описание и предпросмотр экрана покупателя на странице — в нынешнем виде
         }
-    }
-
-    /// <summary>Галерея тем. Карточки собираются в коде, а не через ItemsControl+Binding:
-    /// каждая рисует собственный предпросмотр цветами САМОЙ темы (фон окна, плитка товара,
-    /// кнопка), а не цветами текущей. Словами разницу между шестью оформлениями не передать,
-    /// а перебирать их вживую — каждый раз перекрашивать весь экран.</summary>
-    private void BuildThemeGallery()
-    {
-        ThemeGalleryPanel.Items.Clear();
-
-        var prefs = UserPreferences.Instance;
-        var current = AccentThemeService.Normalize(prefs.AccentTheme);
-        var dark = prefs.DarkTheme;
-
-        // Встроенные темы, за ними — свои (редактор тем, 2026-09-28) с пометкой «Своя».
-        var entries = AccentThemeService.AvailableThemes
-            .Select(t => (t.Id, t.Label, t.Icon, t.Description, IsCustom: false))
-            .Concat(CustomThemeStore.All.Select(t => (t.Id, Label: t.Name, Icon: "",
-                Description: Tr.T("Своя тема. Изменить — кнопка «Редактор тем».", "Өз темаңыз. Өзгөртүү — «Темалар редактору» баскычы.",
-                    "Your own theme. To change it, use the “Theme editor” button.", "Kendi temanız. Değiştirmek için «Tema düzenleyici» düğmesi.",
-                    "O'z mavzuingiz. O'zgartirish — «Mavzu muharriri» tugmasi."), IsCustom: true)))
-            .ToList();
-        // 2026-10-21: «Выбрана» — на теме, которая реально включена сейчас (по цветам окна), а не только по записи в настройках:
-        // запись могла прийти с другого устройства (облако), а программа ещё в прежней теме (пакет 3, п. 138).
-        current = AppliedThemeId(current, entries.Where(t => !t.IsCustom).Select(t => t.Id));
-
-        foreach (var theme in entries)
-        {
-            bool isActive = string.Equals(theme.Id, current, System.StringComparison.OrdinalIgnoreCase);
-            var preview = AccentThemeService.GetPreview(theme.Id, dark);
-
-            var card = new Button
-            {
-                Tag = theme.Id,
-                Width = 266, // 2026-10-19, О7: 4 темы в ряд на 1366, 3 — на 1024 (при 280 на 1024 входило 2 и пустая треть)
-                Margin = new Thickness(0, 0, 10, 10),
-                Padding = new Thickness(0),
-                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
-                Background = ThemeBrush("BrushPanel", Brushes.White),
-                // 2026-10-19, этап О7: выбранная тема — рамка цветом текста (тёмно-синяя), как всё «выбрано»; была жёлтая.
-                BorderBrush = isActive
-                    ? ThemeBrush("BrushText", Brushes.Black)
-                    : ThemeBrush("BrushBorder", Brushes.LightGray),
-                BorderThickness = new Thickness(isActive ? 2 : 1),
-                CornerRadius = new CornerRadius(12),
-                HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                // 2026-10-21: карточки ряда — одной высоты (по самой высокой), содержимое прижато к верху (п. 59)
-                VerticalAlignment = VerticalAlignment.Stretch,
-                VerticalContentAlignment = VerticalAlignment.Top,
-            };
-
-            var rows = new StackPanel { Spacing = 0 };
-
-            // --- предпросмотр: кусок кассы в миниатюре, цветами этой темы
-            if (preview is { } pv)
-            {
-                var windowBrush = new SolidColorBrush(Color.Parse(pv.Window));
-                var tileBrush = new SolidColorBrush(Color.Parse(pv.Tile));
-                var accentBrush = new SolidColorBrush(Color.Parse(pv.Accent));
-                var textBrush = new SolidColorBrush(Color.Parse(pv.Text));
-
-                var tiles = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-                for (var i = 0; i < 3; i++)
-                    tiles.Children.Add(new Border
-                    {
-                        Width = 42,
-                        Height = 30,
-                        Background = tileBrush,
-                        BorderBrush = new SolidColorBrush(Color.Parse(pv.TileBorder)),
-                        BorderThickness = new Thickness(1),
-                        CornerRadius = new CornerRadius(4),
-                        Child = new Border
-                        {
-                            Height = 4,
-                            Width = 22,
-                            Margin = new Thickness(6, 0, 0, 6),
-                            HorizontalAlignment = HorizontalAlignment.Left,
-                            VerticalAlignment = VerticalAlignment.Bottom,
-                            CornerRadius = new CornerRadius(2),
-                            Background = accentBrush,
-                        },
-                    });
-
-                var payButton = new Border
-                {
-                    Height = 18,
-                    Width = 138,
-                    Margin = new Thickness(0, 8, 0, 0),
-                    CornerRadius = new CornerRadius(4),
-                    Background = accentBrush,
-                };
-
-                rows.Children.Add(new Border
-                {
-                    Background = windowBrush,
-                    Padding = new Thickness(12, 12, 12, 10),
-                    CornerRadius = new CornerRadius(11, 11, 0, 0),
-                    Child = new StackPanel
-                    {
-                        Spacing = 0,
-                        Children =
-                        {
-                            tiles,
-                            payButton,
-                            new TextBlock
-                            {
-                                Text = Tr.T("Каталог и кнопка оплаты", "Каталог жана төлөм баскычы",
-                                            "Catalog and pay button", "Katalog ve ödeme düğmesi",
-                                            "Katalog va to'lov tugmasi"),
-                                FontSize = 9,
-                                Margin = new Thickness(0, 7, 0, 0),
-                                Foreground = textBrush,
-                                Opacity = 0.65,
-                            },
-                        },
-                    },
-                });
-            }
-
-            // --- название и состояние
-            var titleRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
-
-            titleRow.Children.Add(new TextBlock
-            {
-                Text = theme.Icon,
-                FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                FontSize = 14,
-                Margin = new Thickness(0, 0, 8, 0),
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
-            });
-
-            var nameText = new TextBlock
-            {
-                Text = theme.Label,
-                FontSize = 14,
-                FontWeight = FontWeight.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = ThemeBrush("BrushText", Brushes.Black),
-                TextTrimming = TextTrimming.CharacterEllipsis, // 2026-10-21: длинное имя своей темы — в одну строку (п. 59)
-            };
-            Grid.SetColumn(nameText, 1);
-            titleRow.Children.Add(nameText);
-
-            // 2026-10-21: бейджи «Выбрана» / «Своя» — в отдельной строке фиксированной высоты внизу карточки:
-            // в строке названия бейдж сжимал имя и сдвигал карточку (п. 59).
-            var badgeRow = new Panel { Height = 20, Margin = new Thickness(0, 8, 0, 0) };
-
-            if (theme.IsCustom && !isActive)
-            {
-                var customBadge = new Border
-                {
-                    Background = ThemeBrush("BrushPanelSoft", Brushes.LightGray),
-                    CornerRadius = new CornerRadius(6),
-                    Padding = new Thickness(7, 2),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Child = new TextBlock
-                    {
-                        Text = Tr.T("Своя", "Өзүңүздүкү", "Custom", "Özel", "O'zingizniki"),
-                        FontSize = 10,
-                        FontWeight = FontWeight.SemiBold,
-                        Foreground = ThemeBrush("BrushTextMuted", Brushes.Gray),
-                    },
-                };
-                badgeRow.Children.Add(customBadge);
-            }
-
-            if (isActive)
-            {
-                var badge = new Border
-                {
-                    Background = ThemeBrush("BrushText", Brushes.Black),
-                    CornerRadius = new CornerRadius(6),
-                    Padding = new Thickness(7, 2),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Child = new TextBlock
-                    {
-                        Text = "✓ " + Tr.T("Выбрана", "Тандалган", "Selected", "Seçili", "Tanlangan"),
-                        FontSize = 10.5,
-                        FontWeight = FontWeight.SemiBold,
-                        Foreground = ThemeBrush("BrushPanel", Brushes.White),
-                    },
-                };
-                badgeRow.Children.Add(badge);
-            }
-
-            var descText = new TextBlock
-            {
-                Text = theme.Description,
-                FontSize = 11,
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 5, 0, 0),
-                Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
-                // 2026-10-21: описание — ровно 2 строки места, длиннее — с многоточием, полный текст в подсказке (п. 59)
-                LineHeight = 15,
-                MaxLines = 2,
-                MinHeight = 30,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                Background = Brushes.Transparent, // чтобы подсказка появлялась над всем полем текста
-            };
-            ToolTip.SetTip(descText, theme.Description);
-            var fullDescription = theme.Description;
-            descText.SizeChanged += (_, e) =>
-            {
-                if (e.WidthChanged)
-                    FitTwoLines(descText, fullDescription, e.NewSize.Width);
-            };
-
-            rows.Children.Add(new Border
-            {
-                Padding = new Thickness(12, 10, 12, 12),
-                Child = new StackPanel { Spacing = 0, Children = { titleRow, descText, badgeRow } },
-            });
-
-            card.Content = rows;
-            card.Click += ThemeCard_Click;
-            ThemeGalleryPanel.Items.Add(card);
-        }
-
-        ThemeGalleryPanel.Items.Add(BuildNewCustomThemeCard());
-    }
-
-    /// <summary>2026-10-21: описание карточки темы — не длиннее 2 строк с «…» в конце. Avalonia 11.2 при MaxLines ставит «…»
-    /// только когда последняя строка не влезает по ширине; если перенос пришёлся на пробел, текст обрывался без многоточия —
-    /// поэтому обрезаем по словам сами (п. 59).</summary>
-    private static void FitTwoLines(TextBlock block, string text, double width)
-    {
-        if (width <= 0 || string.IsNullOrEmpty(text))
-            return;
-        var typeface = new Typeface(block.FontFamily, block.FontStyle, block.FontWeight);
-        int Lines(string t) => new Avalonia.Media.TextFormatting.TextLayout(t, typeface, block.FontSize, null,
-            textWrapping: TextWrapping.Wrap, maxWidth: width).TextLines.Count;
-        var fitted = text;
-        if (Lines(text) > 2)
-        {
-            var words = text.Split(' ');
-            for (var n = words.Length - 1; n > 0; n--)
-            {
-                fitted = string.Join(" ", words, 0, n).TrimEnd(' ', ',', '.', ':', ';', '—', '-') + "…";
-                if (Lines(fitted) <= 2)
-                    break;
-            }
-        }
-        if (block.Text != fitted)
-            block.Text = fitted;
     }
 
     /// <summary>2026-10-21: id темы, которая реально включена: сохранённая, если её цвета (фон окна, акцент, текст) сейчас в
     /// программе; иначе — встроенная тема с такими цветами; не нашлась или сохранена своя тема (у неё бывают свои цвета
     /// поверх основы) — сохранённая (пакет 3, п. 138).</summary>
-    private static string AppliedThemeId(string saved, IEnumerable<string> builtInIds)
+    internal static string AppliedThemeId(string saved, IEnumerable<string> builtInIds)
     {
         if (Application.Current is not { } app || CustomThemeStore.Find(saved) is not null)
             return saved;
@@ -500,64 +334,6 @@ public partial class MarketplaceView : UserControl
         if (Shown(saved))
             return saved;
         return builtInIds.FirstOrDefault(Shown) ?? saved;
-    }
-
-    /// <summary>Последняя карточка галереи — вход в редактор: создать свою тему.</summary>
-    private Button BuildNewCustomThemeCard()
-    {
-        var card = new Button
-        {
-            Width = 250,
-            MinHeight = 150,
-            VerticalAlignment = VerticalAlignment.Stretch, // 2026-10-21: высотой с соседние карточки тем (п. 59)
-            Margin = new Thickness(0, 0, 10, 10),
-            Padding = new Thickness(12),
-            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
-            Background = ThemeBrush("BrushPanel", Brushes.White),
-            BorderBrush = ThemeBrush("BrushBorderStrong", Brushes.Gray),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12),
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            VerticalContentAlignment = VerticalAlignment.Center,
-            Content = new StackPanel
-            {
-                Spacing = 6,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Children =
-                {
-                    new PathIcon
-                    {
-                        Data = Application.Current?.TryFindResource("IconPalette", out var icon) == true ? icon as Geometry : null,
-                        Width = 28,
-                        Height = 28,
-                        Foreground = ThemeBrush("BrushAccentStrong", Brushes.Goldenrod),
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                    },
-                    new TextBlock
-                    {
-                        Text = Tr.T("+ Своя тема", "+ Өз темаңыз", "+ Custom theme", "+ Özel tema", "+ O'z mavzuingiz"),
-                        FontSize = 14,
-                        FontWeight = FontWeight.SemiBold,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        Foreground = ThemeBrush("BrushText", Brushes.Black),
-                    },
-                    new TextBlock
-                    {
-                        Text = Tr.T("Цвета, скругление и шрифт на основе любой темы",
-                            "Каалаган темага негизделген түстөр, тегеректик жана шрифт",
-                            "Colors, rounding and font based on any theme",
-                            "Herhangi bir temaya dayalı renkler, yuvarlaklık ve yazı tipi",
-                            "Istalgan mavzu asosidagi ranglar, yumaloqlik va shrift"),
-                        FontSize = 11,
-                        TextWrapping = TextWrapping.Wrap,
-                        TextAlignment = TextAlignment.Center,
-                        Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
-                    },
-                },
-            },
-        };
-        card.Click += OpenThemeEditor_Click;
-        return card;
     }
 
     /// <summary>«Редактор тем» (2026-09-28). Окно модальное: после закрытия галерея
@@ -577,26 +353,13 @@ public partial class MarketplaceView : UserControl
         }
         finally
         {
-            BuildThemeGallery();
+            RebuildThemedCards(); // 2026-10-23: свои темы могли появиться/измениться/исчезнуть
         }
-    }
-
-    private void ThemeCard_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: string themeId })
-            return;
-
-        App.ApplyAccentTheme(themeId);
-
-        // Предпросмотры рисуются под текущий светлый/тёмный вариант, а рамка отмечает
-        // выбранную — после смены темы пересобираем галерею целиком.
-        BuildThemeGallery();
     }
 
     /// <summary>2026-10-21: галерея тем и карточки «Доп. функций» — в порядке конструктора (порядок карточек в ряду).</summary>
     private void RebuildThemedCards()
     {
-        BuildThemeGallery();
         RefreshLoyaltyCard();
         RefreshVoiceControlCard();
         RefreshWarehouseAnalyticsCard();
@@ -610,6 +373,7 @@ public partial class MarketplaceView : UserControl
         RefreshAnalyticsExportCard();
         RefreshScalesCard();
         RefreshStandardPackCards();
+        Store.Reload(); // 2026-10-23: темы и виды кассы рисуются цветами текущего варианта темы
     }
 
     /// <summary>Кисть из ресурсов приложения — карточки Маркетплейса собираются в коде, а там
@@ -658,8 +422,10 @@ public partial class MarketplaceView : UserControl
     {
         var prefs = UserPreferences.Instance;
         var unlocked = prefs.VoiceControlUnlocked;
-        var installedRu = VoiceModelDownloadService.IsInstalled(VoiceModelLanguage.Russian);
-        var installedKy = VoiceModelDownloadService.IsInstalled(VoiceModelLanguage.Kyrgyz);
+        // 2026-10-24 (аудит, круг 8, С-9): у владельца голос не работает — смотрим модели КАССЫ этого ПК, а не своей папки.
+        var ownerView = AppMode.IsOwner;
+        var installedRu = ownerView ? VoiceModelDownloadService.IsInstalledInKassa(VoiceModelLanguage.Russian) : VoiceModelDownloadService.IsInstalled(VoiceModelLanguage.Russian);
+        var installedKy = ownerView ? VoiceModelDownloadService.IsInstalledInKassa(VoiceModelLanguage.Kyrgyz) : VoiceModelDownloadService.IsInstalled(VoiceModelLanguage.Kyrgyz);
         var installed = installedRu || installedKy;
 
         var titleText = new TextBlock
@@ -726,6 +492,28 @@ public partial class MarketplaceView : UserControl
             };
             unlockButton.Click += VoiceUnlockButton_Click;
             content.Children.Add(unlockButton);
+        }
+        else if (ownerView)
+        {
+            // 2026-10-24 (аудит, круг 8, С-9): у владельца — только статус моделей кассы, без скачивания, переключателя и проверки.
+            foreach (var (isInstalled, ruOk, ruNo) in new[]
+            {
+                (installedRu,
+                    Tr.T("Русская модель установлена в кассе этого компьютера", "Орус модели бул компьютердин кассасында орнотулган", "The Russian model is installed in this computer's till", "Rusça model bu bilgisayarın kasasında kurulu", "Rus modeli shu kompyuterning kassasida o'rnatilgan"),
+                    Tr.T("Русская модель не установлена — скачайте в кассе: Маркетплейс → Голосовое управление", "Орус модели орнотулган эмес — кассадан жүктөп алыңыз: Маркетплейс → Үн менен башкаруу", "The Russian model is not installed — download it in the till: Marketplace → Voice control", "Rusça model kurulu değil — kasadan indirin: Pazar yeri → Sesli kontrol", "Rus modeli o'rnatilmagan — kassada yuklab oling: Marketpleys → Ovozli boshqaruv")),
+                (installedKy,
+                    Tr.T("Кыргызская модель установлена в кассе этого компьютера", "Кыргыз модели бул компьютердин кассасында орнотулган", "The Kyrgyz model is installed in this computer's till", "Kırgızca model bu bilgisayarın kasasında kurulu", "Qirg'iz modeli shu kompyuterning kassasida o'rnatilgan"),
+                    Tr.T("Кыргызская модель не установлена — скачайте в кассе: Маркетплейс → Голосовое управление", "Кыргыз модели орнотулган эмес — кассадан жүктөп алыңыз: Маркетплейс → Үн менен башкаруу", "The Kyrgyz model is not installed — download it in the till: Marketplace → Voice control", "Kırgızca model kurulu değil — kasadan indirin: Pazar yeri → Sesli kontrol", "Qirg'iz modeli o'rnatilmagan — kassada yuklab oling: Marketpleys → Ovozli boshqaruv")),
+            })
+            {
+                content.Children.Add(new TextBlock
+                {
+                    Text = (isInstalled ? "✓ " : "") + (isInstalled ? ruOk : ruNo),
+                    FontSize = 12,
+                    Foreground = ThemeBrush(isInstalled ? "BrushAccent" : "BrushTextSoft", Brushes.Gray),
+                    TextWrapping = TextWrapping.Wrap,
+                });
+            }
         }
         else
         {
@@ -1597,7 +1385,7 @@ public partial class MarketplaceView : UserControl
     // уже входит в тариф). Подключение — серийным ключом, как остальные доп. функции (LicenseKeys, slug = TariffGate.Packs).
     private readonly List<Border> _packCards = new();
 
-    private static IEnumerable<(string Slug, string Title, string Description)> StandardPacks()
+    internal static IEnumerable<(string Slug, string Title, string Description)> StandardPacks()
     {
         yield return (TariffGate.Packs.Ai,
             Tr.T("ИИ-советник и ИИ в боте", "ИИ-кеңешчи жана боттогу ИИ", "AI advisor and the bot's AI", "Yapay zekâ danışmanı ve bottaki yapay zekâ", "SI maslahatchi va botdagi SI"),
@@ -2115,8 +1903,7 @@ public partial class MarketplaceView : UserControl
         {
             App.ApplyMainLayoutMode(isOneC ? "standard" : "onec");
             RefreshLayoutModeCard();
-            LayoutPicker.Rebuild();
-            RefreshCustomerDisplayCard();
+            Store.Reload();
         };
 
         // 2026-09-28: видов кассы теперь шесть — отсюда одна ссылка на вкладку «Виды кассы».

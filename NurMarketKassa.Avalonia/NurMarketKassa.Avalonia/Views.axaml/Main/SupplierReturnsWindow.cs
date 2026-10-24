@@ -387,7 +387,7 @@ public sealed class SupplierReturnDialog : Window
     private readonly WrapPanel _reasonChips = new();
     private readonly StackPanel _compChips = new() { Spacing = 6 };
     private readonly StackPanel _lines = new() { Spacing = 6 };
-    private readonly TextBox _comment = new() { MinHeight = 38, Watermark = T("Комментарий (необязательно)", "Комментарий (милдеттүү эмес)", "Comment (optional)", "Yorum (isteğe bağlı)", "Izoh (ixtiyoriy)") };
+    private readonly TextBox _comment = new() { MinHeight = 44, Watermark = T("Комментарий (необязательно)", "Комментарий (милдеттүү эмес)", "Comment (optional)", "Yorum (isteğe bağlı)", "Izoh (ixtiyoriy)") };
     private readonly TextBlock _total = new() { FontSize = 16, FontWeight = FontWeight.Bold };
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private readonly Button _save;
@@ -399,6 +399,16 @@ public sealed class SupplierReturnDialog : Window
     private string _reason = "defect";
     private string _compensation = "cash";
     private Panel? _cashboxPanel;
+    // 2026-10-22 (закупки как в вебе): «Вернуть» в строке «Истории закупок» — окно сразу с этим поставщиком и приходом.
+    private string? _preSupplierId;
+    private readonly Views.Dialogs.ModalShell _shell;
+    private string? _preReceiptId;
+
+    public SupplierReturnDialog(string? supplierId, string? receiptId) : this()
+    {
+        _preSupplierId = supplierId;
+        _preReceiptId = receiptId;
+    }
 
     public SupplierReturnDialog()
     {
@@ -450,7 +460,9 @@ public sealed class SupplierReturnDialog : Window
         _save = SectionCards.Primary(T("Оформить возврат", "Кайтарууну тариздөө", "Make the return", "İadeyi kaydet", "Qaytarishni rasmiylashtirish"));
         _save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
 
-        Content = SectionCards.Shell(Title,
+        // 2026-10-22 (модалки, пакет 4): оболочка запоминается — на время запроса окно занято (IsBusy): ✕, Esc и «Отмена»
+        // выключены, окно не закрыть посреди оформления (иначе не узнать, оформлен ли возврат); чипы и поля — 44 px.
+        Content = _shell = SectionCards.Shell(Title,
             T("Товар уйдёт со склада поставщику. Цена — закупочная.", "Товар кампадан жеткирүүчүгө кетет. Баасы — сатып алуу баасы.",
                 "The goods leave the stock back to the supplier. Price — the purchase price.", "Ürün stoktan tedarikçiye gider. Fiyat — alış fiyatı.",
                 "Mahsulot ombordan yetkazib beruvchiga ketadi. Narx — xarid narxi."),
@@ -489,7 +501,7 @@ public sealed class SupplierReturnDialog : Window
         foreach (var reason in new[] { "defect", "surplus", "wrong_item", "expired", "other" })
         {
             var chip = UiKit.Chip(this, SupplierReturnsWindow.ReasonName(reason), reason == _reason);
-            chip.MinHeight = 34;
+            chip.MinHeight = 44;
             chip.Margin = new Thickness(0, 0, 8, 8);
             chip.Click += (_, _) =>
             {
@@ -516,7 +528,7 @@ public sealed class SupplierReturnDialog : Window
                  })
         {
             var chip = UiKit.Chip(this, text, comp == _compensation);
-            chip.MinHeight = 38;
+            chip.MinHeight = 44;
             // 2026-10-20, этап О9б: варианты «что с деньгами» — во всю ширину, текст слева (как строки выбора), выбранный тёмно-синий.
             chip.HorizontalAlignment = HorizontalAlignment.Stretch;
             chip.HorizontalContentAlignment = HorizontalAlignment.Left;
@@ -553,6 +565,11 @@ public sealed class SupplierReturnDialog : Window
             _suppliers = Rows(data).Select(x => (SupplierReturnsWindow.Str(x, "id"), SupplierReturnsWindow.Str(x, "full_name") is { Length: > 0 } n ? n : SupplierReturnsWindow.Str(x, "llc")))
                 .Where(x => x.Item1.Length > 0).OrderBy(x => x.Item2, StringComparer.CurrentCultureIgnoreCase).ToList();
             _supplier.ItemsSource = _suppliers.Select(x => x.Name).ToList();
+            if (_preSupplierId is { Length: > 0 } pre && _suppliers.FindIndex(x => x.Id == pre) is >= 0 and var preIndex)
+            {
+                _preSupplierId = null;
+                _supplier.SelectedIndex = preIndex;
+            }
             _supplier.PlaceholderText = _suppliers.Count == 0
                 ? T("Поставщиков нет — добавьте их на сайте NurCRM", "Жеткирүүчүлөр жок — NurCRM сайтында кошуңуз", "No suppliers — add them on the NurCRM website", "Tedarikçi yok — NurCRM sitesinde ekleyin", "Yetkazib beruvchilar yo'q — NurCRM saytida qo'shing")
                 : T("Выберите поставщика", "Жеткирүүчүнү тандаңыз", "Choose a supplier", "Tedarikçi seçin", "Yetkazib beruvchini tanlang");
@@ -567,7 +584,18 @@ public sealed class SupplierReturnDialog : Window
             _cashboxes = Rows(data).Select(x => (SupplierReturnsWindow.Str(x, "id"), SupplierReturnsWindow.Str(x, "name") is { Length: > 0 } n ? n : SupplierReturnsWindow.Str(x, "title")))
                 .Where(x => x.Item1.Length > 0).ToList();
             _cashbox.ItemsSource = _cashboxes.Select(x => x.Name.Length > 0 ? x.Name : x.Id[..8]).ToList();
-            var preferred = _cashboxes.FindIndex(x => x.Id == UserPreferences.Instance.PreferredCashboxId);
+            // 2026-10-23 (аудит Б-7, круг 4): закупка платится из «Основной кассы компании» (на NBS — роль pos_main), а не из «Переменных
+            // расходов» (expense_variable, стоит в списке раньше) — возврат по умолчанию туда же. Порядок: имя «Основн…», затем роль pos_main;
+            // кассу расходов не берём; иначе — прошлый выбор.
+            var all = Rows(data).ToList();
+            var mainRow = all.FirstOrDefault(x => SupplierReturnsWindow.Str(x, "name").Contains("Основн", StringComparison.OrdinalIgnoreCase))
+                          is { ValueKind: JsonValueKind.Object } byName ? byName
+                : all.FirstOrDefault(x => string.Equals(SupplierReturnsWindow.Str(x, "role"), "pos_main", StringComparison.OrdinalIgnoreCase)
+                                          || string.Equals(SupplierReturnsWindow.Str(x, "cashbox_role"), "pos_main", StringComparison.OrdinalIgnoreCase));
+            var mainId = mainRow.ValueKind == JsonValueKind.Object ? SupplierReturnsWindow.Str(mainRow, "id") : "";
+            var preferred = mainId.Length > 0 ? _cashboxes.FindIndex(x => x.Id == mainId) : -1;
+            if (preferred < 0)
+                preferred = _cashboxes.FindIndex(x => x.Id == UserPreferences.Instance.PreferredCashboxId);
             _cashbox.SelectedIndex = _cashboxes.Count == 0 ? -1 : Math.Max(0, preferred);
             BuildChips();
         }
@@ -608,6 +636,11 @@ public sealed class SupplierReturnDialog : Window
                     ? T("Приходов от этого поставщика нет — выберите «Со склада»", "Бул жеткирүүчүдөн кириш жок — «Кампадан» тандаңыз", "No deliveries from this supplier — choose “From stock”", "Bu tedarikçiden giriş yok — «Stoktan» seçin", "Bu yetkazib beruvchidan kirim yo'q — «Ombordan»ni tanlang")
                     : T("Выберите приход", "Киришти тандаңыз", "Choose a delivery", "Girişi seçin", "Kirimni tanlang");
                 _receipt.SelectedIndex = -1;
+                if (_preReceiptId is { Length: > 0 } preReceipt && _receipts.FindIndex(x => x.Id == preReceipt) is >= 0 and var receiptIndex)
+                {
+                    _preReceiptId = null;
+                    _receipt.SelectedIndex = receiptIndex;
+                }
             }
             else
             {
@@ -664,7 +697,7 @@ public sealed class SupplierReturnDialog : Window
         info.Children.Add(title);
         info.Children.Add(meta);
         row.Children.Add(info);
-        var qty = new TextBox { Width = 110, MinHeight = 36, Watermark = "0", IsEnabled = max > 0, HorizontalContentAlignment = HorizontalAlignment.Right };
+        var qty = new TextBox { Width = 110, MinHeight = 44, Watermark = "0", IsEnabled = max > 0, HorizontalContentAlignment = HorizontalAlignment.Right };
         qty.TextChanged += (_, _) => UpdateTotal();
         Grid.SetColumn(qty, 1);
         row.Children.Add(qty);
@@ -731,15 +764,19 @@ public sealed class SupplierReturnDialog : Window
             body["receipt_id"] = _receipts[_receipt.SelectedIndex].Id;
         if (_compensation == "cash" && _cashbox.SelectedIndex >= 0 && _cashbox.SelectedIndex < _cashboxes.Count)
             body["cashbox_id"] = _cashboxes[_cashbox.SelectedIndex].Id;
+        if (!_shell.TryBeginBusy())
+            return;
         _save.IsEnabled = false;
         try
         {
             await _api.RequestAsync(HttpMethod.Post, $"api/main/suppliers/{supplierId}/returns/", body, null, CancellationToken.None, TimeSpan.FromSeconds(40)).ConfigureAwait(true);
             PosLogger.Log($"Возврат поставщику оформлен: {items.Count} строк(и), {_reason}, {_compensation}.", "INFO");
+            _shell.EndBusy();
             Close(true);
         }
         catch (Exception ex)
         {
+            _shell.EndBusy();
             _save.IsEnabled = true;
             ShowError(T("Не оформлено: ", "Тариздөлгөн жок: ", "Not saved: ", "Kaydedilmedi: ", "Rasmiylashtirilmadi: ") + ServerTelegramBotApi.DescribeFields(ex));
             PosLogger.Log($"Возврат поставщику: не оформлен ({ex.Message}).", "WARNING");

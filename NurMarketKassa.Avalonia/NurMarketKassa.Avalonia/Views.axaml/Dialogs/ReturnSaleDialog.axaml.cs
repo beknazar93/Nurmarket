@@ -105,6 +105,13 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     private void RaiseSelectionState()
     {
         OnPropertyChanged(nameof(CanReturnSelected));
+        // 2026-10-22 (модалки, пакет 1): подсказка «отметьте позицию» (строкой в окне) снимается, как только отметили.
+        if (_inputError is not null && Lines.Any(x => x.CanReturn && x.IsSelected) && ErrorText.Text == _inputError)
+        {
+            ErrorText.IsVisible = false;
+            ErrorText.Text = "";
+            _inputError = null;
+        }
     }
 
     private void OnReturnLinePropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -396,9 +403,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                     "Sotuvlar ro'yxati bo'sh yoki API ma'lumot qaytarmadi. «Yangilash»ni bosib ko'ring yoki sotuv ID'sini qo'lda kiriting."));
             else if (!reset && added == 0)
             {
-                PosMessageBox.Show(this, Tr.T("Больше записей нет.", "Башка жазуулар жок.", "No more records.", "Başka kayıt yok.", "Boshqa yozuvlar yo'q."),
-                    Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"),
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                // 2026-10-22 (модалки, пакет 1): сообщение — строкой в окне, а не всплывающим окном.
+                ShowInputErr(Tr.T("Больше чеков нет — загружены все.", "Башка чек жок — баары жүктөлдү.", "No more receipts — all are loaded.", "Başka fiş yok — hepsi yüklendi.", "Boshqa chek yo'q — hammasi yuklandi."));
                 _salesPage = Math.Max(1, _salesPage - 1);
             }
 
@@ -982,10 +988,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         var selected = Lines.Where(x => x.CanReturn && x.IsSelected).ToList();
         if (selected.Count == 0)
         {
-            PosMessageBox.Show(this,
-                Tr.T("Отметьте галочками хотя бы одну позицию для возврата.", "Кайтаруу үчүн жок дегенде бир позицияны белгилеңиз.", "Check at least one item to return.", "İade için en az bir kalemi işaretleyin.", "Qaytarish uchun kamida bitta pozitsiyani belgilang."),
-                Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowInputErr(Tr.T("Отметьте галочками хотя бы одну позицию для возврата.", "Кайтаруу үчүн жок дегенде бир позицияны белгилеңиз.", "Check at least one item to return.", "İade için en az bir kalemi işaretleyin.", "Qaytarish uchun kamida bitta pozitsiyani belgilang."));
             return;
         }
 
@@ -1007,13 +1010,15 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         // 2026-10-20 (К1): сумма — с долей скидки на чек, без «~» и в виде «1 234,50 сом».
         var totalShown = MoneyText.Som(total);
         if (await PosMessageBox.ShowModalAsync(this,
-                Tr.T($"Выбрано позиций: {selected.Count}\nСумма возврата: {totalShown}\n\nПродолжить?",
-                    $"Тандалган позиция: {selected.Count}\nКайтаруу суммасы: {totalShown}\n\nУлантасызбы?",
-                    $"Items selected: {selected.Count}\nRefund amount: {totalShown}\n\nContinue?",
-                    $"Seçilen kalem: {selected.Count}\nİade tutarı: {totalShown}\n\nDevam edilsin mi?",
-                    $"Tanlangan pozitsiyalar: {selected.Count}\nQaytarish summasi: {totalShown}\n\nDavom etilsinmi?"),
+                Tr.T($"Выбрано позиций: {selected.Count}\nСумма возврата: {totalShown}",
+                    $"Тандалган позиция: {selected.Count}\nКайтаруу суммасы: {totalShown}",
+                    $"Items selected: {selected.Count}\nRefund amount: {totalShown}",
+                    $"Seçilen kalem: {selected.Count}\nİade tutarı: {totalShown}",
+                    $"Tanlangan pozitsiyalar: {selected.Count}\nQaytarish summasi: {totalShown}"),
                 Tr.T("Подтверждение возврата", "Кайтарууну ырастоо", "Confirm return", "İadeyi onayla", "Qaytarishni tasdiqlash"),
-                MessageBoxButton.YesNo, MessageBoxImage.Question).ConfigureAwait(true) != MessageBoxResult.Yes)
+                MessageBoxButton.YesNo, MessageBoxImage.Question,
+                // 2026-10-22 (модалки, пакет 1): кнопки — глагол с суммой («Вернуть 1 620,00 сом» / «Отмена») вместо «Продолжить?».
+                confirmText: Tr.T($"Вернуть {totalShown}", $"{totalShown} кайтаруу", $"Refund {totalShown}", $"{totalShown} iade et", $"{totalShown} qaytarish")).ConfigureAwait(true) != MessageBoxResult.Yes)
             return;
 
         // 2026-10-06 (О-31, О-32): срок обмена и товары «без обмена» — в сфере «Одежда».
@@ -1051,6 +1056,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 .OrderBy(r => r.LineId, StringComparer.Ordinal)
                 .Select(r => r.LineId + ":" + r.Quantity.ToString("0.###", CultureInfo.InvariantCulture))));
 
+            var cashBefore = await ReadDrawerBeforeRefundAsync().ConfigureAwait(true);
             await PosRefundService.RefundLinesAsync(
                 App.SalesApi,
                 saleId,
@@ -1075,6 +1081,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 selected.Select(l => new SaleLedgerLine { LineId = l.LineId, Name = l.Title, Quantity = l.Quantity, Total = l.RefundSum }).ToList())
                 .ConfigureAwait(true);
             total = outcome.Amount;
+            CheckDrawerAfterRefund(cashBefore, outcome.Cash, "lines|" + returnKey, saleId, outcome.NonCash);
 
             // В итогах смены на сервере возвратов нет вовсе — записываем сами, иначе кассир
             // при закрытии смены их не увидит (см. ShiftEventsStore).
@@ -1129,14 +1136,17 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
             // 2026-10-20 (живой аудит, К7): ошибка печати — строкой в том же итоговом окне, а не отдельным окном
             // (было 4 окна на один возврат: подтверждение, причина, ошибка печати, итог).
-            PosMessageBox.Show(this, (selected.Count == 1
+            // 2026-10-23 (аудит К6): возврат прошёл — это не ошибка; предупреждение о принтере показываем как info (без «Отложить ошибку»).
+            var returnDoneText = (selected.Count == 1
                     ? Tr.T("Возврат оформлен.", "Кайтаруу таризделди.", "Return completed.", "İade tamamlandı.", "Qaytarish rasmiylashtirildi.")
                     : Tr.T($"Возврат оформлен ({selected.Count} поз.).", $"Кайтаруу таризделди ({selected.Count} поз.).", $"Return completed ({selected.Count} items).", $"İade tamamlandı ({selected.Count} kalem).", $"Qaytarish rasmiylashtirildi ({selected.Count} poz.)."))
                     // 2026-10-20 (К2, К3): к выдаче — внесённые деньги с разбивкой; у долга — на сколько уменьшен долг.
                     + "\n" + RefundToGiveText(outcome)
-                    + ReturnPrintNote(printError),
-                Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK,
-                printError is null ? MessageBoxImage.Information : MessageBoxImage.Warning);
+                    + ReturnPrintNote(printError);
+            if (printError is null)
+                PosMessageBox.Show(this, returnDoneText, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Information);
+            else
+                PosAlertDialog.Show(this, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), returnDoneText, PosAlertKind.Warning, null, info: true);
         }
         catch (ApiException ex) when (ex.StatusCode == 502 && ex.Message.Contains("Возвращено позиций", StringComparison.Ordinal))
         {
@@ -1215,6 +1225,45 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// уменьшение долга посчитано по журналу кассы (оплаты долга он не знает): кассиру — предупреждение, а не «Выдать 0,00».</param>
     /// <param name="ServerOver">2026-10-21 (ревью денег, мелочь 5): на сколько сервер записал возврат больше выданного кассой
     /// (скидка на чек не учтена сервером, ТЗ 19.9) — окно закрытия смены объясняет «излишек» в ящике.</param>
+    /// <summary>2026-10-22 (аудит 1.17.59, П-А, Б1): остаток смены на сервере до возврата — сервер не вычитает наличные при
+    /// возврате долгового чека, и шапка «Касса» оставалась завышенной (см. ExchangeCashCorrections). null — не узнали.</summary>
+    private static async Task<decimal?> ReadDrawerBeforeRefundAsync()
+    {
+        var shiftId = PosApp.ActiveShiftId;
+        if (string.IsNullOrWhiteSpace(shiftId))
+            return null;
+        return await ExchangeCashCorrections.ReadExpectedCashAsync(App.GetRequiredService<NurMarketApiClient>(), shiftId).ConfigureAwait(true);
+    }
+
+    /// <summary>Сверка после возврата: наличные ушли из ящика на <paramref name="cashOut"/>, а сервер остаток не уменьшил — поправка.</summary>
+    private static void CheckDrawerAfterRefund(decimal? before, decimal cashOut, string key, string? saleId = null, decimal nonCash = 0m)
+    {
+        var shiftId = PosApp.ActiveShiftId;
+        // 2026-10-23 (живой аудит, Б-1): долговой чек с безналичной предоплатой — наличные не уходят (cashOut 0), но сервер
+        // вычитает предоплату из остатка смены и старая поправка предоплаты становится лишней: снимаем её, если остаток
+        // на сервере действительно уменьшился на безнал.
+        if (before is { } b0 && cashOut <= 0m && nonCash > 0m && !string.IsNullOrWhiteSpace(shiftId) && !string.IsNullOrWhiteSpace(saleId))
+        {
+            var client0 = App.GetRequiredService<NurMarketApiClient>();
+            _ = Task.Run(async () =>
+            {
+                var after0 = await ExchangeCashCorrections.ReadExpectedCashAsync(client0, shiftId).ConfigureAwait(false);
+                if (after0 is { } a0 && Math.Abs((a0 - b0) + nonCash) < 0.01m)
+                    ExchangeCashCorrections.RemoveDebtPrepay(shiftId, saleId);
+            });
+            return;
+        }
+        if (before is null || cashOut <= 0m || string.IsNullOrWhiteSpace(shiftId))
+            return;
+        var client = App.GetRequiredService<NurMarketApiClient>();
+        _ = Task.Run(async () =>
+        {
+            var after = await ExchangeCashCorrections.ReadExpectedCashAsync(client, shiftId).ConfigureAwait(false);
+            if (after is { } a)
+                ExchangeCashCorrections.RecordIfKnownServerError(shiftId, "refund:" + key, (a - before.Value) + cashOut, cashOut, "Возврат (наличные)");
+        });
+    }
+
     private sealed record RefundOutcome(decimal Amount, decimal Cash, decimal NonCash, decimal DebtReduced, bool SplitKnown, bool DebtUnknown = false,
         decimal ServerOver = 0m)
     {
@@ -1256,7 +1305,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             else if (server > amount + 0.009m)
             {
                 serverOver = server - amount;
-                var paid = ledger is null ? "" : $", оплачено {ledger.Total:0.00}, возвращено раньше {ledger.Refunded:0.00}";
+                var paid = ledger is null ? "" : $", оплачено {MoneyText.Amount(ledger.Total)}, возвращено раньше {MoneyText.Amount(ledger.Refunded)}";
                 PosLogger.Log($"Возврат по чеку {number} ({saleId}): сервер вернул {server:0.00} — больше, чем положено ({amount:0.00}{paid}; скидка на чек не учтена сервером). Кассиру показана сумма кассы.", "WARNING");
                 try
                 {
@@ -1675,7 +1724,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                         $"{date:dd.MM.yyyy} tarihli fiş: {days} gün geçti, değişim ve iade süresi ise {limit} gün (satın alma günü sayılmaz).\n\nKanuna göre bu süreden sonra kusursuz ürün değiştirilmez ve iade edilmez; kusurlu ürün daha uzun süre kabul edilir.\n\nYine de {what} yapılsın mı?",
                         $"{date:dd.MM.yyyy} sanadagi chek: {days} kun o'tdi, almashtirish va qaytarish muddati esa {limit} kun (xarid kuni hisoblanmaydi).\n\nQonun bo'yicha bu muddatdan keyin nuqsonsiz mahsulot almashtirilmaydi va qaytarilmaydi; nuqsonli mahsulot uzoqroq qabul qilinadi.\n\nBaribir {what} rasmiylashtirilsinmi?"),
                     Tr.T("Срок обмена прошёл", "Алмаштыруу мөөнөтү өттү", "Exchange period is over", "Değişim süresi doldu", "Almashtirish muddati o'tdi"),
-                    MessageBoxButton.YesNo, MessageBoxImage.Warning).ConfigureAwait(true) != MessageBoxResult.Yes)
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                    // 2026-10-22 (модалки, пакет 1): глагол вместо «Продолжить»: «Оформить возврат» / «Оформить обмен».
+                    confirmText: exchange
+                        ? Tr.T("Оформить обмен", "Алмаштырууну тариздөө", "Process exchange", "Değişimi yap", "Almashtirishni rasmiylashtirish")
+                        : Tr.T("Оформить возврат", "Кайтарууну тариздөө", "Process return", "İadeyi yap", "Qaytarishni rasmiylashtirish")).ConfigureAwait(true) != MessageBoxResult.Yes)
                 return null;
             PosLogger.Log($"{title} по чеку {_currentSaleId} после срока: прошло {days} дн. из {limit}, кассир подтвердил.", "SALES");
         }
@@ -1693,14 +1746,19 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 $"By law, these items are not exchanged unless defective:\n{names}\n\nIf it is a defect, better make a “Return” marked “Defective” (the item won't go back on sale) and sell the new item with a regular receipt: an exchange puts the item back in stock.\n\nExchange anyway?",
                 $"Kanuna göre bu ürünler kusurlu değilse değiştirilmez:\n{names}\n\nKusurluysa «Kusurlu» işaretli «İade» yapın (ürün satışa dönmez) ve yeni ürünü normal fişle satın: değişim ürünü stoğa geri koyar.\n\nYine de değiştirilsin mi?",
                 $"Qonun bo'yicha bu mahsulotlar nuqsonsiz bo'lsa almashtirilmaydi:\n{names}\n\nAgar nuqson bo'lsa — «Nuqsonli» belgisi bilan «Qaytarish»ni rasmiylashtiring (mahsulot sotuvga qaytmaydi), yangi mahsulotni oddiy chek bilan soting: almashtirish mahsulotni omborga qaytaradi.\n\nBaribir almashtirilsinmi?")
-            : Tr.T($"Эти товары без брака по закону не обменивают и не возвращают:\n{names}\n\nУ товара брак? «Да» — оформить возврат как брак (товар не вернётся в продажу), «Нет» — отменить.",
-                $"Бул товарлар бузук болбосо мыйзам боюнча алмаштырылбайт жана кайтарылбайт:\n{names}\n\nТовар бузукпу? «Ооба» — кайтарууну бузук катары таризделөө (товар сатууга кайтпайт), «Жок» — жокко чыгаруу.",
-                $"By law, these items are not exchanged or returned unless defective:\n{names}\n\nIs the item defective? “Yes” — return it as defective (it won't go back on sale), “No” — cancel.",
-                $"Kanuna göre bu ürünler kusurlu değilse değiştirilmez ve iade edilmez:\n{names}\n\nÜrün kusurlu mu? «Evet» — kusurlu olarak iade et (satışa dönmez), «Hayır» — iptal.",
-                $"Qonun bo'yicha bu mahsulotlar nuqsonsiz bo'lsa almashtirilmaydi va qaytarilmaydi:\n{names}\n\nMahsulot nuqsonlimi? «Ha» — nuqsonli sifatida qaytarish (sotuvga qaytmaydi), «Yo'q» — bekor qilish.");
+            : Tr.T($"Эти товары без брака по закону не обменивают и не возвращают:\n{names}\n\nЕсли у товара брак — оформите возврат как брак: товар не вернётся в продажу.",
+                $"Бул товарлар бузук болбосо мыйзам боюнча алмаштырылбайт жана кайтарылбайт:\n{names}\n\nТовар бузук болсо — кайтарууну бузук катары тариздеңиз: товар сатууга кайтпайт.",
+                $"By law, these items are not exchanged or returned unless defective:\n{names}\n\nIf the item is defective, return it as defective: it won't go back on sale.",
+                $"Kanuna göre bu ürünler kusurlu değilse değiştirilmez ve iade edilmez:\n{names}\n\nÜrün kusurluysa kusurlu olarak iade edin: satışa dönmez.",
+                $"Qonun bo'yicha bu mahsulotlar nuqsonsiz bo'lsa almashtirilmaydi va qaytarilmaydi:\n{names}\n\nMahsulot nuqsonli bo'lsa — nuqsonli sifatida qaytaring: sotuvga qaytmaydi.");
         var answer = await PosMessageBox.ShowModalAsync(this, text,
             Tr.T("Товар не подлежит обмену", "Товар алмаштырылбайт", "Item cannot be exchanged", "Ürün değiştirilemez", "Mahsulot almashtirilmaydi"),
-            MessageBoxButton.YesNo, MessageBoxImage.Warning).ConfigureAwait(true);
+            MessageBoxButton.YesNo, MessageBoxImage.Warning,
+            // 2026-10-22 (модалки, пакет 1): глаголы вместо «Да» / «Нет» (текст больше не называет кнопки): у возврата —
+            // «Оформить как брак», у обмена — «Оформить обмен»; вторая — «Отмена» (умолчание окна). Смысл ответов прежний.
+            confirmText: exchange
+                ? Tr.T("Оформить обмен", "Алмаштырууну тариздөө", "Process exchange", "Değişimi yap", "Almashtirishni rasmiylashtirish")
+                : Tr.T("Оформить как брак", "Бузук катары тариздөө", "Return as defective", "Kusurlu olarak iade et", "Nuqsonli sifatida rasmiylashtirish")).ConfigureAwait(true);
         if (answer != MessageBoxResult.Yes)
             return null;
         PosLogger.Log($"{title} по чеку {_currentSaleId}: товар из категории без обмена ({string.Join(", ", flagged.Select(x => x.Category))}), кассир подтвердил.", "SALES");
@@ -1736,10 +1794,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         var exchangeTitle = Tr.T("Обмен", "Алмаштыруу", "Exchange", "Değişim", "Almashtirish");
         if (selected.Count == 0)
         {
-            PosMessageBox.Show(this,
-                Tr.T("Отметьте галочками, что покупатель возвращает.", "Сатып алуучу эмнени кайтарарын белгилеңиз.", "Check what the customer is returning.",
-                    "Müşterinin iade ettiklerini işaretleyin.", "Xaridor nimani qaytarayotganini belgilang."),
-                exchangeTitle, MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowInputErr(Tr.T("Отметьте галочками, что покупатель возвращает.", "Сатып алуучу эмнени кайтарарын белгилеңиз.", "Check what the customer is returning.",
+                "Müşterinin iade ettiklerini işaretleyin.", "Xaridor nimani qaytarayotganini belgilang."));
             return;
         }
         if (await CheckReturnRulesAsync(selected, exchange: true).ConfigureAwait(true) is null)
@@ -1761,12 +1817,12 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
         var money = done.Difference > 0.004m
             ? (done.PaymentMethod == "transfer"
-                ? Tr.T($"Доплата переводом: {done.Difference:N2} сом — проверьте, что перевод пришёл.", $"Которуу менен кошумча төлөм: {done.Difference:N2} сом — которуу келгенин текшериңиз.",
-                    $"Paid by transfer: {done.Difference:N2} som — check that the transfer arrived.", $"Havale ile ek ödeme: {done.Difference:N2} som — havalenin geldiğini kontrol edin.",
-                    $"O'tkazma orqali qo'shimcha to'lov: {done.Difference:N2} so'm — o'tkazma kelganini tekshiring.")
-                : Tr.T($"Получить с покупателя: {done.Difference:N2} сом наличными.", $"Сатып алуучудан алуу: {done.Difference:N2} сом накталай.",
-                    $"Take from the customer: {done.Difference:N2} som in cash.", $"Müşteriden alınacak: {done.Difference:N2} som nakit.",
-                    $"Xaridordan olish: {done.Difference:N2} so'm naqd."))
+                ? Tr.T($"Доплата переводом: {MoneyText.Amount(done.Difference)} сом — проверьте, что перевод пришёл.", $"Которуу менен кошумча төлөм: {MoneyText.Amount(done.Difference)} сом — которуу келгенин текшериңиз.",
+                    $"Paid by transfer: {MoneyText.Amount(done.Difference)} som — check that the transfer arrived.", $"Havale ile ek ödeme: {MoneyText.Amount(done.Difference)} som — havalenin geldiğini kontrol edin.",
+                    $"O'tkazma orqali qo'shimcha to'lov: {MoneyText.Amount(done.Difference)} so'm — o'tkazma kelganini tekshiring.")
+                : Tr.T($"Получить с покупателя: {MoneyText.Amount(done.Difference)} сом наличными.", $"Сатып алуучудан алуу: {MoneyText.Amount(done.Difference)} сом накталай.",
+                    $"Take from the customer: {MoneyText.Amount(done.Difference)} som in cash.", $"Müşteriden alınacak: {MoneyText.Amount(done.Difference)} som nakit.",
+                    $"Xaridordan olish: {MoneyText.Amount(done.Difference)} so'm naqd."))
             : done.Difference < -0.004m
                 ? RefundToGiveText(-done.Difference)
                 : Tr.T("Без доплаты.", "Кошумча төлөмсүз.", "No difference to pay.", "Fark yok.", "Qo'shimcha to'lovsiz.");
@@ -1812,9 +1868,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             return;
         if (string.IsNullOrEmpty(_currentSaleId) || IsBusy)
         {
-            PosMessageBox.Show(this, Tr.T("Сначала выберите чек в списке выше.", "Алгач жогорудагы тизмеден чекти тандаңыз.", "Select a receipt in the list above first.", "Önce yukarıdaki listeden bir fiş seçin.", "Avval yuqoridagi ro'yxatdan chekni tanlang."),
-                Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            // 2026-10-22 (модалки, пакет 1): строкой в окне (снимется, когда кассир откроет чек), а не всплывающим окном;
+            // во время загрузки (IsBusy) — молча, как кнопка «Вернуть выбранные».
+            if (string.IsNullOrEmpty(_currentSaleId))
+                ShowInputErr(Tr.T("Сначала выберите чек в списке слева.", "Алгач сол жактагы тизмеден чекти тандаңыз.", "Select a receipt in the list on the left first.", "Önce soldaki listeden bir fiş seçin.", "Avval chapdagi ro'yxatdan chekni tanlang."));
             return;
         }
 
@@ -1849,7 +1906,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                     $"Return the whole receipt in one operation? You won't need to return items one by one.\nRefund amount: {wholeShown}",
                     $"Tüm fiş tek işlemde iade edilsin mi? Kalemleri tek tek iade etmeniz gerekmeyecek.\nİade tutarı: {wholeShown}",
                     $"Butun chek bitta amal bilan qaytarilsinmi? Pozitsiyalarni birma-bir qaytarish shart bo'lmaydi.\nQaytarish summasi: {wholeShown}"),
-                Tr.T("Полный возврат", "Толук кайтаруу", "Full return", "Tam iade", "To'liq qaytarish"), MessageBoxButton.YesNo, MessageBoxImage.Question).ConfigureAwait(true) != MessageBoxResult.Yes)
+                Tr.T("Полный возврат", "Толук кайтаруу", "Full return", "Tam iade", "To'liq qaytarish"), MessageBoxButton.YesNo, MessageBoxImage.Question,
+                // 2026-10-22 (модалки, пакет 1): глагол с суммой вместо «Продолжить».
+                confirmText: Tr.T($"Вернуть весь чек — {wholeShown}", $"Бүт чекти кайтаруу — {wholeShown}", $"Refund whole receipt — {wholeShown}",
+                    $"Tüm fişi iade et — {wholeShown}", $"Butun chekni qaytarish — {wholeShown}")).ConfigureAwait(true) != MessageBoxResult.Yes)
             return;
 
         // 2026-10-06 (О-31, О-32): срок обмена и товары «без обмена» — в сфере «Одежда».
@@ -1873,6 +1933,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         {
             // 2026-10-15, ревью: повтор полного возврата того же чека — тот же ключ (см. PendingReturn).
             var returnKey = PendingReturn.Get("whole|" + saleId);
+            var cashBeforeWhole = await ReadDrawerBeforeRefundAsync().ConfigureAwait(true);
             await PosRefundService.RefundWholeSaleAsync(
                 App.SalesApi,
                 saleId,
@@ -1896,6 +1957,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 Lines.Where(l => l.CanReturn).Select(l => new SaleLedgerLine { LineId = l.LineId, Name = l.Title, Quantity = l.Quantity, Total = l.RefundSum }).ToList())
                 .ConfigureAwait(true);
             var wholeTotal = wholeOutcome.Amount;
+            CheckDrawerAfterRefund(cashBeforeWhole, wholeOutcome.Cash, "whole|" + returnKey, saleId, wholeOutcome.NonCash);
             ShiftEventsStore.Record(
                 ShiftEventsStore.KindReturn,
                 PosApp.ActiveShiftId,
@@ -1938,11 +2000,14 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             }
 
             // 2026-10-20 (живой аудит, К7): ошибка печати — строкой в этом же окне, а не отдельным окном.
-            PosMessageBox.Show(this, Tr.T("Полный возврат чека оформлен.", "Чек толугу менен кайтарылды.", "Full receipt return completed.", "Fişin tam iadesi tamamlandı.", "Chek to'liq qaytarildi.")
+            // 2026-10-23 (аудит, круг 7): как в возврате позиций — предупреждение о принтере показываем как info (без «Отложить ошибку»).
+            var wholeDoneText = Tr.T("Полный возврат чека оформлен.", "Чек толугу менен кайтарылды.", "Full receipt return completed.", "Fişin tam iadesi tamamlandı.", "Chek to'liq qaytarildi.")
                     + "\n" + RefundToGiveText(wholeOutcome)
-                    + ReturnPrintNote(wholePrintError),
-                Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK,
-                wholePrintError is null ? MessageBoxImage.Information : MessageBoxImage.Warning);
+                    + ReturnPrintNote(wholePrintError);
+            if (wholePrintError is null)
+                PosMessageBox.Show(this, wholeDoneText, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Information);
+            else
+                PosAlertDialog.Show(this, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), wholeDoneText, PosAlertKind.Warning, null, info: true);
             await RefreshCurrentSaleAsync(saleId).ConfigureAwait(true);
         }
         catch (ApiException ex)
@@ -1981,6 +2046,16 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     {
         ErrorText.Text = msg;
         ErrorText.IsVisible = true;
+    }
+
+    // 2026-10-22 (модалки, пакет 1): ошибка ввода («отметьте позицию», «выберите чек») — красной строкой в самом окне
+    // (ErrorText над кнопками), а не всплывающим окном поверх. Ошибки сервера/сети/печати — по-прежнему окном.
+    private string? _inputError;
+
+    private void ShowInputErr(string msg)
+    {
+        _inputError = msg;
+        ShowErr(msg);
     }
 
     private void SearchReceiptBox_TextChanged(object? sender, TextChangedEventArgs e)

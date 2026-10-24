@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
@@ -76,13 +77,60 @@ class DeletionRow {
   );
 }
 
+/// 2026-10-22 (мобилка, админ, П11): сборка заказа — скан товара [productId] отмечает первую недобранную строку.
+/// [qty] — штук упаковки или вес весовой этикетки (null — 1). Больше заказанного не отмечается.
+/// Возврат: (индекс строки, новое собранное количество) или null — товара нет в заказе или он уже собран.
+(int, double)? pickScanned(List<SiteOrderItem> items, Map<int, double> picked, String productId, double? qty) {
+  for (var i = 0; i < items.length; i++) {
+    final have = picked[i] ?? 0;
+    if (items[i].productId != productId || have >= items[i].qty - 1e-9) continue;
+    final next = math.min(items[i].qty, have + (qty != null && qty > 0 ? qty : 1));
+    return (i, double.parse(next.toStringAsFixed(3)));
+  }
+  return null;
+}
+
+/// 2026-10-22 (мобилка, админ, П11): сколько не хватает до полного заказа (0 — собран целиком).
+double pickShortage(List<SiteOrderItem> items, Map<int, double> picked) {
+  var short = 0.0;
+  for (var i = 0; i < items.length; i++) {
+    short += math.max(0, items[i].qty - (picked[i] ?? 0));
+  }
+  return double.parse(short.toStringAsFixed(3));
+}
+
 class AdminRepository {
   final ApiClient api;
   final AppDatabase db;
   AdminRepository(this.api, this.db);
 
-  /// Выручка и чеки за сегодня: продажи сервера по страницам, пока не дошли до вчерашних.
+  static String _day(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// 2026-10-22 (мобилка, админ, П11): выручка и чеки дня — с сервера, тем же отчётом, что «Сводка» и программа
+  /// владельца (GET api/main/analytics/market/?tab=sales за сегодня). Раньше телефон складывал 10 страниц продаж сам —
+  /// число не совпадало со «Сводкой» (и терялись продажи дальше 10-й страницы). Старый сервер без отчёта — по-старому.
   Future<TodayStats> today() async {
+    final d = _day(DateTime.now());
+    try {
+      final r = await api.get(
+        'api/main/analytics/market/',
+        query: {'tab': 'sales', 'period_start': d, 'period_end': d},
+        timeout: const Duration(seconds: 20),
+      );
+      final cards = r is Map ? r['cards'] : null;
+      if (cards is Map && cards['revenue'] != null) {
+        final c = cards.cast<String, dynamic>();
+        return TodayStats(num0(c, 'revenue'), num0(c, 'transactions').round());
+      }
+    } on ApiException catch (e) {
+      if (e.isTransient) rethrow;
+      // 400/403/404 — отчёта нет: считаем по продажам, как раньше
+    }
+    return _todayFromSales();
+  }
+
+  /// Выручка и чеки за сегодня: продажи сервера по страницам, пока не дошли до вчерашних (запасной путь).
+  Future<TodayStats> _todayFromSales() async {
     final start = DateTime.now();
     final day = DateTime(start.year, start.month, start.day);
     var revenue = 0.0;
@@ -212,6 +260,23 @@ class AdminRepository {
       query: {if (search.trim().isNotEmpty) 'search': search.trim()},
       maxPages: search.trim().isEmpty ? 30 : 2,
     );
+    return _clientRows(rows);
+  }
+
+  /// 2026-10-22 (мобилка, админ, П11): клиенты постранично — экран открывается с первой страницы (50), «Ещё» догружает.
+  /// Раньше при открытии грузилось до 6000 клиентов подряд. more — у сервера есть следующая страница.
+  static const clientsPageSize = 50;
+  Future<({List<ClientRow> rows, bool more})> clientsPage(String search, int page) async {
+    final data = await api.get(
+      'api/main/clients/',
+      query: {if (search.trim().isNotEmpty) 'search': search.trim(), 'page': page, 'page_size': clientsPageSize},
+    );
+    final items = asList(data);
+    final more = data is Map ? data['next'] != null : items.length >= clientsPageSize;
+    return (rows: _clientRows(items), more: more && items.isNotEmpty);
+  }
+
+  List<ClientRow> _clientRows(List<Map<String, dynamic>> rows) {
     return [
       for (final m in rows.where((m) => !const {'supplier', 'suppliers'}.contains(str(m, 'type'))))
         ClientRow(
@@ -243,6 +308,23 @@ class AdminRepository {
   /// Ручное начисление бонусов (POST api/main/clients/{id}/bonus/ {delta, reason: manual}) — тот же запрос, что у кассы.
   Future<void> addBonus(String clientId, double delta, String note) async {
     await api.post('api/main/clients/$clientId/bonus/', body: {'delta': delta, 'reason': 'manual', 'note': note});
+  }
+
+  /// 2026-10-22 (мобилка, админ, П11): код выдачи заказа — один на заказ и хранится на телефоне. Раньше при каждом
+  /// «Заказ собран» придумывался новый и нигде не сохранялся: покупателю приходил один код, на выдаче проверить было нечем.
+  Future<String> pickupCode(String orderId) async {
+    final key = 'pick.code.$orderId';
+    final saved = await db.getSetting(key);
+    if (saved != null && saved.isNotEmpty) return saved;
+    final code = (1000 + math.Random.secure().nextInt(9000)).toString();
+    await db.setSetting(key, code);
+    return code;
+  }
+
+  /// Сохранённый код выдачи или null (заказ ещё не собирали на этом телефоне).
+  Future<String?> savedPickupCode(String orderId) async {
+    final v = await db.getSetting('pick.code.$orderId');
+    return v == null || v.isEmpty ? null : v;
   }
 
   // ------------------------------------------------------------------ журнал удалений (на телефоне)

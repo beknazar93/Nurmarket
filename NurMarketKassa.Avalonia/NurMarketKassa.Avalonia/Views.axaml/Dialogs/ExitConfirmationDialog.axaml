@@ -19,12 +19,11 @@
                     Hint="{DynamicResource modal.hintEnter}">
         <dlg:ModalShell.Footer>
             <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Classes="modal-cancel" MaxWidth="200"
-                        Content="{DynamicResource common.no}"
+                <!-- 2026-10-22 (модалки, пакет 0): глаголы «Остаться» / «Выйти» вместо «Нет» / «Да» — текст ставит код (5 языков). -->
+                <Button x:Name="StayButton" Classes="modal-cancel" MaxWidth="200"
                         IsCancel="True"
                         Click="NoButton_Click" />
-                <Button Classes="modal-primary" MaxWidth="200"
-                        Content="{DynamicResource common.yes}"
+                <Button x:Name="ExitButton" Classes="modal-primary" MaxWidth="200"
                         IsDefault="True"
                         Click="YesButton_Click" />
             </StackPanel>

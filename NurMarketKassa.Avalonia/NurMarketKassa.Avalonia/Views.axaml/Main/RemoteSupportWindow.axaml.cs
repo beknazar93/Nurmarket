@@ -1,4 +1,5 @@
 using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using NurMarketKassa.AvaloniaHost.Services;
@@ -40,6 +41,79 @@ public partial class RemoteSupportWindow : Window, IOwnerSection
                 "«Cihaz bilgilerini kopyala»ya dokunun ve metni NurMarket desteğine gönderin (Telegram, WhatsApp) — program cihazınıza göre uyarlanır. «Nur Destek» ile uzaktan bağlantı Windows kasalarında çalışır.",
                 "«Qurilma ma'lumotlarini nusxalash»ni bosing va matnni NurMarket qo'llab-quvvatlash xizmatiga yuboring (Telegram, WhatsApp) — dastur qurilmangizga moslashtiriladi. «Nur Yordam» orqali masofaviy ulanish Windows'dagi kassada ishlaydi.");
         }
+        WrapInModalShell();
+    }
+
+    private Dialogs.ModalShell? _shell;
+
+    /// <summary>2026-10-22 (модалки, пакет 2): в кассе окно — общая модалка (ModalShell 512, без рамки Windows и без «рамки»
+    /// другого цвета вокруг содержимого): шапка с ✕, «Закрыть» (Esc) справа в подвале, «Скопировать информацию об устройстве» —
+    /// слева (на Android/Linux — главная справа). У владельца окно — раздел: <see cref="AsOwnerSection"/> возвращает прежнюю
+    /// раскладку.</summary>
+    private void WrapInModalShell()
+    {
+        var primaryCopy = CopyDeviceInfoButton.Classes.Contains("PrimaryActionButton");
+        SectionCards.AsModal(this, 512);
+        ClearValue(HeightProperty);
+        Content = null;
+        ButtonsPanel.Children.Clear();
+        RootGrid.Children.Remove(ButtonsPanel);
+        TitlePanel.IsVisible = false;
+        IntroText.Margin = new Avalonia.Thickness(0);
+        RootGrid.Margin = new Avalonia.Thickness(0);
+        RootGrid.Background = Avalonia.Media.Brushes.Transparent;
+        CopyDeviceInfoButton.Margin = new Avalonia.Thickness(0);
+        CloseButton.Margin = new Avalonia.Thickness(0);
+        CopyDeviceInfoButton.Classes.Set("SecondaryActionButton", false);
+        CopyDeviceInfoButton.Classes.Set("PrimaryActionButton", false);
+        CopyDeviceInfoButton.Classes.Set(primaryCopy ? "modal-primary" : "modal-secondary", true);
+        CloseButton.Classes.Set("SecondaryActionButton", false);
+        CloseButton.Classes.Set("modal-cancel", true);
+        _shell = new Dialogs.ModalShell
+        {
+            Margin = new Avalonia.Thickness(16),
+            ContentScroll = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Content = RootGrid,
+        };
+        _shell.Bind(Dialogs.ModalShell.TitleProperty, this.GetResourceObservable("csh.menu.remoteSupport"));
+        if (primaryCopy)
+            _shell.Footer = SectionCards.Buttons(CloseButton, CopyDeviceInfoButton);
+        else
+        {
+            _shell.Hint = CopyDeviceInfoButton;
+            _shell.Footer = SectionCards.Buttons(CloseButton);
+        }
+        Content = _shell;
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 2): раздел владельца — без оболочки модалки, кнопки на прежнем месте.</summary>
+    private void UnwrapModalShell()
+    {
+        if (_shell is null)
+            return;
+        _shell.Footer = null;
+        _shell.Hint = null;
+        _shell.Content = null;
+        _shell = null;
+        ClearValue(BackgroundProperty);
+        ClearValue(TransparencyLevelHintProperty);
+        CopyDeviceInfoButton.Classes.Set("modal-primary", false);
+        CopyDeviceInfoButton.Classes.Set("modal-secondary", false);
+        CopyDeviceInfoButton.Classes.Set(OperatingSystem.IsWindows() ? "SecondaryActionButton" : "PrimaryActionButton", true);
+        CopyDeviceInfoButton.Margin = new Avalonia.Thickness(0, 0, 12, 8);
+        CloseButton.Classes.Set("modal-cancel", false);
+        CloseButton.Classes.Set("SecondaryActionButton", true);
+        CloseButton.Margin = new Avalonia.Thickness(0, 0, 0, 8);
+        if (CopyDeviceInfoButton.Parent is Panel p1)
+            p1.Children.Remove(CopyDeviceInfoButton);
+        if (CloseButton.Parent is Panel p2)
+            p2.Children.Remove(CloseButton);
+        ButtonsPanel.Children.Add(CopyDeviceInfoButton);
+        ButtonsPanel.Children.Add(CloseButton);
+        Grid.SetRow(ButtonsPanel, 3);
+        RootGrid.Children.Add(ButtonsPanel);
+        TitlePanel.IsVisible = true;
+        Content = RootGrid;
     }
 
     private void OnIntroLanguageChanged() => Avalonia.Threading.Dispatcher.UIThread.Post(ApplyIntroText);
@@ -95,6 +169,7 @@ public partial class RemoteSupportWindow : Window, IOwnerSection
     /// привычной ширины у левого края, как текст остальных разделов.</summary>
     public void AsOwnerSection()
     {
+        UnwrapModalShell();
         TitlePanel.IsVisible = false;
         CloseButton.IsVisible = false;
         IntroText.Margin = new Avalonia.Thickness(0);

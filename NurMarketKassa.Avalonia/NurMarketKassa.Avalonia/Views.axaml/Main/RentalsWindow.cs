@@ -50,14 +50,25 @@ public sealed class RentalsWindow : Window
         Height = 780;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Use(this, BackgroundProperty, "BrushWindowBackdrop");
+        if (!_readOnly)
+        {
+            // 2026-10-22 (аудит новой сборки, П2): в кассе окно было в системной рамке Windows и высотой 780 (на экране 768 «Закрыть»
+            // и низ списка уходили за край). Теперь — общая оболочка ModalShell (ниже), высота под экран, список прокручивается сам.
+            Width = 1112;
+            Height = 700;
+            CanResize = false;
+            SystemDecorations = SystemDecorations.None;
+            Use(this, BackgroundProperty, "DialogWindowBackground");
+            Use(this, TransparencyLevelHintProperty, "DialogTransparencyHint");
+        }
         KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
 
-        var root = new Grid { Margin = new Thickness(24, 18, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,*") };
+        var root = new Grid { Margin = _readOnly ? new Thickness(24, 18, 24, 24) : new Thickness(0), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,*") };
 
         var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto") };
         head.Classes.Add("no-reflow"); // 2026-10-05: на телефоне перестраивается здесь же (NarrowLayout ниже)
         // 2026-10-18, этап О4: в программе владельца название уже в полосе над разделом — второго крупного заголовка нет.
-        var title = new TextBlock { Text = T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"), FontSize = 24, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center, IsVisible = !_readOnly };
+        var title = new TextBlock { Text = T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"), FontSize = 24, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center, IsVisible = false }; // 2026-10-22 (П2): заголовок — в шапке оболочки ModalShell (в программе владельца и так скрыт)
         Use(title, TextBlock.ForegroundProperty, "BrushText");
         head.Children.Add(title);
         // 2026-10-02, владелец: «когда приносит обратно — по этому чеку закрывали прокат». Номер проката
@@ -126,7 +137,22 @@ public sealed class RentalsWindow : Window
         var scroll = new ScrollViewer { Content = _list, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
         Grid.SetRow(scroll, 4);
         root.Children.Add(scroll);
-        Content = root;
+        if (_readOnly)
+            Content = root;
+        else
+        {
+            var close = new Button { IsCancel = true, MaxWidth = 200, Content = T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish") };
+            close.Classes.Add("modal-cancel");
+            close.Click += (_, _) => Close();
+            Content = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalShell
+            {
+                Margin = new Thickness(16),
+                ContentScroll = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                Title = T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"),
+                Footer = close,
+                Content = root,
+            };
+        }
 
         // 2026-10-05, снимок владельца с телефона: «+ Новый прокат» уходила за край, в карточке залог
         // наезжал на имя клиента и даты, «Принять возврат» обрезалась. Телефон: заголовок и «+ Новый
@@ -134,7 +160,7 @@ public sealed class RentalsWindow : Window
         NarrowLayout.Attach(this, 700, narrow =>
         {
             _narrow = narrow;
-            root.Margin = narrow ? new Thickness(10, 8, 10, 10) : new Thickness(24, 18, 24, 24);
+            root.Margin = !_readOnly ? new Thickness(0) : narrow ? new Thickness(10, 8, 10, 10) : new Thickness(24, 18, 24, 24);
             if (narrow)
             {
                 head.ColumnDefinitions = new ColumnDefinitions("*,Auto");
@@ -533,25 +559,42 @@ internal static class UiKit
     // кистями на месте: главная — sec-primary (акцент темы, у «NurMarket» жёлтая), остальные — sec-outline (обводка
     // цветом рамки, без заливки), чип — sec-chip, выбранный чип — active (тёмно-синий, как период «Сводки»). Так у
     // них есть и наведение по теме (раньше Fluent красил наведённую кнопку серым). Размеры — прежние.
-    public static Button Primary(Control host, string text)
+    // 2026-10-22 (модалки, пакет 0): у кнопок UiKit — необязательные isDefault (Enter нажимает её) и isCancel (Esc и ✕
+    // ModalShell нажимают её). Раньше в ~25 окнах из кода Esc и Enter не работали. Умолчания — false, вид прежний (46 px).
+    public static Button Primary(Control host, string text, bool isDefault = false, bool isCancel = false)
     {
         var b = new Button
         {
             Content = text, Height = 46, Padding = new Thickness(20, 0), CornerRadius = new CornerRadius(12), FontWeight = FontWeight.Bold, FontSize = 14.5,
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Focusable = false,
+            IsDefault = isDefault, IsCancel = isCancel,
         };
         b.Classes.Add("sec-primary");
         return b;
     }
 
-    public static Button Ghost(Control host, string text)
+    public static Button Ghost(Control host, string text, bool isCancel = false, bool isDefault = false)
     {
         var b = new Button
         {
             Content = text, Height = 46, Padding = new Thickness(18, 0), CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), FontSize = 14,
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Focusable = false,
+            IsDefault = isDefault, IsCancel = isCancel,
         };
         b.Classes.Add("sec-outline");
+        return b;
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 0): второстепенная кнопка с обводкой — то же, что <see cref="Ghost"/> (название по
+    /// стандарту модалки: Primary / Secondary / Danger).</summary>
+    public static Button Secondary(Control host, string text, bool isCancel = false) => Ghost(host, text, isCancel);
+
+    /// <summary>2026-10-22 (модалки, пакет 0): опасная главная («Удалить», «Списать») — красная заливка (sec-primary danger)
+    /// вместо жёлтой. Enter по умолчанию её не нажимает.</summary>
+    public static Button Danger(Control host, string text, bool isDefault = false)
+    {
+        var b = Primary(host, text, isDefault);
+        b.Classes.Add("danger");
         return b;
     }
 

@@ -14,6 +14,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
+import '../../l10n/app_localizations.dart';
 import '../payment/payment_screen.dart';
 import '../payment/sales_repository.dart' show Client;
 import '../receipt/receipt.dart';
@@ -47,14 +48,46 @@ Receipt quoteReceipt(QuoteDoc d, {String shop = '', String inn = '', String addr
 Future<void> shareQuotePdf(WidgetRef ref, QuoteDoc d) async {
   final s = ref.read(sessionProvider);
   final r = quoteReceipt(d, shop: s?.companyName ?? '', inn: s?.companyInn ?? '', address: s?.companyAddress ?? '', cashier: s?.userName ?? '');
+  // 2026-10-22 (мобилка, админ): П13 — накладная ПК печатается накладной (не счётом), НДС документа — в PDF.
   await shareDocPdf(
     r,
-    d.isQuote ? DocKind.quote : DocKind.invoice,
-    basis: d.isQuote ? 'коммерческое предложение' : (d.basedOn.isNotEmpty ? 'коммерческое предложение ${d.basedOn}' : 'счёт на оплату'),
-    note: d.isQuote ? 'Предложение действует до ${_d(d.until)}.' : 'Оплатить до ${_d(d.until)}. В назначении платежа укажите номер счёта.',
+    quoteDocKind(d),
+    basis: d.isWaybill
+        ? (d.basedOn.isNotEmpty ? 'документ ${d.basedOn}' : 'отпуск товара')
+        : d.isQuote
+        ? 'коммерческое предложение'
+        : (d.basedOn.isNotEmpty ? 'коммерческое предложение ${d.basedOn}' : 'счёт на оплату'),
+    note: d.isWaybill
+        ? null
+        : d.isQuote
+        ? 'Предложение действует до ${_d(d.until)}.'
+        : 'Оплатить до ${_d(d.until)}. В назначении платежа укажите номер счёта.',
     requisites: await ref.read(quotesStoreProvider).requisites(),
-    paid: d.isQuote ? 0 : d.paid,
+    paid: d.isInvoice ? d.paid : 0,
+    vatPercent: d.vatPercent,
   );
+}
+
+/// 2026-10-22 (мобилка, админ): П13 — вид бланка документа.
+DocKind quoteDocKind(QuoteDoc d) => d.isWaybill ? DocKind.waybill : (d.isQuote ? DocKind.quote : DocKind.invoice);
+
+/// Название вида документа на языке кассира.
+String quoteKindName(AppLocalizations l, QuoteDoc d) => d.isWaybill ? l.waybillDoc : (d.isQuote ? l.quoteNew : l.invoiceNew);
+
+/// 2026-10-22 (мобилка, админ): П13 — «Продать» из документа: строки с ценой документа и скидка документа на чек
+/// (раньше скидка терялась и чек выходил дороже КП). Возвращает строки, которых нет в каталоге телефона.
+Future<List<String>> sellDocToCart(QuoteDoc d, Future<Product?> Function(String id) productById, CartController cart) async {
+  final missing = <String>[];
+  for (final x in d.lines) {
+    final p = x.productId.isEmpty ? null : await productById(x.productId);
+    if (p != null) {
+      cart.add(p, qty: x.qty, variantPrice: x.price);
+    } else {
+      missing.add(x.name);
+    }
+  }
+  if (d.discount > 0.005) cart.setOrderDiscount(sum: d.discount);
+  return missing;
 }
 
 /// Плашка статуса: текст, фон, цвет текста. Красный — только просроченный счёт (правило редизайна 4).
@@ -219,7 +252,7 @@ class _QuotesScreenState extends ConsumerState<QuotesScreen> {
         d.history.add(stamp('PDF · ${l.stSent}'));
         await _put(d);
       case 'wa':
-        final text = l.docWaText(d.isQuote ? l.quoteNew : l.invoiceNew, d.number, money(d.isQuote ? d.total : d.left), d.isQuote ? l.validUntil(_d(d.until)) : l.payUntil(_d(d.until)));
+        final text = l.docWaText(quoteKindName(l, d), d.number, money(d.isInvoice ? d.left : d.total), d.isWaybill ? '' : (d.isQuote ? l.validUntil(_d(d.until)) : l.payUntil(_d(d.until))));
         await openWhatsApp(d.phone, text);
         if (d.status == 'draft') d.status = 'sent';
         d.history.add(stamp('WhatsApp · ${l.stSent}'));
@@ -239,6 +272,8 @@ class _QuotesScreenState extends ConsumerState<QuotesScreen> {
           status: 'issued',
           createdAt: now,
           basedOn: d.number,
+          // 2026-10-22 (мобилка, админ): П13 — НДС КП переходит в счёт.
+          extra: {if (d.extra['vat'] != null) 'vat': d.extra['vat']},
         );
         // 2026-10-21: номер счёта мог смениться при записи (занят на ПК) — в истории КП итоговый номер.
         await ref.read(quotesStoreProvider).put(inv);
@@ -247,6 +282,20 @@ class _QuotesScreenState extends ConsumerState<QuotesScreen> {
         await _put(d);
         return inv;
       case 'pay':
+        // 2026-10-22 (мобилка, админ): П13 — «Принять оплату» — только отметка в документе: деньги в кассу смены и долг
+        // NurCRM не записываются. Предупреждаем, чтобы не путали с продажей.
+        final go = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: Text(l.takePayment),
+            content: Text(l.docPayMarkOnly),
+            actions: [
+              TextButton(style: TextButton.styleFrom(foregroundColor: context.pal.text), onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+              FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(110, 44)), onPressed: () => Navigator.pop(c, true), child: Text(l.docPayMarkOk)),
+            ],
+          ),
+        );
+        if (go != true || !mounted) return d;
         final sum = await askNumber(context, title: '${l.takePayment} · ${d.number}', hint: money(d.left), initial: d.left);
         if (sum == null || sum <= 0) return d;
         d.paid = roundMoney((d.paid + sum).clamp(0, d.total).toDouble());
@@ -256,13 +305,30 @@ class _QuotesScreenState extends ConsumerState<QuotesScreen> {
       case 'sell':
         final db = ref.read(databaseProvider);
         final cart = ref.read(cartProvider.notifier);
-        for (final x in d.lines) {
-          final p = x.productId.isEmpty ? null : await db.productById(x.productId);
-          if (p != null) {
-            cart.add(p, qty: x.qty, variantPrice: x.price);
-          }
+        // 2026-10-22 (мобилка, админ): П13 — в чеке уже есть товары: заменить, а не смешать с документом.
+        if (ref.read(cartProvider).lines.isNotEmpty) {
+          final replace = await showDialog<bool>(
+            context: context,
+            builder: (c) => AlertDialog(
+              title: Text(l.sellFromDoc),
+              content: Text(l.docSellCartBusy),
+              actions: [
+                TextButton(style: TextButton.styleFrom(foregroundColor: context.pal.text), onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+                FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(110, 44)), onPressed: () => Navigator.pop(c, true), child: Text(l.docSellReplace)),
+              ],
+            ),
+          );
+          if (replace != true || !mounted) return d;
+          cart.clear();
         }
-        if (mounted) context.go('/sale');
+        final missing = await sellDocToCart(d, db.productById, cart);
+        // отметка в документе: передан в продажу (сама продажа — обычный чек NurCRM)
+        d.history.add(stamp(l.docSentToSale));
+        if (d.isQuote && (d.status == 'draft' || d.status == 'sent')) d.status = 'accepted';
+        await _put(d);
+        if (!mounted) return null;
+        if (missing.isNotEmpty) toast(context, l.docSellMissing(missing.join(', ')), error: true);
+        context.go('/sale');
         return null;
       case 'edit':
         return await _edit(d, quote: d.isQuote) ?? d;
@@ -321,15 +387,16 @@ class _QuotesScreenState extends ConsumerState<QuotesScreen> {
     final l = context.l;
     final pal = context.pal;
     final waiting = _docs.where((d) => d.isQuote && (d.status == 'sent' || d.status == 'draft') && !d.expired);
-    final unpaid = _docs.where((d) => !d.isQuote && d.status != 'paid');
+    final unpaid = _docs.where((d) => d.isInvoice && d.status != 'paid');
     final overdue = unpaid.where((d) => d.overdue);
     final list = _docs
         .where(
           (d) => switch (_filter) {
             'quotes' => d.isQuote,
-            'invoices' => !d.isQuote,
+            'invoices' => d.isInvoice,
+            'waybills' => d.isWaybill,
             'waiting' => d.isQuote && (d.status == 'sent' || d.status == 'draft') && !d.expired,
-            'unpaid' => !d.isQuote && d.status != 'paid',
+            'unpaid' => d.isInvoice && d.status != 'paid',
             _ => true,
           },
         )
@@ -443,6 +510,8 @@ class _QuotesScreenState extends ConsumerState<QuotesScreen> {
                     ('invoices', l.filterInvoices),
                     ('waiting', l.quotesWaiting),
                     ('unpaid', l.invoicesUnpaid),
+                    // 2026-10-22 (мобилка, админ): П13 — накладные программы владельца отдельным фильтром.
+                    if (_docs.any((d) => d.isWaybill)) ('waybills', l.waybillsFilter),
                   ])
                     Padding(
                       padding: const EdgeInsets.only(right: 6),
@@ -516,7 +585,8 @@ class _QuotesScreenState extends ConsumerState<QuotesScreen> {
                               [
                                 _d(d.createdAt),
                                 if (d.basedOn.isNotEmpty) l.basedOnQuote(d.basedOn),
-                                if (!d.isQuote && d.paid > 0) l.paidOf(money(d.paid), money(d.total)),
+                                if (d.isWaybill) l.waybillDoc,
+                                if (d.isInvoice && d.paid > 0) l.paidOf(money(d.paid), money(d.total)),
                               ].join(' · '),
                               style: TextStyle(color: pal.textSoft, fontSize: 12),
                             ),
@@ -604,7 +674,9 @@ class _QuoteViewScreenState extends State<QuoteViewScreen> {
     final pal = context.pal;
     final d = _doc;
     final red = pal.dark ? const Color(0xFFF97066) : T.danger;
-    final primary = d.isQuote
+    final primary = d.isWaybill
+        ? null
+        : d.isQuote
         ? (d.status == 'accepted' || d.status == 'declined' ? null : ('invoice', l.makeInvoice, Icons.request_quote_rounded))
         : (d.status == 'paid' ? null : ('pay', l.takePayment, Icons.payments_rounded));
     Widget sumRow(String label, String value, {bool big = false, Color? color}) => Padding(
@@ -630,7 +702,7 @@ class _QuoteViewScreenState extends State<QuoteViewScreen> {
     return Scaffold(
       appBar: ScreenTitle(
         d.number,
-        subtitle: d.isQuote ? l.quoteNew : l.invoiceNew,
+        subtitle: quoteKindName(l, d),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_horiz_rounded),
@@ -657,10 +729,11 @@ class _QuoteViewScreenState extends State<QuoteViewScreen> {
             children: [
               QuoteStatusChip(d),
               Text(l.docFrom(_d(d.createdAt)), style: TextStyle(fontSize: 12.5, color: pal.textSoft)),
-              Text(
-                d.isQuote ? l.validUntil(_d(d.until)) : l.payUntil(_d(d.until)),
-                style: TextStyle(fontSize: 12.5, color: d.overdue ? red : pal.textSoft, fontWeight: d.overdue ? FontWeight.w700 : null),
-              ),
+              if (!d.isWaybill)
+                Text(
+                  d.isQuote ? l.validUntil(_d(d.until)) : l.payUntil(_d(d.until)),
+                  style: TextStyle(fontSize: 12.5, color: d.overdue ? red : pal.textSoft, fontWeight: d.overdue ? FontWeight.w700 : null),
+                ),
             ],
           ),
           const SizedBox(height: 10),
@@ -732,7 +805,9 @@ class _QuoteViewScreenState extends State<QuoteViewScreen> {
                   sumRow(l.discountShort, '−${money(d.subtotal - d.total)} ${l.som}'),
                 ],
                 sumRow(l.total, '${money(d.total)} ${l.som}', big: true),
-                if (!d.isQuote && d.paid > 0.005) ...[
+                // 2026-10-22 (мобилка, админ): П13 — НДС «в том числе», как в PDF и на ПК.
+                if (d.vatPercent > 0) sumRow(l.docVatIncl(d.vatPercent.toStringAsFixed(d.vatPercent == d.vatPercent.roundToDouble() ? 0 : 1)), '${money(vatIncluded(d.total, d.vatPercent))} ${l.som}'),
+                if (d.isInvoice && d.paid > 0.005) ...[
                   sumRow(l.paidLabel, '${money(d.paid)} ${l.som}'),
                   sumRow(l.leftToPay, '${money(d.left)} ${l.som}', color: d.overdue ? red : null),
                 ],
@@ -901,6 +976,11 @@ class _QuoteEditScreenState extends ConsumerState<QuoteEditScreen> {
           status: widget.quote ? 'draft' : 'issued',
           createdAt: DateTime.now(),
         );
+    // 2026-10-22 (мобилка, админ): П13 — новый документ получает НДС по умолчанию из реквизитов программы владельца.
+    if (widget.doc == null) {
+      final vat = await ref.read(quotesStoreProvider).defaultVat();
+      if (vat > 0) d.extra['vat'] = vat;
+    }
     d
       ..client = _client.text.trim()
       ..phone = _phone.text.trim()

@@ -50,7 +50,18 @@ public partial class ReturnLineReasonDialog : Window
         }
 
         BuildQuickReasons();
-        Opened += (_, _) => ReasonBox.Focus();
+        // 2026-10-22 (модалки, пакет 1): фокус в поле — ModalShell.InitialFocus (XAML). Enter в многострочном поле —
+        // новая строка (как раньше), «Вернуть» — Ctrl+Enter: ловим до поля (Tunnel), иначе поле вставит перенос.
+        KeysHint.Text = Tr.T("Ctrl+Enter — вернуть", "Ctrl+Enter — кайтаруу", "Ctrl+Enter — return", "Ctrl+Enter — iade et", "Ctrl+Enter — qaytarish");
+        AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key == Avalonia.Input.Key.Enter
+                && e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
+            {
+                e.Handled = true;
+                Ok_Click(this, new RoutedEventArgs());
+            }
+        }, RoutingStrategies.Tunnel);
     }
 
     public string ReasonText => (ReasonBox.Text ?? "").Trim();
@@ -126,6 +137,7 @@ public partial class ReturnLineReasonDialog : Window
         {
             ErrorText.Text = Tr.T("Введите причину возврата.", "Кайтаруунун себебин киргизиңиз.", "Enter the return reason.", "İade nedenini girin.", "Qaytarish sababini kiriting.");
             ErrorText.IsVisible = true;
+            ReasonBox.Focus(); // 2026-10-22 (модалки, пакет 1): ошибка под полем — фокус в поле.
             return;
         }
 

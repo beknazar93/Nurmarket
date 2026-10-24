@@ -1,8 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CashOperationsDialog"
         Title="{DynamicResource cashOps.title}"
-        Width="480" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -10,74 +11,27 @@
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
 
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="28,24">
+  <!-- 2026-10-22 (модалки, пакет 2): общая оболочка ModalShell 512 вместо своей рамки 480 с цветами кнопок вручную.
+       Доступна только та операция, что подходит к состоянию смены (открыта — «Закрыть смену», закрыта — «Открыть смену»);
+       она жёлтая, вторая выключена. Пока идёт открытие/закрытие, второе нажатие ничего не делает, окно не закрывается. -->
+  <dlg:ModalShell x:Name="Shell" Margin="16"
+                  Title="{DynamicResource cashOps.title}"
+                  Subtitle="{DynamicResource cashOps.subtitle}">
+    <dlg:ModalShell.Footer>
+      <Button IsCancel="True" Content="{DynamicResource common.close}"
+              Classes="modal-cancel" MaxWidth="200"
+              Click="Close_Click"/>
+    </dlg:ModalShell.Footer>
 
-    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-
-      <!-- Заголовок -->
-      <TextBlock Text="{DynamicResource cashOps.title}"
-                 FontSize="20" FontWeight="Bold"
-                 Foreground="{DynamicResource BrushText}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 Margin="0,0,0,6"/>
-
-      <!-- Подзаголовок / Описание -->
-      <TextBlock Text="{DynamicResource cashOps.subtitle}"
-                 FontSize="14" TextWrapping="Wrap"
-                 Foreground="{DynamicResource BrushTextSoft}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 Margin="0,0,0,22"/>
-
-      <!-- Кнопки управления сменой -->
-      <StackPanel Width="320" Spacing="10" HorizontalAlignment="Center">
-
-        <Button Content="{DynamicResource csh.toolbar.openShift}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Background="{DynamicResource BrushAccent}"
-                Foreground="{DynamicResource BrushAccentForeground}"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Cursor="Hand"
-                Click="OpenShift_Click"/>
-
-        <Button Content="{DynamicResource csh.toolbar.closeShift}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Background="{DynamicResource BrushInputAlt}"
-                Foreground="{DynamicResource BrushText}"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Cursor="Hand"
-                Click="CloseShift_Click"/>
-
-        <Button IsCancel="True" Content="{DynamicResource common.close}"
-                Height="46"
-                Margin="0,6,0,0"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Background="{DynamicResource BrushPanel}"
-                Foreground="{DynamicResource BrushTextSoft}"
-                BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1.5"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Cursor="Hand"
-                Click="Close_Click"/>
-
-      </StackPanel>
-
+    <StackPanel Spacing="10">
+      <TextBlock x:Name="StateText" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                 Foreground="{DynamicResource BrushText}" IsVisible="False"/>
+      <Button x:Name="OpenShiftButton" Content="{DynamicResource csh.toolbar.openShift}"
+              Classes="modal-primary" HorizontalAlignment="Stretch"
+              Click="OpenShift_Click"/>
+      <Button x:Name="CloseShiftButton" Content="{DynamicResource csh.toolbar.closeShift}"
+              Classes="modal-secondary" HorizontalAlignment="Stretch"
+              Click="CloseShift_Click"/>
     </StackPanel>
-  </Border>
+  </dlg:ModalShell>
 </Window>

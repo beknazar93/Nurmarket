@@ -321,6 +321,44 @@
     <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
   </Style>
 
+  <!-- 2026-10-22 (модалки, пакет 0): третья по важности кнопка модалки (SectionCards.Ghost) — без рамки и заливки,
+       цветом текста: «Сбросить», «Подробнее», «Назад» слева в Hint. Касание 44 px; наведение — мягкий фон. -->
+  <Style Selector="Button.modal-ghost">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="44" />
+    <Setter Property="MinWidth" Value="44" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.modal-ghost /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.modal-ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+  </Style>
+  <Style Selector="Button.modal-ghost:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+  </Style>
+  <Style Selector="Button.modal-ghost:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}" />
+  </Style>
+
+  <!-- 2026-10-22 (модалки, пакет 0): поле ввода в модалке — касание ≥ 44 px (стандарт: «поля MinHeight 44»).
+       Класс ставит окно: Classes="modal-field" (или SectionCards.Field(...) в коде). -->
+  <Style Selector="TextBox.modal-field, ComboBox.modal-field, DatePicker.modal-field, NumericUpDown.modal-field, AutoCompleteBox.modal-field, CalendarDatePicker.modal-field, TimePicker.modal-field">
+    <Setter Property="MinHeight" Value="44" />
+  </Style>
+
   <!-- ===================================================================================
        2026-10-18, редизайн программы владельца (этап О3): общий вид РАЗДЕЛОВ (отчёты, продажи, склад…) по правилам
        аудита (docs/owner-redesign-plan.md, правила 1–4). Классы ставятся у тех же окон и в кассе (Финансы, Продажи, ABC)
@@ -341,7 +379,8 @@
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
     <Setter Property="FontWeight" Value="Bold" />
-    <Setter Property="MinHeight" Value="40" />
+    <!-- 2026-10-22 (модалки, пакет 0): касание ≥ 44 px (стандарт модалки; было 40). -->
+    <Setter Property="MinHeight" Value="44" />
     <Setter Property="Padding" Value="16,0" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -364,7 +403,8 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="MinHeight" Value="40" />
+    <!-- 2026-10-22 (модалки, пакет 0): касание ≥ 44 px (стандарт модалки; было 40). -->
+    <Setter Property="MinHeight" Value="44" />
     <Setter Property="Padding" Value="14,0" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -397,6 +437,20 @@
     <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}" />
+  </Style>
+  <!-- 2026-10-22 (модалки, пакет 0): опасная ГЛАВНАЯ кнопка раздела/окна из кода (UiKit.Danger) — красная заливка, как
+       modal-primary.danger (тот же #DC2626 и наведение). Выключенная — как любая выключенная главная (правило ниже). -->
+  <Style Selector="Button.sec-primary.danger">
+    <Setter Property="Background" Value="#DC2626" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+  <Style Selector="Button.sec-primary.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#B91C1C" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+  <Style Selector="Button.sec-primary.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#991B1B" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
   </Style>
   <Style Selector="Button.sec-primary /template/ ContentPresenter#PART_ContentPresenter, Button.sec-outline /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="TextWrapping" Value="Wrap" />

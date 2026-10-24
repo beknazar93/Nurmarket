@@ -1,66 +1,49 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.SerialActivationDialog"
         Title="{DynamicResource marketplace.serialTitle}"
-        Width="420" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="28,24">
-    <StackPanel Spacing="4">
-      <TextBlock x:Name="TitleText" Text="{DynamicResource marketplace.serialTitle}"
-                 FontSize="18" FontWeight="Bold"
-                 Foreground="{DynamicResource BrushText}"
-                 Margin="0,0,0,8"/>
+  <!-- 2026-10-22 (модалки, пакет 2): общая оболочка ModalShell 512 (была своя рамка 420 без ✕, цвета кнопок вручную);
+       поле 44+ px, ошибка под полем, «Отмена» (Esc, ✕) слева, «Активировать» (Enter) справа. -->
+  <dlg:ModalShell Margin="16"
+                  Title="{DynamicResource marketplace.serialTitle}"
+                  Hint="{DynamicResource modal.hintEnter}">
+    <dlg:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button IsCancel="True" x:Name="CancelButton"
+                Classes="modal-cancel" MaxWidth="200"
+                Content="{DynamicResource common.cancel}"
+                Click="CancelButton_Click"/>
+        <Button x:Name="ActivateButton"
+                Classes="modal-primary" MaxWidth="200"
+                Content="{DynamicResource marketplace.serialActivate}"
+                IsDefault="True"
+                Click="ActivateButton_Click"/>
+      </StackPanel>
+    </dlg:ModalShell.Footer>
+
+    <StackPanel Spacing="8">
       <TextBlock x:Name="MessageText"
                  FontSize="14" TextWrapping="Wrap"
                  Foreground="{DynamicResource BrushTextSoft}"
-                 Margin="0,0,0,16"/>
+                 Margin="0,0,0,8"/>
       <TextBox x:Name="SerialBox"
                Watermark="NMK-XXXX-XXXX-XXXX"
-               Height="42" FontSize="16"
-               Margin="0,0,0,10"
+               Height="46" FontSize="16"
+               VerticalContentAlignment="Center"
                KeyDown="SerialBox_KeyDown"/>
       <TextBlock x:Name="ErrorText"
-                 FontSize="12"
-                 Foreground="{DynamicResource BrushDanger}"
+                 FontSize="13"
+                 Foreground="{DynamicResource BrushDangerOnSoft}"
                  TextWrapping="Wrap"
-                 IsVisible="False"
-                 Margin="0,0,0,10"/>
-      <Grid ColumnDefinitions="*,12,*">
-        <Button IsCancel="True" x:Name="CancelButton"
-                Grid.Column="0"
-                Content="{DynamicResource common.cancel}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                Background="{DynamicResource BrushPanel}"
-                Foreground="{DynamicResource BrushText}"
-                BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1.5"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Click="CancelButton_Click"/>
-        <Button x:Name="ActivateButton"
-                Grid.Column="2"
-                Content="{DynamicResource marketplace.serialActivate}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                Background="{DynamicResource BrushAccent}"
-                Foreground="{DynamicResource BrushAccentForeground}"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                IsDefault="True"
-                Click="ActivateButton_Click"/>
-      </Grid>
+                 IsVisible="False"/>
     </StackPanel>
-  </Border>
+  </dlg:ModalShell>
 </Window>

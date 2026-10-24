@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -14,6 +15,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/photo_finder.dart';
 import '../../core/util/ui.dart';
+import '../scan/code_lookup.dart';
 import '../scan/scan_screen.dart';
 import '../scan/smart_camera.dart';
 import '../sale/cart.dart';
@@ -86,6 +88,45 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
   final List<({String id, String name, double qty})> _consumables = [];
   bool _online = false;
 
+  // 2026-10-22 (мобилка, админ, П10): что уже сделано на сервере — повтор после частичной ошибки продолжает с того же
+  // места. Раньше id созданного товара не запоминался: второе «Сохранить» создавало второй товар.
+  String? _createdId;
+
+  /// Создание осталось без ответа (обрыв, 5xx) — перед повтором ищем товар на сервере.
+  bool _createUnknown = false;
+  final Set<int> _photosDone = {};
+  bool _teachDone = false;
+  bool _stockDone = false;
+  final Set<String> _variantsDone = {};
+
+  /// 2026-10-22 (мобилка, админ, П10): PLU весового товара («кг»); пусто — назначается сам (число весовых + 1).
+  final _plu = TextEditingController();
+
+  /// Что-то введено — случайное «Назад» спрашивает (LeaveGuard).
+  bool get _dirty =>
+      _createdId == null &&
+      (_name.text.trim().isNotEmpty || _barcode.text.trim().isNotEmpty || _cost.text.trim().isNotEmpty || _price.text.trim().isNotEmpty || _photos.isNotEmpty);
+
+  /// Создать товар один раз: id запоминается; создание без ответа — сначала поиск на сервере.
+  Future<String> _createOnce(ReceiveLine line, Future<String> Function() create) async {
+    if (_createdId != null) return _createdId!;
+    if (_createUnknown) {
+      final found = await ref.read(adminReceiveRepoProvider).findCreated(line.name, line.barcode);
+      if (found != null) {
+        _createUnknown = false;
+        return _createdId = found;
+      }
+    }
+    try {
+      _createdId = await create();
+      _createUnknown = false;
+      return _createdId!;
+    } on ApiException catch (e) {
+      if (AdminReceiveRepository.outcomeUnknown(e)) _createUnknown = true;
+      rethrow;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -120,6 +161,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
   @override
   void dispose() {
     _camera?.dispose();
+    _plu.dispose();
     for (final c in _cells.values) {
       c.dispose();
     }
@@ -224,20 +266,28 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
 
   /// После создания: фото в карточку (первое — главное), количество — приходом от поставщика или прямо в остаток.
   Future<List<String>> _afterCreate(String id, double qty, double cost) async {
-    if (_camShots.isNotEmpty) {
+    Uint8List? teachMain;
+    if (_camShots.isNotEmpty && !_teachDone) {
+      _teachDone = true;
       await ProductRefs.save(ref.read(databaseProvider), id, _camShots);
-      if (_photos.isEmpty) _photos.add(_camShots.last); // снимок сверху — фото товара, если другого нет
+      // снимок обучения — фото товара, если другого нет (2026-10-22: этикетка спереди, если её снимали)
+      if (_photos.isEmpty) _photos.add(teachMain = teachPhoto(_camShots));
+      // 2026-10-22 (аудит У-8): снимки обучения — в NurCRM, чтобы другие телефоны узнавали товар
+      unawaited(shareTeachShots(ref, id, _camShots, already: teachMain));
     }
     final repo = ref.read(adminReceiveRepoProvider);
     final errors = <String>[];
     for (var i = 0; i < _photos.length; i++) {
+      if (_photosDone.contains(i)) continue;
       try {
         await repo.uploadImage(id, _photos[i], primary: i == 0);
+        _photosDone.add(i);
       } on ApiException catch (e) {
         errors.add(e.message);
       }
     }
-    if (qty > 0) {
+    // 2026-10-22 (мобилка, админ, П10): остаток — один раз (повтор не проводит второй приход)
+    if (qty > 0 && !_stockDone) {
       if (_supplierId != null) {
         final (_, errs) = await repo.post(
           [
@@ -259,6 +309,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
       } else {
         await ref.read(apiProvider).patch('api/main/products/$id/', body: {'quantity': qty});
       }
+      _stockDone = true;
     }
     return errors;
   }
@@ -272,9 +323,11 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
     final l = context.l;
     if (code.trim().isEmpty) return;
     _barcode.text = code.trim();
-    final existing = await ref.read(databaseProvider).productByBarcode(code.trim());
+    // 2026-10-22 (мобилка, админ, П10): как скан кассы — все написания кода, упаковка, сервер
+    final existing = (await CodeLookup.find(ref.read(databaseProvider), ref.read(apiProvider), code.trim(), allowWeightLabel: false)).product;
+    if (!mounted) return;
     if (existing != null) {
-      if (mounted) toast(context, l.alreadyInStock(existing.name), error: true);
+      toast(context, l.alreadyInStock(existing.name), error: true);
       return;
     }
     final info = await ref.read(adminReceiveRepoProvider).globalInfo(code.trim());
@@ -500,13 +553,24 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
       toast(context, l.salePrice, error: true);
       return;
     }
+    if (_busy) return;
     setState(() => _busy = true);
     final repo = ref.read(adminReceiveRepoProvider);
     final api = ref.read(apiProvider);
     try {
+      // 2026-10-22 (мобилка, админ, П10): «уже есть» — как скан кассы: все написания кода, упаковка, сервер (товар,
+      // заведённый на ПК минуту назад). Раньше проверялся только точный штрихкод в базе телефона и только по Enter.
+      final code = _barcode.text.trim();
+      if (_createdId == null && _kind != 'service' && code.isNotEmpty) {
+        final hit = await CodeLookup.find(ref.read(databaseProvider), api, code, allowWeightLabel: false);
+        if (hit.product != null) {
+          if (mounted) toast(context, l.alreadyInStock(hit.product!.name), error: true);
+          return;
+        }
+      }
       if (_kind == 'service') {
         final line = ReceiveLine(productId: '', name: name, unit: 'шт', cost: 0, price: price, qty: 0, isNew: true);
-        final id = await repo.createProduct(line, kind: 'service', category: _category.text, description: _description.text);
+        final id = await _createOnce(line, () => repo.createProduct(line, kind: 'service', category: _category.text, description: _description.text));
         await _afterCreate(id, 0, 0);
         await ref
             .read(databaseProvider)
@@ -526,25 +590,29 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
             );
       } else if (_kind == 'clothes') {
         final line = ReceiveLine(productId: '', name: name, barcode: _barcode.text.trim(), unit: 'шт', cost: _effectiveCost, price: price, qty: 0, isNew: true);
-        final id = await repo.createProduct(
+        final id = await _createOnce(
           line,
-          category: _category.text,
-          brand: _brand.text,
-          wholesale: parseNum(_wholesale.text),
-          altBarcodes: _altBarcodes,
-          description: _description.text,
+          () => repo.createProduct(
+            line,
+            category: _category.text,
+            brand: _brand.text,
+            wholesale: parseNum(_wholesale.text),
+            altBarcodes: _altBarcodes,
+            description: _description.text,
+          ),
         );
         var saved = 0;
         final errors = <String>[];
         for (final color in _colors) {
           for (final size in _sizes) {
             final q = parseNum(_cell(color, size).text) ?? 0;
-            if (q <= 0) continue;
+            if (q <= 0 || _variantsDone.contains('$color|$size')) continue;
             try {
               await api.post(
                 'api/main/products/$id/variants/',
                 body: {'size': size, 'color': color, 'barcode': null, 'quantity': q.toStringAsFixed(3), 'price': null, 'is_active': true},
               );
+              _variantsDone.add('$color|$size');
               saved++;
             } on ApiException catch (e) {
               errors.add('$color $size: ${e.message}');
@@ -566,18 +634,29 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
           qty: qty,
           isNew: true,
         );
-        final id = await repo.createProduct(
+        // 2026-10-22 (мобилка, админ, П10): «кг» — весовой товар с PLU (весы печатают этикетку с этим кодом)
+        final weight = _unit == 'кг';
+        final plu = weight && _createdId == null ? await repo.nextPluOr(_plu.text) : null;
+        final id = await _createOnce(
           line,
-          category: _category.text,
-          brand: _brand.text,
-          wholesale: parseNum(_wholesale.text),
-          altBarcodes: _altBarcodes,
-          description: _description.text,
+          () => repo.createProduct(
+            line,
+            category: _category.text,
+            brand: _brand.text,
+            wholesale: parseNum(_wholesale.text),
+            altBarcodes: _altBarcodes,
+            description: _description.text,
+            isWeight: weight,
+            plu: plu,
+          ),
         );
         final errors = await _afterCreate(id, qty, _effectiveCost);
         if (errors.isNotEmpty && mounted) toast(context, errors.first, error: true);
       }
-      await ref.read(catalogRepoProvider).sync();
+      // 2026-10-22 (мобилка, админ): товар уже создан — сбой обновления каталога не ошибка сохранения
+      try {
+        await ref.read(catalogRepoProvider).sync();
+      } catch (_) {}
       Audit.log('product', '${l.productCreated}: ${_name.text.trim()}');
       if (!mounted) return;
       toast(context, l.productCreated);
@@ -595,7 +674,10 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
     final pal = context.pal;
     final service = _kind == 'service';
     final clothes = _kind == 'clothes';
-    return Scaffold(
+    // 2026-10-22 (мобилка, админ, П10): случайное «Назад» с заполненной карточкой — спросить
+    return LeaveGuard(
+      ask: () => _dirty && !_busy,
+      child: Scaffold(
       appBar: ScreenTitle(l.newProduct, subtitle: l.newProductSub),
       // 14.10, владелец (снимок): «Сохранить услугу» пряталась под полосой жестов — отступ снизу на её высоту.
       body: ListView(
@@ -608,7 +690,8 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
               ButtonSegment(value: 'service', label: Text(l.kindService)),
             ],
             selected: {_kind},
-            onSelectionChanged: (s) => setState(() => _kind = s.first),
+            // 2026-10-22 (мобилка, админ, П10): товар уже создан — вид не меняется (повтор доделывает тот же товар)
+            onSelectionChanged: _createdId != null ? null : (s) => setState(() => _kind = s.first),
           ),
           const SizedBox(height: 10),
           if (!service) ...[
@@ -724,6 +807,14 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
                 for (final u in ['шт', 'кг', 'л', 'упак']) ChoiceChip(label: Text(u), selected: _unit == u, onSelected: (_) => setState(() => _unit = u)),
               ],
             ),
+            if (_unit == 'кг') ...[
+              FieldLabel(l.pAPluLabel),
+              TextField(
+                controller: _plu,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(hintText: l.pAPluHint),
+              ),
+            ],
           ],
           if (clothes) ..._clothesSection(context),
           if (service) ..._serviceSection(context),
@@ -757,6 +848,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -902,7 +994,16 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
       const SizedBox(height: 8),
       OutlinedButton.icon(
         onPressed: () async {
-          final r = await teachCamera(context, askBarcode: _barcode.text.trim().isEmpty);
+          // 2026-10-22: сканер штрихкода на этом экране держит камеру — выключаем, иначе умная камера откроется чёрной
+          if (_scanning) {
+            setState(() => _scanning = false);
+            try {
+              await _camera?.stop();
+            } catch (_) {}
+            if (!context.mounted) return;
+          }
+          // 2026-10-22: название — для надписи «Штрихкод … будет привязан к «Товар»» в шаге «Штрихкод»
+          final r = await teachCamera(context, askBarcode: _barcode.text.trim().isEmpty, productName: _name.text.trim());
           if (r == null || !mounted) return;
           setState(() {
             _camShots = r.shots;

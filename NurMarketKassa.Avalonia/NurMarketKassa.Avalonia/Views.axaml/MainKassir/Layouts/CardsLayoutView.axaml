@@ -283,7 +283,7 @@
                                                        Text="{Binding LineTotal, Converter={x:Static conv:MoneyConverter.Instance}}"/>
                                             <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*,Auto" Margin="0,8,0,0">
                                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <Button Classes="lx-step" Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"
+                                                    <Button Classes="lx-step" AutomationProperties.Name="{Binding DecreaseName}" Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"
                                                             ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}">
                                                         <PathIcon Data="{StaticResource IconMinus}"/>
                                                     </Button>
@@ -300,7 +300,7 @@
                                                         </TextBox.KeyBindings>
                                                     </TextBox>
                                                     <Button Classes="lx-step" IsEnabled="{Binding CanIncrease}"
-                                                            Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"
+                                                            AutomationProperties.Name="{Binding IncreaseName}" Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"
                                                             ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}">
                                                         <PathIcon Data="{StaticResource IconPlus}"/>
                                                     </Button>
@@ -401,8 +401,8 @@
                                 <MenuItem Header="{DynamicResource csh.cart.writeOff}" Click="WriteOff_Click"/>
                                 <MenuItem Header="{DynamicResource csh.menu.rental}" Click="Rental_Click" IsVisible="{Binding Basket.ShowRental}"/>
                                 <Separator/>
-                                <MenuItem Header="{DynamicResource csh.cart.deleteReceipt}" Command="{Binding Basket.DeleteReceiptCommand}"/>
-                                <MenuItem Header="{DynamicResource onecLayout.clearButton}" Command="{Binding Basket.ClearCartCommand}"/>
+                                <MenuItem Classes="danger" Header="{DynamicResource csh.cart.deleteReceipt}" Command="{Binding Basket.DeleteReceiptCommand}"/>
+                                <MenuItem Classes="danger" Header="{DynamicResource onecLayout.clearButton}" Command="{Binding Basket.ClearCartCommand}"/>
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>

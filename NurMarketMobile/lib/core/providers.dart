@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import '../features/stock/stock_repository.dart';
 import 'api/api_client.dart';
 import 'api/session_store.dart';
 import 'db/database.dart';
+import 'sync/outbox_meta.dart';
 import 'sync/sync_service.dart';
 import 'util/audit.dart';
 
@@ -31,6 +33,8 @@ final syncProvider = Provider(
     sales: ref.watch(salesRepoProvider),
     stock: ref.watch(stockRepoProvider),
     catalog: ref.watch(catalogRepoProvider),
+    // 2026-10-22 (мобилка, деньги, К-6): очередь отправляет только записи аккаунта текущего входа.
+    owner: () => OutboxMeta.ownerOf(ref.read(apiProvider).session),
     // 2026-10-21: КП и счета без связи уходят в общий список фоном (только если есть неотправленные).
     quotes: () => ref.read(quotesStoreProvider).sync(onlyIfDirty: true),
   ),
@@ -52,6 +56,8 @@ class SessionController extends Notifier<Session?> {
     if (s == null) return false;
     _api.attach(s);
     state = s;
+    // 2026-10-22 (мобилка, деньги, К-6): записи очереди без владельца (до обновления) — этого, сохранённого входа.
+    await _claimLegacyQueue(s);
     // Реквизиты для чека у входов до 13.10 не сохранены — подтягиваем в фоне, вход не ждёт.
     if (s.companyInn.isEmpty && s.companyAddress.isEmpty) unawaited(_refreshCompany());
     // 13.10: доступы сотрудника — при каждом запуске (владелец мог их поменять на сайте), вход не ждёт.
@@ -123,7 +129,28 @@ class SessionController extends Notifier<Session?> {
     }
     _api.attach(s);
     await _store.save(s);
+    final db = ref.read(databaseProvider);
+    final owner = OutboxMeta.ownerOf(s);
+    // 2026-10-22 (мобилка, деньги): вошли другим аккаунтом — чек и смена прошлого входа не переходят к новому
+    // (после истечения сессии тем же логином набранный чек остаётся).
+    final last = await db.getSetting(_lastOwnerKey);
+    if (last != null && last.isNotEmpty && last != owner) {
+      ref.read(cartProvider.notifier).clear();
+      ref.read(shiftProvider.notifier).reset();
+    }
+    await db.setSetting(_lastOwnerKey, owner);
+    await _claimLegacyQueue(s);
     state = s;
+  }
+
+  static const _lastOwnerKey = 'session.lastOwner';
+
+  /// Записи очереди до 22.10 без владельца — аккаунта, который первым вошёл после обновления (до него там был он же).
+  Future<void> _claimLegacyQueue(Session s) async {
+    final db = ref.read(databaseProvider);
+    final cur = await db.getSetting(OutboxMeta.legacyOwnerSetting);
+    if (cur == null || cur.isEmpty) await db.setSetting(OutboxMeta.legacyOwnerSetting, OutboxMeta.ownerOf(s));
+    if ((await db.getSetting(_lastOwnerKey) ?? '').isEmpty) await db.setSetting(_lastOwnerKey, OutboxMeta.ownerOf(s));
   }
 
   Future<void> chooseCashbox(Cashbox box) async {
@@ -140,6 +167,15 @@ class SessionController extends Notifier<Session?> {
     ref.read(shiftProvider.notifier).reset();
     state = null;
   }
+
+  /// 2026-10-22 (мобилка, деньги, К-5): сессия истекла (refresh-токен не обновился) — на вход, но набранный чек
+  /// остаётся (после входа тем же логином он на месте), очередь ждёт входа и не уходит в «не принято».
+  Future<void> expire() async {
+    await _store.clear();
+    _api.attach(null);
+    ref.read(shiftProvider.notifier).reset();
+    state = null;
+  }
 }
 
 final sessionProvider = NotifierProvider<SessionController, Session?>(SessionController.new);
@@ -150,7 +186,13 @@ class ShiftState {
   final ShiftInfo? shift;
   final bool loading;
   final String? error;
-  const ShiftState({this.shift, this.loading = false, this.error});
+
+  /// 2026-10-22 (мобилка, деньги, К-1): на этой кассе открыта смена другого кассира — своей нет, откройте свою.
+  final bool foreignShift;
+
+  /// Смена взята из памяти телефона (нет связи) — итоги не обновлены.
+  final bool cached;
+  const ShiftState({this.shift, this.loading = false, this.error, this.foreignShift = false, this.cached = false});
   bool get isOpen => shift != null;
 }
 
@@ -160,20 +202,57 @@ class ShiftController extends Notifier<ShiftState> {
 
   void reset() => state = const ShiftState();
 
+  /// 2026-10-22 (мобилка, деньги, К-4): последняя известная смена — с аккаунтом и кассой. Раньше `shift.id` не стирался
+  /// при закрытии, и без связи закрытая смена «оживала»: продажи шли в очередь с закрытой сменой, сервер отвечал 400.
+  static const cacheKey = 'shift.id';
+
+  String _owner() => OutboxMeta.ownerOf(ref.read(sessionProvider));
+
+  Future<void> _remember(ShiftInfo shift) => ref
+      .read(databaseProvider)
+      .setSetting(cacheKey, jsonEncode({'id': shift.id, 'owner': _owner(), 'cashbox': shift.cashboxId ?? ref.read(sessionProvider)?.cashboxId}));
+
+  Future<void> _forget() => ref.read(databaseProvider).setSetting(cacheKey, '');
+
+  /// Смена из памяти — только этого аккаунта и этой кассы (старый формат «просто id» не берём: чья она, неизвестно).
+  Future<String?> _cached() async {
+    final raw = await ref.read(databaseProvider).getSetting(cacheKey);
+    if (raw == null || raw.isEmpty || !raw.startsWith('{')) return null;
+    try {
+      final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
+      final box = ref.read(sessionProvider)?.cashboxId;
+      if (m['owner'] != _owner() || (box != null && m['cashbox'] != null && m['cashbox'] != box)) return null;
+      return m['id'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> refresh() async {
     final s = ref.read(sessionProvider);
     if (s == null) return;
-    state = ShiftState(shift: state.shift, loading: true);
+    state = ShiftState(shift: state.shift, loading: true, foreignShift: state.foreignShift, cached: state.cached);
     try {
-      final shift = await ref.read(shiftRepoProvider).openShift(s.cashboxId);
-      state = ShiftState(shift: shift);
-      if (shift != null) await ref.read(databaseProvider).setSetting('shift.id', shift.id);
+      final found = await ref.read(shiftRepoProvider).findShift(s.cashboxId, cashierId: s.userId);
+      var shift = found.shift;
+      // Своя смена на другой кассе — переходим на её кассу (как FindCashierShiftOnOtherCashbox кассы).
+      if (shift != null && found.movedCashbox && shift.cashboxId != null) {
+        await ref.read(sessionProvider.notifier).chooseCashbox(Cashbox(shift.cashboxId!, shift.cashboxName ?? s.cashboxName ?? ''));
+      }
+      state = ShiftState(shift: shift, foreignShift: shift == null && found.foreignOnThisCashbox);
+      if (shift != null) {
+        await _remember(shift);
+      } else {
+        await _forget();
+      }
     } on ApiException catch (e) {
-      // Без связи — работаем по последней известной смене (продажи уйдут в очередь с ней).
-      final cached = await ref.read(databaseProvider).getSetting('shift.id');
+      // Без связи — работаем по последней известной СВОЕЙ смене (продажи уйдут в очередь с ней и временем продажи).
+      final cached = state.shift == null ? await _cached() : null;
       state = ShiftState(
-        shift: state.shift ?? (cached != null ? ShiftInfo(id: cached) : null),
+        shift: state.shift ?? (cached != null ? ShiftInfo(id: cached, cashboxId: s.cashboxId) : null),
         error: e.message,
+        foreignShift: state.foreignShift,
+        cached: true,
       );
     }
   }
@@ -183,7 +262,7 @@ class ShiftController extends Notifier<ShiftState> {
     final shift = await ref.read(shiftRepoProvider).open(s.cashboxId!, openingCash);
     state = ShiftState(shift: shift);
     Audit.log('shift', 'Смена открыта', amount: openingCash);
-    await ref.read(databaseProvider).setSetting('shift.id', shift.id);
+    await _remember(shift);
     await refresh();
   }
 
@@ -192,6 +271,7 @@ class ShiftController extends Notifier<ShiftState> {
     if (id == null) return;
     await ref.read(shiftRepoProvider).close(id, closingCash);
     Audit.log('shift', 'Смена закрыта', amount: closingCash);
+    await _forget();
     state = const ShiftState();
   }
 }

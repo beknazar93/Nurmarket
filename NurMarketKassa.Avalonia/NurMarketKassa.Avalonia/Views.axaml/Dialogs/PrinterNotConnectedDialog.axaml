@@ -35,8 +35,9 @@
                 Classes="modal-primary" MaxWidth="200"
                 Content="{DynamicResource common.ok}"
                 IsVisible="False"
-                IsDefault="True"
                 Click="OkButton_Click"/>
+        <!-- 2026-10-22 (модалки, пакет 1): IsDefault — только у видимой главной: у «ОК» его ставит код в режиме
+             «сообщение» (раньше IsDefault стоял у обеих кнопок сразу). -->
       </StackPanel>
     </dlg:ModalShell.Footer>
 

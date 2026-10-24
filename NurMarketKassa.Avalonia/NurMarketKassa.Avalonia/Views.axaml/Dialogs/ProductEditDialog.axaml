@@ -35,7 +35,8 @@
         </Style>
         <Style Selector="ComboBox">
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="MinHeight" Value="40"/>
+            <!-- 2026-10-22 (модалки, пакет 3): 44 px — касание пальцем. -->
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
@@ -68,6 +69,9 @@
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Padding" Value="14,8"/>
+            <!-- 2026-10-22 (модалки, пакет 3): 44 px — касание пальцем. -->
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
         <!-- 2026-10-18, этап 5 (снимки): выбранный пункт списков «Горячая клавиша» / «Категория» / «Бренд» — у кнопки оба
              класса (SecondaryButton + PrimaryButton), и SecondaryButton, объявленный ниже PrimaryButton, перекрывал выделение. -->
@@ -81,8 +85,10 @@
         <Style Selector="Button.WindowControlButton">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="30"/>
+            <!-- 2026-10-22 (модалки, пакет 3): 44 px — касание пальцем. -->
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -103,6 +109,7 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Padding" Value="10,10"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="MinHeight" Value="44"/>
         </Style>
         <Style Selector="Button.KindButton.Selected">
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
@@ -603,7 +610,7 @@
                                                     </ItemsControl>
                                                 </ScrollViewer>
                                                 <Grid ColumnDefinitions="*,8,Auto">
-                                                    <TextBox x:Name="NewCategoryBox" Grid.Column="0" MinHeight="36" Padding="10,6"
+                                                    <TextBox x:Name="NewCategoryBox" Grid.Column="0" MinHeight="44" Padding="10,6"
                                                              Watermark="{DynamicResource product.newCategoryWatermark}"/>
                                                     <Button Grid.Column="2" Classes="PrimaryButton" Padding="12,6" VerticalAlignment="Center"
                                                             Content="{DynamicResource product.createReferenceButton}"
@@ -638,7 +645,7 @@
                                                     </ItemsControl>
                                                 </ScrollViewer>
                                                 <Grid ColumnDefinitions="*,8,Auto">
-                                                    <TextBox x:Name="NewBrandBox" Grid.Column="0" MinHeight="36" Padding="10,6"
+                                                    <TextBox x:Name="NewBrandBox" Grid.Column="0" MinHeight="44" Padding="10,6"
                                                              Watermark="{DynamicResource product.newBrandWatermark}"/>
                                                     <Button Grid.Column="2" Classes="PrimaryButton" Padding="12,6" VerticalAlignment="Center"
                                                             Content="{DynamicResource product.createReferenceButton}"
@@ -673,7 +680,7 @@
                                             CornerRadius="8" Padding="8"
                                             BoxShadow="0 6 16 0 #26000000">
                                         <StackPanel Spacing="8">
-                                            <TextBox x:Name="SupplierSearchBox" MinHeight="36" Padding="10,6"/>
+                                            <TextBox x:Name="SupplierSearchBox" MinHeight="44" Padding="10,6"/>
                                             <ScrollViewer MaxHeight="210" VerticalScrollBarVisibility="Auto">
                                                 <StackPanel x:Name="SupplierOptionsList" Spacing="4"/>
                                             </ScrollViewer>

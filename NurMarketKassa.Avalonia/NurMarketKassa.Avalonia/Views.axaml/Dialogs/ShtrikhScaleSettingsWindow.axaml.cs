@@ -160,6 +160,8 @@ public partial class ShtrikhScaleSettingsWindow : Window
         return new Border { Classes = { "card" }, Child = root };
     }
 
+    // 2026-10-22 (модалки, пакет 3): primary (жёлтая) — только запись в весы («Записать в весы», «Записать курс», «Загрузить
+    // в весы») — по одной на карточке; «Записать клавишу», «Заблокировать», «Обновить», «Синхронизировать», «Показать» — обводкой.
     private static Button MakeButton(string text, bool primary, EventHandler<RoutedEventArgs> onClick)
     {
         var button = new Button { Content = text, Classes = { primary ? "btn-primary" : "btn-ok" } };
@@ -362,7 +364,8 @@ public partial class ShtrikhScaleSettingsWindow : Window
     {
         ResultText.Text = text;
         ResultBorder.BorderBrush = ThemeBrush(isError ? "BrushWarning" : "BrushBorder", Brushes.Gray);
-        ResultBorder.Background = ThemeBrush(isError ? "BrushWarningSoft" : "BrushSurfaceSubtle", Brushes.Transparent);
+        // 2026-10-22 (модалки, пакет 3): BrushSurfaceSubtle в теме нет — был запасной цвет (в тёмной теме не тот); мягкий фон темы.
+        ResultBorder.Background = ThemeBrush(isError ? "BrushWarningSoft" : "BrushPanelSoft", Brushes.Transparent);
     }
 
     private IBrush ThemeBrush(string key, IBrush fallback) =>
@@ -608,7 +611,7 @@ public partial class ShtrikhScaleSettingsWindow : Window
 
         body.Children.Add(ButtonRow(
             MakeButton(L("Прочитать клавишу", "Баскычты окуу", "Read key", "Tuşu oku", "Tugmani o‘qish"), false, async (_, _) => await ReadHotkeyAsync().ConfigureAwait(true)),
-            MakeButton(L("Записать клавишу", "Баскычты жазуу", "Write key", "Tuşu yaz", "Tugmani yozish"), true, async (_, _) => await WriteHotkeyAsync().ConfigureAwait(true)),
+            MakeButton(L("Записать клавишу", "Баскычты жазуу", "Write key", "Tuşu yaz", "Tugmani yozish"), false, async (_, _) => await WriteHotkeyAsync().ConfigureAwait(true)),
             MakeButton(L("Показать все клавиши", "Бардык баскычтарды көрсөтүү", "Show all keys", "Tüm tuşları göster", "Barcha tugmalarni ko‘rsatish"), false, async (_, _) => await ReadAllHotkeysAsync().ConfigureAwait(true)),
             MakeButton(L("Сбросить поля", "Талааларды тазалоо", "Reset fields", "Alanları sıfırla", "Maydonlarni tozalash"), false, (_, _) =>
             {
@@ -658,7 +661,7 @@ public partial class ShtrikhScaleSettingsWindow : Window
         _lockState = new TextBlock { Classes = { "label" } };
         lockBody.Children.Add(_lockState);
         lockBody.Children.Add(ButtonRow(
-            MakeButton(L("Заблокировать", "Бөгөттөө", "Lock", "Kilitle", "Bloklash"), true, async (_, _) => await SetLockAsync(true).ConfigureAwait(true)),
+            MakeButton(L("Заблокировать", "Бөгөттөө", "Lock", "Kilitle", "Bloklash"), false, async (_, _) => await SetLockAsync(true).ConfigureAwait(true)),
             MakeButton(L("Разблокировать", "Бөгөттөн чыгаруу", "Unlock", "Kilidi aç", "Blokdan chiqarish"), false, async (_, _) => await SetLockAsync(false).ConfigureAwait(true))));
         KeyboardPanel.Children.Add(lockCard);
 
@@ -893,7 +896,7 @@ public partial class ShtrikhScaleSettingsWindow : Window
         _statusText = new TextBlock { Classes = { "label" }, FontFamily = new FontFamily("Consolas, Segoe UI"), FontSize = 13 };
         body.Children.Add(_statusText);
         body.Children.Add(ButtonRow(
-            MakeButton(L("Обновить", "Жаңыртуу", "Refresh", "Yenile", "Yangilash"), true, async (_, _) => await RunAsync(async scale =>
+            MakeButton(L("Обновить", "Жаңыртуу", "Refresh", "Yenile", "Yangilash"), false, async (_, _) => await RunAsync(async scale =>
             {
                 await LoadStatusAsync(scale).ConfigureAwait(false);
                 return L("Состояние получено.", "Абалы алынды.", "Status received.", "Durum alındı.", "Holat olindi.");
@@ -965,7 +968,7 @@ public partial class ShtrikhScaleSettingsWindow : Window
             out var clockBody);
         _clockText = new TextBlock { Classes = { "label" } };
         clockBody.Children.Add(_clockText);
-        clockBody.Children.Add(ButtonRow(MakeButton(L("Синхронизировать с компьютером", "Компьютер менен шайкештештирүү", "Sync with this computer", "Bilgisayarla eşitle", "Kompyuter bilan moslashtirish"), true,
+        clockBody.Children.Add(ButtonRow(MakeButton(L("Синхронизировать с компьютером", "Компьютер менен шайкештештирүү", "Sync with this computer", "Bilgisayarla eşitle", "Kompyuter bilan moslashtirish"), false,
             async (_, _) => await RunAsync(async scale =>
             {
                 await scale.SetClockAsync(DateTime.Now).ConfigureAwait(false);
@@ -1388,7 +1391,7 @@ public partial class ShtrikhScaleSettingsWindow : Window
             out var uBody);
         _urgentText = new TextBox { MaxLength = P.AdvertFieldLength, Watermark = L("до 22 символов", "22 белгиге чейин", "up to 22 characters", "en fazla 22 karakter", "22 belgigacha") };
         uBody.Children.Add(_urgentText);
-        uBody.Children.Add(ButtonRow(MakeButton(L("Показать на весах", "Таразада көрсөтүү", "Show on scale", "Tartıda göster", "Tarozida ko‘rsatish"), true, async (_, _) =>
+        uBody.Children.Add(ButtonRow(MakeButton(L("Показать на весах", "Таразада көрсөтүү", "Show on scale", "Tartıda göster", "Tarozida ko‘rsatish"), false, async (_, _) =>
         {
             var text = _urgentText.Text ?? "";
             await RunAsync(async scale =>

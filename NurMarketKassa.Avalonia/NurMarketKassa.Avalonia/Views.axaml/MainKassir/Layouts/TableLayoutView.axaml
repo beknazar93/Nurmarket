@@ -99,13 +99,13 @@
             <!-- Количество для следующего скана -->
             <Border Grid.Column="2" Classes="lx-field" Padding="4,0">
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <Button Classes="lx-step" Command="{Binding Basket.DecreaseManualQuantityCommand}"
+                    <Button Classes="lx-step" AutomationProperties.Name="{DynamicResource csh.cart.decreaseTooltip}" Command="{Binding Basket.DecreaseManualQuantityCommand}"
                             ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}">
                         <PathIcon Data="{StaticResource IconMinus}"/>
                     </Button>
                     <TextBlock Text="{Binding Basket.ManualQuantity}" MinWidth="36" FontSize="15" FontWeight="Bold"
                                TextAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
-                    <Button Classes="lx-step" Command="{Binding Basket.IncreaseManualQuantityCommand}"
+                    <Button Classes="lx-step" AutomationProperties.Name="{DynamicResource csh.cart.increaseTooltip}" Command="{Binding Basket.IncreaseManualQuantityCommand}"
                             ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}">
                         <PathIcon Data="{StaticResource IconPlus}"/>
                     </Button>
@@ -226,7 +226,7 @@
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
                                                             HorizontalAlignment="Center" VerticalAlignment="Center">
                                                     <Button Classes="lx-step" Width="28" Height="28"
-                                                            Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"
+                                                            AutomationProperties.Name="{Binding DecreaseName}" Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"
                                                             ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}">
                                                         <PathIcon Data="{StaticResource IconMinus}"/>
                                                     </Button>
@@ -243,7 +243,7 @@
                                                         </TextBox.KeyBindings>
                                                     </TextBox>
                                                     <Button Classes="lx-step" Width="28" Height="28" IsEnabled="{Binding CanIncrease}"
-                                                            Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"
+                                                            AutomationProperties.Name="{Binding IncreaseName}" Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"
                                                             ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}">
                                                         <PathIcon Data="{StaticResource IconPlus}"/>
                                                     </Button>
@@ -436,8 +436,8 @@
                                 <MenuItem Header="{DynamicResource csh.cart.writeOff}" Click="WriteOff_Click"/>
                                 <MenuItem Header="{DynamicResource csh.menu.rental}" Click="Rental_Click" IsVisible="{Binding Basket.ShowRental}"/>
                                 <Separator/>
-                                <MenuItem Header="{DynamicResource csh.cart.deleteReceipt}" Command="{Binding Basket.DeleteReceiptCommand}"/>
-                                <MenuItem Header="{DynamicResource onecLayout.clearButton}" Command="{Binding Basket.ClearCartCommand}"/>
+                                <MenuItem Classes="danger" Header="{DynamicResource csh.cart.deleteReceipt}" Command="{Binding Basket.DeleteReceiptCommand}"/>
+                                <MenuItem Classes="danger" Header="{DynamicResource onecLayout.clearButton}" Command="{Binding Basket.ClearCartCommand}"/>
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>

@@ -41,6 +41,21 @@
             <Setter Property="Opacity" Value="0.45"/>
         </Style>
 
+        <!-- 2026-10-22 (модалки, пакет 1): «Удалить чек» — опасное действие красным текстом и значком (стандарт модалок:
+             опасное — красным); при одном чеке она очищает его (BasketPanelViewModel.DeleteActiveReceiptAsync). -->
+        <Style Selector="Button.cart-action.danger">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+        <Style Selector="Button.cart-action.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+        <!-- 2026-10-22 (модалки, пакет 1, живой аудит): плитки во всплывающем «Ещё» под указателем — мягким акцентом, а не
+             серой заливкой (плитка «Печать последнего чека» после наведения выглядела неактивной). -->
+        <Style Selector="Border#MoreActionsContent Button.cart-action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+
         <Style Selector="Button.cart-qty, RepeatButton.cart-qty">
             <Setter Property="Width" Value="44"/>
             <Setter Property="Height" Value="44"/>
@@ -347,6 +362,16 @@
             <Setter Property="FontSize" Value="11.5"/>
             <Setter Property="TextAlignment" Value="Center"/>
         </Style>
+        <!-- 2026-10-23 (аудит К6): узкое окно 1024 без "compact" — подписи кнопок («Удалить чек», «Доп. услуга») в две строки, не обрезаются. -->
+        <Style Selector=".headernarrow Button.cart-action">
+            <Setter Property="Padding" Value="3,2"/>
+        </Style>
+        <Style Selector=".headernarrow TextBlock.cart-action-text">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
     </UserControl.Styles>
 
     <!-- 2026-09-30: своя кисть корзины (= BrushWindowAlt; у темы «Кыргыз» — узор тумар). -->
@@ -651,10 +676,11 @@
                                                         CommandParameter="{Binding}">
                                                     <PathIcon Data="{StaticResource IconScale}"/>
                                                 </Button>
+                                                <!-- 2026-10-22 (модалки, пакет 1): у «−»/«+» имя для диктора — «Убавить: товар» (было «PathIcon»). -->
                                                 <RepeatButton Classes="cart-qty"
                                                               Focusable="False"
                                                               ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}"
-                                                              Command="{Binding DecreaseCommand}"
+                                                              AutomationProperties.Name="{Binding DecreaseName}" Command="{Binding DecreaseCommand}"
                                                               CommandParameter="{Binding}">
                                                     <PathIcon Data="{StaticResource IconMinus}"/>
                                                 </RepeatButton>
@@ -681,7 +707,7 @@
                                                               Focusable="False"
                                                               IsEnabled="{Binding CanIncrease}"
                                                               ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}"
-                                                              Command="{Binding IncreaseCommand}"
+                                                              AutomationProperties.Name="{Binding IncreaseName}" Command="{Binding IncreaseCommand}"
                                                               CommandParameter="{Binding}">
                                                     <PathIcon Data="{StaticResource IconPlus}"/>
                                                 </RepeatButton>
@@ -774,7 +800,7 @@
                                           HorizontalContentAlignment="Center"
                                           VerticalContentAlignment="Center"
                                           Cursor="Hand"
-                                          Command="{Binding DecreaseManualQuantityCommand}">
+                                          AutomationProperties.Name="{DynamicResource csh.cart.decreaseTooltip}" Command="{Binding DecreaseManualQuantityCommand}">
                                 <PathIcon Data="{StaticResource IconMinus}" Width="15" Height="15"/>
                             </RepeatButton>
                             <TextBox Grid.Column="1"
@@ -799,7 +825,7 @@
                                           HorizontalContentAlignment="Center"
                                           VerticalContentAlignment="Center"
                                           Cursor="Hand"
-                                          Command="{Binding IncreaseManualQuantityCommand}">
+                                          AutomationProperties.Name="{DynamicResource csh.cart.increaseTooltip}" Command="{Binding IncreaseManualQuantityCommand}">
                                 <PathIcon Data="{StaticResource IconPlus}" Width="15" Height="15"/>
                             </RepeatButton>
                         </Grid>
@@ -851,7 +877,7 @@
                     </Button>
 
                     <Button Grid.Column="2"
-                            Classes="cart-action"
+                            Classes="cart-action danger"
                             Focusable="False"
                             Command="{Binding DeleteReceiptCommand}"
                             ToolTip.Tip="{DynamicResource csh.cart.deleteReceiptTooltip}">
@@ -1037,6 +1063,12 @@
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Bottom">
                     <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Bottom" Margin="0,0,0,8">
+                        <!-- 2026-10-22 (аудит 1.17.59, П-В, Б9): скидка на чек отдельной строкой — видно, откуда «Итого» меньше суммы товаров. -->
+                        <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasOrderDiscount}">
+                            <TextBlock Text="{Binding OrderDiscountText}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                            <TextBlock Text="{Binding OrderDiscountValue}" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushDanger}"/>
+                        </StackPanel>
                         <!-- Подпись именно «Итого»: TotalAmount — это ИТОГОВАЯ сумма к оплате
                              (BasketPanelViewModel.Total), а ключ csh.cart.subtotal означает
                              «Промежуточный итог» — подпись противоречила числу под ней.

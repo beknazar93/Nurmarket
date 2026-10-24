@@ -205,11 +205,65 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         if (trimmed.Length < 2)
             return;
 
+        // 2026-10-21: поиск ревизии и списания не знал штрихкода вовсе — скан в это поле ничего не находил (склад не
+        // находит товар по скану). Теперь точный код (как у кассы, ProductCodeLookup) — первым, и вхождение в основной
+        // штрихкод — с 4 знаков, как у «Товаров».
+        var exact = trimmed.Length >= 4 ? InCatalog(ProductCodeLookup.FindLocal(trimmed)?.Product) : null;
+        if (exact is not null)
+            results.Add(exact);
+
         foreach (var product in CatalogCacheService.Products
-                     .Where(p => p.Title.Contains(trimmed, StringComparison.OrdinalIgnoreCase)
-                                 || (p.Article?.Contains(trimmed, StringComparison.OrdinalIgnoreCase) ?? false))
-                     .Take(8))
+                     .Where(p => (p.Title.Contains(trimmed, StringComparison.OrdinalIgnoreCase)
+                                  || (p.Article?.Contains(trimmed, StringComparison.OrdinalIgnoreCase) ?? false)
+                                  || (trimmed.Length >= 4 && (p.Barcode?.Contains(trimmed, StringComparison.OrdinalIgnoreCase) ?? false)))
+                                 && !string.Equals(p.Id, exact?.Id, StringComparison.OrdinalIgnoreCase))
+                     .Take(exact is null ? 8 : 7))
             results.Add(product);
+    }
+
+    /// <summary>2026-10-21: товар поиска по коду — тем же объектом, что в каталоге памяти (фото, метки срока); если в
+    /// памяти его нет (каталог ещё грузится) — плитка из базы кассы.</summary>
+    private static CatalogProductTileVm? InCatalog(CatalogProductTileVm? product) =>
+        product is null
+            ? null
+            : CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, product.Id, StringComparison.OrdinalIgnoreCase)) ?? product;
+
+    /// <summary>2026-10-21: похоже на код со сканера, а не на название: без пробелов, от 4 знаков, есть цифра.</summary>
+    public static bool LooksLikeCode(string? text)
+    {
+        var code = ProductCodeLookup.Normalize(text);
+        return code.Length >= 4 && !code.Contains(' ') && code.Any(char.IsDigit);
+    }
+
+    /// <summary>2026-10-21: Enter в поле поиска ревизии/списания (сканер пишет код в поле и жмёт Enter — раньше
+    /// ничего не происходило). Точный код — этот товар; иначе первый из подсказок (не для штрихкода из цифр: там
+    /// подсказка могла бы быть чужим товаром); иначе код — на сервер и «не найден».</summary>
+    public void SubmitSearch(bool isRevisionTab)
+    {
+        var text = (isRevisionTab ? RevisionSearchText : WriteOffSearchText).Trim();
+        if (text.Length == 0)
+            return;
+        var results = isRevisionTab ? RevisionSearchResults : WriteOffSearchResults;
+        var code = ProductCodeLookup.Normalize(text);
+        var digitsOnly = code.Length >= 6 && code.All(char.IsDigit);
+        var exact = LooksLikeCode(text) ? InCatalog(ProductCodeLookup.FindLocal(code)?.Product) : null;
+        var pick = exact ?? (digitsOnly ? null : results.FirstOrDefault());
+        if (pick is not null)
+        {
+            if (isRevisionTab)
+                PickRevisionProduct(pick);
+            else
+                PickWriteOffProduct(pick);
+            return;
+        }
+
+        if (!LooksLikeCode(text))
+            return;
+        if (isRevisionTab)
+            RevisionSearchText = "";
+        else
+            WriteOffSearchText = "";
+        HandleBarcodeScan(code, isRevisionTab);
     }
 
     private void PickRevisionProduct(CatalogProductTileVm? product)
@@ -318,6 +372,10 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         // В «Продуктах» склад ищет как раньше (владелец: «главное не трогай продуктовый»).
         var extraSearch = MarketSpheres.IsClothing || MarketSpheres.IsServices;
         var variantProductId = query.Length >= 4 && MarketSpheres.IsClothing ? VariantBarcodeIndex.ProductIdFor(query) : null;
+        // 2026-10-21: точный код — тем же поиском, что касса (ProductCodeLookup): доп. штрихкод, 12 ↔ 13 цифр, весовая
+        // этикетка, артикул (склад не находит товар по скану). Найденный товар — первой строкой и мимо фильтров
+        // наличия/единицы: скан — прямой запрос этого товара. Остальной поиск «Продуктов» — как был.
+        var exactHit = query.Length >= 4 ? InCatalog(ProductCodeLookup.FindLocal(query)?.Product) : null;
         IEnumerable<CatalogProductTileVm> source = string.IsNullOrEmpty(query)
             ? CatalogCacheService.Products
             : CatalogCacheService.Products.Where(p =>
@@ -344,6 +402,8 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             "expiry" => source.Where(p => expiry.ContainsKey(p.Id)).OrderBy(p => expiry[p.Id].DaysLeft),
             _ => source,
         };
+        if (exactHit is not null)
+            source = new[] { exactHit }.Concat(source.Where(p => !string.Equals(p.Id, exactHit.Id, StringComparison.OrdinalIgnoreCase)));
 
         // Одна замена коллекции вместо Clear()+Add() по одному (2026-09-07, оптимизация для
         // слабых ПК): каждый Add — событие CollectionChanged и перерасчёт DataGrid, на каталоге
@@ -551,12 +611,65 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         ReceivingLines.Add(PurchaseReceivingService.FromTile(product, quantity));
     }
 
-    public void HandleBarcodeScan(string barcode, bool isRevisionTab)
+    /// <summary>2026-10-21: товар не найден ни здесь, ни на сервере — окно предлагает «Создать товар» (WarehouseWindow).
+    /// Без обработчика — прежнее поведение (строка ревизии без товара / предупреждение списания).</summary>
+    public Func<string, bool, Task>? BarcodeNotFound { get; set; }
+
+    public void HandleBarcodeScan(string barcode, bool isRevisionTab) =>
+        _ = HandleBarcodeScanAsync(barcode, isRevisionTab).ContinueWith(
+            t => PosLogger.Log($"Склад: скан '{barcode}' не обработан: {t.Exception?.GetBaseException().Message}", "WARNING"),
+            TaskContinuationOptions.OnlyOnFaulted);
+
+    /// <summary>2026-10-21: скан в ревизии и списании. Раньше — только точный ОСНОВНОЙ штрихкод в каталоге памяти: доп.
+    /// штрихкод, UPC-A 12 цифр при EAN-13 в карточке, штрихкод размера, весовая этикетка и товар, только что
+    /// добавленный на сайте, давали «не найден», хотя касса тот же скан находила (склад не находит товар по скану).
+    /// Теперь — общий поиск кассы (ProductCodeLookup): этот компьютер, затем сервер. Найден на компьютере — всё
+    /// происходит сразу, как раньше (до первого await).</summary>
+    public async Task HandleBarcodeScanAsync(string barcode, bool isRevisionTab)
     {
         if (string.IsNullOrWhiteSpace(barcode)) return;
-        var trimmed = barcode.Trim();
-        var product = CatalogCacheService.Products.FirstOrDefault(p =>
-            string.Equals(p.Barcode, trimmed, StringComparison.OrdinalIgnoreCase));
+        var trimmed = ProductCodeLookup.Normalize(barcode);
+        if (trimmed.Length == 0) return;
+        var local = ProductCodeLookup.FindLocal(trimmed);
+        var product = InCatalog(local?.Product);
+        var serverUnavailable = false;
+        if (product is null)
+        {
+            ProductCodeLookup.Result server;
+            try
+            {
+                server = await ProductCodeLookup.FindOnServerAsync(trimmed).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Склад: скан '{trimmed}' — поиск на сервере упал: {ex.Message}", "STOCK");
+                server = new ProductCodeLookup.Result(null, true);
+            }
+
+            product = InCatalog(server.Hit?.Product);
+            serverUnavailable = server.Unavailable;
+        }
+
+        PosLogger.Log(product is null
+            ? $"Склад: скан '{trimmed}' ({(isRevisionTab ? "ревизия" : "списание")}) — товар не найден{(serverUnavailable ? ", сервер не ответил" : "")}."
+            : $"Склад: скан '{trimmed}' ({(isRevisionTab ? "ревизия" : "списание")}) — товар {product.Id} ({local?.Kind.ToString() ?? "Server"}).", "STOCK");
+
+        if (product is null && serverUnavailable)
+        {
+            _prompts?.ShowWarning(Tr.T(
+                "Не удалось проверить штрихкод на сервере. Проверьте связь и повторите сканирование; создание нового товара пока недоступно.",
+                "Штрихкодду серверден текшерүү мүмкүн болгон жок. Байланышты текшерип, кайра сканерлеңиз; азырынча жаңы товар түзүү жеткиликсиз.",
+                "The barcode could not be verified with the server. Check the connection and scan again; creating a new product is unavailable for now.",
+                "Barkod sunucuda doğrulanamadı. Bağlantıyı kontrol edip tekrar tarayın; şu anda yeni ürün oluşturma kullanılamıyor.",
+                "Shtrix-kodni serverda tekshirib bo'lmadi. Ulanishni tekshirib qayta skanerlang; hozircha yangi mahsulot yaratib bo'lmaydi."));
+            return;
+        }
+
+        if (product is null && BarcodeNotFound is { } notFound)
+        {
+            await notFound(trimmed, isRevisionTab).ConfigureAwait(true);
+            return;
+        }
 
         if (isRevisionTab)
         {
@@ -578,6 +691,16 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             WriteOffProductName = trimmed;
             _prompts?.ShowWarning(Tr.T("Товар с этим штрих-кодом не найден в каталоге — списание недоступно.", "Бул штрихкоддуу товар каталогдон табылган жок — эсептен чыгаруу мүмкүн эмес.", "No product with this barcode in the catalog — write-off isn't available.", "Bu barkoda sahip ürün katalogda bulunamadı — düşüm yapılamaz.", "Bu shtrix-kodli mahsulot katalogda topilmadi — hisobdan chiqarib bo'lmaydi."));
         }
+    }
+
+    /// <summary>2026-10-21: товар, созданный из окна «не найден», — сразу в ревизию или в списание.</summary>
+    public void ApplyScannedProduct(CatalogProductTileVm product, bool isRevisionTab)
+    {
+        product = InCatalog(product)!;
+        if (isRevisionTab)
+            AddRevisionLineForProduct(product);
+        else
+            SelectProductForWriteOff(product);
     }
 
     private void AddRevisionLineForProduct(CatalogProductTileVm product)

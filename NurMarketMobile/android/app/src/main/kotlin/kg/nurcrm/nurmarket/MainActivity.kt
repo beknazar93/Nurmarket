@@ -17,6 +17,8 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -38,8 +40,16 @@ class MainActivity : FlutterActivity() {
     private val main = Handler(Looper.getMainLooper())
     private var permissionResult: MethodChannel.Result? = null
 
+    // 2026-10-22 (мобилка, админ): П6 — одно окно разрешения USB за раз (раньше каждое нажатие «Печать» регистрировало
+    // свой приёмник, и после «Разрешить» чек печатался столько раз, сколько нажали).
+    private var usbPermissionPending = false
+
+    // 2026-10-22 (мобилка, админ): П6 — «бип» сканера (ToneGenerator, без новых зависимостей); создаётся при первом звуке.
+    private var tone: ToneGenerator? = null
+
     companion object {
         private const val CHANNEL = "kg.nurcrm.nurmarket/printer"
+        private const val BEEP_CHANNEL = "kg.nurcrm.nurmarket/beep"
         private val SPP: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
         private const val REQ_BT = 7101
         private const val USB_PERMISSION = "kg.nurcrm.nurmarket.USB_PERMISSION"
@@ -47,6 +57,8 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // 2026-10-22 (звонок ИИ мобилки): микрофон и звук голосового звонка с Нур Советником (VoiceCallAudio.kt).
+        flutterEngine.plugins.add(VoiceCallAudio())
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             try {
                 handle(call, result)
@@ -54,6 +66,35 @@ class MainActivity : FlutterActivity() {
                 result.error("io", e.message, null)
             }
         }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BEEP_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "beep") {
+                beep(call.argument<String>("kind") ?: "ok")
+                result.success(null)
+            } else {
+                result.notImplemented()
+            }
+        }
+    }
+
+    /// 2026-10-22 (мобилка, админ): П6 — короткий «бип» удачного скана, двойной низкий — ошибка (товар не найден).
+    /// Поток музыки: звук слышен и в беззвучном режиме звонка, громкость — кнопками телефона.
+    private fun beep(kind: String) {
+        try {
+            val t = tone ?: ToneGenerator(AudioManager.STREAM_MUSIC, 80).also { tone = it }
+            if (kind == "error") t.startTone(ToneGenerator.TONE_PROP_NACK, 250) else t.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
+        } catch (_: RuntimeException) {
+            // нет звукового устройства или занято — без звука
+            tone = null
+        }
+    }
+
+    override fun onDestroy() {
+        try {
+            tone?.release()
+        } catch (_: Exception) {
+        }
+        tone = null
+        super.onDestroy()
     }
 
     private fun adapter(): BluetoothAdapter? = (getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
@@ -114,7 +155,7 @@ class MainActivity : FlutterActivity() {
                         btPrint(a, address, data)
                         main.post { result.success(null) }
                     } catch (e: PrinterError) {
-                        main.post { result.error(e.code, e.message, null) }
+                        main.post { result.error(e.code, e.message, if (e.sent) "sent" else null) }
                     } catch (e: Exception) {
                         main.post { result.error("io", e.message, null) }
                     }
@@ -144,7 +185,8 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private class PrinterError(val code: String, message: String? = null) : Exception(message)
+    // 2026-10-22 (мобилка, админ): П6 — sent: часть чека уже ушла на принтер, Dart не повторяет (иначе второй чек).
+    private class PrinterError(val code: String, message: String? = null, val sent: Boolean = false) : Exception(message)
 
     // ------------------------------------------------------------------ Bluetooth
 
@@ -245,6 +287,7 @@ class MainActivity : FlutterActivity() {
             }
         }
         val s = socket ?: throw PrinterError("timeout", lastError?.message)
+        var sentBytes = 0
         try {
             val out = s.outputStream
             // кусками — у дешёвых принтеров маленький буфер, иначе конец чека теряется
@@ -254,12 +297,13 @@ class MainActivity : FlutterActivity() {
                 out.write(data, i, n)
                 out.flush()
                 i += n
+                sentBytes = i
                 Thread.sleep(20)
             }
             // дать принтеру допечатать перед закрытием сокета (закрытие сразу обрывает чек)
             Thread.sleep(400L + data.size / 20)
         } catch (e: IOException) {
-            throw PrinterError("io", e.message)
+            throw PrinterError("io", e.message, sent = sentBytes > 0)
         } finally {
             try {
                 s.close()
@@ -300,10 +344,14 @@ class MainActivity : FlutterActivity() {
             usbWrite(m, d, data, result)
             return
         }
+        // 2026-10-22 (мобилка, админ): П6 — окно разрешения уже открыто: второй чек не ставим в очередь к нему.
+        if (usbPermissionPending) return result.error("usbDenied", "permission pending", null)
+        usbPermissionPending = true
         // окно Android «Разрешить приложению доступ к USB-устройству?»
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, i: Intent) {
                 if (i.action != USB_PERMISSION) return
+                usbPermissionPending = false
                 try {
                     unregisterReceiver(this)
                 } catch (_: Exception) {
@@ -337,12 +385,12 @@ class MainActivity : FlutterActivity() {
                     val n = minOf(4096, data.size - i)
                     val chunk = data.copyOfRange(i, i + n)
                     val sent = conn.bulkTransfer(ep, chunk, n, 5000)
-                    if (sent < 0) throw PrinterError("timeout")
+                    if (sent < 0) throw PrinterError("timeout", null, sent = i > 0)
                     i += sent.coerceAtLeast(1)
                 }
                 main.post { result.success(null) }
             } catch (e: PrinterError) {
-                main.post { result.error(e.code, e.message, null) }
+                main.post { result.error(e.code, e.message, if (e.sent) "sent" else null) }
             } catch (e: Exception) {
                 main.post { result.error("io", e.message, null) }
             } finally {

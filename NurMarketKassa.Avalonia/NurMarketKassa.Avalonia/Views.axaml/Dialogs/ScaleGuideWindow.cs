@@ -28,32 +28,28 @@ public sealed class ScaleGuideWindow : Window
     {
         brand = NormalizeBrand(brand);
         Title = L("Инструкция подключения — ", "Туташтыруу нускамасы — ", "Connection guide — ", "Bağlantı kılavuzu — ", "Ulanish yo‘riqnomasi — ") + LabelBrandTitle(brand);
-        Width = 980;
-        Height = 820;
-        MinWidth = 520;
-        MinHeight = 420;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Opened += (_, _) => this.FitToKassaScreen();
+        // 2026-10-22 (модалки, пакет 3): окно без рамки ОС в общей оболочке ModalShell (L = 912). «Закрыть» — в закреплённом
+        // подвале (раньше было в самом конце длинной прокрутки — на любом экране видна только прокруткой), Esc, Enter и ✕
+        // закрывают окно; шаги прокручиваются между шапкой и подвалом. Цвета — привязкой к теме (BrushSurface/BrushBackground
+        // в теме нет — в тёмной теме карточки были белыми, рамки LightGray).
+        SectionCards.AsModal(this, 912);
 
-        var list = new StackPanel { Spacing = 14, Margin = new Thickness(24, 20, 24, 20) };
-        list.Children.Add(new TextBlock { Text = Title, FontSize = 22, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap, Foreground = ThemeBrush(this, "BrushText", Brushes.Black) });
+        var list = new StackPanel { Spacing = 14 };
         var number = 1;
         foreach (var step in StepsFor(brand))
             list.Children.Add(StepCard(number++, step));
 
-        var close = new Button
-        {
-            Content = L("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"),
-            Classes = { "btn-primary" },
-            MinWidth = 140,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 4, 0, 0),
-        };
+        var close = SectionCards.Cancel(L("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
+        close.IsDefault = true;
         close.Click += (_, _) => Close();
-        list.Children.Add(close);
-        Content = new ScrollViewer { Content = list };
-        Background = ThemeBrush(this, "BrushBackground", Brushes.WhiteSmoke);
+        Content = SectionCards.Shell(Title, null, list, SectionCards.Buttons(close));
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 3): цвет из темы привязкой — меняется вместе с темой (ThemeBrush читал его один раз).</summary>
+    private T Themed<T>(T target, AvaloniaProperty property, string key) where T : AvaloniaObject
+    {
+        target.Bind(property, this.GetResourceObservable(key));
+        return target;
     }
 
     private Control StepCard(int number, Step step)
@@ -61,33 +57,33 @@ public sealed class ScaleGuideWindow : Window
         var badge = new Border
         {
             Width = 34, Height = 34, CornerRadius = new CornerRadius(17),
-            Background = ThemeBrush(this, "BrushAccent", Brushes.Gold),
             VerticalAlignment = VerticalAlignment.Top,
-            Child = new TextBlock { Text = number.ToString(), FontWeight = FontWeight.Bold, FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Foreground = Brushes.Black },
+            Child = Themed(new TextBlock { Text = number.ToString(), FontWeight = FontWeight.Bold, FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }, TextBlock.ForegroundProperty, "BrushAccentForeground"),
         };
+        Themed(badge, Border.BackgroundProperty, "BrushAccent");
         var body = new StackPanel { Spacing = 8 };
-        body.Children.Add(new TextBlock { Text = step.Title, FontSize = 17, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Foreground = ThemeBrush(this, "BrushText", Brushes.Black) });
-        body.Children.Add(new TextBlock { Text = step.Text, FontSize = 14, TextWrapping = TextWrapping.Wrap, LineHeight = 21, Foreground = ThemeBrush(this, "BrushText", Brushes.Black) });
+        body.Children.Add(Themed(new TextBlock { Text = step.Title, FontSize = 17, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap }, TextBlock.ForegroundProperty, "BrushText"));
+        body.Children.Add(Themed(new TextBlock { Text = step.Text, FontSize = 14, TextWrapping = TextWrapping.Wrap, LineHeight = 21 }, TextBlock.ForegroundProperty, "BrushText"));
         if (step.Image is not null && Picture(step.Image) is { } picture)
-            body.Children.Add(picture);
+            body.Children.Add(Themed(picture, Border.BorderBrushProperty, "BrushBorder"));
 
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("46,*") };
         grid.Children.Add(badge);
         Grid.SetColumn(body, 1);
         grid.Children.Add(body);
-        return new Border
+        var card = new Border
         {
-            Background = ThemeBrush(this, "BrushSurface", Brushes.White),
-            BorderBrush = ThemeBrush(this, "BrushBorder", Brushes.LightGray),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
             Padding = new Thickness(16, 14),
             Child = grid,
         };
+        Themed(card, Border.BackgroundProperty, "BrushPanel");
+        return Themed(card, Border.BorderBrushProperty, "BrushBorder");
     }
 
     /// <summary>GIF на языке программы (guide-net.ky.gif), иначе русский; кадры сменяются таймером.</summary>
-    private static Control? Picture(string file)
+    private static Border? Picture(string file)
     {
         var language = L("ru", "ky", "en", "tr", "uz");
         var localized = language == "ru" ? file : System.IO.Path.GetFileNameWithoutExtension(file) + "." + language + System.IO.Path.GetExtension(file);
@@ -112,7 +108,8 @@ public sealed class ScaleGuideWindow : Window
                 image.AttachedToVisualTree += (_, _) => timer.Start();
                 image.DetachedFromVisualTree += (_, _) => timer.Stop();
             }
-            return new Border { CornerRadius = new CornerRadius(10), ClipToBounds = true, BorderThickness = new Thickness(1), BorderBrush = Brushes.LightGray, HorizontalAlignment = HorizontalAlignment.Left, Child = image };
+            // 2026-10-22 (модалки, пакет 3): рамка картинки — цветом темы (StepCard привязывает BrushBorder), не LightGray.
+            return new Border { CornerRadius = new CornerRadius(10), ClipToBounds = true, BorderThickness = new Thickness(1), HorizontalAlignment = HorizontalAlignment.Left, Child = image };
         }
         catch (Exception ex)
         {

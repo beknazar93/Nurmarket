@@ -88,6 +88,13 @@
                 </ItemsControl>
             </Border>
 
+            <!-- 2026-10-23 (аудит, круг 7): «в ящике должно быть» по слагаемым — та же раскладка, что в X-отчёте (DrawerBreakdownBuilder). -->
+            <Border x:Name="DrawerBreakdownBorder" Padding="12" CornerRadius="8" Margin="0,0,0,10"
+                    Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                    IsVisible="False">
+                <StackPanel x:Name="DrawerBreakdown" Spacing="2"/>
+            </Border>
+
             <Border x:Name="SystemBalanceBorder" Padding="12" CornerRadius="8" Margin="0,0,0,14"
                     Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
                 <StackPanel>
@@ -109,6 +116,9 @@
                 <Button x:Name="UseExpectedButton" Grid.Column="1" Classes="modal-secondary" Margin="8,0,0,0"
                         MinHeight="48" IsVisible="False" Click="UseExpected_Click"/>
             </Grid>
+            <!-- 2026-10-22 (модалки, пакет 2): ошибка суммы — текстом под полем (было всплывающее окно). -->
+            <TextBlock x:Name="ClosingCashError" FontSize="13" TextWrapping="Wrap" Margin="0,-4,0,10" IsVisible="False"
+                       Foreground="{DynamicResource BrushDangerOnSoft}"/>
             <TextBlock x:Name="ExpectedHintText" FontSize="12" TextWrapping="Wrap" Margin="0,-4,0,10" IsVisible="False"
                        Foreground="{DynamicResource BrushTextSoft}"/>
 

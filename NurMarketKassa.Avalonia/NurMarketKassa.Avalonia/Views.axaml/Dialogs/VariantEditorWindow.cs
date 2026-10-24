@@ -29,21 +29,34 @@ public sealed class VariantEditorWindow : Window
     private readonly double _basePrice;
     private readonly StackPanel _rows = new() { Spacing = 6 };
     private readonly TextBlock _status = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
-    private readonly TextBox _quickSizes = new() { Watermark = "S, M, L, XL", MinWidth = 180 };
-    private readonly TextBox _quickColors = new() { Watermark = "Чёрный, Белый", MinWidth = 200 };
-    private readonly Button _save = new() { Padding = new Thickness(22, 10), MinWidth = 140, HorizontalContentAlignment = HorizontalAlignment.Center };
+    // 2026-10-22 (витрина одежды): «остаток товара ≠ сумма по размерам» — касса, бот и витрина NurCRM показывают наличие по-разному
+    // (NBS: Nike — товар 53, размеры 89). Только подсказка: остаток товара отсюда не меняем (PATCH quantity может создать движение денег).
+    private readonly TextBlock _stockNote = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private double? _productStock;
+    // 2026-10-22 (модалки, пакет 3): поля 44 px (класс modal-field), пример цвета — на языке программы.
+    private readonly TextBox _quickSizes = new() { Watermark = "S, M, L, XL", MinWidth = 180, Classes = { "modal-field" } };
+    private readonly TextBox _quickColors = new()
+    {
+        Watermark = Tr.T("Чёрный, Белый", "Кара, Ак", "Black, White", "Siyah, Beyaz", "Qora, Oq"), MinWidth = 200, Classes = { "modal-field" },
+    };
+    private readonly Button _save = SectionCards.Primary(Tr.T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"));
     private readonly List<Row> _items = new();
     private readonly List<string> _deletedIds = new();
+    // 2026-10-22 (модалки, пакет 3): общая оболочка (912) и защита от двойного нажатия «Сохранить»/«Этикетки»: пока идёт
+    // запись на сервер или печать, подвал, ✕ и Esc выключены (окно не закрывается посреди сохранения).
+    private ModalShell _shell = null!;
+    private bool _saving;
+    private bool _printing;
 
     private sealed class Row
     {
         public ProductVariantDto Source = new();
-        public TextBox Size = new() { Width = 90 };
-        public TextBox Color = new() { Width = 150 };
-        public TextBox Price = new() { Width = 110 };
-        public TextBox Qty = new() { Width = 80 };
-        public TextBox Barcode = new() { Width = 170 };
-        public CheckBox Active = new() { IsChecked = true, VerticalAlignment = VerticalAlignment.Center };
+        public TextBox Size = new() { Width = 90, Classes = { "modal-field" } };
+        public TextBox Color = new() { Width = 140, Classes = { "modal-field" } };
+        public TextBox Price = new() { Width = 100, Classes = { "modal-field" } };
+        public TextBox Qty = new() { Width = 80, Classes = { "modal-field" } };
+        public TextBox Barcode = new() { Width = 170, Classes = { "modal-field" } };
+        public CheckBox Active = new() { IsChecked = true, VerticalAlignment = VerticalAlignment.Center, MinHeight = 44 };
         public Control? View;
     }
 
@@ -54,19 +67,12 @@ public sealed class VariantEditorWindow : Window
         _productTitle = productTitle;
         _basePrice = basePrice;
         Title = Tr.T("Размеры и цвета", "Өлчөмдөр жана түстөр", "Sizes and colors", "Bedenler ve renkler", "O'lchamlar va ranglar") + " — " + productTitle;
-        Width = 900;
-        Height = 680;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Use(this, BackgroundProperty, "BrushDialogPanel");
-        KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
-
-        var root = new DockPanel { Margin = new Thickness(24, 18) };
+        // 2026-10-22 (модалки, пакет 3): окно без рамки ОС в общей оболочке ModalShell (L = 912, было своё окно 900×680):
+        // заголовок и ✕ сверху, «Закрыть» (Esc = ✕) и «Сохранить» — в закреплённом подвале, строки прокручиваются между ними.
+        // Enter «Сохранить» не нажимает: в колонке «Штрихкод» сканер заканчивает код Enter'ом.
+        SectionCards.AsModal(this, 912);
 
         var top = new StackPanel { Spacing = 8 };
-        DockPanel.SetDock(top, Dock.Top);
-        var title = new TextBlock { Text = Title, FontSize = 20, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
-        top.Children.Add(title);
         top.Children.Add(Soft(Tr.T(
             $"Каждый размер/цвет — со своим остатком. Цена пустая — продаётся по цене товара ({basePrice:0.##} сом); ниже — касса покажет скидку. В кассе (сфера «Одежда») при выборе товара откроется выбор размера и цвета.",
             $"Ар бир өлчөм/түс — өз калдыгы менен. Баасы бош — товардын баасы ({basePrice:0.##} сом); арзаныраак — касса арзандатуу көрсөтөт. Кассада («Кийим» тармагы) товарды тандаганда өлчөм жана түс тандалат.",
@@ -75,15 +81,20 @@ public sealed class VariantEditorWindow : Window
             $"Har bir o'lcham/rang — o'z qoldig'i bilan. Narx bo'sh — mahsulot narxi ({basePrice:0.##} so'm); pastroq — kassa chegirma ko'rsatadi. Kassada (Kiyim) o'lcham/rang tanlovi ochiladi.")));
 
         // Быстро заполнить: размеры × цвета.
-        var quick = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 6, 0, 6) };
+        // 2026-10-22 (модалки, пакет 3): ряд переносится (длинные надписи ky/tr/uz не обрезаются), кнопка — обводкой 44 px.
+        var quick = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 6) };
         quick.Children.Add(Soft(Tr.T("Быстро:", "Тез:", "Quick:", "Hızlı:", "Tez:"), center: true));
         quick.Children.Add(_quickSizes);
         quick.Children.Add(Soft("×", center: true));
         quick.Children.Add(_quickColors);
-        var gen = new Button { Content = Tr.T("Добавить все сочетания", "Бардык айкалыштарды кошуу", "Add all combinations", "Tüm kombinasyonları ekle", "Barcha birikmalarni qo'shish") };
+        var gen = SectionCards.Secondary(Tr.T("Добавить все сочетания", "Бардык айкалыштарды кошуу", "Add all combinations", "Tüm kombinasyonları ekle", "Barcha birikmalarni qo'shish"));
         gen.Click += (_, _) => GenerateCombos();
         quick.Children.Add(gen);
+        foreach (var c in quick.Children)
+            c.Margin = new Thickness(0, 0, 8, 6);
         top.Children.Add(quick);
+        Use(_stockNote, TextBlock.ForegroundProperty, "BrushWarning");
+        top.Children.Add(_stockNote);
 
         // 2026-10-06, исследование «Кассы для одежды» (О-20): готовые размерные сетки — одной кнопкой в поле размеров.
         var presets = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
@@ -98,7 +109,8 @@ public sealed class VariantEditorWindow : Window
                      (Tr.T("Джинсы W26–W36", "Джинсы W26–W36", "Jeans W26–W36", "Kot W26–W36", "Jinsi W26–W36"), "W26, W27, W28, W29, W30, W31, W32, W33, W34, W36"),
                  })
         {
-            var b = new Button { Content = name, Margin = new Thickness(6, 0, 0, 4), Padding = new Thickness(10, 4) };
+            // 2026-10-22 (модалки, пакет 3): чип 44 px (класс modal-chip, было 30).
+            var b = new Button { Content = name, Margin = new Thickness(6, 0, 0, 6), Classes = { "modal-chip" } };
             b.Click += (_, _) => _quickSizes.Text = sizes;
             presets.Children.Add(b);
         }
@@ -113,40 +125,37 @@ public sealed class VariantEditorWindow : Window
         AddCell(head, Soft(Tr.T("Штрихкод", "Штрихкод", "Barcode", "Barkod", "Shtrix-kod")), 4);
         AddCell(head, Soft(Tr.T("Продаётся", "Сатылат", "On sale", "Satışta", "Sotuvda")), 5);
         top.Children.Add(head);
-        root.Children.Add(top);
 
-        var bottom = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto,Auto"), Margin = new Thickness(0, 10, 0, 0) };
-        DockPanel.SetDock(bottom, Dock.Bottom);
+        // 2026-10-22 (модалки, пакет 3): действия со строками — рядом со строками (обводкой, 44 px); в подвале только
+        // «Закрыть» и одна жёлтая «Сохранить» (было 5 кнопок в ряд — на 910 px не помещались).
         Use(_status, TextBlock.ForegroundProperty, "BrushTextSoft");
-        bottom.Children.Add(_status);
-        var addRow = new Button { Content = Tr.T("+ Добавить строку", "+ Сап кошуу", "+ Add row", "+ Satır ekle", "+ Qator qo'shish"), Margin = new Thickness(0, 0, 10, 0) };
+        var tools = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+        var addRow = SectionCards.Secondary(Tr.T("+ Добавить строку", "+ Сап кошуу", "+ Add row", "+ Satır ekle", "+ Qator qo'shish"));
+        addRow.Margin = new Thickness(0, 0, 10, 6);
         addRow.Click += (_, _) => AddRow(new ProductVariantDto());
-        Grid.SetColumn(addRow, 1);
-        bottom.Children.Add(addRow);
+        tools.Children.Add(addRow);
         // 2026-10-06 (О-23, О-25): штрихкоды размеров и этикетки.
-        var makeCodes = new Button { Content = Tr.T("Создать штрихкоды", "Штрихкоддорду түзүү", "Create barcodes", "Barkod oluştur", "Shtrix-kodlar yaratish"), Margin = new Thickness(0, 0, 10, 0) };
+        var makeCodes = SectionCards.Secondary(Tr.T("Создать штрихкоды", "Штрихкоддорду түзүү", "Create barcodes", "Barkod oluştur", "Shtrix-kodlar yaratish"));
+        makeCodes.Margin = new Thickness(0, 0, 10, 6);
         ToolTip.SetTip(makeCodes, Tr.T("Размерам без штрихкода — свои штрихкоды для этикеток", "Штрихкоду жок өлчөмдөргө — этикетка үчүн өз штрихкоддору",
             "Own barcodes for sizes without one — for labels", "Barkodu olmayan bedenlere etiket için barkod", "Shtrix-kodi yo'q o'lchamlarga — yorliq uchun shtrix-kodlar"));
         makeCodes.Click += (_, _) => GenerateBarcodes();
-        Grid.SetColumn(makeCodes, 2);
-        bottom.Children.Add(makeCodes);
-        var labels = new Button { Content = Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"), Margin = new Thickness(0, 0, 10, 0) };
+        tools.Children.Add(makeCodes);
+        var labels = SectionCards.Secondary(Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"));
+        labels.Margin = new Thickness(0, 0, 10, 6);
         labels.Click += async (_, _) => await PrintLabelsAsync().ConfigureAwait(true);
-        Grid.SetColumn(labels, 3);
-        bottom.Children.Add(labels);
-        var close = new Button { Content = Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"), Margin = new Thickness(0, 0, 10, 0), Padding = new Thickness(18, 10) };
+        tools.Children.Add(labels);
+        var close = SectionCards.Cancel(Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
         close.Click += (_, _) => Close();
-        Grid.SetColumn(close, 4);
-        bottom.Children.Add(close);
-        _save.Content = Tr.T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash");
-        _save.Classes.Add("btn-primary");
         _save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
-        Grid.SetColumn(_save, 5);
-        bottom.Children.Add(_save);
-        root.Children.Add(bottom);
 
-        root.Children.Add(new ScrollViewer { Content = _rows });
-        Content = root;
+        var body = new StackPanel { Spacing = 6 };
+        body.Children.Add(top);
+        body.Children.Add(_rows);
+        body.Children.Add(tools);
+        _shell = SectionCards.Shell(Tr.T("Размеры и цвета", "Өлчөмдөр жана түстөр", "Sizes and colors", "Bedenler ve renkler", "O'lchamlar va ranglar"),
+            productTitle, body, SectionCards.Buttons(close, _save), _status);
+        Content = _shell;
 
         Opened += async (_, _) => await LoadAsync().ConfigureAwait(true);
     }
@@ -169,6 +178,8 @@ public sealed class VariantEditorWindow : Window
             }
             foreach (var v in list.OrderBy(v => Rank(v.Size)).ThenBy(v => v.Size, StringComparer.OrdinalIgnoreCase).ThenBy(v => v.Color, StringComparer.CurrentCultureIgnoreCase))
                 AddRow(v);
+            await LoadProductStockAsync().ConfigureAwait(true);
+            UpdateStockNote();
             _status.Text = list.Count == 0
                 ? Tr.T("Вариантов пока нет — добавьте размеры и цвета.", "Варианттар азырынча жок — өлчөмдөрдү жана түстөрдү кошуңуз.", "No variants yet — add sizes and colors.", "Henüz varyant yok — beden ve renk ekleyin.", "Hozircha variantlar yo'q — o'lcham va ranglarni qo'shing.")
                 : Tr.T($"Вариантов: {list.Count}", $"Варианттар: {list.Count}", $"Variants: {list.Count}", $"Varyant: {list.Count}", $"Variantlar: {list.Count}");
@@ -177,6 +188,40 @@ public sealed class VariantEditorWindow : Window
         {
             _status.Text = Tr.T("Не удалось загрузить: ", "Жүктөө мүмкүн болгон жок: ", "Could not load: ", "Yüklenemedi: ", "Yuklab bo'lmadi: ") + ex.Message;
         }
+    }
+
+    /// <summary>2026-10-22 (витрина одежды): общий остаток товара с сервера (карточка товара) — для сверки с размерами.</summary>
+    private async Task LoadProductStockAsync()
+    {
+        try
+        {
+            var detail = await _api.ProductsDetailAsync(_productId).ConfigureAwait(true);
+            if (detail is { ValueKind: System.Text.Json.JsonValueKind.Object } d && d.TryGetProperty("quantity", out var q)
+                && double.TryParse(q.ValueKind == System.Text.Json.JsonValueKind.String ? q.GetString() : q.GetRawText(), NumberStyles.Any, Inv, out var stock))
+                _productStock = stock;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Размеры товара {_productId}: остаток товара не получен ({ex.Message}).", "CATALOG");
+        }
+    }
+
+    private void UpdateStockNote()
+    {
+        var sum = _items.Where(r => r.Active.IsChecked == true)
+            .Sum(r => double.TryParse(r.Qty.Text?.Replace(',', '.'), NumberStyles.Any, Inv, out var q) && q > 0 ? q : 0);
+        var differs = _productStock is { } stock && _items.Count > 0 && Math.Abs(stock - sum) >= 0.0005;
+        _stockNote.IsVisible = differs;
+        if (!differs)
+            return;
+        var p = _productStock!.Value.ToString("0.###", Inv);
+        var v = sum.ToString("0.###", Inv);
+        _stockNote.Text = Tr.T(
+            $"Остаток товара — {p} шт., а по размерам вместе — {v} шт. Касса, Telegram-бот и онлайн-витрина могут показывать разное наличие. Поправьте остатки размеров здесь или общий остаток товара (ревизия / приход).",
+            $"Товардын калдыгы — {p} даана, ал эми өлчөмдөр боюнча бардыгы — {v} даана. Касса, Telegram-бот жана онлайн-витрина ар башка калдык көрсөтүшү мүмкүн. Өлчөмдөрдүн калдыгын бул жерден же товардын жалпы калдыгын (ревизия / кирүү) оңдоңуз.",
+            $"Product stock is {p} pcs, but sizes add up to {v} pcs. The till, the Telegram bot and the online showcase may show different availability. Fix the size stock here or the product's total stock (stocktake / receiving).",
+            $"Ürün stoku {p} adet, bedenlerin toplamı ise {v} adet. Kasa, Telegram botu ve çevrimiçi vitrin farklı stok gösterebilir. Beden stoklarını burada ya da ürünün toplam stokunu (sayım / mal kabul) düzeltin.",
+            $"Mahsulot qoldig'i — {p} dona, o'lchamlar bo'yicha jami — {v} dona. Kassa, Telegram-bot va onlayn vitrina turlicha mavjudlik ko'rsatishi mumkin. O'lchamlar qoldig'ini shu yerda yoki mahsulotning umumiy qoldig'ini (inventarizatsiya / kirim) tuzating.");
     }
 
     private void AddRow(ProductVariantDto v)
@@ -197,7 +242,8 @@ public sealed class VariantEditorWindow : Window
         AddCell(grid, row.Qty, 3);
         AddCell(grid, row.Barcode, 4);
         AddCell(grid, row.Active, 5);
-        var del = new Button { Content = "✕", Width = 36, Height = 32, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center };
+        // 2026-10-22 (модалки, пакет 3): ✕ строки 44×44 (было 36×32), обводкой, как modal-close.
+        var del = new Button { Content = "✕", Width = 44, Height = 44, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Classes = { "modal-close" } };
         ToolTip.SetTip(del, Tr.T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"));
         del.Click += (_, _) =>
         {
@@ -238,6 +284,11 @@ public sealed class VariantEditorWindow : Window
 
     private async Task SaveAsync()
     {
+        // 2026-10-22 (модалки, пакет 3): второй клик/вызов во время сохранения ничего не делает; окно занято (IsBusy).
+        if (_saving)
+            return;
+        _saving = true;
+        var ownBusy = _shell.TryBeginBusy();
         _save.IsEnabled = false;
         var saved = 0;
         var errors = new List<string>();
@@ -292,6 +343,7 @@ public sealed class VariantEditorWindow : Window
             }
 
             PosLogger.Log($"Размеры/цвета товара {_productId}: сохранено {saved}, ошибок {errors.Count}.", "CATALOG");
+            UpdateStockNote();
             // 2026-10-06 (О-01): свежие размеры — в кеш кассы и справочник штрихкодов (скан этикетки размера).
             if (saved > 0)
             {
@@ -311,6 +363,9 @@ public sealed class VariantEditorWindow : Window
         finally
         {
             _save.IsEnabled = true;
+            _saving = false;
+            if (ownBusy)
+                _shell.EndBusy();
         }
     }
 
@@ -368,6 +423,25 @@ public sealed class VariantEditorWindow : Window
     /// <summary>2026-10-06 (О-25): этикетки размеров — сначала сохраняет правки (чтобы штрихкоды знали сервер и касса),
     /// потом спрашивает «по остатку» или «по одной» и печатает на принтер этикеток из настроек.</summary>
     private async Task PrintLabelsAsync()
+    {
+        // 2026-10-22 (модалки, пакет 3): двойное нажатие «Этикетки» не печатает дважды; окно занято на время печати.
+        if (_printing)
+            return;
+        _printing = true;
+        var ownBusy = _shell.TryBeginBusy();
+        try
+        {
+            await PrintLabelsCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            _printing = false;
+            if (ownBusy)
+                _shell.EndBusy();
+        }
+    }
+
+    private async Task PrintLabelsCoreAsync()
     {
         await SaveAsync().ConfigureAwait(true);
         var rows = _items.Where(r => !string.IsNullOrWhiteSpace(r.Barcode.Text)).ToList();
@@ -430,40 +504,31 @@ public sealed class VariantEditorWindow : Window
     private async Task<bool?> AskLabelCountAsync(int byStock, int perSize)
     {
         bool? answer = null;
-        var dlg = new Window
-        {
-            Title = Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"), Width = 440, SizeToContent = SizeToContent.Height,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner, CanResize = false,
-        };
-        Use(dlg, BackgroundProperty, "BrushDialogPanel");
-        var panel = new StackPanel { Margin = new Thickness(22), Spacing = 10 };
-        var head = new TextBlock { Text = Tr.T("Сколько этикеток напечатать?", "Канча этикетка басуу керек?", "How many labels to print?", "Kaç etiket yazdırılsın?", "Nechta yorliq chop etilsin?"), FontSize = 16, FontWeight = FontWeight.Bold };
-        Use(head, TextBlock.ForegroundProperty, "BrushText");
-        panel.Children.Add(head);
-        var stock = new Button
-        {
-            Content = Tr.T($"По остатку — {byStock} шт.", $"Калдык боюнча — {byStock} даана", $"By stock — {byStock}", $"Stoğa göre — {byStock}", $"Qoldiq bo'yicha — {byStock} dona"),
-            HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(12, 10), IsEnabled = byStock > 0,
-        };
-        stock.Classes.Add("btn-primary");
+        // 2026-10-22 (модалки, пакет 3): окно без рамки ОС в общей оболочке (S = 512). Два варианта — большими кнопками
+        // в теле (жёлтая — «По остатку», Enter; вторая — обводкой), «Отмена» в подвале = Esc = ✕ (раньше Esc не работал).
+        var dlg = new Window { Title = Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar") };
+        SectionCards.AsModal(dlg, 512);
+        var panel = new StackPanel { Spacing = 10 };
+        var stock = SectionCards.Primary(Tr.T($"По остатку — {byStock} шт.", $"Калдык боюнча — {byStock} даана", $"By stock — {byStock}", $"Stoğa göre — {byStock}", $"Qoldiq bo'yicha — {byStock} dona"),
+            isDefault: byStock > 0);
+        stock.HorizontalAlignment = HorizontalAlignment.Stretch;
+        stock.IsEnabled = byStock > 0;
         stock.Click += (_, _) => { answer = true; dlg.Close(); };
-        var one = new Button
-        {
-            Content = Tr.T($"По одной на размер — {perSize} шт.", $"Ар бир өлчөмгө бирден — {perSize} даана", $"One per size — {perSize}", $"Beden başına bir — {perSize}", $"Har bir o'lchamga bittadan — {perSize} dona"),
-            HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(12, 10),
-        };
+        var one = SectionCards.Secondary(Tr.T($"По одной на размер — {perSize} шт.", $"Ар бир өлчөмгө бирден — {perSize} даана", $"One per size — {perSize}", $"Beden başına bir — {perSize}", $"Har bir o'lchamga bittadan — {perSize} dona"));
+        one.HorizontalAlignment = HorizontalAlignment.Stretch;
         one.Click += (_, _) => { answer = false; dlg.Close(); };
-        var cancel = new Button { Content = Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), HorizontalAlignment = HorizontalAlignment.Right, Padding = new Thickness(16, 8) };
+        var cancel = SectionCards.Cancel(Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => dlg.Close();
         panel.Children.Add(stock);
         panel.Children.Add(one);
-        panel.Children.Add(cancel);
-        dlg.Content = panel;
+        dlg.Content = SectionCards.Shell(Tr.T("Сколько этикеток напечатать?", "Канча этикетка басуу керек?", "How many labels to print?", "Kaç etiket yazdırılsın?", "Nechta yorliq chop etilsin?"),
+            _productTitle, panel, SectionCards.Buttons(cancel));
         await dlg.ShowDialog(this).ConfigureAwait(true);
         return answer;
     }
 
-    private static Grid RowGrid() => new() { ColumnDefinitions = new ColumnDefinitions("100,160,120,90,180,90,44") };
+    // 2026-10-22 (модалки, пакет 3): колонки под карточку 880 (было 784 + отступы — шире тела), ✕ 44 + отступ.
+    private static Grid RowGrid() => new() { ColumnDefinitions = new ColumnDefinitions("100,150,110,90,180,90,52") };
 
     private static void AddCell(Grid grid, Control c, int col)
     {

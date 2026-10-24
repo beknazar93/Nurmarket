@@ -63,151 +63,220 @@
     <Style Selector="Border.SettingsCard Border.SettingsCard Button /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
+
+    <!-- 2026-10-23: витрина как в Play Market — плитка (mp-tile), чип-фильтр (mp-chip).
+         2026-10-23, ТЗ «Маркетплейс — редизайн» (П-2): плитка — кнопка-обёртка (без фона) с карточкой mp-tile-card внутри
+         (фон/рамка/наведение/фокус — у карточки), метка «НОВОЕ» (mp-badge-new), ‹ › у рядов (mp-row-nav), «Все N ›» (mp-row-all),
+         кнопка и точки баннера (mp-hero-btn / mp-hero-nav / mp-hero-dot; баннер тёмный всегда — цвета фиксированные). -->
+    <Style Selector="Button.mp-tile">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <!-- Рамку фокуса при Tab рисует карточка (mp-tile-card), стандартный чёрный прямоугольник не нужен. -->
+      <Setter Property="FocusAdorner" Value="{x:Null}"/>
+    </Style>
+    <Style Selector="Button.mp-tile /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="Button.mp-tile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.mp-tile:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Border.mp-tile-card">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="Padding" Value="12"/>
+    </Style>
+    <Style Selector="Button.mp-tile:pointerover Border.mp-tile-card">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    </Style>
+    <Style Selector="Button.mp-tile:pressed Border.mp-tile-card">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="RenderTransform" Value="translate(0px, 1px)"/>
+    </Style>
+    <Style Selector="Button.mp-tile:focus-visible Border.mp-tile-card">
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushFocus}"/>
+      <Setter Property="BorderThickness" Value="2"/>
+      <Setter Property="Padding" Value="11"/>
+    </Style>
+    <Style Selector="Border.mp-badge-new">
+      <Setter Property="Background" Value="#F9D919"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="6,2"/>
+    </Style>
+    <Style Selector="Border.mp-badge-new > TextBlock">
+      <Setter Property="Foreground" Value="#191919"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+    <Style Selector="Button.mp-row-nav">
+      <Setter Property="Width" Value="32"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="MinWidth" Value="32"/>
+      <Setter Property="MinHeight" Value="32"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.mp-row-nav PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.mp-row-nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    </Style>
+    <Style Selector="Button.mp-row-all">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="8,4"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.mp-row-all:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.mp-hero-btn">
+      <Setter Property="Background" Value="#FFB208"/>
+      <Setter Property="Foreground" Value="#191919"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="22,0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.mp-hero-btn /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FFB208"/>
+      <Setter Property="Foreground" Value="#191919"/>
+    </Style>
+    <Style Selector="Button.mp-hero-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FFC43D"/>
+      <Setter Property="Foreground" Value="#191919"/>
+    </Style>
+    <Style Selector="Button.mp-hero-nav">
+      <Setter Property="Width" Value="28"/>
+      <Setter Property="Height" Value="28"/>
+      <Setter Property="MinWidth" Value="28"/>
+      <Setter Property="MinHeight" Value="28"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="CornerRadius" Value="14"/>
+      <Setter Property="Foreground" Value="#FFFFFF"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.mp-hero-nav /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#33FFFFFF"/>
+      <Setter Property="Foreground" Value="#FFFFFF"/>
+    </Style>
+    <Style Selector="Button.mp-hero-nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#59FFFFFF"/>
+    </Style>
+    <Style Selector="Button.mp-hero-nav PathIcon">
+      <Setter Property="Foreground" Value="#FFFFFF"/>
+    </Style>
+    <Style Selector="Button.mp-hero-dot">
+      <Setter Property="Width" Value="8"/>
+      <Setter Property="Height" Value="8"/>
+      <Setter Property="MinWidth" Value="0"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.mp-hero-dot /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#66FFFFFF"/>
+      <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+    <Style Selector="Button.mp-hero-dot:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#99FFFFFF"/>
+    </Style>
+    <Style Selector="Button.mp-hero-dot.active">
+      <Setter Property="Width" Value="22"/>
+    </Style>
+    <Style Selector="Button.mp-hero-dot.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FFFFFF"/>
+    </Style>
+    <Style Selector="Button.mp-chip">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="18"/>
+      <Setter Property="Padding" Value="16,0"/>
+      <Setter Property="MinHeight" Value="36"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.mp-chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.mp-chip.active">
+      <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.mp-chip.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+    </Style>
   </UserControl.Styles>
 
-  <Border Classes="SettingsContentHost" Padding="16">
-    <ScrollViewer Classes="SettingsPageScroll">
-      <!-- 2026-10-19, этап О7: ширина колонки — как у страниц Настроек (было 860 — справа на 1366 пустое поле). -->
-      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
+  <Border Classes="SettingsContentHost" Padding="14,12">
+    <Grid RowDefinitions="Auto,*" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
-        <!-- Хедер-карточки «Маркетплейс» здесь больше нет (2026-09-27, «дублируется»): название
-             уже есть в шапке окна кассы и в заголовке раздела программы владельца. -->
-
-        <!-- Баннер обновления (2026-09-05, по просьбе пользователя: "при нажатии на
-             маркетплейс обновлял список, чтобы клиенты видели новые функции и темы") —
-             новые темы/доп. услуги реально попадают в кассу только через обновление версии
-             (Velopack/GitHub Releases), отдельного каталога на сервере нет. Проверка
-             запускается автоматически при каждом открытии этого окна. -->
-        <Border x:Name="UpdateBanner" IsVisible="False"
-                Background="{DynamicResource BrushAccentSoft}"
-                BorderBrush="{DynamicResource BrushAccent}"
-                BorderThickness="1"
-                CornerRadius="10"
-                Padding="14">
-          <StackPanel Spacing="8">
-            <Grid ColumnDefinitions="*,Auto">
-              <StackPanel Grid.Column="0" Spacing="4">
-                <TextBlock x:Name="UpdateBannerTitle" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushAccentStrong}"/>
-                <TextBlock x:Name="UpdateBannerNotes" FontSize="12" Foreground="{DynamicResource BrushTextMuted}" TextWrapping="Wrap" MaxLines="4"/>
-              </StackPanel>
-              <Button Grid.Column="1" x:Name="UpdateNowButton" Content="{DynamicResource marketplace.updateNowButton}"
-                      Classes="btn-primary" Click="UpdateNow_Click" VerticalAlignment="Top"/>
-            </Grid>
-            <ProgressBar x:Name="UpdateProgressBar" IsVisible="False" Height="6" Minimum="0" Maximum="100"/>
-          </StackPanel>
-        </Border>
-
-        <!-- Переключатель вкладок. 2026-10-19, этап О7: сегменты sec-seg (выбранная тёмно-синяя, как modal-seg), слева —
-             как вкладки разделов; была жёлтая кнопка и серые. -->
-        <Border Classes="sec-segment" HorizontalAlignment="Left">
-          <StackPanel Orientation="Horizontal" Spacing="2">
-            <Button x:Name="ThemesTabButton" Classes="sec-seg active"
-                    Content="{DynamicResource marketplace.themesTab}" Click="ThemesTab_Click"/>
-            <Button x:Name="ExtrasTabButton" Classes="sec-seg"
-                    Content="{DynamicResource marketplace.extrasTab}" Click="ExtrasTab_Click"/>
-            <!-- 2026-09-28, «виды касс в маркетплейс добавь» -->
-            <Button x:Name="LayoutsTabButton" Classes="sec-seg"
-                    Content="{DynamicResource marketplace.layoutsTab}" Click="LayoutsTab_Click"/>
-          </StackPanel>
-        </Border>
-
-        <!-- Темы. Карточки собираются в коде (BuildThemeGallery): у каждой свой живой
-             предпросмотр, нарисованный цветами самой темы, — по описанию словами разницу
-             между шестью оформлениями не передать. -->
-        <Border x:Name="ThemesPanel" Classes="SettingsCard" Padding="14">
-          <StackPanel Spacing="8">
-            <!-- Редактор своих тем (2026-09-28): своя тема на основе любой встроенной. -->
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Text="{DynamicResource marketplace.themeTitle}" Classes="SettingsCardTitle" FontSize="14" VerticalAlignment="Center"/>
-              <Button x:Name="ThemeEditorButton" Grid.Column="1" Classes="btn-primary" Height="36" Padding="14,4"
-                      Click="OpenThemeEditor_Click">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <PathIcon Data="{StaticResource IconPalette}" Width="16" Height="16"/>
-                  <TextBlock Text="{DynamicResource marketplace.themeEditorButton}" VerticalAlignment="Center"/>
-                </StackPanel>
-              </Button>
-            </Grid>
-            <TextBlock Text="{DynamicResource marketplace.themeDesc}"
-                       Classes="SettingsCardBody" FontSize="12" TextWrapping="Wrap"
-                       Foreground="{DynamicResource BrushTextSoft}"/>
-            <ItemsControl x:Name="ThemeGalleryPanel" Margin="0,8,0,0">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <WrapPanel/>
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-            </ItemsControl>
-          </StackPanel>
-        </Border>
-
-
-        <!-- Виды кассы (2026-09-28): те же шесть карточек с миниатюрами, что в Настройки → Экран
-             (общий KassaLayoutPicker), и экран покупателя, который меняется вместе с видом кассы. -->
-        <StackPanel x:Name="LayoutsPanel" Spacing="10" IsVisible="False">
-          <Border Classes="SettingsCard" Padding="14">
-            <StackPanel Spacing="4">
-              <TextBlock Text="{DynamicResource marketplace.layoutsTitle}" Classes="SettingsCardTitle" FontSize="14"/>
-              <TextBlock Text="{DynamicResource marketplace.layoutsDesc}"
-                         Classes="SettingsCardBody" FontSize="12" TextWrapping="Wrap"
-                         Foreground="{DynamicResource BrushTextSoft}"/>
-              <local:KassaLayoutPicker x:Name="LayoutPicker" Margin="0,8,0,0"/>
+      <!-- Баннер обновления (2026-09-05, по просьбе пользователя: "при нажатии на маркетплейс обновлял список, чтобы клиенты
+           видели новые функции и темы") — новые темы/доп. услуги реально попадают в кассу только через обновление версии
+           (Velopack/GitHub Releases), отдельного каталога на сервере нет. Проверка запускается автоматически при каждом
+           открытии этого окна. -->
+      <Border x:Name="UpdateBanner" IsVisible="False" Margin="0,0,0,10"
+              Background="{DynamicResource BrushAccentSoft}"
+              BorderBrush="{DynamicResource BrushAccent}"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="14">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="4">
+              <TextBlock x:Name="UpdateBannerTitle" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushAccentStrong}"/>
+              <TextBlock x:Name="UpdateBannerNotes" FontSize="12" Foreground="{DynamicResource BrushTextMuted}" TextWrapping="Wrap" MaxLines="4"/>
             </StackPanel>
-          </Border>
-
-          <Border Classes="SettingsCard" Padding="14">
-            <Grid ColumnDefinitions="Auto,16,*">
-              <!-- Живой предпросмотр экрана покупателя в нынешнем виде -->
-              <Border Width="320" Height="180" CornerRadius="8" ClipToBounds="True" VerticalAlignment="Top"
-                      BorderBrush="{DynamicResource BrushBorderStrong}" BorderThickness="1">
-                <Viewbox Stretch="Uniform">
-                  <customer:CustomerDisplayView x:Name="CustomerPreviewView" Width="1280" Height="720"/>
-                </Viewbox>
-              </Border>
-              <StackPanel Grid.Column="2" Spacing="8" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <PathIcon Data="{StaticResource IconMonitor}" Width="18" Height="18" Foreground="{DynamicResource BrushText}"/>
-                  <TextBlock Text="{DynamicResource marketplace.customerDisplayTitle}" Classes="SettingsCardTitle" FontSize="14"
-                             VerticalAlignment="Center"/>
-                </StackPanel>
-                <TextBlock x:Name="CustomerDisplayModeText" Classes="SettingsCardBody" FontSize="12" TextWrapping="Wrap"
-                           Foreground="{DynamicResource BrushTextSoft}"/>
-                <Button x:Name="CustomerDisplayEditorButton" Classes="btn-primary" Height="36" Padding="14,4"
-                        HorizontalAlignment="Left" Click="OpenCustomerDisplayEditor_Click">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <PathIcon Data="{StaticResource IconPencil}" Width="15" Height="15"/>
-                    <TextBlock Text="{DynamicResource marketplace.customerDisplayEditorButton}" VerticalAlignment="Center"/>
-                  </StackPanel>
-                </Button>
-              </StackPanel>
-            </Grid>
-          </Border>
+            <Button Grid.Column="1" x:Name="UpdateNowButton" Content="{DynamicResource marketplace.updateNowButton}"
+                    Classes="btn-primary" Click="UpdateNow_Click" VerticalAlignment="Top"/>
+          </Grid>
+          <ProgressBar x:Name="UpdateProgressBar" IsVisible="False" Height="6" Minimum="0" Maximum="100"/>
         </StackPanel>
+      </Border>
 
-        <!-- Доп. функции -->
-        <Border x:Name="ExtrasPanel" Classes="SettingsCard" Padding="14" IsVisible="False">
-          <StackPanel Spacing="10">
-            <TextBlock Text="{DynamicResource marketplace.extrasIntro}"
-                       Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-
-            <WrapPanel x:Name="ExtrasWrapPanel">
-              <Border Classes="SettingsCard" Width="390" Padding="14" Margin="0,0,10,10">
-                <StackPanel Spacing="8">
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Text="{DynamicResource marketplace.extra2Title}" Classes="SettingsCardTitle" FontSize="14" VerticalAlignment="Center"/>
-                    <Border Grid.Column="1" Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}"
-                            BorderThickness="1" CornerRadius="10" Padding="8,3" VerticalAlignment="Center">
-                      <TextBlock Text="{DynamicResource marketplace.comingSoonBadge}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource BrushWarning}"/>
-                    </Border>
-                  </Grid>
-                  <TextBlock Text="{DynamicResource marketplace.extra2Desc}" Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                </StackPanel>
-              </Border>
-
-            </WrapPanel>
-          </StackPanel>
-        </Border>
-
-      </StackPanel>
-    </ScrollViewer>
+      <!-- 2026-10-23: вместо вкладок «Темы / Доп. функции / Виды кассы» — единая витрина (MarketplaceStoreView) по каталогу
+           MarketplaceCatalog: поиск, чипы, ряды плиток и страница «подробно». Прежние карточки доп. функций собираются в коде
+           как раньше (хранилище состояния и блок голосовых моделей), но на экране показывается только витрина. -->
+      <local:MarketplaceStoreView x:Name="Store" Grid.Row="1"/>
+    </Grid>
   </Border>
 </UserControl>

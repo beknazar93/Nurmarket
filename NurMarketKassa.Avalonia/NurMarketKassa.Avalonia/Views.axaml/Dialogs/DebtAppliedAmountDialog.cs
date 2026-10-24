@@ -60,7 +60,8 @@ internal sealed class DebtAppliedAmountDialog : Window
             Margin = new Thickness(16), Title = Title, Footer = buttons,
             Content = new StackPanel { Spacing = 8, Children = { message, label, _amount, _error } },
         };
-        Opened += (_, _) => _amount.Focus();
+        // 2026-10-22 (модалки, пакет 2): сумма выделена — кассир сразу печатает свою, не стирая.
+        Opened += (_, _) => { _amount.Focus(); _amount.SelectAll(); };
     }
 
     private double? Value =>

@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Threading;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
@@ -43,6 +45,59 @@ public class ModalShell : ContentControl
     /// отложенные чеки): он получает конечную высоту и прокручивается сам, поле поиска над ним на месте.</summary>
     public static readonly StyledProperty<ScrollBarVisibility> ContentScrollProperty =
         AvaloniaProperty.Register<ModalShell, ScrollBarVisibility>(nameof(ContentScroll), ScrollBarVisibility.Auto);
+
+    /// <summary>2026-10-22 (модалки, пакет 0): что получает фокус при открытии окна — имя элемента (x:Name в XAML,
+    /// Name у элемента, собранного в коде) или сам элемент. Поле ввода — ещё и с выделением значения (SelectAll),
+    /// чтобы кассир сразу печатал новое. Не задано (по умолчанию) — оболочка фокус не трогает, как раньше.</summary>
+    public static readonly StyledProperty<object?> InitialFocusProperty =
+        AvaloniaProperty.Register<ModalShell, object?>(nameof(InitialFocus));
+
+    /// <summary>2026-10-22 (модалки, пакет 0): идёт операция (оплата, запрос, печать). Пока true: кнопки подвала и ✕
+    /// выключены, Enter и Esc окна ничего не нажимают (повторный Enter не проводит операцию второй раз), окно не
+    /// закрывается Alt+F4/системой. Закрытие из кода (Close(...) после успешной операции) — работает.</summary>
+    public static readonly StyledProperty<bool> IsBusyProperty =
+        AvaloniaProperty.Register<ModalShell, bool>(nameof(IsBusy));
+
+    public object? InitialFocus
+    {
+        get => GetValue(InitialFocusProperty);
+        set => SetValue(InitialFocusProperty, value);
+    }
+
+    public bool IsBusy
+    {
+        get => GetValue(IsBusyProperty);
+        set => SetValue(IsBusyProperty, value);
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 0): занять окно на время операции. false — уже занято (второй Enter/клик
+    /// во время запроса) — обработчик должен просто выйти. Пара — <see cref="EndBusy"/> в finally.</summary>
+    public bool TryBeginBusy()
+    {
+        if (IsBusy)
+            return false;
+        IsBusy = true;
+        return true;
+    }
+
+    public void EndBusy() => IsBusy = false;
+
+    /// <summary>2026-10-22 (модалки, пакет 0): выполнить операцию, заняв окно (<see cref="IsBusy"/>); повторный вызов,
+    /// пока первая не закончилась, ничего не делает и возвращает false.</summary>
+    public async Task<bool> RunBusyAsync(Func<Task> action)
+    {
+        if (!TryBeginBusy())
+            return false;
+        try
+        {
+            await action().ConfigureAwait(true);
+            return true;
+        }
+        finally
+        {
+            EndBusy();
+        }
+    }
 
     public ScrollBarVisibility ContentScroll
     {
@@ -89,6 +144,9 @@ public class ModalShell : ContentControl
     }
 
     private Button? _closeButton;
+    private Window? _window;
+    private bool _footerWasEnabled = true;
+    private bool _closeWasEnabled = true;
     private Grid? _footerGrid;
     private Control? _hintPresenter;
     private Control? _footerPresenter;
@@ -104,7 +162,15 @@ public class ModalShell : ContentControl
             _closeButton.Click -= CloseButton_Click;
         _closeButton = e.NameScope.Find<Button>("PART_CloseButton");
         if (_closeButton is not null)
+        {
             _closeButton.Click += CloseButton_Click;
+            // 2026-10-24 (аудит круга 8, М-33, П-10): в доступности ✕ назывался «Avalonia.Controls.PathIcon» — даём имя «Закрыть».
+            Avalonia.Automation.AutomationProperties.SetName(_closeButton, NurMarketKassa.Services.Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
+            // 2026-10-22 (модалки, пакет 0): шаблон применили посреди операции — ✕ сразу выключен.
+            _closeWasEnabled = _closeButton.IsEnabled;
+            if (IsBusy)
+                _closeButton.IsEnabled = false;
+        }
 
         if (_footerGrid is not null)
             _footerGrid.SizeChanged -= Footer_SizeChanged;
@@ -136,6 +202,47 @@ public class ModalShell : ContentControl
         }
         if (change.Property == HintProperty)
             UpdateFooterLayout();
+        if (change.Property == IsBusyProperty)
+            ApplyBusy(change.GetNewValue<bool>());
+        else if (change.Property == FooterProperty && IsBusy)
+        {
+            // 2026-10-22 (модалки, пакет 0): окно поменяло кнопки посреди операции — новые тоже выключены,
+            // старым возвращаем прежнее состояние.
+            if (change.OldValue is InputElement oldFooter)
+                oldFooter.IsEnabled = _footerWasEnabled;
+            if (change.NewValue is InputElement newFooter)
+            {
+                _footerWasEnabled = newFooter.IsEnabled;
+                newFooter.IsEnabled = false;
+            }
+        }
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 0): выключает/включает подвал и ✕. Прежнее состояние запоминается: если окно
+    /// само выключило подвал, после операции он останется выключенным. Кнопки внутри подвала не трогаем — их
+    /// IsEnabled остаётся за окном.</summary>
+    private void ApplyBusy(bool busy)
+    {
+        if (Footer is InputElement footer)
+        {
+            if (busy)
+            {
+                _footerWasEnabled = footer.IsEnabled;
+                footer.IsEnabled = false;
+            }
+            else
+                footer.IsEnabled = _footerWasEnabled;
+        }
+        if (_closeButton is not null)
+        {
+            if (busy)
+            {
+                _closeWasEnabled = _closeButton.IsEnabled;
+                _closeButton.IsEnabled = false;
+            }
+            else
+                _closeButton.IsEnabled = _closeWasEnabled;
+        }
     }
 
     private void Footer_SizeChanged(object? sender, SizeChangedEventArgs e) => UpdateFooterLayout();
@@ -166,6 +273,124 @@ public class ModalShell : ContentControl
     {
         base.OnAttachedToVisualTree(e);
         FitToScreenHeight();
+        AttachToWindow(TopLevel.GetTopLevel(this) as Window);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        AttachToWindow(null);
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 0): подписка на окно — Enter/Esc и закрытие во время операции (IsBusy),
+    /// фокус при открытии (InitialFocus).</summary>
+    private void AttachToWindow(Window? window)
+    {
+        if (ReferenceEquals(window, _window))
+            return;
+        if (_window is not null)
+        {
+            _window.RemoveHandler(KeyDownEvent, Window_PreviewKeyDown);
+            _window.Closing -= Window_Closing;
+            _window.Opened -= Window_Opened;
+        }
+        _window = window;
+        if (window is null)
+            return;
+        // Туннель: раньше, чем окно передаст Enter/Esc кнопке с IsDefault/IsCancel.
+        window.AddHandler(KeyDownEvent, Window_PreviewKeyDown, RoutingStrategies.Tunnel);
+        window.Closing += Window_Closing;
+        if (window.IsVisible)
+            Dispatcher.UIThread.Post(OnWindowOpened, DispatcherPriority.Loaded); // оболочку вставили в уже открытое окно
+        else
+            window.Opened += Window_Opened;
+    }
+
+    private void Window_Opened(object? sender, EventArgs e)
+    {
+        if (sender is Window window)
+            window.Opened -= Window_Opened;
+        // После обработчиков Opened самого окна и после раскладки — элемент уже виден и может взять фокус.
+        Dispatcher.UIThread.Post(OnWindowOpened, DispatcherPriority.Loaded);
+    }
+
+    private void OnWindowOpened()
+    {
+        try
+        {
+            ApplyInitialFocus();
+            WarnIfManyPrimary();
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"ModalShell: открытие окна: {ex.Message}", "WARNING");
+        }
+    }
+
+    private void ApplyInitialFocus()
+    {
+        var target = InitialFocus switch
+        {
+            Control control => control,
+            string name when !string.IsNullOrWhiteSpace(name) => FindByName(name),
+            _ => null,
+        };
+        if (target is null)
+        {
+            if (InitialFocus is string missing && !string.IsNullOrWhiteSpace(missing))
+                NurMarketKassa.Services.PosLogger.Log($"ModalShell: InitialFocus «{missing}» не найден в окне {_window?.GetType().Name}", "WARNING");
+            return;
+        }
+        if (!target.IsEffectivelyVisible || !target.IsEffectivelyEnabled)
+            return;
+        target.Focus(NavigationMethod.Tab);
+        if (target is TextBox box)
+            box.SelectAll();
+    }
+
+    /// <summary>Сначала имя в области имён окна (XAML), затем — среди логических потомков (окна, собранные в коде).</summary>
+    private Control? FindByName(string name)
+    {
+        if (this.FindNameScope()?.Find(name) is Control scoped)
+            return scoped;
+        foreach (var item in this.GetLogicalDescendants())
+            if (item is Control { Name: { } n } control && string.Equals(n, name, StringComparison.Ordinal))
+                return control;
+        return null;
+    }
+
+    /// <summary>Правило стандарта: одна главная (жёлтая) кнопка на окно. Только запись в журнал — для отладки.</summary>
+    private void WarnIfManyPrimary()
+    {
+        if (Footer is not ILogical footer)
+            return;
+        var count = Footer is Button direct && direct.Classes.Contains("modal-primary") ? 1 : 0;
+        foreach (var item in footer.GetLogicalDescendants())
+            if (item is Button { IsVisible: true } button && button.Classes.Contains("modal-primary"))
+                count++;
+        if (count > 1)
+            NurMarketKassa.Services.PosLogger.Log($"ModalShell: в окне {_window?.GetType().Name} «{Title}» {count} главных кнопок (modal-primary) — по стандарту одна", "DEBUG");
+    }
+
+    /// <summary>Во время операции Enter и Esc не нажимают кнопки окна (IsDefault/IsCancel). Enter в многострочном поле —
+    /// перенос строки, его не трогаем.</summary>
+    private void Window_PreviewKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!IsBusy || e.Handled)
+            return;
+        if (e.Key == Key.Escape)
+            e.Handled = true;
+        else if (e.Key == Key.Enter
+                 && !(TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox { AcceptsReturn: true }))
+            e.Handled = true;
+    }
+
+    /// <summary>Во время операции пользователь окно не закрывает (Alt+F4, панель задач); закрытие из кода, вместе
+    /// с окном-владельцем и при выходе из программы — как раньше.</summary>
+    private void Window_Closing(object? sender, WindowClosingEventArgs e)
+    {
+        if (IsBusy && !e.IsProgrammatic && e.CloseReason == WindowCloseReason.WindowClosing)
+            e.Cancel = true;
     }
 
     /// <summary>Ограничивает высоту карточки долей рабочей области экрана кассы. На Android размер
@@ -184,8 +409,18 @@ public class ModalShell : ContentControl
             if (workingHeight <= 0)
                 return;
             var share = Math.Clamp(ScreenHeightShare, 0.5, 1.0);
+            // 2026-10-22 (модалки, пакет 0): и не выше того, что остаётся в рабочей области за вычетом отступа окна (16),
+            // рамки ОС (если окно вдруг с ней) и полей под тень — при доле 100 % подвал тоже не уходит под панель задач.
+            var room = workingHeight - 16 - DialogScreenFit.ChromeSize(window).Height - Margin.Top - Margin.Bottom;
+            var cap = Math.Floor(Math.Min(workingHeight * share, room));
             // Не меньше 300: на совсем маленьком экране шапка и низ всё равно должны влезть.
-            MaxHeight = Math.Max(300, Math.Floor(workingHeight * share));
+            MaxHeight = Math.Max(300, cap);
+            // 2026-10-24 (аудит круга 8, С-7, П-10): и по ширине — карточка не шире рабочей области за вычетом отступа окна (32),
+            // рамки ОС и полей под тень. Табель, Прокат, Логи, Некорректные чеки (1112 px) на экране 1024 уходили за край;
+            // широкое содержимое (таблицы) получает горизонтальную прокрутку своего DataGrid/ScrollViewer.
+            var workingWidth = screen.WorkingArea.Width / scaling;
+            if (workingWidth > 0)
+                MaxWidth = Math.Max(320, Math.Floor(workingWidth - 32 - DialogScreenFit.ChromeSize(window).Width - Margin.Left - Margin.Right));
         }
         catch (Exception ex)
         {
@@ -202,6 +437,8 @@ public class ModalShell : ContentControl
     private void CloseButton_Click(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
+        if (IsBusy)
+            return; // 2026-10-22 (модалки, пакет 0): во время операции ✕ ничего не делает
         if (FindCancelButton() is { } cancel)
         {
             if (cancel.IsEffectivelyVisible && cancel.IsEffectivelyEnabled)

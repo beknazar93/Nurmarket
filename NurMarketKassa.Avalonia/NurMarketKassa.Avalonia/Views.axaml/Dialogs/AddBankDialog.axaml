@@ -1,25 +1,27 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.AddBankDialog"
         Title="{DynamicResource posSettings.operations.addBankTitle}"
-        Width="440" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="28,24">
+  <!-- 2026-10-22 (модалки, пакет 3): общая оболочка ModalShell (S = 512, была своя карточка 440 без ✕): заголовок и ✕ сверху,
+       «Отмена» (Esc = ✕) и «Добавить» (Enter) в подвале, фокус — в поле названия; поля 44 px. -->
+  <dlg:ModalShell Margin="16" Title="{DynamicResource posSettings.operations.addBankTitle}" InitialFocus="NameBox">
+    <dlg:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button IsCancel="True" x:Name="CancelButton" Classes="modal-cancel" MaxWidth="200"
+                Content="{DynamicResource common.cancel}" Click="CancelButton_Click"/>
+        <Button x:Name="ConfirmButton" Classes="modal-primary" MaxWidth="200" IsDefault="True"
+                Content="{DynamicResource common.add}" Click="ConfirmButton_Click"/>
+      </StackPanel>
+    </dlg:ModalShell.Footer>
     <StackPanel>
-      <TextBlock x:Name="TitleText"
-                 Text="{DynamicResource posSettings.operations.addBankTitle}"
-                 FontSize="18" FontWeight="Bold"
-                 Foreground="{DynamicResource BrushText}"
-                 Margin="0,0,0,12"/>
       <TextBlock Text="{DynamicResource posSettings.operations.addBankMessage}"
                  FontSize="14" TextWrapping="Wrap"
                  Foreground="{DynamicResource BrushTextSoft}"
@@ -28,7 +30,7 @@
            написание, а от написания зависит ключ, по которому хранится QR. Поле ввода
            ниже остаётся для банков, которых в списке нет. -->
       <ComboBox x:Name="KnownBox"
-                Height="42"
+                MinHeight="44"
                 FontSize="16"
                 Margin="0,0,0,10"
                 HorizontalAlignment="Stretch"
@@ -36,49 +38,21 @@
                 SelectionChanged="KnownBox_SelectionChanged"/>
 
       <TextBlock Text="{DynamicResource loc.kassa.addBank.orTypeName}"
-                 FontSize="12"
+                 FontSize="13"
                  Foreground="{DynamicResource BrushTextSoft}"
-                 Margin="0,0,0,6"/>
+                 Margin="0,0,0,8"/>
 
       <TextBox x:Name="NameBox"
-               Height="42"
+               Classes="modal-field"
                FontSize="16"
-               Margin="0,0,0,10"
                Watermark="{DynamicResource posSettings.operations.addBankWatermark}"
                KeyDown="NameBox_KeyDown"/>
       <TextBlock x:Name="ErrorText"
-                 FontSize="12"
-                 Foreground="{DynamicResource BrushDanger}"
+                 FontSize="13"
+                 Foreground="{DynamicResource BrushDangerOnSoft}"
                  TextWrapping="Wrap"
                  IsVisible="False"
-                 Margin="0,0,0,10"/>
-      <Grid ColumnDefinitions="*,12,*">
-        <Button IsCancel="True" x:Name="CancelButton"
-                Grid.Column="0"
-                Content="{DynamicResource common.cancel}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                Background="{DynamicResource BrushPanel}"
-                Foreground="{DynamicResource BrushText}"
-                BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1.5"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Click="CancelButton_Click"/>
-        <Button x:Name="ConfirmButton"
-                Grid.Column="2"
-                Content="{DynamicResource common.add}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                Background="{DynamicResource BrushAccent}"
-                Foreground="{DynamicResource BrushAccentForeground}"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                IsDefault="True"
-                Click="ConfirmButton_Click"/>
-      </Grid>
+                 Margin="0,4,0,0"/>
     </StackPanel>
-  </Border>
+  </dlg:ModalShell>
 </Window>

@@ -68,6 +68,9 @@ public sealed class ExchangeWindow : Window
 
     /// <summary>2026-10-15, ревью: обмен уже отправлен — повторное нажатие (кнопку могло снова включить UpdateTotals) не шлёт второй.</summary>
     private bool _running;
+    // 2026-10-22 (модалки, пакет 1): оболочка окна — на время проведения обмена занята (IsBusy): подвал и ✕ выключены,
+    // Enter/Esc ничего не нажимают, Alt+F4 не закрывает.
+    private ModalShell? _shell;
     private bool _closingWithResult;
 
     /// <summary>2026-10-15, ревью: ключ идемпотентности обмена живёт до ответа сервера (как в PayDebtDialog): после таймаута
@@ -112,7 +115,7 @@ public sealed class ExchangeWindow : Window
         SystemDecorations = SystemDecorations.None;
         Use(this, BackgroundProperty, "DialogWindowBackground");
         Use(this, TransparencyLevelHintProperty, "DialogTransparencyHint");
-        KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(false); };
+        // 2026-10-22 (модалки, пакет 1): Esc — кнопка «Отмена» (IsCancel), как ✕; своя обработка Esc убрана, чтобы не закрывать дважды.
         // 2026-10-17, ревью этапа 3: пока обмен отправляется/печатается, Esc, «Отмена» и ✕ окно не закрывают — иначе
         // сервер проведёт обмен, а кассир не увидит «получить/выдать N сом» и окно возврата не перечитает чек.
         Closing += (_, e) =>
@@ -153,7 +156,7 @@ public sealed class ExchangeWindow : Window
         root.Children.Add(_error);
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right };
-        var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), isCancel: true);
         cancel.Click += (_, _) => Close(false);
         _go = UiKit.Primary(this, T("Провести обмен", "Алмаштырууну жүргүзүү", "Complete exchange", "Değişimi tamamla", "Almashtirishni o'tkazish"));
         _go.MinWidth = 220;
@@ -162,6 +165,7 @@ public sealed class ExchangeWindow : Window
         buttons.Children.Add(_go);
         // Шапка, низ с кнопками и прокрутка шагов — у ModalShell (стили — PosDialogStyles.axaml).
         var shell = new ModalShell { Margin = new Thickness(16), Title = Title, Subtitle = sub, Footer = buttons, Content = root };
+        _shell = shell;
         Content = shell;
 
         // Телефон: поля поуже.
@@ -418,11 +422,15 @@ public sealed class ExchangeWindow : Window
             + "|" + string.Join(";", _newRows.Select(n => n.ProductId + "/" + n.VariantId + ":" + n.Qty.ToString("0.###", CultureInfo.InvariantCulture)).OrderBy(x => x, StringComparer.Ordinal));
         _running = true;
         _go.IsEnabled = false;
+        if (_shell != null)
+            _shell.IsBusy = true; // 2026-10-22 (модалки, пакет 1): второй клик/Enter/Esc во время обмена ничего не делают
         // 2026-10-16, ревью: прошлый обмен по этому чеку остался без ответа — сначала проверяем по чеку, не провёл ли его
         // сервер; прошёл или проверить не удалось — второй раз не отправляем.
         if (!await VerifyUnknownExchangeAsync(beforeRetry: true).ConfigureAwait(true))
         {
             _running = false;
+            if (_shell != null)
+                _shell.IsBusy = false;
             _go.IsEnabled = !_appliedWithoutAnswer;
             return;
         }
@@ -496,6 +504,8 @@ public sealed class ExchangeWindow : Window
         finally
         {
             _running = false;
+            if (_shell != null)
+                _shell.IsBusy = false;
         }
     }
 
@@ -575,12 +585,12 @@ public sealed class ExchangeWindow : Window
 
         var qtyPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0) };
         if (step != null)
-            qtyPanel.Children.Add(SmallButton("−", () => step(-1)));
+            qtyPanel.Children.Add(SmallButton("−", () => step(-1), T("Убавить: ", "Азайтуу: ", "Decrease: ", "Azalt: ", "Kamaytirish: ") + title));
         var q = new TextBlock { Text = "× " + qty.ToString("0.###", CultureInfo.InvariantCulture), FontSize = 14.5, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, MinWidth = 36, TextAlignment = TextAlignment.Center };
         Use(q, TextBlock.ForegroundProperty, "BrushText");
         qtyPanel.Children.Add(q);
         if (step != null)
-            qtyPanel.Children.Add(SmallButton("+", () => step(1)));
+            qtyPanel.Children.Add(SmallButton("+", () => step(1), T("Прибавить: ", "Көбөйтүү: ", "Increase: ", "Artır: ", "Ko'paytirish: ") + title));
         Grid.SetColumn(qtyPanel, 1);
         g.Children.Add(qtyPanel);
 
@@ -591,7 +601,7 @@ public sealed class ExchangeWindow : Window
 
         if (remove != null)
         {
-            var x = SmallButton("✕", remove);
+            var x = SmallButton("✕", remove, T("Убрать: ", "Алып салуу: ", "Remove: ", "Kaldır: ", "Olib tashlash: ") + title);
             x.Margin = new Thickness(8, 0, 0, 0);
             Grid.SetColumn(x, 3);
             g.Children.Add(x);
@@ -600,16 +610,19 @@ public sealed class ExchangeWindow : Window
         return row;
     }
 
-    private Button SmallButton(string text, Action click)
+    // 2026-10-22 (модалки, пакет 1): ± и ✕ строки — 44×44 (было 34, касание), с именем для экранного диктора
+    // («Убавить: товар»), а не «−».
+    private Button SmallButton(string text, Action click, string? name = null)
     {
         var b = new Button
         {
-            Content = text, Width = 34, Height = 34, Padding = new Thickness(0), CornerRadius = new CornerRadius(17), BorderThickness = new Thickness(1), Focusable = false,
+            Content = text, Width = 44, Height = 44, Padding = new Thickness(0), CornerRadius = new CornerRadius(22), BorderThickness = new Thickness(1), Focusable = false,
             FontSize = 15, FontWeight = FontWeight.Bold, HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
         };
         Use(b, Button.BackgroundProperty, "BrushPanel");
         Use(b, Button.BorderBrushProperty, "BrushBorder");
         Use(b, Button.ForegroundProperty, "BrushText");
+        Avalonia.Automation.AutomationProperties.SetName(b, name ?? text);
         b.Click += (_, _) => click();
         return b;
     }

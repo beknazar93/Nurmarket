@@ -66,7 +66,8 @@ public static class OwnerMorningReport
     {
         public bool Enabled { get; set; } = true;
         public string Time { get; set; } = "09:00";
-        public bool Telegram { get; set; } = true;
+        // 2026-10-23: по умолчанию выключено (аудит Б-5): без токена бота ежедневная запись «Не отправлен» — шум
+        public bool Telegram { get; set; } = false;
     }
 
     /// <summary>Запись журнала: когда, за какой день, куда (card / telegram), получилось ли, что случилось.</summary>
@@ -333,6 +334,10 @@ public static class OwnerMorningReport
             }
             return;
         }
+        // 2026-10-23: нет токена бота — тихо пропускаем, без ежедневной записи «Не отправлен» (аудит Б-5);
+        // подсказка про бота — в окне настроек отчёта
+        if (!TelegramBotService.IsConfigured)
+            return;
         if (!TelegramBotService.IsConfigured)
         {
             MarkTelegramDone(today);

@@ -413,10 +413,11 @@
   <x:String x:Key="closeShift.header">Vardiyayı kapat (Z raporu)</x:String>
   <x:String x:Key="closeShift.instructions">Kasadaki nakdi sayın ve gerçek bakiyeyi girin.</x:String>
   <x:String x:Key="shift.systemBalance">Sistem bakiyesi</x:String>
+  <x:String x:Key="shift.retryBalance">Tekrar dene</x:String>
   <x:String x:Key="closeShift.actualBalanceLabel">Gerçek kasa bakiyesi</x:String>
   <x:String x:Key="closeShift.discrepancyLabel">Fark</x:String>
   <x:String x:Key="closeShift.openingCashLabel">Açılış tutarı</x:String>
-  <x:String x:Key="closeShift.totalSalesLabel">Toplam satış</x:String>
+  <x:String x:Key="closeShift.totalSalesLabel">Ciro (borç hariç)</x:String>
   <x:String x:Key="closeShift.cashSalesLabel">Nakit</x:String>
   <x:String x:Key="closeShift.nonCashSalesLabel">Nakitsiz</x:String>
   <x:String x:Key="openShift.instructions">Vardiya başlangıcındaki kasa nakit tutarını girin.</x:String>
@@ -577,7 +578,7 @@
   <x:String x:Key="shiftDetails.openedLabel">Açıldı</x:String>
   <x:String x:Key="shiftDetails.closedLabel">Kapatıldı</x:String>
   <x:String x:Key="shiftDetails.totalsSection">Toplamlar</x:String>
-  <x:String x:Key="shiftDetails.revenueLabel">Vardiya cirosu</x:String>
+  <x:String x:Key="shiftDetails.revenueLabel">Ciro (borç hariç)</x:String>
   <x:String x:Key="shiftDetails.print">Yazdır</x:String>
 
   <!-- Tartılı ürün penceresi, borç ödeme -->
@@ -1297,7 +1298,7 @@
     <x:String x:Key="loc.kassa.weigh.quick2">2 kg</x:String>
     <x:String x:Key="loc.kassa.weigh.quick5">5 kg</x:String>
     <x:String x:Key="loc.owner.shift.writeOffs">Düşümler</x:String>
-    <x:String x:Key="loc.owner.shift.debtPayments">Borç ödemeleri</x:String>
+    <x:String x:Key="loc.owner.shift.debtPayments">Ödenen borçlar</x:String>
     <x:String x:Key="loc.owner.shift.cashDrawerTitle">Vardiyadaki kasa çekmecesi</x:String>
     <x:String x:Key="loc.owner.shift.deposits">Para girişleri</x:String>
     <x:String x:Key="loc.owner.shift.withdrawalsExpense">Para çıkışları (gider)</x:String>

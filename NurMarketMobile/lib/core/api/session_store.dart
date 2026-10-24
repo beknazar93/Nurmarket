@@ -48,6 +48,13 @@ class Session {
   static const discount = 'can_view_market_discount';
   static const deleteLine = 'can_view_market_delete_cart_item';
   static const employeeReturn = 'can_view_market_employee_return';
+  // 2026-10-22 (мобилка, админ, П9): отдельные права, как PosPermissions кассы. «Продажа» на сайте — can_view_sale
+  // (can_view_cashier — «Интерфейс кассира»); цена, закупки и поставщики — свои флаги, а не общий «Склад».
+  static const sale = 'can_view_sale';
+  static const cashier = 'can_view_cashier';
+  static const editPrice = 'can_view_market_edit_price';
+  static const procurement = 'can_view_market_procurement';
+  static const supplier = 'can_view_market_supplier';
 
   /// Разделы, которые сайт владельцу открывает всегда (PosPermissions.OwnerSections кассы).
   static const _ownerSections = {viewProducts, viewAnalytics, viewClients, viewOrders};
@@ -64,6 +71,18 @@ class Session {
     if (list.contains(p)) return true;
     return _ownerSections.contains(p) && (isOwner || role.toLowerCase() == 'owner');
   }
+
+  /// 2026-10-22 (мобилка, админ, П9): менять цену продажи и закупки. Владелец и администратор — всегда (карточка
+  /// товара программы владельца на ПК право цены не проверяет), сотрудник — только с флагом «Изменение цены».
+  bool get canEditPrices => isAdmin || can(editPrice);
+
+  /// 2026-10-22 (мобилка, админ, П9): закупочные цены, приёмка с ценами и заказ поставщику. Флаги закупок и поставщиков
+  /// сервер ставит по тарифу (комментарий PermissionService кассы), поэтому владельца и администратора не запираем,
+  /// а сотруднику нужен «Закупки» или «Поставщики» — раньше хватало одного «Склада».
+  bool get canProcure => isAdmin || can(procurement) || can(supplier);
+
+  /// Разделы, которым кроме [routePermission] нужны закупки (см. [canProcure]).
+  static const _procureRoutes = {'/admin/receive', '/admin/purchase'};
 
   /// Какой доступ нужен для раздела (как разделы десктопа: AdminWindow, меню кассы). null — открыт всем.
   static String? routePermission(String loc) {
@@ -104,9 +123,11 @@ class Session {
   bool get showAdmin => isAdmin || const [viewAnalytics, viewOrders, viewShifts, viewSettings].any(can);
 
   bool canRoute(String loc) {
-    if (loc == '/admin') return showAdmin;
+    // 2026-10-22 (мобилка, админ, П9): уведомления — раздел управления (заказы, долги, остатки), раньше открывался всем.
+    if (loc == '/admin' || loc == '/admin/notifications') return showAdmin;
     final p = routePermission(loc);
-    return p == null || can(p);
+    if (p != null && !can(p)) return false;
+    return !_procureRoutes.contains(loc) || canProcure;
   }
 
   /// Администратор и владелец видят управление; кассир — только продажу и склад (ТЗ, раздел 5).

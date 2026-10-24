@@ -14,6 +14,8 @@ public partial class MarketplaceWindow : Window
     public MarketplaceWindow()
     {
         InitializeComponent();
+        // 2026-10-23 (аудит Б-9): заголовок системной рамки — цветом темы кассы.
+        NurMarketKassa.AvaloniaHost.Services.WindowChrome.Apply(this);
     }
 
     public static MarketplaceWindow Open(Window? owner)

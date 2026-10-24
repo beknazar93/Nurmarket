@@ -25,7 +25,9 @@
           <TextBlock Text="{DynamicResource dialog.deferError}" TextWrapping="Wrap" TextAlignment="Center"
                      LineHeight="17" VerticalAlignment="Center"/>
         </Button>
-        <Button IsCancel="True" x:Name="OkButton" Classes="modal-primary"
+        <!-- 2026-10-22 (модалки, пакет 0): IsDefault — Enter закрывает сообщение (как Esc и ✕); раньше Enter
+             в ~100 сообщениях ничего не делал. -->
+        <Button IsCancel="True" IsDefault="True" x:Name="OkButton" Classes="modal-primary"
                 MaxWidth="200"
                 Content="{DynamicResource common.gotIt}"
                 Click="OkButton_Click"/>

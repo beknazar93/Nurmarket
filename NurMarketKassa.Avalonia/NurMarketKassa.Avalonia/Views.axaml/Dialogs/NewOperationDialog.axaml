@@ -3,7 +3,7 @@
         xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.NewOperationDialog"
         Title="{DynamicResource newOperation.title}"
-        Width="512" SizeToContent="Height"
+        Width="560" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -16,7 +16,8 @@
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Height" Value="42"/>
+      <!-- 2026-10-22 (модалки, пакет 2): касание 44 px (было 42). -->
+      <Setter Property="Height" Value="44"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
@@ -42,8 +43,43 @@
     <Style Selector="RadioButton.tab-pill:checked">
       <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
     </Style>
+    <!-- 2026-10-22 (статьи изъятия): статья — крупными плитками (сенсорные моноблоки: высота ≥ 52 px), выбранная — с рамкой
+         акцента. Плитки строит код (стандартные статьи + заведённые владельцем на сайте). -->
+    <Style Selector="RadioButton.article-tile">
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="VerticalAlignment" Value="Stretch"/>
+      <Setter Property="MinHeight" Value="52"/>
+      <Setter Property="Margin" Value="0,0,8,8"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="Root"
+                  Background="{DynamicResource BrushInputAlt}"
+                  CornerRadius="10"
+                  BorderBrush="{DynamicResource BrushBorder}"
+                  BorderThickness="2"
+                  Padding="8,6">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"/>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="RadioButton.article-tile:pointerover /template/ Border#Root">
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    </Style>
+    <Style Selector="RadioButton.article-tile:checked /template/ Border#Root">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+    </Style>
+    <Style Selector="RadioButton.article-tile:checked">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
     <Style Selector="TextBox.field">
-      <Setter Property="Height" Value="42"/>
+      <Setter Property="Height" Value="44"/>
       <Setter Property="FontSize" Value="14"/>
       <Setter Property="CornerRadius" Value="10"/>
       <Setter Property="Padding" Value="12,0"/>
@@ -54,9 +90,12 @@
   <!-- 2026-10-16, редизайн (этап 1): общая оболочка ModalShell — заголовок и ✕ сверху, «Отмена»
        (обводка, Esc) и «Сохранить» (акцент темы, Enter) снизу справа; поля прокручиваются между шапкой
        и низом, окно не выше 85 % экрана (раньше — MaxHeight 680 и своя прокрутка 420). -->
-  <dlg:ModalShell Margin="16"
+  <!-- 2026-10-22 (модалки, пакет 2): фокус в «Сумме» при открытии; ошибки — текстом под полем (были всплывающие окна);
+       подтверждение — кнопкой «Внести N сом» / «Изъять N сом»; повторное нажатие во время вопроса не срабатывает. -->
+  <dlg:ModalShell x:Name="Shell" Margin="16"
                   Title="{DynamicResource newOperation.title}"
-                  Subtitle="{DynamicResource newOperation.subtitle}">
+                  Subtitle="{DynamicResource newOperation.subtitle}"
+                  InitialFocus="AmountBox">
     <dlg:ModalShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="10">
         <Button Classes="modal-cancel"
@@ -99,7 +138,7 @@
       <StackPanel Spacing="6">
         <TextBlock Text="{DynamicResource common.cashier}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
         <ComboBox x:Name="CashierBox"
-                  Height="42"
+                  Height="44"
                   HorizontalAlignment="Stretch"
                   CornerRadius="10"/>
       </StackPanel>
@@ -117,20 +156,33 @@
                      Foreground="{DynamicResource BrushTextSoft}"
                      IsHitTestVisible="False"/>
         </Grid>
+        <TextBlock x:Name="AmountError" IsVisible="False" TextWrapping="Wrap" FontSize="13"
+                   Foreground="{DynamicResource BrushDangerOnSoft}"/>
       </StackPanel>
 
+      <!-- 2026-10-21 (пакет 5, п. 42): причина обязательна — звёздочка у подписи, проверка в Save_Click.
+           2026-10-22 (статьи изъятия): вместо свободной «Причины» — статья плитками (изъятие: аренда, налог, зарплата…;
+           внесение: размен, возврат из инкассации, прочее); по умолчанию не выбрана — кассир выбирает сам. -->
       <StackPanel Spacing="6">
-        <!-- 2026-10-21 (пакет 5, п. 42): причина обязательна — звёздочка у подписи, проверка в Save_Click. -->
         <StackPanel Orientation="Horizontal" Spacing="3">
-          <TextBlock Text="{DynamicResource common.reason}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+          <TextBlock x:Name="ArticleLabel" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
           <TextBlock Text="*" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"/>
         </StackPanel>
-        <TextBox x:Name="ReasonBox" Classes="field" Watermark="{DynamicResource newOperation.reasonWatermark}"
-                 AutomationProperties.Name="{DynamicResource common.reason}"/>
+        <UniformGrid x:Name="ArticleGrid" Columns="3" Margin="0,0,-8,-8"/>
+        <TextBlock x:Name="ArticleError" IsVisible="False" TextWrapping="Wrap" FontSize="13"
+                   Foreground="{DynamicResource BrushDangerOnSoft}"/>
+        <TextBlock x:Name="ArticleHint"
+                   IsVisible="False"
+                   TextWrapping="Wrap"
+                   FontSize="12"
+                   Foreground="{DynamicResource BrushTextSoft}"/>
       </StackPanel>
 
       <StackPanel Spacing="6">
-        <TextBlock Text="{DynamicResource newOperation.commentLabel}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+        <StackPanel Orientation="Horizontal" Spacing="3">
+          <TextBlock Text="{DynamicResource newOperation.commentLabel}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+          <TextBlock x:Name="CommentStar" Text="*" IsVisible="False" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"/>
+        </StackPanel>
         <TextBox x:Name="CommentBox"
                  MinHeight="72"
                  FontSize="14"
@@ -139,6 +191,8 @@
                  TextWrapping="Wrap"
                  AcceptsReturn="True"
                  Watermark="{DynamicResource newOperation.commentWatermark}"/>
+        <TextBlock x:Name="CommentError" IsVisible="False" TextWrapping="Wrap" FontSize="13"
+                   Foreground="{DynamicResource BrushDangerOnSoft}"/>
       </StackPanel>
     </StackPanel>
   </dlg:ModalShell>

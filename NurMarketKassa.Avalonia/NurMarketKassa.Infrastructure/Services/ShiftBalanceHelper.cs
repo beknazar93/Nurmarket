@@ -47,10 +47,50 @@ public static class ShiftBalanceHelper
         return row is { } r ? TryReadBalance(r) : null;
     }
 
+    /// <summary>2026-10-23 (аудит, круг 6): при закрытой смене «Остаток по системе» в «Открыть смену» не приходил — открытых смен
+    /// в ответе нет. Берём closing_cash последней ЗАКРЫТОЙ смены (по closed_at), предпочитая смены этой кассы.</summary>
+    public static decimal? FindLastClosedShiftCash(JsonElement shiftsPayload, string? cashboxId)
+    {
+        decimal? best = null, bestOwn = null;
+        var bestAt = DateTimeOffset.MinValue;
+        var bestOwnAt = DateTimeOffset.MinValue;
+        foreach (var row in EnumerateRows(shiftsPayload))
+        {
+            if (row.ValueKind != JsonValueKind.Object || RowLooksOpen(row))
+                continue;
+            if (TryReadDecimal(row, "closing_cash") is not { } cash)
+                continue;
+            if (!row.TryGetProperty("closed_at", out var ca) || ca.ValueKind != JsonValueKind.String
+                || !DateTimeOffset.TryParse(ca.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var at))
+                continue;
+            if (at > bestAt) { bestAt = at; best = cash; }
+            if (!string.IsNullOrWhiteSpace(cashboxId) && RowMatchesCashbox(row, cashboxId) && at > bestOwnAt)
+            {
+                bestOwnAt = at;
+                bestOwn = cash;
+            }
+        }
+
+        return bestOwn ?? best;
+    }
+
     public static ShiftTotals? FindOpenShiftTotals(JsonElement shiftsPayload, string? cashboxId)
     {
         var row = FindOpenShiftRow(shiftsPayload, cashboxId);
         return row is { } r ? ReadShiftTotals(r) : null;
+    }
+
+    /// <summary>2026-10-23 (аудит, круг 8, В-1): кто открыл смену — та же строка, что выбирает FindOpenShiftTotals.
+    /// Поля сервера: cashier (id; бывает и объектом с id), cashier_display (имя). Строки нет — (null, null).</summary>
+    public static (string? CashierId, string? CashierName) FindOpenShiftCashier(JsonElement shiftsPayload, string? cashboxId)
+    {
+        if (FindOpenShiftRow(shiftsPayload, cashboxId) is not { } row || row.ValueKind != JsonValueKind.Object)
+            return (null, null);
+        string? id = null;
+        if (row.TryGetProperty("cashier", out var c))
+            id = c.ValueKind == JsonValueKind.Object && c.TryGetProperty("id", out var cid) ? JsonScalar(cid) : JsonScalar(c);
+        string? name = row.TryGetProperty("cashier_display", out var cd) ? JsonScalar(cd) : null;
+        return (id, name);
     }
 
     /// <summary>2026-09-15, живой баг: "не работает подсчёт! отчёт 0, но по факту в этой смене

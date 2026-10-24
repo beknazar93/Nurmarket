@@ -67,6 +67,7 @@ public partial class WarehouseWindow
         _stockFilterButtons.Clear();
         // 2026-10-19, О9: подпись — перед рамкой сегментов (в разметке), кнопки — сегменты sec-seg (выбранный тёмно-синий).
         StockFilterLabel.Text = T("Наличие", "Бар-жогу", "Stock", "Stok", "Mavjudlik");
+        ToolTip.SetTip(StockFilterPanel.Parent as Control ?? StockFilterPanel, StockFilterLabel.Text); // 2026-10-22 (П5): подпись скрыта на низком окне — остаётся подсказкой
         foreach (var (key, text) in new[]
                  {
                      ("all", T("Все", "Баары", "All", "Tümü", "Hammasi")),
@@ -87,6 +88,10 @@ public partial class WarehouseWindow
             StockFilterPanel.Children.Add(radio);
         }
         _ = RefreshExpiryAsync(force: false);
+        // 2026-10-22 (аудит 1.17.59, П-И, Б10): на низком окне (1366×768) вкладка «Товары» показывала 3,5 строки — плитки,
+        // поиск и два ряда фильтров занимали ~60 % высоты.
+        SizeChanged += (_, _) => ApplyProductsCompact();
+        ApplyProductsCompact();
 
         // 2026-10-06, владелец: «сделай редизайн кнопок, расположение, удобство» — «✕» в поиске и двойной щелчок по строке.
         ProductSearchBox.PropertyChanged += (_, e) =>
@@ -105,6 +110,34 @@ public partial class WarehouseWindow
         };
         ToolTip.SetTip(ProductsGrid, T("Двойной щелчок по строке — открыть товар", "Сапты эки жолу басуу — товарды ачуу", "Double-click a row to open the product",
             "Ürünü açmak için satıra çift tıklayın", "Mahsulotni ochish uchun qatorni ikki marta bosing"));
+    }
+
+    /// <summary>2026-10-22 (аудит 1.17.59, П-И, Б10): компактная вкладка «Товары» на низком окне (высота &lt; 800): плитки без
+    /// пояснений (они в подсказке), промежутки уже, строка таблицы 44 (зона касания 44 сохранена; на высоком окне — прежние 52).
+    /// Логика поиска, фильтров и таблицы не меняется — только размеры.</summary>
+    private void ApplyProductsCompact()
+    {
+        var compact = ClientSize.Height > 0 && ClientSize.Height < 800;
+        Classes.Set("wh-compact", compact);
+        // 2026-10-22 (аудит новой сборки, П5): на 1366×768 в программе владельца было ~6 строк (нужно ≥ 8): строка 44 → 40 на совсем низком окне,
+        // плитки сводки ниже (стиль wh-compact в разметке), подписи фильтров скрыты — два ряда фильтров стали одним, поля раздела меньше.
+        var veryLow = compact && ClientSize.Height < 720;
+        ProductsGrid.RowHeight = compact ? (veryLow ? 40 : 44) : 52;
+        WarehouseKpiPanel.Margin = new Thickness(0, 0, 0, compact ? 6 : 14);
+        ProductsSearchRow.Margin = new Thickness(0, 0, 0, compact ? 4 : 12);
+        ProductsFilterRow.Margin = new Thickness(0, 0, 0, compact ? 0 : 12);
+        ProductsTabBorder.Padding = compact ? new Thickness(12, 8, 12, 6) : new Thickness(16);
+        // 2026-10-23 (аудит круг 3, Б-6): моноблок 1024×600 — список был ~3,5 строки. Ниже 660 px плитки сводки скрыты (те же фильтры есть
+        // кнопками «Все / Заканчивается / …» ниже), шапка окна плотнее; строка таблицы 44 (зона касания сохранена).
+        var tiny = ClientSize.Height > 0 && ClientSize.Height < 660;
+        WarehouseKpiPanel.IsVisible = !tiny;
+        if (!_isOwnerSection)
+            WindowHeaderBorder.Padding = tiny ? new Thickness(12, 4) : new Thickness(16, 10);
+        WindowHeaderBorder.Margin = new Thickness(0, 0, 0, tiny ? 6 : (_isOwnerSection ? 8 : 16));
+        if (tiny)
+            ProductsGrid.RowHeight = 44;
+        if (_isOwnerSection)
+            RootGrid.Margin = compact ? new Thickness(24, 6, 24, 10) : OwnerSectionLayout.Margin;
     }
 
     /// <summary>2026-10-06, владелец: «открывать товар на складе голосом». Вкладка «Товары», фильтры сброшены, в поиске — товар.</summary>
@@ -314,7 +347,7 @@ public partial class WarehouseWindow
             var v = new TextBlock { Text = value, Classes = { "sec-kpi-value" }, FontSize = 20 };
             if (accent != null)
                 v.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(accent));
-            var s = new TextBlock { Text = sub, FontSize = 11.5, TextWrapping = TextWrapping.Wrap };
+            var s = new TextBlock { Text = sub, FontSize = 11.5, TextWrapping = TextWrapping.Wrap, Classes = { "kpi-sub" } };
             s.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
             stack.Children.Add(l);
             stack.Children.Add(new Viewbox { Classes = { "sec-kpi-fit" }, Child = v });

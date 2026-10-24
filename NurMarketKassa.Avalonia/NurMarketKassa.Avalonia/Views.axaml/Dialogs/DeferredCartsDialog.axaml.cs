@@ -58,6 +58,13 @@ public partial class DeferredCartsDialog : Window
         foreach (var e in items)
             CartListBox.Items.Add(new DeferredCartListRow(e));
 
+        // 2026-10-22 (модалки, пакет 1): пустая очередь — только подсказка обычным текстом (не жирным), без пустого
+        // серого списка; есть чеки — сводка полужирным над списком, как раньше.
+        CartListBox.IsVisible = items.Count > 0;
+        SummaryText.FontWeight = items.Count == 0 ? Avalonia.Media.FontWeight.Normal : Avalonia.Media.FontWeight.SemiBold;
+        SummaryText.Foreground = null;
+        SummaryText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(items.Count == 0 ? "BrushTextSoft" : "BrushText"));
+
         UpdateButtonsState();
     }
 
@@ -80,14 +87,19 @@ public partial class DeferredCartsDialog : Window
     private void SetBusy(bool busy)
     {
         _busy = busy;
+        // 2026-10-22 (модалки, пакет 1): на время переноса чека окно занято — подвал и ✕ выключены, Enter/Esc не
+        // срабатывают (второй клик не переносит чек дважды и не закрывает окно посреди операции).
+        Shell.IsBusy = busy;
         DeleteSelectedButton.IsEnabled = !busy;
         MergeIntoCurrentButton.IsEnabled = !busy && CartListBox.Items.Count > 0;
         LoadAsSeparateButton.IsEnabled = !busy && CartListBox.Items.Count > 0;
         CartListBox.IsEnabled = !busy;
     }
 
-    private void DeleteSelected_Click(object? sender, RoutedEventArgs e)
+    private async void DeleteSelected_Click(object? sender, RoutedEventArgs e)
     {
+        if (_busy)
+            return;
         var rows = GetSelectedRows();
         if (rows.Count == 0)
         {
@@ -95,6 +107,22 @@ public partial class DeferredCartsDialog : Window
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+
+        // 2026-10-22 (модалки, пакет 1): удаление необратимо — подтверждение с глаголом «Удалить N чеков» (красная),
+        // фокус и Enter — не на удалении («Отмена» рядом). Раньше чеки удалялись сразу по кнопке.
+        var n = rows.Count;
+        var confirmed = await PosDialogs.ConfirmYesNoModalAsync(this,
+            Tr.T($"Удалить из очереди {ReceiptsRu(n)}? Товары этих чеков вернуть будет нельзя.",
+                $"Кезектен {n} чекти өчүрөсүзбү? Бул чектердин товарларын кайтаруу мүмкүн болбойт.",
+                $"Delete {n} receipt(s) from the queue? Their items can't be restored.",
+                $"{n} fiş kuyruktan silinsin mi? Bu fişlerdeki ürünler geri getirilemez.",
+                $"Navbatdan {n} ta chek o'chirilsinmi? Bu cheklardagi mahsulotlarni qaytarib bo'lmaydi."),
+            Tr.T("Удалить отложенные чеки", "Калтырылган чектерди өчүрүү", "Delete held receipts", "Bekleyen fişleri sil", "Kutishdagi cheklarni o'chirish"),
+            confirmText: Tr.T($"Удалить {ReceiptsRu(n)}", $"{n} чекти өчүрүү", $"Delete {n} receipt(s)", $"{n} fişi sil", $"{n} ta chekni o'chirish"),
+            cancelText: Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+            danger: true).ConfigureAwait(true);
+        if (!confirmed)
+            return;
 
         DeferredCartsStore.RemoveIds(rows.Select(r => r.Entry.Id));
         ReloadList();
@@ -187,6 +215,15 @@ public partial class DeferredCartsDialog : Window
         Close(true);
     }
 
+    /// <summary>2026-10-22 (модалки, пакет 1): «1 чек», «3 чека», «5 чеков» — для подтверждения удаления.</summary>
+    private static string ReceiptsRu(int n)
+    {
+        var m100 = n % 100;
+        var m10 = n % 10;
+        var word = m100 is >= 11 and <= 14 ? "чеков" : m10 == 1 ? "чек" : m10 is >= 2 and <= 4 ? "чека" : "чеков";
+        return $"{n} {word}";
+    }
+
     private void Close_Click(object? sender, RoutedEventArgs e)
     {
         Close();
@@ -199,7 +236,7 @@ public partial class DeferredCartsDialog : Window
         public override string ToString()
         {
             var n = CountLines(Entry.CartJson);
-            return Tr.T($"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} поз.", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} позиция", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} item(s)", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} kalem", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} ta mahsulot");
+            return Tr.T($"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} поз.", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} сап", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} item(s)", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} kalem", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} ta mahsulot");
         }
     }
 }

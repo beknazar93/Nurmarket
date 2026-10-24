@@ -122,7 +122,7 @@
          страницах; отступы 24/28 — те же, что у SettingsContentHost, чтобы край вкладок совпал
          с краем карточек). Не помещаются в один ряд (кыргызский, окно 800×600) — второй ряд
          поровну, см. UpdateNavColumns. -->
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,*,Auto">
       <Grid x:Name="NavBar" Grid.Row="0" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto"
             MaxWidth="{DynamicResource SettingsPageMaxWidth}" Margin="24,14,28,0">
         <!-- 2026-10-20, аудит программы владельца (п. 11): у программы владельца своя папка настроек — железо кассы
@@ -222,6 +222,25 @@
                       Grid.Row="1"
                       HorizontalContentAlignment="Stretch"
                       VerticalContentAlignment="Stretch"/>
+
+      <!-- 2026-10-22 (модалки, пакет 4): «Сохранить» закреплена внизу окна. Раньше кнопка страницы (весы, печать, экран,
+           монитор, сотрудники, клавиши) была в самом конце прокрутки — даже на Full HD её находили только прокруткой.
+           Нижняя строка нажимает ту же кнопку страницы (её обработчик и проверки — прежние), а саму кнопку в конце
+           страницы прячет, чтобы не было двух «Сохранить». Страницы без своей «Сохранить» строку не показывают. -->
+      <Border x:Name="PinnedSaveBar" Grid.Row="2" IsVisible="False"
+              Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0"
+              Padding="24,8,28,8">
+        <Grid MaxWidth="{DynamicResource SettingsPageMaxWidth}" ColumnDefinitions="*,Auto">
+          <!-- 2026-10-22 (аудит новой сборки, П3): на вкладках без «Сохранить» (Операции, Аккаунт, Обновления) переключатели
+               применяются сразу — вместо пустой полосы внизу пометка (текст — в коде, 5 языков). -->
+          <TextBlock x:Name="AutoApplyNote" Grid.Column="0" IsVisible="False" VerticalAlignment="Center" TextWrapping="Wrap"
+                     FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+          <Button x:Name="PinnedSaveButton" Grid.Column="1" Classes="btn-primary"
+                  MinWidth="160" MinHeight="44" Padding="22,0"
+                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                  Content="{DynamicResource common.save}" Click="PinnedSave_Click"/>
+        </Grid>
+      </Border>
     </Grid>
   </Grid>
   </LayoutTransformControl>

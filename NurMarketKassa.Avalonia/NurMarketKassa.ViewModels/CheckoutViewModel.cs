@@ -22,7 +22,7 @@ namespace NurMarketKassa.ViewModels
         public string LogoPath { get; set; } = "";
     }
 
-    public class ClientOption
+    public class ClientOption : INotifyPropertyChanged
     {
         public string Id { get; init; } = "";
         public string DisplayName { get; init; } = "";
@@ -42,6 +42,27 @@ namespace NurMarketKassa.ViewModels
         }
 
         public bool HasPhone => !string.IsNullOrWhiteSpace(Phone);
+
+        // 2026-10-23 (аудит, «выбор клиента не показывает долг»): метка «Долг: N сом» в строке списка клиентов. Сумма — из уже загруженных
+        // долгов (общий кэш «Долги клиентов», новых запросов нет): окно выбора ставит DebtLookup; нет данных — 0 и метки нет.
+        public static Func<string, double>? DebtLookup { get; set; }
+
+        public double Debt => string.IsNullOrEmpty(Id) ? 0 : DebtLookup?.Invoke(Id) ?? 0;
+
+        public bool HasDebt => Debt > 0.005;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        /// <summary>2026-10-23: список долгов пришёл позже строки — перечитать метку «Долг: N» (место в строке уже занято, без прыжков).</summary>
+        public void RefreshDebt()
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Debt)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasDebt)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DebtText)));
+        }
+
+        public string DebtText => Tr.T($"Долг: {MoneyText.Som(Debt)}", $"Карыз: {MoneyText.Som(Debt)}", $"Debt: {MoneyText.Som(Debt)}",
+            $"Borç: {MoneyText.Som(Debt)}", $"Qarz: {MoneyText.Som(Debt)}");
 
         /// <summary>Одна-две буквы для кружка слева: «Кайрат» → «К», «Нур Тест» → «НТ».</summary>
         public string Initials
@@ -140,7 +161,7 @@ namespace NurMarketKassa.ViewModels
                 _discountInput = _initialSum;
             }
 
-            CashReceived = totals.TotalDue.ToString("0.00", CultureInfo.InvariantCulture);
+            CashReceived = ShowDec(totals.TotalDue);
             _lastCashReceived = CashReceived;
             // 2026-09-29: последний выбор кассира в «Напечатать чек» (UserPreferences.CheckoutPrintReceipt);
             // кто его не трогал — как раньше, по «Печатать чек после оплаты» в настройках.
@@ -167,6 +188,15 @@ namespace NurMarketKassa.ViewModels
             SelectClientCommand = new RelayCommand<ClientOption>(SelectClient);
             ClearClientCommand = new RelayCommand(ClearSelectedClient);
             AddClientCommand = new AsyncRelayCommand(AddClientAsync, CanAddClient);
+            SelectDuplicateClientCommand = new RelayCommand(() =>
+            {
+                if (DuplicateClient is { } existing)
+                {
+                    SelectClient(existing);
+                    NewClientName = "";
+                    NewClientPhone = "";
+                }
+            });
 
             LoadBanks();
             RecalculateTotals();
@@ -299,6 +329,41 @@ namespace NurMarketKassa.ViewModels
                 return $"{Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash")} {MoneyText.Som(amount)}";
             }
         }
+
+        // 2026-10-24 (аудит, круг 8, С-18, П-15): в долг крупная сумма — только то, что кассир берёт сейчас, и чек пропадал из виду.
+        // Только подписи (расчёт сумм и кнопка оплаты — как были): строка «Чек · сейчас · в долг» под итогом и подпись итога.
+        public string DebtSplitDisplay
+        {
+            get
+            {
+                var total = Math.Max(0, _effectiveTotalDue);
+                var paidNow = Math.Clamp(ParseNonNegative(_debtCashReceived) ?? 0, 0, total);
+                var debtLeft = Math.Max(0, total - paidNow);
+                return Tr.T($"Чек {MoneyText.Amount(total)} · сейчас {MoneyText.Amount(paidNow)} · в долг {MoneyText.Amount(debtLeft)}",
+                    $"Чек {MoneyText.Amount(total)} · азыр {MoneyText.Amount(paidNow)} · карызга {MoneyText.Amount(debtLeft)}",
+                    $"Receipt {MoneyText.Amount(total)} · now {MoneyText.Amount(paidNow)} · on credit {MoneyText.Amount(debtLeft)}",
+                    $"Fiş {MoneyText.Amount(total)} · şimdi {MoneyText.Amount(paidNow)} · veresiye {MoneyText.Amount(debtLeft)}",
+                    $"Chek {MoneyText.Amount(total)} · hozir {MoneyText.Amount(paidNow)} · qarzga {MoneyText.Amount(debtLeft)}");
+            }
+        }
+
+        /// <summary>Подпись итога: в долг с внесённой суммой — «Получить сейчас»; в долг без внесения крупно виден весь чек — «Сумма чека»
+        /// (иначе «Получить сейчас» стояло бы над суммой, которую никто не берёт); вне долга в окне остаётся прежний «Итог к оплате» из ресурса.</summary>
+        public string TotalDueLabel
+        {
+            get
+            {
+                // Вне долга окно берёт подпись из ресурса csh.checkout.totalDue (XAML), это значение — запасное.
+                if (!IsDebtMode)
+                    return Tr.T("Итог к оплате", "Төлөнүүчү сумма", "Total due", "Ödenecek tutar", "To'lov summasi");
+                return ParseNonNegative(_debtCashReceived) is { } paid && paid > 0.005
+                    ? Tr.T("Получить сейчас", "Азыр алуу", "Take now", "Şimdi al", "Hozir olish")
+                    : Tr.T("Сумма чека", "Чектин суммасы", "Receipt total", "Fiş tutarı", "Chek summasi");
+            }
+        }
+
+        /// <summary>Подпись поля «списать бонусами» (поле показывает «0», поэтому Watermark не виден).</summary>
+        public string LoyaltyRedeemLabel => Tr.T("Списать бонусами, сом", "Бонус менен чыгаруу, сом", "Redeem with bonuses, som", "Bonusla öde, som", "Bonus bilan yechish, so'm");
 
         public string ChangeAmountDisplay =>
             MoneyText.Amount(_changeAmount);
@@ -569,6 +634,8 @@ namespace NurMarketKassa.ViewModels
                 OnPropertyChanged(nameof(EarnedPointsPreviewDisplay));
                 RaiseDebtScheduleChanged();
                 OnPropertyChanged(nameof(PayButtonText));
+                OnPropertyChanged(nameof(DebtSplitDisplay));
+                OnPropertyChanged(nameof(TotalDueLabel));
                 OnPropertyChanged(nameof(BigTotalDisplay));
                 OnPropertyChanged(nameof(PayableDisplay));
                 ErrorMessage = "";
@@ -635,7 +702,7 @@ namespace NurMarketKassa.ViewModels
                 return;
 
             var other = Math.Max(0, _effectiveTotalDue - value);
-            var otherFormatted = other.ToString("0.00", CultureInfo.InvariantCulture);
+            var otherFormatted = ShowDec(other);
 
             _isSyncingMixedAmounts = true;
             try
@@ -774,7 +841,44 @@ namespace NurMarketKassa.ViewModels
                 _newClientPhone = value;
                 OnPropertyChanged();
                 (AddClientCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+                RaiseDuplicateClient();
             }
+        }
+
+        // 2026-10-23 (аудит, круг 6: «Аудит Клиент» ×2): такой телефон (последние 9 цифр) уже есть у клиента из загруженного списка —
+        // предупреждение под полем и кнопка «Выбрать существующего». Новых запросов нет: список уже загружен для выбора клиента.
+        private static string PhoneTail(string? phone)
+        {
+            var digits = new string((phone ?? "").Where(char.IsDigit).ToArray());
+            return digits.Length >= 9 ? digits[^9..] : "";
+        }
+
+        public ClientOption? DuplicateClient
+        {
+            get
+            {
+                var tail = PhoneTail(_newClientPhone);
+                return tail.Length == 0 ? null : _allClients.FirstOrDefault(c => PhoneTail(c.Phone) == tail);
+            }
+        }
+
+        public bool HasDuplicateClient => DuplicateClient != null;
+
+        public string DuplicateClientText => DuplicateClient is { } c
+            ? Tr.T($"Клиент с таким телефоном уже есть: {c.Name}", $"Бул телефон менен кардар бар: {c.Name}",
+                $"A client with this phone already exists: {c.Name}", $"Bu telefonla bir müşteri zaten var: {c.Name}",
+                $"Bu telefonli mijoz allaqachon bor: {c.Name}")
+            : "";
+
+        public string SelectDuplicateClientText => Tr.T("Выбрать существующего", "Бар кардарды тандоо", "Select the existing one", "Mevcut olanı seç", "Mavjudini tanlash");
+
+        public ICommand SelectDuplicateClientCommand { get; private set; } = null!;
+
+        private void RaiseDuplicateClient()
+        {
+            OnPropertyChanged(nameof(DuplicateClient));
+            OnPropertyChanged(nameof(HasDuplicateClient));
+            OnPropertyChanged(nameof(DuplicateClientText));
         }
 
         public bool IsAddingClient
@@ -912,11 +1016,15 @@ namespace NurMarketKassa.ViewModels
 
 
 
+        // 2026-10-22 (аудит 1.17.59, П-В): в полях окна оплаты «Получено 1,00» — запятая, как везде в кассе; разбор
+        // (NormalizeDecimal) и отправка на сервер по-прежнему через точку — расчёт денег не меняется.
+        private static string ShowDec(double value) => value.ToString("0.00", CultureInfo.InvariantCulture).Replace('.', ',');
+
         private void SetCash(double amount) =>
-            CashReceived = amount.ToString("0.00", CultureInfo.InvariantCulture);
+            CashReceived = ShowDec(amount);
 
         private void SetExactCash() =>
-            CashReceived = _effectiveTotalDue.ToString("0.00", CultureInfo.InvariantCulture);
+            CashReceived = ShowDec(_effectiveTotalDue);
 
         private void ClearCash() => CashReceived = "";
 
@@ -936,6 +1044,8 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(DiscountAmountPreview));
             OnPropertyChanged(nameof(PayableDisplay));
             OnPropertyChanged(nameof(PayButtonText));
+            OnPropertyChanged(nameof(DebtSplitDisplay));
+            OnPropertyChanged(nameof(TotalDueLabel));
             OnPropertyChanged(nameof(DebtRemainingText));
             // 2026-10-06: суммы платежей рассрочки зависят от итога.
             OnPropertyChanged(nameof(InstallmentRows));
@@ -949,7 +1059,7 @@ namespace NurMarketKassa.ViewModels
             {
                 var cash = ParseCash();
                 if (cash == null || Math.Abs(cash.Value - previousTotal) < 1e-9)
-                    CashReceived = _effectiveTotalDue.ToString("0.00", CultureInfo.InvariantCulture);
+                    CashReceived = ShowDec(_effectiveTotalDue);
             }
 
             UpdateCashState();
@@ -1090,7 +1200,7 @@ namespace NurMarketKassa.ViewModels
                 && cash + 1e-9 >= _effectiveTotalDue
                     ? cash
                     : _effectiveTotalDue;
-            CashReceived = restored.ToString("0.00", CultureInfo.InvariantCulture);
+            CashReceived = ShowDec(restored);
         }
 
         private bool CanExecutePay(object? _)
@@ -1237,11 +1347,11 @@ namespace NurMarketKassa.ViewModels
             {
                 var maximum = Math.Max(0, _subtotal - _lineDiscounts);
                 if (value > maximum + 1e-9)
-                    return Tr.T($"Скидка не может превышать сумму товаров: {maximum:0.00} сом.",
-                        $"Арзандатуу товарлардын суммасынан ашпашы керек: {maximum:0.00} сом.",
-                        $"The discount can't exceed the total of the items: {maximum:0.00} som.",
-                        $"İndirim, ürünlerin toplam tutarını aşamaz: {maximum:0.00} som.",
-                        $"Chegirma mahsulotlar summasidan oshmasligi kerak: {maximum:0.00} so'm.");
+                    return Tr.T($"Скидка не может превышать сумму товаров: {MoneyText.Amount(maximum)} сом.",
+                        $"Арзандатуу товарлардын суммасынан ашпашы керек: {MoneyText.Amount(maximum)} сом.",
+                        $"The discount can't exceed the total of the items: {MoneyText.Amount(maximum)} som.",
+                        $"İndirim, ürünlerin toplam tutarını aşamaz: {MoneyText.Amount(maximum)} som.",
+                        $"Chegirma mahsulotlar summasidan oshmasligi kerak: {MoneyText.Amount(maximum)} so'm.");
             }
 
             // 2026-09-23. Потолок скидки компании (max_discount_percent) проверялся только в
@@ -1279,6 +1389,8 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(IsMixedMode));
             OnPropertyChanged(nameof(ShowClientSection));
             OnPropertyChanged(nameof(PayButtonText));
+            OnPropertyChanged(nameof(DebtSplitDisplay));
+            OnPropertyChanged(nameof(TotalDueLabel));
             OnPropertyChanged(nameof(BigTotalDisplay));
             OnPropertyChanged(nameof(PayableDisplay));
             UpdateCashState();
@@ -1289,8 +1401,8 @@ namespace NurMarketKassa.ViewModels
             if (IsMixedMode && string.IsNullOrWhiteSpace(_mixedCashAmount) && string.IsNullOrWhiteSpace(_mixedNonCashAmount))
             {
                 // Разумные значения по умолчанию: всё наличными, кассир перераспределяет сам.
-                MixedCashAmount = _effectiveTotalDue.ToString("0.00", CultureInfo.InvariantCulture);
-                MixedNonCashAmount = "0.00";
+                MixedCashAmount = ShowDec(_effectiveTotalDue);
+                MixedNonCashAmount = "0,00";
             }
         }
 
@@ -1483,6 +1595,7 @@ namespace NurMarketKassa.ViewModels
                     .ToList();
                 _clientsLoaded = true;
                 ApplyClientFilter();
+                RaiseDuplicateClient();
             }
             catch (Exception ex)
             {

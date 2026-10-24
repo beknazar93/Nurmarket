@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -15,7 +16,7 @@ import '../sale/sale_screen.dart';
 import 'live_shot.dart';
 import '../../core/ai/product_refs.dart';
 import '../../core/util/audit.dart';
-import 'scan_screen.dart';
+import 'barcode_bind.dart';
 
 /// 13.10, доски Т9–Т10 и владелец: «умная камера при продаже в телефоне где?». Снимок системной камерой (без штрихкода),
 /// товары узнаёт ИИ (VisionService), дальше — в чек (продажа) или в приёмку (полка, накладная, этикетки).
@@ -29,7 +30,8 @@ Future<Uint8List?> takeProductPhoto(BuildContext context, String mode) {
     'labels' => l.liveHintLabels,
     _ => l.liveHintSale,
   };
-  return LiveShotPage.open(context, title: l.smartCam, hint: hint);
+  // 2026-10-22: под подсказкой — что будет после снимка
+  return LiveShotPage.open(context, title: l.smartCam, hint: hint, next: l.liveNextList);
 }
 
 /// Ключа ИИ нет ни на сервере, ни на телефоне — предлагаем вставить (как поле ключа в настройках кассы).
@@ -90,13 +92,7 @@ Future<List<SeenMatch>?> photoAndRecognize(BuildContext context, WidgetRef ref, 
     final seen = await vision.recognize(jpeg, mode: mode);
     var matches = await vision.match(seen);
     // 14.10, владелец: обученные товары (3 фото + штрихкод) — точное совпадение с эталонами, первыми в списке.
-    if (mode == 'sale') {
-      final exact = await exactMatches(ref, jpeg, matches);
-      if (exact.isNotEmpty) {
-        final ids = {for (final e in exact) e.candidates.first.$1.id};
-        matches = [...exact, ...matches.where((m) => m.best == null || !ids.contains(m.best!.id))];
-      }
-    }
+    if (mode == 'sale') matches = mergeExact(await exactMatches(ref, jpeg, matches), matches);
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     return matches;
   } on VisionException catch (e) {
@@ -114,31 +110,127 @@ Future<List<SeenMatch>?> photoAndRecognize(BuildContext context, WidgetRef ref, 
   }
 }
 
-/// Кадр против эталонов: обученные на этом телефоне товары (3 снимка) и, для найденных первым шагом, фото из NurCRM.
-/// Не больше 8 товаров — запрос к ИИ остаётся быстрым.
-Future<List<SeenMatch>> exactMatches(WidgetRef ref, Uint8List shot, List<SeenMatch> first) async {
+/// 2026-10-22, владелец: «умная камера после сканера очень долго думает». Эталоны в памяти телефона: обученные снимки
+/// читались с диска, а фото товаров из NurCRM скачивались заново при каждом скане — по одному, до 8 загрузок подряд.
+class RefCache {
+  static final _local = <String, Future<List<Uint8List>>>{};
+  static final _remote = <String, Future<List<Uint8List>>>{};
+
+  static Future<Set<String>> trained(AppDatabase db) => ProductRefs.trainedIds(db);
+
+  static Future<List<Uint8List>> local(AppDatabase db, String productId) => _local[productId] ??= ProductRefs.load(db, productId);
+
+  /// 2026-10-22 (аудит У-8): эталоны с других телефонов — фото товара в NurCRM (снимки обучения уходят туда же
+  /// дополнительными фото, см. [shareTeachShots]); до 3 фото, ждём не дольше 5 с; неудачное не запоминаем.
+  static Future<List<Uint8List>> remote(ApiClient api, Product p) =>
+      (_remote[p.id] ??= _loadRemote(api, p)).timeout(const Duration(seconds: 5), onTimeout: () => const <Uint8List>[]);
+
+  static Future<List<Uint8List>> _loadRemote(ApiClient api, Product p) async {
+    final urls = <String>[];
+    try {
+      final data = await api.get('api/main/products/${p.id}/', timeout: const Duration(seconds: 3));
+      if (data is Map) urls.addAll(imageUrls(data.cast<String, dynamic>()));
+    } catch (_) {
+      // нет связи — хотя бы главное фото
+    }
+    if (urls.isEmpty && p.imageUrl != null) urls.add(p.imageUrl!);
+    final imgs = await Future.wait(urls.take(ProductRefs.maxPerProduct).map(ProductRefs.fromUrl));
+    final out = [for (final i in imgs) ?i];
+    if (out.isEmpty) _remote.remove(p.id);
+    return out;
+  }
+
+  /// Адреса всех фото товара из ответа NurCRM (images: строки или объекты с адресом), главное — первым.
+  static List<String> imageUrls(Map<String, dynamic> p) {
+    final out = <String>[];
+    void add(Object? v) {
+      if (v is Map) {
+        for (final k in const ['url', 'image', 'src', 'file']) {
+          if (v[k] is String) return add(v[k]);
+        }
+        return;
+      }
+      if (v is! String || v.trim().isEmpty) return;
+      var u = v.trim();
+      if (u.startsWith('//')) {
+        u = 'https:$u';
+      } else if (!u.startsWith('http')) {
+        u = '${ApiClient.defaultBaseUrl}/${u.replaceFirst(RegExp(r'^/+'), '')}';
+      }
+      if (!out.contains(u)) out.add(u);
+    }
+
+    for (final k in const ['primary_image_url', 'image_url', 'image']) {
+      add(p[k]);
+    }
+    for (final k in const ['images', 'photos', 'gallery']) {
+      if (p[k] is List) {
+        for (final it in (p[k] as List).take(8)) {
+          add(it);
+        }
+      }
+    }
+    return out;
+  }
+
+  /// Товар обучен заново — старые снимки из памяти убрать.
+  static void forget(String productId) => _local.remove(productId);
+
+  /// Пока кассир наводит камеру — обученные эталоны в память.
+  static Future<void> warm(AppDatabase db) async {
+    try {
+      final ids = (await trained(db)).take(8);
+      await Future.wait(ids.map((id) => local(db, id)));
+    } catch (_) {}
+  }
+}
+
+/// Кадр против эталонов: обученные на этом телефоне товары (до 3 снимков) и, для найденных первым шагом, фото из NurCRM.
+/// 2026-10-22 (аудит У-4): не больше 6 товаров и 2,5 МБ снимков на запрос (было до 8 × 5 PNG, 6–12 МБ) — успевает на
+/// мобильной сети. 2026-10-22: эталоны грузятся одновременно и из памяти;
+/// [withTrained] / [withUrl] — только обученные (сверка сразу, параллельно с распознаванием) или только фото NurCRM.
+Future<List<SeenMatch>> exactMatches(WidgetRef ref, Uint8List shot, List<SeenMatch> first, {bool withTrained = true, bool withUrl = true}) async {
   try {
     final db = ref.read(databaseProvider);
-    final trained = await ProductRefs.trainedIds(db);
+    final trained = await RefCache.trained(db);
     final ordered = <String>[
       for (final m in first)
         for (final (p, _) in m.candidates) p.id,
     ];
-    final ids = <String>{...ordered.where(trained.contains), ...trained.where((id) => !ordered.contains(id))}.take(8).toList();
-    final refs = <(Product, List<Uint8List>)>[];
-    for (final id in ids) {
-      final p = await db.productById(id);
-      final pngs = await ProductRefs.load(db, id);
-      if (p != null && pngs.isNotEmpty) refs.add((p, pngs));
-    }
-    // товары, обученные на другом телефоне: их фото в NurCRM
-    for (final m in first) {
-      for (final (p, _) in m.candidates.take(2)) {
-        if (refs.length >= 8 || trained.contains(p.id) || refs.any((r) => r.$1.id == p.id) || p.imageUrl == null) continue;
-        final png = await ProductRefs.fromUrl(p.imageUrl!);
-        if (png != null) refs.add((p, [png]));
+    final ids = withTrained ? <String>{...ordered.where(trained.contains), ...trained.where((id) => !ordered.contains(id))}.take(6).toList() : const <String>[];
+    final local = await Future.wait(ids.map((id) async => (await db.productById(id), await RefCache.local(db, id))));
+    final refs = <(Product, List<Uint8List>)>[
+      for (final (p, pngs) in local)
+        if (p != null && pngs.isNotEmpty) (p, pngs),
+    ];
+    if (withUrl) {
+      // товары, обученные на другом телефоне: их фото в NurCRM
+      final want = <Product>[];
+      for (final m in first) {
+        for (final (p, _) in m.candidates.take(2)) {
+          if (refs.length + want.length >= 6 || trained.contains(p.id) || p.imageUrl == null) continue;
+          if (refs.any((r) => r.$1.id == p.id) || want.any((w) => w.id == p.id)) continue;
+          want.add(p);
+        }
+      }
+      final api = ref.read(apiProvider);
+      final imgs = await Future.wait(want.map((p) => RefCache.remote(api, p)));
+      for (var i = 0; i < want.length; i++) {
+        if (imgs[i].isNotEmpty) refs.add((want[i], imgs[i]));
       }
     }
+    // общий размер снимков — не больше 2,5 МБ (в base64 ещё +33 %)
+    var budget = 2500 * 1024 - shot.length;
+    for (var i = 0; i < refs.length; i++) {
+      final keep = <Uint8List>[];
+      for (final img in refs[i].$2) {
+        if (img.length > budget) break;
+        budget -= img.length;
+        keep.add(img);
+      }
+      refs[i] = (refs[i].$1, keep);
+    }
+    refs.removeWhere((r) => r.$2.isEmpty);
     if (refs.isEmpty) return const [];
     final found = await ref.read(visionProvider).identify(shot, [for (final r in refs) (r.$1.name, r.$2)]);
     return [
@@ -149,86 +241,245 @@ Future<List<SeenMatch>> exactMatches(WidgetRef ref, Uint8List shot, List<SeenMat
   }
 }
 
-/// 14.10, владелец: обучение умной камеры — 3 снимка видоискателем (справа, слева, сверху) и штрихкод.
-Future<({List<Uint8List> shots, String? barcode})?> teachCamera(BuildContext context, {bool askBarcode = true}) async {
-  final l = context.l;
-  final shots = <Uint8List>[];
-  for (final title in [l.teachRight, l.teachLeft, l.teachTop]) {
-    if (!context.mounted) return null;
-    final shot = await LiveShotPage.open(context, title: title, hint: l.teachHint);
-    if (shot == null) return null;
-    shots.add(shot);
-  }
-  String? barcode;
-  if (askBarcode && context.mounted) {
-    final codes = await Navigator.of(context)
-        .push<List<String>>(MaterialPageRoute(builder: (_) => const ScanScreen(initial: ScanMode.receive, returnCodes: true)));
-    if (codes != null && codes.isNotEmpty) barcode = codes.last;
-  }
-  return (shots: shots, barcode: barcode);
+/// Точные совпадения — первыми, без повторов того же товара.
+List<SeenMatch> mergeExact(List<SeenMatch> exact, List<SeenMatch> matches) {
+  if (exact.isEmpty) return matches;
+  final ids = <String>{};
+  final uniq = [
+    for (final e in exact)
+      if (ids.add(e.candidates.first.$1.id)) e,
+  ];
+  return [...uniq, ...matches.where((m) => m.best == null || !ids.contains(m.best!.id))];
 }
+
+/// 14.10, владелец: обучение умной камеры — снимки видоискателем (справа, слева, сверху) и штрихкод.
+/// 2026-10-22: все снимки — на одной странице с одной камерой (раньше на каждый снимок открывалась новая страница,
+/// и второй кадр шёл в чёрный экран): «Фото 2 из 5», «Переснять», «Готово» — с 1 снимка, советуем 3.
+/// 2026-10-22, владелец: «после обучения выходит сканер, но он тупо ничего не говорит». Был общий сканер приёмки
+/// (подсказка «Отсканировано: 0», после скана не закрывался и ждал «Готово», без штрихкода — только крестик). Теперь
+/// шаг «Штрихкод» ([BarcodeBindPage]): «1 Фото ✓ → 2 Штрихкод → 3 Готово», «Пропустить», «Ввести вручную», после
+/// скана — что будет с кодом; код другого товара — «Заменить» ([takenFrom]) / «Оставить» / «Отмена».
+/// [productName] и [productId] — для надписи «привязан к «Товар»» и возможности «Заменить» (у созданного товара).
+Future<({List<Uint8List> shots, String? barcode, Product? takenFrom})?> teachCamera(
+  BuildContext context, {
+  bool askBarcode = true,
+  String productName = '',
+  String? productId,
+}) async {
+  final l = context.l;
+  final shots = await LiveShotPage.openMany(
+    context,
+    title: l.teachCamera,
+    hint: l.teachHint,
+    steps: [l.teachAngleRight, l.teachAngleLeft, l.teachAngleTop, l.teachAngleFront, l.teachAngleBack],
+    stages: askBarcode ? [l.stepPhoto, l.stepBarcode, l.done] : [l.stepPhoto, l.done],
+    next: askBarcode ? l.teachNext : l.teachNextNoCode,
+  );
+  if (shots == null || shots.isEmpty) return null;
+  String? barcode;
+  Product? takenFrom;
+  if (askBarcode && context.mounted) {
+    // сканер штрихкодов включаем, только когда умная камера отпустила камеру
+    await CameraGate.idle();
+    if (!context.mounted) return (shots: shots, barcode: null, takenFrom: null);
+    final b = await BarcodeBindPage.open(context, productName: productName, productId: productId);
+    barcode = b?.code;
+    takenFrom = b?.takenFrom;
+  }
+  return (shots: shots, barcode: barcode, takenFrom: takenFrom);
+}
+
+/// 2026-10-22 (аудит У-8): эталоны были только на этом телефоне — обучение не помогало второму телефону и пропадало при
+/// переустановке. Снимки обучения (до 3, кроме уже отправленного главным фото) уходят в NurCRM дополнительными фото
+/// товара — другие телефоны берут их эталонами ([RefCache.remote]). Без связи — молча, эталоны на телефоне остаются.
+Future<void> shareTeachShots(WidgetRef ref, String productId, List<Uint8List> shots, {Uint8List? already}) async {
+  final repo = ref.read(adminReceiveRepoProvider);
+  for (final s in shots.where((s) => !identical(s, already)).take(ProductRefs.maxPerProduct)) {
+    try {
+      await repo.uploadImage(productId, await ProductRefs.compact(s));
+    } catch (_) {}
+  }
+}
+
+/// Главное фото товара из снимков обучения: этикетка спереди (4-й снимок), иначе последний.
+Uint8List teachPhoto(List<Uint8List> shots) => shots.length > 3 ? shots[3] : shots.last;
 
 /// Обучить камеру на уже существующем товаре (склад → действия товара).
 Future<void> teachExistingProduct(BuildContext context, WidgetRef ref, Product p) async {
-  final r = await teachCamera(context, askBarcode: p.barcode == null || p.barcode!.isEmpty);
+  final r = await teachCamera(context, askBarcode: p.barcode == null || p.barcode!.isEmpty, productName: p.name, productId: p.id);
   if (r == null || !context.mounted) return;
   final l = context.l;
   await ProductRefs.save(ref.read(databaseProvider), p.id, r.shots);
+  RefCache.forget(p.id);
+  var linked = false;
   try {
-    if (r.barcode != null) await ref.read(apiProvider).patch('api/main/products/${p.id}/', body: {'barcode': r.barcode});
-    if (p.imageUrl == null) await ref.read(adminReceiveRepoProvider).uploadImage(p.id, r.shots.last, primary: true);
+    // 2026-10-22: «Заменить» — сначала снять штрихкод с другого товара, потом записать этому
+    if (r.barcode != null && r.takenFrom != null) await ref.read(apiProvider).patch('api/main/products/${r.takenFrom!.id}/', body: {'barcode': null});
+    if (r.barcode != null) {
+      await ref.read(apiProvider).patch('api/main/products/${p.id}/', body: {'barcode': r.barcode});
+      linked = true;
+      // телефон узнаёт товар по новому коду сразу, не через 5 минут
+      unawaited(ref.read(catalogRepoProvider).sync().then((_) {}, onError: (_) {}));
+    }
+    final photo = p.imageUrl == null ? teachPhoto(r.shots) : null;
+    if (photo != null) await ref.read(adminReceiveRepoProvider).uploadImage(p.id, photo, primary: true);
+    unawaited(shareTeachShots(ref, p.id, r.shots, already: photo));
   } on ApiException catch (e) {
     if (context.mounted) toast(context, e.message, error: true);
   }
   Audit.log('product', '${l.teachCamera}: ${p.name}');
-  if (context.mounted) toast(context, l.teachDone);
+  if (context.mounted) toast(context, linked ? '${l.teachDone}\n${l.bindLinked(r.barcode!, p.name)}' : l.teachDone);
+}
+
+/// 2026-10-22, владелец: «умная камера после сканера очень долго думает». Было по очереди: кадр 1080p → распознавание →
+/// эталоны с диска и фото из NurCRM по одному → второй запрос к ИИ с тем же кадром, и только потом список. Теперь кадр
+/// 720p; сверка с обученными эталонами (если их до 8) идёт одновременно с распознаванием; список показывается сразу
+/// после первого ответа ИИ, а «✓ точно» по фото NurCRM дописывается следом ([show] с done = false, затем true).
+Future<void> recognizeSaleShot(WidgetRef ref, Uint8List jpeg, void Function(List<SeenMatch> matches, bool done) show) async {
+  final vision = ref.read(visionProvider);
+  // 2026-10-22 (скорость скана): запрос к ИИ уходит сразу, список обученных читается из базы одновременно с ним
+  final seenF = vision.recognize(jpeg, mode: 'sale');
+  final Set<String> trained;
+  try {
+    trained = await RefCache.trained(ref.read(databaseProvider));
+  } catch (_) {
+    await seenF.then((_) {}, onError: (_) {});
+    rethrow;
+  }
+  final early = trained.isNotEmpty && trained.length <= 6 ? exactMatches(ref, jpeg, const [], withUrl: false) : null;
+  final first = await vision.match(await seenF);
+  // обученных больше 8 — берём похожие на увиденное; фото NurCRM — для похожих необученных
+  final needUrl = first.any((m) => m.candidates.take(2).any((c) => c.$1.imageUrl != null && !trained.contains(c.$1.id)));
+  final late = early == null || needUrl ? exactMatches(ref, jpeg, first, withTrained: early == null) : null;
+  if (early == null && late == null) {
+    show(first, true);
+    return;
+  }
+  show(first, false);
+  final exact = <SeenMatch>[];
+  for (final f in [?early, ?late]) {
+    exact.addAll(await f.timeout(const Duration(seconds: 6), onTimeout: () => const <SeenMatch>[]));
+  }
+  show(mergeExact(exact, first), true);
 }
 
 /// Продажа «По виду»: увиденное и подходящие товары каталога — нажатие кладёт товар в чек (сколько штук видно на снимке).
+/// 2026-10-22: камера не закрывается после снимка — «Сканировать» снова для следующего товара, список — под рамкой.
 Future<void> recognizeForSale(BuildContext context, WidgetRef ref) async {
-  final matches = await photoAndRecognize(context, ref, 'sale');
-  if (matches == null || !context.mounted) return;
+  if (!await ensureAiKey(context, ref) || !context.mounted) return;
   final l = context.l;
-  if (matches.isEmpty) {
-    toast(context, l.recognizedNone, error: true);
-    return;
-  }
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    builder: (c) => SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(c).height * .75),
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+  unawaited(RefCache.warm(ref.read(databaseProvider)));
+  await LiveShotPage.openLive(
+    context,
+    title: l.smartCam,
+    hint: l.liveHintSale,
+    next: l.liveNextSale,
+    onShot: (jpeg, show, sincePress) async {
+      // товары этого снимка, уже положенные в чек (повторное касание — вопрос «добавить ещё?»)
+      final added = <String>{};
+      try {
+        await recognizeSaleShot(ref, jpeg, (matches, done) {
+          final sec = sincePress.elapsedMilliseconds / 1000;
+          show((c) => _salePanel(c, ref, matches, checking: !done, seconds: sec, added: added));
+        });
+      } on VisionException catch (e) {
+        if (e.noKey) await ref.read(visionProvider).saveKey(''); // ключ не подошёл — в следующий раз спросим заново
+        show((c) => _errorPanel(c, aiErrorText(c, e)));
+      }
+    },
+  );
+}
+
+Future<bool?> _askYes(BuildContext context, String text) => showDialog<bool>(
+  context: context,
+  builder: (c) => AlertDialog(
+    content: Text(text),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(c, false), child: Text(c.l.cancel)),
+      FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(c.l.yesAdd)),
+    ],
+  ),
+);
+
+/// 2026-10-22 (аудит У-9): ошибка ИИ на языке кассира, а не сырой текст исключения.
+String aiErrorText(BuildContext c, VisionException e) {
+  final l = c.l;
+  final m = e.message.toLowerCase();
+  if (e.noKey) return l.aiKeyNeeded;
+  if (m.contains('связи') || m.contains('connection') || m.contains('socket')) return l.aiErrNoNet;
+  if (m.contains('вовремя') || m.contains('timeout')) return l.aiErrSlow;
+  if (m.contains('лимит') || m.contains('429')) return l.aiErrLimit;
+  if (m.contains('перегруж') || m.contains('недоступна') || m.contains('503')) return l.aiErrBusy;
+  return '${l.aiErrOther}\n${e.message}';
+}
+
+Widget _errorPanel(BuildContext c, String text) => Padding(
+  padding: const EdgeInsets.fromLTRB(16, 16, 48, 16),
+  child: Text(text, style: const TextStyle(color: T.danger, fontWeight: FontWeight.w700)),
+);
+
+Widget _salePanel(BuildContext c, WidgetRef ref, List<SeenMatch> matches, {required bool checking, required double seconds, required Set<String> added}) {
+  final l = c.l;
+  final sec = seconds.toStringAsFixed(1);
+  return StatefulBuilder(builder: (c, setPanel) => ListView(
+    shrinkWrap: true,
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(right: 36),
+        child: Row(
           children: [
-            Text(l.seenOnPhoto, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            for (final m in matches) ...[
-              const SizedBox(height: 10),
-              Text(
-                '${m.seen.title} · ×${m.seen.count}${m.seen.name.startsWith('✓') ? ' · ${l.exactMatch}' : ''}',
-                style: TextStyle(color: m.seen.name.startsWith('✓') ? T.success : c.pal.textSoft, fontWeight: FontWeight.w700),
-              ),
-              if (m.candidates.isEmpty) Text(l.notInCatalog, style: const TextStyle(color: T.warn)),
-              for (final (p, score) in m.candidates)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: ProductThumb(name: p.name, url: p.imageUrl, size: 44),
-                  title: Text(p.name, style: TextStyle(fontWeight: score >= .5 ? FontWeight.w800 : FontWeight.w500)),
-                  subtitle: Text('${money(p.price)} ${l.som} · ${l.inStock(qtyText(p.quantity), p.unit)}'),
-                  trailing: const Icon(Icons.add_shopping_cart_rounded),
-                  onTap: () async {
-                    await addProduct(c, ref, p, qty: p.isWeight ? null : m.seen.count.toDouble());
-                    if (c.mounted) toast(c, l.addedToCheckName(p.name));
-                  },
-                ),
-            ],
+            Text(l.seenOnPhoto, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(width: 8),
+            Text(
+              l.scanTook(Localizations.localeOf(c).languageCode == 'en' ? sec : sec.replaceAll('.', ',')),
+              style: TextStyle(color: c.pal.textSoft, fontSize: 12),
+            ),
           ],
         ),
       ),
-    ),
-  );
+      if (checking)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(
+            children: [
+              const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(l.scanChecking, style: TextStyle(color: c.pal.textSoft, fontSize: 12))),
+            ],
+          ),
+        ),
+      if (matches.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(l.recognizedNone, style: const TextStyle(color: T.warn))),
+      for (final m in matches) ...[
+        const SizedBox(height: 8),
+        Text(
+          '${m.seen.title} · ×${m.seen.count}${m.seen.name.startsWith('✓') ? ' · ${l.exactMatch}' : ''}',
+          style: TextStyle(color: m.seen.name.startsWith('✓') ? T.success : c.pal.textSoft, fontWeight: FontWeight.w700),
+        ),
+        if (m.candidates.isEmpty) Text(l.notInCatalog, style: const TextStyle(color: T.warn)),
+        for (final (p, score) in m.candidates)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            leading: ProductThumb(name: p.name, url: p.imageUrl, size: 40),
+            title: Text(p.name, style: TextStyle(fontWeight: score >= .5 ? FontWeight.w800 : FontWeight.w500)),
+            subtitle: Text('${money(p.price)} ${l.som} · ${l.inStock(qtyText(p.quantity), p.unit)}'),
+            // 2026-10-22 (аудит У-10): второе касание того же товара — спросить, а не добавить молча ещё строку
+            trailing: added.contains(p.id) ? const Icon(Icons.check_circle_rounded, color: T.success) : const Icon(Icons.add_shopping_cart_rounded),
+            onTap: () async {
+              if (added.contains(p.id) && await _askYes(c, l.addAgain(p.name)) != true) return;
+              if (!c.mounted) return;
+              await addProduct(c, ref, p, qty: p.isWeight ? null : m.seen.count.toDouble());
+              added.add(p.id);
+              if (c.mounted) {
+                setPanel(() {});
+                toast(c, l.addedToCheckName(p.name));
+              }
+            },
+          ),
+      ],
+    ],
+  ));
 }
 
 /// Т9–Т10: снимки полки, накладной или этикеток → проверка: «есть в базе» (+ к остатку) и «новые» (название, закупка, цена)
@@ -241,8 +492,9 @@ class _CamItem {
   final TextEditingController name;
   final TextEditingController cost;
   final TextEditingController price;
+  // 2026-10-22 (аудит У-7): совпадение слабее 0,75 — не «этот товар», а выбор: кандидаты или новый
   _CamItem(this.seen)
-    : product = seen.best,
+    : product = seen.candidates.isNotEmpty && seen.candidates.first.$2 >= 0.75 ? seen.candidates.first.$1 : null,
       qty = seen.seen.count.toDouble(),
       name = TextEditingController(text: seen.seen.title),
       cost = TextEditingController(text: seen.seen.labelPrice > 0 ? seen.seen.labelPrice.toStringAsFixed(0) : ''),
@@ -298,7 +550,8 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
         ReceiveLine(
           productId: '',
           name: x.name.text.trim(),
-          barcode: x.seen.seen.barcode,
+          // штрихкод от ИИ — только с верной контрольной цифрой (ИИ мог его выдумать)
+          barcode: VisionService.validEan(x.seen.seen.barcode) ? x.seen.seen.barcode : '',
           qty: x.qty,
           cost: parseNum(x.cost.text) ?? 0,
           price: parseNum(x.price.text) ?? _autoPrice(parseNum(x.cost.text) ?? 0),
@@ -310,6 +563,10 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
     final l = context.l;
     final lines = _lines().where((x) => x.name.isNotEmpty && (!x.isNew || x.price > 0)).toList();
     if (lines.isEmpty) return;
+    // 2026-10-22 (аудит У-7): снимок полки — то, что уже стоит на полке, а не поставка: прибавлять к остатку только по
+    // явному «Да» (иначе остаток удваивался)
+    if (_mode == 'shelf' && await _askYes(context, l.shelfAddAsk) != true) return;
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       final (n, errors) = await ref.read(adminReceiveRepoProvider).post(lines, null, false);
@@ -429,6 +686,23 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
               IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(() => _items.remove(x))),
             ],
           ),
+          // 2026-10-22 (аудит У-7): похоже на товар из базы, но не уверенно — кассир выбирает сам
+          if (x.seen.candidates.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  for (final (p, _) in x.seen.candidates)
+                    ActionChip(
+                      avatar: const Icon(Icons.inventory_2_outlined, size: 16),
+                      label: Text(l.isItProduct(p.name), overflow: TextOverflow.ellipsis),
+                      onPressed: () => setState(() => x.product = p),
+                    ),
+                ],
+              ),
+            ),
           TextField(
             controller: x.name,
             decoration: InputDecoration(labelText: l.clientName, isDense: true),

@@ -113,7 +113,9 @@ internal static class MainViewModelRegistration
                 permissions: sp.GetService<IPermissionService>(),
                 navigateSalary: () => bridge.Window?.NavigateSalary(),
                 openCashOperation: () => bridge.Window?.OpenCashOperationDialogAsync() ?? Task.CompletedTask,
-                navigateReceiptHistory: () => bridge.Window?.NavigateReceiptHistory());
+                navigateReceiptHistory: () => bridge.Window?.NavigateReceiptHistory(),
+                // 2026-10-22 (закупки как в вебе): пункт «Закупки» меню ☰ (MainWindow.Purchases.cs).
+                navigatePurchases: () => bridge.Window?.NavigatePurchases());
 
             main = new MainWindowViewModel(
                 toolbar, catalog, basket, sideMenu, session,
@@ -123,11 +125,9 @@ internal static class MainViewModelRegistration
         });
     }
 
-    private static CatalogProductTileVm? LookupCatalogProduct(string code)
-    {
-        var repo = LocalProductRepository.Instance;
-        return repo.TryGetTileByBarcode(code) ?? repo.TryGetTileBySku(code);
-    }
+    // 2026-10-21: тот же точный поиск, что теперь у всех окон склада (ProductCodeLookup) — один код на кассу и склад
+    // (склад не находил товар по скану). Поведение кассы прежнее: штрихкод в базе кассы, затем id.
+    private static CatalogProductTileVm? LookupCatalogProduct(string code) => ProductCodeLookup.FindExact(code);
 
     /// <summary>Максимум для строки чека В ЕЁ СОБСТВЕННЫХ единицах. Остаток каталога хранится в
     /// единицах товара (пачках), а строка поштучной продажи из пачки считается в штуках — поэтому

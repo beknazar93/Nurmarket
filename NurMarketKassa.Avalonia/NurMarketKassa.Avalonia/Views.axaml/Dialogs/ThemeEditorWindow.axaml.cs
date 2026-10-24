@@ -165,7 +165,8 @@ public partial class ThemeEditorWindow : Window
             hex.GotFocus += (_, _) => SelectKey(key);
             var reset = new Button
             {
-                Tag = key, Width = 30, MinHeight = 30, Height = 30, Padding = new Thickness(0), Margin = new Thickness(4, 0, 0, 0),
+                // 2026-10-22 (модалки, пакет 4): «Вернуть цвет» 44 px (было 30) — касание пальцем.
+                Tag = key, Width = 44, MinHeight = 44, Height = 44, Padding = new Thickness(0), Margin = new Thickness(4, 0, 0, 0),
                 Content = new PathIcon { Data = Application.Current?.TryFindResource("IconUndo", out var icon) == true ? icon as Geometry : null, Width = 13, Height = 13 },
             };
             reset.Classes.Add("lx-ghost");

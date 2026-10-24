@@ -53,6 +53,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         _viewModel = viewModel;
         _barcodeInputService = barcodeInputService;
         InitializeComponent();
+        // 2026-10-24 (аудит, круг 8, С-14): заголовок окна — «Склад» (в окне пять вкладок, не только ревизия и списание); ресурс не менялся.
+        Title = Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor");
         // Сканер ловим на ТУННЕЛЬНОЙ фазе (раньше любых элементов окна) — см. Window_KeyDown.
         AddHandler(KeyDownEvent, Window_KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         this.FitToScreen();
@@ -61,9 +63,13 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         // они живут только в этом окне и после закрытия пропадут.
         EscapeKey.Attach(this, closeWindow: CloseByEscape);
         _viewModel.RevisionLineAdded += OnRevisionLineAdded;
+        // 2026-10-21: скан не нашёлся нигде — «Товар со штрихкодом … не найден» с «Создать товар» (WarehouseWindow.ScanLookup.cs).
+        _viewModel.BarcodeNotFound = OnWarehouseBarcodeNotFoundAsync;
         InitializeWriteOffReasonPicker();
         // 2026-10-19, этап О9: пустые состояния и узкие таблицы (WarehouseWindow.O9.cs).
         InitO9Look();
+        // 2026-10-23: вкладка «Массовое добавление» — скан подряд, новые товары и приход (WarehouseWindow.BulkScan.cs).
+        InitBulkScan();
         WarehouseTabs.SelectionChanged += WarehouseTabs_SelectionChanged;
         RefreshPaidFeatureVisibility();
     }
@@ -121,6 +127,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             .OrderBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
             .Take(6)
             .ToList();
+        // 2026-10-21: точный код (доп. штрихкод, 12 ↔ 13 цифр, артикул) — первой подсказкой, как ищет касса (склад не находит товар по скану).
+        WithExactCodeFirst(matches, query, 6);
 
         ReceivingSuggestionsPanel.ItemsSource = matches;
         ReceivingSuggestionsBox.IsVisible = matches.Count > 0;
@@ -801,6 +809,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             ProductsTabItem.IsVisible = false;
             RevisionTabItem.IsVisible = false;
             WriteOffTabItem.IsVisible = false;
+            if (_bulkTab != null)
+                _bulkTab.IsVisible = false;
             // Подсказка про сканер штрих-кода бессмысленна здесь — в этом режиме нет поиска
             // и редактирования товаров, только просмотр аналитики.
             ScanHintBorder.IsVisible = false;
@@ -911,6 +921,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         _stockAbcCts?.Cancel();
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
         _viewModel.RevisionLineAdded -= OnRevisionLineAdded;
+        // 2026-10-23: список «Массового добавления» не теряется — последний вид сохраняется черновиком.
+        _bulk.SaveDraftNow();
     }
 
     /// <summary>Сканер штрих-кодов — это просто клавиатура: если фокус завис в поле поиска
@@ -920,6 +932,14 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     /// вернуть фокус на окно самому, не переключая вкладки туда-обратно.</summary>
     private void SearchBox_KeyDown(object? sender, KeyEventArgs e)
     {
+        // 2026-10-21: Enter в поиске «Товаров», ревизии и списания — найти по коду, как касса (склад не находит товар
+        // по скану): сканер пишет код в поле и жмёт Enter, а здесь Enter раньше ничего не делал.
+        if (e.Key == Key.Enter && sender is TextBox enterBox)
+        {
+            HandleSearchEnter(enterBox, e);
+            return;
+        }
+
         if (e.Key != Key.Escape)
             return;
 
@@ -967,7 +987,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         // Внутри полей скан перехватываем только в приёмке. На других вкладках скан в поле поиска —
         // обычный способ найти товар по штрихкоду, его не трогаем. Поле скана приёмки ловит скан
         // само: Enter, подсказки по названию.
-        if (!ReferenceEquals(WarehouseTabs.SelectedItem, ReceivingTabItem) || ReferenceEquals(box, ReceivingScanBox))
+        // 2026-10-23: «Массовое добавление» — тоже перехват (штрихкод не должен попасть в «Название» или цену); своего поля скана там нет.
+        var inBulk = _bulkTab != null && ReferenceEquals(WarehouseTabs.SelectedItem, _bulkTab);
+        if (!inBulk && (!ReferenceEquals(WarehouseTabs.SelectedItem, ReceivingTabItem) || ReferenceEquals(box, ReceivingScanBox)))
             return;
 
         HandleScanInsideField(box, e);
@@ -1077,11 +1099,24 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             // (1 = Ревизия, остальное — Списание), и с появлением «Приёмки» и «Перемещения»
             // скан в приёмке уходил строкой ревизии, а скан в ревизии — в списание.
             var selected = WarehouseTabs.SelectedItem;
+            // 2026-10-21: на «Товарах» скан (фокус не в поле) раньше молча пропадал — теперь ищет товар в списке.
+            if (ReferenceEquals(selected, ProductsTabItem))
+            {
+                _ = FindScannedInProductsAsync(barcode);
+                return;
+            }
+
             if (ReferenceEquals(selected, ReceivingTabItem))
             {
                 // Поле приёмки само ловит скан по Enter — второй раз его не добавляем.
                 if (!ReceivingScanBox.IsFocused)
                     _ = ScanIntoReceivingAsync(barcode);
+                return;
+            }
+
+            if (_bulkTab != null && ReferenceEquals(selected, _bulkTab))
+            {
+                _ = _bulk.ScanAsync(barcode);
                 return;
             }
 
@@ -1551,7 +1586,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     /// <summary>2026-10-20, память программы владельца: несохранённую приёмку или ревизию (строки живут только в окне)
     /// и проведение документа оболочка не закрывает при уходе из раздела (IOwnerSectionKeepAlive).</summary>
     public bool KeepAliveWhenHidden =>
-        _viewModel.IsBusy || _viewModel.ReceivingLines.Count > 0 || _viewModel.RevisionLines.Count > 0;
+        _viewModel.IsBusy || _viewModel.ReceivingLines.Count > 0 || _viewModel.RevisionLines.Count > 0 || _bulk.HasUnsaved || _bulk.IsLoading;
 
     /// <summary>Склад разделом программы владельца (см. <see cref="IOwnerSection"/>): над разделом
     /// уже написано «Склад», поэтому своя шапка «Управление складом» с кнопками «свернуть» и ✕ не
@@ -1582,15 +1617,19 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         WindowState = WindowState.Minimized;
     }
 
-    private void CloseButton_Click(object? sender, RoutedEventArgs e) => Close();
+    // 2026-10-23: ✕ окна тоже спрашивает про несохранённый список (раньше закрывал молча; Esc спрашивал).
+    private void CloseButton_Click(object? sender, RoutedEventArgs e) => CloseByEscape();
 
     private void CloseByEscape()
     {
         var receiving = _viewModel.ReceivingLines.Count;
         var revision = _viewModel.RevisionLines.Count;
-        if (receiving + revision > 0)
+        var bulk = _bulk.Rows.Count;
+        if (receiving + revision + bulk > 0)
         {
             var parts = new List<string>();
+            if (bulk > 0)
+                parts.Add(Tr.T($"массовое добавление — {bulk}", $"массалык кошуу — {bulk}", $"bulk add — {bulk}", $"toplu ekleme — {bulk}", $"ommaviy qo'shish — {bulk}"));
             if (receiving > 0)
                 parts.Add(Tr.T($"приёмка — {receiving}", $"кабыл алуу — {receiving}", $"receiving — {receiving}", $"mal kabul — {receiving}", $"qabul qilish — {receiving}"));
             if (revision > 0)

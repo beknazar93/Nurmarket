@@ -22,6 +22,8 @@ internal static class TouchGuard
         public required IPointer Pointer { get; init; }
         public Point Position { get; set; }
         public DateTime SeenUtc { get; set; } = DateTime.UtcNow;
+        /// <summary>2026-10-21: палец ведёт прокрутку жестом — его отпускание сюда не придёт (см. Register).</summary>
+        public bool Scrolling { get; set; }
     }
 
     private static readonly Dictionary<int, Touch> Active = new();
@@ -38,6 +40,39 @@ internal static class TouchGuard
         InputElement.PointerPressedEvent.AddClassHandler<TopLevel>(OnPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         InputElement.PointerMovedEvent.AddClassHandler<TopLevel>(OnMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
         InputElement.PointerReleasedEvent.AddClassHandler<TopLevel>(OnReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+        // 2026-10-21 (сенсорный моноблок): прокрутка пальцем (свайп каталога, чека, таблиц) забирает касание жестом прокрутки
+        // Avalonia (ScrollGestureRecognizer), и отпускание этого пальца сюда уже не приходит. Палец оставался в Active, и
+        // следующее касание в ближайшие 5 секунд считалось «вторым пальцем»: плитка не добавлялась, «Оплатить» и кнопки не
+        // нажимались, клавиатура по касанию поля не открывалась (стенд: после свайпа 0 из 4 касаний сработали). Палец,
+        // ставший прокруткой, помечается; когда палец поднят (инерция или конец жеста) — убирается, как будто отпущен.
+        // Пока палец ведёт прокрутку, второй палец по-прежнему не нажимает кнопки.
+        Gestures.ScrollGestureEvent.AddClassHandler<TopLevel>((_, _) => OnScrollGesture(ended: false), RoutingStrategies.Bubble, handledEventsToo: true);
+        Gestures.ScrollGestureInertiaStartingEvent.AddClassHandler<TopLevel>((_, _) => OnScrollGesture(ended: true), RoutingStrategies.Bubble, handledEventsToo: true);
+        Gestures.ScrollGestureEndedEvent.AddClassHandler<TopLevel>((_, _) => OnScrollGesture(ended: true), RoutingStrategies.Bubble, handledEventsToo: true);
+    }
+
+    private static DateTime _lastScrollGestureUtc;
+
+    private static void OnScrollGesture(bool ended)
+    {
+        try
+        {
+            if (_twoFinger || Active.Count == 0)
+                return;
+            if (ended)
+            {
+                foreach (var id in Active.Where(p => p.Value.Scrolling).Select(p => p.Key).ToList())
+                    Active.Remove(id);
+                return;
+            }
+            _lastScrollGestureUtc = DateTime.UtcNow;
+            foreach (var touch in Active.Values)
+                touch.Scrolling = true;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сенсор: прокрутка жестом не обработана: {ex.Message}", "WARNING");
+        }
     }
 
     private static void OnPressed(TopLevel top, PointerPressedEventArgs e)
@@ -48,7 +83,9 @@ internal static class TouchGuard
         {
             // Палец, чьё отпускание система потеряла (ушёл за край, окно закрылось), иначе навсегда
             // превращал бы следующее одиночное касание во «второй палец» — кнопки перестали бы нажиматься.
-            foreach (var stale in Active.Where(p => DateTime.UtcNow - p.Value.SeenUtc > TimeSpan.FromSeconds(5)).Select(p => p.Key).ToList())
+            // 2026-10-21: палец прокрутки, по которому жест молчит дольше 0,5 с, тоже потерян (запасной путь к ScrollGestureEnded).
+            foreach (var stale in Active.Where(p => DateTime.UtcNow - p.Value.SeenUtc > TimeSpan.FromSeconds(5)
+                         || (p.Value.Scrolling && DateTime.UtcNow - _lastScrollGestureUtc > TimeSpan.FromMilliseconds(500))).Select(p => p.Key).ToList())
                 Active.Remove(stale);
             if (Active.Count == 0)
             {

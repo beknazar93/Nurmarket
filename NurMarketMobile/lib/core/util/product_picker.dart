@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/scan/code_lookup.dart';
 import '../db/database.dart';
 import '../providers.dart';
 import '../theme/tokens.dart';
@@ -12,10 +14,24 @@ import 'ui.dart';
 /// Остаток: все / в наличии / заканчиваются (≤ 3) / нет в наличии.
 enum StockFilter { all, inStock, low, out }
 
+/// 2026-10-22 (мобилка, админ, П11): порог «заканчивается» как на ПК (CatalogProductTileVm.LowStockQuantityThreshold = 10,
+/// остаток меньше 10). Было ≤ 3 — телефон и ПК показывали разное. Минимум конкретного товара (minimum_quantity) в базе
+/// телефона не хранится — для него нужна новая колонка (смена схемы, только с согласия владельца).
+const lowStockLimit = 10.0;
+
+/// 2026-10-22 (мобилка, админ): «заканчивается» с учётом минимума товара. Минимум не задан (0) — общий порог < 10;
+/// задан — остаток дошёл до минимума или ниже.
+bool isLowStock(double quantity, double minQuantity) => minQuantity > 0 ? quantity <= minQuantity : quantity < lowStockLimit;
+
+/// То же условием для запроса к базе телефона.
+Expression<bool> lowStockSql($ProductsTable p) =>
+    (p.minQuantity.isSmallerOrEqualValue(0) & p.quantity.isSmallerThanValue(lowStockLimit)) |
+    (p.minQuantity.isBiggerThanValue(0) & p.quantity.isSmallerOrEqual(p.minQuantity));
+
 bool stockFilterMatch(Product p, StockFilter f) => switch (f) {
   StockFilter.all => true,
   StockFilter.inStock => p.isService || p.quantity > 0,
-  StockFilter.low => !p.isService && p.quantity > 0 && p.quantity <= 3,
+  StockFilter.low => !p.isService && p.quantity > 0 && isLowStock(p.quantity, p.minQuantity),
   StockFilter.out => !p.isService && p.quantity <= 0,
 };
 
@@ -135,7 +151,8 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
   Future<void> _submit(String q) async {
     if (_picked || q.trim().isEmpty) return;
     final db = ref.read(databaseProvider);
-    final hit = (await db.productByScan(q.trim()))?.product;
+    // 2026-10-22 (аудит П7): код, которого нет на телефоне, — ещё и на сервере (товар с ПК, каталог не успел обновиться)
+    final hit = (await CodeLookup.find(db, ref.read(apiProvider), q.trim())).product;
     if (!mounted) return;
     if (hit != null && (!widget.noServices || !hit.isService)) {
       _pick(hit);
@@ -206,7 +223,7 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
                             title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
                             subtitle: Text(
                               widget.subtitle?.call(p) ?? '${money(p.price)} ${l.som}${p.isService ? '' : ' · ${qtyText(p.quantity)} ${p.unit}'}',
-                              style: TextStyle(color: !p.isService && p.quantity <= 3 ? T.warn : pal.textSoft, fontSize: 12.5),
+                              style: TextStyle(color: !p.isService && isLowStock(p.quantity, p.minQuantity) ? T.warn : pal.textSoft, fontSize: 12.5),
                             ),
                             trailing: Icon(Icons.add_circle_rounded, color: pal.action, size: 28),
                             onTap: () => _pick(p),

@@ -23,6 +23,13 @@ public sealed class CartLineItemVm : ViewModelBase
     public string Barcode { get; init; } = "";
     public string Code { get; init; } = "";
     public string Title { get; init; } = "";
+
+    // 2026-10-22 (модалки, пакет 1, живой аудит): экранный диктор читал у строки чека имя класса «CartLineItemVm», а у
+    // кнопок «−»/«+» — «PathIcon». Строка читается названием товара, кнопки — «Убавить: товар» / «Прибавить: товар».
+    public override string ToString() => Title;
+    public string DecreaseName => Tr.T("Убавить", "Азайтуу", "Decrease", "Azalt", "Kamaytirish") + ": " + Title;
+    public string IncreaseName => Tr.T("Прибавить", "Көбөйтүү", "Increase", "Artır", "Ko'paytirish") + ": " + Title;
+
     public string Unit { get; init; } = "шт";
     public double UnitPrice { get; init; }
     public bool IsWeight { get; init; }

@@ -67,6 +67,9 @@ public sealed class PurchaseReceivingService
     /// цены после прихода нужен, только если её поправили позже (повтор после обрыва).</summary>
     private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ReceivingLineVm, StrongBox<double>> _createdSalePrice = new();
 
+    /// <summary>2026-10-22 (закупки как в вебе): цена продажи товара строки на сервере до первой попытки прихода — какой ей остаться.</summary>
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ReceivingLineVm, StrongBox<double>> _priceBefore = new();
+
     private static ICatalogApiService Api => PosApp.CatalogApi;
 
     // ------------------------------------------------------------------ поставщики
@@ -151,7 +154,9 @@ public sealed class PurchaseReceivingService
     {
         var code = barcode.Trim();
 
-        var tile = LocalProductRepository.Instance.TryGetTileByBarcode(code);
+        // 2026-10-21: этот компьютер — тем же поиском, что касса (ProductCodeLookup: штрихкод в базе кассы, id, доп.
+        // штрихкод пока индекс не прогрет, размер, артикул), без весовой этикетки (склад не находит товар по скану).
+        var tile = ProductCodeLookup.FindLocal(code, allowWeightLabel: false)?.Product;
         if (tile is not null)
             return FromTile(tile, quantity);
 
@@ -299,12 +304,15 @@ public sealed class PurchaseReceivingService
 
     /// <summary>Провести приёмку. <paramref name="paidNow"/> — только с поставщиком: true — оплачено
     /// сразу (деньги уходят из кассы расходов, как у сайта), false — в долг поставщику.</summary>
+    /// <param name="paymentFields">2026-10-22 (закупки как в вебе): «Оплачено сразу» не из кассы расходов — поля кассы для прихода
+    /// (cashbox_role, cashbox, shift: «Я заплатил из ящика смены», как галочка сайта). null — как раньше (expense_variable).</param>
     public async Task<PostResult> PostAsync(
         IReadOnlyList<ReceivingLineVm> lines,
         Supplier? supplier,
         bool paidNow,
         string? employee,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlyDictionary<string, string>? paymentFields = null)
     {
         var errors = new List<string>();
         var created = 0;
@@ -389,15 +397,41 @@ public sealed class PurchaseReceivingService
             // Как у сайта: оплата «сразу» уходит из кассы переменных расходов.
             if (paidNow)
                 body["cashbox_role"] = "expense_variable";
+            // 2026-10-22 (закупки как в вебе): оплачено из ящика смены — касса и смена прихода (поля в ключ повтора тоже входят).
+            if (paidNow && paymentFields is { Count: > 0 })
+                foreach (var (key, value) in paymentFields)
+                    body[key] = value;
 
             // 2026-10-15, ревью: тот же приход при повторе — тот же ключ (см. _pendingReceiptKey). Поле в теле — как в
             // остальных денежных POST NurCRM (возврат, оплата долга); сервер, не знающий поля, его просто пропускает.
-            var signature = supplier.Id + "|" + paidNow + "|" + string.Join(";", ready
+            var signature = supplier.Id + "|" + paidNow + "|"
+                + (paidNow && paymentFields is { Count: > 0 } ? string.Join(",", paymentFields.OrderBy(x => x.Key, StringComparer.Ordinal).Select(x => x.Key + "=" + x.Value)) + "|" : "")
+                + string.Join(";", ready
                 .Select(l => l.ProductId + ":" + l.Quantity.ToString("0.###", CultureInfo.InvariantCulture)
                              + ":" + l.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture))
                 .OrderBy(x => x, StringComparer.Ordinal));
             body["idempotency_key"] = _pendingReceiptKey.Get(signature);
             receiptKey = body["idempotency_key"] as string;
+
+            // 2026-10-22 (закупки как в вебе): приход пишет в товар цену закупки, а сервер у товара с наценкой (markup_percent) может
+            // пересчитать от неё и цену продажи. Цены продажи товаров со склада — свежие с сервера ДО прихода (сравнивать после).
+            // Повтор после обрыва: цена «до» — из первой попытки (прошлый приход мог уже дойти и сменить цену).
+            // Пересчитать цену продажи сервер может только у товара с наценкой: у товара каталога с наценкой 0 цену не читаем (большая
+            // накладная — без лишних запросов); товара нет в каталоге этого ПК — читаем.
+            static bool MayRecalculate(ReceivingLineVm l)
+            {
+                try
+                {
+                    return CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, l.ProductId, StringComparison.OrdinalIgnoreCase)) is not { } tile || tile.MarkupPercent > 0;
+                }
+                catch (InvalidOperationException)
+                {
+                    return true; // каталог обновлялся в этот момент — проверим цену
+                }
+            }
+            var fresh = await ReadSalePricesAsync(ready.Where(l => !l.IsNew && !_priceBefore.TryGetValue(l, out _) && MayRecalculate(l)).Select(l => l.ProductId!), ct).ConfigureAwait(false);
+            foreach (var l in ready.Where(l => !l.IsNew && fresh.ContainsKey(l.ProductId!)))
+                _priceBefore.AddOrUpdate(l, new StrongBox<double>(fresh[l.ProductId!]));
 
             try
             {
@@ -426,6 +460,18 @@ public sealed class PurchaseReceivingService
             bool PriceChanged(ReceivingLineVm l) => l.IsNew
                 ? _createdSalePrice.TryGetValue(l, out var createdAt) && Math.Abs(l.SalePrice - createdAt.Value) > 0.004
                 : Math.Abs(l.SalePrice - l.OriginalSalePrice) > 0.004;
+            // 2026-10-22 (закупки как в вебе): какой должна остаться цена продажи — поправленная в приёмке (явный выбор), у нового товара —
+            // заданная при создании, иначе — та, что была на сервере до прихода.
+            var priceTargets = new List<(ReceivingLineVm Line, double Target)>();
+            foreach (var l in ready)
+            {
+                if (PriceChanged(l))
+                    priceTargets.Add((l, l.SalePrice));
+                else if (l.IsNew && _createdSalePrice.TryGetValue(l, out var createdPrice))
+                    priceTargets.Add((l, createdPrice.Value));
+                else if (!l.IsNew && _priceBefore.TryGetValue(l, out var before))
+                    priceTargets.Add((l, before.Value));
+            }
             foreach (var line in ready.Where(l => PriceChanged(l) || l.NameOrUnitChanged))
             {
                 try
@@ -445,6 +491,9 @@ public sealed class PurchaseReceivingService
                         $"{line.ProductName}: mahsulot qabul qilindi, lekin sotuv narxi yangilanmadi — {ex.Message}"));
                 }
             }
+
+            // 2026-10-22 (закупки как в вебе): цена продажи после прихода не должна смениться без явного выбора — возвращаем.
+            await RestoreSalePricesAsync(priceTargets, errors, ct).ConfigureAwait(false);
         }
         else
         {
@@ -577,6 +626,76 @@ public sealed class PurchaseReceivingService
         }
 
         return new PostResult(posted, posted.Sum(l => l.LineTotal), created, errors, receiptId, receiptTotal, receiptAt, receiptKey);
+    }
+
+    /// <summary>2026-10-22 (закупки как в вебе): цены продажи товаров на сервере (GET товара, до 4 запросов сразу). Не прочитанные —
+    /// не в словаре (проверки после прихода для них не будет, только журнал).</summary>
+    private async Task<Dictionary<string, double>> ReadSalePricesAsync(IEnumerable<string> productIds, CancellationToken ct)
+    {
+        var result = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        using var gate = new SemaphoreSlim(4, 4);
+        var tasks = productIds.Distinct(StringComparer.OrdinalIgnoreCase).Select(async id =>
+        {
+            await gate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                if (await Api.ProductsDetailAsync(id, ct).ConfigureAwait(false) is { ValueKind: JsonValueKind.Object } c && c.TryGetProperty("price", out _))
+                    lock (result)
+                        result[id] = Num(c, "price");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PosLogger.Log($"Приход: цена продажи товара {id} до прихода не прочитана: {ex.Message}", "WARNING");
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }).ToList();
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        return result;
+    }
+
+    /// <summary>2026-10-22 (закупки как в вебе): после прихода от поставщика — цена продажи каждого принятого товара на сервере
+    /// (GET товара, до 4 запросов сразу). Отличается от нужной (поправленной в приёмке или прежней) — сервер пересчитал её сам
+    /// (наценка от новой цены закупки): PATCH нужной цены и запись в журнал. Не прочитать — предупреждение (приход уже проведён).</summary>
+    public async Task<int> RestoreSalePricesAsync(IReadOnlyList<(ReceivingLineVm Line, double Target)> targets, List<string>? errors, CancellationToken ct = default)
+    {
+        var restored = 0;
+        using var gate = new SemaphoreSlim(4, 4);
+        var tasks = targets.Where(x => !string.IsNullOrWhiteSpace(x.Line.ProductId) && x.Target > 0).Select(async x =>
+        {
+            var line = x.Line;
+            await gate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                var current = await Api.ProductsDetailAsync(line.ProductId!, ct).ConfigureAwait(false);
+                if (current is not { } c || c.ValueKind != JsonValueKind.Object || !c.TryGetProperty("price", out _))
+                    return;
+                var serverPrice = Num(c, "price");
+                if (Math.Abs(serverPrice - x.Target) <= 0.004)
+                    return;
+                await Api.PatchProductFieldsAsync(line.ProductId!, new Dictionary<string, object?> { ["price"] = x.Target }, ct).ConfigureAwait(false);
+                Interlocked.Increment(ref restored);
+                PosLogger.Log($"Приход: у товара {line.ProductId} цена продажи после прихода {serverPrice:0.##} вместо {x.Target:0.##} (сервер пересчитал от цены закупки {line.PurchasePrice:0.##}) — возвращена {x.Target:0.##}.", "STOCK");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PosLogger.Log($"Приход: цена продажи товара {line.ProductId} после прихода не проверена: {ex.Message}", "WARNING");
+                lock (gate)
+                    errors?.Add(Tr.T($"{line.ProductName}: принят; проверьте цену продажи в карточке — сервер мог пересчитать её от цены закупки ({ex.Message}).",
+                        $"{line.ProductName}: кабыл алынды; карточкадан сатуу баасын текшериңиз — сервер аны сатып алуу баасынан кайра эсептеши мүмкүн ({ex.Message}).",
+                        $"{line.ProductName}: received; check the selling price in the card — the server may have recalculated it from the purchase price ({ex.Message}).",
+                        $"{line.ProductName}: kabul edildi; karttaki satış fiyatını kontrol edin — sunucu onu alış fiyatından yeniden hesaplamış olabilir ({ex.Message}).",
+                        $"{line.ProductName}: qabul qilindi; kartadagi sotuv narxini tekshiring — server uni xarid narxidan qayta hisoblagan bo'lishi mumkin ({ex.Message})."));
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }).ToList();
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        return restored;
     }
 
     /// <summary>Название и единица, поправленные в приёмке у товара со склада, — в карточку.</summary>

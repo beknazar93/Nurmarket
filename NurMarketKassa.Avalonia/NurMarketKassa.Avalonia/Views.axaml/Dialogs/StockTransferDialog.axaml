@@ -4,7 +4,7 @@
         x:CompileBindings="False"
         Title="{DynamicResource warehouse.transferCardTitle}"
         Width="980" Height="720"
-        MinWidth="760" MinHeight="560"
+        MinWidth="760" MinHeight="440"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         SystemDecorations="None"
@@ -42,6 +42,8 @@
       <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Padding" Value="16,8"/>
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button.SecondaryButton">
       <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
@@ -52,6 +54,21 @@
       <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Padding" Value="14,8"/>
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <!-- 2026-10-22 (модалки, пакет 3): «Отменить перемещение» — опасное действие красной обводкой; поля 44 px. -->
+    <Style Selector="Button.SecondaryButton.danger">
+      <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button:disabled">
       <Setter Property="Opacity" Value="0.35"/>
@@ -63,7 +80,7 @@
           BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
           BoxShadow="0 12 32 0 #33101828"
           Padding="22,18">
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
 
       <!-- Шапка документа -->
       <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
@@ -91,16 +108,16 @@
             <TextBlock Classes="field" Text="{DynamicResource warehouse.transferFrom}"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBox x:Name="FromBox" LostFocus="Field_Changed"/>
-              <Button x:Name="FromPickButton" Grid.Column="1" Classes="SecondaryButton" Content="▾" Tag="from"
-                      Margin="6,0,0,0" Padding="12,4" IsVisible="False" Click="PickPlace_Click"/>
+              <Button x:Name="FromPickButton" Grid.Column="1" Classes="SecondaryButton" Content="▾" Tag="from" MinWidth="44"
+                      HorizontalContentAlignment="Center" Margin="6,0,0,0" Padding="12,4" IsVisible="False" Click="PickPlace_Click"/>
             </Grid>
           </StackPanel>
           <StackPanel Grid.Row="0" Grid.Column="2">
             <TextBlock Classes="field" Text="{DynamicResource warehouse.transferTo}"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBox x:Name="ToBox" LostFocus="Field_Changed"/>
-              <Button x:Name="ToPickButton" Grid.Column="1" Classes="SecondaryButton" Content="▾" Tag="to"
-                      Margin="6,0,0,0" Padding="12,4" IsVisible="False" Click="PickPlace_Click"/>
+              <Button x:Name="ToPickButton" Grid.Column="1" Classes="SecondaryButton" Content="▾" Tag="to" MinWidth="44"
+                      HorizontalContentAlignment="Center" Margin="6,0,0,0" Padding="12,4" IsVisible="False" Click="PickPlace_Click"/>
             </Grid>
           </StackPanel>
           <StackPanel Grid.Row="0" Grid.Column="4">
@@ -132,7 +149,12 @@
       <TabControl Grid.Row="2">
         <TabItem Header="{DynamicResource warehouse.transferContent}">
           <Grid RowDefinitions="Auto,Auto,*" Margin="0,10,0,0">
-            <StackPanel x:Name="ItemEditPanel" Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+            <!-- 2026-10-22 (модалки, пакет 3): ряд переносится на узком экране (910 px) вместо обрезки; «Добавить» — обводкой
+                 (жёлтая в окне — только кнопка шага внизу). -->
+            <WrapPanel x:Name="ItemEditPanel" Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,2">
+              <WrapPanel.Styles>
+                <Style Selector="WrapPanel#ItemEditPanel > :is(Control)"><Setter Property="Margin" Value="0,0,8,6"/></Style>
+              </WrapPanel.Styles>
               <!-- Три пути добавить товар, и все нужны: отсканировать (поле принимает скан как
                    обычный ввод и срабатывает по Enter), набрать пару букв названия и выбрать из
                    подсказок, либо открыть весь каталог списком. -->
@@ -142,13 +164,13 @@
                        TextChanged="ItemSearch_TextChanged"
                        KeyDown="ItemSearch_KeyDown"/>
               <TextBox x:Name="ItemQuantityBox" Width="90" Text="1"/>
-              <Button Classes="PrimaryButton" Content="{DynamicResource warehouse.transferAddItem}"
+              <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferAddItem}"
                       Click="AddItem_Click"/>
               <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferPickFromList}"
                       Click="PickFromList_Click"/>
               <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferRemoveItem}"
                       Click="RemoveItem_Click"/>
-            </StackPanel>
+            </WrapPanel>
 
             <!-- Подсказки живого поиска. Показываются только пока в поле что-то набрано:
                  постоянный список занимал бы место у самого состава партии. -->
@@ -165,16 +187,17 @@
                             HorizontalContentAlignment="Left"
                             Margin="0,1"
                             Padding="10,6"
+                            MinHeight="44"
                             Tag="{Binding}"
                             Click="Suggestion_Click">
                       <Grid ColumnDefinitions="*,Auto,Auto">
                         <TextBlock Grid.Column="0" Text="{Binding Title}" VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis"/>
                         <TextBlock Grid.Column="1" Text="{Binding Barcode}" Margin="12,0"
-                                   VerticalAlignment="Center" FontSize="11.5"
+                                   VerticalAlignment="Center" FontSize="12"
                                    Foreground="{DynamicResource BrushTextSoft}"/>
                         <TextBlock Grid.Column="2" Text="{Binding StockInfo}"
-                                   VerticalAlignment="Center" FontSize="11.5"
+                                   VerticalAlignment="Center" FontSize="12"
                                    Foreground="{DynamicResource BrushTextSoft}"/>
                       </Grid>
                     </Button>
@@ -209,7 +232,7 @@
           <Grid RowDefinitions="Auto,*" Margin="0,10,0,0">
             <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
               <ComboBox x:Name="FileKindBox" Width="220"/>
-              <Button Classes="PrimaryButton" Content="{DynamicResource warehouse.transferAttach}"
+              <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferAttach}"
                       Click="Attach_Click"/>
               <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferOpenFile}"
                       Click="OpenFile_Click"/>
@@ -225,14 +248,23 @@
         </TabItem>
       </TabControl>
 
+      <!-- 2026-10-22 (модалки, пакет 3): предупреждения («добавьте товары», «чего не хватает на складе») — текстом над
+           кнопками, а не всплывающим окном. -->
+      <Border Grid.Row="3" x:Name="WarningBox" IsVisible="False" Margin="0,12,0,0" Padding="12,10"
+              CornerRadius="10" Background="{DynamicResource BrushDangerSoft}">
+        <ScrollViewer MaxHeight="120" HorizontalScrollBarVisibility="Disabled">
+          <TextBlock x:Name="WarningText" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource BrushDangerOnSoft}"/>
+        </ScrollViewer>
+      </Border>
+
       <!-- Статусы и выгрузка -->
-      <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,14,0,0">
+      <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto" Margin="0,14,0,0">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
           <Button x:Name="ShipButton" Classes="PrimaryButton"
                   Content="{DynamicResource warehouse.transferShip}" Click="Ship_Click"/>
           <Button x:Name="DeliverButton" Classes="PrimaryButton"
                   Content="{DynamicResource warehouse.transferDeliver}" Click="Deliver_Click"/>
-          <Button x:Name="CancelTransferButton" Classes="SecondaryButton"
+          <Button x:Name="CancelTransferButton" Classes="SecondaryButton danger"
                   Content="{DynamicResource warehouse.transferCancel}" Click="CancelTransfer_Click"/>
         </StackPanel>
 

@@ -63,8 +63,25 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         // с последней ошибкой и одно ненавязчивое уведомление на переходе (без окон-ошибок).
         ServerOutageMonitor.StateChanged += OnServerStateChanged;
         ServerOutageMonitor.QueueFlushed += OnServerQueueFlushed;
+        InfoToastRequested += OnInfoToastRequested;
         _dispatcher.Post(RefreshStatusToolTip);
     }
+
+    // 2026-10-23 (аудит П-9): лёгкое уведомление «Корзина очищена» вместо окна — та же плашка под шапкой, что у связи (само исчезает).
+    // Подписчика нет (нет главного окна) — вызывающий показывает обычное сообщение.
+    private static event Action<string>? InfoToastRequested;
+
+    /// <summary>Показать лёгкий тост под шапкой кассы. false — главное окно не слушает, нужен запасной путь.</summary>
+    public static bool TryShowInfoToast(string text)
+    {
+        var handler = InfoToastRequested;
+        if (handler is null)
+            return false;
+        handler(text);
+        return true;
+    }
+
+    private void OnInfoToastRequested(string text) => _dispatcher.Post(() => ShowToast(text, recovery: true));
 
     private void OnLanguageChanged() => _dispatcher.Post(() =>
     {
@@ -308,6 +325,38 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         set => SetProperty(ref _shiftBalanceText, value ?? "");
     }
 
+    // 2026-10-22 (смена 23 ч): плашка «Смена идёт N ч — закройте заранее» рядом с балансом кассы.
+    private string _shiftAgeText = "";
+    private bool _hasShiftAge;
+    private bool _isShiftAgeRed;
+
+    public string ShiftAgeText
+    {
+        get => _shiftAgeText;
+        private set => SetProperty(ref _shiftAgeText, value ?? "");
+    }
+
+    public bool HasShiftAge
+    {
+        get => _hasShiftAge;
+        private set => SetProperty(ref _hasShiftAge, value);
+    }
+
+    /// <summary>true — с 23:45 плашка красная, раньше мягкая жёлтая.</summary>
+    public bool IsShiftAgeRed
+    {
+        get => _isShiftAgeRed;
+        private set => SetProperty(ref _isShiftAgeRed, value);
+    }
+
+    public void SetShiftAge(string? text, bool red)
+    {
+        var show = !string.IsNullOrEmpty(text);
+        ShiftAgeText = text ?? "";
+        IsShiftAgeRed = show && red;
+        HasShiftAge = show;
+    }
+
     /// <summary>Сколько чеков ждут отправки на сервер (см. OfflinePendingSalesStore) —
     /// растёт при сбоях связи с сервером, чтобы кассир видел масштаб проблемы.</summary>
     /// <summary>2026-09-28: без связи опрос в MonitorConnectivityAsync ждёт таймаута проверки
@@ -430,6 +479,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         Tr.LanguageChanged -= OnLanguageChanged;
         ServerOutageMonitor.StateChanged -= OnServerStateChanged;
         ServerOutageMonitor.QueueFlushed -= OnServerQueueFlushed;
+        InfoToastRequested -= OnInfoToastRequested;
         _lifetimeCts.Cancel();
         _lifetimeCts.Dispose();
     }

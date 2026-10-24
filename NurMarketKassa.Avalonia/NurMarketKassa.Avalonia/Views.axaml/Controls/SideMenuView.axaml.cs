@@ -25,6 +25,9 @@ namespace NurMarketKassa.AvaloniaHost.Views.Main.Controls;
 /// 2026-10-20, владелец о «Новом» по макету KassaMenus («это вообще кошмар что за дизайн??? исправь, изучи дизайны бургер-меню
 /// красивые и удобные»): «Новое» переделано — выезжающая слева панель 400 (на окне ≤ 1100 — 360) с шапкой смены, поиском
 /// действий (Ctrl+K), плитками быстрых действий и группами со значками; «Система» сворачивается.
+/// 2026-10-21 (меню ☰, жалоба владельца): «не удобно и не красиво меню» — «Новое» третий раз: вся панель — сетка крупных плиток
+/// 3 в ряд по группам («Продажи», «Смена и деньги», «Товары», «Работа», «Отчёты», «Экран», «Настройки и помощь»), в шапке смены — три
+/// кнопки (смена, сменить кассира, выйти), тёмная тема — переключатель, счётчики — бейджами в углу плитки, одна прокрутка.
 /// Пункты, права, тариф, скрытые разделы и команды — общие (SideMenuViewModel); здесь только вид: какой виден, подписи на языке
 /// кассы, видимость ячеек (права + поиск), выбор с клавиатуры, счётчики и защита сканера (скан при открытом меню закрывает меню
 /// и уходит в чек, поле поиска не ворует сканы).</summary>
@@ -61,6 +64,8 @@ public partial class SideMenuView : UserControl
     {
         InitializeComponent();
         CollectCells();
+        // 2026-10-22 (меню, сворачиваемые разделы): заголовки групп нового вида — кнопки сворачивания (SideMenuView.Groups.cs).
+        InitGroups();
         _pendingTimer.Tick += OnPendingTimer;
         NewMenuRoot.AddHandler(Button.ClickEvent, OnNewMenuClick, RoutingStrategies.Bubble);
         MenuSearchBox.PropertyChanged += (_, e) =>
@@ -68,7 +73,8 @@ public partial class SideMenuView : UserControl
             if (e.Property == TextBox.TextProperty)
                 OnQueryChanged();
         };
-        NewTiles.PropertyChanged += (_, e) =>
+        // 2026-10-21 (меню ☰, жалоба владельца): ширина плиток — от ширины содержимого (все сетки групп, не одна «Быстрые действия»).
+        NewMenuContent.PropertyChanged += (_, e) =>
         {
             if (e.Property == BoundsProperty)
                 UpdateTileWidth();
@@ -163,18 +169,28 @@ public partial class SideMenuView : UserControl
         NewMenuStyleText.Text = styleText;
         AutomationProperties.SetName(OldMenuStyleButton, styleText);
         AutomationProperties.SetName(NewMenuStyleButton, styleText);
-        NewCaptionQuick.Text = Tr.T("Быстрые действия", "Тез аракеттер", "Quick actions", "Hızlı işlemler", "Tezkor amallar");
+        // 2026-10-21 (меню ☰, жалоба владельца): группы плиток по смыслу; «Система» — «Настройки и помощь» (видна сразу).
+        NewCaptionSales.Text = Tr.T("Продажи", "Сатуу", "Sales", "Satış", "Sotuv");
+        NewCaptionMoney.Text = Tr.T("Смена и деньги", "Смена жана акча", "Shift and money", "Vardiya ve para", "Smena va pul");
+        NewCaptionGoods.Text = Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Tovarlar");
         NewCaptionWork.Text = Tr.T("Работа", "Иш", "Work", "İş", "Ish");
         NewCaptionReports.Text = Tr.T("Отчёты", "Отчёттор", "Reports", "Raporlar", "Hisobotlar");
         NewCaptionScreen.Text = Tr.T("Экран", "Экран", "Screen", "Ekran", "Ekran");
-        NewCaptionSystem.Text = Tr.T("Система", "Система", "System", "Sistem", "Tizim");
+        NewCaptionSystem.Text = Tr.T("Настройки и помощь", "Жөндөөлөр жана жардам", "Settings and help", "Ayarlar ve yardım", "Sozlamalar va yordam");
         NewInTillCaption.Text = Tr.T("В кассе", "Кассада", "In the till", "Kasada", "Kassada");
         NewExitText.Text = Tr.T("Выйти", "Чыгуу", "Exit", "Çıkış", "Chiqish");
+        // 2026-10-22 (закупки как в вебе): «Закупки» — в обоих видах меню.
+        var purchases = Tr.T("Закупки", "Сатып алуулар", "Purchases", "Satın alma", "Xaridlar");
+        NewPurchasesText.Text = purchases;
+        OldPurchasesText.Text = purchases;
+        AutomationProperties.SetName(OldPurchasesButton, purchases);
         NewDeferredCartsText.Text = Tr.T("Отложенные чеки", "Калтырылган чектер", "Held receipts", "Bekletilen fişler", "Kechiktirilgan cheklar");
         // 2026-10-20 (живой аудит кассы, К16): X-отчёт — цифры открытой смены без закрытия.
         var xReport = Tr.T("X-отчёт (без закрытия смены)", "X-отчёт (сменаны жаппай)", "X-report (shift stays open)", "X raporu (vardiya açık kalır)", "X-hisobot (smenani yopmasdan)");
-        NewXReportText.Text = xReport;
         OldXReportText.Text = xReport;
+        // 2026-10-21 (меню ☰, жалоба владельца): на плитке — коротко «X-отчёт», пояснение мелкой подписью.
+        NewXReportText.Text = Tr.T("X-отчёт", "X-отчёт", "X-report", "X raporu", "X-hisobot");
+        NewXReportHint.Text = Tr.T("без закрытия смены", "сменаны жаппай", "shift stays open", "vardiya açık kalır", "smenani yopmasdan");
         NewCustomerDisplayText.Text = Tr.T("Экран покупателя", "Сатып алуучунун экраны", "Customer display", "Müşteri ekranı", "Xaridor ekrani");
         NewKeyboardText.Text = Tr.T("Клавиатура Windows", "Windows клавиатурасы", "Windows keyboard", "Windows klavyesi", "Windows klaviaturasi");
         MenuSearchBox.Watermark = Tr.T("Найти действие…", "Аракетти табуу…", "Find an action…", "İşlem bul…", "Amalni topish…");
@@ -194,10 +210,27 @@ public partial class SideMenuView : UserControl
         var close = Tr.T("Закрыть меню (Esc)", "Менюну жабуу (Esc)", "Close the menu (Esc)", "Menüyü kapat (Esc)", "Menyuni yopish (Esc)");
         ToolTip.SetTip(NewMenuCloseButton, close);
         AutomationProperties.SetName(NewMenuCloseButton, close);
-        AutomationProperties.SetName(NewSystemToggle, NewCaptionSystem.Text);
         UpdateTitle();
         UpdateDynamicRows();
+        UpdateGroupHeaders(); // 2026-10-22 (меню, сворачиваемые разделы): подписи заголовков на языке кассы
         QueueRefresh();
+    }
+
+    /// <summary>2026-10-21 (меню ☰, жалоба владельца): имена для экранного диктора и автоматизации (UIA) — у плиток содержимое не
+    /// строка, поэтому имя — видимые подписи плитки («Некорректные чеки, 4»; «Экран покупателя, Ctrl+M»).</summary>
+    private void UpdateAutomationNames()
+    {
+        foreach (var c in _cells)
+        {
+            if (ReferenceEquals(c.Button, MiTheme))
+                continue; // имя с состоянием «включена/выключена» — UpdateDynamicRows
+            var parts = c.Button.GetLogicalDescendants().OfType<TextBlock>()
+                .Where(t => t.IsVisible && !string.IsNullOrWhiteSpace(t.Text) && t.GetLogicalAncestors().OfType<Control>()
+                    .TakeWhile(a => !ReferenceEquals(a, c.Button)).All(a => a.IsVisible))
+                .Select(t => t.Text!.Trim()).Distinct().ToList();
+            if (parts.Count > 0)
+                AutomationProperties.SetName(c.Button, string.Join(", ", parts));
+        }
     }
 
     /// <summary>Шапка нового вида — «NBS · Основная касса» (компания и касса), инициалы кассира.</summary>
@@ -227,24 +260,25 @@ public partial class SideMenuView : UserControl
     private void UpdateDynamicRows()
     {
         var dark = UserPreferences.Instance.DarkTheme;
-        // Как подсказка кнопки «Тема» в шапке кассы: куда переключит.
-        NewThemeText.Text = dark
-            ? Tr.T("Светлая тема", "Ачык тема", "Light theme", "Açık tema", "Yorug' mavzu")
-            : Tr.T("Тёмная тема", "Караңгы тема", "Dark theme", "Koyu tema", "Qorong'i mavzu");
-        NewThemeIcon.Data = Geometry.Parse(dark
-            ? "M12,8 A4,4 0 1 1 11.99,8 M12,2 V4 M12,20 V22 M4.9,4.9 L6.3,6.3 M17.7,17.7 L19.1,19.1 M2,12 H4 M20,12 H22 M4.9,19.1 L6.3,17.7 M17.7,6.3 L19.1,4.9"
-            : "M20,14.5 A8,8 0 1 1 9.5,4 A6.5,6.5 0 0 0 20,14.5 Z");
+        // 2026-10-21 (меню ☰, жалоба владельца): тёмная тема — переключатель: подпись постоянная, положение бегунка — состояние.
+        NewThemeText.Text = Tr.T("Тёмная тема", "Караңгы тема", "Dark theme", "Koyu tema", "Qorong'i mavzu");
+        ThemeSwitchTrack.Classes.Set("on", dark);
+        AutomationProperties.SetName(MiTheme, NewThemeText.Text + ", " + (dark
+            ? Tr.T("включена", "күйгүзүлгөн", "on", "açık", "yoqilgan")
+            : Tr.T("выключена", "өчүрүлгөн", "off", "kapalı", "o'chirilgan")));
         var gesture = "";
         try
         {
-            gesture = PosHotkeyService.Display(new PosHotkeyService().GetGesture(PosHotkeyAction.ToggleCustomerDisplay));
+            // Пустая клавиша — без подписи (Display вернул бы «не назначено»).
+            var raw = new PosHotkeyService().GetGesture(PosHotkeyAction.ToggleCustomerDisplay);
+            gesture = string.IsNullOrWhiteSpace(raw) ? "" : PosHotkeyService.Display(raw);
         }
         catch
         {
             // клавиши не прочитались — подсказки просто нет
         }
         CustomerDisplayKeyText.Text = gesture;
-        CustomerDisplayKeyChip.IsVisible = !string.IsNullOrWhiteSpace(gesture);
+        CustomerDisplayKeyText.IsVisible = !string.IsNullOrWhiteSpace(gesture);
         UpdateBalanceSize();
     }
 
@@ -307,21 +341,13 @@ public partial class SideMenuView : UserControl
         }
 
         bool AnyVisible(Control group) => _cells.Any(c => !c.Fixed && c.Cell.IsVisible && group.IsLogicalAncestorOf(c.Cell));
-        bool AnyAllowed(Control group) => _cells.Any(c => !c.Fixed && c.Button.IsVisible && group.IsLogicalAncestorOf(c.Cell));
 
-        NewGroupSearchOnly.IsVisible = searching && AnyVisible(NewGroupSearchOnly);
-        var tiles = AnyVisible(NewTiles);
-        NewTiles.IsVisible = tiles;
-        NewCaptionQuick.IsVisible = tiles;
-        NewGroupWork.IsVisible = AnyVisible(NewGroupWork);
-        NewGroupReports.IsVisible = AnyVisible(NewGroupReports);
-        NewGroupScreen.IsVisible = AnyVisible(NewGroupScreen);
-
-        var expanded = _vm?.IsSystemSectionExpanded == true;
-        NewSystemItems.IsVisible = searching || expanded;
-        NewGroupSystem.IsVisible = searching ? AnyVisible(NewSystemItems) : AnyAllowed(NewSystemItems);
-        NewSystemChevron.RenderTransform = expanded && !searching ? new RotateTransform(180) : null;
-        NewSystemToggle.IsVisible = !searching;
+        // 2026-10-21 (меню ☰, жалоба владельца): группа (подпись + сетка плиток) видна, если в ней есть видимая плитка;
+        // «Система» больше не сворачивается (IsSystemSectionExpanded — только у «Старого» вида).
+        foreach (var group in NewMenuContent.Children.OfType<StackPanel>().Where(p => p.Classes.Contains("km-group-box")))
+            group.IsVisible = AnyVisible(group);
+        // 2026-10-22 (меню, сворачиваемые разделы): свёрнутые группы — только заголовок; при поиске найденное раскрыто.
+        ApplyGroupCollapse(searching, animate: false);
 
         NewNothingFound.IsVisible = searching && !anyMatch;
         SearchKeyChip.IsVisible = !searching;
@@ -334,7 +360,7 @@ public partial class SideMenuView : UserControl
             Dispatcher.UIThread.Post(() =>
             {
                 if (_query.Length > 0 && _kb is null)
-                    SetKb(NavButtons().FirstOrDefault(b => !IsHeroOrFoot(b)), bringIntoView: false);
+                    SetKb(NavButtons().FirstOrDefault(b => !IsHeroOrFoot(b) && !IsGroupHeader(b)), bringIntoView: false);
             }, DispatcherPriority.Loaded);
     }
 
@@ -358,6 +384,8 @@ public partial class SideMenuView : UserControl
         ["MiClients"] = "клиент клиенты покупатель customer client кардар müşteri musteri mijoz xaridor",
         ["MiDeferredCarts"] = "отлож отложенные корзина пауза hold held deferred калтыр кийинкиге bekle kechiktir savat",
         ["MiWarehouse"] = "склад товар товары остаток stock warehouse inventory кампа товар depo stok ombor tovar",
+        // 2026-10-22 (закупки как в вебе): «закупки», «приход», «поставщик», «накладная» — на 5 языках.
+        ["MiPurchases"] = "закупка закупки приход приемка приёмка поставщик поставщики накладная заказ поставщику purchase purchases supplier receiving procurement сатып алуу жеткирүүчү кириш satın alma tedarikçi mal kabul xarid yetkazib beruvchi kirim",
         ["MiRestock"] = "пополнение сроки срок годности закупка restock expiry толуктоо мөөнөт stok son kullanma toldirish muddat",
         ["MiTimesheet"] = "табель сотрудник сотрудники смены timesheet staff кызматкер personel xodim",
         ["MiXReport"] = "x-отчёт x отчет отчёт смены итоги смены касса x-report report shift totals отчёт смена rapor vardiya hisobot smena",
@@ -377,7 +405,7 @@ public partial class SideMenuView : UserControl
         ["MiLogs"] = "логи лог ошибки журнал log logs errors лог ката hata xato jurnal",
         ["MiSupport"] = "поддержка помощь техподдержка удалённая support help remote колдоо жардам destek yardım yordam",
         ["MiKnowledgeBase"] = "база знаний справка инструкция помощь faq knowledge help билим bilgi bilim yordam",
-        ["MiFindCashOperation"] = "внесение изъятие деньги касса наличные cash in out акча салуу алуу nakit kirim chiqim pul",
+        ["MiCashOperation"] = "внесение изъятие деньги касса наличные cash in out акча салуу алуу nakit kirim chiqim pul",
         ["MiFindCloseShift"] = "закрыть смену смена close shift сменаны жабуу vardiya kapat smena yopish",
         ["MiFindOpenShift"] = "открыть смену смена open shift сменаны ачуу vardiya aç smena ochish",
         ["MiFindSwitchCashier"] = "сменить кассира кассир пересменка switch cashier кассирди алмаштыруу kasiyer değiştir kassir almashtirish",
@@ -405,6 +433,7 @@ public partial class SideMenuView : UserControl
             UpdateDynamicRows();
             UpdateWidth();
             RefreshCells();
+            UpdateAutomationNames();
             NewMenuScroll.Offset = default;
             _ = RefreshCountsAsync();
             PlayOpenAnimation();
@@ -461,7 +490,8 @@ public partial class SideMenuView : UserControl
         }
     }
 
-    /// <summary>Ширина: 400, на окне ≤ 1100 — 360, на совсем узком (телефон) — по окну с полосой затемнения справа.</summary>
+    /// <summary>Ширина: 440, на окне ≤ 1100 — 408 (3 плитки в ряд по ~126: «Windows клавиатурасы» без разрыва слова), на совсем узком (телефон) — по окну с полосой
+    /// затемнения справа. 2026-10-21 (меню ☰, жалоба владельца): было 400 / 360 — плиткам с подписью 14 тесно.</summary>
     private void UpdateWidth()
     {
         if (!NewMenuRoot.IsVisible)
@@ -469,26 +499,28 @@ public partial class SideMenuView : UserControl
         var available = _host?.Bounds.Width ?? 0;
         if (available <= 0)
             available = 1366;
-        var width = available <= 1100 ? 360 : 400;
+        var width = available <= 1100 ? 408 : 440;
         NewMenuRoot.Width = Math.Max(280, Math.Min(width, available - 48));
         UpdateTileWidth();
     }
 
     /// <summary>Плитки — ровно 3 в ряд: ширина ячейки — треть ряда (не WrapPanel.ItemWidth: с ним скрытая плитка оставляла дыру),
     /// скрытые не занимают места, ряд уплотняется.</summary>
+    /// 2026-10-21 (меню ☰, жалоба владельца): так — во всех сетках групп (WrapPanel.km-grid).
     private void UpdateTileWidth()
     {
-        var w = NewTiles.Bounds.Width;
+        var w = NewMenuContent.Bounds.Width;
         if (w <= 0)
-            w = NewMenuRoot.Width - NewMenuContent.Margin.Left - NewMenuContent.Margin.Right + 8;
-        var item = Math.Floor(w / 3);
+            w = NewMenuRoot.Width - NewMenuContent.Margin.Left - NewMenuContent.Margin.Right;
+        var item = Math.Floor((w + 8) / 3); // сетка шире содержимого на 8 (Margin -4,0): поля плиток по 4 у краёв
         if (item <= 0)
             return;
-        foreach (var cell in NewTiles.Children.OfType<Control>())
-        {
-            if (double.IsNaN(cell.Width) || Math.Abs(cell.Width - item) > 0.5)
-                cell.Width = item;
-        }
+        foreach (var grid in NewMenuContent.GetLogicalDescendants().OfType<WrapPanel>().Where(p => p.Classes.Contains("km-grid")))
+            foreach (var cell in grid.Children.OfType<Control>())
+            {
+                if (double.IsNaN(cell.Width) || Math.Abs(cell.Width - item) > 0.5)
+                    cell.Width = item;
+            }
     }
 
     // ── шапка: тёмный цвет темы, светлый текст ──
@@ -518,6 +550,9 @@ public partial class SideMenuView : UserControl
         }
         Bind(MiOpenShift, BackgroundProperty, fgKey);
         Bind(MiOpenShift, ForegroundProperty, bgKey);
+        // 2026-10-21 (меню ☰, жалоба владельца): значки кнопок шапки — цветом надписи (у «Открыть смену» — цветом шапки).
+        foreach (var path in NewHero.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Path>().Where(p => p.Classes.Contains("hero-ic")))
+            Bind(path, Avalonia.Controls.Shapes.Shape.StrokeProperty, MiOpenShift.IsLogicalAncestorOf(path) ? bgKey : fgKey);
         Bind(NewCloseGlyph, Avalonia.Controls.Shapes.Shape.StrokeProperty, fgKey);
         Bind(NewShiftClosedDot, Avalonia.Controls.Shapes.Shape.FillProperty, fgKey);
     }
@@ -589,6 +624,8 @@ public partial class SideMenuView : UserControl
         Set(IrregularCount, irregular);
         Set(DeferredCartsCount, deferred);
         Set(RemovalsCount, removals);
+        UpdateAutomationNames();
+        UpdateGroupHeaders(); // 2026-10-22 (меню, сворачиваемые разделы): бейджи свёрнутых групп
     }
 
     // ── клавиатура и сканер ──
@@ -689,6 +726,9 @@ public partial class SideMenuView : UserControl
                 return;
         }
 
+        // 2026-10-22 (меню, сворачиваемые разделы): Пробел на выбранном заголовке группы — свернуть/раскрыть.
+        if (HandleGroupSpace(e, inSearch))
+            return;
         if (inSearch)
             FeedScannerFromSearch(e);
     }
@@ -728,7 +768,7 @@ public partial class SideMenuView : UserControl
         }
 
         e.Handled = true;
-        var target = _kb ?? (_query.Length > 0 ? NavButtons().FirstOrDefault(b => !IsHeroOrFoot(b)) : null);
+        var target = _kb ?? (_query.Length > 0 ? NavButtons().FirstOrDefault(b => !IsHeroOrFoot(b) && !IsGroupHeader(b)) : null);
         if (target is not null)
             Execute(target);
     }
@@ -818,7 +858,7 @@ public partial class SideMenuView : UserControl
 
     /// <summary>Пункты по порядку на экране: шапка, найденное, плитки (слева направо), строки, низ.</summary>
     private List<Button> NavButtons() =>
-        _cells.Select(c => c.Button).Where(IsNavigable)
+        _cells.Select(c => c.Button).Concat(GroupHeaders()).Where(IsNavigable)
             .Select(b => (b, p: b.TranslatePoint(default, NewMenuRoot) ?? default))
             .OrderBy(x => Math.Round(x.p.Y / 8)).ThenBy(x => x.p.X)
             .Select(x => x.b).ToList();
@@ -828,6 +868,12 @@ public partial class SideMenuView : UserControl
         var list = NavButtons();
         if (list.Count == 0)
             return;
+        // 2026-10-21 (меню ☰, жалоба владельца): первое ↓/Tab — на первую плитку («История чеков»), а не на ✕ шапки.
+        if (_kb is null && step > 0 && list.FirstOrDefault(b => b.Classes.Contains("km-tile")) is { } firstTile)
+        {
+            SetKb(firstTile);
+            return;
+        }
         var i = _kb is null ? -1 : list.IndexOf(_kb);
         i = i < 0 ? (step > 0 ? 0 : list.Count - 1) : (i + step + list.Count) % list.Count;
         SetKb(list[i]);
@@ -912,7 +958,16 @@ public partial class SideMenuView : UserControl
 
     private void Keyboard_Click(object? sender, RoutedEventArgs e) => RunToolbar(m => m.Toolbar.ToggleKeyboardCommand);
 
-    private void Theme_Click(object? sender, RoutedEventArgs e) => RunToolbar(m => m.Toolbar.ToggleThemeCommand);
+    /// <summary>2026-10-21 (меню ☰, жалоба владельца): «Тёмная тема» — переключатель: меню не закрывается, бегунок и вся касса
+    /// меняются сразу (та же команда, что у кнопки «Тема» в шапке кассы).</summary>
+    private void Theme_Click(object? sender, RoutedEventArgs e)
+    {
+        var command = MainVm?.Toolbar.ToggleThemeCommand;
+        if (command is null || !command.CanExecute(null))
+            return;
+        command.Execute(null);
+        Dispatcher.UIThread.Post(UpdateDynamicRows);
+    }
 
     /// <summary>«Горячие клавиши» — то же окно, что у кнопки «Горячие» в шапке кассы.</summary>
     private async void Hotkeys_Click(object? sender, RoutedEventArgs e)

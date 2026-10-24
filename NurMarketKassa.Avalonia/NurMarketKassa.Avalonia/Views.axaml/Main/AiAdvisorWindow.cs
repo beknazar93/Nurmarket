@@ -199,7 +199,8 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         var topCards = new StackPanel { MaxWidth = 860, Margin = new Thickness(4, 8, 12, 0), Children = { _keyCard, _modelsCard } };
 
         // Разговор: лента по центру, без рамки.
-        _scroll.Content = new StackPanel { Children = { topCards, _messages } };
+        // 2026-10-22 (аудит 1.17.59, П-З): отступ снизу — последний ответ («Утренний отчёт») не прячется под строкой ввода.
+        _scroll.Content = new StackPanel { Margin = new Thickness(0, 0, 0, 24), Children = { topCards, _messages } };
         _scroll.VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto;
         _scroll.HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
         Grid.SetRow(_scroll, 2);
@@ -503,6 +504,39 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         _input.Focus();
     }
 
+    /// <summary>2026-10-22 (модалки, пакет 4): что сделать с фото без подписи. true — как накладную (приход на склад),
+    /// false — описать товар, null — отмена (Esc, ✕, «Отмена»). Окно в общей рамке ModalShell, Enter — «Как накладную».</summary>
+    private async Task<bool?> AskImageIntentAsync()
+    {
+        bool? choice = null;
+        var title = T("Изображение без подписи", "Сүрөттүн максаты", "Image intent", "Görüntü amacı", "Rasm maqsadi");
+        var dlg = new Window { Title = title };
+        SectionCards.AsModal(dlg, 512);
+        var text = new TextBlock
+        {
+            Text = T("«Как накладную» — распознать строки и подготовить приход на склад (ничего не проводится без вашего подтверждения).\n«Описать товар» — только описание, склад и цены не меняются.",
+                "«Накладной катары» — саптарды таанып, кампага киришти даярдоо (сиз ырастамайынча эч нерсе өткөрүлбөйт).\n«Товарды сүрөттөө» — сүрөттөө гана, кампа жана баалар өзгөрбөйт.",
+                "“As an invoice” — recognize the lines and prepare a stock receipt (nothing is posted without your confirmation).\n“Describe product” — only a description, stock and prices stay unchanged.",
+                "«Fatura olarak» — satırları tanı ve stok girişini hazırla (onayınız olmadan hiçbir şey kaydedilmez).\n«Ürünü açıkla» — yalnızca açıklama, stok ve fiyatlar değişmez.",
+                "«Yuk xati sifatida» — qatorlarni tanib, omborga kirim tayyorlash (tasdig'ingizsiz hech narsa o'tkazilmaydi).\n«Mahsulotni tasvirlash» — faqat tavsif, ombor va narxlar o'zgarmaydi."),
+            FontSize = 14,
+            TextWrapping = TextWrapping.Wrap,
+        };
+        text.Bind(TextBlock.ForegroundProperty, dlg.GetResourceObservable("BrushText"));
+        var cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        cancel.Click += (_, _) => dlg.Close(false);
+        var describe = SectionCards.Secondary(T("Описать товар", "Товарды сүрөттөө", "Describe product", "Ürünü açıkla", "Mahsulotni tasvirlash"));
+        describe.Click += (_, _) => { choice = false; dlg.Close(true); };
+        var invoice = SectionCards.Primary(T("Как накладную", "Накладной катары", "As an invoice", "Fatura olarak", "Yuk xati sifatida"), isDefault: true);
+        invoice.Click += (_, _) => { choice = true; dlg.Close(true); };
+        var shell = SectionCards.Shell(title, T("Что сделать с фото?", "Сүрөт менен эмне кылабыз?", "What to do with the photo?", "Fotoğrafla ne yapılsın?", "Rasm bilan nima qilamiz?"),
+            text, SectionCards.Buttons(cancel, describe, invoice));
+        shell.InitialFocus = invoice;
+        dlg.Content = shell;
+        await Dialogs.PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true);
+        return choice;
+    }
+
     private async Task SendAsync(string? text)
     {
         var question = (text ?? "").Trim();
@@ -510,17 +544,13 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         // обычное изображение товара не запускало сценарий прихода на склад.
         if (question.Length == 0 && _attachments.Count > 0)
         {
-            var intent = await PosMessageBox.ShowModalAsync(this,
-                T("Обработать изображение как накладную и подготовить приход на склад? Выберите «Нет», чтобы просто описать товар.",
-                    "Сүрөттү накладной катары иштеп, кампага киришти даярдайлыбы? Товарды гана сүрөттөө үчүн «Жок» басыңыз.",
-                    "Process this image as an invoice and prepare a stock receipt? Choose No to only describe the product.",
-                    "Görüntü fatura olarak işlenip stok girişi hazırlansın mı? Yalnızca ürünü açıklamak için Hayır'ı seçin.",
-                    "Rasm yuk xati sifatida qayta ishlanib, omborga kirim tayyorlansinmi? Faqat mahsulotni tasvirlash uchun Yo'qni tanlang."),
-                T("Изображение без подписи", "Сүрөттүн максаты", "Image intent", "Görüntü amacı", "Rasm maqsadi"),
-                MessageBoxButton.YesNoCancel, MessageBoxImage.Question).ConfigureAwait(true);
-            if (intent == MessageBoxResult.Cancel)
+            // 2026-10-22 (модалки, пакет 4): ошибка — у окна-вопроса (PosConfirmDialog) всего два ответа, «Отмена»
+            // не возвращалась: ✕, Esc и «Нет» одинаково запускали «описать товар». Теперь три кнопки-глагола:
+            // «Как накладную» / «Описать товар» / «Отмена» (Esc и ✕ — отмена, фото остаётся во вложении).
+            var asInvoice = await AskImageIntentAsync().ConfigureAwait(true);
+            if (asInvoice is null)
                 return;
-            question = intent == MessageBoxResult.Yes
+            question = asInvoice == true
                 ? T("Это фото накладной — распознай все строки и подготовь приход, ничего не проводи без моего подтверждения.",
                     "Бул накладнойдун сүрөтү — бардык саптарды таанып, мен ырастамайынча өткөрбөстөн киришти даярда.",
                     "This is an invoice photo. Recognize every line and prepare the receipt; do not post it without my confirmation.",
@@ -755,6 +785,19 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 {
                     answer = (answer.Trim().Length > 0 ? answer.Trim() + "\n\n" : "") + ListFromSteps(productSteps);
                     productSteps = new List<ProductActionPlan.Step>();
+                }
+                // 2026-10-23 (аудит Б-5/Б-4): вопрос только на чтение («Какие акции запустить?», «что посоветуешь?») — карточку действий
+                // на запись (списание, цены) не показываем; действия — только на явный приказ («спиши», «поставь цену»).
+                if (image is null && productSteps.Count > 0 && IsReadOnlyQuestion(question))
+                {
+                    PosLogger.Log($"ИИ-советник: вопрос на чтение — карточка из {productSteps.Count} действий скрыта.", "INFO");
+                    productSteps = new List<ProductActionPlan.Step>();
+                    if (answer.Trim().Length == 0)
+                        answer = T("Это совет, ничего не меняю. Чтобы я сделал, скажите прямо, например: «поставь цену …» или «спиши …».",
+                            "Бул кеңеш, эч нерсе өзгөртпөйм. Кылышымды кааласаңыз, түз айтыңыз: «баасын койгун …» же «списать …».",
+                            "This is advice only, nothing is changed. To make me do it, say so directly, e.g. “set the price …” or “write off …”.",
+                            "Bu yalnızca öneri, hiçbir şey değişmiyor. Yapmamı istiyorsanız açıkça söyleyin: «fiyatı … yap» veya «… düş».",
+                            "Bu faqat maslahat, hech narsa o'zgarmaydi. Bajarishimni istasangiz, to'g'ridan-to'g'ri ayting: «narxini … qil» yoki «… hisobdan chiqar».");
                 }
                 if (answer.Length == 0 && productSteps.Count > 0)
                     answer = T("Предлагаю изменения — подтвердите:", "Өзгөртүүлөрдү сунуштайм — ырастаңыз:", "I suggest these changes — please confirm:",
@@ -1114,6 +1157,8 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         Avalonia.Automation.AutomationProperties.SetName(models, T("Настройки советника", "Кеңешчинин жөндөөлөрү", "Advisor settings", "Danışman ayarları", "Maslahatchi sozlamalari"));
         // 2026-10-21 (И3, И9): ⚙ — меню: ключи и модели ИИ, утренний отчёт, напоминания должникам.
         var gearMenu = new MenuFlyout();
+        // 2026-10-22 (модалки, пакет 4): пункты меню 44 px, как меню «Ещё» владельца (стиль row-menu).
+        gearMenu.FlyoutPresenterClasses.Add("row-menu");
         void Item(string text, Action action)
         {
             // 2026-10-21: пункт с именем для диктора (без значка ☀/✉) и с «Нажать» (Invoke) в UIA — раньше экранный диктор и
@@ -1718,6 +1763,16 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
 
     private static ServerBotSettings? _botCache;
     private static DateTime _botCacheAt;
+
+    /// <summary>2026-10-23: вопрос на чтение — «?»/вопросительное слово/«посоветуй» и нет глагола-приказа (спиши, поставь, измени…).</summary>
+    private static bool IsReadOnlyQuestion(string question)
+    {
+        var q = (question ?? "").Trim().ToLowerInvariant();
+        if (q.Length == 0 || ProductActionPlan.LooksLikeAction(q))
+            return false;
+        string[] starts = { "какие", "какой", "какая", "какое", "что ", "как ", "почему", "сколько", "где ", "кто ", "когда", "зачем", "посоветуй", "подскажи", "проанализ", "анализ", "стоит ли", "можно ли", "кандай", "эмне", "канча" };
+        return q.Contains('?') || starts.Any(q.StartsWith);
+    }
 
     private Task<(IReadOnlyList<AiSection> Sections, IReadOnlyDictionary<int, string> Names)>? _summaryTask;
     private DateTime _summaryAtUtc = DateTime.MinValue;

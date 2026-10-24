@@ -223,6 +223,9 @@ public sealed class DebtReminderWindow : Window
         AddRow(root, hint, 1);
         AddRow(root, topBar, 2);
         var settingsScroll = new ScrollViewer { Content = _settingsPanel, MaxHeight = 380, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        // 2026-10-22 (модалки, пакет 2): на низком экране (910×512) открытые настройки (до 380 px) выталкивали строку кнопок под
+        // край — их прокрутка не выше ~40 % окна, список и кнопки остаются видны.
+        root.SizeChanged += (_, _) => settingsScroll.MaxHeight = Math.Clamp(Math.Floor(root.Bounds.Height * 0.4), 120, 380);
         settingsScroll.Bind(IsVisibleProperty, _settingsPanel.GetObservable(IsVisibleProperty));
         AddRow(root, settingsScroll, 3);
         AddRow(root, _quietNote, 4);
@@ -231,6 +234,8 @@ public sealed class DebtReminderWindow : Window
         AddRow(root, _journalView, 6);
         AddRow(root, actionsWrap, 7);
         Content = root;
+        // 2026-10-23 (аудит Б-9): заголовок системной рамки — цветом темы кассы.
+        NurMarketKassa.AvaloniaHost.Services.WindowChrome.Apply(this);
 
         KeyDown += (_, e) =>
         {
@@ -567,7 +572,9 @@ public sealed class DebtReminderWindow : Window
                 $"Listeyi onaylayın: {chosen.Count} müşteriye borç hatırlatması — {names}. İşaretlenenler bir dahaki sefere hazır işaretli olur.",
                 $"Ro'yxatni tasdiqlang: {chosen.Count} mijozga qarzni eslatish — {names}. Belgilanganlar keyingi safar darhol belgilangan bo'ladi."),
             T("Подтверждение списка", "Тизмени ырастоо", "Confirm the list", "Listeyi onayla", "Ro'yxatni tasdiqlash"),
-            System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question).ConfigureAwait(true);
+            System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question,
+            // 2026-10-22 (модалки, пакет 2): глагол вместо «Да/Нет».
+            confirmText: T("Подтвердить", "Ырастоо", "Confirm", "Onayla", "Tasdiqlash")).ConfigureAwait(true);
         if (answer != System.Windows.MessageBoxResult.Yes)
             return false;
         DebtReminderPlanner.ConfirmList(chosen.Select(c => c.ClientId));
@@ -674,7 +681,9 @@ public sealed class DebtReminderWindow : Window
                     $"Telegram'dan {chosen.Count} abone müşteriye borç hatırlatması gönderilsin mi? Bir müşteriye en fazla {perClient} günde bir.",
                     $"Telegram'da {chosen.Count} obunachi mijozga qarz haqida eslatma yuborilsinmi? Bir mijozga — {perClient} kunda bir martadan ko'p emas."),
                 T("Отправка в Telegram", "Telegram'га жөнөтүү", "Send via Telegram", "Telegram'dan gönder", "Telegram'da yuborish"),
-                System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question).ConfigureAwait(true);
+                System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question,
+                // 2026-10-22 (модалки, пакет 2): глагол вместо «Да/Нет».
+                confirmText: T("Отправить", "Жөнөтүү", "Send", "Gönder", "Yuborish")).ConfigureAwait(true);
             if (answer != System.Windows.MessageBoxResult.Yes)
                 return;
 
@@ -963,7 +972,8 @@ public sealed class DebtReminderWindow : Window
 
     private static Button Small(Button b)
     {
-        b.Height = 38;
+        // 2026-10-22 (модалки, пакет 2): касание 44 px (было 38).
+        b.Height = 44;
         b.FontSize = 13.5;
         return b;
     }

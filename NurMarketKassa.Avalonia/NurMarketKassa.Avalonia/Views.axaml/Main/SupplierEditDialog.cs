@@ -141,7 +141,8 @@ public sealed class SupplierEditDialog : Window
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
         var caption = new TextBlock { Text = label, FontSize = 13, FontWeight = FontWeight.SemiBold };
         Use(caption, TextBlock.ForegroundProperty, "BrushTextSoft");
-        var box = UiKit.Input(this, watermark, 42);
+        // 2026-10-22 (модалки, пакет 4): поля 44 px (было 42) — касание пальцем.
+        var box = UiKit.Input(this, watermark, 44);
         box.MaxLength = 200;
         Avalonia.Automation.AutomationProperties.SetName(box, label.TrimEnd('*', ' '));
         var cell = new StackPanel { Spacing = 4, Margin = new Thickness(0, 0, 0, 8), Children = { caption, box } };

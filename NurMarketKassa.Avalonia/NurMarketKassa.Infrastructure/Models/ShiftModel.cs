@@ -50,6 +50,15 @@ public sealed class ShiftModel
     public decimal? CashDiff { get; init; }
 
 
+    /// <summary>2026-10-23 (аудит К5, п. 3): выручка смены БЕЗ продаж в долг — как «Выручка» сайта и «Сводка» владельца
+    /// (статусы paid/partially_returned, долг отдельно). sales_total сервера включает долговую продажу, поэтому
+    /// выручка = наличные + безнал (с предоплатой долга и смешанной), а не sales_total. Нет разбивки — как есть.</summary>
+    public decimal RevenueNoDebt => CashSales is { } c && NonCashSales is { } n ? Math.Min(Revenue, c + n) : Revenue;
+
+    /// <summary>Продажи в долг за смену: sales_total минус выручка без долга. Не «остаток долга» (DebtSales): долг,
+    /// уже погашенный в эту же смену, из остатка уходит, а продажа в долг была.</summary>
+    public decimal CreditSales => Revenue - RevenueNoDebt > 0.005m ? Revenue - RevenueNoDebt : 0m;
+
     public bool IsActive => string.Equals(Status, "Активна", StringComparison.OrdinalIgnoreCase);
 
     public static ShiftModel FromEntry(ShiftHistoryEntry entry) => new()

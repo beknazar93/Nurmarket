@@ -71,13 +71,15 @@ public sealed class DebtsView : UserControl
     private bool _loadStarted;
 
     /// <param name="Checking">2026-10-18, девятый круг: точный остаток сделки не получен — показана прежняя сумма с пометкой «уточняется».</param>
+    /// <param name="Duplicate">2026-10-23 (аудит, круг 8, В-3): «Долг без продажи», похожий на двойную запись чека — показан с пометкой.
+    /// 2026-10-24 (приёмка, ПР-1): в сумму долга ВХОДИТ (Left = остаток сделки), как на сервере; не оплачивается «по чеку».</param>
     internal sealed record DebtSale(string Id, string Number, DateTime At, string Item, double Total, double Paid, double Left, string Cashier, string Cashbox,
-        bool Checking = false);
+        bool Checking = false, bool Duplicate = false);
 
     internal sealed record Debtor(string ClientId, string Name, string Phone, List<DebtSale> Sales)
     {
         public double Total => Sales.Sum(s => s.Left);
-        public DateTime Oldest => Sales.Min(s => s.At);
+        public DateTime Oldest => (Sales.Any(s => !s.Duplicate) ? Sales.Where(s => !s.Duplicate) : Sales).Min(s => s.At); // 2026-10-23 (В-3): «похоже на двойную запись» срок долга не задаёт; 2026-10-24 (ПР-1): а если других строк нет — по ней
         public bool Checking => Sales.Any(s => s.Checking);
     }
 
@@ -142,6 +144,7 @@ public sealed class DebtsView : UserControl
         root.Children.Add(scroll);
 
         SetSummary(T("Загружаю долги…", "Карыздар жүктөлүүдө…", "Loading debts…", "Borçlar yükleniyor…", "Qarzlar yuklanmoqda…"));
+        ShowLoading();
         Content = root;
         AttachedToVisualTree += async (_, _) =>
         {
@@ -208,12 +211,20 @@ public sealed class DebtsView : UserControl
         var sales = await salesApi.PosDebtSalesAsync(clientId, cts.Token).ConfigureAwait(true);
         // 2026-10-18, девятый круг (п.3): остаток — точный, по сделкам (тот же загрузчик, что у окон оплаты).
         var exact = await PayDebtDialog.LoadDebtRowsAsync(salesApi, clientId, sales, cts.Token).ConfigureAwait(true);
+        // 2026-10-22 (аудит 1.17.59, П-Е): и «Долг без продажи» клиента — тем же расчётом, что у окон оплаты.
+        await AppendNoSaleAsync(clientId, exact, cts.Token).ConfigureAwait(true);
         if (startVersion < _fullAppliedVersion
             || (_clientAppliedVersion.TryGetValue(clientId, out var applied) && startVersion < applied))
             return; // позже начатый ответ уже на экране
         _clientAppliedVersion[clientId] = startVersion;
         var phones = _debtors.Where(d => d.ClientId.Length > 0).GroupBy(d => d.ClientId).ToDictionary(g => g.Key, g => g.First().Phone, StringComparer.OrdinalIgnoreCase);
         var fresh = BuildDebtors(sales, phones).FirstOrDefault(d => string.Equals(d.ClientId, clientId, StringComparison.OrdinalIgnoreCase));
+        // 2026-10-22 (аудит 1.17.59, П-Е): у клиента может быть только долг без продажи — карточка строится из него.
+        if (fresh is null && exact.Any(r => r.IsNoSale))
+        {
+            var known = _debtors.FirstOrDefault(d => string.Equals(d.ClientId, clientId, StringComparison.OrdinalIgnoreCase));
+            fresh = new Debtor(clientId, known?.Name ?? "", known?.Phone ?? phones.GetValueOrDefault(clientId, ""), new List<DebtSale>());
+        }
         if (fresh is not null)
             fresh = ApplyExact(fresh, exact);
         _debtors = _debtors.Where(d => !string.Equals(d.ClientId, clientId, StringComparison.OrdinalIgnoreCase))
@@ -238,11 +249,87 @@ public sealed class DebtsView : UserControl
             else
                 refined.Add(sale with { Checking = true }); // точный не получен — прежняя сумма, «уточняется»
         }
+        // 2026-10-22 (аудит 1.17.59, П-Е): «Долг без продажи» (сделка клиента без чека) — в долг клиента, как в кассе и у окон оплаты.
+        // 2026-10-23 (аудит, круг 8, В-3): «похоже на двойную запись» — с пометкой в раскрытом списке.
+        // 2026-10-24 (приёмка, ПР-1): такая строка в сумму входит (Amount = остаток, как у сервера и в окне оплаты) — отдельной ветки с нулями нет.
+        foreach (var row in exact ?? Array.Empty<DebtSaleRow>())
+            if (row.IsNoSale && row.Amount > 0.005 && !refined.Any(s => string.Equals(s.Id, row.Id, StringComparison.OrdinalIgnoreCase)))
+                refined.Add(ToNoSaleSale(row));
         return refined.Count == 0 ? null : d with { Sales = refined };
+    }
+
+    /// <summary>2026-10-22 (аудит 1.17.59, П-Е): строка «Долг без продажи» (DebtSaleRow.IsNoSale, Id «deal:…») → запись долга клиента.</summary>
+    private static DebtSale ToNoSaleSale(DebtSaleRow r) =>
+        new(r.Id, "", r.CreatedAt == default ? DateTime.Today : r.CreatedAt.LocalDateTime, r.FirstItemName, r.Amount, 0, r.Amount, "", "",
+            Duplicate: r.IsSuspectedDuplicate); // 2026-10-24 (ПР-1): пометка «похоже на двойную запись» остаётся, сумма — как у сервера
+
+    /// <summary>2026-10-22 (аудит 1.17.59, П-Е): добавить к точным строкам клиента его «Долг без продажи» (clients/{id}/deals/ —
+    /// общий загрузчик кассы PayDebtDialog.LoadNoSaleDebtRowsAsync; не больше 4 запросов одновременно). Не получилось — как раньше.</summary>
+    private static async Task AppendNoSaleAsync(string clientId, List<DebtSaleRow> rows, CancellationToken ct)
+    {
+        if (clientId.Length == 0)
+            return;
+        await ExactThrottle.WaitAsync(ct).ConfigureAwait(true);
+        try
+        {
+            rows.AddRange(await PayDebtDialog.LoadNoSaleDebtRowsAsync(clientId, rows, ct).ConfigureAwait(true));
+        }
+        finally
+        {
+            ExactThrottle.Release();
+        }
+    }
+
+    /// <summary>2026-10-22 (аудит 1.17.59, П-Е): клиенты, у которых есть ТОЛЬКО долг без продажи (в списке продаж в долг их нет).
+    /// Кандидаты — clients/with-debts/ без поставщиков (долг поставщику — наш, не клиента) и без уже найденных должников;
+    /// у каждого — тот же загрузчик долгов без продажи, что в кассе. Любой сбой — пусто (суммы как раньше), в журнал.</summary>
+    private static async Task<List<Debtor>> NoSaleOnlyDebtorsAsync(IReadOnlyCollection<Debtor> known, CancellationToken ct)
+    {
+        var result = new List<Debtor>();
+        try
+        {
+            var api = App.GetRequiredService<NurMarketApiClient>();
+            // Без списка поставщиков не угадать, чей это долг, — не рискуем (иначе долг поставщику попал бы в «Вам должны»).
+            // 2026-10-23 (аудит, круг 7): список поставщиков и клиенты с долгами запрашиваются одновременно (были друг за другом).
+            var suppliersTask = PosApp.CatalogApi.ListSuppliersAsync(ct);
+            var withDebtsTask = api.RequestAsync(System.Net.Http.HttpMethod.Get, "api/main/clients/with-debts/", null,
+                new Dictionary<string, string> { ["page_size"] = "500" }, ct);
+            var supplierIds = new HashSet<string>(
+                NurMarketApiClient.UnwrapList(await suppliersTask.ConfigureAwait(true)).Select(s => Str(s, "id") ?? "").Where(x => x.Length > 0),
+                StringComparer.OrdinalIgnoreCase);
+            var withDebts = NurMarketApiClient.UnwrapList(await withDebtsTask.ConfigureAwait(true));
+            var have = new HashSet<string>(known.Select(d => d.ClientId), StringComparer.OrdinalIgnoreCase);
+            var candidates = withDebts.Select(c => (Id: Str(c, "id") ?? "", Name: Str(c, "full_name") ?? Str(c, "name") ?? "", Phone: Str(c, "phone") ?? ""))
+                .Where(c => c.Id.Length > 0 && !have.Contains(c.Id) && !supplierIds.Contains(c.Id)).Take(60).ToList();
+            var found = await Task.WhenAll(candidates.Select(async c =>
+            {
+                var rows = new List<DebtSaleRow>();
+                await NoSaleThrottle.WaitAsync(ct).ConfigureAwait(true); // 2026-10-23: не больше 4 запросов сделок одновременно
+                try
+                {
+                    await AppendNoSaleAsync(c.Id, rows, ct).ConfigureAwait(true);
+                }
+                finally
+                {
+                    NoSaleThrottle.Release();
+                }
+                return (c, Rows: rows.Where(r => r.IsNoSale && r.Amount > 0.005).ToList());
+            })).ConfigureAwait(true);
+            foreach (var (c, rows) in found.Where(f => f.Rows.Count > 0))
+                result.Add(new Debtor(c.Id, c.Name, c.Phone, rows.Select(ToNoSaleSale).ToList()));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Долги клиентов: долги без продажи у остальных клиентов не получены ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+        }
+        return result;
     }
 
     /// <summary>2026-10-18, десятый круг (п.4): не больше 4 запросов уточнения одновременно (раздел «Долги клиентов»).</summary>
     private static readonly SemaphoreSlim ExactThrottle = new(4, 4);
+
+    /// <summary>2026-10-23 (аудит, круг 7): то же для поиска клиентов с «Долгом без продажи» (запросы сделок идут рядом с уточнением).</summary>
+    private static readonly SemaphoreSlim NoSaleThrottle = new(4, 4);
 
     /// <summary>Сколько чеков уточнять до первой отрисовки; больше — сначала список с пометкой «уточняется», точные — постепенно.</summary>
     private const int ExactBeforeRenderLimit = 60;
@@ -254,7 +341,9 @@ public sealed class DebtsView : UserControl
             return null; // «Без клиента» — сделку по клиенту не запросить
         try
         {
-            return await PayDebtDialog.LoadDebtRowsAsync(App.GetRequiredService<ISalesApiService>(), clientId, sales, ct, ExactThrottle).ConfigureAwait(true);
+            var rows = await PayDebtDialog.LoadDebtRowsAsync(App.GetRequiredService<ISalesApiService>(), clientId, sales, ct, ExactThrottle).ConfigureAwait(true);
+            await AppendNoSaleAsync(clientId, rows, ct).ConfigureAwait(true); // 2026-10-22 (аудит 1.17.59, П-Е): + «Долг без продажи»
+            return rows;
         }
         catch (Exception ex)
         {
@@ -269,14 +358,17 @@ public sealed class DebtsView : UserControl
 
     private static async Task<(List<JsonElement> Sales, List<Debtor> Debtors)> LoadSalesAndDebtorsAsync(bool withPhones, CancellationToken ct)
     {
-        var sales = await App.GetRequiredService<ISalesApiService>().PosDebtSalesAsync(null, ct).ConfigureAwait(true);
+        // 2026-10-23 (аудит, круг 6: «Долги клиентов» ~5 с): список клиентов (телефоны) грузится параллельно с долговыми продажами.
+        var salesTask = App.GetRequiredService<ISalesApiService>().PosDebtSalesAsync(null, ct);
+        var clientsTask = withPhones ? App.GetRequiredService<IClientsApiService>().GetClientsAsync(null, ct) : null;
+        var sales = await salesTask.ConfigureAwait(true);
         // Телефоны — из списка клиентов (в продаже только имя). Не получилось — без телефонов.
         var phones = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (withPhones)
+        if (clientsTask != null)
         {
             try
             {
-                var clients = await App.GetRequiredService<IClientsApiService>().GetClientsAsync(null, ct).ConfigureAwait(true);
+                var clients = await clientsTask.ConfigureAwait(true);
                 foreach (var c in clients)
                     if (Str(c, "id") is { Length: > 0 } id)
                         phones[id] = Str(c, "phone") ?? "";
@@ -315,11 +407,53 @@ public sealed class DebtsView : UserControl
         return debtors.Values.ToList();
     }
 
+    /// <summary>2026-10-22 (аудит 1.17.59, П-З): пока долги грузятся — полоса прогресса и серые «скелеты» строк вместо одной
+    /// надписи «Загружаю долги…» (на снимке через 3 с раздел выглядел зависшим). Уже показанный список не трогаем.</summary>
+    private void ShowLoading()
+    {
+        if (_debtors.Count > 0)
+            return;
+        _list.Children.Clear();
+        _aging.Children.Clear();
+        var bar = new ProgressBar { IsIndeterminate = true, Height = 4, Margin = new Thickness(0, 0, 0, 4) };
+        Avalonia.Automation.AutomationProperties.SetName(bar, T("Загружаю долги…", "Карыздар жүктөлүүдө…", "Loading debts…", "Borçlar yükleniyor…", "Qarzlar yuklanmoqda…"));
+        _list.Children.Add(bar);
+        for (var i = 0; i < 4; i++)
+        {
+            var skeleton = new Border { CornerRadius = new CornerRadius(12), Height = 64, Opacity = 0.55, IsHitTestVisible = false };
+            Use(skeleton, Border.BackgroundProperty, "BrushBorder");
+            _list.Children.Add(skeleton);
+        }
+    }
+
+    /// <summary>2026-10-22 (аудит 1.17.59, П-З): сбой загрузки — понятное сообщение и «Повторить» (раньше только строка итога).</summary>
+    private void ShowLoadError(string reason)
+    {
+        if (_debtors.Count > 0)
+            return;
+        _list.Children.Clear();
+        var box = new StackPanel { Spacing = 10, HorizontalAlignment = HorizontalAlignment.Left };
+        var text = new TextBlock
+        {
+            Text = T("Не удалось загрузить долги. Проверьте интернет и нажмите «Повторить».", "Карыздарды жүктөө мүмкүн болгон жок. Интернетти текшерип, «Кайталоо» баскычын басыңыз.",
+                "Couldn't load the debts. Check the internet connection and press “Retry”.", "Borçlar yüklenemedi. İnterneti kontrol edip «Yeniden dene»ye basın.",
+                "Qarzlarni yuklab bo'lmadi. Internetni tekshirib, «Qayta urinish»ni bosing.") + (reason.Length > 0 ? "\n" + reason : ""),
+            TextWrapping = TextWrapping.Wrap,
+        };
+        Use(text, TextBlock.ForegroundProperty, "BrushTextSoft");
+        var retry = UiKit.Ghost(this, T("Повторить", "Кайталоо", "Retry", "Yeniden dene", "Qayta urinish"));
+        retry.Click += async (_, _) => await LoadAsync().ConfigureAwait(true);
+        box.Children.Add(text);
+        box.Children.Add(retry);
+        _list.Children.Add(box);
+    }
+
     private async Task LoadAsync()
     {
         var gen = ++_loadGen;
         var startVersion = PosDataEvents.DebtVersion;
         _seenDebtVersion = startVersion; // 2026-10-18: этот список — не старше этого изменения
+        ShowLoading(); // 2026-10-22 (аудит 1.17.59, П-З): индикатор, пока список пуст
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
@@ -363,6 +497,7 @@ public sealed class DebtsView : UserControl
             PosLogger.Log($"Долги клиентов: не загружены ({ex.GetType().Name}: {ex.Message}).", "WARNING");
             SetSummary(T("Не удалось загрузить долги: ", "Карыздарды жүктөө мүмкүн болгон жок: ", "Couldn't load debts: ", "Borçlar yüklenemedi: ", "Qarzlarni yuklab bo'lmadi: ")
                        + (ex is OperationCanceledException ? T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi") : ex.Message));
+            ShowLoadError(ex is OperationCanceledException ? T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi") : "");
         }
     }
 
@@ -522,7 +657,13 @@ public sealed class DebtsView : UserControl
     {
         var sales = await App.GetRequiredService<ISalesApiService>().PosDebtSalesAsync(clientId, ct).ConfigureAwait(true);
         var d = BuildDebtors(sales, new Dictionary<string, string>()).FirstOrDefault(x => string.Equals(x.ClientId, clientId, StringComparison.OrdinalIgnoreCase));
-        return d is null ? null : ApplyExact(d, null);
+        // 2026-10-22 (аудит 1.17.59, П-Е): после «Записать долг без продажи» долг клиента виден сразу — карточка по одному клиенту
+        // считается точно (чеки + долг без продажи тем же загрузчиком, что у окон оплаты); не получилось — как раньше (≈ по продажам).
+        var exact = await ExactRowsAsync(clientId, sales, ct).ConfigureAwait(true);
+        if (exact is null)
+            return d is null ? null : ApplyExact(d, null);
+        d ??= new Debtor(clientId, "", "", new List<DebtSale>());
+        return ApplyExact(d, exact);
     }
 
     /// <summary>2026-10-18: общий точный загрузчик для раздела «Долги клиентов». До 60 чеков — точные
@@ -533,13 +674,17 @@ public sealed class DebtsView : UserControl
         var (rawSales, debtors) = await LoadSalesAndDebtorsAsync(withPhones, ct).ConfigureAwait(true);
         var byClient = rawSales.GroupBy(s => Str(s, "client") ?? "", StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<JsonElement>)g.ToList(), StringComparer.OrdinalIgnoreCase);
+        // 2026-10-22 (аудит 1.17.59, П-Е): клиенты только с «Долгом без продажи» — в общий расчёт («Сводка», «Клиенты», «Долги клиентов», Советник).
+        // 2026-10-23 (аудит, круг 7: «Долги клиентов» 4–5 с): поиск таких клиентов не ждёт уточнения остатков — идёт рядом с ним
+        // (число запросов то же; у обоих свой лимит 4 одновременных).
+        var noSaleTask = NoSaleOnlyDebtorsAsync(debtors, ct);
         if (debtors.Sum(d => d.Sales.Count) > ExactBeforeRenderLimit)
-            return (debtors.Select(d => ApplyExact(d, null)!).ToList(), true, byClient);
+            return (debtors.Select(d => ApplyExact(d, null)!).Concat(await noSaleTask.ConfigureAwait(true)).ToList(), true, byClient);
         using var exactCts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var refined = await Task.WhenAll(debtors.Select(async d =>
             ApplyExact(d, await ExactRowsAsync(d.ClientId, byClient.TryGetValue(d.ClientId, out var own) ? own : Array.Empty<JsonElement>(), exactCts.Token).ConfigureAwait(true))))
             .ConfigureAwait(true);
-        return (refined.Where(d => d is not null).Select(d => d!).ToList(), false, byClient);
+        return (refined.Where(d => d is not null).Select(d => d!).Concat(await noSaleTask.ConfigureAwait(true)).ToList(), false, byClient);
     }
 
     private void Render()
@@ -656,6 +801,7 @@ public sealed class DebtsView : UserControl
             Text = string.Join(" · ", new[]
             {
                 d.Phone,
+                // 2026-10-24 (приёмка, ПР-1b): считаются те же строки, что «чеков в долг» окна «Принять оплату» (чеки с остатком и сделки без продажи)
                 T($"чеков: {d.Sales.Count}", $"чектер: {d.Sales.Count}", $"receipts: {d.Sales.Count}", $"fiş: {d.Sales.Count}", $"cheklar: {d.Sales.Count}"),
                 T($"долг с {d.Oldest:dd.MM.yyyy} ({Days(d.Oldest)})", $"карыз {d.Oldest:dd.MM.yyyy} баштап ({Days(d.Oldest)})", $"owing since {d.Oldest:dd.MM.yyyy} ({Days(d.Oldest)})",
                     $"{d.Oldest:dd.MM.yyyy} tarihinden beri ({Days(d.Oldest)})", $"{d.Oldest:dd.MM.yyyy} dan beri ({Days(d.Oldest)})"),
@@ -795,12 +941,13 @@ public sealed class DebtsView : UserControl
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto,Auto,Auto"), Margin = new Thickness(0, 6, 0, 0) };
         var row = 0;
-        void Cell(string text, int col, bool head = false, string brush = "BrushText", bool right = false)
+        void Cell(string text, int col, bool head = false, string brush = "BrushText", bool right = false, bool wrap = false)
         {
             var t = new TextBlock
             {
                 Text = text, FontSize = head ? 11.5 : 13, FontWeight = head ? FontWeight.SemiBold : FontWeight.Normal,
-                Margin = new Thickness(col == 0 ? 0 : 14, 3, 0, 3), TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(col == 0 ? 0 : 14, 3, 0, 3), TextTrimming = wrap ? TextTrimming.None : TextTrimming.CharacterEllipsis,
+                TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, // 2026-10-23 (В-3): пометка «похоже на двойную запись» длинная — переносится
                 HorizontalAlignment = right ? HorizontalAlignment.Right : HorizontalAlignment.Left,
             };
             Use(t, TextBlock.ForegroundProperty, head ? "BrushTextSoft" : brush);
@@ -821,7 +968,12 @@ public sealed class DebtsView : UserControl
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             Cell($"{s.At:dd.MM.yyyy HH:mm}", 0);
             Cell(s.Number.Length > 0 ? "№" + s.Number : "—", 1);
-            Cell(string.Join(" · ", new[] { s.Item, s.Cashier }.Where(x => !string.IsNullOrWhiteSpace(x))), 2, brush: "BrushTextSoft");
+            // 2026-10-23 (аудит, круг 8, В-3): «похоже на двойную запись» — пометка жёлтым.
+            // 2026-10-24 (приёмка, ПР-1): сумма в долг входит (как на сервере) — остаток показываем, пометка остаётся жёлтой.
+            if (s.Duplicate)
+                Cell(s.Item, 2, brush: "BrushWarning", wrap: true);
+            else
+                Cell(string.Join(" · ", new[] { s.Item, s.Cashier }.Where(x => !string.IsNullOrWhiteSpace(x))), 2, brush: "BrushTextSoft");
             Cell(Money(s.Total), 3, right: true);
             Cell(Money(s.Paid), 4, brush: "BrushTextSoft", right: true);
             // 2026-10-21 (пакет 4, п. 93): остаток чека — цветом текста, красный — только у чека старше 30 дней.

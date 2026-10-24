@@ -1,23 +1,21 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.StaffTimesheetWindow"
         x:CompileBindings="False"
         Title="{DynamicResource staffTimesheet.title}"
-        Height="720" Width="1160" MinHeight="460" MinWidth="700"
+        Height="640" Width="1112"
         WindowStartupLocation="CenterOwner"
-        FontFamily="Segoe UI, Inter, Noto Sans"
-        Background="{DynamicResource BrushInputAlt}"
+        CanResize="False"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}"
         Loaded="Window_Loaded">
 
+    <!-- 2026-10-22 (аудит новой сборки, П2): было окно в системной рамке Windows с обрезанными заголовками столбцов
+         («Смен», «Дней»). Теперь общая оболочка ModalShell: шапка и «Закрыть» закреплены, таблица прокручивается сама,
+         заголовки столбцов переносятся на вторую строку, у столбцов есть минимальная ширина. -->
     <Window.Styles>
-        <Style Selector="Button.PrimaryButton">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="16,8"/>
-        </Style>
         <Style Selector="Button.SecondaryButton">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
@@ -33,54 +31,64 @@
             <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="Padding" Value="14"/>
         </Style>
+        <Style Selector="TextBlock.colHeader">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
     </Window.Styles>
 
-    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*">
+    <dlg:ModalShell x:Name="Shell" Margin="16" ContentScroll="Disabled"
+                    Title="{DynamicResource staffTimesheet.title}"
+                    Subtitle="{DynamicResource staffTimesheet.description}">
+        <dlg:ModalShell.Footer>
+            <Button IsCancel="True" IsDefault="True" Classes="modal-cancel" MaxWidth="200"
+                    Content="{DynamicResource common.close}" Click="Close_Click"/>
+        </dlg:ModalShell.Footer>
 
-        <!-- Заголовок -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <Border Background="{DynamicResource BrushAccentSoft}" CornerRadius="8" Padding="8">
-                    <TextBlock Text="🧑‍💼" FontSize="18" VerticalAlignment="Center"/>
-                </Border>
-                <TextBlock Text="{DynamicResource staffTimesheet.title}" FontSize="20" FontWeight="Bold"
-                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
-            </StackPanel>
-            <Button IsCancel="True" Grid.Column="1" Content="{DynamicResource common.close}" Classes="SecondaryButton" Click="Close_Click"/>
+        <Grid RowDefinitions="Auto,*">
+            <!-- Фильтр по датам -->
+            <Border Grid.Row="0" Classes="Card" Margin="0,0,0,12">
+                <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource staffTimesheet.periodLabel}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,10,0"/>
+                    <CalendarDatePicker x:Name="FromDatePicker" Width="160" Margin="0,0,10,0" Watermark="{DynamicResource staffTimesheet.fromWatermark}" SelectedDateChanged="DateFilter_Changed"/>
+                    <TextBlock Text="—" VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,10,0"/>
+                    <CalendarDatePicker x:Name="ToDatePicker" Width="160" Margin="0,0,10,0" Watermark="{DynamicResource staffTimesheet.toWatermark}" SelectedDateChanged="DateFilter_Changed"/>
+                    <Button Content="{DynamicResource common.refresh}" Classes="SecondaryButton" Margin="0,0,10,0" Click="Refresh_Click"/>
+                    <Button Content="{DynamicResource staffTimesheet.allPeriod}" Classes="SecondaryButton" Margin="0,0,10,0" Click="ClearFilter_Click"/>
+                    <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                </WrapPanel>
+            </Border>
+
+            <!-- Таблица -->
+            <Border Grid.Row="1" Classes="Card">
+                <DataGrid x:Name="TimesheetGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="40" GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Width="2.4*" MinWidth="170" Binding="{Binding Cashier}">
+                            <DataGridTextColumn.Header><TextBlock Classes="colHeader" Text="{DynamicResource staffTimesheet.colCashier}"/></DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Width="0.8*" MinWidth="96" Binding="{Binding ShiftCountText}">
+                            <DataGridTextColumn.Header><TextBlock Classes="colHeader" Text="{DynamicResource staffTimesheet.colShifts}"/></DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Width="0.8*" MinWidth="96" Binding="{Binding DaysWorkedText}">
+                            <DataGridTextColumn.Header><TextBlock Classes="colHeader" Text="{DynamicResource staffTimesheet.colDays}"/></DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Width="1.5*" MinWidth="120" Binding="{Binding TotalWorkedText}">
+                            <DataGridTextColumn.Header><TextBlock Classes="colHeader" Text="{DynamicResource staffTimesheet.colHours}"/></DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Width="1.5*" MinWidth="130" Binding="{Binding AverageShiftText}">
+                            <DataGridTextColumn.Header><TextBlock Classes="colHeader" Text="{DynamicResource staffTimesheet.colAvgShift}"/></DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Width="1.7*" MinWidth="130" Binding="{Binding TotalRevenueText}">
+                            <DataGridTextColumn.Header><TextBlock Classes="colHeader" Text="{DynamicResource staffTimesheet.colRevenue}"/></DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Width="2.4*" MinWidth="190" Binding="{Binding PeriodText}">
+                            <DataGridTextColumn.Header><TextBlock Classes="colHeader" Text="{DynamicResource staffTimesheet.colPeriod}"/></DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
         </Grid>
-
-        <!-- Пояснение -->
-        <TextBlock Grid.Row="1" Margin="0,0,0,12" FontSize="12" TextWrapping="Wrap"
-                   Foreground="{DynamicResource BrushTextSoft}"
-                   Text="{DynamicResource staffTimesheet.description}"/>
-
-        <!-- Фильтр по датам -->
-        <Border Grid.Row="2" Classes="Card" Margin="0,0,0,12">
-            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <TextBlock Text="{DynamicResource staffTimesheet.periodLabel}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
-                <CalendarDatePicker x:Name="FromDatePicker" Width="160" Watermark="{DynamicResource staffTimesheet.fromWatermark}" SelectedDateChanged="DateFilter_Changed"/>
-                <TextBlock Text="—" VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}"/>
-                <CalendarDatePicker x:Name="ToDatePicker" Width="160" Watermark="{DynamicResource staffTimesheet.toWatermark}" SelectedDateChanged="DateFilter_Changed"/>
-                <Button Content="{DynamicResource common.refresh}" Classes="PrimaryButton" Click="Refresh_Click"/>
-                <Button Content="{DynamicResource staffTimesheet.allPeriod}" Classes="SecondaryButton" Click="ClearFilter_Click"/>
-                <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="10,0,0,0"/>
-            </StackPanel>
-        </Border>
-
-        <!-- Таблица -->
-        <Border Grid.Row="3" Classes="Card">
-            <DataGrid x:Name="TimesheetGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="40" GridLinesVisibility="Horizontal">
-                <DataGrid.Columns>
-                    <!-- 2026-10-20 (живой аудит кассы, К18): столбцы обрезались («1253 ч 22 ми», «106 811 122 с», даты) — окно шире (1160), «Смен»/«Дней» уже. -->
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colCashier}" Width="2*" Binding="{Binding Cashier}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colShifts}" Width="0.7*" Binding="{Binding ShiftCountText}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colDays}" Width="0.7*" Binding="{Binding DaysWorkedText}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colHours}" Width="1.5*" Binding="{Binding TotalWorkedText}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colAvgShift}" Width="1.5*" Binding="{Binding AverageShiftText}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colRevenue}" Width="1.6*" Binding="{Binding TotalRevenueText}"/>
-                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colPeriod}" Width="2.4*" Binding="{Binding PeriodText}"/>
-                </DataGrid.Columns>
-            </DataGrid>
-        </Border>
-    </Grid>
+    </dlg:ModalShell>
 </Window>

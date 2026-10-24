@@ -94,13 +94,13 @@ public sealed class SalarySchemeDialog : Window
         panel.Children.Add(_salaryPerItemRadio);
         panel.Children.Add(_percentPerItemRadio);
 
-        _monthlyBox = new TextBox { Watermark = "0" };
+        _monthlyBox = SectionCards.Field(new TextBox { Watermark = "0" }); // 2026-10-22 (модалки, пакет 4): поля 44 px
         _monthlyPanel = new StackPanel { Spacing = 4 };
         _monthlyPanel.Children.Add(Label(Tr.T("Оклад в месяц, сом", "Айлык маяна, сом", "Monthly salary, som", "Aylık maaş, som", "Oylik maosh, so'm")));
         _monthlyPanel.Children.Add(_monthlyBox);
         panel.Children.Add(_monthlyPanel);
 
-        _percentBox = new TextBox { Watermark = "0" };
+        _percentBox = SectionCards.Field(new TextBox { Watermark = "0" });
         _percentPanel = new StackPanel { Spacing = 4 };
         _percentPanel.Children.Add(Label(Tr.T("Процент от личных продаж, %", "Жеке сатуудан пайыз, %", "Percentage of own sales, %",
             "Kişisel satış yüzdesi, %", "Shaxsiy sotuvdan foiz, %")));
@@ -113,12 +113,12 @@ public sealed class SalarySchemeDialog : Window
                 "The same percentage is suggested for the consultant in the payment window.",
                 "Aynı yüzde ödeme penceresinde danışmana otomatik olarak girilir.",
                 "Xuddi shu foiz to'lov oynasida maslahatchiga qo'yiladi."),
-            FontSize = 11,
+            FontSize = 12.5,
             TextWrapping = TextWrapping.Wrap,
         }));
         panel.Children.Add(_percentPanel);
 
-        _perItemBox = new TextBox { Watermark = "10" };
+        _perItemBox = SectionCards.Field(new TextBox { Watermark = "10" });
         _perItemPanel = new StackPanel { Spacing = 4 };
         _perItemPanel.Children.Add(Label(Tr.T("За каждый проданный товар, сом", "Ар бир сатылган товар үчүн, сом", "Per item sold, som", "Satılan her ürün için, som", "Har bir sotilgan mahsulot uchun, so'm")));
         _perItemPanel.Children.Add(_perItemBox);
@@ -130,7 +130,7 @@ public sealed class SalarySchemeDialog : Window
                 "Piece goods — per unit on the receipt, weighed goods — per receipt line. Returns reduce the amount.",
                 "Adetli ürün — fişteki her adet için, tartılı ürün — fiş satırı için. İade tutarı azaltır.",
                 "Donali mahsulot — chekdagi har bir dona uchun, tortiladigan — chek qatori uchun. Qaytarish hisobni kamaytiradi."),
-            FontSize = 11,
+            FontSize = 12.5,
             TextWrapping = TextWrapping.Wrap,
         }));
         panel.Children.Add(_perItemPanel);
@@ -173,7 +173,7 @@ public sealed class SalarySchemeDialog : Window
     // 2026-10-21: подписи — цветом темы (BrushTextSoft), а не серым Windows (пакет 3, п. 136).
     private static TextBlock Label(string text)
     {
-        var label = new TextBlock { Text = text, FontSize = 12, Margin = new Thickness(0, 4, 0, 0) };
+        var label = new TextBlock { Text = text, FontSize = 13, Margin = new Thickness(0, 4, 0, 0) };
         label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushTextSoft"));
         return label;
     }
@@ -187,7 +187,8 @@ public sealed class SalarySchemeDialog : Window
 
     private RadioButton SchemeRadio(string text)
     {
-        var radio = new RadioButton { Content = text, GroupName = "pay_scheme" };
+        // 2026-10-22 (модалки, пакет 4): строка выбора схемы — 44 px (было ~32) для пальца.
+        var radio = new RadioButton { Content = text, GroupName = "pay_scheme", MinHeight = 44 };
         radio.IsCheckedChanged += (_, _) => UpdateFields();
         return radio;
     }

@@ -26,21 +26,18 @@ public sealed class VariantReceiveWindow : Window
     public VariantReceiveWindow(string productTitle, IReadOnlyList<ProductVariantDto> variants, IReadOnlyDictionary<string, double>? current)
     {
         Title = Tr.T("Приёмка по размерам", "Өлчөмдөр боюнча кабыл алуу", "Receive by size", "Bedene göre kabul", "O'lchamlar bo'yicha qabul");
-        SizeToContent = SizeToContent.WidthAndHeight;
-        MinWidth = 420;
-        MaxHeight = 760;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Use(this, BackgroundProperty, "BrushDialogPanel");
-        KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
-
         var list = variants.Where(v => !string.IsNullOrWhiteSpace(v.Id)).ToList();
         var sizes = list.Select(v => (v.Size ?? "").Trim()).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(SizeRank).ThenBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
         var colors = list.Select(v => (v.Color ?? "").Trim()).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(c => c, StringComparer.CurrentCultureIgnoreCase).ToList();
 
-        var root = new StackPanel { Margin = new Thickness(22, 18), Spacing = 12 };
-        var head = new TextBlock { Text = productTitle, FontSize = 19, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap, MaxWidth = 900 };
-        Use(head, TextBlock.ForegroundProperty, "BrushText");
-        root.Children.Add(head);
+        // 2026-10-22 (модалки, пакет 3): окно без рамки ОС в общей оболочке ModalShell — M = 672, при 7+ размерах L = 912.
+        // Шапка (название товара — подзаголовком) и подвал («Отмена» = Esc = ✕, «Готово») закреплены, сетка прокручивается
+        // между ними (раньше подвал уезжал вниз вместе с сеткой: MaxHeight 760 и своя прокрутка 520 — на 1024×600 и 910×512
+        // «Готово» было за краем). Enter «Готово» не нажимает: окно открывается посреди сканирования приёмки, и Enter сканера
+        // после кода в ячейке провёл бы приёмку с кодом вместо количества.
+        SectionCards.AsModal(this, sizes.Count > 6 ? 912 : 672);
+
+        var root = new StackPanel { Spacing = 12 };
         root.Children.Add(Soft(Tr.T("Сколько пришло каждого размера и цвета. Под ячейкой — сколько уже есть на складе.",
             "Ар бир өлчөм жана түс канча келди. Уячанын астында — кампада канча бар.",
             "How many of each size and colour arrived. Below each cell — current stock.",
@@ -75,7 +72,8 @@ public sealed class VariantReceiveWindow : Window
                 }
                 else
                 {
-                    var box = new TextBox { Width = 64, Height = 38, Watermark = "0", HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, FontSize = 15 };
+                    // 2026-10-22 (модалки, пакет 3): ячейка 72×44 (было 64×38) — касание пальцем.
+                    var box = new TextBox { Width = 72, Height = 44, Watermark = "0", HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, FontSize = 15 };
                     if (current != null && current.TryGetValue(v.Id!, out var have) && have > 0)
                         box.Text = have.ToString("0.###", Inv);
                     box.TextChanged += (_, _) => UpdateTotal();
@@ -85,7 +83,7 @@ public sealed class VariantReceiveWindow : Window
                     stack.Children.Add(box);
                     var stock = Soft(Tr.T($"есть {v.Quantity:0.###}", $"бар {v.Quantity:0.###}", $"has {v.Quantity:0.###}", $"var {v.Quantity:0.###}", $"bor {v.Quantity:0.###}"), center: true);
                     stock.HorizontalAlignment = HorizontalAlignment.Center;
-                    stock.FontSize = 11;
+                    stock.FontSize = 12;
                     stack.Children.Add(stock);
                     cell = stack;
                 }
@@ -95,28 +93,25 @@ public sealed class VariantReceiveWindow : Window
                 grid.Children.Add(cell);
             }
         }
-        root.Children.Add(new ScrollViewer { Content = grid, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto, MaxHeight = 520 });
+        // Сетка шире окна (много размеров) — прокрутка вбок; по высоте прокручивает оболочка.
+        root.Children.Add(new ScrollViewer
+        {
+            Content = grid,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+        });
 
         Use(_total, TextBlock.ForegroundProperty, "BrushCatalogPrice");
-        var buttons = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
-        buttons.Children.Add(_total);
-        var cancel = UiKit.Ghost(this, Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
-        cancel.Margin = new Thickness(12, 0, 10, 0);
+        var cancel = SectionCards.Cancel(Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => Close();
-        Grid.SetColumn(cancel, 1);
-        buttons.Children.Add(cancel);
-        var ok = UiKit.Primary(this, Tr.T("Готово", "Даяр", "Done", "Tamam", "Tayyor"));
-        ok.MinWidth = 140;
+        var ok = SectionCards.Primary(Tr.T("Готово", "Даяр", "Done", "Tamam", "Tayyor"));
         ok.Click += (_, _) =>
         {
             Result = _cells.ToDictionary(kv => kv.Key, kv => Parse(kv.Value.Text), StringComparer.OrdinalIgnoreCase)
                 .Where(kv => kv.Value > 0).ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
             Close();
         };
-        Grid.SetColumn(ok, 2);
-        buttons.Children.Add(ok);
-        root.Children.Add(buttons);
-        Content = root;
+        Content = SectionCards.Shell(Title ?? "", productTitle, root, SectionCards.Buttons(cancel, ok), _total);
         UpdateTotal();
         Opened += (_, _) => _cells.Values.FirstOrDefault()?.Focus();
     }

@@ -259,6 +259,23 @@ public static class AnalyticsExportService
             }
         }
 
+        // ---- 2026-10-22 (статьи изъятия): расходы по статьям — статьи отчёта NurCRM и изъятия из кассы смен по статьям.
+        var expenseRows = ExpenseArticleRows(expenses);
+        if (expenseRows.Count > 0)
+        {
+            var expenseSheet = book.AddSheet(SheetExpenseArticles, TitleExpenseArticles,
+                expenses.Articles?.Any(a => a.IsCollection) == true ? CashArticles.CollectionNote : null);
+            expenseSheet.AddTable(
+            [
+                new XlColumn(LSection, MaxWidth: 30),
+                new XlColumn(LArticle, MaxWidth: 50),
+                new XlColumn(LOperations, XlKind.Integer),
+                new XlColumn(ReportLabels.WithUnit(LAmount, Currency), XlKind.Money),
+            ],
+            expenseRows.Select(r => new object?[] { r.Section, r.Title, r.Count, r.Amount }), totals: false);
+            linked.Add((TitleExpenseArticles, expenseSheet));
+        }
+
         // ---- Склад
         var stockSheet = book.AddSheet(SheetStock, TitleRestock, RestockNote);
         stockSheet.AddTable(
@@ -294,13 +311,73 @@ public static class AnalyticsExportService
         "Giderler (NurCRM yanıt vermedi — yalnızca bu bilgisayarın kasasından alınan para)",
         "Xarajatlar (NurCRM javob bermadi — faqat shu kompyuter kassasidan olingan pul)");
 
-    /// <summary>Расход периода для отчёта и подпись строки. Вызывается из фонового потока выгрузки (Task.Run у всех окон).</summary>
-    private static (double Value, string Label) ShopExpenses(AnalyticsReportData data) =>
-        FetchServerExpenses(data.FromLocal, data.ToLocal) is { } server
-            ? (server, LExpenses)
-            : (data.Expenses, LExpensesTillOnly);
+    /// <summary>2026-10-22 (статьи изъятия): расходы NurCRM по статьям отчёта pnl (opex) — зарплата, аренда, налоги, коммунальные, прочие.</summary>
+    private sealed record ServerOpex(double Total, double Salaries, double Rent, double Taxes, double Utilities, double Other);
 
-    private static double? FetchServerExpenses(DateTime from, DateTime to)
+    /// <summary>Расход периода, подпись строки и (2026-10-22, статьи изъятия) разбивка: статьи NurCRM и изъятия из кассы по статьям.</summary>
+    private sealed record ShopExpenseInfo(double Value, string Label, ServerOpex? Opex, IReadOnlyList<CashArticles.ArticleTotal>? Articles);
+
+    /// <summary>Расход периода для отчёта и подпись строки. Вызывается из фонового потока выгрузки (Task.Run у всех окон).</summary>
+    private static ShopExpenseInfo ShopExpenses(AnalyticsReportData data) =>
+        FetchServerExpenses(data.FromLocal, data.ToLocal) is { } server
+            ? new ShopExpenseInfo(server.Total, LExpenses, server, FetchWithdrawalArticles(data.FromLocal, data.ToLocal))
+            : new ShopExpenseInfo(data.Expenses, LExpensesTillOnly, null, null);
+
+    /// <summary>2026-10-22 (статьи изъятия): изъятия из кассы смен по статьям (тот же расчёт, что в «Прибыль и деньги»).</summary>
+    private static IReadOnlyList<CashArticles.ArticleTotal>? FetchWithdrawalArticles(DateTime from, DateTime to)
+    {
+        try
+        {
+            if (NurMarketKassa.Services.Api.NurCrmReportsApi.ClientResolver?.Invoke() is not { AccessToken.Length: > 0 } api)
+                return null;
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            return Task.Run(() => CashArticles.WithdrawalsByArticleAsync(api, from, to, cts.Token)).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Выгрузка аналитики: изъятия по статьям не получены: {ex.Message}", "WARNING");
+            return null;
+        }
+    }
+
+    /// <summary>Строки «Расходы по статьям»: статьи отчёта NurCRM (больше нуля) и изъятия из кассы по статьям.</summary>
+    private static List<(string Section, string Title, int? Count, double Amount)> ExpenseArticleRows(ShopExpenseInfo info)
+    {
+        var rows = new List<(string Section, string Title, int? Count, double Amount)>();
+        if (info.Opex is { } o)
+        {
+            var section = Tr.T("Расходы NurCRM", "NurCRM чыгымдары", "NurCRM expenses", "NurCRM giderleri", "NurCRM xarajatlari");
+            foreach (var (title, value) in new[]
+                     {
+                         (Tr.T("Зарплата", "Эмгек акы", "Salaries", "Maaşlar", "Ish haqi"), o.Salaries),
+                         (Tr.T("Аренда", "Ижара", "Rent", "Kira", "Ijara"), o.Rent),
+                         (Tr.T("Налоги", "Салыктар", "Taxes", "Vergiler", "Soliqlar"), o.Taxes),
+                         (Tr.T("Коммунальные", "Коммуналдык", "Utilities", "Faturalar", "Kommunal"), o.Utilities),
+                         (Tr.T("Прочие расходы", "Башка чыгымдар", "Other expenses", "Diğer giderler", "Boshqa xarajatlar"), o.Other),
+                     })
+            {
+                if (value > 0.004)
+                    rows.Add((section, title, null, value));
+            }
+            rows.Add((section, Tr.T("Расходы всего", "Бардык чыгымдар", "Total expenses", "Toplam giderler", "Jami xarajatlar"), null, o.Total));
+        }
+        if (info.Articles is { Count: > 0 } articles)
+        {
+            var section = Tr.T("Изъятия из кассы", "Кассадан алынганы", "Cash taken from the till", "Kasadan çıkan", "Kassadan olingan");
+            foreach (var a in articles)
+                rows.Add((section, a.IsCollection ? a.Title + Tr.T(" — не расход", " — чыгым эмес", " — not an expense", " — gider değil", " — xarajat emas") : a.Title,
+                    a.Count, a.Amount));
+        }
+        return rows;
+    }
+
+    private static string SheetExpenseArticles => Tr.T("Расходы по статьям", "Чыгымдар беренелер боюнча", "Expenses by category", "Kalemlere göre giderler", "Moddalar bo'yicha xarajat");
+    private static string TitleExpenseArticles => SheetExpenseArticles;
+    private static string LSection => Tr.T("Раздел", "Бөлүм", "Section", "Bölüm", "Bo'lim");
+    private static string LArticle => Tr.T("Статья", "Берене", "Category", "Kalem", "Modda");
+    private static string LOperations => Tr.T("Операций", "Операциялар", "Operations", "İşlem", "Amallar");
+
+    private static ServerOpex? FetchServerExpenses(DateTime from, DateTime to)
     {
         try
         {
@@ -316,15 +393,23 @@ public static class AnalyticsExportService
             var d = Task.Run(() => api.RequestAsync(HttpMethod.Get, "api/main/analytics/pnl/", null, query, cts.Token, TimeSpan.FromSeconds(60)))
                 .GetAwaiter().GetResult();
             if (d.ValueKind != JsonValueKind.Object || !d.TryGetProperty("opex", out var opex) || opex.ValueKind != JsonValueKind.Object
-                || !opex.TryGetProperty("total", out var total))
+                || !opex.TryGetProperty("total", out _))
                 return null;
-            var text = total.ValueKind switch
+            double? Opex(string key)
             {
-                JsonValueKind.Number => total.GetRawText(),
-                JsonValueKind.String => total.GetString(),
-                _ => null,
-            };
-            return double.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) ? value : null;
+                if (!opex.TryGetProperty(key, out var v))
+                    return null;
+                var text = v.ValueKind switch
+                {
+                    JsonValueKind.Number => v.GetRawText(),
+                    JsonValueKind.String => v.GetString(),
+                    _ => null,
+                };
+                return double.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) ? value : null;
+            }
+            return Opex("total") is { } value
+                ? new ServerOpex(value, Opex("salaries") ?? 0, Opex("rent") ?? 0, Opex("taxes") ?? 0, Opex("utilities") ?? 0, Opex("other") ?? 0)
+                : null;
         }
         catch (Exception ex)
         {
@@ -363,6 +448,21 @@ public static class AnalyticsExportService
                 [LCatalogItems, ReportFormat.Integer(data.StockPositions)],
                 [ReportLabels.WithUnit(LStockValue, Currency), ReportFormat.Money(data.StockValue)],
             ]);
+
+        // 2026-10-22 (статьи изъятия): расходы по статьям — статьи отчёта NurCRM и изъятия из кассы смен по статьям.
+        var expenseRows = ExpenseArticleRows(expenses);
+        if (expenseRows.Count > 0)
+        {
+            doc.Heading2(TitleExpenseArticles);
+            doc.Table(
+                [new WColumn(LSection, 1.6), new WColumn(LArticle, 3), new WColumn(LOperations, 1, Numeric: true), new WColumn(ReportLabels.WithUnit(LAmount, Currency), 1.4, Numeric: true)],
+                expenseRows.Select(r => new[]
+                {
+                    r.Section, r.Title, r.Count is { } c ? ReportFormat.Integer(c) : "", ReportFormat.Money(r.Amount),
+                }).ToList());
+            if (expenses.Articles?.Any(a => a.IsCollection) == true)
+                doc.Note(CashArticles.CollectionNote);
+        }
 
         // Круговая строится только по тому, что реально было: нули в легенде только мешают.
         var structure = new List<(string, double)>

@@ -83,7 +83,7 @@
   <x:String x:Key="csh.phone.products">Товарлар</x:String>
   <x:String x:Key="csh.phone.receipt">Чек</x:String>
   <x:String x:Key="csh.catalog.colName">Товар</x:String>
-  <x:String x:Key="csh.catalog.colBarcode">Штрихкод</x:String>
+  <x:String x:Key="csh.catalog.colBarcode">Баркод</x:String>
   <x:String x:Key="csh.catalog.colStock">Калдык</x:String>
   <x:String x:Key="csh.catalog.colPrice">Баасы</x:String>
   <x:String x:Key="csh.catalog.nextPage">Кийинки ›</x:String>
@@ -161,7 +161,7 @@
   <x:String x:Key="operations.pageSubtitle">Дүкөндүн түрү, сменаны жабуу, чектен өчүрүү, Telegram жана QR менен төлөө</x:String>
   <x:String x:Key="operations.qrNotLoaded">QR жүктөлгөн эмес</x:String>
   <x:String x:Key="operations.qrLoaded">QR жүктөлдү</x:String>
-  <x:String x:Key="csh.cart.customService">Кошумча кызмат</x:String>
+  <x:String x:Key="csh.cart.customService">Кошум. кызмат</x:String>
   <x:String x:Key="onecLayout.customServiceButton">Кошумча кызмат</x:String>
   <x:String x:Key="customService.title">Кошумча кызмат</x:String>
   <x:String x:Key="customService.nameLabel">Аталышы</x:String>
@@ -191,7 +191,7 @@
   <x:String x:Key="csh.checkout.printReceipt">Чекти басып чыгаруу</x:String>
   <x:String x:Key="csh.checkout.cancel">Жокко чыгаруу</x:String>
   <x:String x:Key="csh.checkout.debt">Карызга</x:String>
-  <x:String x:Key="csh.checkout.client">Клиент</x:String>
+  <x:String x:Key="csh.checkout.client">Кардар</x:String>
   <x:String x:Key="csh.checkout.chooseClient">Клиентти тандоо</x:String>
   <x:String x:Key="csh.checkout.changeClient">Өзгөртүү</x:String>
   <x:String x:Key="csh.checkout.clearClient">✕</x:String>
@@ -413,10 +413,11 @@
   <x:String x:Key="closeShift.header">Сменаны жабуу (Z-отчёт)</x:String>
   <x:String x:Key="closeShift.instructions">Кассадагы накталай акчаны кайра эсептеп, иш жүзүндөгү калдыкты көрсөтүңүз.</x:String>
   <x:String x:Key="shift.systemBalance">Система боюнча калдык</x:String>
+  <x:String x:Key="shift.retryBalance">Кайра аракет</x:String>
   <x:String x:Key="closeShift.actualBalanceLabel">Кассадагы иш жүзүндөгү калдык</x:String>
   <x:String x:Key="closeShift.discrepancyLabel">Айырма</x:String>
   <x:String x:Key="closeShift.openingCashLabel">Баштапкы сумма</x:String>
-  <x:String x:Key="closeShift.totalSalesLabel">Жалпы сатуулар</x:String>
+  <x:String x:Key="closeShift.totalSalesLabel">Түшүм (карызсыз)</x:String>
   <x:String x:Key="closeShift.cashSalesLabel">Накталай</x:String>
   <x:String x:Key="closeShift.nonCashSalesLabel">Накталай эмес</x:String>
   <x:String x:Key="openShift.instructions">Сменанын башталышында кассадагы накталай акча суммасын көрсөтүңүз.</x:String>
@@ -577,7 +578,7 @@
   <x:String x:Key="shiftDetails.openedLabel">Ачылган</x:String>
   <x:String x:Key="shiftDetails.closedLabel">Жабылган</x:String>
   <x:String x:Key="shiftDetails.totalsSection">Жыйынтыктар</x:String>
-  <x:String x:Key="shiftDetails.revenueLabel">Смена боюнча түшүм</x:String>
+  <x:String x:Key="shiftDetails.revenueLabel">Түшүм (карызсыз)</x:String>
   <x:String x:Key="shiftDetails.print">Басып чыгаруу</x:String>
 
   <!-- Weighed product dialog, pay debt dialog -->
@@ -1297,7 +1298,7 @@
     <x:String x:Key="loc.kassa.weigh.quick2">2 кг</x:String>
     <x:String x:Key="loc.kassa.weigh.quick5">5 кг</x:String>
     <x:String x:Key="loc.owner.shift.writeOffs">Эсептен чыгаруулар</x:String>
-    <x:String x:Key="loc.owner.shift.debtPayments">Карыздарды төлөө</x:String>
+    <x:String x:Key="loc.owner.shift.debtPayments">Төлөнгөн карыздар</x:String>
     <x:String x:Key="loc.owner.shift.cashDrawerTitle">Сменадагы акча кутусу</x:String>
     <x:String x:Key="loc.owner.shift.deposits">Акча салуулар</x:String>
     <x:String x:Key="loc.owner.shift.withdrawalsExpense">Акча алуулар (чыгаша)</x:String>
@@ -1456,12 +1457,12 @@
   <x:String x:Key="csh.cart.writeOff">Эсептен чыгаруу</x:String>
   <x:String x:Key="csh.cart.writeOffTooltip">Бузулган, мөөнөтү өткөн же өз керегине алынган товарды кампадан эсептен чыгаруу</x:String>
   <x:String x:Key="csh.cart.printLastReceiptTooltip">Ушул сменанын акыркы чегинин көчүрмөсүн басып чыгаруу</x:String>
-  <x:String x:Key="lx.scanWatermark">Штрихкод же товардын коду — Enter</x:String>
+  <x:String x:Key="lx.scanWatermark">Баркод же товардын коду — Enter</x:String>
   <x:String x:Key="lx.searchWatermark">Аталышы, коду же штрихкоду боюнча издөө</x:String>
   <x:String x:Key="lx.proSearchWatermark">Товарды табыңыз же штрихкодду сканерлеңиз</x:String>
   <x:String x:Key="lx.colNo">№</x:String>
   <x:String x:Key="lx.emptySale">Чек азырынча бош</x:String>
-  <x:String x:Key="lx.emptySaleHint">Штрихкодду сканерлеңиз же товарды тандаңыз</x:String>
+  <x:String x:Key="lx.emptySaleHint">Баркодду сканерлеңиз же товарды тандаңыз</x:String>
   <x:String x:Key="lx.positions">Позициялар</x:String>
   <x:String x:Key="lx.keysHint">←→↑↓ — товар тандоо · Num + — кошуу · Num − — азайтуу · Enter — төлөө · Esc — сканерге кайтуу</x:String>
   <x:String x:Key="lx.receipt">Чек</x:String>

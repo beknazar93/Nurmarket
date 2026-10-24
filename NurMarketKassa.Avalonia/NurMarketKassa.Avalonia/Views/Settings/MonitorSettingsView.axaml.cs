@@ -32,10 +32,15 @@ public partial class MonitorSettingsView : UserControl
             return;
         if (ViewModel.RequiresDisableConfirmation &&
             PosMessageBox.Show(
+                TopLevel.GetTopLevel(this) as Window,
                 Tr.T("Окно покупателя сейчас открыто. Отключить и закрыть его?", "Сатып алуучунун терезеси азыр ачык. Аны өчүрүп, жабасызбы?", "The customer window is open now. Turn it off and close it?", "Müşteri penceresi şu anda açık. Devre dışı bırakılıp kapatılsın mı?", "Xaridor oynasi hozir ochiq. Uni o'chirib, yopasizmi?"),
                 Tr.T("Монитор покупателя", "Сатып алуучунун монитору", "Customer monitor", "Müşteri monitörü", "Xaridor monitori"),
                 MessageBoxButton.YesNo,
-                MessageBoxImage.Question) != MessageBoxResult.Yes)
+                MessageBoxImage.Question,
+                // 2026-10-22 (модалки, пакет 4): глагол «Отключить» вместо «Продолжить».
+                MessageBoxResult.OK,
+                Tr.T("Отключить", "Өчүрүү", "Turn off", "Devre dışı bırak", "O'chirish"),
+                Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")) != MessageBoxResult.Yes)
             return;
         ViewModel.Save();
     }

@@ -4,7 +4,6 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -17,10 +16,9 @@ import '../../core/theme/tokens.dart';
 import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
 import 'admin_repository.dart';
-import 'new_item.dart';
 import 'admin_receive.dart';
-import '../sale/catalog_repository.dart';
 import '../../core/util/audit.dart';
+import '../stock/product_edit.dart';
 
 final adminRepoProvider = Provider((ref) => AdminRepository(ref.watch(apiProvider), ref.watch(databaseProvider)));
 
@@ -56,7 +54,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
 
   Future<void> _load() async {
     final db = ref.read(databaseProvider);
-    final low = await (db.select(db.products)..where((p) => p.quantity.isSmallerOrEqualValue(3) & p.isService.equals(false))).get();
+    // 2026-10-22 (мобилка, админ, П11): порог «заканчивается» как на ПК — остаток меньше 10 (было ≤ 3).
+    final low = await (db.select(db.products)..where((p) => lowStockSql(p) & p.isService.equals(false))).get();
     if (mounted) setState(() => _low = low.length);
     try {
       final t = await ref.read(adminRepoProvider).today();
@@ -250,6 +249,10 @@ class _ProductPriceScreenState extends ConsumerState<ProductPriceScreen> {
   // 14.10, владелец: «фильтр везде, где есть товары» — остаток и категория.
   StockFilter _stock = StockFilter.all;
   String? _category;
+  // 2026-10-22 (мобилка, админ, П11): поиск с задержкой 250 мс — раньше запрос к базе шёл на каждую букву, и ответ
+  // старой буквы мог прийти позже новой (список «прыгал»).
+  Timer? _debounce;
+  int _seq = 0;
 
   @override
   void initState() {
@@ -257,225 +260,31 @@ class _ProductPriceScreenState extends ConsumerState<ProductPriceScreen> {
     _search('');
   }
 
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _q.dispose();
+    super.dispose();
+  }
+
+  void _searchLater(String q) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () => _search(q));
+  }
+
   Future<void> _search(String q) async {
+    final seq = ++_seq;
     final db = ref.read(databaseProvider);
     final byCode = q.trim().isEmpty ? null : await db.productByBarcode(q.trim());
     final rows = byCode != null ? [byCode] : await db.searchProducts(q, category: _category, limit: 300);
-    if (mounted) setState(() => _rows = rows.where((p) => stockFilterMatch(p, _stock)).toList());
+    if (mounted && seq == _seq) setState(() => _rows = rows.where((p) => stockFilterMatch(p, _stock)).toList());
   }
 
+  // 2026-10-22 (мобилка, админ): правка товара — общая карточка склада (stock/product_edit.dart): цена и закупка уходят
+  // вместе (сервер пересчитывает цену по наценке), сначала карточка, потом фото, остаток — только документом.
   Future<void> _edit(Product p) async {
-    final l = context.l;
-    Map<String, dynamic>? full;
-    try {
-      full = await ref.read(adminRepoProvider).product(p.id);
-    } on ApiException {
-      full = null;
-    }
-    if (!mounted) return;
-    final price = TextEditingController(text: money(p.price).replaceAll(' ', '').replaceAll(' ', ''));
-    final cost = num0(full, 'purchase_price');
-    final purchase = TextEditingController(text: cost > 0 ? money(cost).replaceAll(' ', '').replaceAll(' ', '') : '');
-    final whole = num0(full, 'wholesale_price');
-    final wholesale = TextEditingController(text: whole > 0 ? money(whole).replaceAll(' ', '').replaceAll(' ', '') : '');
-    // 14.10, владелец: «мало — надо количество, категорию, бренд, фото; кнопка сохранить уходит вниз». Поля прокручиваются,
-    // «Сохранить» всегда видна внизу окна. Категория/бренд/остаток уходят на сервер, только если их поменяли.
-    String nameOf(String key) {
-      final v = full?['${key}_name'] ?? full?[key];
-      if (v is Map) return '${v['name'] ?? ''}';
-      return v is String ? v : '';
-    }
-
-    final isService = full?['kind'] == 'service';
-    final startQty = full == null ? p.quantity : num0(full, 'quantity');
-    final qty = TextEditingController(text: qtyText(startQty).replaceAll(' ', ''));
-    final startCategory = nameOf('category');
-    final startBrand = nameOf('brand');
-    final category = TextEditingController(text: startCategory);
-    final brand = TextEditingController(text: startBrand);
-    final imageUrl = full == null ? null : CatalogRepository.productImageUrl(full);
-    final photos = <Uint8List>[];
-    Future<void> addPhoto(void Function(void Function()) set, Future<Uint8List?> Function() pick) async {
-      final bytes = await pick();
-      if (bytes != null) set(() => photos.add(bytes));
-    }
-
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (c) => StatefulBuilder(
-        builder: (c, set) {
-          final pr = parseNum(price.text) ?? 0;
-          final co = parseNum(purchase.text) ?? 0;
-          return ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(c).height * .9),
-            child: SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(c).bottom + 12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Flexible(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-                            Text(
-                              '${l.onStockLabel}: ${qtyText(p.quantity)} ${p.unit}${p.barcode == null ? '' : ' · ${p.barcode}'}',
-                              style: TextStyle(color: c.pal.textSoft, fontSize: 12.5),
-                            ),
-                            const SizedBox(height: 14),
-                            FieldLabel(l.sellingPrice),
-                            TextField(controller: price, keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (_) => set(() {})),
-                            FieldLabel(l.purchasePrice),
-                            TextField(controller: purchase, keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (_) => set(() {})),
-                            FieldLabel(l.wholesalePrice),
-                            TextField(controller: wholesale, keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (_) => set(() {})),
-                            if ((parseNum(wholesale.text) ?? 0) > 0 && co > 0 && (parseNum(wholesale.text) ?? 0) < co)
-                              Text(
-                                l.belowCost,
-                                style: const TextStyle(color: T.danger, fontWeight: FontWeight.w700, fontSize: 12),
-                              ),
-                            const SizedBox(height: 8),
-                            if (co > 0 && pr > 0)
-                              Text(
-                                pr < co ? l.belowCost : l.markup(((pr - co) / co * 100).toStringAsFixed(0)),
-                                style: TextStyle(color: pr < co ? T.danger : T.success, fontWeight: FontWeight.w700),
-                              ),
-                            if (!isService) ...[
-                              FieldLabel(l.quantityLabel),
-                              TextField(
-                                controller: qty,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: InputDecoration(suffixText: p.unit),
-                              ),
-                            ],
-                            FieldLabel(l.categoryLabel),
-                            TextField(controller: category, textCapitalization: TextCapitalization.sentences),
-                            FieldLabel(l.brandLabel),
-                            TextField(controller: brand, textCapitalization: TextCapitalization.sentences),
-                            FieldLabel(l.photoLabel),
-                            SizedBox(
-                              height: 72,
-                              child: ListView(
-                                scrollDirection: Axis.horizontal,
-                                children: [
-                                  if (imageUrl != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: Image.network(
-                                          imageUrl,
-                                          width: 72,
-                                          height: 72,
-                                          fit: BoxFit.cover,
-                                          cacheWidth: 200,
-                                          errorBuilder: (_, _, _) => const SizedBox(width: 72, child: Icon(Icons.broken_image_outlined)),
-                                        ),
-                                      ),
-                                    ),
-                                  for (final b in photos)
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: Image.memory(b, width: 72, height: 72, fit: BoxFit.cover, cacheWidth: 200),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                ActionChip(
-                                  avatar: const Icon(Icons.photo_camera_rounded, size: 18),
-                                  label: Text(l.photoCamera),
-                                  onPressed: () => addPhoto(set, () => pickPhoto(ImageSource.camera)),
-                                ),
-                                ActionChip(
-                                  avatar: const Icon(Icons.photo_library_outlined, size: 18),
-                                  label: Text(l.photoGallery),
-                                  onPressed: () => addPhoto(set, () => pickPhoto(ImageSource.gallery)),
-                                ),
-                                ActionChip(
-                                  avatar: const Icon(Icons.travel_explore_rounded, size: 18),
-                                  label: Text(l.photoInternet),
-                                  onPressed: () => addPhoto(set, () => pickInternetPhoto(c, p.name, p.barcode ?? '')),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-                      onPressed: () => Navigator.pop(c, true),
-                      child: Text(l.save),
-                    ),
-                    const SizedBox(height: 6),
-                    TextButton.icon(
-                      style: TextButton.styleFrom(foregroundColor: T.danger),
-                      onPressed: () async {
-                        Navigator.pop(c, false);
-                        if (await confirmDeleteProduct(context, ref, p)) setState(() {});
-                      },
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      label: Text(l.deleteProduct),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-    if (ok != true || !mounted) return;
-    final newPrice = parseNum(price.text);
-    final newCost = parseNum(purchase.text);
-    final newWholesale = parseNum(wholesale.text);
-    final q = parseNum(qty.text);
-    final newQty = !isService && q != null && (q - startQty).abs() > 0.0005 ? q : null;
-    final newCategory = category.text.trim() != startCategory.trim() ? category.text : null;
-    final newBrand = brand.text.trim() != startBrand.trim() ? brand.text : null;
-    try {
-      await ref
-          .read(adminRepoProvider)
-          .setPrices(p.id, price: newPrice, purchase: newCost, wholesale: newWholesale, quantity: newQty, category: newCategory, brand: newBrand);
-      if (newQty != null) await ref.read(databaseProvider).customStatement('UPDATE products SET quantity = ? WHERE id = ?', [newQty, p.id]);
-      for (var i = 0; i < photos.length; i++) {
-        await ref.read(adminReceiveRepoProvider).uploadImage(p.id, photos[i], primary: imageUrl == null && i == 0);
-      }
-      if (newPrice != null) {
-        final db = ref.read(databaseProvider);
-        await db.customStatement('UPDATE products SET price = ? WHERE id = ?', [newPrice, p.id]);
-      }
-      if (newWholesale != null) await ref.read(databaseProvider).customStatement('UPDATE products SET wholesale_price = ? WHERE id = ?', [newWholesale, p.id]);
-      Audit.log(
-        'price',
-        [
-          p.name,
-          if (newPrice != null && (newPrice - p.price).abs() > 0.004) '${l.sellingPrice}: ${money(p.price)} → ${money(newPrice)}',
-          if (newQty != null) '${l.quantityLabel}: ${qtyText(startQty)} → ${qtyText(newQty)}',
-          if (newCategory != null) '${l.categoryLabel}: $newCategory',
-          if (newBrand != null) '${l.brandLabel}: $newBrand',
-          if (photos.isNotEmpty) '${l.photoLabel}: +${photos.length}',
-        ].join(' · '),
-      );
-      if (!mounted) return;
-      toast(context, l.priceSaved);
-      await _search(_q.text);
-    } on ApiException catch (e) {
-      if (mounted) toast(context, e.message, error: true);
-    }
+    await openProductEditor(context, ref, p);
+    if (mounted) await _search(_q.text);
   }
 
   @override
@@ -490,7 +299,7 @@ class _ProductPriceScreenState extends ConsumerState<ProductPriceScreen> {
             child: TextField(
               controller: _q,
               decoration: InputDecoration(hintText: l.nameOrBarcode, prefixIcon: const Icon(Icons.search_rounded)),
-              onChanged: _search,
+              onChanged: _searchLater,
             ),
           ),
           Padding(
@@ -530,7 +339,7 @@ class _ProductPriceScreenState extends ConsumerState<ProductPriceScreen> {
                             ),
                             Text(
                               '${l.onStockLabel}: ${qtyText(p.quantity)} ${p.unit}',
-                              style: TextStyle(fontSize: 12, color: p.quantity <= 3 ? T.warn : c.pal.textSoft),
+                              style: TextStyle(fontSize: 12, color: isLowStock(p.quantity, p.minQuantity) ? T.warn : c.pal.textSoft),
                             ),
                           ],
                         ),
@@ -780,6 +589,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   List<SiteOrder>? _rows;
   String? _error;
   bool _showDone = false;
+  // 2026-10-22 (мобилка, админ, П11): коды выдачи собранных на этом телефоне заказов — видны у «Выдать».
+  final Map<String, String> _codes = {};
 
   @override
   void initState() {
@@ -789,11 +600,45 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   Future<void> _load() async {
     try {
-      final rows = await ref.read(adminRepoProvider).orders();
-      if (mounted) setState(() => _rows = rows);
+      final repo = ref.read(adminRepoProvider);
+      final rows = await repo.orders();
+      final codes = <String, String>{};
+      for (final o in rows.where((o) => o.status == 'ready')) {
+        final c = await repo.savedPickupCode(o.id);
+        if (c != null) codes[o.id] = c;
+      }
+      if (mounted) {
+        setState(() {
+          _rows = rows;
+          _codes
+            ..clear()
+            ..addAll(codes);
+        });
+      }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     }
+  }
+
+  /// 2026-10-22 (мобилка, админ, П11): отменить заказ (status canceled, как SiteOrdersWindow ПК) — с подтверждением.
+  Future<void> _cancel(SiteOrder o) async {
+    final l = context.l;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l.cancelOrder),
+        content: Text(l.cancelOrderAsk(o.number)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: T.danger),
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(l.cancelOrder),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) await _status(o, 'canceled');
   }
 
   Future<void> _status(SiteOrder o, String status) async {
@@ -858,6 +703,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                 '${o.phone} · ${o.items.length} · ${orderStatusText(context, o.status)}',
                                 style: TextStyle(fontSize: 12, color: c.pal.textSoft),
                               ),
+                              if (_codes[o.id] != null)
+                                Text(l.pickupCodeLabel(_codes[o.id]!), style: const TextStyle(fontWeight: FontWeight.w800)),
                               const SizedBox(height: 8),
                               if (!o.finished)
                                 Row(
@@ -892,6 +739,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                     ],
                                   ],
                                 ),
+                              if (!o.finished)
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton.icon(
+                                    style: TextButton.styleFrom(foregroundColor: T.danger, minimumSize: const Size(48, 48)),
+                                    onPressed: () => _cancel(o),
+                                    icon: const Icon(Icons.cancel_outlined, size: 18),
+                                    label: Text(l.cancelOrder),
+                                  ),
+                                ),
                             ],
                           ),
                         );
@@ -912,16 +769,10 @@ class PickScreen extends ConsumerStatefulWidget {
 
 class _PickScreenState extends ConsumerState<PickScreen> {
   final Map<int, double> _picked = {};
-  final Map<String, String> _barcodes = {};
   final _camera = MobileScannerController(detectionSpeed: DetectionSpeed.normal);
   String _last = '';
   DateTime _lastAt = DateTime(2000);
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBarcodes();
-  }
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -929,43 +780,60 @@ class _PickScreenState extends ConsumerState<PickScreen> {
     super.dispose();
   }
 
-  Future<void> _loadBarcodes() async {
-    final db = ref.read(databaseProvider);
-    for (final it in widget.order.items) {
-      final p = await db.productById(it.productId);
-      if (p?.barcode != null) _barcodes[p!.barcode!] = it.productId;
-    }
-  }
-
-  void _onScan(String code) {
+  /// 2026-10-22 (мобилка, админ, П11): товар по скану — как в продаже (db.productByScan): любой штрихкод товара, доп.
+  /// штрихкод упаковки (×N), UPC-A ↔ EAN-13, весовая этикетка (вес). Раньше — только основной штрихкод, весовой товар +1.
+  Future<void> _onScan(String code) async {
     final now = DateTime.now();
     if (code == _last && now.difference(_lastAt).inMilliseconds < 1500) return;
     _last = code;
     _lastAt = now;
-    final pid = _barcodes[code];
-    final items = widget.order.items;
-    for (var i = 0; i < items.length; i++) {
-      if (items[i].productId == pid && (_picked[i] ?? 0) < items[i].qty) {
-        setState(() => _picked[i] = (_picked[i] ?? 0) + 1);
-        return;
-      }
+    final hit = await ref.read(databaseProvider).productByScan(code);
+    if (!mounted) return;
+    final r = hit == null ? null : pickScanned(widget.order.items, _picked, hit.product.id, hit.qty);
+    if (r == null) {
+      toast(context, context.l.notInOrder, error: true);
+      return;
     }
-    toast(context, context.l.notInOrder, error: true);
+    setState(() => _picked[r.$1] = r.$2);
   }
 
   Future<void> _done() async {
+    // 2026-10-22 (мобилка, админ, П11): двойное нажатие — один раз; недобор — только после вопроса; код выдачи — один
+    // на заказ и сохраняется (см. AdminRepository.pickupCode).
+    if (_busy) return;
     final l = context.l;
     final o = widget.order;
-    final code = (1000 + DateTime.now().millisecondsSinceEpoch % 9000).toString();
-    final due = [for (var i = 0; i < o.items.length; i++) o.items[i].price * (_picked[i] ?? 0)].fold<double>(0, (s, x) => s + x);
-    try {
-      await ref.read(adminRepoProvider).setOrderStatus(o.id, 'ready');
-    } on ApiException catch (e) {
-      if (mounted) toast(context, e.message, error: true);
-      return;
+    final short = pickShortage(o.items, _picked);
+    if (short > 0) {
+      final need = o.items.fold<double>(0, (s, i) => s + i.qty);
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          content: Text(l.pickShortAsk(qtyText(need - short), qtyText(need))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.orderPicked)),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
     }
-    if (o.phone.isNotEmpty) await openWhatsApp(o.phone, l.orderReadyMsg(o.number, money(due > 0 ? due : o.total), code));
-    if (mounted) Navigator.of(context).pop();
+    setState(() => _busy = true);
+    try {
+      final repo = ref.read(adminRepoProvider);
+      final code = await repo.pickupCode(o.id);
+      final due = [for (var i = 0; i < o.items.length; i++) o.items[i].price * (_picked[i] ?? 0)].fold<double>(0, (s, x) => s + x);
+      try {
+        await repo.setOrderStatus(o.id, 'ready');
+      } on ApiException catch (e) {
+        if (mounted) toast(context, e.message, error: true);
+        return;
+      }
+      if (o.phone.isNotEmpty) await openWhatsApp(o.phone, l.orderReadyMsg(o.number, money(due > 0 ? due : o.total), code));
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -975,7 +843,14 @@ class _PickScreenState extends ConsumerState<PickScreen> {
     final need = o.items.fold<double>(0, (s, i) => s + i.qty);
     final got = [for (var i = 0; i < o.items.length; i++) (_picked[i] ?? 0)].fold<double>(0, (s, x) => s + x);
     return Scaffold(
-      appBar: ScreenTitle('№${o.number}', subtitle: o.customer),
+      appBar: ScreenTitle(
+        '№${o.number}',
+        subtitle: o.customer,
+        actions: [
+          // 2026-10-22 (мобилка, админ, П11): фонарик — на складе часто темно.
+          IconButton(tooltip: l.torchToggle, onPressed: () => _camera.toggleTorch(), icon: const Icon(Icons.flashlight_on_rounded)),
+        ],
+      ),
       body: Column(
         children: [
           SizedBox(
@@ -1039,8 +914,10 @@ class _PickScreenState extends ConsumerState<PickScreen> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: FilledButton(
                 style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                onPressed: _done,
-                child: Text(l.orderPicked),
+                onPressed: _busy ? null : _done,
+                child: _busy
+                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                    : Text(l.orderPicked),
               ),
             ),
           ),
@@ -1061,6 +938,13 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
   final _q = TextEditingController();
   List<ClientRow>? _rows;
   String? _error;
+  // 2026-10-22 (мобилка, админ, П11): постранично (50) с «Ещё» и поиск по мере набора (400 мс) — раньше при открытии
+  // грузилось до 6000 клиентов, а поиск работал только по Enter.
+  int _page = 1;
+  bool _more = false;
+  bool _loadingMore = false;
+  int _seq = 0;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -1068,12 +952,46 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _q.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
+    final seq = ++_seq;
     try {
-      final rows = await ref.read(adminRepoProvider).clients(_q.text);
-      if (mounted) setState(() => _rows = rows);
+      final r = await ref.read(adminRepoProvider).clientsPage(_q.text, 1);
+      if (!mounted || seq != _seq) return;
+      setState(() {
+        _rows = r.rows;
+        _page = 1;
+        _more = r.more;
+        _error = null;
+      });
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && seq == _seq) setState(() => _error = e.message);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_more) return;
+    final seq = _seq;
+    setState(() => _loadingMore = true);
+    try {
+      final r = await ref.read(adminRepoProvider).clientsPage(_q.text, _page + 1);
+      if (!mounted || seq != _seq) return;
+      setState(() {
+        final seen = {for (final c in _rows ?? const <ClientRow>[]) c.id};
+        _rows = [...?_rows, ...r.rows.where((c) => !seen.contains(c.id))];
+        _page++;
+        _more = r.more;
+      });
+    } on ApiException catch (e) {
+      if (mounted) toast(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -1103,7 +1021,14 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
             child: TextField(
               controller: _q,
               decoration: InputDecoration(hintText: l.clientSearch, prefixIcon: const Icon(Icons.search_rounded)),
-              onSubmitted: (_) => _load(),
+              onChanged: (_) {
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 400), _load);
+              },
+              onSubmitted: (_) {
+                _debounce?.cancel();
+                _load();
+              },
             ),
           ),
           Expanded(
@@ -1111,9 +1036,16 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                 ? Center(child: _error == null ? const CircularProgressIndicator() : Text(_error!))
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                    itemCount: _rows!.length,
+                    itemCount: _rows!.length + (_more ? 1 : 0),
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (c, i) {
+                      if (i >= _rows!.length) {
+                        return OutlinedButton(
+                          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                          onPressed: _loadingMore ? null : _loadMore,
+                          child: _loadingMore ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : Text(l.loadMore),
+                        );
+                      }
                       final r = _rows![i];
                       return Panel(
                         child: Column(
@@ -1270,7 +1202,7 @@ class _SupplierOrderScreenState extends ConsumerState<SupplierOrderScreen> {
 
   Future<void> _addLow() async {
     final db = ref.read(databaseProvider);
-    var low = await (db.select(db.products)..where((p) => p.quantity.isSmallerOrEqualValue(3) & p.isService.equals(false))).get();
+    var low = await (db.select(db.products)..where((p) => lowStockSql(p) & p.isService.equals(false))).get(); // 2026-10-22 (мобилка, админ, П11): порог как на ПК
     final name = _name.text.trim();
     if (_supplierId != null || name.isNotEmpty) {
       try {

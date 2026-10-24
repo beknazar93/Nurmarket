@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart' show DioMediaType, FormData, MultipartFile;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
@@ -10,6 +13,9 @@ import '../../core/theme/tokens.dart';
 import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
 import '../../core/util/audit.dart';
+import '../../l10n/app_localizations.dart';
+import '../scan/barcode_lookup.dart';
+import '../scan/code_lookup.dart';
 
 /// Строка приёмки администратора: количество, закупка и продажа.
 class ReceiveLine {
@@ -27,6 +33,18 @@ class ReceiveLine {
 
   /// 13.10: категория нового товара (массовая загрузка).
   final String category;
+
+  // 2026-10-22 (мобилка, админ, П8/П12): исход прошлой попытки — как PendingStockPatch и проверка «товар уже создан»
+  // кассы (PurchaseReceivingService, BulkImportWindow). Строка живёт до успеха, повтор не задваивает.
+  /// Создание товара осталось без ответа (обрыв, 5xx) — перед повтором ищем товар на сервере.
+  bool createUnknown = false;
+
+  /// PATCH остатка без ответа: остаток до прибавки и записанный остаток.
+  double? pendingPre;
+  double? pendingTarget;
+
+  /// Строка проведена (остаток записан сервером).
+  bool posted = false;
   ReceiveLine({
     required this.productId,
     required this.name,
@@ -43,6 +61,9 @@ class ReceiveLine {
   });
   double get markup => cost > 0 ? (price - cost) / cost * 100 : 0;
 }
+
+/// Количество — до 3 знаков (граммы).
+double roundQty(double v) => (v * 1000).round() / 1000;
 
 /// 13.10, макеты ПР2, ПР4–ПР6: приёмка на телефоне администратора — тем же путём, что касса (PurchaseReceivingService):
 /// с поставщиком — документ прихода POST api/main/suppliers/{id}/receipt/ (остаток прибавляет сервер), изменённая цена
@@ -139,11 +160,15 @@ class AdminReceiveRepository {
     double? wholesale,
     List<Map<String, Object>>? altBarcodes,
     String? description,
+    bool isWeight = false,
+    int? plu,
   }) async {
     final body = {
       'name': l.name.trim(),
       'unit': l.unit,
-      'is_weight': false,
+      // 2026-10-22 (мобилка, админ, П10): «кг» — весовой товар с PLU (как BuildProductBody кассы); раньше всегда штучный
+      'is_weight': isWeight,
+      if (isWeight && plu != null) 'plu': plu,
       'quantity': 0,
       'kind': kind,
       if (category != null && category.trim().isNotEmpty) 'category_name': category.trim(),
@@ -172,6 +197,38 @@ class AdminReceiveRepository {
     throw last ?? ApiException('Товар не создан');
   }
 
+  /// 2026-10-22 (мобилка, админ, П10): PLU нового весового товара — как ProductEditDialog кассы и сайт: число весовых
+  /// товаров + 1 (без связи — по базе телефона), занятые в каталоге номера пропускаются (иначе сервер отвечает 400
+  /// «Этот PLU уже используется»).
+  /// Вписанный PLU или следующий свободный.
+  Future<int> nextPluOr(String typed) async {
+    final n = int.tryParse(typed.trim());
+    return n != null && n > 0 ? n : nextPlu();
+  }
+
+  Future<int> nextPlu() async {
+    var count = -1;
+    try {
+      final data = await api.get('api/main/products/list/', query: {'is_weight': 'true', 'page': 1, 'page_size': 1});
+      if (data is Map && data['count'] is num) count = (data['count'] as num).toInt();
+    } on ApiException {
+      // нет связи — по базе телефона
+    }
+    if (count < 0) {
+      final r = await db.customSelect('SELECT COUNT(*) AS c FROM products WHERE is_weight = 1', readsFrom: {db.products}).getSingle();
+      count = r.read<int>('c');
+    }
+    final used = {
+      for (final r in await db.customSelect("SELECT plu FROM products WHERE plu IS NOT NULL AND plu <> ''", readsFrom: {db.products}).get())
+        int.tryParse((r.data['plu'] ?? '').toString().trim()) ?? 0,
+    };
+    var n = count + 1;
+    while (used.contains(n)) {
+      n++;
+    }
+    return n;
+  }
+
   /// Фото в карточку товара — POST products/{id}/images/ (поле image, is_primary), как UploadProductImageAsync кассы.
   Future<void> uploadImage(String productId, List<int> bytes, {bool primary = false}) async {
     FormData form() => FormData.fromMap({
@@ -190,32 +247,102 @@ class AdminReceiveRepository {
     }
   }
 
-  /// Провести приход. Возвращает (принято строк, ошибки).
-  Future<(int, List<String>)> post(List<ReceiveLine> lines, String? supplierId, bool paidNow) async {
+  /// 2026-10-22 (мобилка, админ): ответ потерялся (обрыв, тайм-аут, 5xx, 408, 429) — операция могла пройти. Как
+  /// PendingIdempotencyKey.IsOutcomeUnknown кассы.
+  static bool outcomeUnknown(Object e) => e is! ApiException || e.status == null || e.status == 408 || e.status == 429 || e.status! >= 500;
+
+  /// 2026-10-22 (мобилка, админ, П8): ключ повтора прихода от поставщика — как _pendingReceiptKey кассы. Пока исход
+  /// прошлой попытки с тем же составом неизвестен, повтор идёт ТЕМ ЖЕ ключом (сервер, знающий поле, не проведёт приход
+  /// второй раз). Хранится в базе телефона 24 часа — переживает закрытие экрана.
+  static const pendingReceiptKeySetting = 'receive.pendingKey';
+
+  static String receiptSignature(String supplierId, bool paidNow, List<ReceiveLine> ready) =>
+      '$supplierId|$paidNow|${(ready.map((l) => '${l.productId}:${l.qty.toStringAsFixed(3)}:${l.cost.toStringAsFixed(2)}').toList()..sort()).join(';')}';
+
+  Future<String> receiptKey(String signature) async {
+    try {
+      final raw = await db.getSetting(pendingReceiptKeySetting);
+      if (raw != null && raw.isNotEmpty) {
+        final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
+        final at = DateTime.tryParse(m['at'] as String? ?? '');
+        if (m['sig'] == signature && m['key'] is String && at != null && DateTime.now().difference(at) < const Duration(hours: 24)) {
+          return m['key'] as String;
+        }
+      }
+    } catch (_) {
+      // испорченная запись — новый ключ
+    }
+    final key = const Uuid().v4();
+    await db.setSetting(pendingReceiptKeySetting, jsonEncode({'key': key, 'sig': signature, 'at': DateTime.now().toIso8601String()}));
+    return key;
+  }
+
+  /// 2026-10-22 (мобилка, админ, П8/П10/П12): товар, созданный прошлой попыткой без ответа, — ищем на сервере по
+  /// штрихкоду, без штрихкода — по точному названию. null — не нашли (или нет связи).
+  Future<String?> findCreated(String name, String barcode) async {
+    final code = barcode.trim();
+    final title = name.trim().toLowerCase();
+    try {
+      final data = await api.get('api/main/products/list/', query: {'search': code.isNotEmpty ? code : name.trim(), 'page': 1, 'page_size': 20});
+      for (final p in asList(data)) {
+        final id = str(p, 'id');
+        if (id == null || id.isEmpty) continue;
+        if (code.isNotEmpty ? (str(p, 'barcode') ?? '').trim() == code : (str(p, 'name') ?? '').trim().toLowerCase() == title) return id;
+      }
+    } on ApiException {
+      // нет связи — не знаем
+    }
+    return null;
+  }
+
+  /// Провести приход. Возвращает (принято строк, ошибки). У проведённых строк — [ReceiveLine.posted].
+  /// 2026-10-22 (мобилка, админ, П12): [setStock] — «Задать остаток» (как массовая загрузка кассы: остаток заменяется),
+  /// иначе количество прибавляется. Только без поставщика.
+  Future<(int, List<String>)> post(List<ReceiveLine> lines, String? supplierId, bool paidNow, {bool setStock = false, AppLocalizations? l10n}) async {
     final errors = <String>[];
     for (final l in lines.where((l) => l.productId.isEmpty)) {
+      // 2026-10-22 (мобилка, админ): прошлое создание без ответа — товар мог появиться; второй не создаём
+      if (l.createUnknown) {
+        final found = await findCreated(l.name, l.barcode);
+        if (found != null) {
+          l.productId = found;
+          l.createUnknown = false;
+          continue;
+        }
+      }
       try {
         l.productId = await createProduct(l, category: l.category);
+        l.createUnknown = false;
       } on ApiException catch (e) {
+        if (outcomeUnknown(e)) l.createUnknown = true;
         errors.add('${l.name}: ${e.message}');
       }
     }
-    final ready = lines.where((l) => l.productId.isNotEmpty && l.qty > 0).toList();
+    final ready = lines.where((l) => l.productId.isNotEmpty && l.qty > 0 && !l.posted).toList();
     if (ready.isEmpty) return (0, errors);
     var posted = 0;
     // 14.10, проверка логики: остаток и цена на телефоне — только у проведённых строк (раньше и у тех, что сервер не принял).
     final done = <ReceiveLine>[];
     if (supplierId != null) {
-      await api.post(
-        'api/main/suppliers/$supplierId/receipt/',
-        body: {
-          'items': [
-            for (final l in ready) {'product': l.productId, 'qty': l.qty, 'purchase_price': l.cost},
-          ],
-          'payment_type': paidNow ? 'cash' : 'debt',
-          if (paidNow) 'cashbox_role': 'expense_variable',
-        },
-      );
+      final key = await receiptKey(receiptSignature(supplierId, paidNow, ready));
+      try {
+        await api.post(
+          'api/main/suppliers/$supplierId/receipt/',
+          body: {
+            'items': [
+              for (final l in ready) {'product': l.productId, 'qty': l.qty, 'purchase_price': l.cost},
+            ],
+            'payment_type': paidNow ? 'cash' : 'debt',
+            if (paidNow) 'cashbox_role': 'expense_variable',
+            'idempotency_key': key,
+          },
+        );
+      } on ApiException catch (e) {
+        // отказ по существу — следующая попытка будет новым приходом; без ответа — ключ остаётся для повтора
+        if (!outcomeUnknown(e)) await db.setSetting(pendingReceiptKeySetting, '');
+        rethrow;
+      }
+      await db.setSetting(pendingReceiptKeySetting, '');
       posted = ready.length;
       done.addAll(ready);
       for (final l in ready.where((l) => !l.isNew && (l.price - l.oldPrice).abs() > 0.004)) {
@@ -230,10 +357,41 @@ class AdminReceiveRepository {
         try {
           final current = ((await api.get('api/main/products/${l.productId}/')) as Map).cast<String, dynamic>();
           final stock = num0(current, 'quantity');
-          await api.patch(
-            'api/main/products/${l.productId}/',
-            body: {'quantity': ((stock + l.qty) * 1000).round() / 1000, 'purchase_price': l.cost.toStringAsFixed(2), 'price': l.price.toStringAsFixed(2)},
-          );
+          // 2026-10-22 (мобилка, админ, П8/П12): как PendingStockPatch кассы — прошлый PATCH остатка мог дойти без ответа.
+          // Остаток уже равен записанному — повторно не прибавляем; изменился иначе — не понять, прибавилось ли: не трогаем.
+          var pre = stock;
+          if (!setStock && l.pendingTarget != null && l.pendingPre != null) {
+            if ((stock - l.pendingTarget!).abs() < 0.0005) {
+              pre = l.pendingPre!;
+            } else if ((stock - l.pendingPre!).abs() >= 0.0005) {
+              errors.add(l10n?.pAStockUnclear(l.name, qtyText(stock), qtyText(l.pendingPre!)) ?? '${l.name}: ?');
+              continue;
+            }
+          }
+          final target = setStock ? roundQty(l.qty) : roundQty(pre + l.qty);
+          final body = <String, Object>{'purchase_price': l.cost.toStringAsFixed(2), 'price': l.price.toStringAsFixed(2)};
+          if ((stock - target).abs() >= 0.0005) {
+            body['quantity'] = target;
+            if (!setStock) {
+              l.pendingPre = pre;
+              l.pendingTarget = target;
+            }
+          }
+          try {
+            await api.patch('api/main/products/${l.productId}/', body: body);
+          } on ApiException catch (e) {
+            // отказ по существу — остаток не записан: помнить нечего (или только прошлую дошедшую прибавку)
+            if (!outcomeUnknown(e) && body.containsKey('quantity') && !setStock) {
+              if ((stock - pre).abs() < 0.0005) {
+                l.pendingPre = l.pendingTarget = null;
+              } else {
+                l.pendingPre = pre;
+                l.pendingTarget = stock;
+              }
+            }
+            rethrow;
+          }
+          l.pendingPre = l.pendingTarget = null;
           posted++;
           done.add(l);
         } on ApiException catch (e) {
@@ -242,7 +400,12 @@ class AdminReceiveRepository {
       }
     }
     for (final l in done) {
-      await db.adjustStock(l.productId, l.qty);
+      l.posted = true;
+      if (supplierId == null && setStock) {
+        await db.setStock(l.productId, roundQty(l.qty));
+      } else {
+        await db.adjustStock(l.productId, l.qty);
+      }
       await db.customStatement('UPDATE products SET price = ? WHERE id = ?', [l.price, l.productId]);
     }
     return (posted, errors);
@@ -271,6 +434,29 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
   String _last = '';
   DateTime _lastAt = DateTime(2000);
 
+  // 2026-10-22 (мобилка, админ, П8, К-9): поля цен — свои контроллеры у каждой строки. Раньше TextFormField(initialValue)
+  // без ключа: новая строка вставлялась наверх, а поле оставалось от прежней — у товара Б показывалась закупка товара А.
+  final _costCtl = <ReceiveLine, TextEditingController>{};
+  final _priceCtl = <ReceiveLine, TextEditingController>{};
+
+  /// 2026-10-22 (мобилка, админ, П8): скан обрабатывается по одному — пока ищется товар или открыто окно нового товара,
+  /// следующие коды не берём (раньше окна открывались одно поверх другого и строки дублировались).
+  bool _scanBusy = false;
+
+  /// 2026-10-22 (мобилка, админ, П8): «Провести» нажато — второе нажатие не проводит приход второй раз.
+  bool _posting = false;
+
+  static String _numText(double v) => v == 0 ? '' : qtyText(v).replaceAll(RegExp('[ \u00A0\u202F]'), '');
+
+  TextEditingController _ctl(Map<ReceiveLine, TextEditingController> m, ReceiveLine line, double v) =>
+      m.putIfAbsent(line, () => TextEditingController(text: _numText(v)));
+
+  void _removeLine(ReceiveLine line) {
+    _lines.remove(line);
+    _costCtl.remove(line)?.dispose();
+    _priceCtl.remove(line)?.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -286,15 +472,19 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
   @override
   void dispose() {
     _camera?.dispose();
+    for (final c in [..._costCtl.values, ..._priceCtl.values]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   double get _total => _lines.fold(0, (s, l) => s + l.qty * l.cost);
 
-  Future<void> _addProduct(Product p) async {
+  /// [qty] — штрихкод упаковки: сколько штук (2026-10-22, П8: раньше всегда 1).
+  Future<void> _addProduct(Product p, {double qty = 1}) async {
     final existing = _lines.where((l) => l.productId == p.id).firstOrNull;
     if (existing != null) {
-      setState(() => existing.qty += 1);
+      setState(() => existing.qty += qty);
       return;
     }
     var cost = 0.0;
@@ -302,6 +492,13 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
       cost = num0(((await ref.read(apiProvider).get('api/main/products/${p.id}/')) as Map).cast<String, dynamic>(), 'purchase_price');
     } on ApiException {
       // без связи — закупку впишет администратор
+    }
+    if (!mounted) return;
+    // 2026-10-22 (мобилка, админ, П8): пока ждали закупку, строку могли добавить ещё раз — не дублируем
+    final again = _lines.where((l) => l.productId == p.id).firstOrNull;
+    if (again != null) {
+      setState(() => again.qty += qty);
+      return;
     }
     setState(
       () => _lines.insert(
@@ -316,6 +513,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
           oldPrice: p.price,
           cost: cost,
           price: p.price,
+          qty: qty,
         ),
       ),
     );
@@ -323,20 +521,51 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
 
   Future<void> _onCode(String code) async {
     final now = DateTime.now();
+    if (_scanBusy) return;
     if (code == _last && now.difference(_lastAt).inMilliseconds < 1500) return;
     _last = code;
     _lastAt = now;
-    final p = await ref.read(databaseProvider).productByBarcode(code);
-    if (p != null) {
-      await _addProduct(p);
+    _scanBusy = true;
+    try {
+      await _handleCode(code);
+    } finally {
+      _scanBusy = false;
+      _lastAt = DateTime.now();
+    }
+  }
+
+  /// 2026-10-22 (мобилка, админ, П8): товар по коду как у кассы — все написания кода, штрихкод упаковки (×N), сервер
+  /// (товар, заведённый на ПК минуту назад, не создаётся вторым); этикетка весов в приёмку не берётся (вес одной покупки).
+  Future<void> _handleCode(String code) async {
+    final l = context.l;
+    final db = ref.read(databaseProvider);
+    final hit = await CodeLookup.find(db, ref.read(apiProvider), code, allowWeightLabel: false);
+    if (!mounted) return;
+    if (hit.product != null) {
+      await _addProduct(hit.product!, qty: hit.qty ?? 1);
       return;
     }
-    final same = _lines.where((l) => l.isNew && l.barcode == code).firstOrNull;
+    final clean = normalizeCode(code);
+    final same = _lines.where((x) => x.isNew && x.barcode == clean).firstOrNull;
     if (same != null) {
       setState(() => same.qty += 1);
       return;
     }
-    await _newProduct(code);
+    if (parseWeightLabel(clean, clothing: (await db.getSetting('shop.clothing')) == '1') != null) {
+      if (mounted) toast(context, l.pAWeightLabel, error: true);
+      return;
+    }
+    if (hit.unavailable) {
+      if (mounted) toast(context, l.pANoServerCheck, error: true);
+      return;
+    }
+    // окно нового товара — камера стоит, пока оно открыто
+    await _camera?.stop();
+    try {
+      await _newProduct(clean);
+    } finally {
+      if (mounted && _scanning) await _camera?.start();
+    }
   }
 
   /// ПР4: новый товар прямо из приёмки — название из общей базы по штрихкоду, закупка, продажа +30 %.
@@ -522,12 +751,27 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
     if (ok != true || !mounted) return;
     setState(() {
       for (final x in _lines) {
-        if (x.cost > 0 && (all || _costChanged(x))) x.price = _rounded(x.cost);
+        if (x.cost > 0 && (all || _costChanged(x))) {
+          x.price = _rounded(x.cost);
+          // 2026-10-22 (мобилка, админ, П8): поле показывает новую цену (раньше оставалась прежняя цифра)
+          _priceCtl[x]?.text = _numText(x.price);
+        }
       }
     });
   }
 
   Future<void> _post() async {
+    if (_posting) return;
+    setState(() => _posting = true);
+    try {
+      await _postOnce();
+    } finally {
+      _posting = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _postOnce() async {
     final l = context.l;
     // 13.10, макет ПР6: итог перед проведением — позиции, штуки, новые товары, изменённые цены, сумма закупки.
     final qty = _lines.fold(0.0, (s, x) => s + x.qty);
@@ -546,12 +790,27 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
     if (confirm != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      final (n, errors) = await ref.read(adminReceiveRepoProvider).post(_lines, _supplierId, _paidNow);
-      Audit.log('receive', '${l.receiptPosted(n)}${errors.isEmpty ? '' : ' · ${errors.length} !'}', amount: _total);
+      final total = _total;
+      final (n, errors) = await ref.read(adminReceiveRepoProvider).post(_lines, _supplierId, _paidNow, l10n: l);
+      Audit.log('receive', '${l.receiptPosted(n)}${errors.isEmpty ? '' : ' · ${errors.length} !'}', amount: total);
       if (!mounted) return;
-      toast(context, errors.isEmpty ? l.receiptPosted(n) : '${l.receiptPosted(n)} ${l.partlyFailed(errors.take(3).join('; '))}', error: errors.isNotEmpty);
-      // 13.10, владелец: «после приёмки остаётся на этом экране» — приход проведён (хотя бы частично): закрываем
-      if (n > 0) Navigator.of(context).pop(true);
+      // 2026-10-22 (мобилка, админ, П8): проведённые строки уходят из списка, непринятые остаются — их можно поправить и
+      // провести снова (раньше экран закрывался, и строки с ошибкой пропадали).
+      setState(() {
+        for (final x in _lines.where((x) => x.posted).toList()) {
+          _removeLine(x);
+        }
+      });
+      final left = _lines.length;
+      toast(
+        context,
+        errors.isEmpty && left == 0
+            ? l.receiptPosted(n)
+            : '${l.receiptPosted(n)} ${errors.isEmpty ? '' : l.partlyFailed(errors.take(3).join('; '))}${left > 0 ? ' ${l.pALinesLeft(left)}' : ''}',
+        error: errors.isNotEmpty || left > 0,
+      );
+      // 13.10, владелец: «после приёмки остаётся на этом экране» — приход проведён целиком: закрываем
+      if (n > 0 && left == 0) Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
     } finally {
@@ -577,9 +836,9 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
   }
 
   // 13.10, владелец: подписи обрезались («Заку…», «Цена…») — поля делят строку поровну, подпись видна целиком.
-  Widget _numBox(String label, double value, void Function(double) onChanged) => Expanded(
-    child: TextFormField(
-      initialValue: value == 0 ? '' : qtyText(value).replaceAll(' ', '').replaceAll(' ', ''),
+  Widget _numBox(String label, TextEditingController controller, void Function(double) onChanged) => Expanded(
+    child: TextField(
+      controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(labelText: label, isDense: true),
       onChanged: (v) => setState(() => onChanged(parseNum(v) ?? 0)),
@@ -659,6 +918,8 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                   final line = _lines[i];
                   final costUp = !line.isNew && line.oldCost > 0 && (line.cost - line.oldCost).abs() > 0.004;
                   return Panel(
+                    // 2026-10-22 (мобилка, админ, П8): строка узнаётся по себе, а не по месту в списке
+                    key: ObjectKey(line),
                     padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -682,7 +943,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                               ),
                             ),
                             IconButton(
-                              onPressed: () => setState(() => line.qty > 1 ? line.qty -= 1 : _lines.removeAt(i)),
+                              onPressed: () => setState(() => line.qty > 1 ? line.qty -= 1 : _removeLine(line)),
                               icon: const Icon(Icons.remove_circle_outline_rounded),
                             ),
                             // 13.10, владелец: «количество не вводится» — нажатие на число: ввод количества
@@ -711,9 +972,9 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                         ),
                         Row(
                           children: [
-                            _numBox(l.purchasePrice, line.cost, (v) => line.cost = v),
+                            _numBox(l.purchasePrice, _ctl(_costCtl, line, line.cost), (v) => line.cost = v),
                             const SizedBox(width: 8),
-                            _numBox(l.sellingPrice, line.price, (v) => line.price = v),
+                            _numBox(l.sellingPrice, _ctl(_priceCtl, line, line.price), (v) => line.price = v),
                             const SizedBox(width: 8),
                             if (line.cost > 0)
                               Text(
@@ -748,7 +1009,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                     const SizedBox(height: 8),
                     FilledButton(
                       style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                      onPressed: _lines.isEmpty || _busy ? null : _post,
+                      onPressed: _lines.isEmpty || _busy || _posting ? null : _post,
                       child: Text('${l.postReceipt} · ${l.purchaseSum(money(_total))}'),
                     ),
                   ],

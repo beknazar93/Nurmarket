@@ -33,8 +33,13 @@ public static class PosMessageBox
         string caption,
         MessageBoxButton button = MessageBoxButton.OK,
         MessageBoxImage icon = MessageBoxImage.None,
-        MessageBoxResult defaultResult = MessageBoxResult.OK)
+        MessageBoxResult defaultResult = MessageBoxResult.OK,
+        string? confirmText = null,
+        string? cancelText = null,
+        bool danger = false)
     {
+        // 2026-10-22 (модалки, пакет 0): у вопросов (YesNo/YesNoCancel) кнопки — глаголы: по умолчанию «Продолжить» /
+        // «Отмена» (PosConfirmDialog), свои — confirmText/cancelText («Удалить», «Закрыть смену»), danger — красная.
         if (button == MessageBoxButton.YesNo
             && string.Equals(caption, "Подтверждение выхода", StringComparison.Ordinal))
         {
@@ -73,8 +78,9 @@ public static class PosMessageBox
                     owner,
                     caption,
                     messageBoxText,
-                    confirmText: Tr.T("Да", "Ооба", "Yes", "Evet", "Ha"),
-                    cancelText: button == MessageBoxButton.YesNoCancel ? Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish") : Tr.T("Нет", "Жок", "No", "Hayır", "Yo'q"));
+                    confirmText: confirmText,
+                    cancelText: cancelText,
+                    accent: danger ? PosConfirmAccent.Danger : PosConfirmAccent.Primary);
                 return confirmed ? MessageBoxResult.Yes : MessageBoxResult.No;
             }
             default:
@@ -103,7 +109,10 @@ public static class PosMessageBox
         string messageBoxText,
         string caption,
         MessageBoxButton button = MessageBoxButton.OK,
-        MessageBoxImage icon = MessageBoxImage.None)
+        MessageBoxImage icon = MessageBoxImage.None,
+        string? confirmText = null,
+        string? cancelText = null,
+        bool danger = false)
     {
 #if NURANDROID
         if (button == MessageBoxButton.YesNo
@@ -117,12 +126,14 @@ public static class PosMessageBox
 
         if (button is MessageBoxButton.YesNo or MessageBoxButton.YesNoCancel)
         {
+            // 2026-10-22 (модалки, пакет 0): глаголы как в Windows — по умолчанию «Продолжить» / «Отмена».
             var confirmed = await PosConfirmDialog.ShowModalAsync(
                 owner,
                 caption,
                 messageBoxText,
-                confirmText: Tr.T("Да", "Ооба", "Yes", "Evet", "Ha"),
-                cancelText: button == MessageBoxButton.YesNoCancel ? Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish") : Tr.T("Нет", "Жок", "No", "Hayır", "Yo'q")).ConfigureAwait(true);
+                confirmText: confirmText,
+                cancelText: cancelText,
+                accent: danger ? PosConfirmAccent.Danger : PosConfirmAccent.Primary).ConfigureAwait(true);
             return confirmed ? MessageBoxResult.Yes : MessageBoxResult.No;
         }
 
@@ -131,7 +142,7 @@ public static class PosMessageBox
         return MessageBoxResult.OK;
 #else
         await Task.CompletedTask.ConfigureAwait(true);
-        return Show(owner, messageBoxText, caption, button, icon);
+        return Show(owner, messageBoxText, caption, button, icon, MessageBoxResult.OK, confirmText, cancelText, danger);
 #endif
     }
 
@@ -156,12 +167,20 @@ public static class PosMessageBox
 
 public static class PosDialogs
 {
-    public static bool ConfirmYesNo(Window? owner, string message, string? title = null) =>
-        PosConfirmDialog.Show(owner, title ?? Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), message);
+    /// <summary>Вопрос с двумя кнопками. 2026-10-22 (модалки, пакет 0): по умолчанию «Продолжить» / «Отмена» (было «Да» /
+    /// «Нет»); свои глаголы — <paramref name="confirmText"/> / <paramref name="cancelText"/> («Удалить клиента»),
+    /// <paramref name="danger"/> — красная главная кнопка (удаление, необратимое действие).</summary>
+    public static bool ConfirmYesNo(Window? owner, string message, string? title = null,
+        string? confirmText = null, string? cancelText = null, bool danger = false) =>
+        PosConfirmDialog.Show(owner, title ?? Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), message,
+            confirmText, cancelText, danger ? PosConfirmAccent.Danger : PosConfirmAccent.Primary);
 
-    /// <summary>2026-10-04, Android-касса: то же из async-кода (в Windows — прежний синхронный ConfirmYesNo).</summary>
-    public static Task<bool> ConfirmYesNoModalAsync(Window? owner, string message, string? title = null) =>
-        PosConfirmDialog.ShowModalAsync(owner, title ?? Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), message);
+    /// <summary>2026-10-04, Android-касса: то же из async-кода (в Windows — прежний синхронный ConfirmYesNo).
+    /// 2026-10-22 (модалки, пакет 0): те же глаголы и danger, что у <see cref="ConfirmYesNo"/>.</summary>
+    public static Task<bool> ConfirmYesNoModalAsync(Window? owner, string message, string? title = null,
+        string? confirmText = null, string? cancelText = null, bool danger = false) =>
+        PosConfirmDialog.ShowModalAsync(owner, title ?? Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), message,
+            confirmText, cancelText, danger ? PosConfirmAccent.Danger : PosConfirmAccent.Primary);
 
     public static void Info(Window? owner, string message, string? title = null) =>
         PosAlertDialog.Show(owner, title ?? Tr.T("Сообщение", "Билдирүү", "Message", "Mesaj", "Xabar"), message, PosAlertKind.Info);

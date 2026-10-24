@@ -188,31 +188,17 @@ public partial class ScalesPluWindow : Window
     private async void LabelWizard_Click(object? sender, RoutedEventArgs e)
     {
         var panel = new NurMarketKassa.AvaloniaHost.Views.Settings.ScaleBarcodeSetupPanel();
-        var done = new Button
-        {
-            Content = Tr.T("Готово", "Даяр", "Done", "Tamam", "Tayyor"),
-            Classes = { "btn-primary" },
-            MinWidth = 140,
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-            Margin = new Thickness(0, 12, 0, 0),
-        };
-        var root = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Margin = new Thickness(16) };
-        root.Children.Add(new ScrollViewer { Content = panel });
-        Grid.SetRow(done, 1);
-        root.Children.Add(done);
+        // 2026-10-22 (модалки, пакет 3): окно без рамки ОС в общей оболочке ModalShell (L = 912, было своё 900×740 с фоном
+        // не из темы): заголовок и ✕ сверху, «Готово» в закреплённом подвале (Esc, Enter и ✕ закрывают), мастер прокручивается.
         var window = new Window
         {
             Title = Tr.T("Штрих-код: вес или сумма", "Штрих-код: салмак же сумма", "Barcode: weight or amount", "Barkod: ağırlık veya tutar", "Shtrix-kod: vazn yoki summa"),
-            Width = 900,
-            Height = 740,
-            MinWidth = 560,
-            MinHeight = 420,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Content = root,
         };
+        SectionCards.AsModal(window, 912);
+        var done = SectionCards.Primary(Tr.T("Готово", "Даяр", "Done", "Tamam", "Tayyor"), isDefault: true);
+        done.IsCancel = true;
         done.Click += (_, _) => window.Close();
-        window.Opened += (_, _) => window.FitToKassaScreen(); // 2026-09-29: по экрану кассы
+        window.Content = SectionCards.Shell(window.Title ?? "", null, panel, SectionCards.Buttons(done));
         await window.ShowDialog(this).ConfigureAwait(true);
         UpdateBarcodeExample();
     }

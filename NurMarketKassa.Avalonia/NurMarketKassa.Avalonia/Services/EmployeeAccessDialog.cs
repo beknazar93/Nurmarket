@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using NurMarketKassa.AvaloniaHost.Views;
 using NurMarketKassa.Models;
 using NurMarketKassa.Services;
 
@@ -21,45 +22,31 @@ public sealed class EmployeeAccessDialog : Window
     public EmployeeAccessDialog(string employeeName, EmployeeAccessFlags current)
     {
         Title = Tr.T($"Доступы: {employeeName}", $"Укуктар: {employeeName}", $"Permissions: {employeeName}", $"Erişimler: {employeeName}", $"Huquqlar: {employeeName}");
-        Width = 560;
-        Height = 620;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        CanResize = true;
+        // 2026-10-22 (модалки, пакет 4): общая рамка ModalShell (M 672) вместо системной рамки 560×620 — кнопки были 28 px,
+        // Esc не закрывал. Чек-лист прокручивается в теле, «Отмена» и «Сохранить доступы» закреплены внизу; Esc и ✕ — «Отмена».
+        SectionCards.AsModal(this, 672);
 
         var (accessView, accessBoxes) = EmployeeAccessChecklist.Build(current);
         _accessBoxes = accessBoxes;
-        accessView.Margin = new Thickness(16, 16, 16, 0);
+        // Доступы — в общей прокрутке тела окна: своя прокрутка чек-листа внутри неё не нужна.
+        var accessPanel = (Control)accessView.Content!;
+        accessView.Content = null;
 
-        var buttons = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Spacing = 8,
-            Margin = new Thickness(16),
-        };
-        var btnCancel = new Button { Content = Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), Width = 100, Height = 28 };
+        var btnCancel = SectionCards.Cancel(Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         btnCancel.Click += (_, _) => Close(false);
-        var btnSave = new Button
-        {
-            Content = Tr.T("Сохранить доступы", "Укуктарды сактоо", "Save permissions", "Erişimleri kaydet", "Huquqlarni saqlash"),
-            IsDefault = true,
-            Width = 160,
-            Height = 28,
-        };
+        var btnSave = SectionCards.Primary(Tr.T("Сохранить доступы", "Укуктарды сактоо", "Save permissions", "Erişimleri kaydet", "Huquqlarni saqlash"), isDefault: true);
         btnSave.Click += (_, _) =>
         {
             AccessFlags = EmployeeAccessChecklist.Read(_accessBoxes);
             Close(true);
         };
-        buttons.Children.Add(btnCancel);
-        buttons.Children.Add(btnSave);
 
-        var root = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
-        Grid.SetRow(accessView, 0);
-        Grid.SetRow(buttons, 1);
-        root.Children.Add(accessView);
-        root.Children.Add(buttons);
-
-        Content = root;
+        var shell = SectionCards.Shell(Title,
+            Tr.T("Что сотрудник видит на сайте app.nurcrm.kg и в кассе.", "Кызматкер app.nurcrm.kg сайтында жана кассада эмнени көрөт.",
+                "What the employee can see on app.nurcrm.kg and at the till.", "Personelin app.nurcrm.kg sitesinde ve kasada neleri göreceği.",
+                "Xodim app.nurcrm.kg saytida va kassada nimani ko'radi."),
+            accessPanel, SectionCards.Buttons(btnCancel, btnSave));
+        shell.InitialFocus = _accessBoxes.Cashbox;
+        Content = shell;
     }
 }

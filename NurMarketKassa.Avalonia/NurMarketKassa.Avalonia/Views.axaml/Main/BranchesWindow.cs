@@ -454,7 +454,9 @@ public sealed class BranchesWindow : Window, IOwnerSection
                 $"«{b.Name}» филиалын өчүрөсүзбү? Ал тизмеде калат, кайра күйгүзсө болот.",
                 $"Disable the branch \"{b.Name}\"? It stays in the list and can be enabled again.",
                 $"\"{b.Name}\" şubesi kapatılsın mı? Listede kalır, tekrar açılabilir.",
-                $"«{b.Name}» filiali o'chirilsinmi? U ro'yxatda qoladi, qayta yoqish mumkin.")).ConfigureAwait(true))
+                $"«{b.Name}» filiali o'chirilsinmi? U ro'yxatda qoladi, qayta yoqish mumkin."),
+                // 2026-10-22 (модалки, пакет 4): глагол и красная кнопка вместо «Да/Нет».
+                T("Выключить филиал", "Филиалды өчүрүү", "Disable branch", "Şubeyi kapat", "Filialni o'chirish"), danger: true).ConfigureAwait(true))
             return;
         try
         {
@@ -496,7 +498,8 @@ public sealed class BranchesWindow : Window, IOwnerSection
                 $"\"{b.Name}\" şubesine bağlı: {string.Join(", ", links)}. Şube yine de silinsin mi?",
                 $"«{b.Name}» filialiga bog'langan: {string.Join(", ", links)}. Baribir o'chirilsinmi?")
             : T($"Удалить филиал «{b.Name}»?", $"«{b.Name}» филиалын өчүрөсүзбү?", $"Delete the branch \"{b.Name}\"?", $"\"{b.Name}\" şubesi silinsin mi?", $"«{b.Name}» filiali o'chirilsinmi?");
-        if (!await ConfirmAsync(question).ConfigureAwait(true))
+        // 2026-10-22 (модалки, пакет 4): «Удалить филиал» красной вместо «Да».
+        if (!await ConfirmAsync(question, T("Удалить филиал", "Филиалды өчүрүү", "Delete branch", "Şubeyi sil", "Filialni o'chirish"), danger: true).ConfigureAwait(true))
             return;
         try
         {
@@ -836,7 +839,10 @@ public sealed class BranchesWindow : Window, IOwnerSection
             $"{Str(row, "number")} жылдыруусун жокко чыгарасызбы? Товар кайтып келет: {Route(row, "to_branch")} → {Route(row, "from_branch")}.",
             $"Cancel the transfer {Str(row, "number")}? The goods will go back: {Route(row, "to_branch")} → {Route(row, "from_branch")}.",
             $"{Str(row, "number")} transferi iptal edilsin mi? Ürünler geri döner: {Route(row, "to_branch")} → {Route(row, "from_branch")}.",
-            $"{Str(row, "number")} ko'chirish bekor qilinsinmi? Mahsulot qaytadi: {Route(row, "to_branch")} → {Route(row, "from_branch")}.")).ConfigureAwait(true);
+            $"{Str(row, "number")} ko'chirish bekor qilinsinmi? Mahsulot qaytadi: {Route(row, "to_branch")} → {Route(row, "from_branch")}."),
+            // 2026-10-22 (модалки, пакет 4): «Отменить перемещение» красной, рядом «Назад» (не «Отмена» — чтобы не путать).
+            T("Отменить перемещение", "Жылдырууну жокко чыгаруу", "Cancel transfer", "Transferi iptal et", "Ko'chirishni bekor qilish"),
+            T("Назад", "Артка", "Back", "Geri", "Orqaga")).ConfigureAwait(true);
         if (reason == null)
             return;
         try
@@ -889,15 +895,19 @@ public sealed class BranchesWindow : Window, IOwnerSection
         return t;
     }
 
-    private async Task<bool> ConfirmAsync(string text) => await AskAsync(text, withNo: true, reasonBox: null).ConfigureAwait(true) != null;
+    // 2026-10-22 (модалки, пакет 4): кнопки — глаголы («Удалить филиал», «Выключить филиал», «Отменить перемещение» —
+    // красные) вместо «Да/Нет/OK»; у опасного вопроса Enter не нажимает главную, фокус — на «Отмена».
+    private async Task<bool> ConfirmAsync(string text, string confirmText, bool danger) =>
+        await AskAsync(text, withNo: true, reasonBox: null, confirmText, null, danger).ConfigureAwait(true) != null;
 
     private Task InfoAsync(string text) => AskAsync(text, withNo: false, reasonBox: null);
 
-    /// <summary>Вопрос с полем «причина». null — «Нет», иначе текст причины (может быть пустым).</summary>
-    private Task<string?> AskReasonAsync(string text) =>
-        AskAsync(text, withNo: true, reasonBox: UiKit.Input(this, T("Причина (необязательно)", "Себеби (милдеттүү эмес)", "Reason (optional)", "Neden (isteğe bağlı)", "Sabab (ixtiyoriy)"), 40));
+    /// <summary>Вопрос с полем «причина». null — «Назад»/✕/Esc, иначе текст причины (может быть пустым). Действие — опасное (красная).</summary>
+    private Task<string?> AskReasonAsync(string text, string confirmText, string cancelText) =>
+        AskAsync(text, withNo: true, reasonBox: UiKit.Input(this, T("Причина (необязательно)", "Себеби (милдеттүү эмес)", "Reason (optional)", "Neden (isteğe bağlı)", "Sabab (ixtiyoriy)"), 44),
+            confirmText, cancelText, danger: true);
 
-    private async Task<string?> AskAsync(string text, bool withNo, TextBox? reasonBox)
+    private async Task<string?> AskAsync(string text, bool withNo, TextBox? reasonBox, string? confirmText = null, string? cancelText = null, bool danger = false)
     {
         var tcs = new TaskCompletionSource<string?>();
         // 2026-10-20, этап О9б: вопрос — в общей оболочке ModalShell (✕ и Esc — как «Нет»); ответы и порядок — прежние.
@@ -913,17 +923,25 @@ public sealed class BranchesWindow : Window, IOwnerSection
             panel.Children.Add(reasonBox);
         }
         var row = SectionCards.Buttons();
-        var yes = SectionCards.Primary(withNo ? T("Да", "Ооба", "Yes", "Evet", "Ha") : "OK");
+        var yesText = withNo
+            ? confirmText ?? T("Продолжить", "Улантуу", "Continue", "Devam", "Davom etish")
+            : T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli");
+        var yes = danger ? SectionCards.Danger(yesText) : SectionCards.Primary(yesText, isDefault: true);
+        if (!withNo)
+            yes.IsCancel = true; // сообщение: Enter, Esc и ✕ закрывают его
         yes.Click += (_, _) => { tcs.TrySetResult((reasonBox?.Text ?? "").Trim()); dialog.Close(); };
+        Button? no = null;
         if (withNo)
         {
-            var no = SectionCards.Cancel(T("Нет", "Жок", "No", "Hayır", "Yo'q"));
+            no = SectionCards.Cancel(cancelText ?? T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
             no.Click += (_, _) => { tcs.TrySetResult(null); dialog.Close(); };
             row.Children.Add(no);
         }
         dialog.Closed += (_, _) => tcs.TrySetResult(withNo ? null : "");
         row.Children.Add(yes);
-        dialog.Content = SectionCards.Shell(Title, null, panel, row);
+        var shell = SectionCards.Shell(Title, null, panel, row);
+        shell.InitialFocus = reasonBox != null ? reasonBox : danger && no != null ? no : yes;
+        dialog.Content = shell;
         await dialog.ShowDialog(this).ConfigureAwait(true);
         return await tcs.Task.ConfigureAwait(true);
     }
@@ -961,7 +979,8 @@ public sealed class BranchEditDialog : Window
     private readonly TextBox _address;
     private readonly TextBox _phone;
     private readonly TextBox _email;
-    private readonly ComboBox _timezone = new() { HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 40 };
+    // 2026-10-22 (модалки, пакет 4): 44 px — касание пальцем (было 40).
+    private readonly ComboBox _timezone = new() { HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 44 };
     private readonly CheckBox _active = new() { IsChecked = true };
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private readonly Button _save;
@@ -974,14 +993,16 @@ public sealed class BranchEditDialog : Window
             ? T("Новый филиал", "Жаңы филиал", "New branch", "Yeni şube", "Yangi filial")
             : T("Изменить филиал", "Филиалды өзгөртүү", "Edit branch", "Şubeyi düzenle", "Filialni o'zgartirish");
         // 2026-10-20, этап О9б: окно в общей оболочке ModalShell (заголовок и ✕ сверху, кнопки снизу на месте). Поля — прежние.
-        SectionCards.AsModal(this, 592);
+        // 2026-10-22 (модалки, пакет 4): M 672 (было 592), поля 44 px, Enter — «Сохранить», фокус — в названии;
+        // пока идёт запрос, окно занято (IsBusy): ✕/Esc/«Отмена» выключены — не закрыть посреди сохранения.
+        SectionCards.AsModal(this, 672);
 
         var panel = new StackPanel { Spacing = 6 };
 
         TextBox Field(string label, string watermark, string value, int max)
         {
             panel.Children.Add(UiKit.Label(this, label));
-            var box = UiKit.Input(this, watermark, 42);
+            var box = UiKit.Input(this, watermark, 44);
             box.Text = value;
             box.MaxLength = max;
             panel.Children.Add(box);
@@ -1013,7 +1034,7 @@ public sealed class BranchEditDialog : Window
 
         var cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => Close(false);
-        _save = SectionCards.Primary(T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"));
+        _save = SectionCards.Primary(T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"), isDefault: true);
         _save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
         var hint = new TextBlock
         {
@@ -1022,8 +1043,12 @@ public sealed class BranchEditDialog : Window
             FontSize = 12, TextWrapping = TextWrapping.Wrap, MinWidth = 140,
         };
         Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
-        Content = SectionCards.Shell(Title, null, panel, SectionCards.Buttons(cancel, _save), hint);
+        _shell = SectionCards.Shell(Title, null, panel, SectionCards.Buttons(cancel, _save), hint);
+        _shell.InitialFocus = _name;
+        Content = _shell;
     }
+
+    private readonly Views.Dialogs.ModalShell _shell;
 
     private void ShowError(string text)
     {
@@ -1033,6 +1058,8 @@ public sealed class BranchEditDialog : Window
 
     private async Task SaveAsync()
     {
+        if (_shell.IsBusy)
+            return;
         var name = (_name.Text ?? "").Trim();
         var code = (_code.Text ?? "").Trim();
         var email = (_email.Text ?? "").Trim();
@@ -1068,6 +1095,7 @@ public sealed class BranchEditDialog : Window
             body["code"] = null;
 
         _save.IsEnabled = false;
+        _shell.IsBusy = true;
         ShowError("");
         try
         {
@@ -1076,6 +1104,7 @@ public sealed class BranchEditDialog : Window
             else
                 await _api.RequestAsync(new HttpMethod("PATCH"), $"api/users/branches/{Uri.EscapeDataString(_branch.Id)}/", body, null, CancellationToken.None, TimeSpan.FromSeconds(30)).ConfigureAwait(true);
             PosLogger.Log($"Филиалы: «{name}» {(_branch == null ? "создан" : "изменён")}.", "INFO");
+            _shell.IsBusy = false;
             Close(true);
         }
         catch (Exception ex)
@@ -1085,6 +1114,7 @@ public sealed class BranchEditDialog : Window
         }
         finally
         {
+            _shell.IsBusy = false;
             _save.IsEnabled = true;
         }
     }
@@ -1112,8 +1142,8 @@ public sealed class BranchTransferDialog : Window
 
     private readonly NurMarketApiClient _api;
     private readonly List<(string? Id, string Name)> _places;
-    private readonly ComboBox _from = new() { HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 40 };
-    private readonly ComboBox _to = new() { HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 40 };
+    private readonly ComboBox _from = new() { HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 44 };
+    private readonly ComboBox _to = new() { HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 44 };
     private readonly TextBox _date;
     private readonly TextBox _search;
     private readonly StackPanel _results = new() { Spacing = 4 };
@@ -1122,6 +1152,7 @@ public sealed class BranchTransferDialog : Window
     private readonly TextBlock _total = new() { FontSize = 15, FontWeight = FontWeight.Bold };
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private readonly Button _save;
+    private readonly Views.Dialogs.ModalShell _shell;
     private readonly List<Line> _rows = new();
     private int _searchGen;
     private int _lastFromIndex;
@@ -1132,7 +1163,8 @@ public sealed class BranchTransferDialog : Window
         Title = T("Новое перемещение", "Жаңы жылдыруу", "New transfer", "Yeni transfer", "Yangi ko'chirish");
         // 2026-10-20, этап О9б: окно в общей оболочке ModalShell — итог и «Провести перемещение» внизу всегда видны,
         // содержимое прокручивается между шапкой и низом. Поля, поиск и проверки — прежние.
-        SectionCards.AsModal(this, 792);
+        // 2026-10-22 (модалки, пакет 4): L 912 (было 792), поля и кнопки строк 44 px; пока идёт запрос — окно занято (IsBusy).
+        SectionCards.AsModal(this, 912);
 
         // Только активные филиалы — как на сайте («Отправитель/получатель неактивен»).
         _places = new List<(string? Id, string Name)> { (null, BranchesWindow.MainWarehouse) };
@@ -1146,7 +1178,8 @@ public sealed class BranchTransferDialog : Window
         fromBox.Children.Add(_from);
         route.Children.Add(fromBox);
         var swap = UiKit.Ghost(this, "⇄");
-        swap.Height = 40;
+        swap.Height = 44;
+        swap.MinWidth = 44;
         swap.Margin = new Thickness(8, 22, 8, 0);
         swap.VerticalAlignment = VerticalAlignment.Top;
         ToolTip.SetTip(swap, T("Поменять местами", "Ордун алмаштыруу", "Swap", "Yer değiştir", "Almashtirish"));
@@ -1163,7 +1196,7 @@ public sealed class BranchTransferDialog : Window
         _to.ItemsSource = _places.Select(x => x.Name).ToList();
 
         panel.Children.Add(UiKit.Label(this, T("Дата документа (ГГГГ-ММ-ДД)", "Документтин датасы (ЖЖЖЖ-АА-КК)", "Document date (YYYY-MM-DD)", "Belge tarihi (YYYY-AA-GG)", "Hujjat sanasi (YYYY-OO-KK)")));
-        _date = UiKit.Input(this, "2026-10-06", 40);
+        _date = UiKit.Input(this, "2026-10-06", 44);
         _date.Text = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         _date.MaxWidth = 220;
         _date.HorizontalAlignment = HorizontalAlignment.Left;
@@ -1171,7 +1204,7 @@ public sealed class BranchTransferDialog : Window
 
         panel.Children.Add(UiKit.Label(this, T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar")));
         _search = UiKit.Input(this, T("Найти товар на складе отправителя: название или штрихкод", "Жөнөтүүчүнүн кампасынан товар издөө: аталышы же штрихкод",
-            "Find a product in the sender's stock: name or barcode", "Gönderenin deposunda ürün ara: ad veya barkod", "Jo'natuvchi omboridan mahsulot qidirish: nomi yoki shtrix-kod"), 42);
+            "Find a product in the sender's stock: name or barcode", "Gönderenin deposunda ürün ara: ad veya barkod", "Jo'natuvchi omboridan mahsulot qidirish: nomi yoki shtrix-kod"), 44);
         var searchTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         searchTimer.Tick += async (_, _) =>
         {
@@ -1191,7 +1224,7 @@ public sealed class BranchTransferDialog : Window
         _lines.Children.CollectionChanged += (_, _) => linesGroup.IsVisible = _lines.Children.Count > 0;
         panel.Children.Add(linesGroup);
 
-        _comment = UiKit.Input(this, T("Комментарий (необязательно)", "Комментарий (милдеттүү эмес)", "Comment (optional)", "Yorum (isteğe bağlı)", "Izoh (ixtiyoriy)"), 40);
+        _comment = UiKit.Input(this, T("Комментарий (необязательно)", "Комментарий (милдеттүү эмес)", "Comment (optional)", "Yorum (isteğe bağlı)", "Izoh (ixtiyoriy)"), 44);
         _comment.MaxLength = 500;
         _comment.Margin = new Thickness(0, 6, 0, 0);
         panel.Children.Add(_comment);
@@ -1208,7 +1241,7 @@ public sealed class BranchTransferDialog : Window
         cancel.Click += (_, _) => Close(false);
         _save = SectionCards.Primary(T("Провести перемещение", "Жылдырууну өткөрүү", "Make the transfer", "Transferi gerçekleştir", "Ko'chirishni o'tkazish"));
         _save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
-        Content = SectionCards.Shell(Title,
+        Content = _shell = SectionCards.Shell(Title,
             T("Остатки изменятся сразу — у отправителя уменьшатся, у получателя прибавятся.", "Калдыктар дароо өзгөрөт — жөнөтүүчүдө азаят, алуучуда көбөйөт.",
                 "Stock changes right away — down at the sender, up at the receiver.", "Stok hemen değişir — gönderende azalır, alıcıda artar.",
                 "Qoldiqlar darhol o'zgaradi — jo'natuvchida kamayadi, qabul qiluvchida ko'payadi."),
@@ -1297,6 +1330,7 @@ public sealed class BranchTransferDialog : Window
                 var button = new Button
                 {
                     HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(12, 8),
+                    MinHeight = 44, // 2026-10-22 (модалки, пакет 4): строка найденного товара — 44 px
                     CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1), Focusable = false, IsEnabled = qty > 0 && _rows.All(r => r.ProductId != id),
                     Content = new TextBlock
                     {
@@ -1350,7 +1384,7 @@ public sealed class BranchTransferDialog : Window
     {
         if (productId.Length == 0 || _rows.Any(r => r.ProductId == productId))
             return;
-        var box = UiKit.Input(this, "0", 38);
+        var box = UiKit.Input(this, "0", 44);
         box.Width = 110;
         box.Text = BranchesWindow.Qty(available is { } a && qty > a ? a : qty);
         box.TextChanged += (_, _) => UpdateTotal();
@@ -1378,7 +1412,7 @@ public sealed class BranchTransferDialog : Window
             Grid.SetColumn(r.Qty, 1);
             row.Children.Add(r.Qty);
             var all = UiKit.Ghost(this, T("Всё", "Баары", "All", "Tümü", "Hammasi"));
-            all.Height = 38;
+            all.Height = 44;
             all.Margin = new Thickness(6, 0, 0, 0);
             all.IsEnabled = r.Available is > 0;
             ToolTip.SetTip(all, T("Переместить весь остаток", "Бүт калдыкты жылдыруу", "Move the whole stock", "Tüm stoku taşı", "Butun qoldiqni ko'chirish"));
@@ -1387,7 +1421,8 @@ public sealed class BranchTransferDialog : Window
             Grid.SetColumn(all, 2);
             row.Children.Add(all);
             var remove = UiKit.Ghost(this, "✕");
-            remove.Height = 38;
+            remove.Height = 44;
+            remove.MinWidth = 44;
             remove.Margin = new Thickness(6, 0, 0, 0);
             ToolTip.SetTip(remove, T("Убрать", "Алып салуу", "Remove", "Kaldır", "Olib tashlash"));
             remove.Click += (_, _) =>
@@ -1469,11 +1504,14 @@ public sealed class BranchTransferDialog : Window
         };
         if ((_comment.Text ?? "").Trim() is { Length: > 0 } comment)
             body["comment"] = comment;
+        if (!_shell.TryBeginBusy())
+            return;
         _save.IsEnabled = false;
         try
         {
             var data = await _api.RequestAsync(HttpMethod.Post, "api/main/branch-transfers/", body, null, CancellationToken.None, TimeSpan.FromSeconds(45)).ConfigureAwait(true);
             PosLogger.Log($"Перемещение {BranchesWindow.Str(data, "number")}: {fromName} → {toName}, {_rows.Count} поз., {qtyTotal:0.###} ед.", "INFO");
+            _shell.EndBusy();
             Close(true);
         }
         catch (Exception ex)
@@ -1483,6 +1521,7 @@ public sealed class BranchTransferDialog : Window
         }
         finally
         {
+            _shell.EndBusy();
             _save.IsEnabled = true;
         }
     }
@@ -1495,12 +1534,15 @@ public sealed class BranchTransferDialog : Window
         SectionCards.AsModal(dialog, 512);
         var label = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 14 };
         Use(label, TextBlock.ForegroundProperty, "BrushText");
-        var yes = SectionCards.Primary(T("Провести", "Өткөрүү", "Do it", "Gerçekleştir", "O'tkazish"));
-        var no = SectionCards.Cancel(T("Нет", "Жок", "No", "Hayır", "Yo'q"));
+        // 2026-10-22 (модалки, пакет 4): «Отмена» вместо «Нет», Enter — «Провести», фокус на ней.
+        var yes = SectionCards.Primary(T("Провести", "Өткөрүү", "Do it", "Gerçekleştir", "O'tkazish"), isDefault: true);
+        var no = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         yes.Click += (_, _) => { tcs.TrySetResult(true); dialog.Close(); };
         no.Click += (_, _) => { tcs.TrySetResult(false); dialog.Close(); };
         dialog.Closed += (_, _) => tcs.TrySetResult(false);
-        dialog.Content = SectionCards.Shell(Title, null, label, SectionCards.Buttons(no, yes));
+        var shell = SectionCards.Shell(Title, null, label, SectionCards.Buttons(no, yes));
+        shell.InitialFocus = yes;
+        dialog.Content = shell;
         await dialog.ShowDialog(this).ConfigureAwait(true);
         return await tcs.Task.ConfigureAwait(true);
     }

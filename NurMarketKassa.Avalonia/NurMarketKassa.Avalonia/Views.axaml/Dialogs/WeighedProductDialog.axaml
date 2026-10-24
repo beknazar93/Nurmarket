@@ -169,6 +169,13 @@
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource BrushMoney}"/>
                             <!-- 2026-10-17: расчёт цветом денег — жёлтый акцент по белому у «NurMarket» не читался. -->
+                            <!-- 2026-10-22 (модалки, пакет 1): ошибка ввода — под полем (было 6 всплывающих окон поверх). -->
+                            <TextBlock x:Name="WeightErrorText"
+                                       IsVisible="False"
+                                       FontSize="13"
+                                       FontWeight="Medium"
+                                       TextWrapping="Wrap"
+                                       Foreground="{DynamicResource BrushDanger}"/>
                         </StackPanel>
 
                         <!-- Кнопка "Подставить с весов" -->
@@ -188,7 +195,8 @@
 
                         <!-- Быстрые кнопки выбора веса (скрыты в режиме "По сумме" — пресеты веса
                              там не имеют смысла) -->
-                        <Grid x:Name="QuickWeightRow" ColumnDefinitions="*,*,*,*,*" Height="40">
+                        <!-- 2026-10-22 (модалки, пакет 1): быстрые веса — 44 px под палец (было 40). -->
+                        <Grid x:Name="QuickWeightRow" ColumnDefinitions="*,*,*,*,*" Height="48">
                             <Button Grid.Column="0" Classes="NumBtn" Content="{DynamicResource loc.kassa.weigh.quick01}" Tag="0,1" Margin="2" FontSize="12" Click="OnQuickWeight_Click"/>
                             <Button Grid.Column="1" Classes="NumBtn" Content="{DynamicResource loc.kassa.weigh.quick05}" Tag="0,5" Margin="2" FontSize="12" Click="OnQuickWeight_Click"/>
                             <Button Grid.Column="2" Classes="NumBtn" Content="{DynamicResource loc.kassa.weigh.quick1}" Tag="1" Margin="2" FontSize="12" Click="OnQuickWeight_Click"/>

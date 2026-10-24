@@ -88,7 +88,7 @@ class ReceiptView extends StatelessWidget {
                         ],
                       ),
                     ),
-                    _pair(p, r.paymentText, money(r.received ?? r.total)),
+                    for (final (k, v) in r.paymentLines) _pair(p, k, v), // 2026-10-22: долг — внесено / долг / срок
                     if (r.change > 0) _pair(p, 'Сдача', money(r.change), bold: true),
                     if (f != null) ...[
                       const _Dashed(),

@@ -343,21 +343,6 @@
                   </StackPanel>
                 </Grid>
               </StackPanel>
-              <!-- 2026-10-03, клиент: «предоплата куда падает? Надо выбор, как он даёт предоплату; включать в настройках». -->
-              <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
-                <StackPanel Spacing="2">
-                  <TextBlock Text="{DynamicResource settings.debtPrepayChoice}" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
-                  <TextBlock Text="{DynamicResource settings.debtPrepayChoiceHint}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
-                </StackPanel>
-                <CheckBox Grid.Column="1" x:Name="DebtPrepayChoiceCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Center"/>
-              </Grid>
-              <!-- 2026-10-06, владелец: штраф за просрочку — в чеке долга и проката. Надписи — в коде (5 языков). -->
-              <StackPanel Spacing="4" Margin="0,8,0,0">
-                <TextBlock x:Name="DebtPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
-                <TextBox x:Name="DebtPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36" MaxLength="120"/>
-                <TextBlock x:Name="RentalPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                <TextBox x:Name="RentalPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36" Width="160" HorizontalAlignment="Left" Watermark="0"/>
-              </StackPanel>
             </StackPanel>
           </Border>
         </StackPanel>

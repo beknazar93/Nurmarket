@@ -266,6 +266,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             if (_existing is null && !string.IsNullOrWhiteSpace(Barcode))
                 _ = FillNameFromGlobalBaseAsync(Barcode);
         };
+        // 2026-10-22 (модалки, пакет 3): у нового товара фокус сразу в «Название» (ModalShell.InitialFocus); скан со сканера
+        // окно и так перехватывает в поле «Штрихкод» (OnBarcodeScanned).
+        if (_existing is null)
+            Shell.InitialFocus = NameBox;
         // 2026-10-03: скан прямо в поле штрихкода заканчивается Enter — сразу ищем в базе NurCRM.
         BarcodeBox.KeyDown += (_, e) =>
         {
@@ -1032,7 +1036,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
             HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
             Padding = new Thickness(12, 7),
-            MinHeight = 38,
+            MinHeight = 44, // 2026-10-22 (модалки, пакет 3): строка поставщика 44 px (было 38) — касание пальцем
         };
         if (selected)
             button.Classes.Add("PrimaryButton");

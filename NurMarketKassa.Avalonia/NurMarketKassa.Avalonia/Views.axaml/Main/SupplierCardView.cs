@@ -14,7 +14,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// Шапка — название, телефон и реквизиты, «Изменить» (окно SupplierEditDialog). Вкладки-сегменты: «Сводка» (плитки долг / просрочено /
 /// аванс / закупки и возвраты за период, ближайший платёж, предупреждения, реквизиты), «Долги» (сделки-долги NurCRM с графиком
 /// взносов, остаток, срок, просрочка), «Закупки» (история закупок: оплачено / в долг, состав), «Товары» (товары с этим поставщиком),
-/// «Возвраты» (возвраты поставщику), «Оплаты» (оплаты по сделкам-долгам). Только просмотр: кнопок оплаты нет (оплата — этап П4).
+/// «Возвраты» (возвраты поставщику), «Оплаты» (оплаты по сделкам-долгам). 2026-10-22 (аудит 1.17.59, П-Ж): у неоплаченного взноса — «Оплатить взнос» (владелец/админ, с подтверждением).
 /// Предупреждения из исследования показываются честно и ничего не исправляют: закупка «в долг» без записи долга, похожие на двойную
 /// запись долги, возврат «в счёт долга», который сервер пока не вычитает.</summary>
 public sealed class SupplierCardView : UserControl
@@ -296,6 +296,251 @@ public sealed class SupplierCardView : UserControl
             RefreshDebtQueue();
     }
 
+    // ── 2026-10-22 (аудит 1.17.59, П-Ж): оплата взноса долга поставщику из программы владельца ──
+    // Раньше карточка была «только просмотр» — платить шли на сайт NurCRM. Теперь: «Оплатить взнос» → подтверждение суммы и поставщика →
+    // POST deals/{d}/pay/ (SupplierApiService.PayInstallmentAsync) → карточка перечитывается. Защита: одна оплата за раз (_paying), ключ
+    // идемпотентности — один на взнос и его остаток, пока не получен ответ (обрыв связи → повтор не проведёт второй раз), перед отправкой
+    // — перечитывание сделки (остаток взноса мог измениться на сайте).
+
+    private bool _paying;
+    private readonly Dictionary<string, string> _payKeys = new(StringComparer.Ordinal);
+
+    private async Task PayInstallmentAsync(SupplierDeal deal, SupplierInstallment installment, Button button)
+    {
+        if (_paying || TopLevel.GetTopLevel(this) is not Window owner || !SupplierDebtUi.CanRecordDebts)
+            return;
+        _paying = true;
+        button.IsEnabled = false;
+        try
+        {
+            // Свежий остаток взноса: за время просмотра его могли оплатить на сайте или с другой программы.
+            SupplierDeal? fresh;
+            try
+            {
+                using var check = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                fresh = (await _svc.GetDealsAsync(_info.Id, check.Token).ConfigureAwait(true)).FirstOrDefault(x => x.Id == deal.Id);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Поставщик {_info.Id}: перед оплатой сделка {deal.Id} не перечитана ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+                PosDialogs.Warning(owner, T("Не удалось проверить остаток по взносу — оплата не начата. Проверьте интернет и повторите.",
+                    "Төлөмдүн калдыгын текшерүү мүмкүн болгон жок — төлөө башталган жок. Интернетти текшерип, кайра аракет кылыңыз.",
+                    "Couldn't check the instalment balance — the payment was not started. Check the internet and try again.",
+                    "Taksit bakiyesi kontrol edilemedi — ödeme başlatılmadı. İnterneti kontrol edip tekrar deneyin.",
+                    "Bo'lak qoldig'ini tekshirib bo'lmadi — to'lov boshlanmadi. Internetni tekshirib, qayta urinib ko'ring."));
+                return;
+            }
+            var current = fresh?.Installments.FirstOrDefault(x => x.Id == installment.Id);
+            if (current is null || current.Remaining <= 0.005)
+            {
+                PosDialogs.Info(owner, T("Этот взнос уже оплачен — карточка обновлена.", "Бул төлөм мурунтан эле төлөнгөн — карточка жаңыртылды.", "This instalment is already paid — the card was refreshed.",
+                    "Bu taksit zaten ödenmiş — kart yenilendi.", "Bu bo'lak allaqachon to'langan — karta yangilandi."));
+                await ReloadAsync().ConfigureAwait(true);
+                return;
+            }
+
+            var amountText = MoneyText.Som(current.Remaining);
+            var btnSom = ButtonSom(amountText);
+            var due = current.DueDate is { } dd ? dd.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : "—";
+            var dealTitle = deal.Title.Length > 0 ? deal.Title : T("Долг", "Карыз", "Debt", "Borç", "Qarz");
+            var message = T($"Оплатить {amountText} поставщику «{_info.Name}»?\nВзнос №{current.Number} по долгу «{dealTitle}», срок {due}.\nДеньги спишутся расходом из основной кассы компании.\nПосле оплаты долг поставщику станет меньше на эту сумму.",
+                $"«{_info.Name}» жеткирүүчүсүнө {amountText} төлөнсүнбү?\n«{dealTitle}» карызы боюнча №{current.Number} төлөм, мөөнөтү {due}.\nАкча компаниянын негизги кассасынан чыгым катары чыгат.\nТөлөгөндөн кийин жеткирүүчүнүн алдындагы карыз ушул суммага азаят.",
+                $"Pay {amountText} to the supplier “{_info.Name}”?\nInstalment {current.Number} of the debt “{dealTitle}”, due {due}.\nThe money is written off as an expense from the company's main till.\nThe debt to the supplier will decrease by this amount.",
+                $"«{_info.Name}» tedarikçisine {amountText} ödensin mi?\n«{dealTitle}» borcunun {current.Number}. taksiti, vade {due}.\nPara şirketin ana kasasından gider olarak düşülür.\nÖdemeden sonra tedarikçiye borç bu tutar kadar azalır.",
+                $"«{_info.Name}» yetkazib beruvchiga {amountText} to'lansinmi?\n«{dealTitle}» qarzining {current.Number}-bo'lagi, muddati {due}.\nPul kompaniyaning asosiy kassasidan xarajat sifatida yechiladi.\nTo'lovdan keyin yetkazib beruvchiga qarz shu summaga kamayadi.");
+            var confirmed = await PosDialogs.ConfirmYesNoModalAsync(owner, message,
+                T("Оплата поставщику", "Жеткирүүчүгө төлөө", "Supplier payment", "Tedarikçi ödemesi", "Yetkazib beruvchiga to'lov"),
+                // 2026-10-24 (приёмка, ПР-11): на кнопке — сумма без «,00», иначе «Оплатить 23 400,00 сом» (кнопка окна ≤ 200 px) переносится на 2 строки.
+                confirmText: T($"Оплатить {btnSom}", $"{btnSom} төлөө", $"Pay {btnSom}", $"{btnSom} öde", $"{btnSom} to'lash")).ConfigureAwait(true);
+            if (!confirmed)
+                return;
+
+            var keyId = $"{deal.Id}|{current.Id}|{current.Remaining.ToString("0.00", CultureInfo.InvariantCulture)}";
+            if (!_payKeys.TryGetValue(keyId, out var key))
+                _payKeys[keyId] = key = Guid.NewGuid().ToString();
+            var cashflowsBefore = fresh?.Cashflows.Count ?? deal.Cashflows.Count;
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                await _svc.PayInstallmentAsync(_info.Id, deal.Id, current.Id, key,
+                    $"Оплата долга поставщику ({T("из программы владельца", "ээсинин программасынан", "from the owner app", "sahip uygulamasından", "egasi dasturidan")})", cts.Token).ConfigureAwait(true);
+                _payKeys.Remove(keyId);
+                PosLogger.Log($"PAYMENT: оплата взноса поставщику {_info.Id}: сделка {deal.Id}, взнос {current.Id}, {current.Remaining:0.00} сом — сервер принял.", "PAYMENT");
+            }
+            catch (Exception ex)
+            {
+                var timedOut = ex is OperationCanceledException or TimeoutException;
+                PosLogger.Log($"PAYMENT: оплата взноса поставщику {_info.Id}: сделка {deal.Id}, взнос {current.Id} — {(timedOut ? "ответ не получен" : "отказ")} ({ex.GetType().Name}: {ex.Message}).", "PAYMENT");
+                PosDialogs.Warning(owner, timedOut
+                    ? T("Ответ сервера не получен — оплата могла пройти. Карточка перечитана: проверьте остаток. Повторное нажатие не проведёт оплату второй раз.",
+                        "Серверден жооп алынган жок — төлөм өтүп кетиши мүмкүн. Карточка жаңыртылды: калдыкты текшериңиз. Кайра басуу төлөмдү экинчи жолу өткөрбөйт.",
+                        "No answer from the server — the payment may have gone through. The card was refreshed: check the balance. Pressing again will not pay twice.",
+                        "Sunucudan yanıt alınamadı — ödeme geçmiş olabilir. Kart yenilendi: bakiyeyi kontrol edin. Tekrar basmak ikinci kez ödemez.",
+                        "Serverdan javob olmadi — to'lov o'tgan bo'lishi mumkin. Karta yangilandi: qoldiqni tekshiring. Qayta bosish ikkinchi marta to'lamaydi.")
+                    : T("Сервер не принял оплату: ", "Сервер төлөмдү кабыл алган жок: ", "The server did not accept the payment: ", "Sunucu ödemeyi kabul etmedi: ", "Server to'lovni qabul qilmadi: ") + ServerTelegramBotApi.DescribeFields(ex));
+                await ReloadAsync().ConfigureAwait(true);
+                return;
+            }
+
+            await ReloadAsync().ConfigureAwait(true);
+            // Движение денег: сервер пишет расход только если принял кассу; нет нового движения — честно сказать владельцу.
+            var after = _deals.FirstOrDefault(x => x.Id == deal.Id);
+            var paidNow = after?.Installments.FirstOrDefault(x => x.Id == current.Id)?.Remaining ?? 0;
+            var note = after is not null && after.Cashflows.Count <= cashflowsBefore
+                ? "\n" + T("Но сервер не записал расход в кассу — внесите его на сайте NurCRM вручную, иначе касса компании не уменьшится.",
+                    "Бирок сервер чыгымды кассага жазган жок — аны NurCRM сайтына кол менен киргизиңиз, болбосо компаниянын кассасы азаймайт.",
+                    "But the server did not record the cash expense — enter it manually on the NurCRM website, otherwise the company cashbox won't decrease.",
+                    "Ancak sunucu kasa giderini kaydetmedi — NurCRM sitesinde elle girin, aksi halde şirket kasası azalmaz.",
+                    "Ammo server kassa xarajatini yozmadi — uni NurCRM saytida qo'lda kiriting, aks holda kompaniya kassasi kamaymaydi.")
+                : "";
+            var okText = paidNow <= 0.005
+                ? T($"Оплачено {amountText}. Взнос закрыт.", $"{amountText} төлөндү. Төлөм жабылды.", $"Paid {amountText}. The instalment is closed.", $"{amountText} ödendi. Taksit kapandı.", $"{amountText} to'landi. Bo'lak yopildi.")
+                : T($"Сервер принял оплату, но по взносу ещё остаётся {MoneyText.Som(paidNow)} — проверьте на сайте NurCRM.", $"Сервер төлөмдү кабыл алды, бирок төлөм боюнча дагы {MoneyText.Som(paidNow)} калды — NurCRM сайтынан текшериңиз.",
+                    $"The server accepted the payment, but {MoneyText.Som(paidNow)} is still left — check on the NurCRM website.", $"Sunucu ödemeyi kabul etti ama taksitte hâlâ {MoneyText.Som(paidNow)} kalıyor — NurCRM sitesinde kontrol edin.",
+                    $"Server to'lovni qabul qildi, lekin bo'lakda yana {MoneyText.Som(paidNow)} qoldi — NurCRM saytida tekshiring.");
+            if (note.Length > 0)
+                PosDialogs.Warning(owner, okText + note);
+            else
+                PosDialogs.Info(owner, okText);
+        }
+        finally
+        {
+            _paying = false;
+            button.IsEnabled = true;
+        }
+    }
+
+    /// <summary>2026-10-23, просьба владельца («кнопка погасить весь долг где?»): оплата ВСЕХ неоплаченных взносов поставщика по порядку сроков.
+    /// Одно подтверждение на общую сумму; каждый взнос — тот же POST deals/{d}/pay/ с собственным ключом идемпотентности (повтор после обрыва
+    /// не проведёт взнос второй раз); первая же ошибка останавливает оплату — оплаченное остаётся оплаченным, остальное — по кнопке снова.</summary>
+    private async Task PayAllDebtAsync(Button button)
+    {
+        if (_paying || TopLevel.GetTopLevel(this) is not Window owner || !SupplierDebtUi.CanRecordDebts)
+            return;
+        _paying = true;
+        button.IsEnabled = false;
+        try
+        {
+            List<SupplierDeal> fresh;
+            try
+            {
+                using var check = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                fresh = (await _svc.GetDealsAsync(_info.Id, check.Token).ConfigureAwait(true)).ToList();
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Поставщик {_info.Id}: перед оплатой всего долга сделки не перечитаны ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+                PosDialogs.Warning(owner, T("Не удалось проверить долг — оплата не начата. Проверьте интернет и повторите.",
+                    "Карызды текшерүү мүмкүн болгон жок — төлөө башталган жок. Интернетти текшерип, кайра аракет кылыңыз.",
+                    "Couldn't check the debt — the payment was not started. Check the internet and try again.",
+                    "Borç kontrol edilemedi — ödeme başlatılmadı. İnterneti kontrol edip tekrar deneyin.",
+                    "Qarzni tekshirib bo'lmadi — to'lov boshlanmadi. Internetni tekshirib, qayta urinib ko'ring."));
+                return;
+            }
+            // 2026-10-23 (аудит, круг 8, В-4): сделки с пометкой «похоже на двойную запись» не оплачиваем одним кликом — владелец проверяет их на сайте.
+            var dupIds = SupplierApiService.SuspectedDuplicates(fresh).Select(d => d.Id).ToHashSet();
+            var skippedDups = fresh.Where(d => d.IsDebt && d.IsOpen && dupIds.Contains(d.Id) && d.Installments.Any(i => i.Remaining > 0.005)).ToList();
+            var dupNote = string.Join("\n", skippedDups.Select(d => T($"Долг «{d.Title}» на {MoneyText.Som(d.Amount)} похож на двойную запись — не оплачивается. Проверьте его на сайте NurCRM.",
+                $"«{d.Title}» карызы {MoneyText.Som(d.Amount)} эки жолу жазылганга окшош — төлөнбөйт. Аны NurCRM сайтынан текшериңиз.",
+                $"The debt “{d.Title}” of {MoneyText.Som(d.Amount)} looks like a double entry — it is not paid. Check it on the NurCRM website.",
+                $"«{d.Title}» borcu {MoneyText.Som(d.Amount)} çift kayda benziyor — ödenmez. NurCRM sitesinden kontrol edin.",
+                $"«{d.Title}» qarzi {MoneyText.Som(d.Amount)} ikki marta yozilganga o'xshaydi — to'lanmaydi. Uni NurCRM saytida tekshiring.")));
+            var queue = fresh.Where(d => d.IsDebt && d.IsOpen && !dupIds.Contains(d.Id))
+                .SelectMany(d => d.Installments.Where(i => i.Remaining > 0.005).Select(i => (Deal: d, Inst: i)))
+                .OrderBy(x => x.Inst.DueDate ?? DateTime.MaxValue).ThenBy(x => x.Inst.Number).ToList();
+            if (queue.Count == 0)
+            {
+                PosDialogs.Info(owner, skippedDups.Count > 0
+                    ? dupNote
+                    : T("Неоплаченных взносов нет — карточка обновлена.", "Төлөнбөгөн төлөмдөр жок — карточка жаңыртылды.", "No unpaid instalments — the card was refreshed.",
+                        "Ödenmemiş taksit yok — kart yenilendi.", "To'lanmagan bo'laklar yo'q — karta yangilandi."));
+                await ReloadAsync().ConfigureAwait(true);
+                return;
+            }
+            var total = queue.Sum(x => x.Inst.Remaining);
+            var withoutSchedule = fresh.Where(d => d.IsDebt && d.IsOpen && !dupIds.Contains(d.Id) && d.Installments.All(i => i.Remaining <= 0.005)).Sum(d => d.Remaining);
+            var totalText = MoneyText.Som(total);
+            var btnSom = ButtonSom(totalText);
+            var message = T($"Оплатить весь долг {totalText} поставщику «{_info.Name}»?\nБудет проведено взносов: {queue.Count} (по порядку сроков, каждый отдельным платежом).\nДеньги спишутся расходом из основной кассы компании.",
+                $"«{_info.Name}» жеткирүүчүсүнө бардык карыз {totalText} төлөнсүнбү?\nТөлөмдөр саны: {queue.Count} (мөөнөт боюнча, ар бири өзүнчө төлөм).\nАкча компаниянын негизги кассасынан чыгым катары чыгат.",
+                $"Pay off the whole debt {totalText} to the supplier “{_info.Name}”?\nInstalments to pay: {queue.Count} (in due-date order, each as a separate payment).\nThe money is written off as an expense from the company's main till.",
+                $"«{_info.Name}» tedarikçisine tüm borç {totalText} ödensin mi?\nÖdenecek taksit: {queue.Count} (vade sırasıyla, her biri ayrı ödeme).\nPara şirketin ana kasasından gider olarak düşülür.",
+                $"«{_info.Name}» yetkazib beruvchiga butun qarz {totalText} to'lansinmi?\nTo'lanadigan bo'laklar: {queue.Count} (muddat tartibida, har biri alohida to'lov).\nPul kompaniyaning asosiy kassasidan xarajat sifatida yechiladi.");
+            if (withoutSchedule > 0.005)
+                message += "\n" + T($"Долг без графика ({MoneyText.Som(withoutSchedule)}) сюда не входит — его гасят на сайте NurCRM.",
+                    $"Графиксиз карыз ({MoneyText.Som(withoutSchedule)}) бул жакка кирбейт — аны NurCRM сайтында төлөңүз.",
+                    $"Debt without a schedule ({MoneyText.Som(withoutSchedule)}) is not included — pay it on the NurCRM website.",
+                    $"Plansız borç ({MoneyText.Som(withoutSchedule)}) buna dahil değil — NurCRM sitesinde ödeyin.",
+                    $"Jadvalsiz qarz ({MoneyText.Som(withoutSchedule)}) bunga kirmaydi — uni NurCRM saytida to'lang.");
+            if (skippedDups.Count > 0)
+                message += "\n" + dupNote;
+            var confirmed = await PosDialogs.ConfirmYesNoModalAsync(owner, message,
+                T("Оплата поставщику", "Жеткирүүчүгө төлөө", "Supplier payment", "Tedarikçi ödemesi", "Yetkazib beruvchiga to'lov"),
+                // 2026-10-24 (приёмка, ПР-11): сумма на кнопке без «,00» — в одну строку.
+                confirmText: T($"Оплатить {btnSom}", $"{btnSom} төлөө", $"Pay {btnSom}", $"{btnSom} öde", $"{btnSom} to'lash")).ConfigureAwait(true);
+            if (!confirmed)
+                return;
+
+            var cashflowsBefore = fresh.Sum(d => d.Cashflows.Count);
+            var done = 0;
+            var paidSum = 0.0;
+            string? failure = null;
+            var timedOut = false;
+            foreach (var (deal, inst) in queue)
+            {
+                var keyId = $"{deal.Id}|{inst.Id}|{inst.Remaining.ToString("0.00", CultureInfo.InvariantCulture)}";
+                if (!_payKeys.TryGetValue(keyId, out var key))
+                    _payKeys[keyId] = key = Guid.NewGuid().ToString();
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                    await _svc.PayInstallmentAsync(_info.Id, deal.Id, inst.Id, key,
+                        $"Оплата долга поставщику ({T("из программы владельца, весь долг", "ээсинин программасынан, бардык карыз", "from the owner app, whole debt", "sahip uygulamasından, tüm borç", "egasi dasturidan, butun qarz")})", cts.Token).ConfigureAwait(true);
+                    _payKeys.Remove(keyId);
+                    done++;
+                    paidSum += inst.Remaining;
+                    PosLogger.Log($"PAYMENT: весь долг поставщику {_info.Id}: сделка {deal.Id}, взнос {inst.Id}, {inst.Remaining:0.00} сом — сервер принял ({done} из {queue.Count}).", "PAYMENT");
+                }
+                catch (Exception ex)
+                {
+                    timedOut = ex is OperationCanceledException or TimeoutException;
+                    failure = timedOut ? "" : ServerTelegramBotApi.DescribeFields(ex);
+                    PosLogger.Log($"PAYMENT: весь долг поставщику {_info.Id}: сделка {deal.Id}, взнос {inst.Id} — {(timedOut ? "ответ не получен" : "отказ")} ({ex.GetType().Name}: {ex.Message}).", "PAYMENT");
+                    break;
+                }
+            }
+
+            await ReloadAsync().ConfigureAwait(true);
+            var cashflowsAfter = _deals.Sum(d => d.Cashflows.Count);
+            var expenseNote = done > 0 && cashflowsAfter < cashflowsBefore + done
+                ? "\n" + T("Но сервер записал не все расходы в кассу — сверьте движение денег на сайте NurCRM.",
+                    "Бирок сервер бардык чыгымдарды кассага жазган жок — акча кыймылын NurCRM сайтынан салыштырыңыз.",
+                    "But the server did not record every cash expense — check the money movement on the NurCRM website.",
+                    "Ancak sunucu tüm kasa giderlerini kaydetmedi — para hareketini NurCRM sitesinde karşılaştırın.",
+                    "Ammo server barcha kassa xarajatlarini yozmadi — pul harakatini NurCRM saytida solishtiring.")
+                : "";
+            if (failure is null)
+                PosDialogs.Info(owner, T($"Весь долг оплачен: {done} взносов на {MoneyText.Som(paidSum)}.", $"Бардык карыз төлөндү: {done} төлөм, {MoneyText.Som(paidSum)}.",
+                    $"The whole debt is paid: {done} instalments, {MoneyText.Som(paidSum)}.", $"Tüm borç ödendi: {done} taksit, {MoneyText.Som(paidSum)}.", $"Butun qarz to'landi: {done} bo'lak, {MoneyText.Som(paidSum)}.") + expenseNote);
+            else
+                PosDialogs.Warning(owner, T($"Оплачено {done} из {queue.Count} взносов на {MoneyText.Som(paidSum)}. ", $"{queue.Count} төлөмдүн {done} төлөндү, {MoneyText.Som(paidSum)}. ",
+                        $"Paid {done} of {queue.Count} instalments, {MoneyText.Som(paidSum)}. ", $"{queue.Count} taksitten {done} ödendi, {MoneyText.Som(paidSum)}. ", $"{queue.Count} bo'lakdan {done} to'landi, {MoneyText.Som(paidSum)}. ")
+                    + (timedOut
+                        ? T("Ответ сервера не получен — следующий взнос мог пройти. Карточка перечитана: проверьте остаток; повторное нажатие не проведёт оплату второй раз.",
+                            "Серверден жооп алынган жок — кийинки төлөм өтүп кетиши мүмкүн. Карточка жаңыртылды: калдыкты текшериңиз; кайра басуу экинчи жолу төлөбөйт.",
+                            "No answer from the server — the next instalment may have gone through. The card was refreshed: check the balance; pressing again will not pay twice.",
+                            "Sunucudan yanıt alınamadı — sıradaki taksit geçmiş olabilir. Kart yenilendi: bakiyeyi kontrol edin; tekrar basmak ikinci kez ödemez.",
+                            "Serverdan javob olmadi — keyingi bo'lak o'tgan bo'lishi mumkin. Karta yangilandi: qoldiqni tekshiring; qayta bosish ikkinchi marta to'lamaydi.")
+                        : T("Сервер не принял оплату: ", "Сервер төлөмдү кабыл алган жок: ", "The server did not accept the payment: ", "Sunucu ödemeyi kabul etmedi: ", "Server to'lovni qabul qilmadi: ") + failure)
+                    + expenseNote);
+        }
+        finally
+        {
+            _paying = false;
+            button.IsEnabled = true;
+        }
+    }
+
     /// <summary>Перечитать карточку после записи долга (долги, kpis, закупки).</summary>
     private async Task ReloadAsync()
     {
@@ -522,7 +767,25 @@ public sealed class SupplierCardView : UserControl
             total.Inlines.Add(Red(MoneyText.Som(Overdue), true));
         }
         total.Inlines.Add(new Run(T($" · долгов: {open.Count}", $" · карыздар: {open.Count}", $" · debts: {open.Count}", $" · borç: {open.Count}", $" · qarzlar: {open.Count}")));
-        _body.Children.Add(total);
+        // 2026-10-23, просьба владельца: «кнопка погасить весь долг где?» — все неоплаченные взносы одним подтверждением.
+        var topRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        topRow.Children.Add(total);
+        // 2026-10-23 (аудит, круг 8, В-4): в подписи кнопки — взносы без «двойных записей» (их «Погасить весь долг» не оплачивает).
+        var dupIdsForAll = SupplierApiService.SuspectedDuplicates(_deals).Select(x => x.Id).ToHashSet();
+        var openInstallments = open.Where(d => !dupIdsForAll.Contains(d.Id)).Sum(d => d.Installments.Count(i => i.Remaining > 0.005));
+        if (SupplierDebtUi.CanRecordDebts && open.Sum(d => d.Installments.Count(i => i.Remaining > 0.005)) > 0)
+        {
+            var payAll = SmallOutline(T("Погасить весь долг", "Бардык карызды төлөө", "Pay off the whole debt", "Tüm borcu öde", "Butun qarzni to'lash"));
+            payAll.Height = 44;
+            payAll.Margin = new Thickness(12, 0, 0, 0);
+            payAll.VerticalAlignment = VerticalAlignment.Center;
+            Avalonia.Automation.AutomationProperties.SetName(payAll, T($"Погасить весь долг поставщику, взносов: {openInstallments}", $"Жеткирүүчүнүн бардык карызын төлөө, төлөмдөр: {openInstallments}",
+                $"Pay off the whole debt to the supplier, instalments: {openInstallments}", $"Tedarikçiye tüm borcu öde, taksit: {openInstallments}", $"Yetkazib beruvchiga butun qarzni to'lash, bo'laklar: {openInstallments}"));
+            payAll.Click += async (_, _) => await PayAllDebtAsync(payAll).ConfigureAwait(true);
+            Grid.SetColumn(payAll, 1);
+            topRow.Children.Add(payAll);
+        }
+        _body.Children.Add(topRow);
         if (open.Count == 0)
             _body.Children.Add(Soft(T("Все долги перед поставщиком погашены.", "Жеткирүүчү алдындагы бардык карыздар төлөндү.", "All debts to the supplier are paid off.", "Tedarikçiye tüm borçlar ödendi.", "Yetkazib beruvchi oldidagi barcha qarzlar to'langan.")));
         var duplicates = SupplierApiService.SuspectedDuplicates(_deals).Select(d => d.Id).ToHashSet();
@@ -579,7 +842,7 @@ public sealed class SupplierCardView : UserControl
             next?.DueDate is { } due ? T($"ближайший срок {due:dd.MM.yyyy}", $"жакынкы мөөнөт {due:dd.MM.yyyy}", $"next due {due:dd.MM.yyyy}", $"en yakın vade {due:dd.MM.yyyy}", $"eng yaqin muddat {due:dd.MM.yyyy}")
                 : T("срок не задан", "мөөнөт коюлган эмес", "no due date", "vade yok", "muddat belgilanmagan"),
             T($"взносов: {d.Installments.Count}", $"бөлүктөр: {d.Installments.Count}", $"instalments: {d.Installments.Count}", $"taksit: {d.Installments.Count}", $"bo'laklar: {d.Installments.Count}"),
-            d.Note,
+            NoteForPeople(d.Note),
         }.Where(x => x.Length > 0))));
         head.Children.Add(who);
         var right = new StackPanel { HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(12, 0, 0, 0) };
@@ -604,7 +867,8 @@ public sealed class SupplierCardView : UserControl
     private Control InstallmentsTable(SupplierDeal d)
     {
         // Колонки по содержимому (числа — ровным столбцом справа), остаток ширины — у статуса.
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,Auto,Auto,Auto,*") };
+        // 2026-10-22 (аудит 1.17.59, П-Ж): седьмая колонка — «Оплатить взнос» (владелец/админ).
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,Auto,Auto,Auto,*,Auto") };
         var r = 0;
         void Cell(string text, int col, bool header, bool right, string brush = "BrushText")
         {
@@ -644,6 +908,21 @@ public sealed class SupplierCardView : UserControl
                         ? (T("оплачен частично", "жарым-жартылай төлөндү", "partly paid", "kısmen ödendi", "qisman to'langan"), "BrushText")
                         : (T("ожидается", "күтүлүүдө", "upcoming", "bekleniyor", "kutilmoqda"), "BrushText");
             Cell(status, 5, false, false, brush);
+            if (i.Remaining > 0.005 && SupplierDebtUi.CanRecordDebts)
+            {
+                var pay = SmallOutline(T("Оплатить взнос", "Төлөмдү төлөө", "Pay instalment", "Taksiti öde", "Bo'lakni to'lash"));
+                Avalonia.Automation.AutomationProperties.SetName(pay, T($"Оплатить взнос №{i.Number} на {MoneyText.Som(i.Remaining)}", $"№{i.Number} төлөмдү төлөө, {MoneyText.Som(i.Remaining)}",
+                    $"Pay instalment {i.Number}: {MoneyText.Som(i.Remaining)}", $"{i.Number} no'lu taksiti öde: {MoneyText.Som(i.Remaining)}", $"{i.Number}-bo'lakni to'lash: {MoneyText.Som(i.Remaining)}"));
+                pay.Height = 44; // 2026-10-23 (аудит, круг 8, М-8): минимальная высота кнопки на сенсорном экране
+                pay.MinHeight = 44;
+                pay.Margin = new Thickness(16, 0, 0, 0);
+                pay.IsEnabled = !_paying;
+                var captured = i;
+                pay.Click += async (_, _) => await PayInstallmentAsync(d, captured, pay).ConfigureAwait(true);
+                Grid.SetRow(pay, r);
+                Grid.SetColumn(pay, 6);
+                grid.Children.Add(pay);
+            }
         }
         var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = grid };
         Use(box, Border.BackgroundProperty, "BrushPanelSoft");
@@ -809,8 +1088,12 @@ public sealed class SupplierCardView : UserControl
     private Control ProductsTable()
     {
         var q = _productQuery.Trim();
+        // 2026-10-21: скан доп. штрихкода, 12 ↔ 13 цифр или размера — тот же товар, что нашла бы касса (ProductCodeLookup;
+        // склад не находит товар по скану).
+        var exactId = q.Length >= 4 ? ProductCodeLookup.FindLocal(q)?.Product.Id : null;
         var shown = _products.Where(p => q.Length == 0 || p.Name.Contains(q, StringComparison.CurrentCultureIgnoreCase) || p.Code.Contains(q, StringComparison.OrdinalIgnoreCase)
-            || p.Article.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(300).ToList();
+            || p.Article.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || (exactId != null && string.Equals(p.Id, exactId, StringComparison.OrdinalIgnoreCase))).Take(300).ToList();
         if (shown.Count == 0)
             return Soft(T("По этому запросу товаров нет.", "Бул сурам боюнча товар жок.", "No products match.", "Eşleşen ürün yok.", "Mos mahsulot yo'q."));
         var rows = shown.Select(p => ((p.Code.Length > 0 ? p.Name + " · " + p.Code : p.Name),
@@ -1013,6 +1296,9 @@ public sealed class SupplierCardView : UserControl
         return box;
     }
 
+    /// <summary>2026-10-24 (приёмка, ПР-11): «23 400,00 сом» → «23 400 сом» для кнопки подтверждения (целые суммы без копеек).</summary>
+    private static string ButtonSom(string somText) => somText.Replace(",00", "");
+
     private Button SmallOutline(string text)
     {
         var b = new Button
@@ -1024,6 +1310,21 @@ public sealed class SupplierCardView : UserControl
         if (Avalonia.Automation.AutomationProperties.GetName(b) is not { Length: > 0 })
             Avalonia.Automation.AutomationProperties.SetName(b, text.TrimStart('▾', '▴', '←', ' '));
         return b;
+    }
+
+    /// <summary>2026-10-22, владелец: «что за receipt:…?» — в примечании долга лежит служебная метка прихода
+    /// (receipt:&lt;id&gt; / receipt-key:…, по ней касса не создаёт второй долг на тот же приход). Человеку её не показываем:
+    /// остаётся «приход 22.10.2026 11:31, срок 60 дн.», а «NurMarket» — как «из кассы».</summary>
+    private static string NoteForPeople(string? note)
+    {
+        if (string.IsNullOrWhiteSpace(note))
+            return "";
+        var parts = note.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => System.Text.RegularExpressions.Regex.Replace(p, @"\breceipt(-key)?:\S+", "").Trim(' ', ',', ';'))
+            .Where(p => p.Length > 0)
+            .Select(p => string.Equals(p, "NurMarket", StringComparison.OrdinalIgnoreCase)
+                ? T("из кассы", "кассадан", "from the till", "kasadan", "kassadan") : p);
+        return string.Join(" · ", parts);
     }
 
     private TextBlock Soft(string text)

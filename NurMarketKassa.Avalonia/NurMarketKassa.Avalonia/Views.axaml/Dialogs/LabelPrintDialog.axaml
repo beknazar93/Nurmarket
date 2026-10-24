@@ -5,7 +5,7 @@
         x:DataType="dialogs:LabelPrintDialog"
         x:CompileBindings="True"
         Title="{DynamicResource labelPrint.title}"
-        Width="592" SizeToContent="Height"
+        Width="672" SizeToContent="Height"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         FontFamily="Segoe UI, Inter, Noto Sans"
@@ -19,14 +19,15 @@
     <Window.Styles>
         <Style Selector="ComboBox">
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="MinHeight" Value="40"/>
+            <!-- 2026-10-22 (модалки, пакет 3): поля 44 px (было 38–40) — касание пальцем. -->
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
         </Style>
         <Style Selector="NumericUpDown">
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
@@ -38,7 +39,8 @@
         </Style>
     </Window.Styles>
 
-    <dialogs:ModalShell Margin="16"
+    <!-- 2026-10-22 (модалки, пакет 3): ширина по сетке — M = 672 (было 592); на время печати окно занято (IsBusy). -->
+    <dialogs:ModalShell Margin="16" IsBusy="{Binding IsBusy}"
                         Title="{DynamicResource labelPrint.header}"
                         Subtitle="{DynamicResource labelPrint.subtitle}">
         <dialogs:ModalShell.Hint>
@@ -64,7 +66,9 @@
                     <TextBlock IsVisible="{Binding !HasBarcode}"
                                Text="{DynamicResource labelPrint.noBarcode}"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="#64748B"/>
+                               Foreground="#475569"/>
+                    <!-- 2026-10-22 (модалки, пакет 3): подложка — белая «бумага» этикетки в любой теме, поэтому подпись
+                         тёмно-серая постоянным цветом (#475569 — 7:1 на белом; #64748B был 4,8:1), а не цветом темы. -->
                 </Grid>
             </Border>
 

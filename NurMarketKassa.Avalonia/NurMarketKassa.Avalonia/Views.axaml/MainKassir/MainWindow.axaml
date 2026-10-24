@@ -186,12 +186,41 @@
             <Setter Property="Padding" Value="12,6"/>
         </Style>
         <Style Selector=".compact TextBlock.header-title">
-            <Setter Property="MaxWidth" Value="200"/>
+            <Setter Property="MaxWidth" Value="150"/>
         </Style>
+        <!-- 2026-10-23 (аудит Б-6): на 1024 px «Касса: N сом» пропадала — обрезалась справа. Режим сети в компактном виде
+             прячем (статус «Онлайн» остаётся), баланс кассы важнее; название кассы короче. -->
         <Style Selector=".compact TextBlock.header-network">
-            <Setter Property="MaxWidth" Value="170"/>
+            <Setter Property="IsVisible" Value="False"/>
         </Style>
         <Style Selector=".compact StackPanel.header-status">
+            <Setter Property="Spacing" Value="10"/>
+        </Style>
+        <!-- 2026-10-23 (аудит, круг 5): узкая шапка включается по ШИРИНЕ шапки (класс окна "headernarrow", см. UpdateHeaderNarrow), а не по
+             рабочей области экрана, как "compact": в окне 1024 «Касса: N сом» обрезалась. Те же правила, что у compact для шапки. -->
+        <Style Selector=".headernarrow Border.kassa-header">
+            <Setter Property="Padding" Value="10,6"/>
+        </Style>
+        <Style Selector=".headernarrow Button.header-tool">
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="44"/>
+        </Style>
+        <Style Selector=".headernarrow TextBlock.header-tool-label">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".headernarrow Button.header-secondary">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".headernarrow Button.header-more">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector=".headernarrow TextBlock.header-title">
+            <Setter Property="MaxWidth" Value="150"/>
+        </Style>
+        <Style Selector=".headernarrow TextBlock.header-network">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".headernarrow StackPanel.header-status">
             <Setter Property="Spacing" Value="10"/>
         </Style>
         <!-- 2026-10-04, Android, вертикальный телефон (класс окна "portrait", см. ApplyPortraitLayout):
@@ -280,12 +309,55 @@
              это #000000 над тёмно-синим экраном. К теме кассы системная кисть отношения не
              имеет и на переключение цвета темы не реагирует вовсе. -->
         <!-- 2026-09-30: полоса орнамента под шапкой (тема «Кыргыз»; у остальных высота 0). -->
-        <DockPanel Grid.Row="0">
+        <Panel Grid.Row="0">
+        <DockPanel>
         <Border DockPanel.Dock="Bottom" Height="{DynamicResource OrnamentBandHeight}"
                 Background="{DynamicResource BrushOrnamentBand}" IsHitTestVisible="False"/>
+        <!-- 2026-10-23 (аудит П-3): плашка «Смена идёт N ч» — отдельная полоса под шапкой на всю ширину (в центре шапки
+             её обрезало и прятало под значками); с 23:45 красная — и фон, и текст (раньше текст оставался жёлтым). -->
+        <!-- 2026-10-23 (аудит Б-3): фон/рамка заданы стилем, а не атрибутом — локальное значение перебивало красный стиль,
+             и при >23 ч фон оставался жёлтым. Кнопка на красном уровне — основная (контрастная). -->
+        <Border DockPanel.Dock="Bottom" Padding="12,5" Classes="shift-age-bar"
+                Classes.shiftAgeRed="{Binding Toolbar.Status.IsShiftAgeRed}"
+                BorderThickness="0,0,0,1"
+                IsVisible="{Binding Toolbar.Status.HasShiftAge}">
+            <Border.Styles>
+                <Style Selector="Border.shift-age-bar">
+                    <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+                </Style>
+                <Style Selector="Border.shift-age-bar.shiftAgeRed Button.shift-age-btn">
+                    <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                </Style>
+                <Style Selector="Border.shift-age-bar.shiftAgeRed Button.shift-age-btn:pointerover /template/ ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Style>
+                <Style Selector="TextBlock.shift-age-text">
+                    <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+                </Style>
+                <Style Selector="Border.shift-age-bar.shiftAgeRed">
+                    <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+                </Style>
+                <Style Selector="Border.shift-age-bar.shiftAgeRed TextBlock.shift-age-text">
+                    <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+                </Style>
+            </Border.Styles>
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Classes="shift-age-text"
+                           Text="{Binding Toolbar.Status.ShiftAgeText}" FontSize="13" FontWeight="SemiBold"
+                           TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" x:Name="ShiftAgeCloseButton" Classes="main-ghost shift-age-btn" Margin="12,0,0,0" Padding="10,3" FontSize="12"
+                        VerticalAlignment="Center" Click="CloseShift_Click"/>
+            </Grid>
+        </Border>
         <!-- 2026-10-04: отступы и размеры шапки — в стилях Border.kassa-header / Button.header-*
              (обычный и компактный вид, см. Window.Styles выше). -->
-        <Border Classes="kassa-header"
+        <Border x:Name="KassaHeaderBar" Classes="kassa-header"
                 Background="{DynamicResource BrushWindowAlt}"
                 BorderBrush="{DynamicResource BrushBorder}"
                 BorderThickness="0,0,0,1">
@@ -429,6 +501,7 @@
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{Binding Toolbar.ThemeTooltip}"
+                            AutomationProperties.Name="{Binding Toolbar.ThemeTooltip}"
                             Click="ToggleTheme_Click">
                         <StackPanel Spacing="1" VerticalAlignment="Center">
                             <TextBlock Classes="mdl2" Text="{Binding Toolbar.ThemeGlyph}" FontSize="17" HorizontalAlignment="Center"/>
@@ -532,6 +605,37 @@
             </Grid>
         </Border>
         </DockPanel>
+        </Panel>
+        <!-- 2026-10-23 (аудит К6): плашка («Корзина очищена», связь) — поверх шапки, а не в потоке под ней: раньше сдвигала весь экран на ~47 px.
+             2026-10-23 (аудит, круг 7): теперь в строке тела (Grid.Row=1), по центру ниже шапки, — «Касса: N сом» и «Экран» в шапке остаются видны. -->
+        <Border Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Top" ZIndex="50"
+                Margin="16,8,16,0"
+                MaxWidth="720"
+                Padding="14,8"
+                CornerRadius="10"
+                BorderThickness="1"
+                Classes="outageToast"
+                IsVisible="{Binding Toolbar.Status.HasOutageToast}"
+                Classes.recovery="{Binding Toolbar.Status.IsOutageToastRecovery}"
+                PointerPressed="OnOutageToastPressed">
+            <!-- Мягкий фон и текст темы, как у плашки смены: белый текст на жёлтом в тёмной
+                 теме не читался (проверено снимком стенда 29.09). -->
+            <Border.Styles>
+                <Style Selector="Border.outageToast">
+                    <Setter Property="Background" Value="{DynamicResource BrushShiftWarnBg}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushShiftWarnBorder}"/>
+                </Style>
+                <Style Selector="Border.outageToast.recovery">
+                    <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushUiStatusOk}"/>
+                </Style>
+            </Border.Styles>
+            <TextBlock Text="{Binding Toolbar.Status.OutageToastText}"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushText}"
+                       TextWrapping="Wrap"/>
+        </Border>
 
         <!-- ======================== Основной контент ======================== -->
         <Grid x:Name="MainContentGrid" Grid.Row="1"
@@ -642,37 +746,7 @@
         <!-- 2026-09-29: уведомление об аварии сервера NurCRM и о восстановлении связи — поверх
              кассы под шапкой, само исчезает (MainStatusViewModel.ShowToast), щелчок закрывает.
              Не окно: кассир не должен ничего нажимать, чтобы продолжить продажи. -->
-        <Border Grid.Row="1"
-                ZIndex="150"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Top"
-                Margin="16,8,16,0"
-                MaxWidth="720"
-                Padding="14,8"
-                CornerRadius="10"
-                BorderThickness="1"
-                Classes="outageToast"
-                IsVisible="{Binding Toolbar.Status.HasOutageToast}"
-                Classes.recovery="{Binding Toolbar.Status.IsOutageToastRecovery}"
-                PointerPressed="OnOutageToastPressed">
-            <!-- Мягкий фон и текст темы, как у плашки смены: белый текст на жёлтом в тёмной
-                 теме не читался (проверено снимком стенда 29.09). -->
-            <Border.Styles>
-                <Style Selector="Border.outageToast">
-                    <Setter Property="Background" Value="{DynamicResource BrushShiftWarnBg}"/>
-                    <Setter Property="BorderBrush" Value="{DynamicResource BrushShiftWarnBorder}"/>
-                </Style>
-                <Style Selector="Border.outageToast.recovery">
-                    <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
-                    <Setter Property="BorderBrush" Value="{DynamicResource BrushUiStatusOk}"/>
-                </Style>
-            </Border.Styles>
-            <TextBlock Text="{Binding Toolbar.Status.OutageToastText}"
-                       FontSize="13"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource BrushText}"
-                       TextWrapping="Wrap"/>
-        </Border>
+        <!-- 2026-10-23: плашка переехала в полосу под шапкой (DockPanel строки 0) — раньше лежала поверх строки вкладок каталога и закрывала её. -->
         <!-- 2026-10-18, редизайн (этап 6, макет MAfterPay): «Продажа прошла» — плашка внизу слева поверх любой
              из шести раскладок (кнопки «Оплатить» у всех справа), а не окно. Фокус не берёт, сама закрывается
              через 3 с; показывает и убирает MainWindow.SaleDoneBar.cs. Ширина — 480, на узком экране меньше. -->

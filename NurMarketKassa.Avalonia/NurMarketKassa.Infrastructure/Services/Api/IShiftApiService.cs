@@ -46,6 +46,12 @@ public interface IShiftApiService
     Task<JsonElement?> OpenShiftsListAfterSaleAsync(TimeSpan maxAge, CancellationToken ct = default) =>
         Task.FromResult<JsonElement?>(null);
 
+    /// <summary>2026-10-23 (аудит, круг 6): closing_cash последней закрытой смены кассы — «Остаток по системе» в «Открыть смену»,
+    /// когда открытых смен нет. Один запрос (первая страница списка) или свежий снимок списка; ответ кэшируется на минуту.
+    /// null — нет связи или закрытых смен с суммой нет.</summary>
+    Task<decimal?> LastClosedShiftCashAsync(string? cashboxId, CancellationToken ct = default) =>
+        Task.FromResult<decimal?>(null);
+
     /// <summary>POST открытия смены (перебор URL и вариантов тела).</summary>
     Task<JsonElement> ConstructionShiftOpenAsync(string cashboxId, string openingCash = "0.00", CancellationToken ct = default);
 

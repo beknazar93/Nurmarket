@@ -17,20 +17,21 @@
   <SolidColorBrush x:Key="BrushText" Color="#0F172A" />
   <SolidColorBrush x:Key="BrushTextMuted" Color="#334155" />
   <SolidColorBrush x:Key="BrushTextSoft" Color="#64748B" />
-  <SolidColorBrush x:Key="BrushAccent" Color="#F7D617" />
+  <SolidColorBrush x:Key="BrushAccent" Color="#FFB208" />
   <!-- Цвет ДЕНЕГ (светлая тема) — см. пояснение в AppTheme.axaml. #F7D617 на белом даёт
        контраст 1.44:1 (норма 3:1), то есть жёлтая сумма на белой панели практически не читается.
        #0F172A на белом — 17.8:1. -->
   <SolidColorBrush x:Key="BrushMoney" Color="#0F172A" />
   <SolidColorBrush x:Key="BrushMoneyMuted" Color="#475569" />
-  <SolidColorBrush x:Key="BrushPrimary" Color="#F7D617" />
-  <SolidColorBrush x:Key="BrushAccentForeground" Color="#000000" />
-  <SolidColorBrush x:Key="BrushAccentStrong" Color="#D6B500" />
+  <SolidColorBrush x:Key="BrushPrimary" Color="#FFB208" />
+  <!-- 2026-10-22, брендбук: текст на жёлтом #FFB208 — Deep Night #191919 (9,7:1). -->
+  <SolidColorBrush x:Key="BrushAccentForeground" Color="#191919" />
+  <SolidColorBrush x:Key="BrushAccentStrong" Color="#E69F00" />
   <!-- 2026-10-18: нажатые кнопки и красный текст на мягком красном (до применения темы; дальше их считает AccentThemeService). -->
-  <SolidColorBrush x:Key="BrushAccentPressed" Color="#C2A100" />
+  <SolidColorBrush x:Key="BrushAccentPressed" Color="#CC8800" />
   <SolidColorBrush x:Key="BrushPanelPressed" Color="#D1D7E0" />
   <SolidColorBrush x:Key="BrushDangerOnSoft" Color="#B91C1C" />
-  <SolidColorBrush x:Key="BrushAccentSoft" Color="#FFF7C2" />
+  <SolidColorBrush x:Key="BrushAccentSoft" Color="#FFF1DB" />
   <SolidColorBrush x:Key="BrushLoginHeroTitle" Color="#0F172A" />
   <SolidColorBrush x:Key="BrushLoginHeroSubtitle" Color="#475569" />
   <!-- См. комментарий в AppTheme.axaml. В светлой теме было #F7D617 — жёлтый текст на
@@ -65,12 +66,12 @@
   <SolidColorBrush x:Key="BrushDiscountPanelBorder" Color="#BFDBFE" />
   <SolidColorBrush x:Key="BrushCatalogTabBg" Color="#E2E8F0" />
   <SolidColorBrush x:Key="BrushCatalogTabBgHover" Color="#F1F5F9" />
-  <SolidColorBrush x:Key="BrushCatalogTabBgSelected" Color="#F7D617" />
-  <SolidColorBrush x:Key="BrushCatalogTabBorderSelected" Color="#D6B500" />
+  <SolidColorBrush x:Key="BrushCatalogTabBgSelected" Color="#FFB208" />
+  <SolidColorBrush x:Key="BrushCatalogTabBorderSelected" Color="#E69F00" />
 
-  <Color x:Key="ColorPrimaryDefault">#F7D617</Color>
-  <Color x:Key="ColorPrimaryHover">#FFE24D</Color>
-  <Color x:Key="ColorPrimaryPressed">#D6B500</Color>
+  <Color x:Key="ColorPrimaryDefault">#FFB208</Color>
+  <Color x:Key="ColorPrimaryHover">#FFC84D</Color>
+  <Color x:Key="ColorPrimaryPressed">#E69F00</Color>
   <Color x:Key="ColorSecondaryDefault">#E2E8F0</Color>
   <Color x:Key="ColorSecondaryHover">#EDF2F8</Color>
   <Color x:Key="ColorSecondaryPressed">#CBD5E1</Color>

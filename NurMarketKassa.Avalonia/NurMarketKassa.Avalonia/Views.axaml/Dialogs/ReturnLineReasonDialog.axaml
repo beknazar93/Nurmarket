@@ -27,7 +27,13 @@
   <!-- 2026-10-17, редизайн (этап 3): общая оболочка ModalShell, карточка 480 — заголовок и ✕ сверху,
        «Отмена» (обводка, Esc) и «Вернуть» (акцент темы) снизу справа. Высота — по содержимому (раньше
        окно 520 / 420 задавалось в коде), не выше 85 % экрана. Enter в поле — новая строка, как и раньше. -->
-  <dlg:ModalShell Margin="16" Title="{DynamicResource returnReason.header}">
+  <!-- 2026-10-22 (модалки, пакет 1): фокус в поле причины — оболочкой (InitialFocus); поле многострочное, Enter в нём —
+       новая строка, «Вернуть» — Ctrl+Enter (подсказка слева в подвале, текст — в коде). -->
+  <dlg:ModalShell Margin="16" Title="{DynamicResource returnReason.header}" InitialFocus="ReasonBox">
+    <dlg:ModalShell.Hint>
+      <TextBlock x:Name="KeysHint" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center"
+                 Foreground="{DynamicResource BrushTextSoft}"/>
+    </dlg:ModalShell.Hint>
     <dlg:ModalShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="10">
         <Button IsCancel="True"

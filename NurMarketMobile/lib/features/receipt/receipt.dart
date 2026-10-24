@@ -78,6 +78,9 @@ class Receipt {
   final String? eReceiptUrl;
   final bool offline;
 
+  /// 2026-10-22 (мобилка, деньги): продажа в долг — срок «Вернуть до» (как в чеке кассы; у сервера в продаже его нет).
+  final DateTime? debtDue;
+
   const Receipt({
     required this.shop,
     this.inn = '',
@@ -98,7 +101,25 @@ class Receipt {
     this.fiscal,
     this.eReceiptUrl,
     this.offline = false,
+    this.debtDue,
   });
+
+  /// 2026-10-22 (мобилка, деньги): строки оплаты для экрана, PDF, текста и печати. В долг — «Внесено / Долг / Вернуть до»
+  /// (раньше «В долг: 300» при чеке 1000 и предоплате 300 — будто весь чек 300).
+  List<(String, String)> get paymentLines {
+    if (payment == 'debt') {
+      final paid = received ?? 0;
+      final debt = roundMoney(total - paid);
+      final d = debtDue;
+      return [
+        ('Оплата', paymentText),
+        if (paid > 0) ('Внесено', money(paid)),
+        ('Долг', money(debt < 0 ? 0 : debt)),
+        if (d != null) ('Вернуть до', '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}'),
+      ];
+    }
+    return [(paymentText, money(received ?? total))];
+  }
 
   double get subtotal => roundMoney(lines.fold(0.0, (s, l) => s + l.qty * l.price));
   int get itemCount => lines.length;
@@ -132,6 +153,7 @@ class Receipt {
     String client = '',
     Map<String, dynamic>? response,
     bool offline = false,
+    DateTime? debtDue,
   }) {
     final lines = [for (final l in cart.lines) ReceiptLine(name: l.name, qty: l.qty, unit: l.unit, price: l.price, discount: l.discount, total: l.total)];
     final total = cart.total;
@@ -154,6 +176,7 @@ class Receipt {
       fiscal: ReceiptFiscal.parse(response),
       eReceiptUrl: qr.eReceiptUrl(response),
       offline: offline,
+      debtDue: debtDue,
     );
   }
 
@@ -247,7 +270,9 @@ class Receipt {
     b.writeln(dash);
     if (discount > 0) b.writeln('Скидка: −${money(discount)}');
     b.writeln('ИТОГО: ${money(total)} сом');
-    b.writeln('$paymentText: ${money(received ?? total)}');
+    for (final (k, v) in paymentLines) {
+      b.writeln('$k: $v');
+    }
     if (change > 0) b.writeln('Сдача: ${money(change)}');
     final f = fiscal;
     if (f != null) {

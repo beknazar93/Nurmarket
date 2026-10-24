@@ -16,8 +16,15 @@ namespace NurMarketKassa.Services.Api;
 /// программы и её разделы не трогают название и адрес магазина).</summary>
 public sealed record ShowcaseSettings(string CompanyName, string Slug, string ShowcasePhone);
 
-/// <summary>Строка заказа (items[] у /api/main/orders/): товар, количество, цена и сумма сервера.</summary>
-public sealed record SiteOrderItem(string ProductId, string? Name, double Quantity, double Price, double Total);
+/// <summary>Строка заказа (items[] у /api/main/orders/): товар, количество, цена и сумма сервера.
+/// 2026-10-22 (витрина одежды): + вариант строки — `variant` (uuid), `variant_size`, `variant_color` (схема ShowcaseOrderItem
+/// сервера; проверено на NBS: заказ №10 из бота пришёл с вариантом «L, Белый»).</summary>
+public sealed record SiteOrderItem(string ProductId, string? Name, double Quantity, double Price, double Total,
+    string? VariantId = null, string? Size = null, string? Color = null)
+{
+    /// <summary>«L, Белый» — размер и цвет строки; пусто, если вариант не выбран.</summary>
+    public string VariantText => string.Join(", ", new[] { Size, Color }.Where(v => !string.IsNullOrWhiteSpace(v)));
+}
 
 /// <summary>Заказ NurCRM (GET /api/main/orders/). Поля — по схеме сервера (Order); доставка, адрес
 /// и комментарий в схеме сейчас НЕТ — читаются, только если сервер когда-нибудь начнёт их отдавать.</summary>
@@ -196,9 +203,11 @@ public sealed class ShowcaseApiService
     /// (POST /api/main/public/companies/{slug}/orders/, самовывоз). Цену и сумму считает сервер по
     /// своему каталогу — бот цену не передаёт. Ответ: номер заказа и сумма сервера.</summary>
     public async Task<(string Id, string Number, decimal Total)> CreateBotOrderAsync(
-        string customerName, string phone, IReadOnlyList<(string ProductId, double Qty)> items, string? comment,
+        string customerName, string phone, IReadOnlyList<(string ProductId, double Qty, string? VariantId)> items, string? comment,
         CancellationToken ct = default)
     {
+        // 2026-10-22 (витрина одежды): размер/цвет — полем "variant" строки (ShowcaseOrderItem.variant, uuid). Сервер сам
+        // пишет variant_size/variant_color и резервирует остаток размера; без варианта — как раньше (товар целиком).
         _cachedSlug ??= (await GetSettingsAsync(ct).ConfigureAwait(false)).Slug;
         if (string.IsNullOrWhiteSpace(_cachedSlug))
             throw new InvalidOperationException("у компании не задан адрес витрины (slug)");
@@ -206,10 +215,16 @@ public sealed class ShowcaseApiService
         var body = new Dictionary<string, object?>
         {
             ["customer"] = new Dictionary<string, object?> { ["name"] = customerName, ["phone"] = phone },
-            ["items"] = items.Select(i => new Dictionary<string, object?>
+            ["items"] = items.Select(i =>
             {
-                ["product"] = i.ProductId,
-                ["qty"] = i.Qty.ToString("0.###", CultureInfo.InvariantCulture),
+                var line = new Dictionary<string, object?>
+                {
+                    ["product"] = i.ProductId,
+                    ["qty"] = i.Qty.ToString("0.###", CultureInfo.InvariantCulture),
+                };
+                if (!string.IsNullOrWhiteSpace(i.VariantId))
+                    line["variant"] = i.VariantId.Trim();
+                return line;
             }).ToList(),
             ["delivery"] = new Dictionary<string, object?> { ["type"] = "pickup" },
             ["comment"] = string.IsNullOrWhiteSpace(comment) ? "Заказ через телеграм-бота" : "Телеграм-бот: " + comment,
@@ -429,16 +444,26 @@ public sealed class ShowcaseApiService
                 var qty = Num(it, "quantity") ?? Num(it, "qty") ?? 0;
                 var price = Num(it, "price") ?? 0;
                 // Заказ витрины: размер и цвет варианта — к названию.
+                // 2026-10-22 (витрина одежды): сервер уже пишет их в product_name («Кросовки — L, Белый», заказ №10 на NBS) —
+                // не дублируем «(L, Белый)»; вариант хранится и отдельно (id, размер, цвет) для показа и сверки остатка.
                 var name = FirstStr(it, "product_name", "name", "title");
-                var variant = string.Join(", ", new[] { Str(it, "variant_size"), Str(it, "variant_color") }.Where(v => !string.IsNullOrWhiteSpace(v)));
-                if (name is not null && variant.Length > 0)
+                var size = Str(it, "variant_size");
+                var color = Str(it, "variant_color");
+                var variantId = it.ValueKind == JsonValueKind.Object && it.TryGetProperty("variant", out var vEl) && vEl.ValueKind == JsonValueKind.Object
+                    ? Str(vEl, "id")
+                    : Str(it, "variant");
+                var variant = string.Join(", ", new[] { size, color }.Where(v => !string.IsNullOrWhiteSpace(v)));
+                if (name is not null && variant.Length > 0 && !name.Contains(variant, StringComparison.OrdinalIgnoreCase))
                     name += $" ({variant})";
                 items.Add(new SiteOrderItem(
                     product,
                     name,
                     qty,
                     price,
-                    Num(it, "total") ?? qty * price));
+                    Num(it, "total") ?? qty * price,
+                    variantId,
+                    size,
+                    color));
             }
         }
 

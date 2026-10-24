@@ -189,7 +189,8 @@ public partial class ScalesPluWindow
                      $"{missing.Count} ticked products have no PLU on the website. The till will give them free PLU numbers on the website (as the website does when a weighed product is created). The scale slot number will equal the website PLU.",
                      $"İşaretli {missing.Count} ürünün sitede PLU'su yok. Kasa onlara sitede boş PLU numaraları verir (site tartılı ürün oluştururken yaptığı gibi). Tartıdaki hücre numarası sitedeki PLU'ya eşit olur.",
                      $"Belgilangan {missing.Count} ta tovarning saytda PLU'si yo‘q. Kassa ularga saytda bo‘sh PLU raqamlarini beradi (sayt vaznli tovar yaratganda qilganidek). Tarozidagi katak raqami saytdagi PLU'ga teng bo‘ladi."),
-                Tr.T("Присвоить", "Берүү", "Assign", "Ata", "Berish")), this).ConfigureAwait(true) == true;
+                // 2026-10-22 (модалки, пакет 3): глагол с числом — что именно сделает кнопка; «Отмена» — по умолчанию.
+                Tr.T($"Присвоить PLU: {missing.Count}", $"PLU берүү: {missing.Count}", $"Assign PLU: {missing.Count}", $"PLU ata: {missing.Count}", $"PLU berish: {missing.Count}")), this).ConfigureAwait(true) == true;
             if (!ok)
                 return "";
         }

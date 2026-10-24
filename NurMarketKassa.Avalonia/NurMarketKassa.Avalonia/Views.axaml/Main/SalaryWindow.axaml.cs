@@ -386,8 +386,9 @@ public partial class SalaryWindow : Window, IOwnerSection
         var left = rows.Sum(r => Math.Max(0, r.Total - r.Paid));
         CardPayrollPaidText.Text = Tr.T($"Выплачено: {Money(paidAll)} · Осталось: {Money(left)} сом", $"Төлөндү: {Money(paidAll)} · Калды: {Money(left)} сом",
                 $"Paid: {Money(paidAll)} · Left: {Money(left)} som", $"Ödendi: {Money(paidAll)} · Kalan: {Money(left)} som", $"To'landi: {Money(paidAll)} · Qoldi: {Money(left)} so'm")
-            + (allSure ? "" : " " + Tr.T("(выплаты проверены не полностью)", "(төлөмдөр толук текшерилген жок)", "(payouts not fully checked)",
-                "(ödemeler tam kontrol edilmedi)", "(to'lovlar to'liq tekshirilmagan)"));
+            + (allSure ? "" : " " + // 2026-10-22 (аудит 1.17.59, П-З): простыми словами и с подсказкой, что делать.
+            Tr.T("(возможно, не все выплаты учтены — сверьте на сайте)", "(бардык төлөмдөр эсепке алынбаган болушу мүмкүн — сайттан салыштырыңыз)", "(some payouts may be missing — check on the website)",
+                "(bazı ödemeler eksik olabilir — sitede kontrol edin)", "(ba'zi to'lovlar hisobga olinmagan bo'lishi mumkin — saytda solishtiring)"));
         CardPayrollPaidText.IsVisible = accrued > 0.005 || paidAll > 0.005;
     }
 

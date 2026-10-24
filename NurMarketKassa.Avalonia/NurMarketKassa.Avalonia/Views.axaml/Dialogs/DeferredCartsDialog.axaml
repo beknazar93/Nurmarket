@@ -28,18 +28,23 @@
        пояснение и ✕ сверху; внизу справа «Закрыть» (обводка, Esc — как прежний ✕), «Удалить выбранные» (красная
        обводка), «Добавить в текущий чек» (обводка) и главная «Открыть как отдельный чек». Список прокручивается
        сам (ContentScroll="Disabled"). Имена кнопок и их включение кодом — прежние. -->
-  <dlg:ModalShell Margin="16"
+  <!-- 2026-10-22 (модалки, пакет 1): «Удалить выбранные» — слева в подсказке подвала (Hint), справа три кнопки: на 910×512
+       четыре кнопки в ряд не помещались по ширине. Удаление — с подтверждением «Удалить N чеков» (красная). Пустая
+       очередь — подсказка обычным текстом вместо серого пустого списка (в тёмной теме — серый блок Fluent). -->
+  <dlg:ModalShell x:Name="Shell" Margin="16"
                   Title="{DynamicResource deferredCarts.title}"
                   Subtitle="{DynamicResource deferredCarts.hint}"
                   ContentScroll="Disabled">
+    <dlg:ModalShell.Hint>
+      <Button x:Name="DeleteSelectedButton" Content="{DynamicResource deferredCarts.deleteSelected}"
+              Classes="modal-secondary danger" MinWidth="140" MaxWidth="240"
+              Click="DeleteSelected_Click"/>
+    </dlg:ModalShell.Hint>
     <dlg:ModalShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="10">
         <Button x:Name="CloseButton" IsCancel="True" Content="{DynamicResource common.close}"
                 Classes="modal-cancel" MaxWidth="200"
                 Click="Close_Click"/>
-        <Button x:Name="DeleteSelectedButton" Content="{DynamicResource deferredCarts.deleteSelected}"
-                Classes="modal-secondary danger" MaxWidth="260"
-                Click="DeleteSelected_Click"/>
         <Button x:Name="MergeIntoCurrentButton" Content="{DynamicResource deferredCarts.mergeIntoCurrent}"
                 Classes="modal-secondary" MaxWidth="260"
                 Click="MergeIntoCurrent_Click"/>
@@ -53,8 +58,9 @@
       <TextBlock x:Name="SummaryText" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,10"
                  Foreground="{DynamicResource BrushText}"/>
 
-      <!-- Список корзин -->
-      <ListBox x:Name="CartListBox" Grid.Row="1"
+      <!-- Список корзин. 2026-10-22 (модалки, пакет 1): фон списка — прозрачный (в тёмной теме был серый блок Fluent);
+           пустая очередь — список скрыт, подсказка SummaryText обычным шрифтом (код). -->
+      <ListBox x:Name="CartListBox" Grid.Row="1" Background="Transparent"
                SelectionMode="Multiple"/>
     </Grid>
   </dlg:ModalShell>

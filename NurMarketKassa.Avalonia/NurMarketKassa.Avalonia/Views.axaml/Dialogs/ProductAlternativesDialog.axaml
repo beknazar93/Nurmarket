@@ -1,8 +1,9 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ProductAlternativesDialog"
         Title="{DynamicResource noStock.alternativesTitle}"
-        Width="480" MaxHeight="600" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -20,67 +21,52 @@
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="MinHeight" Value="52"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.alt-row:pointerover">
             <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
         </Style>
-        <Style Selector="Button.btn-ok">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
     </Window.Styles>
 
-    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-            Background="{DynamicResource BrushDialogPanel}"
-            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-            BoxShadow="0 12 32 0 #33101828"
-            Padding="24,20">
+    <!-- 2026-10-22 (модалки, пакет 1): общая оболочка ModalShell 512 вместо своей Border 480 с MaxHeight 600 — шапка
+         с ✕ (Esc), список прокручивается между шапкой и закреплённым подвалом; «Закрыть» 46 px обводкой (была 38 px).
+         Главной жёлтой нет: действие — нажать на строку товара. -->
+    <dlg:ModalShell Margin="16"
+                    Title="{DynamicResource noStock.alternativesTitle}"
+                    Subtitle="{DynamicResource noStock.alternativesSubtitle}">
+        <dlg:ModalShell.Footer>
+            <Button Content="{DynamicResource common.close}" Classes="modal-cancel"
+                    IsCancel="True" Click="Close_Click"/>
+        </dlg:ModalShell.Footer>
         <StackPanel Spacing="12">
-            <TextBlock Text="{DynamicResource noStock.alternativesTitle}"
-                       FontWeight="Bold" FontSize="18"
-                       HorizontalAlignment="Center"/>
-            <TextBlock Text="{DynamicResource noStock.alternativesSubtitle}"
-                       Foreground="{DynamicResource BrushTextSoft}" FontSize="13"
-                       TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center"/>
-
-            <ScrollViewer MaxHeight="360">
-                <ItemsControl x:Name="AlternativesList" x:CompileBindings="False">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Spacing="8"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Button Classes="alt-row" Tag="{Binding}" Click="AlternativeRow_Click">
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <StackPanel Grid.Column="0" Spacing="2">
-                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                        <TextBlock Text="{Binding Info}" FontSize="12" TextWrapping="Wrap"
-                                                   Foreground="{DynamicResource BrushTextSoft}"/>
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}, ConverterParameter=som}" FontWeight="SemiBold" Margin="12,0,0,0"
-                                               Foreground="{DynamicResource BrushAccentStrong}" VerticalAlignment="Center"/>
-                                </Grid>
-                            </Button>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+            <ItemsControl x:Name="AlternativesList" x:CompileBindings="False">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="8"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Classes="alt-row" Tag="{Binding}" Click="AlternativeRow_Click"
+                                AutomationProperties.Name="{Binding Title}">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding Info}" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource BrushTextSoft}"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}, ConverterParameter=som}" FontWeight="SemiBold" Margin="12,0,0,0"
+                                           Foreground="{DynamicResource BrushAccentStrong}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
             <TextBlock x:Name="EmptyText" Text="{DynamicResource noStock.alternativesEmpty}"
                        IsVisible="False" Foreground="{DynamicResource BrushTextSoft}"
                        TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center"/>
-
-            <Button Content="{DynamicResource common.close}" Classes="btn-ok"
-                    Height="38" HorizontalAlignment="Stretch"
-                    IsCancel="True" Click="Close_Click"/>
         </StackPanel>
-    </Border>
+    </dlg:ModalShell>
 </Window>

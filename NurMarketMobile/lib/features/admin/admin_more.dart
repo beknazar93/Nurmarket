@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_client.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
 import '../receipt/receipt.dart';
 import 'admin_screens.dart';
@@ -21,8 +22,11 @@ class Employee {
 }
 
 /// Т13: права, которые макет показывает на телефоне, и поля сервера за ними.
+/// 2026-10-22 (мобилка, админ, П9): «Продажа» — can_view_sale, как на сайте и ПК (было can_view_cashier — это «Интерфейс
+/// кассира»); добавлены «Интерфейс кассира», «Заказы с сайта» (can_view_orders), «Закупки» и «Поставщики».
 const staffRights = <String, String>{
-  'can_view_cashier': 'rightSale',
+  'can_view_sale': 'rightSale',
+  'can_view_cashier': 'rightCashier',
   'can_view_market_employee_return': 'rightReturn',
   'can_view_market_discount': 'rightDiscount',
   'can_view_market_edit_price': 'rightEditPrice',
@@ -31,11 +35,28 @@ const staffRights = <String, String>{
   'can_view_analytics': 'rightReports',
   'can_view_shifts': 'rightShifts',
   'can_view_clients': 'rightClients',
+  'can_view_orders': 'rightOrders',
+  'can_view_market_procurement': 'rightProcurement',
+  'can_view_market_supplier': 'rightSuppliers',
   'can_view_settings': 'rightSettings',
 };
 
+/// 2026-10-22 (мобилка, админ, П9): свои права снять нельзя (иначе администратор запирает сам себя «Настройками»):
+/// у себя включённые доступы остаются включёнными, включать новые можно.
+Map<String, bool> guardSelfRights(Map<String, bool> before, Map<String, bool> after, {required bool self}) {
+  if (!self) return after;
+  return {for (final k in {...before.keys, ...after.keys}) k: (before[k] ?? false) || (after[k] ?? false)};
+}
+
+/// Сотрудник — тот, кто сейчас вошёл: по id пользователя сессии.
+bool isSelfEmployee(Employee e, String? userId) => userId != null && userId.isNotEmpty && e.id == userId;
+
 String rightTitle(BuildContext c, String key) => switch (staffRights[key]) {
   'rightSale' => c.l.rightSale,
+  'rightCashier' => c.l.rightCashier,
+  'rightOrders' => c.l.rightOrders,
+  'rightProcurement' => c.l.rightProcurement,
+  'rightSuppliers' => c.l.rightSuppliers,
   'rightReturn' => c.l.rightReturn,
   'rightDiscount' => c.l.rightDiscount,
   'rightEditPrice' => c.l.rightEditPrice,
@@ -52,10 +73,11 @@ class StaffRepository {
   StaffRepository(this.api);
 
   /// GET api/users/employees/ — подтверждено живым запросом (касса, 21.09).
+  /// 2026-10-22 (мобилка, админ, П9): все страницы списка (раньше — только первая).
   Future<List<Employee>> list() async {
-    final data = await api.get('api/users/employees/');
+    final rows = await getAllPages(api, 'api/users/employees/', pageSize: 100, maxPages: 20);
     return [
-      for (final m in asList(data))
+      for (final m in rows)
         Employee(
           str(m, 'id') ?? '',
           [str(m, 'first_name'), str(m, 'last_name')].whereType<String>().where((x) => x.isNotEmpty).join(' ').trim().isNotEmpty
@@ -114,6 +136,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
   Future<void> _edit(Employee e) async {
     final l = context.l;
     final rights = Map<String, bool>.from(e.rights);
+    final self = isSelfEmployee(e, ref.read(sessionProvider)?.userId);
     final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -127,13 +150,23 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
               children: [
                 Text(e.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                 Text(e.role, style: TextStyle(color: c.pal.textSoft)),
+                if (self)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(l.rightSelfLocked, style: const TextStyle(color: T.warn, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  ),
                 const SizedBox(height: 8),
                 Flexible(
                   child: ListView(
                     shrinkWrap: true,
                     children: [
                       for (final k in staffRights.keys)
-                        SwitchListTile(value: rights[k] ?? false, title: Text(rightTitle(c, k)), onChanged: (v) => set(() => rights[k] = v)),
+                        SwitchListTile(
+                          value: rights[k] ?? false,
+                          title: Text(rightTitle(c, k)),
+                          // 2026-10-22 (мобилка, админ, П9): у себя включённое право не выключается.
+                          onChanged: self && (e.rights[k] ?? false) ? null : (v) => set(() => rights[k] = v),
+                        ),
                     ],
                   ),
                 ),
@@ -150,7 +183,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
     );
     if (ok != true || !mounted) return;
     try {
-      await ref.read(staffRepoProvider).save(e.id, rights);
+      await ref.read(staffRepoProvider).save(e.id, guardSelfRights(e.rights, rights, self: self));
       if (!mounted) return;
       toast(context, l.rightsSaved);
       await _load();
@@ -190,7 +223,10 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(e.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                            Text('${e.role} · $on/${staffRights.length}', style: TextStyle(fontSize: 12, color: c.pal.textSoft)),
+                            Text(
+                              '${e.role} · $on/${staffRights.length}${isSelfEmployee(e, ref.read(sessionProvider)?.userId) ? ' · ${l.staffYou}' : ''}',
+                              style: TextStyle(fontSize: 12, color: c.pal.textSoft),
+                            ),
                           ],
                         ),
                       ),
@@ -241,7 +277,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       // без связи
     }
     final db = ref.read(databaseProvider);
-    final low = await (db.select(db.products)..where((p) => p.quantity.isSmallerOrEqualValue(3) & p.isService.equals(false))).get();
+    // 2026-10-22 (мобилка, админ, П11): порог «заканчивается» как на ПК — остаток меньше 10 (было ≤ 3).
+    final low = await (db.select(db.products)..where((p) => lowStockSql(p) & p.isService.equals(false))).get();
     if (low.isNotEmpty) items.add((Icons.inventory_2_outlined, pal.warnSoft, T.warn, l.notifyRunningOut, l.notifyRunningOutSub(low.length), '/admin/purchase'));
     try {
       for (final d in (await ref.read(opsRepoProvider).debtors()).take(3)) {
@@ -253,6 +290,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
     final pending = (await db.pending()).length;
     if (pending > 0) items.add((Icons.cloud_off_rounded, pal.warnSoft, T.warn, l.notifyNotSent, l.waitingToSend(pending), '/sync'));
+    // 2026-10-22 (мобилка, админ, П9): только то, что сотруднику можно открыть (заказы — с правом «Заказы» и т. п.).
+    final s = ref.read(sessionProvider);
+    if (s != null) items.removeWhere((x) => !s.canRoute(x.$6));
     if (mounted) {
       setState(() {
         _items

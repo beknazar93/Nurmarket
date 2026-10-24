@@ -108,6 +108,118 @@ public sealed class ShiftStateService : IShiftStateService
         });
     }
 
+    // 2026-10-22 (аудит новой сборки, П1): сервер сам закрыл смену владельца в 23:00:00 (closed_at 23:00:00.254), а касса
+    // продолжала показывать «Касса: 2 250,19» и «Закрыть смену» — продажи пошли бы в никуда. Раньше смену сверяли только
+    // при запуске, после отказа в оплате и перед оплатой без смены. Здесь — само определение «сервер закрыл»; окно
+    // (MainWindow) вызывает его раз в 1–2 минуты, при открытии оплаты/возврата/внесения и после возврата связи.
+    // Ложное срабатывание хуже пропуска (кассир потеряет смену), поэтому: пустой список дважды подряд и карточка смены
+    // с признаком закрытия. Любая ошибка сети — «не знаем», состояние не меняется.
+    public async Task<ShiftClosedByServer?> CheckServerClosedAsync(CancellationToken cancellationToken = default)
+    {
+        var activeId = PosApp.ActiveShiftId;
+        if (string.IsNullOrEmpty(activeId)
+            || activeId.StartsWith("offline-", StringComparison.OrdinalIgnoreCase)
+            || _autonomous.IsCurrentSessionAutonomous
+            || OfflineModeHelper.IsServerOutage)
+            return null;
+
+        try
+        {
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(6));
+                var list = await _shiftApi.ConstructionShiftsListAsync(openOnly: true, ct: cts.Token).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(ShiftHelper.PickOpenShiftId(list, PosApp.PosCashboxId, PosApp.CurrentUserId))
+                    || ShiftHelper.FindCashierShiftOnOtherCashbox(list, PosApp.CurrentUserId) is not null)
+                    return null; // смена на месте (или своя на другой кассе — её подхватит обычная сверка)
+                if (!string.Equals(PosApp.ActiveShiftId, activeId, StringComparison.OrdinalIgnoreCase))
+                    return null; // пока спрашивали, смену уже сменили (закрыл сам кассир)
+            }
+
+            using var detailCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            detailCts.CancelAfter(TimeSpan.FromSeconds(6));
+            var row = await _shiftApi.ConstructionShiftGetAsync(activeId, detailCts.Token).ConfigureAwait(false);
+            if (row.ValueKind != JsonValueKind.Object)
+                return null;
+            var status = row.TryGetProperty("status", out var st) && st.ValueKind == JsonValueKind.String ? st.GetString() : null;
+            DateTime? closedAt = null;
+            if (row.TryGetProperty("closed_at", out var ca) && ca.ValueKind == JsonValueKind.String
+                && DateTimeOffset.TryParse(ca.GetString(), System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var dto))
+                closedAt = dto.LocalDateTime;
+            var looksOpen = string.Equals(status, "open", StringComparison.OrdinalIgnoreCase)
+                            || (status is null && closedAt is null);
+            if (looksOpen)
+                return null;
+
+            var totals = ShiftBalanceHelper.ReadShiftTotals(row);
+            decimal? closing = null;
+            if (row.TryGetProperty("closing_cash", out var cc))
+            {
+                if (cc.ValueKind == JsonValueKind.Number && cc.TryGetDecimal(out var d1)) closing = d1;
+                else if (cc.ValueKind == JsonValueKind.String
+                         && decimal.TryParse(cc.GetString(), System.Globalization.NumberStyles.Any,
+                             System.Globalization.CultureInfo.InvariantCulture, out var d2)) closing = d2;
+            }
+
+            return new ShiftClosedByServer
+            {
+                ShiftId = activeId,
+                ClosedAt = closedAt,
+                ExpectedCash = totals.ExpectedCash,
+                ClosingCash = closing,
+                TotalSales = totals.TotalSales,
+                SalesCount = totals.SalesCount,
+            };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сверка смены с сервером не удалась (состояние не меняем): {ex.GetType().Name}: {ex.Message}", "SHIFT");
+            return null;
+        }
+    }
+
+    // 2026-10-22 (смена 23 ч): время открытия смены для предупреждения «сервер закроет сам». Один запрос карточки на смену,
+    // дальше из памяти (ShiftAgeWarning). Офлайн-смена, автономный режим, сбой связи — null (предупреждения нет).
+    public async Task<DateTime?> GetActiveShiftOpenedAtAsync(CancellationToken cancellationToken = default)
+    {
+        var activeId = PosApp.ActiveShiftId;
+        if (string.IsNullOrEmpty(activeId) || activeId.StartsWith("offline-", StringComparison.OrdinalIgnoreCase)
+            || _autonomous.IsCurrentSessionAutonomous)
+            return null;
+        if (ShiftAgeWarning.Get(activeId) is { } known)
+            return known;
+        if (OfflineModeHelper.IsServerOutage)
+            return null;
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(6));
+            var row = await _shiftApi.ConstructionShiftGetAsync(activeId, cts.Token).ConfigureAwait(false);
+            if (row.ValueKind == JsonValueKind.Object && row.TryGetProperty("opened_at", out var oa) && oa.ValueKind == JsonValueKind.String
+                && DateTimeOffset.TryParse(oa.GetString(), System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var dto))
+            {
+                ShiftAgeWarning.Remember(activeId, dto.LocalDateTime);
+                return dto.LocalDateTime;
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Время открытия смены не получено: {ex.GetType().Name}: {ex.Message}", "SHIFT");
+        }
+        return null;
+    }
+
     /// <summary>2026-10-21 (пакет 5, п. 36): запасной остаток смены (offline_pos_state.json) — из КАЖДОГО ответа
     /// списка открытых смен, а не только из RefreshAsync. Остаток после возврата, внесения/изъятия и оплаты долга шапка
     /// кассы берёт отдельным запросом (MainWindow.RefreshShiftBalanceQuietAsync), и файл оставался со старым числом:

@@ -108,7 +108,7 @@ public partial class RongtaScaleSettingsWindow : Window
             "Tartının kendi portu Rongta kılavuzlarında yok. 5001, RLS1000 ayarlarındaki (TCP/IP) varsayılandır. Önemli olan ping yanıtıdır: tartı yanıt verirse ağ sorunsuzdur; gerisini RLS1000 yapar.",
             "Tarozining o‘z porti Rongta qo‘llanmalarida ko‘rsatilmagan. 5001 — RLS1000 sozlamalaridagi (TCP/IP) standart port. Asosiysi — ping javobi: tarozi javob bersa, tarmoq joyida; qolganini RLS1000 bajaradi."), "hint"));
 
-        _checkButton = MakeButton(L("Проверить связь", "Байланышты текшерүү", "Check connection", "Bağlantıyı kontrol et", "Aloqani tekshirish"), true, async (_, _) => await CheckAsync().ConfigureAwait(true));
+        _checkButton = MakeButton(L("Проверить связь", "Байланышты текшерүү", "Check connection", "Bağlantıyı kontrol et", "Aloqani tekshirish"), false, async (_, _) => await CheckAsync().ConfigureAwait(true));
         body.Children.Add(ButtonRow(
             _checkButton,
             MakeButton(L("Найти весы в сети…", "Тармактан тараза табуу…", "Find scales on the network…", "Ağda tartı bul…", "Tarmoqda tarozi topish…"), false, async (_, _) =>
@@ -119,7 +119,7 @@ public partial class RongtaScaleSettingsWindow : Window
                     UpdateHeader();
                 }
             }),
-            MakeButton(L("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"), false, (_, _) =>
+            MakeButton(L("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"), true, (_, _) =>
             {
                 SaveConnection();
                 ShowResult(L("Сохранено.", "Сакталды.", "Saved.", "Kaydedildi.", "Saqlandi."), false);
@@ -248,7 +248,7 @@ public partial class RongtaScaleSettingsWindow : Window
             "Misol: «Шоколад молочный 90г» tarozida «Шоколад молочнЫй 90г», «Колбаса вареная» — «Колбаса варенаЯ» bo‘ladi."), "hint"));
         if (!useLan)
         {
-            lanBody.Children.Add(ButtonRow(MakeButton(L("Выбрать этот способ", "Бул жолду тандоо", "Use this method", "Bu yöntemi seç", "Shu usulni tanlash"), true, (_, _) =>
+            lanBody.Children.Add(ButtonRow(MakeButton(L("Выбрать этот способ", "Бул жолду тандоо", "Use this method", "Bu yöntemi seç", "Shu usulni tanlash"), false, (_, _) =>
             {
                 prefs.RongtaDataSource = "lan";
                 prefs.SaveToDisk();
@@ -282,7 +282,7 @@ public partial class RongtaScaleSettingsWindow : Window
                 ? L("Установлена: ", "Орнотулган: ", "Installed: ", "Kurulu: ", "O‘rnatilgan: ") + exe
                 : L("Не найдена. Окно «Весы» предложит установить её при первой отправке.", "Табылган жок. «Таразалар» терезеси биринчи жөнөтүүдө орнотууну сунуштайт.", "Not found. The “Scales” window offers to install it on the first upload.", "Bulunamadı. «Tartı» penceresi ilk gönderimde kurmayı önerir.", "Topilmadi. «Tarozi» oynasi birinchi yuborishda o‘rnatishni taklif qiladi."),
             out var statusBody);
-        statusBody.Children.Add(ButtonRow(MakeButton(L("Открыть окно «Весы» (Rongta)", "«Таразалар» терезесин ачуу (Rongta)", "Open the “Scales” window (Rongta)", "«Tartı» penceresini aç (Rongta)", "«Tarozi» oynasini ochish (Rongta)"), true,
+        statusBody.Children.Add(ButtonRow(MakeButton(L("Открыть окно «Весы» (Rongta)", "«Таразалар» терезесин ачуу (Rongta)", "Open the “Scales” window (Rongta)", "«Tartı» penceresini aç (Rongta)", "«Tarozi» oynasini ochish (Rongta)"), false,
             (_, _) => OpenScalesWindow(this, BrandRongta))));
         panel.Children.Add(status);
         return panel;
@@ -354,11 +354,12 @@ public partial class RongtaScaleSettingsWindow : Window
         _samplePrice.ValueChanged += (_, _) => UpdateSample();
         body.Children.Add(Row(L("Цена за кг, сом", "Кг баасы, сом", "Price per kg, som", "Kg fiyatı, som", "Kg narxi, so‘m"), _samplePrice));
 
-        _sampleText = new TextBlock { FontSize = 22, FontWeight = FontWeight.Bold, FontFamily = new FontFamily("Consolas, Segoe UI"), Foreground = ThemeBrush(this, "BrushText", Brushes.Black) };
+        // 2026-10-22 (модалки, пакет 3): цвета окна весов — привязкой к теме (ScaleUi.Themed), а не разовым чтением.
+        _sampleText = Themed(this, new TextBlock { FontSize = 22, FontWeight = FontWeight.Bold, FontFamily = new FontFamily("Consolas, Segoe UI") }, TextBlock.ForegroundProperty, "BrushText", Brushes.Black);
         body.Children.Add(_sampleText);
         _verdictText = new TextBlock { Classes = { "label" }, TextWrapping = TextWrapping.Wrap };
         body.Children.Add(_verdictText);
-        body.Children.Add(ButtonRow(MakeButton(L("Подобрать под кассу", "Кассага ылайыктоо", "Match the till", "Kasaya uydur", "Kassaga moslash"), true, (_, _) => MatchToKassa())));
+        body.Children.Add(ButtonRow(MakeButton(L("Подобрать под кассу", "Кассага ылайыктоо", "Match the till", "Kasaya uydur", "Kassaga moslash"), false, (_, _) => MatchToKassa())));
         panel.Children.Add(card);
 
         panel.Children.Add(Card(L("Что проверить на весах", "Таразада эмнени текшерүү керек", "What to check on the scale", "Tartıda neyi kontrol etmeli", "Tarozida nimani tekshirish kerak"),
@@ -439,7 +440,7 @@ public partial class RongtaScaleSettingsWindow : Window
     private void SetVerdict(bool ok, string message)
     {
         _verdictText.Text = (ok ? "✓ " : "⚠ " + L("Касса НЕ узнает товар: ", "Касса товарды ТААНЫБАЙТ: ", "The till will NOT recognise the item: ", "Kasa ürünü TANIMAZ: ", "Kassa tovarni TANIMAYDI: ")) + message;
-        _verdictText.Foreground = ThemeBrush(this, ok ? "BrushSuccess" : "BrushWarning", ok ? Brushes.Green : Brushes.DarkOrange);
+        Themed(this, _verdictText, TextBlock.ForegroundProperty, ok ? "BrushSuccess" : "BrushWarning", ok ? Brushes.Green : Brushes.DarkOrange);
     }
 
     /// <summary>«Подобрать под кассу»: перебирает типы (сначала с фиксированным префиксом — им
@@ -489,8 +490,10 @@ public partial class RongtaScaleSettingsWindow : Window
     private void ShowResult(string text, bool isError)
     {
         ResultText.Text = text;
-        ResultBorder.BorderBrush = ThemeBrush(this, isError ? "BrushWarning" : "BrushBorder", Brushes.Gray);
-        ResultBorder.Background = ThemeBrush(this, isError ? "BrushWarningSoft" : "BrushSurfaceSubtle", Brushes.Transparent);
+        Themed(this, ResultBorder, Border.BorderBrushProperty, isError ? "BrushWarning" : "BrushBorder", Brushes.Gray);
+        // 2026-10-22 (модалки, пакет 3): BrushSurfaceSubtle в теме нет — был запасной цвет (в тёмной теме не тот); мягкий фон темы.
+        // Цвета — привязкой к теме (ScaleUi.Themed): меняются вместе с темой.
+        Themed(this, ResultBorder, Border.BackgroundProperty, isError ? "BrushWarningSoft" : "BrushPanelSoft", Brushes.Transparent);
     }
 
     private void Close_Click(object? sender, RoutedEventArgs e)

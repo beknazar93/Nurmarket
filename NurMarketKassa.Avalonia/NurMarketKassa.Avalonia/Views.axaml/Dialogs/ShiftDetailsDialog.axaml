@@ -1,8 +1,9 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ShiftDetailsDialog"
         Title="{DynamicResource shiftDetails.title}"
-        Width="760" SizeToContent="Height"
+        Width="912" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -11,61 +12,37 @@
         Background="{DynamicResource DialogWindowBackground}">
 
   <Window.Styles>
-    <Style Selector="Button.btn-secondary">
-      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-      <Setter Property="BorderThickness" Value="1.5"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-    </Style>
-    <Style Selector="Button.btn-chrome">
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Width" Value="32"/>
-      <Setter Property="Height" Value="32"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="Cursor" Value="Hand"/>
+    <!-- 2026-10-22 (модалки, пакет 2): плитки итогов нажимаются и с клавиатуры (Tab, Enter/Пробел) — рамка фокуса темы
+         (рамкой-украшением: цвет рамки плитки задан у самой плитки). -->
+    <Style Selector="Border.tile">
+      <Setter Property="FocusAdorner">
+        <FocusAdornerTemplate>
+          <Border BorderThickness="2" BorderBrush="{DynamicResource BrushFocusRing}" CornerRadius="12" Margin="-2"/>
+        </FocusAdornerTemplate>
+      </Setter>
     </Style>
   </Window.Styles>
 
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="20">
-    <!-- 2026-09-30, живой баг владельца (фото): длинный список «Товары за смену» выталкивал
-         кнопки «Печать» и «Закрыть» за нижний край экрана. Теперь шапка и кнопки закреплены,
-         а середина (итоги + товары) прокручивается, если не помещается на экран. -->
-    <Grid RowDefinitions="Auto,*,Auto">
+  <!-- 2026-10-22 (модалки, пакет 2): общая оболочка ModalShell 912 вместо своей рамки 760 — на 910×512 «Печать/Закрыть»
+       уходили под край (своя рамка не ужималась). Шапка с ✕ 44 px и подвал закреплены, тело прокручивается.
+       ✕ = Esc = «Закрыть». -->
+  <dlg:ModalShell Margin="16"
+                  Title="{DynamicResource shiftDetails.title}"
+                  Subtitle="{DynamicResource shiftDetails.subtitle}">
+    <!-- «Печать» — второстепенное действие слева (Hint), «Закрыть» (Esc, ✕) — справа. -->
+    <dlg:ModalShell.Hint>
+      <Button x:Name="PrintButton" Content="{DynamicResource shiftDetails.print}"
+              Classes="modal-secondary" MaxWidth="240" HorizontalAlignment="Left"
+              Click="Print_Click"/>
+    </dlg:ModalShell.Hint>
+    <dlg:ModalShell.Footer>
+      <Button Content="{DynamicResource common.close}"
+              Classes="modal-cancel" MaxWidth="220"
+              IsCancel="True"
+              Click="Close_Click"/>
+    </dlg:ModalShell.Footer>
 
-      <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
-        <StackPanel>
-          <TextBlock Text="{DynamicResource shiftDetails.title}"
-                     FontSize="20" FontWeight="Bold"
-                     Foreground="{DynamicResource BrushText}"/>
-          <TextBlock Text="{DynamicResource shiftDetails.subtitle}"
-                     FontSize="13" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
-        </StackPanel>
-        <Button Grid.Column="1"
-                Classes="btn-chrome"
-                VerticalAlignment="Top"
-                Click="Close_Click"
-                ToolTip.Tip="{DynamicResource csh.filter.closeTooltip}">
-          <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
-                     FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
-                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
-        </Button>
-      </Grid>
-
-      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel Spacing="14" Margin="0,0,12,0">
+      <StackPanel Spacing="14">
 
       <Grid ColumnDefinitions="*,16,*">
         <Border Grid.Column="0"
@@ -109,6 +86,8 @@
             </Border>
             <TextBlock Text="{DynamicResource shiftDetails.revenueLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
             <TextBlock x:Name="RevenueText" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource BrushText}" Text="—"/>
+            <!-- 2026-10-23 (аудит К5, п. 3): продажи в долг отдельной строкой — выручка выше уже без них (как «Сводка» владельца). -->
+            <TextBlock x:Name="CreditSalesText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Text=""/>
           </StackPanel>
         </Border>
       </Grid>
@@ -125,39 +104,43 @@
            зелёная и синяя — «радуга» без смысла); цветом выделен только долг (красный). -->
       <Grid ColumnDefinitions="*,8,*,8,*,8,*">
         <Border Grid.Column="0" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                CornerRadius="12" Padding="10" Cursor="Hand" Tag="sales" PointerReleased="Tile_PointerReleased">
+                CornerRadius="12" Padding="10" Cursor="Hand" Tag="sales" PointerReleased="Tile_PointerReleased"
+                Classes="tile" Focusable="True" KeyDown="Tile_KeyDown">
           <StackPanel>
-            <TextBlock Text="{DynamicResource csh.menu.sales}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource csh.menu.sales}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="SalesCountText" FontSize="16" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
           </StackPanel>
         </Border>
         <Border Grid.Column="2" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                CornerRadius="12" Padding="10" Cursor="Hand" Tag="cash" PointerReleased="Tile_PointerReleased">
+                CornerRadius="12" Padding="10" Cursor="Hand" Tag="cash" PointerReleased="Tile_PointerReleased"
+                Classes="tile" Focusable="True" KeyDown="Tile_KeyDown">
           <StackPanel>
-            <TextBlock Text="{DynamicResource common.cash}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource common.cash}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="CashText" FontSize="16" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
             <!-- 2026-09-28: наличная часть смешанной оплаты — отдельной строкой (отчёт смены сервера, BE-10). -->
-            <TextBlock x:Name="CashMixedText" FontSize="10" TextWrapping="Wrap"
+            <TextBlock x:Name="CashMixedText" FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Text=""/>
           </StackPanel>
         </Border>
         <Border Grid.Column="4" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                CornerRadius="12" Padding="10" Cursor="Hand" Tag="card" PointerReleased="Tile_PointerReleased">
+                CornerRadius="12" Padding="10" Cursor="Hand" Tag="card" PointerReleased="Tile_PointerReleased"
+                Classes="tile" Focusable="True" KeyDown="Tile_KeyDown">
           <StackPanel>
-            <TextBlock Text="{DynamicResource common.cashless}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource common.cashless}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="CardText" FontSize="16" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
             <!-- 2026-09-28: безналичная часть смешанной оплаты (BE-10). -->
-            <TextBlock x:Name="CardMixedText" FontSize="10" TextWrapping="Wrap"
+            <TextBlock x:Name="CardMixedText" FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Text=""/>
           </StackPanel>
         </Border>
-        <Border Grid.Column="6" Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}" BorderThickness="1"
-                CornerRadius="12" Padding="10" Cursor="Hand" Tag="debt" PointerReleased="Tile_PointerReleased">
+        <Border x:Name="DebtTile" Grid.Column="6" Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}" BorderThickness="1"
+                CornerRadius="12" Padding="10" Cursor="Hand" Tag="debt" PointerReleased="Tile_PointerReleased"
+                Classes="tile" Focusable="True" KeyDown="Tile_KeyDown">
           <StackPanel>
-            <TextBlock Text="{DynamicResource common.debt}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushDanger}"/>
+            <TextBlock x:Name="DebtLabelText" Text="{DynamicResource common.debt}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushDanger}"/>
             <TextBlock x:Name="DebtText" FontSize="16" FontWeight="Bold"
                        Foreground="{DynamicResource BrushDanger}" Margin="0,4,0,0" Text="—"/>
           </StackPanel>
@@ -169,47 +152,55 @@
            касса ведёт их сама — см. ShiftEventsStore и ShiftSaleAdjustments. -->
       <Grid x:Name="ExtraTotalsRow" ColumnDefinitions="*,8,*,8,*,8,*,8,*">
         <Border Grid.Column="0" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="returns" PointerReleased="Tile_PointerReleased">
+                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="returns" PointerReleased="Tile_PointerReleased"
+                Classes="tile" Focusable="True" KeyDown="Tile_KeyDown">
           <StackPanel>
-            <TextBlock Text="{DynamicResource sales.returns}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource sales.returns}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="ReturnsText" FontSize="15" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
+            <!-- 2026-10-22 (аудит 1.17.59, П-Д): «Сервер записал возвраты больше выданного — N» (как в окне закрытия смены). -->
+            <TextBlock x:Name="ReturnsOverText" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushWarning}" IsVisible="False" Text=""/>
           </StackPanel>
         </Border>
         <Border Grid.Column="2" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="writeoffs" PointerReleased="Tile_PointerReleased">
+                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="writeoffs" PointerReleased="Tile_PointerReleased"
+                Classes="tile" Focusable="True" KeyDown="Tile_KeyDown">
           <StackPanel>
-            <TextBlock Text="{DynamicResource loc.owner.shift.writeOffs}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource loc.owner.shift.writeOffs}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="WriteOffsText" FontSize="15" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
           </StackPanel>
         </Border>
         <Border Grid.Column="4" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="expense" PointerReleased="Tile_PointerReleased">
+                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="expense" PointerReleased="Tile_PointerReleased"
+                Classes="tile" Focusable="True" KeyDown="Tile_KeyDown">
           <StackPanel>
-            <TextBlock Text="{DynamicResource customService.typeExpense}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource customService.typeExpense}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="ExpenseText" FontSize="15" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
           </StackPanel>
         </Border>
         <Border Grid.Column="6" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="debtpaid" PointerReleased="Tile_PointerReleased">
+                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="debtpaid" PointerReleased="Tile_PointerReleased"
+                Classes="tile" Focusable="True" KeyDown="Tile_KeyDown">
           <StackPanel>
-            <TextBlock Text="{DynamicResource loc.owner.shift.debtPayments}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource loc.owner.shift.debtPayments}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="DebtPaidText" FontSize="15" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
             <!-- 2026-10-18, ревью: плитка — наличные (в ящике); безнал — подписью ниже. -->
-            <TextBlock x:Name="DebtPaidNonCashText" FontSize="10" TextWrapping="Wrap"
+            <TextBlock x:Name="DebtPaidNonCashText" FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Text=""/>
           </StackPanel>
         </Border>
         <Border Grid.Column="8" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="discounts" PointerReleased="Tile_PointerReleased">
+                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="discounts" PointerReleased="Tile_PointerReleased"
+                Classes="tile" Focusable="True" KeyDown="Tile_KeyDown">
           <StackPanel>
-            <TextBlock Text="{DynamicResource sales.discounts}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource sales.discounts}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="DiscountsText" FontSize="15" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
-            <TextBlock x:Name="PointsRedeemedText" FontSize="10"
+            <TextBlock x:Name="PointsRedeemedText" FontSize="12"
                        Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Text=""/>
           </StackPanel>
         </Border>
@@ -222,21 +213,46 @@
               BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
               CornerRadius="12" Padding="12">
         <StackPanel Spacing="6">
-          <TextBlock Text="{DynamicResource loc.owner.shift.cashDrawerTitle}" FontSize="11"
+          <TextBlock Text="{DynamicResource loc.owner.shift.cashDrawerTitle}" FontSize="12"
                      Foreground="{DynamicResource BrushTextSoft}"/>
           <Grid ColumnDefinitions="*,*">
             <StackPanel Grid.Column="0">
-              <TextBlock Text="{DynamicResource loc.owner.shift.deposits}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock Text="{DynamicResource loc.owner.shift.deposits}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
               <!-- 2026-10-21 (пакет 5, п. 41): внесения и изъятия — цветом текста (знак «+ / −» уже говорит о направлении). -->
               <TextBlock x:Name="DepositsText" FontSize="16" FontWeight="Bold"
                          Foreground="{DynamicResource BrushText}" Text="{DynamicResource loc.owner.zeroMoney}"/>
             </StackPanel>
             <StackPanel Grid.Column="1">
-              <TextBlock Text="{DynamicResource loc.owner.shift.withdrawalsExpense}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock Text="{DynamicResource loc.owner.shift.withdrawalsExpense}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock x:Name="WithdrawalsText" FontSize="16" FontWeight="Bold"
                          Foreground="{DynamicResource BrushText}" Text="{DynamicResource loc.owner.zeroMoney}"/>
             </StackPanel>
           </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- 2026-10-23 (аудит Б-8): «в ящике должно быть / факт / расхождение» в просмотре смены и X-отчёте. -->
+      <Border x:Name="DrawerCheckPanel" IsVisible="False"
+              Background="{DynamicResource BrushSurfaceSubtle}"
+              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+              CornerRadius="12" Padding="12">
+        <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="*,*,*">
+          <StackPanel Grid.Column="0">
+            <TextBlock x:Name="DrawerExpectedLabel" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="DrawerExpectedText" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}" Text="—"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock x:Name="DrawerActualLabel" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="DrawerActualText" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}" Text="—"/>
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock x:Name="DrawerDiffLabel" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="DrawerDiffText" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}" Text="—"/>
+          </StackPanel>
+        </Grid>
+        <!-- 2026-10-23 (аудит К6): раскладка «должно быть» по слагаемым — строки складываются в итог. -->
+        <StackPanel x:Name="DrawerBreakdown" Spacing="2" IsVisible="False"/>
         </StackPanel>
       </Border>
 
@@ -247,7 +263,7 @@
               BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
               CornerRadius="12" Padding="12">
         <StackPanel Spacing="6">
-          <TextBlock Text="{DynamicResource shift.rentalsTitle}" FontSize="11"
+          <TextBlock Text="{DynamicResource shift.rentalsTitle}" FontSize="12"
                      Foreground="{DynamicResource BrushTextSoft}"/>
           <TextBlock x:Name="RentalsText" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"
                      Foreground="{DynamicResource BrushText}"/>
@@ -263,8 +279,8 @@
               BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
               CornerRadius="12" Padding="12">
         <StackPanel Spacing="6">
-          <TextBlock x:Name="ShiftProductsTitle" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
-          <TextBlock x:Name="ShiftProductsNote" FontSize="11" TextWrapping="Wrap" IsVisible="False"
+          <TextBlock x:Name="ShiftProductsTitle" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+          <TextBlock x:Name="ShiftProductsNote" FontSize="12" TextWrapping="Wrap" IsVisible="False"
                      Foreground="{DynamicResource BrushTextSoft}"/>
           <ItemsControl x:Name="ShiftProductsList">
               <ItemsControl.ItemTemplate>
@@ -284,19 +300,5 @@
       </Border>
 
       </StackPanel>
-      </ScrollViewer>
-
-      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,14,0,0">
-        <Button x:Name="PrintButton" Content="{DynamicResource shiftDetails.print}"
-                Classes="btn-secondary"
-                Height="46" MinWidth="120"
-                Click="Print_Click"/>
-        <Button Content="{DynamicResource common.close}"
-                Classes="btn-secondary"
-                Height="46" MinWidth="120"
-                IsCancel="True"
-                Click="Close_Click"/>
-      </StackPanel>
-    </Grid>
-  </Border>
+  </dlg:ModalShell>
 </Window>

@@ -223,6 +223,8 @@ public partial class ScaleSettingsView : UserControl
                       $"“{profile.Name}” will be removed from the till's list. Nothing changes on the scale itself.",
                       $"«{profile.Name}» kasanın listesinden kaldırılır. Tartının kendisinde hiçbir şey değişmez.",
                       $"«{profile.Name}» kassa ro‘yxatidan olib tashlanadi. Tarozining o‘zida hech narsa o‘zgarmaydi."),
+                    // 2026-10-22 (модалки, пакет 3): глагол на красной кнопке вместо «Продолжить».
+                    confirmText: L("Удалить весы", "Таразаны өчүрүү", "Delete scale", "Tartıyı sil", "Tarozini o‘chirish"),
                     accent: PosConfirmAccent.Danger), owner).ConfigureAwait(true) == true;
                 if (!ok)
                     return;

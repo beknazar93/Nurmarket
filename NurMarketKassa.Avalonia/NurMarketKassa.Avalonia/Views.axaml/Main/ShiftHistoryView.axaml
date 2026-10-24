@@ -203,6 +203,9 @@
                                             <Grid ColumnDefinitions="*, Auto">
                                                 <StackPanel Grid.Column="0" Spacing="2">
                                                     <TextBlock Text="{Binding Type}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                                                    <!-- 2026-10-22 (статьи изъятия): статья и комментарий операции («Аренда — за октябрь»). -->
+                                                    <TextBlock Text="{Binding NoteDisplay}" IsVisible="{Binding HasNoteDisplay}" FontSize="12"
+                                                               TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
                                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                                         <TextBlock Text="{Binding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
                                                         <TextBlock Text="•" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>

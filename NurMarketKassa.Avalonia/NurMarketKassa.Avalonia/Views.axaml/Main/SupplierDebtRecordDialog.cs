@@ -26,6 +26,7 @@ public sealed class SupplierDebtRecordDialog : Window
     private readonly Button _ok;
     private bool _busy;
     private bool _done;
+    private readonly Views.Dialogs.ModalShell _shell;
 
     public int Recorded { get; private set; }
 
@@ -34,7 +35,8 @@ public sealed class SupplierDebtRecordDialog : Window
         _items = items.ToList();
         _editableTerm = editableTerm && _items.Count == 1;
         Title = T("Записать долг поставщику", "Жеткирүүчүгө карызды жазуу", "Record the debt to the supplier", "Tedarikçiye borcu kaydet", "Yetkazib beruvchiga qarzni yozish");
-        SectionCards.AsModal(this, 620);
+        // 2026-10-22 (модалки, пакет 4): ширина M 672 (было 620), поле срока 44 px; запрос — под IsBusy оболочки.
+        SectionCards.AsModal(this, 672);
 
         var panel = new StackPanel { Spacing = 10 };
         panel.Children.Add(_table);
@@ -55,7 +57,7 @@ public sealed class SupplierDebtRecordDialog : Window
             var label = new TextBlock { Text = T("Срок оплаты, дней", "Төлөө мөөнөтү, күн", "Pay within, days", "Ödeme vadesi, gün", "To'lov muddati, kun"),
                 FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
             Use(label, TextBlock.ForegroundProperty, "BrushTextSoft");
-            _days = UiKit.Input(this, "30", 40);
+            _days = UiKit.Input(this, "30", 44);
             _days.Width = 90;
             _days.MaxLength = 4;
             _days.Text = _items[0].DueDays.ToString(CultureInfo.InvariantCulture);
@@ -94,7 +96,7 @@ public sealed class SupplierDebtRecordDialog : Window
         };
         Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
 
-        Content = SectionCards.Shell(Title,
+        Content = _shell = SectionCards.Shell(Title,
             T("Долг появится у поставщика в «Долгах» и на сайте NurCRM — как закупка «в долг» на сайте: сумма прихода, оплата до указанной даты.",
                 "Карыз жеткирүүчүнүн «Карыздарында» жана NurCRM сайтында пайда болот — сайттагы «карызга» сатып алуудай: кириштин суммасы, көрсөтүлгөн күнгө чейин төлөө.",
                 "The debt will appear in the supplier's “Debts” and on the NurCRM website — like a purchase “on credit” on the website: the delivery amount, due on the given date.",
@@ -149,6 +151,7 @@ public sealed class SupplierDebtRecordDialog : Window
         if (_busy)
             return;
         _busy = true;
+        _shell.IsBusy = true;
         _ok.IsEnabled = false;
         _cancel.IsEnabled = false;
         if (_days is not null)
@@ -188,6 +191,7 @@ public sealed class SupplierDebtRecordDialog : Window
         finally
         {
             _busy = false;
+            _shell.IsBusy = false;
         }
         _done = failed == 0;
         _cancel.IsEnabled = true;

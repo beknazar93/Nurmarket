@@ -36,7 +36,9 @@ public partial class BasketPanelView : UserControl
     private void ApplyShortLabels()
     {
         DeferLabel.Text = Tr.T("Отложить", "Калтыруу", "Hold", "Beklet", "Kechiktirish");
-        BarcodeInputBox.Watermark = Tr.T("Код или название товара", "Товардын коду же аты", "Product code or name", "Ürün kodu veya adı", "Mahsulot kodi yoki nomi");
+        // 2026-10-23 (аудит, круг 7): на 1024 px «Код или название то…» обрезалось — подсказка ещё короче, полная — во всплывающей подсказке.
+        BarcodeInputBox.Watermark = Tr.T("Код или название", "Код же аты", "Code or name", "Kod veya ad", "Kod yoki nom");
+        ToolTip.SetTip(BarcodeInputBox, Tr.T("Код или название товара", "Товардын коду же аты", "Product code or name", "Ürün kodu veya adı", "Mahsulot kodi yoki nomi"));
     }
 
     // 2026-10-20, живая проверка (большой чек): строки чека больше не пересоздаются на каждый скан (вставляется

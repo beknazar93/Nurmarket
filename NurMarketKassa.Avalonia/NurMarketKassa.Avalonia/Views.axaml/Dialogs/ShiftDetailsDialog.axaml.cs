@@ -54,6 +54,15 @@ public partial class ShiftDetailsDialog : Window
         SizeChanged += (_, _) => this.FitToKassaScreen();
     }
 
+    /// <summary>2026-10-22 (аудит 1.17.59, П-Д): заголовок «X-отчёт» (Title, заданный снаружи) доходил только до панели задач, а в шапке
+    /// оболочки стояло «Просмотр смены» — переносим Title в шапку.</summary>
+    protected override void OnPropertyChanged(Avalonia.AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == TitleProperty && Content is ModalShell shell && change.NewValue is string t && !string.IsNullOrWhiteSpace(t))
+            shell.Title = t;
+    }
+
     public ShiftDetailsDialog(object? model) : this()
     {
         if (model is ShiftModel shift)
@@ -291,17 +300,18 @@ public partial class ShiftDetailsDialog : Window
         var lines = $"{result.LinesTotal:N2}";
         var discount = $"{result.OrderDiscount:N2}";
         var total = $"{result.SalesTotal:N2}";
+        // 2026-10-23 (аудит Б-8): выборка — те же статусы, что в выручке сайта (paid/partially_returned), долговой чек в ней есть; подпись говорит как есть.
         ShiftProductsNote.Text = result.OrderDiscount > 0.005m
-            ? Tr.T($"По товарам {lines} − скидка на чек {discount} = {total} {Som}. Продажи в долг и возвраты сюда не входят.",
-                $"Товарлар боюнча {lines} − чекке арзандатуу {discount} = {total} {Som}. Карызга сатуу жана кайтаруулар кирбейт.",
-                $"Products {lines} − receipt discount {discount} = {total} {Som}. Credit sales and returns are not included.",
-                $"Ürünler {lines} − fiş indirimi {discount} = {total} {Som}. Veresiye satışlar ve iadeler dahil değildir.",
-                $"Mahsulotlar {lines} − chekka chegirma {discount} = {total} {Som}. Qarzga sotuvlar va qaytarishlar kirmaydi.")
-            : Tr.T($"Итого по товарам: {total} {Som}. Продажи в долг и возвраты сюда не входят.",
-                $"Товарлар боюнча жыйынтык: {total} {Som}. Карызга сатуу жана кайтаруулар кирбейт.",
-                $"Products total: {total} {Som}. Credit sales and returns are not included.",
-                $"Ürünler toplamı: {total} {Som}. Veresiye satışlar ve iadeler dahil değildir.",
-                $"Mahsulotlar bo'yicha jami: {total} {Som}. Qarzga sotuvlar va qaytarishlar kirmaydi.");
+            ? Tr.T($"По товарам {lines} − скидка на чек {discount} = {total} {Som}. Чеки в долг входят, как в выручке смены; возвраты не входят.",
+                $"Товарлар боюнча {lines} − чекке арзандатуу {discount} = {total} {Som}. Карызга чектер сменанын түшүмүндөгүдөй кирет; кайтаруулар кирбейт.",
+                $"Products {lines} − receipt discount {discount} = {total} {Som}. Credit receipts are included, as in the shift revenue; returns are not.",
+                $"Ürünler {lines} − fiş indirimi {discount} = {total} {Som}. Veresiye fişler vardiya cirosundaki gibi dahildir; iadeler dahil değildir.",
+                $"Mahsulotlar {lines} − chekka chegirma {discount} = {total} {Som}. Qarzga cheklar smena tushumidagidek kiradi; qaytarishlar kirmaydi.")
+            : Tr.T($"Итого по товарам: {total} {Som}. Чеки в долг входят, как в выручке смены; возвраты не входят.",
+                $"Товарлар боюнча жыйынтык: {total} {Som}. Карызга чектер сменанын түшүмүндөгүдөй кирет; кайтаруулар кирбейт.",
+                $"Products total: {total} {Som}. Credit receipts are included, as in the shift revenue; returns are not.",
+                $"Ürünler toplamı: {total} {Som}. Veresiye fişler vardiya cirosundaki gibi dahildir; iadeler dahil değildir.",
+                $"Mahsulotlar bo'yicha jami: {total} {Som}. Qarzga cheklar smena tushumidagidek kiradi; qaytarishlar kirmaydi.");
         ShiftProductsNote.IsVisible = true;
         ShiftProductsPanel.IsVisible = true;
     }
@@ -322,7 +332,19 @@ public partial class ShiftDetailsDialog : Window
             : (shift.ShiftNumber.Length > 8 ? shift.ShiftNumber[..8].ToUpperInvariant() : shift.ShiftNumber.ToUpperInvariant());
         OpenedAtText.Text = shift.OpenedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—";
         ClosedAtText.Text = shift.ClosedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—";
-        CashierText.Text = string.IsNullOrWhiteSpace(shift.Cashier) ? "—" : shift.Cashier;
+        // 2026-10-23 (аудит, круг 8, В-7): после закрытия смены «Кассир: —». Если имени в смене нет, а смена своя (активная на этой кассе,
+        // только что закрытая — отчёт собран из ответа закрытия, или кассир отчёта сервера = текущий) — берём имя текущего кассира.
+        var cashierName = shift.Cashier;
+        if (string.IsNullOrWhiteSpace(cashierName) || cashierName.Trim() == "—")
+        {
+            var current = NurMarketKassa.PosApp.CurrentUserDisplayName;
+            var isOwn = !RefreshFromServer
+                || string.Equals(shift.Id, NurMarketKassa.PosApp.ActiveShiftId, StringComparison.OrdinalIgnoreCase)
+                || (_report?.CashierId is { Length: > 0 } reportCashier
+                    && string.Equals(reportCashier, NurMarketKassa.PosApp.CurrentUserId, StringComparison.OrdinalIgnoreCase));
+            cashierName = isOwn && !string.IsNullOrWhiteSpace(current) ? current : "—";
+        }
+        CashierText.Text = cashierName;
         // Статус приходит данными («Открыта»/«Закрыта» или open/closed) — на экран на языке программы.
         var rawStatus = shift.Status ?? "";
         StatusText.Text = rawStatus.Length == 0 ? "—"
@@ -331,11 +353,15 @@ public partial class ShiftDetailsDialog : Window
             : rawStatus.Contains("Открыт", StringComparison.OrdinalIgnoreCase) || rawStatus.Contains("open", StringComparison.OrdinalIgnoreCase)
                 ? Tr.T("Открыта", "Ачык", "Open", "Açık", "Ochiq")
             : rawStatus;
-        RevenueText.Text = $"{shift.Revenue:N2} {Som}";
+        // 2026-10-23 (аудит К5, п. 3): выручка — без продаж в долг (как «Сводка» владельца и сайт); долговые продажи — строкой ниже.
+        RevenueText.Text = $"{shift.RevenueNoDebt:N2} {Som}";
+        CreditSalesText.IsVisible = shift.CreditSales > 0m;
+        CreditSalesText.Text = Tr.T($"Продажи в долг: {shift.CreditSales:N2} {Som}", $"Карызга сатуулар: {shift.CreditSales:N2} {Som}",
+            $"Credit sales: {shift.CreditSales:N2} {Som}", $"Veresiye satışlar: {shift.CreditSales:N2} {Som}", $"Qarzga sotuvlar: {shift.CreditSales:N2} {Som}");
         SalesCountText.Text = shift.SalesCount?.ToString() ?? "—";
         CashText.Text = shift.CashSales is { } cash ? $"{cash:N2} {Som}" : "—";
         CardText.Text = shift.NonCashSales is { } card ? $"{card:N2} {Som}" : "—";
-        DebtText.Text = shift.DebtSales is { } debt ? $"{debt:N2} {Som}" : "—";
+        SetDebtText(shift.DebtSales); // 2026-10-22 (аудит 1.17.59, П-Д): нулевой долг — не красной плиткой
 
         // Смешанная оплата: её наличная часть уже в «Наличных», безналичная — в «Безналичных»;
         // строкой ниже — сколько из них пришло смешанной (раньше сервер разбивки не хранил и
@@ -362,6 +388,36 @@ public partial class ShiftDetailsDialog : Window
         CashOpsPanel.IsVisible = deposits > 0m || withdrawals > 0m;
         DepositsText.Text = $"+{deposits:N2} {Som}";
         WithdrawalsText.Text = $"-{withdrawals:N2} {Som}";
+
+        // 2026-10-23 (аудит Б-8): «в ящике должно быть / факт / расхождение» — формула та же, что в печатном Z-отчёте ниже.
+        // Фактическая сумма известна только у закрытой смены; у открытой (X-отчёт) показываем ожидаемую и «ещё не пересчитано».
+        if (shift.OpeningCash is { } drawerOpening)
+        {
+            var drawerExpected = shift.ExpectedCash
+                ?? (shift.ExpenseTotal is not null
+                    ? drawerOpening + (shift.CashSales ?? 0m) - withdrawals
+                    : drawerOpening + (shift.CashSales ?? 0m) + deposits - withdrawals);
+            DrawerExpectedLabel.Text = Tr.T("В ящике должно быть", "Кассада болушу керек", "Should be in the drawer", "Çekmecede olması gereken", "Qutida bo'lishi kerak");
+            DrawerActualLabel.Text = Tr.T("Факт", "Чындыгында", "Actual", "Gerçek", "Haqiqatda");
+            DrawerDiffLabel.Text = Tr.T("Расхождение", "Айырма", "Difference", "Fark", "Farq");
+            DrawerExpectedText.Text = $"{drawerExpected:N2} {Som}";
+            DrawerBreakdownBuilder.Fill(this, DrawerBreakdown, drawerOpening, shift.CashSales ?? 0m, _report?.DebtPaymentsCash ?? 0m, deposits, withdrawals,
+                _report?.ReturnsTotal ?? 0m, drawerExpected);
+            if (shift.ClosingCash is { } drawerActual)
+            {
+                var drawerDiff = drawerActual - drawerExpected;
+                DrawerActualText.Text = $"{drawerActual:N2} {Som}";
+                DrawerDiffText.Text = $"{(drawerDiff > 0m ? "+" : "")}{drawerDiff:N2} {Som}";
+            }
+            else
+            {
+                DrawerActualText.Text = Tr.T("не пересчитано", "саналган жок", "not counted", "sayılmadı", "sanalmagan");
+                DrawerDiffText.Text = "—";
+            }
+            DrawerCheckPanel.IsVisible = true;
+        }
+        else
+            DrawerCheckPanel.IsVisible = false;
 
         if (shift.IsActive)
         {
@@ -421,6 +477,18 @@ public partial class ShiftDetailsDialog : Window
                 : ShiftCashOperationsStore.SumsForShift(shiftId).Withdrawals;
             expenses = Math.Max(0, expenses - (double)shownWithdrawals);
         }
+        // 2026-10-23 (аудит, круг 8, В-7/М-32): изъятие по статье расхода («Хоз. нужды 1») вычиталось выше как «уже показанное
+        // строкой Изъятия», и плитка «Расход» оставалась «—». Если расхода сверх изъятий нет, а изъятия по статьям расхода
+        // (без инкассации и без «без статьи») есть — показываем их сумму.
+        if (expenses <= 0.005)
+        {
+            var noCategory = Tr.T("без статьи", "беренесиз", "no category", "kalemsiz", "moddasiz");
+            var byArticle = ShiftCashOperationsStore.ArticleSumsForShift(shiftId, withdrawal: true)
+                .Where(a => !a.IsCollection && a.Title != noCategory)
+                .Sum(a => (double)a.Amount);
+            if (byArticle > 0.005)
+                expenses = byArticle;
+        }
         var debtPaid = Get(ShiftEventsStore.KindDebtPayment);
         // 2026-10-04, стресс-тест: оплата долгов смены есть и в отчёте сервера (debt_payments_cash) —
         // в программе владельца и на другой кассе локального журнала нет, плитка показывала «—»
@@ -430,6 +498,16 @@ public partial class ShiftDetailsDialog : Window
             debtPaid = Math.Max(debtPaid, (double)withDebtPayments.DebtPaymentsCash!.Value);
 
         ReturnsText.Text = returns > 0.005 ? Money(returns) : "—";
+        // 2026-10-22 (аудит 1.17.59, П-Д): сервер списывает при возврате больше, чем касса выдала (скидка на чек, ТЗ 19.9) —
+        // та же строка-пояснение, что в окне закрытия смены (CloseShiftDialog, server_over в записи возврата).
+        var serverOver = ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindReturn)
+            .Sum(r => CloseShiftDialog.ParseNote(r.Note, "server_over") ?? 0);
+        ReturnsOverText.IsVisible = serverOver > 0.005;
+        ReturnsOverText.Text = Tr.T($"Сервер записал возвраты больше выданного — {Money(serverOver)}",
+            $"Сервер кайтарууларды берилгенден көп жазды — {Money(serverOver)}",
+            $"The server recorded returns above what was paid out — {Money(serverOver)}",
+            $"Sunucu iadeleri verilenden fazla kaydetti — {Money(serverOver)}",
+            $"Server qaytarishlarni berilganidan ko'p yozdi — {Money(serverOver)}");
         WriteOffsText.Text = writeOffs > 0.005 ? Money(writeOffs) : "—";
         ExpenseText.Text = expenses > 0.005 ? Money(expenses) : "—";
         DebtPaidText.Text = debtPaid > 0.005 ? Money(debtPaid) : "—";
@@ -460,6 +538,25 @@ public partial class ShiftDetailsDialog : Window
             $"of which paid with points: {pointsRedeemed:N2}",
             $"puanla ödenen: {pointsRedeemed:N2}",
             $"shundan bonus bilan: {pointsRedeemed:N2}");
+    }
+
+    /// <summary>2026-10-22 (аудит 1.17.59, П-Д): плитка «Долг» красная только когда долг есть; «Долг 0,00» — обычная плитка
+    /// (красный — для долга, правило 4). null — «—» (долг неизвестен), плитка обычная.</summary>
+    private void SetDebtText(decimal? debt)
+    {
+        DebtText.Text = debt is { } value ? $"{value:N2} {Som}" : "—";
+        // 2026-10-23 (аудит К6): «Долг 0,00» рядом с «Продажи в долг: 3,00» читался как противоречие — плитка называется «Остаток долга».
+        DebtLabelText.Text = Tr.T("Остаток долга", "Карыздын калдыгы", "Debt balance", "Borç bakiyesi", "Qarz qoldig'i");
+        ToolTip.SetTip(DebtTile, Tr.T("Сколько клиенты ещё должны по долговым чекам смены. «Продажи в долг» — сколько выдано в долг за смену; часть могла быть уже оплачена.",
+            "Сменанын карызга чектери боюнча кардарлар дагы канча карыз. «Карызга сатуулар» — смена ичинде карызга берилгени; бир бөлүгү төлөнгөн болушу мүмкүн.",
+            "How much customers still owe on the shift's credit receipts. “Credit sales” is what was given on credit during the shift; part of it may already be paid.",
+            "Müşterilerin vardiyadaki veresiye fişlerinde hâlâ borçlu olduğu tutar. “Veresiye satışlar” vardiyada borca verilen tutardır; bir kısmı ödenmiş olabilir.",
+            "Mijozlar smenadagi qarz cheklari bo'yicha hali qancha qarzdor. «Qarzga sotuvlar» — smenada qarzga berilgani; bir qismi to'langan bo'lishi mumkin."));
+        var has = debt is > 0.005m;
+        DebtTile.Bind(Border.BackgroundProperty, this.GetResourceObservable(has ? "BrushDangerSoft" : "BrushSurfaceSubtle"));
+        DebtTile.Bind(Border.BorderBrushProperty, this.GetResourceObservable(has ? "BrushDanger" : "BrushBorder"));
+        DebtLabelText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(has ? "BrushDanger" : "BrushTextSoft"));
+        DebtText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(has ? "BrushDanger" : "BrushText"));
     }
 
     /// <summary>Подпись под плиткой «Наличные»/«Безналичные»: сколько из суммы — смешанной оплатой.</summary>
@@ -533,7 +630,7 @@ public partial class ShiftDetailsDialog : Window
         // Окно могло заменить свою копию смены свежей с сервера — долг нужен и ей (печать).
         if (_shift is not null)
             _shift.DebtSales = debt;
-        DebtText.Text = $"{debt:N2} {Som}";
+        SetDebtText(debt);
     }
 
     /// <summary>2026-09-27: Z-отчёт после закрытия смены ждал расчёта долга (список продаж и
@@ -564,7 +661,7 @@ public partial class ShiftDetailsDialog : Window
                 debt = report.Debt;
             if (_shift is not null)
                 _shift.DebtSales = debt;
-            DebtText.Text = debt is { } value ? $"{value:N2} {Som}" : "—";
+            SetDebtText(debt);
         }
     }
 
@@ -584,6 +681,20 @@ public partial class ShiftDetailsDialog : Window
         // 2026-10-05: как плитки «Финансов» (FinanceWindow.Kpi_PointerPressed) — на телефоне касания во время
         // открытия окна снова попадали в плитку и открывали окно за окном. Окно — после касания, одно.
         e.Handled = true;
+        OpenTile(kind);
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 2): плитка в фокусе (Tab) открывается Enter или пробелом — как касанием.</summary>
+    private void Tile_KeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (e.Key is not (Avalonia.Input.Key.Enter or Avalonia.Input.Key.Space) || _shift is null || sender is not Control { Tag: string kind })
+            return;
+        e.Handled = true;
+        OpenTile(kind);
+    }
+
+    private void OpenTile(string kind)
+    {
         if (_drillDownOpen)
             return;
         Dispatcher.UIThread.Post(() =>
@@ -671,7 +782,10 @@ public partial class ShiftDetailsDialog : Window
         sb.AppendLine($"Закрыта: {shift.ClosedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—"}");
         sb.AppendLine("------------------------------");
         sb.AppendLine($"Чеков: {shift.SalesCount?.ToString(CultureInfo.InvariantCulture) ?? "—"}");
-        sb.AppendLine($"Выручка: {shift.Revenue.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+        // 2026-10-23 (аудит К5, п. 3): выручка без долга + продажи в долг отдельной строкой (печать — по-русски, как весь чек).
+        sb.AppendLine($"Выручка (без долга): {shift.RevenueNoDebt.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+        if (shift.CreditSales > 0m)
+            sb.AppendLine($"  продажи в долг: {shift.CreditSales.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         if (shift.CashSales is { } cash)
             sb.AppendLine($"  наличные: {cash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         if (server is { MixedCash: > 0m })
@@ -687,7 +801,7 @@ public partial class ShiftDetailsDialog : Window
         if (server is { DebtPrepaymentsNonCash: > 0m })
             sb.AppendLine($"    в т.ч. предоплата долга: {server.DebtPrepaymentsNonCash!.Value.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         if (shift.DebtSales is { } debt)
-            sb.AppendLine($"  в долг: {debt.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"  долг (остаток): {debt.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         // Скидки и возвраты — строками отчёта сервера (2026-09-28); без него их печатал только
         // X/Z-отчёт по счётчикам кассы.
         if (server is { Discounts: > 0m })

@@ -14,6 +14,7 @@ import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
 import '../admin/admin_screens.dart';
 import '../scan/scan_screen.dart';
+import 'product_edit.dart';
 import 'stock_repository.dart';
 import '../scan/smart_camera.dart';
 
@@ -68,7 +69,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     _lowOpen = true;
     HapticFeedback.mediumImpact();
     final l = context.l;
-    final all = (await ref.read(databaseProvider).searchProducts('', limit: 20000)).where((p) => !p.isService && p.quantity <= 3).toList()
+    final all = (await ref.read(databaseProvider).searchProducts('', limit: 20000)).where((p) => !p.isService && isLowStock(p.quantity, p.minQuantity)).toList() // 2026-10-22 (мобилка, админ, П11): порог как на ПК
       ..sort((a, b) => a.quantity.compareTo(b.quantity));
     if (!mounted) return;
     final s = ref.read(sessionProvider);
@@ -134,8 +135,9 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800)),
               subtitle: Text('${qtyText(p.quantity)} ${p.unit} · ${money(p.price)} ${l.som}${p.barcode == null ? '' : ' · ${p.barcode}'}'),
             ),
+            // 2026-10-22 (мобилка, админ): «Цена» → полная карточка товара (product_edit.dart).
             if (s != null && s.canRoute('/admin/product'))
-              ListTile(leading: const Icon(Icons.sell_outlined), title: Text(l.productPrice), onTap: () => Navigator.pop(c, 'price')),
+              ListTile(leading: const Icon(Icons.edit_outlined), title: Text(l.peEdit), onTap: () => Navigator.pop(c, 'price')),
             // 14.10, владелец: обучение умной камеры на товаре (3 фото + штрихкод).
             if (canEdit) ListTile(leading: const Icon(Icons.center_focus_strong_rounded), title: Text(l.teachCamera), onTap: () => Navigator.pop(c, 'teach')),
             if (canEdit)
@@ -150,7 +152,8 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     );
     if (!mounted) return;
     if (action == 'price') {
-      await context.push('/admin/product');
+      await openProductEditor(context, ref, p);
+      await _load();
     } else if (action == 'teach') {
       await teachExistingProduct(context, ref, p);
     } else if (action == 'delete' && await confirmDeleteProduct(context, ref, p)) {
@@ -161,7 +164,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   Future<void> _load() async {
     var list = await ref.read(databaseProvider).searchProducts(_q.text, category: _category, limit: 20000);
     list = list.where((p) => !p.isService).toList();
-    if (_filter == 'low') list = list.where((p) => p.quantity > 0 && p.quantity <= 3).toList();
+    if (_filter == 'low') list = list.where((p) => p.quantity > 0 && isLowStock(p.quantity, p.minQuantity)).toList(); // 2026-10-22 (мобилка, админ, П11)
     if (_filter == 'out') list = list.where((p) => p.quantity <= 0).toList();
     if (_filter == 'in') list = list.where((p) => p.quantity > 0).toList();
     if (mounted) setState(() => _list = list);
@@ -308,10 +311,20 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                         );
                       }
                       final p = _list[i];
-                      final color = p.quantity <= 0 ? T.danger : (p.quantity <= 3 ? T.warn : null);
+                      final color = p.quantity <= 0 ? T.danger : (isLowStock(p.quantity, p.minQuantity) ? T.warn : null);
                       return Panel(
                         // 13.10, владелец: «кнопку удалить товар добавь» — нажатие на товар: действия с ним
-                        onTap: () => _productActions(p),
+                        // 2026-10-22 (мобилка, админ): владелец — «нельзя редактировать товары на складе». С правом «Склад» —
+                        // сразу карточка товара (правка, остаток документом, обучение камеры и удаление — в её меню).
+                        onTap: () async {
+                          final s = ref.read(sessionProvider);
+                          if (s != null && s.canRoute('/admin/product')) {
+                            await openProductEditor(context, ref, p);
+                            await _load();
+                          } else {
+                            await _productActions(p);
+                          }
+                        },
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         child: Row(
                           children: [
@@ -434,6 +447,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
 
   Future<void> _post() async {
     final l = context.l;
+    if (_busy) return; // 2026-10-22 (мобилка, деньги, К-7): двойное нажатие — одна приёмка
     setState(() => _busy = true);
     try {
       final sent = await ref.read(stockRepoProvider).postReceiving(_lines.where((x) => x.qty > 0).toList());
@@ -442,7 +456,12 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
       toast(context, sent ? l.receivedOk : l.receivedQueued);
       Navigator.pop(context);
     } on ApiException catch (e) {
-      if (mounted) toast(context, e.message, error: true);
+      // 2026-10-22: приход уже в очереди («Синхронизация», с причиной) — черновик не оставляем, иначе повторное
+      // «Провести» прибавило бы остаток ещё раз.
+      await ref.read(databaseProvider).setSetting(_draftKey, '');
+      if (!mounted) return;
+      toast(context, l.receiveNotAccepted(e.message), error: true);
+      Navigator.pop(context);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -599,27 +618,62 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
   String _filter = 'all';
   List<String> _categories = [];
   bool _busy = false;
+  bool _done = false;
+  final _q = TextEditingController();
+
+  /// 2026-10-22 (мобилка, деньги): черновик пересчёта — на телефоне до проведения (закрыли экран, позвонили — не пропадёт).
+  static const _draftKey = 'audit.draft';
+  Map<String, dynamic>? _draft;
+  Timer? _saveTimer;
 
   @override
   void initState() {
     super.initState();
-    ref.read(databaseProvider).categories().then((c) => mounted ? setState(() => _categories = c) : null);
+    final db = ref.read(databaseProvider);
+    db.categories().then((c) => mounted ? setState(() => _categories = c) : null);
+    db.getSetting(_draftKey).then((raw) {
+      if (raw == null || raw.isEmpty || !mounted) return;
+      try {
+        final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
+        if ((m['counted'] as Map?)?.isNotEmpty ?? false) setState(() => _draft = m);
+      } catch (_) {
+        // испорченный черновик — без него
+      }
+    });
   }
 
   @override
   void dispose() {
+    _saveTimer?.cancel();
     for (final c in _ctrls.values) {
       c.dispose();
     }
+    _q.dispose();
     super.dispose();
   }
 
-  Future<void> _start(String? category) async {
-    final list = (await ref.read(databaseProvider).searchProducts('', category: category, limit: 2000)).where((p) => !p.isService).toList();
+  void _saveDraftSoon() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 600), () {
+      ref.read(databaseProvider).setSetting(_draftKey, _counted.isEmpty ? '' : jsonEncode({'category': _category, 'counted': _counted}));
+    });
+  }
+
+  Future<void> _start(String? category, {Map<String, double>? counted}) async {
+    // 2026-10-22: без предела 2000 — ревизия «Весь склад» видит все товары.
+    final list = (await ref.read(databaseProvider).searchProducts('', category: category, limit: 1000000)).where((p) => !p.isService).toList();
+    if (!mounted) return;
     setState(() {
       _category = category;
       _products = list;
       _started = true;
+      if (counted != null) {
+        _counted.addAll(counted);
+        for (final p in list) {
+          final v = counted[p.id];
+          if (v != null) _ctrlFor(p).text = qtyText(v);
+        }
+      }
     });
   }
 
@@ -635,21 +689,41 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
       _ctrlFor(p).text = qtyText(_counted[p.id]!);
     }
     setState(() {});
+    _saveDraftSoon();
   }
 
   TextEditingController _ctrlFor(Product p) => _ctrls.putIfAbsent(p.id, () => TextEditingController());
 
+  /// 2026-10-22 (мобилка, деньги, К-10): «Провести ревизию» — акт и проведение, как на ПК (остатки = пересчитанным).
   Future<void> _send() async {
     final l = context.l;
+    if (_busy) return;
+    final diffs = _products.where((p) => _counted[p.id] != null && (_counted[p.id]! - p.quantity).abs() > 0.0001).length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l.auditApply),
+        content: Text(l.auditApplyAsk(_counted.length, diffs)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.auditApply)),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
     setState(() => _busy = true);
     try {
       final note = '${l.audit} · ${_category ?? l.allStock} · ${ref.read(sessionProvider)?.userName ?? ''}';
-      final sent = await ref.read(stockRepoProvider).sendAudit(note, _counted);
+      final applied = await ref.read(stockRepoProvider).applyAudit(note, Map.of(_counted));
+      _saveTimer?.cancel();
+      await ref.read(databaseProvider).setSetting(_draftKey, '');
+      _done = true;
       if (!mounted) return;
-      toast(context, sent ? l.auditSent : l.auditQueued);
+      toast(context, applied ? l.auditApplied : l.auditApplyQueued);
       Navigator.pop(context);
     } on ApiException catch (e) {
-      if (mounted) toast(context, e.message, error: true);
+      // Акт не создан: пересчёт и черновик остаются — «Провести» ещё раз, когда будет связь.
+      if (mounted) toast(context, e.status == null ? l.auditOnlineOnly : e.message, error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -665,6 +739,20 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (_draft case final d?)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Panel(
+                  onTap: () => _start(
+                    d['category'] as String?,
+                    counted: {for (final e in (d['counted'] as Map).entries) e.key.toString(): (e.value as num).toDouble()},
+                  ),
+                  child: Text(
+                    l.auditContinue((d['counted'] as Map).length),
+                    style: const TextStyle(fontWeight: FontWeight.w800, color: T.success),
+                  ),
+                ),
+              ),
             Panel(
               onTap: () => _start(null),
               child: Text(l.allStock, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -682,15 +770,19 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
         ),
       );
     }
+    final q = _q.text.trim().toLowerCase();
     final shown = _products.where((p) {
       final c = _counted[p.id];
+      // 2026-10-22: поиск по названию, штрихкоду, артикулу
+      if (q.isNotEmpty && !p.searchKey.contains(q) && !(p.barcode ?? '').contains(q)) return false;
       return switch (_filter) {
         'unchecked' => c == null,
         'diff' => c != null && (c - p.quantity).abs() > 0.0001,
         _ => true,
       };
     }).toList();
-    return Scaffold(
+    // 2026-10-22: выход с непроведённым пересчётом — с вопросом (черновик и так сохранён).
+    return LeaveGuard(ask: () => _counted.isNotEmpty && !_done, child: Scaffold(
       appBar: ScreenTitle(
         '${l.audit} · ${_category ?? l.allStock}',
         subtitle: l.checkedOf(_counted.length, _products.length),
@@ -720,6 +812,19 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               children: [
+                SizedBox(
+                  width: 170,
+                  child: TextField(
+                    controller: _q,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      hintText: l.searchProduct,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
                 for (final (v, label) in [('all', l.all), ('unchecked', l.notChecked), ('diff', l.differences)])
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
@@ -775,14 +880,17 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           textAlign: TextAlign.center,
                           decoration: const InputDecoration(hintText: '?'),
-                          onChanged: (s) => setState(() {
-                            final v = parseNum(s);
-                            if (v == null) {
-                              _counted.remove(p.id);
-                            } else {
-                              _counted[p.id] = v;
-                            }
-                          }),
+                          onChanged: (s) {
+                            setState(() {
+                              final v = parseNum(s);
+                              if (v == null) {
+                                _counted.remove(p.id);
+                              } else {
+                                _counted[p.id] = v;
+                              }
+                            });
+                            _saveDraftSoon();
+                          },
                         ),
                       ),
                     ],
@@ -799,14 +907,17 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(l.auditAdminApplies, style: TextStyle(fontSize: 12, color: pal.textSoft)),
+              Text(l.auditApplyHint, style: TextStyle(fontSize: 12, color: pal.textSoft)),
               const SizedBox(height: 8),
-              FilledButton(onPressed: _busy || _counted.isEmpty ? null : _send, child: Text(l.sendToAdmin)),
+              FilledButton(
+                onPressed: _busy || _counted.isEmpty ? null : _send,
+                child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)) : Text(l.auditApply),
+              ),
             ],
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

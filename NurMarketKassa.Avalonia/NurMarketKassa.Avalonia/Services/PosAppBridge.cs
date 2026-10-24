@@ -130,10 +130,15 @@ public static class App
     {
         // Пустое имя не затирает известное имя того же кассира (баг «Кассир —»): другой кассир
         // появляется только через новый вход, и там имя приходит заново.
-        var sameUser = string.Equals(session.CurrentUserId, PosApp.CurrentUserId, StringComparison.OrdinalIgnoreCase);
-        session.CurrentUserId = PosApp.CurrentUserId;
-        if (!sameUser || !string.IsNullOrWhiteSpace(PosApp.CurrentUserDisplayName))
-            session.CurrentUserDisplayName = PosApp.CurrentUserDisplayName;
+        // 2026-10-23 (аудит, круг 8, В-1): если PosApp ещё не знает кассира (id пуст) — id и имя в сессии не трогаем:
+        // иначе пустые значения затирали вошедшего кассира и меню показывало «—».
+        if (!string.IsNullOrWhiteSpace(PosApp.CurrentUserId))
+        {
+            var sameUser = string.Equals(session.CurrentUserId, PosApp.CurrentUserId, StringComparison.OrdinalIgnoreCase);
+            session.CurrentUserId = PosApp.CurrentUserId;
+            if (!sameUser || !string.IsNullOrWhiteSpace(PosApp.CurrentUserDisplayName))
+                session.CurrentUserDisplayName = PosApp.CurrentUserDisplayName;
+        }
         session.ActiveShiftId = PosApp.ActiveShiftId;
         session.PosCashboxDisplayName = PosApp.PosCashboxDisplayName;
         session.IsOfflineBootstrap = PosApp.IsOfflineBootstrap;

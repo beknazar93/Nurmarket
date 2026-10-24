@@ -52,4 +52,7 @@ flutter build apk --debug
 
 - `freezed` и `json_serializable` не используются: ответы NurCRM разбираются вручную и «мягко», как в кассе.
   Имена полей у сервера бывают разными, и строгие модели падали бы на них.
-- Ключ выпуска для подписи APK ещё не создан. Он должен храниться у владельца (ТЗ, раздел 12), поэтому пока собирается только отладочный APK.
+- Ключ выпуска создан 21.10.2026 и хранится у владельца (ТЗ, раздел 12): `C:\Users\User\Documents\NurMarket-keys\nurmarket-mobile.keystore`
+  (alias `nurmarket-mobile`, копия в `backup\`, пароль — в `README.txt` рядом). Подпись release — из `android/key.properties`
+  (путь, alias, пароли); файл в `.gitignore` и не коммитится. Нет файла — release подписывается отладочным ключом.
+  Выпуски APK — `github.com/beknazar93/Nurmarket-Mobile` (тег `mobile-X.Y.Z`, тестовые — prerelease).

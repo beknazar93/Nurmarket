@@ -1,57 +1,28 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PaymentConfirmationDialog"
         Title="{DynamicResource dialog.confirmTitle}"
-        Width="440" SizeToContent="Height"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="28,24">
-    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-      <TextBlock Text="{DynamicResource paymentConfirm.message}"
-                 FontSize="18" FontWeight="Bold"
-                 Foreground="{DynamicResource BrushText}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 Margin="0,0,0,24"/>
-
-      <Grid ColumnDefinitions="*,12,*" Width="300" HorizontalAlignment="Center">
-        <Button IsCancel="True" Grid.Column="0"
-                Content="{DynamicResource common.no}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Background="{DynamicResource BrushPanel}"
-                Foreground="{DynamicResource BrushText}"
-                BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1.5"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Cursor="Hand"
+  <!-- 2026-10-22 (модалки, пакет 1): общая оболочка ModalShell 512 вместо своей Border 440 без шапки и ✕. Кнопки —
+       глаголы: слева «Отмена» (обводка, Esc и ✕), справа одна главная «Провести оплату» (Enter). Тексты — в коде
+       (5 языков). Enter сканера (серия быстрых клавиш) оплату не подтверждает — см. OnScannerGuardTunnel. -->
+  <dlg:ModalShell x:Name="Shell" Margin="16" Title="{DynamicResource paymentConfirm.message}">
+    <dlg:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button x:Name="NoButton" IsCancel="True" Classes="modal-cancel" MaxWidth="200"
                 Click="NoButton_Click"/>
-
-        <Button Grid.Column="2"
-                Content="{DynamicResource common.confirm}"
-                Height="46"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Background="{DynamicResource BrushAccent}"
-                Foreground="{DynamicResource BrushAccentForeground}"
-                FontWeight="SemiBold"
-                CornerRadius="10"
-                Cursor="Hand"
-                IsDefault="True"
+        <Button x:Name="YesButton" IsDefault="True" Classes="modal-primary" MaxWidth="240"
                 Click="YesButton_Click"/>
-      </Grid>
-    </StackPanel>
-  </Border>
+      </StackPanel>
+    </dlg:ModalShell.Footer>
+    <TextBlock x:Name="MessageText" FontSize="14" TextWrapping="Wrap"
+               Foreground="{DynamicResource BrushTextSoft}"/>
+  </dlg:ModalShell>
 </Window>

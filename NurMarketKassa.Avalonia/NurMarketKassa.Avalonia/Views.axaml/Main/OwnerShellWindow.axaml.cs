@@ -35,7 +35,8 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// раздел занимает правую часть этого окна (см. «разделы в окне» ниже).
 /// Справа — сводка за день/неделю/месяц с сервера NurCRM: показатели со сравнением с прошлым
 /// периодом, выручка по дням, способы оплаты, последние продажи и лучшие товары. Обновляется
-/// каждые 20 секунд: продажа, пробитая на кассе, появляется здесь без отдельной синхронизации.</summary>
+/// раз в минуту (RefreshInterval) и сразу при возврате в окно: продажа, пробитая на кассе, появляется здесь
+/// без отдельной синхронизации. // 2026-10-23 (аудит, круг 8, В-6): было написано «каждые 20 секунд» — давно не так.</summary>
 public partial class OwnerShellWindow : Window, IMainShell
 {
     // 2026-10-04, отчёт о производительности (п. 7): 60 с вместо 20 с и только пока «Сводка» на экране и
@@ -50,6 +51,10 @@ public partial class OwnerShellWindow : Window, IMainShell
     private string? _chartCacheKey;
     private DateTime _chartCacheAtUtc = DateTime.MinValue;
     private DateTime _lastRefreshStartedUtc = DateTime.MinValue;
+    // 2026-10-23 (аудит, круг 8, В-6): время последнего нажатия клавиши в окне. Раньше фоновое обновление
+    // стояло, пока курсор в любом поле (даже «Найти раздел»); теперь ждём, только если печатают прямо сейчас.
+    private DateTime _lastKeyInputUtc = DateTime.MinValue;
+    private static readonly TimeSpan TypingQuietPeriod = TimeSpan.FromSeconds(15);
 
     private const int RecentRows = 8;
 
@@ -172,6 +177,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-05: на «Старте» подключили (или истёк тестовый доступ) пакет «Стандарта» — меню сразу по тарифу.
         TariffGate.PacksChanged += () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(); _ = RefreshDebtsCardAsync(force: true); });
         SectionVisibility.Changed += () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(); _ = RefreshDebtsCardAsync(force: true); });
+        // 2026-10-23 (аудит, круг 8, В-6): туннельный обработчик, handledEventsToo — видит и клавиши, которые поле уже обработало.
+        AddHandler(KeyDownEvent, (_, _) => _lastKeyInputUtc = DateTime.UtcNow, RoutingStrategies.Tunnel, handledEventsToo: true);
         _timer = new DispatcherTimer { Interval = RefreshInterval };
         _timer.Tick += async (_, _) => await RefreshWhenShownAsync().ConfigureAwait(true);
         // 2026-10-04, п. 7: окно снова активно, а «Сводка» давно не обновлялась (пока окно было свёрнуто
@@ -191,6 +198,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         _siteOrdersTimer.Tick += (_, _) => _ = PollSiteOrdersAsync();
         Opened += async (_, _) =>
         {
+            // 2026-10-21 (сенсорный моноблок): окно оказалось на другом экране, чем основной, — минимум ещё раз по его рабочей области.
+            FitMinSizeToScreen();
             // ABC — параллельно с загрузкой сводки: он считается локально и сервера не ждёт.
             _ = RefreshAbcAsync();
             await RefreshAsync().ConfigureAwait(true);
@@ -296,7 +305,38 @@ public partial class OwnerShellWindow : Window, IMainShell
         return true;
     }
 
-    public void PlaceOnPrimaryScreen() => WindowState = WindowState.Maximized;
+    public void PlaceOnPrimaryScreen()
+    {
+        // 2026-10-21 (сенсорный моноблок): минимум окна из XAML (1000×560) больше рабочей области маленьких экранов
+        // (1366×768 при 150 % — 911×512 точек, 10" моноблок 1024×600 — 1024×552): развёрнутое окно всё равно оставалось
+        // 1000×560 и уходило за край экрана — «Выйти», поиск раздела, кнопки окна и «Все продажи» были недостижимы пальцем.
+        // Минимум опускается до рабочей области (только вниз, на обычных мониторах не меняется) — до разворачивания.
+        FitMinSizeToScreen();
+        WindowState = WindowState.Maximized;
+    }
+
+    /// <summary>2026-10-21 (сенсорный моноблок): MinWidth/MinHeight не больше рабочей области экрана окна (в точках).</summary>
+    private void FitMinSizeToScreen()
+    {
+        try
+        {
+            var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+            if (screen is null)
+                return;
+            var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+            var width = Math.Floor(screen.WorkingArea.Width / scaling);
+            var height = Math.Floor(screen.WorkingArea.Height / scaling);
+            var changed = false;
+            if (width > 0 && MinWidth > width) { MinWidth = width; changed = true; }
+            if (height > 0 && MinHeight > height) { MinHeight = height; changed = true; }
+            if (changed)
+                PosLogger.Log($"Owner app: экран {width:0}×{height:0} меньше минимума окна — минимум опущен до экрана.", "UI");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Owner app: подгонка минимума окна под экран не удалась: {ex.Message}", "WARNING");
+        }
+    }
 
     private void OnLanguageChanged() => Dispatcher.UIThread.Post(() =>
     {
@@ -396,7 +436,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             ? (_customFrom == _customTo ? $"{_customFrom:dd.MM}" : $"{_customFrom:dd.MM}–{_customTo:dd.MM}")
             : Tr.T("Спец. дата", "Башка дата", "Custom dates", "Özel tarih", "Boshqa sana");
 
-        RevenueLabel.Text = Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum");
+        // 2026-10-23: единое название с кассой (shiftDetails.revenueLabel), круг 6.
+        RevenueLabel.Text = Tr.T("Выручка (без долга)", "Түшүм (карызсыз)", "Revenue (excl. debt)", "Ciro (borç hariç)", "Tushum (qarzsiz)");
         ChecksLabel.Text = Tr.T("Чеки", "Чектер", "Receipts", "Fişler", "Cheklar");
         AvgLabel.Text = Tr.T("Средний чек", "Орточо чек", "Average receipt", "Ortalama fiş", "O'rtacha chek");
         // 2026-10-18, ревью О1: маржа последних карточек сохраняется и при смене языка.
@@ -556,6 +597,10 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("calculator", () => new CalculatorWindow()); });
         Add("restock", "RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar"), TariffGate.CanUseRestock,
             () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>()); });
+        // 2026-10-22, владелец: «Закупки как у веба» — история приходов, заказы поставщикам, рекомендуемый заказ, приём товара с оплатой
+        // (PurchasesWindow). Тариф и право — как у «Поставщиков» (на «Старте» сайт закупки прячет), право — «Склад».
+        Add("purchases", "PurchasesIcon", PurchasesWindow.TitleText, !TariffGate.IsStartTariff,
+            () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("purchases", () => new PurchasesWindow()); });
         // 2026-10-20, этап П1, владелец: «полностью возьми функционал (поставщиков) оттуда и нашим дизайном добавь нам» —
         // список поставщиков с долгом и карточка (SuppliersWindow); тариф и права — как у «Возвратов поставщикам».
         // 2026-10-20, живой аудит: свой значок (грузовик) — в «только значки» он совпадал с «Клиентами».
@@ -1220,7 +1265,23 @@ public partial class OwnerShellWindow : Window, IMainShell
         IsVisible && IsActive && WindowState != WindowState.Minimized && OverviewScroll.IsVisible;
 
     /// <summary>Обновление по таймеру и при возврате в окно — только когда «Сводку» видно (см. RefreshInterval).</summary>
-    private Task RefreshWhenShownAsync() => IsOverviewShown ? RefreshAsync() : Task.CompletedTask;
+    private Task RefreshWhenShownAsync()
+    {
+        if (IsOverviewShown)
+            return RefreshAsync();
+        // 2026-10-22 (аудит 1.17.59, П-З): окно владельца видно, но не активно (владелец работает в кассе рядом) — сводка
+        // раньше стояла («Обновлено в 07:10» в 07:45, «Чеки 0» при прошедших возвратах). Теперь обновляется и так, но реже —
+        // раз в 5 минут, одним запросом сводки, без пересборки окна; не во время ввода текста.
+        // 2026-10-23 (аудит, круг 8, В-6): интервал — RefreshInterval (60 с; допуск 5 с на дрожание таймера, иначе
+        // обновление пропускалось бы до следующего тика), а «не во время ввода» — только если печатали менее 15 с назад
+        // (раньше любое поле с фокусом, даже пустое «Найти раздел», останавливало обновление насовсем).
+        var visibleInactive = IsVisible && WindowState != WindowState.Minimized && OverviewScroll.IsVisible && !IsActive;
+        if (visibleInactive && DateTime.UtcNow - _lastRefreshStartedUtc >= RefreshInterval - TimeSpan.FromSeconds(5)
+            && !(TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox
+                 && DateTime.UtcNow - _lastKeyInputUtc < TypingQuietPeriod))
+            return RefreshAsync();
+        return Task.CompletedTask;
+    }
 
     private async Task RefreshAsync(bool forceChart = false)
     {
@@ -1766,7 +1827,9 @@ public partial class OwnerShellWindow : Window, IMainShell
                 var median = others.Count % 2 == 1 ? others[others.Count / 2] : (others[others.Count / 2 - 1] + others[others.Count / 2]) / 2;
                 // 2026-10-18, этап О2 (решение главной сессии): выброс — только день ≥ 3 медиан И ≥ 5 000 сом; при малых суммах
                 // (870 сом при медиане ~110) обычный день рисовался с ложным разрывом.
-                outlier[i] = values[i] >= 3 * median && values[i] >= ChartOutlierMinSom;
+                // 2026-10-22 (аудит 1.17.59, П-З): разрыв оси убран — 15,4 тыс. и 1,8 тыс. на нём выглядели почти одной высоты. Столбцы
+                // пропорциональны (ось от нуля): высота = значение / максимум, маленький день виден минимумом 4 px.
+                outlier[i] = false && values[i] >= 3 * median && values[i] >= ChartOutlierMinSom;
             }
         }
         var scaleMax = values.Where((_, i) => !outlier[i]).DefaultIfEmpty(0).Max();

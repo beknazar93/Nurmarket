@@ -31,16 +31,8 @@ public partial class FilterWindow : Window
 
     public CatalogFilterViewModel ViewModel { get; }
 
-    private void TitleBar_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (e.Source is Button || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-            return;
-
-        BeginMoveDrag(e);
-    }
-
-    private void Minimize_Click(object? sender, RoutedEventArgs e) =>
-        WindowState = WindowState.Minimized;
+    // 2026-10-22 (модалки, пакет 1): своя полоса заголовка с перетаскиванием и «—» (свернуть модалку) убраны —
+    // окно в общей оболочке ModalShell, как остальные модалки кассы.
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
     private void Reset_Click(object? sender, RoutedEventArgs e)

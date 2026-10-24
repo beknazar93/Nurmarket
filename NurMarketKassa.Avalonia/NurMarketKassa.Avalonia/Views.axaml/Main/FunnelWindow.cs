@@ -41,6 +41,8 @@ public sealed class FunnelWindow : Window, IOwnerSection
         public string? ChatId { get; set; }
         public string Source { get; set; } = "";
         public string Instagram { get; set; } = "";
+        // 2026-10-23 (аудит, круг 8, В-5): ник клиента из Telegram (без «@») — чтобы клик по карточке из бота открывал чат t.me/ник.
+        public string TelegramUsername { get; set; } = "";
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
     }
@@ -294,17 +296,34 @@ public sealed class FunnelWindow : Window, IOwnerSection
             Use(note, TextBlock.ForegroundProperty, "BrushText");
             stack.Children.Add(note);
         }
-        var row = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+        // 2026-10-24 (приёмка, ПР-6): ряд кнопок — Grid «◀ ▶ | ✎ Открыть (*) | ✕ (авто)»: «Открыть» не переносится на вторую строку,
+        // стрелки — векторные значки (символы ◀ ▶ рисовались мелко) в сенсорной зоне 44x44. WhatsApp/Instagram — отдельным рядом ниже.
+        var rowGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), Margin = new Thickness(0, 4, 0, 0) };
+        var arrows = new StackPanel { Orientation = Orientation.Horizontal };
         var index = Array.FindIndex(Stages, s => s.Key == card.Stage);
         if (index > 0)
-            row.Children.Add(Small("◀", () => Move(card, Stages[index - 1].Key)));
+            arrows.Children.Add(ArrowButton("chevron-left",
+                T("Предыдущий этап", "Мурунку этап", "Previous stage", "Önceki aşama", "Oldingi bosqich"), () => Move(card, Stages[index - 1].Key)));
         if (index < Stages.Length - 1)
-            row.Children.Add(Small("▶", () => Move(card, Stages[index + 1].Key)));
-        row.Children.Add(Small("✎", () => OpenEditor(card)));
+            arrows.Children.Add(ArrowButton("chevron-right",
+                T("Следующий этап", "Кийинки этап", "Next stage", "Sonraki aşama", "Keyingi bosqich"), () => Move(card, Stages[index + 1].Key)));
+        // 2026-10-22 (модалки, пакет 4): на моноблоке двойное касание не находят — карточка открывается кнопкой «Открыть»
+        // (двойной щелчок мышью тоже работает).
+        var openBtn = Small("", () => OpenEditor(card));
+        openBtn.Content = new TextBlock
+        {
+            Text = "✎ " + T("Открыть", "Ачуу", "Open", "Aç", "Ochish"),
+            TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center,
+        };
+        openBtn.Padding = new Thickness(4, 0);
+        openBtn.Margin = new Thickness(0, 0, 4, 6);
+        openBtn.HorizontalAlignment = HorizontalAlignment.Stretch;
+        openBtn.HorizontalContentAlignment = HorizontalAlignment.Center;
+        var chats = new WrapPanel { Orientation = Orientation.Horizontal };
         if (!string.IsNullOrWhiteSpace(card.Phone))
-            row.Children.Add(Small("WhatsApp", () => OpenWhatsApp(card.Phone)));
+            chats.Children.Add(Small("WhatsApp", () => OpenWhatsApp(card.Phone)));
         if (InstagramName(card.Instagram) is { } igName)
-            row.Children.Add(Small("Instagram", () => OpenInstagram(igName)));
+            chats.Children.Add(Small("Instagram", () => OpenInstagram(igName)));
         // 2026-10-05, проверка на телефоне: значок 🗑 на Android не рисовался (пустая кнопка), а сделка удалялась с одного
         // нажатия. Теперь «✕», первое нажатие спрашивает «Удалить?», второе — удаляет.
         Button? delete = null;
@@ -321,8 +340,17 @@ public sealed class FunnelWindow : Window, IOwnerSection
             Save();
             Render();
         });
-        row.Children.Add(delete);
-        stack.Children.Add(row);
+        delete.Margin = new Thickness(0, 0, 0, 6);
+        Grid.SetColumn(arrows, 0);
+        Grid.SetColumn(openBtn, 1);
+        Grid.SetColumn(delete, 2);
+        delete.VerticalAlignment = VerticalAlignment.Top;
+        rowGrid.Children.Add(arrows);
+        rowGrid.Children.Add(openBtn);
+        rowGrid.Children.Add(delete);
+        stack.Children.Add(rowGrid);
+        if (chats.Children.Count > 0)
+            stack.Children.Add(chats);
         border.Child = stack;
         if (!OperatingSystem.IsAndroid())
             border.Cursor = new Cursor(StandardCursorType.Hand);
@@ -340,7 +368,12 @@ public sealed class FunnelWindow : Window, IOwnerSection
                 Render();
             }
         };
-        border.DoubleTapped += (_, _) => OpenEditor(card);
+        // 2026-10-24 (приёмка, ПР-6): двойной щелчок — только редактор; ожидающее открытие чата от первого нажатия отменяем.
+        border.DoubleTapped += (_, _) =>
+        {
+            CancelTapChat();
+            OpenEditor(card);
+        };
         return border;
     }
 
@@ -352,6 +385,10 @@ public sealed class FunnelWindow : Window, IOwnerSection
         if (e.Handled || !e.GetCurrentPoint(view).Properties.IsLeftButtonPressed)
             return;
         ResetDrag();
+        // 2026-10-24 (приёмка, ПР-6): второе нажатие двойного щелчка — отменить открытие чата от первого и не запускать его по отпусканию.
+        _pressClicks = e.ClickCount;
+        if (e.ClickCount >= 2)
+            CancelTapChat();
         _dragCard = card;
         _dragView = view;
         _dragPointer = e.Pointer;
@@ -430,6 +467,58 @@ public sealed class FunnelWindow : Window, IOwnerSection
             _scroll.Offset = _scroll.Offset.WithX(Math.Min(maxX, _scroll.Offset.X + 24));
     }
 
+    /// <summary>2026-10-23: чат клиента из карточки воронки — Telegram (t.me/ник) для карточек из бота; Instagram, если сделка оттуда, иначе WhatsApp по телефону, иначе Instagram
+    /// по имени; нет ни того ни другого — открывается карточка сделки (редактор), чтобы добавить контакт.</summary>
+    private void OpenCardChat(Card card)
+    {
+        var ig = InstagramName(card.Instagram);
+        var hasPhone = !string.IsNullOrWhiteSpace(card.Phone);
+        // 2026-10-23 (аудит, круг 8, В-5): карточка из Telegram-бота — открываем t.me/ник системной ссылкой; без ника редактор не открываем.
+        if (card.Source == "telegram" && !string.IsNullOrWhiteSpace(card.TelegramUsername))
+            OpenTelegram(card.TelegramUsername);
+        else if (card.Source == "telegram" && !hasPhone && ig is null)
+        {
+            _status.Text = T("У клиента в Telegram нет ника — ответьте ему из Telegram на телефоне или из раздела «Телеграм-бот».",
+                    "Кардардын Telegram'ында ник жок — ага телефондогу Telegram'дан же «Телеграм-бот» бөлүмүнөн жооп бериңиз.",
+                    "This Telegram customer has no username — reply from Telegram on your phone or from the \"Telegram bot\" section.",
+                    "Müşterinin Telegram'da kullanıcı adı yok — telefondaki Telegram'dan veya \"Telegram botu\" bölümünden yanıtlayın.",
+                    "Mijozning Telegram'da nomi (username) yo'q — unga telefondagi Telegram'dan yoki \"Telegram-bot\" bo'limidan javob bering.");
+        }
+        else if (card.Source == "instagram" && ig is not null)
+            OpenInstagram(ig);
+        else if (hasPhone)
+            OpenWhatsApp(card.Phone);
+        else if (ig is not null)
+            OpenInstagram(ig);
+        else
+            OpenEditor(card);
+    }
+
+    private DispatcherTimer? _tapTimer;
+    private int _pressClicks;
+
+    /// <summary>2026-10-24 (приёмка, ПР-6): отложенное открытие чата после быстрого нажатия (окно ожидания двойного щелчка).</summary>
+    private void ScheduleTapChat(Card card)
+    {
+        CancelTapChat();
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        _tapTimer = timer;
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            if (_tapTimer == timer)
+                _tapTimer = null;
+            OpenCardChat(card);
+        };
+        timer.Start();
+    }
+
+    private void CancelTapChat()
+    {
+        _tapTimer?.Stop();
+        _tapTimer = null;
+    }
+
     private void DragRelease(object? sender, PointerReleasedEventArgs e)
     {
         if (_dragCard is null || e.Pointer != _dragPointer)
@@ -439,9 +528,20 @@ public sealed class FunnelWindow : Window, IOwnerSection
         var target = dragging ? StageAt(e.GetPosition(_board)) : null;
         if (dragging)
             PosLogger.Log($"Воронка: карточка отпущена над этапом «{target ?? "—"}».", "UI");
+        var pressedFor = (DateTime.UtcNow - _pressAt).TotalMilliseconds;
         ResetDrag();
         if (!dragging)
+        {
+            // 2026-10-23, просьба владельца: нажатие на клиента в воронке сразу открывает чат с ним (быстрое нажатие, не удержание).
+            // 2026-10-24 (приёмка, ПР-6): чат открываем не сразу, а через ~300 мс — если придёт второй щелчок (DoubleTapped), открывается только редактор.
+            if (pressedFor < 600)
+            {
+                e.Handled = true;
+                if (_pressClicks < 2)
+                    ScheduleTapChat(card);
+            }
             return;
+        }
         e.Handled = true;
         if (target is not null && target != card.Stage)
             Move(card, target);
@@ -526,10 +626,26 @@ public sealed class FunnelWindow : Window, IOwnerSection
         }
     }
 
+    /// <summary>2026-10-24 (приёмка, ПР-6): кнопка-стрелка этапа — векторный значок 20 px в сенсорной зоне 44x44.</summary>
+    private Button ArrowButton(string iconKey, string name, Action click)
+    {
+        var b = Small("", click);
+        b.Width = 44;
+        b.Padding = new Thickness(0);
+        b.Margin = new Thickness(0, 0, 2, 6);
+        b.HorizontalContentAlignment = HorizontalAlignment.Center;
+        b.Content = new PathIcon { Data = MarketplaceIcons.Get(iconKey), Width = 20, Height = 20 };
+        Avalonia.Automation.AutomationProperties.SetName(b, name);
+        ToolTip.SetTip(b, name);
+        return b;
+    }
+
     private Button Small(string text, Action click)
     {
         var b = UiKit.Ghost(this, text);
-        b.Height = 34;
+        // 2026-10-22 (модалки, пакет 4): 44 px — касание пальцем (было 34).
+        b.Height = 44;
+        b.MinWidth = 44;
         b.Padding = new Thickness(10, 0);
         b.FontSize = 13;
         b.Margin = new Thickness(0, 0, 6, 6);
@@ -620,6 +736,7 @@ public sealed class FunnelWindow : Window, IOwnerSection
                     Name = string.IsNullOrWhiteSpace(c.Name) ? (c.Username ?? "Telegram") : c.Name,
                     ChatId = c.ChatId,
                     Source = "telegram",
+                    TelegramUsername = (c.Username ?? "").Trim().TrimStart('@'), // 2026-10-23 (аудит, круг 8, В-5)
                     Note = T($"Telegram{(string.IsNullOrWhiteSpace(c.Username) ? "" : " @" + c.Username)}: сообщений {c.Messages}, заказов {c.Orders}",
                         $"Telegram{(string.IsNullOrWhiteSpace(c.Username) ? "" : " @" + c.Username)}: билдирүүлөр {c.Messages}, заказдар {c.Orders}",
                         $"Telegram{(string.IsNullOrWhiteSpace(c.Username) ? "" : " @" + c.Username)}: messages {c.Messages}, orders {c.Orders}",
@@ -672,6 +789,23 @@ public sealed class FunnelWindow : Window, IOwnerSection
         OpenChats(WhatsAppWebUrl + "/send?phone=" + digits, "WhatsApp Web", "https://wa.me/" + digits);
     }
 
+    /// <summary>2026-10-23 (аудит, круг 8, В-5): Telegram клиента — системная ссылка t.me/ник (на Windows её подхватит Telegram Desktop), не встроенный браузер.</summary>
+    private async void OpenTelegram(string username)
+    {
+        var url = "https://t.me/" + username.TrimStart('@');
+        try
+        {
+            if (TopLevel.GetTopLevel(this)?.Launcher is { } launcher)
+                await launcher.LaunchUriAsync(new Uri(url)).ConfigureAwait(true);
+            else if (OperatingSystem.IsWindows())
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Воронка: Telegram не открылся ({ex.Message}).", "WARNING");
+        }
+    }
+
     private void OpenInstagram(string name) =>
         OpenChats("https://ig.me/m/" + name, "Instagram Direct", "https://ig.me/m/" + name);
 
@@ -707,6 +841,14 @@ public sealed class FunnelWindow : Window, IOwnerSection
                     c.Source ??= "";
                     if (c.Source.Length == 0 && !string.IsNullOrWhiteSpace(c.ChatId))
                         c.Source = "telegram";
+                    // 2026-10-23 (аудит, круг 8, В-5): у старых карточек ника нет в поле — берём из заметки «Telegram @ник: …».
+                    c.TelegramUsername ??= "";
+                    if (c.Source == "telegram" && c.TelegramUsername.Length == 0)
+                    {
+                        var mu = System.Text.RegularExpressions.Regex.Match(c.Note ?? "", @"Telegram @([A-Za-z0-9_]{3,})");
+                        if (mu.Success)
+                            c.TelegramUsername = mu.Groups[1].Value;
+                    }
                 }
                 return cards;
             }

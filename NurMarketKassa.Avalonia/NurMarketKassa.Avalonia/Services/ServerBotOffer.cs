@@ -69,7 +69,10 @@ public static class ServerBotOffer
                     $"Telegram botu{bot} NurCRM sunucusuna taşınsın mı?\n\nŞu anda yalnızca bu bilgisayarda kasa veya işletme sahibi programı açıkken yanıt veriyor. Sunucuda bilgisayar kapalıyken bile günün her saati yanıt verir: komutlar, raporlar, yapay zekâ, müşteri danışmanı, siparişler ve vardiya kapanış özeti.\n\nBot token'ı ve yapay zekâ anahtarı NurCRM sunucusunda şifreli saklanır. Fikrinizi değiştirirseniz — «Ayarlar → İşlemler → Botu bağla → Bu bilgisayara geri al».",
                     $"Telegram bot{bot} NurCRM serveriga ko'chirilsinmi?\n\nHozir u faqat shu kompyuterda kassa yoki ega dasturi ochiq bo'lganda javob beradi. Serverda u kompyuter o'chiq bo'lsa ham kecha-kunduz javob beradi: buyruqlar, hisobotlar, SI, xaridorlar uchun maslahatchi, buyurtmalar va smena yopilganda hisobot.\n\nBot tokeni va SI kaliti NurCRM serverida shifrlangan holda saqlanadi. Fikringiz o'zgarsa — «Sozlamalar → Operatsiyalar → Botni ulash → Shu kompyuterga qaytarish»."),
                 Tr.T("Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram bot"),
-                System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question, System.Windows.MessageBoxResult.Yes);
+                System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question, System.Windows.MessageBoxResult.Yes,
+                // 2026-10-22 (модалки, пакет 4): кнопки — глаголы вместо «Продолжить / Отмена».
+                confirmText: Tr.T("Перенести", "Көчүрүү", "Move", "Taşı", "Ko'chirish"),
+                cancelText: Tr.T("Не сейчас", "Азыр эмес", "Not now", "Şimdi değil", "Hozir emas"));
             MarkDone();
             if (answer != System.Windows.MessageBoxResult.Yes)
             {

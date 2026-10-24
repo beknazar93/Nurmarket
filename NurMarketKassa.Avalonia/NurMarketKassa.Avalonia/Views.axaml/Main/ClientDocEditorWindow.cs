@@ -58,7 +58,7 @@ public sealed class ClientDocEditorWindow : Window
     private readonly TextBox _number = new() { Width = 130, MaxLength = 30, FontWeight = FontWeight.SemiBold };
     private readonly TextBlock _numberWarn = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private readonly ComboBox _status = new() { MinWidth = 170, VerticalAlignment = VerticalAlignment.Center };
-    private readonly Button[] _tplButtons = new Button[3];
+    private readonly Button[] _tplButtons = new Button[ClientDocRenderer.Templates.Length];
     private readonly Button _viewForm;
     private readonly Button _viewPreview;
     private readonly Border _viewSeg;
@@ -155,9 +155,9 @@ public sealed class ClientDocEditorWindow : Window
             _status.Items.Add(text);
         _status.SelectionChanged += (_, _) => StatusChanged();
 
-        string[] tplText = { T("Классический", "Классикалык", "Classic", "Klasik", "Klassik"), T("Современный", "Заманбап", "Modern", "Modern", "Zamonaviy"), T("Минимал", "Минимал", "Minimal", "Minimal", "Minimal") };
+        string[] tplText = { T("Классический", "Классикалык", "Classic", "Klasik", "Klassik"), T("Современный", "Заманбап", "Modern", "Modern", "Zamonaviy"), T("Минимал", "Минимал", "Minimal", "Minimal", "Minimal"), T("Фирменный NUR CRM", "Фирмалык NUR CRM", "NUR CRM brand", "NUR CRM kurumsal", "NUR CRM brend") };
         var tplPanel = new StackPanel { Orientation = Orientation.Horizontal };
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < ClientDocRenderer.Templates.Length; i++)
         {
             var name = ClientDocRenderer.Templates[i];
             _tplButtons[i] = UiKit.Seg(tplText[i], name == _doc.Template);
@@ -205,7 +205,14 @@ public sealed class ClientDocEditorWindow : Window
                 PickBuyer(_buyerList.SelectedItem as ListBoxItem);
             }
         };
-        _buyerList.Tapped += (_, _) => PickBuyer(_buyerList.SelectedItem as ListBoxItem);
+        // 2026-10-22 (модалки, пакет 2): касание по кнопке «Выбрать» в строке выбирает именно эту строку (её обработчик) —
+        // общее касание списка тогда не срабатывает, иначе оно взяло бы прежнюю выделенную строку.
+        _buyerList.Tapped += (_, e) =>
+        {
+            if (e.Source is Avalonia.Visual v && (v as Button ?? Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<Button>(v)) is not null)
+                return;
+            PickBuyer(_buyerList.SelectedItem as ListBoxItem);
+        };
         var newClient = UiKit.Ghost(this, T("+ Новый клиент", "+ Жаңы кардар", "+ New client", "+ Yeni müşteri", "+ Yangi mijoz"));
         newClient.Height = 42;
         newClient.Focusable = true;
@@ -247,7 +254,8 @@ public sealed class ClientDocEditorWindow : Window
         foreach (var days in new[] { 3, 7, 14, 30 })
         {
             var chip = UiKit.Chip(this, T($"+{days} дн.", $"+{days} күн", $"+{days} d", $"+{days} gün", $"+{days} kun"), false);
-            chip.MinHeight = 32;
+            // 2026-10-22 (модалки, пакет 2): касание 44 px (было 32).
+            chip.MinHeight = 44;
             chip.Padding = new Thickness(12, 2);
             chip.Margin = new Thickness(0, 0, 6, 4);
             chip.Focusable = true;
@@ -385,7 +393,7 @@ public sealed class ClientDocEditorWindow : Window
 
         // ── продавец ──
         var editSeller = UiKit.Ghost(this, T("Изменить реквизиты", "Реквизиттерди өзгөртүү", "Edit details", "Bilgileri düzenle", "Rekvizitlarni o'zgartirish"));
-        editSeller.Height = 36;
+        editSeller.Height = 44;
         editSeller.Focusable = true;
         editSeller.Click += (_, _) =>
         {
@@ -411,11 +419,11 @@ public sealed class ClientDocEditorWindow : Window
         _sellerFields.Children.Add(TwoCols(Field(T("Расчётный счёт", "Эсептешүү эсеби", "Bank account", "Banka hesabı", "Hisob raqami"), S("account", "account")), Field(T("Руководитель", "Жетекчи", "Director", "Yönetici", "Rahbar"), S("director", "director"))));
         _sellerFields.Children.Add(TwoCols(Field(T("Бухгалтер", "Бухгалтер", "Accountant", "Muhasebeci", "Buxgalter"), S("accountant", "accountant")), new Control()));
         var chooseLogo = UiKit.Ghost(this, T("Выбрать логотип…", "Логотип тандоо…", "Choose a logo…", "Logo seç…", "Logotip tanlash…"));
-        chooseLogo.Height = 36;
+        chooseLogo.Height = 44;
         chooseLogo.Focusable = true;
         chooseLogo.Click += async (_, _) => await ChooseLogoAsync().ConfigureAwait(true);
         var removeLogo = UiKit.Ghost(this, T("Убрать", "Алып салуу", "Remove", "Kaldır", "Olib tashlash"));
-        removeLogo.Height = 36;
+        removeLogo.Height = 44;
         removeLogo.Focusable = true;
         removeLogo.Click += (_, _) =>
         {
@@ -478,7 +486,7 @@ public sealed class ClientDocEditorWindow : Window
         Res(_saveState, TextBlock.ForegroundProperty, "BrushTextSoft");
         Res(_message, TextBlock.ForegroundProperty, "BrushText");
         _openFile = UiKit.Ghost(this, T("Открыть файл", "Файлды ачуу", "Open file", "Dosyayı aç", "Faylni ochish"));
-        _openFile.Height = 34;
+        _openFile.Height = 44;
         _openFile.IsVisible = false;
         _openFile.Focusable = true;
         _openFile.Click += (_, _) => OpenPath(_lastFile);
@@ -607,7 +615,7 @@ public sealed class ClientDocEditorWindow : Window
             foreach (var (key, box) in _seller)
                 box.Text = SellerValue(key) ?? "";
             _stamp.IsChecked = _profile.ShowStamp;
-            for (var i = 0; i < 3; i++)
+            for (var i = 0; i < _tplButtons.Length; i++)
                 UiKit.SetActive(_tplButtons[i], ClientDocRenderer.Templates[i] == _doc.Template);
         }
         finally
@@ -819,6 +827,20 @@ public sealed class ClientDocEditorWindow : Window
         Changed();
     }
 
+    /// <summary>2026-10-24 (приёмка, ПР-7): строка документа считается только с названием и суммой больше 0 —
+    /// пустая строка (без названия, сумма 0) не делает документ «непустым».</summary>
+    private static bool IsRealLine(ClientDocLine l) => !string.IsNullOrWhiteSpace(l.Name) && l.Sum > 0;
+
+    private bool HasRealLines => _doc.Lines.Any(IsRealLine);
+
+    /// <summary>2026-10-24 (аудит, круг 8, С-17): текст отказа для пустого документа.</summary>
+    private static string EmptyDocText() => T(
+        "Добавьте хотя бы одну строку — пустой документ не превращается в счёт/накладную и не выставляется.",
+        "Жок дегенде бир сап кошуңуз — бош документ эсепке/накладнойго айланбайт жана берилбейт.",
+        "Add at least one line — an empty document cannot become an invoice/waybill or be issued.",
+        "En az bir satır ekleyin — boş belge faturaya/irsaliyeye dönüşmez ve düzenlenmez.",
+        "Hech bo'lmaganda bitta qator qo'shing — bo'sh hujjat hisob/yuk xatiga aylanmaydi va berilmaydi.");
+
     private void StatusChanged()
     {
         if (_filling)
@@ -829,6 +851,17 @@ public sealed class ClientDocEditorWindow : Window
         var (code, text) = list[_status.SelectedIndex];
         if (code == _doc.Status)
             return;
+        // 2026-10-24 (аудит, круг 8, С-17): пустой документ нельзя вручную выставить/отправить/принять — вернуть прежний статус.
+        // 2026-10-24 (приёмка, ПР-7): пустая строка (без названия, сумма 0) — не строка; предупреждение без «Отложить ошибку» (Info).
+        if (!HasRealLines && code is not ("draft" or "declined"))
+        {
+            var back = list.Select(s => s.Code).ToList().IndexOf(_doc.Status);
+            _filling = true;
+            _status.SelectedIndex = back < 0 ? 0 : back;
+            _filling = false;
+            PosDialogs.Info(this, EmptyDocText());
+            return;
+        }
         _doc.Status = code;
         if (code == "paid" && _doc.Paid < _doc.Total)
             _doc.Paid = _doc.Total;
@@ -850,7 +883,7 @@ public sealed class ClientDocEditorWindow : Window
     private void SetTemplate(string name)
     {
         _doc.Template = name;
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < _tplButtons.Length; i++)
             UiKit.SetActive(_tplButtons[i], ClientDocRenderer.Templates[i] == name);
         // Шаблон запоминается по виду документа.
         _profile.Templates[ClientDocProfile.KindKey(_doc.Kind)] = name;
@@ -943,7 +976,22 @@ public sealed class ClientDocEditorWindow : Window
         foreach (var b in found)
         {
             var line = string.Join(" · ", new[] { b.Company.Length > 0 ? $"{b.Company} ({b.Name})" : b.Name, b.Phone, b.Inn.Length > 0 ? "ИНН " + b.Inn : null }.Where(x => !string.IsNullOrWhiteSpace(x)));
-            _buyerList.Items.Add(new ListBoxItem { Content = line, Tag = b, MinHeight = 38 });
+            // 2026-10-22 (модалки, пакет 2): у строки — кнопка «Выбрать» 44 px (отчёт «Сенсорный моноблок» п. 5.7: выбор был
+            // только касанием/двойным касанием строки, кнопки не было).
+            var lineText = new TextBlock { Text = line, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+            var pick = UiKit.Ghost(this, T("Выбрать", "Тандоо", "Choose", "Seç", "Tanlash"));
+            pick.MinHeight = 44;
+            pick.Height = 44;
+            pick.Focusable = true;
+            pick.Margin = new Thickness(8, 0, 0, 0);
+            pick.VerticalAlignment = VerticalAlignment.Center;
+            var rowGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            Grid.SetColumn(pick, 1);
+            rowGrid.Children.Add(lineText);
+            rowGrid.Children.Add(pick);
+            var buyerItem = new ListBoxItem { Content = rowGrid, Tag = b, MinHeight = 48, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+            pick.Click += (_, _) => PickBuyer(buyerItem);
+            _buyerList.Items.Add(buyerItem);
         }
         if (found.Count == 0)
             _buyerList.Items.Add(new ListBoxItem
@@ -1038,7 +1086,8 @@ public sealed class ClientDocEditorWindow : Window
         foreach (var p in found)
             _suggest.Items.Add(new ListBoxItem
             {
-                Tag = p, MinHeight = 38,
+                // 2026-10-22 (модалки, пакет 2): строка подсказки товара 44 px — касание пальцем (было 38).
+                Tag = p, MinHeight = 44,
                 Content = $"{p.Title} · {ClientDocsUi.Money(p.PriceValue)} {ClientDocsUi.Som}" + (string.IsNullOrWhiteSpace(p.Barcode) ? "" : " · " + p.Barcode),
             });
         _suggest.IsVisible = found.Count > 0;
@@ -1189,7 +1238,8 @@ public sealed class ClientDocEditorWindow : Window
             Recalc();
         }, right: true);
         discBox.Watermark = "0";
-        var del = new Button { Content = "✕", Width = 32, Height = 32, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Background = Brushes.Transparent };
+        // 2026-10-22 (модалки, пакет 2): ✕ строки 44×44 (было 32).
+        var del = new Button { Content = "✕", Width = 44, Height = 44, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Background = Brushes.Transparent };
         del.Classes.Add("sec-outline");
         Avalonia.Automation.AutomationProperties.SetName(del, T($"Удалить строку {index}", $"{index}-сапты өчүрүү", $"Delete line {index}", $"{index}. satırı sil", $"{index}-qatorni o'chirish"));
         ToolTip.SetTip(del, T("Удалить строку", "Сапты өчүрүү", "Delete line", "Satırı sil", "Qatorni o'chirish"));
@@ -1228,7 +1278,8 @@ public sealed class ClientDocEditorWindow : Window
 
     private static Grid LineGrid(params Control[] cells)
     {
-        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("30,*,62,78,96,70,108,38") };
+        // 2026-10-22 (модалки, пакет 2): последняя колонка 44 (было 38) — под ✕ строки 44×44, иначе кнопка вылезала за край строки.
+        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("30,*,62,78,96,70,108,44") };
         for (var i = 0; i < cells.Length; i++)
         {
             cells[i].Margin = i is 0 or 6 or 7 ? cells[i].Margin : new Thickness(0, 0, 6, 0);
@@ -1281,7 +1332,7 @@ public sealed class ClientDocEditorWindow : Window
                 var number = ReceiptNumber(sale);
                 var total = double.TryParse(ClientDocsUi.Str(sale, "total"), NumberStyles.Any, CultureInfo.InvariantCulture, out var t) ? t : 0;
                 var b = UiKit.Ghost(this, $"{when} · № {number} · {ClientDocsUi.Money(total)} {ClientDocsUi.Som}");
-                b.Height = 38;
+                b.Height = 44;
                 b.Focusable = true;
                 b.HorizontalAlignment = HorizontalAlignment.Stretch;
                 b.HorizontalContentAlignment = HorizontalAlignment.Left;
@@ -1530,6 +1581,10 @@ public sealed class ClientDocEditorWindow : Window
     private void MarkSent()
     {
         var sentText = T("Отправлен", "Жөнөтүлдү", "Sent", "Gönderildi", "Yuborildi");
+        // 2026-10-24 (аудит, круг 8, С-17): пустой документ «Отправленным» не становится.
+        // 2026-10-24 (приёмка, ПР-7): пустая строка — не строка.
+        if (!HasRealLines && _doc.Status is "draft" or "issued")
+            return;
         if (_doc.Status is "draft" or "issued")
             SetStatus("sent", sentText);
         else
@@ -1605,7 +1660,7 @@ public sealed class ClientDocEditorWindow : Window
         var printers = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
         Avalonia.Automation.AutomationProperties.SetName(printers, T("Принтер", "Принтер", "Printer", "Yazıcı", "Printer"));
         var go = UiKit.Primary(this, T("Печатать", "Басып чыгаруу", "Print", "Yazdır", "Chop etish"));
-        go.Height = 40;
+        go.Height = 44;
         go.Focusable = true;
         go.HorizontalAlignment = HorizontalAlignment.Stretch;
         panel.Children.Add(Label(T("Принтер (A4)", "Принтер (A4)", "Printer (A4)", "Yazıcı (A4)", "Printer (A4)")));
@@ -1654,7 +1709,7 @@ public sealed class ClientDocEditorWindow : Window
         var amount = new TextBox { HorizontalContentAlignment = HorizontalAlignment.Right };
         Avalonia.Automation.AutomationProperties.SetName(amount, T("Сумма оплаты", "Төлөм суммасы", "Payment amount", "Ödeme tutarı", "To'lov summasi"));
         var ok = UiKit.Primary(this, T("Отметить", "Белгилөө", "Mark", "İşaretle", "Belgilash"));
-        ok.Height = 40;
+        ok.Height = 44;
         ok.Focusable = true;
         ok.HorizontalAlignment = HorizontalAlignment.Stretch;
         var note = new TextBlock
@@ -1669,6 +1724,10 @@ public sealed class ClientDocEditorWindow : Window
         Res(note, TextBlock.ForegroundProperty, "BrushTextSoft");
         panel.Children.Add(Label(T("Оплачено, сом", "Төлөндү, сом", "Paid, som", "Ödenen, som", "To'landi, so'm")));
         panel.Children.Add(amount);
+        // 2026-10-22 (модалки, пакет 2): неверная сумма — текстом под полем (раньше «Отметить» молча ничего не делал).
+        var amountError = SectionCards.ErrorText(this);
+        amount.TextChanged += (_, _) => SectionCards.ShowError(amountError, null);
+        panel.Children.Add(amountError);
         panel.Children.Add(ok);
         panel.Children.Add(note);
         flyout.Opened += (_, _) =>
@@ -1680,7 +1739,11 @@ public sealed class ClientDocEditorWindow : Window
         void Apply()
         {
             if (!TryNum(amount.Text, out var sum) || sum <= 0)
+            {
+                SectionCards.ShowError(amountError, T("Введите сумму больше нуля.", "Нөлдөн чоң сумма жазыңыз.", "Enter an amount above zero.",
+                    "Sıfırdan büyük bir tutar girin.", "Noldan katta summa kiriting."), amount);
                 return;
+            }
             flyout.Hide();
             _doc.Paid = ClientDoc.Round2(Math.Min(_doc.Total, _doc.Paid + sum));
             var paid = _doc.Left <= 0.004;
@@ -1743,7 +1806,9 @@ public sealed class ClientDocEditorWindow : Window
         {
             flyout.Hide();
             if (!PosDialogs.ConfirmYesNo(this, T($"Удалить {ClientDocsUi.KindName(_doc.Kind)} {_doc.Number}?", $"{ClientDocsUi.KindName(_doc.Kind)} {_doc.Number} өчүрүлсүнбү?",
-                    $"Delete {ClientDocsUi.KindName(_doc.Kind)} {_doc.Number}?", $"{ClientDocsUi.KindName(_doc.Kind)} {_doc.Number} silinsin mi?", $"{ClientDocsUi.KindName(_doc.Kind)} {_doc.Number} o'chirilsinmi?")))
+                    $"Delete {ClientDocsUi.KindName(_doc.Kind)} {_doc.Number}?", $"{ClientDocsUi.KindName(_doc.Kind)} {_doc.Number} silinsin mi?", $"{ClientDocsUi.KindName(_doc.Kind)} {_doc.Number} o'chirilsinmi?"),
+                    // 2026-10-22 (модалки, пакет 2): глагол и красная кнопка вместо «Да/Нет».
+                    confirmText: T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"), danger: true))
                 return;
             _dirty = false;
             if (!_isNew)
@@ -1757,6 +1822,18 @@ public sealed class ClientDocEditorWindow : Window
     /// <summary>КП → «Сделать счёт»; счёт → «Сделать накладную». Новый документ с теми же строками и клиентом, основание — этот.</summary>
     private void MakeNext()
     {
+        // 2026-10-24 (аудит, круг 8, С-17): из пустого КП/счёта дальше документ не делаем; нужен покупатель.
+        // 2026-10-24 (приёмка, ПР-7): считаем строками только заполненные (название и сумма > 0); предупреждение — Info.
+        if (!HasRealLines)
+        {
+            PosDialogs.Info(this, EmptyDocText());
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_doc.ClientId) && string.IsNullOrWhiteSpace(_doc.Client))
+        {
+            PosDialogs.Warning(this, T("Укажите покупателя.", "Сатып алуучуну көрсөтүңүз.", "Specify the buyer.", "Alıcıyı belirtin.", "Xaridorni ko'rsating."));
+            return;
+        }
         SaveNow();
         var kind = _doc.Kind == ClientDocKind.Quote ? ClientDocKind.Invoice : ClientDocKind.Waybill;
         var next = ClientDocsUi.NewDoc(kind, null);
@@ -1765,7 +1842,7 @@ public sealed class ClientDocEditorWindow : Window
         next.Phone = _doc.Phone;
         next.Inn = _doc.Inn;
         next.Address = _doc.Address;
-        next.Lines = _doc.Lines.Select(l => l.Clone()).ToList();
+        next.Lines = _doc.Lines.Where(IsRealLine).Select(l => l.Clone()).ToList(); // 2026-10-24 (приёмка, ПР-7): пустые строки не переносим
         next.Discount = _doc.Discount;
         next.VatPercent = _doc.VatPercent;
         next.Lang = _doc.Lang;

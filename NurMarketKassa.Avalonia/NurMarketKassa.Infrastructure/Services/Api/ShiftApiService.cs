@@ -74,6 +74,42 @@ public sealed class ShiftApiService : IShiftApiService
         return payload;
     }
 
+    // 2026-10-23 (аудит, круг 6): остаток закрытой смены для «Открыть смену» — кэш на минуту (ответ тот же, пока смены не менялись).
+    private decimal? _lastClosedCash;
+    private DateTime _lastClosedCashAtUtc = DateTime.MinValue;
+    private string? _lastClosedCashKey;
+
+    public async Task<decimal?> LastClosedShiftCashAsync(string? cashboxId, CancellationToken ct = default)
+    {
+        var key = (_client.AccessToken ?? "") + "|" + (cashboxId ?? "");
+        lock (_openListSync)
+        {
+            if (_lastClosedCashAtUtc != DateTime.MinValue && _lastClosedCashKey == key
+                && DateTime.UtcNow - _lastClosedCashAtUtc <= TimeSpan.FromMinutes(1))
+                return _lastClosedCash;
+        }
+
+        // Свежий полный список уже есть — запрос не нужен; иначе одна первая страница (самые новые смены).
+        JsonElement payload;
+        if (!TryGetRecentShiftsList(TimeSpan.FromMinutes(1), out payload))
+        {
+            if (await FetchShiftPageAsync(1, ct).ConfigureAwait(false) is not { } rows)
+                return null;
+            payload = rows;
+        }
+
+        var cash = ShiftBalanceHelper.FindLastClosedShiftCash(payload, cashboxId);
+        if (cash is not null)
+            lock (_openListSync)
+            {
+                _lastClosedCash = cash;
+                _lastClosedCashAtUtc = DateTime.UtcNow;
+                _lastClosedCashKey = key;
+            }
+
+        return cash;
+    }
+
     public void NoteSaleRecorded()
     {
         lock (_openListSync)
@@ -85,7 +121,10 @@ public sealed class ShiftApiService : IShiftApiService
     private void ForgetOpenShiftsList()
     {
         lock (_openListSync)
+        {
             _openListRequestedUtc = DateTime.MinValue;
+            _lastClosedCashAtUtc = DateTime.MinValue; // 2026-10-23: смена открыта/закрыта — остаток закрытой смены устарел
+        }
     }
 
     public async Task<JsonElement?> OpenShiftsListAfterSaleAsync(TimeSpan maxAge, CancellationToken ct = default)

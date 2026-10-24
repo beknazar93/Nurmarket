@@ -4,13 +4,16 @@
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ThemeEditorWindow"
         x:CompileBindings="False"
         Width="1060" Height="720"
-        MinWidth="860" MinHeight="560"
+        MinWidth="860" MinHeight="440"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
 
+    <!-- 2026-10-22 (модалки, пакет 4): MinHeight 440 (было 560 — на 910×512 и 1024×600 окно выходило за экран, низ
+         с «Применить» не был виден); кнопки, поля и ✕ — 44 px; одна жёлтая — «Применить» («Создать» — обводкой);
+         Esc — «Закрыть», как и раньше (свой обработчик окна; в поле ввода Esc окно не закрывает). -->
     <!-- Редактор тем (2026-09-28). Своя тема = встроенная тема-основа + девять ключевых цветов
          (для светлого и тёмного варианта отдельно), скругление и размер шрифта. Все правки сразу
          видны во всей программе — касса за окном и предпросмотр справа перекрашиваются вживую.
@@ -43,8 +46,8 @@
         </Style>
         <Style Selector="TextBox.te-hex">
             <Setter Property="Width" Value="92"/>
-            <Setter Property="MinHeight" Value="32"/>
-            <Setter Property="Height" Value="32"/>
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="Height" Value="44"/>
             <Setter Property="Padding" Value="8,0"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -75,7 +78,7 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Height" Value="34"/>
+            <Setter Property="Height" Value="44"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -112,7 +115,7 @@
                         <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                         <TextBlock x:Name="SubtitleText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
                     </StackPanel>
-                    <Button Grid.Column="2" Classes="lx-ghost" Width="36" Padding="0" VerticalAlignment="Top" Click="Close_Click">
+                    <Button Grid.Column="2" Classes="lx-ghost" Width="44" Height="44" Padding="0" VerticalAlignment="Top" Click="Close_Click">
                         <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16"/>
                     </Button>
                 </Grid>
@@ -135,16 +138,16 @@
                              SelectionChanged="ThemeList_SelectionChanged"/>
                     <StackPanel Grid.Row="2" Spacing="8" Margin="0,10,0,0">
                         <TextBlock x:Name="NewFromLabel" Classes="te-section" Margin="0"/>
-                        <ComboBox x:Name="BaseCombo" HorizontalAlignment="Stretch"/>
-                        <Button x:Name="CreateButton" Classes="lx-accent" MinHeight="38" HorizontalAlignment="Stretch" Click="Create_Click"/>
+                        <ComboBox x:Name="BaseCombo" HorizontalAlignment="Stretch" MinHeight="44"/>
+                        <Button x:Name="CreateButton" Classes="lx-btn" MinHeight="44" HorizontalAlignment="Stretch" Click="Create_Click"/>
                         <Grid ColumnDefinitions="*,8,*">
-                            <Button x:Name="DuplicateButton" Classes="lx-btn" MinHeight="36" HorizontalAlignment="Stretch" Click="Duplicate_Click">
+                            <Button x:Name="DuplicateButton" Classes="lx-btn" MinHeight="44" HorizontalAlignment="Stretch" Click="Duplicate_Click">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <PathIcon Data="{StaticResource IconContentCopy}" Width="14" Height="14"/>
                                     <TextBlock x:Name="DuplicateText" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="ImportButton" Grid.Column="2" Classes="lx-btn" MinHeight="36" HorizontalAlignment="Stretch" Click="Import_Click">
+                            <Button x:Name="ImportButton" Grid.Column="2" Classes="lx-btn" MinHeight="44" HorizontalAlignment="Stretch" Click="Import_Click">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <PathIcon Data="{StaticResource IconImport}" Width="14" Height="14"/>
                                     <TextBlock x:Name="ImportText" VerticalAlignment="Center"/>
@@ -159,7 +162,7 @@
                     <StackPanel Spacing="12" Margin="0,0,12,0">
                         <StackPanel Spacing="4">
                             <TextBlock x:Name="NameLabel" Classes="te-section" Margin="0"/>
-                            <TextBox x:Name="NameBox" Height="38" Padding="10,0" VerticalContentAlignment="Center" FontSize="14"
+                            <TextBox x:Name="NameBox" Height="44" Padding="10,0" VerticalContentAlignment="Center" FontSize="14"
                                      MaxLength="40" TextChanged="NameBox_TextChanged"/>
                             <TextBlock x:Name="BaseInfoText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
@@ -195,19 +198,19 @@
                         </StackPanel>
 
                         <WrapPanel>
-                            <Button x:Name="ResetButton" Classes="lx-btn" MinHeight="36" Margin="0,0,8,8" Click="Reset_Click">
+                            <Button x:Name="ResetButton" Classes="lx-btn" MinHeight="44" Margin="0,0,8,8" Click="Reset_Click">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <PathIcon Data="{StaticResource IconUndo}" Width="14" Height="14"/>
                                     <TextBlock x:Name="ResetText" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="ExportButton" Classes="lx-btn" MinHeight="36" Margin="0,0,8,8" Click="Export_Click">
+                            <Button x:Name="ExportButton" Classes="lx-btn" MinHeight="44" Margin="0,0,8,8" Click="Export_Click">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <PathIcon Data="{StaticResource IconExport}" Width="14" Height="14"/>
                                     <TextBlock x:Name="ExportText" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="DeleteButton" Classes="lx-btn" MinHeight="36" Margin="0,0,8,8" Click="Delete_Click"
+                            <Button x:Name="DeleteButton" Classes="lx-btn" MinHeight="44" Margin="0,0,8,8" Click="Delete_Click"
                                     Foreground="{DynamicResource BrushDanger}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14"/>
@@ -313,9 +316,9 @@
                 <Grid ColumnDefinitions="*,Auto,8,Auto,8,Auto">
                     <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" TextWrapping="Wrap"
                                Foreground="{DynamicResource BrushTextSoft}"/>
-                    <Button x:Name="CloseButton" Grid.Column="1" Classes="lx-btn" MinWidth="110" Click="Close_Click"/>
-                    <Button x:Name="SaveButton" Grid.Column="3" Classes="lx-btn" MinWidth="120" Click="Save_Click"/>
-                    <Button x:Name="ApplyButton" Grid.Column="5" Classes="lx-accent" MinWidth="170" Click="Apply_Click"/>
+                    <Button x:Name="CloseButton" Grid.Column="1" Classes="lx-btn" MinWidth="110" MinHeight="44" Click="Close_Click"/>
+                    <Button x:Name="SaveButton" Grid.Column="3" Classes="lx-btn" MinWidth="120" MinHeight="44" Click="Save_Click"/>
+                    <Button x:Name="ApplyButton" Grid.Column="5" Classes="lx-accent" MinWidth="170" MinHeight="44" Click="Apply_Click"/>
                 </Grid>
             </Border>
         </Grid>

@@ -28,6 +28,11 @@ class PrinterConfig {
   final int codeTable;
   final bool autoPrint;
 
+  /// 2026-10-22 (мобилка, админ): П6 — денежный ящик через принтер, контакт (0 — 2, 1 — 5), QR на бумаге.
+  final bool drawer;
+  final int drawerPin;
+  final bool qr;
+
   const PrinterConfig({
     this.kind = PrinterKind.none,
     this.address = '',
@@ -37,6 +42,9 @@ class PrinterConfig {
     this.codepage = PrinterCodepage.cp866,
     this.codeTable = 17,
     this.autoPrint = false,
+    this.drawer = false,
+    this.drawerPin = 0,
+    this.qr = true,
   });
 
   bool get ready => kind != PrinterKind.none && address.trim().isNotEmpty;
@@ -50,6 +58,9 @@ class PrinterConfig {
     PrinterCodepage? codepage,
     int? codeTable,
     bool? autoPrint,
+    bool? drawer,
+    int? drawerPin,
+    bool? qr,
   }) => PrinterConfig(
     kind: kind ?? this.kind,
     address: address ?? this.address,
@@ -59,6 +70,9 @@ class PrinterConfig {
     codepage: codepage ?? this.codepage,
     codeTable: codeTable ?? this.codeTable,
     autoPrint: autoPrint ?? this.autoPrint,
+    drawer: drawer ?? this.drawer,
+    drawerPin: drawerPin ?? this.drawerPin,
+    qr: qr ?? this.qr,
   );
 
   Map<String, Object?> toJson() => {
@@ -70,6 +84,9 @@ class PrinterConfig {
     'codepage': codepage.name,
     'table': codeTable,
     'auto': autoPrint,
+    'drawer': drawer,
+    'pin': drawerPin,
+    'qr': qr,
   };
 
   static PrinterConfig fromJson(String? raw) {
@@ -86,6 +103,9 @@ class PrinterConfig {
         codepage: cp,
         codeTable: (m['table'] as num?)?.toInt() ?? defaultCodeTable(cp),
         autoPrint: m['auto'] == true,
+        drawer: m['drawer'] == true,
+        drawerPin: (m['pin'] as num?)?.toInt() == 1 ? 1 : 0,
+        qr: m['qr'] != false,
       );
     } catch (_) {
       return const PrinterConfig();
@@ -108,24 +128,45 @@ enum PrinterProblem { notConfigured, btUnsupported, btOff, noPermission, notFoun
 class PrinterException implements Exception {
   final PrinterProblem problem;
   final String detail;
-  const PrinterException(this.problem, [this.detail = '']);
+
+  /// 2026-10-22 (мобилка, админ): П6 — часть байтов уже ушла на принтер: повтор напечатал бы чек второй раз.
+  final bool sent;
+  const PrinterException(this.problem, [this.detail = '', this.sent = false]);
   @override
   String toString() => '$problem $detail';
 }
 
 class PrinterService {
-  final AppDatabase db;
+  final AppDatabase? db;
   PrinterService(this.db);
+
+  /// 2026-10-22 (мобилка, админ): П6 — отправка на принтер (для тестов — фейк). По умолчанию — настоящий принтер.
+  Future<void> Function(PrinterConfig c, Uint8List bytes)? sendOverride;
+
+  // 2026-10-22 (мобилка, админ): П6 — задания идут на принтер по одному (два подключения Bluetooth сразу рвут оба);
+  // тот же чек, пока печатается, второй раз не ставится; ящик по одному чеку открывается один раз.
+  Future<void> _queue = Future.value();
+  final _inflight = <String, Future<void>>{};
+  final _drawerDone = <String>{};
+
+  static String _receiptKey(Receipt r) => '${r.number}|${r.at.millisecondsSinceEpoch}|${r.total}';
+
+  Future<void> _enqueue(Future<void> Function() job) {
+    final r = _queue.then((_) => job());
+    _queue = r.then((_) {}, onError: (_) {});
+    return r;
+  }
 
   static const _channel = MethodChannel('kg.nurcrm.nurmarket/printer');
   static const _key = 'printer.config';
 
-  Future<PrinterConfig> load() async => PrinterConfig.fromJson(await db.getSetting(_key));
-  Future<void> save(PrinterConfig c) => db.setSetting(_key, jsonEncode(c.toJson()));
+  Future<PrinterConfig> load() async => PrinterConfig.fromJson(await db?.getSetting(_key));
+  Future<void> save(PrinterConfig c) async => await db?.setSetting(_key, jsonEncode(c.toJson()));
 
   static PrinterException _fromPlatform(PlatformException e) {
     final p = PrinterProblem.values.where((x) => x.name == e.code).firstOrNull ?? PrinterProblem.io;
-    return PrinterException(p, e.message ?? '');
+    // 2026-10-22 (мобилка, админ): П6 — MainActivity.kt кладёт в details «sent», если байты начали уходить.
+    return PrinterException(p, e.message ?? '', e.details == 'sent');
   }
 
   Future<T> _call<T>(String method, [Map<String, Object?>? args, Duration timeout = const Duration(seconds: 25)]) async {
@@ -214,41 +255,52 @@ class PrinterService {
   }
 
   /// Отправить байты на принтер; при обрыве — ещё одна попытка через секунду (принтер мог «спать»).
-  Future<void> send(PrinterConfig c, Uint8List bytes) async {
+  /// 2026-10-22 (мобилка, админ): П6 — повтор только если ни один байт не ушёл: обрыв посреди чека раньше давал
+  /// второй (целый) чек и второй импульс ящика.
+  Future<void> send(PrinterConfig c, Uint8List bytes) => _enqueue(() => _send(c, bytes));
+
+  Future<void> _send(PrinterConfig c, Uint8List bytes) async {
     if (!c.ready) throw const PrinterException(PrinterProblem.notConfigured);
     PrinterException? last;
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
-        await _sendOnce(c, bytes);
+        await (sendOverride ?? _sendOnce)(c, bytes);
         return;
       } on PrinterException catch (e) {
         last = e;
-        // настройка или разрешение — повтор не поможет
-        if (const {PrinterProblem.btOff, PrinterProblem.noPermission, PrinterProblem.btUnsupported, PrinterProblem.bleOnly, PrinterProblem.usbDenied, PrinterProblem.notConfigured}
-            .contains(e.problem)) {
+        // настройка или разрешение — повтор не поможет; байты ушли — повтор напечатает второй чек
+        if (e.sent ||
+            const {PrinterProblem.btOff, PrinterProblem.noPermission, PrinterProblem.btUnsupported, PrinterProblem.bleOnly, PrinterProblem.usbDenied, PrinterProblem.notConfigured}
+                .contains(e.problem)) {
           rethrow;
         }
-        await Future<void>.delayed(const Duration(seconds: 1));
+        await Future<void>.delayed(retryDelay);
       }
     }
     throw last!;
   }
 
+  /// Пауза перед повтором (в тестах — ноль).
+  Duration retryDelay = const Duration(seconds: 1);
+
   Future<void> _sendOnce(PrinterConfig c, Uint8List bytes) async {
     switch (c.kind) {
       case PrinterKind.network:
         Socket? s;
+        // 2026-10-22 (мобилка, админ): П6 — после подключения байты считаются ушедшими (повтор не нужен).
+        var connected = false;
         try {
           s = await Socket.connect(c.address.trim(), c.port, timeout: const Duration(seconds: 5));
+          connected = true;
           s.add(bytes);
           await s.flush().timeout(const Duration(seconds: 10));
           await s.close().timeout(const Duration(seconds: 5));
         } on TimeoutException {
-          throw const PrinterException(PrinterProblem.timeout);
+          throw PrinterException(PrinterProblem.timeout, '', connected);
         } on SocketException catch (e) {
           final code = e.osError?.errorCode ?? 0;
           // 111 / 10061 — порт закрыт; иначе (нет маршрута, тайм-аут) — принтер не отвечает
-          throw PrinterException(code == 111 || code == 10061 ? PrinterProblem.refused : PrinterProblem.timeout, e.message);
+          throw PrinterException(code == 111 || code == 10061 ? PrinterProblem.refused : PrinterProblem.timeout, e.message, connected);
         } finally {
           s?.destroy();
         }
@@ -261,10 +313,32 @@ class PrinterService {
     }
   }
 
-  Future<void> printReceipt(Receipt r, {PrinterConfig? config}) async {
-    final c = config ?? await load();
-    await send(c, receiptToEscPos(r, paperMm: c.paperMm, codepage: c.codepage, codeTable: c.codeTable));
+  /// [afterSale] — печать сразу после продажи: при включённом ящике и наличной оплате в том же задании импульс ящика
+  /// (один раз на чек). 2026-10-22 (мобилка, админ): П6 — двойное нажатие «Печать», пока чек печатается, не даёт второй чек.
+  Future<void> printReceipt(Receipt r, {PrinterConfig? config, bool afterSale = false}) {
+    final key = _receiptKey(r);
+    final running = _inflight[key];
+    if (running != null) return running;
+    final f = () async {
+      final c = config ?? await load();
+      final drawer = afterSale && c.drawer && receiptNeedsDrawer(r) && !_drawerDone.contains(key);
+      await send(c, receiptToEscPos(r, paperMm: c.paperMm, codepage: c.codepage, codeTable: c.codeTable, qr: c.qr, openDrawer: drawer, drawerPin: c.drawerPin));
+      if (drawer) _drawerDone.add(key);
+    }();
+    _inflight[key] = f;
+    return f.whenComplete(() => _inflight.remove(key));
   }
+
+  /// 2026-10-22 (мобилка, админ): П6 — ящик после продажи без печати чека (автопечать выключена).
+  Future<void> drawerAfterSale(Receipt r, PrinterConfig c) async {
+    final key = _receiptKey(r);
+    if (!c.ready || !c.drawer || !receiptNeedsDrawer(r) || _drawerDone.contains(key)) return;
+    _drawerDone.add(key);
+    await send(c, drawerPulse(pin: c.drawerPin));
+  }
+
+  /// Кнопка «Открыть ящик» в настройках.
+  Future<void> openDrawerTest(PrinterConfig c) => send(c, drawerPulse(pin: c.drawerPin));
 
   Future<void> printTest(PrinterConfig c, {String title = 'NurMarket'}) =>
       send(c, testPage(paperMm: c.paperMm, codepage: c.codepage, codeTable: c.codeTable, title: title));

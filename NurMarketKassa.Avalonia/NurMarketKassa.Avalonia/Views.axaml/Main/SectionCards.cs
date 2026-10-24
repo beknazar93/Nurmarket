@@ -35,13 +35,75 @@ internal static class SectionCards
         return b;
     }
 
-    /// <summary>Главная кнопка модалки (жёлтая у «NurMarket»).</summary>
-    public static Button Primary(string text)
+    /// <summary>Главная кнопка модалки (жёлтая у «NurMarket»). 2026-10-22 (модалки, пакет 0): <paramref name="isDefault"/> —
+    /// Enter нажимает её (по умолчанию нет, как раньше). Одна такая кнопка на окно.</summary>
+    public static Button Primary(string text, bool isDefault = false)
     {
-        var b = new Button { Content = text };
+        var b = new Button { Content = text, IsDefault = isDefault };
         b.Classes.Add("modal-primary");
         Avalonia.Automation.AutomationProperties.SetName(b, text);
         return b;
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 0): второстепенное действие подвала («Назад», «Сбросить», «Печать») —
+    /// обводка, как «Отмена», но без Esc. Жёлтой остаётся только одна главная.</summary>
+    public static Button Secondary(string text)
+    {
+        var b = new Button { Content = text };
+        b.Classes.Add("modal-secondary");
+        Avalonia.Automation.AutomationProperties.SetName(b, text);
+        return b;
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 0): опасная главная кнопка («Удалить», «Закрыть смену», «Отменить перемещение») —
+    /// красная вместо жёлтой; рядом всегда «Отмена». <paramref name="isDefault"/> — Enter нажимает её (по умолчанию нет:
+    /// опасное не должно срабатывать от случайного Enter/сканера).</summary>
+    public static Button Danger(string text, bool isDefault = false)
+    {
+        var b = new Button { Content = text, IsDefault = isDefault };
+        b.Classes.Add("modal-primary");
+        b.Classes.Add("danger");
+        Avalonia.Automation.AutomationProperties.SetName(b, text);
+        return b;
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 0): третья кнопка — без рамки, цветом текста («Подробнее», «Сбросить» в Hint).</summary>
+    public static Button Ghost(string text)
+    {
+        var b = new Button { Content = text };
+        b.Classes.Add("modal-ghost");
+        Avalonia.Automation.AutomationProperties.SetName(b, text);
+        return b;
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 0): текст ошибки ПОД полем (стандарт: ошибки — у поля, не всплывающим окном):
+    /// 13 px, цвет ошибки темы, переносится; скрыт, пока пустой. Окно пишет в него <see cref="ShowError"/>.</summary>
+    public static TextBlock ErrorText(Control host)
+    {
+        var t = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), IsVisible = false };
+        t.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable("BrushDangerOnSoft"));
+        return t;
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 0): показать (текст) или спрятать (null/пусто) ошибку под полем; с полем —
+    /// фокус в него и выделение значения.</summary>
+    public static void ShowError(TextBlock error, string? text, Control? field = null)
+    {
+        error.Text = text ?? "";
+        error.IsVisible = !string.IsNullOrWhiteSpace(text);
+        if (error.IsVisible && field is not null)
+        {
+            field.Focus();
+            if (field is TextBox box)
+                box.SelectAll();
+        }
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 0): поле ввода модалки — касание ≥ 44 px (класс modal-field).</summary>
+    public static T Field<T>(T field) where T : Control
+    {
+        field.Classes.Add("modal-field");
+        return field;
     }
 
     public static StackPanel Buttons(params Button[] buttons)

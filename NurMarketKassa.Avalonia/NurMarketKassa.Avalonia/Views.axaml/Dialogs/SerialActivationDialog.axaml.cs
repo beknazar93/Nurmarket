@@ -38,8 +38,12 @@ public partial class SerialActivationDialog : Window
 
     private void SerialBox_KeyDown(object? sender, KeyEventArgs e)
     {
+        // 2026-10-22 (модалки, пакет 2): Enter обработан здесь — кнопка по умолчанию не срабатывает второй раз.
         if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
             Confirm();
+        }
     }
 
     private void Confirm()

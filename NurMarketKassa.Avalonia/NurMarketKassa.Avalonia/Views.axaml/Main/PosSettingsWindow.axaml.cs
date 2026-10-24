@@ -6,6 +6,7 @@ using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
@@ -144,9 +145,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private RadioButton DoubleClickToCartRadio => _screenView.DoubleClickToCartRadio;
         private RadioButton SingleClickToCartRadio => _screenView.SingleClickToCartRadio;
         private CheckBox ResetManualAddQtyCheck => _screenView.ResetManualAddQtyCheck;
-        private CheckBox DebtPrepayChoiceCheck => _screenView.DebtPrepayChoiceCheck;
-        private TextBox DebtPenaltyBox => _screenView.DebtPenaltyBox;
-        private TextBox RentalPenaltyBox => _screenView.RentalPenaltyBox;
+        private CheckBox DebtPrepayChoiceCheck => _operationsView.DebtPrepayChoiceCheck;
+        private TextBox DebtPenaltyBox => _operationsView.DebtPenaltyBox;
+        private TextBox RentalPenaltyBox => _operationsView.RentalPenaltyBox;
         private Slider UiScaleSlider => _screenView.UiScaleSlider;
 
         // --- Updates ---
@@ -178,6 +179,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             SettingsVm = settingsVm;
             DataContext = this;
             InitializeComponent();
+            // 2026-10-23 (аудит Б-9): заголовок системной рамки — цветом темы кассы.
+            NurMarketKassa.AvaloniaHost.Services.WindowChrome.Apply(this);
             this.FitToScreen();
             // 2026-10-05, снимок владельца с телефона: отдельная колонка «Закрыть» справа отнимала у вкладок
             // треть ширины, а крестик закрытия на Android и так есть в заголовке окна.
@@ -484,12 +487,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 UserPreferences.Instance.SaveToDisk();
             };
             // 2026-10-06, владелец: «в чеке — инфо о штрафе за просрочку» (долг и прокат). Сохраняется через секунду после ввода.
-            _screenView.DebtPenaltyLabel.Text = Tr.T("Штраф за просрочку долга — печатается в чеке продажи в долг (например: «50 сом за каждый день»). Пусто — не печатать.",
+            _operationsView.DebtPenaltyLabel.Text = Tr.T("Штраф за просрочку долга — печатается в чеке продажи в долг (например: «50 сом за каждый день»). Пусто — не печатать.",
                 "Карызды кечиктиргени үчүн айып — карызга сатуунун чегинде басылат (мисалы: «ар бир күн үчүн 50 сом»). Бош — басылбайт.",
                 "Late debt penalty — printed on credit-sale receipts (e.g. \"50 som per day\"). Empty — not printed.",
                 "Borç gecikme cezası — veresiye satış fişine yazılır (örn.: \"günlük 50 som\"). Boş — yazılmaz.",
                 "Qarzni kechiktirish jarimasi — qarzga sotuv chekida chiqadi (masalan: «har kun uchun 50 so'm»). Bo'sh — chiqmaydi.");
-            _screenView.RentalPenaltyLabel.Text = Tr.T("Штраф за сутки просрочки проката, сом — подставляется в «Новый прокат» и печатается в чеке",
+            _operationsView.RentalPenaltyLabel.Text = Tr.T("Штраф за сутки просрочки проката, сом — подставляется в «Новый прокат» и печатается в чеке",
                 "Прокатты кечиктирген ар бир сутка үчүн айып, сом — «Жаңы прокатка» коюлат жана чекте басылат",
                 "Rental late penalty per day, som — filled into \"New rental\" and printed on the receipt",
                 "Kiralama gecikme cezası (günlük, som) — \"Yeni kiralama\"ya girilir ve fişe yazılır",
@@ -612,6 +615,57 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// "доступно обновление" в шапке кассы (см. MainWindow.NavigateSettingsUpdates).</summary>
         public void SelectUpdatesTab() => NavigateTo(4);
 
+        private Button? _pageSave;
+
+        /// <summary>2026-10-22 (модалки, пакет 4): закреплённая «Сохранить» внизу окна — ищет на открытой странице её
+        /// единственную главную кнопку «Сохранить» (btn-primary с текстом common.save), прячет её и нажимает её же:
+        /// обработчик, проверки и «Сохранено» страницы — прежние. Доступность кнопки страницы повторяется внизу.</summary>
+        private void BindPinnedSave()
+        {
+            if (_pageSave is not null)
+            {
+                _pageSave.PropertyChanged -= PageSave_PropertyChanged;
+                _pageSave.IsVisible = true;
+                _pageSave = null;
+            }
+            var saveText = this.TryFindResource("common.save", out var v) ? v as string : null;
+            var found = saveText is null || ContentHost.Content is not Control page
+                ? new List<Button>()
+                : page.GetLogicalDescendants().OfType<Button>()
+                    .Where(b => b.Classes.Contains("btn-primary") && Equals(b.Content, saveText)).ToList();
+            if (found.Count != 1)
+            {
+                // 2026-10-22 (аудит новой сборки, П3): страница без «Сохранить» (Операции, Аккаунт, Обновления) — внизу пометка,
+                // что переключатели применяются сразу. Если страница ещё не прогрузила текст кнопки, вторая попытка (Loaded) всё исправит.
+                var autoApply = found.Count == 0 && ContentHost.Content is Control;
+                AutoApplyNote.Text = Tr.T("Изменения применяются сразу — кнопка «Сохранить» не нужна.",
+                    "Өзгөрүүлөр дароо колдонулат — «Сактоо» баскычы талап кылынбайт.",
+                    "Changes apply immediately — no Save button needed.",
+                    "Değişiklikler hemen uygulanır — Kaydet düğmesi gerekmez.",
+                    "O'zgarishlar darhol qo'llaniladi — «Saqlash» tugmasi shart emas.");
+                AutoApplyNote.IsVisible = autoApply;
+                PinnedSaveButton.IsVisible = false;
+                PinnedSaveBar.IsVisible = autoApply;
+                return;
+            }
+            AutoApplyNote.IsVisible = false;
+            PinnedSaveButton.IsVisible = true;
+            _pageSave = found[0];
+            _pageSave.IsVisible = false;
+            _pageSave.PropertyChanged += PageSave_PropertyChanged;
+            PinnedSaveButton.IsEnabled = _pageSave.IsEnabled;
+            PinnedSaveBar.IsVisible = true;
+        }
+
+        private void PageSave_PropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.Property == IsEnabledProperty && sender is Button b)
+                PinnedSaveButton.IsEnabled = b.IsEnabled;
+        }
+
+        private void PinnedSave_Click(object? sender, RoutedEventArgs e) =>
+            _pageSave?.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
         /// <summary>Страница настроек под ширину окна: узко — колонки столбиком (SettingsReflow).</summary>
         private void ReflowPage() =>
             NurMarketKassa.AvaloniaHost.Views.Settings.SettingsReflow.Apply(ContentHost.Content as Control, ContentHost.Bounds.Width);
@@ -634,6 +688,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             };
 
             Dispatcher.UIThread.Post(ReflowPage, DispatcherPriority.Loaded);
+            BindPinnedSave();
+            // 2026-10-22 (модалки, пакет 4): повтор после загрузки страницы — если текст её «Сохранить» (DynamicResource)
+            // ещё не подставился при первом поиске. Повторный вызов безопасен: та же кнопка находится снова.
+            Dispatcher.UIThread.Post(BindPinnedSave, DispatcherPriority.Loaded);
 
             for (int i = 0; i < _navButtons.Length; i++)
             {
@@ -1203,7 +1261,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 message,
                 Tr.T("Откат версии", "Версияны кайтаруу", "Version rollback", "Sürümü geri alma", "Versiyani qaytarish"),
                 MessageBoxButton.YesNo,
-                MessageBoxImage.Warning) == MessageBoxResult.Yes;
+                MessageBoxImage.Warning,
+                // 2026-10-22 (модалки, пакет 4): глагол «Установить N» вместо «Продолжить».
+                MessageBoxResult.OK,
+                Tr.T($"Установить {version.Version}", $"{version.Version} орнотуу", $"Install {version.Version}", $"{version.Version} kur", $"{version.Version} o'rnatish"),
+                Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")) == MessageBoxResult.Yes;
             if (!confirmed)
                 return;
 

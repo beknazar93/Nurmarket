@@ -188,6 +188,25 @@ public sealed class SupplierApiService
         return Rows(d).Select(ParseDeal).OrderByDescending(x => x.CreatedAt ?? DateTime.MinValue).ToList();
     }
 
+    /// <summary>2026-10-22 (аудит 1.17.59, П-Ж): оплата ОДНОГО взноса долга поставщику — POST clients/{id}/deals/{deal}/pay/ (тот же адрес,
+    /// что у оплаты долга клиента и у окна сделки сайта): {idempotency_key, installment_id, date, note, cashbox_role}. Взнос гасится
+    /// целиком — «amount» не передаётся (у долгов клиентов он ломал проверку сервера, SalesApiService.PosPayDebtAsync). Касса — расходов
+    /// компании (cashbox_role "expense_variable", как у прихода «оплачено»); принимает ли это сервер для pay/, на NBS не подтверждено
+    /// (исследование 2026-10-20, вопрос 6.3) — отказ придёт ApiException, деньги при этом не двигаются. Повтор с ТЕМ ЖЕ ключом
+    /// сервер не проводит второй раз. Расход отдельным запросом (construction/cashflows/) НЕ пишем — чтобы не получить двойной расход.</summary>
+    public Task<JsonElement> PayInstallmentAsync(string supplierId, string dealId, string installmentId, string idempotencyKey, string note, CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, string>
+        {
+            ["date"] = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["cashbox_role"] = "expense_variable",
+            ["note"] = note,
+            ["idempotency_key"] = idempotencyKey,
+            ["installment_id"] = installmentId.Trim(),
+        };
+        return _api.RequestAsync(HttpMethod.Post, $"api/main/clients/{Esc(supplierId)}/deals/{Esc(dealId)}/pay/", body, null, ct, Timeout);
+    }
+
     // ------------------------------------------------------------------ закупки, приходы, товары, возвраты
 
     /// <summary>«История закупок» поставщика (GET suppliers/{id}/purchases/). Available=false — у сервера нет этого адреса
@@ -222,6 +241,111 @@ public sealed class SupplierApiService
         return (list, total);
     }
 
+    /// <summary>2026-10-22 (закупки как в вебе): страница «Истории закупок» — тот же запрос, что список «Закупки» сайта
+    /// (GET suppliers/receipts/?page&amp;limit&amp;supplier_id&amp;date_from&amp;date_to): приходы страницы, всего приходов (count) и общая сумма
+    /// по фильтру (meta.total_amount; нет — сумма страницы). Только чтение.</summary>
+    public async Task<(List<SupplierReceipt> Receipts, int Count, double Total, bool HasNext)> GetReceiptsPageAsync(int page, int limit, string? supplierId,
+        DateTime? from, DateTime? to, CancellationToken ct = default)
+    {
+        var query = new Dictionary<string, string>
+        {
+            ["page"] = Math.Max(1, page).ToString(CultureInfo.InvariantCulture),
+            ["limit"] = Math.Clamp(limit, 1, 200).ToString(CultureInfo.InvariantCulture),
+        };
+        if (!string.IsNullOrEmpty(supplierId))
+            query["supplier_id"] = supplierId;
+        if (from is { } f)
+            query["date_from"] = f.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        if (to is { } t)
+            query["date_to"] = t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var d = await GetJsonAsync("api/main/suppliers/receipts/", query, ct).ConfigureAwait(false);
+        var list = Rows(d).Select(ParseReceipt).Where(r => string.IsNullOrEmpty(supplierId) || r.SupplierId.Length == 0 || r.SupplierId == supplierId).ToList();
+        var count = d.ValueKind == JsonValueKind.Object && Has(d, "count") ? (int)Num(d, "count") : list.Count;
+        var total = d.ValueKind == JsonValueKind.Object && d.TryGetProperty("meta", out var m) && Has(m, "total_amount") ? Num(m, "total_amount") : list.Sum(r => r.Total);
+        var hasNext = d.ValueKind == JsonValueKind.Object && d.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String;
+        return (list, count, total, hasNext);
+    }
+
+    /// <summary>2026-10-22 (закупки как в вебе): «Рекомендуемый заказ» сайта — его считает сервер: GET suppliers/{id}/recommendations/
+    /// ?analysis_days&amp;coverage_days&amp;safety_days (проверено чтением на NBS 22.10). Ответ: settings, summary, results[] — товар
+    /// (product_id, product_name, barcode, code, article, unit, is_weight, current_stock, purchase_price), sales (last_7/14/30_days,
+    /// previous_*, average_per_day, trend_percent), stock_forecast (days_remaining, status), last_purchase (date, quantity), recommended_quantity.
+    /// null — у сервера нет этого адреса (404): тогда «Закупки» считают сами (PurchasePlanner).</summary>
+    public async Task<List<PlannerRow>?> GetRecommendationsAsync(string supplierId, PlannerSettings settings, CancellationToken ct = default)
+    {
+        var query = new Dictionary<string, string>
+        {
+            ["analysis_days"] = settings.PeriodDays.ToString(CultureInfo.InvariantCulture),
+            ["coverage_days"] = settings.CoverDays.ToString(CultureInfo.InvariantCulture),
+            ["safety_days"] = settings.SafetyDays.ToString(CultureInfo.InvariantCulture),
+            ["page_size"] = "500",
+        };
+        // 2026-10-23 (сверка с вебом): сервер отдаёт страницами по page_size, у поставщика больше 500 товаров — читаем все страницы (не больше 10).
+        var items = new List<JsonElement>();
+        for (var page = 1; page <= 10; page++)
+        {
+            query["page"] = page.ToString(CultureInfo.InvariantCulture);
+            JsonElement d;
+            try
+            {
+                d = await GetJsonAsync($"api/main/suppliers/{Esc(supplierId)}/recommendations/", query, ct).ConfigureAwait(false);
+            }
+            catch (ApiException ex) when (ex.StatusCode == 404)
+            {
+                return null;
+            }
+            items.AddRange(Rows(d).ToList());
+            if (!(d.ValueKind == JsonValueKind.Object && d.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String))
+                break;
+        }
+        var rows = new List<PlannerRow>();
+        foreach (var x in items)
+        {
+            var id = Str(x, "product_id");
+            if (id.Length == 0)
+                continue;
+            var sales = x.TryGetProperty("sales", out var s) && s.ValueKind == JsonValueKind.Object ? s : default;
+            var forecast = x.TryGetProperty("stock_forecast", out var f) && f.ValueKind == JsonValueKind.Object ? f : default;
+            var last = x.TryGetProperty("last_purchase", out var l) && l.ValueKind == JsonValueKind.Object ? l : default;
+            var stock = Num(x, "current_stock");
+            var weighted = x.TryGetProperty("is_weight", out var w) && w.ValueKind == JsonValueKind.True;
+            var product = new PlannerProduct(id, Str(x, "product_name"), Str(x, "barcode"), Str(x, "code") is { Length: > 0 } c ? c : Str(x, "article"),
+                Str(x, "unit") is { Length: > 0 } u ? u : "шт", stock, Num(x, "purchase_price"), weighted);
+            double S(string name) => sales.ValueKind == JsonValueKind.Object ? Num(sales, name) : 0;
+            var period = settings.PeriodDays is 7 or 14 or 30 ? S($"last_{settings.PeriodDays}_days") : S("last_30_days");
+            var perDay = S("average_per_day");
+            double? daysLeft = forecast.ValueKind == JsonValueKind.Object && Has(forecast, "days_remaining") ? Num(forecast, "days_remaining") : null;
+            var status = (forecast.ValueKind == JsonValueKind.Object ? Str(forecast, "status") : "").ToLowerInvariant();
+            // 2026-10-23 (сверка с вебом, проверено чтением на NBS): stock_forecast.status сервера — ok / low / ending / critical.
+            // low — хватит на меньше дней, чем «запас до закупки + страховой» (есть рекомендация); ending — «скоро закончится» (порог сервера
+            // не зависит от настроек, между 4 и 12 днями); critical — товара нет (остаток 0). Свой «Нет в наличии» для строк сервера
+            // убран: сайт показывает «Критический остаток». Статус не пришёл — считаем по дням сами, как раньше.
+            PlannerStatus kind;
+            if (status.Contains("crit") || status.Contains("out") || status.Contains("empty") || status.Contains("zero"))
+                kind = PlannerStatus.Critical;
+            else if (status.Contains("end") || status.Contains("soon") || status.Contains("run") || status.Contains("warn"))
+                kind = PlannerStatus.Soon;
+            else if (status.Contains("low"))
+                kind = PlannerStatus.Low;
+            else if (perDay <= 0)
+                kind = PlannerStatus.NoSales;
+            else if (status == "ok")
+                kind = PlannerStatus.Enough;
+            else if (stock <= 0)
+                kind = PlannerStatus.Critical;
+            else
+                kind = daysLeft is { } dl && dl <= settings.SafetyDays ? PlannerStatus.Critical
+                    : daysLeft <= settings.CoverDays ? PlannerStatus.Soon
+                    : daysLeft < settings.CoverDays + settings.SafetyDays ? PlannerStatus.Low : PlannerStatus.Enough;
+            double? trend = sales.ValueKind == JsonValueKind.Object && Has(sales, "trend_percent") ? Math.Round(Num(sales, "trend_percent")) : null;
+            var newSales = trend is null && period > 0;
+            DateTime? lastAt = last.ValueKind == JsonValueKind.Object ? Date(Str(last, "date")) : null;
+            rows.Add(new PlannerRow(product, period, S("last_7_days"), S("last_30_days"), perDay, daysLeft, lastAt,
+                last.ValueKind == JsonValueKind.Object ? Num(last, "quantity") : 0, kind, Math.Max(0, Num(x, "recommended_quantity")), trend, newSales));
+        }
+        return rows;
+    }
+
     public async Task<SupplierReceipt> GetReceiptAsync(string receiptId, CancellationToken ct = default) =>
         ParseReceipt(await GetJsonAsync($"api/main/suppliers/receipts/{Esc(receiptId)}/", null, ct).ConfigureAwait(false));
 
@@ -250,31 +374,44 @@ public sealed class SupplierApiService
     /// последняя закупка — по одной странице приходов. onEach — после каждого поставщика (для постепенной отрисовки).</summary>
     public async Task<List<SupplierSummary>> LoadSummariesAsync(IReadOnlyList<SupplierInfo> suppliers, Action<SupplierSummary>? onEach, CancellationToken ct = default)
     {
+        // 2026-10-23 (аудит, круг 6: «Поставщики» 8–12 с): приходы для «последней закупки» грузятся параллельно с kpis/сделками
+        // (раньше все поставщики ждали их первыми); kpis и сделки одного поставщика — тоже вместе. Те же запросы, число не растёт.
         var last = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
-        try
+        var receiptsTask = Task.Run(async () =>
         {
-            var (receipts, _) = await GetReceiptsAsync(null, 200, ct).ConfigureAwait(false);
-            foreach (var r in receipts)
-                if (r.SupplierId.Length > 0 && r.CreatedAt is { } at && (!last.TryGetValue(r.SupplierId, out var was) || at > was))
-                    last[r.SupplierId] = at;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            PosLogger.Log($"Поставщики: приходы для «последней закупки» не получены ({ex.Message}).", "WARNING");
-        }
+            try
+            {
+                var (receipts, _) = await GetReceiptsAsync(null, 200, ct).ConfigureAwait(false);
+                foreach (var r in receipts)
+                    if (r.SupplierId.Length > 0 && r.CreatedAt is { } at && (!last.TryGetValue(r.SupplierId, out var was) || at > was))
+                        last[r.SupplierId] = at;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PosLogger.Log($"Поставщики: приходы для «последней закупки» не получены ({ex.Message}).", "WARNING");
+            }
+        }, ct);
 
         var tasks = suppliers.Select(async s =>
         {
             await Throttle.WaitAsync(ct).ConfigureAwait(false);
             try
             {
-                var lastAt = last.TryGetValue(s.Id, out var l) ? l : (DateTime?)null;
                 SupplierKpis? kpis = null;
                 List<SupplierDeal>? deals = null;
-                try { kpis = await GetKpisAsync(s.Id, ct).ConfigureAwait(false); }
-                catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"Поставщики: kpis {s.Id} не получены ({ex.Message}).", "WARNING"); }
-                try { deals = await GetDealsAsync(s.Id, ct).ConfigureAwait(false); }
-                catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"Поставщики: сделки {s.Id} не получены ({ex.Message}).", "WARNING"); }
+                async Task GetKpis()
+                {
+                    try { kpis = await GetKpisAsync(s.Id, ct).ConfigureAwait(false); }
+                    catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"Поставщики: kpis {s.Id} не получены ({ex.Message}).", "WARNING"); }
+                }
+                async Task GetDeals()
+                {
+                    try { deals = await GetDealsAsync(s.Id, ct).ConfigureAwait(false); }
+                    catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"Поставщики: сделки {s.Id} не получены ({ex.Message}).", "WARNING"); }
+                }
+                await Task.WhenAll(GetKpis(), GetDeals()).ConfigureAwait(false);
+                await receiptsTask.ConfigureAwait(false);
+                var lastAt = last.TryGetValue(s.Id, out var l) ? l : (DateTime?)null;
                 var summary = Summarize(s, kpis, deals, lastAt);
                 onEach?.Invoke(summary);
                 return summary;

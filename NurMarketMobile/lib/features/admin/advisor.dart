@@ -9,8 +9,10 @@ import '../../core/theme/tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/session_store.dart';
 import '../../core/util/ui.dart';
-import '../scan/smart_camera.dart';
+import '../../l10n/app_localizations.dart';
+import 'advisor_call.dart';
 import 'analytics.dart';
 import '../../core/util/audit.dart';
 
@@ -24,91 +26,261 @@ class AdvisorScreen extends ConsumerStatefulWidget {
   ConsumerState<AdvisorScreen> createState() => _AdvisorScreenState();
 }
 
+/// 2026-10-22 (советник мобилки): реплика чата. [raw] — текст для ИИ (с кодами [Д1]), [text] — для экрана (с именами);
+/// ошибки ([error]) в историю для ИИ не уходят, у них кнопка «Повторить».
+class _Msg {
+  final bool user;
+  final String text;
+  final String raw;
+  final bool error;
+  final bool noKey;
+  const _Msg(this.user, this.text, {String? raw, this.error = false, this.noKey = false}) : raw = raw ?? text;
+}
+
+/// 2026-10-22 (советник мобилки): понятный текст ошибки вместо тишины — нет ключа → куда его добавить, иначе причина.
+String advisorErrorText(AppLocalizations l, Object e) => switch (e) {
+  VisionException(noKey: true) => l.advisorNoKey,
+  VisionException(:final message) => l.advisorError(message),
+  ApiException(:final message) => l.advisorError(message),
+  _ => l.advisorError('$e'),
+};
+
+/// 2026-10-22 (советник мобилки): коды должников [Д1] в ответе ИИ → настоящие имя и телефон (только на этом телефоне),
+/// как OwnerAiContext.RevealCodes на ПК; только со скобками — «витамин Д3» не трогается.
+String revealDebtorCodes(String answer, Map<int, String> names) => names.isEmpty
+    ? answer
+    : answer.replaceAllMapped(RegExp(r'\[Д(\d{1,3})\]'), (m) => names[int.tryParse(m.group(1)!)] ?? m.group(0)!);
+
 class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
-  final List<({bool user, String text})> _messages = [];
+  final List<_Msg> _messages = [];
   final _input = TextEditingController();
   final _scroll = ScrollController();
   String? _context;
   DateTime _contextAt = DateTime(2000);
   bool _busy = false;
+  // 2026-10-22 (советник мобилки): этап ожидания — «Собираю данные…» → «Спрашиваю ИИ…».
+  String? _stage;
+  Map<int, String> _debtorNames = const {};
+
+  @override
+  void dispose() {
+    _input.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
 
   Future<String> _storeContext() async {
     if (_context != null && DateTime.now().difference(_contextAt) < const Duration(minutes: 5)) return _context!;
     final repo = ref.read(analyticsRepoProvider);
+    // 2026-10-22 (аудит ПС, права как на ПК — AiAdvisorWindow О4): должники — только с правом «Клиенты», склад — с правом «Склад».
+    final session = ref.read(sessionProvider);
+    final canClients = session?.can(Session.viewClients) ?? false;
+    final canProducts = session?.can(Session.viewProducts) ?? false;
     final db = ref.read(databaseProvider);
     final today = DateUtils.dateOnly(DateTime.now());
-    final sb = StringBuffer();
     String fmt(SalesSummary s) => 'выручка ${money(s.revenue)} сом, чеков ${s.checks}, средний чек ${money(s.avg)}, валовая прибыль ${money(s.profit)}';
-    Future<void> part(String title, Future<void> Function() load) async {
+    String pct(double cur, double prev) => prev > 0.005 ? '${cur >= prev ? '+' : ''}${((cur - prev) / prev * 100).toStringAsFixed(0)} %' : 'нет сравнения';
+    // 2026-10-22 (советник мобилки): все части — одновременно (как OwnerPeriodStats на ПК), у каждой свой срок 15 с;
+    // не ответившая часть помечается «не загрузилось», остальные идут в ИИ. Было: по очереди, до 40 с на каждую.
+    Future<String> part(String title, Future<String> Function() load) async {
       try {
-        await load();
+        return await load().timeout(const Duration(seconds: 15));
       } catch (_) {
-        sb.writeln('$title: не загрузилось');
+        return '$title: сервер не ответил — эти цифры не называй, предложи раздел «Сводка».';
       }
     }
 
-    await part('Сегодня', () async => sb.writeln('Сегодня (${_d(today)}): ${fmt(await repo.sales(today, today))}'));
     final yesterday = today.subtract(const Duration(days: 1));
-    await part('Вчера', () async => sb.writeln('Вчера (${_d(yesterday)}): ${fmt(await repo.sales(yesterday, yesterday))}'));
+    final dayBefore = today.subtract(const Duration(days: 2));
     final weekFrom = today.subtract(const Duration(days: 6));
-    await part('Неделя', () async {
-      final w = await repo.sales(weekFrom, today);
-      sb.writeln('За 7 дней: ${fmt(w)}');
-      if (w.byDay.isNotEmpty) sb.writeln('По дням: ${w.byDay.map((d) => '${_d(d.$1)} — ${money(d.$2)}').join('; ')}');
-      if (w.payments.isNotEmpty) sb.writeln('Оплаты за неделю: ${w.payments.entries.map((e) => '${e.key} ${money(e.value)}').join('; ')}');
-    });
-    await part('Товары', () async {
-      final top = (await repo.products(weekFrom, today))..sort((a, b) => b.revenue.compareTo(a.revenue));
-      sb.writeln(
-        'Лучшие товары недели (название — штук — выручка): ${top.take(15).map((p) => '${p.name} — ${qtyText(p.qty)} — ${money(p.revenue)}').join('; ')}',
-      );
-    });
-    await part('Остатки', () async {
-      final low = (await db.searchProducts('', limit: 20000)).where((p) => !p.isService && p.quantity <= 3).toList()
-        ..sort((a, b) => a.quantity.compareTo(b.quantity));
-      sb.writeln('Заканчивается (${low.length}): ${low.take(30).map((p) => '${p.name} — ${qtyText(p.quantity)} ${p.unit}').join('; ')}');
-    });
-    await part('Долги', () async {
-      final debtors = (await ref.read(opsRepoProvider).debtors())..sort((a, b) => b.debt.compareTo(a.debt));
-      sb.writeln(
-        'Должники (${debtors.length}, всего ${money(debtors.fold(0.0, (s, d) => s + d.debt))}): ${debtors.take(15).map((d) => '${d.name}${d.phone.isEmpty ? '' : ' ${d.phone}'} — ${money(d.debt)}').join('; ')}',
-      );
-    });
+    final monthFrom = DateTime(today.year, today.month, 1);
+    final names = <int, String>{};
+    final parts = await Future.wait([
+      // Цифры — из того же отчёта сервера, что «Сводка» (api/main/analytics/market, tab=sales), как у советника на ПК.
+      part('Сегодня', () async => 'Сегодня ${_d(today)} (день не закончен): ${fmt(await repo.sales(today, today))}'),
+      part('Вчера', () async {
+        final (y, b) = await (repo.sales(yesterday, yesterday), repo.sales(dayBefore, dayBefore)).wait;
+        return 'Вчера ${_d(yesterday)}: ${fmt(y)}\nПозавчера ${_d(dayBefore)}: ${fmt(b)}\n'
+            'Вчера к позавчера (посчитала программа, не пересчитывай): выручка ${pct(y.revenue, b.revenue)}, прибыль ${pct(y.profit, b.profit)}';
+      }),
+      part('Неделя', () async {
+        final w = await repo.sales(weekFrom, today);
+        final sb = StringBuffer('7 дней ${_d(weekFrom)}–${_d(today)} (как в «Сводке», с сегодняшним днём): ${fmt(w)}');
+        if (w.byDay.isNotEmpty) sb.write('\nВыручка по дням: ${w.byDay.map((d) => '${_d(d.$1)} — ${money(d.$2)}').join('; ')}');
+        if (w.payments.isNotEmpty) sb.write('\nОплаты за 7 дней: ${w.payments.entries.map((e) => '${e.key} ${money(e.value)}').join('; ')}');
+        return sb.toString();
+      }),
+      part('Месяц', () async => 'Месяц ${_d(monthFrom)}–${_d(today)}: ${fmt(await repo.sales(monthFrom, today))}'),
+      part('Товары', () async {
+        final top = (await repo.products(weekFrom, today))..sort((a, b) => b.revenue.compareTo(a.revenue));
+        return 'Лучшие товары за 7 дней (название — штук — выручка): ${top.take(15).map((p) => '${p.name} — ${qtyText(p.qty)} — ${money(p.revenue)}').join('; ')}';
+      }),
+      if (canProducts)
+        part('Остатки', () async {
+          // 2026-10-22 (аудит С-5): «что заканчивается» как на ПК (OwnerAiContext): по продажам 30 дней — закончились, хотя
+          // продавались; запаса меньше чем на 7 дней; «заказать» — на 14 дней продаж. Плюс остаток ≤ 10 (было ≤ 3).
+          final (catalog, sold) = await (db.searchProducts('', limit: 20000), repo.products(today.subtract(const Duration(days: 29)), today)).wait;
+          final goods = catalog.where((p) => !p.isService).toList();
+          final byName = {for (final p in goods) p.name.trim().toLowerCase(): p};
+          final soldOut = <String>[];
+          final runningLow = <String>[];
+          for (final s in sold..sort((a, b) => b.qty.compareTo(a.qty))) {
+            final p = byName[s.name.trim().toLowerCase()];
+            if (p == null || s.qty <= 0) continue;
+            final perDay = s.qty / 30;
+            final order = (perDay * 14 - (p.quantity > 0 ? p.quantity : 0)).ceil();
+            if (p.quantity <= 0) {
+              soldOut.add('${p.name} — продано ${qtyText(s.qty)} за 30 дн. (≈${perDay.toStringAsFixed(1)} в день), заказать ≈$order');
+            } else if (p.quantity / perDay < 7) {
+              runningLow.add('${p.name} — остаток ${qtyText(p.quantity)} ${p.unit}, хватит ≈${(p.quantity / perDay).toStringAsFixed(1)} дн., заказать ≈$order');
+            }
+          }
+          final low = goods.where((p) => p.quantity <= 10).toList()..sort((a, b) => a.quantity.compareTo(b.quantity));
+          return 'ЧТО ЗАКАНЧИВАЕТСЯ (продажи 30 дней — отчёт сервера, остаток — склад):\n'
+              '• Продавались, но закончились (${soldOut.length}): ${soldOut.isEmpty ? 'нет' : soldOut.take(30).join('; ')}\n'
+              '• Осталось меньше чем на 7 дней (${runningLow.length}): ${runningLow.isEmpty ? 'нет' : runningLow.take(30).join('; ')}\n'
+              '• Остаток 10 и меньше (${low.length}): ${low.take(40).map((p) => '${p.name} — ${qtyText(p.quantity)} ${p.unit}').join('; ')}';
+        }),
+      if (canClients)
+        part('Долги', () async {
+          final debtors = (await ref.read(opsRepoProvider).debtors())..sort((a, b) => b.debt.compareTo(a.debt));
+          if (debtors.isEmpty) return 'ДОЛЖНИКИ: непогашенных долгов нет.';
+          // 2026-10-22 (советник мобилки): приватность как на ПК — имена и телефоны клиентов в Google не уходят, только коды [Д1]…;
+          // имя и телефон подставляет телефон в ответе (revealDebtorCodes).
+          final sb = StringBuffer(
+            'ДОЛЖНИКИ (${debtors.length}, всего ${money(debtors.fold(0.0, (s, d) => s + d.debt))} сом; имена скрыты кодами — пиши код в квадратных скобках, программа сама покажет имя и телефон):',
+          );
+          for (var i = 0; i < debtors.length && i < 30; i++) {
+            final d = debtors[i];
+            names[i + 1] = d.name.trim().isEmpty ? '[Д${i + 1}]' : '${d.name.trim()}${d.phone.trim().isEmpty ? '' : ' (тел. ${d.phone.trim()})'}';
+            sb.write('\n• [Д${i + 1}] — ${money(d.debt)} сом, чеков в долг: ${d.salesCount}');
+          }
+          if (debtors.length > 30) sb.write('\n(показаны 30 из ${debtors.length} — остальные в разделе «Долги клиентов»)');
+          return sb.toString();
+        }),
+    ]);
+    _debtorNames = names;
     _contextAt = DateTime.now();
-    return _context = sb.toString();
+    return _context = [
+      ...parts,
+      if (!canClients) 'ДОЛЖНИКИ: у этого пользователя нет права «Клиенты» — список должников не показывай.',
+      if (!canProducts) 'СКЛАД: у этого пользователя нет права «Склад» — остатки не показывай.',
+    ].join('\n');
   }
 
   static String _d(DateTime d) => '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}';
 
   Future<void> _send([String? preset]) async {
-    final l = context.l;
     final text = (preset ?? _input.text).trim();
     if (text.isEmpty || _busy) return;
-    // 14.10: ключ Groq или OpenRouter тоже подходит — окно ввода ключа только когда нет ни одного.
-    if (!await ref.read(visionProvider).hasChatKey()) {
-      if (!mounted || !await ensureAiKey(context, ref)) return;
-    }
     setState(() {
-      _messages.add((user: true, text: text));
-      _busy = true;
+      _messages.add(_Msg(true, text));
       _input.clear();
+    });
+    await _answer();
+  }
+
+  /// 2026-10-22 (советник мобилки): ответ на последний вопрос; «Повторить» у ошибки зовёт его снова. Любая ошибка — текстом
+  /// в чате (было: ловилась только VisionException, остальное пропадало молча — «ничего не происходит»).
+  Future<void> _answer() async {
+    final l = context.l;
+    setState(() {
+      _messages.removeWhere((m) => m.error);
+      _busy = true;
+      _stage = l.advisorStageData;
     });
     _toEnd();
     try {
+      final vision = ref.read(visionProvider);
+      // 14.10: ключ Groq или OpenRouter тоже подходит. 2026-10-22: нет ни одного — понятное сообщение, где добавить ключ.
+      if (!await vision.hasChatKey()) throw const VisionException('no key', noKey: true);
       final shop = ref.read(sessionProvider)?.companyName ?? '';
       final data = await _storeContext();
-      final system =
-          'Ты — Нур Советник, помощник владельца магазина «$shop» в Кыргызстане. Отвечай по-русски (или на языке вопроса), коротко и по делу, '
-          'с цифрами из данных магазина ниже. Таблицы делай простым списком строк «название — число». Если данных нет — так и скажи, не выдумывай. '
-          'Суммы — в сомах. Советуй конкретно: что заказать, кому напомнить о долге, что продаётся лучше.\n\nДАННЫЕ МАГАЗИНА на ${_d(DateTime.now())}:\n$data';
-      final answer = await ref.read(visionProvider).chat(system, _messages);
-      if (mounted) setState(() => _messages.add((user: false, text: answer)));
-    } on VisionException catch (e) {
-      if (mounted) setState(() => _messages.add((user: false, text: e.noKey ? l.aiKeyNeeded : e.message)));
+      if (mounted) setState(() => _stage = l.advisorStageAsk);
+      final system = _system(shop, data);
+      final history = [for (final m in _messages) if (!m.error) (user: m.user, text: m.raw)];
+      final answer = await vision.chat(system, history);
+      if (mounted) setState(() => _messages.add(_Msg(false, revealDebtorCodes(answer, _debtorNames), raw: answer)));
+    } catch (e) {
+      if (mounted) {
+        setState(() => _messages.add(_Msg(false, advisorErrorText(l, e), error: true, noKey: e is VisionException && e.noKey)));
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _stage = null;
+        });
+      }
       _toEnd();
     }
+  }
+
+  String _system(String shop, String data) =>
+      'Ты — Нур Советник, помощник владельца магазина «$shop» в Кыргызстане. Отвечай на языке вопроса, коротко и по делу, '
+      'с цифрами из данных магазина ниже — называй их как есть, не пересчитывай. Таблицы делай простым списком строк «название — число». '
+      'Если данных нет — так и скажи, не выдумывай. Суммы — в сомах. Советуй конкретно: что заказать, кому напомнить о долге, что продаётся лучше. '
+      'Должников называй только кодами в квадратных скобках, например [Д1].\n\nДАННЫЕ МАГАЗИНА на ${_d(DateTime.now())}:\n$data';
+
+  /// 2026-10-22 (звонок ИИ мобилки): инструкция голосового звонка — как OwnerVoicePrompt на ПК (BuildOwnerVoiceInstruction):
+  /// коротко и разговорно, язык последней фразы, цифры только из данных, коды [Д1] вслух не произносить; плюс последние реплики чата.
+  Future<String> _callInstruction() async {
+    final shop = ref.read(sessionProvider)?.companyName ?? '';
+    final data = await _storeContext();
+    final recent = _messages.where((m) => !m.error).toList();
+    final sb = StringBuffer(
+      'Тебя зовут Нур Советник (по-кыргызски — Нур Кеңешчи): ты ИИ-советник владельца магазина «$shop» в Кыргызстане, встроенный в программу NurMarket. '
+      'Сейчас вы разговариваете ГОЛОСОМ в реальном времени, как по телефону. Отвечай коротко и разговорно: одно–три предложения, без списков, '
+      'таблиц, ссылок и символов. Крупные суммы округляй для слуха. Говори на языке ПОСЛЕДНЕЙ фразы владельца (русский, кыргызский, английский, '
+      'турецкий или узбекский). Цифры магазина бери ТОЛЬКО из данных ниже; если нужных данных нет — честно скажи и подскажи раздел программы '
+      '(«Сводка», «ABC-анализ», «Долги клиентов», «Склад»). Должники обозначены кодами [Д1], [Д2] — коды вслух не произноси: назови, сколько '
+      'должников и на какую сумму, а имена владелец увидит в чате. Никогда не выдумывай суммы, остатки и цены. Давай конкретные советы: что '
+      'заказать, что продвигать, где теряются деньги. Таблицу с цифрами программа сама покажет в чате — её не зачитывай. Сообщения «[Программа]» — '
+      'справка от программы, на язык ответа они не влияют.\n\nДАННЫЕ МАГАЗИНА на ${_d(DateTime.now())}:\n$data\n',
+    );
+    final last = recent.length > 4 ? recent.sublist(recent.length - 4) : recent;
+    if (last.isNotEmpty) {
+      sb.write('\nПОСЛЕДНИЕ РЕПЛИКИ ТЕКСТОВОГО ЧАТА (только для справки; старые просьбы не выполняй):\n');
+      for (final m in last) {
+        sb.write('${m.user ? 'Владелец' : 'Советник'}: ${m.raw.length > 400 ? '${m.raw.substring(0, 400)}…' : m.raw}\n');
+      }
+    }
+    return sb.toString();
+  }
+
+  /// 2026-10-22 (звонок ИИ мобилки): вопрос с цифрами, заданный голосом, — таблица текстовым советником (как LiveTablePassAsync на ПК).
+  Future<String> _callTable(String question) async {
+    final shop = ref.read(sessionProvider)?.companyName ?? '';
+    final data = await _storeContext();
+    return ref.read(visionProvider).chat(_system(shop, data), [
+      (
+        user: true,
+        text: '$question\n(Вопрос задан голосом во время звонка. Ответь таблицей по данным магазина: перед таблицей одна короткая строка, '
+            'дальше строки «название — число», в конце «Итого», где уместно. Без вступлений и советов. Данных нет — одной строкой честно.)',
+      ),
+    ]);
+  }
+
+  /// 2026-10-22 (звонок ИИ мобилки): «Разговор» — голосовой звонок; после звонка сказанное и таблицы — в чат (чат помнит звонок).
+  Future<void> _startCall() async {
+    if (_busy) return;
+    final turns = await Navigator.of(context).push<List<CallTurn>>(
+      MaterialPageRoute(
+        builder: (_) => AdvisorCallScreen(
+          prepare: _callInstruction,
+          askTable: _callTable,
+          reveal: (t) => revealDebtorCodes(t, _debtorNames),
+        ),
+      ),
+    );
+    if (!mounted || turns == null || turns.isEmpty) return;
+    setState(() {
+      _messages.removeWhere((m) => m.error);
+      for (final t in turns) {
+        _messages.add(_Msg(t.user, t.user ? '🎙 ${t.text}' : revealDebtorCodes(t.text, _debtorNames), raw: t.text));
+      }
+    });
+    _toEnd();
   }
 
   void _toEnd() => WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -124,6 +296,8 @@ class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
         l.advisorTitle,
         subtitle: l.advisorOnline,
         actions: [
+          // 2026-10-22 (звонок ИИ мобилки): владелец — «и голосовой звонок в ИИ в мобилке тоже добавь!».
+          IconButton(tooltip: l.callTitle, onPressed: _busy ? null : _startCall, icon: const Icon(Icons.call_rounded)),
           // 14.10, владелец: «Нур Советник — настройка и добавление ИИ».
           IconButton(
             tooltip: l.aiSettings,
@@ -169,7 +343,37 @@ class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
                           Clipboard.setData(ClipboardData(text: m.text));
                           toast(context, '✓');
                         },
-                        child: SelectableText(m.text, style: TextStyle(color: m.user ? Colors.white : pal.text, fontSize: 14, height: 1.35)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SelectableText(
+                              m.text,
+                              style: TextStyle(color: m.user ? Colors.white : (m.error ? T.danger : pal.text), fontSize: 14, height: 1.35),
+                            ),
+                            // 2026-10-22 (советник мобилки): у ошибки — «Повторить» (и «Настройка ИИ», если ключа нет).
+                            if (m.error)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    ActionChip(
+                                      avatar: const Icon(Icons.refresh_rounded, size: 16),
+                                      label: Text(l.retry),
+                                      onPressed: _busy ? null : _answer,
+                                    ),
+                                    if (m.noKey)
+                                      ActionChip(
+                                        avatar: const Icon(Icons.tune_rounded, size: 16),
+                                        label: Text(l.aiSettings),
+                                        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AiSettingsScreen())),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -180,7 +384,7 @@ class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
                       children: [
                         const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
                         const SizedBox(width: 10),
-                        Text(l.advisorThinking),
+                        Flexible(child: Text(_stage ?? l.advisorThinking)),
                       ],
                     ),
                   ),

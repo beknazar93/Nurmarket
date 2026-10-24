@@ -55,13 +55,16 @@ public sealed class SideMenuViewModel : ViewModelBase
         IPermissionService? permissions = null,
         Action? navigateSalary = null,
         Func<Task>? openCashOperation = null,
-        Action? navigateReceiptHistory = null)
+        Action? navigateReceiptHistory = null,
+        Action? navigatePurchases = null)
     {
         _session = session;
         _permissions = permissions;
         RefreshEntitlements();
         CloseMenuCommand = new RelayCommand(closeMenu);
         NavigateWarehouseCommand = new RelayCommand(() => { navigateWarehouse?.Invoke(); closeMenu(); });
+        // 2026-10-22 (закупки как в вебе): «Закупки» — приход от поставщика с оплатой, заказы, рекомендуемый заказ (PurchasesWindow).
+        NavigatePurchasesCommand = new RelayCommand(() => { navigatePurchases?.Invoke(); closeMenu(); });
         NavigateStaffTimesheetCommand = new RelayCommand(() => { navigateStaffTimesheet?.Invoke(); closeMenu(); });
         NavigateMarketplaceCommand = new RelayCommand(() => { navigateMarketplace?.Invoke(); closeMenu(); });
         NavigateReturnCommand = new RelayCommand(() => { navigateReturn?.Invoke(); closeMenu(); });
@@ -159,6 +162,10 @@ public sealed class SideMenuViewModel : ViewModelBase
     public bool CanViewWarehouse => (_permissions?.HasPermission(PosPermissions.ViewProducts) ?? true)
                                     && NurMarketKassa.Services.AppMode.ShowOwnerSectionsInKassa
                                     && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.warehouse");
+    /// <summary>2026-10-22 (закупки как в вебе): «Закупки» — права и режим как у «Склада», но не на «Старте» (на сайте закупки на
+    /// «Старте» скрыты — платная услуга), скрывается в «Показывать разделы» (kassa.purchases).</summary>
+    public bool CanViewPurchases => CanViewWarehouse && !NurMarketKassa.Services.TariffGate.IsStartTariff
+                                    && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.purchases");
     public bool CanViewSettings => _permissions?.HasPermission(PosPermissions.ViewSettings) ?? true;
 
     /// <summary>2026-09-07: остальные пункты меню (кроме Склада/Настроек — см. CanViewWarehouse
@@ -324,6 +331,7 @@ public sealed class SideMenuViewModel : ViewModelBase
         // (см. AppMode.OwnerSectionsInKassa).
         var owner = NurMarketKassa.Services.AppMode.ShowOwnerSectionsInKassa;
         OnPropertyChanged(nameof(CanViewWarehouse));
+        OnPropertyChanged(nameof(CanViewPurchases));
         CanViewStaffTimesheet = NurMarketKassa.Services.UserPreferences.Instance.StaffTimesheetUnlocked;
         // 2026-10-05, владелец: «невозможно оформить возврат в тарифе Старт, а на сайте для Старта есть» —
         // возврат на любом тарифе, нужно только право сотрудника.
@@ -400,6 +408,7 @@ public sealed class SideMenuViewModel : ViewModelBase
 
     public ICommand CloseMenuCommand { get; }
     public ICommand NavigateWarehouseCommand { get; }
+    public ICommand NavigatePurchasesCommand { get; }
     public ICommand NavigateStaffTimesheetCommand { get; }
     public ICommand NavigateMarketplaceCommand { get; }
     public ICommand NavigateReturnCommand { get; }

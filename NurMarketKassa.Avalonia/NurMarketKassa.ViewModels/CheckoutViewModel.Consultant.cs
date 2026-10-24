@@ -216,13 +216,13 @@ namespace NurMarketKassa.ViewModels
                     ? Math.Round(_effectiveTotalDue * pct.Value / 100.0, 2, MidpointRounding.AwayFromZero)
                     : 0;
                 var text = amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
-                return Tr.T($"Комиссия ≈ {text} сом", $"Комиссия ≈ {text} сом", $"Commission ≈ {text} som",
+                return Tr.T($"Комиссия ≈ {text} сом", $"Комиссиясы ≈ {text} сом", $"Commission ≈ {text} som",
                     $"Komisyon ≈ {text} som", $"Komissiya ≈ {text} so'm");
             }
         }
 
         // 2026-10-19, К1 (аудит 19.10, проблема 7): подпись обычным регистром, без ЗАГЛАВНЫХ.
-        public string ConsultantTitleText => Tr.T("Консультант", "Консультант", "Consultant", "Danışman", "Maslahatchi");
+        public string ConsultantTitleText => Tr.T("Консультант", "Кеңешчи", "Consultant", "Danışman", "Maslahatchi");
         public string ConsultantToggleText => Tr.T("Указать консультанта", "Консультантты көрсөтүү", "Specify a consultant",
             "Danışman belirt", "Maslahatchini ko'rsatish");
         public string ConsultantHintText => Tr.T(

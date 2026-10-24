@@ -133,7 +133,7 @@ Future<List<int>> receiptPdfBytes(Receipt r) async {
               ],
             ),
           ),
-          pair(r.paymentText, money(r.received ?? r.total)),
+          for (final (k, v) in r.paymentLines) pair(k, v), // 2026-10-22: долг — внесено / долг / срок
           if (r.change > 0) pair('Сдача', money(r.change), strong: true),
           if (f != null) ...[
             dashed(),

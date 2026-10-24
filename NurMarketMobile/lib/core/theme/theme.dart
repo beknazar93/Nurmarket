@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'tokens.dart';
 
-/// Тема приложения: Montserrat, жёлтая главная кнопка с тёмно-синим текстом, карточки 16, кнопки 12.
+/// Тема приложения (брендбук NUR CRM, 22.10.2026): Montserrat, жёлтая #FFB208 главная кнопка с текстом Deep Night #191919, карточки 16, кнопки 12.
 ThemeData buildTheme({required bool dark}) {
   final p = Palette(dark);
   final scheme = ColorScheme(
@@ -149,7 +149,7 @@ ThemeData buildTheme({required bool dark}) {
     // а в тёмной теме подложка светлее фона, чтобы уведомление не сливалось с экраном.
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: dark ? const Color(0xFF24435A) : T.navy,
+      backgroundColor: dark ? const Color(0xFF3D3D3D) : T.navy, // 2026-10-22: серая шкала брендбука
       contentTextStyle: const TextStyle(color: Colors.white, fontFamily: 'Montserrat', fontSize: 14, fontWeight: FontWeight.w600),
       actionTextColor: T.accent,
     ),

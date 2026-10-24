@@ -1,48 +1,27 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PaymentStockBlockedDialog"
         Title="{DynamicResource stockBlocked.title}"
-        Width="520" SizeToContent="Height"
-        MaxHeight="600"
+        Width="512" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
-  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="28,24">
-    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-      <TextBlock Text="{DynamicResource stockBlocked.header}"
-                 FontSize="18" FontWeight="Bold"
-                 Foreground="{DynamicResource BrushText}"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 Margin="0,0,0,12"/>
-
-      <ScrollViewer MaxHeight="360" Margin="0,0,0,20">
-        <TextBlock x:Name="BodyText"
-                   TextWrapping="Wrap"
-                   FontSize="14"
-                   Foreground="{DynamicResource BrushTextSoft}"
-                   HorizontalAlignment="Center"
-                   TextAlignment="Center"/>
-      </ScrollViewer>
-
-      <Button IsCancel="True" Content="{DynamicResource common.gotIt}"
-              Height="46" Width="240"
-              HorizontalAlignment="Center"
-              HorizontalContentAlignment="Center"
-              VerticalContentAlignment="Center"
-              Background="{DynamicResource BrushAccent}"
-              Foreground="{DynamicResource BrushAccentForeground}"
-              FontWeight="SemiBold"
-              CornerRadius="10"
-              Cursor="Hand"
+  <!-- 2026-10-22 (модалки, пакет 1): общая оболочка ModalShell 512 вместо своей Border 520 с MaxHeight 600 — шапка
+       с ✕, список нехватки прокручивается, кнопка «Понятно» закреплена в подвале (modal-primary). Enter, Esc и ✕
+       закрывают окно так же, как кнопка (раньше Enter не закрывал). -->
+  <dlg:ModalShell Margin="16" Title="{DynamicResource stockBlocked.header}">
+    <dlg:ModalShell.Footer>
+      <Button IsCancel="True" IsDefault="True" Content="{DynamicResource common.gotIt}"
+              Classes="modal-primary" MinWidth="160"
               Click="Ok_Click"/>
-    </StackPanel>
-  </Border>
+    </dlg:ModalShell.Footer>
+    <TextBlock x:Name="BodyText"
+               TextWrapping="Wrap"
+               FontSize="14"
+               Foreground="{DynamicResource BrushTextSoft}"/>
+  </dlg:ModalShell>
 </Window>

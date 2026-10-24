@@ -170,15 +170,13 @@ public partial class ScalesPluWindow
 
     private async void KeysWindow_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-10-22 (модалки, пакет 3): окно без рамки ОС в общей оболочке ModalShell (L = 912, было своё 1100×760):
+        // «Готово» в закреплённом подвале (Esc, Enter и ✕ закрывают), кнопки весов прокручиваются между шапкой и подвалом.
         var window = new Window
         {
             Title = Tr.T("Кнопки весов", "Тараза баскычтары", "Scale keys", "Tartı tuşları", "Tarozi tugmalari") + " — " + ScaleTitle,
-            Width = 1100,
-            Height = 760,
-            MinWidth = 520,
-            MinHeight = 420,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
+        SectionCards.AsModal(window, 912);
         var grid = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
         var hint = new TextBlock
         {
@@ -196,7 +194,7 @@ public partial class ScalesPluWindow
                        "Bir tuşa basıp ürün seçin — kasa tuşu «Tartıya gönder» sırasında yazar.",
                        "Tugmani bosing va tovarni tanlang — kassa tugmani «Taroziga yuborish» paytida yozadi."),
         };
-        var countBox = new NumericUpDown { Minimum = 1, Maximum = KeyIsPlu ? Math.Min(240, MaxPlu) : MaxHotkey, Increment = 1, FormatString = "0", Value = KeyCount, Width = 140 };
+        var countBox = new NumericUpDown { Minimum = 1, Maximum = KeyIsPlu ? Math.Min(240, MaxPlu) : MaxHotkey, Increment = 1, FormatString = "0", Value = KeyCount, Width = 140, Classes = { "modal-field" } };
         var status = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 13, Margin = new Thickness(0, 6, 0, 0) };
 
         void Rebuild()
@@ -219,7 +217,6 @@ public partial class ScalesPluWindow
                     Margin = new Thickness(0, 0, 8, 8),
                     HorizontalContentAlignment = HorizontalAlignment.Left,
                     VerticalContentAlignment = VerticalAlignment.Top,
-                    Background = row is null ? ScaleUi.ThemeBrush(this, "BrushSurfaceSubtle", Brushes.WhiteSmoke) : ScaleUi.ThemeBrush(this, "BrushAccentSoft", Brushes.LightYellow),
                     Content = new StackPanel
                     {
                         Spacing = 2,
@@ -230,6 +227,10 @@ public partial class ScalesPluWindow
                         },
                     },
                 };
+                // 2026-10-22 (модалки, пакет 3): фон плитки — привязкой к теме (BrushSurfaceSubtle в теме нет — в тёмной теме
+                // пустые кнопки были светлыми WhiteSmoke).
+                tile.Bind(Button.BackgroundProperty, this.GetResourceObservable(row is null ? "BrushPanelSoft" : "BrushAccentSoft"));
+                tile.Bind(Button.ForegroundProperty, this.GetResourceObservable("BrushText"));
                 tile.Click += async (_, _) =>
                 {
                     var picked = await PickProductAsync(window, k, row).ConfigureAwait(true);
@@ -251,22 +252,18 @@ public partial class ScalesPluWindow
             UserPreferences.Instance.SaveToDisk();
             Rebuild();
         };
-        var close = new Button { Content = Tr.T("Готово", "Даяр", "Done", "Tamam", "Tayyor"), Classes = { "btn-primary" }, MinWidth = 140, HorizontalContentAlignment = HorizontalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
+        var close = SectionCards.Primary(Tr.T("Готово", "Даяр", "Done", "Tamam", "Tayyor"), isDefault: true);
+        close.IsCancel = true;
         close.Click += (_, _) => window.Close();
 
+        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        status.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
         var top = new StackPanel { Spacing = 8 };
         top.Children.Add(hint);
         top.Children.Add(ScaleUi.Row(Tr.T("Кнопок на весах", "Таразадагы баскычтар", "Keys on the scale", "Tartıdaki tuşlar", "Tarozidagi tugmalar"), countBox, 200));
         top.Children.Add(status);
-        var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(18) };
-        root.Children.Add(top);
-        var scroll = new ScrollViewer { Content = grid, Margin = new Thickness(0, 10, 0, 10) };
-        Grid.SetRow(scroll, 1);
-        root.Children.Add(scroll);
-        Grid.SetRow(close, 2);
-        root.Children.Add(close);
-        window.Content = root;
-        window.Opened += (_, _) => window.FitToKassaScreen();
+        top.Children.Add(grid);
+        window.Content = SectionCards.Shell(window.Title ?? "", null, top, SectionCards.Buttons(close));
         Rebuild();
         await window.ShowDialog(this).ConfigureAwait(true);
         ApplySearch();
@@ -277,17 +274,17 @@ public partial class ScalesPluWindow
     private async Task<(ScalePluRowVm Row, bool Remove)?> PickProductAsync(Window owner, int key, ScalePluRowVm? current)
     {
         (ScalePluRowVm Row, bool Remove)? result = null;
+        // 2026-10-22 (модалки, пакет 3): окно без рамки ОС в общей оболочке ModalShell (M = 672): поиск сверху, список на всю
+        // высоту, «Отмена» (Esc = ✕) и «Выбрать» (Enter) в закреплённом подвале. Выбор — касанием строки и «Выбрать»
+        // (двойное касание тоже работает, но больше не единственный способ на сенсорном экране); Enter в поиске выбирает
+        // выделенный, а если ничего не выделено — первый найденный. «Убрать с кнопки» — красной обводкой слева в подвале.
         var dialog = new Window
         {
             Title = Tr.T($"Кнопка {key}: товар", $"{key}-баскыч: товар", $"Key {key}: product", $"{key}. tuş: ürün", $"{key}-tugma: tovar"),
-            Width = 560,
-            Height = 620,
-            MinWidth = 380,
-            MinHeight = 360,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
-        var search = new TextBox { Watermark = Tr.T("Поиск: название или PLU", "Издөө: аталышы же PLU", "Search: name or PLU", "Ara: ad veya PLU", "Qidirish: nomi yoki PLU") };
-        var list = new ListBox();
+        SectionCards.AsModal(dialog, 672);
+        var search = SectionCards.Field(new TextBox { Watermark = Tr.T("Поиск: название или PLU", "Издөө: аталышы же PLU", "Search: name or PLU", "Ara: ad veya PLU", "Qidirish: nomi yoki PLU") });
+        var list = new ListBox { MinHeight = 220 };
         List<ScalePluRowVm> Filtered()
         {
             var words = (search.Text ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -300,44 +297,47 @@ public partial class ScalesPluWindow
             {
                 Content = $"{r.Name}   ·   PLU {(string.IsNullOrEmpty(r.PluText) ? "—" : r.PluText)}   ·   {r.PriceLine}",
                 Tag = r,
+                MinHeight = 44,
+                VerticalContentAlignment = VerticalAlignment.Center,
             }).ToList();
         }
         search.TextChanged += (_, _) => Fill();
         void Choose()
         {
-            if (list.SelectedItem is ListBoxItem { Tag: ScalePluRowVm row })
+            var item = list.SelectedItem as ListBoxItem ?? (list.ItemsSource as List<ListBoxItem>)?.FirstOrDefault();
+            if (item is { Tag: ScalePluRowVm row })
             {
                 result = (row, false);
                 dialog.Close();
             }
         }
         list.DoubleTapped += (_, _) => Choose();
-        var ok = new Button { Content = Tr.T("Выбрать", "Тандоо", "Choose", "Seç", "Tanlash"), Classes = { "btn-primary" }, MinWidth = 120, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var ok = SectionCards.Primary(Tr.T("Выбрать", "Тандоо", "Choose", "Seç", "Tanlash"), isDefault: true);
         ok.Click += (_, _) => Choose();
-        var cancel = new Button { Content = Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), MinWidth = 120, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var cancel = SectionCards.Cancel(Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => dialog.Close();
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        Button? remove = null;
         if (current is not null)
         {
-            var remove = new Button { Content = Tr.T($"Убрать «{current.Name}» с кнопки", $"«{current.Name}» баскычтан алуу", $"Remove “{current.Name}” from the key", $"«{current.Name}» tuştan kaldır", $"«{current.Name}» ni tugmadan olish") };
+            remove = SectionCards.Secondary(Tr.T("Убрать с кнопки", "Баскычтан алуу", "Remove from the key", "Tuştan kaldır", "Tugmadan olish"));
+            remove.Classes.Add("danger");
             remove.Click += (_, _) =>
             {
                 result = (current, true);
                 dialog.Close();
             };
-            buttons.Children.Add(remove);
         }
-        buttons.Children.Add(cancel);
-        buttons.Children.Add(ok);
-        var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(16) };
+        var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
         root.Children.Add(search);
         Grid.SetRow(list, 1);
         list.Margin = new Thickness(0, 8, 0, 0);
         root.Children.Add(list);
-        Grid.SetRow(buttons, 2);
-        root.Children.Add(buttons);
-        dialog.Content = root;
-        dialog.Opened += (_, _) => search.Focus();
+        var shell = SectionCards.Shell(dialog.Title ?? "",
+            current is null ? null : Tr.T($"Сейчас на кнопке: {current.Name}", $"Азыр баскычта: {current.Name}", $"On the key now: {current.Name}", $"Şu an tuşta: {current.Name}", $"Hozir tugmada: {current.Name}"),
+            root, SectionCards.Buttons(cancel, ok), remove);
+        shell.ContentScroll = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
+        shell.InitialFocus = search;
+        dialog.Content = shell;
         Fill();
         await dialog.ShowDialog(owner).ConfigureAwait(true);
         return result;

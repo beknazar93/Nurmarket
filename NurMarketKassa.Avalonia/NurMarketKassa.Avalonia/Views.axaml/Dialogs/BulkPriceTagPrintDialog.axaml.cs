@@ -97,11 +97,15 @@ public partial class BulkPriceTagPrintDialog : Window
     private void SearchBox_TextChanged(object? sender, Avalonia.Controls.TextChangedEventArgs e)
     {
         var query = (SearchBox.Text ?? "").Trim();
+        // 2026-10-21: скан доп. штрихкода, 12 ↔ 13 цифр, размера или артикула — тот же товар, что нашла бы касса
+        // (ProductCodeLookup; склад не находит товар по скану).
+        var exactId = query.Length >= 4 ? ProductCodeLookup.FindLocal(query)?.Product.Id : null;
         ProductsGrid.ItemsSource = query.Length == 0
             ? _allRows
             : _allRows.Where(r =>
                 r.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                r.Barcode.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+                r.Barcode.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                (exactId != null && string.Equals(r.Product.Id, exactId, StringComparison.OrdinalIgnoreCase))).ToList();
         UpdateEmptyText();
     }
 
@@ -216,6 +220,9 @@ public partial class BulkPriceTagPrintDialog : Window
             return;
         }
 
+        // 2026-10-22 (модалки, пакет 3): второй клик/Enter во время печати ничего не делает, окно не закрывается (IsBusy).
+        if (!Shell.TryBeginBusy())
+            return;
         PrintButton.IsEnabled = false;
         StatusText.Text = Tr.T($"Печать {selected.Count} ценников…", $"{selected.Count} баа белгиси басып чыгарылууда…",
             $"Printing {selected.Count} price tags…", $"{selected.Count} fiyat etiketi yazdırılıyor…", $"{selected.Count} ta narx yorlig'i chop etilmoqda…");
@@ -275,6 +282,7 @@ public partial class BulkPriceTagPrintDialog : Window
         finally
         {
             PrintButton.IsEnabled = true;
+            Shell.EndBusy();
         }
     }
 

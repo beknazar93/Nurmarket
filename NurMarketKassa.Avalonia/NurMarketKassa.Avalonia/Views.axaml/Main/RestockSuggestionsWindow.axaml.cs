@@ -36,6 +36,8 @@ public partial class RestockSuggestionsWindow : Window, IOwnerSection
         // 2026-10-20, аудит программы владельца: кнопка считает 30 дней, а «Месяц» в других окнах — с 1-го числа.
         LookbackMonthButton.Content = Tr.T("30 дней", "30 күн", "30 days", "30 gün", "30 kun");
         ApplyPackage1Texts();
+        // 2026-10-22 (закупки как в вебе): «Сделать закупку» из собранного заказа (RestockSuggestionsWindow.Purchases.cs).
+        InitPurchaseLink();
     }
 
     /// <summary>2026-10-21 (пакет 1, п. 112, 113): подписи, которых нет в общих строках, — на 5 языках в коде.</summary>
@@ -160,6 +162,9 @@ public partial class RestockSuggestionsWindow : Window, IOwnerSection
         var rows = new List<ReorderRow>();
         foreach (var product in CatalogCacheService.Products)
         {
+            // 2026-10-24 (аудит, круг 8, С-10): услуги и прокат не покупаются у поставщика — в «Пополнение» не попадают.
+            if (product.IsService || string.Equals(product.Kind, "rental", StringComparison.OrdinalIgnoreCase))
+                continue;
             if (!byProduct.TryGetValue(product.Id, out var sold))
                 continue;
 
@@ -199,12 +204,13 @@ public partial class RestockSuggestionsWindow : Window, IOwnerSection
         _ = LoadSuppliersAsync(rows);
     }
 
+    // 2026-10-24 (аудит, круг 8, С-10): добавлено предупреждение, что «Рекомендуемый заказ» считает иначе (по поставщику, со страховым запасом).
     private string ReorderHint() => Tr.T(
-        $"Сначала то, что закончится раньше. «Сколько заказать» — чтобы хватило на {_coverDays} дн. продаж с учётом остатка.",
-        $"Алгач эртерээк бүтө турганы. «Канча буйрутма берүү» — калдыкты эсепке алып, {_coverDays} күндүк сатууга жетиштүү болушу үчүн.",
-        $"What runs out first comes first. «How much to order» covers {_coverDays} days of sales, counting current stock.",
-        $"Önce en erken bitecek olanlar. «Ne kadar sipariş» — mevcut stok dahil {_coverDays} günlük satışa yetecek miktar.",
-        $"Avval tezroq tugaydiganlari. «Qancha buyurtma qilish» — qoldiqni hisobga olib, {_coverDays} kunlik sotuvga yetadigan miqdor.");
+        $"Сначала то, что закончится раньше. «Сколько заказать» — чтобы хватило на {_coverDays} дн. продаж с учётом остатка. В «Рекомендуемом заказе» расчёт по поставщику со страховым запасом — числа могут отличаться.",
+        $"Алгач эртерээк бүтө турганы. «Канча буйрутма берүү» — калдыкты эсепке алып, {_coverDays} күндүк сатууга жетиштүү болушу үчүн. «Сунушталган буйрутмада» эсеп жеткирүүчү боюнча камдык запас менен жүрөт — сандар айырмалуу болушу мүмкүн.",
+        $"What runs out first comes first. «How much to order» covers {_coverDays} days of sales, counting current stock. «Recommended order» calculates per supplier with a safety stock — numbers may differ.",
+        $"Önce en erken bitecek olanlar. «Ne kadar sipariş» — mevcut stok dahil {_coverDays} günlük satışa yetecek miktar. «Önerilen sipariş» tedarikçi bazında güvenlik stoğuyla hesaplar — sayılar farklı olabilir.",
+        $"Avval tezroq tugaydiganlari. «Qancha buyurtma qilish» — qoldiqni hisobga olib, {_coverDays} kunlik sotuvga yetadigan miqdor. «Tavsiya etilgan buyurtma»da hisob yetkazib beruvchi bo‘yicha va xavfsizlik zaxirasi bilan — raqamlar farq qilishi mumkin.");
 
     private void ReorderSearch_TextChanged(object? sender, TextChangedEventArgs e) => ApplyReorderFilter();
 
@@ -403,6 +409,9 @@ public partial class RestockSuggestionsWindow : Window, IOwnerSection
         var rows = new List<ExpiryRow>();
         foreach (var product in CatalogCacheService.Products)
         {
+            // 2026-10-24 (аудит, круг 8, С-10): у услуг и проката нет срока годности и остатка поставки.
+            if (product.IsService || string.Equals(product.Kind, "rental", StringComparison.OrdinalIgnoreCase))
+                continue;
             if (!intakeDates.TryGetValue(product.Id, out var intake))
                 continue;
 

@@ -59,8 +59,12 @@ public partial class SwitchCashierDialog : Window
 
     private async void InputBox_KeyDown(object? sender, KeyEventArgs e)
     {
+        // 2026-10-22 (модалки, пакет 2): Enter обработан здесь — кнопка по умолчанию не запускает проверку второй раз.
         if (e.Key == Key.Return)
+        {
+            e.Handled = true;
             await TryConfirmAsync();
+        }
     }
 
     private async Task TryConfirmAsync()

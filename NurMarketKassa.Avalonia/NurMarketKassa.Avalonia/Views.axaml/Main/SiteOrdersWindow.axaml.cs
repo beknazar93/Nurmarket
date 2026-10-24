@@ -40,6 +40,11 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
     /// <summary>Названия товаров по id — на весь сеанс: в строках заказа сервер отдаёт только id.</summary>
     private static readonly Dictionary<string, string> ProductNames = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>2026-10-22 (витрина одежды): размеры/цвета товаров из строк заказа (кеш вариантов программы) — остаток выбранного
+    /// размера и предупреждение «размер не указан», если у товара есть размеры, а строка пришла без варианта.</summary>
+    private static readonly Dictionary<string, List<ProductVariantDto>> ProductVariants = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _variantsLoading = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly ShowcaseApiService _api;
     private readonly DispatcherTimer _timer;
     private CancellationTokenSource? _cts;
@@ -330,17 +335,20 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
 
         // 2026-10-05: NurCRM хранит заказы витрины (с сайта и из Telegram-бота) — они в списке ниже.
         // 2026-10-19, этап О10 (аудит: номер «996771830438» без пробелов): номер в тексте — с пробелами, «+996 771 830 438».
+        // 2026-10-22 (витрина одежды, проверено по сборке market.nurcrm.kg catalog-Ccmz2ht8.js и заказам NBS): витрина NurCRM
+        // заказ на сервер НЕ отправляет — открывает WhatsApp с текстом заказа (без размера и цвета). В списке — заказы из
+        // Telegram-бота (и других каналов, которые пишут заказ на сервер). Текст был «заказы с сайта сохраняются на сервере».
         var how = phone.Length > 0
-            ? Tr.T($"Заказы с сайта и из Telegram-бота сохраняются на сервере NurCRM и появляются в списке ниже; номер WhatsApp для связи с покупателями — {PrettyPhone(phone)}. Под заказ товар сразу резервируется: «Отменить» вернёт его на остаток.",
-                $"Сайттан жана Telegram-боттон келген заказдар NurCRM серверинде сакталып, төмөнкү тизмеде чыгат; кардарлар менен байланыш үчүн WhatsApp номери — {PrettyPhone(phone)}. Заказ үчүн товар дароо резервделет: «Жокко чыгаруу» аны калдыкка кайтарат.",
-                $"Orders from the website and the Telegram bot are saved on the NurCRM server and appear in the list below; the WhatsApp number for customers is {PrettyPhone(phone)}. Stock is reserved for an order right away: “Cancel” returns it to stock.",
-                $"Web sitesinden ve Telegram botundan gelen siparişler NurCRM sunucusunda saklanır ve aşağıdaki listede görünür; müşteriler için WhatsApp numarası — {PrettyPhone(phone)}. Sipariş için stok hemen ayrılır: «İptal» onu stoğa geri verir.",
-                $"Saytdan va Telegram-botdan kelgan buyurtmalar NurCRM serverida saqlanadi va quyidagi ro'yxatda chiqadi; xaridorlar bilan aloqa uchun WhatsApp raqami — {PrettyPhone(phone)}. Buyurtma uchun mahsulot darhol band qilinadi: «Bekor qilish» uni qoldiqqa qaytaradi.")
-            : Tr.T("Заказы с сайта и из Telegram-бота сохраняются на сервере NurCRM и появляются в списке ниже. Номер WhatsApp для связи с покупателями не задан — задайте его в «Настройки сайта».",
-                "Сайттан жана Telegram-боттон келген заказдар NurCRM серверинде сакталып, төмөнкү тизмеде чыгат. Кардарлар менен байланыш үчүн WhatsApp номери коюлган эмес — аны «Сайттын жөндөөлөрү» бөлүмүндө коюңуз.",
-                "Orders from the website and the Telegram bot are saved on the NurCRM server and appear in the list below. No WhatsApp number for customers is set — set it in “Website settings”.",
-                "Web sitesinden ve Telegram botundan gelen siparişler NurCRM sunucusunda saklanır ve aşağıdaki listede görünür. Müşteriler için WhatsApp numarası belirlenmemiş — «Web sitesi ayarları»nda belirleyin.",
-                "Saytdan va Telegram-botdan kelgan buyurtmalar NurCRM serverida saqlanadi va quyidagi ro'yxatda chiqadi. Xaridorlar bilan aloqa uchun WhatsApp raqami kiritilmagan — uni «Sayt sozlamalari»da kiriting.");
+            ? Tr.T($"Заказы из Telegram-бота сохраняются на сервере NurCRM и появляются в списке ниже. Витрина NurCRM пока отправляет заказ покупателя сообщением в WhatsApp на номер {PrettyPhone(phone)} — в этот список он не попадает, а размер и цвет одежды покупатель на витрине пока выбрать не может (передано NurCRM). Под заказ из списка товар сразу резервируется: «Отменить» вернёт его на остаток.",
+                $"Telegram-боттон келген заказдар NurCRM серверинде сакталып, төмөнкү тизмеде чыгат. NurCRM витринасы азырынча кардардын заказын WhatsApp'ка {PrettyPhone(phone)} номерине билдирүү менен жөнөтөт — ал бул тизмеге түшпөйт, ал эми кийимдин өлчөмүн жана түсүн кардар витринада азырынча тандай албайт (NurCRMге берилди). Тизмедеги заказ үчүн товар дароо резервделет: «Жокко чыгаруу» аны калдыкка кайтарат.",
+                $"Orders from the Telegram bot are saved on the NurCRM server and appear in the list below. The NurCRM showcase still sends a customer's order as a WhatsApp message to {PrettyPhone(phone)} — it doesn't get into this list, and customers can't pick a clothing size and color on the showcase yet (reported to NurCRM). Stock is reserved for an order from the list right away: “Cancel” returns it to stock.",
+                $"Telegram botundan gelen siparişler NurCRM sunucusunda saklanır ve aşağıdaki listede görünür. NurCRM vitrini müşterinin siparişini şimdilik {PrettyPhone(phone)} numarasına WhatsApp mesajı olarak gönderiyor — bu listeye düşmez ve müşteri vitrinde giysi bedeni ve rengini henüz seçemez (NurCRM'e iletildi). Listedeki sipariş için stok hemen ayrılır: «İptal» onu stoğa geri verir.",
+                $"Telegram-botdan kelgan buyurtmalar NurCRM serverida saqlanadi va quyidagi ro'yxatda chiqadi. NurCRM vitrinasi hozircha xaridor buyurtmasini {PrettyPhone(phone)} raqamiga WhatsApp xabari bilan yuboradi — u bu ro'yxatga tushmaydi, kiyim o'lchami va rangini xaridor vitrinada hozircha tanlay olmaydi (NurCRMga yetkazildi). Ro'yxatdagi buyurtma uchun mahsulot darhol band qilinadi: «Bekor qilish» uni qoldiqqa qaytaradi.")
+            : Tr.T("Заказы из Telegram-бота сохраняются на сервере NurCRM и появляются в списке ниже. Номер WhatsApp не задан — витрина NurCRM не сможет отправить заказ покупателя; задайте его в «Настройки сайта».",
+                "Telegram-боттон келген заказдар NurCRM серверинде сакталып, төмөнкү тизмеде чыгат. WhatsApp номери коюлган эмес — NurCRM витринасы кардардын заказын жөнөтө албайт; аны «Сайттын жөндөөлөрү» бөлүмүндө коюңуз.",
+                "Orders from the Telegram bot are saved on the NurCRM server and appear in the list below. No WhatsApp number is set — the NurCRM showcase can't send a customer's order; set it in “Website settings”.",
+                "Telegram botundan gelen siparişler NurCRM sunucusunda saklanır ve aşağıdaki listede görünür. WhatsApp numarası belirlenmemiş — NurCRM vitrini müşterinin siparişini gönderemez; «Web sitesi ayarları»nda belirleyin.",
+                "Telegram-botdan kelgan buyurtmalar NurCRM serverida saqlanadi va quyidagi ro'yxatda chiqadi. WhatsApp raqami kiritilmagan — NurCRM vitrinasi xaridor buyurtmasini yubora olmaydi; uni «Sayt sozlamalari»da kiriting.");
         // 2026-10-21 (пакет 4, п. 123; аудит: «длинный текст с WhatsApp в шапке Заказов», «Витрина работает» — и здесь, и в
         // «Настройках сайта»): витрина работает — полоса из ссылки и одной короткой строки; «Витрина работает · товаров: N»,
         // номер WhatsApp и «Скопировать ссылку» — в «Настройках сайта», полный текст — в подсказке строки.
@@ -619,6 +627,69 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         });
 
         _ = LoadProductNamesAsync(order);
+        _ = LoadProductVariantsAsync(order);
+    }
+
+    /// <summary>2026-10-22 (витрина одежды): строка с размером — «Размер L, Белый · на складе: 3»; без размера у товара с
+    /// размерами — предупреждение (витрина NurCRM пока не даёт выбрать размер, его надо уточнить у покупателя).</summary>
+    private static (string Text, bool Warning)? VariantNote(SiteOrderItem item)
+    {
+        ProductVariants.TryGetValue(item.ProductId, out var variants);
+        if (item.VariantText.Length > 0 || !string.IsNullOrWhiteSpace(item.VariantId))
+        {
+            var text = Tr.T("Размер/цвет: ", "Өлчөм/түс: ", "Size/color: ", "Beden/renk: ", "O'lcham/rang: ")
+                       + (item.VariantText.Length > 0 ? item.VariantText : "—");
+            var v = variants?.FirstOrDefault(x => string.Equals(x.Id, item.VariantId, StringComparison.OrdinalIgnoreCase));
+            if (v is not null)
+                text += Tr.T(" · на складе: ", " · кампада: ", " · in stock: ", " · stokta: ", " · omborda: ") + Qty(v.Quantity);
+            return (text, false);
+        }
+
+        if (variants is { Count: > 0 } && variants.Any(x => x.IsActive))
+            return (Tr.T("Размер и цвет не указаны — уточните у покупателя",
+                "Өлчөмү жана түсү көрсөтүлгөн эмес — кардардан тактаңыз",
+                "Size and color not specified — check with the customer",
+                "Beden ve renk belirtilmemiş — müşteriye sorun",
+                "O'lcham va rang ko'rsatilmagan — xaridordan aniqlang"), true);
+        return null;
+    }
+
+    private async Task LoadProductVariantsAsync(SiteOrder order)
+    {
+        var missing = order.Items
+            .Where(i => i.ProductId.Length > 0 && !ProductVariants.ContainsKey(i.ProductId) && _variantsLoading.Add(i.ProductId))
+            .Select(i => i.ProductId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (missing.Count == 0)
+            return;
+
+        var changed = false;
+        foreach (var id in missing)
+        {
+            try
+            {
+                var list = await ProductVariantCache.GetAsync(id, TimeSpan.FromSeconds(8)).ConfigureAwait(true);
+                if (_lifetime.IsCancellationRequested)
+                    return;
+                if (list is not null)
+                {
+                    ProductVariants[id] = list;
+                    changed |= list.Count > 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Заказы с сайта: размеры товара {id} не получены: {ex.Message}", "SHOWCASE");
+            }
+            finally
+            {
+                _variantsLoading.Remove(id);
+            }
+        }
+
+        if (changed && string.Equals(_selectedId, order.Id, StringComparison.OrdinalIgnoreCase))
+            RenderDetail();
     }
 
     private Control BuildItemsTable(SiteOrder order)
@@ -654,6 +725,18 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
             UseBrush(line, Border.BorderBrushProperty, "BrushBorder");
             var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(columns) };
             AddCell(grid, 0, ItemName(item));
+            // 2026-10-22 (витрина одежды): под названием — остаток выбранного размера или «размер не указан».
+            if (VariantNote(item) is { } note)
+            {
+                var name = (TextBlock)grid.Children[^1];
+                grid.Children.Remove(name);
+                var nameBox = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+                nameBox.Children.Add(name);
+                var noteText = new TextBlock { Text = note.Text, FontSize = 12, TextWrapping = TextWrapping.Wrap };
+                UseBrush(noteText, TextBlock.ForegroundProperty, note.Warning ? "BrushWarning" : "BrushTextSoft");
+                nameBox.Children.Add(noteText);
+                grid.Children.Add(nameBox);
+            }
             AddCell(grid, 1, Qty(item.Quantity), right: true);
             AddCell(grid, 2, Money(item.Price), right: true);
             AddCell(grid, 3, Money(item.Total), right: true, bold: true);
@@ -894,7 +977,7 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         if (!string.IsNullOrWhiteSpace(item.Name))
             return item.Name!;
         if (ProductNames.TryGetValue(item.ProductId, out var name))
-            return name;
+            return item.VariantText.Length > 0 ? $"{name} ({item.VariantText})" : name; // 2026-10-22 (витрина одежды)
         return Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot") + (item.ProductId.Length >= 8 ? " " + item.ProductId[..8] : "");
     }
 

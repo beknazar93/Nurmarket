@@ -364,11 +364,13 @@ public partial class ScaleNetworkScanWindow : Window
         var use = new Button
         {
             Content = L("Использовать для…", "Колдонуу…", "Use for…", "Şunun için kullan…", "Foydalanish…"),
-            Classes = { d.Guess == ScaleDeviceGuess.Unknown ? "btn-ok" : "btn-primary" },
+            // 2026-10-22 (модалки, пакет 3): кнопки строк — обводкой (раньше жёлтая в каждой найденной строке; жёлтая в окне
+            // одна — «Начать поиск»), 44 px; меню — общий вид row-menu (пункты 44 px).
+            Classes = { "btn-ok" },
             VerticalAlignment = VerticalAlignment.Center,
             Padding = new Thickness(10, 5),
         };
-        var menu = new MenuFlyout();
+        var menu = new MenuFlyout { FlyoutPresenterClasses = { "row-menu" } };
         // Марка, из окна которой открыт поиск, — первой строкой меню.
         foreach (var brand in new[] { BrandShtrikh, BrandRongta, BrandTm }.OrderBy(b => b == _preferredBrand ? 0 : 1))
         {
@@ -438,7 +440,8 @@ public partial class ScaleNetworkScanWindow : Window
     {
         ResultText.Text = text;
         ResultBorder.BorderBrush = ThemeBrush(this, isError ? "BrushWarning" : "BrushBorder", Brushes.Gray);
-        ResultBorder.Background = ThemeBrush(this, isError ? "BrushWarningSoft" : "BrushSurfaceSubtle", Brushes.Transparent);
+        // 2026-10-22 (модалки, пакет 3): BrushSurfaceSubtle в теме нет — был запасной цвет (в тёмной теме не тот); мягкий фон темы.
+        ResultBorder.Background = ThemeBrush(this, isError ? "BrushWarningSoft" : "BrushPanelSoft", Brushes.Transparent);
     }
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();

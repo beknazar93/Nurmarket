@@ -350,19 +350,21 @@
 
         <!-- ======================= чек ======================= -->
         <Border Grid.Column="2" Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1,0,0,0" Padding="20,16">
+                BorderThickness="1,0,0,0" Padding="16,8">
+            <!-- 2026-10-23 (аудит круг 3, Б-6): моноблок 1024×600 — «Оплатить» уходила за край. Отступы чека, карточка покупателя,
+                 итоги и допродажа плотнее; строки чека (*) держат минимум 60 px, зоны касания не уменьшены. -->
             <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto">
                 <!-- Покупатель: одна строка — кто покупает, и куда за ним сходить. Сам покупатель
                      выбирается в окне оплаты (долг, бонусы), здесь — быстрый вход. -->
                 <Border Grid.Row="0" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
-                        BorderThickness="1" CornerRadius="{DynamicResource SettingsCardRadius}" Padding="10" Margin="0,0,0,10">
+                        BorderThickness="1" CornerRadius="{DynamicResource SettingsCardRadius}" Padding="8,6" Margin="0,0,0,6">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <Border Width="36" Height="36" CornerRadius="18" Background="{DynamicResource BrushAccentSoft}" Margin="0,0,10,0">
                             <PathIcon Data="{StaticResource IconAccount}" Width="18" Height="18" Foreground="{DynamicResource BrushText}"/>
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
                             <TextBlock Text="{DynamicResource lx.customer}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="{DynamicResource lx.customerHint}" FontSize="11.5" TextTrimming="CharacterEllipsis"
+                            <TextBlock Text="{DynamicResource lx.customerHint}" FontSize="11" TextTrimming="CharacterEllipsis" MaxLines="1"
                                        ToolTip.Tip="{DynamicResource lx.customerHint}" Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" Margin="8,0,0,0" VerticalAlignment="Center">
@@ -379,7 +381,7 @@
                 </Border>
 
                 <!-- Вкладки чеков -->
-                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                         <ItemsControl ItemsSource="{Binding Basket.ReceiptTabs}" Margin="0,0,0,6">
                             <ItemsControl.ItemsPanel>
@@ -404,7 +406,7 @@
                     </Button>
                 </Grid>
 
-                <Border Grid.Row="2" Classes="lx-field" MinHeight="40" Margin="0,0,0,8">
+                <Border Grid.Row="2" Classes="lx-field" MinHeight="40" Margin="0,0,0,4">
                     <Grid ColumnDefinitions="Auto,*">
                         <PathIcon Data="{StaticResource IconBarcode}" Margin="0,0,10,0"/>
                         <TextBox Grid.Column="1" Text="{Binding Basket.BarcodeInput}" Watermark="{DynamicResource lx.scanWatermark}" FontSize="13">
@@ -416,7 +418,7 @@
                 </Border>
 
                 <!-- Строки чека -->
-                <Panel Grid.Row="3">
+                <Panel Grid.Row="3" MinHeight="60">
                     <StackPanel IsVisible="{Binding Basket.IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
                         <PathIcon Data="{StaticResource IconCart}" Width="36" Height="36" HorizontalAlignment="Center"
                                   Foreground="{DynamicResource BrushTextSoft}" Opacity="0.6"/>
@@ -440,7 +442,7 @@
                                                 </TextBlock>
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,0,12,0">
-                                                <Button Classes="lx-step" Width="28" Height="28" Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"
+                                                <Button Classes="lx-step" Width="28" Height="28" AutomationProperties.Name="{Binding DecreaseName}" Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}">
                                                     <PathIcon Data="{StaticResource IconMinus}"/>
                                                 </Button>
@@ -457,7 +459,7 @@
                                                     </TextBox.KeyBindings>
                                                 </TextBox>
                                                 <Button Classes="lx-step" Width="28" Height="28" IsEnabled="{Binding CanIncrease}"
-                                                        Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"
+                                                        AutomationProperties.Name="{Binding IncreaseName}" Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}">
                                                     <PathIcon Data="{StaticResource IconPlus}"/>
                                                 </Button>
@@ -508,7 +510,7 @@
                 </StackPanel>
 
                 <!-- Итоги -->
-                <StackPanel Grid.Row="5" Spacing="6" Margin="0,12,0,12">
+                <StackPanel Grid.Row="5" Spacing="3" Margin="0,6,0,6">
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Text="{DynamicResource csh.cart.subtotal}" Classes="lx-muted" FontSize="13"/>
                         <TextBlock Grid.Column="1" Text="{Binding Basket.SubtotalDisplay}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
@@ -517,12 +519,12 @@
                         <TextBlock Text="{DynamicResource onecLayout.discountLabel}" Classes="lx-muted" FontSize="13"/>
                         <TextBlock Grid.Column="1" Text="{Binding Basket.DiscountDisplay}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
                     </Grid>
-                    <Border Classes="lx-divider" Margin="0,4"/>
+                    <Border Classes="lx-divider" Margin="0,2"/>
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Text="{DynamicResource onecLayout.totalLabel}" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"
                                    Foreground="{DynamicResource BrushText}"/>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                            <TextBlock Classes="num" Text="{Binding Basket.Total, Converter={x:Static conv:MoneyConverter.Instance}}" FontSize="26" FontWeight="Bold"
+                            <TextBlock Classes="num" Text="{Binding Basket.Total, Converter={x:Static conv:MoneyConverter.Instance}}" FontSize="24" FontWeight="Bold"
                                        Foreground="{DynamicResource BrushMoney}"/>
                             <TextBlock Text="{DynamicResource csh.catalog.currency}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Bottom"
                                        Margin="0,0,0,5" Foreground="{DynamicResource BrushTextSoft}"/>
@@ -531,7 +533,7 @@
                 </StackPanel>
 
                 <!-- 2026-10-19, К1: подписи кнопок переносятся на 2 строки (по-кыргызски обрезались «…»). -->
-                <Grid Grid.Row="6" ColumnDefinitions="*,6,*,6,*,6,Auto" Margin="0,0,0,10">
+                <Grid Grid.Row="6" ColumnDefinitions="*,6,*,6,*,6,Auto" Margin="0,0,0,6">
                     <Button Grid.Column="0" Classes="lx-btn" Padding="6,0" HorizontalAlignment="Stretch" Command="{Binding Basket.DeferCartCommand}">
                         <TextBlock Text="{DynamicResource onecLayout.holdButton}" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
@@ -551,14 +553,14 @@
                                 <MenuItem Header="{DynamicResource csh.cart.writeOff}" Click="WriteOff_Click"/>
                                 <MenuItem Header="{DynamicResource csh.menu.rental}" Click="Rental_Click" IsVisible="{Binding Basket.ShowRental}"/>
                                 <Separator/>
-                                <MenuItem Header="{DynamicResource csh.cart.deleteReceipt}" Command="{Binding Basket.DeleteReceiptCommand}"/>
-                                <MenuItem Header="{DynamicResource onecLayout.clearButton}" Command="{Binding Basket.ClearCartCommand}"/>
+                                <MenuItem Classes="danger" Header="{DynamicResource csh.cart.deleteReceipt}" Command="{Binding Basket.DeleteReceiptCommand}"/>
+                                <MenuItem Classes="danger" Header="{DynamicResource onecLayout.clearButton}" Command="{Binding Basket.ClearCartCommand}"/>
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>
                 </Grid>
 
-                <Button Grid.Row="7" Classes="lx-success" MinHeight="60" HorizontalAlignment="Stretch" Command="{Binding Basket.PayCommand}">
+                <Button Grid.Row="7" Classes="lx-success" MinHeight="52" HorizontalAlignment="Stretch" Command="{Binding Basket.PayCommand}">
                     <Grid ColumnDefinitions="*,Auto" MinWidth="260">
                         <TextBlock Text="{Binding Basket.PayButtonText}" FontSize="18" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="1" FontSize="18" VerticalAlignment="Center">

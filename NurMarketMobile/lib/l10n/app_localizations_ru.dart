@@ -976,6 +976,99 @@ class AppLocalizationsRu extends AppLocalizations {
   String get advisorNew => 'Новый разговор';
 
   @override
+  String get advisorNoKey =>
+      'Добавьте ключ ИИ в программе владельца: Нур Советник → ⚙ → Модели ИИ и ключи';
+
+  @override
+  String get advisorStageData => 'Собираю данные магазина…';
+
+  @override
+  String get advisorStageAsk => 'Спрашиваю ИИ…';
+
+  @override
+  String advisorError(String error) {
+    return 'Советник не ответил: $error';
+  }
+
+  @override
+  String get callTitle => 'Разговор';
+
+  @override
+  String get callConnecting => 'Подключаюсь…';
+
+  @override
+  String get callPreparing => 'Готовлю данные магазина…';
+
+  @override
+  String get callListening => 'Слушаю…';
+
+  @override
+  String get callThinking => 'Думаю…';
+
+  @override
+  String get callSpeaking => 'Говорю… (нажмите, чтобы перебить)';
+
+  @override
+  String get callEnded => 'Звонок завершён';
+
+  @override
+  String get callEnd => 'Завершить';
+
+  @override
+  String get callMicOff => 'Микрофон выкл.';
+
+  @override
+  String get callMicOn => 'Микрофон вкл.';
+
+  @override
+  String get callSpeakerOn => 'Громкая связь';
+
+  @override
+  String get callSpeakerOff => 'Без громкой связи';
+
+  @override
+  String callCost(int n) {
+    return 'Звонок длится до $n мин и расходует лимит ключа ИИ быстрее, чем чат.';
+  }
+
+  @override
+  String get callLimitSoon => 'Через минуту звонок завершится';
+
+  @override
+  String callEndedLimit(int n) {
+    return 'Звонок завершён: прошло $n мин. Можно позвонить снова.';
+  }
+
+  @override
+  String get callEndedFocus =>
+      'Звонок прерван: входящий звонок или приложение свёрнуто.';
+
+  @override
+  String callFailed(String error) {
+    return 'Звонок не удался: $error';
+  }
+
+  @override
+  String get callNoMic =>
+      'Нет доступа к микрофону. Разрешите микрофон для NurMarket в настройках телефона.';
+
+  @override
+  String get callOpenSettings => 'Открыть настройки';
+
+  @override
+  String get callUnsupported =>
+      'Голосовой звонок работает на телефоне Android.';
+
+  @override
+  String get callTableReady => 'Таблица с цифрами будет в чате после звонка';
+
+  @override
+  String get callClose => 'Закрыть';
+
+  @override
+  String get callYou => 'Вы';
+
+  @override
   String checkTab(int n) {
     return 'Чек · $n';
   }
@@ -1238,8 +1331,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get liveAuto => 'Авто';
 
   @override
-  String get liveHintSale =>
-      'Наведите на товар — снимок сам через 2 секунды или нажмите';
+  String get liveHintSale => 'Наведите на товар и нажмите «Сканировать»';
 
   @override
   String get liveHintShelf => 'Наведите на полку с товарами';
@@ -1290,7 +1382,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get auditOpen => 'Открыл экран';
 
   @override
-  String get teachCamera => 'Научить умную камеру: 3 фото + штрихкод';
+  String get teachCamera => 'Научить умную камеру: 3–5 фото + штрихкод';
 
   @override
   String get teachRight => '1 из 3 · товар справа';
@@ -1312,6 +1404,117 @@ class AppLocalizationsRu extends AppLocalizations {
   String teachShots(int n) {
     return 'Для умной камеры: $n фото';
   }
+
+  @override
+  String get scanShoot => 'Сканировать';
+
+  @override
+  String get scanBusy => 'Сканирую…';
+
+  @override
+  String get scanNext => 'Следующий товар — снова «Сканировать»';
+
+  @override
+  String get scanChecking => 'Сверяю с обученными товарами…';
+
+  @override
+  String scanTook(String sec) {
+    return 'за $sec с';
+  }
+
+  @override
+  String teachPhotoOf(int a, int b) {
+    return 'Фото $a из $b';
+  }
+
+  @override
+  String get teachAngleRight => 'товар справа';
+
+  @override
+  String get teachAngleLeft => 'товар слева';
+
+  @override
+  String get teachAngleTop => 'товар сверху';
+
+  @override
+  String get teachAngleFront => 'этикетка спереди';
+
+  @override
+  String get teachAngleBack => 'товар сзади';
+
+  @override
+  String get teachCanFinish => 'Можно нажать «Готово» или снять ещё ракурс';
+
+  @override
+  String get teachRetake => 'Переснять';
+
+  @override
+  String get weighAim =>
+      'Положите товар на весы, наведите на табло и нажмите «Сканировать»';
+
+  @override
+  String get weighAimDisplay =>
+      'Табло весов не видно — наведите камеру на окно веса, выключите фонарик и нажмите «Сканировать»';
+
+  @override
+  String get aiErrNoNet =>
+      'Нет интернета — проверьте связь и нажмите «Сканировать» ещё раз';
+
+  @override
+  String get aiErrSlow =>
+      'ИИ не ответил вовремя (медленная связь) — попробуйте ещё раз';
+
+  @override
+  String get aiErrLimit =>
+      'Кончился бесплатный лимит запросов ИИ — попробуйте через минуту';
+
+  @override
+  String get aiErrBusy => 'ИИ сейчас перегружен — попробуйте через минуту';
+
+  @override
+  String get aiErrOther => 'ИИ не смог распознать снимок';
+
+  @override
+  String addAgain(String name) {
+    return '«$name» уже в чеке. Добавить ещё?';
+  }
+
+  @override
+  String get yesAdd => 'Добавить';
+
+  @override
+  String get shelfAddAsk =>
+      'Снимок полки — это товар, который уже стоит на полке. Прибавить эти количества к остатку как поставку?';
+
+  @override
+  String isItProduct(String name) {
+    return 'Это «$name»?';
+  }
+
+  @override
+  String notFoundOffline(String code) {
+    return 'Код $code не найден на телефоне, а сервер не отвечает. Проверьте связь — товар может быть уже заведён на ПК, не создавайте второй.';
+  }
+
+  @override
+  String get scaleLabelsTitle => 'Этикетки весов';
+
+  @override
+  String get scaleLabelsHint =>
+      'Штрихкод этикетки весов начинается с префикса (20–29). Укажите, какие префиксы несут СУММУ, а какие — ВЕС. Для всех телефонов компании.';
+
+  @override
+  String get scaleAmountPrefixes => 'Префиксы «сумма»';
+
+  @override
+  String get scaleWeightPrefixes => 'Префиксы «вес»';
+
+  @override
+  String get cameraShotFailed =>
+      'Камера не сделала снимок — нажмите «Сканировать» ещё раз';
+
+  @override
+  String get saved => 'Сохранено';
 
   @override
   String get exactMatch => 'точно';
@@ -2568,4 +2771,579 @@ class AppLocalizationsRu extends AppLocalizations {
   String quoteRenumbered(String from, String to) {
     return 'Номер $from уже занят — документ теперь $to';
   }
+
+  @override
+  String get payOutcomeUnknown =>
+      'Сервер не ответил — продажа могла пройти. Нажмите «Оплатить» ещё раз, ничего не меняя: повтор второй раз не проведётся. Без связи долг и списание бонусов не оформляются.';
+
+  @override
+  String get debtDueLabel => 'Вернуть до';
+
+  @override
+  String debtDueDays(int n) {
+    return '$n дн.';
+  }
+
+  @override
+  String get debtDueNotSaved =>
+      'Срок долга не записан на сервере — поправьте его на сайте (по умолчанию 30 дней).';
+
+  @override
+  String returnAmount(String sum) {
+    return 'Сумма возврата: $sum сом';
+  }
+
+  @override
+  String returnGive(String what) {
+    return 'Выдать покупателю: $what';
+  }
+
+  @override
+  String returnInCash(String sum) {
+    return 'наличными $sum сом';
+  }
+
+  @override
+  String returnToCard(String sum) {
+    return 'на карту/перевод $sum сом';
+  }
+
+  @override
+  String returnDebtReduced(String sum) {
+    return 'Долг клиента уменьшен на $sum сом — эти деньги не выдаются.';
+  }
+
+  @override
+  String returnDebtUnknown(String sum) {
+    return 'Внимание: остаток долга клиента с сервера не получен. По расчёту долг уменьшен на $sum сом, но если клиент уже погасил долг по этому чеку — ему нужно вернуть до $sum сом. Проверьте долг клиента перед выдачей.';
+  }
+
+  @override
+  String get returnViaBank =>
+      'Часть на карту/перевод — вернуть через банк, не из кассы.';
+
+  @override
+  String returnPaidInfo(String paid, String done) {
+    return 'Оплачено по чеку: $paid сом · уже возвращено: $done сом';
+  }
+
+  @override
+  String returnedQty(String qty) {
+    return 'уже возвращено: $qty';
+  }
+
+  @override
+  String get returnNothingLeft => 'По этому чеку всё уже возвращено.';
+
+  @override
+  String cashOutTooMuch(String sum) {
+    return 'Изъятие больше, чем в кассе ($sum сом).';
+  }
+
+  @override
+  String payDebtToDebt(String sum) {
+    return 'В счёт долга: $sum сом';
+  }
+
+  @override
+  String get payDebtOverCard => 'Переводом — не больше долга.';
+
+  @override
+  String receiveNotAccepted(String reason) {
+    return 'Приход не принят сервером: $reason. Запись — в «Синхронизации».';
+  }
+
+  @override
+  String get auditApply => 'Провести ревизию';
+
+  @override
+  String get auditApplyHint =>
+      'Остатки станут равны пересчитанным — как ревизия на кассе ПК. Нужна связь.';
+
+  @override
+  String auditApplyAsk(int n, int a) {
+    return 'Проверено товаров: $n, расхождений: $a. Остатки станут равны пересчитанным. Провести?';
+  }
+
+  @override
+  String get auditApplied => 'Ревизия проведена — остатки обновлены.';
+
+  @override
+  String get auditApplyQueued =>
+      'Акт ревизии создан — проведение уйдёт при связи.';
+
+  @override
+  String get auditOnlineOnly =>
+      'Ревизия проводится только при связи с сервером — пересчёт сохранён, повторите позже.';
+
+  @override
+  String auditContinue(int n) {
+    return 'Продолжить пересчёт ($n товаров)';
+  }
+
+  @override
+  String get countedCash => 'Пересчитано';
+
+  @override
+  String get openingCashLabel => 'На начало смены';
+
+  @override
+  String closeShiftFailed(int n) {
+    return 'Сервер не принял $n чеков — они не попадут в отчёт смены. Отправьте их снова или снимите в «Синхронизации».';
+  }
+
+  @override
+  String get closeShiftAsk => 'Закрыть смену?';
+
+  @override
+  String get closeShiftAskSub => 'После закрытия продавать в эту смену нельзя.';
+
+  @override
+  String get xReport => 'X-отчёт';
+
+  @override
+  String get foreignShiftHint =>
+      'На этой кассе открыта смена другого кассира — продавать в неё нельзя. Откройте свою смену.';
+
+  @override
+  String get loadMore => 'Ещё';
+
+  @override
+  String get dropRow => 'Снять';
+
+  @override
+  String get dropRowAsk =>
+      'Снять чек из очереди? Он не уйдёт на сервер, товар вернётся в остаток телефона. Если деньги взяты — верните их покупателю или пробейте чек заново.';
+
+  @override
+  String get dropRowAskStock =>
+      'Снять запись из очереди? Она не уйдёт на сервер — проверьте остатки товара вручную.';
+
+  @override
+  String get otherAccount => 'другой аккаунт';
+
+  @override
+  String otherAccountHint(String email) {
+    return 'Записано под входом $email — уйдёт после входа этим логином.';
+  }
+
+  @override
+  String pAStockUnclear(String name, String now, String before) {
+    return '$name: прошлая попытка осталась без ответа сервера, а остаток с тех пор изменился (сейчас $now, до прибавки было $before). Повторно НЕ прибавлено, чтобы не задвоить. Проверьте остаток ревизией: если прибавилось — удалите строку, если нет — удалите её и добавьте товар заново.';
+  }
+
+  @override
+  String get pAWeightLabel =>
+      'Это этикетка весов (вес одной покупки) — в приёмку её не берём. Отсканируйте штрихкод товара или найдите его по названию.';
+
+  @override
+  String get pANoServerCheck =>
+      'Нет связи с сервером — не проверить, есть ли уже товар с этим штрихкодом. Повторите, когда появится связь.';
+
+  @override
+  String pALinesLeft(int n) {
+    return 'Не принято строк: $n — они остались в списке, поправьте и проведите снова.';
+  }
+
+  @override
+  String get pAPluLabel => 'PLU для весов';
+
+  @override
+  String get pAPluHint => 'пусто — назначится сам';
+
+  @override
+  String get pAStockAdd => 'Прибавить к остатку';
+
+  @override
+  String get pAStockSet => 'Задать остаток';
+
+  @override
+  String get pAStockAddHint =>
+      'Количество из файла прибавится к остатку, как приход.';
+
+  @override
+  String get pAStockSetHint =>
+      'Остаток станет равен количеству из файла (замена, не приход).';
+
+  @override
+  String pADupRow(int n) {
+    return 'Повтор строки $n — пропускается';
+  }
+
+  @override
+  String get pAUploaded => 'загружено';
+
+  @override
+  String get rightCashier => 'Интерфейс кассира';
+
+  @override
+  String get rightOrders => 'Заказы с сайта';
+
+  @override
+  String get rightProcurement => 'Закупки';
+
+  @override
+  String get rightSuppliers => 'Поставщики';
+
+  @override
+  String get rightSelfLocked =>
+      'Свои права выключить нельзя — это делает владелец или другой администратор.';
+
+  @override
+  String get staffYou => 'это вы';
+
+  @override
+  String get screenUnavailable =>
+      'Экран открылся заново, и его данные не сохранились. Вернитесь назад и откройте его ещё раз.';
+
+  @override
+  String get cancelOrder => 'Отменить заказ';
+
+  @override
+  String cancelOrderAsk(String number) {
+    return 'Отменить заказ №$number? Покупатель его не получит.';
+  }
+
+  @override
+  String pickShortAsk(String got, String need) {
+    return 'Собрано $got из $need. Отметить заказ собранным с недобором?';
+  }
+
+  @override
+  String pickupCodeLabel(String code) {
+    return 'Код выдачи: $code';
+  }
+
+  @override
+  String get torchToggle => 'Фонарик';
+
+  @override
+  String get payTransferQr => 'Перевод / QR';
+
+  @override
+  String get reportLoadFailed =>
+      'Отчёт не загрузился. Проверьте связь и нажмите «Повторить».';
+
+  @override
+  String get rentalLatePerDay => 'Пеня за сутки просрочки';
+
+  @override
+  String rentalLateHint(int n, String rate, String sum) {
+    return 'Просрочка $n сут. × $rate = $sum сом (по условиям проката)';
+  }
+
+  @override
+  String rentalBackDeposit(String sum) {
+    return 'Вернуть клиенту залог: $sum сом';
+  }
+
+  @override
+  String rentalWithheld(String sum) {
+    return 'удержано $sum сом';
+  }
+
+  @override
+  String rentalBackDocument(String doc) {
+    return 'Вернуть клиенту документ: $doc';
+  }
+
+  @override
+  String rentalExcess(String sum) {
+    return 'Штраф сверх залога: $sum сом — добавится в чек';
+  }
+
+  @override
+  String rentalPenaltyLine(int n) {
+    return 'Штраф по прокату №$n';
+  }
+
+  @override
+  String rentalPenaltyInCart(String sum) {
+    return 'Возврат принят. Штраф $sum сом добавлен в чек — проведите оплату.';
+  }
+
+  @override
+  String get waybillDoc => 'Накладная';
+
+  @override
+  String get waybillsFilter => 'Накладные';
+
+  @override
+  String get docPayMarkOnly =>
+      'Это только отметка в документе: деньги в кассу смены и долг клиента в NurCRM не записываются. Чтобы провести деньги через кассу, используйте «Провести продажу».';
+
+  @override
+  String get docPayMarkOk => 'Отметить оплату';
+
+  @override
+  String get docSellCartBusy =>
+      'В чеке уже есть товары. Заменить их товарами документа?';
+
+  @override
+  String get docSellReplace => 'Заменить';
+
+  @override
+  String get docSentToSale => 'Передан в продажу';
+
+  @override
+  String docSellMissing(String names) {
+    return 'Нет в каталоге телефона — добавьте вручную: $names';
+  }
+
+  @override
+  String docVatIncl(String p) {
+    return 'В т.ч. НДС $p%';
+  }
+
+  @override
+  String get prnQr => 'QR-код на чеке';
+
+  @override
+  String get prnQrHint =>
+      'Проверка фискального чека или электронный чек. Если принтер печатает вместо QR лишние знаки — выключите.';
+
+  @override
+  String get prnDrawer => 'Денежный ящик через принтер';
+
+  @override
+  String get prnDrawerHint =>
+      'Открывается после продажи за наличные (ящик подключён к принтеру кабелем).';
+
+  @override
+  String prnDrawerPin(int n) {
+    return 'Контакт $n';
+  }
+
+  @override
+  String get prnDrawerTest => 'Открыть ящик';
+
+  @override
+  String get prnDrawerSent =>
+      'Команда ящику отправлена. Не открылся — выберите другой контакт.';
+
+  @override
+  String get stepPhoto => 'Фото';
+
+  @override
+  String get stepBarcode => 'Штрихкод';
+
+  @override
+  String get bindTitle =>
+      'Фото сохранены ✓ — теперь отсканируйте штрихкод товара';
+
+  @override
+  String get bindSub => 'Если на товаре нет штрихкода — нажмите «Пропустить»';
+
+  @override
+  String get bindSkip => 'Пропустить';
+
+  @override
+  String get bindManual => 'Ввести вручную';
+
+  @override
+  String get bindManualHint => 'Цифры под штрихкодом';
+
+  @override
+  String get bindChecking => 'Проверяю штрихкод…';
+
+  @override
+  String bindWillLink(String code, String name) {
+    return 'Штрихкод $code будет привязан к «$name»';
+  }
+
+  @override
+  String bindWillLinkNew(String code) {
+    return 'Штрихкод $code будет привязан к новому товару';
+  }
+
+  @override
+  String bindAlreadyOwn(String code, String name) {
+    return 'Штрихкод $code уже привязан к «$name» — менять ничего не нужно';
+  }
+
+  @override
+  String get bindTakenTitle => 'Штрихкод уже у другого товара';
+
+  @override
+  String bindTakenAsk(String code, String name) {
+    return 'Штрихкод $code уже привязан к «$name».\n«Заменить» — штрихкод перейдёт к этому товару.\n«Оставить» — останется у «$name», этот товар будет без штрихкода.';
+  }
+
+  @override
+  String bindTakenAskNew(String code, String name) {
+    return 'Штрихкод $code уже привязан к «$name» — возможно, этот товар уже есть на складе.\n«Оставить» — штрихкод останется у «$name», новый товар будет без штрихкода.';
+  }
+
+  @override
+  String get bindReplace => 'Заменить';
+
+  @override
+  String get bindKeep => 'Оставить';
+
+  @override
+  String get bindRescan => 'Сканировать заново';
+
+  @override
+  String bindLinked(String code, String name) {
+    return 'Штрихкод $code привязан к «$name»';
+  }
+
+  @override
+  String get teachNext =>
+      'Снимите товар с 3–5 сторон, затем «Готово» — следующим шагом штрихкод';
+
+  @override
+  String get teachNextNoCode =>
+      'Снимите товар с 3–5 сторон, затем нажмите «Готово»';
+
+  @override
+  String get liveNextSale =>
+      'Найденные товары появятся ниже — нажмите товар, и он ляжет в чек';
+
+  @override
+  String get liveNextList =>
+      'После снимка камера покажет список найденного — его можно поправить';
+
+  @override
+  String get scanCodesHint =>
+      'Наведите рамку на штрихкод — код запишется сам. Затем нажмите «Готово»';
+
+  @override
+  String get weighNext => 'Камера узнает товар, прочитает вес и добавит в чек';
+
+  @override
+  String get weighManualBtn => 'Без камеры — выбрать товар и ввести вес';
+
+  @override
+  String get peEdit => 'Редактировать товар';
+
+  @override
+  String get peName => 'Название';
+
+  @override
+  String get peMinQty => 'Минимальный остаток';
+
+  @override
+  String get peMinQtyHint => 'Меньше — товар попадёт в «Заканчивается»';
+
+  @override
+  String get peStock => 'Остаток';
+
+  @override
+  String get peStockHint =>
+      'Остаток меняется только документом — приходом, списанием или ревизией с причиной, как на ПК. Так не бывает расхождений.';
+
+  @override
+  String get peIncome => 'Приход';
+
+  @override
+  String get peWriteOff => 'Списание';
+
+  @override
+  String get peRecount => 'Ревизия';
+
+  @override
+  String get peQtyIn => 'Сколько пришло';
+
+  @override
+  String get peQtyOut => 'Сколько списать';
+
+  @override
+  String get peQtyFact => 'Сколько на самом деле';
+
+  @override
+  String get peReason => 'Причина';
+
+  @override
+  String get peReasonNeed => 'Укажите причину.';
+
+  @override
+  String get peReasonExpired => 'Просрочка';
+
+  @override
+  String get peReasonDefect => 'Брак';
+
+  @override
+  String get peReasonSpoiled => 'Порча';
+
+  @override
+  String get peReasonTheft => 'Кража';
+
+  @override
+  String get peReasonOther => 'Другое';
+
+  @override
+  String get peReasonSupplier => 'Поставка';
+
+  @override
+  String get peReasonCount => 'Пересчёт';
+
+  @override
+  String get peApply => 'Провести';
+
+  @override
+  String peStockDone(String from, String to) {
+    return 'Остаток: $from → $to';
+  }
+
+  @override
+  String peStockSame(String qty) {
+    return 'Остаток уже $qty — ничего не изменено.';
+  }
+
+  @override
+  String get peStockQueued => 'Документ создан — проведётся сам при связи.';
+
+  @override
+  String get peStockOffline =>
+      'Нет связи с сервером — остаток не получен, ничего не изменено.';
+
+  @override
+  String peStockBelowZero(String qty) {
+    return 'Списать больше остатка нельзя (есть $qty).';
+  }
+
+  @override
+  String get peSaved => 'Товар сохранён.';
+
+  @override
+  String get peNoChanges => 'Изменений нет.';
+
+  @override
+  String pePriceRestored(String price) {
+    return 'Сервер пересчитал цену продажи по наценке — введённая цена $price возвращена.';
+  }
+
+  @override
+  String get pePriceLocked =>
+      'Цены меняет сотрудник с правом «Изменение цены».';
+
+  @override
+  String get peLoadFailed =>
+      'Карточка товара не загружена с сервера — править можно при связи.';
+
+  @override
+  String get peNameNeed => 'Введите название.';
+
+  @override
+  String peBarcodeTaken(String code, String name) {
+    return 'Штрихкод $code уже у товара «$name».';
+  }
+
+  @override
+  String peBarcodeTwice(String code) {
+    return 'Штрихкод $code указан дважды.';
+  }
+
+  @override
+  String get peScan => 'Сканировать';
+
+  @override
+  String pePackQty(String qty) {
+    return 'в упаковке $qty';
+  }
+
+  @override
+  String get peNoAccess =>
+      'Править товар может сотрудник с правом «Склад» или администратор.';
 }

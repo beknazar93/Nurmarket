@@ -99,6 +99,60 @@ public static class ExchangeCashCorrections
         PosDataEvents.RaiseSalesChanged();
     }
 
+    /// <summary>2026-10-22 (аудит 1.17.59, П-А): та же поправка для долговых операций. Сервер считает в «ожидаемо в кассе»
+    /// безналичную предоплату долга наличными (+N) и не вычитает наличные при возврате долгового чека (журнал смены верный,
+    /// шапка «Касса» врала). <paramref name="overstated"/> — на сколько сервер ушёл от реального движения наличных
+    /// (изменение остатка минус наличные, прошедшие через ящик); поправка пишется, только если оно равно известной сумме
+    /// <paramref name="suspect"/> (чужие операции в это же время её не вызывают). Исправят сервер — разницы не будет.</summary>
+    public static void RecordIfKnownServerError(string? shiftId, string key, decimal overstated, decimal suspect, string what)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId) || string.IsNullOrWhiteSpace(key) || suspect <= 0m)
+            return;
+        if (Math.Abs(overstated) < 0.01m)
+            return;
+        if (Math.Abs(overstated - suspect) >= 0.01m)
+        {
+            PosLogger.Log($"{what}: остаток смены на сервере разошёлся с кассой на {overstated:0.00} — не похоже на известную ошибку ({suspect:0.00}), поправку не пишем.", "WARNING");
+            return;
+        }
+        lock (FileLock)
+        {
+            var list = Load();
+            if (list.Any(e => string.Equals(e.ExchangeId, key, StringComparison.OrdinalIgnoreCase)))
+                return;
+            list.Add(new Entry { ShiftId = shiftId, ExchangeId = key, Amount = -overstated, CreatedAt = DateTime.Now });
+            list.RemoveAll(e => e.CreatedAt < DateTime.Now.AddDays(-60));
+            Save(list);
+        }
+        PosLogger.Log($"{what}: сервер ошибся в остатке смены на {overstated:0.00} — касса учитывает поправку.", "WARNING");
+        PosDataEvents.RaiseSalesChanged();
+    }
+
+    /// <summary>2026-10-23 (живой аудит, Б-1): возврат долгового чека с безналичной предоплатой — сервер вычел её из
+    /// «ожидаемо в кассе» (запись «Возврат по чеку (Наличные)»), то есть ошибка предоплаты сама обнулилась. Старая поправка
+    /// «debtprepay:…saleId…» больше не нужна — иначе закрытие смены предлагает на сумму предоплаты меньше. Возвращает true, если снята.</summary>
+    public static bool RemoveDebtPrepay(string? shiftId, string? saleId)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId) || string.IsNullOrWhiteSpace(saleId))
+            return false;
+        bool removed;
+        lock (FileLock)
+        {
+            var list = Load();
+            removed = list.RemoveAll(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)
+                && e.ExchangeId.StartsWith("debtprepay:", StringComparison.OrdinalIgnoreCase)
+                && e.ExchangeId.Contains(saleId, StringComparison.OrdinalIgnoreCase)) > 0;
+            if (removed)
+                Save(list);
+        }
+        if (removed)
+        {
+            PosLogger.Log($"Возврат долгового чека {saleId}: сервер вычел безналичную предоплату сам — поправка снята.", "WARNING");
+            PosDataEvents.RaiseSalesChanged();
+        }
+        return removed;
+    }
+
     private static List<Entry> Load()
     {
         try

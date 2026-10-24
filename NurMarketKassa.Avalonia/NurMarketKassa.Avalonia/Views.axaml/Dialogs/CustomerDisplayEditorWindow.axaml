@@ -5,13 +5,15 @@
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CustomerDisplayEditorWindow"
         x:CompileBindings="False"
         Width="1180" Height="760"
-        MinWidth="900" MinHeight="580"
+        MinWidth="900" MinHeight="440"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
 
+    <!-- 2026-10-22 (модалки, пакет 4): MinHeight 440 (было 580 — на 910×512 и 1024×600 низ с «Сохранить» уходил за экран),
+         кнопки низа 44 px (Esc — свой обработчик окна, как раньше). -->
     <!-- Редактор экрана покупателя (2026-09-28, «редактор 2 экран покупателя тоже добавь»). Слева —
          вид экрана («как у кассы» или один из шести), надписи, цвета, размер суммы и что показывать;
          справа — живой предпросмотр: тот же CustomerDisplayView, что на втором мониторе, с образцом
@@ -221,7 +223,7 @@
             <!-- ============ низ ============ -->
             <Border Grid.Row="2" Padding="24,12" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
                 <Grid ColumnDefinitions="Auto,*,Auto,8,Auto">
-                    <Button x:Name="ResetButton" Classes="lx-btn" MinHeight="36" Click="Reset_Click">
+                    <Button x:Name="ResetButton" Classes="lx-btn" MinHeight="44" Click="Reset_Click">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <PathIcon Data="{StaticResource IconUndo}" Width="14" Height="14"/>
                             <TextBlock x:Name="ResetText" VerticalAlignment="Center"/>
@@ -229,8 +231,8 @@
                     </Button>
                     <TextBlock x:Name="StatusText" Grid.Column="1" VerticalAlignment="Center" FontSize="12" TextWrapping="Wrap" Margin="14,0"
                                Foreground="{DynamicResource BrushTextSoft}"/>
-                    <Button x:Name="CancelButton" Grid.Column="2" Classes="lx-btn" MinWidth="110" MinHeight="36" Click="Cancel_Click"/>
-                    <Button x:Name="SaveButton" Grid.Column="4" Classes="lx-accent" MinWidth="150" MinHeight="36" Click="Save_Click"/>
+                    <Button x:Name="CancelButton" Grid.Column="2" Classes="lx-btn" MinWidth="110" MinHeight="44" Click="Cancel_Click"/>
+                    <Button x:Name="SaveButton" Grid.Column="4" Classes="lx-accent" MinWidth="150" MinHeight="44" Click="Save_Click"/>
                 </Grid>
             </Border>
         </Grid>

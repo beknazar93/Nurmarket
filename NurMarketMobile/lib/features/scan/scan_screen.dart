@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +11,13 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../sale/sale_screen.dart';
+import 'barcode_lookup.dart';
+import 'code_lookup.dart';
+import 'live_shot.dart';
+import 'shot_flow.dart';
+import '../../core/util/beep.dart';
 import 'scan_animations.dart';
+import 'cam_label.dart';
 import 'smart_camera.dart';
 import 'weigh_camera.dart';
 
@@ -28,18 +36,29 @@ class ScanScreen extends ConsumerStatefulWidget {
 
 class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObserver {
   final _camera = MobileScannerController(
-    formats: const [BarcodeFormat.ean13, BarcodeFormat.ean8, BarcodeFormat.code128, BarcodeFormat.upcA, BarcodeFormat.upcE, BarcodeFormat.qrCode],
+    // 2026-10-22 (аудит С-7): + ITF (коробки GTIN-14 в приёмке)
+    formats: const [BarcodeFormat.ean13, BarcodeFormat.ean8, BarcodeFormat.code128, BarcodeFormat.upcA, BarcodeFormat.upcE, BarcodeFormat.itf14, BarcodeFormat.qrCode],
     // 13.10, телефон владельца: при noDuplicates тот же штрихкод второй раз не приходил, пока камера не увидит другой, —
-    // две пачки Mars подряд не добавлялись. Повтор отсекаем сами (_onDetect: тот же код не чаще раза в 1,5 с).
+    // две пачки Mars подряд не добавлялись. Повтор отсекаем сами (_isNewScan).
     detectionSpeed: DetectionSpeed.normal,
+    // 2026-10-22 (скорость скана): пауза между кадрами с кодом 100 мс вместо 250 — следующий товар в кассу быстрее;
+    // картинка кадра в Dart не возвращается (returnImage: false — по умолчанию, указано явно), анализ — в стандартном
+    // разрешении плагина (не 4K).
+    detectionTimeoutMs: 100,
+    returnImage: false,
+    // 2026-10-22 (аудит С-8): мелкий код — камера сама приближает (Android)
+    autoZoom: true,
   );
   late ScanMode _mode = widget.initial;
   Product? _found;
-  String? _lastCode;
-  DateTime _lastAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// 2026-10-22 (аудит С-1): повтор скана — по каждому коду отдельно ([ScanRepeat]).
+  late final _repeat = ScanRepeat(receiving: widget.returnCodes);
+
+  /// Идёт разбор кода (окно размера одежды, вопрос «добавить товар?») — новые коды не берём (аудит С-3).
+  bool _processing = false;
   double _qty = 1;
   bool _continuous = true;
-  bool _torch = false;
   final _received = <String>[];
   final _frame = GlobalKey<ScanFrameState>();
   final _popups = GlobalKey<ScanPopupsState>();
@@ -52,6 +71,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // 2026-10-22 (скорость скана): список камер — заранее, пока сканер включается: переход в умную камеру без паузы
+    unawaited(CameraGate.warmUp());
+    // правила весовых этикеток компании (префикс «сумма» у Rongta и т. п.)
+    unawaited(ScaleRulesLoader.ensure(ref.read(databaseProvider), ref.read(apiProvider)).catchError((_) {}));
   }
 
   @override
@@ -72,48 +95,89 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
         _camera.stop();
-        if (_torch) setState(() => _torch = false);
       default:
         break;
     }
   }
 
+  /// Код ближе всех к центру кадра (рамка — в центре): соседний товар на прилавке не считывается.
+  static String? _nearestCode(BarcodeCapture capture) {
+    String? best;
+    var bestD = double.infinity;
+    final w = capture.size.width, h = capture.size.height;
+    for (final b in capture.barcodes) {
+      final code = normalizeCode(b.rawValue);
+      if (code.isEmpty) continue;
+      var d = 0.0;
+      if (b.corners.isNotEmpty && w > 0 && h > 0) {
+        final cx = b.corners.map((o) => o.dx).reduce((a, c) => a + c) / b.corners.length / w - .5;
+        final cy = b.corners.map((o) => o.dy).reduce((a, c) => a + c) / b.corners.length / h - .5;
+        d = cx * cx + cy * cy;
+      }
+      if (d < bestD) {
+        bestD = d;
+        best = code;
+      }
+    }
+    return best;
+  }
+
   Future<void> _onDetect(BarcodeCapture capture) async {
-    final code = capture.barcodes.firstOrNull?.rawValue?.trim();
-    if (code == null || code.isEmpty) return;
-    // Тот же код подряд — не чаще раза в 1,5 с: одна пачка под камерой не добавляется пять раз.
-    if (code == _lastCode && DateTime.now().difference(_lastAt) < const Duration(milliseconds: 1500)) return;
-    _lastCode = code;
-    _lastAt = DateTime.now();
+    final code = _nearestCode(capture);
+    if (code == null) return;
+    final now = DateTime.now();
+    _repeat.receiving = widget.returnCodes || _mode != ScanMode.sale;
+    if (!_repeat.isNew(code, now) || _processing || _asking) return;
+    _repeat.counted(code, now);
+    _processing = true;
+    try {
+      await _handleCode(code);
+    } finally {
+      _processing = false;
+      // пока шёл разбор (окно размера), код был в кадре — «ушёл из кадра» считаем от конца разбора
+      _repeat.seen(code, DateTime.now());
+    }
+  }
+
+  Future<void> _handleCode(String code) async {
     HapticFeedback.mediumImpact();
-    SystemSound.play(SystemSoundType.click);
+    // 2026-10-22 (мобилка, админ): бип через Android (слышен и при выключенных звуках касаний), было SystemSound.click.
+    Beep.ok();
+    final db = ref.read(databaseProvider);
 
     if (widget.returnCodes) {
       _received.add(code);
       _frame.currentState?.success();
-      final p = (await ref.read(databaseProvider).productByScan(code))?.product;
+      // приёмка: этикетка весов — не товар поставки
+      final p = (await db.productByScan(code, allowWeightLabel: false))?.product;
       _popups.currentState?.add(p == null ? '+1 · $code' : '+1 ${p.name}', color: p == null ? T.warn : T.success);
-      setState(() {});
+      if (mounted) setState(() {});
       return;
     }
-    final hit = await ref.read(databaseProvider).productByScan(code);
+    // 2026-10-22 (аудит С-4): незнакомый код — сначала сервер (2 с), как касса; без связи — не предлагать дубль
+    final hit = await CodeLookup.find(db, ref.read(apiProvider), code);
     if (!mounted) return;
-    final p = hit?.product;
+    final p = hit.product;
     if (p == null) {
       _frame.currentState?.fail();
       HapticFeedback.heavyImpact();
-      await _offerNewProduct(code);
+      Beep.error();
+      if (hit.unavailable) {
+        toast(context, context.l.notFoundOffline(code), error: true);
+      } else {
+        await _offerNewProduct(code);
+      }
       return;
     }
     _frame.currentState?.success();
     setState(() {
       _found = p;
-      _foundQty = hit!.qty;
+      _foundQty = hit.qty;
       _qty = hit.qty ?? 1;
     });
-    if (_mode == ScanMode.sale && _continuous && (!p.isWeight || hit!.qty != null)) {
+    if (_mode == ScanMode.sale && _continuous && (!p.isWeight || hit.qty != null)) {
       // Весовая этикетка несёт вес — добавляем сразу, без вопроса «сколько кг».
-      await addProduct(context, ref, p, qty: hit!.qty);
+      await addProduct(context, ref, p, qty: hit.qty);
       _popups.currentState?.add(hit.qty == null ? '+1 ${p.name}' : '+${qtyText(hit.qty!)} ${p.unit} ${p.name}');
     } else if (_mode == ScanMode.price) {
       _popups.currentState?.add('${money(p.price)} ${context.l.som}', color: T.navy);
@@ -158,9 +222,65 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     }
     _asking = false;
     _handedOver = false;
-    _lastCode = code;
-    _lastAt = DateTime.now(); // тот же штрихкод сразу после возврата не спрашиваем снова
+    _repeat.seen(code, DateTime.now()); // тот же штрихкод сразу после возврата не спрашиваем снова
     if (mounted) await _camera.start();
+  }
+
+  /// 2026-10-22 (аудит П7): какие префиксы весовых этикеток — сумма, какие — вес (у владельца весы Rongta с префиксом 21
+  /// печатают сумму). Общая настройка всех телефонов компании; менять может тот, у кого есть право на товары.
+  Future<void> _scalePrefixes() async {
+    final s = ref.read(sessionProvider);
+    if (s == null || !s.canRoute('/admin/new-product')) return;
+    final l = context.l;
+    final r = ScaleRules.current;
+    final amount = TextEditingController(text: (r.amountPrefixes.toList()..sort()).join(' '));
+    final weight = TextEditingController(text: (r.weightPrefixes.toList()..sort()).join(' '));
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l.scaleLabelsTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l.scaleLabelsHint, style: TextStyle(color: c.pal.textSoft, fontSize: 13)),
+            const SizedBox(height: 8),
+            TextField(controller: amount, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: l.scaleAmountPrefixes, hintText: '21 25')),
+            TextField(controller: weight, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: l.scaleWeightPrefixes, hintText: '20 22')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.save)),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final a = ScaleRules.parsePrefixes(amount.text);
+    final w = ScaleRules.parsePrefixes(weight.text)..removeAll(a);
+    try {
+      await ScaleRulesLoader.savePrefixes(ref.read(databaseProvider), ref.read(apiProvider), a, w);
+      if (mounted) toast(context, l.saved);
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
+  /// 2026-10-22: камеру сканера отдать другому экрану (умная камера, весы, сканер приёмки): сначала дождаться остановки
+  /// сканера, по возвращении — дождаться, пока умная камера отпустит камеру ([CameraGate]), и только тогда включить сканер.
+  Future<void> _handOver(Future<Object?> Function() open) async {
+    if (_handedOver) return;
+    _handedOver = true;
+    try {
+      await _camera.stop();
+    } catch (_) {}
+    if (!mounted) return;
+    try {
+      await open();
+    } finally {
+      await CameraGate.idle();
+      _handedOver = false;
+      if (mounted) await _camera.start();
+    }
   }
 
   /// 13.10, владелец: «в сканере при нажатии назад приложение должно вернуться в продажу, а не выходить из программы».
@@ -176,10 +296,14 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     }
   }
 
+  /// 2026-10-22 (скорость скана): число позиций в чеке читает только нижняя панель, а не весь экран с камерой —
+  /// добавление товара больше не перерисовывает видоискатель, рамку и верхнюю панель.
+  Widget _sheetWithCount(BuildContext context, Product p) =>
+      Consumer(builder: (context, ref, _) => _sheet(context, p, ref.watch(cartProvider).count));
+
   @override
   Widget build(BuildContext context) {
     final l = context.l;
-    final cart = ref.watch(cartProvider);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -190,16 +314,40 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
         body: Stack(
           children: [
             Positioned.fill(
-              child: MobileScanner(
-                controller: _camera,
-                onDetect: _onDetect,
-                errorBuilder: (c, e) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      l.cameraUnavailable,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white70),
+              child: LayoutBuilder(
+                builder: (context, box) => MobileScanner(
+                  controller: _camera,
+                  onDetect: _onDetect,
+                  // 2026-10-22 (аудит С-2): чёрный экран — MobileScanner сам включал камеру при возврате в приложение, мимо
+                  // _handedOver (камеру в это время держала умная камера или весы). Жизненным циклом управляет этот экран.
+                  useAppLifecycleState: false,
+                  // 2026-10-22 (аудит С-1): читается только рамка (с запасом), а не весь кадр
+                  scanWindow: Rect.fromCenter(center: box.biggest.center(Offset.zero), width: 330, height: 230),
+                  errorBuilder: (c, e) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            l.cameraUnavailable,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                          const SizedBox(height: 12),
+                          // 2026-10-22 (аудит С-6): после «Разрешить» в настройках — включить снова, без переустановки
+                          FilledButton.icon(
+                            onPressed: () async {
+                              try {
+                                await _camera.stop();
+                                await _camera.start();
+                              } catch (_) {}
+                            },
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: Text(l.retry),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -213,7 +361,18 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
             ),
             Align(
               alignment: const Alignment(0, .28),
-              child: Text(widget.returnCodes ? l.scanReceiveHint(_received.length) : l.scanHint, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              // 2026-10-22: сканер кодов (доп. штрихкод, приёмка) — пока ничего не отсканировано, сказать, что делать и что дальше
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                // 2026-10-22 (подпись «Умная камера»): подсказка сканера — на тёмной подложке, читается на светлом кадре
+                child: CamLabel(
+                  widget.returnCodes ? (_received.isEmpty ? l.scanCodesHint : l.scanReceiveHint(_received.length)) : l.scanHint,
+                  size: 15,
+                  weight: FontWeight.w700,
+                  align: TextAlign.center,
+                  maxLines: 3,
+                ),
+              ),
             ),
             // Верхняя панель — только сверху и по высоте кнопок, что бы ни было внутри.
             Align(
@@ -229,7 +388,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(color: const Color(0x33FFFFFF), borderRadius: BorderRadius.circular(14)),
+                            decoration: BoxDecoration(color: camShade, borderRadius: BorderRadius.circular(14)),
                             child: Row(
                               children: [
                                 for (final (m, label) in [
@@ -241,50 +400,48 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                                 ])
                                   Expanded(
                                     child: GestureDetector(
+                                      // 2026-10-22 (аудит П7): долгое нажатие на «Весы» — префиксы этикеток весов компании
+                                      onLongPress: m == ScanMode.weigh ? _scalePrefixes : null,
                                       onTap: () {
                                         // 13.10, владелец: «умная камера при продаже где?» — «По виду»: снимок товара без штрихкода,
                                         // ИИ узнаёт его и находит в каталоге; камеру сканера на время снимка отдаём системной камере.
                                         // 2026-10-20, владелец: «ставить картошку… умной камерой сканирует вместе с показаниями весов».
+                                        // 2026-10-22: «умная камера после сканера очень долго думает» и чёрный экран — сканер не
+                                        // ждал, пока остановится, а умная камера уже включалась на ту же камеру. Теперь _handOver.
                                         if (m == ScanMode.weigh) {
-                                          _handedOver = true;
-                                          _camera.stop();
-                                          weighForSale(context, ref).whenComplete(() {
-                                            _handedOver = false;
-                                            if (mounted) _camera.start();
-                                          });
+                                          _handOver(() => weighForSale(context, ref));
                                           return;
                                         }
                                         if (m == ScanMode.look) {
-                                          _handedOver = true;
-                                          _camera.stop();
-                                          recognizeForSale(context, ref).whenComplete(() {
-                                            _handedOver = false;
-                                            if (mounted) _camera.start();
-                                          });
+                                          _handOver(() => recognizeForSale(context, ref));
                                           return;
                                         }
                                         if (m == ScanMode.receive) {
                                           // Вторая камера (сканер приёмки) не откроется, пока работает эта — останавливаем и включаем по возвращении.
-                                          _handedOver = true;
-                                          _camera.stop();
-                                          context.push('/stock/receive').then((_) {
-                                            _handedOver = false;
-                                            if (mounted) _camera.start();
-                                          });
+                                          _handOver(() => context.push('/stock/receive'));
                                           return;
                                         }
                                         setState(() => _mode = m);
                                       },
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(vertical: 9),
+                                        constraints: const BoxConstraints(minHeight: 48),
+                                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
                                         decoration: BoxDecoration(color: _mode == m ? T.accent : Colors.transparent, borderRadius: BorderRadius.circular(10)),
                                         // 13.10, телефон владельца: alignment растягивал плашку на всю высоту экрана поверх камеры —
                                         // по центру ставим сам текст, высота — по тексту.
-                                        child: Text(
-                                          label,
-                                          maxLines: 1,
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _mode == m ? T.navy : Colors.white),
+                                        // 2026-10-22 (подпись «Умная камера»): heightFactor — центр по высоте 48, но без растягивания на экран
+                                        child: Center(
+                                          heightFactor: 1,
+                                          // при крупном шрифте подпись уменьшается, а не рвётся посреди слова
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              label,
+                                              maxLines: 1,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _mode == m ? T.navy : Colors.white),
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -296,12 +453,19 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                       else
                         const Spacer(),
                       const SizedBox(width: 10),
-                      _Round(
-                        icon: _torch ? Icons.flash_on_rounded : Icons.flash_off_rounded,
-                        onTap: () async {
-                          await _camera.toggleTorch();
-                          setState(() => _torch = !_torch);
-                        },
+                      // 2026-10-22 (аудит С-9): состояние фонарика — от камеры; нет вспышки — кнопки нет
+                      ValueListenableBuilder(
+                        valueListenable: _camera,
+                        builder: (context, v, _) => v.torchState == TorchState.unavailable
+                            ? const SizedBox(width: 46)
+                            : _Round(
+                                icon: v.torchState == TorchState.on ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                                onTap: () async {
+                                  try {
+                                    await _camera.toggleTorch();
+                                  } catch (_) {}
+                                },
+                              ),
                       ),
                     ],
                   ),
@@ -328,7 +492,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                     position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(a),
                     child: child,
                   ),
-                  child: _found == null ? const SizedBox.shrink() : KeyedSubtree(key: ValueKey(_found!.id), child: _sheet(context, _found!, cart.count)),
+                  child: _found == null ? const SizedBox.shrink() : KeyedSubtree(key: ValueKey(_found!.id), child: _sheetWithCount(context, _found!)),
                 ),
               ),
           ],
@@ -454,12 +618,12 @@ class _Round extends StatelessWidget {
   const _Round({required this.icon, required this.onTap});
   @override
   Widget build(BuildContext context) => Material(
-    color: const Color(0x33FFFFFF),
+    color: camShade,
     shape: const CircleBorder(),
     child: InkWell(
       customBorder: const CircleBorder(),
       onTap: onTap,
-      child: SizedBox(width: 46, height: 46, child: Icon(icon, color: Colors.white)),
+      child: SizedBox(width: 48, height: 48, child: Icon(icon, color: Colors.white)),
     ),
   );
 }

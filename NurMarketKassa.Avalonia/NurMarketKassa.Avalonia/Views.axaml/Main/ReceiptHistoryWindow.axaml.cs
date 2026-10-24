@@ -108,9 +108,93 @@ public partial class ReceiptHistoryWindow : Window
         }
     }
 
+    // 2026-10-24 (приёмка, ПР-4): размер и место окна кассы, которые надо повторить в первом Opened, если до показа не применились.
+    private Window? _geometryRoot;
+    private bool _geometryRetried;
+
+    /// <summary>2026-10-24 (аудит круга 8, С-11, пакет П-10; приёмка, ПР-4): окно кассы не развёрнуто (1296×879 на экране 1920×1032) —
+    /// История чеков открывалась на весь экран (1440×753). Теперь: корневое окно кассы развёрнуто — История на весь экран;
+    /// иначе — по размеру (ClientSize) и месту (левый верхний угол клиентской области) окна кассы. В XAML состояние окна не задано
+    /// (раньше стояло Maximized и перебивало размер). Владелец ставится до показа окна (Window.ShowDialog), поэтому размер меняем здесь.</summary>
+#if !NURANDROID // 2026-10-24: в Android-оболочке (NurMarketKassa.Window) нет OwnerProperty — сборка APK падала CS0103; на Android размер по окну кассы и так не применяется (IsAndroid ниже)
+    protected override void OnPropertyChanged(Avalonia.AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property != OwnerProperty || OperatingSystem.IsAndroid())
+            return;
+        try
+        {
+            var root = change.NewValue as Window;
+            while (root?.Owner is Window parent)
+                root = parent;
+            if (root is null || !root.IsVisible)
+            {
+                WindowState = WindowState.Maximized; // владельца нет — прежнее поведение: на весь экран
+                return;
+            }
+            _geometryRoot = root;
+            ApplyOwnerGeometry(root);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История чеков: размер по окну кассы: {ex.Message}", "WARNING");
+        }
+    }
+#endif
+
+    /// <summary>2026-10-24 (приёмка, ПР-4): развёрнутая касса — История на весь экран; обычная — тот же размер и то же место.</summary>
+    private void ApplyOwnerGeometry(Window root)
+    {
+        if (root.WindowState != WindowState.Normal)
+        {
+            WindowState = WindowState.Maximized;
+            return;
+        }
+        var size = root.ClientSize;
+        if (size.Width <= 0 || size.Height <= 0)
+        {
+            WindowState = WindowState.Maximized;
+            return;
+        }
+        var topLeft = Avalonia.VisualExtensions.PointToScreen(root, new Avalonia.Point(0, 0));
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        WindowState = WindowState.Normal;
+        Width = size.Width;
+        Height = size.Height;
+        Position = topLeft;
+    }
+
+    /// <summary>2026-10-24 (приёмка, ПР-4): если размер до показа не применился — один раз повторяем в первом Opened. Владелец ставится
+    /// уже после показа окна, а первый проход разметки (по размеру экрана) приходит позже — поэтому повтор идёт отложенно (Background),
+    /// после него, а не внутри Opened.</summary>
+    private void RetryOwnerGeometryOnce()
+    {
+        if (_geometryRetried || _geometryRoot is null || OperatingSystem.IsAndroid())
+            return;
+        _geometryRetried = true;
+        try
+        {
+            var root = _geometryRoot;
+            if (root.WindowState != WindowState.Normal)
+            {
+                if (WindowState != WindowState.Maximized)
+                    WindowState = WindowState.Maximized;
+                return;
+            }
+            var size = root.ClientSize;
+            if (WindowState != WindowState.Normal || Math.Abs(ClientSize.Width - size.Width) > 2 || Math.Abs(ClientSize.Height - size.Height) > 2)
+                ApplyOwnerGeometry(root);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История чеков: повтор размера по окну кассы: {ex.Message}", "WARNING");
+        }
+    }
+
     private async void OnFirstOpened(object? sender, EventArgs e)
     {
         Opened -= OnFirstOpened;
+        Avalonia.Threading.Dispatcher.UIThread.Post(RetryOwnerGeometryOnce, Avalonia.Threading.DispatcherPriority.Background);
         ApplyShiftAvailability();
         await LoadAsync().ConfigureAwait(true);
     }
@@ -1020,6 +1104,12 @@ public partial class ReceiptHistoryWindow : Window
         }
 
         public ReceiptHistoryEntry Entry { get; }
+
+        // 2026-10-22 (модалки, пакет 1, живой аудит): диктор читал у строки истории «ReceiptHistoryWindow+RowVm» —
+        // теперь «Чек 001788, 12:40, 1 620,00 сом, Возврат».
+        public override string ToString() =>
+            Tr.T("Чек", "Чек", "Receipt", "Fiş", "Chek") + $" {NumberText}, {TimeText}, {TotalText}"
+            + (string.IsNullOrWhiteSpace(StatusText) ? "" : ", " + StatusText);
 
         public string NumberText => Entry.ReceiptNumber;
 

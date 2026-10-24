@@ -62,9 +62,22 @@ public sealed class DebtSaleRow
 
     public bool RemainingKnown => !RemainingUnknown;
 
+    /// <summary>2026-10-22 (аудит 1.17.59, П-Б): сумма в поле ввода — «121,00» (запятая), а не «121.00»; разбор CashAmountInput принимает оба.</summary>
+    public static string InputText(double v) => v.ToString("0.00", CultureInfo.InvariantCulture).Replace('.', ',');
+
     /// <summary>2026-10-21 (ревью денег, A2): «Долг без продажи» (записан в «Клиентах») — сделка клиента без чека. Id — «deal:…»,
     /// оплатить «по чеку» нельзя (адрес оплаты — по продаже), только «одной суммой»: сервер гасит его вместе с чеками.</summary>
     public bool IsNoSale { get; init; }
+
+    /// <summary>2026-10-23 (аудит, круг 8, В-3): исходная сумма долга числом (для чека — debt_amount, иначе total; для долга без
+    /// продажи — debt_amount/amount) — по ней «Долг без продажи» сверяется с чеками клиента.</summary>
+    public double OriginalAmount { get; set; }
+
+    /// <summary>2026-10-23 (аудит, круг 8, В-3): «Долг без продажи» похож на двойную запись чека (та же сумма, та же минута): в
+    /// долг клиента не входит (Amount = 0), оплатить нельзя — проверить на сайте NurCRM.</summary>
+    /// <remarks>2026-10-24 (приёмка, ПР-1): как на сервере — Amount = остаток сделки (в итог долга входит, сервер его считает), строка только
+    /// помечена: «Оплатить» нет, в «Погасить одной суммой» не включается (OneSumRule получает список без неё).</remarks>
+    public bool IsSuspectedDuplicate { get; init; }
 
     /// <summary>2026-10-21 (ревью денег, A2): у строки есть поле суммы и «Оплатить» (точный остаток и это чек, а не долг без продажи).</summary>
     public bool CanPayByReceipt => RemainingKnown && !IsNoSale;
@@ -197,6 +210,18 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         InitializeComponent();
         this.ClampToScreenHeight();
         DataContext = this;
+        // 2026-10-22 (модалки, пакет 2): верхний блок не выше ~45 % окна — остальное всегда у таблицы долгов (на 910×512
+        // плашки «неизвестной оплаты»/предупреждения сжимали таблицу до нуля); сам блок при этом прокручивается.
+        // Клиент ещё не выбран (таблицы нет) — блок поиска без предела.
+        void LimitTop() => TopScroll.MaxHeight = HasSelectedClient && RootGrid.Bounds.Height > 0
+            ? Math.Max(140, Math.Floor(RootGrid.Bounds.Height * 0.45))
+            : double.PositiveInfinity;
+        RootGrid.SizeChanged += (_, _) => LimitTop();
+        ((INotifyPropertyChanged)this).PropertyChanged += (_, a) =>
+        {
+            if (a.PropertyName == nameof(HasSelectedClient))
+                LimitTop();
+        };
         // 2026-10-05, снимок владельца с телефона: кнопка «Погасить» уходила за край, в таблице видна одна
         // строка и обрезанная дата. На телефоне окно во весь экран (WindowLayerHost) и перестраивается здесь.
         AvaloniaHost.Services.NarrowLayout.Attach(this, 700, ApplyNarrowLayout);
@@ -280,7 +305,23 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         $"{Tr.T("Итого к оплате", "Жалпы төлөнө турган сумма", "Total due", "Ödenecek toplam", "Jami to'lanadigan summa")}: " +
         // 2026-10-19, К1: сумма — «64 500,00 сом» (MoneyText), как у владельца; сама сумма та же.
         MoneyText.Som(DebtSales.Where(s => !s.RemainingUnknown).Sum(s => s.Amount))
+        // 2026-10-23 (аудит, круг 8, В-3): есть долг без продажи — сколько его в итоге (в кассе и в списке клиентов суммы расходились).
+        // 2026-10-24 (приёмка, ПР-1): «(в т. ч. без продажи: Y; на проверку: Z)» — Z (похоже на двойную запись) тоже входит в итог, как на сервере.
+        + NoSaleTotalNote(
+            DebtSales.Where(s => s.IsNoSale && !s.RemainingUnknown && !s.IsSuspectedDuplicate).Sum(s => s.Amount),
+            DebtSales.Where(s => s.IsSuspectedDuplicate && !s.RemainingUnknown).Sum(s => s.Amount))
         + DebtPaymentFlow.CheckingSuffix(DebtSales.Count(s => s.RemainingUnknown));
+
+    /// <summary>2026-10-24 (приёмка, ПР-1): приписка к итогу — «без продажи: Y» (Y &gt; 0) и «на проверку: Z» (Z &gt; 0); обе нули — пусто.</summary>
+    internal static string NoSaleTotalNote(double noSale, double toCheck)
+    {
+        var parts = new List<string>();
+        if (noSale > 0.005)
+            parts.Add(Tr.T("без продажи", "сатуусуз", "without a sale", "satışsız", "sotuvsiz") + ": " + MoneyText.Som(noSale));
+        if (toCheck > 0.005)
+            parts.Add(Tr.T("на проверку", "текшерүүгө", "to check", "kontrol için", "tekshirish uchun") + ": " + MoneyText.Som(toCheck));
+        return parts.Count == 0 ? "" : " (" + Tr.T("в т. ч.", "анын ичинде", "incl.", "dahil", "shundan") + " " + string.Join("; ", parts) + ")";
+    }
 
     public string ErrorMessage
     {
@@ -434,7 +475,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         // (весь долг / остаток чека) просто пересчитывается в новый остаток, без красной ошибки.
         var enteredAll = PayAllAmountText != _payAllDefault ? PayAllAmountText : null;
         var enteredRows = DebtSales
-            .Where(r => r.AmountToPayText != r.Amount.ToString("0.00", CultureInfo.InvariantCulture))
+            .Where(r => r.AmountToPayText != DebtSaleRow.InputText(r.Amount))
             .GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.First().AmountToPayText);
         if (!keepInput)
         {
@@ -480,7 +521,8 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                 }
                 // 2026-10-18, ревью после живой проверки (п.3, деньги): неуточнённая строка — среди долгов (не в «Истории»), даже с
                 // нулевой суммой продажи: она участвует в OneSumRule (старый неуточнённый чек закрывает «одной суммой»).
-                if (row.Amount > 0.005 || row.RemainingUnknown)
+                // 2026-10-23 (аудит, круг 8, В-3): «похоже на двойную запись» (Amount 0) — на виду среди долгов, а не в «Истории».
+                if (row.Amount > 0.005 || row.RemainingUnknown || row.IsSuspectedDuplicate)
                     DebtSales.Add(row);
                 else
                     DebtHistory.Add(row);
@@ -500,7 +542,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             }
             if (lowered)
             {
-                var owedText = OneSum.Limit.ToString("0.00", CultureInfo.InvariantCulture);
+                var owedText = DebtSaleRow.InputText(OneSum.Limit);
                 ErrorMessage = Tr.T(
                     $"Остаток долга изменился — введённая сумма больше него и заменена остатком ({owedText} сом). Проверьте сумму.",
                     $"Карыздын калдыгы өзгөрдү — киргизилген сумма андан чоң, калдык менен алмаштырылды ({owedText} сом). Сумманы текшериңиз.",
@@ -551,7 +593,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
 
     /// <summary>2026-10-21 (ревью денег, A2): сделки клиента без продажи с остатком долга (GET clients/{id}/deals/ — у сделки
     /// продажи есть поле sale; сделки уже найденных чеков исключаются по deal_id). Не получилось — пусто, как раньше (WARNING).</summary>
-    private static async Task<List<DebtSaleRow>> LoadNoSaleDebtRowsAsync(string clientId, IReadOnlyList<DebtSaleRow> saleRows, CancellationToken ct)
+    internal static async Task<List<DebtSaleRow>> LoadNoSaleDebtRowsAsync(string clientId, IReadOnlyList<DebtSaleRow> saleRows, CancellationToken ct)
     {
         var result = new List<DebtSaleRow>();
         // Сделка неуточнённого чека неизвестна — её нельзя отличить от долга без продажи (иначе долг посчитался бы дважды).
@@ -578,11 +620,47 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                     continue;
                 if (string.Equals(TryGetString(deal, "kind"), "prepayment", StringComparison.OrdinalIgnoreCase))
                     continue;
+                // 2026-10-24 (приёмка, ПР-1): сделки типа «sale» сервер в долг без продажи (clients/debtors) не считает — это запись
+                // самой продажи («Предоплата тест» на 24 933 — двойник чека «Проверка фото»).
+                if (string.Equals(TryGetString(deal, "kind"), "sale", StringComparison.OrdinalIgnoreCase))
+                    continue;
                 if (TryGetDouble(deal, "remaining_debt") is not { } remaining || remaining <= 0.005)
                     continue;
                 DateTimeOffset.TryParse(TryGetString(deal, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var created);
                 var original = TryGetDouble(deal, "debt_amount") is { } da && da > 0 ? da : TryGetDouble(deal, "amount") ?? remaining;
                 var note = (TryGetString(deal, "note") ?? TryGetString(deal, "comment") ?? "").Trim();
+                // 2026-10-23 (аудит, круг 8, В-3): чек клиента на ту же исходную сумму в те же ±5 минут — «Долг без продажи» похож на
+                // двойную запись этой продажи: оплатить нельзя.
+                // 2026-10-24 (приёмка, ПР-1): правило только ПОМЕЧАЕТ строку — из долга не вычитается (сервер её считает, итог = clients/debtors).
+                var twin = created == default ? null : saleRows.FirstOrDefault(r => !r.IsNoSale && r.CreatedAt != default
+                    && Math.Abs((r.OriginalAmount > 0.005 ? r.OriginalAmount : r.Amount) - original) <= 0.01
+                    && Math.Abs((r.CreatedAt - created).TotalMinutes) <= 5);
+                if (twin is not null)
+                {
+                    PosLogger.Log($"Оплата долга: долг без продажи (сделка {id}) похож на двойную запись чека {twin.Id} — помечен «на проверку», в итог входит, не оплачивается.", "INFO");
+                    result.Add(new DebtSaleRow
+                    {
+                        Id = "deal:" + id,
+                        DealId = id,
+                        IsNoSale = true,
+                        IsSuspectedDuplicate = true,
+                        CreatedAt = created,
+                        DateDisplay = created.LocalDateTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
+                        FirstItemName = Tr.T(
+                            $"Долг без продажи — похоже на двойную запись продажи от {twin.DateDisplay} ({MoneyText.Som(original)}). Проверьте на сайте NurCRM.",
+                            $"Сатуусуз карыз — {twin.DateDisplay} күнүндөгү сатуунун эки жолку жазылышына окшош ({MoneyText.Som(original)}). NurCRM сайтынан текшериңиз.",
+                            $"Debt without a sale — looks like a double entry of the sale from {twin.DateDisplay} ({MoneyText.Som(original)}). Check it on the NurCRM site.",
+                            $"Satışsız borç — {twin.DateDisplay} tarihli satışın çift kaydına benziyor ({MoneyText.Som(original)}). NurCRM sitesinde kontrol edin.",
+                            $"Sotuvsiz qarz — {twin.DateDisplay} dagi sotuvning ikki marta yozilganiga o'xshaydi ({MoneyText.Som(original)}). NurCRM saytida tekshiring."),
+                        Amount = remaining,
+                        AmountDisplay = MoneyText.Som(remaining),
+                        AmountToPayText = "",
+                        SaleRemaining = remaining,
+                        OriginalAmount = original,
+                        OriginalAmountDisplay = MoneyText.Som(original),
+                    });
+                    continue;
+                }
                 result.Add(new DebtSaleRow
                 {
                     Id = "deal:" + id,
@@ -593,13 +671,14 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                     FirstItemName = Tr.T("Долг без продажи", "Сатуусуз карыз", "Debt without a sale", "Satışsız borç", "Sotuvsiz qarz") + (note.Length > 0 ? " — " + note : ""),
                     Amount = remaining,
                     AmountDisplay = MoneyText.Som(remaining),
-                    AmountToPayText = remaining.ToString("0.00", CultureInfo.InvariantCulture),
+                    AmountToPayText = DebtSaleRow.InputText(remaining),
                     SaleRemaining = remaining,
+                    OriginalAmount = original,
                     OriginalAmountDisplay = MoneyText.Som(original),
                 });
             }
             if (result.Count > 0)
-                PosLogger.Log($"Оплата долга: у клиента {clientId} долгов без продажи: {result.Count} на {result.Sum(r => r.Amount):0.00} сом.", "INFO");
+                PosLogger.Log($"Оплата долга: у клиента {clientId} долгов без продажи: {result.Count(r => !r.IsSuspectedDuplicate)} на {result.Where(r => !r.IsSuspectedDuplicate).Sum(r => r.Amount):0.00} сом, похожих на двойную запись: {result.Count(r => r.IsSuspectedDuplicate)} на {result.Where(r => r.IsSuspectedDuplicate).Sum(r => r.Amount):0.00} сом.", "INFO");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -748,7 +827,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     {
         row.Amount = remaining;
         row.AmountDisplay = MoneyText.Som(remaining);
-        row.AmountToPayText = remaining.ToString("0.00", CultureInfo.InvariantCulture);
+        row.AmountToPayText = DebtSaleRow.InputText(remaining);
     }
 
     /// <summary>Код ошибки для журнала — без текста ответа (в нём могут быть данные клиента).</summary>
@@ -826,6 +905,34 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             return;
         }
 
+        // 2026-10-22 (аудит 1.17.59, П-Б): «Оплатить» у строки — только после подтверждения суммы, способа и остатка
+        // (раньше проводило деньги одним нажатием, в отличие от «Погасить»). Общий флаг с PayAll_Click — один вопрос за раз.
+        if (_confirmingPayAll || _selectedClient is not { } rowClient)
+            return;
+        var rowLeftText = DebtPaymentFlow.Money(Math.Max(0, row.Amount - amount));
+        var rowAmountText = DebtPaymentFlow.Money(amount);
+        var rowMethod = DebtPaymentFlow.MethodTitle(SelectedMethod);
+        var rowConfirm = Tr.T($"Принять от «{rowClient.Name}» {rowAmountText} по чеку {row.Label} ({rowMethod})?\nОстанется по чеку: {rowLeftText}",
+            $"«{rowClient.Name}» кардардан {row.Label} чек боюнча {rowAmountText} кабыл алынсынбы ({rowMethod})?\nЧек боюнча калды: {rowLeftText}",
+            $"Accept {rowAmountText} from “{rowClient.Name}” for receipt {row.Label} ({rowMethod})?\nLeft on the receipt: {rowLeftText}",
+            $"«{rowClient.Name}» müşterisinden {row.Label} fişi için {rowAmountText} alınsın mı ({rowMethod})?\nFişte kalan: {rowLeftText}",
+            $"«{rowClient.Name}» mijozdan {row.Label} chek uchun {rowAmountText} qabul qilinsinmi ({rowMethod})?\nChekda qolgan: {rowLeftText}");
+        bool rowConfirmed;
+        _confirmingPayAll = true;
+        try
+        {
+            rowConfirmed = await PosDialogs.ConfirmYesNoModalAsync(this, rowConfirm,
+                Tr.T("Оплата долга", "Карызды төлөө", "Debt payment", "Borç ödemesi", "Qarzni to'lash"),
+                confirmText: Tr.T($"Принять {rowAmountText}", $"{rowAmountText} кабыл алуу", $"Accept {rowAmountText}",
+                    $"{rowAmountText} al", $"{rowAmountText} qabul qilish")).ConfigureAwait(true);
+        }
+        finally
+        {
+            _confirmingPayAll = false;
+        }
+        if (!rowConfirmed || _paying || !ReferenceEquals(_selectedClient, rowClient))
+            return;
+
         // 2026-10-18, пятый круг (п.10): защита, замок, код, способ, ошибки — общая обёртка RunPaymentAsync.
         await RunPaymentAsync(async method =>
         {
@@ -835,7 +942,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             // дальше — старый путь по взносам.
             if (await TryPaySaleViaServerAsync(row, amount, method).ConfigureAwait(true))
                 return;
-            if (DebtSales.Count == 1 && _serverSalePayMissing && await TryPayViaServerAsync(amount, method).ConfigureAwait(true))
+            if (DebtSales.Count(r => !r.IsSuspectedDuplicate) == 1 && _serverSalePayMissing && await TryPayViaServerAsync(amount, method).ConfigureAwait(true))
                 return;
 
             if (RefuseLegacyForNonCash(method))
@@ -1018,7 +1125,9 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             {
                 Id = client.Id,
                 DisplayName = client.DisplayName,
-                DebtText = _debtByClient.TryGetValue(client.Id, out var debt) ? MoneyText.Som(debt) : "",
+                // 2026-10-23 (аудит, круг 8, В-3): сводка сервера (clients/debtors/) — это долг по чекам, без «долга без продажи»; так и подписано.
+                DebtText = _debtByClient.TryGetValue(client.Id, out var debt)
+                    ? Tr.T("по чекам: ", "чектер боюнча: ", "by receipts: ", "fişlere göre: ", "cheklar bo'yicha: ") + MoneyText.Som(debt) : "",
             });
         OnPropertyChanged(nameof(HasClientSearchResults));
     }
@@ -1070,7 +1179,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         DateTimeOffset.TryParse(createdAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var created);
 
         var amount = TryGetDouble(element, "debt_amount") ?? TryGetDouble(element, "total") ?? 0;
-        var amountText = amount.ToString("0.00", CultureInfo.InvariantCulture);
+        var amountText = DebtSaleRow.InputText(amount);
 
         return new DebtSaleRow
         {
@@ -1088,6 +1197,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             SaleRemaining = TryGetDouble(element, "debt_remaining") ?? amount,
             SaleRemainingFromServer = TryGetDouble(element, "debt_remaining") is not null,
             OriginalAmountDisplay = MoneyText.Som(amount),
+            OriginalAmount = amount, // 2026-10-23 (аудит, круг 8, В-3): для сверки «долга без продажи» с чеком
         };
     }
 

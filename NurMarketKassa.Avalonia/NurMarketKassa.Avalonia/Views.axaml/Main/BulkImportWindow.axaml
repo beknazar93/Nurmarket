@@ -1,14 +1,16 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.BulkImportWindow"
         x:CompileBindings="False"
         Title="{DynamicResource bulkImport.title}"
-        Height="720" Width="960" MinHeight="480" MinWidth="700"
+        Height="720" Width="992" MinHeight="480" MinWidth="700"
         WindowStartupLocation="CenterOwner"
         SystemDecorations="None"
+        CanResize="False"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         FontFamily="Segoe UI, Inter, Noto Sans"
-        Background="{DynamicResource BrushInputAlt}">
-
+        Background="{DynamicResource DialogWindowBackground}">
     <Window.Styles>
         <Style Selector="Button.PrimaryButton">
             <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
@@ -48,38 +50,37 @@
         </Style>
     </Window.Styles>
 
-    <!-- 2026-10-19, этап О9 (аудит, проблема 2): кнопки — общие sec-outline / sec-primary (были серые залитые), значок без
-         жёлтого фона; пустой предпросмотр — подсказка «что делать» (текст — в коде). Загрузка и сохранение не менялись. -->
-    <!-- 2026-10-20, аудит программы владельца: без системной рамки Windows (бирюзовая полоса, «свернуть/развернуть») — как
-         остальные окна: своя шапка с «Закрыть» уже есть, окно двигается за шапку (Header_PointerPressed), тонкая рамка. -->
-    <Border BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
-    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto">
-
-        <!-- Заголовок -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12" Background="Transparent"
-              PointerPressed="Header_PointerPressed">
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8" Padding="8">
-                    <TextBlock Text="📥" FontSize="18" VerticalAlignment="Center"/>
-                </Border>
-                <TextBlock Text="{DynamicResource bulkImport.title}" FontSize="20" FontWeight="Bold"
-                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+    <!-- 2026-10-24 (аудит круга 8, С-8, пакет П-10): окно переведено на общую оболочку ModalShell (карточка 960) —
+         белая карточка, шапка с названием и пояснением, ✕ 44 px, «Закрыть» (Esc) и «Загрузить» в подвале, итог слева
+         на строке кнопок. Было: серый фон, своя шапка с кнопкой «Закрыть» текстом, без ✕. Загрузка и сохранение
+         (разбор CSV, проверка строк, StartImport_Click) не менялись; DataGrid получает всю оставшуюся высоту. -->
+    <dlg:ModalShell x:Name="Shell" Margin="16" ContentScroll="Disabled"
+                    Title="{DynamicResource bulkImport.title}" Subtitle="{DynamicResource bulkImport.description}">
+        <dlg:ModalShell.Hint>
+            <TextBlock x:Name="SummaryText" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center"
+                       Foreground="{DynamicResource BrushText}"/>
+        </dlg:ModalShell.Hint>
+        <dlg:ModalShell.Footer>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button IsCancel="True" Classes="modal-cancel" MaxWidth="200"
+                        Content="{DynamicResource common.close}" Click="Close_Click"/>
+                <Button x:Name="StartImportButton" Classes="modal-primary" MaxWidth="260"
+                        Content="{DynamicResource bulkImport.startButton}" IsEnabled="False" Click="StartImport_Click"/>
             </StackPanel>
-            <Button IsCancel="True" Grid.Column="1" Content="{DynamicResource common.close}" Classes="sec-outline" Click="Close_Click"/>
-        </Grid>
+        </dlg:ModalShell.Footer>
 
-        <TextBlock Grid.Row="1" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,12"
-                   Text="{DynamicResource bulkImport.description}"/>
+        <Grid RowDefinitions="Auto,*">
+            <!-- Панель действий -->
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*" Margin="0,0,0,12">
+                <Button Grid.Column="0" Content="{DynamicResource bulkImport.downloadTemplate}" Classes="modal-secondary" Click="DownloadTemplate_Click"/>
+                <Button Grid.Column="1" Content="{DynamicResource bulkImport.pickFile}" Classes="modal-secondary" Margin="8,0,0,0" Click="PickFile_Click"/>
+                <TextBlock Grid.Column="2" x:Name="FileNameText" FontSize="12" Margin="12,0,0,0" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
+            </Grid>
 
-        <!-- Панель действий -->
-        <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,0,0,12">
-            <Button Grid.Column="0" Content="{DynamicResource bulkImport.downloadTemplate}" Classes="sec-outline" Click="DownloadTemplate_Click"/>
-            <Button Grid.Column="1" Content="{DynamicResource bulkImport.pickFile}" Classes="sec-outline" Margin="8,0,0,0" Click="PickFile_Click"/>
-            <TextBlock Grid.Column="3" x:Name="FileNameText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
-        </Grid>
-
+            <Grid Grid.Row="1">
         <!-- Предпросмотр -->
-        <DataGrid Grid.Row="3" x:Name="PreviewGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="36">
+        <DataGrid x:Name="PreviewGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="36">
             <DataGrid.Columns>
                 <DataGridTextColumn Width="50" Binding="{Binding RowNumber}">
                     <DataGridTextColumn.Header><TextBlock Text="№"/></DataGridTextColumn.Header>
@@ -101,20 +102,14 @@
                 </DataGridTextColumn>
             </DataGrid.Columns>
         </DataGrid>
-        <StackPanel Grid.Row="3" x:Name="EmptyHintPanel" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460" Spacing="6"
+        <StackPanel x:Name="EmptyHintPanel" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460" Spacing="6"
                     IsHitTestVisible="False" IsVisible="{Binding #PreviewGrid.ItemsSource, Converter={x:Static ObjectConverters.IsNull}}">
             <TextBlock x:Name="EmptyHintTitle" FontSize="15" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushText}"/>
             <TextBlock x:Name="EmptyHintText" FontSize="13" TextAlignment="Center" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushTextSoft}"/>
         </StackPanel>
-
-        <!-- Действия и итог -->
-        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
-            <TextBlock Grid.Column="0" x:Name="SummaryText" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
-            <Button Grid.Column="1" x:Name="StartImportButton" Content="{DynamicResource bulkImport.startButton}" Classes="sec-primary"
-                    IsEnabled="False" Click="StartImport_Click"/>
+            </Grid>
         </Grid>
-    </Grid>
-    </Border>
+    </dlg:ModalShell>
 </Window>

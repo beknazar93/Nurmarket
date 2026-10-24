@@ -37,6 +37,8 @@ internal static partial class ScaleUi
         return new Border { Classes = { "card" }, Child = root };
     }
 
+    /// <summary>2026-10-22 (модалки, пакет 3): primary — жёлтая; в окне весов она одна (главное действие: «Сохранить» у Rongta/TM-30F),
+    /// остальные — обводкой (btn-ok). Высота 44 — в стилях окон.</summary>
     public static Button MakeButton(string text, bool primary, EventHandler<RoutedEventArgs> onClick)
     {
         var button = new Button { Content = text, Classes = { primary ? "btn-primary" : "btn-ok" } };
@@ -72,6 +74,15 @@ internal static partial class ScaleUi
         Application.Current?.TryFindResource(key, scope.ActualThemeVariant, out var value) == true && value is IBrush brush
             ? brush
             : fallback;
+
+    /// <summary>2026-10-22 (модалки, пакет 3): цвет темы ПРИВЯЗКОЙ — меняется вместе с темой (<see cref="ThemeBrush"/> читает
+    /// его один раз: после смены светлой/тёмной темы текст и рамки окон весов оставались прежнего цвета). Нет ключа в теме —
+    /// запасной цвет. Повторный вызов для того же свойства заменяет прежнюю привязку (смена «ошибка / не ошибка»).</summary>
+    public static T Themed<T>(Control scope, T target, AvaloniaProperty property, string key, IBrush fallback) where T : AvaloniaObject
+    {
+        target.Bind(property, scope.GetResourceObservable(key, v => v as IBrush ?? fallback));
+        return target;
+    }
 
     // ------------------------------------------------------------------ сверка штрих-кода с кассой
 

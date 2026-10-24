@@ -975,6 +975,98 @@ class AppLocalizationsTr extends AppLocalizations {
   String get advisorNew => 'Yeni sohbet';
 
   @override
+  String get advisorNoKey =>
+      'Sahip programında bir YZ anahtarı ekleyin: Nur Danışman → ⚙ → YZ modelleri ve anahtarlar';
+
+  @override
+  String get advisorStageData => 'Mağaza verileri toplanıyor…';
+
+  @override
+  String get advisorStageAsk => 'YZ\'ye soruluyor…';
+
+  @override
+  String advisorError(String error) {
+    return 'Danışman yanıt vermedi: $error';
+  }
+
+  @override
+  String get callTitle => 'Sesli görüşme';
+
+  @override
+  String get callConnecting => 'Bağlanıyor…';
+
+  @override
+  String get callPreparing => 'Mağaza verileri hazırlanıyor…';
+
+  @override
+  String get callListening => 'Dinliyorum…';
+
+  @override
+  String get callThinking => 'Düşünüyorum…';
+
+  @override
+  String get callSpeaking => 'Konuşuyorum… (kesmek için dokunun)';
+
+  @override
+  String get callEnded => 'Görüşme bitti';
+
+  @override
+  String get callEnd => 'Bitir';
+
+  @override
+  String get callMicOff => 'Mikrofon kapalı';
+
+  @override
+  String get callMicOn => 'Mikrofon açık';
+
+  @override
+  String get callSpeakerOn => 'Hoparlör';
+
+  @override
+  String get callSpeakerOff => 'Ahize';
+
+  @override
+  String callCost(int n) {
+    return 'Görüşme en fazla $n dk sürer ve YZ anahtarının kotasını sohbetten daha hızlı harcar.';
+  }
+
+  @override
+  String get callLimitSoon => 'Görüşme bir dakika içinde bitecek';
+
+  @override
+  String callEndedLimit(int n) {
+    return 'Görüşme bitti: $n dk geçti. Tekrar arayabilirsiniz.';
+  }
+
+  @override
+  String get callEndedFocus =>
+      'Görüşme kesildi: gelen arama veya uygulama küçültüldü.';
+
+  @override
+  String callFailed(String error) {
+    return 'Görüşme başarısız: $error';
+  }
+
+  @override
+  String get callNoMic =>
+      'Mikrofon erişimi yok. Telefon ayarlarında NurMarket için mikrofona izin verin.';
+
+  @override
+  String get callOpenSettings => 'Ayarları aç';
+
+  @override
+  String get callUnsupported => 'Sesli görüşme Android telefonda çalışır.';
+
+  @override
+  String get callTableReady => 'Rakamlı tablo görüşmeden sonra sohbette olacak';
+
+  @override
+  String get callClose => 'Kapat';
+
+  @override
+  String get callYou => 'Siz';
+
+  @override
   String checkTab(int n) {
     return 'Fiş · $n';
   }
@@ -1236,7 +1328,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get liveAuto => 'Otomatik';
 
   @override
-  String get liveHintSale => 'Ürüne doğrultun — 2 sn sonra kendisi çeker';
+  String get liveHintSale => 'Ürüne doğrultun ve «Tara»ya basın';
 
   @override
   String get liveHintShelf => 'Rafa doğrultun';
@@ -1287,7 +1379,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get auditOpen => 'Ekran açtı';
 
   @override
-  String get teachCamera => 'Akıllı kamerayı öğret: 3 fotoğraf + barkod';
+  String get teachCamera => 'Akıllı kamerayı öğret: 3–5 fotoğraf + barkod';
 
   @override
   String get teachRight => '3\'te 1 · sağdan';
@@ -1308,6 +1400,117 @@ class AppLocalizationsTr extends AppLocalizations {
   String teachShots(int n) {
     return 'Akıllı kamera için: $n fotoğraf';
   }
+
+  @override
+  String get scanShoot => 'Tara';
+
+  @override
+  String get scanBusy => 'Taranıyor…';
+
+  @override
+  String get scanNext => 'Sonraki ürün — yine «Tara»';
+
+  @override
+  String get scanChecking => 'Öğretilen ürünlerle karşılaştırılıyor…';
+
+  @override
+  String scanTook(String sec) {
+    return '$sec sn';
+  }
+
+  @override
+  String teachPhotoOf(int a, int b) {
+    return 'Fotoğraf $a/$b';
+  }
+
+  @override
+  String get teachAngleRight => 'sağdan';
+
+  @override
+  String get teachAngleLeft => 'soldan';
+
+  @override
+  String get teachAngleTop => 'üstten';
+
+  @override
+  String get teachAngleFront => 'önden etiket';
+
+  @override
+  String get teachAngleBack => 'arkadan';
+
+  @override
+  String get teachCanFinish => '«Tamam»a basın veya bir açı daha çekin';
+
+  @override
+  String get teachRetake => 'Yeniden çek';
+
+  @override
+  String get weighAim =>
+      'Ürünü teraziye koyun, ekrana doğrultun ve «Tara»ya basın';
+
+  @override
+  String get weighAimDisplay =>
+      'Terazi ekranı görünmüyor — ağırlık penceresine doğrultun, feneri kapatın ve «Tara»ya basın';
+
+  @override
+  String get aiErrNoNet =>
+      'İnternet yok — bağlantıyı kontrol edip yine «Tara»ya basın';
+
+  @override
+  String get aiErrSlow =>
+      'Yapay zekâ zamanında cevap vermedi (yavaş bağlantı) — tekrar deneyin';
+
+  @override
+  String get aiErrLimit =>
+      'Ücretsiz yapay zekâ limiti doldu — bir dakika sonra deneyin';
+
+  @override
+  String get aiErrBusy => 'Yapay zekâ şu an yoğun — bir dakika sonra deneyin';
+
+  @override
+  String get aiErrOther => 'Yapay zekâ fotoğrafı tanıyamadı';
+
+  @override
+  String addAgain(String name) {
+    return '«$name» zaten fişte. Bir tane daha eklensin mi?';
+  }
+
+  @override
+  String get yesAdd => 'Ekle';
+
+  @override
+  String get shelfAddAsk =>
+      'Raf fotoğrafı raftaki mevcut ürünleri gösterir. Bu miktarlar teslimat olarak stoka eklensin mi?';
+
+  @override
+  String isItProduct(String name) {
+    return 'Bu «$name» mi?';
+  }
+
+  @override
+  String notFoundOffline(String code) {
+    return '$code kodu telefonda yok, sunucu cevap vermiyor. Bağlantıyı kontrol edin — ürün PC\'de zaten olabilir, ikincisini oluşturmayın.';
+  }
+
+  @override
+  String get scaleLabelsTitle => 'Terazi etiketleri';
+
+  @override
+  String get scaleLabelsHint =>
+      'Terazi etiketi barkodu bir önekle (20–29) başlar. Hangi öneklerin TUTAR, hangilerinin AĞIRLIK taşıdığını belirtin. Şirketin tüm telefonları için.';
+
+  @override
+  String get scaleAmountPrefixes => '«Tutar» önekleri';
+
+  @override
+  String get scaleWeightPrefixes => '«Ağırlık» önekleri';
+
+  @override
+  String get cameraShotFailed =>
+      'Kamera fotoğraf çekemedi — yine «Tara»ya basın';
+
+  @override
+  String get saved => 'Kaydedildi';
 
   @override
   String get exactMatch => 'kesin';
@@ -2564,4 +2767,580 @@ class AppLocalizationsTr extends AppLocalizations {
   String quoteRenumbered(String from, String to) {
     return '$from numarası dolu — belge artık $to';
   }
+
+  @override
+  String get payOutcomeUnknown =>
+      'Sunucu yanıt vermedi — satış gerçekleşmiş olabilir. Hiçbir şeyi değiştirmeden tekrar «Öde»ye dokunun: tekrar ikinci kez işlenmez. Borç ve bonus kullanımı bağlantı gerektirir.';
+
+  @override
+  String get debtDueLabel => 'Son ödeme tarihi';
+
+  @override
+  String debtDueDays(int n) {
+    return '$n gün';
+  }
+
+  @override
+  String get debtDueNotSaved =>
+      'Borç vadesi sunucuya kaydedilmedi — web sitesinden düzeltin (varsayılan 30 gün).';
+
+  @override
+  String returnAmount(String sum) {
+    return 'İade tutarı: $sum som';
+  }
+
+  @override
+  String returnGive(String what) {
+    return 'Müşteriye verilecek: $what';
+  }
+
+  @override
+  String returnInCash(String sum) {
+    return 'nakit $sum som';
+  }
+
+  @override
+  String returnToCard(String sum) {
+    return 'karta/havale ile $sum som';
+  }
+
+  @override
+  String returnDebtReduced(String sum) {
+    return 'Müşterinin borcu $sum som azaldı — bu para verilmez.';
+  }
+
+  @override
+  String returnDebtUnknown(String sum) {
+    return 'Dikkat: müşterinin kalan borcu sunucudan alınamadı. Hesaba göre borç $sum som azaldı, ancak müşteri bu fişin borcunu zaten ödediyse kendisine $sum som\'a kadar iade edilmeli. Ödemeden önce müşterinin borcunu kontrol edin.';
+  }
+
+  @override
+  String get returnViaBank =>
+      'Kart/havale kısmı — kasadan değil, banka üzerinden iade edin.';
+
+  @override
+  String returnPaidInfo(String paid, String done) {
+    return 'Fiş için ödenen: $paid som · iade edilen: $done som';
+  }
+
+  @override
+  String returnedQty(String qty) {
+    return 'iade edildi: $qty';
+  }
+
+  @override
+  String get returnNothingLeft => 'Bu fişteki her şey zaten iade edildi.';
+
+  @override
+  String cashOutTooMuch(String sum) {
+    return 'Çekilen tutar kasadakinden fazla ($sum som).';
+  }
+
+  @override
+  String payDebtToDebt(String sum) {
+    return 'Borca mahsuben: $sum som';
+  }
+
+  @override
+  String get payDebtOverCard => 'Havale ile — borçtan fazla olamaz.';
+
+  @override
+  String receiveNotAccepted(String reason) {
+    return 'Mal kabul sunucu tarafından kabul edilmedi: $reason. Kayıt «Eşitleme»de.';
+  }
+
+  @override
+  String get auditApply => 'Sayımı işle';
+
+  @override
+  String get auditApplyHint =>
+      'Stoklar sayılan miktarlara eşitlenir — PC kasasındaki sayım gibi. Bağlantı gerekir.';
+
+  @override
+  String auditApplyAsk(int n, int a) {
+    return 'Kontrol edilen ürün: $n, fark: $a. Stoklar sayılan miktarlara eşitlenecek. İşlensin mi?';
+  }
+
+  @override
+  String get auditApplied => 'Sayım işlendi — stoklar güncellendi.';
+
+  @override
+  String get auditApplyQueued =>
+      'Sayım belgesi oluşturuldu — işleme bağlantı gelince gönderilecek.';
+
+  @override
+  String get auditOnlineOnly =>
+      'Sayım yalnızca sunucu bağlantısıyla işlenir — sayım kaydedildi, sonra tekrar deneyin.';
+
+  @override
+  String auditContinue(int n) {
+    return 'Sayıma devam et ($n ürün)';
+  }
+
+  @override
+  String get countedCash => 'Sayılan';
+
+  @override
+  String get openingCashLabel => 'Vardiya başında';
+
+  @override
+  String closeShiftFailed(int n) {
+    return 'Sunucu $n fişi kabul etmedi — vardiya raporuna girmeyecek. Tekrar gönderin veya «Eşitleme»de kaldırın.';
+  }
+
+  @override
+  String get closeShiftAsk => 'Vardiya kapatılsın mı?';
+
+  @override
+  String get closeShiftAskSub =>
+      'Kapatıldıktan sonra bu vardiyada satış yapılamaz.';
+
+  @override
+  String get xReport => 'X raporu';
+
+  @override
+  String get foreignShiftHint =>
+      'Bu kasada başka bir kasiyerin vardiyası açık — ona satış yapılamaz. Kendi vardiyanızı açın.';
+
+  @override
+  String get loadMore => 'Daha fazla';
+
+  @override
+  String get dropRow => 'Kaldır';
+
+  @override
+  String get dropRowAsk =>
+      'Fiş kuyruktan kaldırılsın mı? Sunucuya gitmez, ürün telefondaki stoğa döner. Para alındıysa müşteriye iade edin veya satışı yeniden yapın.';
+
+  @override
+  String get dropRowAskStock =>
+      'Kayıt kuyruktan kaldırılsın mı? Sunucuya gitmez — ürün stoğunu elle kontrol edin.';
+
+  @override
+  String get otherAccount => 'başka hesap';
+
+  @override
+  String otherAccountHint(String email) {
+    return '$email girişiyle kaydedildi — bu kullanıcı adıyla giriş yapılınca gönderilir.';
+  }
+
+  @override
+  String pAStockUnclear(String name, String now, String before) {
+    return '$name: önceki deneme sunucudan yanıt alamadı ve stok o zamandan beri değişti (şu an $now, eklemeden önce $before idi). İki katına çıkmasın diye tekrar EKLENMEDİ. Stoğu sayımla kontrol edin: eklendiyse satırı silin, eklenmediyse silip ürünü yeniden ekleyin.';
+  }
+
+  @override
+  String get pAWeightLabel =>
+      'Bu bir terazi etiketi (tek alışverişin ağırlığı) — mal kabulünde kullanılmaz. Ürün barkodunu tarayın veya adıyla bulun.';
+
+  @override
+  String get pANoServerCheck =>
+      'Sunucuyla bağlantı yok — bu barkodlu ürünün zaten olup olmadığı kontrol edilemiyor. Bağlantı gelince tekrar deneyin.';
+
+  @override
+  String pALinesLeft(int n) {
+    return 'Kabul edilmeyen satır: $n — listede kaldılar, düzeltip yeniden işleyin.';
+  }
+
+  @override
+  String get pAPluLabel => 'Terazi için PLU';
+
+  @override
+  String get pAPluHint => 'boş — otomatik atanır';
+
+  @override
+  String get pAStockAdd => 'Stoğa ekle';
+
+  @override
+  String get pAStockSet => 'Stoğu ayarla';
+
+  @override
+  String get pAStockAddHint =>
+      'Dosyadaki miktar, mal kabulü gibi stoğa eklenir.';
+
+  @override
+  String get pAStockSetHint =>
+      'Stok dosyadaki miktara eşit olur (değiştirilir, eklenmez).';
+
+  @override
+  String pADupRow(int n) {
+    return '$n. satırın tekrarı — atlanıyor';
+  }
+
+  @override
+  String get pAUploaded => 'yüklendi';
+
+  @override
+  String get rightCashier => 'Kasiyer arayüzü';
+
+  @override
+  String get rightOrders => 'Site siparişleri';
+
+  @override
+  String get rightProcurement => 'Satın almalar';
+
+  @override
+  String get rightSuppliers => 'Tedarikçiler';
+
+  @override
+  String get rightSelfLocked =>
+      'Kendi yetkilerinizi kapatamazsınız — bunu sahip veya başka bir yönetici yapar.';
+
+  @override
+  String get staffYou => 'bu sizsiniz';
+
+  @override
+  String get screenUnavailable =>
+      'Ekran yeniden açıldı ve verileri kayboldu. Geri dönüp tekrar açın.';
+
+  @override
+  String get cancelOrder => 'Siparişi iptal et';
+
+  @override
+  String cancelOrderAsk(String number) {
+    return '$number numaralı sipariş iptal edilsin mi? Müşteri onu teslim almayacak.';
+  }
+
+  @override
+  String pickShortAsk(String got, String need) {
+    return '$need üründen $got toplandı. Sipariş eksik toplanmış olarak işaretlensin mi?';
+  }
+
+  @override
+  String pickupCodeLabel(String code) {
+    return 'Teslim kodu: $code';
+  }
+
+  @override
+  String get torchToggle => 'El feneri';
+
+  @override
+  String get payTransferQr => 'Havale / QR';
+
+  @override
+  String get reportLoadFailed =>
+      'Rapor yüklenmedi. Bağlantıyı kontrol edip «Tekrar dene»ye basın.';
+
+  @override
+  String get rentalLatePerDay => 'Gecikilen gün başına ceza';
+
+  @override
+  String rentalLateHint(int n, String rate, String sum) {
+    return 'Gecikme $n gün × $rate = $sum som (kiralama koşullarına göre)';
+  }
+
+  @override
+  String rentalBackDeposit(String sum) {
+    return 'Depozitoyu iade edin: $sum som';
+  }
+
+  @override
+  String rentalWithheld(String sum) {
+    return 'tutulan $sum som';
+  }
+
+  @override
+  String rentalBackDocument(String doc) {
+    return 'Belgeyi iade edin: $doc';
+  }
+
+  @override
+  String rentalExcess(String sum) {
+    return 'Depozitoyu aşan ceza: $sum som — fişe eklenecek';
+  }
+
+  @override
+  String rentalPenaltyLine(int n) {
+    return 'Kiralama #$n cezası';
+  }
+
+  @override
+  String rentalPenaltyInCart(String sum) {
+    return 'İade alındı. $sum som ceza fişe eklendi — ödemeyi alın.';
+  }
+
+  @override
+  String get waybillDoc => 'İrsaliye';
+
+  @override
+  String get waybillsFilter => 'İrsaliyeler';
+
+  @override
+  String get docPayMarkOnly =>
+      'Bu yalnızca belgede bir işarettir: para vardiya kasasına ve müşteri borcu NurCRM\'e yazılmaz. Parayı kasadan geçirmek için \"Satışı yap\"ı kullanın.';
+
+  @override
+  String get docPayMarkOk => 'Ödemeyi işaretle';
+
+  @override
+  String get docSellCartBusy =>
+      'Fişte zaten ürünler var. Belgenin ürünleriyle değiştirilsin mi?';
+
+  @override
+  String get docSellReplace => 'Değiştir';
+
+  @override
+  String get docSentToSale => 'Satışa aktarıldı';
+
+  @override
+  String docSellMissing(String names) {
+    return 'Telefon kataloğunda yok — elle ekleyin: $names';
+  }
+
+  @override
+  String docVatIncl(String p) {
+    return 'KDV dahil $p%';
+  }
+
+  @override
+  String get prnQr => 'Fişte QR kod';
+
+  @override
+  String get prnQrHint =>
+      'Mali fiş doğrulama veya e-fiş. Yazıcı QR yerine fazladan karakter basıyorsa kapatın.';
+
+  @override
+  String get prnDrawer => 'Yazıcı üzerinden para çekmecesi';
+
+  @override
+  String get prnDrawerHint =>
+      'Nakit satıştan sonra açılır (çekmece yazıcıya kabloyla bağlı).';
+
+  @override
+  String prnDrawerPin(int n) {
+    return 'Pin $n';
+  }
+
+  @override
+  String get prnDrawerTest => 'Çekmeceyi aç';
+
+  @override
+  String get prnDrawerSent =>
+      'Çekmece komutu gönderildi. Açılmadıysa diğer pini seçin.';
+
+  @override
+  String get stepPhoto => 'Fotoğraf';
+
+  @override
+  String get stepBarcode => 'Barkod';
+
+  @override
+  String get bindTitle =>
+      'Fotoğraflar kaydedildi ✓ — şimdi ürünün barkodunu tarayın';
+
+  @override
+  String get bindSub => 'Üründe barkod yoksa «Atla»ya basın';
+
+  @override
+  String get bindSkip => 'Atla';
+
+  @override
+  String get bindManual => 'Elle gir';
+
+  @override
+  String get bindManualHint => 'Barkodun altındaki rakamlar';
+
+  @override
+  String get bindChecking => 'Barkod kontrol ediliyor…';
+
+  @override
+  String bindWillLink(String code, String name) {
+    return '$code barkodu «$name» ürününe bağlanacak';
+  }
+
+  @override
+  String bindWillLinkNew(String code) {
+    return '$code barkodu yeni ürüne bağlanacak';
+  }
+
+  @override
+  String bindAlreadyOwn(String code, String name) {
+    return '$code barkodu zaten «$name» ürününe bağlı — değiştirmeye gerek yok';
+  }
+
+  @override
+  String get bindTakenTitle => 'Barkod başka bir üründe';
+
+  @override
+  String bindTakenAsk(String code, String name) {
+    return '$code barkodu zaten «$name» ürününe bağlı.\n«Değiştir» — barkod bu ürüne geçer.\n«Bırak» — «$name» üründe kalır, bu ürün barkodsuz olur.';
+  }
+
+  @override
+  String bindTakenAskNew(String code, String name) {
+    return '$code barkodu zaten «$name» ürününe bağlı — bu ürün depoda zaten olabilir.\n«Bırak» — barkod «$name» üründe kalır, yeni ürün barkodsuz olur.';
+  }
+
+  @override
+  String get bindReplace => 'Değiştir';
+
+  @override
+  String get bindKeep => 'Bırak';
+
+  @override
+  String get bindRescan => 'Yeniden tara';
+
+  @override
+  String bindLinked(String code, String name) {
+    return '$code barkodu «$name» ürününe bağlandı';
+  }
+
+  @override
+  String get teachNext =>
+      'Ürünü 3–5 açıdan çekin, sonra «Tamam» — sıradaki adım barkod';
+
+  @override
+  String get teachNextNoCode => 'Ürünü 3–5 açıdan çekin, sonra «Tamam»a basın';
+
+  @override
+  String get liveNextSale =>
+      'Bulunan ürünler aşağıda görünür — fişe eklemek için birine dokunun';
+
+  @override
+  String get liveNextList =>
+      'Çekimden sonra kamera bulduklarını listeler — listeyi düzeltebilirsiniz';
+
+  @override
+  String get scanCodesHint =>
+      'Çerçeveyi barkoda doğrultun — kod kendiliğinden kaydedilir. Sonra «Tamam»a basın';
+
+  @override
+  String get weighNext => 'Kamera ürünü tanır, ağırlığı okur ve fişe ekler';
+
+  @override
+  String get weighManualBtn => 'Kamerasız — ürünü seçip ağırlığı girin';
+
+  @override
+  String get peEdit => 'Ürünü düzenle';
+
+  @override
+  String get peName => 'Ad';
+
+  @override
+  String get peMinQty => 'Asgari stok';
+
+  @override
+  String get peMinQtyHint => 'Bunun altında ürün \"Azalıyor\" listesine girer';
+
+  @override
+  String get peStock => 'Stok';
+
+  @override
+  String get peStockHint =>
+      'Stok yalnızca belgeyle değişir — gerekçeli giriş, zayiat veya sayım, bilgisayardaki gibi. Böylece tutarsızlık olmaz.';
+
+  @override
+  String get peIncome => 'Giriş';
+
+  @override
+  String get peWriteOff => 'Zayiat';
+
+  @override
+  String get peRecount => 'Sayım';
+
+  @override
+  String get peQtyIn => 'Kaç adet geldi';
+
+  @override
+  String get peQtyOut => 'Kaç adet düşülecek';
+
+  @override
+  String get peQtyFact => 'Gerçekte kaç adet';
+
+  @override
+  String get peReason => 'Gerekçe';
+
+  @override
+  String get peReasonNeed => 'Gerekçeyi girin.';
+
+  @override
+  String get peReasonExpired => 'Son kullanma tarihi geçti';
+
+  @override
+  String get peReasonDefect => 'Kusurlu';
+
+  @override
+  String get peReasonSpoiled => 'Bozuldu';
+
+  @override
+  String get peReasonTheft => 'Hırsızlık';
+
+  @override
+  String get peReasonOther => 'Diğer';
+
+  @override
+  String get peReasonSupplier => 'Tedarik';
+
+  @override
+  String get peReasonCount => 'Yeniden sayım';
+
+  @override
+  String get peApply => 'İşle';
+
+  @override
+  String peStockDone(String from, String to) {
+    return 'Stok: $from → $to';
+  }
+
+  @override
+  String peStockSame(String qty) {
+    return 'Stok zaten $qty — hiçbir şey değişmedi.';
+  }
+
+  @override
+  String get peStockQueued =>
+      'Belge oluşturuldu — bağlantı gelince kendiliğinden işlenecek.';
+
+  @override
+  String get peStockOffline =>
+      'Sunucuyla bağlantı yok — stok alınamadı, hiçbir şey değişmedi.';
+
+  @override
+  String peStockBelowZero(String qty) {
+    return 'Stoktan fazla düşülemez (mevcut $qty).';
+  }
+
+  @override
+  String get peSaved => 'Ürün kaydedildi.';
+
+  @override
+  String get peNoChanges => 'Değişiklik yok.';
+
+  @override
+  String pePriceRestored(String price) {
+    return 'Sunucu satış fiyatını kâr marjına göre yeniden hesapladı — girdiğiniz $price fiyatı geri yüklendi.';
+  }
+
+  @override
+  String get pePriceLocked =>
+      'Fiyatları \"Fiyat değiştirme\" yetkisi olan çalışan değiştirir.';
+
+  @override
+  String get peLoadFailed =>
+      'Ürün kartı sunucudan yüklenemedi — düzenleme bağlantı varken yapılabilir.';
+
+  @override
+  String get peNameNeed => 'Adı girin.';
+
+  @override
+  String peBarcodeTaken(String code, String name) {
+    return '$code barkodu zaten \"$name\" ürününde.';
+  }
+
+  @override
+  String peBarcodeTwice(String code) {
+    return '$code barkodu iki kez girilmiş.';
+  }
+
+  @override
+  String get peScan => 'Tara';
+
+  @override
+  String pePackQty(String qty) {
+    return 'pakette $qty';
+  }
+
+  @override
+  String get peNoAccess =>
+      'Ürünü \"Depo\" yetkisi olan çalışan veya yönetici düzenleyebilir.';
 }

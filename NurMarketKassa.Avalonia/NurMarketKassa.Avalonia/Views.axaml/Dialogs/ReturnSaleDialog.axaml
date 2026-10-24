@@ -16,6 +16,11 @@
 
   <Window.Styles>
     <!-- Главные кнопки действий (Жёлтый акцент) -->
+    <!-- 2026-10-23 (аудит): выбранная строка списка чеков — мягкий фон темы вместо бирюзовой подсветки Fluent. -->
+    <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="{DynamicResource BrushSurfaceSubtle}"/>
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
     <Style Selector="Button.btn-primary">
       <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
@@ -84,9 +89,9 @@
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
 
-    <!-- Поле ввода поиска -->
+    <!-- Поле ввода поиска. 2026-10-22 (модалки, пакет 1): 44 px под палец (было 38). -->
     <Style Selector="TextBox.ModernInput">
-      <Setter Property="Height" Value="38"/>
+      <Setter Property="Height" Value="44"/>
       <Setter Property="Padding" Value="10,6"/>
       <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
@@ -128,8 +133,9 @@
           <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
             <TextBox x:Name="SearchReceiptBox" Classes="ModernInput" Width="180" Watermark="{DynamicResource common.searchWatermark}"
                      TextChanged="SearchReceiptBox_TextChanged"/>
-            <Button Content="{DynamicResource common.refresh}" Classes="btn-secondary" Padding="12,0" Height="38" Click="RefreshSales_Click"/>
-            <Button x:Name="MoreSalesButton" Classes="btn-secondary" Content="{DynamicResource csh.cart.more}" Padding="12,0" Height="38" Click="MoreSales_Click"/>
+            <!-- 2026-10-22 (модалки, пакет 1): кнопки рядом с поиском — 44 px, как поле (было 38). -->
+            <Button Content="{DynamicResource common.refresh}" Classes="btn-secondary" Padding="12,0" Height="44" Click="RefreshSales_Click"/>
+            <Button x:Name="MoreSalesButton" Classes="btn-secondary" Content="{DynamicResource csh.cart.more}" Padding="12,0" Height="44" Click="MoreSales_Click"/>
           </StackPanel>
 
           <!-- Таблица чеков -->
@@ -163,8 +169,9 @@
                   <DataGridTemplateColumn Header="" Width="94">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
+                        <!-- 2026-10-22 (модалки, пакет 1): «Выбрать» 44 px (было 34) — касание пальцем. -->
                         <Button Content="{DynamicResource common.select}" Tag="{ReflectionBinding SaleId}" Click="SelectSale_Click"
-                                Classes="btn-table" Height="34" Margin="4"
+                                Classes="btn-table" Height="44" Margin="4,2"
                                 HorizontalAlignment="Stretch"/>
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -276,7 +283,8 @@
       </Grid>
 
       <!-- Ошибки -->
-      <TextBlock x:Name="ErrorText" Grid.Row="2"
+      <!-- 2026-10-22 (модалки, пакет 1): сюда же — ошибки ввода («отметьте позицию», «выберите чек»), вместо всплывающих окон. -->
+      <TextBlock x:Name="ErrorText" Grid.Row="2" TextWrapping="Wrap"
                  Margin="0,10,0,0" Foreground="{DynamicResource BrushDanger}"
                  FontWeight="SemiBold" FontSize="13"
                  HorizontalAlignment="Center" TextAlignment="Center"
@@ -287,16 +295,17 @@
         <Expander Header="{DynamicResource returnSale.manualIdHeader}" Foreground="{DynamicResource BrushTextSoft}" FontSize="13">
           <StackPanel Margin="0,10,0,0" Spacing="10" Orientation="Horizontal">
             <TextBox x:Name="SaleIdBox" Classes="ModernInput" Width="220" Watermark="{DynamicResource returnSale.saleIdWatermark}"/>
-            <Button Content="{DynamicResource returnSale.loadReceipt}" Classes="btn-secondary" Height="38" Padding="16,0" Click="LoadById_Click"/>
+            <Button Content="{DynamicResource returnSale.loadReceipt}" Classes="btn-secondary" Height="44" Padding="16,0" Click="LoadById_Click"/>
           </StackPanel>
         </Expander>
 
+        <!-- 2026-10-22 (модалки, пакет 1): «Оконный режим» и «Закрыть» — 44 px (было 42). -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
           <Button x:Name="WindowModeButton" Content="{DynamicResource common.windowedMode}" Classes="btn-secondary"
-                  Height="42" MinWidth="120"
+                  Height="44" MinWidth="120"
                   Click="ToggleFullscreen_Click"/>
           <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="btn-secondary"
-                  Height="42" MinWidth="120"
+                  Height="44" MinWidth="120"
                   Click="Close_Click"/>
         </StackPanel>
       </StackPanel>

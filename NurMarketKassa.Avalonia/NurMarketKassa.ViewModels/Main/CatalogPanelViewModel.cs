@@ -528,7 +528,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         if (wasSearching)
         {
             SearchText = "";
-            SelectedTabIndex = TabIndexFor(product);
+            // 2026-10-22 (аудит 1.17.59, Б14): вкладку каталога после поиска не переключаем — кассир сам выбрал её, а касса
+            // перекидывала на «Штучные» и не возвращала. Поиск идёт по всему каталогу, товар найдётся и с этой вкладки.
         }
     }
 

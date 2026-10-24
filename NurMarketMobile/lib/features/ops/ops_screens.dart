@@ -6,7 +6,9 @@ import '../../core/api/api_client.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
+import '../sale/cart.dart' show roundMoney;
 import 'ops_repository.dart';
+import 'return_ledger.dart';
 import '../../core/util/audit.dart';
 
 /// 13.10: «Внесение / изъятие» — деньги в ящик смены и из него, как в кассе (construction/cashflows/).
@@ -50,8 +52,15 @@ class _CashOpScreenState extends ConsumerState<CashOpScreen> {
       toast(context, l.openShiftFirst, error: true);
       return;
     }
+    // 2026-10-22 (мобилка, деньги): изъятие не больше, чем должно быть в ящике (по данным сервера).
+    if (_withdrawal && shift.expectedCash > 0 && amount > shift.expectedCash + 0.004) {
+      toast(context, l.cashOutTooMuch(money(shift.expectedCash)), error: true);
+      return;
+    }
+    if (_busy) return;
     setState(() => _busy = true);
     try {
+      // 2026-10-22: ключ (source_id) живёт до успеха — повтор после обрыва не внесёт деньги дважды.
       await ref
           .read(opsRepoProvider)
           .cashFlow(shiftId: shift.id, cashboxId: shift.cashboxId!, withdrawal: _withdrawal, amount: amount, reason: _reason.text.trim());
@@ -163,58 +172,83 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
     }
   }
 
+  /// 2026-10-22 (мобилка, деньги): оплата долга идёт — второе нажатие не начинает вторую оплату.
+  bool _paying = false;
+
   Future<void> _pay(Debtor d) async {
+    if (_paying) return;
     final l = context.l;
     final amount = TextEditingController(text: d.debt.toStringAsFixed(d.debt == d.debt.roundToDouble() ? 0 : 2));
     var method = 'cash';
-    final key = OpsRepository.newKey(); // один ключ на попытку: повтор после обрыва не проведёт деньги дважды
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => StatefulBuilder(
-        builder: (c, set) => AlertDialog(
-          title: Text(d.name),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${l.debt}: ${money(d.debt)} ${l.som}', style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: amount,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(labelText: l.amount),
-              ),
-              const SizedBox(height: 12),
-              SegmentedButton<String>(
-                segments: [
-                  ButtonSegment(value: 'cash', label: Text(l.cash)),
-                  ButtonSegment(value: 'transfer', label: Text(l.card)),
+        builder: (c, set) {
+          // 2026-10-22 (мобилка, деньги): переплата не обрезается молча — к зачёту долг, остальное — сдача (наличными).
+          final got = parseNum(amount.text) ?? 0;
+          final toDebt = got > d.debt ? d.debt : got;
+          final change = method == 'cash' && got > d.debt ? roundMoney(got - d.debt) : 0.0;
+          return AlertDialog(
+            title: Text(d.name),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${l.debt}: ${money(d.debt)} ${l.som}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amount,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(labelText: method == 'cash' ? l.received : l.amount),
+                  onChanged: (_) => set(() {}),
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<String>(
+                  segments: [
+                    ButtonSegment(value: 'cash', label: Text(l.cash)),
+                    ButtonSegment(value: 'transfer', label: Text(l.card)),
+                  ],
+                  selected: {method},
+                  onSelectionChanged: (s) => set(() => method = s.first),
+                ),
+                if (got > 0) ...[
+                  const SizedBox(height: 10),
+                  Text(l.payDebtToDebt(money(toDebt)), style: const TextStyle(fontWeight: FontWeight.w700)),
+                  if (change > 0)
+                    Text(
+                      '${l.change}: ${money(change)} ${l.som}',
+                      style: const TextStyle(fontWeight: FontWeight.w800, color: T.success, fontSize: 16),
+                    ),
+                  if (method != 'cash' && got > d.debt + 0.004) Text(l.payDebtOverCard, style: const TextStyle(color: T.danger, fontSize: 12.5)),
                 ],
-                selected: {method},
-                onSelectionChanged: (s) => set(() => method = s.first),
-              ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+              FilledButton(onPressed: method != 'cash' && got > d.debt + 0.004 ? null : () => Navigator.pop(c, true), child: Text(l.payDebt)),
             ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
-            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.payDebt)),
-          ],
-        ),
+          );
+        },
       ),
     );
-    final sum = parseNum(amount.text);
-    if (ok != true || sum == null || sum <= 0 || !mounted) return;
+    final got = parseNum(amount.text);
+    if (ok != true || got == null || got <= 0 || !mounted) return;
+    final sum = got > d.debt ? d.debt : got;
+    final change = method == 'cash' && got > d.debt ? roundMoney(got - d.debt) : 0.0;
+    setState(() => _paying = true);
     try {
-      await ref
-          .read(opsRepoProvider)
-          .payDebt(clientId: d.clientId, amount: sum > d.debt ? d.debt : sum, method: method, shiftId: ref.read(shiftProvider).shift?.id, key: key);
+      // Ключ повтора — в репозитории, живёт до успеха: повтор после обрыва не проведёт деньги дважды.
+      await ref.read(opsRepoProvider).payDebt(clientId: d.clientId, amount: sum, method: method, shiftId: ref.read(shiftProvider).shift?.id);
+      Audit.log('cash', '${l.payDebtDone} · ${d.name}', amount: sum);
       ref.read(shiftProvider.notifier).refresh();
       if (!mounted) return;
-      toast(context, '${l.payDebtDone}: ${money(sum)} ${l.som}');
+      toast(context, '${l.payDebtDone}: ${money(sum)} ${l.som}${change > 0 ? ' · ${l.change}: ${money(change)} ${l.som}' : ''}');
       setState(() => _rows = null);
       await _load();
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _paying = false);
     }
   }
 
@@ -238,6 +272,7 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                 children: [
+                  if (_paying) const LinearProgressIndicator(),
                   TextField(
                     controller: _q,
                     onChanged: (_) => setState(() {}),
@@ -388,6 +423,9 @@ class _HeldScreenState extends ConsumerState<HeldScreen> {
 }
 
 /// 13.10: «Возврат по чеку» — весь чек или выбранные строки; деньги — покупателю из ящика (сервер учтёт в смене).
+/// 2026-10-22 (мобилка, деньги, К-3): сумма — как окно возврата кассы (ReturnSaleDialog + SaleReturnLedger): доля
+/// скидки на чек, уже возвращённое (и по строкам, и по сумме), потолок = оплачено; продажа «в долг» уменьшает долг,
+/// а не выдаётся наличными; сумма сервера меньше расчёта — берём серверную. Ключ повтора живёт до успеха.
 class ReturnScreen extends ConsumerStatefulWidget {
   final String saleId;
   final String number;
@@ -398,49 +436,93 @@ class ReturnScreen extends ConsumerStatefulWidget {
 }
 
 class _ReturnScreenState extends ConsumerState<ReturnScreen> {
-  late final List<({String id, String name, double qty, double price, double total})> _lines;
+  late final List<SaleLineInfo> _lines;
   late final List<double> _pick;
+  LedgerEntry? _ledger;
+  Future<double?>? _debtLeft;
   bool _busy = false;
+  bool _ready = false;
+
+  String? get _method => str(widget.sale, 'payment_method');
+  ReturnLedger get _journal => ReturnLedger(ref.read(databaseProvider));
 
   @override
   void initState() {
     super.initState();
-    dynamic items = widget.sale['items'] ?? widget.sale['lines'];
-    if (items == null && widget.sale['cart'] is Map) items = (widget.sale['cart'] as Map)['items'];
-    _lines = [
-      for (final m in asList(items))
-        (
-          id: str(m, 'id') ?? '',
-          name: str(m, 'product_name') ?? str(m, 'name') ?? '',
-          qty: num0(m, 'quantity') > 0 ? num0(m, 'quantity') : num0(m, 'qty'),
-          price: num0(m, 'unit_price') > 0 ? num0(m, 'unit_price') : num0(m, 'price'),
-          total: num0(m, 'total') > 0 ? num0(m, 'total') : num0(m, 'line_total'),
-        ),
-    ].where((x) => x.id.isNotEmpty && x.qty > 0).toList();
+    _lines = saleLines(widget.sale);
     _pick = List.filled(_lines.length, 0);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _prepare());
   }
 
-  double get _sum {
-    var s = 0.0;
-    for (var i = 0; i < _lines.length; i++) {
-      final unit = _lines[i].qty > 0 ? _lines[i].total / _lines[i].qty : _lines[i].price;
-      s += unit * _pick[i];
+  Future<void> _prepare() async {
+    LedgerEntry? led;
+    try {
+      led = await _journal.rememberFromSale(widget.saleId, widget.sale);
+    } catch (_) {
+      led = null;
     }
-    return s;
+    // Остаток долга — заранее, до возврата (как StartServerDebtLeftLookup кассы).
+    final isDebt = (led != null && led.debt > 0.005) || (_method ?? '').toLowerCase() == 'debt';
+    if (isDebt) _debtLeft = ref.read(opsRepoProvider).saleDebtLeft(widget.sale);
+    if (!mounted) return;
+    setState(() {
+      _ledger = led;
+      _ready = true;
+    });
+  }
+
+  List<(int, double)> _picked({required bool whole}) => [
+    for (var i = 0; i < _lines.length; i++)
+      if (whole ? _lines[i].refundable > 0 : _pick[i] > 0) (i, whole ? _lines[i].refundable : _pick[i]),
+  ];
+
+  double _amount(List<(int, double)> picks) => refundTotal(_ledger, _lines, picks);
+
+  String _splitText(BuildContext context, double amount, RefundSplit split) {
+    final l = context.l;
+    final b = StringBuffer(l.returnAmount(money(amount)));
+    final parts = <String>[
+      if (split.cash > 0.005) l.returnInCash(money(split.cash)),
+      if (split.nonCash > 0.005) l.returnToCard(money(split.nonCash)),
+    ];
+    final give = !split.splitKnown ? '${money(split.money)} ${l.som}' : (parts.isEmpty ? '${money(0)} ${l.som}' : parts.join(' · '));
+    b.write('\n${l.returnGive(give)}');
+    if (split.debtReduced > 0.005) b.write('\n${split.debtUnknown ? l.returnDebtUnknown(money(split.debtReduced)) : l.returnDebtReduced(money(split.debtReduced))}');
+    if (split.nonCash > 0.005 && split.splitKnown) b.write('\n${l.returnViaBank}');
+    return b.toString();
   }
 
   Future<void> _submit({required bool whole}) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _submitCore(whole: whole);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submitCore({required bool whole}) async {
     final l = context.l;
-    final picked = [
-      for (var i = 0; i < _lines.length; i++)
-        if (_pick[i] > 0) (_lines[i].id, _pick[i]),
-    ];
-    if (!whole && picked.isEmpty) return;
+    final picks = _picked(whole: whole);
+    if (picks.isEmpty) {
+      if (whole) toast(context, l.returnNothingLeft, error: true);
+      return;
+    }
+    final amount = _amount(picks);
+    final led = _ledger;
+    if (led != null && led.total > 0 && led.remaining <= 0.004) {
+      toast(context, l.returnNothingLeft, error: true);
+      return;
+    }
+    final debtLeft = await _debtLeft;
+    if (!mounted) return;
+    final preview = computeRefundSplit(led, _method, amount, serverDebtLeft: debtLeft);
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: Text('${l.returnTitle} №${widget.number}'),
-        content: Text('${l.returnToCustomer}: ${money(whole ? _lines.fold<double>(0, (s, x) => s + x.total) : _sum)} ${l.som}'),
+        content: Text(_splitText(context, amount, preview)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
           FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(whole ? l.returnAll : l.returnSelected)),
@@ -448,78 +530,127 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    setState(() => _busy = true);
+    // Весь чек без прошлых возвратов — как раньше одним запросом; иначе строками (остатки строк).
+    final untouched = _lines.every((x) => x.refundable >= x.qty - 1e-6);
+    final send = whole && untouched ? const <(String, double)>[] : [for (final (i, q) in picks) (_lines[i].id, q)];
     try {
-      await ref.read(opsRepoProvider).returnSale(widget.saleId, whole ? const [] : picked);
-      Audit.log('return', '${l.auditReturn} · ${whole ? l.returnAll : l.returnSelected}');
-      ref.read(shiftProvider.notifier).refresh();
-      if (!mounted) return;
-      toast(context, l.returnDone);
-      context.pop(true);
+      await ref.read(opsRepoProvider).returnSale(widget.saleId, send);
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      return;
     }
+    // Что записал сервер: меньше расчёта — берём его (денег ушло меньше); выдано по движениям денег — его цифра.
+    final seen = {for (final r in led?.refunds ?? const <LedgerRefund>[]) ?r.serverDocId};
+    final figures = await ref.read(opsRepoProvider).serverReturnFigures(widget.saleId, seen);
+    var finalAmount = amount;
+    if (figures.doc != null && figures.doc! < amount - 0.009) finalAmount = roundMoney(figures.doc!);
+    final split = computeRefundSplit(led, _method, finalAmount, cashOut: figures.cashOut, serverDebtLeft: debtLeft);
+    if (led != null) {
+      await _journal.addRefund(
+        widget.saleId,
+        LedgerRefund(
+          at: DateTime.now(),
+          amount: finalAmount,
+          cash: split.cash,
+          nonCash: split.nonCash,
+          debtReduced: split.debtReduced,
+          serverAmount: figures.doc,
+          serverDocId: figures.docId,
+        ),
+      );
+    }
+    Audit.log('return', '${l.auditReturn} №${widget.number} · ${whole ? l.returnAll : l.returnSelected}', amount: -split.money);
+    ref.read(shiftProvider.notifier).refresh();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l.returnDone),
+        content: Text(_splitText(context, finalAmount, split)),
+        actions: [FilledButton(onPressed: () => Navigator.pop(c), child: Text(l.done))],
+      ),
+    );
+    if (mounted) context.pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
     final l = context.l;
     final pal = context.pal;
+    final picks = _picked(whole: false);
+    final sum = _ready ? _amount(picks) : 0.0;
+    final led = _ledger;
     return Scaffold(
       appBar: ScreenTitle(l.returnTitle, subtitle: '${l.check} №${widget.number}'),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          for (var i = 0; i < _lines.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Panel(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      body: !_ready
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (led != null && led.total > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(l.returnPaidInfo(money(led.total), money(led.refunded)), style: TextStyle(color: pal.textSoft, fontSize: 12.5)),
+                  ),
+                for (var i = 0; i < _lines.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Panel(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Row(
                         children: [
-                          Text(_lines[i].name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          Text(
-                            '${qtyText(_lines[i].qty)} × ${money(_lines[i].price)} = ${money(_lines[i].total)}',
-                            style: TextStyle(fontSize: 12, color: pal.textSoft),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(_lines[i].name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                Text(
+                                  '${qtyText(_lines[i].qty)} × ${money(_lines[i].price)} = ${money(_lines[i].total)}',
+                                  style: TextStyle(fontSize: 12, color: pal.textSoft),
+                                ),
+                                if (_lines[i].refundable < _lines[i].qty - 1e-6)
+                                  Text(
+                                    l.returnedQty(qtyText(_lines[i].qty - _lines[i].refundable)),
+                                    style: const TextStyle(fontSize: 12, color: T.warn, fontWeight: FontWeight.w700),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          IconButton.outlined(
+                            onPressed: _pick[i] <= 0 ? null : () => setState(() => _pick[i] = (_pick[i] - 1).clamp(0, _lines[i].refundable).toDouble()),
+                            icon: const Icon(Icons.remove),
+                          ),
+                          SizedBox(
+                            width: 40,
+                            child: Text(
+                              qtyText(_pick[i]),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                          IconButton.filled(
+                            style: IconButton.styleFrom(backgroundColor: context.pal.action),
+                            onPressed: _pick[i] >= _lines[i].refundable - 1e-6
+                                ? null
+                                : () => setState(() {
+                                    // весовая строка — остаток целиком, штучная — по одной
+                                    final left = _lines[i].refundable - _pick[i];
+                                    _pick[i] = (_pick[i] + (left < 1 ? left : 1)).clamp(0, _lines[i].refundable).toDouble();
+                                  }),
+                            icon: Icon(Icons.add, color: context.pal.onAction),
                           ),
                         ],
                       ),
                     ),
-                    IconButton.outlined(
-                      onPressed: _pick[i] <= 0 ? null : () => setState(() => _pick[i] = (_pick[i] - 1).clamp(0, _lines[i].qty)),
-                      icon: const Icon(Icons.remove),
-                    ),
-                    SizedBox(
-                      width: 40,
-                      child: Text(
-                        qtyText(_pick[i]),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                    IconButton.filled(
-                      style: IconButton.styleFrom(backgroundColor: context.pal.action),
-                      onPressed: _pick[i] >= _lines[i].qty ? null : () => setState(() => _pick[i] = (_pick[i] + 1).clamp(0, _lines[i].qty)),
-                      icon: Icon(Icons.add, color: context.pal.onAction),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                const SizedBox(height: 12),
+                Text('${l.returnToCustomer}: ${money(sum)} ${l.som}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 12),
+                FilledButton(onPressed: _busy || sum <= 0 ? null : () => _submit(whole: false), child: Text(l.returnSelected)),
+                const SizedBox(height: 8),
+                OutlinedButton(onPressed: _busy || _lines.every((x) => x.refundable <= 0) ? null : () => _submit(whole: true), child: Text(l.returnAll)),
+              ],
             ),
-          const SizedBox(height: 12),
-          Text('${l.returnToCustomer}: ${money(_sum)} ${l.som}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 12),
-          FilledButton(onPressed: _busy || _sum <= 0 ? null : () => _submit(whole: false), child: Text(l.returnSelected)),
-          const SizedBox(height: 8),
-          OutlinedButton(onPressed: _busy ? null : () => _submit(whole: true), child: Text(l.returnAll)),
-        ],
-      ),
     );
   }
 }

@@ -73,6 +73,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     private string _activeReceiptTitle = Tr.T("Основной чек", "Негизги чек", "Main receipt", "Ana fiş", "Asosiy chek");
     private double _subtotal;
     private double _discount;
+    private double _orderDiscount; // 2026-10-22 (аудит 1.17.59, П-В): скидка на чек отдельной строкой над «Итого»
     private double _total;
     private int _lineCount;
     private double _totalQuantity;
@@ -310,6 +311,28 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             OnPropertyChanged(nameof(DiscountDisplay));
         }
     }
+
+    /// <summary>2026-10-22 (аудит 1.17.59, П-В, Б9): скидка на весь чек — отдельной строкой «Скидка на чек −N» над «Итого»,
+    /// чтобы кассир видел, откуда меньшая сумма (зелёное «Скидка 50% применена» гаснет). Только показ.</summary>
+    public double OrderDiscountAmount
+    {
+        get => _orderDiscount;
+        private set
+        {
+            if (!SetProperty(ref _orderDiscount, value))
+                return;
+            OnPropertyChanged(nameof(HasOrderDiscount));
+            OnPropertyChanged(nameof(OrderDiscountText));
+            OnPropertyChanged(nameof(OrderDiscountValue));
+        }
+    }
+
+    public bool HasOrderDiscount => _orderDiscount > 0.004;
+
+    public string OrderDiscountText =>
+        Tr.T("Скидка на чек", "Чекке арзандатуу", "Receipt discount", "Fiş indirimi", "Chek chegirmasi");
+
+    public string OrderDiscountValue => "−" + MoneyText.Som(_orderDiscount);
 
     public double Total
     {
@@ -600,8 +623,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 if (fixedAmount > maximum + 1e-6)
                 {
                     _prompts.ShowWarning(Tr.T(
-                        $"Скидка не может превышать сумму товаров: {maximum:0.00} сом.",
-                        $"Арзандатуу товарлардын суммасынан ашпашы керек: {maximum:0.00} сом.", $"The discount can't exceed the total of the items: {maximum:0.00} som.", $"İndirim, ürünlerin toplam tutarını aşamaz: {maximum:0.00} som.", $"Chegirma mahsulotlar summasidan oshmasligi kerak: {maximum:0.00} so'm."));
+                        $"Скидка не может превышать сумму товаров: {MoneyText.Amount(maximum)} сом.",
+                        $"Арзандатуу товарлардын суммасынан ашпашы керек: {MoneyText.Amount(maximum)} сом.", $"The discount can't exceed the total of the items: {MoneyText.Amount(maximum)} som.", $"İndirim, ürünlerin toplam tutarını aşamaz: {MoneyText.Amount(maximum)} som.", $"Chegirma mahsulotlar summasidan oshmasligi kerak: {MoneyText.Amount(maximum)} so'm."));
                     return false;
                 }
 
@@ -617,11 +640,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                     {
                         var allowedSum = maximum * (double)limitForSum / 100.0;
                         _prompts.ShowWarning(Tr.T(
-                            $"Скидка не может превышать {limitForSum:0.##}% — это {allowedSum:0.00} сом для текущего чека.",
-                            $"Арзандатуу {limitForSum:0.##}%дан ашпашы керек — учурдагы чек үчүн бул {allowedSum:0.00} сом.",
-                            $"The discount can't exceed {limitForSum:0.##}% — that is {allowedSum:0.00} som for this receipt.",
-                            $"İndirim en fazla %{limitForSum:0.##} olabilir — bu fiş için {allowedSum:0.00} som.",
-                            $"Chegirma {limitForSum:0.##}%dan oshmasligi kerak — bu chek uchun {allowedSum:0.00} so'm."));
+                            $"Скидка не может превышать {limitForSum:0.##}% — это {MoneyText.Amount(allowedSum)} сом для текущего чека.",
+                            $"Арзандатуу {limitForSum:0.##}%дан ашпашы керек — учурдагы чек үчүн бул {MoneyText.Amount(allowedSum)} сом.",
+                            $"The discount can't exceed {limitForSum:0.##}% — that is {MoneyText.Amount(allowedSum)} som for this receipt.",
+                            $"İndirim en fazla %{limitForSum:0.##} olabilir — bu fiş için {MoneyText.Amount(allowedSum)} som.",
+                            $"Chegirma {limitForSum:0.##}%dan oshmasligi kerak — bu chek uchun {MoneyText.Amount(allowedSum)} so'm."));
                         return false;
                     }
                 }
@@ -898,11 +921,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             var list = string.Join("\n", loss.Take(5).Select(l => $"• {l.Title}: {lossWord} {MoneyText.Som(l.Loss)}"));
             PosLogger.Log($"Скидка в убыток: {total:0.00} сом по {loss.Count} поз. (до применения).", "CART");
             return Tr.T(
-                $"Со скидкой товар продаётся дешевле закупки — убыток {total:0.00} сом.\n{list}",
-                $"Арзандатуу менен товар сатып алуу баасынан арзан сатылат — зыян {total:0.00} сом.\n{list}",
-                $"With this discount the item sells below cost — loss {total:0.00} som.\n{list}",
-                $"Bu indirimle ürün alış fiyatının altında satılıyor — zarar {total:0.00} som.\n{list}",
-                $"Chegirma bilan mahsulot xarid narxidan arzon sotilmoqda — zarar {total:0.00} so'm.\n{list}");
+                $"Со скидкой товар продаётся дешевле закупки — убыток {MoneyText.Amount(total)} сом.\n{list}",
+                $"Арзандатуу менен товар сатып алуу баасынан арзан сатылат — зыян {MoneyText.Amount(total)} сом.\n{list}",
+                $"With this discount the item sells below cost — loss {MoneyText.Amount(total)} som.\n{list}",
+                $"Bu indirimle ürün alış fiyatının altında satılıyor — zarar {MoneyText.Amount(total)} som.\n{list}",
+                $"Chegirma bilan mahsulot xarid narxidan arzon sotilmoqda — zarar {MoneyText.Amount(total)} so'm.\n{list}");
         }
         catch (Exception ex)
         {
@@ -931,11 +954,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         var list = string.Join("\n", loss.Take(5).Select(l => $"• {l.Title}: {l.LossDisplayText}"));
         PosLogger.Log($"Скидка в убыток: {total:0.00} сом по {loss.Count} поз.", "CART");
         return Tr.T(
-            $"Со скидкой товар продаётся дешевле закупки — убыток {total:0.00} сом.\n{list}",
-            $"Арзандатуу менен товар сатып алуу баасынан арзан сатылат — зыян {total:0.00} сом.\n{list}",
-            $"With this discount the item sells below cost — loss {total:0.00} som.\n{list}",
-            $"Bu indirimle ürün alış fiyatının altında satılıyor — zarar {total:0.00} som.\n{list}",
-            $"Chegirma bilan mahsulot xarid narxidan arzon sotilmoqda — zarar {total:0.00} so'm.\n{list}");
+            $"Со скидкой товар продаётся дешевле закупки — убыток {MoneyText.Amount(total)} сом.\n{list}",
+            $"Арзандатуу менен товар сатып алуу баасынан арзан сатылат — зыян {MoneyText.Amount(total)} сом.\n{list}",
+            $"With this discount the item sells below cost — loss {MoneyText.Amount(total)} som.\n{list}",
+            $"Bu indirimle ürün alış fiyatının altında satılıyor — zarar {MoneyText.Amount(total)} som.\n{list}",
+            $"Chegirma bilan mahsulot xarid narxidan arzon sotilmoqda — zarar {MoneyText.Amount(total)} so'm.\n{list}");
     }
 
     /// <summary>2026-10-15: снимок убыточных строк чека ДО оплаты. Раньше журнал убытков писался после
@@ -1293,12 +1316,16 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         var aKg = price > 0 ? asAmount.ResolveWeightKg(price).ToString("0.000", inv) : "?";
         var name = product.Title;
 
+        // 2026-10-22 (модалки, пакет 1): кнопки — сами ответы: «Сумма … сом» (главная) и «Вес … кг» (вторая; Esc и ✕ — тоже
+        // «вес», как прежнее «Нет»). Текст больше не называет кнопки «Да» / «Нет». Смысл ответов и запоминание — прежние.
         var isAmount = await _prompts.ConfirmAsync(Tr.T(
-            $"Этикетка весов с префиксом {prefix} ({name}). Что напечатано на этикетке?\n\nДА — СУММА {aSum} сом (вес {aKg} кг)\nНЕТ — ВЕС {wKg} кг (сумма {wSum} сом)\n\nСверьте с этикеткой. Ответ запомнится для префикса {prefix}; поменять — Настройки → Весы.",
-            $"{prefix} префикстүү тараза этикеткасы ({name}). Этикеткада эмне басылган?\n\nООБА — СУММА {aSum} сом (салмагы {aKg} кг)\nЖОК — САЛМАК {wKg} кг (суммасы {wSum} сом)\n\nЭтикетка менен салыштырыңыз. Жооп {prefix} префикси үчүн эсте калат; өзгөртүү — Жөндөөлөр → Таразалар.",
-            $"Scale label with prefix {prefix} ({name}). What is printed on the label?\n\nYES — TOTAL {aSum} som (weight {aKg} kg)\nNO — WEIGHT {wKg} kg (total {wSum} som)\n\nCompare with the label. The answer is remembered for prefix {prefix}; change it in Settings → Scales.",
-            $"{prefix} önekli terazi etiketi ({name}). Etikette ne basılı?\n\nEVET — TUTAR {aSum} som (ağırlık {aKg} kg)\nHAYIR — AĞIRLIK {wKg} kg (tutar {wSum} som)\n\nEtiketle karşılaştırın. Cevap {prefix} öneki için hatırlanır; değiştirmek için Ayarlar → Teraziler.",
-            $"{prefix} prefiksli tarozi yorlig'i ({name}). Yorliqda nima bosilgan?\n\nHA — SUMMA {aSum} so'm (vazn {aKg} kg)\nYO'Q — VAZN {wKg} kg (summa {wSum} so'm)\n\nYorliq bilan solishtiring. Javob {prefix} prefiksi uchun eslab qolinadi; o'zgartirish — Sozlamalar → Tarozilar.")).ConfigureAwait(true);
+            $"Этикетка весов с префиксом {prefix} ({name}). Что напечатано на этикетке — сумма или вес?\n\nСумма: {aSum} сом (вес {aKg} кг)\nВес: {wKg} кг (сумма {wSum} сом)\n\nСверьте с этикеткой. Ответ запомнится для префикса {prefix}; поменять — Настройки → Весы.",
+            $"{prefix} префикстүү тараза этикеткасы ({name}). Этикеткада эмне басылган — сумма же салмак?\n\nСумма: {aSum} сом (салмагы {aKg} кг)\nСалмак: {wKg} кг (суммасы {wSum} сом)\n\nЭтикетка менен салыштырыңыз. Жооп {prefix} префикси үчүн эсте калат; өзгөртүү — Жөндөөлөр → Таразалар.",
+            $"Scale label with prefix {prefix} ({name}). What is printed on the label — total or weight?\n\nTotal: {aSum} som (weight {aKg} kg)\nWeight: {wKg} kg (total {wSum} som)\n\nCompare with the label. The answer is remembered for prefix {prefix}; change it in Settings → Scales.",
+            $"{prefix} önekli terazi etiketi ({name}). Etikette ne basılı — tutar mı ağırlık mı?\n\nTutar: {aSum} som (ağırlık {aKg} kg)\nAğırlık: {wKg} kg (tutar {wSum} som)\n\nEtiketle karşılaştırın. Cevap {prefix} öneki için hatırlanır; değiştirmek için Ayarlar → Teraziler.",
+            $"{prefix} prefiksli tarozi yorlig'i ({name}). Yorliqda nima bosilgan — summa yoki vazn?\n\nSumma: {aSum} so'm (vazn {aKg} kg)\nVazn: {wKg} kg (summa {wSum} so'm)\n\nYorliq bilan solishtiring. Javob {prefix} prefiksi uchun eslab qolinadi; o'zgartirish — Sozlamalar → Tarozilar."),
+            Tr.T($"Сумма {aSum} сом", $"Суммасы {aSum} сом", $"Total {aSum} som", $"Tutar {aSum} som", $"Summa {aSum} so'm"),
+            Tr.T($"Вес {wKg} кг", $"Салмак {wKg} кг", $"Weight {wKg} kg", $"Ağırlık {wKg} kg", $"Vazn {wKg} kg")).ConfigureAwait(true);
 
         if (isAmount)
         {
@@ -2055,7 +2082,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             IrregularReceiptsStore.Append(new IrregularReceiptEntry
             {
                 Tag = IrregularReceiptEntry.InsufficientStock,
-                CashierName = PosApp.CurrentUserId,
+                // 2026-10-23 (аудит, круг 8, В-1): в журнале некорректных чеков — имя кассира, id только если имени нет.
+                CashierName = !string.IsNullOrWhiteSpace(PosApp.CurrentUserDisplayName) ? PosApp.CurrentUserDisplayName : PosApp.CurrentUserId,
                 Note = string.Join("; ", _pendingInsufficientStockNotes),
                 Total = result.TotalAmount,
                 CartJson = result.CartJsonSnapshot ?? "{}",
@@ -2382,7 +2410,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         }
     }
 
-    private bool CanDeleteActiveReceiptCore() => _sessions.Count > 1 && !IsBusy;
+    // 2026-10-22 (модалки, пакет 1, живой аудит): при одном чеке «Удалить чек» была серой — теперь она очищает
+    // единственный чек (с подтверждением «Очистить чек»), если в нём есть товары.
+    private bool CanDeleteActiveReceiptCore() => (_sessions.Count > 1 || HasItems) && !IsBusy;
 
     /// <summary>2026-10-18, владелец: «Удалить чек» (вкладку с товарами) — тот же личный код доступа CartDelete, что у
     /// «Очистить чек», если код задан в настройках (Сотрудники / сайт); без кода — как раньше, сразу.</summary>
@@ -2391,6 +2421,13 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         var active = GetActiveSession();
         if (active is null)
             return;
+        // 2026-10-22 (модалки, пакет 1): единственный чек не удаляется, а очищается — тот же путь, что «Очистить чек»
+        // (вопрос, право DeleteCartItem, код CartDelete, журнал удалённого).
+        if (_sessions.Count <= 1)
+        {
+            await ClearCartAsync().ConfigureAwait(false);
+            return;
+        }
         string? confirmedBy = null;
         if (_sessions.Count > 1 && CurrentCartItems().Any())
         {
@@ -2402,7 +2439,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                     $"«{active.BaseName}» товарлары менен өчүрүлсүнбү (позиция: {count})?",
                     $"Delete “{active.BaseName}” with its items ({count})?",
                     $"«{active.BaseName}» ürünleriyle birlikte silinsin mi ({count} kalem)?",
-                    $"«{active.BaseName}» mahsulotlari bilan o'chirilsinmi (pozitsiyalar: {count})?")).ConfigureAwait(false))
+                    $"«{active.BaseName}» mahsulotlari bilan o'chirilsinmi (pozitsiyalar: {count})?"),
+                    // 2026-10-22 (модалки, пакет 1): глагол и красная кнопка — удаление с товарами необратимо.
+                    Tr.T("Удалить чек", "Чекти өчүрүү", "Delete receipt", "Fişi sil", "Chekni o'chirish"),
+                    danger: true).ConfigureAwait(false))
                 return;
             // 2026-10-18, ревью: как у «Очистить чек» (аудит 16.09) — без права удалять позиции вкладку с товарами не удалить.
             if (!DemandPermission(PosPermissions.DeleteCartItem))
@@ -2479,7 +2519,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         if (!HasItems || IsBusy)
             return;
 
-        if (!await _prompts.ConfirmAsync(Tr.T("Очистить текущую корзину?", "Учурдагы себетти тазалайсызбы?", "Clear the current cart?", "Mevcut sepet temizlensin mi?", "Joriy savatni tozalaysizmi?")).ConfigureAwait(false))
+        // 2026-10-22 (модалки, пакет 1): «Очистить чек» — красная, рядом «Отмена» (было «Продолжить»).
+        if (!await _prompts.ConfirmAsync(Tr.T("Очистить текущий чек? Все товары будут убраны из чека.", "Учурдагы чекти тазалайсызбы? Бардык товарлар чектен алынат.",
+                    "Clear the current receipt? All items will be removed.", "Mevcut fiş temizlensin mi? Tüm ürünler fişten çıkarılacak.",
+                    "Joriy chekni tozalaysizmi? Barcha mahsulotlar chekdan olib tashlanadi."),
+                Tr.T("Очистить чек", "Чекти тазалоо", "Clear receipt", "Fişi temizle", "Chekni tozalash"),
+                danger: true).ConfigureAwait(false))
             return;
 
         // 2026-09-16, живой баг аудита ("обход PIN на очистку корзины") — удаление ОДНОЙ позиции
@@ -2507,7 +2552,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             LogCartRemovals(CurrentCartItems(), CartRemovalLogStore.KindClear, confirmedBy: confirmedBy);
             ClearReceipt();
         }).ConfigureAwait(false);
-        _prompts.ShowToast(Tr.T("Корзина очищена.", "Себет тазаланды.", "Cart cleared.", "Sepet temizlendi.", "Savat tozalandi."));
+        // 2026-10-23 (аудит П-9): вместо окна «Сообщение» — лёгкая плашка под шапкой; окно — только если плашка недоступна.
+        var clearedText = Tr.T("Корзина очищена.", "Себет тазаланды.", "Cart cleared.", "Sepet temizlendi.", "Savat tozalandi.");
+        if (!MainStatusViewModel.TryShowInfoToast(clearedText))
+            _prompts.ShowToast(clearedText);
     }
 
     private async Task RemoveLineAsync(CartLineItemVm? line)
@@ -2616,7 +2664,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                     ShiftId = shiftId ?? PosApp.ActiveShiftId,
                     CashboxId = PosApp.PosCashboxId,
                     CompanyId = CompanyInfoService.LastCompany?.Id,
-                    Cashier = PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId ?? "",
+                    // 2026-10-23 (аудит, круг 8, В-1): «??» не ловит пустую строку — берём первое непустое.
+                    Cashier = !string.IsNullOrWhiteSpace(PosApp.CurrentUserDisplayName) ? PosApp.CurrentUserDisplayName!
+                        : !string.IsNullOrWhiteSpace(PosApp.CurrentUserId) ? PosApp.CurrentUserId! : "",
                     CartId = _cart.CartId,
                     Receipt = receipt,
                     ProductId = item.ProductId,
@@ -2726,7 +2776,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             $"Кампада болгону {formattedLimit} {line.Unit} бар. Улантып, кампаны толуктайсызбы?",
             $"Only {formattedLimit} {line.Unit} in stock. Continue and restock?",
             $"Stokta yalnızca {formattedLimit} {line.Unit} var. Devam edip depoya stok eklemek ister misiniz?",
-            $"Omborda faqat {formattedLimit} {line.Unit} bor. Davom etib, omborni to'ldirasizmi?"))
+            $"Omborda faqat {formattedLimit} {line.Unit} bor. Davom etib, omborni to'ldirasizmi?"),
+            // 2026-10-22 (модалки, пакет 1): глагол вместо «Продолжить»; «Отмена» (Esc) — как прежнее «Нет».
+            Tr.T("Пополнить склад", "Кампаны толуктоо", "Restock", "Stok ekle", "Omborni to'ldirish"))
             .ConfigureAwait(false);
         // 2026-10-04, ТЗ P0-1/P0-5: «Нет» (Esc) — поле к количеству строки, склад не трогаем; строки уже нет
         // в чеке (оплатили, пока висел вопрос) — тоже ничего не делаем.
@@ -3337,6 +3389,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         {
             Subtotal = 0;
             Discount = 0;
+            OrderDiscountAmount = 0;
             Total = 0;
             LineCount = 0;
             TotalQuantity = 0;
@@ -3351,6 +3404,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         var totals = CartTotalsCalculator.Calculate(_cart.Root);
         Subtotal = totals.Subtotal;
         Discount = totals.LineDiscounts + totals.OrderDiscount;
+        OrderDiscountAmount = totals.OrderDiscount;
         Total = totals.TotalDue;
         LineCount = totals.LineCount;
         TotalQuantity = _cart.TotalQuantity;

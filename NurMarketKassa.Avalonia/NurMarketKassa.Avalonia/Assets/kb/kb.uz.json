@@ -472,7 +472,7 @@
       {
        "id": "программа-владельца-что-такое-nurmarket-владелец-и-где-его-н",
        "title": "«NurMarket Egasi» nima va uni qayerdan topish mumkin",
-       "text": "Шаг 1. «NurMarket Egasi» dasturi kassa bilan birga o'rnatiladi: yangilanishdan keyin ish stolida va «Start» menyusida «NurMarket Владелец» yorlig'i paydo bo'ladi.\nШаг 2. Uni oching va NurCRM'dagi ega yoki administrator hisobi bilan kiring.\nШаг 3. Chapda — bo'limlar menyusi, o'ngda — «Umumiy ko'rinish»: bugungi kun, hafta yoki oy uchun tushum, cheklar, o'rtacha chek va foyda, kunlar bo'yicha tushum, to'lov usullari, so'nggi sotuvlar va eng yaxshi mahsulotlar.\nШаг 4. «Umumiy ko'rinish» har 20 soniyada avtomatik yangilanadi — kassadagi sotuv bu yerda dasturni qayta ishga tushirmasdan paydo bo'ladi.\nВажно: Dastur boshqa kompyuterda ham ishlashi mumkin: kassa va ega dasturi ma'lumotlarni bitta NurCRM serveridan oladi.",
+       "text": "Шаг 1. «NurMarket Egasi» dasturi kassa bilan birga o'rnatiladi: yangilanishdan keyin ish stolida va «Start» menyusida «NurMarket Владелец» yorlig'i paydo bo'ladi.\nШаг 2. Uni oching va NurCRM'dagi ega yoki administrator hisobi bilan kiring.\nШаг 3. Chapda — bo'limlar menyusi, o'ngda — «Umumiy ko'rinish»: bugungi kun, hafta yoki oy uchun tushum, cheklar, o'rtacha chek va foyda, kunlar bo'yicha tushum, to'lov usullari, so'nggi sotuvlar va eng yaxshi mahsulotlar.\nШаг 4. «Umumiy ko'rinish» har daqiqada avtomatik yangilanadi, oynaga qaytganda esa darhol; ↻ tugmasi hozir yangilaydi. Kassadagi sotuv bu yerda dasturni qayta ishga tushirmasdan paydo bo'ladi.\nВажно: Dastur boshqa kompyuterda ham ishlashi mumkin: kassa va ega dasturi ma'lumotlarni bitta NurCRM serveridan oladi.",
        "keywords": [
         "egasi",
         "ega",

@@ -74,6 +74,9 @@ public partial class MainWindow
 
     internal async Task OpenCashOperationsAsync()
     {
+        // 2026-10-22 (аудит новой сборки, П1): перед окном внесения/изъятия — сверка смены с сервером (он мог закрыть её сам).
+        if (_session.IsShiftOpen)
+            await CheckShiftOnServerAsync(TimeSpan.FromSeconds(4)).ConfigureAwait(true);
         var dlg = App.GetRequiredService<CashOperationsDialog>();
         dlg.OpenShiftAction = async cash => await ApplyShiftOpenedAsync(cash).ConfigureAwait(true);
         dlg.CloseShiftAction = async cash => await ApplyShiftClosedAsync(cash).ConfigureAwait(true);
@@ -122,7 +125,9 @@ public partial class MainWindow
                     : Tr.T($"Остаток этого размера/цвета — {scanned.Quantity:0.###} шт. Всё равно добавить?", $"Бул өлчөм/түстүн калдыгы — {scanned.Quantity:0.###} даана. Баары бир кошулсунбу?",
                         $"Only {scanned.Quantity:0.###} pcs of this size/color left. Add anyway?", $"Bu beden/renkten {scanned.Quantity:0.###} adet kaldı. Yine de eklensin mi?",
                         $"Bu o'lcham/rangdan {scanned.Quantity:0.###} dona qoldi. Baribir qo'shilsinmi?");
-                if (!await PosDialogs.ConfirmYesNoModalAsync(this, warn))
+                // 2026-10-22 (модалки, пакет 1): глаголы на кнопках вместо «Продолжить» / «Отмена».
+                if (!await PosDialogs.ConfirmYesNoModalAsync(this, warn,
+                        confirmText: Tr.T("Всё равно добавить", "Баары бир кошуу", "Add anyway", "Yine de ekle", "Baribir qo'shish")))
                     return;
             }
             var scannedParts = new[] { scanned.Size, scanned.Color }.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim());
@@ -150,7 +155,10 @@ public partial class MainWindow
                         $"Бул өлчөм/түстүн калдыгы — {chosen.Quantity:0.###} даана. Баары бир {picker.Quantity:0} даана кошулсунбу?",
                         $"Only {chosen.Quantity:0.###} pcs of this size/color left. Add {picker.Quantity:0} pcs anyway?",
                         $"Bu beden/renkten {chosen.Quantity:0.###} adet kaldı. Yine de {picker.Quantity:0} adet eklensin mi?",
-                        $"Bu o'lcham/rangdan {chosen.Quantity:0.###} dona qoldi. Baribir {picker.Quantity:0} dona qo'shilsinmi?")))
+                        $"Bu o'lcham/rangdan {chosen.Quantity:0.###} dona qoldi. Baribir {picker.Quantity:0} dona qo'shilsinmi?"),
+                        // 2026-10-22 (модалки, пакет 1): глагол с количеством вместо «Продолжить».
+                        confirmText: Tr.T($"Добавить {picker.Quantity:0} шт.", $"{picker.Quantity:0} даана кошуу", $"Add {picker.Quantity:0} pcs",
+                            $"{picker.Quantity:0} adet ekle", $"{picker.Quantity:0} dona qo'shish")))
                     return;
 
                 var parts = new[] { chosen.Size, chosen.Color }.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim());
@@ -373,7 +381,10 @@ public partial class MainWindow
                 await PosAlertDialog.ShowAsync(this, CashWithdrawalGuard.Title, refusal, PosAlertKind.Warning).ConfigureAwait(true);
                 return;
             }
-            if (!await PosDialogs.ConfirmYesNoModalAsync(this, CashWithdrawalGuard.ConfirmText(amount), CashWithdrawalGuard.Title).ConfigureAwait(true))
+            // 2026-10-22 (модалки, пакет 1): глагол с суммой — «Изъять 500,00 сом» / «Отмена».
+            if (!await PosDialogs.ConfirmYesNoModalAsync(this, CashWithdrawalGuard.ConfirmText(amount), CashWithdrawalGuard.Title,
+                    confirmText: Tr.T($"Изъять {MoneyText.Som(amount)}", $"{MoneyText.Som(amount)} алуу", $"Withdraw {MoneyText.Som(amount)}",
+                        $"{MoneyText.Som(amount)} çek", $"{MoneyText.Som(amount)} olish")).ConfigureAwait(true))
                 return;
             RecordCashWithdrawal(dialog.ServiceName, dialog.Price * dialog.Quantity);
             return;
@@ -464,10 +475,11 @@ public partial class MainWindow
         string? printError;
         try
         {
+            // 2026-10-22 (статьи изъятия): основание на чеке — статья и комментарий («Аренда — за октябрь»), по-русски, как весь чек.
             printError = await Task.Run(() => OperationReceiptPrinter.PrintCashOperation(
                 isWithdrawal,
                 op.Amount,
-                op.Note,
+                op.ReceiptNote,
                 cashier)).ConfigureAwait(true);
         }
         catch (Exception ex)
@@ -483,17 +495,17 @@ public partial class MainWindow
 
         _viewModel.Basket.CartMessage = isWithdrawal
             ? Tr.T(
-                $"Изъятие оформлено: {op.Amount:0.00} сом.",
-                $"Акча алынды: {op.Amount:0.00} сом.",
-                $"Cash out recorded: {op.Amount:0.00} som.",
-                $"Para çıkışı kaydedildi: {op.Amount:0.00} som.",
-                $"Chiqim rasmiylashtirildi: {op.Amount:0.00} so'm.")
+                $"Изъятие оформлено: {MoneyText.Amount(op.Amount)} сом.",
+                $"Акча алынды: {MoneyText.Amount(op.Amount)} сом.",
+                $"Cash out recorded: {MoneyText.Amount(op.Amount)} som.",
+                $"Para çıkışı kaydedildi: {MoneyText.Amount(op.Amount)} som.",
+                $"Chiqim rasmiylashtirildi: {MoneyText.Amount(op.Amount)} so'm.")
             : Tr.T(
-                $"Внесение оформлено: {op.Amount:0.00} сом.",
-                $"Акча салынды: {op.Amount:0.00} сом.",
-                $"Cash in recorded: {op.Amount:0.00} som.",
-                $"Para girişi kaydedildi: {op.Amount:0.00} som.",
-                $"Kirim rasmiylashtirildi: {op.Amount:0.00} so'm.");
+                $"Внесение оформлено: {MoneyText.Amount(op.Amount)} сом.",
+                $"Акча салынды: {MoneyText.Amount(op.Amount)} сом.",
+                $"Cash in recorded: {MoneyText.Amount(op.Amount)} som.",
+                $"Para girişi kaydedildi: {MoneyText.Amount(op.Amount)} som.",
+                $"Kirim rasmiylashtirildi: {MoneyText.Amount(op.Amount)} so'm.");
     }
 
     /// <summary>Неизвестный штрих-код при сканировании (2026-09-07, по просьбе владельца): вместо
@@ -634,7 +646,9 @@ public partial class MainWindow
                 $"Бул өлчөм/түстүн калдыгы — {chosen.Quantity:0.###} даана. Баары бир алмаштырылсынбы?",
                 $"Only {chosen.Quantity:0.###} pcs of this size/color left. Replace anyway?",
                 $"Bu beden/renkten {chosen.Quantity:0.###} adet kaldı. Yine de değiştirilsin mi?",
-                $"Bu o'lcham/rangdan {chosen.Quantity:0.###} dona qoldi. Baribir almashtirilsinmi?")))
+                $"Bu o'lcham/rangdan {chosen.Quantity:0.###} dona qoldi. Baribir almashtirilsinmi?"),
+                // 2026-10-22 (модалки, пакет 1): глагол вместо «Продолжить».
+                confirmText: Tr.T("Всё равно заменить", "Баары бир алмаштыруу", "Replace anyway", "Yine de değiştir", "Baribir almashtirish")))
             return;
         var parts = new[] { chosen.Size, chosen.Color }.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim());
         _viewModel.Basket.ReplaceLineVariant(line, vm, chosen.Price ?? LocalCartService.ParsePrice(vm.PriceLine), variantId,
@@ -653,7 +667,7 @@ public partial class MainWindow
             : null;
         var dialog = new WeighedProductDialog(
             line.Title,
-            Tr.T($"{line.UnitPrice:0.00} сом", $"{line.UnitPrice:0.00} сом", $"{line.UnitPrice:0.00} som", $"{line.UnitPrice:0.00} som", $"{line.UnitPrice:0.00} so'm"),
+            Tr.T($"{MoneyText.Amount(line.UnitPrice)} сом", $"{MoneyText.Amount(line.UnitPrice)} сом", $"{MoneyText.Amount(line.UnitPrice)} som", $"{MoneyText.Amount(line.UnitPrice)} som", $"{MoneyText.Amount(line.UnitPrice)} so'm"),
             scale,
             line.Quantity.ToString("0.###", CultureInfo.InvariantCulture),
             Tr.T("Обновить", "Жаңылоо", "Update", "Güncelle", "Yangilash"));
@@ -720,11 +734,11 @@ public partial class MainWindow
                 {
                     var allowedSum = lineGross * lineLimitForSum / 100m;
                     _prompts.ShowWarning(Tr.T(
-                        $"Скидка не может превышать {lineLimitForSum:0.##}% — это {allowedSum:0.00} сом для этой позиции.",
-                        $"Арзандатуу {lineLimitForSum:0.##}%дан ашпашы керек — бул позиция үчүн {allowedSum:0.00} сом.",
-                        $"The discount can't exceed {lineLimitForSum:0.##}% — that is {allowedSum:0.00} som for this line.",
-                        $"İndirim en fazla %{lineLimitForSum:0.##} olabilir — bu satır için {allowedSum:0.00} som.",
-                        $"Chegirma {lineLimitForSum:0.##}%dan oshmasligi kerak — bu qator uchun {allowedSum:0.00} so'm."));
+                        $"Скидка не может превышать {lineLimitForSum:0.##}% — это {MoneyText.Amount(allowedSum)} сом для этой позиции.",
+                        $"Арзандатуу {lineLimitForSum:0.##}%дан ашпашы керек — бул позиция үчүн {MoneyText.Amount(allowedSum)} сом.",
+                        $"The discount can't exceed {lineLimitForSum:0.##}% — that is {MoneyText.Amount(allowedSum)} som for this line.",
+                        $"İndirim en fazla %{lineLimitForSum:0.##} olabilir — bu satır için {MoneyText.Amount(allowedSum)} som.",
+                        $"Chegirma {lineLimitForSum:0.##}%dan oshmasligi kerak — bu qator uchun {MoneyText.Amount(allowedSum)} so'm."));
                     return;
                 }
             }
@@ -1468,6 +1482,10 @@ public partial class MainWindow
         _session.CurrentUserDisplayName = newSession.DisplayName;
         _session.PosCashboxDisplayName = newSession.DisplayName;
         _session.ActiveTerminal = newSession.BranchId;
+        // 2026-10-23 (аудит, круг 8, В-1): без этого следующий SyncToSession вернул бы в сессию прежнего кассира из PosApp,
+        // а меню показывало бы старое имя.
+        NurMarketKassa.App.SyncFromSession(_session);
+        _viewModel.SideMenu.RefreshSessionInfo();
 
         App.AuditDb.LogEvent("auth", "switch_cashier", new { userId = newSession.UserId }, newSession.UserId);
         AccountCatalogIsolation.PrepareForAuthenticatedUser("", newSession.UserId);

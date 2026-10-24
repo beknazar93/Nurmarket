@@ -49,6 +49,8 @@ public static class SectionVisibility
         ("analytics", Tr.T("Аналитика", "Талдоо", "Analytics", "Analiz", "Analitika")),
         ("abc", Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil")),
         ("profitcash", Tr.T("Прибыль и деньги", "Пайда жана акча", "Profit & cash", "Kâr ve nakit", "Foyda va pul")),
+        // 2026-10-22 (закупки как в вебе): раздел «Закупки».
+        ("purchases", Tr.T("Закупки", "Сатып алуулар", "Purchases", "Satın alma", "Xaridlar")),
         // 2026-10-20, этап П1: раздел «Поставщики» (список с долгом и карточка).
         ("suppliers", Tr.T("Поставщики", "Жеткирүүчүлөр", "Suppliers", "Tedarikçiler", "Yetkazib beruvchilar")),
         ("supplierreturns", Tr.T("Возвраты поставщикам", "Жеткирүүчүлөргө кайтаруулар", "Returns to suppliers", "Tedarikçiye iadeler", "Yetkazib beruvchilarga qaytarishlar")),
@@ -81,6 +83,8 @@ public static class SectionVisibility
         ("kassa.rental", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat")),
         ("kassa.timesheet", Tr.T("Табель сотрудников", "Кызматкерлердин табели", "Staff timesheet", "Personel puantajı", "Xodimlar tabeli")),
         ("kassa.warehouse", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor")),
+        // 2026-10-22 (закупки как в вебе): «Закупки» в меню кассы.
+        ("kassa.purchases", Tr.T("Закупки", "Сатып алуулар", "Purchases", "Satın alma", "Xaridlar")),
         ("kassa.restock", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar")),
         // 2026-10-18: в меню кассы тоже один пункт «Продажи и финансы» (MainWindow.NavigateFinance).
         ("kassa.sales", Tr.T("Продажи и финансы — часть «Продажи»", "Сатуулар жана каржы — «Сатуулар» бөлүгү", "Sales & finance — the “Sales” part", "Satışlar ve finans — «Satışlar» bölümü", "Sotuvlar va moliya — «Sotuvlar» qismi")),

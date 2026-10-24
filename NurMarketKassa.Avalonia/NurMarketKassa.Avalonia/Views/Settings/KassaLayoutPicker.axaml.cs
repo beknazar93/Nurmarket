@@ -41,6 +41,9 @@ public partial class KassaLayoutPicker : UserControl
         Avalonia.Threading.Dispatcher.UIThread.Post(Rebuild);
 
     /// <summary>Пересобрать карточки (вид мог смениться в другом месте — например, карточкой «1С»).</summary>
+    // 2026-10-23, П-10 (утечка памяти ~0,7 МБ на пересборку): раньше кисти карточек подписывались на ресурсы самой страницы
+    // (this.GetResourceObservable), и снятые карточки навсегда оставались в её событии ResourcesChanged. Теперь каждая
+    // карточка подписана на свои ресурсы и уходит в сборку мусора вместе с собой.
     public void Rebuild()
     {
         LayoutPickerPanel.Children.Clear();
@@ -56,7 +59,7 @@ public partial class KassaLayoutPicker : UserControl
                 FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            title.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            title.Bind(TextBlock.ForegroundProperty, title.GetResourceObservable("BrushText"));
 
             var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 10, 0, 4) };
             header.Children.Add(title);
@@ -68,7 +71,7 @@ public partial class KassaLayoutPicker : UserControl
                     FontSize = 11,
                     FontWeight = FontWeight.SemiBold,
                 };
-                badgeText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushAccentForeground"));
+                badgeText.Bind(TextBlock.ForegroundProperty, badgeText.GetResourceObservable("BrushAccentForeground"));
                 var badge = new Border
                 {
                     CornerRadius = new CornerRadius(6),
@@ -76,7 +79,7 @@ public partial class KassaLayoutPicker : UserControl
                     VerticalAlignment = VerticalAlignment.Center,
                     Child = badgeText,
                 };
-                badge.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushAccent"));
+                badge.Bind(Border.BackgroundProperty, badge.GetResourceObservable("BrushAccent"));
                 Grid.SetColumn(badge, 1);
                 header.Children.Add(badge);
             }
@@ -90,7 +93,7 @@ public partial class KassaLayoutPicker : UserControl
                 TextTrimming = TextTrimming.CharacterEllipsis,
             };
             ToolTip.SetTip(description, option.Description());
-            description.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            description.Bind(TextBlock.ForegroundProperty, description.GetResourceObservable("BrushTextSoft"));
 
             var card = new Button
             {
@@ -109,8 +112,8 @@ public partial class KassaLayoutPicker : UserControl
                 },
             };
             card.Classes.Add("LayoutCard");
-            card.Bind(Button.BackgroundProperty, this.GetResourceObservable("BrushPanel"));
-            card.Bind(Button.BorderBrushProperty, this.GetResourceObservable(isActive ? "BrushAccentStrong" : "BrushBorder"));
+            card.Bind(Button.BackgroundProperty, card.GetResourceObservable("BrushPanel"));
+            card.Bind(Button.BorderBrushProperty, card.GetResourceObservable(isActive ? "BrushAccentStrong" : "BrushBorder"));
             Avalonia.Automation.AutomationProperties.SetName(card, option.Label());
             card.Click += LayoutCard_Click;
             LayoutPickerPanel.Children.Add(card);

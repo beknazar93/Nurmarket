@@ -14,6 +14,8 @@ public partial class PrinterNotConnectedDialog : Window
     private PrinterNotConnectedDialog(bool checkoutMode)
     {
         InitializeComponent();
+        // 2026-10-22 (модалки, пакет 1): окно открывается посреди оплаты — Enter сканера не нажимает главную кнопку.
+        ScannerEnterGuard.Attach(this);
         // 2026-10-17, этап 3: заголовок — в шапке общей оболочки модалки (Shell.Title вместо TitleText).
 
         if (checkoutMode)
@@ -36,6 +38,9 @@ public partial class PrinterNotConnectedDialog : Window
         // 2026-10-17, ревью этапа 3: Esc и ✕ — это «ОК»; скрытая «Отмена» не должна быть кнопкой отмены окна.
         CancelButton.IsCancel = false;
         OkButton.IsCancel = true;
+        // 2026-10-22 (модалки, пакет 1): Enter — тоже «ОК» (одна кнопка IsDefault на окно).
+        ProceedButton.IsDefault = false;
+        OkButton.IsDefault = true;
     }
 
     public static PrinterNotConnectedResult ShowCheckout(Window? owner)

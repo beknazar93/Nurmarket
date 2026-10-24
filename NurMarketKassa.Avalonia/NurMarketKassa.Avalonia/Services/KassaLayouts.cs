@@ -142,7 +142,7 @@ public static class KassaLayouts
         public readonly IBrush Panel = Res("BrushPanel", "#FFFFFF");
         public readonly IBrush Soft = Res("BrushPanelSoft", "#E2E8F0");
         public readonly IBrush Border = Res("BrushBorder", "#CBD5E1");
-        public readonly IBrush Accent = Res("BrushAccent", "#F7D617");
+        public readonly IBrush Accent = Res("BrushAccent", "#FFB208");
         public readonly IBrush Success = Res("BrushSuccess", "#047857");
         public readonly IBrush Warning = Res("BrushWarning", "#B45309");
         public readonly IBrush Text = Res("BrushTextSoft", "#64748B");

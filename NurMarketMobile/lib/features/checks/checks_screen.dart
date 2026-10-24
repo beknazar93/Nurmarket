@@ -12,6 +12,7 @@ import '../../core/api/session_store.dart';
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
+import '../../core/sync/outbox_meta.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../payment/receipt_qr.dart';
@@ -77,21 +78,34 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
   bool _loading = false;
   String? _error;
 
+  /// 2026-10-22 (мобилка, деньги): продажи смены — фильтр на сервере и «Ещё» (раньше только 1-я страница всей компании).
+  int _page = 1;
+  bool _hasMore = false;
+  String? _legacyOwner;
+
+  bool _foreign(CheckRow r) =>
+      r.local != null && !OutboxMeta.belongsTo(r.local!, OutboxMeta.ownerOf(ref.read(sessionProvider)), legacyOwner: _legacyOwner);
+
   @override
   void initState() {
     super.initState();
+    ref.read(databaseProvider).getSetting(OutboxMeta.legacyOwnerSetting).then((v) => mounted ? setState(() => _legacyOwner = v) : null);
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool more = false}) async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final shiftId = ref.read(shiftProvider).shift?.id;
-      final rows = await ref.read(salesRepoProvider).sales();
-      _server = rows.where((m) => shiftId == null || str(m, 'shift') == null || str(m, 'shift') == shiftId).map(CheckRow.fromServer).toList();
+      final page = more ? _page + 1 : 1;
+      final (rows, hasMore) = await ref.read(opsRepoProvider).shiftSales(shiftId, page: page);
+      final mapped = rows.map(CheckRow.fromServer).toList();
+      _server = more ? [..._server, ...mapped.where((r) => !_server.any((x) => x.id == r.id))] : mapped;
+      _page = page;
+      _hasMore = hasMore;
     } on ApiException catch (e) {
       _error = e.message;
     } finally {
@@ -106,7 +120,7 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
     return StreamBuilder<List<OutboxData>>(
       stream: ref.read(databaseProvider).watchOutbox(kind: 'sale'),
       builder: (c, snap) {
-        final local = (snap.data ?? []).where((o) => o.status != 'sent').toList();
+        final local = (snap.data ?? []).where((o) => o.status != 'sent' && o.status != OutboxMeta.dropped).toList();
         final rows = _unsent
             ? local
                   .map(
@@ -162,9 +176,11 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-                        itemCount: shown.length,
+                        itemCount: shown.length + (!_unsent && _hasMore ? 1 : 0),
                         separatorBuilder: (_, _) => const SizedBox(height: 8),
-                        itemBuilder: (c, i) => _CheckTile(shown[i]),
+                        itemBuilder: (c, i) => i < shown.length
+                            ? _CheckTile(shown[i], foreign: _foreign(shown[i]))
+                            : OutlinedButton(onPressed: _loading ? null : () => _load(more: true), child: Text(l.loadMore)),
                       ),
               ),
             ),
@@ -177,7 +193,10 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
 
 class _CheckTile extends StatelessWidget {
   final CheckRow r;
-  const _CheckTile(this.r);
+
+  /// 2026-10-22 (мобилка, деньги, К-6): чек другого аккаунта — не отправляется под этим входом.
+  final bool foreign;
+  const _CheckTile(this.r, {this.foreign = false});
   @override
   Widget build(BuildContext context) {
     final l = context.l;
@@ -204,7 +223,7 @@ class _CheckTile extends StatelessWidget {
               Text('${money(r.total)} ${l.som}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
               if (r.pending)
                 Text(
-                  r.local?.lastError != null && r.local!.status == 'failed' ? l.notAccepted : l.waitsForNetwork,
+                  foreign ? l.otherAccount : (r.local?.lastError != null && r.local!.status == 'failed' ? l.notAccepted : l.waitsForNetwork),
                   style: TextStyle(fontSize: 11.5, color: r.local?.status == 'failed' ? T.danger : T.warn, fontWeight: FontWeight.w700),
                 )
               else if (returned)
@@ -408,6 +427,27 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
                 if (context.mounted) Navigator.pop(context);
               },
               child: Text(l.sendAgain),
+            ),
+            // 2026-10-22 (мобилка, деньги): отклонённый сервером чек можно снять — он не уйдёт и не держит закрытие смены.
+            const SizedBox(height: 8),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(foregroundColor: T.danger),
+              onPressed: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    content: Text(l.dropRowAsk),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+                      FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.dropRow)),
+                    ],
+                  ),
+                );
+                if (ok != true) return;
+                await OutboxMeta.drop(ref.read(databaseProvider), r.local!);
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: Text(l.dropRow),
             ),
           ],
           const SizedBox(height: 14),

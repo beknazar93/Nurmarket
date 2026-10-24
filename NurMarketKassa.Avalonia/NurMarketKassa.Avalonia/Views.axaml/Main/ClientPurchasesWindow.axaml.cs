@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -33,9 +34,9 @@ public sealed class ClientPurchasesWindow : Window
 
     private readonly TextBlock _summary = new()
     {
-        FontSize = 12,
+        FontSize = 13,
         Margin = new Avalonia.Thickness(0, 0, 0, 8),
-        Foreground = Brushes.Gray,
+        TextWrapping = TextWrapping.Wrap,
     };
 
     private readonly TextBox _receipt = new()
@@ -64,40 +65,49 @@ public sealed class ClientPurchasesWindow : Window
 
         Title = Tr.T("История покупок", "Сатып алуулар тарыхы", "Purchase history",
                      "Satın alma geçmişi", "Xaridlar tarixi");
-        Width = 980;
-        Height = 620;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = this.FindResource("BrushWindow") as IBrush ?? Brushes.White;
+        // 2026-10-22 (модалки, пакет 2): общая оболочка модалки (L 912, ModalShell) вместо окна с рамкой Windows 980×620 без прокрутки:
+        // на 1024×600 и 910×512 низ (таблица, чек, «Накладная по чеку») обрезался. Теперь шапка с ✕ и подвал «Закрыть» (Esc)
+        // закреплены, таблица и чек делят оставшуюся высоту (чек — без фиксированных 470 px). Цвета — привязкой к теме
+        // (были взяты один раз через FindResource и Brushes.Gray — при смене темы не менялись).
+        SectionCards.AsModal(this, 912);
 
         BuildColumns();
         _grid.SelectionChanged += (_, _) => _ = ShowReceiptAsync();
+        _grid.MinHeight = 160;
 
-        var left = new StackPanel { Spacing = 0 };
-        left.Children.Add(_summary);
+        UseBrush(_summary, TextBlock.ForegroundProperty, "BrushTextSoft");
         // 2026-10-06 (О-05, магазин одежды): какие размеры и цвета берёт клиент.
-        _sizes.Foreground = this.FindResource("BrushText") as IBrush ?? Brushes.Black;
-        left.Children.Add(_sizes);
+        UseBrush(_sizes, TextBlock.ForegroundProperty, "BrushText");
+        UseBrush(_rentalsHead, TextBlock.ForegroundProperty, "BrushText");
+        var top = new StackPanel { Spacing = 0 };
+        top.Children.Add(_summary);
+        top.Children.Add(_sizes);
         // 2026-10-02, владелец: «добавь к истории клиентов прокат тоже».
         // Прокат — над таблицей чеков: под ней он уходил за край окна.
-        left.Children.Add(_rentalsHead);
-        left.Children.Add(new ScrollViewer { Content = _rentals, MaxHeight = 140, Margin = new Avalonia.Thickness(0, 0, 0, 10) });
-        left.Children.Add(_grid);
+        top.Children.Add(_rentalsHead);
+        top.Children.Add(new ScrollViewer { Content = _rentals, MaxHeight = 140, Margin = new Avalonia.Thickness(0, 0, 0, 10) });
 
-        var right = new StackPanel { Spacing = 6, Margin = new Avalonia.Thickness(12, 0, 0, 0) };
-        right.Children.Add(new TextBlock
+        var receiptTitle = new TextBlock
         {
             Text = Tr.T("Чек", "Чек", "Receipt", "Fiş", "Chek"),
             FontWeight = FontWeight.SemiBold,
             FontSize = 13,
-            Foreground = this.FindResource("BrushText") as IBrush ?? Brushes.Black,
-        });
-        right.Children.Add(new ScrollViewer { Content = _receipt, Height = 470 });
+            Margin = new Avalonia.Thickness(0, 0, 0, 6),
+        };
+        UseBrush(receiptTitle, TextBlock.ForegroundProperty, "BrushText");
+        var right = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Avalonia.Thickness(12, 0, 0, 0), Width = 340 };
+        right.Children.Add(receiptTitle);
+        var receiptScroll = new ScrollViewer { Content = _receipt, MinHeight = 160, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
+        Grid.SetRow(receiptScroll, 1);
+        right.Children.Add(receiptScroll);
         // 2026-10-21, владелец: «из продажи/чека клиента — накладная по чеку» — строки чека в новую накладную (редактор документа).
         if (AppMode.IsOwner)
         {
             _waybillButton.Content = Tr.T("Накладная по чеку", "Чек боюнча накладной", "Waybill from receipt", "Fişten irsaliye", "Chek bo'yicha yuk xati");
             _waybillButton.Classes.Add("sec-outline");
-            _waybillButton.Height = 40;
+            _waybillButton.Height = 44;
+            _waybillButton.Margin = new Avalonia.Thickness(0, 8, 0, 0);
+            Grid.SetRow(_waybillButton, 2);
             _waybillButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             _waybillButton.HorizontalContentAlignment = HorizontalAlignment.Center;
             _waybillButton.Click += (_, _) =>
@@ -110,23 +120,20 @@ public sealed class ClientPurchasesWindow : Window
             right.Children.Add(_waybillButton);
         }
 
-        var body = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        body.Children.Add(left);
+        var body = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,*") };
+        body.Children.Add(top);
+        Grid.SetColumnSpan(top, 2);
+        Grid.SetRow(_grid, 1);
+        body.Children.Add(_grid);
         Grid.SetColumn(right, 1);
+        Grid.SetRow(right, 1);
         body.Children.Add(right);
 
-        var root = new StackPanel { Spacing = 10, Margin = new Avalonia.Thickness(16) };
-        root.Children.Add(new TextBlock
-        {
-            Text = clientName,
-            FontSize = 20,
-            FontWeight = FontWeight.Bold,
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = this.FindResource("BrushText") as IBrush ?? Brushes.Black,
-        });
-        root.Children.Add(body);
-
-        Content = root;
+        var close = SectionCards.Cancel(Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
+        close.Click += (_, _) => Close();
+        var shell = SectionCards.Shell(clientName, Title, body, SectionCards.Buttons(close));
+        shell.ContentScroll = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
+        Content = shell;
         Opened += async (_, _) =>
         {
             await LoadAsync();
@@ -151,7 +158,6 @@ public sealed class ClientPurchasesWindow : Window
             _rentals.Children.Clear();
             _rentalsHead.IsVisible = mine.Count > 0;
             _rentalsHead.Text = Tr.T($"Прокат: {mine.Count}", $"Прокат: {mine.Count}", $"Rentals: {mine.Count}", $"Kiralama: {mine.Count}", $"Prokat: {mine.Count}");
-            _rentalsHead.Foreground = this.FindResource("BrushText") as IBrush ?? Brushes.Black;
             foreach (var r in mine)
             {
                 var status = r.IsOverdue ? Tr.T("просрочен", "мөөнөтү өттү", "overdue", "gecikmiş", "muddati o'tgan")
@@ -160,20 +166,21 @@ public sealed class ClientPurchasesWindow : Window
                     : Tr.T("возвращено", "кайтарылды", "returned", "iade edildi", "qaytarildi");
                 var deposit = r.IsDocumentDeposit ? Tr.T("залог: документ", "күрөө: документ", "deposit: document", "depozito: belge", "garov: hujjat")
                     : Tr.T($"залог {r.DepositAmount:N0} сом", $"күрөө {r.DepositAmount:N0} сом", $"deposit {r.DepositAmount:N0} som", $"depozito {r.DepositAmount:N0} som", $"garov {r.DepositAmount:N0} so'm");
+                var rowText = new TextBlock
+                {
+                    Text = $"№{r.Number} · {string.Join(", ", r.Items.Select(i => i.Label))} · {r.DateFrom:dd.MM}–{r.DateTo:dd.MM} · {status} · {deposit}"
+                           + (r.Penalty > 0 ? Tr.T($" · штраф {r.Penalty:N0}", $" · айып {r.Penalty:N0}", $" · penalty {r.Penalty:N0}", $" · ceza {r.Penalty:N0}", $" · jarima {r.Penalty:N0}") : ""),
+                    FontSize = 13,
+                    TextWrapping = TextWrapping.Wrap,
+                };
+                UseBrush(rowText, TextBlock.ForegroundProperty, r.IsOverdue ? "BrushDanger" : "BrushText");
                 var row = new Border
                 {
                     CornerRadius = new Avalonia.CornerRadius(8),
                     Padding = new Avalonia.Thickness(10, 6),
-                    Background = this.FindResource("BrushPanelSoft") as IBrush ?? Brushes.WhiteSmoke,
-                    Child = new TextBlock
-                    {
-                        Text = $"№{r.Number} · {string.Join(", ", r.Items.Select(i => i.Label))} · {r.DateFrom:dd.MM}–{r.DateTo:dd.MM} · {status} · {deposit}"
-                               + (r.Penalty > 0 ? Tr.T($" · штраф {r.Penalty:N0}", $" · айып {r.Penalty:N0}", $" · penalty {r.Penalty:N0}", $" · ceza {r.Penalty:N0}", $" · jarima {r.Penalty:N0}") : ""),
-                        FontSize = 12.5,
-                        TextWrapping = TextWrapping.Wrap,
-                        Foreground = this.FindResource(r.IsOverdue ? "BrushDanger" : "BrushText") as IBrush ?? Brushes.Black,
-                    },
+                    Child = rowText,
                 };
+                UseBrush(row, Border.BackgroundProperty, "BrushPanelSoft");
                 _rentals.Children.Add(row);
             }
         }
@@ -182,6 +189,10 @@ public sealed class ClientPurchasesWindow : Window
             PosLogger.Log($"История клиента: прокат не загружен ({ex.Message}).", "WARNING");
         }
     }
+
+    /// <summary>2026-10-22 (модалки, пакет 2): цвет — привязкой к ресурсу темы (меняется вместе с темой).</summary>
+    private void UseBrush(Avalonia.AvaloniaObject target, Avalonia.AvaloniaProperty property, string key) =>
+        target.Bind(property, this.GetResourceObservable(key));
 
     private void BuildColumns()
     {

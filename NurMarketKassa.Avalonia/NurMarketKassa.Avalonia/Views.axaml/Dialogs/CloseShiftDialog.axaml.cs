@@ -5,7 +5,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.Models;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
@@ -63,11 +65,17 @@ public partial class CloseShiftDialog : Window
 
     private bool ExpectedHidden => _blindCount && !_blindRevealed;
 
+    /// <summary>2026-10-23 (аудит, круг 8, В-7): отчёт смены сервера — те же цифры, что в X-отчёте («Просмотр смены»):
+    /// оплата долгов, внесения/изъятия берутся из него, а не только из журнала этой кассы. null — ещё не пришёл / нет связи.</summary>
+    private ServerShiftReport? _report;
+    private readonly CancellationTokenSource _reportCts = new();
+
     public CloseShiftDialog()
     {
         InitializeComponent();
         _blindCount = UserPreferences.Instance.BlindCashCount;
         Opened += OnDialogOpened;
+        Closed += (_, _) => _reportCts.Cancel(); // 2026-10-23 (аудит, круг 8, В-7)
         AddHandler(KeyDownEvent, (_, e) => { if (e.Key == Key.Enter) _enterDown = true; }, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, (_, e) =>
         {
@@ -135,10 +143,39 @@ public partial class CloseShiftDialog : Window
         }
 
         ApplyTotals(Totals);
+        _ = LoadServerReportAsync(); // 2026-10-23 (аудит, круг 8, В-7)
         ApplyBlindState();
         ClosingCashBox.Focus();
         ClosingCashBox.SelectAll();
         UpdateDiscrepancy();
+    }
+
+    /// <summary>2026-10-23 (аудит, круг 8, В-7): Z-отчёт не совпадал с X-отчётом — «Оплата долгов наличными +3» (только события этой кассы)
+    /// и «Корректировка +201 620» против +201 623 в X. Грузим тот же отчёт смены сервера (таймаут 6 с; без связи остаётся как было)
+    /// и перестраиваем строки и раскладку ящика по нему.</summary>
+    private async Task LoadServerReportAsync()
+    {
+        var shiftId = NurMarketKassa.PosApp.ActiveShiftId;
+        if (string.IsNullOrWhiteSpace(shiftId))
+            return;
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(_reportCts.Token);
+            cts.CancelAfter(TimeSpan.FromSeconds(6));
+            var report = await NurCrmReportsApi.GetShiftReportAsync(shiftId, cts.Token).ConfigureAwait(true);
+            if (report is null || _reportCts.IsCancellationRequested)
+                return;
+            _report = report;
+            ApplyShiftOperations();
+        }
+        catch (OperationCanceledException)
+        {
+            // Закрыли окно или вышел таймаут — показываем по журналу кассы, как раньше.
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Окно закрытия смены: отчёт сервера не получен: {ex.Message}", "SHIFT");
+        }
     }
 
     /// <summary>2026-10-16: видимость ожидаемой суммы и надписи главной кнопки для слепого пересчёта.</summary>
@@ -201,7 +238,9 @@ public partial class CloseShiftDialog : Window
             return;
 
         OpeningCashText.Text = ShiftBalanceHelper.FormatBalance(totals!.OpeningCash);
-        TotalSalesText.Text = ShiftBalanceHelper.FormatBalance(totals.TotalSales);
+        // 2026-10-23 (аудит К5, п. 3): «Выручка (без долга)» = наличные + безнал, как «Сводка» владельца; sales_total сервера включает долг.
+        TotalSalesText.Text = ShiftBalanceHelper.FormatBalance(
+            totals.TotalSales is { } ts && totals.CashSales is { } cs && totals.NonCashSales is { } ns ? Math.Min(ts, cs + ns) : totals.TotalSales);
         CashSalesText.Text = ShiftBalanceHelper.FormatBalance(totals.CashSales);
         NonCashSalesText.Text = ShiftBalanceHelper.FormatBalance(totals.NonCashSales);
     }
@@ -266,7 +305,8 @@ public partial class CloseShiftDialog : Window
 
                 var totals = ShiftEventsStore.TotalsForShift(shiftId);
                 double Get(string kind) => totals.TryGetValue(kind, out var v) ? v : 0;
-                var debtCash = Get(ShiftEventsStore.KindDebtPayment);
+                // 2026-10-23 (аудит, круг 8, В-7): как в X-отчёте — оплата долгов наличными из отчёта сервера (там и другие кассы, и программа владельца).
+                var debtCash = _report?.DebtPaymentsCash is { } serverDebtCash ? (double)serverDebtCash : Get(ShiftEventsStore.KindDebtPayment);
                 var debtNonCash = Get(ShiftEventsStore.KindDebtPaymentNonCash);
                 if (debtCash > 0.005)
                     rows.Add(new ShiftOpRow(Tr.T("Оплата долгов наличными", "Карыздарды накталай төлөө", "Debt payments in cash", "Nakit borç ödemeleri", "Qarz to'lovlari naqd"),
@@ -276,11 +316,19 @@ public partial class CloseShiftDialog : Window
                         "+" + MoneyText.Som(debtNonCash),
                         Tr.T("в ящик не входит", "кутуга кирбейт", "not in the drawer", "çekmeceye girmez", "tortmaga kirmaydi")));
 
-                var (deposits, withdrawals) = ShiftCashOperationsStore.SumsForShift(shiftId);
+                // 2026-10-22 (статьи изъятия): под суммой — разбивка по статьям («Аренда 5 000 · Инкассация 20 000»).
+                static string ByArticle(IReadOnlyList<(string Title, decimal Amount, bool IsCollection)> parts) =>
+                    parts.Count == 0 || parts.Count == 1 && parts[0].Title == Tr.T("без статьи", "беренесиз", "no category", "kalemsiz", "moddasiz")
+                        ? ""
+                        : string.Join(" · ", parts.Select(p => $"{p.Title} {MoneyText.Som((double)p.Amount)}"));
+                // 2026-10-23 (аудит, круг 8, В-7): внесения/изъятия — из отчёта сервера, если он пришёл (как в ShiftDetailsDialog).
+                var (deposits, withdrawals) = _report is { } depReport ? (depReport.Deposits, depReport.Withdrawals) : ShiftCashOperationsStore.SumsForShift(shiftId);
                 if (deposits > 0.005m)
-                    rows.Add(new ShiftOpRow(Tr.T("Внесения", "Акча салуу", "Cash in", "Para girişi", "Kirim"), "+" + MoneyText.Som(deposits), ""));
+                    rows.Add(new ShiftOpRow(Tr.T("Внесения", "Акча салуу", "Cash in", "Para girişi", "Kirim"), "+" + MoneyText.Som(deposits),
+                        ByArticle(ShiftCashOperationsStore.ArticleSumsForShift(shiftId, withdrawal: false))));
                 if (withdrawals > 0.005m)
-                    rows.Add(new ShiftOpRow(Tr.T("Изъятия", "Акча алуу", "Cash out", "Para çıkışı", "Chiqim"), "−" + MoneyText.Som(withdrawals), ""));
+                    rows.Add(new ShiftOpRow(Tr.T("Изъятия", "Акча алуу", "Cash out", "Para çıkışı", "Chiqim"), "−" + MoneyText.Som(withdrawals),
+                        ByArticle(ShiftCashOperationsStore.ArticleSumsForShift(shiftId, withdrawal: true))));
             }
 
             ShiftOpsList.ItemsSource = rows;
@@ -291,9 +339,42 @@ public partial class CloseShiftDialog : Window
             PosLogger.Log($"Окно закрытия смены: операции смены не показаны: {ex.Message}", "SHIFT");
             ShiftOpsBorder.IsVisible = false;
         }
+        RefreshDrawerBreakdown();
     }
 
-    private static double? ParseNote(string? note, string key)
+    /// <summary>2026-10-23 (аудит, круг 7): раскладка «в ящике должно быть» (как в X-отчёте). Нужны начальная сумма и «по системе»;
+    /// при слепом пересчёте — только после «Пересчитал».</summary>
+    private void RefreshDrawerBreakdown()
+    {
+        if (DrawerBreakdownBorder is null)
+            return;
+        try
+        {
+            var shiftId = NurMarketKassa.PosApp.ActiveShiftId;
+            if (ExpectedHidden || string.IsNullOrWhiteSpace(shiftId) || Totals?.OpeningCash is not { } opening || SuggestedBalance is not { } expected)
+            {
+                DrawerBreakdownBorder.IsVisible = false;
+                return;
+            }
+            var totals = ShiftEventsStore.TotalsForShift(shiftId);
+            // 2026-10-23 (аудит, круг 8, В-7): те же источники, что в X-отчёте (ShiftDetailsDialog): отчёт сервера, а без него — журнал кассы.
+            // Возвраты: ReturnsTotal сервера пока 0 всегда (у возвратов нет смены) — тогда берём журнал возвратов кассы, как было.
+            var debtCash = _report?.DebtPaymentsCash ?? (totals.TryGetValue(ShiftEventsStore.KindDebtPayment, out var dc) ? (decimal)dc : 0m);
+            var returns = _report is { ReturnsTotal: > 0m } withReturns
+                ? withReturns.ReturnsTotal
+                : (decimal)ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindReturn).Sum(r => r.Amount);
+            var (deposits, withdrawals) = _report is { } depReport ? (depReport.Deposits, depReport.Withdrawals) : ShiftCashOperationsStore.SumsForShift(shiftId);
+            DrawerBreakdownBuilder.Fill(this, DrawerBreakdown, opening, Totals.CashSales ?? 0m, debtCash, deposits, withdrawals, returns, expected);
+            DrawerBreakdownBorder.IsVisible = true;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Окно закрытия смены: раскладка ящика не показана: {ex.Message}", "SHIFT");
+            DrawerBreakdownBorder.IsVisible = false;
+        }
+    }
+
+    internal static double? ParseNote(string? note, string key) // 2026-10-22 (аудит 1.17.59, П-Д): нужен и X-отчёту (ShiftDetailsDialog)
     {
         if (string.IsNullOrWhiteSpace(note))
             return null;
@@ -320,6 +401,7 @@ public partial class CloseShiftDialog : Window
         // 2026-10-15: любой текст, кроме подставленного кассой, — ввод кассира (флаг не сбрасывается).
         if (!string.Equals(ClosingCashBox.Text ?? "", _programmaticClosingCash ?? "", StringComparison.Ordinal))
             _closingCashEdited = true;
+        SectionCards.ShowError(ClosingCashError, null);
         UpdateDiscrepancy();
     }
 
@@ -340,6 +422,7 @@ public partial class CloseShiftDialog : Window
         SuggestedBalance = balance;
         SystemBalanceText.Text = ShiftBalanceHelper.FormatBalance(balance);
         UpdateExpectedHint();
+        RefreshDrawerBreakdown(); // 2026-10-23
 
         // 2026-10-15, ревью: раньше поле перезаписывалось, если в нём всё ещё прежняя подсказка, — даже когда кассир
         // уже пересчитал ящик и сам ввёл/подтвердил это же число. Теперь только пока кассир поле не трогал.
@@ -426,13 +509,14 @@ public partial class CloseShiftDialog : Window
     {
         if (!CashAmountInput.TryParse(ClosingCashBox.Text, out var amount) || amount < 0)
         {
-            PosMessageBox.Show(this,
+            // 2026-10-22 (модалки, пакет 2): ошибка под полем с фокусом в нём (было всплывающее окно поверх).
+            SectionCards.ShowError(ClosingCashError,
                 Tr.T("Введите фактическую сумму наличных. Если наличных нет — введите 0.", "Нак акчанын чыныгы суммасын киргизиңиз. Нак акча жок болсо — 0 киргизиңиз.", "Enter the counted cash amount. Enter 0 if there is no cash.",
                     "Sayılmış nakit tutarını girin. Nakit yoksa 0 girin.", "Hisoblangan naqd pulni kiriting. Naqd pul bo'lmasa 0 kiriting."),
-                Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+                ClosingCashBox);
             return;
         }
+        SectionCards.ShowError(ClosingCashError, null);
 
         // 2026-10-16: слепой пересчёт — первое нажатие только показывает ожидаемое и расхождение,
         // введённая сумма закрепляется (иначе её можно было бы «подогнать» под показанную).

@@ -33,6 +33,46 @@
         <Style Selector="TextBlock.badge-bundle">
             <Setter Property="Foreground" Value="{DynamicResource BrushBadgeBundleFg}"/>
         </Style>
+        <!-- 2026-10-23, владелец: «иконку "Подробнее" и описание товара нормальным сделай». Один стиль значка «i» для всех видов каталога
+             (плитка, таблица): круглая капсула 30 px — полупрозрачная подложка цвета плитки с тонкой рамкой, чёткий векторный «i»
+             цветом текста темы (читается на фото и на любой теме), при наведении/нажатии — жёлтый акцент; зона касания 44×44. -->
+        <Style Selector="Button.info-btn">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Panel Background="Transparent">
+                        <Panel Width="30" Height="30" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Ellipse x:Name="InfoBack" Fill="{DynamicResource BrushCatalogTileBg}" Opacity="0.88"/>
+                            <Ellipse x:Name="InfoRing" Stroke="{DynamicResource BrushTextSoft}" StrokeThickness="1.2" Opacity="0.6"/>
+                            <Viewbox Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Canvas Width="24" Height="24">
+                                    <Path x:Name="InfoGlyph" Data="M12,10.8 L12,17.6 M12,6.5 L12,6.9"
+                                          Stroke="{DynamicResource BrushText}" StrokeThickness="2.4"
+                                          StrokeLineCap="Round" StrokeJoin="Round"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Panel>
+                    </Panel>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.info-btn:pointerover /template/ Ellipse#InfoBack, Button.info-btn:pressed /template/ Ellipse#InfoBack">
+            <Setter Property="Fill" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Button.info-btn:pointerover /template/ Ellipse#InfoRing, Button.info-btn:pressed /template/ Ellipse#InfoRing">
+            <Setter Property="Stroke" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Button.info-btn:pointerover /template/ Path#InfoGlyph, Button.info-btn:pressed /template/ Path#InfoGlyph">
+            <Setter Property="Stroke" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
         <!-- 2026-10-04: кнопки страниц, вкладки и строка поиска — не ниже 44 точек (палец). -->
         <Style Selector="Button.catalog-pager">
             <Setter Property="MinWidth" Value="44"/>
@@ -176,6 +216,17 @@
         <Style Selector=".compact Grid.catalog-search-row">
             <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
+        <!-- 2026-10-23 (аудит К6): окно 1024 на большом экране — "compact" не включён, но каталог узкий (класс окна "headernarrow"):
+             вкладки как в компактном виде («Услуги» не уходит за край), кнопки страниц уже, чтобы «Вперёд ›» не налезал на номера. -->
+        <Style Selector=".headernarrow TabControl.catalog-tabs TabItem">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="MinWidth" Value="0"/>
+        </Style>
+        <Style Selector=".headernarrow Button.catalog-pager">
+            <Setter Property="MinWidth" Value="36"/>
+            <Setter Property="Padding" Value="6,0"/>
+        </Style>
     </UserControl.Styles>
 
     <Border Classes="main-panel catalog-surface"
@@ -266,7 +317,9 @@
                                     <TextBlock Text="{DynamicResource csh.catalog.viewTitle}" FontSize="12" FontWeight="Bold"
                                                Foreground="{DynamicResource BrushTextSoft}"
                                                Margin="8,4,8,6"/>
+                                    <!-- 2026-10-22 (модалки, пакет 1): пункты «Вид» — 44 px во всю ширину меню (были ~36 по тексту). -->
                                     <Button Classes="main-ghost"
+                                            MinHeight="44" HorizontalAlignment="Stretch"
                                             HorizontalContentAlignment="Left"
                                             Click="CardView_Click">
                                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
@@ -278,6 +331,7 @@
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="main-ghost"
+                                            MinHeight="44" HorizontalAlignment="Stretch"
                                             HorizontalContentAlignment="Left"
                                             Click="TableView_Click">
                                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
@@ -595,17 +649,13 @@
                                         <!-- 2026-10-19, К1 (аудит 19.10, проблема 3): вместо надписи «Подробнее» на каждой плитке —
                                              маленький значок «i» (как в виде таблицей) и правая кнопка / долгое нажатие по плитке
                                              (CatalogPanelView.Tile_ContextRequested). Условие показа прежнее. -->
-                                        <Button Classes="main-ghost"
-                                                Focusable="False"
-                                                Padding="0"
-                                                Width="28" Height="28"
-                                                Margin="6,6,0,0"
-                                                MinHeight="0"
+                                        <!-- 2026-10-21 (сенсорный моноблок): зона касания значков «i» и ★ была 28×28 (на 10" экране при масштабе 80 % — 22 px);
+                                             теперь 36×36 при том же рисунке — отступ плитки съеден зоной, значок стоит на прежнем месте. -->
+                                        <Button Classes="info-btn"
+                                                Margin="0"
                                                 HorizontalAlignment="Left"
                                                 VerticalAlignment="Top"
                                                 ZIndex="1"
-                                                Background="Transparent"
-                                                BorderThickness="0"
                                                 ToolTip.Tip="{DynamicResource csh.catalog.detailsTooltip}"
                                                 AutomationProperties.Name="{DynamicResource csh.catalog.details}"
                                                 Click="ProductDetails_Click">
@@ -617,20 +667,11 @@
                                                     <Binding Path="Description" Converter="{x:Static StringConverters.IsNotNullOrEmpty}"/>
                                                 </MultiBinding>
                                             </Button.IsVisible>
-                                            <Border Background="{DynamicResource BrushCatalogTileBg}"
-                                                    BorderBrush="{DynamicResource BrushBorder}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="11"
-                                                    Width="22" Height="22">
-                                                <TextBlock Text="i" FontSize="13" FontWeight="Bold" FontStyle="Italic"
-                                                           Foreground="{DynamicResource BrushTextSoft}"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </Button>
+                                            </Button>
 
-                                        <Button Width="28" Height="28"
+                                        <Button Width="36" Height="36"
                                                 Padding="0"
-                                                Margin="0,6,6,0"
+                                                Margin="0,2,2,0"
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Top"
                                                 ZIndex="1"
@@ -755,11 +796,10 @@
                                                         </StackPanel>
                                                     </Grid>
                                                 </Button>
-                                                <Button Grid.Column="5" Classes="main-ghost" Focusable="False"
-                                                        Width="40" Height="44" Padding="0"
+                                                <Button Grid.Column="5" Classes="info-btn"
                                                         HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                        Background="Transparent" BorderThickness="0"
                                                         ToolTip.Tip="{DynamicResource csh.catalog.detailsTooltip}"
+                                                        AutomationProperties.Name="{DynamicResource csh.catalog.details}"
                                                         Click="ProductDetails_Click">
                                                     <!-- 2026-10-01: «Подробнее» — в одежде и услугах на каждой плитке; в любом виде магазина
                                                          (ветаптека и т.п.) — у товаров, где продавец заполнил описание. -->
@@ -769,8 +809,6 @@
                                                             <Binding Path="Description" Converter="{x:Static StringConverters.IsNotNullOrEmpty}"/>
                                                         </MultiBinding>
                                                     </Button.IsVisible>
-                                                    <TextBlock Text="i" FontSize="17" FontWeight="Bold" FontStyle="Italic"
-                                                               Foreground="{DynamicResource BrushTextSoft}" HorizontalAlignment="Center"/>
                                                 </Button>
                                                 <Button Grid.Column="5" Width="52" Height="52" Padding="0"
                                                         HorizontalAlignment="Right" VerticalAlignment="Center"
@@ -810,7 +848,8 @@
                 <StackPanel Grid.Column="1"
                             Orientation="Vertical"
                             HorizontalAlignment="Center"
-                            Spacing="6">
+                            Spacing="6"
+                            ClipToBounds="True">
                     <ItemsControl ItemsSource="{Binding PagerEntries}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>

@@ -193,12 +193,13 @@
         <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
     </Style>
 
-    <!-- «Оплатить» зелёным: цвет успеха, текст — цвет фона окна. На светлой теме это светлый
-         текст по тёмно-зелёному (#047857), на тёмной — тёмный текст по светло-зелёному
-         (#34D399): контраст выше 5:1 в обоих режимах. -->
+    <!-- 2026-10-22 (аудит новой сборки, П3): «Оплатить» в видах «Табличная», «Карточки», «Профи» была зелёной (#047857) —
+         не цвет бренда. Теперь акцент темы: бренд-жёлтый #FFB208 с тёмным текстом (#191919, 9,7:1) в «NUR CRM» и
+         «Классической», нейтральный в «Графите». Класс называется lx-success по-старому, чтобы не трогать три вида.
+         (Было: «Оплатить» зелёным — цвет успеха, текст — цвет фона окна.) -->
     <Style Selector="Button.lx-success">
-        <Setter Property="Background" Value="{DynamicResource BrushSuccess}"/>
-        <Setter Property="Foreground" Value="{DynamicResource BrushWindow}"/>
+        <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="FontSize" Value="16"/>
         <Setter Property="FontWeight" Value="Bold"/>
@@ -206,17 +207,16 @@
         <Setter Property="MinHeight" Value="52"/>
     </Style>
     <Style Selector="Button.lx-success:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource BrushSuccess}"/>
-        <Setter Property="Foreground" Value="{DynamicResource BrushWindow}"/>
-        <Setter Property="Opacity" Value="0.9"/>
+        <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
     </Style>
     <Style Selector="Button.lx-success:pressed /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource BrushSuccess}"/>
-        <Setter Property="Opacity" Value="0.8"/>
+        <Setter Property="Background" Value="{DynamicResource BrushAccentPressed}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
     </Style>
     <Style Selector="Button.lx-success:disabled /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource BrushSuccess}"/>
-        <Setter Property="Foreground" Value="{DynamicResource BrushWindow}"/>
+        <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
     </Style>
 
     <!-- Мягкие цветные кнопки: светлая заливка + цветной текст и рамка. -->
@@ -404,7 +404,8 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 
-    <!-- Меню «Ещё». -->
+    <!-- Меню «Ещё». 2026-10-22 (модалки, пакет 1): пункты 44 px под палец (было 36), «Удалить чек» и «Очистить» — красным
+         (класс danger, в меню они последние). -->
     <Style Selector="MenuFlyoutPresenter">
         <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
@@ -413,6 +414,12 @@
     <Style Selector="MenuFlyoutPresenter MenuItem">
         <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="MinHeight" Value="36"/>
+        <Setter Property="MinHeight" Value="44"/>
+    </Style>
+    <Style Selector="MenuFlyoutPresenter MenuItem.danger">
+        <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+    </Style>
+    <Style Selector="MenuFlyoutPresenter MenuItem.danger:disabled">
+        <Setter Property="Opacity" Value="0.5"/>
     </Style>
 </Styles>

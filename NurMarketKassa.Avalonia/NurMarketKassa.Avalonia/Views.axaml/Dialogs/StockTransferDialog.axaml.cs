@@ -32,6 +32,12 @@ public partial class StockTransferDialog : Window
         Opened += (_, _) => Reload();
         // 2026-10-06: главный склад и филиалы для «Откуда/Куда» (StockTransferDialog.Branches).
         Opened += async (_, _) => await LoadBranchPlacesAsync();
+        // 2026-10-22 (модалки, пакет 3): во время запроса к серверу окно не закрывается (StockTransferDialog.Branches: _serverBusy).
+        Closing += (_, e) =>
+        {
+            if (_serverBusy)
+                e.Cancel = true;
+        };
     }
 
     private sealed class ItemRow
@@ -142,6 +148,10 @@ public partial class StockTransferDialog : Window
         var closed = _transfer.Status is StockTransferService.StatusDelivered or StockTransferService.StatusCancelled;
         ShipButton.IsEnabled = _transfer.Status == StockTransferService.StatusCreated;
         DeliverButton.IsEnabled = _transfer.Status == StockTransferService.StatusInTransit;
+        // 2026-10-22 (модалки, пакет 3): одна жёлтая по шагу — видна только кнопка текущего шага («Отправить» у созданного,
+        // «Принять» у отправленного); у принятого и отменённого жёлтой нет (раньше обе жёлтые, одна серая выключенная).
+        ShipButton.IsVisible = ShipButton.IsEnabled;
+        DeliverButton.IsVisible = DeliverButton.IsEnabled;
         CancelTransferButton.IsEnabled = !closed;
         // Состав принятой или отменённой партии уже не меняют (2026-09-25: добавлять и убирать
         // товары можно было и после «Принять»).
@@ -236,6 +246,13 @@ public partial class StockTransferDialog : Window
             .OrderBy(p => p.Title, System.StringComparer.CurrentCultureIgnoreCase)
             .Take(6)
             .ToList();
+        // 2026-10-21: точный код (доп. штрихкод, 12 ↔ 13 цифр, размер, артикул) — первой подсказкой, тем же поиском, что
+        // касса (склад не находит товар по скану).
+        if (query.Length >= 4 && ProductCodeLookup.FindLocal(query)?.Product is { } exact)
+        {
+            matches.RemoveAll(p => string.Equals(p.Id, exact.Id, System.StringComparison.OrdinalIgnoreCase));
+            matches.Insert(0, exact);
+        }
 
         SuggestionsPanel.ItemsSource = matches;
         SuggestionsBox.IsVisible = matches.Count > 0;
@@ -292,20 +309,28 @@ public partial class StockTransferDialog : Window
             AddItem_Click(sender, new RoutedEventArgs());
     }
 
-    private void AddItem_Click(object? sender, RoutedEventArgs e)
+    private async void AddItem_Click(object? sender, RoutedEventArgs e)
     {
         var query = ItemSearchBox.Text?.Trim() ?? "";
         if (query.Length == 0)
             return;
+        ShowWarning(null);
 
         if (!double.TryParse(ItemQuantityBox.Text?.Replace(',', '.'), NumberStyles.Any,
                 CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
             quantity = 1;
 
         // Ищем сначала по штрихкоду — кладовщик чаще сканирует, чем печатает название.
-        var product = LocalProductRepository.Instance.TryGetTileByBarcode(query)
+        // 2026-10-21: тем же поиском, что касса (ProductCodeLookup: доп. штрихкод, 12 ↔ 13 цифр, размер, весовая
+        // этикетка, артикул), а код, которого нет на этом компьютере, — ещё и на сервере (склад не находит товар по скану).
+        var product = ProductCodeLookup.FindLocal(query)?.Product
                       ?? CatalogCacheService.Products.FirstOrDefault(p =>
                           p.Title.Contains(query, System.StringComparison.OrdinalIgnoreCase));
+        if (product is null && NurMarketKassa.AvaloniaHost.ViewModels.WarehouseViewModel.LooksLikeCode(query))
+        {
+            ItemSearchBox.Text = "";
+            product = (await ProductCodeLookup.FindOnServerAsync(query).ConfigureAwait(true)).Hit?.Product;
+        }
 
         if (product is null)
         {

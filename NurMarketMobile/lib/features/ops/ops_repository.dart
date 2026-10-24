@@ -28,22 +28,82 @@ class OpsRepository {
     return '${hex(8)}-${hex(4)}-4${hex(3)}-${(8 + r.nextInt(4)).toRadixString(16)}${hex(3)}-${hex(12)}';
   }
 
+  /// 2026-10-22 (мобилка, деньги): ключ операции живёт до успеха — как PendingIdempotencyKey кассы. Раньше source_id и
+  /// ключ возврата были новыми при каждом вызове: повтор после обрыва = двойное внесение или двойной возврат. Пока исход
+  /// прошлой попытки с той же подписью (касса, сумма, причина…) неизвестен, повтор идёт тем же ключом; хранится в базе
+  /// телефона 10 минут (как ReturnSaleDialog.PendingReturn кассы).
+  static const _pendingPrefix = 'ops.pending.';
+  static const _pendingLife = Duration(minutes: 10);
+
+  /// Последний [pendingKey] вернул прежний ключ (это повтор неудачной попытки).
+  bool lastKeyReused = false;
+
+  Future<String> pendingKey(String op, String signature) async {
+    final raw = await db.getSetting('$_pendingPrefix$op');
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
+        final at = DateTime.tryParse(m['at'] as String? ?? '');
+        if (m['sig'] == signature && m['key'] is String && at != null && DateTime.now().difference(at) < _pendingLife) {
+          lastKeyReused = true;
+          return m['key'] as String;
+        }
+      } catch (_) {
+        // новый ключ
+      }
+    }
+    lastKeyReused = false;
+    final key = newKey();
+    await db.setSetting('$_pendingPrefix$op', jsonEncode({'key': key, 'sig': signature, 'at': DateTime.now().toIso8601String()}));
+    return key;
+  }
+
+  /// Операция прошла (или сервер отказал по существу) — следующая будет новой.
+  Future<void> forgetKey(String op) => db.setSetting('$_pendingPrefix$op', '');
+
+  /// Исход неизвестен (обрыв, тайм-аут, 5xx) — ключ оставить для повтора.
+  static bool outcomeUnknown(Object e) => e is! ApiException || e.status == null || e.status == 408 || e.status == 429 || e.status! >= 500;
+
+  Future<T> _withKey<T>(String op, String signature, Future<T> Function(String key) run) async {
+    final key = await pendingKey(op, signature);
+    try {
+      final r = await run(key);
+      await forgetKey(op);
+      return r;
+    } catch (e) {
+      if (!outcomeUnknown(e)) await forgetKey(op);
+      rethrow;
+    }
+  }
+
   /// Внесение (income, shift_drawer_inflow) или изъятие (expense, shift_drawer_outflow) — деньги ящика смены.
-  /// source_id — ключ операции: повтор после обрыва связи сервер узнаёт (касса проверяет ?source_id=).
-  Future<void> cashFlow({required String shiftId, required String cashboxId, required bool withdrawal, required double amount, required String reason}) async {
-    await api.post(
-      'api/construction/cashflows/',
-      body: {
-        'cashbox': cashboxId,
-        'shift': shiftId,
-        'type': withdrawal ? 'expense' : 'income',
-        'name': '${withdrawal ? 'Изъятие' : 'Внесение'}${reason.isEmpty ? '' : ': $reason'}',
-        'amount': amount.toStringAsFixed(2),
-        'source_kind': withdrawal ? 'shift_drawer_outflow' : 'shift_drawer_inflow',
-        'source_id': newKey(),
-        'payment_method': 'cash',
-      },
-    );
+  /// source_id — ключ операции: перед повтором проверяем ?source_id= (как касса) — запись уже есть, второй раз не шлём.
+  Future<void> cashFlow({required String shiftId, required String cashboxId, required bool withdrawal, required double amount, required String reason}) =>
+      _withKey('cashflow', '$shiftId|$withdrawal|${amount.toStringAsFixed(2)}|$reason', (key) async {
+        if (lastKeyReused && await _cashFlowExists(key)) return;
+        await api.post(
+          'api/construction/cashflows/',
+          body: {
+            'cashbox': cashboxId,
+            'shift': shiftId,
+            'type': withdrawal ? 'expense' : 'income',
+            'name': '${withdrawal ? 'Изъятие' : 'Внесение'}${reason.isEmpty ? '' : ': $reason'}',
+            'amount': amount.toStringAsFixed(2),
+            'source_kind': withdrawal ? 'shift_drawer_outflow' : 'shift_drawer_inflow',
+            'source_id': key,
+            'payment_method': 'cash',
+          },
+        );
+      });
+
+  Future<bool> _cashFlowExists(String sourceId) async {
+    try {
+      final rows = asList(await api.get('api/construction/cashflows/', query: {'source_id': sourceId}));
+      return rows.any((r) => str(r, 'source_id') == sourceId);
+    } on ApiException catch (e) {
+      if (e.status == null) rethrow; // нет связи — и запись не отправится
+      return false;
+    }
   }
 
   /// Журнал денег смены (Т25): GET api/construction/cashflows/?shift= — внесения и изъятия этой смены.
@@ -92,29 +152,99 @@ class OpsRepository {
   }
 
   /// Оплата долга одной суммой: сервер гасит от старых долгов к новым; повтор с тем же ключом не проводит деньги дважды.
-  Future<Map<String, dynamic>> payDebt({required String clientId, required double amount, required String method, String? shiftId, required String key}) async {
-    final resp = await api.post(
-      'api/main/clients/$clientId/pay-debt/',
-      body: {'amount': amount.toStringAsFixed(2), 'method': method, if (shiftId != null && !shiftId.startsWith('offline-')) 'shift': shiftId},
-      headers: {'Idempotency-Key': key},
-    );
-    return resp is Map<String, dynamic> ? resp : <String, dynamic>{};
-  }
+  /// 2026-10-22 (мобилка, деньги): ключ живёт до успеха (раньше — только пока открыт диалог: повтор после ошибки = новый).
+  Future<Map<String, dynamic>> payDebt({required String clientId, required double amount, required String method, String? shiftId}) =>
+      _withKey('paydebt', '$clientId|${amount.toStringAsFixed(2)}|$method', (key) async {
+        final resp = await api.post(
+          'api/main/clients/$clientId/pay-debt/',
+          body: {'amount': amount.toStringAsFixed(2), 'method': method, if (shiftId != null && !shiftId.startsWith('offline-')) 'shift': shiftId},
+          headers: {'Idempotency-Key': key},
+        );
+        return resp is Map<String, dynamic> ? resp : <String, dynamic>{};
+      });
 
   /// Возврат: весь чек (lines пусто) или строки {sale_item_id, quantity} — тот же запрос, что кнопка «Возврат» сайта.
-  Future<Map<String, dynamic>> returnSale(String saleId, List<(String itemId, double qty)> lines) async {
-    final resp = await api.post(
-      'api/main/pos/sales/$saleId/return/',
-      body: {
-        'idempotency_key': newKey(),
-        'cashbox_role': 'pos_main',
-        if (lines.isNotEmpty)
-          'items': [
-            for (final (id, q) in lines) {'sale_item_id': id, 'quantity': q == q.roundToDouble() ? q.toInt().toString() : q.toStringAsFixed(3)},
-          ],
-      },
-    );
-    return resp is Map<String, dynamic> ? resp : <String, dynamic>{};
+  /// 2026-10-22 (мобилка, деньги): ключ повтора живёт до успеха (раньше новый при каждой попытке — двойной возврат).
+  Future<Map<String, dynamic>> returnSale(String saleId, List<(String itemId, double qty)> lines) {
+    String q(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(3);
+    final sig = '$saleId|${lines.map((l) => '${l.$1}:${q(l.$2)}').join(',')}';
+    return _withKey('return', sig, (key) async {
+      final resp = await api.post(
+        'api/main/pos/sales/$saleId/return/',
+        body: {
+          'idempotency_key': key,
+          'cashbox_role': 'pos_main',
+          if (lines.isNotEmpty)
+            'items': [
+              for (final (id, v) in lines) {'sale_item_id': id, 'quantity': q(v)},
+            ],
+        },
+      );
+      return resp is Map<String, dynamic> ? resp : <String, dynamic>{};
+    });
+  }
+
+  /// 2026-10-22 (мобилка, деньги): текущий остаток долга чека «в долг» с сервера (remaining_debt сделки, как
+  /// ReturnSaleDialog кассы) — возврат не уменьшает долг, которого уже нет (клиент мог погасить). null — не получен.
+  Future<double?> saleDebtLeft(Map<String, dynamic> sale) async {
+    double? own;
+    for (final k in ['debt_remaining', 'remaining_debt', 'debt_amount']) {
+      if (sale[k] != null) {
+        own = num0(sale, k);
+        break;
+      }
+    }
+    final dealId = str(sale, 'deal_id');
+    final clientId = str(sale, 'client');
+    if (dealId == null) return own == null ? null : (own < 0 ? 0 : own);
+    if (clientId == null) return null;
+    try {
+      final deal = await api.get('api/main/clients/$clientId/deals/$dealId/', timeout: const Duration(seconds: 8));
+      if (deal is Map && deal['remaining_debt'] != null) {
+        final v = num0(deal.cast<String, dynamic>(), 'remaining_debt');
+        return v < 0 ? 0 : v;
+      }
+    } catch (_) {
+      // остаток неизвестен — кассиру предупреждение
+    }
+    return null;
+  }
+
+  /// 2026-10-22 (мобилка, деньги): что записал сервер по последнему возврату чека — сумма документа (api/main/pos/returns/
+  /// ?sale=) и выданные деньги (cashflows source_kind=pos_sale_return), как ServerReturnFiguresAsync кассы.
+  Future<({double? doc, String? docId, double? cashOut})> serverReturnFigures(String saleId, Set<String> seenDocs) async {
+    try {
+      final rows = asList(await api.get('api/main/pos/returns/', query: {'sale': saleId}, timeout: const Duration(seconds: 8)));
+      final mine = rows.where((r) => str(r, 'sale') == saleId && num0(r, 'amount') > 0 && !seenDocs.contains(str(r, 'id'))).toList()
+        ..sort((a, b) => (str(b, 'created_at') ?? '').compareTo(str(a, 'created_at') ?? ''));
+      if (mine.isEmpty) return (doc: null, docId: null, cashOut: null);
+      final newest = mine.first;
+      final at = DateTime.tryParse(str(newest, 'created_at') ?? '');
+      double? cashOut;
+      if (at != null) {
+        final flows = asList(
+          await api.get('api/construction/cashflows/', query: {'source_kind': 'pos_sale_return', 'source_id': saleId}, timeout: const Duration(seconds: 8)),
+        );
+        for (final f in flows) {
+          final fAt = DateTime.tryParse(str(f, 'created_at') ?? '');
+          if (str(f, 'source_id') != saleId || str(f, 'source_kind') != 'pos_sale_return' || fAt == null) continue;
+          if (fAt.difference(at).inSeconds.abs() > 15) continue;
+          cashOut = (cashOut ?? 0) + num0(f, 'amount');
+        }
+      }
+      return (doc: num0(newest, 'amount'), docId: str(newest, 'id'), cashOut: cashOut);
+    } catch (_) {
+      return (doc: null, docId: null, cashOut: null);
+    }
+  }
+
+  /// 2026-10-22 (мобилка, деньги): продажи смены — фильтр на сервере (?shift=) и страницы («Ещё»), а не первая страница
+  /// продаж всей компании.
+  Future<(List<Map<String, dynamic>>, bool)> shiftSales(String? shiftId, {int page = 1}) async {
+    final data = await api.get('api/main/pos/sales/', query: {'page': page, if (shiftId != null && !shiftId.startsWith('offline-')) 'shift': shiftId});
+    final rows = asList(data).where((m) => shiftId == null || str(m, 'shift') == null || str(m, 'shift') == shiftId).toList();
+    final more = data is Map && data['next'] != null;
+    return (rows, more);
   }
 
   // ------------------------------------------------------------------ отложенные чеки (на телефоне)

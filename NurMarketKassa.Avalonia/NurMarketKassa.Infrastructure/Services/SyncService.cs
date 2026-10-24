@@ -471,7 +471,28 @@ public sealed partial class SyncService : IDisposable
                     && (ex.Message.Contains("смен", StringComparison.OrdinalIgnoreCase)
                         || ex.Message.Contains("shift", StringComparison.OrdinalIgnoreCase)))
                     retryable = true;
-                OfflinePendingSalesStore.MarkFailed(entry.Id, ex.Message, retryable);
+                var failText = ex.Message;
+                // 2026-10-22 (аудит новой сборки, П1): сервер сам закрыл смену (автозакрытие в 23:00), а чек пробит в ней.
+                // Отказ «смена закрыта» — не отказ по существу: чек не уходит в «Некорректные чеки» и не теряется. Привязку
+                // к закрытой смене снимаем (как у офлайн-смен): следующая досылка идёт без shift_id (сервер возьмёт смену
+                // по времени продажи sold_at или открытую на момент выгрузки), пока кассир не откроет новую смену.
+                if (!retryable
+                    && ex.StatusCode is >= 400 and < 500
+                    && !string.IsNullOrWhiteSpace(entry.ShiftId)
+                    && !entry.ShiftId!.StartsWith("offline-", StringComparison.OrdinalIgnoreCase)
+                    && (ex.Message.Contains("смен", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("shift", StringComparison.OrdinalIgnoreCase)))
+                {
+                    retryable = true;
+                    var closedShiftId = entry.ShiftId!;
+                    OfflinePendingSalesStore.Update(entry.Id, e => e.ShiftId = "offline-closed-" + closedShiftId);
+                    failText = Tr.T("Смена закрыта сервером — чек дождётся новой смены и уйдёт сам.",
+                        "Смена сервер тарабынан жабылды — чек жаңы сменаны күтөт да өзү жөнөтүлөт.",
+                        "The shift was closed by the server — the receipt will wait for a new shift and be sent automatically.",
+                        "Vardiya sunucu tarafından kapatıldı — fiş yeni vardiyayı bekleyip kendiliğinden gönderilecek.",
+                        "Smena server tomonidan yopilgan — chek yangi smenani kutadi va o'zi yuboriladi.");
+                }
+                OfflinePendingSalesStore.MarkFailed(entry.Id, failText, retryable);
                 PosLogger.Log(
                     $"OFFLINE replay: чек {entry.Id} — {(retryable ? "временная ошибка, повторим" : "отказ сервера")}: {ex.StatusCode} {ex.Message}",
                     retryable ? "OFFLINE" : "WARNING");

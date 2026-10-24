@@ -11,9 +11,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:xml/xml.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
+import '../../l10n/app_localizations.dart';
 import '../admin/admin_receive.dart';
 
 /// 13.10, владелец: «на складе нет создания товара и массовой загрузки товара — в мобилке». Массовая загрузка как
@@ -166,6 +168,119 @@ class BulkParser {
   }
 }
 
+/// 2026-10-22 (мобилка, админ, П12): загрузка строк — как StartImport_Click кассы. Раньше «уже есть» считалось один раз
+/// при выборе файла: повтор «Загрузить» после ошибки создавал все новые товары второй раз и снова прибавлял остатки.
+/// Теперь: загруженные строки при повторе не трогаются; созданный товар запоминается после каждой порции; повтор
+/// одного штрихкода (или названия без штрихкода) в файле пропускается; остаток — «Прибавить» или «Задать».
+class BulkUploader {
+  final AdminReceiveRepository repo;
+  final ApiClient api;
+  BulkUploader(this.repo, this.api);
+
+  /// true — «Задать остаток» (как касса: остаток заменяется), false — «Прибавить к остатку» (как приход).
+  bool setStock = false;
+
+  /// Строка → id товара (уже есть на складе или создан этой загрузкой).
+  final existing = Map<ImportRow, String>.identity();
+
+  /// Строка → номер (с 1) первой строки с тем же штрихкодом или названием.
+  final duplicates = Map<ImportRow, int>.identity();
+
+  /// Загружены — повтор их не трогает.
+  final uploaded = Set<ImportRow>.identity();
+  final _lines = Map<ImportRow, ReceiveLine>.identity();
+
+  static String _nameKey(String s) => s.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+  /// Новые строки файла: товары, что уже есть (по штрихкоду в любом написании, без штрихкода — по точному названию), и
+  /// повторы внутри файла.
+  Future<void> prepare(AppDatabase db, List<ImportRow> rows) async {
+    existing.clear();
+    duplicates.clear();
+    uploaded.clear();
+    _lines.clear();
+    final first = <String, int>{};
+    for (var i = 0; i < rows.length; i++) {
+      final r = rows[i];
+      if (!r.valid) continue;
+      final key = r.barcode.isNotEmpty ? 'b:${r.barcode}' : 'n:${_nameKey(r.name)}';
+      final seen = first[key];
+      if (seen != null) {
+        duplicates[r] = seen;
+        continue;
+      }
+      first[key] = i + 1;
+      if (r.barcode.isNotEmpty) {
+        final p = (await db.productByScan(r.barcode, allowWeightLabel: false))?.product;
+        if (p != null) existing[r] = p.id;
+      } else {
+        final same = (await db.searchProducts(r.name, limit: 20)).where((p) => _nameKey(p.name) == _nameKey(r.name)).firstOrNull;
+        if (same != null) existing[r] = same.id;
+      }
+    }
+  }
+
+  bool canUpload(ImportRow r) => r.valid && !duplicates.containsKey(r) && !uploaded.contains(r);
+
+  /// Загрузить ещё не загруженные строки порциями по 20. Возвращает ошибки.
+  Future<List<String>> upload(List<ImportRow> rows, {AppLocalizations? l10n, void Function()? onProgress}) async {
+    final todo = rows.where(canUpload).toList();
+    final errors = <String>[];
+    // по 20 строк: прогресс виден, а одна ошибка не роняет весь файл
+    for (var i = 0; i < todo.length; i += 20) {
+      final part = todo.skip(i).take(20).toList();
+      // строка живёт до успеха: созданный товар и остаток без ответа помнятся между попытками
+      final lines = [
+        for (final r in part)
+          _lines.putIfAbsent(
+            r,
+            () => ReceiveLine(
+              productId: existing[r] ?? '',
+              name: r.name,
+              barcode: r.barcode,
+              unit: r.unit,
+              qty: r.qty,
+              cost: r.cost,
+              price: r.price,
+              isNew: !existing.containsKey(r),
+              category: r.category,
+            ),
+          ),
+      ];
+      try {
+        final (_, errs) = await repo.post(lines, null, false, setStock: setStock, l10n: l10n);
+        errors.addAll(errs);
+      } on ApiException catch (e) {
+        errors.add(e.message);
+      } finally {
+        // «уже есть» — сразу после порции: повтор не создаст товар второй раз
+        for (var k = 0; k < part.length; k++) {
+          if (lines[k].productId.isNotEmpty) existing[part[k]] = lines[k].productId;
+          if (lines[k].posted) uploaded.add(part[k]);
+        }
+      }
+      // без количества приёмка строку не проводит: новый товар уже создан, у существующего — только цены
+      for (var k = 0; k < part.length; k++) {
+        final x = lines[k];
+        if (x.qty > 0 || x.productId.isEmpty || uploaded.contains(part[k])) continue;
+        try {
+          if (!x.isNew) {
+            await api.patch(
+              'api/main/products/${x.productId}/',
+              body: {'price': x.price.toStringAsFixed(2), if (x.cost > 0) 'purchase_price': x.cost.toStringAsFixed(2)},
+            );
+          }
+          uploaded.add(part[k]);
+        } on ApiException catch (e) {
+          errors.add('${x.name}: ${e.message}');
+        }
+      }
+      onProgress?.call();
+    }
+    return errors;
+  }
+}
+
 class BulkImportScreen extends ConsumerStatefulWidget {
   const BulkImportScreen({super.key});
   @override
@@ -174,18 +289,12 @@ class BulkImportScreen extends ConsumerStatefulWidget {
 
 class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
   List<ImportRow> _rows = [];
-  final Map<String, String> _existing = {}; // штрихкод → id товара
+  late final BulkUploader _up = BulkUploader(ref.read(adminReceiveRepoProvider), ref.read(apiProvider));
   bool _busy = false;
-  int _done = 0;
 
   Future<void> _setRows(List<ImportRow> rows) async {
     final l = context.l;
-    final db = ref.read(databaseProvider);
-    _existing.clear();
-    for (final r in rows.where((r) => r.barcode.isNotEmpty)) {
-      final p = await db.productByBarcode(r.barcode);
-      if (p != null) _existing[r.barcode] = p.id;
-    }
+    await _up.prepare(ref.read(databaseProvider), rows);
     if (!mounted) return;
     if (rows.isEmpty) toast(context, l.bulkNothing, error: true);
     setState(() => _rows = rows);
@@ -224,57 +333,25 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
 
   Future<void> _upload() async {
     final l = context.l;
-    final valid = _rows.where((r) => r.valid).toList();
-    if (valid.isEmpty) return;
-    setState(() {
-      _busy = true;
-      _done = 0;
-    });
-    final repo = ref.read(adminReceiveRepoProvider);
-    final errors = <String>[];
-    // по 20 строк: прогресс виден, а одна ошибка не роняет весь файл
-    for (var i = 0; i < valid.length; i += 20) {
-      final part = valid.skip(i).take(20).toList();
-      final lines = [
-        for (final r in part)
-          ReceiveLine(
-            productId: _existing[r.barcode] ?? '',
-            name: r.name,
-            barcode: r.barcode,
-            unit: r.unit,
-            qty: r.qty,
-            cost: r.cost,
-            price: r.price,
-            isNew: !_existing.containsKey(r.barcode),
-            category: r.category,
-          ),
-      ];
+    if (_busy || !_rows.any(_up.canUpload)) return;
+    setState(() => _busy = true);
+    var errors = <String>[];
+    try {
+      errors = await _up.upload(_rows, l10n: l, onProgress: () {
+        if (mounted) setState(() {});
+      });
+      // 2026-10-22 (мобилка, админ, П12): сбой обновления каталога больше не оставляет экран «занятым» навсегда
       try {
-        final (n, errs) = await repo.post(lines, null, false);
-        errors.addAll(errs);
-        // строки без количества приёмка не проводит — товар при этом уже создан
-        _done += n;
-        // без количества приёмка строку не проводит: новый товар уже создан, у существующего — только цены
-        for (final x in lines.where((x) => x.qty <= 0 && x.productId.isNotEmpty)) {
-          if (!x.isNew) {
-            await ref
-                .read(apiProvider)
-                .patch(
-                  'api/main/products/${x.productId}/',
-                  body: {'price': x.price.toStringAsFixed(2), if (x.cost > 0) 'purchase_price': x.cost.toStringAsFixed(2)},
-                );
-          }
-          _done++;
-        }
-      } on ApiException catch (e) {
-        errors.add(e.message);
-      }
-      if (mounted) setState(() {});
+        await ref.read(catalogRepoProvider).sync();
+      } catch (_) {}
+    } catch (e) {
+      errors.add('$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    await ref.read(catalogRepoProvider).sync();
     if (!mounted) return;
-    setState(() => _busy = false);
-    toast(context, errors.isEmpty ? l.bulkDone(_done) : '${l.bulkDone(_done)} · ${errors.take(2).join('; ')}', error: errors.isNotEmpty);
+    final done = _up.uploaded.length;
+    toast(context, errors.isEmpty ? l.bulkDone(done) : '${l.bulkDone(done)} · ${errors.take(2).join('; ')}', error: errors.isNotEmpty);
     if (errors.isEmpty) Navigator.of(context).maybePop();
   }
 
@@ -282,8 +359,9 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
   Widget build(BuildContext context) {
     final l = context.l;
     final pal = context.pal;
-    final valid = _rows.where((r) => r.valid).toList();
-    final existing = valid.where((r) => _existing.containsKey(r.barcode)).length;
+    final valid = _rows.where((r) => r.valid && !_up.duplicates.containsKey(r)).toList();
+    final existing = valid.where((r) => _up.existing.containsKey(r) && !_up.uploaded.contains(r)).length;
+    final left = valid.where((r) => !_up.uploaded.contains(r)).length;
     return Scaffold(
       appBar: ScreenTitle(l.bulkImport),
       body: ListView(
@@ -313,7 +391,18 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
           ),
           if (_rows.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Text(l.bulkSummary(_rows.length, valid.length - existing, existing), style: const TextStyle(fontWeight: FontWeight.w800)),
+            Text(l.bulkSummary(_rows.length, left - existing, existing), style: const TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            // 2026-10-22 (мобилка, админ, П12): остаток товара, что уже есть, — прибавить или задать (как касса)
+            SegmentedButton<bool>(
+              segments: [
+                ButtonSegment(value: false, label: Text(l.pAStockAdd)),
+                ButtonSegment(value: true, label: Text(l.pAStockSet)),
+              ],
+              selected: {_up.setStock},
+              onSelectionChanged: _busy ? null : (s) => setState(() => _up.setStock = s.first),
+            ),
+            Text(_up.setStock ? l.pAStockSetHint : l.pAStockAddHint, style: TextStyle(color: pal.textSoft, fontSize: 12)),
             const SizedBox(height: 6),
             for (final r in _rows.take(200))
               ListTile(
@@ -323,23 +412,25 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
                 subtitle: Text(
                   !r.valid
                       ? l.bulkBad
+                      : _up.duplicates.containsKey(r)
+                      ? l.pADupRow(_up.duplicates[r]!)
                       : [
                           if (r.barcode.isNotEmpty) r.barcode,
                           '${qtyText(r.qty)} ${r.unit}',
                           if (r.category.isNotEmpty) r.category,
-                          if (_existing.containsKey(r.barcode)) l.bulkExists,
+                          if (_up.uploaded.contains(r)) l.pAUploaded else if (_up.existing.containsKey(r)) l.bulkExists,
                         ].join(' · '),
-                  style: TextStyle(color: r.valid ? pal.textSoft : T.danger, fontSize: 12),
+                  style: TextStyle(color: r.valid && !_up.duplicates.containsKey(r) ? pal.textSoft : T.danger, fontSize: 12),
                 ),
                 trailing: Text(money(r.price), style: const TextStyle(fontWeight: FontWeight.w800)),
               ),
             const SizedBox(height: 10),
-            if (_busy) LinearProgressIndicator(value: valid.isEmpty ? null : _done / valid.length),
+            if (_busy) LinearProgressIndicator(value: valid.isEmpty ? null : _up.uploaded.length / valid.length),
             const SizedBox(height: 8),
             FilledButton(
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-              onPressed: _busy || valid.isEmpty ? null : _upload,
-              child: Text(l.bulkUpload(valid.length)),
+              onPressed: _busy || left == 0 ? null : _upload,
+              child: Text(l.bulkUpload(left)),
             ),
           ],
         ],

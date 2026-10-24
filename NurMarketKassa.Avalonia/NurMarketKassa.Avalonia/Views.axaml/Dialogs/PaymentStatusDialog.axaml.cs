@@ -18,7 +18,8 @@ public partial class PaymentStatusDialog : Window
     public PaymentStatusDialog(double totalAmount)
     {
         InitializeComponent();
-        AmountText.Text = Tr.T($"{totalAmount:0.00} сом", $"{totalAmount:0.00} сом", $"{totalAmount:0.00} som", $"{totalAmount:0.00} som", $"{totalAmount:0.00} so'm");
+        // 2026-10-22 (модалки, пакет 1): сумма с разрядами («1 620,00 сом»), как в остальной кассе.
+        AmountText.Text = MoneyText.Som(totalAmount);
         StatusTitle.Text = Tr.T("Проводим оплату…", "Төлөм өтүп жатат…", "Processing the payment…", "Ödeme gerçekleştiriliyor…", "To'lov amalga oshirilmoqda…");
         StatusMessage.Text = Tr.T("Пожалуйста, подождите. Не закрывайте кассу.", "Күтө туруңуз. Кассаны жаппаңыз.", "Please wait. Don't close the till.", "Lütfen bekleyin. Kasayı kapatmayın.", "Iltimos, kuting. Kassani yopmang.");
         CloseButton.Content = Tr.T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli");
@@ -71,6 +72,8 @@ public partial class PaymentStatusDialog : Window
             "Server odatdagidan uzoqroq javob bermoqda. To'lov allaqachon o'tgan bo'lishi mumkin — chekni qayta o'tkazishdan oldin uni «Sotuvlar»da tekshiring.");
 
         CloseButton.Content = Tr.T("Закрыть окно", "Терезени жабуу", "Close window", "Pencereyi kapat", "Oynani yopish");
+        // 2026-10-22 (модалки, пакет 1): долгое ожидание — не ошибка: кнопка обводкой, а не красная.
+        SetCloseButtonDanger(false);
         CloseButton.IsVisible = true;
     }
 
@@ -158,7 +161,18 @@ public partial class PaymentStatusDialog : Window
         StatusMessage.Text = string.IsNullOrWhiteSpace(message)
             ? Tr.T("Не удалось выполнить оплату. Попробуйте ещё раз.", "Төлөмдү аткаруу мүмкүн болгон жок. Кайра аракет кылыңыз.", "Could not complete the payment. Please try again.", "Ödeme tamamlanamadı. Lütfen tekrar deneyin.", "To'lovni amalga oshirib bo'lmadi. Qaytadan urinib ko'ring.")
             : message;
+        CloseButton.Content = Tr.T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli");
+        SetCloseButtonDanger(true);
         CloseButton.IsVisible = true;
+    }
+
+    /// <summary>2026-10-22 (модалки, пакет 1): ошибка оплаты — красная «Понятно» (modal-primary danger), долгое ожидание —
+    /// «Закрыть окно» обводкой (modal-cancel). Цвета — классами темы, не #DC2626/#FFFFFF.</summary>
+    private void SetCloseButtonDanger(bool danger)
+    {
+        CloseButton.Classes.Set("modal-primary", danger);
+        CloseButton.Classes.Set("danger", danger);
+        CloseButton.Classes.Set("modal-cancel", !danger);
     }
 
     private void OnSpinnerTick(object? sender, EventArgs e)

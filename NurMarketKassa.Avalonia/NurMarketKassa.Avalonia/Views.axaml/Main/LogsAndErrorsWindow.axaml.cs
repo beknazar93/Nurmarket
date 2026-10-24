@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using NurMarketKassa.AvaloniaHost.Services;
@@ -98,7 +99,56 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
         // 2026-10-20 (живой аудит кассы, К18): в кассе Esc закрывает окно (раньше не закрывал). В программе владельца окно —
         // раздел оболочки, там Esc не трогаем.
         if (!AppMode.IsOwner)
+        {
             EscapeKey.Attach(this);
+            ApplyKassaShell();
+        }
+    }
+
+    /// <summary>2026-10-22 (аудит новой сборки, П2): в кассе окно было в системной рамке Windows с обрезанными заголовками
+    /// («Врем», «Дата»). Теперь — общая оболочка ModalShell: шапка и кнопки закреплены, таблица прокручивается сама. В программе
+    /// владельца окно — раздел оболочки (<see cref="AsOwnerSection"/>), там ничего не меняется.</summary>
+    private void ApplyKassaShell()
+    {
+        SystemDecorations = Avalonia.Controls.SystemDecorations.None;
+        CanResize = false;
+        Width = 1112;
+        Height = 680;
+        this[!BackgroundProperty] = this.GetResourceObservable("DialogWindowBackground").ToBinding();
+        this[!TransparencyLevelHintProperty] = this.GetResourceObservable("DialogTransparencyHint").ToBinding();
+
+        var footer = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 10 };
+        foreach (var button in new[] { RefreshButton, OpenFolderButton, SendSupportButton, CloseButton })
+        {
+            ((Panel)button.Parent!).Children.Remove(button);
+            button.Classes.Clear();
+            button.Classes.Add("modal-cancel");
+            button.Height = double.NaN;
+            button.Margin = new Avalonia.Thickness(0);
+            button.MaxWidth = 240;
+            footer.Children.Add(button);
+        }
+        CloseButton.IsVisible = true;
+        HeaderGrid.IsVisible = false;
+        SubtitleText.IsVisible = false;
+        RootGrid.Margin = new Avalonia.Thickness(0);
+        RootGrid.Background = null;
+        RootGrid.Children.Remove(HeaderGrid);
+        RootGrid.Children.Remove(SubtitleText);
+        RootGrid.RowDefinitions = new RowDefinitions("*");
+        Grid.SetRow(LogGrid.Parent as Control ?? LogGrid, 0);
+
+        var shell = new Dialogs.ModalShell
+        {
+            Margin = new Avalonia.Thickness(16),
+            ContentScroll = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Footer = footer,
+        };
+        shell[!Dialogs.ModalShell.TitleProperty] = this.GetResourceObservable("csh.menu.errorLogs").ToBinding();
+        shell[!Dialogs.ModalShell.SubtitleProperty] = this.GetResourceObservable("logs.subtitle").ToBinding();
+        Content = null;
+        shell.Content = RootGrid;
+        Content = shell;
     }
 
     private void Window_Loaded(object? sender, RoutedEventArgs e)

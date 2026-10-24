@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/api/session_store.dart';
 import 'core/util/access.dart';
 import 'core/providers.dart';
 import 'core/theme/theme.dart';
@@ -38,9 +39,12 @@ import 'features/admin/audit_screen.dart';
 
 /// Маршруты (ТЗ, раздел 3: go_router — переходы и по ссылкам из пуш-уведомлений).
 /// Этап 1 — экраны кассира; экраны администратора (Т8–Т14, Т20–Т26) — этап 2.
-GoRouter buildRouter(WidgetRef ref, {required bool signedIn}) => GoRouter(
+GoRouter buildRouter(WidgetRef ref, {required bool signedIn, Listenable? refresh}) => GoRouter(
   initialLocation: signedIn ? '/home' : '/login',
   observers: [AuditNavObserver()],
+  // 2026-10-22 (мобилка, админ, П9): права и касса сессии поменялись (доступы загрузились, владелец снял право, сессия
+  // истекла) — redirect проверяется заново сразу, а не при следующем переходе.
+  refreshListenable: refresh,
   redirect: (context, state) {
     final s = ref.read(sessionProvider);
     final loc = state.matchedLocation;
@@ -76,11 +80,12 @@ GoRouter buildRouter(WidgetRef ref, {required bool signedIn}) => GoRouter(
     GoRoute(path: '/pay', builder: (_, _) => const PaymentScreen()),
     GoRoute(
       path: '/paid',
-      builder: (_, s) => PaidScreen(info: s.extra! as PaidInfo),
+      // 2026-10-22 (мобилка, админ, П9): без extra (восстановление после выгрузки) — экран «данные не сохранились».
+      builder: (_, s) => withExtra<PaidInfo>(s.extra, (v) => PaidScreen(info: v)),
     ),
     GoRoute(
       path: '/checks/detail',
-      builder: (_, s) => CheckDetailScreen(row: s.extra! as CheckRow),
+      builder: (_, s) => withExtra<CheckRow>(s.extra, (v) => CheckDetailScreen(row: v)),
     ),
     GoRoute(path: '/stock/receive', builder: (_, _) => const ReceiveScreen()),
     GoRoute(path: '/stock/audit', builder: (_, _) => const AuditScreen()),
@@ -106,14 +111,14 @@ GoRouter buildRouter(WidgetRef ref, {required bool signedIn}) => GoRouter(
     GoRoute(path: '/admin/orders', builder: (_, _) => const OrdersScreen()),
     GoRoute(
       path: '/admin/pick',
-      builder: (_, s) => PickScreen(order: s.extra! as SiteOrder),
+      builder: (_, s) => withExtra<SiteOrder>(s.extra, (v) => PickScreen(order: v)),
     ),
     GoRoute(path: '/admin/clients', builder: (_, _) => const ClientsScreen()),
     GoRoute(path: '/admin/purchase', builder: (_, _) => const SupplierOrderScreen()),
     GoRoute(path: '/admin/deletions', builder: (_, _) => const DeletionsScreen()),
     GoRoute(
       path: '/admin/receive',
-      builder: (_, s) => AdminReceiveScreen(initialLines: s.extra as List<ReceiveLine>?),
+      builder: (_, s) => AdminReceiveScreen(initialLines: s.extra is List<ReceiveLine> ? s.extra as List<ReceiveLine> : null),
     ),
     // 13.10, доски Т9–Т10: умная камера — снимок полки, накладной, этикеток → приёмка.
     GoRoute(path: '/admin/smartcam', builder: (_, _) => const SmartCameraScreen()),
@@ -147,14 +152,30 @@ class NurMarketApp extends ConsumerStatefulWidget {
 }
 
 class _NurMarketAppState extends ConsumerState<NurMarketApp> {
-  late final GoRouter _router = buildRouter(ref, signedIn: widget.signedIn);
+  // 2026-10-22 (мобилка, админ, П9): refreshListenable роутера — только когда меняется то, от чего зависит redirect
+  // (вход/выход, касса, роль, доступы), а не при каждом обновлении токена.
+  final _routerRefresh = ValueNotifier<int>(0);
+  late final GoRouter _router = buildRouter(ref, signedIn: widget.signedIn, refresh: _routerRefresh);
+
+  static String _routeKey(Session? s) => s == null ? '' : '${s.cashboxId}|${s.role}|${s.isOwner}|${s.perms?.join(',')}';
+
+  @override
+  void dispose() {
+    _routerRefresh.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
-    // Сессия истекла и не обновилась — на вход.
+    ref.listenManual(sessionProvider, (prev, next) {
+      if (_routeKey(prev) != _routeKey(next)) _routerRefresh.value++;
+    });
+    // Сессия истекла и не обновилась — на вход. 2026-10-22 (мобилка, деньги, К-5): без logout — набранный чек и очередь
+    // остаются до входа тем же логином (раньше чек стирался, а очередь уходила в «не принято»).
     ref.read(apiProvider).onExpired.listen((_) async {
-      await ref.read(sessionProvider.notifier).logout();
+      if (ref.read(sessionProvider) == null) return;
+      await ref.read(sessionProvider.notifier).expire();
       _router.go('/login');
     });
     if (widget.signedIn) ref.read(syncProvider).start();

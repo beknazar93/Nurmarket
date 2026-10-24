@@ -19,7 +19,8 @@ public sealed class LabelScaleEditWindow : Window
     private readonly LabelScaleProfile _profile;
     private readonly LabelScaleProfile _snapshot;
     private readonly LabelScaleSetupPanel _panel = new() { IsDialogMode = true };
-    private readonly TextBox _nameBox = new() { Classes = { "ModernTextBox" }, Height = 38, MaxLength = 40 };
+    // 2026-10-22 (модалки, пакет 3): поле 44 px (было 38).
+    private readonly TextBox _nameBox = new() { Classes = { "ModernTextBox" }, Height = 44, MaxLength = 40, VerticalContentAlignment = VerticalAlignment.Center };
     private readonly WrapPanel _categoriesPanel = new() { Orientation = Orientation.Horizontal };
     private bool _saved;
 
@@ -40,11 +41,9 @@ public sealed class LabelScaleEditWindow : Window
         LabelScaleStore.Activate(profile);
 
         Title = L("Настройки весов", "Тараза жөндөөлөрү", "Scale settings", "Tartı ayarları", "Tarozi sozlamalari") + " — " + profile.Name;
-        Width = 880;
-        Height = 760;
-        MinWidth = 480;
-        MinHeight = 400;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        // 2026-10-22 (модалки, пакет 3): окно без рамки ОС в общей оболочке ModalShell (L = 912, было своё окно 880×760):
+        // заголовок и ✕ сверху, «Отмена» (Esc = ✕) и «Сохранить» (Enter) — в закреплённом подвале, карточки прокручиваются.
+        SectionCards.AsModal(this, 912);
         Styles.Add(new StyleInclude(new Uri("avares://NurMarketKassa.Avalonia/"))
         {
             Source = new Uri("avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"),
@@ -68,49 +67,18 @@ public sealed class LabelScaleEditWindow : Window
               "Kategoriyalarni belgilang — «Tarozi» oynasida bu tarozi uchun faqat ularning tovarlari belgilanadi va «Taroziga yuborish» faqat ularni yuboradi. Hech narsa belgilanmasa — barcha vaznli tovarlar (yoki o‘tgan safar qo‘lda belgilanganlar)."),
             _categoriesPanel);
 
-        var content = new StackPanel { Spacing = 10, Margin = new Thickness(0, 0, 10, 0) };
+        var content = new StackPanel { Spacing = 10 };
         content.Children.Add(nameCard);
         content.Children.Add(_panel);
         content.Children.Add(categoriesCard);
-        var scroll = new ScrollViewer
-        {
-            Content = content,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-        };
 
-        var cancel = new Button
-        {
-            Content = L("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
-            Classes = { "SettingsFlatButton" },
-            MinWidth = 120,
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            VerticalContentAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 10, 0),
-        };
+        var cancel = SectionCards.Cancel(L("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => Close();
-        var save = new Button
-        {
-            Content = L("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"),
-            Classes = { "btn-primary" },
-            MinWidth = 140,
-            Height = 42,
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            VerticalContentAlignment = VerticalAlignment.Center,
-        };
+        var save = SectionCards.Primary(L("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"), isDefault: true);
         save.Click += (_, _) => SaveAndClose();
-        var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-        footer.Children.Add(cancel);
-        footer.Children.Add(save);
-
-        var root = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Margin = new Thickness(16) };
-        root.Children.Add(scroll);
-        Grid.SetRow(footer, 1);
-        root.Children.Add(footer);
-        Content = root;
-
-        // 2026-09-29: по экрану кассы, не экрану покупателя, и с уменьшением минимума (DialogScreenFit).
-        Opened += (_, _) => this.FitToKassaScreen();
+        Content = SectionCards.Shell(L("Настройки весов", "Тараза жөндөөлөрү", "Scale settings", "Tartı ayarları", "Tarozi sozlamalari"), profile.Name,
+            content, SectionCards.Buttons(cancel, save));
+        // Высоту по экрану кассы ограничивает ModalShell (85 % рабочей области), подвал всегда виден.
         Closing += (_, _) =>
         {
             // Закрыли крестиком или «Отменой» — возвращаем весам прежний адрес и марку.

@@ -15,7 +15,8 @@ final _qty = NumberFormat('#,##0.###', 'ru');
 String money(double v) => _money.format(v);
 String qtyText(double v) => _qty.format(v);
 
-double? parseNum(String? s) => double.tryParse((s ?? '').replaceAll(' ', '').replaceAll(',', '.'));
+// 2026-10-22 (аудит П5): и неразрывные пробелы (так форматирует intl: «1 250,50») — раньше число не читалось
+double? parseNum(String? s) => double.tryParse((s ?? '').replaceAll(RegExp('[ \u00A0\u202F]'), '').replaceAll(',', '.'));
 
 /// Подпись над полем — заглавными, мелко (доска 5).
 /// 2026-10-21: [upper] = false — обычными буквами (правило редизайна «без ЗАГЛАВНЫХ», экраны КП и счетов).

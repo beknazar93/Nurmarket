@@ -413,10 +413,11 @@
   <x:String x:Key="closeShift.header">Close shift (Z-report)</x:String>
   <x:String x:Key="closeShift.instructions">Count the cash in the till and enter the actual balance.</x:String>
   <x:String x:Key="shift.systemBalance">System balance</x:String>
+  <x:String x:Key="shift.retryBalance">Retry</x:String>
   <x:String x:Key="closeShift.actualBalanceLabel">Actual cash balance</x:String>
   <x:String x:Key="closeShift.discrepancyLabel">Discrepancy</x:String>
   <x:String x:Key="closeShift.openingCashLabel">Opening amount</x:String>
-  <x:String x:Key="closeShift.totalSalesLabel">Total sales</x:String>
+  <x:String x:Key="closeShift.totalSalesLabel">Revenue (excl. debt)</x:String>
   <x:String x:Key="closeShift.cashSalesLabel">Cash</x:String>
   <x:String x:Key="closeShift.nonCashSalesLabel">Cashless</x:String>
   <x:String x:Key="openShift.instructions">Enter the amount of cash in the till at the start of the shift.</x:String>
@@ -577,7 +578,7 @@
   <x:String x:Key="shiftDetails.openedLabel">Opened</x:String>
   <x:String x:Key="shiftDetails.closedLabel">Closed</x:String>
   <x:String x:Key="shiftDetails.totalsSection">Totals</x:String>
-  <x:String x:Key="shiftDetails.revenueLabel">Shift revenue</x:String>
+  <x:String x:Key="shiftDetails.revenueLabel">Revenue (excl. debt)</x:String>
   <x:String x:Key="shiftDetails.print">Print</x:String>
 
   <!-- Weighed product dialog, pay debt dialog -->
@@ -1297,7 +1298,7 @@
     <x:String x:Key="loc.kassa.weigh.quick2">2 kg</x:String>
     <x:String x:Key="loc.kassa.weigh.quick5">5 kg</x:String>
     <x:String x:Key="loc.owner.shift.writeOffs">Write-offs</x:String>
-    <x:String x:Key="loc.owner.shift.debtPayments">Debt payments</x:String>
+    <x:String x:Key="loc.owner.shift.debtPayments">Debts paid</x:String>
     <x:String x:Key="loc.owner.shift.cashDrawerTitle">Cash drawer for this shift</x:String>
     <x:String x:Key="loc.owner.shift.deposits">Cash in</x:String>
     <x:String x:Key="loc.owner.shift.withdrawalsExpense">Cash out (expense)</x:String>

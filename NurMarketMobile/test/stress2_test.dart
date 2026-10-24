@@ -66,6 +66,7 @@ void main() {
           price: 10,
           wholesalePrice: 0,
           promoRules: '',
+          minQuantity: 0,
           quantity: (rnd.nextInt(12) - 3).toDouble(),
           unit: 'шт',
           isWeight: false,
@@ -80,7 +81,7 @@ void main() {
     final low = products.where((p) => stockFilterMatch(p, StockFilter.low)).length;
     final out = products.where((p) => stockFilterMatch(p, StockFilter.out)).length;
     expect(inStock, products.where((p) => p.isService || p.quantity > 0).length);
-    expect(low, products.where((p) => !p.isService && p.quantity > 0 && p.quantity <= 3).length);
+    expect(low, products.where((p) => !p.isService && p.quantity > 0 && p.quantity < lowStockLimit).length); // 2026-10-22: порог как на ПК
     expect(out, products.where((p) => !p.isService && p.quantity <= 0).length);
     expect(products.where((p) => stockFilterMatch(p, StockFilter.all)).length, 20000);
   });
@@ -122,7 +123,8 @@ void main() {
       final refs = await ProductRefs.load(db, 'p7');
       expect(refs.length, 3);
       final codec = await ui.instantiateImageCodec(refs.first);
-      expect((await codec.getNextFrame()).image.width, 384); // уменьшено до 384 px
+      // 2026-10-22 (аудит У-4): не JPEG — уменьшается до 320 px (было 384); снимок камеры JPEG хранится как есть
+      expect((await codec.getNextFrame()).image.width, 320);
       // повторное обучение заменяет снимки, а не добавляет
       await ProductRefs.save(db, 'p7', [shot]);
       expect((await ProductRefs.load(db, 'p7')).length, 1);

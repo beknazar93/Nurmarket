@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' show Value;
 
 import '../../core/api/api_client.dart';
@@ -15,22 +17,64 @@ class CatalogRepository {
   Future<int> sync() async {
     final rows = <ProductsCompanion>[];
     final seen = <String>{};
+    final noMin = <String>{};
     for (var page = 1; page <= 100; page++) {
       final data = await api.get('api/main/products/list/', query: {'page': page, 'page_size': _pageSize}, timeout: const Duration(seconds: 40));
       final items = asList(data);
       for (final p in items) {
         final row = _map(p);
-        if (row != null && seen.add(row.id.value)) rows.add(row);
+        if (row != null && seen.add(row.id.value)) {
+          rows.add(row);
+          // 2026-10-22 (мобилка, админ): список каталога может не отдавать minimum_quantity — тогда прежний минимум
+          // товара не сбрасываем (ниже подставляем из базы телефона).
+          if (!p.containsKey('minimum_quantity') && !p.containsKey('min_quantity')) noMin.add(row.id.value);
+        }
       }
       // Страница после последней бывает с ответом 500 — дальше не идём, если пришло меньше страницы или нет next.
       final hasNext = data is Map ? data['next'] != null : items.length >= _pageSize;
       if (items.length < _pageSize || !hasNext) break;
     }
     if (rows.isNotEmpty) {
+      if (noMin.isNotEmpty) {
+        final old = {for (final p in await db.select(db.products).get()) p.id: p.minQuantity};
+        for (var i = 0; i < rows.length; i++) {
+          final keep = old[rows[i].id.value];
+          if (keep != null && keep > 0 && noMin.contains(rows[i].id.value)) rows[i] = rows[i].copyWith(minQuantity: Value(keep));
+        }
+      }
       await db.replaceProducts(rows);
+      await _reapplyPending();
       await db.setSetting('catalog.syncedAt', DateTime.now().toIso8601String());
     }
     return rows.length;
+  }
+
+  /// 2026-10-22 (сканер, аудит С-4): товар с сервера в базу телефона по той же раскладке, что и каталог.
+  static ProductsCompanion? mapProduct(Map<String, dynamic> p) => _map(p);
+
+  /// 2026-10-22 (мобилка, деньги): каталог с сервера ещё не знает о продажах и приходах из очереди телефона — остатки
+  /// «откатывались» до досылки (продал 5 без связи — через 5 минут остаток снова прежний). Не отправленное — поверх.
+  Future<void> _reapplyPending() async {
+    for (final row in await db.pending()) {
+      try {
+        final body = (jsonDecode(row.body) as Map).cast<String, dynamic>();
+        if (row.kind == 'sale') {
+          for (final it in asList(body['items'])) {
+            final id = str(it, 'product');
+            final q = num0(it, 'qty');
+            if (id != null && q > 0) await db.adjustStock(id, -q);
+          }
+        } else if (row.kind == 'receive') {
+          for (final l in asList(body['lines'])) {
+            final id = str(l, 'productId');
+            final q = num0(l, 'qty');
+            if (id != null && q > 0 && l['done'] != true) await db.adjustStock(id, q);
+          }
+        }
+      } catch (_) {
+        // повреждённая запись — без поправки остатка
+      }
+    }
   }
 
   static ProductsCompanion? _map(Map<String, dynamic> p) {
@@ -77,6 +121,7 @@ class CatalogRepository {
       imageUrl: Value(image),
       searchKey: Value([name, str(p, 'sku') ?? str(p, 'article') ?? '', str(p, 'barcode') ?? '', category, str(p, 'brand_name') ?? ''].join(' ').toLowerCase()),
       promoRules: Value(PromoRule.encodeFromApi(p['promotion_rules'])),
+      minQuantity: Value(num0(p, 'minimum_quantity') > 0 ? num0(p, 'minimum_quantity') : num0(p, 'min_quantity')),
     );
   }
 

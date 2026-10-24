@@ -137,7 +137,21 @@ class QuoteDoc {
   double get subtotal => linesSubtotal(lines);
   double get total => roundMoney((subtotal - discount).clamp(0, double.infinity).toDouble());
   double get left => roundMoney((total - paid).clamp(0, double.infinity).toDouble());
-  bool get overdue => !isQuote && status != 'paid' && until.isBefore(DateUtils.dateOnly(DateTime.now()));
+
+  /// 2026-10-22 (мобилка, админ): П13 — накладная программы владельца (quote: false, kind: "waybill", как ClientDoc.Kind ПК).
+  /// Раньше телефон видел её как счёт: «не оплачен», «просрочен», «Принять оплату».
+  bool get isWaybill => (extra['kind']?.toString() ?? '').toLowerCase() == 'waybill';
+
+  /// Счёт на оплату: не КП и не накладная.
+  bool get isInvoice => !isQuote && !isWaybill;
+
+  /// 2026-10-22 (мобилка, админ): П13 — НДС «в том числе», % (поле vat общего списка; 0 — без НДС).
+  double get vatPercent {
+    final v = _n(extra['vat']);
+    return v == null || v <= 0 ? 0 : v;
+  }
+
+  bool get overdue => isInvoice && status != 'paid' && until.isBefore(DateUtils.dateOnly(DateTime.now()));
 
   /// 2026-10-21: КП без ответа после срока действия — «Срок истёк» (серым: это не долг).
   bool get expired => isQuote && (status == 'draft' || status == 'sent') && until.isBefore(DateUtils.dateOnly(DateTime.now()));
@@ -617,6 +631,13 @@ class QuotesStore {
   }
 
   Future<void> setRequisites(String text) => db.setSetting('quotes.requisites', text.trim());
+
+  /// 2026-10-22 (мобилка, админ): П13 — НДС по умолчанию для новых документов из реквизитов программы владельца
+  /// (docsProfile.vat, как ClientDocProfile.VatPercent); 0 — без НДС.
+  Future<double> defaultVat() async {
+    final v = _n((await _profile())?['vat']);
+    return v == null || v <= 0 ? 0 : v;
+  }
 
   /// Время последней удачной синхронизации.
   Future<DateTime?> syncedAt() async => DateTime.tryParse(await db.getSetting(_kSyncAt) ?? '')?.toLocal();

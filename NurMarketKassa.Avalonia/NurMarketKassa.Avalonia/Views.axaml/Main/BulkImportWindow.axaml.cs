@@ -337,12 +337,7 @@ public partial class BulkImportWindow : Window
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
 
-    /// <summary>2026-10-20: окно без системной рамки — двигается за шапку (как ShiftsHistoryWindow).</summary>
-    private void Header_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
-    {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && e.Source is not Button)
-            BeginMoveDrag(e);
-    }
+    // 2026-10-24 (аудит круга 8, С-8, П-10): Header_PointerPressed убран — шапку, ✕ и Esc даёт ModalShell.
 
     private sealed class PreviewRowVm : INotifyPropertyChanged
     {

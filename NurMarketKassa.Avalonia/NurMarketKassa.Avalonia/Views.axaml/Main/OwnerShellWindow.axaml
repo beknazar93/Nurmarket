@@ -31,6 +31,8 @@
         <StreamGeometry x:Key="AnalyticsIcon">M4,4 V20 H20 M7.5,15.5 L11,11.5 L14,14 L19,8 M11,11.5 V11.51 M14,14 V14.01 M19,8 V8.01</StreamGeometry>
         <StreamGeometry x:Key="SalaryIcon">M2,6 H22 V18 H2 Z M12,9 A3,3 0 1 1 11.99,9 M5,9 V9.01 M19,15 V15.01</StreamGeometry>
         <!-- 2026-10-20, живой аудит (меню, МЕЛОЧЬ): у «Поставщиков» был значок «Клиентов» — свой, грузовик. -->
+        <!-- 2026-10-22 (закупки как в вебе): «Закупки» — сумка со стрелкой «внутрь» (приход товара). -->
+        <StreamGeometry x:Key="PurchasesIcon">M5,8 H19 L18,21 H6 Z M9,8 V6 A3,3 0 0 1 15,6 V8 M12,11 V17 M9.5,14.5 L12,17 L14.5,14.5</StreamGeometry>
         <StreamGeometry x:Key="SuppliersIcon">M2,6 H14 V17 H2 Z M14,9 H18 L21,12.5 V17 H14 M6,17 A2,2 0 1 1 5.99,17 M17,17 A2,2 0 1 1 16.99,17</StreamGeometry>
         <StreamGeometry x:Key="ClientsIcon">M9,11 A4,4 0 1 1 8.99,11 M3,20 A6,6 0 0 1 15,20 M17,11 A3,3 0 1 1 16.99,11 M17,14 A5,5 0 0 1 21,19</StreamGeometry>
         <StreamGeometry x:Key="CrmIcon">M4,5 H20 V16 H13 L9,20 V16 H4 Z</StreamGeometry>
@@ -102,8 +104,10 @@
     <Window.Styles>
         <!-- Меню. 2026-10-18, этап О2 (макет OwnerNav): тёмная колонка групп (railGroup) и колонка пунктов выбранной группы (nav).
              Подписи групп — обычными буквами (правило аудита 9), у каждой кнопки есть имя для экранного диктора. -->
+        <!-- 2026-10-22 (аудит новой сборки): подпись «Управление» ломалась «Управлени/е» (кегль 10,5 и MaxWidth 66 уже слова в
+             Montserrat) — кнопка 72, подпись до 72 при кегле 10; слово теперь целиком. -->
         <Style Selector="Button.railGroup">
-            <Setter Property="Width" Value="68"/>
+            <Setter Property="Width" Value="72"/>
             <Setter Property="Padding" Value="0,7,0,6"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
@@ -145,13 +149,13 @@
             <Setter Property="Stroke" Value="{DynamicResource OwnerRailActiveFg}"/>
         </Style>
         <Style Selector="Button.railGroup TextBlock.railLabel">
-            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontSize" Value="10"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="LineHeight" Value="12.5"/>
             <Setter Property="TextAlignment" Value="Center"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="MaxWidth" Value="66"/>
+            <Setter Property="MaxWidth" Value="72"/>
         </Style>
         <!-- 2026-10-18, ревью О2: низкое окно (1366×768 при 125 % — ~580 точек) — колонка групп плотнее, совсем низкое — только
              значки (ApplyRailDensity в OwnerShellWindow.Nav.cs). -->
@@ -170,8 +174,8 @@
         </Style>
         <!-- Кнопка «»» в тёмной колонке (колонка пунктов свёрнута). -->
         <Style Selector="Button.railMini">
-            <Setter Property="Width" Value="36"/>
-            <Setter Property="Height" Value="28"/>
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="36"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
@@ -444,9 +448,11 @@
         </Style>
 
         <!-- Кнопки-иконки и кнопки окна -->
+        <!-- 2026-10-21 (сенсорный моноблок): кнопки-значки сводки 36×36 → 40×40, период 34 → 40 по высоте, «Все продажи» не ниже 36,
+             «»» в тёмной колонке 36×28 → 44×36 — пальцем на экране 100 % не попадали; рисунок и отступы прежние. -->
         <Style Selector="Button.iconBtn">
-            <Setter Property="Width" Value="36"/>
-            <Setter Property="Height" Value="36"/>
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -518,7 +524,7 @@
              с белым текстом, как modal-seg кассы; жёлтый остаётся только у «сегодня» на графике и у главной кнопки. -->
         <Style Selector="Button.seg">
             <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="MinHeight" Value="40"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -670,6 +676,7 @@
         <Style Selector="Button.link">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="MinHeight" Value="36"/>
             <Setter Property="Padding" Value="10,5"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="FontSize" Value="13"/>
@@ -731,7 +738,7 @@
                                 <Path Data="{StaticResource ExpandNavIcon}"/>
                             </Button>
                             <!-- 2026-10-19, вид «Вкладки»: колонки пунктов нет — поиск раздела (тот же, что Ctrl+K) значком под логотипом. -->
-                            <Button x:Name="RailSearchButton" Classes="railMini" Width="44" Height="32" Click="RailSearch_Click" IsVisible="False">
+                            <Button x:Name="RailSearchButton" Classes="railMini" Width="44" Height="36" Click="RailSearch_Click" IsVisible="False">
                                 <Path Data="{StaticResource SearchIcon}" Width="16" Height="16"/>
                             </Button>
                         </StackPanel>

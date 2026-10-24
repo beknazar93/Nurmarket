@@ -21,7 +21,10 @@ class ScaleReading {
   /// Уверенность 0..1.
   final double confidence;
 
-  const ScaleReading({this.product = '', this.weightKg, this.unit = 'kg', this.confidence = 0});
+  /// 2026-10-22 (аудит У-3): окно «СТОИМОСТЬ» с табло, если ИИ его видел; null — не видно.
+  final double? total;
+
+  const ScaleReading({this.product = '', this.weightKg, this.unit = 'kg', this.confidence = 0, this.total});
 
   bool get hasWeight => weightKg != null;
   bool get isZero => weightKg != null && weightKg!.abs() < 0.0005;
@@ -50,9 +53,10 @@ double? parseWeightText(String raw, {String unit = ''}) {
   return v;
 }
 
-/// Ответ ИИ строго JSON {product, weight_kg, unit, confidence} (бывает в ```json … ``` или с текстом вокруг).
-/// weight_kg может прийти строкой («0,500», «500 g»). Если на табло граммы (unit g), а число похоже на граммы
-/// (≥ 20) — ИИ не перевёл, делим на 1000.
+/// Ответ ИИ строго JSON {product, display, unit, total, confidence} (бывает в ```json … ``` или с текстом вокруг).
+/// 2026-10-22 (аудит У-2): display — текст окна веса как на табло, вес считает телефон: unit g — всегда граммы
+/// («15» g = 0,015 кг, раньше 15 г без перевода становились 15 кг). Старый ответ weight_kg тоже понимаем: число
+/// при unit g — граммы, если оно целое (ИИ не перевёл), иначе уже килограммы.
 ScaleReading parseScaleJson(String text) {
   var t = text.trim();
   final a = t.indexOf('{'), b = t.lastIndexOf('}');
@@ -67,14 +71,20 @@ ScaleReading parseScaleJson(String text) {
   if (decoded is! Map) return const ScaleReading();
   final unitRaw = (decoded['unit']?.toString() ?? '').trim().toLowerCase();
   final grams = RegExp(r'^(g|г|гр|gr|gram|grams|грамм)$').hasMatch(unitRaw);
+  bool given(Object? v) => v != null && '$v'.trim().isNotEmpty && '$v' != 'null';
+  final display = decoded['display'];
   final w = decoded['weight_kg'] ?? decoded['weight'];
   double? kg;
-  if (w is num) {
+  if (given(display)) {
+    kg = parseWeightText('$display', unit: grams ? 'g' : (unitRaw.isEmpty ? '' : 'kg'));
+  } else if (w is num) {
     kg = w.toDouble();
-    if (grams && kg >= 20) kg = kg / 1000;
-  } else if (w != null && '$w'.trim().isNotEmpty && '$w' != 'null') {
+    if (grams && kg >= 1 && kg == kg.roundToDouble()) kg = kg / 1000;
+  } else if (given(w)) {
     kg = parseWeightText('$w', unit: grams ? 'g' : '');
   }
+  final totalRaw = decoded['total'];
+  final total = totalRaw is num ? totalRaw.toDouble() : (given(totalRaw) ? double.tryParse(RegExp(r'\d+(?:[.,]\d+)?').firstMatch('$totalRaw'.replaceAll(' ', ''))?.group(0)?.replaceAll(',', '.') ?? '') : null);
   var conf = decoded['confidence'] is num ? (decoded['confidence'] as num).toDouble() : double.tryParse('${decoded['confidence']}'.replaceAll(',', '.')) ?? 0;
   if (conf > 1) conf = conf / 100; // ИИ иногда отвечает процентами
   return ScaleReading(
@@ -82,7 +92,18 @@ ScaleReading parseScaleJson(String text) {
     weightKg: kg == null || !kg.isFinite ? null : (kg * 1000).roundToDouble() / 1000,
     unit: grams ? 'g' : 'kg',
     confidence: conf.clamp(0, 1).toDouble(),
+    total: total != null && total > 0 && total.isFinite ? total : null,
   );
+}
+
+/// 2026-10-22 (аудит У-1): уверенный выбор — первый кандидат заметно лучше второго (на 0,2 и больше) или точный
+/// (эталон обучения, штрихкод). «Картофель» 1,0 и «Картофель молодой» 0,8 — спросить кассира.
+bool clearWinner(List<double> scores) => scores.isNotEmpty && (scores.length == 1 || scores.first - scores[1] >= 0.2);
+
+/// Стоимость с табло сходится с ценой × вес (±1 сом) — сильное подтверждение товара и веса; null — табло не показало.
+bool? totalAgrees(double? total, double pricePerKg, double? kg) {
+  if (total == null || kg == null || pricePerKg <= 0) return null;
+  return (roundMoney(pricePerKg * kg) - total).abs() <= 1;
 }
 
 /// Ожидание устойчивого веса: [need] показаний подряд, отличающихся не больше чем на [tolerance] кг (±5 г).
