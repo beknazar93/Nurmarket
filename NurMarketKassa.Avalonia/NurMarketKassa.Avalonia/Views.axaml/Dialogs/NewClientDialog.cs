@@ -46,7 +46,8 @@ public sealed class NewClientDialog : Window
 
     /// <param name="supplier">2026-10-20, владелец: «+ Новый поставщик» в карточке товара — то же окно, только имя и телефон
     /// (адрес и email не показываются), подписи про поставщика.</param>
-    public NewClientDialog(Func<string, string, string, string, Task<string?>> save, IReadOnlyList<ClientRow> existing, bool supplier = false, bool companyFields = false, Action<ClientRow>? pickExisting = null)
+    /// <param name="subtitle">2026-10-24, ТЗ «Склад» (В): своя подпись под заголовком (у поставщика из приёмки «Он будет выбран в приёмке»); null — прежняя.</param>
+    public NewClientDialog(Func<string, string, string, string, Task<string?>> save, IReadOnlyList<ClientRow> existing, bool supplier = false, bool companyFields = false, Action<ClientRow>? pickExisting = null, string? subtitle = null)
     {
         _pickExisting = pickExisting;
         _save = save;
@@ -145,13 +146,13 @@ public sealed class NewClientDialog : Window
         Content = new ModalShell
         {
             Margin = new Thickness(16), Title = Title,
-            Subtitle = supplier
+            Subtitle = subtitle ?? (supplier
                 ? T("Он сразу будет выбран поставщиком этого товара.", "Ал дароо ушул товардын жеткирүүчүсү болуп тандалат.",
                     "It will be selected as this product's supplier right away.", "Hemen bu ürünün tedarikçisi olarak seçilecek.",
                     "U darhol shu mahsulotning yetkazib beruvchisi sifatida tanlanadi.")
                 : T("Имя и телефон — чтобы найти клиента в кассе и напомнить о долге.", "Аты жана телефону — кардарды кассадан табуу жана карызды эскертүү үчүн.",
                 "Name and phone — to find the client at the till and remind them of a debt.", "Ad ve telefon — müşteriyi kasada bulmak ve borcu hatırlatmak için.",
-                "Ism va telefon — mijozni kassada topish va qarzni eslatish uchun."),
+                "Ism va telefon — mijozni kassada topish va qarzni eslatish uchun.")),
             Footer = buttons, Hint = hint, Content = root,
         };
 
@@ -191,8 +192,9 @@ public sealed class NewClientDialog : Window
         // Клиент с дублем номера: «Добавить клиента» выключена, пока не нажали «Всё равно добавить» (у поставщика прежнее предупреждение).
         var blocked = same != null && !_supplier && !_forceAdd;
         _ok.IsEnabled = !_saving && !string.IsNullOrWhiteSpace(_name.Text) && !string.IsNullOrWhiteSpace(_phone.Text) && !blocked;
-        _duplicateButtons.IsVisible = same != null && !_supplier;
-        _pickExistingButton.IsVisible = same != null && _pickExisting != null && !_supplier;
+        // 2026-10-24, ТЗ «Склад» (В): у поставщика «Выбрать существующего» — если окно открыто с pickExisting (приёмка); «Всё равно добавить» не нужно — поставщика можно добавить и так.
+        _duplicateButtons.IsVisible = same != null && (!_supplier || _pickExisting != null);
+        _pickExistingButton.IsVisible = same != null && _pickExisting != null;
         _addAnywayButton.IsVisible = same != null && !_supplier && !_forceAdd;
         Use(_duplicate, TextBlock.ForegroundProperty, same != null && !_supplier ? "BrushDanger" : "BrushText");
         if (same != null && _supplier)

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Склад — Массовое добавление — Импорт, шаг 3: проверка (Д8)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="BulkAdd-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    Шаг 3 «Проверка»: плитки-фильтры (как KpiTileGrid) «Все · Приход к товарам склада · Новые · Ошибки», виртуализированная таблица (№ строки файла, штрихкод, название,
+    кол-во, закупка с ▲, продажа, наценка %, «что будет», ошибка). Ячейка с ошибкой подсвечена BrushDangerSoft. Состояния: «Проверяю 6 000 из 15 000» (разбор не в потоке окна),
+    все строки, фильтр «Ошибки», подтверждение «Цена продажи изменится у K товаров».
+  </div>
+</div>
+<script src="BulkAdd-shared.js"></script>
+<script>
+(function(){
+  const I = BA.icon, fmt = BA.fmt;
+  const frame = document.getElementById('frame');
+  /* строки: n, code, name, qty, buy, sell, mk, what, err, bad:[поля с ошибкой], flags */
+  const ROWS = [
+    { n:2, code:'4870001234567', name:'Хлеб белый «Нарын»', qty:40, buy:28, sell:35, mk:25, what:'приход: остаток 12 → 52', wk:'imp.whatReceive' },
+    { n:3, code:'5449000000996', name:'Coca-Cola 1 л', qty:24, buy:55, up:52, sell:65, mk:18, what:'приход: остаток 5 → 29', wk:'imp.whatReceive' },
+    { n:4, code:'4600300123456', name:'Шоколад Alpen Gold молочный 90 г', qty:30, buy:70, sell:88, mk:26, what:'новый товар', wk:'imp.whatNew' },
+    { n:5, code:'4,6E+12', name:'Сок Gracio яблочный 1 л', qty:12, buy:60, sell:75, mk:25, err:'Штрихкод в экспоненте — сохраните столбец как текст', ek:'imp.errExp', bad:['code'] },
+    { n:6, code:'4870000003401', name:'Сахар-песок 1 кг', qty:'abc', buy:78, sell:92, mk:18, err:'«abc» — не число', ek:'imp.errNotNumber', bad:['qty'] },
+    { n:7, code:'4870011223344', name:'Масло «Шоро» подсолнечное 1 л', qty:6, buy:180, sell:225, calc:true, mk:25, what:'новый товар', wk:'imp.whatNew' },
+    { n:8, code:'2000000012345', name:'', qty:3, buy:60, sell:80, mk:33, err:'Не заполнено название', ek:'imp.errNoName', bad:['name'] },
+    { n:9, code:'4870001234567', name:'Хлеб белый «Нарын»', qty:10, buy:28, sell:35, mk:25, what:'сложено со строкой 2', wk:'imp.whatMerged', merged:true },
+    { n:10, code:'4812345678901', name:'Печенье «Юбилейное»', qty:-5, buy:45, sell:60, mk:33, err:'Отрицательное число', ek:'imp.errNegative', bad:['qty'] },
+    { n:11, code:'4870000002201', name:'Чай «Пиала» 100 пак.', qty:4, buy:160, sell:190, down:210, mk:19, what:'приход: остаток 4 → 8 · продажа 210 → 190', wk:'imp.whatReceivePrice' },
+    { n:12, code:'4870000015838', name:'Рис «Ак-Марал» 900 г', qty:20, buy:95, sell:120, mk:26, what:'приход: остаток 7 → 27', wk:'imp.whatReceive' },
+    { n:13, code:'4600000104729', name:'Шампунь Head&Shoulders 400 мл', qty:8, buy:320, sell:'', mk:'', err:'Нет цены продажи и наценки', ek:'imp.errNoSell', bad:['sell'] },
+    { n:14, code:'4870000029311', name:'Макароны «Барилла» 500 г', qty:36, buy:110, sell:140, mk:27, what:'новый товар', wk:'imp.whatNew' },
+    { n:15, code:'4870000031122', name:'Кофе Jacobs 95 г', qty:12, buy:380, sell:475, mk:25, what:'приход: остаток 2 → 14', wk:'imp.whatReceive' },
+    { n:16, code:'48700000311229999', name:'Батарейки Duracell AA', qty:50, buy:60, sell:85, mk:42, what:'новый товар', wk:'imp.whatNew', warn:'штрихкод 17 цифр — проверьте', wrk:'imp.warnLongCode' },
+  ];
+  const td = (v, cls) => '<td class="' + (cls || '') + '">' + (v === '' || v == null ? '<span class="soft">—</span>' : v) + '</td>';
+  function row(r){
+    const b = f => (r.bad || []).includes(f) ? 'bad' : '';
+    return '<tr><td class="rownum num">' + r.n + '</td>' + td(r.code, 'num ' + b('code')) + td(r.name, b('name')) + td(r.qty, 'r num ' + b('qty')) +
+      td(r.buy != null ? (r.up ? r.buy + ' <span style="color:var(--warning);font-weight:800">▲</span> <span class="soft">' + r.up + '</span>' : r.buy) : '', 'r num') +
+      td(r.calc ? r.sell + ' <span class="soft" data-key="imp.fromMarkup">из наценки</span>' : (r.down ? r.sell + ' <span class="soft">← ' + r.down + '</span>' : r.sell), 'r num ' + b('sell')) + td(r.mk !== '' ? r.mk + ' %' : '', 'r num') +
+      td(r.what ? (r.merged ? '<span class="chip ok">' + r.what + '</span>' : '<span data-key="' + r.wk + '">' + r.what + '</span>') + (r.warn ? ' <span class="chip warn" data-key="' + r.wrk + '">' + r.warn + '</span>' : '') : '', '') +
+      td(r.err ? '<span style="color:var(--danger-on-soft);font-weight:600" data-key="' + r.ek + '">' + r.err + '</span>' : '', 'wrap') + '</tr>';
+  }
+  function table(rows, skeleton){
+    const head = '<thead><tr><th class="rownum" data-ky data-key="imp.colRow">№</th><th data-ky data-key="imp.colBarcode">Штрихкод</th><th data-ky data-key="imp.colName">Название</th><th class="r" data-ky data-key="imp.colQty">Кол-во</th><th class="r" data-ky data-key="imp.colBuy">Закупка</th><th class="r" data-ky data-key="imp.colSell">Продажа</th><th class="r" data-ky data-key="imp.colMarkup">Наценка %</th><th data-ky data-key="imp.colWhat">Что будет</th><th data-ky data-key="imp.colError">Ошибка</th></tr></thead>';
+    const body = skeleton ? Array.from({ length:12 }, (_, i) => '<tr><td class="rownum num">' + (i + 2) + '</td>' + '<td><span style="display:inline-block;width:' + (60 + (i * 37) % 90) + 'px;height:10px;border-radius:5px;background:var(--panel-soft)"></span></td>'.repeat(8) + '</tr>').join('') : rows.map(row).join('');
+    return '<div class="tbl"><table>' + head + '<tbody>' + body + '</tbody></table></div>';
+  }
+  function tiles(active){
+    const t = (id, label, key, n, cls) => '<button class="tile ' + cls + (active === id ? ' on' : '') + '"><small data-ky data-key="' + key + '">' + label + '</small><b class="num">' + fmt(n) + '</b></button>';
+    return '<div class="tiles">' + t('all', 'Все', 'imp.tileAll', 15000, '') + t('recv', 'Приход к товарам склада', 'imp.tileReceive', 9200, '') + t('new', 'Новые', 'imp.tileNew', 5600, '') + t('err', 'Ошибки', 'imp.tileErrors', 200, 'e') + '</div>';
+  }
+  function render(state){
+    const checking = state === 'checking', errs = state === 'errors';
+    const main = checking
+      ? '<div class="plate info"><span class="spin"></span><span class="tx"><b data-key="imp.checking">Проверяю 6 000 из 15 000</b> <span data-key="imp.checkingHint">· сверяю штрихкоды со складом, считаю цены. Окно не занято — можно переключиться на другую вкладку.</span></span></div><div class="bar"><i style="width:40%"></i></div>' + table([], true)
+      : tiles(errs ? 'err' : 'all') + table(errs ? ROWS.filter(r => r.err) : ROWS);
+    frame.innerHTML = BA.chrome() +
+      '<div class="tab">' +
+        '<div class="row">' + BA.segment('excel') + '<span class="sp"></span>' + BA.steps(3, 'прайс-октябрь.xlsx') + '</div>' +
+        '<div class="wiz"><div class="wb" style="flex-direction:column">' + main + '</div>' +
+          '<div class="wf"><button class="btn secondary">' + I('chevron-left', 18) + '<span data-ky data-key="imp.back">Назад</span></button>' +
+            '<button class="btn secondary"' + (checking ? ' disabled style="opacity:.45"' : '') + '>' + I('file-export-outline', 18) + '<span data-ky data-key="imp.downloadErrors">Скачать строки с ошибками</span> <span class="num">(200)</span></button><span class="sp"></span>' +
+            (checking ? '' : '<span class="stat num" data-key="imp.loadStat">Будет загружено 14 800 из 15 000 · 200 строк с ошибками пропустятся</span>') +
+            '<button class="btn primary' + (checking ? ' disabled' : '') + '"><span data-key="imp.load">Загрузить ' + fmt(14800) + '</span></button></div></div>' +
+      '</div>' +
+      (state === 'confirm' ? '<div class="overlay"><div class="modal"><div class="mh"><h2 data-key="imp.priceChangeTitle">Цена продажи изменится у 312 товаров</h2><button class="sq ghost" aria-label="Закрыть">' + I('close', 20) + '</button></div>' +
+        '<div class="mb"><span data-key="imp.priceChangeBody">В файле цена продажи отличается от цены на складе. После загрузки касса будет продавать по новой цене.</span><ul><li>Чай «Пиала» 100 пак. — 210 → 190 сом</li><li>Coca-Cola 1 л — 65 → 70 сом</li><li style="color:var(--text-soft)">… и ещё 310 товаров</li></ul></div>' +
+        '<div class="mf"><button class="btn secondary"><span data-ky data-key="common.cancel">Отмена</span></button><button class="btn primary"><span data-ky data-key="imp.priceChangeOk">Изменить и загрузить</span></button></div></div></div>' : '');
+    if (frame.dataset.ky) BA.applyKy(true);
+  }
+  BA.toolbar(frame, { title:'BulkAdd-Import3 — шаг 3: проверка', onState:render, states:[
+    { id:'checking', label:'проверяю 6 000 из 15 000' }, { id:'all', label:'15 000 строк' }, { id:'errors', label:'фильтр «Ошибки»' }, { id:'confirm', label:'цена изменится у K' } ] });
+})();
+</script>
+</body></html>

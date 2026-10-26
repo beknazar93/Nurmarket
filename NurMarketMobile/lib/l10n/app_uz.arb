@@ -328,6 +328,13 @@
   "smartShots": "Suratlar: {n}",
   "smartPriceRule": "Yangilar narxi: xarid +30 %, 5 gacha",
   "smartUploaded": "Omborga yuklandi: {n}",
+  "smartPartial": "{total} tadan {done} tasi o‘tkazildi, {left} tasi o‘tkazilmadi — «Yuklash» tugmasini yana bosing: o‘tkazilgani qayta qo‘shilmaydi.",
+  "smartNoLink": "Server bilan aloqa yo‘q — hech narsa o‘tkazilmadi. Ro‘yxat ekranda qoldi, internet paydo bo‘lganda takrorlang.",
+  "smartRowRejected": "Rad etildi: {reason}",
+  "smartRowUnknown": "Server javob bermadi — takrorlang: qoldiq ikki marta qo‘shilmaydi.",
+  "smartRowLocked": "Qator serverga yuborilgan — tovar va nomni o‘zgartirib bo‘lmaydi, qayta yuboring.",
+  "smartPendingReceipt": "Oldingi yetkazib beruvchiga kirim javobsiz qoldi — avval uni «Yetkazib beruvchi bilan qabul»da takrorlang, aks holda qoldiq ikki marta qo‘shilishi mumkin.",
+  "smartPendingStock": "Ba’zi qatorlar uchun server javob bermadi — avval «Yuklash»ni yana bosing: qoldiq ikki marta qo‘shilmaydi.",
   "sellingPrice": "Sotuv narxi",
   "durationCustom": "Boshqa…",
   "minutesHint": "daqiqa",
@@ -976,6 +983,9 @@
   "peBarcodeTaken": "{code} shtrix-kodi allaqachon \"{name}\" mahsulotida.",
   "peBarcodeTwice": "{code} shtrix-kodi ikki marta kiritilgan.",
   "peScan": "Skanerlash",
+  "bcGenTooltip": "Shtrix-kod yaratish",
+  "bcGenReplace": "Joriy shtrix-kod yangisiga almashtirilsinmi?",
+  "bcGenDo": "Yaratish",
   "pePackQty": "qadoqda {qty}",
   "peNoAccess": "Mahsulotni \"Ombor\" huquqi bor xodim yoki administrator tahrirlay oladi."
 }

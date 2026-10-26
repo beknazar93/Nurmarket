@@ -1123,6 +1123,10 @@ S.update({
     "peBarcodeTaken": ("Штрихкод {code} уже у товара «{name}».", "{code} штрихкоду «{name}» товарында бар.", "Barcode {code} already belongs to \"{name}\".", "{code} barkodu zaten \"{name}\" ürününde.", "{code} shtrix-kodi allaqachon \"{name}\" mahsulotida."),
     "peBarcodeTwice": ("Штрихкод {code} указан дважды.", "{code} штрихкоду эки жолу жазылган.", "Barcode {code} is entered twice.", "{code} barkodu iki kez girilmiş.", "{code} shtrix-kodi ikki marta kiritilgan."),
     "peScan": ("Сканировать", "Сканерлөө", "Scan", "Tara", "Skanerlash"),
+    # 2026-10-26: генератор штрихкода (BarcodeGenerator) — product_edit.dart, new_item.dart
+    "bcGenTooltip": ("Сгенерировать штрихкод", "Штрихкод түзүү", "Generate barcode", "Barkod oluştur", "Shtrix-kod yaratish"),
+    "bcGenReplace": ("Заменить текущий штрихкод новым?", "Азыркы штрихкод жаңысына алмаштырылсынбы?", "Replace the current barcode with a new one?", "Mevcut barkod yenisiyle değiştirilsin mi?", "Joriy shtrix-kod yangisiga almashtirilsinmi?"),
+    "bcGenDo": ("Сгенерировать", "Түзүү", "Generate", "Oluştur", "Yaratish"),
     "pePackQty": ("в упаковке {qty}", "таңгакта {qty}", "{qty} per pack", "pakette {qty}", "qadoqda {qty}"),
     "peNoAccess": ("Править товар может сотрудник с правом «Склад» или администратор.", "Товарды «Кампа» укугу бар кызматкер же администратор оңдой алат.", "Products can be edited by staff with the \"Stock\" permission or an administrator.", "Ürünü \"Depo\" yetkisi olan çalışan veya yönetici düzenleyebilir.", "Mahsulotni \"Ombor\" huquqi bor xodim yoki administrator tahrirlay oladi."),
     # STOCK_EDIT-END

@@ -93,6 +93,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 _purchaseRaw = null;
                 OnPropertyChanged(nameof(LineTotal));
                 OnPropertyChanged(nameof(PurchasePriceText));
+                NotifyPricing();
             }
         }
     }
@@ -106,6 +107,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             {
                 _saleRaw = null;
                 OnPropertyChanged(nameof(SalePriceText));
+                NotifyPricing();
             }
         }
     }
@@ -166,6 +168,79 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     /// только тогда она уходит на сервер.</summary>
     public double OriginalPurchasePrice { get; init; }
     public double OriginalSalePrice { get; init; }
+
+    /// <summary>2026-10-24 (Б0): поле markup_percent товара на сервере на момент сканирования (0 — не задано). Нужно только кнопке
+    /// «Обновить цены продажи» как запасной источник прежней наценки, когда прежних цен для расчёта нет.</summary>
+    public double OriginalMarkupPercent { get; init; }
+
+    // ------------------------------------------------------------------ 2026-10-24 (Б0, ТЗ «Склад» 4.2–4.3): наценка и подорожание
+
+    private string? _markupRaw;
+
+    /// <summary>Наценка в % от закупки: round((продажа / закупка − 1) × 100, 2). Всегда считается из двух цен (отдельно не хранится), поэтому
+    /// правка закупки при неизменной продаже пересчитывает наценку, а продажа не меняется сама. null — одной из цен нет.</summary>
+    public double? MarkupPercent => NurMarketKassa.Services.ReceivingPricing.MarkupPercent(PurchasePrice, SalePrice);
+
+    /// <summary>Ячейка «Наценка %» (правится текстом, как остальные цены). Ввод числа меняет ЦЕНУ ПРОДАЖИ: P × (1 + M/100), округление вверх
+    /// до целого сома (ReceivingPricing.SalePriceRoundStep). Пустое поле цену не трогает; без закупки считать не из чего — ввод игнорируется.</summary>
+    public string MarkupText
+    {
+        get => _markupRaw ?? (MarkupPercent is { } m ? m.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) : "");
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                _markupRaw = "";
+            else if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(value, out var markup) && markup >= 0)
+            {
+                _markupRaw = null;
+                // 2026-10-24 (Б1, стенд приёмки): таблица сама «записывает» показанную наценку обратно при создании строки — равное текущему
+                // значению не трогает цену продажи (иначе «410» превращалось в «411» из-за округления вверх при каждом показе строки).
+                if (PurchasePrice > 0 && !(MarkupPercent is { } current && Math.Abs(current - markup) < 0.005))
+                    SalePrice = NurMarketKassa.Services.ReceivingPricing.SaleFromMarkup(PurchasePrice, markup);
+            }
+            OnPropertyChanged(nameof(MarkupText));
+        }
+    }
+
+    /// <summary>Закупка выше прежней больше чем на 0,5 % (прежняя цена известна) — «подорожало».</summary>
+    public bool IsPurchaseRaised => NurMarketKassa.Services.ReceivingPricing.IsPurchaseRaised(OriginalPurchasePrice, PurchasePrice);
+
+    /// <summary>«▲ +12 %» — на сколько подорожала закупка (пусто, если не подорожала).</summary>
+    public string PurchaseRaiseText => IsPurchaseRaised
+        ? "▲ +" + NurMarketKassa.Services.ReceivingPricing.PurchaseRaisePercent(OriginalPurchasePrice, PurchasePrice).ToString("0.#") + " %"
+        : "";
+
+    /// <summary>Закупка отличается от прежней (вверх или вниз) — под ценой мелко «было 45,00».</summary>
+    public bool IsPurchaseChanged => OriginalPurchasePrice > 0 && Math.Abs(PurchasePrice - OriginalPurchasePrice) > 0.004;
+
+    public string PreviousPurchaseText => IsPurchaseChanged
+        ? NurMarketKassa.Services.Tr.T($"было {OriginalPurchasePrice:0.00}", $"мурда {OriginalPurchasePrice:0.00}", $"was {OriginalPurchasePrice:0.00}",
+            $"önceki {OriginalPurchasePrice:0.00}", $"avval {OriginalPurchasePrice:0.00}")
+        : "";
+
+    /// <summary>Наценка ниже порога (ReceivingPricing.LowMarginPercent) или продажа ниже закупки — красная пометка.</summary>
+    public bool IsLowMargin => NurMarketKassa.Services.ReceivingPricing.IsLowMargin(PurchasePrice, SalePrice);
+
+    public string LowMarginText => IsLowMargin && MarkupPercent is { } m
+        ? NurMarketKassa.Services.Tr.T($"маржа {m:0.#} %", $"маржа {m:0.#} %", $"margin {m:0.#}%", $"marj {m:0.#} %", $"marja {m:0.#} %")
+        : "";
+
+    /// <summary>Кнопка «Обновить цены продажи» может поправить эту строку: закупка подорожала, а продажу не трогали.</summary>
+    public bool CanRaiseSalePrice => NurMarketKassa.Services.ReceivingPricing.IsRaisable(this);
+
+    private void NotifyPricing()
+    {
+        _markupRaw = null;
+        OnPropertyChanged(nameof(MarkupPercent));
+        OnPropertyChanged(nameof(MarkupText));
+        OnPropertyChanged(nameof(IsPurchaseRaised));
+        OnPropertyChanged(nameof(PurchaseRaiseText));
+        OnPropertyChanged(nameof(IsPurchaseChanged));
+        OnPropertyChanged(nameof(PreviousPurchaseText));
+        OnPropertyChanged(nameof(IsLowMargin));
+        OnPropertyChanged(nameof(LowMarginText));
+        OnPropertyChanged(nameof(CanRaiseSalePrice));
+    }
 
     public double LineTotal => Quantity * PurchasePrice;
 

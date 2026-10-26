@@ -392,6 +392,9 @@ class AdminReceiveRepository {
             rethrow;
           }
           l.pendingPre = l.pendingTarget = null;
+          // 2026-10-26 (П0, Б1): остаток записан — отметка сразу, а не в конце: если следующая строка оборвёт проведение
+          // неожиданной ошибкой, повтор не прибавит этой строке остаток второй раз
+          l.posted = true;
           posted++;
           done.add(l);
         } on ApiException catch (e) {

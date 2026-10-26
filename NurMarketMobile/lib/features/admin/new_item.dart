@@ -13,6 +13,7 @@ import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/util/barcode_generator.dart';
 import '../../core/util/photo_finder.dart';
 import '../../core/util/ui.dart';
 import '../scan/code_lookup.dart';
@@ -318,6 +319,33 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
 
   int get _variantCount => _colors.fold(0, (s, c) => s + _sizes.where((z) => (parseNum(_cell(c, z).text) ?? 0) > 0).length);
   double get _variantQty => _colors.fold(0.0, (s, c) => s + _sizes.fold(0.0, (t, z) => t + (parseNum(_cell(c, z).text) ?? 0)));
+
+  /// 2026-10-26 (требование владельца): «Сгенерировать» — свой EAN-13 (не с 0, не весовой), свободный в базе телефона
+  /// (до 10 попыток; нет связи — код без проверки, «уже есть» поймает _save). Введённый код меняется после подтверждения.
+  /// В общую базу по такому коду не ищем — это свой код магазина.
+  Future<void> _generateCode() async {
+    final l = context.l;
+    if (_barcode.text.trim().isNotEmpty) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          content: Text(l.bcGenReplace),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.bcGenDo)),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
+    final db = ref.read(databaseProvider);
+    final code = await BarcodeGenerator.createFree((c) async => await db.productByBarcode(c) != null);
+    if (!mounted) return;
+    setState(() {
+      _barcode.text = code;
+      _found = false;
+    });
+  }
 
   Future<void> _lookup(String code) async {
     final l = context.l;
@@ -719,6 +747,8 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
                     onSubmitted: _lookup,
                   ),
                 ),
+                const SizedBox(width: 8),
+                IconButton.outlined(tooltip: l.bcGenTooltip, onPressed: _generateCode, icon: const Icon(Icons.casino_outlined)),
                 const SizedBox(width: 8),
                 IconButton.filled(
                   onPressed: () => setState(() => _scanning = !_scanning),

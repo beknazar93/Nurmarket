@@ -15,7 +15,7 @@ namespace NurMarketKassa.Services;
 /// «Выполнить» — только подтверждённый владелец. Код, пришедший не от того, кто его ввёл в программе, угадать нельзя: 1 из миллиона,
 /// не больше 5 попыток с чата.
 /// </summary>
-public static class TelegramBotOwner
+public static partial class TelegramBotOwner
 {
     public sealed record ConfirmResult(bool Ok, string? ChatId, string? Title, string? Error);
 
@@ -25,6 +25,8 @@ public static class TelegramBotOwner
         public required DateTime ExpiresUtc { get; init; }
         public TaskCompletionSource<ConfirmResult> Tcs { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Dictionary<string, int> WrongByChat { get; } = new(StringComparer.Ordinal);
+        // 2026-10-24 (Г1): код «Группы заказов» (/group) — отдельное назначение, свой экземпляр.
+        public bool IsGroup { get; init; }
     }
 
     private sealed record Stored(string BotId, List<long> UserIds, DateTime ConfirmedAtUtc);
@@ -33,6 +35,7 @@ public static class TelegramBotOwner
     private const int MaxWrongPerChat = 5;
     private static readonly object Gate = new();
     private static Pending? _pending;
+    private static Pending? _pendingGroup;
     private static Stored? _stored;
     private static bool _loaded;
 
@@ -123,7 +126,11 @@ public static class TelegramBotOwner
         {
             _pending?.Tcs.TrySetResult(new ConfirmResult(false, null, null, null));
             _pending = null;
+            _pendingGroup?.Tcs.TrySetResult(new ConfirmResult(false, null, null, null));
+            _pendingGroup = null;
         }
+        // 2026-10-24 (Г1): группа заказов принадлежит прежнему боту — тоже сбрасывается (вызывающий сохраняет настройки сам).
+        ClearOrdersGroupFields(resetTarget: true);
     }
 
     /// <summary>Начать подтверждение: код для показа в программе и задача, которая завершится, когда код придёт боту (или через 10 минут).
@@ -159,6 +166,8 @@ public static class TelegramBotOwner
         {
             if (_pending == p)
                 _pending = null;
+            if (_pendingGroup == p)
+                _pendingGroup = null;
         }
         p.Tcs.TrySetResult(r);
     }
@@ -324,6 +333,14 @@ public static class TelegramBotOwner
                     continue;
                 var chatId = chatIdEl.ToString();
                 long? fromId = m.TryGetProperty("from", out var from) && from.TryGetProperty("id", out var fid) && fid.TryGetInt64(out var f) ? f : null;
+                // 2026-10-24 (Г1): ожидаем код группы заказов (/group) — своё назначение кода, ответ без кнопок владельца.
+                if (p.IsGroup)
+                {
+                    var type = chat.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
+                    if (TryHandleGroup(textEl.GetString() ?? "", chatId, ChatTitle(chat), type, fromId, out var groupReply) && groupReply != null)
+                        await TelegramBotService.SendToAsync(chatId, groupReply, ct).ConfigureAwait(false);
+                    continue;
+                }
                 if (TryHandle(textEl.GetString() ?? "", chatId, ChatTitle(chat), fromId, out var reply) && reply != null)
                     await TelegramBotService.SendToAsync(chatId, reply, ct, TelegramBotText.OwnerKeyboard()).ConfigureAwait(false);
             }

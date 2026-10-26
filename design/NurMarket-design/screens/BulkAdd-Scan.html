@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Склад — Массовое добавление — Массовое сканирование (Д1–Д5)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="BulkAdd-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    Вкладка «Массовое добавление» окна «Склад», режим «Массовое сканирование». Состояния: <code>Д1 пусто</code> и <code>черновик</code>;
+    <code>Д2 найдено</code> — известный +1 (вспышка 700 мс), база CRM без цен (раскрыта), неизвестный раскрыт с подсказками, «проверяю…», «не проверено»;
+    <code>Д3 много</code> — 40+ карточек, ▲ подорожание, «маржа низкая», раскрытый известный; <code>Д4</code> ошибки → подтверждение → итог «Повторить ошибочные»;
+    <code>Д5</code> «Провожу…» ≤ 0,5 с → плашка «в фоне» → тост. Ключи Tr.T — кнопка «ключи Tr.T» сверху.
+  </div>
+</div>
+<script src="BulkAdd-shared.js"></script>
+<script>
+(function(){
+  const I = BA.icon, fmt = BA.fmt;
+  const frame = document.getElementById('frame');
+
+  /* ---------- данные состояний ---------- */
+  const FOUND = {
+    last: 'Coca-Cola 1 л — 3',
+    wh: [
+      { name:'Coca-Cola 1 л', code:'5449000000996', stock:5, qty:3, buy:52, sell:65, markup:25, flash:true },
+      { name:'Хлеб белый «Нарын»', code:'4870001234567', stock:12, qty:1, buy:28, sell:35, markup:25 },
+      { name:'Масло «Шоро» подсолнечное 1 л', code:'4870011223344', stock:0, qty:6, noPrices:true },
+    ],
+    crm: [
+      { name:'Шоколад Alpen Gold молочный 90 г', code:'4600300123456', qty:1, expanded:true },
+      { name:'Сок Gracio яблочный 1 л', code:'4870012345678', qty:2, buy:60, sell:75, markup:25 },
+    ],
+    unk: [
+      { code:'2000000012345', qty:1, expanded:true, typed:'Молок', suggest:[
+          { n:'Молоко «Эльвест» 2,5 % 1 л', s:'остаток 14 · 72 сом' }, { n:'Молоко сгущённое «Рогачёв» 380 г', s:'остаток 3 · 95 сом' }, { n:'Молочный коктейль «Чудо» 200 мл', s:'нет в наличии' } ] },
+      { code:'4812345678901', qty:1, status:'checking' },
+      { code:'4830000000001', qty:2, status:'offline' },
+    ]
+  };
+  const NAMES = ['Вода «Легенда» 0,5 л','Чай «Пиала» 100 пак.','Сахар-песок 1 кг','Рис «Ак-Марал» 900 г','Макароны «Барилла» 500 г','Кофе Jacobs 95 г','Печенье «Юбилейное»','Сыр «Российский» 200 г','Йогурт «Данон» 290 г','Колбаса «Докторская» 400 г','Кетчуп Heinz 350 г','Мука «Акун» 2 кг','Гречка 800 г','Соль «Илецкая» 1 кг','Майонез «Махеев» 400 г','Пельмени «Сибирские» 900 г','Мороженое «Пломбир» 80 г','Чипсы Lay’s 150 г','Жевательная резинка Orbit','Шампунь Head&Shoulders 400 мл','Зубная паста Colgate 100 мл','Порошок «Ариэль» 3 кг','Салфетки «Зева» 100 шт','Бумага туалетная 4 рул.','Батарейки Duracell AA','Лампа LED 9 Вт','Скотч 48 мм','Носки мужские','Перчатки хоз.','Пакет-майка 30×55','Семечки «Джинн» 100 г','Энергетик Red Bull 250 мл','Квас «Шоро» 1 л','Лимонад «Дюшес» 1,5 л','Минералка «Джалал-Абад» 1 л','Пиво «Арпа» 0,5 л','Сигареты Winston','Зажигалка Cricket','Жвачка Dirol','Конфеты «Рафаэлло» 150 г','Кукуруза Bonduelle 340 г','Горошек «6 соток»','Тушёнка говяжья 325 г','Сардины в масле 240 г'];
+  function many(){
+    const wh = [], crm = [], unk = [];
+    for (let i = 0; i < 18; i++) {
+      const buy = 20 + (i * 37) % 180, sell = Math.ceil(buy * (i % 5 === 1 ? 1.08 : 1.3));
+      wh.push({ name:NAMES[i], code:String(4870000000000 + i * 7919), stock:(i * 13) % 40, qty:1 + (i * 3) % 12, buy, sell,
+        markup:Math.round((sell / buy - 1) * 100), prevBuy:i === 1 ? buy - 10 : (i === 7 ? buy - 25 : null), low:i % 5 === 1, expanded:i === 1, flash:i === 0 });
+    }
+    for (let i = 0; i < 14; i++) {
+      const buy = 30 + (i * 53) % 150, has = i !== 0;
+      crm.push({ name:NAMES[18 + i], code:String(4600000000000 + i * 104729), qty:1 + (i * 5) % 9, buy:has ? buy : null, sell:has ? Math.ceil(buy * 1.25) : null, markup:25, expanded:!has, fromAll:has });
+    }
+    for (let i = 0; i < 10; i++) {
+      const st = i === 0 ? 'checking' : (i === 1 ? 'offline' : null);
+      unk.push({ code:String(2000000000000 + i * 3571), qty:1 + i % 4, status:st, name:(st || i === 2) ? null : NAMES[32 + i], unit:'шт', cat:'Напитки', buy:40 + i * 3, sell:55 + i * 4, markup:37, expanded:i === 2 });
+    }
+    return { last:NAMES[0] + ' — ' + wh[0].qty, wh, crm, unk };
+  }
+  const MANY = many();
+  const ERR = {
+    last: 'Хлеб белый «Нарын» — 2',
+    wh: [
+      { name:'Хлеб белый «Нарын»', code:'4870001234567', stock:12, qty:2, buy:28, sell:35, markup:25 },
+      { name:'Coca-Cola 1 л', code:'5449000000996', stock:5, qty:3, buy:52, sell:65, markup:25 },
+      { name:'Сахар-песок 1 кг', code:'4870000003401', stock:20, qty:10, buy:78, sell:92, markup:18 },
+      { name:'Чай «Пиала» 100 пак.', code:'4870000002201', stock:4, qty:4, buy:160, sell:210, markup:31 },
+      { name:'Масло «Шоро» подсолнечное 1 л', code:'4870011223344', stock:0, qty:6, noPrices:true, error:'Не заполнена цена продажи', errKey:'bulk.errNoSell' },
+    ],
+    crm: [
+      { name:'Сок Gracio яблочный 1 л', code:'4870012345678', qty:2, buy:60, sell:75, markup:25 },
+      { name:'Шоколад Alpen Gold молочный 90 г', code:'4600300123456', qty:1, expanded:true, buy:70, error:'Не заполнена цена продажи', errKey:'bulk.errNoSell' },
+      { name:'Кофе Jacobs 95 г', code:'4600300998877', qty:1, buy:380, sell:475, markup:25 },
+    ],
+    unk: [
+      { code:'2000000012345', qty:1, name:'Молоко фермерское 1 л', unit:'л', cat:'Молочное', buy:60, sell:80, markup:33 },
+      { code:'2000000012999', qty:3, expanded:true, name:null, unit:'шт', cat:'', buy:45, sell:60, markup:33, error:'Не заполнено название', errKey:'bulk.errNoName' },
+      { code:'4830000000001', qty:2, name:'Печенье овсяное 300 г', unit:'шт', cat:'Кондитерские', buy:null, sell:70, error:'Не заполнена закупка', errKey:'bulk.errNoBuy', expanded:true },
+      { code:'4830000000777', qty:1, name:'Пряники мятные 350 г', unit:'шт', cat:'Кондитерские', buy:55, sell:72, markup:31 },
+    ]
+  };
+  const LEFT = { last:'', wh:[ ERR.wh[4] ], crm:[ ERR.crm[1] ], unk:[ ERR.unk[1], ERR.unk[2] ] }; /* после «Провести 9» остались 3 незаполненные */
+  const RESULT = { last:'', wh:[], crm:[
+      { name:'Кофе Jacobs 95 г', code:'4600300998877', qty:1, buy:380, sell:475, markup:25, error:'Сервер не ответил (3 попытки) — повторите', errKey:'bulk.errServer' } ],
+    unk:[ { code:'4830000000777', qty:1, name:'Пряники мятные 350 г', unit:'шт', cat:'Кондитерские', buy:55, sell:72, markup:31, error:'Штрихкод уже у товара «Пряники «Тульские» 350 г»', errKey:'bulk.errBarcodeTaken' } ] };
+  const EMPTY = { last:'', wh:[], crm:[], unk:[] };
+
+  /* ---------- куски карточек ---------- */
+  const num = v => '<span class="v num">' + v + '</span>';
+  const d = '<span class="d">·</span>';
+  const ky = (t, key) => '<span data-ky' + (key ? ' data-key="' + key + '"' : '') + '>' + t + '</span>';
+  function stepper(r){
+    return '<div class="stepper"><button class="sq" aria-label="Меньше">−</button><span class="qty num">' + r.qty + '</span><button class="sq plus" aria-label="Больше">+</button></div>' +
+           '<button class="sq ghost x" aria-label="Убрать строку">' + I('close', 18) + '</button>';
+  }
+  function inp(label, value, opt){ opt = opt || {};
+    return '<label class="lbl"><span class="' + (opt.req ? 'req ' : '') + '" data-ky' + (opt.key ? ' data-key="' + opt.key + '"' : '') + '>' + label + '</span>' +
+      '<div class="inp' + (opt.needs ? ' needs' : '') + (opt.err ? ' err' : '') + (opt.focus ? ' focus' : '') + '">' + (value == null || value === '' ? '<span class="v" style="color:var(--text-soft)">' + (opt.ph || '') + '</span>' : '<span class="v num">' + value + '</span>') +
+      (opt.unit ? '<span class="u">' + opt.unit + '</span>' : '') + '</div></label>';
+  }
+  function priceFields(r, mode){ // mode: 'wh' — закупка / продажа / наценка; 'new' — закупка и продажа обязательны
+    const req = mode !== 'wh', needs = !!r.noPrices;
+    return '<div class="fields">' +
+      inp('Закупка', r.buy, { req, needs:needs || (req && r.buy == null), err:r.errKey === 'bulk.errNoBuy', unit:'сом', key:'bulk.buyField' }) +
+      inp('Продажа', r.sell, { req, needs:needs || (req && r.sell == null), err:r.errKey === 'bulk.errNoSell', unit:'сом', key:'bulk.sellField' }) +
+      inp('Наценка %', r.markup, { needs, unit:'%', key:'bulk.markupField' }) + '</div>';
+  }
+  const errLine = r => r.error ? '<div class="err">' + I('information-outline', 16) + '<span data-key="' + (r.errKey || 'bulk.err') + '">' + r.error + '</span></div>' : '';
+  const cls = r => (r.flash ? ' flash' : '') + (r.error ? ' error' : '');
+
+  function whCard(r){
+    const after = r.stock + r.qty;
+    let meta;
+    const code = '<span class="code num">' + r.code + '</span>' + d;
+    if (r.noPrices) meta = '<div class="meta">' + code + ky('остаток', 'bulk.stock') + ' ' + num(r.stock + ' → ' + after) + d + '<span class="chip warn" data-key="bulk.noPrices">нет цен — заполните</span></div>';
+    else meta = '<div class="meta prices" role="button" title="Открыть цены">' + code + ky('остаток', 'bulk.stock') + ' ' + num(r.stock + ' → ' + after) + d +
+      ky('закупка', 'bulk.buy') + ' ' + num(r.buy) + (r.prevBuy ? ' <span class="up">▲</span> <span class="was num" data-key="bulk.was">(было ' + r.prevBuy + ')</span>' : '') + d +
+      ky('продажа', 'bulk.sell') + ' ' + num(r.sell) + d + ky('наценка', 'bulk.markup') + ' ' + num(r.markup + ' %') +
+      (r.low ? ' <span class="chip warn" data-ky data-key="bulk.lowMargin">маржа низкая</span>' : '') + '</div>';
+    const fields = (r.expanded || r.noPrices) ? priceFields(r, 'wh') : '';
+    /* предупреждения — чипами сразу после названия: конец строки цен может уйти в «…» на узкой колонке */
+    const flags = (r.prevBuy ? '<span class="chip warn num" title="закупка была ' + r.prevBuy + '" data-key="bulk.raised">▲ +' + (r.buy - r.prevBuy) + '</span>' : '') +
+                  (r.low ? '<span class="chip warn" data-ky data-key="bulk.lowMargin">маржа низкая</span>' : '');
+    return '<div class="card wh' + cls(r) + '"><div class="top"><div class="main"><div class="l1"><span class="name">' + r.name + '</span>' + flags + '</div>' + meta + '</div>' + stepper(r) + '</div>' + fields + errLine(r) + '</div>';
+  }
+  function crmCard(r){
+    const badge = '<span class="chip crm" data-ky data-key="bulk.fromCrm">из базы CRM</span>';
+    if (r.expanded || r.buy == null || r.sell == null) {
+      return '<div class="card crm' + cls(r) + '"><div class="top"><div class="main"><div class="l1"><span class="code num" style="font-weight:700;color:var(--text)">' + r.code + '</span>' + badge + '</div>' +
+        '<div class="meta">' + ky('название подтянуто из общей базы — можно поправить', 'bulk.crmNameHint') + '</div></div>' + stepper(r) + '</div>' +
+        inp('Название', r.name, { req:true, key:'bulk.nameField' }) + priceFields(r, 'new') + errLine(r) + '</div>';
+    }
+    return '<div class="card crm' + cls(r) + '"><div class="top"><div class="main"><div class="l1"><span class="name">' + r.name + '</span></div>' +
+      '<div class="meta prices" role="button"><span class="code num">' + r.code + '</span>' + d + ky('закупка', 'bulk.buy') + ' ' + num(r.buy) + d + ky('продажа', 'bulk.sell') + ' ' + num(r.sell) + d + ky('наценка', 'bulk.markup') + ' ' + num(r.markup + ' %') +
+      (r.fromAll ? ' <span class="chip ok" data-key="bulk.markupApplied">наценка для всех</span>' : '') + d + badge + '</div></div>' + stepper(r) + '</div>' + errLine(r) + '</div>';
+  }
+  function unkCard(r){
+    const code = '<span class="code num" style="font-weight:700;color:var(--text);font-size:13.5px">' + r.code + '</span>';
+    if (r.status === 'checking') {
+      return '<div class="card unk' + cls(r) + '"><div class="top"><div class="main"><div class="l1">' + code + '</div><div class="status"><span class="spin"></span>' + ky('проверяю в базе…', 'bulk.checking') + '</div></div>' + stepper(r) + '</div></div>';
+    }
+    let status = '';
+    if (r.status === 'offline') status = '<div class="status off">' + I('wifi-off', 16) + ky('не проверено (нет связи)', 'bulk.notVerified') + '<button class="btn secondary sm"><span data-ky data-key="bulk.recheck">Проверить снова</span></button></div>';
+    if (r.expanded || r.status === 'offline' || !r.name) {
+      const name = r.typed != null ? r.typed : r.name;
+      const sugg = r.suggest ? '<div class="list">' + r.suggest.map((s, i) => '<div' + (i === 0 ? ' class="hi"' : '') + '>' + s.n + '<span>' + s.s + '</span></div>').join('') + '</div>' : '';
+      return '<div class="card unk' + cls(r) + '"><div class="top"><div class="main"><div class="l1">' + code +
+        (r.status !== 'offline' ? '<span class="chip warn" data-key="bulk.newItem">новый товар</span>' : '') + '</div>' +
+        (r.suggest ? '<div class="meta">' + ky('подсказки — товары склада; выбрали → строка уйдёт в «Есть на складе»', 'bulk.suggestHint') + '</div>' : '') + '</div>' + stepper(r) + '</div>' + status +
+        '<div class="sugg">' + inp('Название', name, { req:true, focus:r.typed != null, err:r.errKey === 'bulk.errNoName', ph:'введите название или выберите из подсказок', key:'bulk.nameField' }) + sugg + '</div>' +
+        '<div class="fields two"><label class="lbl"><span data-ky data-key="bulk.unit">Единица</span><div class="sel"><span class="v">' + (r.unit || 'шт') + '</span>' + I('chevron-down', 18) + '</div></label>' +
+        inp('Категория', r.cat || '', { ph:'например, Напитки', key:'bulk.category' }) + '</div>' +
+        priceFields(r, 'new') + errLine(r) + '</div>';
+    }
+    return '<div class="card unk' + cls(r) + '"><div class="top"><div class="main"><div class="l1"><span class="name">' + r.name + '</span></div>' +
+      '<div class="meta prices" role="button"><span class="code num">' + r.code + '</span>' + d + num(r.unit) + d + '<span>' + (r.cat || '—') + '</span>' + d + ky('закупка', 'bulk.buy') + ' ' + num(r.buy) + d + ky('продажа', 'bulk.sell') + ' ' + num(r.sell) + d + ky('наценка', 'bulk.markup') + ' ' + num(r.markup + ' %') + '</div></div>' + stepper(r) + '</div>' + errLine(r) + '</div>';
+  }
+
+  function column(kind, rows, data){
+    const meta = {
+      wh:  { ic:'package-variant-closed', t:'Есть на складе', key:'bulk.colWarehouse', hint:'Товары этого склада встанут сюда сразу, даже без связи', hk:'bulk.emptyHintWarehouse', card:whCard },
+      crm: { ic:'database-arrow-right-outline', t:'Есть в базе CRM', key:'bulk.colCrm', hint:'Коды из общей базы NurCRM: название подтянется, цены укажите здесь', hk:'bulk.emptyHintCrm', card:crmCard },
+      unk: { ic:'magnify-close', t:'Неизвестный штрихкод', key:'bulk.colUnknown', hint:'Новые коды: заполните название и цены — товар создастся при проведении', hk:'bulk.emptyHintUnknown', card:unkCard },
+    }[kind];
+    const sub = kind === 'crm' ? '<div class="sub"><span class="l" data-ky data-key="bulk.markupAll">Наценка для всех</span><div class="inp"><span class="v num">' + (data.markup != null ? data.markup : '') + '</span><span class="u">%</span></div><button class="btn secondary sm"><span data-ky data-key="bulk.apply">Применить</span></button></div>' : '';
+    const body = rows.length ? rows.map(meta.card).join('') : '<div class="empty"><b data-ky data-key="bulk.emptyCol">Пока пусто</b><span data-key="' + meta.hk + '">' + meta.hint + '</span></div>';
+    return '<section class="col col-' + kind + '"><header>' + I(meta.ic, 18) + '<span class="ct" data-ky data-key="' + meta.key + '">' + meta.t + '</span><span class="cnt num">' + rows.length + '</span></header>' + sub + '<div class="body">' + body + '</div></section>';
+  }
+
+  /* ---------- экран ---------- */
+  function render(state){
+    const data = { empty:EMPTY, draft:EMPTY, found:FOUND, many:MANY, errors:ERR, confirm:ERR, posting:ERR, bg:LEFT, toast:LEFT, result:RESULT }[state];
+    data.markup = (state === 'many' || state === 'errors' || state === 'confirm' || state === 'posting') ? 25 : null;
+    const all = data.wh.concat(data.crm, data.unk);
+    const n = all.length, pcs = all.reduce((s, r) => s + r.qty, 0), sum = all.reduce((s, r) => s + (r.buy || 0) * r.qty, 0);
+    const postLabel = state === 'posting' ? '<span class="spin" style="border-top-color:var(--accent-fg);border-color:rgba(25,25,25,.25);border-top-color:#191919"></span><span data-ky data-key="bulk.posting">Провожу…</span>'
+                                          : '<span data-ky data-key="bulk.post">Провести приход (' + n + ')</span>';
+    const retry = state === 'result' ? '<button class="btn primary"><span data-ky data-key="bulk.retryFailed">Повторить ошибочные</span></button>' : '';
+    frame.innerHTML = BA.chrome() +
+      '<div class="tab">' +
+        '<div class="row">' + BA.segment('scan') + '<span class="sp"></span>' +
+          '<button class="btn secondary"><span data-ky data-key="warehouse.bulkPick">Выбрать из списка</span></button>' +
+          '<button class="btn secondary"><span data-ky data-key="warehouse.bulkClear">Очистить</span></button>' +
+          '<button class="btn primary' + (n === 0 ? ' disabled' : '') + '"' + (n === 0 || state === 'posting' ? ' disabled' : '') + '>' + postLabel + '</button>' +
+        '</div>' +
+        '<div class="head"><div class="tt"><h1>' + I('barcode-scan', 22) + '<span data-ky data-key="bulk.scanTitle">Массовое сканирование</span></h1><p data-ky data-key="bulk.scanHint">Сканируйте штрихкоды. Повторный скан увеличивает количество.</p></div>' +
+          '<div class="field focus" data-key="bulk.scanPlaceholder">' + I('barcode', 20) + '<input type="text" placeholder="Наведите сканер или введите штрихкод">' + (data.last ? '<span class="last num">✓ ' + data.last + '</span>' : '') + '</div>' +
+          '<button class="btn primary"><span data-ky data-key="bulk.add">Добавить</span></button></div>' +
+        (state === 'draft' ? '<div class="plate info">' + I('history', 20) + '<span class="tx" data-key="bulk.draftBanner">Есть незавершённый список от <b>25.10, 18:42</b> — 14 позиций</span><button class="btn primary sm"><span data-ky data-key="bulk.draftContinue">Продолжить</span></button><button class="btn secondary sm"><span data-ky data-key="bulk.draftDelete">Удалить</span></button></div>' : '') +
+        '<div class="cols">' + column('wh', data.wh, data) + column('crm', data.crm, data) + column('unk', data.unk, data) + '</div>' +
+        (state === 'bg' ? '<div class="plate info">' + I('clock-outline', 20) + '<span class="tx"><b data-ky data-key="bulk.bgPlate">Приход идёт в фоне — можно сканировать дальше</b> <span data-key="bulk.bgProgress">· в фоне: 2 из 9</span></span><span class="plate-link">' + I('history', 18) + '<span data-ky data-key="bulk.bgLink">Приходы в фоне</span></span></div>' : '') +
+        (state === 'result' ? '<div class="plate warn">' + I('information-outline', 20) + '<span class="tx" data-key="bulk.result"><b style="color:var(--text)">Создано 5, принято 7, ошибок 2.</b> <span data-key="bulk.resultHint">Строки с ошибкой вернулись в колонки — исправьте и повторите.</span></span>' + retry + '<span class="plate-link">' + I('history', 18) + '<span data-ky data-key="bulk.bgLink">Приходы в фоне</span></span></div>' : '') +
+        '<div class="foot"><span class="num" data-key="bulk.stats">Позиций ' + n + ' · штук ' + pcs + ' · закупка на ' + fmt(sum) + ' сом</span>' +
+          (state === 'bg' ? '<span class="bg"><span data-key="bulk.bgProgress">в фоне: 2 из 9</span><span class="bar"><i style="width:22%"></i></span></span>' : '') +
+          '<span class="sp"></span><span style="display:flex;align-items:center;gap:6px;color:var(--text-soft)">' + I('information-outline', 15) + '<span data-key="bulk.noSupplierHint">Без поставщика. Приход с поставщиком — во вкладке «Приёмка»</span></span></div>' +
+      '</div>' +
+      (state === 'confirm' ? '<div class="overlay"><div class="modal"><div class="mh"><h2 data-key="bulk.confirmTitle">3 строки не заполнены</h2><button class="sq ghost" aria-label="Закрыть">' + I('close', 20) + '</button></div>' +
+        '<div class="mb"><span data-key="bulk.confirmBody">Провести остальные 9? Незаполненные останутся в колонках с подсказкой, что исправить.</span><ul><li>Масло «Шоро» подсолнечное 1 л — нет цены продажи</li><li>4600300123456 (база CRM) — нет цены продажи</li><li>2000000012999 — нет названия</li></ul></div>' +
+        '<div class="mf"><button class="btn secondary"><span data-ky data-key="common.cancel">Отмена</span></button><button class="btn primary"><span data-key="bulk.confirmOk">Провести 9</span></button></div></div></div>' : '') +
+      (state === 'toast' ? '<div class="toast">' + I('check-circle-outline', 20) + '<span data-key="bulk.toastDone">Приход проведён: создано 4, принято 5</span></div>' : '');
+    if (frame.dataset.ky) BA.applyKy(true);
+  }
+
+  BA.toolbar(frame, { title:'BulkAdd-Scan — Массовое сканирование', onState:render, states:[
+    { id:'empty', label:'Д1 пусто' }, { id:'draft', label:'Д1 черновик' }, { id:'found', label:'Д2 найдено' }, { id:'many', label:'Д3 много' },
+    { id:'errors', label:'Д4 ошибки' }, { id:'confirm', label:'Д4 подтверждение' }, { id:'result', label:'Д4 итог' },
+    { id:'posting', label:'Д5 провожу…' }, { id:'bg', label:'Д5 в фоне' }, { id:'toast', label:'Д5 тост' } ] });
+})();
+</script>
+</body></html>

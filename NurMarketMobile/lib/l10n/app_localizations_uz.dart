@@ -1109,6 +1109,36 @@ class AppLocalizationsUz extends AppLocalizations {
   }
 
   @override
+  String smartPartial(int done, int total, int left) {
+    return '$total tadan $done tasi o‘tkazildi, $left tasi o‘tkazilmadi — «Yuklash» tugmasini yana bosing: o‘tkazilgani qayta qo‘shilmaydi.';
+  }
+
+  @override
+  String get smartNoLink =>
+      'Server bilan aloqa yo‘q — hech narsa o‘tkazilmadi. Ro‘yxat ekranda qoldi, internet paydo bo‘lganda takrorlang.';
+
+  @override
+  String smartRowRejected(String reason) {
+    return 'Rad etildi: $reason';
+  }
+
+  @override
+  String get smartRowUnknown =>
+      'Server javob bermadi — takrorlang: qoldiq ikki marta qo‘shilmaydi.';
+
+  @override
+  String get smartRowLocked =>
+      'Qator serverga yuborilgan — tovar va nomni o‘zgartirib bo‘lmaydi, qayta yuboring.';
+
+  @override
+  String get smartPendingReceipt =>
+      'Oldingi yetkazib beruvchiga kirim javobsiz qoldi — avval uni «Yetkazib beruvchi bilan qabul»da takrorlang, aks holda qoldiq ikki marta qo‘shilishi mumkin.';
+
+  @override
+  String get smartPendingStock =>
+      'Ba’zi qatorlar uchun server javob bermadi — avval «Yuklash»ni yana bosing: qoldiq ikki marta qo‘shilmaydi.';
+
+  @override
   String get sellingPrice => 'Sotuv narxi';
 
   @override
@@ -3354,6 +3384,15 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get peScan => 'Skanerlash';
+
+  @override
+  String get bcGenTooltip => 'Shtrix-kod yaratish';
+
+  @override
+  String get bcGenReplace => 'Joriy shtrix-kod yangisiga almashtirilsinmi?';
+
+  @override
+  String get bcGenDo => 'Yaratish';
 
   @override
   String pePackQty(String qty) {

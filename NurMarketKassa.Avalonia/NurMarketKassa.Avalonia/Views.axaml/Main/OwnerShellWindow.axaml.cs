@@ -246,6 +246,14 @@ public partial class OwnerShellWindow : Window, IMainShell
         ShowcaseApiService.NewOrdersCountChanged += OnSiteOrdersCountChanged;
         UseBrush(LiveDot, Shape.FillProperty, "BrushSuccess");
 
+        // 2026-10-25, ТЗ «оприходование в фоне» (Q5): значок «в фоне: N» в шапке (скрыт, пока приходов в фоне нет); нажатие — окно «Приходы в фоне».
+        if (NurMarketKassa.AvaloniaHost.Views.Main.Controls.BackgroundReceiptsBadge.Create() is { } bgReceiptsBadge)
+        {
+            bgReceiptsBadge.HorizontalAlignment = HorizontalAlignment.Right;
+            bgReceiptsBadge.Margin = new Thickness(0, 6, 12, 0);
+            Grid.SetColumn(bgReceiptsBadge, 0);
+            HeaderGrid.Children.Add(bgReceiptsBadge);
+        }
         Closing += (_, _) => CloseAllSections();
         PositionChanged += (_, _) => SyncSectionBounds();
         // Не сразу, а после разметки: размер области раздела меняется раньше, чем её родитель
@@ -269,6 +277,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         {
             var subscription = await CompanyInfoService.RefreshAsync(App.AuthApi, cancellationToken).ConfigureAwait(true);
             AccountDataIsolation.SwitchTo(CompanyInfoService.LastCompany?.Id);
+            // 2026-10-25, ТЗ «оприходование в фоне» (Q5): очередь приходов в фоне догружает незавершённое.
+            BackgroundReceiptsHost.Start();
             if (subscription is { IsExpired: true })
             {
                 try

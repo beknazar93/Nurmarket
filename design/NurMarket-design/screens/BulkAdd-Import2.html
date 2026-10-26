@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Склад — Массовое добавление — Импорт, шаг 2: столбцы (Д7)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="BulkAdd-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    Шаг 2 «Столбцы»: слева наши поля (обязательные — со звёздочкой), посередине столбец файла (буква + заголовок), справа пример из первой строки данных.
+    Подсказка у «Наценка %»: число или «25 %» — продажа считается из закупки. Настройки: наценка для строк без цены продажи (В-5), дубли (В-7), пометка про артикул и бренд (В-6).
+    Состояния: всё узнано само; не хватает обязательного (красным, «Далее» неактивна); сопоставление как в прошлый раз.
+  </div>
+</div>
+<script src="BulkAdd-shared.js"></script>
+<script>
+(function(){
+  const I = BA.icon;
+  const frame = document.getElementById('frame');
+  const FIELDS = [
+    { f:'Штрихкод', key:'imp.fBarcode', req:true, col:'A · Штрихкод', ex:'4870001234567' },
+    { f:'Название', key:'imp.fName', req:true, col:'B · Наименование', ex:'Хлеб белый «Нарын»', note:'обязательно для новых товаров', nk:'imp.fNameNote' },
+    { f:'Количество', key:'imp.fQty', req:true, col:'C · Кол-во', ex:'40' },
+    { f:'Закупка', key:'imp.fBuy', col:'D · Цена закупки', ex:'28' },
+    { f:'Продажа', key:'imp.fSell', col:'E · Цена продажи', ex:'35' },
+    { f:'Наценка %', key:'imp.fMarkup', col:'F · Наценка', ex:'25 %', hint:'Число 25 или «25 %» — продажа посчитается из закупки, если столбца продажи нет или ячейка пустая', hk:'imp.percentHint' },
+    { f:'Категория', key:'imp.fCategory', col:'G · Категория', ex:'Хлеб' },
+    { f:'Единица', key:'imp.fUnit', col:'H · Ед.', ex:'шт' },
+    { f:'Весовой', key:'imp.fWeighted', col:'— не загружать —', ex:'' },
+    { f:'Артикул', key:'imp.fSku', col:'I · Артикул', ex:'HL-001', dim:true },
+    { f:'Бренд', key:'imp.fBrand', col:'— не загружать —', ex:'', dim:true },
+  ];
+  function rows(state){
+    return FIELDS.map(r => {
+      const missing = state === 'missing' && r.f === 'Количество';
+      const col = missing ? '<span class="sel err"><span class="v" style="color:var(--text-soft)" data-ky data-key="imp.notChosen">— не выбрано —</span>' + I('chevron-down', 18) + '</span>'
+                          : '<span class="sel"><span class="v"' + (r.col.startsWith('—') ? ' style="color:var(--text-soft)" data-ky data-key="imp.notLoad"' : '') + '>' + r.col + '</span>' + I('chevron-down', 18) + '</span>';
+      return '<div class="maprow"><span class="f"><span class="' + (r.req ? 'req' : '') + '" data-ky data-key="' + r.key + '">' + r.f + '</span>' + (r.note ? ' <span style="font-weight:500;color:var(--text-soft);font-size:12px" data-key="' + r.nk + '">· ' + r.note + '</span>' : '') +
+        (r.dim ? ' <span class="chip warn" data-key="imp.skuNoteShort">не переносится</span>' : '') + '</span>' + col + '<span class="ex num">' + (missing ? '' : r.ex) + '</span>' +
+        (missing ? '<span class="hint bad">' + I('information-outline', 15) + '<span data-key="imp.required">Обязательное поле — выберите столбец файла</span></span>' : '') +
+        (r.hint ? '<span class="hint">' + I('percent', 14) + '<span data-key="' + r.hk + '">' + r.hint + '</span></span>' : '') + '</div>';
+    }).join('');
+  }
+  function render(state){
+    const plate = state === 'auto' ? '<div class="plate ok">' + I('check-circle-outline', 22) + '<span class="tx"><b data-key="imp.allAuto">Все столбцы узнаны сами по заголовкам.</b> <span data-key="imp.allAutoHint">Проверьте примеры справа и нажмите «Далее».</span></span></div>'
+      : state === 'missing' ? '<div class="plate bad">' + I('information-outline', 22) + '<span class="tx"><b data-key="imp.missingRequired">Не выбран столбец для обязательного поля «Количество».</b> <span data-key="imp.missingHint">В файле нет заголовка «Кол-во» — укажите столбец вручную.</span></span></div>'
+      : '<div class="plate info">' + I('history', 22) + '<span class="tx" data-key="imp.remembered">Сопоставление как в прошлый раз: <b>«Поставщик Ош — прайс»</b>, 12.10.2026. Столбцы файла совпали по заголовкам.</span><button class="btn secondary sm"><span data-ky data-key="imp.reset">Сбросить</span></button></div>';
+    frame.innerHTML = BA.chrome() +
+      '<div class="tab">' +
+        '<div class="row">' + BA.segment('excel') + '<span class="sp"></span>' + BA.steps(2, 'прайс-октябрь.xlsx') + '</div>' +
+        '<div class="wiz"><div class="wb"><div class="main-col">' + plate +
+          '<div class="maplist"><div class="maprow head"><span data-ky data-key="imp.ourField">Наше поле</span><span data-ky data-key="imp.fileColumn">Столбец файла</span><span data-ky data-key="imp.example">Пример (строка 1)</span></div>' + rows(state) + '</div></div>' +
+          '<div class="side"><div class="hcard"><h3 data-key="imp.settingsTitle">Настройки</h3>' +
+            '<label class="lbl" style="margin-top:4px"><span data-ky data-key="imp.defaultMarkup">Наценка для строк без цены продажи</span><div class="inp" style="width:120px"><span class="v num">25</span><span class="u">%</span></div></label>' +
+            '<span style="display:block;margin-top:4px" data-key="imp.defaultMarkupHint">Пусто — такие строки попадут в ошибки «нет цены продажи». Последнее значение запоминается.</span>' +
+            '<label class="lbl" style="margin-top:12px"><span data-ky data-key="imp.dupes">Дубли штрихкода в файле</span><div class="radio"><span class="on" data-ky data-key="imp.dupeSum">Сложить количество</span><span data-ky data-key="imp.dupeFirst">Брать первую строку</span></div></label></div>' +
+            '<div class="hcard" style="display:flex;gap:8px;align-items:flex-start">' + I('information-outline', 16) + '<span data-key="imp.skuNote">Артикул и бренд в этой версии не переносятся новым товарам (вопрос В-6). Остальные столбцы — переносятся.</span></div>' +
+          '</div></div>' +
+          '<div class="wf"><button class="btn secondary">' + I('chevron-left', 18) + '<span data-ky data-key="imp.back">Назад</span></button><span class="sp"></span>' +
+            '<span class="stat num" data-key="imp.mappedStat">Сопоставлено 9 из 11 полей · строк 15 000</span>' +
+            '<button class="btn primary' + (state === 'missing' ? ' disabled' : '') + '"><span data-ky data-key="imp.next">Далее</span>' + I('chevron-right', 18) + '</button></div></div>' +
+      '</div>';
+    if (frame.dataset.ky) BA.applyKy(true);
+  }
+  BA.toolbar(frame, { title:'BulkAdd-Import2 — шаг 2: столбцы', onState:render, states:[
+    { id:'auto', label:'всё узнано само' }, { id:'missing', label:'не хватает обязательного' }, { id:'remembered', label:'как в прошлый раз' } ] });
+})();
+</script>
+</body></html>

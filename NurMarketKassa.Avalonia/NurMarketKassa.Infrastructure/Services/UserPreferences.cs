@@ -513,6 +513,26 @@ public sealed class UserPreferences
     /// именно его чат, а не чужой.</summary>
     public string? TelegramChatTitle { get; set; }
 
+    // 2026-10-24 (ТЗ «Склад…», пакет Г1): «Группа заказов» — отдельный получатель заказов из бота. Подключается командой /group <код>
+    // от подтверждённого владельца (TelegramBotOwner.TryHandleGroup). Сводки смены, отчёты, долги в группу заказов не идут никогда.
+    /// <summary>Чат группы заказов; пусто — группа не подключена.</summary>
+    public string? TelegramOrdersChatId { get; set; }
+
+    /// <summary>Название группы заказов — для статуса в окне бота.</summary>
+    public string? TelegramOrdersChatTitle { get; set; }
+
+    /// <summary>Кому слать заказы: "owner" (по умолчанию — как раньше, только чат владельца), "group" или "both" (группа и личка владельца).</summary>
+    public string TelegramOrdersTarget { get; set; } = "owner";
+
+    /// <summary>Показывать ли в группе сумму заказа и телефон покупателя. По умолчанию выключено: группу читают сотрудники.</summary>
+    public bool TelegramOrdersShowAmount { get; set; }
+
+    /// <summary>Когда группа подключена (UTC) — для строки статуса.</summary>
+    public DateTime? TelegramOrdersBoundAtUtc { get; set; }
+
+    /// <summary>Бота удалили из группы заказов (my_chat_member) — окно показывает «Бот удалён из группы».</summary>
+    public bool TelegramOrdersBotRemoved { get; set; }
+
     /// <summary>Отправлять ли сводку при закрытии смены. Выключено по умолчанию: выручка
     /// магазина уходит во внешний сервис, это должно быть осознанным решением владельца.</summary>
     public bool TelegramShiftSummaryEnabled { get; set; }
@@ -933,6 +953,28 @@ public sealed class UserPreferences
                 taken.Add("получатель бота");
             }
 
+            // 2026-10-24 (Г1): группа заказов, как и бот, общая у кассы и программы владельца (бот один). Подключили, сменили получателей
+            // или нажали «Отключить» в одной программе — вторая подхватывает (пустое значение здесь — осознанное «Отключить», поэтому
+            // сравниваем всю подпись, а не только непустое). При первом чтении берём только непустую группу и только если у нас её нет.
+            var ordersSig = $"{fromFile.TelegramOrdersChatId}|{fromFile.TelegramOrdersChatTitle}|{fromFile.TelegramOrdersTarget}|{fromFile.TelegramOrdersShowAmount}|{fromFile.TelegramOrdersBotRemoved}";
+            var ordersChangedThere = SeenInOtherApp.TryGetValue("orders", out var seenOrders) && seenOrders != ordersSig;
+            SeenInOtherApp["orders"] = ordersSig;
+            var sameBot = !string.IsNullOrWhiteSpace(token) && string.Equals(token.Trim(), p.TelegramBotToken?.Trim(), StringComparison.Ordinal);
+            var theirsHasGroup = !string.IsNullOrWhiteSpace(fromFile.TelegramOrdersChatId) || fromFile.TelegramOrdersBotRemoved == true;
+            var mineEmpty = string.IsNullOrWhiteSpace(p.TelegramOrdersChatId) && !p.TelegramOrdersBotRemoved;
+            var mySig = $"{p.TelegramOrdersChatId}|{p.TelegramOrdersChatTitle}|{p.TelegramOrdersTarget}|{p.TelegramOrdersShowAmount}|{p.TelegramOrdersBotRemoved}";
+            if (sameBot && ordersSig != mySig && (ordersChangedThere || (first && theirsHasGroup && (mineEmpty || otherIsNewer))))
+            {
+                p.TelegramOrdersChatId = string.IsNullOrWhiteSpace(fromFile.TelegramOrdersChatId) ? null : fromFile.TelegramOrdersChatId;
+                p.TelegramOrdersChatTitle = string.IsNullOrWhiteSpace(fromFile.TelegramOrdersChatTitle) ? null : fromFile.TelegramOrdersChatTitle;
+                p.TelegramOrdersTarget = fromFile.TelegramOrdersTarget is "owner" or "group" or "both" ? fromFile.TelegramOrdersTarget : "owner";
+                p.TelegramOrdersShowAmount = fromFile.TelegramOrdersShowAmount == true;
+                p.TelegramOrdersBoundAtUtc = fromFile.TelegramOrdersBoundAtUtc;
+                p.TelegramOrdersBotRemoved = fromFile.TelegramOrdersBotRemoved == true;
+                taken.Add("группа заказов бота");
+                NurMarketKassa.Services.TelegramBotOwner.NotifyOrdersGroupChanged();
+            }
+
             if (taken.Count == 0)
                 return false;
             p.SaveToDisk();
@@ -1250,6 +1292,16 @@ public sealed class UserPreferences
                 p.TelegramChatId = fromFile.TelegramChatId;
             if (!string.IsNullOrWhiteSpace(fromFile.TelegramChatTitle))
                 p.TelegramChatTitle = fromFile.TelegramChatTitle;
+            // 2026-10-24 (Г1): группа заказов (пусто в файле = не подключена, значения по умолчанию остаются).
+            p.TelegramOrdersChatId = string.IsNullOrWhiteSpace(fromFile.TelegramOrdersChatId) ? null : fromFile.TelegramOrdersChatId;
+            p.TelegramOrdersChatTitle = string.IsNullOrWhiteSpace(fromFile.TelegramOrdersChatTitle) ? null : fromFile.TelegramOrdersChatTitle;
+            if (fromFile.TelegramOrdersTarget is "owner" or "group" or "both")
+                p.TelegramOrdersTarget = fromFile.TelegramOrdersTarget;
+            if (fromFile.TelegramOrdersShowAmount is not null)
+                p.TelegramOrdersShowAmount = fromFile.TelegramOrdersShowAmount.Value;
+            p.TelegramOrdersBoundAtUtc = fromFile.TelegramOrdersBoundAtUtc;
+            if (fromFile.TelegramOrdersBotRemoved is not null)
+                p.TelegramOrdersBotRemoved = fromFile.TelegramOrdersBotRemoved.Value;
             if (fromFile.TelegramShiftSummaryEnabled is not null)
                 p.TelegramShiftSummaryEnabled = fromFile.TelegramShiftSummaryEnabled.Value;
             if (fromFile.AnalyticsExportUnlocked is not null)
@@ -1595,6 +1647,12 @@ public sealed class UserPreferences
                 TelegramBotTokenProtected = WindowsDpapiHelper.ProtectToBase64(TelegramBotToken),
                 TelegramChatId = TelegramChatId,
                 TelegramChatTitle = TelegramChatTitle,
+                TelegramOrdersChatId = TelegramOrdersChatId,
+                TelegramOrdersChatTitle = TelegramOrdersChatTitle,
+                TelegramOrdersTarget = TelegramOrdersTarget,
+                TelegramOrdersShowAmount = TelegramOrdersShowAmount,
+                TelegramOrdersBoundAtUtc = TelegramOrdersBoundAtUtc,
+                TelegramOrdersBotRemoved = TelegramOrdersBotRemoved,
                 TelegramShiftSummaryEnabled = TelegramShiftSummaryEnabled,
                 AnalyticsExportUnlocked = AnalyticsExportUnlocked,
                 TelegramBotUnlocked = TelegramBotUnlocked,
@@ -1897,6 +1955,13 @@ public sealed class UserPreferences
         public string? TelegramBotTokenProtected { get; set; }
         public string? TelegramChatId { get; set; }
         public string? TelegramChatTitle { get; set; }
+        // 2026-10-24 (Г1): группа заказов Telegram-бота.
+        public string? TelegramOrdersChatId { get; set; }
+        public string? TelegramOrdersChatTitle { get; set; }
+        public string? TelegramOrdersTarget { get; set; }
+        public bool? TelegramOrdersShowAmount { get; set; }
+        public DateTime? TelegramOrdersBoundAtUtc { get; set; }
+        public bool? TelegramOrdersBotRemoved { get; set; }
         public bool? AnalyticsExportUnlocked { get; set; }
         public bool? TelegramBotUnlocked { get; set; }
         public bool? ShiftAnalyticsUnlocked { get; set; }

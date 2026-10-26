@@ -50,7 +50,7 @@
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="modal-cancel" Click="CloseButton_Click"/>
                 <Button Content="{DynamicResource labelPrint.printButton}" Classes="modal-primary" Click="PrintButton_Click"
-                        IsEnabled="{Binding HasBarcode}" IsVisible="{Binding !IsBusy}"/>
+                        IsEnabled="{Binding CanPrint}" IsVisible="{Binding !IsBusy}"/>
                 <Button Content="{DynamicResource labelPrint.printing}" Classes="modal-primary" IsVisible="{Binding IsBusy}" IsEnabled="False"/>
             </StackPanel>
         </dialogs:ModalShell.Footer>
@@ -62,8 +62,8 @@
             <Border Background="White" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                     CornerRadius="10" Padding="8" Height="190">
                 <Grid>
-                    <Image Source="{Binding Preview}" Stretch="Uniform" IsVisible="{Binding HasBarcode}"/>
-                    <TextBlock IsVisible="{Binding !HasBarcode}"
+                    <Image Source="{Binding Preview}" Stretch="Uniform" IsVisible="{Binding CanPrint}"/>
+                    <TextBlock IsVisible="{Binding !CanPrint}"
                                Text="{DynamicResource labelPrint.noBarcode}"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                Foreground="#475569"/>

@@ -827,9 +827,8 @@ public static class TelegramAiChat
             TelegramInquiryStore.SaveProfile(chatId, draft.Name, draft.Phone);
         if (OrderCreator is null)
         {
-            _ = TelegramBotService.SendAsync($"🛒 <b>Подтверждён заказ из Telegram</b>\n{Esc(draft.Name)} · {Esc(draft.Phone)}\n"
-                + string.Join("\n", draft.Titles.Select(t => "• " + Esc(t)))
-                + (string.IsNullOrWhiteSpace(draft.Comment) ? "" : $"\nКомментарий: {Esc(draft.Comment)}"));
+            // 2026-10-24 (Г1): заказы — по настройке «Группа заказов» (SendOrderAsync), не только владельцу.
+            _ = TelegramBotService.SendOrderAsync("🛒 <b>Подтверждён заказ из Telegram</b>", draft.Name, draft.Phone, draft.Titles, null, draft.Comment);
             return "Заказ подтверждён и передан продавцу. Магазин свяжется с вами.";
         }
 
@@ -839,18 +838,15 @@ public static class TelegramAiChat
                 draft.Phone, draft.Items, draft.Comment, ct).ConfigureAwait(false);
             TelegramInquiryStore.MarkLastOrder(chatId, number);
             PosLogger.Log($"Заказ из бота №{number} оформлен после подтверждения: {draft.Items.Count} поз., {total:0.##} сом.", "TELEGRAM");
-            _ = TelegramBotService.SendAsync(
-                $"🛒 <b>Новый заказ из бота №{Esc(number)}</b>\n{Esc(draft.Name)} · {Esc(draft.Phone)}\n"
-                + string.Join("\n", draft.Titles.Select(t => "• " + Esc(t)))
-                + $"\nСумма: {total:N2} сом" + (string.IsNullOrWhiteSpace(draft.Comment) ? "" : $"\nКомментарий: {Esc(draft.Comment)}"));
+            _ = TelegramBotService.SendOrderAsync($"🛒 <b>Новый заказ из бота №{Esc(number)}</b>", draft.Name, draft.Phone, draft.Titles,
+                $"Сумма: {total:N2} сом", draft.Comment);
             return $"✅ Заказ №{number} оформлен на сумму {total:N2} сом. Магазин свяжется с вами по номеру {draft.Phone}.";
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             PosLogger.Log($"Заказ из бота: сервер не принял подтверждённый заказ ({ex.Message}).", "TELEGRAM");
-            _ = TelegramBotService.SendAsync(
-                $"🛒 <b>Подтверждённый заказ из бота не записался на сервер</b> — свяжитесь с покупателем:\n{Esc(draft.Name)} · {Esc(draft.Phone)}\n"
-                + string.Join("\n", draft.Titles.Select(t => "• " + Esc(t))));
+            _ = TelegramBotService.SendOrderAsync("🛒 <b>Подтверждённый заказ из бота не записался на сервер</b> — свяжитесь с покупателем:",
+                draft.Name, draft.Phone, draft.Titles, null, null);
             return "Заказ передан продавцу для проверки. Магазин свяжется с вами.";
         }
     }

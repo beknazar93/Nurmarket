@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Склад — Массовое добавление — Импорт: загрузка и итог (Д9)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="BulkAdd-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    После «Загрузить»: окно свободно ≤ 0,5 с, дальше подача частями по 100 строк через фоновую очередь (М1). Состояния: идёт («можно закрыть окно»),
+    ждёт связь (очередь повторит сама), готово, частично (строки «нужна проверка» остаются в «Приходах в фоне»). Числа — пример для 14 800 строк.
+  </div>
+</div>
+<script src="BulkAdd-shared.js"></script>
+<script>
+(function(){
+  const I = BA.icon, fmt = BA.fmt;
+  const frame = document.getElementById('frame');
+  const kpi = (c, a, e) => '<div class="kpi"><div><small data-ky data-key="imp.kCreated">Создано</small><b class="num">' + fmt(c) + '</b></div><div><small data-ky data-key="imp.kReceived">Принято</small><b class="num">' + fmt(a) + '</b></div><div><small data-ky data-key="imp.kErrors">Ошибок</small><b class="num"' + (e ? ' style="color:var(--danger)"' : '') + '>' + fmt(e) + '</b></div></div>';
+  const bgLink = '<button class="btn secondary">' + I('history', 18) + '<span data-ky data-key="bulk.bgLink">Приходы в фоне</span></button>';
+  const newImp = '<button class="btn secondary"><span data-ky data-key="imp.newImport">Новый импорт</span></button>';
+  const dlErr = n => '<button class="btn secondary">' + I('file-export-outline', 18) + '<span data-ky data-key="imp.downloadErrors">Скачать строки с ошибками</span> <span class="num">(' + n + ')</span></button>';
+  function card(state){
+    if (state === 'running') return '<div class="big"><h2><span class="spin" style="width:22px;height:22px"></span><span data-key="imp.bgLoading">Загрузка в фоне: ' + fmt(3400) + ' из ' + fmt(14800) + '</span></h2>' +
+      '<div class="bar"><i style="width:23%"></i></div>' +
+      '<p data-key="imp.bgHint"><b data-ky data-key="imp.canClose">Можно закрыть окно</b> — приход продолжится сам, частями по 100 строк. Сканер и касса работают как обычно. Если выключить компьютер, загрузка продолжится после запуска.</p>' +
+      kpi(1200, 2180, 20) + '<p style="font-size:12.5px;color:var(--text-soft)" data-key="imp.eta">Примерно 2 ч 10 мин при текущей скорости сервера · часть 34 из 148</p><div class="acts">' + bgLink + newImp + '</div></div>';
+    if (state === 'waiting') return '<div class="big"><h2>' + I('wifi-off', 24) + '<span data-key="imp.waitingNet">Ждёт связь с сервером — продолжу сам</span></h2>' +
+      '<div class="bar"><i style="width:23%;background:var(--warning)"></i></div>' +
+      '<p data-key="imp.waitingHint">Загружено ' + fmt(3400) + ' из ' + fmt(14800) + '. Связи нет с 14:32; очередь повторяет попытки и ничего не теряет. Дублей не будет — каждая часть проверяется перед записью.</p>' +
+      kpi(1200, 2180, 20) + '<div class="acts">' + bgLink + newImp + '</div></div>';
+    if (state === 'done') return '<div class="big"><h2>' + I('check-circle-outline', 26) + '<span data-key="imp.done">Готово</span></h2>' +
+      '<div class="bar g"><i style="width:100%"></i></div>' +
+      '<p data-key="imp.doneText">Файл <b>прайс-октябрь.xlsx</b>: загружено ' + fmt(14800) + ' из ' + fmt(14800) + ' за 3 ч 05 мин. Остатки и цены на складе обновлены; история закупок записана.</p>' +
+      kpi(5600, 9180, 20) + '<p style="font-size:12.5px;color:var(--text-soft)" data-key="imp.doneErrHint">20 строк сервер отклонил (в файле ошибок — номер строки и причина). Исправьте и загрузите этот файл снова.</p>' +
+      '<div class="acts">' + dlErr(20) + newImp + bgLink + '</div></div>';
+    return '<div class="big"><h2>' + I('information-outline', 26) + '<span data-key="imp.partial">Загружено частично</span></h2>' +
+      '<div class="bar"><i style="width:95%"></i></div>' +
+      '<p data-key="imp.partialText">' + fmt(14100) + ' из ' + fmt(14800) + ' строк проведены. <b>700 строк ждут проверки</b>: сервер не подтвердил ответ, повторять автоматически нельзя (иначе остаток мог бы прибавиться дважды). Они остались в «Приходах в фоне» — откройте и нажмите «Проверить».</p>' +
+      kpi(5300, 8780, 20) + '<div class="acts"><button class="btn primary">' + I('history', 18) + '<span data-key="imp.openBgCheck">Открыть «Приходы в фоне» (700)</span></button>' + dlErr(20) + newImp + '</div></div>';
+  }
+  function render(state){
+    frame.innerHTML = BA.chrome() +
+      '<div class="tab">' +
+        '<div class="row">' + BA.segment('excel') + '<span class="sp"></span>' + BA.steps(4, 'прайс-октябрь.xlsx') + '</div>' +
+        '<div class="wiz"><div class="wb">' + card(state) + '</div>' +
+          '<div class="wf"><span class="stat" data-key="imp.footHint">' + (state === 'done' || state === 'partial' ? 'Итог хранится 7 дней в «Приходах в фоне»' : 'Закрытие окна или программы загрузку не остановит') + '</span><span class="sp"></span>' +
+            '<button class="btn secondary"><span data-key="common.close">Закрыть</span></button></div></div>' +
+      '</div>';
+    if (frame.dataset.ky) BA.applyKy(true);
+  }
+  BA.toolbar(frame, { title:'BulkAdd-Result — загрузка и итог', onState:render, states:[
+    { id:'running', label:'идёт' }, { id:'waiting', label:'ждёт связь' }, { id:'done', label:'готово' }, { id:'partial', label:'частично' } ] });
+})();
+</script>
+</body></html>

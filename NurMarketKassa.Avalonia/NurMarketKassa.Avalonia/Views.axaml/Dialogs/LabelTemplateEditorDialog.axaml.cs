@@ -266,8 +266,11 @@ public partial class LabelTemplateEditorDialog : Window
 
         if (_template.Barcode.Enabled)
             AddElementBox(LabelElementKind.Barcode, _template.Barcode, ElementLabel(LabelElementKind.Barcode), "#FDE68A");
-        AddElementBox(LabelElementKind.ProductName, _template.ProductName, ElementLabel(LabelElementKind.ProductName), "#BFDBFE");
-        AddElementBox(LabelElementKind.Price, _template.Price, ElementLabel(LabelElementKind.Price), "#BBF7D0");
+        // 2026-10-26: название и цену тоже можно выключить — печать только штрих-кода / только названия / только цены.
+        if (_template.ProductName.Enabled)
+            AddElementBox(LabelElementKind.ProductName, _template.ProductName, ElementLabel(LabelElementKind.ProductName), "#BFDBFE");
+        if (_template.Price.Enabled)
+            AddElementBox(LabelElementKind.Price, _template.Price, ElementLabel(LabelElementKind.Price), "#BBF7D0");
 
         if (_template.Sku.Enabled)
             AddElementBox(LabelElementKind.Sku, _template.Sku, ElementLabel(LabelElementKind.Sku), "#FBCFE8");
@@ -450,9 +453,11 @@ public partial class LabelTemplateEditorDialog : Window
                 BuildBarcodeProperties();
                 break;
             case LabelElementKind.ProductName:
+                AddVisibilityCheckbox(_template.ProductName);
                 AddFontControls(_template.ProductName);
                 break;
             case LabelElementKind.Price:
+                AddVisibilityCheckbox(_template.Price);
                 AddFontControls(_template.Price);
                 BuildPriceProperties();
                 break;
@@ -482,11 +487,22 @@ public partial class LabelTemplateEditorDialog : Window
         check.Click += (_, _) =>
         {
             element.Enabled = check.IsChecked == true;
+            // 2026-10-26: хотя бы один элемент должен остаться — иначе напечатается пустая этикетка.
+            if (!element.Enabled && !AnyElementEnabled())
+            {
+                element.Enabled = true;
+                check.IsChecked = true;
+                return;
+            }
             BuildCanvas();
             RefreshPreview();
         };
         PropertiesPanel.Children.Add(check);
     }
+
+    private bool AnyElementEnabled() =>
+        _template.Barcode.Enabled || _template.ProductName.Enabled || _template.Price.Enabled
+        || _template.Sku.Enabled || _template.Unit.Enabled || _template.StoreName.Enabled || _template.Variant.Enabled;
 
     private void AddFontControls(LabelElementLayout element)
     {
@@ -516,7 +532,7 @@ public partial class LabelTemplateEditorDialog : Window
         var sizeBox = new NumericUpDown
         {
             Minimum = 0,
-            Maximum = 96,
+            Maximum = 1000, // 2026-10-26: потолок 96 убран по просьбе владельца
             Increment = 1,
             FormatString = "0",
             HorizontalAlignment = HorizontalAlignment.Stretch,

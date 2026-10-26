@@ -62,7 +62,6 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         // Esc закрывает склад, но не молча выбрасывает набранные строки приёмки и ревизии:
         // они живут только в этом окне и после закрытия пропадут.
         EscapeKey.Attach(this, closeWindow: CloseByEscape);
-        _viewModel.RevisionLineAdded += OnRevisionLineAdded;
         // 2026-10-21: скан не нашёлся нигде — «Товар со штрихкодом … не найден» с «Создать товар» (WarehouseWindow.ScanLookup.cs).
         _viewModel.BarcodeNotFound = OnWarehouseBarcodeNotFoundAsync;
         InitializeWriteOffReasonPicker();
@@ -70,6 +69,10 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         InitO9Look();
         // 2026-10-23: вкладка «Массовое добавление» — скан подряд, новые товары и приход (WarehouseWindow.BulkScan.cs).
         InitBulkScan();
+        // 2026-10-24, ТЗ «Склад», пакеты Б1 и В: приёмка «скан → строка», панель товаров поставщика, «＋ поставщик» (WarehouseWindow.ReceivingScan.cs).
+        InitReceivingScan();
+        // 2026-10-24, ТЗ «Склад», пакет Р2: вкладка «Ревизия» — «скан → факт» на движке RevisionSession (WarehouseWindow.Revision.cs).
+        InitRevision();
         WarehouseTabs.SelectionChanged += WarehouseTabs_SelectionChanged;
         RefreshPaidFeatureVisibility();
     }
@@ -96,6 +99,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     /// на каждое открытие окна склада.</summary>
     private void WarehouseTabs_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
+        // 2026-10-24 (замечание к Р2): SelectionChanged всплывает от вложенных списков (поставщики, ревизия) — берём только вкладки.
+        if (!ReferenceEquals(e.Source, WarehouseTabs))
+            return;
         // Сравниваем с самими вкладками, а не с их номерами: номера уже один раз поехали,
         // когда между «Товарами» и «Ревизией» встала «Приёмка», и аналитика начала считаться
         // при открытии перемещений.
@@ -124,7 +130,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             .Where(p => p.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase)
                         || (p.Barcode ?? "").Contains(query, StringComparison.OrdinalIgnoreCase)
                         || (p.Article ?? "").Contains(query, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
+            // 2026-10-24, ТЗ «Склад» (Б1): при выбранном поставщике его товары (приходили раньше) идут первыми — со значком «поставщик».
+            .OrderBy(p => IsSupplierProduct(p.Id) ? 0 : 1)
+            .ThenBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
             .Take(6)
             .ToList();
         // 2026-10-21: точный код (доп. штрихкод, 12 ↔ 13 цифр, артикул) — первой подсказкой, как ищет касса (склад не находит товар по скану).
@@ -144,16 +152,16 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
                 System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
             quantity = 1;
 
-        _viewModel.AddReceivingProduct(product, quantity);
+        var added = _viewModel.AddReceivingProduct(product, quantity);
 
         ReceivingScanBox.Text = "";
         ReceivingQuantityBox.Text = "1";
         ReceivingSuggestionsBox.IsVisible = false;
         ReceivingSuggestionsPanel.ItemsSource = null;
         RefreshReceivingSummary();
-        // Сразу к следующему товару: фокус обратно в поле скана (после клика по подсказке он
-        // оставался на кнопке, и следующий скан уходил мимо).
-        ReceivingScanBox.Focus();
+        // 2026-10-24, ТЗ «Склад» (Б1): курсор — в «Принято» новой строки (Enter — по ценам и снова в поле скана); с флажком «Сразу к
+        // следующему скану» — обратно в поле скана (после клика по подсказке фокус оставался на кнопке, и следующий скан уходил мимо).
+        OnReceivingLineAdded(added);
     }
 
     private async void ReceivingScan_KeyDown(object? sender, KeyEventArgs e)
@@ -203,6 +211,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     /// Количество берётся из поля рядом: коробку можно принять одним сканом.</summary>
     private async Task ScanIntoReceivingAsync(string code)
     {
+        // 2026-10-24, ТЗ «Склад» (Б1): скан во время правки ячейки сначала дописывает правку (поле возвращено к тексту до серии символов
+        // скана в HandleScanInsideField), и только потом обрабатывается — введённое «Принято»/цена не теряется.
+        ReceivingGrid.CommitEdit();
         if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'),
                 System.Globalization.NumberStyles.Any,
                 System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
@@ -240,12 +251,27 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     {
         ReceivingSupplierPanel.IsVisible = !ReceivingSupplierPanel.IsVisible;
         if (ReceivingSupplierPanel.IsVisible)
-            ReceivingSupplierList.SelectedItem = _viewModel.ReceivingSupplier;
+        {
+            // 2026-10-24, ТЗ «Склад» (В): поиск по поставщикам; выбор текущего программный — не должен закрывать список (флаг _supplierListSync).
+            _supplierListSync = true;
+            try
+            {
+                ReceivingSupplierSearch.Text = "";
+                ReceivingSupplierList.ItemsSource = _viewModel.ReceivingSuppliers;
+                ReceivingSupplierList.SelectedItem = _viewModel.ReceivingSupplier;
+            }
+            finally
+            {
+                _supplierListSync = false;
+            }
+            ReceivingSupplierSearch.Focus();
+        }
     }
 
     private void ReceivingSupplierList_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (!ReceivingSupplierPanel.IsVisible
+        // 2026-10-24: SelectionChanged всплывает и от вложенных списков — реагируем только на свой.
+        if (_supplierListSync || !ReferenceEquals(e.Source, ReceivingSupplierList) || !ReceivingSupplierPanel.IsVisible
             || ReceivingSupplierList.SelectedItem is not PurchaseReceivingService.Supplier supplier)
             return;
 
@@ -262,8 +288,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         if (e.Row.DataContext is not NurMarketKassa.Models.ReceivingLineVm line)
             return;
 
-        // Колонка 2 — «Штрихкод», см. разметку ReceivingGrid.
-        if (ReferenceEquals(e.Column, ReceivingGrid.Columns[2]) && line.Source != NurMarketKassa.Models.ReceivingSource.Unknown)
+        // 2026-10-24: колонки — по имени (RcvColBarcode), а не по номеру: «Наценка %» и «Изменение» сдвинули номера.
+        if (ReferenceEquals(e.Column, RcvColBarcode) && line.Source != NurMarketKassa.Models.ReceivingSource.Unknown)
             e.Cancel = true;
     }
 
@@ -304,17 +330,12 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             Unit = "шт",
             Quantity = quantity,
         };
-        _viewModel.ReceivingLines.Add(line);
+        ReceivingGrid.CommitEdit();
+        _viewModel.ReceivingLines.Insert(0, line); // 2026-10-24, ТЗ «Склад» (Б1): новая строка сверху
         ReceivingQuantityBox.Text = "1";
         RefreshReceivingSummary();
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            ReceivingGrid.SelectedItem = line;
-            ReceivingGrid.ScrollIntoView(line, ReceivingGrid.Columns[1]);
-            ReceivingGrid.CurrentColumn = ReceivingGrid.Columns[1];
-            ReceivingGrid.BeginEdit();
-        }, DispatcherPriority.Background);
+        Dispatcher.UIThread.Post(() => BeginReceivingEdit(line, RcvColName), DispatcherPriority.Background);
     }
 
     private void ReceivingGrid_CellEditEnded(object? sender, DataGridCellEditEndedEventArgs e) =>
@@ -332,12 +353,17 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
                 System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
             quantity = 1;
 
+        ReceivingLineVm? lastAdded = null;
         foreach (var product in dialog.Result)
-            _viewModel.AddReceivingProduct(product, quantity);
+            lastAdded = _viewModel.AddReceivingProduct(product, quantity);
 
         ReceivingQuantityBox.Text = "1";
         RefreshReceivingSummary();
-        ReceivingScanBox.Focus();
+        // 2026-10-24: одну строку — сразу в «Принято»; несколько — как раньше, в поле скана.
+        if (dialog.Result.Count == 1 && lastAdded is not null)
+            OnReceivingLineAdded(lastAdded);
+        else
+            ReceivingScanBox.Focus();
     }
 
     /// <summary>2026-10-03: «Оприходовать» при открытой правке ячейки — сначала дописываем правку (Click идёт раньше
@@ -374,6 +400,12 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         if (created > 0)
             text += "   ·   " + Tr.T("новых товаров", "жаңы товар", "new products", "yeni ürün", "yangi mahsulotlar")
                 + $": {created}";
+
+        // 2026-10-24, ТЗ «Склад» (Б0/Б1): «подорожало: N» и кнопка «Обновить цены продажи (N)».
+        var raised = ReceivingPricing.CountRaised(lines);
+        if (raised > 0)
+            text += "   ·   " + Tr.T("подорожало", "кымбаттады", "price went up", "zamlandı", "qimmatlashdi") + $": {raised}";
+        RefreshReceivingRaiseButton();
 
         ReceivingSummaryText.Text = text;
     }
@@ -822,26 +854,25 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
             RefreshWarehouseTotals();
             _viewModel.ReceivingLines.CollectionChanged += (_, _) => RefreshReceivingSummary();
-            _viewModel.ReceivingLineAdded += line =>
-            {
-                RefreshReceivingSummary();
-                // Длинная накладная: принятая строка должна быть видна, а не уходить за край.
-                ReceivingGrid.ScrollIntoView(line, null);
-            };
+            // 2026-10-24, ТЗ «Склад» (Б1): строка встаёт сверху, курсор — в «Принято» (WarehouseWindow.ReceivingScan.cs).
+            _viewModel.ReceivingLineAdded += OnReceivingLineAdded;
             // 2026-10-06 (О-70): приёмка одежды по размерам — см. WarehouseWindow.Variants.cs.
             InitVariantReceiving();
             // 2026-10-06: редизайн «Товаров» — плитки сводки, фильтр наличия, сроки годности (WarehouseWindow.Redesign.cs).
             InitRedesign();
             // 2026-10-11: замечания тестировщика — крестики, «Очистить список», подсказки не «зависают» (WarehouseWindow.Fixes.cs).
             InitWarehouseFixes();
+            // 2026-10-25, ТЗ «оприходование в фоне» (Q2): связь окна с очередью приходов (WarehouseWindow.ReceivingBg.cs).
+            InitReceivingBackground();
             // 2026-10-20, этап П3: «В долг» — срок оплаты поставщику (WarehouseWindow.SupplierDebt.cs).
             InitSupplierDebtTerm();
             RefreshReceivingSummary();
             ReceivingPaidRadio.IsChecked = true;
             _viewModel.ReceivingPaidNow = true;
             _ = _viewModel.LoadReceivingSuppliersAsync();
+            // 2026-10-24, пакет Р2: код извне идёт в открытую ревизию (строку-дубль в старой таблице больше не создаём).
             if (!string.IsNullOrWhiteSpace(InitialBarcode))
-                _viewModel.HandleBarcodeScan(InitialBarcode.Trim(), isRevisionTab: true);
+                RevisionExternalScan(InitialBarcode.Trim());
         }
         catch (Exception ex)
         {
@@ -911,7 +942,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     public void FocusWithBarcode(string? barcode)
     {
         if (!string.IsNullOrWhiteSpace(barcode))
-            _viewModel.HandleBarcodeScan(barcode.Trim(), isRevisionTab: true);
+            RevisionExternalScan(barcode.Trim());
         Activate();
         Focus();
     }
@@ -920,7 +951,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     {
         _stockAbcCts?.Cancel();
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
-        _viewModel.RevisionLineAdded -= OnRevisionLineAdded;
+        // 2026-10-24, пакет Р2: подсчёт ревизии сохраняется черновиком, замок «открыта в другой программе» снимается.
+        RevisionOnWindowClosed();
+        ReceivingBackgroundOnClosed();
         // 2026-10-23: список «Массового добавления» не теряется — последний вид сохраняется черновиком.
         _bulk.SaveDraftNow();
     }
@@ -989,7 +1022,14 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         // само: Enter, подсказки по названию.
         // 2026-10-23: «Массовое добавление» — тоже перехват (штрихкод не должен попасть в «Название» или цену); своего поля скана там нет.
         var inBulk = _bulkTab != null && ReferenceEquals(WarehouseTabs.SelectedItem, _bulkTab);
-        if (!inBulk && (!ReferenceEquals(WarehouseTabs.SelectedItem, ReceivingTabItem) || ReferenceEquals(box, ReceivingScanBox)))
+        // 2026-10-24, пакет Р2: на «Ревизии» перехват тоже — иначе штрихкод печатался бы в поле «Факт». Поле «Скан / поиск» ловит скан само (Enter).
+        var inRevision = ReferenceEquals(WarehouseTabs.SelectedItem, RevisionTabItem);
+        if (inRevision)
+        {
+            if (!RevisionNeedsFieldScanIntercept(box))
+                return;
+        }
+        else if (!inBulk && (!ReferenceEquals(WarehouseTabs.SelectedItem, ReceivingTabItem) || ReferenceEquals(box, ReceivingScanBox)))
             return;
 
         HandleScanInsideField(box, e);
@@ -1002,6 +1042,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     private const int FieldScanIntervalMs = 50;
     private const int FieldScanEnterMs = 150;
     private long _fieldScanLastTick;
+    private ulong? _fieldScanLastRaw; // 2026-10-24: метка времени нажатия (не обработки) — при подтормаживании окна пачка клавиш не выглядит «быстрой»
+    private int _fieldScanCaret;
     private string _fieldScanBuffer = "";
     private int _fieldScanFastRun;
     private TextBox? _fieldScanBox;
@@ -1014,10 +1056,16 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             return;
 
         var now = Environment.TickCount64;
-        var sinceLast = now - _fieldScanLastTick;
+        // 2026-10-24, владелец: «в полях вводится только 2 символа и перестаёт» — паузу меряем по времени нажатия клавиши
+        // (как в AvaloniaKeyboardWedgeBarcodeService), а не по времени обработки: клавиши в очереди идут пачкой.
+        var raw = AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestamp();
+        var sinceLast = raw is { } rawTs && _fieldScanLastRaw is { } lastRawTs && rawTs >= lastRawTs
+            ? (long)Math.Min(rawTs - lastRawTs, long.MaxValue)
+            : now - _fieldScanLastTick;
         var sameBurst = _fieldScanBuffer.Length > 0 && ReferenceEquals(box, _fieldScanBox);
         var fast = sameBurst && sinceLast is >= 0 and <= FieldScanIntervalMs;
         _fieldScanLastTick = now;
+        _fieldScanLastRaw = raw;
 
         if (e.Key == Key.Enter)
         {
@@ -1028,6 +1076,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
                 var code = _fieldScanBuffer;
                 // Первые символы скана успели напечататься в поле — возвращаем его как было.
                 box.Text = _fieldScanSnapshot;
+                box.CaretIndex = Math.Min(_fieldScanCaret, box.Text?.Length ?? 0);
                 ResetFieldScan();
                 OnBarcodeScanned(code);
                 return;
@@ -1054,11 +1103,12 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             _fieldScanFastRun = 0;
             _fieldScanBox = box;
             _fieldScanSnapshot = box.Text;
+            _fieldScanCaret = box.CaretIndex;
         }
 
+        // 2026-10-24: символы в поле не глушим (раньше с 3-го быстрого e.Handled = true — в Windows символ не доходил до поля);
+        // скан распознаётся только по Enter выше, и тогда поле возвращается к тексту до серии.
         _fieldScanBuffer += ch;
-        if (_fieldScanFastRun >= 2)
-            e.Handled = true;
     }
 
     private void ResetFieldScan()
@@ -1095,6 +1145,12 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     {
         Dispatcher.UIThread.Post(() =>
         {
+            // 2026-10-26 (приёмка, Д-1): над складом открыто окно-диалог (карточка товара и т.п.) — скан принадлежит ему, склад его
+            // не обрабатывает. Раньше скан кода в «Наименовании» карточки ещё и искался на «Товарах» («Товар не найден» после закрытия)
+            // или добавлял строку в «Приёмку»/«Массовое добавление». Окна без активации (плашки, IsActive = false) скан не блокируют.
+            if (OwnedWindows.Any(w => w.IsVisible && w.IsActive))
+                return;
+
             // Вкладку узнаём по ней самой, а не по номеру. Раньше здесь стояли номера
             // (1 = Ревизия, остальное — Списание), и с появлением «Приёмки» и «Перемещения»
             // скан в приёмке уходил строкой ревизии, а скан в ревизии — в списание.
@@ -1122,7 +1178,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
 
             if (ReferenceEquals(selected, RevisionTabItem))
             {
-                _viewModel.HandleBarcodeScan(barcode, isRevisionTab: true);
+                RevisionOnScanned(barcode);
                 return;
             }
 
@@ -1467,18 +1523,6 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         }
     }
 
-    private void OnRevisionLineAdded(RevisionLineVm line)
-    {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => OnRevisionLineAdded(line));
-            return;
-        }
-
-        RevisionGrid.SelectedItem = line;
-        RevisionGrid.ScrollIntoView(line, null);
-    }
-
     #region Аналитика склада/товаров
 
     /// <summary>Плитка итога под таблицей товаров (RefreshWarehouseTotals).</summary>
@@ -1586,7 +1630,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     /// <summary>2026-10-20, память программы владельца: несохранённую приёмку или ревизию (строки живут только в окне)
     /// и проведение документа оболочка не закрывает при уходе из раздела (IOwnerSectionKeepAlive).</summary>
     public bool KeepAliveWhenHidden =>
-        _viewModel.IsBusy || _viewModel.ReceivingLines.Count > 0 || _viewModel.RevisionLines.Count > 0 || _bulk.HasUnsaved || _bulk.IsLoading;
+        _viewModel.IsBusy || _viewModel.ReceivingLines.Count > 0 || RevisionKeepAlive || _bulk.HasUnsaved || _bulk.IsLoading;
 
     /// <summary>Склад разделом программы владельца (см. <see cref="IOwnerSection"/>): над разделом
     /// уже написано «Склад», поэтому своя шапка «Управление складом» с кнопками «свернуть» и ✕ не
@@ -1623,17 +1667,15 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     private void CloseByEscape()
     {
         var receiving = _viewModel.ReceivingLines.Count;
-        var revision = _viewModel.RevisionLines.Count;
+        // 2026-10-24, пакет Р2: подсчёт ревизии сохраняется черновиком сам — окно из-за него не переспрашивает.
         var bulk = _bulk.Rows.Count;
-        if (receiving + revision + bulk > 0)
+        if (receiving + bulk > 0)
         {
             var parts = new List<string>();
             if (bulk > 0)
                 parts.Add(Tr.T($"массовое добавление — {bulk}", $"массалык кошуу — {bulk}", $"bulk add — {bulk}", $"toplu ekleme — {bulk}", $"ommaviy qo'shish — {bulk}"));
             if (receiving > 0)
                 parts.Add(Tr.T($"приёмка — {receiving}", $"кабыл алуу — {receiving}", $"receiving — {receiving}", $"mal kabul — {receiving}", $"qabul qilish — {receiving}"));
-            if (revision > 0)
-                parts.Add(Tr.T($"ревизия — {revision}", $"ревизия — {revision}", $"stocktake — {revision}", $"sayım — {revision}", $"inventarizatsiya — {revision}"));
             var close = PosConfirmDialog.Show(
                 this,
                 Tr.T("Закрыть склад?", "Кампаны жабасызбы?", "Close the warehouse?", "Depo kapatılsın mı?", "Omborni yopasizmi?"),

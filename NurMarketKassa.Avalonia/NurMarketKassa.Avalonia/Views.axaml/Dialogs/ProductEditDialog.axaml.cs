@@ -13,6 +13,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using AvKey = Avalonia.Input.Key; // 2026-10-24: System.Windows.Input.Key тоже виден
 using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Models.Pos;
@@ -317,10 +318,87 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     {
         if (_barcodeInputService is null)
             return;
-        if (ReferenceEquals(FocusManager?.GetFocusedElement(), BarcodeBox))
+        var focused = FocusManager?.GetFocusedElement();
+        if (ReferenceEquals(focused, BarcodeBox))
             return;
 
+        // 2026-10-24, владелец: «в полях (наименование, штрихкод, цена) вводится только 2 символа и перестаёт» —
+        // раньше клавиши всех полей шли сканеру, он глушил символы с 3-го быстрого (человек печатает 80–200 мс).
+        // В правимом поле символы не трогаем; скан — только Enter после строгой серии (как поиск кассы).
+        if (focused is TextBox { IsReadOnly: false } box && _barcodeInputService is NurMarketKassa.AvaloniaHost.Services.AvaloniaKeyboardWedgeBarcodeService wedge)
+        {
+            FeedScannerFromField(box, wedge, e);
+            return;
+        }
+
         _barcodeInputService.ProcessKeyDown(e);
+    }
+
+    private const int FieldScanIntervalMs = 50;
+    private const int FieldScanEnterMs = 150;
+    private int _fieldScanFastRun;
+    private long _fieldScanLastTick;
+    private ulong? _fieldScanLastRaw;
+    private TextBox? _fieldScanBox;
+    private string? _fieldScanSnapshot;
+    private int _fieldScanCaret;
+
+    /// <summary>2026-10-24: клавиши правимого поля — и сканеру, но символы остаются в поле. Скан = ≥ 4 знака подряд быстрее
+    /// 50 мс (по времени нажатия) и Enter сразу за ними (до 150 мс): поле возвращается к тексту до серии, код уходит в «Штрихкод».
+    /// Иначе Enter не трогаем, а набранное сканером забываем (текст «Наименования» больше не попадает в «Штрихкод»).</summary>
+    private void FeedScannerFromField(TextBox box, NurMarketKassa.AvaloniaHost.Services.AvaloniaKeyboardWedgeBarcodeService wedge, Avalonia.Input.KeyEventArgs e)
+    {
+        var now = Environment.TickCount64;
+        if (e.Key == AvKey.Enter)
+        {
+            var rawEnter = NurMarketKassa.AvaloniaHost.Services.AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestamp();
+            long sinceLast = rawEnter is { } re && _fieldScanLastRaw is { } le && re >= le ? (long)Math.Min(re - le, long.MaxValue) : now - _fieldScanLastTick;
+            var fresh = sinceLast is >= 0 and < FieldScanEnterMs;
+            if (_fieldScanFastRun >= 3 && fresh && ReferenceEquals(box, _fieldScanBox) && wedge.HasCompleteScan)
+            {
+                // Первые знаки скана успели напечататься в поле — возвращаем его как было.
+                box.Text = _fieldScanSnapshot;
+                box.CaretIndex = Math.Min(_fieldScanCaret, box.Text?.Length ?? 0);
+                _fieldScanFastRun = 0;
+                wedge.ProcessKeyDown(e); // готовый код → BarcodeScanned → OnBarcodeScanned («Штрихкод»)
+                e.Handled = true;
+                return;
+            }
+            wedge.DiscardBuffer();
+            _fieldScanFastRun = 0;
+            return;
+        }
+
+        var mods = e.KeyModifiers;
+        if (e.Key is AvKey.LeftShift or AvKey.RightShift && mods == KeyModifiers.Shift)
+            return; // одинокий Shift (сканер шлёт его между буквами кода) серию не рвёт
+        var isScanKey = !mods.HasFlag(KeyModifiers.Control) && !mods.HasFlag(KeyModifiers.Alt) && !mods.HasFlag(KeyModifiers.Meta)
+            && (e.Key is >= AvKey.D0 and <= AvKey.D9 or >= AvKey.NumPad0 and <= AvKey.NumPad9 or >= AvKey.A and <= AvKey.Z
+                or AvKey.Space or AvKey.OemMinus or AvKey.Subtract or AvKey.OemPeriod or AvKey.Decimal);
+        if (!isScanKey)
+        {
+            _fieldScanFastRun = 0;
+            _fieldScanBox = null;
+            wedge.ProcessKeyDown(e);
+            return;
+        }
+
+        var raw = NurMarketKassa.AvaloniaHost.Services.AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestamp();
+        long delta = raw is { } r && _fieldScanLastRaw is { } lr && r >= lr ? (long)Math.Min(r - lr, long.MaxValue) : now - _fieldScanLastTick;
+        if (ReferenceEquals(box, _fieldScanBox) && delta is >= 0 and < FieldScanIntervalMs)
+            _fieldScanFastRun++;
+        else
+        {
+            _fieldScanFastRun = 0;
+            _fieldScanBox = box;
+            _fieldScanSnapshot = box.Text;
+            _fieldScanCaret = box.CaretIndex;
+        }
+        _fieldScanLastTick = now;
+        _fieldScanLastRaw = raw;
+        var handled = e.Handled;
+        wedge.ProcessKeyDown(e);
+        e.Handled = handled; // символ остаётся в поле — набор не страдает
     }
 
     /// <summary>2026-10-04, Android: камера аппарата как сканер — код приходит как скан USB-сканера (OnBarcodeScanned).</summary>
@@ -1493,22 +1571,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
 
     private void GenerateBarcode()
     {
-        // EAN-13: случайные первые 12 цифр + контрольная. Простой и достаточный способ
-        // получить уникальный штрихкод для товара без своего штрихкода от поставщика.
-        // Первая цифра — не 0 (2026-09-05, по просьбе пользователя): ведущий ноль в EAN-13
-        // визуально путают с UPC-A и он часто отваливается при вводе/экспорте как "незначащий".
-        var rnd = new Random();
-        var digits = new int[13];
-        digits[0] = rnd.Next(1, 10);
-        for (var i = 1; i < 12; i++)
-            digits[i] = rnd.Next(0, 10);
-
-        var sum = 0;
-        for (var i = 0; i < 12; i++)
-            sum += digits[i] * (i % 2 == 0 ? 1 : 3);
-        digits[12] = (10 - sum % 10) % 10;
-
-        Barcode = string.Concat(digits);
+        // 2026-10-26 (требование владельца): общий генератор BarcodeGenerator — EAN-13, первая цифра 1–9 (не 0)
+        // и не 2 (префиксы 20–29 касса читает как весовые), криптослучайные цифры, без повтора с кодами каталога.
+        // Раньше были случайные 12 цифр без проверки уникальности и без защиты от весовых префиксов.
+        Barcode = BarcodeGenerator.GenerateForCatalog();
     }
 
     private async Task SaveAsync()

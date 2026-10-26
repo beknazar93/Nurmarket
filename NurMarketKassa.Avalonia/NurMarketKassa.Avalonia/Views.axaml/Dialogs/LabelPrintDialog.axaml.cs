@@ -32,6 +32,8 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
     public string Barcode => _product.Barcode ?? "";
     public string PriceText => _product.PriceLine;
     public bool HasBarcode => !string.IsNullOrWhiteSpace(Barcode);
+    /// <summary>2026-10-26: штрих-код нужен, только если он включён в шаблоне (печать одного названия или одной цены).</summary>
+    public bool CanPrint => HasBarcode || !_template.Barcode.Enabled;
     private string? Sku => _product.Article;
     private string? Unit => _product.Unit;
     private string? StoreName => UserPreferences.Instance.StoreName;
@@ -111,7 +113,7 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
             ? Printers.FirstOrDefault(p => string.Equals(p.DevicePath, savedPath, StringComparison.OrdinalIgnoreCase))
             : null) ?? Printers.FirstOrDefault();
 
-        if (!HasBarcode)
+        if (!CanPrint)
             StatusMessage = Tr.T("У товара не указан штрих-код — печать недоступна.", "Товардын штрихкоду көрсөтүлгөн эмес — басып чыгаруу мүмкүн эмес.", "The product has no barcode — printing is unavailable.", "Ürünün barkodu yok — yazdırılamaz.", "Mahsulotda shtrix-kod ko'rsatilmagan — chop etib bo'lmaydi.");
         else if (Printers.Count == 0)
             StatusMessage = Tr.T("Не найдено ни одного установленного принтера в Windows.", "Windows'то бир дагы орнотулган принтер табылган жок.", "No printers are installed in Windows.", "Windows'ta yüklü yazıcı bulunamadı.", "Windows'da birorta ham o'rnatilgan printer topilmadi.");
@@ -121,7 +123,8 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
 
     private void RefreshPreview()
     {
-        if (!HasBarcode)
+        OnPropertyChanged(nameof(CanPrint));
+        if (!CanPrint)
             return;
 
         try
@@ -149,7 +152,7 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
 
     private async void PrintButton_Click(object? sender, RoutedEventArgs e)
     {
-        if (!HasBarcode)
+        if (!CanPrint)
             return;
 
         if (SelectedPrinter is null)

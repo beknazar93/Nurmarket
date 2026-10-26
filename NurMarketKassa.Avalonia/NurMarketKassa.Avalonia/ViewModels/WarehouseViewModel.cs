@@ -14,6 +14,7 @@ using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
 using NurMarketKassa.ViewModels;
+using NurMarketKassa.ViewModels.Main;
 
 namespace NurMarketKassa.AvaloniaHost.ViewModels;
 
@@ -64,7 +65,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         _inventoryApi = inventoryApi;
         _prompts = prompts;
         CommitRevisionCommand = new AsyncRelayCommand(CommitRevisionAsync, () => !IsBusy && RevisionLines.Count > 0);
-        CommitReceivingCommand = new AsyncRelayCommand(CommitReceivingAsync, () => !IsBusy && ReceivingLines.Count > 0);
+        CommitReceivingCommand = new AsyncRelayCommand(CommitReceivingAsync, () => !IsBusy && !_receivingCommitInProgress && ReceivingLines.Count > 0);
         WriteOffCommand = new AsyncRelayCommand(
             WriteOffAsync,
             () => !IsBusy && !string.IsNullOrWhiteSpace(_writeOffProductId) && WriteOffQuantity > 0);
@@ -569,6 +570,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         if (existing is not null)
         {
             existing.Quantity += quantity;
+            MoveReceivingLineToTop(existing); // 2026-10-24, ТЗ «Склад» Б1: найденная строка поднимается наверх
             ReceivingLineAdded?.Invoke(existing);
             return;
         }
@@ -583,21 +585,67 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         if (raced is not null)
         {
             raced.Quantity += quantity;
+            MoveReceivingLineToTop(raced);
             ReceivingLineAdded?.Invoke(raced);
             return;
         }
 
-        ReceivingLines.Add(line);
+        // 2026-10-24, ТЗ «Склад» Б1: новая строка встаёт сверху — у кладовщика перед глазами последний скан, а не конец длинной накладной.
+        ReceivingLines.Insert(0, line);
         ReceivingLineAdded?.Invoke(line);
     }
 
+    /// <summary>2026-10-24, ТЗ «Склад» Б1: строка приёмки наверх списка (повторный скан / выбор уже добавленного товара).</summary>
+    public void MoveReceivingLineToTop(ReceivingLineVm line)
+    {
+        var index = ReceivingLines.IndexOf(line);
+        if (index <= 0)
+            return;
+        // Move таблица не отрабатывает (порядок строк на экране не менялся) — убираем и вставляем заново; IsReorderingReceiving не даёт окну
+        // принять это за новую строку (сетка размеров одежды).
+        IsReorderingReceiving = true;
+        try
+        {
+            ReceivingLines.RemoveAt(index);
+            ReceivingLines.Insert(0, line);
+        }
+        finally
+        {
+            IsReorderingReceiving = false;
+        }
+    }
+
+    /// <summary>true, пока строка приёмки переставляется наверх (Remove + Insert) — это не добавление товара.</summary>
+    public bool IsReorderingReceiving { get; private set; }
+
+    /// <summary>2026-10-24, ТЗ «Склад» Б1 (пакет В): поставщик создан кнопкой «＋» — встаёт в список после «Без поставщика» по алфавиту и выбирается.
+    /// Уже есть в списке (тот же id) — просто выбирается.</summary>
+    public void SelectOrAddReceivingSupplier(PurchaseReceivingService.Supplier supplier)
+    {
+        var known = ReceivingSuppliers.FirstOrDefault(s => string.Equals(s.Id, supplier.Id, StringComparison.OrdinalIgnoreCase));
+        if (known is null)
+        {
+            var index = 1;
+            while (index < ReceivingSuppliers.Count
+                   && string.Compare(ReceivingSuppliers[index].Name, supplier.Name, StringComparison.CurrentCultureIgnoreCase) < 0)
+                index++;
+            ReceivingSuppliers.Insert(Math.Min(index, ReceivingSuppliers.Count), supplier);
+            known = supplier;
+        }
+        ReceivingSupplier = known;
+    }
+
     public event Action<ReceivingLineVm>? ReceivingLineAdded;
+
+    /// <summary>2026-10-24, ТЗ «Склад» (Б1): подтверждение перед «Оприходовать», если у товаров со склада меняются цены продажи («Цена продажи изменится у K товаров»).
+    /// Без обработчика (другие окна) — как раньше, без вопроса. false — приёмка не проводится.</summary>
+    public Func<IReadOnlyList<ReceivingLineVm>, Task<bool>>? ConfirmSalePriceChanges { get; set; }
 
     /// <summary>2026-10-06 (О-70): строки приёмки проведены (для этикеток на принятые размеры).</summary>
     public event Action<IReadOnlyList<ReceivingLineVm>>? ReceivingPosted;
 
     /// <summary>Добавить товар в приёмку из списка, а не сканом.</summary>
-    public void AddReceivingProduct(CatalogProductTileVm product, double quantity)
+    public ReceivingLineVm AddReceivingProduct(CatalogProductTileVm product, double quantity)
     {
         var existing = ReceivingLines.FirstOrDefault(l =>
             string.Equals(l.ProductId, product.Id, StringComparison.OrdinalIgnoreCase));
@@ -605,10 +653,14 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         if (existing is not null)
         {
             existing.Quantity += quantity;
-            return;
+            MoveReceivingLineToTop(existing); // 2026-10-24, ТЗ «Склад» Б1: как при скане — строка наверх
+            return existing;
         }
 
-        ReceivingLines.Add(PurchaseReceivingService.FromTile(product, quantity));
+        // 2026-10-24, ТЗ «Склад» Б1: сверху (возвращаем строку — окно ставит в неё курсор).
+        var line = PurchaseReceivingService.FromTile(product, quantity);
+        ReceivingLines.Insert(0, line);
+        return line;
     }
 
     /// <summary>2026-10-21: товар не найден ни здесь, ни на сервере — окно предлагает «Создать товар» (WarehouseWindow).
@@ -728,9 +780,92 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         (WriteOffCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
     }
 
-    /// <summary>Провести приёмку: новые товары создаются, остаток прибавляется, цены пишутся,
-    /// каждая строка уходит в историю закупок товара (см. PurchaseReceivingService.PostAsync).</summary>
+    // ------------------------------------------------------------------ приёмка в фоне (2026-10-25)
+
+    // 2026-10-25, ТЗ «оприходование в фоне», пакет Q2: «Оприходовать» больше не держит модальный слой IsBusy на всё окно
+    // (на стенде при ответе сервера 20 с он висел минуты). Снимок строк уходит в BackgroundReceivingQueue (файл на диске), список
+    // сразу очищается; индикатор на кнопке — не дольше 0,5 с, потом плашка «Операция выполняется в фоне». Проведение, остатки
+    // плиток, каталог и долг поставщику делает очередь (PurchaseReceivingService.PostAsync вызывается оттуда, формулы не менялись).
+
+    /// <summary>Сколько ждём итог прихода на кнопке, прежде чем сказать «выполняется в фоне».</summary>
+    private static readonly TimeSpan ReceivingWaitLimit = TimeSpan.FromSeconds(0.46); // 0,5 с минус запас на шаг таймера Windows (~15 мс) и возврат в поток UI
+
+    private bool _isReceivingPosting;
+    private bool _receivingCommitInProgress;
+    private string _receivingBackgroundNotice = "";
+    private bool _receivingNoticeIsError;
+    private string? _receivingNoticeJobId;
+    private int _receivingNoticeVersion;
+    private readonly HashSet<string> _myReceivingJobs = new();
+
+    /// <summary>Идёт короткое ожидание ответа (≤ 0,5 с): на кнопке «Оприходую…».</summary>
+    public bool IsReceivingPosting
+    {
+        get => _isReceivingPosting;
+        private set { _isReceivingPosting = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Плашка под кнопкой: «Операция выполняется в фоне…», итог или ошибка (не модальная). Пусто — скрыта.</summary>
+    public string ReceivingBackgroundNotice
+    {
+        get => _receivingBackgroundNotice;
+        private set { _receivingBackgroundNotice = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasReceivingBackgroundNotice)); }
+    }
+
+    public bool HasReceivingBackgroundNotice => _receivingBackgroundNotice.Length > 0;
+
+    /// <summary>Плашка — об ошибке (красноватая), иначе нейтрально-жёлтая.</summary>
+    public bool ReceivingNoticeIsError
+    {
+        get => _receivingNoticeIsError;
+        private set { _receivingNoticeIsError = value; OnPropertyChanged(); OnPropertyChanged(nameof(ReceivingNoticeIsInfo)); }
+    }
+
+    public bool ReceivingNoticeIsInfo => !_receivingNoticeIsError;
+
+    private void SetReceivingNotice(string text, bool isError, string? jobId = null, int hideAfterSeconds = 0)
+    {
+        var version = ++_receivingNoticeVersion;
+        _receivingNoticeJobId = jobId;
+        ReceivingNoticeIsError = isError;
+        ReceivingBackgroundNotice = text;
+        if (hideAfterSeconds > 0)
+            DispatcherTimer.RunOnce(() =>
+            {
+                if (version == _receivingNoticeVersion)
+                    ReceivingBackgroundNotice = "";
+            }, TimeSpan.FromSeconds(hideAfterSeconds));
+    }
+
+    private static string BackgroundNoticeText => Tr.T(
+        "Операция выполняется в фоне — можно продолжать работу",
+        "Операция фондо аткарылууда — иштей берсеңиз болот",
+        "The operation is running in the background — you can keep working",
+        "İşlem arka planda yürütülüyor — çalışmaya devam edebilirsiniz",
+        "Amal fonda bajarilmoqda — ishni davom ettirishingiz mumkin");
+
+    /// <summary>Провести приёмку: снимок строк уходит в очередь фоновых приходов (BackgroundReceivingQueue) — новые товары создаются,
+    /// остаток прибавляется, цены пишутся, каждая строка уходит в историю закупок товара (см. PurchaseReceivingService.PostAsync).</summary>
     private async Task CommitReceivingAsync()
+    {
+        // 2026-10-25: двойное нажатие (в том числе пока открыто подтверждение цен) — одна задача.
+        if (_receivingCommitInProgress)
+            return;
+        _receivingCommitInProgress = true;
+        (CommitReceivingCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        try
+        {
+            await CommitReceivingCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            IsReceivingPosting = false;
+            _receivingCommitInProgress = false;
+            (CommitReceivingCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        }
+    }
+
+    private async Task CommitReceivingCoreAsync()
     {
         var lines = ReceivingLines.ToList();
         var problems = PurchaseReceivingService.Validate(lines);
@@ -747,84 +882,132 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             return;
         }
 
-        IsBusy = true;
-        (CommitReceivingCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        // 2026-10-24, ТЗ «Склад» (Б1): меняются цены продажи у товаров со склада — короткое подтверждение со списком (окно задаёт обработчик).
+        // 2026-10-25: подтверждение остаётся до постановки в очередь (это действие кассира, а не ожидание сервера).
+        if (ConfirmSalePriceChanges is { } confirm
+            && ReceivingPricing.SalePriceChanges(lines) is { Count: > 0 } changed
+            && !await confirm(changed).ConfigureAwait(true))
+            return;
+
+        // 2026-10-25: 0,5 с считаем от постановки в очередь (запись на диск входит в них), а не после неё.
+        var sinceQueued = System.Diagnostics.Stopwatch.StartNew();
+        string jobId;
+        var duplicate = false;
         try
         {
             var supplier = HasReceivingSupplier ? ReceivingSupplier : null;
             var employee = PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId;
-            var result = await PurchaseReceivingService.Instance
-                .PostAsync(lines, supplier, ReceivingPaidNow, employee)
-                .ConfigureAwait(true);
-
-            // Остаток в каталоге правим сразу, как после ревизии: кассир тут же пойдёт
-            // продавать принятое, а синхронизация каталога придёт только через пару минут.
-            // 2026-10-19, ревью: от ТЕКУЩЕГО остатка плитки на момент ответа сервера, а не от остатка при скане (StockBefore) —
-            // продажи, прошедшие, пока строки приёмки набирались, не откатываются.
-            foreach (var line in result.PostedLines.Where(l => !l.IsNew))
-            {
-                var tile = CatalogCacheService.Products.FirstOrDefault(p =>
-                    string.Equals(p.Id, line.ProductId, StringComparison.OrdinalIgnoreCase));
-                if (tile is not null)
-                    ApplyCountedStock(line.ProductId!, Math.Round(tile.Quantity + line.Quantity, 3));
-            }
-
-            // Принятые строки уходят из списка, непринятые остаются: их можно поправить и
-            // провести ещё раз, не сканируя накладную заново.
-            foreach (var line in result.PostedLines)
-                ReceivingLines.Remove(line);
-            // 2026-10-06 (О-70): окно склада предложит этикетки на принятые размеры.
-            if (result.PostedLines.Count > 0)
-                ReceivingPosted?.Invoke(result.PostedLines);
-
-            // Созданные товары появятся в каталоге кассы только после синхронизации — просим её
-            // сразу, а не ждём плановую через пару минут.
-            if (result.Created > 0)
-            {
-                try
-                {
-                    await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
-                }
-                catch (Exception ex)
-                {
-                    PosLogger.Log($"Приёмка: каталог после создания товаров не обновлён: {ex.Message}", "WARNING");
-                }
-
-                await EnsureCatalogLoadedAsync().ConfigureAwait(true);
-            }
-
-            // 2026-10-19: тот же текст итога — и у закупки по скану накладной (PurchaseReceivingService.SummaryText).
-            var summary = PurchaseReceivingService.SummaryText(result);
-
-            // 2026-10-20, этап П3: приход «в долг» прошёл — записать долг поставщику (сделка-долг, как сайт), с защитой от двойного долга.
-            // Не записался — строка в очереди «долг не записан» и предупреждение; сам приход не трогаем.
-            var debtFailed = false;
-            if (supplier is not null && !ReceivingPaidNow && result.PostedLines.Count > 0)
-            {
-                var debt = await NurMarketKassa.AvaloniaHost.Services.SupplierDebtUi.RecordAfterReceiptAsync(supplier, result, ReceivingDebtDays, "receipt").ConfigureAwait(true);
-                if (debt is not null)
-                {
-                    summary += "\n" + SupplierDebtRecorder.ResultText(debt);
-                    debtFailed = !debt.Recorded;
-                }
-            }
-
-            if (result.Errors.Count == 0 && !debtFailed)
-                _prompts?.ShowToast(summary);
-            else
-                _prompts?.ShowWarning(summary + "\n\n" + string.Join("\n", result.Errors.Take(10)));
+            jobId = BackgroundReceivingQueue.Instance.Enqueue(
+                new ReceivingJobRequest(ReceivingJobSource.Warehouse, lines, supplier, ReceivingPaidNow, employee, ReceivingDebtDays),
+                out duplicate);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Очередь закрыта (повреждён файл) или диск не записался: строки остаются в окне, показываем причину (не модально).
+            PosLogger.Log($"Приёмка: не поставлена в очередь: {ex.Message}", "WARNING");
+            SetReceivingNotice(ex.Message, isError: true);
+            return;
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Приёмка не проведена: {ex}", "WARNING");
-            _prompts?.ShowError(Tr.T("Не удалось провести приёмку: ", "Кабыл алуу өткөрүлгөн жок: ",
-                "Receiving failed: ", "Mal kabul yapılamadı: ", "Qabulni rasmiylashtirib bo'lmadi: ") + ex.Message);
+            PosLogger.Log($"Приёмка не поставлена в очередь: {ex}", "WARNING");
+            SetReceivingNotice(Tr.T("Не удалось провести приёмку: ", "Кабыл алуу өткөрүлгөн жок: ",
+                "Receiving failed: ", "Mal kabul yapılamadı: ", "Qabulni rasmiylashtirib bo'lmadi: ") + ex.Message, isError: true);
+            return;
+        }
+
+        // Задача принята и записана на диск — список готов к следующему приходу сразу (убираем ровно отправленные строки).
+        if (!duplicate)
+            _myReceivingJobs.Add(jobId);
+        foreach (var line in lines)
+            ReceivingLines.Remove(line);
+        if (duplicate)
+            return;
+
+        // Короткий индикатор на кнопке (≤ 0,5 с): успел — обычный итог, нет — плашка «в фоне».
+        SetReceivingNotice("", isError: false);
+        IsReceivingPosting = true;
+        ReceivingJob? done;
+        try
+        {
+            done = await BackgroundReceivingQueue.Instance.WaitAsync(jobId, TimeSpan.FromMilliseconds(Math.Max(50, (ReceivingWaitLimit - sinceQueued.Elapsed).TotalMilliseconds))).ConfigureAwait(true);
         }
         finally
         {
-            IsBusy = false;
-            (CommitReceivingCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+            IsReceivingPosting = false;
         }
+
+        if (done is null)
+        {
+            // JobFinished мог прийти, пока мы возвращались в поток UI, — тогда плашка уже не нужна.
+            if (_myReceivingJobs.Contains(jobId))
+                SetReceivingNotice(BackgroundNoticeText, isError: false, jobId);
+            return;
+        }
+        ShowReceivingJobResult(done);
+    }
+
+    /// <summary>Итог задачи, завершившейся за 0,5 с: успех — лёгкое уведомление (в программе владельца — плашка в окне), ошибка —
+    /// плашка; строки, которые точно не проведены, возвращаются в список (как было: непринятые остаются, их можно поправить).</summary>
+    private void ShowReceivingJobResult(ReceivingJob job)
+    {
+        var summary = job.Summary ?? "";
+        if (job.Status == ReceivingJobStatus.Done && job.Errors.Count == 0)
+        {
+            if (!MainStatusViewModel.TryShowInfoToast(summary))
+                SetReceivingNotice(summary, isError: false, hideAfterSeconds: 10);
+            return;
+        }
+
+        var restored = job.Status is ReceivingJobStatus.Failed or ReceivingJobStatus.Partial or ReceivingJobStatus.NeedsCheck
+            ? RestoreReceivingLines(BackgroundReceivingQueue.Instance.TakeBackLines(job.Id))
+            : 0;
+        var details = job.Errors.Count > 0 ? string.Join("\n", job.Errors.Take(10)) : job.LastError ?? "";
+        var text = (summary.Length > 0 ? summary + "\n" : "") + details;
+        if (restored > 0)
+            text += "\n" + Tr.T($"Не принятые строки ({restored}) возвращены в список.", $"Кабыл алынбаган саптар ({restored}) тизмеге кайтарылды.",
+                $"Lines not received ({restored}) were returned to the list.", $"Alınmayan satırlar ({restored}) listeye geri döndü.",
+                $"Qabul qilinmagan qatorlar ({restored}) ro'yxatga qaytarildi.");
+        SetReceivingNotice(text.Trim(), isError: true);
+    }
+
+    /// <summary>Задача из этого окна завершилась (JobFinished, уже в потоке UI): убрать плашку «в фоне» и предложить этикетки на принятые
+    /// размеры. Уведомление об итоге делает общий индикатор (пакет Q5), здесь только состояние окна.</summary>
+    public void OnReceivingJobFinished(ReceivingJob job)
+    {
+        if (!_myReceivingJobs.Remove(job.Id))
+            return;
+        if (_receivingNoticeJobId == job.Id)
+        {
+            _receivingNoticeJobId = null;
+            ReceivingBackgroundNotice = "";
+        }
+        var posted = job.Lines.Where(l => l.Outcome == ReceivingLineOutcome.Posted).Select(l => l.ToVm()).ToList();
+        // 2026-10-06 (О-70): окно склада предложит этикетки на принятые размеры.
+        if (posted.Count > 0)
+            ReceivingPosted?.Invoke(posted);
+    }
+
+    /// <summary>Точка входа для «Вернуть строки в приёмку» (окно «Приходы в фоне», пакет Q5): вставить в список приёмки строки,
+    /// которые вернул <see cref="BackgroundReceivingQueue.TakeBackLines"/>. Одинаковый товар с той же ценой закупки складывается в одну строку.
+    /// Вызывать в потоке UI (из других окон — через <c>WarehouseWindow.TryRestoreReceivingLines</c>). Возвращает число принятых строк.</summary>
+    public int RestoreReceivingLines(IReadOnlyList<ReceivingLineVm> restored)
+    {
+        foreach (var line in restored)
+        {
+            var same = line.VariantQuantities is { Count: > 0 } ? null : ReceivingLines.FirstOrDefault(l =>
+                l.VariantQuantities is not { Count: > 0 }
+                && l.Source == line.Source
+                && Math.Abs(l.PurchasePrice - line.PurchasePrice) < 0.0001
+                && ((!string.IsNullOrWhiteSpace(line.ProductId) && string.Equals(l.ProductId, line.ProductId, StringComparison.OrdinalIgnoreCase))
+                    || (string.IsNullOrWhiteSpace(line.ProductId) && !string.IsNullOrWhiteSpace(line.Barcode)
+                        && string.Equals(l.Barcode, line.Barcode, StringComparison.OrdinalIgnoreCase))));
+            if (same is not null)
+                same.Quantity += line.Quantity;
+            else
+                ReceivingLines.Insert(0, line);
+        }
+        return restored.Count;
     }
 
     private async Task CommitRevisionAsync()

@@ -344,6 +344,13 @@ public sealed partial class TelegramBotPollingService
             return;
         }
 
+        // 2026-10-24 (Г1): бота добавили в группу или удалили из неё (my_chat_member).
+        if (update.TryGetProperty("my_chat_member", out var memberUpdate))
+        {
+            await HandleMyChatMemberAsync(memberUpdate, ct).ConfigureAwait(false);
+            return;
+        }
+
         if (!update.TryGetProperty("message", out var message)
             || !message.TryGetProperty("chat", out var chat)
             || !chat.TryGetProperty("id", out var chatIdElement))
@@ -362,6 +369,14 @@ public sealed partial class TelegramBotPollingService
         if (message.TryGetProperty("migrate_to_chat_id", out var migrateTo))
         {
             TelegramBotService.RememberMigratedChat(chatId!, migrateTo.ToString());
+            return;
+        }
+
+        // 2026-10-24 (Г1): группа заказов — бот в ней молчит. Из команд слушаем только /group, /groupoff, /help от подтверждённого владельца;
+        // всё остальное (чужие команды, вопросы, «долг», голосовые) — без ответа, без ИИ, без журнала обращений и без запоминания языка.
+        if (TelegramBotOwner.IsOrdersGroupOnly(chatId))
+        {
+            await HandleOrdersGroupAsync(message, chat, chatId!, ct).ConfigureAwait(false);
             return;
         }
 
@@ -390,6 +405,14 @@ public sealed partial class TelegramBotPollingService
         var ownerMenu = isOwner ? TelegramBotText.OwnerKeyboard() : null;
         var customerMenu = isOwner || isGroup ? null : TelegramBotText.CustomerKeyboard();
         var senderName = hasFrom && sender.TryGetProperty("first_name", out var senderFirst) ? senderFirst.GetString() : null;
+
+        // 2026-10-24 (Г1): «/group 123456» в новой группе — подключение группы заказов (только от подтверждённого владельца).
+        if (text != null && TelegramBotOwner.TryHandleGroup(text, chatId, TelegramBotOwner.ChatTitle(chat), chatType, fromId, out var groupCodeReply))
+        {
+            if (groupCodeReply != null)
+                await SendReplyAsync(chatId, groupCodeReply, ct).ConfigureAwait(false);
+            return;
+        }
 
         // 2026-10-21 (К1): код подтверждения владельца из программы («123456», «/code 123456», «/start own_123456»).
         if (text != null && TelegramBotOwner.TryHandle(text, chatId, TelegramBotOwner.ChatTitle(chat), fromId, out var codeReply))
@@ -719,6 +742,12 @@ public sealed partial class TelegramBotPollingService
             if (msg.TryGetProperty("message_id", out var mid) && mid.TryGetInt64(out var m))
                 messageId = m;
         }
+        // 2026-10-24 (Г1): в группе заказов бот молчит, кнопок туда не шлёт — нажатие молча гасим.
+        if (TelegramBotOwner.IsOrdersGroupOnly(chatId))
+        {
+            await TelegramBotService.AnswerCallbackAsync(id, null, null, null, ct).ConfigureAwait(false);
+            return;
+        }
         var parts = data.Split(':');
         if (parts.Length != 3 || parts[0] != "pa" || chatId == null)
         {
@@ -755,6 +784,68 @@ public sealed partial class TelegramBotPollingService
         await TelegramBotService.AnswerCallbackAsync(id, TelegramBotText.T("Выполняю…", "Аткарып жатам…", "Working on it…", "Uyguluyorum…", "Bajaryapman…"), chatId, messageId, ct).ConfigureAwait(false);
         var done = await ProductActionPlan.ExecuteAllAsync(steps, "Телеграм-бот", ct, proposedUtc).ConfigureAwait(false);
         await SendReplyAsync(chatId, Escape(done), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>2026-10-24 (Г1): сообщение в группе заказов. Отвечает только владельцу на /group, /groupoff, /help.</summary>
+    private static async Task HandleOrdersGroupAsync(JsonElement message, JsonElement chat, string chatId, CancellationToken ct)
+    {
+        var text = message.TryGetProperty("text", out var textElement) ? textElement.GetString() : null;
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+        var type = chat.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : null;
+        long? fromId = message.TryGetProperty("from", out var sender) && sender.TryGetProperty("id", out var fromIdElement) && fromIdElement.TryGetInt64(out var fid) ? fid : null;
+        var reply = TelegramBotOwner.OrdersGroupReply(text, chatId, TelegramBotOwner.ChatTitle(chat), type, fromId);
+        if (reply != null)
+            await SendReplyAsync(chatId, reply, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>2026-10-24 (Г1): my_chat_member — статус самого бота в чате изменился. Удалили из группы заказов (left / kicked) —
+    /// группа отключается, владельцу в личку одно сообщение. Добавили в группу — только запись в журнал: подключение — только кодом.</summary>
+    private static async Task HandleMyChatMemberAsync(JsonElement update, CancellationToken ct)
+    {
+        if (!update.TryGetProperty("chat", out var chat) || !chat.TryGetProperty("id", out var idElement))
+            return;
+        var chatId = idElement.ValueKind == JsonValueKind.Number ? idElement.GetInt64().ToString(CultureInfo.InvariantCulture) : idElement.GetString();
+        if (string.IsNullOrWhiteSpace(chatId))
+            return;
+        var type = chat.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : null;
+        if (type is not ("group" or "supergroup" or "channel"))
+            return;
+        string? status = null;
+        var isMember = true;
+        if (update.TryGetProperty("new_chat_member", out var member))
+        {
+            status = member.TryGetProperty("status", out var statusElement) ? statusElement.GetString() : null;
+            // «restricted» с is_member=false — бот тоже уже не в группе.
+            if (member.TryGetProperty("is_member", out var memberFlag) && memberFlag.ValueKind == JsonValueKind.False)
+                isMember = false;
+        }
+
+        if (status is "left" or "kicked" || (status == "restricted" && !isMember))
+        {
+            var title = UserPreferences.Instance.TelegramOrdersChatTitle;
+            if (!TelegramBotOwner.MarkOrdersGroupRemoved(chatId!))
+            {
+                PosLogger.Log("Телеграм-бот: бота удалили из группы (это не группа заказов).", "TELEGRAM");
+                return;
+            }
+            var owner = TelegramBotOwner.OwnerPrivateChatId();
+            if (owner != null)
+            {
+                TelegramBotText.Use(UserPreferences.Instance.Language);
+                var name = Escape(string.IsNullOrWhiteSpace(title) ? "" : title);
+                await TelegramBotService.SendToAsync(owner, TelegramBotText.T(
+                    $"⚠️ Бота удалили из группы «{name}». Заказы туда больше не идут — они приходят вам. Чтобы вернуть группу, добавьте бота обратно и нажмите «Определить группу» в программе.",
+                    $"⚠️ Бот «{name}» тобунан чыгарылды. Буйрутмалар ал жакка башка барбайт — сизге келет. Топту кайтаруу үчүн ботту кайра кошуп, программада «Топту аныктоо» баскычын басыңыз.",
+                    $"⚠️ The bot was removed from the group “{name}”. Orders no longer go there — they come to you. To restore the group, add the bot back and press “Detect group” in the program.",
+                    $"⚠️ Bot «{name}» grubundan çıkarıldı. Siparişler artık oraya gitmiyor — size geliyor. Grubu geri getirmek için botu tekrar ekleyin ve programda «Grubu belirle»ye basın.",
+                    $"⚠️ Bot «{name}» guruhidan olib tashlandi. Buyurtmalar endi u yerga bormaydi — sizga keladi. Guruhni qaytarish uchun botni qayta qo'shing va dasturda «Guruhni aniqlash»ni bosing."), ct).ConfigureAwait(false);
+            }
+        }
+        else if (status is "member" or "administrator")
+        {
+            PosLogger.Log("Телеграм-бота добавили в группу (подключение группы заказов — только кодом /group).", "TELEGRAM");
+        }
     }
 
     private static async Task SendReplyAsync(string chatId, string text, CancellationToken ct, object? markup = null)

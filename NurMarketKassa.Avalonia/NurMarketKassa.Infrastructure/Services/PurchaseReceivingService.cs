@@ -72,6 +72,202 @@ public sealed class PurchaseReceivingService
 
     private static ICatalogApiService Api => PosApp.CatalogApi;
 
+    // ------------------------------------------------------------------ 2026-10-25 (ТЗ «оприходование в фоне», Q1): состояние повторов
+
+    /// <summary>Понятный текст вместо английского «The request was canceled due to the configured HttpClient.Timeout…» (TaskCanceledException).</summary>
+    public static string NoAnswerText => Tr.T(
+        "сервер не ответил вовремя или нет связи — операция будет повторена",
+        "сервер өз убагында жооп берген жок же байланыш жок — операция кайталанат",
+        "the server did not answer in time or there is no connection — the operation will be retried",
+        "sunucu zamanında yanıt vermedi veya bağlantı yok — işlem tekrarlanacak",
+        "server o'z vaqtida javob bermadi yoki aloqa yo'q — amal qayta bajariladi");
+
+    private static string VariantsCheckText(string productName) => Tr.T(
+        $"{productName}: товар принят, но остатки размеров могли не обновиться — проверьте в «Размеры и цвета».",
+        $"{productName}: товар кабыл алынды, бирок өлчөмдөрдүн калдыгы жаңырбай калган болушу мүмкүн — «Өлчөмдөр жана түстөр» бөлүмүн текшериңиз.",
+        $"{productName}: received, but the size stock may not have been updated — check “Sizes and colors”.",
+        $"{productName}: kabul edildi ancak beden stokları güncellenmemiş olabilir — «Bedenler ve renkler»i kontrol edin.",
+        $"{productName}: qabul qilindi, lekin o'lchamlar qoldig'i yangilanmagan bo'lishi mumkin — «O'lchamlar va ranglar»ni tekshiring.");
+
+    private bool PatchTryGet(ReceivingPostState? st, ReceivingLineVm l, out PendingStockPatch patch)
+    {
+        if (st is null)
+            return _pendingStockPatches.TryGetValue(l, out patch!);
+        var ok = st.TryGetPatch(l, out var p);
+        patch = new PendingStockPatch(p.PreStock, p.Target);
+        return ok;
+    }
+
+    private void PatchSet(ReceivingPostState? st, ReceivingLineVm l, double preStock, double target)
+    {
+        if (st is null)
+            _pendingStockPatches.AddOrUpdate(l, new PendingStockPatch(preStock, target));
+        else
+            st.SetPatch(l, preStock, target);
+    }
+
+    private void PatchRemove(ReceivingPostState? st, ReceivingLineVm l)
+    {
+        if (st is null)
+            _pendingStockPatches.Remove(l);
+        else
+            st.RemovePatch(l);
+    }
+
+    private bool CreatedPriceTryGet(ReceivingPostState? st, ReceivingLineVm l, out double price)
+    {
+        if (st is not null)
+            return st.TryGetCreatedPrice(l, out price);
+        var ok = _createdSalePrice.TryGetValue(l, out var box);
+        price = box?.Value ?? 0;
+        return ok;
+    }
+
+    private void CreatedPriceSet(ReceivingPostState? st, ReceivingLineVm l, double price)
+    {
+        if (st is null)
+            _createdSalePrice.AddOrUpdate(l, new StrongBox<double>(price));
+        else
+            st.SetCreatedPrice(l, price);
+    }
+
+    private bool PriceBeforeTryGet(ReceivingPostState? st, ReceivingLineVm l, out double price)
+    {
+        if (st is not null)
+            return st.TryGetPriceBefore(l, out price);
+        var ok = _priceBefore.TryGetValue(l, out var box);
+        price = box?.Value ?? 0;
+        return ok;
+    }
+
+    private void PriceBeforeSet(ReceivingPostState? st, ReceivingLineVm l, double price)
+    {
+        if (st is null)
+            _priceBefore.AddOrUpdate(l, new StrongBox<double>(price));
+        else
+            st.SetPriceBefore(l, price);
+    }
+
+    private static bool IsLineOutcome(ReceivingPostState st, ReceivingLineVm l, string outcome)
+    {
+        lock (st.Gate)
+            return st.LineOutcome.TryGetValue(st.KeyOf(l), out var o) && o == outcome;
+    }
+
+    /// <summary>Отказ по строке в приходе из очереди: сеть/таймаут/5xx/429 — «исход неизвестен» (повторим), 4xx — «отказ» (не повторяем сами).</summary>
+    private static void NoteLineFailure(ReceivingPostState? st, ReceivingLineVm line, Exception ex)
+    {
+        if (st is null)
+            return;
+        st.NoteFailure(ex);
+        st.SetOutcome(line, IsQueueRetryable(ex) ? "unknown" : "rejected");
+        if (ex is OperationCanceledException)
+            st.Interrupted = true;
+    }
+
+    /// <summary>Приход от поставщика из очереди: если прошлая отправка осталась без ответа (исход неизвестен) — сперва ищем этот приход на
+    /// сервере (тот же поставщик, не раньше первой отправки минус 2 мин, тот же набор «товар:количество:цена закупки»); нашли — считаем
+    /// проведённым и НЕ шлём второй раз (сервер может не смотреть idempotency_key). Список не прочитали — не шлём, повтор позже.
+    /// Иначе — POST с ключом задачи (создаётся и записывается на диск до отправки).</summary>
+    private async Task<(bool Ok, string? Id, double? Total, DateTime? At)> SendReceiptWithStateAsync(ReceivingPostState st, Supplier supplier,
+        Dictionary<string, object?> body, List<ReceivingLineVm> ready, List<string> errors, CancellationToken ct)
+    {
+        if (st.ReceiptOutcome == ReceivingReceiptOutcome.Posted)
+            return (true, st.ReceiptId, st.ReceiptTotal, st.ReceiptAt);
+
+        if (st.ReceiptOutcome == ReceivingReceiptOutcome.Unknown)
+        {
+            try
+            {
+                if (await FindPostedReceiptAsync(st, supplier, ready, ct).ConfigureAwait(false) is { } found)
+                {
+                    PosLogger.Log($"Приход из очереди: приход {found.Id} уже есть на сервере — второй раз не отправляем.", "STOCK");
+                    st.MarkPosted(found.Id, found.Total, found.At);
+                    return (true, found.Id, found.Total, found.At);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !st.IsStopping(ct))
+            {
+                st.NoteFailure(ex);
+                if (ex is OperationCanceledException)
+                    st.Interrupted = true;
+                errors.Add(Tr.T("Не удалось проверить, проведён ли приход (повторим): ", "Кабыл алуу өткөрүлгөнүн текшерүү мүмкүн болгон жок (кайталайбыз): ",
+                    "Could not check whether the delivery was posted (will retry): ", "Mal kabulünün işlenip işlenmediği kontrol edilemedi (tekrarlanacak): ",
+                    "Kirim o'tkazilganini tekshirib bo'lmadi (qayta uriniladi): ") + Msg2(ex));
+                return (false, null, null, null);
+            }
+        }
+
+        body["idempotency_key"] = st.BeginSend();
+        try
+        {
+            var response = await Api.CreateSupplierReceiptAsync(supplier.Id, body, ct).ConfigureAwait(false);
+            var id = Str(response, "id");
+            double? total = Num(response, "total_amount") is > 0 and var serverTotal ? serverTotal : null;
+            var at = SupplierApiService.Date(Str(response, "created_at") ?? "");
+            st.MarkPosted(id, total, at);
+            return (true, id, total, at);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !st.IsStopping(ct))
+        {
+            st.NoteFailure(ex);
+            if (ex is OperationCanceledException)
+                st.Interrupted = true;
+            else if (!IsQueueRetryable(ex))
+                st.MarkRejected();
+            errors.Add(Tr.T("Приход от поставщика не проведён: ", "Жеткирүүчүдөн келген товар кабыл алынган жок: ",
+                "The supplier delivery was not posted: ", "Tedarikçiden mal kabulü yapılamadı: ",
+                "Yetkazib beruvchidan kirim o'tkazilmadi: ") + Msg2(ex));
+            return (false, null, null, null);
+        }
+    }
+
+    /// <summary>Сбой, после которого очередь повторит попытку: исход неизвестен (сеть, таймаут, 5xx, 408, 429) или нет входа (401 — ждём вход).</summary>
+    private static bool IsQueueRetryable(Exception ex) => PendingIdempotencyKey.IsOutcomeUnknown(ex) || ex is ApiException { StatusCode: 401 };
+
+    private static string Msg2(Exception ex) => IsNoAnswer(ex) ? NoAnswerText : ex.Message;
+
+    /// <summary>Таймаут, обрыв, нет связи — один понятный текст вместо английского «The request was canceled due to the configured HttpClient.Timeout…».</summary>
+    private static bool IsNoAnswer(Exception ex) => ex is OperationCanceledException or System.Net.Http.HttpRequestException or IOException or TimeoutException;
+
+    private async Task<(string? Id, double? Total, DateTime? At)?> FindPostedReceiptAsync(ReceivingPostState st, Supplier supplier,
+        List<ReceivingLineVm> ready, CancellationToken ct)
+    {
+        string Sig(string? product, double qty, double price) =>
+            product + ":" + qty.ToString("0.###", CultureInfo.InvariantCulture) + ":" + price.ToString("0.##", CultureInfo.InvariantCulture);
+        var wanted = ready.Select(l => Sig(l.ProductId, l.Quantity, l.PurchasePrice)).OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var since = (st.ReceiptFirstSentUtc ?? DateTime.UtcNow).ToLocalTime().AddMinutes(-2);
+        for (var page = 1; page <= 3; page++)
+        {
+            var data = await Api.ListSupplierReceiptsAsync(page, 50, ct).ConfigureAwait(false);
+            if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("results", out var receipts) || receipts.ValueKind != JsonValueKind.Array)
+                break;
+            foreach (var receipt in receipts.EnumerateArray())
+            {
+                var id = Str(receipt, "id");
+                if (id is null || st.ReceiptClaimed?.Invoke(id) == true)
+                    continue;
+                var supplierId = Str(receipt, "supplier") ?? Str(receipt, "supplier_id");
+                var supplierName = Str(receipt, "supplier_name");
+                var ours = supplierId is not null
+                    ? string.Equals(supplierId, supplier.Id, StringComparison.OrdinalIgnoreCase)
+                    : supplierName is null || string.Equals(supplierName.Trim(), supplier.Name.Trim(), StringComparison.CurrentCultureIgnoreCase);
+                if (!ours || SupplierApiService.Date(Str(receipt, "created_at") ?? "") is not { } at || at < since)
+                    continue;
+                if (!receipt.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                    continue;
+                var have = items.EnumerateArray()
+                    .Select(i => Sig(Str(i, "product_id") ?? Str(i, "product"), Num(i, "qty"), Num(i, "purchase_price")))
+                    .OrderBy(x => x, StringComparer.Ordinal).ToList();
+                if (have.SequenceEqual(wanted, StringComparer.Ordinal))
+                    return (id, Num(receipt, "total_amount") is > 0 and var total ? total : null, at);
+            }
+            if (!data.TryGetProperty("next", out var next) || next.ValueKind != JsonValueKind.String)
+                break;
+        }
+        return null;
+    }
+
     // ------------------------------------------------------------------ поставщики
 
     public async Task<List<Supplier>> LoadSuppliersAsync(CancellationToken ct = default)
@@ -184,6 +380,7 @@ public sealed class PurchaseReceivingService
                     SalePrice = price,
                     OriginalPurchasePrice = purchase,
                     OriginalSalePrice = price,
+                    OriginalMarkupPercent = Num(p, "markup_percent"),
                 };
             }
 
@@ -237,6 +434,7 @@ public sealed class PurchaseReceivingService
             SalePrice = price,
             OriginalPurchasePrice = tile.PurchasePrice,
             OriginalSalePrice = price,
+            OriginalMarkupPercent = tile.MarkupPercent,
         };
     }
 
@@ -306,23 +504,59 @@ public sealed class PurchaseReceivingService
     /// сразу (деньги уходят из кассы расходов, как у сайта), false — в долг поставщику.</summary>
     /// <param name="paymentFields">2026-10-22 (закупки как в вебе): «Оплачено сразу» не из кассы расходов — поля кассы для прихода
     /// (cashbox_role, cashbox, shift: «Я заплатил из ящика смены», как галочка сайта). null — как раньше (expense_variable).</param>
+    /// <param name="state">2026-10-25 (ТЗ «оприходование в фоне», Q1): состояние повторов задачи очереди фоновых приходов (BackgroundReceivingQueue):
+    /// свой ключ прихода, прошлые PATCH остатка, созданные товары; таймаут/авария не выпускаются исключением. null — поведение прежнее.</param>
     public async Task<PostResult> PostAsync(
         IReadOnlyList<ReceivingLineVm> lines,
         Supplier? supplier,
         bool paidNow,
         string? employee,
         CancellationToken ct = default,
-        IReadOnlyDictionary<string, string>? paymentFields = null)
+        IReadOnlyDictionary<string, string>? paymentFields = null,
+        ReceivingPostState? state = null)
     {
         var errors = new List<string>();
         var created = 0;
+
+        // 2026-10-25 (ТЗ «оприходование в фоне», Q1): state != null — состояние повторов хранит очередь фоновых приходов на диске (свой ключ
+        // прихода у каждой задачи, прошлые PATCH остатка, созданные товары), таймаут/авария не выпускаются исключением, а помечают шаг
+        // «исход неизвестен». state == null — всё как раньше.
+        var st = state;
+        bool Soft(Exception ex) => ex is not OperationCanceledException || (st is not null && !st.IsStopping(ct));
+        string Msg(Exception ex) => st is not null && IsNoAnswer(ex) ? NoAnswerText : ex.Message;
 
         // 1. Новые товары заводим на складе. Товар из общей базы — тем же запросом, что сайт
         //    (создаётся по его шаблону), неизвестный — обычной карточкой.
         foreach (var line in lines.Where(l => string.IsNullOrWhiteSpace(l.ProductId)))
         {
+            if (st is { Interrupted: true })
+                break;
             try
             {
+                // 2026-10-25: прошлая попытка уже посылала создание этого товара, а ответа мы не видели — не создаём второй: ищем
+                // на складе по штрихкоду; нет штрихкода — искать нечем, строка ждёт проверки кассиром.
+                if (st is not null && st.WasCreateAttempted(line))
+                {
+                    if (string.IsNullOrWhiteSpace(line.Barcode))
+                    {
+                        errors.Add(Tr.T($"{line.ProductName}: товар мог быть создан при прошлой попытке — проверьте склад и добавьте строку заново, если его там нет",
+                            $"{line.ProductName}: товар мурунку аракетте түзүлгөн болушу мүмкүн — кампаны текшериңиз, жок болсо сапты кайра кошуңуз",
+                            $"{line.ProductName}: the product may have been created on the previous attempt — check the warehouse and add the line again if it is not there",
+                            $"{line.ProductName}: ürün önceki denemede oluşturulmuş olabilir — depoyu kontrol edin, yoksa satırı yeniden ekleyin",
+                            $"{line.ProductName}: mahsulot oldingi urinishda yaratilgan bo'lishi mumkin — omborni tekshiring, yo'q bo'lsa qatorni qayta qo'shing"));
+                        st.SetOutcome(line, "check");
+                        continue;
+                    }
+                    if (await Api.FindWarehouseProductByBarcodeAsync(line.Barcode, ct).ConfigureAwait(false) is { } existing
+                        && Str(existing, "id") is { Length: > 0 } existingId)
+                    {
+                        line.ProductId = existingId;
+                        st.SetCreatedPrice(line, line.SalePrice);
+                        created++;
+                        continue;
+                    }
+                }
+                st?.MarkCreateAttempt(line);
                 JsonElement response;
                 if (line.Source == ReceivingSource.GlobalBase)
                 {
@@ -342,6 +576,9 @@ public sealed class PurchaseReceivingService
                         Quantity = 0,
                         PurchasePrice = line.PurchasePrice,
                         Price = line.SalePrice,
+                        // 2026-10-24 (Б0): наценка вместе с ценами, как карточка товара, — иначе на сервере остаётся 0, а следующая правка закупки
+                        // из карточки/другой приёмки пересчитает цену продажи от неё.
+                        MarkupPercent = ReceivingPricing.MarkupPercent(line.PurchasePrice, line.SalePrice),
                     }, ct).ConfigureAwait(false);
                 }
 
@@ -353,25 +590,33 @@ public sealed class PurchaseReceivingService
                         $"{line.ProductName}: the server didn't return the ID of the created product",
                         $"{line.ProductName}: sunucu oluşturulan ürünün numarasını döndürmedi",
                         $"{line.ProductName}: server yaratilgan mahsulot raqamini qaytarmadi"));
+                    st?.SetOutcome(line, "unknown");
                     continue;
                 }
 
                 line.ProductId = id;
-                _createdSalePrice.AddOrUpdate(line, new StrongBox<double>(line.SalePrice));
+                CreatedPriceSet(st, line, line.SalePrice);
                 created++;
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (Soft(ex))
             {
-                errors.Add(Tr.T($"{line.ProductName}: не удалось создать товар — {ex.Message}",
-                    $"{line.ProductName}: товарды түзүү мүмкүн болгон жок — {ex.Message}",
-                    $"{line.ProductName}: could not create the product — {ex.Message}",
-                    $"{line.ProductName}: ürün oluşturulamadı — {ex.Message}",
-                    $"{line.ProductName}: mahsulotni yaratib bo'lmadi — {ex.Message}"));
+                var why = Msg(ex);
+                errors.Add(Tr.T($"{line.ProductName}: не удалось создать товар — {why}",
+                    $"{line.ProductName}: товарды түзүү мүмкүн болгон жок — {why}",
+                    $"{line.ProductName}: could not create the product — {why}",
+                    $"{line.ProductName}: ürün oluşturulamadı — {why}",
+                    $"{line.ProductName}: mahsulotni yaratib bo'lmadi — {why}"));
+                NoteLineFailure(st, line, ex);
             }
         }
 
         var ready = lines.Where(l => !string.IsNullOrWhiteSpace(l.ProductId)).ToList();
         if (ready.Count == 0)
+            return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
+
+        // 2026-10-25: приход документом — одно целое. Если создание какого-то товара не удалось по причине «исход неизвестен» (сеть, таймаут),
+        // документ сейчас не отправляем — очередь повторит все создания, а затем отправит приход одним документом (второго не будет).
+        if (st is not null && (st.Interrupted || (supplier is not null && lines.Any(l => string.IsNullOrWhiteSpace(l.ProductId) && IsLineOutcome(st, l, "unknown")))))
             return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
 
         var posted = new List<ReceivingLineVm>();
@@ -410,8 +655,12 @@ public sealed class PurchaseReceivingService
                 .Select(l => l.ProductId + ":" + l.Quantity.ToString("0.###", CultureInfo.InvariantCulture)
                              + ":" + l.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture))
                 .OrderBy(x => x, StringComparer.Ordinal));
-            body["idempotency_key"] = _pendingReceiptKey.Get(signature);
-            receiptKey = body["idempotency_key"] as string;
+            // 2026-10-25: с состоянием задачи ключ свой у каждого прихода и создаётся перед самой отправкой (BeginSend), а не один на приложение.
+            if (st is null)
+            {
+                body["idempotency_key"] = _pendingReceiptKey.Get(signature);
+                receiptKey = body["idempotency_key"] as string;
+            }
 
             // 2026-10-22 (закупки как в вебе): приход пишет в товар цену закупки, а сервер у товара с наценкой (markup_percent) может
             // пересчитать от неё и цену продажи. Цены продажи товаров со склада — свежие с сервера ДО прихода (сравнивать после).
@@ -429,27 +678,56 @@ public sealed class PurchaseReceivingService
                     return true; // каталог обновлялся в этот момент — проверим цену
                 }
             }
-            var fresh = await ReadSalePricesAsync(ready.Where(l => !l.IsNew && !_priceBefore.TryGetValue(l, out _) && MayRecalculate(l)).Select(l => l.ProductId!), ct).ConfigureAwait(false);
-            foreach (var l in ready.Where(l => !l.IsNew && fresh.ContainsKey(l.ProductId!)))
-                _priceBefore.AddOrUpdate(l, new StrongBox<double>(fresh[l.ProductId!]));
-
-            try
+            // 2026-10-25: приход уже проведён или отправлялся (исход неизвестен) — цену «до» заново не читаем: она могла измениться самим приходом.
+            var fresh = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            if (st is null || st.ReceiptOutcome is ReceivingReceiptOutcome.NotSent or ReceivingReceiptOutcome.Rejected)
             {
-                var response = await Api.CreateSupplierReceiptAsync(supplier.Id, body, ct).ConfigureAwait(false);
-                _pendingReceiptKey.OnSuccess();
-                receiptId = Str(response, "id");
-                if (Num(response, "total_amount") is > 0 and var serverTotal)
-                    receiptTotal = serverTotal;
-                receiptAt = SupplierApiService.Date(Str(response, "created_at") ?? "");
-                posted.AddRange(ready);
+                try
+                {
+                    fresh = await ReadSalePricesAsync(ready.Where(l => !l.IsNew && !PriceBeforeTryGet(st, l, out _) && MayRecalculate(l)).Select(l => l.ProductId!), ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (st is not null && !st.IsStopping(ct))
+                {
+                    st.Interrupted = true;
+                    errors.Add(NoAnswerText);
+                    return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
+                }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            foreach (var l in ready.Where(l => !l.IsNew && fresh.ContainsKey(l.ProductId!)))
+                PriceBeforeSet(st, l, fresh[l.ProductId!]);
+
+            if (st is null)
             {
-                _pendingReceiptKey.OnError(ex);
-                errors.Add(Tr.T("Приход от поставщика не проведён: ", "Жеткирүүчүдөн келген товар кабыл алынган жок: ",
-                    "The supplier delivery was not posted: ", "Tedarikçiden mal kabulü yapılamadı: ",
-                    "Yetkazib beruvchidan kirim o'tkazilmadi: ") + ex.Message);
-                return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
+                try
+                {
+                    var response = await Api.CreateSupplierReceiptAsync(supplier.Id, body, ct).ConfigureAwait(false);
+                    _pendingReceiptKey.OnSuccess();
+                    receiptId = Str(response, "id");
+                    if (Num(response, "total_amount") is > 0 and var serverTotal)
+                        receiptTotal = serverTotal;
+                    receiptAt = SupplierApiService.Date(Str(response, "created_at") ?? "");
+                    posted.AddRange(ready);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _pendingReceiptKey.OnError(ex);
+                    errors.Add(Tr.T("Приход от поставщика не проведён: ", "Жеткирүүчүдөн келген товар кабыл алынган жок: ",
+                        "The supplier delivery was not posted: ", "Tedarikçiden mal kabulü yapılamadı: ",
+                        "Yetkazib beruvchidan kirim o'tkazilmadi: ") + ex.Message);
+                    return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
+                }
+            }
+            else
+            {
+                // 2026-10-25: приход из очереди — сверка с сервером, потом отправка с ключом задачи (см. SendReceiptWithStateAsync).
+                var sent = await SendReceiptWithStateAsync(st, supplier, body, ready, errors, ct).ConfigureAwait(false);
+                if (!sent.Ok)
+                    return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
+                receiptId = sent.Id;
+                receiptTotal = sent.Total;
+                receiptAt = sent.At;
+                receiptKey = st.ReceiptKey;
+                posted.AddRange(ready);
             }
 
             // Цена продажи в документ прихода не входит — у сайта она тоже пишется в товар
@@ -458,7 +736,7 @@ public sealed class PurchaseReceivingService
             // 2026-10-19, ревью: у нового товара цена задана при создании — сравниваем с ней, а не с OriginalSalePrice (0), иначе
             // каждый новый товар получал лишний PATCH цены.
             bool PriceChanged(ReceivingLineVm l) => l.IsNew
-                ? _createdSalePrice.TryGetValue(l, out var createdAt) && Math.Abs(l.SalePrice - createdAt.Value) > 0.004
+                ? CreatedPriceTryGet(st, l, out var createdAt) && Math.Abs(l.SalePrice - createdAt) > 0.004
                 : Math.Abs(l.SalePrice - l.OriginalSalePrice) > 0.004;
             // 2026-10-22 (закупки как в вебе): какой должна остаться цена продажи — поправленная в приёмке (явный выбор), у нового товара —
             // заданная при создании, иначе — та, что была на сервере до прихода.
@@ -467,33 +745,69 @@ public sealed class PurchaseReceivingService
             {
                 if (PriceChanged(l))
                     priceTargets.Add((l, l.SalePrice));
-                else if (l.IsNew && _createdSalePrice.TryGetValue(l, out var createdPrice))
-                    priceTargets.Add((l, createdPrice.Value));
-                else if (!l.IsNew && _priceBefore.TryGetValue(l, out var before))
-                    priceTargets.Add((l, before.Value));
+                else if (l.IsNew && CreatedPriceTryGet(st, l, out var createdPrice))
+                    priceTargets.Add((l, createdPrice));
+                else if (!l.IsNew && PriceBeforeTryGet(st, l, out var before))
+                    priceTargets.Add((l, before));
             }
-            foreach (var line in ready.Where(l => PriceChanged(l) || l.NameOrUnitChanged))
+            // 2026-10-24 (Б0, ТЗ «Склад» 4.2): цена продажи и наценка уходят вместе ({price, markup_percent}, как карточка товара), чтобы закупка,
+            // продажа и наценка на сервере были согласованы. Строка попадает сюда, если цену продажи поправили, закупка изменилась (цена
+            // продажи остаётся прежней, наценка пересчитывается под новую закупку) или это товар из общей базы CRM (его закупка пришла только
+            // документом прихода, наценки на сервере нет). Новый товар «своей» карточкой наценку получил при создании.
+            bool PurchaseChanged(ReceivingLineVm l) => !l.IsNew && Math.Abs(l.PurchasePrice - l.OriginalPurchasePrice) > 0.004;
+            bool NeedsPricePatch(ReceivingLineVm l) => PriceChanged(l) || PurchaseChanged(l) || l.Source == ReceivingSource.GlobalBase;
+            double SaleToWrite(ReceivingLineVm l) =>
+                priceTargets.FirstOrDefault(t => ReferenceEquals(t.Line, l)) is { Line: not null, Target: > 0 } t ? t.Target : l.SalePrice;
+            foreach (var line in ready.Where(l => NeedsPricePatch(l) || l.NameOrUnitChanged))
             {
+                if (st is { Interrupted: true })
+                    break;
                 try
                 {
                     var fields = new Dictionary<string, object?>();
-                    if (PriceChanged(line))
-                        fields["price"] = line.SalePrice;
+                    if (NeedsPricePatch(line))
+                    {
+                        var sale = SaleToWrite(line);
+                        fields["price"] = sale;
+                        if (ReceivingPricing.MarkupPercent(line.PurchasePrice, sale) is { } markup)
+                            fields["markup_percent"] = markup;
+                    }
                     AddNameAndUnit(line, fields);
                     await Api.PatchProductFieldsAsync(line.ProductId!, fields, ct).ConfigureAwait(false);
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                catch (Exception ex) when (Soft(ex))
                 {
-                    errors.Add(Tr.T($"{line.ProductName}: товар принят, но цена продажи не обновилась — {ex.Message}",
-                        $"{line.ProductName}: товар кабыл алынды, бирок сатуу баасы жаңырган жок — {ex.Message}",
-                        $"{line.ProductName}: the product was received, but the selling price wasn't updated — {ex.Message}",
-                        $"{line.ProductName}: ürün kabul edildi ancak satış fiyatı güncellenmedi — {ex.Message}",
-                        $"{line.ProductName}: mahsulot qabul qilindi, lekin sotuv narxi yangilanmadi — {ex.Message}"));
+                    var why = Msg(ex);
+                    errors.Add(Tr.T($"{line.ProductName}: товар принят, но цена продажи не обновилась — {why}",
+                        $"{line.ProductName}: товар кабыл алынды, бирок сатуу баасы жаңырган жок — {why}",
+                        $"{line.ProductName}: the product was received, but the selling price wasn't updated — {why}",
+                        $"{line.ProductName}: ürün kabul edildi ancak satış fiyatı güncellenmedi — {why}",
+                        $"{line.ProductName}: mahsulot qabul qilindi, lekin sotuv narxi yangilanmadi — {why}"));
+                    if (st is not null && ex is OperationCanceledException)
+                        st.Interrupted = true;
                 }
             }
 
             // 2026-10-22 (закупки как в вебе): цена продажи после прихода не должна смениться без явного выбора — возвращаем.
-            await RestoreSalePricesAsync(priceTargets, errors, ct).ConfigureAwait(false);
+            // 2026-10-25: приход в фоне — оборвалась связь на полпути: приход уже проведён, возврат цены не проверен (предупреждение, не повтор).
+            if (st is { Interrupted: true })
+                errors.Add(Tr.T("Приход проведён, но цены продажи после него не проверены (нет ответа сервера) — проверьте цены в карточках товаров.",
+                    "Кабыл алуу өткөрүлдү, бирок андан кийинки сатуу баалары текшерилген жок (сервер жооп берген жок) — баасын товар карточкаларынан текшериңиз.",
+                    "The delivery is posted, but selling prices after it were not checked (no answer from the server) — check the prices in the product cards.",
+                    "Mal kabulü işlendi ancak sonraki satış fiyatları kontrol edilemedi (sunucu yanıt vermedi) — fiyatları ürün kartlarından kontrol edin.",
+                    "Kirim o'tkazildi, lekin undan keyingi sotuv narxlari tekshirilmadi (server javob bermadi) — narxlarni mahsulot kartalarida tekshiring."));
+            else
+            {
+                try
+                {
+                    await RestoreSalePricesAsync(priceTargets, errors, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (st is not null && !st.IsStopping(ct))
+                {
+                    st.Interrupted = true;
+                    errors.Add(NoAnswerText);
+                }
+            }
         }
         else
         {
@@ -502,6 +816,8 @@ public sealed class PurchaseReceivingService
             //    продать на другой кассе.
             foreach (var line in ready)
             {
+                if (st is { Interrupted: true })
+                    break;
                 try
                 {
                     var current = await Api.ProductsDetailAsync(line.ProductId!, ct).ConfigureAwait(false);
@@ -512,7 +828,7 @@ public sealed class PurchaseReceivingService
                     // 2026-10-16, ревью: три исхода по свежему остатку (см. PendingStockPatch). Прибавка — всегда к остатку
                     // до первой попытки: и поправленное после таймаута количество строки не задвоится.
                     var preStock = stock;
-                    if (_pendingStockPatches.TryGetValue(line, out var pending))
+                    if (PatchTryGet(st, line, out var pending))
                     {
                         if (current is not null && Math.Abs(stock - pending.Target) < 0.0005)
                             preStock = pending.PreStock;
@@ -526,6 +842,7 @@ public sealed class PurchaseReceivingService
                                 $"{line.ProductName}: the previous attempt to post this line got no reply from the server, and the stock has changed since then (now {stockText}, before adding it was {pending.PreStock:0.###}, {pending.Target:0.###} was written) — it is unclear whether the quantity was added. It was NOT added again to avoid doubling. Check the product stock (e.g. with a stocktake): if the quantity was added, remove the line (✕); if not, remove the line and add the product again.",
                                 $"{line.ProductName}: bu satırı işlemeye yönelik önceki deneme sunucudan yanıt alamadı ve stok o zamandan beri değişti (şu an {stockText}, eklemeden önce {pending.PreStock:0.###} idi, {pending.Target:0.###} yazılmıştı) — miktarın eklenip eklenmediği belli değil. İki katına çıkmasın diye tekrar EKLENMEDİ. Ürün stoğunu kontrol edin (ör. sayımla): miktar eklendiyse satırı silin (✕), eklenmediyse satırı silip ürünü yeniden ekleyin.",
                                 $"{line.ProductName}: qatorni o'tkazishning oldingi urinishi serverdan javobsiz qoldi, qoldiq esa o'shandan beri o'zgardi (hozir {stockText}, qo'shishdan oldin {pending.PreStock:0.###} edi, {pending.Target:0.###} yozilgan) — miqdor qo'shilgan-qo'shilmagani noma'lum. Ikki baravar bo'lmasligi uchun qayta QO'SHILMADI. Mahsulot qoldig'ini tekshiring (masalan, inventarizatsiya bilan): miqdor qo'shilgan bo'lsa — qatorni o'chiring (✕), qo'shilmagan bo'lsa — qatorni o'chirib, mahsulotni qayta qo'shing."));
+                            st?.SetOutcome(line, "check");
                             continue;
                         }
                     }
@@ -536,12 +853,15 @@ public sealed class PurchaseReceivingService
                         ["purchase_price"] = line.PurchasePrice,
                         ["price"] = line.SalePrice,
                     };
+                    // 2026-10-24 (Б0, ТЗ «Склад» 4.2): наценка вместе с закупкой и продажей, как карточка товара.
+                    if (ReceivingPricing.MarkupPercent(line.PurchasePrice, line.SalePrice) is { } markupPercent)
+                        fields["markup_percent"] = markupPercent;
                     if (Math.Abs(stock - target) < 0.0005)
                         PosLogger.Log($"Приёмка: остаток товара {line.ProductId} уже {stock:0.###} — прошлая попытка дошла, количество повторно не прибавляем.", "CATALOG");
                     else
                     {
                         fields["quantity"] = target;
-                        _pendingStockPatches.AddOrUpdate(line, new PendingStockPatch(preStock, target));
+                        PatchSet(st, line, preStock, target);
                     }
                     AddNameAndUnit(line, fields);
                     try
@@ -553,20 +873,25 @@ public sealed class PurchaseReceivingService
                         // 2026-10-16, ревью: отказ сервера по существу (4xx, кроме 408/429) — этот остаток не записан, на
                         // сервере по-прежнему stock: без прошлой дошедшей прибавки помнить нечего, с ней — помним её.
                         if (Math.Abs(stock - preStock) < 0.0005)
-                            _pendingStockPatches.Remove(line);
+                            PatchRemove(st, line);
                         else
-                            _pendingStockPatches.AddOrUpdate(line, new PendingStockPatch(preStock, stock));
+                            PatchSet(st, line, preStock, stock);
                         throw;
                     }
-                    _pendingStockPatches.Remove(line);
+                    PatchRemove(st, line);
                     posted.Add(line);
+                    st?.SetOutcome(line, "posted");
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                catch (Exception ex) when (Soft(ex))
                 {
+                    var why = Msg(ex);
+                    NoteLineFailure(st, line, ex);
                     // 2026-10-03, живой случай: у товара есть дубль с тем же штрихкодом — сервер на любое
                     // изменение дубля отвечает 500. Говорим кассиру, что делать, а не «внутренняя ошибка».
                     if (DuplicateOf(line) is { } dup)
                     {
+                        if (ex is not OperationCanceledException)
+                            st?.SetOutcome(line, "rejected");
                         errors.Add(Tr.T($"{line.ProductName}: не принят — на складе два товара со штрихкодом {line.Barcode} (второй: «{dup}»). Удалите лишний на складе и повторите.",
                             $"{line.ProductName}: кабыл алынган жок — кампада {line.Barcode} штрихкоддуу эки товар бар (экинчиси: «{dup}»). Ашыкчасын өчүрүп, кайталаңыз.",
                             $"{line.ProductName}: not received — the warehouse has two products with barcode {line.Barcode} (the other: “{dup}”). Delete the extra one and retry.",
@@ -574,11 +899,11 @@ public sealed class PurchaseReceivingService
                             $"{line.ProductName}: qabul qilinmadi — omborda {line.Barcode} shtrix-kodli ikkita mahsulot bor (ikkinchisi: «{dup}»). Ortiqchasini o'chirib, qayta urining."));
                         continue;
                     }
-                    errors.Add(Tr.T($"{line.ProductName}: не принят — {ex.Message}",
-                        $"{line.ProductName}: кабыл алынган жок — {ex.Message}",
-                        $"{line.ProductName}: not received — {ex.Message}",
-                        $"{line.ProductName}: kabul edilmedi — {ex.Message}",
-                        $"{line.ProductName}: qabul qilinmadi — {ex.Message}"));
+                    errors.Add(Tr.T($"{line.ProductName}: не принят — {why}",
+                        $"{line.ProductName}: кабыл алынган жок — {why}",
+                        $"{line.ProductName}: not received — {why}",
+                        $"{line.ProductName}: kabul edilmedi — {why}",
+                        $"{line.ProductName}: qabul qilinmadi — {why}"));
                 }
             }
         }
@@ -587,6 +912,22 @@ public sealed class PurchaseReceivingService
         //     размеров, поэтому это делается после прихода и правки товара выше (иначе их остаток перезаписал бы размеры).
         foreach (var line in posted.Where(l => l.VariantQuantities is { Count: > 0 }))
         {
+            // 2026-10-25: размеры прибавляются один раз: начато в прошлой попытке (оборвалась) или связь пропала — только предупреждение.
+            if (st is not null)
+            {
+                if (st.VariantsTouched(line, out var variantsDone))
+                {
+                    if (!variantsDone)
+                        errors.Add(VariantsCheckText(line.ProductName));
+                    continue;
+                }
+                if (st.Interrupted)
+                {
+                    errors.Add(VariantsCheckText(line.ProductName));
+                    continue;
+                }
+                st.MarkVariants(line, false);
+            }
             try
             {
                 var fresh = await Api.GetProductVariantsAsync(line.ProductId!, ct).ConfigureAwait(false);
@@ -600,14 +941,18 @@ public sealed class PurchaseReceivingService
                 }
                 ProductVariantCache.Put(line.ProductId!, await Api.GetProductVariantsAsync(line.ProductId!, ct).ConfigureAwait(false));
                 PosLogger.Log($"Приёмка: размеры товара {line.ProductId} пополнены ({line.VariantSummary}).", "CATALOG");
+                st?.MarkVariants(line, true);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (Soft(ex))
             {
-                errors.Add(Tr.T($"{line.ProductName}: товар принят, но остатки размеров не обновились — {ex.Message}. Проверьте в «Размеры и цвета».",
-                    $"{line.ProductName}: товар кабыл алынды, бирок өлчөмдөрдүн калдыгы жаңырган жок — {ex.Message}.",
-                    $"{line.ProductName}: received, but the size stock was not updated — {ex.Message}.",
-                    $"{line.ProductName}: kabul edildi ancak beden stokları güncellenmedi — {ex.Message}.",
-                    $"{line.ProductName}: qabul qilindi, lekin o'lchamlar qoldig'i yangilanmadi — {ex.Message}."));
+                var why = Msg(ex);
+                errors.Add(Tr.T($"{line.ProductName}: товар принят, но остатки размеров не обновились — {why}. Проверьте в «Размеры и цвета».",
+                    $"{line.ProductName}: товар кабыл алынды, бирок өлчөмдөрдүн калдыгы жаңырган жок — {why}.",
+                    $"{line.ProductName}: received, but the size stock was not updated — {why}.",
+                    $"{line.ProductName}: kabul edildi ancak beden stokları güncellenmedi — {why}.",
+                    $"{line.ProductName}: qabul qilindi, lekin o'lchamlar qoldig'i yangilanmadi — {why}."));
+                if (st is not null && ex is OperationCanceledException)
+                    st.Interrupted = true;
             }
         }
 
@@ -697,6 +1042,21 @@ public sealed class PurchaseReceivingService
         await Task.WhenAll(tasks).ConfigureAwait(false);
         return restored;
     }
+
+    // ------------------------------------------------------------------ 2026-10-24 (Б0): «Обновить цены продажи» (расчёт — ReceivingPricing)
+
+    /// <summary>Сколько строк может поправить «Обновить цены продажи (N)»: закупка подорожала, цену продажи не трогали.</summary>
+    public static int CountRaisableSalePrices(IEnumerable<ReceivingLineVm> lines) => ReceivingPricing.CountRaisable(lines);
+
+    /// <summary>Превью кнопки «Обновить цены продажи»: закупка было → стало, продажа было → станет, наценка. Ничего не меняет, на сервер не ходит.</summary>
+    public static List<SalePriceUpdateRow> PreviewSalePriceUpdate(IEnumerable<ReceivingLineVm> lines, SalePriceRaiseMode mode) =>
+        ReceivingPricing.PreviewRaise(lines, mode);
+
+    /// <summary>«Применить к N строкам»: новая цена продажи — в строки приёмки (на сервер уходит только при PostAsync, вместе с markup_percent).</summary>
+    public static int ApplySalePriceUpdate(IEnumerable<SalePriceUpdateRow> rows) => ReceivingPricing.ApplyRaise(rows);
+
+    /// <summary>Перед «Провести»: товары, у которых цена продажи изменится («Цена продажи изменится у K товаров»).</summary>
+    public static List<ReceivingLineVm> SalePriceChanges(IEnumerable<ReceivingLineVm> lines) => ReceivingPricing.SalePriceChanges(lines);
 
     /// <summary>Название и единица, поправленные в приёмке у товара со склада, — в карточку.</summary>
     private static void AddNameAndUnit(ReceivingLineVm line, Dictionary<string, object?> fields)

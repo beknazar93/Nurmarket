@@ -142,6 +142,28 @@
           </StackPanel>
         </Border>
 
+        <!-- 2026-10-24 (ТЗ «Склад…», пакет Г1): «Группа заказов» — заказы из бота в общую группу сотрудников (или группа + личка).
+             Тексты — в коде (5 языков). Группа подключается кодом /group от подтверждённого владельца. -->
+        <Border Classes="StepCard" x:Name="OrdersGroupCard">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="StepTitle" x:Name="OrdersGroupTitle"/>
+            <TextBlock Classes="StepBody" x:Name="OrdersGroupHint"/>
+            <TextBlock Classes="StepBody" x:Name="OrdersGroupStatus" FontWeight="SemiBold"/>
+            <TextBlock Classes="StepBody" x:Name="OrdersGroupInstruction" IsVisible="False"/>
+            <WrapPanel>
+              <Button Classes="Primary" x:Name="OrdersGroupDetectButton" Margin="0,0,10,8" Click="OrdersGroupDetect_Click"/>
+              <Button x:Name="OrdersGroupDisconnectButton" Margin="0,0,10,8" Click="OrdersGroupDisconnect_Click"/>
+            </WrapPanel>
+            <StackPanel Spacing="4">
+              <RadioButton x:Name="OrdersTargetGroupRadio" GroupName="OrdersTarget" IsCheckedChanged="OrdersTarget_Changed"/>
+              <RadioButton x:Name="OrdersTargetBothRadio" GroupName="OrdersTarget" IsCheckedChanged="OrdersTarget_Changed"/>
+              <RadioButton x:Name="OrdersTargetOwnerRadio" GroupName="OrdersTarget" IsCheckedChanged="OrdersTarget_Changed"/>
+            </StackPanel>
+            <CheckBox x:Name="OrdersShowAmountCheck" IsCheckedChanged="OrdersShowAmount_Changed"/>
+            <TextBlock Classes="StepBody" x:Name="OrdersGroupPrivateHint"/>
+          </StackPanel>
+        </Border>
+
         <!-- 2026-10-01, ТЗ часть 5: бот на сервере NurCRM — отвечает круглые сутки, даже когда
              касса и программа владельца выключены. Тексты — в коде (5 языков). -->
         <Border Classes="StepCard">

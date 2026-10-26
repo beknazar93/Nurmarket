@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Склад — Массовое добавление — макеты Д1–Д9</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#191919;color:#F5F5F5;font-family:Montserrat,system-ui,sans-serif;padding:28px 32px}
+h1{font-size:22px;font-weight:800;margin:0 0 6px}
+p{color:#CCC;font-size:13.5px;line-height:1.5;max-width:900px;margin:0 0 18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;max-width:1300px}
+a.card{display:block;padding:16px 18px;border-radius:12px;background:#222;border:1px solid #3D3D3D;color:inherit;text-decoration:none}
+a.card:hover{border-color:#FFB208}
+a.card b{display:block;font-size:15px;margin-bottom:6px}
+a.card span{font-size:12.5px;color:#AAA;line-height:1.45}
+a.card i{display:inline-block;font-style:normal;font-size:11px;font-weight:700;color:#191919;background:#FFB208;border-radius:6px;padding:2px 7px;margin-bottom:8px}
+code{background:#333;color:#FFD27A;padding:1px 5px;border-radius:4px;font-size:12px}
+</style></head>
+<body>
+<h1>Склад → вкладка «Массовое добавление» — макеты (26.10.2026)</h1>
+<p>По ТЗ «Склад — массовое добавление — скан 3 колонки, Excel, CSV». В каждом макете сверху панель просмотра: тема (светлая/тёмная), окно 1296×879 / 1024×600,
+«ky — длинные подписи» (проверка переносов), «ключи Tr.T» (имена строк для Sonnet) и состояния экрана. Параметры через адрес: <code>?theme=dark&amp;size=1024&amp;ky=1&amp;keys=1#состояние</code>.
+Общие стили — <code>BulkAdd-shared.css</code> (токены кассы), общий скрипт — <code>BulkAdd-shared.js</code> (значки MarketplaceIcons, панель).</p>
+<div class="grid">
+  <a class="card" href="BulkAdd-Scan.html"><i>Д1–Д5</i><b>BulkAdd-Scan — Массовое сканирование</b><span>Три колонки «Есть на складе / Есть в базе CRM / Неизвестный штрихкод». Пусто, черновик, найдено (+1, база CRM, неизвестный с подсказками, «проверяю…», «не проверено»), много строк, ошибки → подтверждение → итог, «Провожу…» → «в фоне» → тост.</span></a>
+  <a class="card" href="BulkAdd-Import1.html"><i>Д6</i><b>BulkAdd-Import1 — шаг 1: файл</b><span>Перетаскивание, выбор, шаблон, вставка из буфера; Excel — лист и строка заголовков; CSV — кодировка и разделитель; .xls / &gt; 20 МБ / пустой / кракозябры; скан в режиме импорта.</span></a>
+  <a class="card" href="BulkAdd-Import2.html"><i>Д7</i><b>BulkAdd-Import2 — шаг 2: столбцы</b><span>Наше поле → столбец файла → пример; подсказка для процента; наценка по умолчанию, дубли; всё узнано само / не хватает обязательного / как в прошлый раз.</span></a>
+  <a class="card" href="BulkAdd-Import3.html"><i>Д8</i><b>BulkAdd-Import3 — шаг 3: проверка</b><span>Плитки «Все / Приход / Новые / Ошибки», таблица с подсветкой ячеек, «Скачать строки с ошибками», «Загрузить 14 800»; «Проверяю 6 000 из 15 000»; подтверждение цены продажи.</span></a>
+  <a class="card" href="BulkAdd-Result.html"><i>Д9</i><b>BulkAdd-Result — загрузка и итог</b><span>«Загрузка в фоне: 3 400 из 14 800 · можно закрыть окно», ждёт связь, готово, частично («нужна проверка» в «Приходах в фоне»).</span></a>
+</div>
+</body></html>

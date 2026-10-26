@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -485,10 +486,90 @@ Widget _salePanel(BuildContext c, WidgetRef ref, List<SeenMatch> matches, {requi
 /// Т9–Т10: снимки полки, накладной или этикеток → проверка: «есть в базе» (+ к остатку) и «новые» (название, закупка, цена)
 /// → «Загрузить на склад» сразу или «В приёмку с поставщиком» (ПР2–ПР6). 13.10, владелец: «дизайн умной камеры продумай»,
 /// «количество не вводится» — у каждой строки −/+ и ввод числа, у новых — поля названия, закупки и цены.
+/// 2026-10-26 (П0, ошибка денег Б1): состояние строки загрузки. Раньше строки прихода строились заново при каждом
+/// нажатии «Загрузить» — флаги «проведена / создание без ответа / PATCH остатка без ответа» жили в выброшенных объектах,
+/// и повтор после частичной ошибки второй раз прибавлял остаток проведённым строкам и создавал товар второй раз.
+enum CamRowState { pending, posted, rejected, unknown }
+
+/// Строка уже ушла на сервер так, что менять товар/название нельзя: проведена, создание или запись остатка без ответа,
+/// новый товар уже создан. Такую строку сохраняем тем же объектом до успеха.
+bool camLineLocked(ReceiveLine? l) =>
+    l != null && (l.posted || l.createUnknown || l.pendingTarget != null || (l.isNew && l.productId.isNotEmpty));
+
+CamRowState camRowState(ReceiveLine? l, String? error) {
+  if (l == null) return CamRowState.pending;
+  if (l.posted) return CamRowState.posted;
+  if (l.createUnknown || l.pendingTarget != null) return CamRowState.unknown;
+  return error != null ? CamRowState.rejected : CamRowState.pending;
+}
+
+/// Стабильная строка прихода позиции: один объект на задачу, создаётся ДО отправки и живёт до успеха. Перед проведением
+/// обновляются только количество, закупка и (у нового) цена. Новая строка создаётся лишь пока старая не «заперта»
+/// ([camLineLocked]) и не подходит по товару/названию/штрихкоду (кассир выбрал «Это «…»?» или поправил название).
+ReceiveLine camSyncLine(
+  ReceiveLine? old, {
+  required Product? product,
+  required String name,
+  required String barcode,
+  required double qty,
+  required double cost,
+  required double price,
+}) {
+  final fits = old != null && (product != null ? !old.isNew && old.productId == product.id : old.isNew && old.name == name && old.barcode == barcode);
+  if (old != null && (fits || camLineLocked(old))) {
+    old.qty = qty;
+    old.cost = cost;
+    if (old.isNew) old.price = price;
+    return old;
+  }
+  return product != null
+      ? ReceiveLine(
+          productId: product.id,
+          name: product.name,
+          barcode: product.barcode ?? '',
+          unit: product.unit,
+          before: product.quantity,
+          oldPrice: product.price,
+          price: product.price,
+          qty: qty,
+          cost: cost,
+        )
+      : ReceiveLine(productId: '', name: name, barcode: barcode, qty: qty, cost: cost, price: price, isNew: true);
+}
+
+/// Связь с сервером есть: лёгкий запрос. Без связи ничего не проводим — список остаётся черновиком на экране.
+/// Только «нет ответа вообще» (status == null) считаем отсутствием связи; ответ сервера с ошибкой — это связь.
+Future<bool> camReachable(ApiClient api) async {
+  try {
+    await api.get('api/main/products/list/', query: {'page': 1, 'page_size': 1}, timeout: const Duration(seconds: 4));
+    return true;
+  } on ApiException catch (e) {
+    return e.status != null;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Приход поставщику с неизвестным исходом ещё хранит ключ повтора (24 ч). Пока он есть, «Загрузить на склад» без
+/// поставщика тем же составом мог бы прибавить остаток второй раз — сначала повторить тот приход.
+Future<bool> camHasPendingReceipt(AppDatabase db) async {
+  try {
+    final raw = await db.getSetting(AdminReceiveRepository.pendingReceiptKeySetting);
+    if (raw == null || raw.isEmpty) return false;
+    final at = DateTime.tryParse(((jsonDecode(raw) as Map)['at'] as String?) ?? '');
+    return at != null && DateTime.now().difference(at) < const Duration(hours: 24);
+  } catch (_) {
+    return false;
+  }
+}
+
 class _CamItem {
   final SeenMatch seen;
   Product? product;
   double qty;
+  // 2026-10-26 (П0): стабильная строка прихода этой позиции и причина последнего отказа сервера
+  ReceiveLine? line;
+  String? error;
   final TextEditingController name;
   final TextEditingController cost;
   final TextEditingController price;
@@ -502,16 +583,26 @@ class _CamItem {
 }
 
 class SmartCameraScreen extends ConsumerStatefulWidget {
-  const SmartCameraScreen({super.key});
+  /// Только для проверок без камеры: уже распознанные позиции и режим (2026-10-26, П0).
+  @visibleForTesting
+  final List<SeenMatch>? debugMatches;
+  @visibleForTesting
+  final String? debugMode;
+  const SmartCameraScreen({super.key, this.debugMatches, this.debugMode});
   @override
   ConsumerState<SmartCameraScreen> createState() => _SmartCameraScreenState();
 }
 
 class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
-  String _mode = 'shelf';
-  final List<_CamItem> _items = [];
+  late String _mode = widget.debugMode ?? 'shelf';
+  late final List<_CamItem> _items = [for (final m in widget.debugMatches ?? const <SeenMatch>[]) _CamItem(m)];
   int _shots = 0;
   bool _busy = false;
+  // 2026-10-26 (П0): защита от двойного нажатия (ставится синхронно, до первого await), всего проведено за эту загрузку
+  // и итог последней попытки («проведено N из M…»), который остаётся на экране.
+  bool _posting = false;
+  int _postedTotal = 0;
+  String? _summary;
 
   Future<void> _shoot() async {
     final found = await photoAndRecognize(context, ref, _mode);
@@ -532,53 +623,131 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
 
   static double _autoPrice(double cost) => cost <= 0 ? 0 : ((cost * 1.3 / 5).ceil() * 5).toDouble();
 
-  List<ReceiveLine> _lines() => [
+  /// 2026-10-26 (П0, Б1): строка прихода позиции — один объект до успеха ([camSyncLine]); раньше `_lines()` строил новые
+  /// при каждом нажатии. Цена нового: введённая или «+30 %, до 5 сом».
+  ReceiveLine _lineOf(_CamItem x) {
+    final cost = parseNum(x.cost.text) ?? 0;
+    return x.line = camSyncLine(
+      x.line,
+      product: x.product,
+      name: x.product?.name ?? x.name.text.trim(),
+      // штрихкод от ИИ — только с верной контрольной цифрой (ИИ мог его выдумать)
+      barcode: x.product != null ? '' : (VisionService.validEan(x.seen.seen.barcode) ? x.seen.seen.barcode : ''),
+      qty: x.qty,
+      cost: cost,
+      price: parseNum(x.price.text) ?? _autoPrice(cost),
+    );
+  }
+
+  /// Строки к проведению: позиции с количеством, у новых — название и цена продажи.
+  List<(_CamItem, ReceiveLine)> _ready() => [
     for (final x in _items.where((x) => x.qty > 0))
-      if (x.product case final p?)
-        ReceiveLine(
-          productId: p.id,
-          name: p.name,
-          barcode: p.barcode ?? '',
-          unit: p.unit,
-          before: p.quantity,
-          oldPrice: p.price,
-          price: p.price,
-          qty: x.qty,
-          cost: parseNum(x.cost.text) ?? 0,
-        )
-      else
-        ReceiveLine(
-          productId: '',
-          name: x.name.text.trim(),
-          // штрихкод от ИИ — только с верной контрольной цифрой (ИИ мог его выдумать)
-          barcode: VisionService.validEan(x.seen.seen.barcode) ? x.seen.seen.barcode : '',
-          qty: x.qty,
-          cost: parseNum(x.cost.text) ?? 0,
-          price: parseNum(x.price.text) ?? _autoPrice(parseNum(x.cost.text) ?? 0),
-          isNew: true,
-        ),
+      if (_lineOf(x) case final l when l.name.isNotEmpty && (!l.isNew || l.price > 0)) (x, l),
   ];
 
   Future<void> _upload() async {
+    // двойное нажатие: флаг ставится до первого await (диалог полки, проверка связи, сам запрос)
+    if (_posting || _busy) return;
+    _posting = true;
     final l = context.l;
-    final lines = _lines().where((x) => x.name.isNotEmpty && (!x.isNew || x.price > 0)).toList();
-    if (lines.isEmpty) return;
-    // 2026-10-22 (аудит У-7): снимок полки — то, что уже стоит на полке, а не поставка: прибавлять к остатку только по
-    // явному «Да» (иначе остаток удваивался)
-    if (_mode == 'shelf' && await _askYes(context, l.shelfAddAsk) != true) return;
-    if (!mounted) return;
-    setState(() => _busy = true);
+    var started = false;
     try {
-      final (n, errors) = await ref.read(adminReceiveRepoProvider).post(lines, null, false);
-      await ref.read(catalogRepoProvider).sync();
+      final pairs = _ready();
+      if (pairs.isEmpty) return;
+      // 2026-10-22 (аудит У-7): снимок полки — то, что уже стоит на полке, а не поставка: прибавлять к остатку только по
+      // явному «Да» (иначе остаток удваивался)
+      if (_mode == 'shelf' && await _askYes(context, l.shelfAddAsk) != true) return;
       if (!mounted) return;
-      toast(context, errors.isEmpty ? l.smartUploaded(n) : '${l.smartUploaded(n)} · ${errors.take(2).join('; ')}', error: errors.isNotEmpty);
-      if (errors.isEmpty) Navigator.of(context).maybePop();
-    } on ApiException catch (e) {
-      if (mounted) toast(context, e.message, error: true);
+      final repo = ref.read(adminReceiveRepoProvider);
+      setState(() => _busy = true);
+      started = true;
+      // 2026-10-26 (П0): без связи не проводим ничего — список остаётся на экране как черновик
+      if (!await camReachable(repo.api)) {
+        if (mounted) {
+          setState(() => _summary = l.smartNoLink);
+          toast(context, l.smartNoLink, error: true);
+        }
+        return;
+      }
+      if (await camHasPendingReceipt(ref.read(databaseProvider))) {
+        if (mounted) {
+          setState(() => _summary = l.smartPendingReceipt);
+          toast(context, l.smartPendingReceipt, error: true);
+        }
+        return;
+      }
+      var errors = <String>[];
+      String? fatal;
+      try {
+        errors = (await repo.post([for (final p in pairs) p.$2], null, false, l10n: l)).$2;
+      } on ApiException catch (e) {
+        fatal = e.message;
+      } catch (e) {
+        fatal = e.toString();
+      }
+      // синхронизация каталога не должна заслонять итог (раньше её ошибка прятала результат проведения)
+      try {
+        await ref.read(catalogRepoProvider).sync();
+      } catch (_) {}
+      if (!mounted) return;
+      final doneNow = pairs.where((p) => p.$2.posted).length;
+      final left = pairs.length - doneNow;
+      _postedTotal += doneNow;
+      // причина отказа — к своей позиции (текст ошибки начинается с названия: «Название: причина»)
+      final pool = [...errors];
+      for (final (x, line) in pairs) {
+        x.error = null;
+        if (line.posted) continue;
+        final i = pool.indexWhere((e) => e.startsWith('${line.name}: '));
+        if (i >= 0) x.error = pool.removeAt(i).substring(line.name.length + 2);
+      }
+      final allDone = left == 0 && fatal == null;
+      final total = _postedTotal + left;
+      setState(() {
+        _items.removeWhere((x) => x.line?.posted == true);
+        _summary = allDone ? null : l.smartPartial(_postedTotal, total, left);
+      });
+      if (allDone) {
+        toast(context, l.smartUploaded(_postedTotal));
+        _postedTotal = 0;
+        unawaited(Navigator.of(context).maybePop());
+      } else {
+        final why = [?fatal, ...errors].take(2).join('; ');
+        toast(context, '${l.smartPartial(_postedTotal, total, left)}${why.isEmpty ? '' : '\n$why'}', error: true);
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _posting = false;
+      if (started && mounted) setState(() => _busy = false);
     }
+  }
+
+  /// «В приёмку с поставщиком»: те же объекты строк (приёмка с поставщиком отметит их проведёнными).
+  Future<void> _toReceive() async {
+    final l = context.l;
+    final lines = [for (final x in _items.where((x) => x.qty > 0)) _lineOf(x)];
+    // запись остатка без ответа (путь «на склад») могла дойти — приход поставщику прибавил бы второй раз
+    if (lines.any((x) => x.pendingTarget != null)) {
+      toast(context, l.smartPendingStock, error: true);
+      return;
+    }
+    final done = await context.push<bool>('/admin/receive', extra: lines);
+    if (!mounted) return;
+    setState(() => _items.removeWhere((x) => x.line?.posted == true));
+    if (done == true && mounted) Navigator.of(context).maybePop();
+  }
+
+  /// Подпись состояния строки: отказ сервера / нет ответа (повтор безопасен).
+  Widget _rowStatus(_CamItem x) {
+    final l = context.l;
+    final st = camRowState(x.line, x.error);
+    if (st != CamRowState.rejected && st != CamRowState.unknown) return const SizedBox.shrink();
+    final text = st == CamRowState.rejected
+        ? l.smartRowRejected(x.error!)
+        : '${l.smartRowUnknown}${x.error == null ? '' : '\n${x.error}'}';
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(text, style: TextStyle(color: st == CamRowState.rejected ? T.danger : T.warn, fontSize: 12.5, fontWeight: FontWeight.w700)),
+    );
   }
 
   Future<void> _editQty(_CamItem x) async {
@@ -654,6 +823,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
               _qtyRow(x),
             ],
           ),
+          _rowStatus(x),
         ],
       ),
     );
@@ -698,13 +868,21 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
                     ActionChip(
                       avatar: const Icon(Icons.inventory_2_outlined, size: 16),
                       label: Text(l.isItProduct(p.name), overflow: TextOverflow.ellipsis),
-                      onPressed: () => setState(() => x.product = p),
+                      onPressed: () {
+                        // 2026-10-26 (П0): строка, уже ушедшая на сервер, товар не меняет (иначе остаток уйдёт не туда)
+                        if (camLineLocked(x.line)) {
+                          toast(context, l.smartRowLocked, error: true);
+                          return;
+                        }
+                        setState(() => x.product = p);
+                      },
                     ),
                 ],
               ),
             ),
           TextField(
             controller: x.name,
+            readOnly: camLineLocked(x.line),
             decoration: InputDecoration(labelText: l.clientName, isDense: true),
           ),
           const SizedBox(height: 6),
@@ -730,6 +908,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
           ),
           const SizedBox(height: 6),
           _qtyRow(x),
+          _rowStatus(x),
         ],
       ),
     );
@@ -812,6 +991,15 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
               ),
             ),
           ),
+          if (_summary != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: T.warn.withValues(alpha: .14), borderRadius: BorderRadius.circular(12), border: Border.all(color: T.warn)),
+                child: Text(_summary!, style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
           if (known.isNotEmpty) ...[
             FieldLabel(l.seenInBase(known.length)),
             for (final x in known) Padding(padding: const EdgeInsets.only(bottom: 6), child: _knownCard(x)),
@@ -833,19 +1021,17 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    FilledButton(
-                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-                      onPressed: _busy || count == 0 ? null : _upload,
-                      child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)) : Text(l.smartUpload(count)),
-                    ),
-                    const SizedBox(height: 6),
+                    // 2026-10-26 (П0, Б2): накладная «прямо на склад» без поставщика — только с правом «Закупки»
+                    if (_mode != 'invoice' || (ref.read(apiProvider).session?.canProcure ?? false)) ...[
+                      FilledButton(
+                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+                        onPressed: _busy || count == 0 ? null : _upload,
+                        child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)) : Text(l.smartUpload(count)),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
                     OutlinedButton(
-                      onPressed: _busy
-                          ? null
-                          : () async {
-                              final done = await context.push<bool>('/admin/receive', extra: _lines());
-                              if (done == true && context.mounted) Navigator.of(context).maybePop();
-                            },
+                      onPressed: _busy ? null : _toReceive,
                       child: Text(l.smartToReceive),
                     ),
                   ],

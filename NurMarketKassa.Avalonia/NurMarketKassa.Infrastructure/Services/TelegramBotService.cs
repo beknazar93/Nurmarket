@@ -56,6 +56,74 @@ public static class TelegramBotService
         return SendToAsync(chatId!, text, ct);
     }
 
+    /// <summary>2026-10-24 (ТЗ «Склад…», пакет Г1): заказ из бота — получатели по настройке «Группа заказов» (TelegramOrdersTarget):
+    /// "owner" (по умолчанию) — как раньше, чат владельца (при подключённой группе — личка владельца); "group" — только группа; "both" — группа и личка владельца.
+    /// Одинаковые чаты не дублируются. В группу телефон покупателя и сумма идут только при TelegramOrdersShowAmount (по умолчанию нет).
+    /// Группа не принимает (бота удалили, 403/400) — заказ уходит владельцу в личку с пометкой «Не удалось отправить в группу».
+    /// Сводки смены, отчёты, долги и прокат группе заказов не шлются никогда (они идут через <see cref="SendAsync"/>).
+    /// <paramref name="heading"/> — готовая HTML-строка заголовка; остальное — обычный текст (экранируется здесь).
+    /// Возвращает текст ошибки или null; не бросает исключений.</summary>
+    public static async Task<string?> SendOrderAsync(string heading, string name, string? phone, IEnumerable<string> items,
+        string? amountLine, string? comment, CancellationToken ct = default)
+    {
+        var itemList = items.ToList();
+        string Compose(bool withPhone, bool withAmount, string? note) =>
+            (note != null ? note + "\n" : "")
+            + heading + "\n" + Escape(name) + (withPhone ? " · " + Escape(phone) : "")
+            + "\n" + string.Join("\n", itemList.Select(t => "• " + Escape(t)))
+            + (withAmount && !string.IsNullOrWhiteSpace(amountLine) ? "\n" + Escape(amountLine) : "")
+            + (string.IsNullOrWhiteSpace(comment) ? "" : "\nКомментарий: " + Escape(comment));
+
+        var prefs = UserPreferences.Instance;
+        var groupId = prefs.TelegramOrdersChatId?.Trim();
+        var target = prefs.TelegramOrdersTarget;
+        if (string.IsNullOrEmpty(groupId) || target is not ("group" or "both" or "owner"))
+            return await SendAsync(Compose(true, true, null), ct).ConfigureAwait(false); // группы нет — как раньше
+
+        // Владельцу (личка): личный чат владельца, затем чат из настроек; саму группу заказов сюда не берём — в неё полные данные не идут.
+        async Task<string?> ToOwnerAsync(string text, bool includeMainChat)
+        {
+            var destinations = new List<string>();
+            if (TelegramBotOwner.OwnerPrivateChatId() is { } privateChat && privateChat != groupId)
+                destinations.Add(privateChat);
+            if (includeMainChat && prefs.TelegramChatId is { Length: > 0 } mainChat && mainChat != groupId && !destinations.Contains(mainChat))
+                destinations.Add(mainChat);
+            if (destinations.Count == 0)
+                return Tr.T("Личный чат владельца не известен.", "Ээсинин жеке чаты белгисиз.", "The owner's private chat is unknown.",
+                    "Sahibin özel sohbeti bilinmiyor.", "Eganing shaxsiy chati noma'lum.");
+            string? error = null;
+            foreach (var chat in destinations)
+            {
+                error = await SendToAsync(chat, text, ct).ConfigureAwait(false);
+                if (error == null)
+                    break;
+            }
+            return error;
+        }
+
+        if (target == "owner")
+            return await ToOwnerAsync(Compose(true, true, null), includeMainChat: true).ConfigureAwait(false); // «только мне в личку»
+
+        var showMore = prefs.TelegramOrdersShowAmount;
+        var groupError = await SendToAsync(groupId, Compose(showMore, showMore, null), ct).ConfigureAwait(false);
+        if (groupError != null)
+            PosLogger.Log("Телеграм-бот: заказ в группу заказов не ушёл — отправляю владельцу.", "TELEGRAM");
+        if (target == "group" && groupError == null)
+            return null;
+
+        // «Группа и личка», либо группа не приняла заказ (бота удалили, 403 / 400) — владельцу в личку, при отказе группы — с пометкой.
+        var title = prefs.TelegramOrdersChatTitle;
+        var note = groupError == null ? null : Tr.T($"⚠️ Не удалось отправить в группу «{Escape(title)}» — заказ пришёл только вам.",
+            $"⚠️ «{Escape(title)}» тобуна жөнөтүү мүмкүн болгон жок — буйрутма сизге гана келди.",
+            $"⚠️ Could not send to the group “{Escape(title)}” — the order came only to you.",
+            $"⚠️ «{Escape(title)}» grubuna gönderilemedi — sipariş yalnızca size geldi.",
+            $"⚠️ «{Escape(title)}» guruhiga yuborib bo'lmadi — buyurtma faqat sizga keldi.");
+        var ownerError = await ToOwnerAsync(Compose(true, true, note), includeMainChat: groupError != null).ConfigureAwait(false);
+
+        // null — заказ дошёл владельцу (для «both» группа уже получила своё).
+        return ownerError;
+    }
+
     /// <summary>Отправляет сообщение В КОНКРЕТНЫЙ чат — владельцу, клиенту-должнику или любому,
     /// кто подписался на бота. Отдельно от <see cref="SendAsync"/>, потому что получатель здесь
     /// не из настроек: рассылка напоминаний идёт по чатам подписавшихся клиентов.</summary>
@@ -341,6 +409,8 @@ public static class TelegramBotService
     /// в пустоту, а команды из новой группы бот не считал бы командами владельца.</summary>
     public static void RememberMigratedChat(string oldChatId, string newChatId)
     {
+        // 2026-10-24 (Г1): группа заказов тоже переезжает на новый chat_id (раньше обновлялся только чат владельца).
+        TelegramBotOwner.RememberMigratedOrdersGroup(oldChatId, newChatId);
         var prefs = UserPreferences.Instance;
         if (!string.Equals(prefs.TelegramChatId, oldChatId, StringComparison.Ordinal))
             return;

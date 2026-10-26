@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Склад — Массовое добавление — Импорт, шаг 1: файл (Д6)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="BulkAdd-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    Мастер импорта, шаг 1 «Файл». Excel и CSV отличаются только этим шагом: у Excel — лист и строка заголовков, у CSV — кодировка и разделитель.
+    Состояния: пусто (подсказка «что делать»), файл прочитан (.xlsx / .csv), ошибки файла (.xls, &gt; 20 МБ, пустой), кракозябры → «Кодировка: Windows-1251?»,
+    скан в режиме импорта → подсказка (Н-11). Ссылка «Старая загрузка (замена остатка)» — по вопросу В-1.
+  </div>
+</div>
+<script src="BulkAdd-shared.js"></script>
+<script>
+(function(){
+  const I = BA.icon, fmt = BA.fmt;
+  const frame = document.getElementById('frame');
+  const RAW = [
+    ['Штрихкод','Наименование','Кол-во','Цена закупки','Цена продажи','Наценка','Категория','Ед.','Артикул'],
+    ['4870001234567','Хлеб белый «Нарын»','40','28','35','','Хлеб','шт','HL-001'],
+    ['5449000000996','Coca-Cola 1 л','24','55','65','','Напитки','шт','CC-100'],
+    ['4600300123456','Шоколад Alpen Gold молочный 90 г','30','70','','25 %','Кондитерские','шт',''],
+    ['4870011223344','Масло «Шоро» подсолнечное 1 л','6','180','','25','Бакалея','шт','SH-1L'],
+    ['2000000012345','','3','60','80','','Молочное','л',''],
+  ];
+  const MOJI = [
+    ['Øòðèõêîä','Íàèìåíîâàíèå','Êîë-âî','Öåíà çàêóïêè','Öåíà ïðîäàæè'],
+    ['4870001234567','Õëåá áåëûé «Íàðûí»','40','28','35'],
+    ['5449000000996','Coca-Cola 1 ë','24','55','65'],
+    ['4600300123456','Øîêîëàä Alpen Gold','30','70',''],
+  ];
+  function sel(label, value, key){ return '<span class="kv"><span data-ky data-key="' + key + '">' + label + '</span><span class="sel"><span class="v">' + value + '</span>' + I('chevron-down', 18) + '</span></span>'; }
+  function preview(rows, startRow){ /* startRow — номер строки файла у строки заголовков (у .xlsx нашлась в 3-й) */
+    const letters = 'ABCDEFGHIJ';
+    return '<div class="tbl"><table><thead><tr><th class="rownum">№</th>' + rows[0].map((_, i) => '<th>' + letters[i] + '</th>').join('') + '</tr></thead><tbody>' +
+      rows.map((r, i) => '<tr' + (i === 0 ? ' class="hrow"' : '') + '><td class="rownum num">' + (i + startRow) + '</td>' + r.map(c => '<td class="' + (/[ÀÈÌÒÙ-ÿ]/.test(c) ? 'wrong' : '') + '">' + (c || '<span class="soft">—</span>') + '</td>').join('') + '</tr>').join('') +
+      '</tbody></table></div>';
+  }
+  function help(mode){
+    return '<div class="side"><div class="hcard"><h3 data-key="imp.helpTitle">Что делать</h3><ol>' +
+      '<li data-key="imp.help1">Скачайте шаблон и заполните его — или возьмите прайс поставщика как есть.</li>' +
+      '<li data-key="imp.help2">Выберите файл: ' + (mode === 'csv' ? '.csv или .txt (UTF-8 или Windows-1251, разделитель ; , или табуляция)' : '.xlsx — первый лист с данными найдётся сам') + '.</li>' +
+      '<li data-key="imp.help3">На шаге 2 проверьте, какой столбец что значит; на шаге 3 — ошибки по строкам и «Загрузить».</li></ol></div>' +
+      '<div class="hcard"><h3 data-key="imp.limitsTitle">Пределы</h3><span data-key="imp.limits">Файл до 20 МБ, до 50 000 строк. Количество из файла <b>прибавляется</b> к остатку (это приход, не замена).</span>' +
+      (mode === 'csv' ? '' : '<br><span data-key="imp.xlsNote">Старый .xls (Excel 97–2003) не читается — сохраните как .xlsx.</span>') + '</div>' +
+      '<div class="hcard" style="display:flex;align-items:center;gap:8px">' + I('information-outline', 16) + '<span data-key="imp.scanInImport">Сканер в этом режиме строки не добавляет</span></div></div>';
+  }
+  function render(state){
+    const mode = (state === 'csv' || state === 'mojibake') ? 'csv' : 'excel';
+    const hasFile = ['xlsx', 'csv', 'scanhint', 'mojibake'].includes(state);
+    let main = '';
+    if (state === 'empty') {
+      main = '<div class="drop">' + I('file-excel-outline', 44) + '<b data-key="imp.dropHere">Перетащите файл .xlsx сюда</b><span data-ky data-key="imp.or">или</span>' +
+        '<div class="acts"><button class="btn primary"><span data-ky data-key="imp.chooseFile">Выбрать файл…</span></button>' +
+        '<button class="btn secondary">' + I('file-export-outline', 18) + '<span data-ky data-key="imp.template">Скачать шаблон</span></button>' +
+        '<button class="btn secondary"><span data-ky data-key="imp.paste">Вставить из буфера</span></button></div>' +
+        '<span data-key="imp.formats">Excel .xlsx · шаблон со столбцами: Штрихкод, Название, Количество, Закупка, Продажа, Наценка %, Категория, Единица</span></div>';
+    } else if (state === 'xls' || state === 'big' || state === 'blank') {
+      const txt = { xls:['bad', 'imp.errXls', 'Это старый формат .xls (Excel 97–2003) — откройте файл в Excel и сохраните как .xlsx или CSV.'],
+                    big:['bad', 'imp.errBig', 'Файл 34 МБ — больше 20 МБ. Уберите лишние столбцы или разбейте на несколько файлов.'],
+                    blank:['warn', 'imp.errEmpty', 'В файле нет строк с данными: лист «Лист1», заголовки найдены, строк 0.'] }[state];
+      main = '<div class="plate ' + txt[0] + '">' + I('information-outline', 22) + '<span class="tx"><b>' + (state === 'xls' ? 'прайс-октябрь.xls' : state === 'big' ? 'весь-склад-2026.xlsx' : 'товары.xlsx') + '</b> · <span data-key="' + txt[1] + '">' + txt[2] + '</span></span>' +
+        '<button class="btn secondary sm"><span data-key="imp.chooseOther">Выбрать другой файл</span></button></div>' +
+        '<div class="drop" style="flex:1">' + I('file-excel-outline', 40) + '<b data-key="imp.dropHere">Перетащите файл .xlsx сюда</b><div class="acts"><button class="btn primary"><span data-ky data-key="imp.chooseFile">Выбрать файл…</span></button><button class="btn secondary">' + I('file-export-outline', 18) + '<span data-ky data-key="imp.template">Скачать шаблон</span></button></div></div>';
+    } else if (mode === 'csv') {
+      const moji = state === 'mojibake';
+      main = '<div class="filebar"><span class="fn">' + I('file-check-outline', 18) + 'прайс-поставщика.csv <span style="color:var(--text-soft);font-weight:500">· 1,8 МБ</span></span>' +
+        sel('Кодировка', moji ? 'авто → UTF-8' : 'авто → Windows-1251', 'imp.encoding') + sel('Разделитель', '; точка с запятой', 'imp.delimiter') +
+        '<span class="kv num" data-key="imp.rowsCols">строк ' + fmt(15000) + ', столбцов 5</span></div>' +
+        (moji ? '<div class="plate warn">' + I('information-outline', 22) + '<span class="tx"><b class="w" data-key="imp.mojibake">Похоже, кодировка не UTF-8:</b> «Õëåá áåëûé». <span data-key="imp.mojibakeAsk">Попробовать Windows-1251?</span></span><button class="btn primary sm"><span data-ky data-key="imp.tryCp1251">Да, Windows-1251</span></button><button class="btn secondary sm"><span data-ky data-key="imp.keepUtf8">Оставить как есть</span></button></div>' : '') +
+        '<span style="font-size:12.5px;color:var(--text-soft)" data-key="imp.preview5">Первые 5 строк как есть</span>' + preview(moji ? MOJI : RAW, 1);
+    } else {
+      main = '<div class="filebar"><span class="fn">' + I('file-check-outline', 18) + 'прайс-октябрь.xlsx <span style="color:var(--text-soft);font-weight:500">· 1,2 МБ</span></span>' +
+        sel('Лист', 'Товары', 'imp.sheet') + sel('Строка заголовков', '3', 'imp.headerRow') +
+        '<span class="kv num" data-key="imp.rowsCols">строк ' + fmt(15000) + ', столбцов 9</span></div>' +
+        '<span style="font-size:12.5px;color:var(--text-soft)" data-key="imp.preview5">Первые 5 строк как есть · заголовки найдены сами в строке 3 — можно поправить</span>' + preview(RAW, 3);
+    }
+    frame.innerHTML = BA.chrome() +
+      '<div class="tab">' +
+        '<div class="row">' + BA.segment(mode) + '<span class="sp"></span>' + BA.steps(1, hasFile ? (mode === 'csv' ? 'прайс-поставщика.csv' : 'прайс-октябрь.xlsx') : '') + '</div>' +
+        '<div class="wiz"><div class="wb"><div class="main-col">' + main + '</div>' + help(mode) + '</div>' +
+          '<div class="wf"><span class="plate-link">' + I('history', 18) + '<span data-ky data-key="imp.oldImport">Старая загрузка (замена остатка)</span></span><span class="sp"></span>' +
+            (hasFile ? '<span class="stat num" data-key="imp.readOk">Файл прочитан за 1,9 с</span>' : '') +
+            '<button class="btn primary' + (hasFile ? '' : ' disabled') + '"><span data-ky data-key="imp.next">Далее</span>' + I('chevron-right', 18) + '</button></div></div>' +
+      '</div>' +
+      (state === 'scanhint' ? '<div class="toast">' + I('barcode-scan', 20) + '<span data-key="imp.scanHint">Сканер работает в режиме «Массовое сканирование»</span><button class="btn secondary sm"><span data-ky data-key="imp.goScan">Перейти</span></button></div>' : '');
+    if (frame.dataset.ky) BA.applyKy(true);
+  }
+  BA.toolbar(frame, { title:'BulkAdd-Import1 — шаг 1: файл', onState:render, states:[
+    { id:'empty', label:'пусто' }, { id:'xlsx', label:'.xlsx прочитан' }, { id:'csv', label:'.csv прочитан' },
+    { id:'xls', label:'.xls' }, { id:'big', label:'> 20 МБ' }, { id:'blank', label:'пустой' }, { id:'mojibake', label:'кракозябры' }, { id:'scanhint', label:'скан в импорте' } ] });
+})();
+</script>
+</body></html>

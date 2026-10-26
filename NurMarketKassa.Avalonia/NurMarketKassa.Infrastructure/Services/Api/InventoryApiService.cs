@@ -46,4 +46,27 @@ public sealed class InventoryApiService : IInventoryApiService
         var body = new { allow_negative = allowNegative };
         return _client.RequestAsync(HttpMethod.Post, $"api/main/inventory/sessions/{escaped}/apply/", body, null, ct);
     }
+
+    // 2026-10-24 (ТЗ «Склад», Р1): состояние акта — как у мобилки (_sessionApplied): проведён, если is_applied / applied_at / статус «проведён».
+    public async Task<InventorySessionInfo?> GetSessionAsync(string sessionId, CancellationToken ct = default)
+    {
+        var escaped = Uri.EscapeDataString(sessionId.Trim());
+        JsonElement s;
+        try
+        {
+            s = await _client.RequestAsync(HttpMethod.Get, $"api/main/inventory/sessions/{escaped}/", null, null, ct).ConfigureAwait(false);
+        }
+        catch (ApiException ex) when (ex.StatusCode == 404)
+        {
+            return null;
+        }
+
+        if (s.ValueKind != JsonValueKind.Object)
+            return null;
+        var status = s.TryGetProperty("status", out var st) && st.ValueKind == JsonValueKind.String ? st.GetString() ?? "" : "";
+        var applied = (s.TryGetProperty("is_applied", out var ia) && ia.ValueKind == JsonValueKind.True)
+            || (s.TryGetProperty("applied_at", out var at) && at.ValueKind != JsonValueKind.Null && at.ValueKind != JsonValueKind.Undefined)
+            || status.ToLowerInvariant() is "applied" or "done" or "completed" or "closed" or "posted";
+        return new InventorySessionInfo(sessionId, status, applied);
+    }
 }

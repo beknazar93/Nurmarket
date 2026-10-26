@@ -2342,6 +2342,42 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         _scanLastTick = now;
     }
 
+    /// <summary>2026-10-24: строка блока «Штрихкоды товаров» карточки накладной — одна позиция накладной со своим полем.</summary>
+    private sealed class BarcodeRow
+    {
+        public int Index;
+        public ProductActionPlan.Step Step = null!;
+        public TextBox Box = null!;
+        public Border Host = null!;
+        public TextBlock Note = null!, Num = null!, Label = null!;
+        public Grid Grid = null!;
+        public bool Editable;
+        public bool DupMarked;
+        public string Initial = "";
+        public string? LastCode;
+        public NurMarketKassa.Models.Pos.CatalogProductTileVm? Existing;
+        public string Code => (Box.Text ?? "").Trim();
+    }
+
+    /// <summary>Раскладка строки: широкая — «№ · название · кол-во» слева, поле справа, пометка под ними; узкая (&lt; 700 px) — подпись
+    /// над полем, поле на всю ширину.</summary>
+    private static void PlaceBarcodeRow(BarcodeRow r, bool narrow)
+    {
+        Grid.SetRow(r.Num, 0); Grid.SetColumn(r.Num, 0);
+        if (narrow)
+        {
+            Grid.SetRow(r.Label, 0); Grid.SetColumn(r.Label, 1); Grid.SetColumnSpan(r.Label, 2);
+            Grid.SetRow(r.Host, 1); Grid.SetColumn(r.Host, 0); Grid.SetColumnSpan(r.Host, 3);
+            Grid.SetRow(r.Note, 2); Grid.SetColumn(r.Note, 0); Grid.SetColumnSpan(r.Note, 3);
+        }
+        else
+        {
+            Grid.SetRow(r.Label, 0); Grid.SetColumn(r.Label, 1); Grid.SetColumnSpan(r.Label, 1);
+            Grid.SetRow(r.Host, 0); Grid.SetColumn(r.Host, 2); Grid.SetColumnSpan(r.Host, 1);
+            Grid.SetRow(r.Note, 1); Grid.SetColumn(r.Note, 1); Grid.SetColumnSpan(r.Note, 2);
+        }
+    }
+
     /// <summary>2026-10-06: предложенные ИИ действия с товарами — карточкой; выполняются только по «Выполнить» (ProductActionPlan).</summary>
     /// <param name="proposedUtc">2026-10-16: когда предложена исходная карточка (у отредактированной — время исходной): карточка,
     /// предложенная раньше выполнения такой же (в боте или здесь), не выполняется повторно (ProductActionPlan.ExecuteAllAsync).</param>
@@ -2517,6 +2553,218 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             ProductActionPlan.KeepCurrentPriceIfLower(st.Price, existing.PriceValue) is var (price, notLowered)
                 ? new ProductActionPlan.Step("receive", existing, st.Qty, null, null, st.Purchase, price, ExpectedStock: existing.Quantity, PriceNotLowered: notLowered)
                 : st;
+        // 2026-10-24, владелец: «внизу … поле для ввода штрих кода (столько поле для ввода, сколько товара)», «разделить каждому
+        // товару своё поле». Прежде поля были безымянными, только у новых товаров без кода. Теперь — блок «Штрихкоды товаров»:
+        // строка на КАЖДУЮ позицию накладной (приход или новый товар) «№ · название · кол-во» со своим полем; известный код
+        // подставлен (у товара склада — серый, не правится); счётчик «введено N из M»; нехватка кодов проведению не мешает,
+        // повтор одного кода у двух строк — мешает. Код сохраняется существующими путями: новый товар — закупкой (Barcode шага),
+        // приход к товару склада без кода — шагом set_barcode (ProductActions.UpdateFieldsAsync) после закупки.
+        var barcodeRows = new List<BarcodeRow>();
+        var dupRows = new HashSet<int>();
+        var dupShown = false;
+        Action? afterRefresh = null;
+        TextBlock? counterText = null, statusText = null, dupText = null;
+        Border? blockHost = null;
+        string ApplyName() => purchase
+            ? T("Провести закупку…", "Сатып алууну өткөрүү…", "Post purchase…", "Alımı işle…", "Xaridni o'tkazish…")
+            : T("Применить изменения", "Өзгөртүүлөрдү колдонуу", "Apply changes", "Değişiklikleri uygula", "O'zgarishlarni qo'llash");
+        void SetNote(BarcodeRow r, string text, string brush)
+        {
+            r.Note.Text = text;
+            r.Note.IsVisible = text.Length > 0;
+            if (text.Length > 0)
+                Use(r.Note, TextBlock.ForegroundProperty, brush);
+        }
+        void RefreshBarcodes()
+        {
+            foreach (var r in barcodeRows)
+            {
+                var c = r.Code;
+                if (!string.Equals(c, r.LastCode, StringComparison.Ordinal))
+                {
+                    r.LastCode = c;
+                    r.Existing = r.Editable ? ByBarcode(c) : null;
+                }
+            }
+            // Повтор кода: тот же код (от 4 знаков) у двух строк, если хоть одна из них правится. Один и тот же товар склада
+            // дважды в накладной (серые строки с одним кодом) — не повтор, приход к нему сольётся в одну строку.
+            dupRows.Clear();
+            foreach (var g in barcodeRows.Where(r => r.Code.Length >= 4).GroupBy(r => r.Code, StringComparer.OrdinalIgnoreCase))
+                if (g.Count() > 1 && g.Any(r => r.Editable))
+                    foreach (var r in g)
+                        dupRows.Add(r.Index);
+            foreach (var r in barcodeRows)
+            {
+                var code = r.Code;
+                var dup = dupRows.Contains(r.Index);
+                if (dup != r.DupMarked)
+                {
+                    r.DupMarked = dup;
+                    if (dup)
+                        Use(r.Host, Border.BorderBrushProperty, "BrushDanger");
+                    else
+                        r.Host.ClearValue(Border.BorderBrushProperty);
+                }
+                if (dup)
+                {
+                    var other = barcodeRows.First(o => o.Index != r.Index && string.Equals(o.Code, code, StringComparison.OrdinalIgnoreCase)).Index + 1;
+                    SetNote(r, T($"этот штрихкод уже у строки {other}", $"бул штрихкод {other}-сапта бар", $"this barcode is already on line {other}",
+                        $"bu barkod zaten {other}. satırda", $"bu shtrix-kod {other}-qatorda allaqachon bor"), "BrushDanger");
+                }
+                else if (!r.Editable)
+                    SetNote(r, T("уже у товара", "товарда бар", "already on the product", "üründe zaten var", "mahsulotda allaqachon bor"), "BrushTextSoft");
+                else if (code.Length == 0)
+                    SetNote(r, "", "BrushTextSoft");
+                else if (code.Length < 4)
+                    SetNote(r, T("слишком короткий — проверьте", "өтө кыска — текшериңиз", "too short — please check", "çok kısa — kontrol edin", "juda qisqa — tekshiring"), "BrushWarning");
+                else if (r.Existing is { } existing && r.Step.Op == "create")
+                {
+                    var text = T($"Этот штрихкод уже у товара «{existing.Title}» — будет приход к нему, новый товар не создаётся.",
+                        $"Бул штрихкод «{existing.Title}» товарында бар — ага кириш болот, жаңы товар түзүлбөйт.",
+                        $"This barcode already belongs to “{existing.Title}” — it will be received there, no new product.",
+                        $"Bu barkod zaten «{existing.Title}» ürününde — ona giriş yapılır, yeni ürün oluşturulmaz.",
+                        $"Bu shtrix-kod «{existing.Title}» mahsulotida bor — unga kirim bo'ladi, yangi mahsulot yaratilmaydi.");
+                    // 2026-10-15: цена склада не снижается приходом — сказать об этом здесь же.
+                    if (ProductActionPlan.PriceNotLoweredNote(AsReceive(r.Step, existing)) is { } priceNote)
+                        text += " " + priceNote;
+                    SetNote(r, text, "BrushWarning");
+                }
+                else if (r.Existing is { } owner && !string.Equals(owner.Id, r.Step.Product.Id, StringComparison.OrdinalIgnoreCase))
+                    SetNote(r, T($"этот штрихкод уже у товара «{owner.Title}» — для этой строки он не будет поставлен",
+                        $"бул штрихкод «{owner.Title}» товарында бар — бул сап үчүн коюлбайт",
+                        $"this barcode already belongs to “{owner.Title}” — it will not be set for this line",
+                        $"bu barkod zaten «{owner.Title}» ürününde — bu satır için atanmaz",
+                        $"bu shtrix-kod «{owner.Title}» mahsulotida bor — bu qator uchun qo'yilmaydi"), "BrushWarning");
+                else if (r.Initial.Length > 0 && string.Equals(code, r.Initial, StringComparison.Ordinal))
+                    SetNote(r, T("прочитано с накладной — сверьте", "накладнойдон окулду — салыштырыңыз", "read from the invoice — please check",
+                        "faturadan okundu — kontrol edin", "yuk xatidan o'qildi — tekshiring"), "BrushTextSoft");
+                else if (r.Step.Op == "create")
+                    SetNote(r, T("✓ новый товар", "✓ жаңы товар", "✓ new product", "✓ yeni ürün", "✓ yangi mahsulot"), "BrushSuccess");
+                else
+                    SetNote(r, T("после проведения штрихкод будет поставлен товару", "өткөргөндөн кийин штрихкод товарга коюлат",
+                        "after posting, the barcode is set on the product", "işlemden sonra barkod ürüne atanır", "o'tkazilgandan keyin shtrix-kod mahsulotga qo'yiladi"), "BrushTextSoft");
+            }
+            var editable = barcodeRows.Where(r => r.Editable).ToList();
+            var filled = editable.Count(r => r.Code.Length > 0);
+            var missing = editable.Count - filled;
+            if (counterText is not null)
+            {
+                counterText.IsVisible = editable.Count > 0;
+                counterText.Text = T($"введено {filled} из {editable.Count}", $"киргизилди {filled} / {editable.Count}", $"entered {filled} of {editable.Count}",
+                    $"girilen {filled} / {editable.Count}", $"kiritildi {filled} / {editable.Count}");
+            }
+            if (statusText is not null)
+            {
+                statusText.IsVisible = editable.Count > 0 && (missing > 0 || dupRows.Count == 0); // при повторе кода вместо «все введены» — красная строка ниже
+                if (missing > 0)
+                {
+                    statusText.Text = T($"⚠ Не хватает штрихкодов: {missing}. Можно провести и без них — товар создастся без штрихкода, поставить его можно позже в карточке товара.",
+                        $"⚠ Штрихкод жетишпейт: {missing}. Алар жок да өткөрсө болот — товар штрихкодсуз түзүлөт, аны кийин товардын карточкасында коюуга болот.",
+                        $"⚠ Barcodes missing: {missing}. You can still post without them — the product is created without a barcode; you can add it later in the product card.",
+                        $"⚠ Eksik barkod: {missing}. Onlarsız da işleyebilirsiniz — ürün barkodsuz oluşturulur, barkodu sonra ürün kartından ekleyebilirsiniz.",
+                        $"⚠ Shtrix-kod yetishmayapti: {missing}. Ularsiz ham o'tkazish mumkin — mahsulot shtrix-kodsiz yaratiladi, uni keyin mahsulot kartasida qo'yish mumkin.");
+                    Use(statusText, TextBlock.ForegroundProperty, "BrushWarning");
+                }
+                else
+                {
+                    var name = ApplyName();
+                    statusText.Text = T($"Все штрихкоды введены — нажмите «{name}».", $"Бардык штрихкоддор киргизилди — «{name}» баскычын басыңыз.",
+                        $"All barcodes entered — press “{name}”.", $"Tüm barkodlar girildi — «{name}» düğmesine basın.", $"Barcha shtrix-kodlar kiritildi — «{name}» tugmasini bosing.");
+                    Use(statusText, TextBlock.ForegroundProperty, "BrushTextSoft");
+                }
+            }
+            if (dupText is not null)
+                dupText.IsVisible = dupRows.Count > 0;
+            afterRefresh?.Invoke();
+        }
+        BarcodeRow AddBarcodeRow(int i, StackPanel host)
+        {
+            var step = steps[i];
+            var unit = string.IsNullOrWhiteSpace(step.Unit) ? (step.Product.MustWeigh ? "кг" : "шт") : step.Unit!;
+            var qtyText = step.Qty is { } q ? " · " + q.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture) + " " + unit : "";
+            var known = !string.IsNullOrWhiteSpace(step.Barcode) ? step.Barcode!.Trim() : (step.Product.Barcode ?? "").Trim();
+            // Приход к товару склада с известным штрихкодом — серое поле «только чтение».
+            var editable = !(step.Op == "receive" && known.Length > 0);
+            var num = new TextBlock { Text = (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture), FontSize = 13.5, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            Use(num, TextBlock.ForegroundProperty, "BrushTextSoft");
+            var label = new TextBlock { FontSize = 13.5, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
+            label.Inlines!.Add(new Avalonia.Controls.Documents.Run(step.Product.Title) { FontWeight = FontWeight.SemiBold });
+            if (qtyText.Length > 0)
+                label.Inlines.Add(new Avalonia.Controls.Documents.Run(qtyText));
+            Use(label, TextBlock.ForegroundProperty, "BrushText");
+            // 2026-10-24: подсказка короткая — поле строки 300 px, длинная обрезалась.
+            var box = UiKit.Input(this, T("Штрихкод: скан или ввод", "Штрихкод: скан же жазуу", "Barcode: scan or type",
+                "Barkod: okutun veya yazın", "Shtrix-kod: skaner yoki kiritish"), 36);
+            box.Text = known;
+            if (!editable)
+            {
+                box.IsReadOnly = true;
+                box.Focusable = false;
+                box.IsTabStop = false;
+                box.IsHitTestVisible = false;
+                Use(box, TextBox.ForegroundProperty, "BrushTextSoft");
+            }
+            var fieldHost = new Border { Child = box, BorderThickness = new Thickness(2), CornerRadius = new CornerRadius(11) };
+            var note = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false, Margin = new Thickness(0, 0, 0, 2) };
+            var row = new BarcodeRow { Index = i, Step = step, Box = box, Host = fieldHost, Note = note, Num = num, Label = label, Editable = editable, Initial = editable ? known : "" };
+            row.Grid = new Grid
+            {
+                ColumnDefinitions = { new ColumnDefinition(30, GridUnitType.Pixel), new ColumnDefinition(1, GridUnitType.Star), new ColumnDefinition(300, GridUnitType.Pixel) },
+                RowDefinitions = { new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto) },
+                Children = { num, label, fieldHost, note },
+            };
+            PlaceBarcodeRow(row, false);
+            var rowStack = new StackPanel { Spacing = 1, Children = { row.Grid } };
+            host.Children.Add(rowStack);
+            barcodeRows.Add(row);
+            if (!editable)
+                return row;
+            box.TextChanged += (_, _) => RefreshBarcodes();
+            box.KeyDown += (_, e) =>
+            {
+                if (e.Key != Key.Enter)
+                    return;
+                e.Handled = true;
+                // Следующее пустое правимое поле (серые пропускаются); все заполнены — фокус остаётся, счётчик это пишет.
+                barcodeRows.Where(r => r.Editable && r.Index > i && string.IsNullOrWhiteSpace(r.Box.Text)).Select(r => r.Box).FirstOrDefault()?.Focus();
+            };
+            barcodeBoxes[i] = (box, note);
+            // 2026-10-07, владелец: «если наименование есть — поставь штрихкод из barcode-list.ru, но дай проверить и сверить с товаром».
+            // Под строкой — варианты из базы с их названием; нажатие вписывает штрихкод в поле (поле можно поправить до «Выполнить»).
+            if (step.Op == "create" && known.Length == 0)
+            {
+                var suggest = new WrapPanel { Margin = new Thickness(30, 0, 0, 4), IsVisible = false };
+                rowStack.Children.Add(suggest);
+                var stepTitle = step.Product.Title;
+                _ = Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    var found = await BarcodeListLookup.FindByNameAsync(stepTitle, CancellationToken.None).ConfigureAwait(true);
+                    if (found.Count == 0 || !string.IsNullOrWhiteSpace(box.Text))
+                        return;
+                    var hint = new TextBlock
+                    {
+                        Text = T("Штрихкод из barcode-list.ru — сверьте с товаром:", "barcode-list.ru'дан штрихкод — товар менен салыштырыңыз:",
+                            "Barcode from barcode-list.ru — check against the product:", "barcode-list.ru'dan barkod — ürünle karşılaştırın:",
+                            "barcode-list.ru'dan shtrix-kod — mahsulot bilan solishtiring:"),
+                        FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 4),
+                    };
+                    Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
+                    suggest.Children.Add(hint);
+                    foreach (var s in found)
+                    {
+                        var pick = UiKit.Ghost(this, $"{s.Barcode} · {s.Name}");
+                        pick.Height = 30;
+                        pick.FontSize = 12;
+                        pick.Padding = new Thickness(10, 0);
+                        pick.Margin = new Thickness(0, 0, 6, 4);
+                        pick.Click += (_, _) => box.Text = s.Barcode;
+                        suggest.Children.Add(pick);
+                    }
+                    suggest.IsVisible = true;
+                });
+            }
+            return row;
+        }
         for (var i = 0; i < steps.Count; i++)
         {
             if (!showProductTable)
@@ -2525,92 +2773,106 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 Use(line, TextBlock.ForegroundProperty, "BrushText");
                 body.Children.Add(line);
             }
-            if (steps[i].Op != "create" || !string.IsNullOrWhiteSpace(steps[i].Barcode))
-                continue;
-            var box = UiKit.Input(this, T("Штрихкод — отсканируйте сканером или введите", "Штрихкод — сканер менен окутуңуз же жазыңыз", "Barcode — scan it or type it",
-                "Barkod — okutun veya yazın", "Shtrix-kod — skanerlang yoki kiriting"), 36);
-            box.Margin = new Thickness(14, 0, 0, 0);
-            box.Width = 440;
-            box.HorizontalAlignment = HorizontalAlignment.Left;
-            var note = new TextBlock { FontSize = 12.5, Margin = new Thickness(14, 0, 0, 2), TextWrapping = TextWrapping.Wrap, IsVisible = false };
-            Use(note, TextBlock.ForegroundProperty, "BrushWarning");
-            var index = i;
-            box.TextChanged += (_, _) =>
+        }
+        if (showProductTable && steps.Any(st => st.Op is "create" or "receive"))
+        {
+            var rowsPanel = new StackPanel { Spacing = 6 };
+            var titleRow = new Grid { ColumnDefinitions = { new ColumnDefinition(1, GridUnitType.Star), new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Auto) } };
+            var blockTitle = new TextBlock
             {
-                var code = (box.Text ?? "").Trim();
-                var existing = ByBarcode(code);
-                // Сканер «пикнул» дважды или один код у двух строк — второй товар с тем же штрихкодом сервер не примет.
-                var twice = code.Length >= 4 && barcodeBoxes.Any(kv => kv.Key != index && string.Equals((kv.Value.Box.Text ?? "").Trim(), code, StringComparison.OrdinalIgnoreCase));
-                note.IsVisible = existing is not null || twice;
-                if (twice && existing is null)
-                    note.Text = T("Этот штрихкод уже введён у другой строки — проверьте.", "Бул штрихкод башка сапта киргизилген — текшериңиз.",
-                        "This barcode is already entered on another line — please check.", "Bu barkod başka bir satıra zaten girildi — kontrol edin.",
-                        "Bu shtrix-kod boshqa qatorda kiritilgan — tekshiring.");
-                if (existing is not null)
-                    note.Text = T($"Этот штрихкод уже у товара «{existing.Title}» — будет приход к нему, новый товар не создаётся.",
-                        $"Бул штрихкод «{existing.Title}» товарында бар — ага кириш болот, жаңы товар түзүлбөйт.",
-                        $"This barcode already belongs to “{existing.Title}” — it will be received there, no new product.",
-                        $"Bu barkod zaten «{existing.Title}» ürününde — ona giriş yapılır, yeni ürün oluşturulmaz.",
-                        $"Bu shtrix-kod «{existing.Title}» mahsulotida bor — unga kirim bo'ladi, yangi mahsulot yaratilmaydi.");
-                // 2026-10-15: цена склада не снижается приходом — сказать об этом здесь же.
-                if (existing is not null && ProductActionPlan.PriceNotLoweredNote(AsReceive(steps[index], existing)) is { } priceNote)
-                    note.Text += " " + priceNote;
+                Text = T("Штрихкоды товаров", "Товарлардын штрихкоддору", "Product barcodes", "Ürün barkodları", "Mahsulotlar shtrix-kodlari"),
+                FontSize = 14, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center,
             };
-            box.KeyDown += (_, e) =>
+            Use(blockTitle, TextBlock.ForegroundProperty, "BrushText");
+            counterText = new TextBlock { FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            Use(counterText, TextBlock.ForegroundProperty, "BrushAccentStrong");
+            Grid.SetColumn(counterText, 2);
+            titleRow.Children.Add(blockTitle);
+            titleRow.Children.Add(counterText);
+            rowsPanel.Children.Add(titleRow);
+            for (var i = 0; i < steps.Count; i++)
+                if (steps[i].Op is "create" or "receive")
+                    AddBarcodeRow(i, rowsPanel);
+            // 2026-10-26 (требование владельца): «Сгенерировать» — свой штрихкод новым товарам с пустым полем (BarcodeGenerator:
+            // EAN-13, не с 0 и не весовой; введённые руками коды не трогает, повторов с каталогом и между строками нет).
+            if (steps.Any(st => st.Op == "create"))
             {
-                if (e.Key != Key.Enter)
-                    return;
-                e.Handled = true;
-                // Следующее пустое поле штрихкода; все заполнены — к «Выполнить».
-                var next = barcodeBoxes.Where(kv => kv.Key > index && string.IsNullOrWhiteSpace(kv.Value.Box.Text)).Select(kv => kv.Value.Box).FirstOrDefault();
-                if (next is not null)
-                    next.Focus();
-            };
-            barcodeBoxes[i] = (box, note);
-            body.Children.Add(box);
-            body.Children.Add(note);
-            // 2026-10-07, владелец: «если наименование есть — поставь штрихкод из barcode-list.ru, но дай проверить и сверить с товаром».
-            // Под полем — варианты из базы с их названием; нажатие вписывает штрихкод в поле (поле можно поправить до «Выполнить»).
-            var suggest = new WrapPanel { Margin = new Thickness(14, 0, 0, 4), IsVisible = false };
-            body.Children.Add(suggest);
-            var stepTitle = steps[i].Product.Title;
-            _ = Dispatcher.UIThread.InvokeAsync(async () =>
-            {
-                var found = await BarcodeListLookup.FindByNameAsync(stepTitle, CancellationToken.None).ConfigureAwait(true);
-                if (found.Count == 0 || !string.IsNullOrWhiteSpace(box.Text))
-                    return;
-                var hint = new TextBlock
+                var makeCodes = UiKit.Ghost(this, T("Сгенерировать", "Түзүү", "Generate", "Oluştur", "Yaratish"));
+                makeCodes.Height = 32;
+                makeCodes.FontSize = 12.5;
+                makeCodes.Padding = new Thickness(12, 0);
+                makeCodes.Margin = new Thickness(0, 0, 10, 0);
+                ToolTip.SetTip(makeCodes, T("Проставить свой штрихкод новым товарам с пустым полем", "Талаасы бош жаңы товарларга өз штрихкодун коюу",
+                    "Set an own barcode on new products with an empty field", "Alanı boş yeni ürünlere kendi barkodunu ver", "Maydoni bo'sh yangi mahsulotlarga o'z shtrix-kodini qo'yish"));
+                Grid.SetColumn(makeCodes, 1);
+                makeCodes.Click += (_, _) =>
                 {
-                    Text = T("Штрихкод из barcode-list.ru — сверьте с товаром:", "barcode-list.ru'дан штрихкод — товар менен салыштырыңыз:",
-                        "Barcode from barcode-list.ru — check against the product:", "barcode-list.ru'dan barkod — ürünle karşılaştırın:",
-                        "barcode-list.ru'dan shtrix-kod — mahsulot bilan solishtiring:"),
-                    FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 4),
+                    var typed = barcodeRows.Select(r => r.Code).Where(c => c.Length > 0).ToList();
+                    foreach (var r in barcodeRows)
+                    {
+                        if (r.Step.Op != "create" || !r.Editable || r.Code.Length > 0)
+                            continue;
+                        var code = BarcodeGenerator.GenerateForCatalog(typed);
+                        typed.Add(code);
+                        r.Box.Text = code;
+                    }
                 };
-                Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
-                suggest.Children.Add(hint);
-                foreach (var s in found)
-                {
-                    var pick = UiKit.Ghost(this, $"{s.Barcode} · {s.Name}");
-                    pick.Height = 30;
-                    pick.FontSize = 12;
-                    pick.Padding = new Thickness(10, 0);
-                    pick.Margin = new Thickness(0, 0, 6, 4);
-                    pick.Click += (_, _) => box.Text = s.Barcode;
-                    suggest.Children.Add(pick);
-                }
-                suggest.IsVisible = true;
-            });
+                titleRow.Children.Add(makeCodes);
+            }
+            statusText = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, LineHeight = 19, Margin = new Thickness(2, 2, 2, 0) };
+            dupText = new TextBlock
+            {
+                Text = T("⚠ Один и тот же штрихкод стоит у двух строк — исправьте, иначе провести нельзя.", "⚠ Бир эле штрихкод эки сапта турат — оңдоңуз, болбосо өткөрүүгө болбойт.",
+                    "⚠ The same barcode is on two lines — fix it, otherwise it cannot be posted.", "⚠ Aynı barkod iki satırda — düzeltin, aksi halde işlenemez.",
+                    "⚠ Bir xil shtrix-kod ikki qatorda — tuzating, aks holda o'tkazib bo'lmaydi."),
+                FontSize = 12.5, TextWrapping = TextWrapping.Wrap, LineHeight = 19, Margin = new Thickness(2, 0, 2, 0), IsVisible = false,
+            };
+            Use(dupText, TextBlock.ForegroundProperty, "BrushDanger");
+            rowsPanel.Children.Add(statusText);
+            rowsPanel.Children.Add(dupText);
+            blockHost = new Border { Child = rowsPanel, Margin = new Thickness(0, 6, 0, 2), Padding = new Thickness(0, 6, 0, 0), BorderThickness = new Thickness(0, 1, 0, 0) };
+            Use(blockHost, Border.BorderBrushProperty, "BrushBorder");
+            // Узкое окно (< 700 px): подпись строки над полем, поле на всю ширину.
+            var narrowNow = false;
+            rowsPanel.SizeChanged += (_, e) =>
+            {
+                var narrow = e.NewSize.Width < 640;
+                if (narrow == narrowNow)
+                    return;
+                narrowNow = narrow;
+                foreach (var r in barcodeRows)
+                    PlaceBarcodeRow(r, narrow);
+            };
+            body.Children.Add(blockHost);
+            RefreshBarcodes();
         }
 
         // Шаги с отсканированными штрихкодами (или приход к уже существующему товару с этим штрихкодом).
-        List<ProductActionPlan.Step> ResolveSteps() => steps.Select((st, i) =>
+        List<ProductActionPlan.Step> ResolveSteps()
         {
-            if (!barcodeBoxes.TryGetValue(i, out var b) || (b.Box.Text ?? "").Trim() is not { Length: >= 4 } code)
-                return st;
-            return ByBarcode(code) is { Id.Length: > 0 } existing
-                ? AsReceive(st, existing)
-                : st with { Barcode = code };
-        }).ToList();
+            var list = new List<ProductActionPlan.Step>();
+            for (var i = 0; i < steps.Count; i++)
+            {
+                var st = steps[i];
+                if (!barcodeBoxes.TryGetValue(i, out var b) || (b.Box.Text ?? "").Trim() is not { Length: >= 4 } code)
+                {
+                    list.Add(st);
+                    continue;
+                }
+                if (st.Op == "receive")
+                {
+                    // Приход к товару склада без штрихкода: закупка — как есть, штрихкод ставит шаг set_barcode после неё
+                    // (существующий путь ProductActions.UpdateFieldsAsync); код другого товара склада не ставим — сервер не примет дубль.
+                    list.Add(st);
+                    if (st.Product.Id is { Length: > 0 } pid && ByBarcode(code) is null
+                        && !list.Any(x => x.Op == "set_barcode" && string.Equals(x.Product.Id, pid, StringComparison.OrdinalIgnoreCase)))
+                        list.Add(new ProductActionPlan.Step("set_barcode", st.Product, null, code, null));
+                    continue;
+                }
+                list.Add(ByBarcode(code) is { Id.Length: > 0 } existing ? AsReceive(st, existing) : st with { Barcode = code });
+            }
+            return list;
+        }
         var scanTargets = barcodeBoxes.OrderBy(kv => kv.Key).Select(kv => kv.Value.Box).ToList();
         _scanTargets = scanTargets.Count > 0 ? scanTargets : null;
 
@@ -2630,6 +2892,15 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         cancel.Height = 38;
         var result = new TextBlock { FontSize = 13.5, TextWrapping = TextWrapping.Wrap, IsVisible = false, LineHeight = 20 };
         Use(result, TextBlock.ForegroundProperty, "BrushText");
+        // 2026-10-24: сообщение «повторяются штрихкоды» (из Apply) гаснет, когда повтор исправлен.
+        afterRefresh = () =>
+        {
+            if (dupShown && dupRows.Count == 0)
+            {
+                dupShown = false;
+                result.IsVisible = false;
+            }
+        };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { apply, cancel } };
         // 2026-10-11, тестировщик (иишка.md, 2): «рядом с одобрением — кнопка «Отредактировать»: подробный редактор списка».
         // 2026-10-19: редактор накладной стал окном закупки — его открывает «Провести закупку…» (отдельная «✎ Отредактировать» не нужна).
@@ -2706,6 +2977,15 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                             $"O'tkazilmagan qatorlar: {draft.Rows.Count} — «Xaridni o'tkazish…»ni yana bosing.")
                         : "");
             }
+            // 2026-10-25 (ТЗ «оприходование в фоне», Q3): часть закупки ещё проводится в фоне — карточка не ждёт сервер.
+            if (draft.PendingJobs.Count > 0)
+            {
+                result.IsVisible = true;
+                result.Text = (draft.PostedSummaries.Count > 0 ? result.Text + "\n" : "") + "⏳ "
+                    + T("Операция выполняется в фоне — можно продолжать работу", "Операция фондо аткарылууда — иштей берсеңиз болот",
+                        "The operation is running in the background — you can keep working", "İşlem arka planda yürütülüyor — çalışmaya devam edebilirsiniz",
+                        "Amal fonda bajarilmoqda — ishni davom ettirishingiz mumkin");
+            }
             if (!draft.Completed)
             {
                 // 2026-10-19, ревью: пока окно было открыто, пришла новая карточка — эта закрывается и после частичного проведения.
@@ -2720,17 +3000,53 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 _pendingProductCancel = null;
             }
             buttons.IsVisible = false;
-            // Прочие шаги карточки (описание, категория…) — как раньше, после закупки.
-            var others = ResolveSteps().Where(st => !ProductActionPlan.IsPurchaseStep(st)).ToList();
-            if (others.Count > 0)
+            // Прочие шаги карточки (описание, категория, штрихкод set_barcode…) — как раньше, после закупки.
+            // 2026-10-25 (Q3): закупка может проводиться в фоне — тогда шаги выполняются ПОСЛЕ её завершения (draft.OnSettled, UI-поток),
+            // один раз (othersRan), и только если все части закупки оприходованы полностью (иначе штрихкод и пр. не ставим: приход к
+            // товару мог не пройти). Прежний порядок (быстрый ответ) не меняется.
+            var othersRan = false;
+            async Task AfterPurchaseAsync(bool allDone, bool rewriteText)
             {
-                var done = await ProductActionPlan.ExecuteAllAsync(others, T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"), CancellationToken.None,
-                    proposed).ConfigureAwait(true);
-                result.Text += "\n" + done;
+                if (othersRan)
+                    return;
+                othersRan = true;
+                if (rewriteText)
+                {
+                    result.IsVisible = true;
+                    result.Text = draft.PostedSummaries.Count > 0 ? "✓ " + string.Join("\n✓ ", draft.PostedSummaries) : "";
+                }
+                if (!allDone)
+                {
+                    result.IsVisible = true;
+                    result.Text += (result.Text is { Length: > 0 } ? "\n" : "") + "⚠ "
+                        + T("Закупка проведена не полностью — откройте «Приходы в фоне». Штрихкоды и прочие шаги карточки не выполнены.",
+                            "Сатып алуу толук өткөрүлгөн жок — «Фондогу кирүүлөрдү» ачыңыз. Штрихкоддор жана карточканын башка кадамдары аткарылган жок.",
+                            "The purchase was not fully posted — open “Background receipts”. Barcodes and other card steps were not applied.",
+                            "Alım tam işlenmedi — «Arka plandaki girişler»i açın. Barkodlar ve kartın diğer adımları uygulanmadı.",
+                            "Xarid to'liq o'tkazilmadi — «Fondagi kirimlar»ni oching. Shtrixkodlar va kartaning boshqa qadamlari bajarilmadi.");
+                }
+                else
+                {
+                    var others = ResolveSteps().Where(st => !ProductActionPlan.IsPurchaseStep(st)).ToList();
+                    if (others.Count > 0)
+                    {
+                        var done = await ProductActionPlan.ExecuteAllAsync(others, T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"), CancellationToken.None,
+                            proposed).ConfigureAwait(true);
+                        result.Text += "\n" + done;
+                    }
+                }
+                PosLogger.Log($"ИИ-советник: накладная проведена закупкой ({steps.Count(ProductActionPlan.IsPurchaseStep)} строк).", "INFO");
+                SaveCurrentChat();
+                ScrollToEnd();
             }
-            PosLogger.Log($"ИИ-советник: накладная проведена закупкой ({steps.Count(ProductActionPlan.IsPurchaseStep)} строк).", "INFO");
-            SaveCurrentChat();
-            ScrollToEnd();
+            if (draft.PendingJobs.Count > 0)
+            {
+                draft.OnSettled = allDone => AfterPurchaseAsync(allDone, rewriteText: true);
+                SaveCurrentChat();
+                ScrollToEnd();
+                return result.Text ?? "";
+            }
+            await AfterPurchaseAsync(!draft.BackgroundFailed, rewriteText: false).ConfigureAwait(true);
             return result.Text ?? "";
         }
         async Task<string> Apply()
@@ -2738,6 +3054,20 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             if (finished)
                 return "";
             // 2026-10-21 (И10): есть предупреждения — сначала второе подтверждение в карточке (голосовое «да» его не заменяет).
+            // 2026-10-24: один и тот же штрихкод у двух строк — сервер второй товар с ним не примет; пока повтор не исправлен, не проводим.
+            // Нехватка штрихкодов (пустые поля) проведению не мешает.
+            if (dupRows.Count > 0)
+            {
+                var lines = string.Join(", ", dupRows.OrderBy(n => n).Select(n => (n + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                dupShown = true;
+                result.IsVisible = true;
+                result.Text = T($"⚠ Нельзя провести: один и тот же штрихкод у строк {lines}. Исправьте и нажмите ещё раз.",
+                    $"⚠ Өткөрүүгө болбойт: бир эле штрихкод {lines}-саптарда. Оңдоп, кайра басыңыз.",
+                    $"⚠ Cannot post: the same barcode is on lines {lines}. Fix it and press again.",
+                    $"⚠ İşlenemez: aynı barkod {lines}. satırlarda. Düzeltip tekrar basın.",
+                    $"⚠ O'tkazib bo'lmaydi: bir xil shtrix-kod {lines}-qatorlarda. Tuzatib, yana bosing.");
+                return result.Text;
+            }
             if (!confirmedTwice)
             {
                 ShowSecondConfirm(card, warnings, () => { confirmedTwice = true; _ = Apply(); }, buttons);

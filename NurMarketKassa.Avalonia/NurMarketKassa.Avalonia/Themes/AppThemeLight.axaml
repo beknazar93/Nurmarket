@@ -40,6 +40,9 @@
   <SolidColorBrush x:Key="BrushSuccessSoft" Color="#D1FAE5" />
   <SolidColorBrush x:Key="BrushWarning" Color="#B45309" />
   <SolidColorBrush x:Key="BrushWarningSoft" Color="#FEF3C7" />
+  <!-- 2026-10-26 (М4): колонка «Неизвестный штрихкод» — #B54708 на #FEF3E2 (5,0:1); тёмный вариант — в AppTheme.axaml. -->
+  <SolidColorBrush x:Key="BrushUnknown" Color="#B54708" />
+  <SolidColorBrush x:Key="BrushUnknownSoft" Color="#FEF3E2" />
   <SolidColorBrush x:Key="BrushDanger" Color="#B91C1C" />
   <SolidColorBrush x:Key="BrushDangerSoft" Color="#FEE2E2" />
   <SolidColorBrush x:Key="BrushOverlay" Color="#D9F8FAFC" />

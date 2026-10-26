@@ -18,7 +18,8 @@ public partial class WarehouseWindow
     private bool _suppressAutoVariantGrid;
 
     /// <summary>Колонка «Размеры» — последняя в таблице приёмки (см. разметку ReceivingGrid).</summary>
-    private Avalonia.Controls.DataGridColumn? SizesColumn => ReceivingGrid.Columns.Count > 9 ? ReceivingGrid.Columns[9] : null;
+    // 2026-10-24, ТЗ «Склад» (Б1): колонка найдена по имени (RcvColSizes) — «Наценка %» и «Изменение» сдвинули номера.
+    private Avalonia.Controls.DataGridColumn? SizesColumn => RcvColSizes;
 
     private void InitVariantReceiving()
     {
@@ -32,7 +33,7 @@ public partial class WarehouseWindow
 
         _viewModel.ReceivingLines.CollectionChanged += (_, e) =>
         {
-            if (e.Action != NotifyCollectionChangedAction.Add || e.NewItems is null || _suppressAutoVariantGrid)
+            if (e.Action != NotifyCollectionChangedAction.Add || e.NewItems is null || _suppressAutoVariantGrid || _viewModel.IsReorderingReceiving)
                 return;
             foreach (var line in e.NewItems.OfType<ReceivingLineVm>().ToList())
                 Dispatcher.UIThread.Post(() => _ = OpenVariantGridAsync(line, automatic: true), DispatcherPriority.Background);

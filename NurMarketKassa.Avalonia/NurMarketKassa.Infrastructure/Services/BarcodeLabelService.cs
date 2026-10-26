@@ -467,12 +467,23 @@ public static class BarcodeLabelService
         if (!box.Enabled || rect.Width < 4 || rect.Height < 4 || string.IsNullOrWhiteSpace(text))
             return;
 
-        // manualFontSizePx > 0 — пользователь задал точный размер в редакторе этикетки вместо
-        // старого автоподбора по высоте блока; FitFontToWidth ниже всё равно подрежет его, если
-        // текст не помещается по ширине — переполнения/обрезки текста быть не должно.
-        var maxFontSize = manualFontSizePx > 0
-            ? Math.Clamp((float)manualFontSizePx, 6f, 96f)
-            : Math.Clamp(rect.Height * 0.72f, 6f, 40f);
+        // 2026-10-26: ручной размер шрифта больше не ограничен (был потолок 96 и подгонка под ширину блока) —
+        // владелец сам решает, насколько крупным будет текст. Строка переносится по ширине блока, по высоте
+        // и ширине выходит за блок без обрезки (край этикетки — естественная граница).
+        if (manualFontSizePx > 0)
+        {
+            using var manualFont = new Font(fontFamily, Math.Max((float)manualFontSizePx, 1f), style);
+            using var format = new StringFormat(StringFormatFlags.NoClip)
+            {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center,
+            };
+            g.DrawString(text, manualFont, Brushes.Black, rect, format);
+            return;
+        }
+
+        // Автоподбор: размер по высоте блока, FitFontToWidth уменьшает его, если текст не помещается по ширине.
+        var maxFontSize = Math.Clamp(rect.Height * 0.72f, 6f, 40f);
         using var font = FitFontToWidth(g, text, style, maxFontSize, rect.Width, fontFamily);
         var displayText = text;
         var size = g.MeasureString(displayText, font);

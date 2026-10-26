@@ -1106,6 +1106,36 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String smartPartial(int done, int total, int left) {
+    return 'Проведено $done из $total, не проведено $left — нажмите «Загрузить» ещё раз: проведённое не прибавится повторно.';
+  }
+
+  @override
+  String get smartNoLink =>
+      'Нет связи с сервером — ничего не проведено. Список остался на экране, повторите, когда появится интернет.';
+
+  @override
+  String smartRowRejected(String reason) {
+    return 'Отклонено: $reason';
+  }
+
+  @override
+  String get smartRowUnknown =>
+      'Нет ответа сервера — повторите: остаток не задвоится.';
+
+  @override
+  String get smartRowLocked =>
+      'Строка уже отправлена на сервер — товар и название менять нельзя, повторите отправку.';
+
+  @override
+  String get smartPendingReceipt =>
+      'Прошлый приход поставщику остался без ответа — сначала повторите его через «В приёмку с поставщиком», иначе остаток может прибавиться дважды.';
+
+  @override
+  String get smartPendingStock =>
+      'Для части строк нет ответа сервера — сначала нажмите «Загрузить» ещё раз: так остаток не задвоится.';
+
+  @override
   String get sellingPrice => 'Продажная цена';
 
   @override
@@ -3337,6 +3367,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get peScan => 'Сканировать';
+
+  @override
+  String get bcGenTooltip => 'Сгенерировать штрихкод';
+
+  @override
+  String get bcGenReplace => 'Заменить текущий штрихкод новым?';
+
+  @override
+  String get bcGenDo => 'Сгенерировать';
 
   @override
   String pePackQty(String qty) {

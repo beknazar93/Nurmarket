@@ -63,6 +63,9 @@ public partial class TelegramBotSetupWindow : Window
         }
 
         ApplyServerTexts();
+        ApplyOrdersGroupTexts();
+        RefreshOrdersGroup();
+        TelegramBotOwner.OrdersGroupChanged += OnOrdersGroupChanged;
         _ = RefreshServerStatusAsync();
     }
 
@@ -415,6 +418,7 @@ public partial class TelegramBotSetupWindow : Window
             prefs.TelegramBotToken = token;
             prefs.TelegramBotUsername = username;
             prefs.SaveToDisk();
+            RefreshOrdersGroup(); // 2026-10-24 (Г1): другой бот — прежняя группа заказов сброшена
 
             _botUsername = username;
             OpenMyBotButton.IsEnabled = true;
@@ -470,6 +474,7 @@ public partial class TelegramBotSetupWindow : Window
                 : Tr.T($"Готово: вы подтверждены как владелец, сводки пойдут в чат «{name}».", $"Даяр: сиз ээси катары ырасталдыңыз, жыйынтыктар «{name}» чатына жөнөтүлөт.", $"Done: you are confirmed as the owner, summaries will go to the “{name}” chat.", $"Hazır: sahip olarak doğrulandınız, özetler «{name}» sohbetine gönderilecek.", $"Tayyor: siz ega sifatida tasdiqlandingiz, hisobotlar «{name}» chatiga yuboriladi.");
 
             StartBotIfEnabled();
+            RefreshOrdersGroup(); // 2026-10-24 (Г1): владелец подтверждён — теперь можно подключать группу заказов
         }
         finally
         {
@@ -481,7 +486,174 @@ public partial class TelegramBotSetupWindow : Window
     {
         // 2026-10-21: окно закрыли — код больше не ждём (опрос подтверждения не висит 10 минут).
         _detectCts?.Cancel();
+        _groupCts?.Cancel();
+        TelegramBotOwner.OrdersGroupChanged -= OnOrdersGroupChanged;
         base.OnClosed(e);
+    }
+
+    // ------------------------------------------------------------------ Группа заказов (ТЗ «Склад…», пакет Г1)
+
+    private bool _fillingOrders;
+    private CancellationTokenSource? _groupCts;
+
+    private void OnOrdersGroupChanged() => Avalonia.Threading.Dispatcher.UIThread.Post(RefreshOrdersGroup);
+
+    private void ApplyOrdersGroupTexts()
+    {
+        OrdersGroupTitle.Text = Tr.T("Группа заказов", "Буйрутмалар тобу", "Orders group", "Sipariş grubu", "Buyurtmalar guruhi");
+        OrdersGroupHint.Text = Tr.T(
+            "Заказы из бота можно получать в общей группе сотрудников — вместо личного чата или вместе с ним. Сводки смены, выручка и долги в группу не отправляются никогда.",
+            "Боттон келген буйрутмаларды кызматкерлердин жалпы тобунда алса болот — жеке чаттын ордуна же аны менен бирге. Смена жыйынтыгы, түшүм жана карыздар топко эч качан жөнөтүлбөйт.",
+            "Orders from the bot can go to a shared staff group — instead of your private chat or together with it. Shift summaries, revenue and debts are never sent to the group.",
+            "Bottan gelen siparişler ortak personel grubuna gidebilir — özel sohbetinizin yerine veya onunla birlikte. Vardiya özetleri, ciro ve borçlar gruba asla gönderilmez.",
+            "Botdan kelgan buyurtmalarni xodimlarning umumiy guruhida olish mumkin — shaxsiy chat o'rniga yoki u bilan birga. Smena hisobotlari, tushum va qarzlar guruhga hech qachon yuborilmaydi.");
+        OrdersGroupDetectButton.Content = Tr.T("Определить группу", "Топту аныктоо", "Detect group", "Grubu belirle", "Guruhni aniqlash");
+        OrdersGroupDisconnectButton.Content = Tr.T("Отключить", "Өчүрүү", "Disconnect", "Bağlantıyı kes", "Uzish");
+        OrdersTargetGroupRadio.Content = Tr.T("Только в группу", "Топко гана", "Group only", "Yalnızca gruba", "Faqat guruhga");
+        OrdersTargetBothRadio.Content = Tr.T("В группу и мне в личку", "Топко жана мага жекече", "Group and my private chat", "Gruba ve bana özelden", "Guruhga va menga shaxsiy");
+        OrdersTargetOwnerRadio.Content = Tr.T("Только мне в личку", "Мага жекече гана", "Only my private chat", "Yalnızca bana özelden", "Faqat menga shaxsiy");
+        OrdersShowAmountCheck.Content = Tr.T("Показывать в группе сумму заказа и телефон покупателя", "Топто заказдын суммасын жана сатып алуучунун телефонун көрсөтүү",
+            "Show the order amount and the customer's phone in the group", "Grupta sipariş tutarını ve müşterinin telefonunu göster", "Guruhda buyurtma summasi va xaridorning telefonini ko'rsatish");
+        OrdersGroupPrivateHint.Text = Tr.T("Чтобы заказы приходили вам в личку, один раз напишите боту /start в личном чате.",
+            "Буйрутмалар сизге жекече келиши үчүн, ботко жеке чатта бир жолу /start деп жазыңыз.",
+            "To get orders in your private chat, write /start to the bot there once.",
+            "Siparişlerin size özelden gelmesi için bota özel sohbette bir kez /start yazın.",
+            "Buyurtmalar sizga shaxsiy kelishi uchun botga shaxsiy chatda bir marta /start deb yozing.");
+    }
+
+    /// <summary>Статус и доступность элементов блока «Группа заказов» — из настроек.</summary>
+    private void RefreshOrdersGroup()
+    {
+        var prefs = UserPreferences.Instance;
+        var serverMode = NurMarketKassa.Services.Api.ServerTelegramBotApi.LastKnownServerMode == true;
+        var connected = !string.IsNullOrWhiteSpace(prefs.TelegramOrdersChatId);
+        var removed = !connected && prefs.TelegramOrdersBotRemoved;
+        var title = string.IsNullOrWhiteSpace(prefs.TelegramOrdersChatTitle) ? "" : prefs.TelegramOrdersChatTitle!;
+        var botReady = !string.IsNullOrWhiteSpace(prefs.TelegramBotToken) && TelegramBotOwner.HasConfirmedOwner;
+        var waiting = _groupCts != null && !_groupCts.IsCancellationRequested;
+
+        if (serverMode)
+        {
+            OrdersGroupStatus.Text = Tr.T("Сервер пока не умеет группу заказов. Она работает, когда бот подключён в программе.",
+                "Сервер буйрутмалар тобун азырынча колдобойт. Бот программага туташкан учурда иштейт.",
+                "The server does not support the orders group yet. It works when the bot is connected in the program.",
+                "Sunucu henüz sipariş grubunu desteklemiyor. Bot programa bağlıyken çalışır.",
+                "Server buyurtmalar guruhini hali qo'llamaydi. U bot dasturda ulangan bo'lganda ishlaydi.");
+        }
+        else if (connected)
+        {
+            var when = prefs.TelegramOrdersBoundAtUtc?.ToLocalTime().ToString("dd.MM HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+            var at = when == null ? "" : " " + when;
+            OrdersGroupStatus.Text = Tr.T($"Группа «{title}» подключена{at}", $"«{title}» тобу туташтырылды{at}", $"Group “{title}” connected{at}",
+                $"«{title}» grubu bağlandı{at}", $"«{title}» guruhi ulandi{at}");
+        }
+        else if (removed)
+        {
+            OrdersGroupStatus.Text = Tr.T($"Бот удалён из группы «{title}»", $"Бот «{title}» тобунан чыгарылды", $"The bot was removed from the group “{title}”",
+                $"Bot «{title}» grubundan çıkarıldı", $"Bot «{title}» guruhidan olib tashlandi");
+        }
+        else
+        {
+            OrdersGroupStatus.Text = Tr.T("Не подключена", "Туташтырылган эмес", "Not connected", "Bağlı değil", "Ulanmagan");
+        }
+
+        if (!serverMode && !botReady && !connected && !waiting)
+        {
+            OrdersGroupInstruction.IsVisible = true;
+            OrdersGroupInstruction.Text = Tr.T("Сначала определите получателя (владельца) — шаг 3 выше.", "Адегенде алуучуну (ээсин) аныктаңыз — жогорудагы 3-кадам.",
+                "First detect the recipient (the owner) — step 3 above.", "Önce alıcıyı (sahibi) belirleyin — yukarıdaki 3. adım.", "Avval qabul qiluvchini (egani) aniqlang — yuqoridagi 3-qadam.");
+        }
+        else if (!waiting)
+        {
+            OrdersGroupInstruction.IsVisible = false;
+        }
+
+        OrdersGroupDetectButton.IsEnabled = !serverMode && botReady && !waiting;
+        OrdersGroupDisconnectButton.IsEnabled = !serverMode && (connected || removed);
+        var radios = !serverMode && connected;
+        _fillingOrders = true;
+        OrdersTargetGroupRadio.IsEnabled = OrdersTargetBothRadio.IsEnabled = OrdersTargetOwnerRadio.IsEnabled = OrdersShowAmountCheck.IsEnabled = radios;
+        OrdersTargetGroupRadio.IsChecked = prefs.TelegramOrdersTarget == "group";
+        OrdersTargetBothRadio.IsChecked = prefs.TelegramOrdersTarget == "both";
+        OrdersTargetOwnerRadio.IsChecked = prefs.TelegramOrdersTarget is not ("group" or "both");
+        OrdersShowAmountCheck.IsChecked = prefs.TelegramOrdersShowAmount;
+        _fillingOrders = false;
+        OrdersGroupPrivateHint.IsVisible = connected && prefs.TelegramOrdersTarget == "both";
+    }
+
+    /// <summary>«Определить группу»: код на 10 минут и инструкция; группа сохраняется, когда владелец пришлёт в ней «/group код».</summary>
+    private async void OrdersGroupDetect_Click(object? sender, RoutedEventArgs e)
+    {
+        OrdersGroupDetectButton.IsEnabled = false;
+        _groupCts?.Cancel();
+        var cts = _groupCts = new CancellationTokenSource();
+        try
+        {
+            var token = UserPreferences.Instance.TelegramBotToken ?? "";
+            if (string.IsNullOrWhiteSpace(UserPreferences.Instance.TelegramBotUsername))
+                await TelegramBotService.TryRememberBotUsernameAsync(token.Trim()).ConfigureAwait(true);
+            _botUsername = UserPreferences.Instance.TelegramBotUsername ?? _botUsername;
+            var bot = string.IsNullOrWhiteSpace(_botUsername) ? "" : "@" + _botUsername;
+            var (code, completion) = TelegramBotOwner.BeginGroup(cts.Token);
+            if (code.Length == 0)
+            {
+                var early = await completion.ConfigureAwait(true);
+                OrdersGroupInstruction.IsVisible = true;
+                OrdersGroupInstruction.Text = early.Error ?? "";
+                return;
+            }
+            OrdersGroupInstruction.IsVisible = true;
+            OrdersGroupInstruction.Text = Tr.T(
+                $"1. Добавьте бота {bot} в группу (группа → Добавить участника).\n2. Отправьте в группе: /group {code}\nКод действует 10 минут. Жду…",
+                $"1. Ботту {bot} топко кошуңуз (топ → Мүчө кошуу).\n2. Топто жөнөтүңүз: /group {code}\nКод 10 мүнөт жарактуу. Күтүп жатам…",
+                $"1. Add the bot {bot} to the group (group → Add member).\n2. Send in the group: /group {code}\nThe code is valid for 10 minutes. Waiting…",
+                $"1. {bot} botunu gruba ekleyin (grup → Üye ekle).\n2. Grupta gönderin: /group {code}\nKod 10 dakika geçerli. Bekliyorum…",
+                $"1. {bot} botini guruhga qo'shing (guruh → A'zo qo'shish).\n2. Guruhda yuboring: /group {code}\nKod 10 daqiqa amal qiladi. Kutyapman…");
+            var result = await completion.ConfigureAwait(true);
+            if (result.Ok)
+            {
+                StartBotIfEnabled();
+                OrdersGroupInstruction.IsVisible = false;
+            }
+            else if (result.Error != null && !cts.IsCancellationRequested)
+            {
+                OrdersGroupInstruction.Text = result.Error;
+            }
+        }
+        finally
+        {
+            // Отменили (закрытие окна / новый код) — состояние уже обновил тот, кто отменил.
+            if (_groupCts == cts)
+                _groupCts = null;
+            RefreshOrdersGroup();
+        }
+    }
+
+    private void OrdersGroupDisconnect_Click(object? sender, RoutedEventArgs e)
+    {
+        _groupCts?.Cancel();
+        TelegramBotOwner.DisconnectOrdersGroup();
+        OrdersGroupInstruction.IsVisible = false;
+        RefreshOrdersGroup();
+    }
+
+    private void OrdersTarget_Changed(object? sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded || _fillingOrders || sender is not RadioButton { IsChecked: true } radio)
+            return;
+        var prefs = UserPreferences.Instance;
+        prefs.TelegramOrdersTarget = radio == OrdersTargetGroupRadio ? "group" : radio == OrdersTargetBothRadio ? "both" : "owner";
+        prefs.SaveToDisk();
+        OrdersGroupPrivateHint.IsVisible = prefs.TelegramOrdersTarget == "both";
+    }
+
+    private void OrdersShowAmount_Changed(object? sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded || _fillingOrders)
+            return;
+        var prefs = UserPreferences.Instance;
+        prefs.TelegramOrdersShowAmount = OrdersShowAmountCheck.IsChecked == true;
+        prefs.SaveToDisk();
     }
 
     private async void Test_Click(object? sender, RoutedEventArgs e)

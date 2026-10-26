@@ -2072,6 +2072,48 @@ abstract class AppLocalizations {
   /// **'Загружено на склад: {n}'**
   String smartUploaded(int n);
 
+  /// No description provided for @smartPartial.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проведено {done} из {total}, не проведено {left} — нажмите «Загрузить» ещё раз: проведённое не прибавится повторно.'**
+  String smartPartial(int done, int total, int left);
+
+  /// No description provided for @smartNoLink.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи с сервером — ничего не проведено. Список остался на экране, повторите, когда появится интернет.'**
+  String get smartNoLink;
+
+  /// No description provided for @smartRowRejected.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отклонено: {reason}'**
+  String smartRowRejected(String reason);
+
+  /// No description provided for @smartRowUnknown.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет ответа сервера — повторите: остаток не задвоится.'**
+  String get smartRowUnknown;
+
+  /// No description provided for @smartRowLocked.
+  ///
+  /// In ru, this message translates to:
+  /// **'Строка уже отправлена на сервер — товар и название менять нельзя, повторите отправку.'**
+  String get smartRowLocked;
+
+  /// No description provided for @smartPendingReceipt.
+  ///
+  /// In ru, this message translates to:
+  /// **'Прошлый приход поставщику остался без ответа — сначала повторите его через «В приёмку с поставщиком», иначе остаток может прибавиться дважды.'**
+  String get smartPendingReceipt;
+
+  /// No description provided for @smartPendingStock.
+  ///
+  /// In ru, this message translates to:
+  /// **'Для части строк нет ответа сервера — сначала нажмите «Загрузить» ещё раз: так остаток не задвоится.'**
+  String get smartPendingStock;
+
   /// No description provided for @sellingPrice.
   ///
   /// In ru, this message translates to:
@@ -5959,6 +6001,24 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Сканировать'**
   String get peScan;
+
+  /// No description provided for @bcGenTooltip.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сгенерировать штрихкод'**
+  String get bcGenTooltip;
+
+  /// No description provided for @bcGenReplace.
+  ///
+  /// In ru, this message translates to:
+  /// **'Заменить текущий штрихкод новым?'**
+  String get bcGenReplace;
+
+  /// No description provided for @bcGenDo.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сгенерировать'**
+  String get bcGenDo;
 
   /// No description provided for @pePackQty.
   ///

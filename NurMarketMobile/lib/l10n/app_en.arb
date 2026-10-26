@@ -328,6 +328,13 @@
   "smartShots": "Shots: {n}",
   "smartPriceRule": "New items' price: cost +30 %, rounded to 5",
   "smartUploaded": "Uploaded to stock: {n}",
+  "smartPartial": "Posted {done} of {total}, {left} not posted — press Upload again: what was already posted will not be added twice.",
+  "smartNoLink": "No connection to the server — nothing was posted. The list stays on screen; retry when the internet is back.",
+  "smartRowRejected": "Rejected: {reason}",
+  "smartRowUnknown": "No reply from the server — retry: the stock will not be doubled.",
+  "smartRowLocked": "This row was already sent to the server — the product and name cannot be changed, retry the upload.",
+  "smartPendingReceipt": "The previous supplier receipt got no reply — repeat it first via “Receive with supplier”, otherwise the stock may be added twice.",
+  "smartPendingStock": "Some rows got no reply from the server — press Upload again first: that way the stock will not be doubled.",
   "sellingPrice": "Selling price",
   "durationCustom": "Custom…",
   "minutesHint": "minutes",
@@ -976,6 +983,9 @@
   "peBarcodeTaken": "Barcode {code} already belongs to \"{name}\".",
   "peBarcodeTwice": "Barcode {code} is entered twice.",
   "peScan": "Scan",
+  "bcGenTooltip": "Generate barcode",
+  "bcGenReplace": "Replace the current barcode with a new one?",
+  "bcGenDo": "Generate",
   "pePackQty": "{qty} per pack",
   "peNoAccess": "Products can be edited by staff with the \"Stock\" permission or an administrator."
 }

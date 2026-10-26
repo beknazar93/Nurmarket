@@ -12,7 +12,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// <summary>2026-10-19, редизайн программы владельца, этап О9 («Товары и склад», аудит 19.10: 6,0 / 6,2). Только вид:
 /// пустые состояния приёмки, ревизии, истории списаний и перемещений с подсказкой «что делать» (были пустые рамки таблиц),
 /// узкие таблицы на 1024 — прячутся второстепенные колонки («Источник» и «Было» в приёмке, «Кассир» в истории списаний)
-/// вместо прокрутки вбок, плитки товаров — по ширине списка. Колонки не переставляются и не удаляются — код приёмки обращается к ним по номеру (Columns[1], [2], [9]).</summary>
+/// вместо прокрутки вбок, плитки товаров — по ширине списка. Колонки приёмки в коде — по именам (RcvCol*, 2026-10-24).</summary>
 public partial class WarehouseWindow
 {
     // Ширина таблицы, меньше которой второстепенная колонка прячется (1366 — таблица ~1180, 1024 — ~840).
@@ -28,13 +28,7 @@ public partial class WarehouseWindow
             "Scan the first item of the delivery note or press «Pick from list». Not in the base yet — «+ New product».",
             "İrsaliyenin ilk ürününü okutun veya «Listeden seç»e basın. Ürün yeni ise — «+ Yeni ürün».",
             "Nakladnoyning birinchi mahsulotini skanerlang yoki «Ro'yxatdan tanlash»ni bosing. Yangi mahsulot bo'lsa — «+ Yangi mahsulot».");
-        RevisionEmptyTitle.Text = T("В ревизии пока нет товаров", "Ревизияда азырынча товар жок", "No products in the stocktake yet",
-            "Sayımda henüz ürün yok", "Inventarizatsiyada hozircha mahsulot yo'q");
-        RevisionEmptyHint.Text = T("Отсканируйте товар или найдите его по названию выше, затем впишите, сколько его на самом деле.",
-            "Товарды сканерлеңиз же жогорудан аты боюнча табыңыз, анан иш жүзүндө канча экенин жазыңыз.",
-            "Scan a product or find it by name above, then enter how many there really are.",
-            "Ürünü okutun veya yukarıda adıyla bulun, sonra gerçekte kaç tane olduğunu yazın.",
-            "Mahsulotni skanerlang yoki yuqorida nomi bo'yicha toping, so'ng aslida qanchaligini yozing.");
+        // 2026-10-24, пакет Р2: пустое состояние ревизии убрано — вкладка собрана кодом (WarehouseWindow.Revision.cs).
         WriteOffEmptyTitle.Text = T("Списаний пока нет", "Эсептен чыгаруулар азырынча жок", "No write-offs yet", "Henüz düşüm yok",
             "Hozircha hisobdan chiqarishlar yo'q");
         WriteOffEmptyHint.Text = T("Здесь появятся акты списания с этой кассы: что, сколько, почему и кто списал.",
@@ -54,11 +48,9 @@ public partial class WarehouseWindow
         void Sync()
         {
             ReceivingEmptyState.IsVisible = _viewModel.ReceivingLines.Count == 0;
-            RevisionEmptyState.IsVisible = _viewModel.RevisionLines.Count == 0;
             WriteOffEmptyState.IsVisible = _viewModel.WriteOffHistory.Count == 0;
         }
         _viewModel.ReceivingLines.CollectionChanged += (_, _) => Sync();
-        _viewModel.RevisionLines.CollectionChanged += (_, _) => Sync();
         _viewModel.WriteOffHistory.CollectionChanged += (_, _) => Sync();
         Sync();
 
@@ -66,22 +58,25 @@ public partial class WarehouseWindow
         // таблица уже окна на ширину меню).
         ReceivingGrid.SizeChanged += (_, e) =>
         {
-            var columns = ReceivingGrid.Columns;
-            if (e.NewSize.Width <= 0 || columns.Count < 9)
+            if (e.NewSize.Width <= 0)
                 return;
             var wide = e.NewSize.Width >= ReceivingNarrowWidth;
-            // Узкая таблица: прячутся «Источник» и «Было» (остаток до приёмки виден в карточке товара), числа плотнее,
+            // Узкая таблица: прячутся «Источник», «Ед.» и «Было» (остаток до приёмки виден в карточке товара), числа плотнее,
             // штрихкод целиком (13 цифр), название не уже 170.
-            columns[0].IsVisible = wide;
-            columns[4].IsVisible = wide;
-            columns[1].MinWidth = wide ? 200 : 170;
+            // 2026-10-24, ТЗ «Склад» (Б1): колонки — по именам (RcvCol*), не по номерам; добавились «Наценка %» и «Изменение» — на 1024 прячется и «Ед.».
+            RcvColSource.IsVisible = wide;
+            RcvColWas.IsVisible = wide;
+            RcvColUnit.IsVisible = wide;
+            RcvColName.MinWidth = wide ? 200 : 170;
             // 2026-10-19: «Было» 72 → 84 — кыргызское «Болгон» переносилось посреди слова.
             // 2026-10-21 (пакет 1, п. 71): узкая таблица — числа чуть плотнее, название на 2 строки (стиль rcv-name), строка выше.
-            double[] widths = wide ? new double[] { 136, 64, 84, 92, 104, 104, 112 } : new double[] { 136, 64, 72, 86, 88, 88, 100 };
+            var widths = wide
+                ? new (DataGridColumn Column, double Width)[] { (RcvColBarcode, 136), (RcvColUnit, 56), (RcvColWas, 84), (RcvColQty, 92), (RcvColPurchase, 96), (RcvColMarkup, 92), (RcvColSale, 96), (RcvColChange, 100), (RcvColTotal, 104) }
+                : new (DataGridColumn Column, double Width)[] { (RcvColBarcode, 132), (RcvColUnit, 56), (RcvColWas, 72), (RcvColQty, 80), (RcvColPurchase, 80), (RcvColMarkup, 78), (RcvColSale, 80), (RcvColChange, 84), (RcvColTotal, 80) };
             ReceivingGrid.RowHeight = wide ? 44 : 52;
-            for (var i = 0; i < widths.Length; i++)
-                if (columns[i + 2].Width.Value != widths[i])
-                    columns[i + 2].Width = new DataGridLength(widths[i]);
+            foreach (var (column, width) in widths)
+                if (column.Width.Value != width)
+                    column.Width = new DataGridLength(width);
         };
         // Перемещение: пустой журнал документов или движения — заголовок и подсказка по выбранному разделу.
         void SyncMovements()
@@ -142,7 +137,7 @@ public partial class WarehouseWindow
     {
         // П. 71: название в приёмке переносится на 2-ю строку (стиль DataGridCell.rcv-name в разметке) — на 1024 и
         // по-кыргызски было «Печенье «Юбилейное» трад».
-        ReceivingGrid.Columns[1].CellStyleClasses.Add("rcv-name");
+        RcvColName.CellStyleClasses.Add("rcv-name"); // 2026-10-24: по имени колонки, не по номеру
 
         // П. 109: «Штучные» и «Поштучно» рядом не различались — второе «Поштучно из упаковки», у обоих подсказка.
         SaleUnitPiecePackageRadio.Content = T("Поштучно из упаковки", "Таңгактан даана менен", "Single pieces from a pack",

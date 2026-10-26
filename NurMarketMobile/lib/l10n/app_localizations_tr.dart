@@ -1104,6 +1104,36 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String smartPartial(int done, int total, int left) {
+    return '$total satırdan $done işlendi, $left işlenmedi — «Yükle»ye tekrar basın: işlenenler ikinci kez eklenmez.';
+  }
+
+  @override
+  String get smartNoLink =>
+      'Sunucu ile bağlantı yok — hiçbir şey işlenmedi. Liste ekranda kaldı, internet gelince tekrarlayın.';
+
+  @override
+  String smartRowRejected(String reason) {
+    return 'Reddedildi: $reason';
+  }
+
+  @override
+  String get smartRowUnknown =>
+      'Sunucudan yanıt yok — tekrarlayın: stok iki kez eklenmez.';
+
+  @override
+  String get smartRowLocked =>
+      'Bu satır sunucuya zaten gönderildi — ürün ve ad değiştirilemez, yüklemeyi tekrarlayın.';
+
+  @override
+  String get smartPendingReceipt =>
+      'Önceki tedarikçi girişi yanıtsız kaldı — önce «Tedarikçiyle kabul»den tekrarlayın, aksi halde stok iki kez eklenebilir.';
+
+  @override
+  String get smartPendingStock =>
+      'Bazı satırlar için sunucudan yanıt yok — önce «Yükle»ye tekrar basın: stok iki kez eklenmez.';
+
+  @override
   String get sellingPrice => 'Satış fiyatı';
 
   @override
@@ -3334,6 +3364,15 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get peScan => 'Tara';
+
+  @override
+  String get bcGenTooltip => 'Barkod oluştur';
+
+  @override
+  String get bcGenReplace => 'Mevcut barkod yenisiyle değiştirilsin mi?';
+
+  @override
+  String get bcGenDo => 'Oluştur';
 
   @override
   String pePackQty(String qty) {

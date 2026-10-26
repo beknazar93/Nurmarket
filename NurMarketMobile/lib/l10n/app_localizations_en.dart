@@ -1109,6 +1109,36 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String smartPartial(int done, int total, int left) {
+    return 'Posted $done of $total, $left not posted — press Upload again: what was already posted will not be added twice.';
+  }
+
+  @override
+  String get smartNoLink =>
+      'No connection to the server — nothing was posted. The list stays on screen; retry when the internet is back.';
+
+  @override
+  String smartRowRejected(String reason) {
+    return 'Rejected: $reason';
+  }
+
+  @override
+  String get smartRowUnknown =>
+      'No reply from the server — retry: the stock will not be doubled.';
+
+  @override
+  String get smartRowLocked =>
+      'This row was already sent to the server — the product and name cannot be changed, retry the upload.';
+
+  @override
+  String get smartPendingReceipt =>
+      'The previous supplier receipt got no reply — repeat it first via “Receive with supplier”, otherwise the stock may be added twice.';
+
+  @override
+  String get smartPendingStock =>
+      'Some rows got no reply from the server — press Upload again first: that way the stock will not be doubled.';
+
+  @override
   String get sellingPrice => 'Selling price';
 
   @override
@@ -3345,6 +3375,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get peScan => 'Scan';
+
+  @override
+  String get bcGenTooltip => 'Generate barcode';
+
+  @override
+  String get bcGenReplace => 'Replace the current barcode with a new one?';
+
+  @override
+  String get bcGenDo => 'Generate';
 
   @override
   String pePackQty(String qty) {

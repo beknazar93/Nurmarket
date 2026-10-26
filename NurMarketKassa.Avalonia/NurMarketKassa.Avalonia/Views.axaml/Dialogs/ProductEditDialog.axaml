@@ -1,4 +1,4 @@
-﻿<!-- 2026-10-18, редизайн (этап 5): общая оболочка ModalShell, карточка 640 (окно 672; было 660×860 со своей
+<!-- 2026-10-18, редизайн (этап 5): общая оболочка ModalShell, карточка 640 (окно 672; было 660×860 со своей
      шапкой). Панели поиска фото в этом окне нет — поэтому 640, а не 880. Высоту карточки задаёт код
      (820, но не больше 85 % рабочей области — ModalShell), окно — по содержимому. -->
 <Window xmlns="https://github.com/avaloniaui"
@@ -293,7 +293,8 @@
                             <!-- 2026-10-18, этап 5: название и штрихкод — одной строкой (раньше — две строки во всю ширину): в карточке
                                  640 не выше 85 % экрана цены на 1024×768 видны без прокрутки. Порядок полей (и Tab) прежний;
                                  на узком Android строка встаёт столбиком (NarrowStack по NarrowRowMain). -->
-                            <Grid x:Name="NarrowRowMain" ColumnDefinitions="*,16,*">
+                            <!-- 2026-10-26, приёмка (Д-3): штрихкод шире названия (было *,16,*) и у кнопки «Сгенерировать» поля уже: вместе с кнопкой поле было ~110 px, и 13 цифр обрезались. -->
+                            <Grid x:Name="NarrowRowMain" ColumnDefinitions="*,16,1.5*">
                                 <StackPanel Grid.Column="0" Spacing="8">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.nameLabel}"/>
                                     <TextBox x:Name="NameBox" Text="{Binding ProductName}" Watermark="{DynamicResource product.nameWatermark}"/>
@@ -306,7 +307,7 @@
                                                  LostFocus="BarcodeBox_LostFocus"
                                                  Watermark="{DynamicResource product.barcodeScanWatermarkShort}"
                                                  ToolTip.Tip="{DynamicResource product.barcodeScanWatermark}"/>
-                                        <Button Grid.Column="1" Classes="SecondaryButton" Margin="6,0,0,0"
+                                        <Button Grid.Column="1" Classes="SecondaryButton" Margin="6,0,0,0" Padding="10,0"
                                                 Content="{DynamicResource product.generateBarcode}"
                                                 Command="{Binding GenerateBarcodeCommand}"
                                                 IsVisible="{Binding !IsQuickAddMode}"/>

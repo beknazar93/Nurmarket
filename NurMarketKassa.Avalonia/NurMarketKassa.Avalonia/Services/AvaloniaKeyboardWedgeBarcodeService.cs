@@ -191,7 +191,11 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
         if (_barcodeBuf.Length > BarcodeMaxLen)
             _barcodeBuf = _barcodeBuf[(_barcodeBuf.Length - BarcodeMaxLen)..];
 
-        if (_fastRunLength >= MinFastRunToIntercept)
+        // 2026-10-24, владелец: «в полях (наименование, штрихкод, цена) вводится только 2 символа и перестаёт».
+        // Обоснование про «220 мс» выше неверно: обычная печать — 80–200 мс на символ, серия набиралась и у человека, а
+        // обработанный KeyDown в Windows не даёт символу дойти до поля. В правимом поле символы не глушим — скан
+        // там распознают окна по Enter после строгой серии (ProductEditDialog, склад, поиск кассы); вне полей — как раньше.
+        if (_fastRunLength >= MinFastRunToIntercept && e.Source is not TextBox { IsReadOnly: false })
             e.Handled = true;
     }
 

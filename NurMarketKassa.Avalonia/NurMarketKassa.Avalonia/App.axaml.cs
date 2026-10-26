@@ -344,6 +344,8 @@ public partial class App : Application
             // затем убивает процесс — Exit не срабатывает, и несведённый WAL остаётся на
             // диске. Это самый частый способ выключения кассы и наиболее вероятный
             // оставшийся источник «database disk image is malformed».
+            // 2026-10-25, ТЗ «оприходование в фоне» (Q5): незавершённые приходы в фоне — один вопрос «Выйти / Подождать», очередь остаётся на диске.
+            desktop.ShutdownRequested += (_, e) => BackgroundReceiptsHost.OnShutdownRequested(desktop, e);
             desktop.ShutdownRequested += (_, _) =>
             {
                 // 2026-10-17, ревью этапа 4: дописать очередь журнала «Удалено из чека» (не дольше 2 с).

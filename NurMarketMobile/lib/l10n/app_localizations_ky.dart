@@ -1106,6 +1106,36 @@ class AppLocalizationsKy extends AppLocalizations {
   }
 
   @override
+  String smartPartial(int done, int total, int left) {
+    return '$total ичинен $done өткөрүлдү, $left өткөрүлгөн жок — «Жүктөө» баскычын дагы басыңыз: өткөрүлгөнү кайра кошулбайт.';
+  }
+
+  @override
+  String get smartNoLink =>
+      'Сервер менен байланыш жок — эч нерсе өткөрүлгөн жок. Тизме экранда калды, интернет чыкканда кайталаңыз.';
+
+  @override
+  String smartRowRejected(String reason) {
+    return 'Четке кагылды: $reason';
+  }
+
+  @override
+  String get smartRowUnknown =>
+      'Сервер жооп берген жок — кайталаңыз: калдык эки эселенбейт.';
+
+  @override
+  String get smartRowLocked =>
+      'Саптагы маалымат серверге жөнөтүлгөн — товарды жана атын өзгөртүүгө болбойт, кайра жөнөтүңүз.';
+
+  @override
+  String get smartPendingReceipt =>
+      'Мурунку жөнөтүүчүгө кирешенин жообу келген жок — адегенде «Жөнөтүүчү менен кабыл алууга» өтүп кайталаңыз, болбосо калдык эки жолу кошулушу мүмкүн.';
+
+  @override
+  String get smartPendingStock =>
+      'Айрым саптар үчүн сервер жооп берген жок — адегенде «Жүктөө» баскычын дагы басыңыз: калдык эки эселенбейт.';
+
+  @override
   String get sellingPrice => 'Сатуу баасы';
 
   @override
@@ -3343,6 +3373,15 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get peScan => 'Сканерлөө';
+
+  @override
+  String get bcGenTooltip => 'Штрихкод түзүү';
+
+  @override
+  String get bcGenReplace => 'Азыркы штрихкод жаңысына алмаштырылсынбы?';
+
+  @override
+  String get bcGenDo => 'Түзүү';
 
   @override
   String pePackQty(String qty) {

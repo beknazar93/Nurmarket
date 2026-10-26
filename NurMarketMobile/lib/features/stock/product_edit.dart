@@ -9,6 +9,7 @@ import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/audit.dart';
+import '../../core/util/barcode_generator.dart';
 import '../../core/util/ui.dart';
 import '../admin/admin_receive.dart';
 import '../admin/admin_screens.dart';
@@ -148,6 +149,29 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
     final codes = await Navigator.of(context)
         .push<List<String>>(MaterialPageRoute(builder: (_) => const ScanScreen(initial: ScanMode.receive, returnCodes: true)));
     if (codes != null && codes.isNotEmpty && mounted) setState(() => put(codes));
+  }
+
+  /// 2026-10-26 (требование владельца): «Сгенерировать» — свой EAN-13 (не с 0, не весовой), свободный в базе телефона и среди
+  /// доп. кодов карточки (до 10 попыток; нет связи — код без проверки, дубль поймает _checkCodes при сохранении).
+  /// Уже введённый код меняется только после подтверждения.
+  Future<void> _generateCode() async {
+    final l = context.l;
+    if (_barcode.text.trim().isNotEmpty) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          content: Text(l.bcGenReplace),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.bcGenDo)),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
+    final repo = ref.read(productEditRepoProvider);
+    final code = await BarcodeGenerator.createFree((c) async => _alt.any((a) => ProductDraft.altCode(a) == c) || await repo.barcodeOwner(p.id, c) != null);
+    if (mounted) setState(() => _barcode.text = code);
   }
 
   void _addAlt(String code) {
@@ -396,10 +420,16 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
             controller: _barcode,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              suffixIcon: IconButton(
-                tooltip: l.peScan,
-                icon: const Icon(Icons.qr_code_scanner_rounded),
-                onPressed: () => _scanInto((codes) => _barcode.text = codes.first.trim()),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(tooltip: l.bcGenTooltip, icon: const Icon(Icons.casino_outlined), onPressed: _generateCode),
+                  IconButton(
+                    tooltip: l.peScan,
+                    icon: const Icon(Icons.qr_code_scanner_rounded),
+                    onPressed: () => _scanInto((codes) => _barcode.text = codes.first.trim()),
+                  ),
+                ],
               ),
             ),
           ),

@@ -328,6 +328,13 @@
   "smartShots": "Çekim: {n}",
   "smartPriceRule": "Yenilerin fiyatı: alış +%30, 5'e yuvarlı",
   "smartUploaded": "Depoya yüklendi: {n}",
+  "smartPartial": "{total} satırdan {done} işlendi, {left} işlenmedi — «Yükle»ye tekrar basın: işlenenler ikinci kez eklenmez.",
+  "smartNoLink": "Sunucu ile bağlantı yok — hiçbir şey işlenmedi. Liste ekranda kaldı, internet gelince tekrarlayın.",
+  "smartRowRejected": "Reddedildi: {reason}",
+  "smartRowUnknown": "Sunucudan yanıt yok — tekrarlayın: stok iki kez eklenmez.",
+  "smartRowLocked": "Bu satır sunucuya zaten gönderildi — ürün ve ad değiştirilemez, yüklemeyi tekrarlayın.",
+  "smartPendingReceipt": "Önceki tedarikçi girişi yanıtsız kaldı — önce «Tedarikçiyle kabul»den tekrarlayın, aksi halde stok iki kez eklenebilir.",
+  "smartPendingStock": "Bazı satırlar için sunucudan yanıt yok — önce «Yükle»ye tekrar basın: stok iki kez eklenmez.",
   "sellingPrice": "Satış fiyatı",
   "durationCustom": "Özel…",
   "minutesHint": "dakika",
@@ -976,6 +983,9 @@
   "peBarcodeTaken": "{code} barkodu zaten \"{name}\" ürününde.",
   "peBarcodeTwice": "{code} barkodu iki kez girilmiş.",
   "peScan": "Tara",
+  "bcGenTooltip": "Barkod oluştur",
+  "bcGenReplace": "Mevcut barkod yenisiyle değiştirilsin mi?",
+  "bcGenDo": "Oluştur",
   "pePackQty": "pakette {qty}",
   "peNoAccess": "Ürünü \"Depo\" yetkisi olan çalışan veya yönetici düzenleyebilir."
 }

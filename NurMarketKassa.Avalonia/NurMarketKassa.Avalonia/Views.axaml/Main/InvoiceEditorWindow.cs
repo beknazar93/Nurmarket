@@ -44,12 +44,23 @@ public sealed class InvoiceEditorWindow : Window
         /// <summary>Итоги проведённых частей закупки (для карточки советника).</summary>
         public List<string> PostedSummaries { get; } = new();
         public bool Posting { get; set; }
-        public bool Completed => PostedSummaries.Count > 0 && Rows.Count == 0;
+        // 2026-10-25 (ТЗ «оприходование в фоне», Q3): строки закупки уходят в очередь фоновых приходов (BackgroundReceivingQueue) и покидают
+        // черновик; пока задача идёт, её Id лежит здесь. Меняется только в UI-потоке (BackgroundPosting).
+        public HashSet<string> PendingJobs { get; } = new();
+        /// <summary>Хоть одна часть закупки передана в очередь фоновых приходов.</summary>
+        public bool BackgroundQueued { get; set; }
+        /// <summary>Хоть одна фоновая задача закончилась не полностью (не «оприходован»): шаги после закупки (штрихкоды и пр.) не выполняются.</summary>
+        public bool BackgroundFailed { get; set; }
+        /// <summary>Все фоновые задачи черновика закончились (аргумент — все полностью). Вызывается в UI-потоке, когда закончилась последняя.</summary>
+        public Func<bool, Task>? OnSettled { get; set; }
+        public bool Completed => (PostedSummaries.Count > 0 || BackgroundQueued) && Rows.Count == 0;
 
         public static PurchaseDraft FromSteps(IEnumerable<ProductActionPlan.Step> steps, string? supplierName, string? supplierInn)
         {
             var draft = new PurchaseDraft { InvoiceSupplierName = supplierName, InvoiceSupplierInn = supplierInn };
-            foreach (var step in steps.Where(ProductActionPlan.IsPurchaseStep))
+            // 2026-10-24 (П4): список шагов нужен целиком — код для прихода к товару без штрихкода приходит отдельным шагом set_barcode (код — в Text).
+            var allSteps = steps as IReadOnlyCollection<ProductActionPlan.Step> ?? steps.ToList();
+            foreach (var step in allSteps.Where(ProductActionPlan.IsPurchaseStep))
             {
                 var qty = step.Qty ?? 0;
                 if (step.Op == "receive" && step.Product.Id is { Length: > 0 } id)
@@ -63,12 +74,18 @@ public sealed class InvoiceEditorWindow : Window
                         continue;
                     }
                     var price = step.Price ?? (tile.PriceValue > 0 ? tile.PriceValue : null);
+                    // 2026-10-24 (П4): у товара склада штрихкода нет, а в карточке советника его ввели — показываем этот код (только чтение);
+                    // товару его ставит шаг set_barcode после проведения закупки, колонка — лишь отображение.
+                    var cardCode = string.IsNullOrWhiteSpace(tile.Barcode)
+                        ? allSteps.FirstOrDefault(x => x.Op == "set_barcode" && string.Equals(x.Product.Id, id, StringComparison.OrdinalIgnoreCase))?.Text?.Trim() ?? ""
+                        : "";
                     draft.Rows.Add(new DraftRow
                     {
                         Line = PurchaseReceivingService.FromTile(tile, qty),
                         Existing = tile,
                         InvoiceName = tile.Title,
-                        Barcode = tile.Barcode ?? "",
+                        Barcode = string.IsNullOrWhiteSpace(tile.Barcode) ? cardCode : tile.Barcode!,
+                        BarcodeFromCard = cardCode.Length > 0,
                         Unit = string.IsNullOrWhiteSpace(tile.Unit) ? "шт" : tile.Unit!,
                         Qty = Num(qty, "0.###"),
                         Purchase = Num(step.Purchase, "0.##"),
@@ -132,6 +149,21 @@ public sealed class InvoiceEditorWindow : Window
             }
         }
 
+        /// <summary>2026-10-25: строки вернулись в окно (отказ сервера при быстром ответе) — убрать отметки, поставленные при постановке в очередь.</summary>
+        public static void Forget(PurchaseReceivingService.Supplier supplier, IEnumerable<ReceivingLineVm> lines)
+        {
+            lock (Entries)
+            {
+                foreach (var l in lines.Where(x => !string.IsNullOrWhiteSpace(x.ProductId)))
+                {
+                    var i = Entries.FindLastIndex(e => e.SupplierId == supplier.Id && string.Equals(e.ProductId, l.ProductId, StringComparison.OrdinalIgnoreCase)
+                        && Math.Abs(e.Qty - l.Quantity) < 0.0005 && Math.Abs(e.Purchase - l.PurchasePrice) < 0.005);
+                    if (i >= 0)
+                        Entries.RemoveAt(i);
+                }
+            }
+        }
+
         /// <param name="supplierId">null — у любого поставщика.</param>
         public static Entry? Find(string? supplierId, string? productId, IEnumerable<string?> names, double qty, double purchase)
         {
@@ -149,6 +181,96 @@ public sealed class InvoiceEditorWindow : Window
         }
     }
 
+    /// <summary>2026-10-25 (ТЗ «оприходование в фоне», Q3): «хвост» закупки по накладной после постановки в очередь BackgroundReceivingQueue —
+    /// то, что раньше окно делало после PostAsync (итог в карточку, реестр повторов, отметка товаров в складе владельца). Выполняется ровно
+    /// один раз на задачу: либо окном (задача успела за 0,5 с), либо по событию JobFinished (окно уже закрыто). Только UI-поток.
+    /// Остатки плиток, обновление каталога и долг поставщику делает сама очередь.</summary>
+    public static class BackgroundPosting
+    {
+        private sealed record Tail(PurchaseDraft Draft, PurchaseReceivingService.Supplier Supplier, bool PaidNow, IReadOnlyList<string> InvoiceNames, IReadOnlyList<bool> WasNew);
+
+        private static readonly Dictionary<string, Tail> Tails = new();
+        private static bool _subscribed;
+
+        public static void Register(string jobId, PurchaseDraft draft, PurchaseReceivingService.Supplier supplier, bool paidNow,
+            IReadOnlyList<string> invoiceNames, IReadOnlyList<bool> wasNew)
+        {
+            lock (Tails)
+            {
+                Tails[jobId] = new Tail(draft, supplier, paidNow, invoiceNames, wasNew);
+                if (!_subscribed)
+                {
+                    _subscribed = true;
+                    BackgroundReceivingQueue.Instance.JobFinished += job => Dispatcher.UIThread.Post(() => Finalize(job));
+                }
+            }
+            draft.PendingJobs.Add(jobId);
+            draft.BackgroundQueued = true;
+        }
+
+        /// <summary>Задача закончена (done / partial / failed / needs_check). Повторный вызов для той же задачи ничего не делает.</summary>
+        public static void Finalize(ReceivingJob job)
+        {
+            Tail? tail;
+            lock (Tails)
+            {
+                if (!Tails.Remove(job.Id, out tail))
+                    return;
+            }
+            var draft = tail.Draft;
+            draft.PendingJobs.Remove(job.Id);
+            if (job.Status != ReceivingJobStatus.Done)
+                draft.BackgroundFailed = true;
+            try
+            {
+                // Созданные этой закупкой товары — в реестр повторов по итоговым id (у существующих отметка уже стоит с постановки).
+                var created = new List<(ReceivingLineVm Line, string InvoiceName)>();
+                for (var i = 0; i < job.Lines.Count && i < tail.WasNew.Count; i++)
+                    if (tail.WasNew[i] && job.Lines[i].Outcome == ReceivingLineOutcome.Posted)
+                        created.Add((job.Lines[i].ToVm(), tail.InvoiceNames[i]));
+                if (created.Count > 0)
+                    PostedLines.Remember(tail.Supplier, created);
+
+                var posted = job.Lines.Where(l => l.Outcome == ReceivingLineOutcome.Posted).ToList();
+                if (posted.Count > 0)
+                {
+                    var summary = (job.Summary ?? "").Replace("\n", " ").Trim();
+                    var who = T($"Поставщик «{tail.Supplier.Name}», ", $"Жеткирүүчү «{tail.Supplier.Name}», ", $"Supplier “{tail.Supplier.Name}”, ", $"Tedarikçi «{tail.Supplier.Name}», ", $"Yetkazib beruvchi «{tail.Supplier.Name}», ")
+                              + (tail.PaidNow ? T("оплачено сразу.", "дароо төлөндү.", "paid now.", "hemen ödendi.", "darhol to'landi.")
+                                  : T("в долг поставщику.", "жеткирүүчүгө карызга.", "on credit.", "tedarikçiye borç.", "yetkazib beruvchiga qarzga."));
+                    draft.PostedSummaries.Add(summary + " " + who);
+                    // Склад программы владельца: отметка у принятых товаров (как после «Выполнить» советника).
+                    var changed = posted.Where(l => !string.IsNullOrWhiteSpace(l.ProductId)).Select(l => l.ProductId!).Distinct().ToList();
+                    if (changed.Count > 0)
+                        ProductActionPlan.ShowChangedProducts?.Invoke(changed, summary);
+                }
+                ProductActions.RequestCatalogRefresh?.Invoke();
+                PosLogger.Log($"Закупка по накладной: задача {job.Id} — {job.Status}. {job.Summary} Ошибок: {job.Errors.Count}.", job.Status == ReceivingJobStatus.Done ? "STOCK" : "WARNING");
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Закупка по накладной: итог задачи {job.Id} не обработан до конца: {ex.Message}", "WARNING");
+            }
+            if (draft.PendingJobs.Count == 0 && draft.OnSettled is { } settled)
+            {
+                draft.OnSettled = null;
+                _ = RunSettledAsync(settled, !draft.BackgroundFailed);
+            }
+        }
+
+        private static async Task RunSettledAsync(Func<bool, Task> settled, bool allDone)
+        {
+            try
+            {
+                await settled(allDone).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Закупка по накладной: шаги после фонового прихода не выполнены: {ex.Message}", "WARNING");
+            }
+        }
+    }
+
     /// <summary>2026-10-19: строка закупки — тексты ячеек и строка приёмки (ReceivingLineVm), которая уходит в PostAsync. Строка
     /// приёмки одна на всё время черновика: созданный при прошлой попытке товар (ProductId) второй раз не создаётся.</summary>
     public sealed class DraftRow
@@ -159,6 +281,8 @@ public sealed class InvoiceEditorWindow : Window
         public string InvoiceName { get; set; } = "";
         public string ReceiptName { get; set; } = "";
         public string Barcode { get; set; } = "";
+        /// <summary>2026-10-24 (П4): код введён в карточке советника для прихода к товару без штрихкода (ставится шагом set_barcode после закупки).</summary>
+        public bool BarcodeFromCard { get; set; }
         public string Unit { get; set; } = "шт";
         public string? Category { get; set; }
         public string Qty { get; set; } = "";
@@ -184,6 +308,8 @@ public sealed class InvoiceEditorWindow : Window
         },
     };
     private readonly List<TextBox> _navBoxes = new();
+    // 2026-10-24 (П4): правимые поля «Штрихкод» в порядке строк — Enter из штрихкода идёт к штрихкоду следующей строки.
+    private readonly List<TextBox> _barcodeBoxes = new();
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false, LineHeight = 19 };
     private readonly TextBlock _total = new() { FontSize = 15, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _supplierSelected = new() { FontSize = 15, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
@@ -370,7 +496,37 @@ public sealed class InvoiceEditorWindow : Window
             // Курсор — в наименование новой строки.
             Dispatcher.UIThread.Post(() => _navBoxes.FirstOrDefault(b => ReferenceEquals(b.Tag, row))?.Focus(), DispatcherPriority.Background);
         };
-        var rowsPanel = new StackPanel { Margin = new Thickness(0, 0, 14, 0), Children = { _grid, addRow } };
+        // 2026-10-26 (требование владельца): «Сгенерировать» штрихкоды новым товарам без кода — EAN-13, не с 0 и не весовой (BarcodeGenerator).
+        var makeCodes = UiKit.Ghost(this, T("Сгенерировать штрихкоды", "Штрихкоддорду түзүү", "Generate barcodes", "Barkod oluştur", "Shtrix-kodlarni yaratish"));
+        makeCodes.Height = 44;
+        makeCodes.Margin = new Thickness(8, 8, 0, 0);
+        ToolTip.SetTip(makeCodes, T("Проставить свой штрихкод новым товарам, у которых код пустой. Уже введённые коды не меняются.",
+            "Коду жок жаңы товарларга өз штрихкодун коюу. Киргизилген коддор өзгөрбөйт.",
+            "Set an own barcode on new products that have none. Barcodes already typed are not changed.",
+            "Kodu olmayan yeni ürünlere kendi barkodunu ver. Girilmiş barkodlar değişmez.",
+            "Kodi bo'sh yangi mahsulotlarga o'z shtrix-kodini qo'yish. Kiritilgan kodlar o'zgarmaydi."));
+        makeCodes.Click += (_, _) =>
+        {
+            if (_draft.Posting)
+                return;
+            var typed = _draft.Rows.Select(r => r.Barcode).ToList();
+            var made = 0;
+            foreach (var row in _draft.Rows)
+            {
+                if (row.Existing is not null || row.CreatedEarlier || !string.IsNullOrWhiteSpace(row.Barcode))
+                    continue;
+                row.Barcode = BarcodeGenerator.GenerateForCatalog(typed);
+                typed.Add(row.Barcode);
+                made++;
+            }
+            if (made > 0)
+            {
+                _repeatConfirmedFor = null;
+                RebuildRows();
+            }
+        };
+        var rowButtons = new StackPanel { Orientation = Orientation.Horizontal, Children = { addRow, makeCodes } };
+        var rowsPanel = new StackPanel { Margin = new Thickness(0, 0, 14, 0), Children = { _grid, rowButtons } };
         if (draft.MergeNotes.Count > 0)
         {
             var merged = new TextBlock
@@ -549,6 +705,7 @@ public sealed class InvoiceEditorWindow : Window
         _grid.Children.Clear();
         _grid.RowDefinitions.Clear();
         _navBoxes.Clear();
+        _barcodeBoxes.Clear();
         string[] headers =
         {
             "№", T("Действие", "Аракет", "Action", "İşlem", "Amal"),
@@ -611,6 +768,26 @@ public sealed class InvoiceEditorWindow : Window
             invoiceName.TextChanged += (_, _) => receiptName.Watermark = string.IsNullOrWhiteSpace(invoiceName.Text) ? null : invoiceName.Text;
             var barcode = Box(row.Barcode, v => row.Barcode = v.Trim(), existing ? "" : T("скан или вписать", "скан же жазуу", "scan or type", "okut veya yaz", "skan yoki yozing"),
                 readOnly: existing || row.CreatedEarlier);
+            if (existing && row.BarcodeFromCard)
+                ToolTip.SetTip(barcode, T($"{row.Barcode} — введён в карточке советника, будет поставлен товару после проведения закупки.",
+                    $"{row.Barcode} — кеңешчи картасында киргизилген, сатып алуу өткөрүлгөндөн кийин товарга коюлат.",
+                    $"{row.Barcode} — entered on the advisor card, will be set on the product after the purchase is posted.",
+                    $"{row.Barcode} — danışman kartında girildi, alım işlendikten sonra ürüne atanacak.",
+                    $"{row.Barcode} — maslahatchi kartasida kiritilgan, xarid o'tkazilgach mahsulotga qo'yiladi."));
+            if (!existing && !row.CreatedEarlier)
+            {
+                // 2026-10-24 (П4): пустой штрихкод нового товара — мягкая подсветка рамки (не ошибка: товар создастся и без кода).
+                _barcodeBoxes.Add(barcode);
+                void Soft()
+                {
+                    if ((barcode.Text ?? "").Trim().Length == 0)
+                        Res(barcode, Avalonia.Controls.Primitives.TemplatedControl.BorderBrushProperty, "BrushWarning");
+                    else
+                        barcode.ClearValue(Avalonia.Controls.Primitives.TemplatedControl.BorderBrushProperty);
+                }
+                Soft();
+                barcode.TextChanged += (_, _) => Soft();
+            }
             var qty = Box(row.Qty, v => row.Qty = v, right: true);
             var purchase = Box(row.Purchase, v => row.Purchase = v, right: true);
             var price = Box(row.Price, v => row.Price = v, right: true);
@@ -685,6 +862,15 @@ public sealed class InvoiceEditorWindow : Window
         e.Handled = true;
         if (sender is not TextBox box)
             return;
+        // 2026-10-24 (П4): Enter в «Штрихкоде» — к штрихкоду следующей строки (первой пустой правимой); если пустых дальше нет — как раньше.
+        var b = _barcodeBoxes.IndexOf(box);
+        if (b >= 0 && _barcodeBoxes.Skip(b + 1).FirstOrDefault(x => string.IsNullOrWhiteSpace(x.Text)) is { } nextCode)
+        {
+            nextCode.Focus();
+            nextCode.SelectAll();
+            nextCode.BringIntoView();
+            return;
+        }
         var i = _navBoxes.IndexOf(box);
         if (i >= 0 && i + 1 < _navBoxes.Count)
         {
@@ -785,6 +971,10 @@ public sealed class InvoiceEditorWindow : Window
     {
         if (_draft.Posting)
             return;
+        // 2026-10-26 (приёмка S-3): 0,5 с ожидания итога считаем от нажатия (проверки до постановки в очередь синхронные, без диалогов),
+        // а не после постановки — иначе окно закрывалось через 589–607 мс при медленном сервере. Как в складе (ReceivingWaitLimit):
+        // 0,46 с — запас на шаг таймера Windows и возврат в поток UI; ожидание — не меньше 50 мс.
+        var sinceClick = System.Diagnostics.Stopwatch.StartNew();
         if (_draft.Supplier is not { } supplier)
         {
             ShowError(T("Выберите поставщика — без поставщика закупку провести нельзя.", "Жеткирүүчүнү тандаңыз — жеткирүүчүсүз сатып алууну өткөрүүгө болбойт.",
@@ -861,94 +1051,104 @@ public sealed class InvoiceEditorWindow : Window
             }
         }
 
+        // 2026-10-25 (ТЗ «оприходование в фоне», Q3): раньше окно ждало сервер без таймаута («Провожу закупку…» до минут при плохом
+        // интернете). Теперь строки уходят в очередь фоновых приходов (BackgroundReceivingQueue: ключ идемпотентности и состояние повторов
+        // на диске, переживает закрытие окна и перезапуск), окно ждёт итог не дольше 0,5 с. Успели — итог как раньше; нет — окно
+        // закрывается, закупка догружается в фоне. _draft.Posting держится только на синхронную часть и это ожидание.
         _draft.Posting = true;
         UpdatePostState();
         _post.Content = T("Провожу закупку…", "Сатып алуу өткөрүлүүдө…", "Posting…", "İşleniyor…", "O'tkazilmoqda…");
         ShowError("");
         var paidNow = _draft.PaidNow;
-        PurchaseReceivingService.PostResult result;
+        var rows = _draft.Rows.ToList();
+        string jobId;
         try
         {
             var employee = NurMarketKassa.PosApp.CurrentUserDisplayName ?? NurMarketKassa.PosApp.CurrentUserId;
-            PosLogger.Log($"Закупка по накладной: проведение — поставщик «{supplier.Name}», строк {lines.Count}, {(paidNow ? "оплачено сразу" : "в долг")}.", "STOCK");
-            result = await PurchaseReceivingService.Instance.PostAsync(lines, supplier, paidNow, employee).ConfigureAwait(true);
+            PosLogger.Log($"Закупка по накладной: в очередь — поставщик «{supplier.Name}», строк {lines.Count}, {(paidNow ? "оплачено сразу" : "в долг")}.", "STOCK");
+            jobId = BackgroundReceivingQueue.Instance.Enqueue(new ReceivingJobRequest(ReceivingJobSource.Invoice, lines, supplier, paidNow, employee, _draft.DebtDays), out _);
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Закупка по накладной не проведена: {ex}", "WARNING");
+            // Очередь закрыта или задача не записалась на диск: строки в списке не трогаем (ничего не отправлено).
+            PosLogger.Log($"Закупка по накладной не принята в очередь: {ex}", "WARNING");
             _draft.Posting = false;
             _post.Content = T("Провести закупку", "Сатып алууну өткөрүү", "Post purchase", "Alımı işle", "Xaridni o'tkazish");
             RebuildRows();
-            ShowError(T("Не удалось провести закупку: ", "Сатып алуу өткөрүлгөн жок: ", "The purchase failed: ", "Alım işlenemedi: ", "Xaridni o'tkazib bo'lmadi: ") + ex.Message
-                      + T(" Нажмите «Провести закупку» ещё раз — повтор не задвоит приход.", " «Сатып алууну өткөрүү» баскычын кайра басыңыз — кайталоо киришти эки эсе кылбайт.",
-                          " Press “Post purchase” again — a retry won't double the receipt.", " «Alımı işle»ye tekrar basın — tekrar girişi ikiye katlamaz.",
-                          " «Xaridni o'tkazish»ni yana bosing — takror kirimni ikki baravar qilmaydi."));
+            UpdateTotal();
+            ShowError(T("Не удалось провести закупку: ", "Сатып алуу өткөрүлгөн жок: ", "The purchase failed: ", "Alım işlenemedi: ", "Xaridni o'tkazib bo'lmadi: ") + ex.Message);
             return;
         }
 
-        // Остаток в каталоге кассы — сразу, принятые строки уходят из списка, непринятые остаются для повтора.
-        // 2026-10-19, ревью: от ТЕКУЩЕГО остатка плитки на момент ответа (продажи, прошедшие пока строки правились, не откатываются),
-        // а не от остатка при открытии (StockBefore). Точный остаток придёт со следующей синхронизацией каталога.
-        foreach (var line in result.PostedLines.Where(l => !l.IsNew && !string.IsNullOrWhiteSpace(l.ProductId)))
+        // Строки принадлежат задаче: из черновика уходят сразу (второе нажатие — пустой список), отметка в реестр повторов — при постановке.
+        _draft.Rows.Clear();
+        BackgroundPosting.Register(jobId, _draft, supplier, paidNow, rows.Select(r => r.InvoiceName).ToList(), rows.Select(r => string.IsNullOrWhiteSpace(r.Line.ProductId)).ToList());
+        PostedLines.Remember(supplier, rows.Select(r => (r.Line, r.InvoiceName)).ToList());
+        ReceivingJob? job = null;
+        try
         {
-            var vm = CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, line.ProductId, StringComparison.OrdinalIgnoreCase));
-            if (vm is null)
-                continue;
-            var target = Math.Round(vm.Quantity + line.Quantity, 3);
-            StockSyncService.ApplyQuantityToTileOnUi(vm, target, vm.MustWeigh);
-            CatalogCacheService.PersistProductStock(vm.Id, target, vm.MustWeigh);
+            job = await BackgroundReceivingQueue.Instance.WaitAsync(jobId, TimeSpan.FromMilliseconds(Math.Max(50, 460 - sinceClick.Elapsed.TotalMilliseconds))).ConfigureAwait(true);
         }
-        var posted = new HashSet<ReceivingLineVm>(result.PostedLines, ReferenceEqualityComparer.Instance);
-        // 2026-10-19, ревью: в реестр — по итоговым id (и у созданных товаров), до того как строки уйдут из черновика.
-        PostedLines.Remember(supplier, _draft.Rows.Where(r => posted.Contains(r.Line)).Select(r => (r.Line, r.InvoiceName)).ToList());
-        _draft.Rows.RemoveAll(r => posted.Contains(r.Line));
-        if (result.Created > 0)
+        catch (Exception ex)
         {
-            try
-            {
-                await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
-            }
-            catch (Exception ex)
-            {
-                PosLogger.Log($"Закупка по накладной: каталог после создания товаров не обновлён: {ex.Message}", "WARNING");
-            }
+            PosLogger.Log($"Закупка по накладной: ожидание итога не удалось ({ex.Message}) — задача идёт в фоне.", "WARNING");
         }
-        ProductActions.RequestCatalogRefresh?.Invoke();
-
-        var summary = PurchaseReceivingService.SummaryText(result);
-        // 2026-10-20, этап П3: закупка «в долг» проведена — записать долг поставщику (сделка-долг, как сайт; защита от двойного долга).
-        var debtFailed = false;
-        if (!paidNow && result.PostedLines.Count > 0)
-        {
-            var debt = await SupplierDebtUi.RecordAfterReceiptAsync(supplier, result, _draft.DebtDays, "invoice").ConfigureAwait(true);
-            if (debt is not null)
-            {
-                summary += " " + SupplierDebtRecorder.ResultText(debt);
-                debtFailed = !debt.Recorded;
-            }
-        }
-        if (result.PostedLines.Count > 0)
-        {
-            var who = T($"Поставщик «{supplier.Name}», ", $"Жеткирүүчү «{supplier.Name}», ", $"Supplier “{supplier.Name}”, ", $"Tedarikçi «{supplier.Name}», ", $"Yetkazib beruvchi «{supplier.Name}», ")
-                      + (paidNow ? T("оплачено сразу.", "дароо төлөндү.", "paid now.", "hemen ödendi.", "darhol to'landi.")
-                          : T("в долг поставщику.", "жеткирүүчүгө карызга.", "on credit.", "tedarikçiye borç.", "yetkazib beruvchiga qarzga."));
-            _draft.PostedSummaries.Add(summary + " " + who);
-            // Склад программы владельца: отметка у принятых товаров (как после «Выполнить» советника).
-            var changed = result.PostedLines.Where(l => !string.IsNullOrWhiteSpace(l.ProductId)).Select(l => l.ProductId!).Distinct().ToList();
-            if (changed.Count > 0)
-                ProductActionPlan.ShowChangedProducts?.Invoke(changed, summary);
-        }
-        PosLogger.Log($"Закупка по накладной: {summary} Ошибок: {result.Errors.Count}.", result.Errors.Count == 0 ? "STOCK" : "WARNING");
 
         _draft.Posting = false;
         _post.Content = T("Провести закупку", "Сатып алууну өткөрүү", "Post purchase", "Alımı işle", "Xaridni o'tkazish");
-        if (result.Errors.Count == 0 && _draft.Rows.Count == 0 && !debtFailed)
+        if (job is null)
+        {
+            // Не успела за 0,5 с: окно закрывается, остальное (остатки, долг, штрихкоды карточки) — по событию завершения задачи.
+            PosLogger.Log($"Закупка по накладной: задача {jobId} выполняется в фоне.", "STOCK");
+            Close(T("Операция выполняется в фоне — можно продолжать работу", "Операция фондо аткарылууда — иштей берсеңиз болот",
+                "The operation is running in the background — you can keep working", "İşlem arka planda yürütülüyor — çalışmaya devam edebilirsiniz",
+                "Amal fonda bajarilmoqda — ishni davom ettirishingiz mumkin"));
+            return;
+        }
+
+        // Успела: итог — как раньше. Остатки плиток, каталог и долг поставщику уже сделала очередь.
+        BackgroundPosting.Finalize(job);
+        var restored = new List<DraftRow>();
+        if (job.Status != ReceivingJobStatus.Done)
+        {
+            // Строки, которые ТОЧНО не проведены (отказ сервера), возвращаются в окно для правки и повтора; неизвестный исход остаётся
+            // в «Приходах в фоне» (второй раз не проводим — задвоится приход).
+            var back = BackgroundReceivingQueue.Instance.TakeBackLines(jobId);
+            var bi = 0;
+            for (var i = 0; i < rows.Count && i < job.Lines.Count && bi < back.Count; i++)
+            {
+                if (job.Lines[i].Outcome == ReceivingLineOutcome.Posted)
+                    continue;
+                var b = back[bi];
+                var l = rows[i].Line;
+                if (b.Barcode != l.Barcode || b.ProductName != l.ProductName || Math.Abs(b.Quantity - l.Quantity) > 0.0005 || Math.Abs(b.PurchasePrice - l.PurchasePrice) > 0.005)
+                    continue;
+                if (!string.IsNullOrWhiteSpace(b.ProductId))
+                    l.ProductId = b.ProductId; // созданный при этой попытке товар второй раз не создаётся
+                restored.Add(rows[i]);
+                bi++;
+            }
+            _draft.Rows.AddRange(restored);
+            PostedLines.Forget(supplier, restored.Select(r => r.Line));
+        }
+        var lost = rows.Where((r, i) => i < job.Lines.Count && job.Lines[i].Outcome != ReceivingLineOutcome.Posted && !restored.Contains(r)).Count();
+        var summary = (job.Summary ?? "").Replace("\n", " ").Trim();
+        var errors = job.Errors.ToList();
+        if (job.Status != ReceivingJobStatus.Done && job.LastError is { Length: > 0 } lastError && !errors.Contains(lastError))
+            errors.Add(lastError);
+        if (lost > 0)
+            errors.Add(T($"Строк с неподтверждённым исходом: {lost} — они остались в «Приходах в фоне»; проверьте остаток по складу и не проводите их второй раз.",
+                $"Жыйынтыгы тастыкталбаган саптар: {lost} — алар «Фондогу кирүүлөрдө» калды; кампадагы калдыкты текшериңиз, экинчи жолу өткөрбөңүз.",
+                $"Lines with an unconfirmed result: {lost} — they stay in “Background receipts”; check the stock and don't post them a second time.",
+                $"Sonucu doğrulanmayan satır: {lost} — «Arka plandaki girişler»de kaldı; stoğu kontrol edin, ikinci kez işlemeyin.",
+                $"Natijasi tasdiqlanmagan qatorlar: {lost} — ular «Fondagi kirimlar»da qoldi; ombor qoldig'ini tekshiring, ikkinchi marta o'tkazmang."));
+        if (job.Status == ReceivingJobStatus.Done && errors.Count == 0 && _draft.Rows.Count == 0)
         {
             Close(summary);
             return;
         }
         RebuildRows();
         UpdateTotal();
-        ShowError((result.PostedLines.Count > 0 ? summary + "\n" : "") + string.Join("\n", result.Errors.Take(10)));
+        ShowError((job.PostedCount > 0 ? summary + "\n" : "") + string.Join("\n", errors.Take(10)));
     }
 }

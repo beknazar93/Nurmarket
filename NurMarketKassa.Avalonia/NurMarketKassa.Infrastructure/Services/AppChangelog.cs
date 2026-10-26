@@ -13,72 +13,57 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Новое окно оплаты: компактное, в две колонки; клиент выбирается карточкой, при долге видны сумма чека и «Получить сейчас»",
-        "Маркетплейс как магазин приложений: витрина, страница «Подробнее» со слайдами, анимацией, «Чем поможет» и ценой; темы и виды с превью, купленное помечено «Куплено»",
-        "Красивый чек-«бумага» в истории чеков; значок «Подробнее» и карточка товара",
-        "Склад: массовое добавление товаров сканером; у поставщика «Погасить весь долг» (двойные записи не оплачиваются)",
-        "Долг клиента считается как на сервере, двойные записи помечены; «Выручка (без долга)» везде одинаково",
-        "Z-отчёт совпадает с X, в нём раскладка «в ящике должно быть»; остаток при открытии смены берётся из последней закрытой; предупреждение о смене старше 22 часов",
-        "Воронка: клик по клиенту открывает чат (WhatsApp, Instagram, Telegram), стрелки «назад» и «вперёд» крупнее",
-        "Программа владельца: Сводка обновляется сама раз в минуту, пустой счёт нельзя выставить, дубль телефона клиента виден сразу",
-        "«Горячие клавиши» и «Импорт» в общем стиле, История чеков — по размеру окна кассы, «Пополнение» без услуг, окна не уходят под панель задач",
-        "После входа виден кассир за кассой; исправлены утечки памяти (закрытые окна, миниатюры, темы)",
+        "Склад: «Ревизия» — пересчёт сканером (скан → факт), акты, выгрузка в Excel, CSV и PDF; «Приёмка»: скан → строка, наценка, подорожание, кнопка «＋ поставщик»",
+        "Оприходование в фоне: окно не ждёт сервер (плохой интернет — «операция выполняется в фоне»), новое окно «Приходы в фоне», повторы без дублей",
+        "Нур Советник: накладная по штрихкодам, кнопка «Сгенерировать» штрихкод; ввод в полях больше не теряет символы",
+        "Генератор штрихкода в карточке товара и закупке: код не начинается с 0 и 2 и не повторяет коды каталога",
+        "Telegram-бот: «Группа заказов» — заказы приходят владельцу, в группу или в оба места",
+        "Редактор этикеток: можно печатать только штрихкод, только название или только цену; размер текста не ограничен",
+        "Скан в открытой карточке товара больше не срабатывает в окне «Склад»; поле «Штрихкод» в карточке шире",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Төлөмдүн жаңы терезеси: ыкчам, эки тилкелүү; кардар карточка менен тандалат, карызда чектин суммасы жана «Азыр алуу» көрүнөт",
-        "Маркетплейс колдонмолор дүкөнүндөй: витрина, слайддар, анимация, «Эмне жардам берет» жана баасы бар «Кененирээк» барагы; алдын ала көрүүсү бар темалар жана көрүнүштөр, сатып алынганы «Сатып алынды» деп белгиленет",
-        "Чектердин тарыхында кооз кагаз чек; «Кененирээк» белгиси жана товардын карточкасы",
-        "Кампа: товарларды сканер менен жапырт кошуу; жеткирүүчүдө «Бүт карызды төлөө» (кош жазуулар төлөнбөйт)",
-        "Кардардын карызы сервердегидей эсептелет, кош жазуулар белгиленет; «Түшүм (карызсыз)» бардык жерде бирдей",
-        "Z-отчёт X менен дал келет, ичинде «ящикте болушу керек» бөлүштүрүү бар; смена ачылганда калдык акыркы жабылгандан алынат; 22 сааттан эски смена жөнүндө эскертүү",
-        "Воронка: кардарды чыкылдатсаңыз чат ачылат (WhatsApp, Instagram, Telegram), «артка» жана «алдыга» жебелери чоңураак",
-        "Ээсинин программасы: Жыйынтык мүнөтүнө бир жолу өзү жаңыланат, бош эсепти чыгарууга болбойт, кардардын телефону кайталанса дароо көрүнөт",
-        "«Ысык баскычтар» жана «Импорт» жалпы стилде, Чектердин тарыхы кассанын терезесине жараша, «Толуктоо» кызматтарсыз, терезелер тапшырмалар панелинин астына кирбейт",
-        "Киргенден кийин кассада ким отурганы көрүнөт; эс тутумдун агып кетүүлөрү оңдолду (жабылган терезелер, миниатюралар, темалар)",
+        "Кампа: «Ревизия» — сканер менен кайра эсептөө (скан → факт), актылар, Excel, CSV жана PDFке чыгаруу; «Кабыл алуу»: скан → сап, кошумча баа, кымбаттоо, «＋ жеткирүүчү» баскычы",
+        "Фондо кирешелөө: терезе серверди күтпөйт (интернет начар болсо — «операция фондо аткарылууда»), «Фондогу кирешелер» жаңы терезеси, кайталоолор дубликатсыз",
+        "Нур Кеңешчи: штрихкод боюнча накладная, штрихкодду «Түзүү» баскычы; талааларга киргизүү символдорду жоготпойт",
+        "Товардын карточкасында жана сатып алууда штрихкод генератору: код 0 жана 2 менен башталбайт, каталогдогу коддорду кайталабайт",
+        "Telegram-бот: «Буйрутмалар тобу» — буйрутмалар ээсине, топко же экөөнө тең келет",
+        "Этикетка редактору: штрихкодду гана, атын гана же баасын гана басууга болот; текст өлчөмү чектелбейт",
+        "Товардын ачык карточкасындагы скан «Кампа» терезесинде иштебейт; карточкадагы «Штрихкод» талаасы кеңирээк",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "New payment window: compact, two columns; the client is picked with a card, and with a debt it shows the receipt total and “Receive now”",
-        "Marketplace like an app store: a showcase, a “Details” page with slides, animation, “How it helps” and the price; themes and looks with previews, purchased items marked “Purchased”",
-        "A nicer paper-style receipt in the receipt history; the “Details” badge and the product card",
-        "Stock: bulk adding of products with a scanner; the supplier has “Pay off the whole debt” (duplicate entries are not paid)",
-        "A client's debt is counted as on the server, duplicate entries are marked; “Revenue (without debt)” is the same everywhere",
-        "The Z-report matches the X-report and has the “should be in the drawer” breakdown; the opening balance of a shift comes from the last closed one; a warning for a shift older than 22 hours",
-        "Funnel: clicking a client opens a chat (WhatsApp, Instagram, Telegram), larger back and forward arrows",
-        "Owner app: the Summary refreshes itself every minute, an empty invoice cannot be issued, a duplicate client phone is shown at once",
-        "“Hotkeys” and “Import” in the common style, the receipt history follows the till window size, “Restocking” without services, windows no longer go under the taskbar",
-        "The cashier at the till is shown after login; memory leaks fixed (closed windows, thumbnails, themes)",
+        "Stock: “Revision” — counting with a scanner (scan → actual), acts, export to Excel, CSV and PDF; “Receiving”: scan → row, markup, price rise, the “＋ supplier” button",
+        "Receiving in the background: the window does not wait for the server (bad internet — “the operation runs in the background”), a new “Receipts in the background” window, retries without duplicates",
+        "Nur Advisor: an invoice by barcodes, a “Generate” barcode button; typing in fields no longer loses characters",
+        "Barcode generator in the product card and purchasing: the code never starts with 0 or 2 and never repeats catalog codes",
+        "Telegram bot: “Orders group” — orders go to the owner, to the group, or to both",
+        "Label editor: you can print only the barcode, only the name or only the price; the text size is not limited",
+        "A scan in an open product card no longer triggers in the “Stock” window; the “Barcode” field in the card is wider",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Yeni ödeme penceresi: kompakt, iki sütunlu; müşteri kartla seçilir, borçta fiş tutarı ve «Şimdi al» görünür",
-        "Uygulama mağazası gibi Pazar yeri: vitrin, slaytlar, animasyon, «Nasıl yardımcı olur» ve fiyatlı «Ayrıntılı» sayfası; önizlemeli temalar ve görünümler, satın alınanlar «Satın alındı» diye işaretlenir",
-        "Fiş geçmişinde güzel kâğıt fiş; «Ayrıntılı» simgesi ve ürün kartı",
-        "Depo: ürünlerin tarayıcıyla toplu eklenmesi; tedarikçide «Tüm borcu öde» (çift kayıtlar ödenmez)",
-        "Müşteri borcu sunucudaki gibi hesaplanır, çift kayıtlar işaretlenir; «Ciro (borçsuz)» her yerde aynı",
-        "Z raporu X ile aynıdır, içinde «çekmecede olması gereken» dökümü var; vardiya açılırken bakiye son kapanan vardiyadan alınır; 22 saatten eski vardiya uyarısı",
-        "Satış hunisi: müşteriye tıklamak sohbeti açar (WhatsApp, Instagram, Telegram), geri ve ileri okları daha büyük",
-        "Sahip programı: Özet dakikada bir kendiliğinden yenilenir, boş fatura kesilemez, müşteri telefonu tekrarı hemen görünür",
-        "«Kısayol tuşları» ve «İçe aktar» ortak tarzda, Fiş geçmişi kasa penceresinin boyutuna göre, «Stok yenileme» hizmetsiz, pencereler görev çubuğunun altına girmez",
-        "Girişten sonra kasadaki kasiyer görünür; bellek sızıntıları giderildi (kapatılan pencereler, küçük resimler, temalar)",
+        "Depo: «Sayım» — tarayıcıyla sayım (tarama → fiili), tutanaklar, Excel, CSV ve PDF dışa aktarma; «Mal kabul»: tarama → satır, kâr oranı, zam, «＋ tedarikçi» düğmesi",
+        "Arka planda mal girişi: pencere sunucuyu beklemez (kötü internette «işlem arka planda yürütülüyor»), yeni «Arka plandaki girişler» penceresi, tekrarlar çift kayıtsız",
+        "Nur Danışman: barkodlarla fatura, «Oluştur» barkod düğmesi; alanlara yazarken karakterler artık kaybolmaz",
+        "Ürün kartında ve satın almada barkod üretici: kod 0 ve 2 ile başlamaz, katalog kodlarını tekrarlamaz",
+        "Telegram botu: «Sipariş grubu» — siparişler sahibe, gruba veya ikisine gelir",
+        "Etiket düzenleyici: yalnızca barkod, yalnızca ad veya yalnızca fiyat yazdırılabilir; yazı boyutu sınırsız",
+        "Açık ürün kartındaki tarama artık «Depo» penceresinde çalışmaz; kartta «Barkod» alanı daha geniş",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Yangi to'lov oynasi: ixcham, ikki ustunli; mijoz karta orqali tanlanadi, qarzda chek summasi va «Hozir olish» ko'rinadi",
-        "Ilovalar do'koni kabi Marketplace: vitrina, slaydlar, animatsiya, «Qanday yordam beradi» va narxli «Batafsil» sahifasi; oldindan ko'rish bilan mavzular va ko'rinishlar, sotib olingani «Sotib olingan» deb belgilanadi",
-        "Cheklar tarixida chiroyli qog'oz chek; «Batafsil» belgisi va mahsulot kartasi",
-        "Ombor: mahsulotlarni skaner bilan ommaviy qo'shish; yetkazib beruvchida «Butun qarzni to'lash» (qo'sh yozuvlar to'lanmaydi)",
-        "Mijoz qarzi serverdagidek hisoblanadi, qo'sh yozuvlar belgilanadi; «Tushum (qarzsiz)» hamma joyda bir xil",
-        "Z-hisobot X bilan mos keladi, unda «tortmada bo'lishi kerak» taqsimoti bor; smena ochilganda qoldiq oxirgi yopilgan smenadan olinadi; 22 soatdan eski smena haqida ogohlantirish",
-        "Voronka: mijozga bosish chatni ochadi (WhatsApp, Instagram, Telegram), orqaga va oldinga strelkalari kattaroq",
-        "Egasining dasturi: Xulosa daqiqada bir marta o'zi yangilanadi, bo'sh hisobni chiqarib bo'lmaydi, mijoz telefoni takrori darhol ko'rinadi",
-        "«Tezkor tugmalar» va «Import» umumiy uslubda, Cheklar tarixi kassa oynasi o'lchamiga qarab, «To'ldirish» xizmatlarsiz, oynalar vazifalar paneli ostiga kirmaydi",
-        "Kirgandan keyin kassada kim ekani ko'rinadi; xotira oqishlari tuzatildi (yopilgan oynalar, kichik rasmlar, mavzular)",
+        "Ombor: «Taftish» — skaner bilan qayta hisoblash (skan → haqiqiy), dalolatnomalar, Excel, CSV va PDFga chiqarish; «Qabul»: skan → qator, ustama, qimmatlash, «＋ yetkazib beruvchi» tugmasi",
+        "Fonda kirim: oyna serverni kutmaydi (yomon internetda «amal fonda bajarilmoqda»), yangi «Fondagi kirimlar» oynasi, takrorlar dublikatsiz",
+        "Nur Maslahatchi: shtrix-kodlar bo'yicha hisob-faktura, shtrix-kodni «Yaratish» tugmasi; maydonlarga yozishda belgilar endi yo'qolmaydi",
+        "Mahsulot kartasida va xaridda shtrix-kod generatori: kod 0 va 2 bilan boshlanmaydi, katalogdagi kodlarni takrorlamaydi",
+        "Telegram-bot: «Buyurtmalar guruhi» — buyurtmalar egasiga, guruhga yoki ikkalasiga keladi",
+        "Yorliq muharriri: faqat shtrix-kodni, faqat nomni yoki faqat narxni chop etish mumkin; matn o'lchami cheklanmagan",
+        "Ochiq mahsulot kartasidagi skan endi «Ombor» oynasida ishlamaydi; kartadagi «Shtrix-kod» maydoni kengroq",
     ];
 
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно
@@ -90,52 +75,32 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
-        "Новое окно оплаты: компактное, в две колонки; клиент выбирается карточкой, при долге видны сумма чека и «Получить сейчас»",
-        "Маркетплейс как магазин приложений: витрина, страница «Подробнее» со слайдами, анимацией, «Чем поможет» и ценой; темы и виды с превью, купленное помечено «Куплено»",
-        "Красивый чек-«бумага» в истории чеков; значок «Подробнее» и карточка товара",
-        "Долг клиента считается как на сервере, двойные записи помечены; «Выручка (без долга)» везде одинаково",
-        "Z-отчёт совпадает с X, в нём раскладка «в ящике должно быть»; остаток при открытии смены берётся из последней закрытой; предупреждение о смене старше 22 часов",
-        "После входа виден кассир за кассой; исправлены утечки памяти (закрытые окна, миниатюры, темы)",
+        "Генератор штрихкода в карточке товара и закупке: код не начинается с 0 и 2 и не повторяет коды каталога",
+        "Скан в открытой карточке товара больше не срабатывает в окне «Склад»; поле «Штрихкод» в карточке шире",
     ];
 
     public static readonly string[] AndroidLatestKy =
     [
-        "Төлөмдүн жаңы терезеси: ыкчам, эки тилкелүү; кардар карточка менен тандалат, карызда чектин суммасы жана «Азыр алуу» көрүнөт",
-        "Маркетплейс колдонмолор дүкөнүндөй: витрина, слайддар, анимация, «Эмне жардам берет» жана баасы бар «Кененирээк» барагы; алдын ала көрүүсү бар темалар жана көрүнүштөр, сатып алынганы «Сатып алынды» деп белгиленет",
-        "Чектердин тарыхында кооз кагаз чек; «Кененирээк» белгиси жана товардын карточкасы",
-        "Кардардын карызы сервердегидей эсептелет, кош жазуулар белгиленет; «Түшүм (карызсыз)» бардык жерде бирдей",
-        "Z-отчёт X менен дал келет, ичинде «ящикте болушу керек» бөлүштүрүү бар; смена ачылганда калдык акыркы жабылгандан алынат; 22 сааттан эски смена жөнүндө эскертүү",
-        "Киргенден кийин кассада ким отурганы көрүнөт; эс тутумдун агып кетүүлөрү оңдолду (жабылган терезелер, миниатюралар, темалар)",
+        "Товардын карточкасында жана сатып алууда штрихкод генератору: код 0 жана 2 менен башталбайт, каталогдогу коддорду кайталабайт",
+        "Товардын ачык карточкасындагы скан «Кампа» терезесинде иштебейт; карточкадагы «Штрихкод» талаасы кеңирээк",
     ];
 
     public static readonly string[] AndroidLatestEn =
     [
-        "New payment window: compact, two columns; the client is picked with a card, and with a debt it shows the receipt total and “Receive now”",
-        "Marketplace like an app store: a showcase, a “Details” page with slides, animation, “How it helps” and the price; themes and looks with previews, purchased items marked “Purchased”",
-        "A nicer paper-style receipt in the receipt history; the “Details” badge and the product card",
-        "A client's debt is counted as on the server, duplicate entries are marked; “Revenue (without debt)” is the same everywhere",
-        "The Z-report matches the X-report and has the “should be in the drawer” breakdown; the opening balance of a shift comes from the last closed one; a warning for a shift older than 22 hours",
-        "The cashier at the till is shown after login; memory leaks fixed (closed windows, thumbnails, themes)",
+        "Barcode generator in the product card and purchasing: the code never starts with 0 or 2 and never repeats catalog codes",
+        "A scan in an open product card no longer triggers in the “Stock” window; the “Barcode” field in the card is wider",
     ];
 
     public static readonly string[] AndroidLatestTr =
     [
-        "Yeni ödeme penceresi: kompakt, iki sütunlu; müşteri kartla seçilir, borçta fiş tutarı ve «Şimdi al» görünür",
-        "Uygulama mağazası gibi Pazar yeri: vitrin, slaytlar, animasyon, «Nasıl yardımcı olur» ve fiyatlı «Ayrıntılı» sayfası; önizlemeli temalar ve görünümler, satın alınanlar «Satın alındı» diye işaretlenir",
-        "Fiş geçmişinde güzel kâğıt fiş; «Ayrıntılı» simgesi ve ürün kartı",
-        "Müşteri borcu sunucudaki gibi hesaplanır, çift kayıtlar işaretlenir; «Ciro (borçsuz)» her yerde aynı",
-        "Z raporu X ile aynıdır, içinde «çekmecede olması gereken» dökümü var; vardiya açılırken bakiye son kapanan vardiyadan alınır; 22 saatten eski vardiya uyarısı",
-        "Girişten sonra kasadaki kasiyer görünür; bellek sızıntıları giderildi (kapatılan pencereler, küçük resimler, temalar)",
+        "Ürün kartında ve satın almada barkod üretici: kod 0 ve 2 ile başlamaz, katalog kodlarını tekrarlamaz",
+        "Açık ürün kartındaki tarama artık «Depo» penceresinde çalışmaz; kartta «Barkod» alanı daha geniş",
     ];
 
     public static readonly string[] AndroidLatestUz =
     [
-        "Yangi to'lov oynasi: ixcham, ikki ustunli; mijoz karta orqali tanlanadi, qarzda chek summasi va «Hozir olish» ko'rinadi",
-        "Ilovalar do'koni kabi Marketplace: vitrina, slaydlar, animatsiya, «Qanday yordam beradi» va narxli «Batafsil» sahifasi; oldindan ko'rish bilan mavzular va ko'rinishlar, sotib olingani «Sotib olingan» deb belgilanadi",
-        "Cheklar tarixida chiroyli qog'oz chek; «Batafsil» belgisi va mahsulot kartasi",
-        "Mijoz qarzi serverdagidek hisoblanadi, qo'sh yozuvlar belgilanadi; «Tushum (qarzsiz)» hamma joyda bir xil",
-        "Z-hisobot X bilan mos keladi, unda «tortmada bo'lishi kerak» taqsimoti bor; smena ochilganda qoldiq oxirgi yopilgan smenadan olinadi; 22 soatdan eski smena haqida ogohlantirish",
-        "Kirgandan keyin kassada kim ekani ko'rinadi; xotira oqishlari tuzatildi (yopilgan oynalar, kichik rasmlar, mavzular)",
+        "Mahsulot kartasida va xaridda shtrix-kod generatori: kod 0 va 2 bilan boshlanmaydi, katalogdagi kodlarni takrorlamaydi",
+        "Ochiq mahsulot kartasidagi skan endi «Ombor» oynasida ishlamaydi; kartadagi «Shtrix-kod» maydoni kengroq",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

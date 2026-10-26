@@ -5,6 +5,7 @@
         xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
         xmlns:analytics="using:NurMarketKassa.AvaloniaHost.Views.Analytics"
         xmlns:views="using:NurMarketKassa.AvaloniaHost.Views"
+        xmlns:dc="using:Avalonia.Data.Converters"
         xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Controls"
         x:Class="NurMarketKassa.AvaloniaHost.Views.WarehouseWindow"
         x:DataType="vm:WarehouseViewModel"
@@ -33,6 +34,17 @@
         <!-- 2026-10-22 (аудит новой сборки, П5): на низком окне (1366×768) оставалось ~6 строк — плитки сводки ниже, подписи
              «Единица продажи»/«Наличие» скрыты (сегменты понятны сами, подпись — во всплывающей подсказке), и обе группы фильтров
              встают в один ряд, а не в два. -->
+        <!-- 2026-10-24, ТЗ «Склад» (Б1): на низком окне (1024×600) подсказка вкладки «Приёмка» скрыта (она же — подсказка поля скана), чтобы в таблице
+             оставалось несколько строк. -->
+        <Style Selector="Window.wh-compact TextBlock#ReceivingHintText">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="ListBox#ReceivingSupplierProductsList">
+            <Setter Property="MaxHeight" Value="190"/>
+        </Style>
+        <Style Selector="Window.wh-compact ListBox#ReceivingSupplierProductsList">
+            <Setter Property="MaxHeight" Value="110"/>
+        </Style>
         <Style Selector="Window.wh-compact Border.sec-kpi.compact">
             <Setter Property="Padding" Value="12,4"/>
         </Style>
@@ -935,75 +947,27 @@
                  через ревизию, вручную пересчитав и вписав новое количество целиком. -->
             <TabItem x:Name="ReceivingTabItem" Header="{DynamicResource warehouse.tabReceiving}">
                 <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
-                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
-                        <TextBlock Grid.Row="0" Margin="2,0,0,10"
+                    <!-- 2026-10-24, ТЗ «Склад» (Б1): наверху поле скана, ниже поставщик (необязателен, выбирается в любой момент до «Оприходовать»).
+                         Подсказка вкладки — в коде (WarehouseWindow.ReceivingScan.cs). -->
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto">
+                        <TextBlock Grid.Row="0" x:Name="ReceivingHintText" Margin="2,0,0,10"
                                    Text="{DynamicResource warehouse.receivingHint}"
                                    FontSize="12.5" TextWrapping="Wrap"
                                    Foreground="{DynamicResource BrushTextSoft}"/>
 
-                        <!-- Поставщик и оплата. С поставщиком приход проводится документом
-                             «Закупки» сайта, без него — пишется прямо в товар. -->
-                        <!-- Без выпадающих списков (2026-09-25): у окна склада своя рамка без
-                             системного хрома, и всплывающий список ComboBox в нём не открывается
-                             (так же не работал фильтр статусов перемещений). Поставщик — кнопка с
-                             раскрывающимся прямо в окне списком, оплата — два переключателя. -->
-                        <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,10" x:CompileBindings="False">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <TextBlock Text="{DynamicResource warehouse.receivingSupplier}" VerticalAlignment="Center"
-                                           FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
-                                <Button x:Name="ReceivingSupplierButton" Classes="SecondaryButton" Width="280"
-                                        HorizontalContentAlignment="Stretch" Click="ReceivingSupplierButton_Click">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Grid.Column="0" Text="{Binding ReceivingSupplier.Name}" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Grid.Column="1" Text="▾" Margin="8,0,0,0" Foreground="{DynamicResource BrushTextSoft}"/>
-                                    </Grid>
-                                </Button>
-                                <Border Classes="sec-segment" IsVisible="{Binding HasReceivingSupplier}">
-                                    <StackPanel Orientation="Horizontal" Spacing="2">
-                                        <RadioButton x:Name="ReceivingPaidRadio" GroupName="ReceivingPayment" Classes="sec-seg" IsChecked="True"
-                                                     Content="{DynamicResource warehouse.receivingPaidNow}" Click="ReceivingPayment_Click"/>
-                                        <RadioButton x:Name="ReceivingDebtRadio" GroupName="ReceivingPayment" Classes="sec-seg"
-                                                     Content="{DynamicResource warehouse.receivingOnDebt}" Click="ReceivingPayment_Click"/>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                            <Border x:Name="ReceivingSupplierPanel" IsVisible="False" Width="400" HorizontalAlignment="Left"
-                                    Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
-                                    BorderThickness="1" CornerRadius="8" Padding="4">
-                                <ListBox x:Name="ReceivingSupplierList" MaxHeight="240"
-                                         ItemsSource="{Binding ReceivingSuppliers}"
-                                         SelectionChanged="ReceivingSupplierList_SelectionChanged">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{ReflectionBinding Name}" Foreground="{DynamicResource BrushText}"/>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                            </Border>
-                            <!-- 2026-10-11, тестировщик (склад.md, 2.2.1): товары, которые раньше приходовали от выбранного поставщика
-                                 (WarehouseWindow.Fixes.cs → LoadSupplierProductsAsync). -->
-                            <Border x:Name="ReceivingSupplierProductsBox" IsVisible="False" Padding="10,8" CornerRadius="8"
-                                    Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
-                                <StackPanel Spacing="6">
-                                    <TextBlock x:Name="ReceivingSupplierProductsTitle" FontSize="12.5" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
-                                    <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
-                                        <WrapPanel x:Name="ReceivingSupplierProductsPanel"/>
-                                    </ScrollViewer>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+                        <WrapPanel Grid.Row="1" Margin="0,0,0,2">
+                            <WrapPanel.Styles>
+                                <Style Selector="WrapPanel > :is(Control)"><Setter Property="Margin" Value="0,0,8,8"/></Style>
+                            </WrapPanel.Styles>
                             <!-- Поле принимает и скан (сканер дописывает перевод строки, срабатывает
                                  Enter), и набор названия руками — тогда под полем появляются
                                  подсказки, см. ReceivingScan_TextChanged. -->
-                            <TextBox x:Name="ReceivingScanBox" Width="320"
+                            <TextBox x:Name="ReceivingScanBox" Width="240"
                                      Watermark="{DynamicResource warehouse.receivingScanHint}"
                                      TextChanged="ReceivingScan_TextChanged"
                                      KeyDown="ReceivingScan_KeyDown"/>
                             <!-- 2026-10-04, Android: камера аппарата как сканер (CameraScan). -->
-                            <Button Classes="SecondaryButton" Margin="6,0,0,0"
+                            <Button Classes="SecondaryButton"
                                     IsVisible="{OnPlatform False, Android=True}"
                                     Click="CameraScanButton_Click" Focusable="False"
                                     ToolTip.Tip="{DynamicResource csh.cart.cameraScan}">
@@ -1022,9 +986,12 @@
                             <Button Classes="SecondaryButton"
                                     Content="{DynamicResource warehouse.receivingAddNew}"
                                     Click="ReceivingAddNew_Click"/>
-                        </StackPanel>
+                            <!-- 2026-10-24, ТЗ «Склад» (Б1): по умолчанию после скана курсор встаёт в «Принято» новой строки (Enter — по ценам, потом снова скан);
+                                 с флажком курсор остаётся в поле скана, каждый скан = + количество из поля. -->
+                            <CheckBox x:Name="ReceivingFastNextCheck" VerticalAlignment="Center" Focusable="False"/>
+                        </WrapPanel>
 
-                        <Border Grid.Row="3" x:Name="ReceivingSuggestionsBox" IsVisible="False"
+                        <Border Grid.Row="2" x:Name="ReceivingSuggestionsBox" IsVisible="False"
                                 Margin="0,0,0,8" Padding="4"
                                 Background="{DynamicResource BrushPanelSoft}"
                                 BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
@@ -1042,13 +1009,18 @@
                                                 Margin="0,1" Padding="10,6"
                                                 Tag="{Binding}"
                                                 Click="ReceivingSuggestion_Click">
-                                            <Grid ColumnDefinitions="*,Auto,Auto">
+                                            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                                                 <TextBlock Grid.Column="0" Text="{ReflectionBinding Title}"
                                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Grid.Column="1" Text="{ReflectionBinding Barcode}" Margin="12,0"
+                                                <!-- 2026-10-24: товар выбранного поставщика (приходил раньше) — значком, такие подсказки идут первыми. -->
+                                                <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="11.5"
+                                                           Foreground="{DynamicResource BrushAccent}"
+                                                           Text="{x:Static views:WarehouseWindow.SupplierBadgeText}"
+                                                           IsVisible="{ReflectionBinding Id, Converter={x:Static views:WarehouseWindow.IsSupplierProductConverter}}"/>
+                                                <TextBlock Grid.Column="2" Text="{ReflectionBinding Barcode}" Margin="12,0"
                                                            VerticalAlignment="Center" FontSize="11.5"
                                                            Foreground="{DynamicResource BrushTextSoft}"/>
-                                                <TextBlock Grid.Column="2" Text="{ReflectionBinding StockInfo}"
+                                                <TextBlock Grid.Column="3" Text="{ReflectionBinding StockInfo}"
                                                            VerticalAlignment="Center" FontSize="11.5"
                                                            Foreground="{DynamicResource BrushTextSoft}"/>
                                             </Grid>
@@ -1058,6 +1030,98 @@
                             </ItemsControl>
                             </Grid>
                         </Border>
+
+                        <!-- Поставщик и оплата. С поставщиком приход проводится документом
+                             «Закупки» сайта, без него — пишется прямо в товар. -->
+                        <!-- Без выпадающих списков (2026-09-25): у окна склада своя рамка без
+                             системного хрома, и всплывающий список ComboBox в нём не открывается
+                             (так же не работал фильтр статусов перемещений). Поставщик — кнопка с
+                             раскрывающимся прямо в окне списком, оплата — два переключателя. -->
+                        <StackPanel Grid.Row="3" Spacing="6" Margin="0,0,0,10" x:CompileBindings="False">
+                            <WrapPanel>
+                                <WrapPanel.Styles>
+                                    <Style Selector="WrapPanel > :is(Control)"><Setter Property="Margin" Value="0,0,10,8"/></Style>
+                                </WrapPanel.Styles>
+                                <TextBlock Text="{DynamicResource warehouse.receivingSupplier}" VerticalAlignment="Center"
+                                           FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                                <Button x:Name="ReceivingSupplierButton" Classes="SecondaryButton" Width="190"
+                                        HorizontalContentAlignment="Stretch" Click="ReceivingSupplierButton_Click">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="{Binding ReceivingSupplier.Name}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" Text="▾" Margin="8,0,0,0" Foreground="{DynamicResource BrushTextSoft}"/>
+                                    </Grid>
+                                </Button>
+                                <!-- 2026-10-24, ТЗ «Склад» (пакет В): «＋» — создать поставщика прямо в приёмке (WarehouseWindow.ReceivingScan.cs → SupplierQuickCreate). -->
+                                <Button x:Name="ReceivingNewSupplierButton" Classes="SecondaryButton" Width="44" Height="44" Padding="0"
+                                        HorizontalContentAlignment="Center" Click="ReceivingNewSupplier_Click">
+                                    <TextBlock Text="＋" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Button>
+                                <Border Classes="sec-segment" IsVisible="{Binding HasReceivingSupplier}">
+                                    <StackPanel Orientation="Horizontal" Spacing="2">
+                                        <RadioButton x:Name="ReceivingPaidRadio" GroupName="ReceivingPayment" Classes="sec-seg" IsChecked="True"
+                                                     Content="{DynamicResource warehouse.receivingPaidNow}" Click="ReceivingPayment_Click"/>
+                                        <RadioButton x:Name="ReceivingDebtRadio" GroupName="ReceivingPayment" Classes="sec-seg"
+                                                     Content="{DynamicResource warehouse.receivingOnDebt}" Click="ReceivingPayment_Click"/>
+                                    </StackPanel>
+                                </Border>
+                                <!-- 2026-10-24, ТЗ «Склад» (Б1): вместо 60 кнопок — «Товары поставщика (N)»: панель с поиском и списком. -->
+                                <Button x:Name="ReceivingSupplierProductsButton" Classes="SecondaryButton" IsVisible="False"
+                                        Click="ReceivingSupplierProducts_Click"/>
+                            </WrapPanel>
+                            <Border x:Name="ReceivingSupplierPanel" IsVisible="False" Width="400" HorizontalAlignment="Left"
+                                    Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1" CornerRadius="8" Padding="4">
+                                <StackPanel Spacing="4">
+                                    <!-- 2026-10-24: поиск по названию и цифрам телефона (как в PurchasesSupplierPicker). -->
+                                    <TextBox x:Name="ReceivingSupplierSearch" TextChanged="ReceivingSupplierSearch_TextChanged"/>
+                                    <ListBox x:Name="ReceivingSupplierList" MaxHeight="240"
+                                             ItemsSource="{Binding ReceivingSuppliers}"
+                                             SelectionChanged="ReceivingSupplierList_SelectionChanged">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{ReflectionBinding Name}" Foreground="{DynamicResource BrushText}"/>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </StackPanel>
+                            </Border>
+                            <!-- 2026-10-11, тестировщик (склад.md, 2.2.1): товары, которые раньше приходовали от выбранного поставщика
+                                 (WarehouseWindow.ReceivingScan.cs → ShowSupplierProductsAsync). 2026-10-24, ТЗ «Склад» (Б1): панель с поиском и
+                                 списком (виртуализирован) вместо 60 кнопок — 20 позиций из 600 находятся поиском, без прокрутки. -->
+                            <Border x:Name="ReceivingSupplierProductsBox" IsVisible="False" Padding="10,8" CornerRadius="8"
+                                    Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock x:Name="ReceivingSupplierProductsTitle" FontSize="12.5" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Content="✕" Classes="SecondaryButton row-x" Padding="10,2" Margin="8,0,0,0"
+                                                Click="ReceivingSupplierProductsClose_Click"/>
+                                    </Grid>
+                                    <TextBox x:Name="ReceivingSupplierProductsSearch" TextChanged="ReceivingSupplierProductsSearch_TextChanged"
+                                             KeyDown="ReceivingSupplierProductsSearch_KeyDown"/>
+                                    <ListBox x:Name="ReceivingSupplierProductsList" Background="Transparent">
+                                        <ListBox.Styles>
+                                            <Style Selector="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="MinHeight" Value="0"/></Style>
+                                        </ListBox.Styles>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Classes="list-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                        MinHeight="32" Padding="8,2" Tag="{Binding}" Click="ReceivingSupplierProduct_Click">
+                                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                                        <TextBlock Grid.Column="0" Text="{ReflectionBinding Title}" VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="1" Text="{ReflectionBinding Info}" Margin="12,0" VerticalAlignment="Center"
+                                                                   FontSize="11.5" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                        <TextBlock Grid.Column="2" Text="＋" FontSize="16" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource BrushAccent}"/>
+                                                    </Grid>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
 
                         <!-- Количество и обе цены правятся прямо в таблице: со сканера приходит
                              по одной единице, а в накладной обычно коробка. Название и единицу
@@ -1072,8 +1136,11 @@
                                   CellPointerPressed="ReceivingGrid_CellPointerPressed"
                                   RowHeight="44">
                             <DataGrid.Columns>
+                                <!-- 2026-10-24, ТЗ «Склад» (Б1): порядок колонок (0–12) — Источник · Название · Штрихкод · Ед. · Остаток · Принято · Закупка · Наценка % · Продажа ·
+                                     Изменение · Сумма · Размеры · ✕. Код обращается к ним по именам-свойствам RcvCol* (WarehouseWindow.ReceivingScan.cs) — при смене
+                                     порядка править только их. -->
                                 <!-- 2026-10-19, О9: ширины уже, заголовки переносятся — на 1366 без прокрутки вбок; на узкой таблице
-                                     (1024) «Источник» и «Было» прячутся (WarehouseWindow.O9.cs). Порядок колонок прежний. -->
+                                     (1024) «Источник» и «Было» прячутся (WarehouseWindow.O9.cs). -->
                                 <DataGridTextColumn Width="104"
                                                     Binding="{ReflectionBinding SourceText}" IsReadOnly="True">
                                     <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingSource}"/></DataGridTextColumn.Header>
@@ -1088,7 +1155,7 @@
                                                     Binding="{ReflectionBinding Barcode}">
                                     <DataGridTextColumn.Header><TextBlock Text="{DynamicResource csh.catalog.colBarcode}"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Width="64"
+                                <DataGridTextColumn Width="56"
                                                     Binding="{ReflectionBinding Unit}">
                                     <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingUnit}"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
@@ -1101,21 +1168,45 @@
                                                     Binding="{ReflectionBinding QuantityText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
                                     <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingTaken}"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Width="104"
+                                <DataGridTextColumn Width="96"
                                                     Binding="{ReflectionBinding PurchasePriceText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
                                     <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingPurchasePrice}"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Width="104"
+                                <!-- 2026-10-24, ТЗ «Склад» (Б0/Б1): «Наценка %» правится — меняет цену продажи (ReceivingLineVm.MarkupText). Заголовок — в коде. -->
+                                <DataGridTextColumn Width="92"
+                                                    Binding="{ReflectionBinding MarkupText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
+                                    <DataGridTextColumn.Header><TextBlock x:Name="RcvMarkupHeader"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="96"
                                                     Binding="{ReflectionBinding SalePriceText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
                                     <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingSalePrice}"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
+                                <!-- 2026-10-24, ТЗ «Склад» (Б0/Б1): что изменилось против прежнего прихода — «▲ +12 %» (оранжевым), «было 45,00», «маржа 4 %» (красным). -->
+                                <DataGridTemplateColumn Width="100" IsReadOnly="True">
+                                    <DataGridTemplateColumn.Header><TextBlock x:Name="RcvChangeHeader"/></DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Margin="4,0" Spacing="0">
+                                                <TextBlock Text="{ReflectionBinding PurchaseRaiseText}" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource BrushWarning}"
+                                                           IsVisible="{ReflectionBinding PurchaseRaiseText, Converter={x:Static dc:StringConverters.IsNotNullOrEmpty}}"/>
+                                                <TextBlock Text="{ReflectionBinding PreviousPurchaseText}" FontSize="11"
+                                                           Foreground="{DynamicResource BrushTextSoft}"
+                                                           IsVisible="{ReflectionBinding PreviousPurchaseText, Converter={x:Static dc:StringConverters.IsNotNullOrEmpty}}"/>
+                                                <TextBlock Text="{ReflectionBinding LowMarginText}" FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource BrushDanger}"
+                                                           IsVisible="{ReflectionBinding LowMarginText, Converter={x:Static dc:StringConverters.IsNotNullOrEmpty}}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <!-- 2026-10-19, О9: сумма с разрядами («1 155,00», было «1155»). -->
-                                <DataGridTextColumn Width="112"
+                                <DataGridTextColumn Width="104"
                                                     Binding="{ReflectionBinding LineTotal, StringFormat=\{0:N2\}}" IsReadOnly="True">
                                     <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingLineTotal}"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
                                 <!-- 2026-10-06 (О-70, магазин одежды): «Размеры» — сколько каких принимается; нажатие открывает сетку.
-                                     Последней колонкой, чтобы номера колонок выше не сдвинулись. Заголовок и видимость — в коде. -->
+                                     Заголовок и видимость — в коде. -->
                                 <!-- 2026-10-06, владелец (снимок): «Размеры» обрезались («46, Чёрный ×…») — теперь в две строки, полный
                                      список во всплывающей подсказке. -->
                                 <DataGridTemplateColumn Header="" Width="300" IsVisible="False">
@@ -1128,11 +1219,11 @@
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
                                 <!-- 2026-10-11, тестировщик (склад.md): «нужен крестик справа от товара, если случайно добавил». -->
-                                <DataGridTemplateColumn Header="" Width="52" IsReadOnly="True">
+                                <DataGridTemplateColumn Header="" Width="46" IsReadOnly="True">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Button Content="✕" Tag="{Binding}" Click="ReceivingRowRemove_Click" Classes="SecondaryButton row-x"
-                                                    Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center"
+                                                    Width="32" Height="30" Padding="0" HorizontalContentAlignment="Center"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center"
                                                     ToolTip.Tip="{DynamicResource warehouse.transferRemoveItem}"/>
                                         </DataTemplate>
@@ -1146,101 +1237,55 @@
                             <TextBlock x:Name="ReceivingEmptyHint" Classes="empty-hint"/>
                         </StackPanel>
 
-                        <Grid Grid.Row="5" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
+                        <Grid Grid.Row="5" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,12,0,0">
                             <TextBlock Grid.Column="0" x:Name="ReceivingSummaryText"
-                                       VerticalAlignment="Center" FontSize="12.5"
+                                       VerticalAlignment="Center" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,10,0"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
-                            <Button Grid.Column="1" Classes="SecondaryButton" Margin="0,0,10,0" x:Name="ReceivingClearButton"
+                            <!-- 2026-10-24, ТЗ «Склад» (Б0/Б1): «Обновить цены продажи (N)» — видна, если есть строки с подорожанием и непоправленной продажей. -->
+                            <Button Grid.Column="1" Classes="SecondaryButton" Margin="0,0,10,0" x:Name="ReceivingRaiseButton" IsVisible="False"
+                                    Click="ReceivingRaise_Click"/>
+                            <Button Grid.Column="2" Classes="SecondaryButton" Margin="0,0,10,0" x:Name="ReceivingClearButton"
                                     Click="ReceivingClear_Click"/>
-                            <Button Grid.Column="2" Classes="PrimaryButton"
-                                    Content="{DynamicResource warehouse.receivingCommit}"
+                            <!-- 2026-10-25, ТЗ «оприходование в фоне» (Q2): ≤ 0,5 с на кнопке «Оприходую…» с полоской, дальше — плашка ниже. -->
+                            <Button Grid.Column="3" Classes="PrimaryButton" x:Name="ReceivingCommitButton"
                                     Click="ReceivingCommit_Click"
-                                    Command="{Binding CommitReceivingCommand}"/>
+                                    Command="{Binding CommitReceivingCommand}">
+                                <Grid>
+                                    <TextBlock Text="{DynamicResource warehouse.receivingCommit}" HorizontalAlignment="Center"
+                                               IsVisible="{Binding !IsReceivingPosting}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
+                                                IsVisible="{Binding IsReceivingPosting}">
+                                        <TextBlock x:Name="ReceivingCommitBusyText" VerticalAlignment="Center"/>
+                                        <ProgressBar IsIndeterminate="True" Width="34" MinWidth="34" MaxWidth="34" Height="4" MinHeight="4" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
                         </Grid>
+                        <!-- 2026-10-25: плашка под кнопкой — «Операция выполняется в фоне — можно продолжать работу» (нейтрально-жёлтая), итог или ошибка (не модальная). -->
+                        <Border Grid.Row="6" x:Name="ReceivingBackgroundNoticeBorder" Margin="0,10,0,0" Padding="12,8" CornerRadius="8"
+                                BorderThickness="1" IsVisible="{Binding HasReceivingBackgroundNotice}"
+                                Classes.err="{Binding ReceivingNoticeIsError}">
+                            <Border.Styles>
+                                <Style Selector="Border#ReceivingBackgroundNoticeBorder">
+                                    <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+                                </Style>
+                                <Style Selector="Border#ReceivingBackgroundNoticeBorder.err">
+                                    <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+                                </Style>
+                            </Border.Styles>
+                            <TextBlock Text="{Binding ReceivingBackgroundNotice}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushText}"/>
+                        </Border>
                     </Grid>
                 </Border>
             </TabItem>
 
+            <!-- 2026-10-24, ТЗ «Склад», пакет Р2: вкладка «Ревизия» собрана кодом (WarehouseWindow.Revision.cs) на движке RevisionSession;
+                 старая таблица с правкой ячеек (ошибки ТЗ 1.2) убрана. -->
             <TabItem x:Name="RevisionTabItem" Header="{DynamicResource warehouse.tabRevision}">
-                <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
-                    <Grid RowDefinitions="Auto,*,Auto">
-                        <StackPanel Grid.Row="0" Margin="0,0,0,10" Spacing="4">
-                            <TextBox x:CompileBindings="False"
-                                     Text="{Binding RevisionSearchText}"
-                                     Watermark="{DynamicResource warehouse.revisionSearchWatermark}"
-                                     KeyDown="SearchBox_KeyDown"/>
-                            <ItemsControl x:CompileBindings="False" ItemsSource="{Binding RevisionSearchResults}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button Margin="0,0,6,6" Classes="SecondaryButton" Padding="10,6"
-                                                Content="{ReflectionBinding Title}"
-                                                Command="{Binding DataContext.RevisionPickCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}"/>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                        <DataGrid x:Name="RevisionGrid"
-                                  Grid.Row="1"
-                                  x:CompileBindings="False"
-                                  ItemsSource="{Binding RevisionLines}"
-                                  SelectedItem="{Binding FocusedRevisionLine, Mode=TwoWay}"
-                                  AutoGenerateColumns="False"
-                                  IsReadOnly="False"
-                                  RowHeight="44">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Width="150" Binding="{ReflectionBinding Barcode}" IsReadOnly="True">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.colBarcodeHyphen}"/></DataGridTextColumn.Header>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Width="*" Binding="{ReflectionBinding ProductName}" IsReadOnly="True">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.colProductName}"/></DataGridTextColumn.Header>
-                                </DataGridTextColumn>
-                                <!-- 2026-10-19, О9: заголовки переносятся («Ожидаемый остаток» обрезался), ширины по числам. -->
-                                <DataGridTextColumn Width="132"
-                                                    Binding="{ReflectionBinding ExpectedQty, StringFormat=\{0:0.###\}}" IsReadOnly="True">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.colExpectedQty}"/></DataGridTextColumn.Header>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Width="132"
-                                                    Binding="{ReflectionBinding ActualQty, StringFormat=\{0:0.###\}}">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.colActualQty}"/></DataGridTextColumn.Header>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Width="112"
-                                                    Binding="{ReflectionBinding Difference, StringFormat=\{0:0.###\}}" IsReadOnly="True">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.colDifference}"/></DataGridTextColumn.Header>
-                                </DataGridTextColumn>
-                                <!-- 2026-10-11, тестировщик (склад.md): «нужен крестик справа от товара, если случайно добавил». -->
-                                <DataGridTemplateColumn Header="" Width="52" IsReadOnly="True">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Button Content="✕" Tag="{Binding}" Click="RevisionRowRemove_Click" Classes="SecondaryButton row-x"
-                                                    Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center"
-                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                    ToolTip.Tip="{DynamicResource warehouse.transferRemoveItem}"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                        <!-- 2026-10-19, О9: пустая ревизия — что делать. -->
-                        <StackPanel Grid.Row="1" x:Name="RevisionEmptyState" Classes="empty-state">
-                            <TextBlock x:Name="RevisionEmptyTitle" Classes="empty-title"/>
-                            <TextBlock x:Name="RevisionEmptyHint" Classes="empty-hint"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" Spacing="12">
-                            <!-- 2026-10-11, тестировщик (склад.md, 3.1): «нужна кнопка для очищения выбранных». -->
-                            <Button x:Name="RevisionClearButton" Classes="SecondaryButton" Click="RevisionClear_Click"/>
-                            <Button Content="{DynamicResource warehouse.commitRevisionButton}"
-                                    Classes="PrimaryButton"
-                                    Command="{Binding CommitRevisionCommand}" />
-                        </StackPanel>
-                    </Grid>
-                </Border>
+                <Border x:Name="RevisionPanel" Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000"/>
             </TabItem>
 
             <!-- Вкладка 2: Списание -->

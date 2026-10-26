@@ -46,6 +46,9 @@ public sealed partial class TelegramBotPollingService
     {
         if (update.TryGetProperty("message", out var m) && m.TryGetProperty("chat", out var c) && c.TryGetProperty("id", out var id))
             return id.ToString();
+        // 2026-10-24 (Г1): бота добавили в группу / удалили из неё — в очередь этой группы (порядок с её сообщениями сохраняется).
+        if (update.TryGetProperty("my_chat_member", out var mcm) && mcm.TryGetProperty("chat", out var mcc) && mcc.TryGetProperty("id", out var mcid))
+            return mcid.ToString();
         if (update.TryGetProperty("callback_query", out var cb))
         {
             if (cb.TryGetProperty("message", out var cm) && cm.TryGetProperty("chat", out var cc) && cc.TryGetProperty("id", out var cid))
@@ -138,6 +141,9 @@ public sealed partial class TelegramBotPollingService
     /// <summary>Один раз в 10 минут — короткое объяснение, почему ответ не на каждое сообщение.</summary>
     private async Task NoteFloodAsync(string chatId, JsonElement update, CancellationToken ct)
     {
+        // 2026-10-24 (Г1): в группе заказов бот молчит и про наплыв сообщений.
+        if (TelegramBotOwner.IsOrdersGroupOnly(chatId))
+            return;
         lock (_queueGate)
         {
             if (_floodNoticeAt.TryGetValue(chatId, out var at) && DateTime.UtcNow - at < TimeSpan.FromMinutes(10))
@@ -192,6 +198,9 @@ public sealed partial class TelegramBotPollingService
         {
             if (update.TryGetProperty("message", out var m) && m.TryGetProperty("chat", out var c) && c.TryGetProperty("id", out var chat))
             {
+                // 2026-10-24 (Г1): группе заказов бот не отвечает ничем — даже извинением.
+                if (TelegramBotOwner.IsOrdersGroupOnly(chat.ToString()))
+                    return;
                 var lang = m.TryGetProperty("from", out var from) && from.TryGetProperty("language_code", out var lc) ? TelegramBotText.FromCode(lc.GetString()) : null;
                 if (lang is { } l && !string.Equals(chat.ToString(), UserPreferences.Instance.TelegramChatId, StringComparison.Ordinal))
                     TelegramBotText.Use(l);
