@@ -74,7 +74,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       (Icons.account_balance_wallet_outlined, l.debts, '/debts'),
       (Icons.pause_circle_outline_rounded, l.heldChecks, '/held'),
       (Icons.event_repeat_rounded, l.rentals, '/rentals'),
-      (Icons.content_cut_rounded, l.bookingsTitle, '/bookings'),
       (Icons.lock_clock_outlined, l.closeShift, '/close-shift'),
       (Icons.person_outline_rounded, l.profileTitle, '/profile'),
       if (admin) ...[

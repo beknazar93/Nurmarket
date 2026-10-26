@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/api/api_client.dart' show ApiText;
 import 'core/api/session_store.dart';
 import 'core/util/access.dart';
+import 'core/util/ui.dart' show statusBarStyle;
 import 'core/providers.dart';
 import 'core/theme/theme.dart';
 import 'features/admin/admin_more.dart';
 import 'features/payment/payment_qr.dart';
 import 'features/payment/debt_access.dart';
 import 'features/admin/advisor.dart';
+import 'features/admin/ai_access_ui.dart';
 import 'features/admin/analytics.dart';
 import 'features/admin/admin_receive.dart';
 import 'features/admin/admin_repository.dart';
@@ -26,7 +30,6 @@ import 'features/ops/ops_screens.dart';
 import 'features/payment/payment_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/rentals/rentals.dart';
-import 'features/sale/bookings.dart';
 import 'features/sale/sale_screen.dart';
 import 'features/scan/scan_screen.dart';
 import 'features/scan/smart_camera.dart';
@@ -36,17 +39,24 @@ import 'features/stock/stock_screens.dart';
 import 'l10n/app_localizations.dart';
 import 'core/util/audit.dart';
 import 'features/admin/audit_screen.dart';
+import 'core/ai/assistant/read_tools.dart' show Reader;
+import 'features/assistant/ai_log_screen.dart';
+import 'features/assistant/assistant_settings.dart';
+import 'features/assistant/call_controller.dart';
+import 'features/assistant/call_overlay.dart';
+import 'features/staff/salary_screen.dart';
+import 'features/staff/tasks_screen.dart';
 
 /// Маршруты (ТЗ, раздел 3: go_router — переходы и по ссылкам из пуш-уведомлений).
 /// Этап 1 — экраны кассира; экраны администратора (Т8–Т14, Т20–Т26) — этап 2.
-GoRouter buildRouter(WidgetRef ref, {required bool signedIn, Listenable? refresh}) => GoRouter(
+GoRouter buildRouter(Reader read, {required bool signedIn, Listenable? refresh}) => GoRouter(
   initialLocation: signedIn ? '/home' : '/login',
   observers: [AuditNavObserver()],
   // 2026-10-22 (мобилка, админ, П9): права и касса сессии поменялись (доступы загрузились, владелец снял право, сессия
   // истекла) — redirect проверяется заново сразу, а не при следующем переходе.
   refreshListenable: refresh,
   redirect: (context, state) {
-    final s = ref.read(sessionProvider);
+    final s = read(sessionProvider);
     final loc = state.matchedLocation;
     if (s == null && loc != '/login') return '/login';
     if (s != null && s.cashboxId == null && loc != '/cashbox' && loc != '/login') return '/cashbox';
@@ -94,6 +104,9 @@ GoRouter buildRouter(WidgetRef ref, {required bool signedIn, Listenable? refresh
     GoRoute(path: '/close-shift', builder: (_, _) => const CloseShiftScreen()),
     GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
     GoRoute(path: '/sync', builder: (_, _) => const SyncScreen()),
+    // 2026-10-26 (голос-управление, В5): режим помощника и журнал действий ИИ (открыты всем по роли, права — в самих экранах).
+    GoRoute(path: '/ai/settings', builder: (_, _) => const AssistantSettingsScreen()),
+    GoRoute(path: '/ai/log', builder: (_, _) => const AiLogScreen()),
     // 13.10: функции старой кассы на телефоне — внесение/изъятие, долги, отложенные чеки.
     GoRoute(path: '/cash', builder: (_, _) => const CashOpScreen()),
     GoRoute(path: '/debts', builder: (_, _) => const DebtsScreen()),
@@ -102,8 +115,6 @@ GoRouter buildRouter(WidgetRef ref, {required bool signedIn, Listenable? refresh
     GoRoute(path: '/search', builder: (_, _) => const SearchScreen()),
     // 13.10, макет С8: прокат на телефоне.
     GoRoute(path: '/rentals', builder: (_, _) => const RentalsScreen()),
-    // 13.10, макет С7: услуги и запись к мастерам (записи на телефоне, пока нет API).
-    GoRoute(path: '/bookings', builder: (_, _) => const BookingsScreen()),
     GoRoute(path: '/rentals/new', builder: (_, _) => const NewRentalScreen()),
     GoRoute(path: '/admin', builder: (_, _) => const AdminScreen()),
     GoRoute(path: '/admin/product', builder: (_, _) => const ProductPriceScreen()),
@@ -128,11 +139,15 @@ GoRouter buildRouter(WidgetRef ref, {required bool signedIn, Listenable? refresh
     GoRoute(path: '/admin/debt-access', builder: (_, _) => const DebtAccessScreen()),
     // 14.10, владелец: журнал аудита.
     GoRoute(path: '/admin/audit', builder: (_, _) => const AuditLogScreen()),
+    // 2026-10-26 (голос-управление, В7): задачи сотрудникам, мои задачи, зарплата.
+    GoRoute(path: '/admin/tasks', builder: (_, _) => const TasksScreen()),
+    GoRoute(path: '/tasks/my', builder: (_, _) => const MyTasksScreen()),
+    GoRoute(path: '/admin/salary', builder: (_, s) => SalaryScreen(period: s.uri.queryParameters['period'])),
     GoRoute(path: '/admin/notifications', builder: (_, _) => const NotificationsScreen()),
     // 13.10, владелец: «коммерческое предложение и ЭСФ в мобилку добавь».
     GoRoute(path: '/admin/quotes', builder: (_, _) => const QuotesScreen()),
     // 13.10, владелец: Нур Советник, сводка, ABC-анализ с диаграммой Парето.
-    GoRoute(path: '/admin/advisor', builder: (_, _) => const AdvisorScreen()),
+    GoRoute(path: '/admin/advisor', builder: (_, _) => const AiAccessGate(child: AdvisorScreen())),
     GoRoute(path: '/admin/summary', builder: (_, _) => const SummaryScreen()),
     GoRoute(path: '/admin/abc', builder: (_, _) => const AbcScreen()),
     GoRoute(path: '/admin/esf', builder: (_, _) => const EsfScreen()),
@@ -144,6 +159,26 @@ GoRouter buildRouter(WidgetRef ref, {required bool signedIn, Listenable? refresh
   ],
 );
 
+/// 2026-10-26 (голос-управление, В4): роутер приложения живёт в провайдере (раньше — приватное поле State в app.dart): к нему
+/// обращается звонок с Нур Советником (`push` разделов, «назад», открытие чека), пока его экран свёрнут в плашку.
+/// Перепроверка доступа (`refreshListenable`) — только когда меняется то, от чего зависит redirect (вход/выход, касса, роль, доступы).
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final refresh = ValueNotifier<int>(0);
+  String routeKey(Session? s) => s == null ? '' : '${s.cashboxId}|${s.role}|${s.isOwner}|${s.perms?.join(',')}';
+  // 2026-10-22 (мобилка, админ, П9): refreshListenable роутера — только когда меняется то, от чего зависит redirect
+  // (вход/выход, касса, роль, доступы), а не при каждом обновлении токена.
+  ref.listen<Session?>(sessionProvider, (prev, next) {
+    if (routeKey(prev) != routeKey(next)) refresh.value++;
+  });
+  // вход сохранён (его читает main до runApp) — сразу на главную, иначе на вход
+  final router = buildRouter(ref.read, signedIn: ref.read(sessionProvider) != null, refresh: refresh);
+  ref.onDispose(() {
+    router.dispose();
+    refresh.dispose();
+  });
+  return router;
+});
+
 class NurMarketApp extends ConsumerStatefulWidget {
   final bool signedIn;
   const NurMarketApp({super.key, required this.signedIn});
@@ -152,25 +187,13 @@ class NurMarketApp extends ConsumerStatefulWidget {
 }
 
 class _NurMarketAppState extends ConsumerState<NurMarketApp> {
-  // 2026-10-22 (мобилка, админ, П9): refreshListenable роутера — только когда меняется то, от чего зависит redirect
-  // (вход/выход, касса, роль, доступы), а не при каждом обновлении токена.
-  final _routerRefresh = ValueNotifier<int>(0);
-  late final GoRouter _router = buildRouter(ref, signedIn: widget.signedIn, refresh: _routerRefresh);
-
-  static String _routeKey(Session? s) => s == null ? '' : '${s.cashboxId}|${s.role}|${s.isOwner}|${s.perms?.join(',')}';
-
-  @override
-  void dispose() {
-    _routerRefresh.dispose();
-    super.dispose();
-  }
+  late final GoRouter _router = ref.read(appRouterProvider);
 
   @override
   void initState() {
     super.initState();
-    ref.listenManual(sessionProvider, (prev, next) {
-      if (_routeKey(prev) != _routeKey(next)) _routerRefresh.value++;
-    });
+    // 2026-10-26 (голос-управление, В4): звонок ИИ ходит по разделам через этот же роутер.
+    ref.read(callControllerProvider).attachRouter(_router);
     // Сессия истекла и не обновилась — на вход. 2026-10-22 (мобилка, деньги, К-5): без logout — набранный чек и очередь
     // остаются до входа тем же логином (раньше чек стирался, а очередь уходила в «не принято»).
     ref.read(apiProvider).onExpired.listen((_) async {
@@ -191,6 +214,10 @@ class _NurMarketAppState extends ConsumerState<NurMarketApp> {
       if (prev != null && next == null) Audit.log('login', 'Выход · ${prev.userName}');
       if (prev == null && next != null) ref.read(syncProvider).start();
       if (next == null) ref.read(syncProvider).stop();
+      // 2026-10-26 (голос-управление, В4): вышли из учётной записи или сменили кассу — звонок с ИИ завершается
+      if (prev != null && (next == null || next.cashboxId != prev.cashboxId || next.userId != prev.userId)) {
+        ref.read(callControllerProvider).endCall();
+      }
     });
     return MaterialApp.router(
       title: 'NurMarket',
@@ -210,10 +237,24 @@ class _NurMarketAppState extends ConsumerState<NurMarketApp> {
       // 14.10, владелец: «кнопки многие вниз уходят». Android 15 рисует приложение под полосой жестов, а экраны и нижние
       // окна отступ снизу не делали — нижние кнопки уходили под неё. Один отступ на всё приложение (экраны, окна снизу,
       // диалоги); клавиатуру это не трогает (она — viewInsets, не padding).
-      builder: (context, child) => ColoredBox(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: SafeArea(top: false, left: false, right: false, child: child ?? const SizedBox.shrink()),
-      ),
+      // 2026-10-26 (живой аудит, П1): значки строки состояния — светлые в тёмной теме и тёмные в светлой (раньше время
+      // и сеть не было видно); экран с тёмной шапкой в светлой теме оборачивается в LightStatusBar.
+      builder: (context, child) {
+        // 2026-10-26 (живой аудит, П4): язык для текстов ошибок сети (ApiClient без контекста)
+        ApiText.l = AppLocalizations.of(context);
+        // 2026-10-26 (голос-управление, В4): звонок с Нур Советником поверх любого раздела — мини-плашка, строка итога,
+        // панель таблицы (call_overlay.dart); сам раздел остаётся тем же деревом.
+        return AssistantOverlay(
+          navigatorKey: _router.routerDelegate.navigatorKey,
+          child: AnnotatedRegion<SystemUiOverlayStyle>(
+            value: statusBarStyle(dark: Theme.of(context).brightness == Brightness.dark),
+            child: ColoredBox(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: SafeArea(top: false, left: false, right: false, child: child ?? const SizedBox.shrink()),
+            ),
+          ),
+        );
+      },
     );
   }
 }

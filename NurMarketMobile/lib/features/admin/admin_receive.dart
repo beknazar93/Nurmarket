@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/ai/assistant/ai_handles.dart';
+import '../../core/ai/assistant/tool_registry.dart' show ToolStatus;
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
@@ -64,6 +66,13 @@ class ReceiveLine {
 
 /// Количество — до 3 знаков (граммы).
 double roundQty(double v) => (v * 1000).round() / 1000;
+
+/// 2026-10-26 (голос-управление, В3б): цена продажи, когда голосом её не назвали, — правило ПК (KeepCurrentPriceIfLower):
+/// не ниже текущей и не ниже закупки + 20 % (минимальная наценка), вверх до целого сома.
+double aiReceivePrice(double cost, double oldPrice) {
+  final floor = ((cost * 1.2 * 100).round() / 100).ceilToDouble();
+  return oldPrice >= floor ? oldPrice : floor;
+}
 
 /// 13.10, макеты ПР2, ПР4–ПР6: приёмка на телефоне администратора — тем же путём, что касса (PurchaseReceivingService):
 /// с поставщиком — документ прихода POST api/main/suppliers/{id}/receipt/ (остаток прибавляет сервер), изменённая цена
@@ -451,6 +460,99 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
 
   static String _numText(double v) => v == 0 ? '' : qtyText(v).replaceAll(RegExp('[ \u00A0\u202F]'), '');
 
+  // 2026-10-26 (голос-управление, В3б): «ручка» для Нур Советника — собирает строки приёмки (поставщик, количество, закупка,
+  // цена по правилу ПК) и нажимает ТУ ЖЕ `_post` без диалога «Провести?» (просьба в звонке = одобрение). Ключ повтора
+  // прихода (receiptKey по составу) и проведение — репозитория, не менялись. Итог докладывает `_aiSink`.
+  final _aiSink = OutcomeSink();
+  late final AiScreenHandles _aiHandles = ref.read(aiHandlesProvider);
+  late final AiHandle _aiHandle = AiHandle(fill: _aiFill, run: () => _aiSink.run(() => _post(ask: false)));
+
+  /// Заменяет строки экрана строками просьбы (повтор той же просьбы даёт тот же состав — и тот же ключ прихода).
+  Future<HandleOutcome?> _aiFill(Map<String, dynamic> a) async {
+    final repo = ref.read(adminReceiveRepoProvider);
+    final db = ref.read(databaseProvider);
+    final api = ref.read(apiProvider);
+    final raw = a['lines'];
+    if (raw is! List || raw.isEmpty) return HandleOutcome.clarifyKey('needLines');
+    String? supplierId;
+    final supplierName = '${a['supplier'] ?? ''}'.trim();
+    if (supplierName.isNotEmpty) {
+      var list = _suppliers;
+      if (list.isEmpty) {
+        try {
+          list = await repo.suppliers();
+        } on ApiException catch (e) {
+          return HandleOutcome.error(e.message);
+        }
+      }
+      final hits = aiMatchByName(list, supplierName, (x) => x.$2);
+      if (hits.isEmpty) return HandleOutcome.notFoundKey('h.supplierNone', {'name': supplierName});
+      if (hits.length > 1) return HandleOutcome(ToolStatus.ambiguous, askKey: 'h.supplierMany', askParams: {'list': hits.take(5).map((x) => x.$2).join('; ')});
+      supplierId = hits.first.$1;
+      if (_suppliers.isEmpty && mounted) setState(() => _suppliers = list);
+    }
+    final lines = <ReceiveLine>[];
+    for (final m in raw) {
+      if (m is! Map) continue;
+      final query = '${m['query'] ?? m['name'] ?? ''}'.trim();
+      final code = '${m['barcode'] ?? ''}'.trim();
+      final qty = m['qty'] is num ? (m['qty'] as num).toDouble() : parseNum('${m['qty'] ?? ''}');
+      if (qty == null || qty <= 0) return HandleOutcome.clarifyKey('needQty');
+      Product? p;
+      if (code.isNotEmpty) {
+        p = (await CodeLookup.find(db, api, code, allowWeightLabel: false)).product;
+      } else if (query.isNotEmpty) {
+        final rows = await db.searchProducts(query, limit: 20);
+        final hits = aiMatchByName(rows, query, (x) => x.name);
+        final pool = hits.isEmpty ? rows : hits;
+        if (pool.length > 1) return HandleOutcome(ToolStatus.ambiguous, askKey: 'h.productMany', askParams: {'list': pool.take(5).map((x) => x.name).join('; ')});
+        p = pool.firstOrNull;
+      } else {
+        return HandleOutcome.clarifyKey('needProduct');
+      }
+      if (p == null) return HandleOutcome.notFoundKey('productNone');
+      final same = lines.where((x) => x.productId == p!.id).firstOrNull;
+      if (same != null) {
+        same.qty += qty;
+        continue;
+      }
+      var oldCost = 0.0;
+      try {
+        oldCost = num0(((await api.get('api/main/products/${p.id}/')) as Map).cast<String, dynamic>(), 'purchase_price');
+      } on ApiException {
+        // без связи — закупку должны назвать
+      }
+      final cost = m['cost'] is num ? (m['cost'] as num).toDouble() : (parseNum('${m['cost'] ?? ''}') ?? oldCost);
+      if (cost <= 0) return HandleOutcome.clarifyKey('h.costNeeded', {'name': p.name});
+      final price = m['price'] is num ? (m['price'] as num).toDouble() : (parseNum('${m['price'] ?? ''}') ?? aiReceivePrice(cost, p.price));
+      lines.add(
+        ReceiveLine(
+          productId: p.id,
+          name: p.name,
+          barcode: p.barcode ?? '',
+          unit: p.unit,
+          before: p.quantity,
+          oldCost: oldCost,
+          oldPrice: p.price,
+          cost: cost,
+          price: price,
+          qty: qty,
+        ),
+      );
+    }
+    if (lines.isEmpty) return HandleOutcome.clarifyKey('needLines');
+    if (!mounted) return HandleOutcome.errorKey('h.screenNotReady');
+    setState(() {
+      for (final x in [..._lines]) {
+        _removeLine(x);
+      }
+      _lines.addAll(lines);
+      _supplierId = supplierId;
+      _paidNow = '${a['pay'] ?? ''}' == 'cash';
+    });
+    return null;
+  }
+
   TextEditingController _ctl(Map<ReceiveLine, TextEditingController> m, ReceiveLine line, double v) =>
       m.putIfAbsent(line, () => TextEditingController(text: _numText(v)));
 
@@ -463,6 +565,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
   @override
   void initState() {
     super.initState();
+    _aiHandles.register('receive', _aiHandle);
     ref
         .read(adminReceiveRepoProvider)
         .suppliers()
@@ -474,6 +577,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
 
   @override
   void dispose() {
+    _aiHandles.unregister('receive', _aiHandle);
     _camera?.dispose();
     for (final c in [..._costCtl.values, ..._priceCtl.values]) {
       c.dispose();
@@ -763,39 +867,52 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
     });
   }
 
-  Future<void> _post() async {
+  Future<void> _post({bool ask = true}) async {
     if (_posting) return;
     setState(() => _posting = true);
     try {
-      await _postOnce();
+      await _postOnce(ask: ask);
     } finally {
       _posting = false;
       if (mounted) setState(() {});
     }
   }
 
-  Future<void> _postOnce() async {
+  Future<void> _postOnce({bool ask = true}) async {
     final l = context.l;
     // 13.10, макет ПР6: итог перед проведением — позиции, штуки, новые товары, изменённые цены, сумма закупки.
     final qty = _lines.fold(0.0, (s, x) => s + x.qty);
     final priceChanges = _lines.where((x) => !x.isNew && (x.price - x.oldPrice).abs() > 0.004).length;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(l.postReceipt),
-        content: Text(l.postSummary(_lines.length, qtyText(qty), _lines.where((x) => x.isNew).length, priceChanges, money(_total))),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.postReceipt)),
-        ],
-      ),
-    );
+    // 2026-10-26 (голос-управление, В3б): от ИИ диалога «Провести?» нет — просьба в звонке и есть одобрение
+    final confirm = !ask
+        ? true
+        : await showDialog<bool>(
+            context: context,
+            builder: (c) => AlertDialog(
+              title: Text(l.postReceipt),
+              content: Text(l.postSummary(_lines.length, qtyText(qty), _lines.where((x) => x.isNew).length, priceChanges, money(_total))),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+                FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.postReceipt)),
+              ],
+            ),
+          );
     if (confirm != true || !mounted) return;
     setState(() => _busy = true);
     try {
       final total = _total;
       final (n, errors) = await ref.read(adminReceiveRepoProvider).post(_lines, _supplierId, _paidNow, l10n: l);
       Audit.log('receive', '${l.receiptPosted(n)}${errors.isEmpty ? '' : ' · ${errors.length} !'}', amount: total);
+      // 2026-10-26 (голос-управление, В3б): итог для ручки — целиком проведено / частично / ничего (строки с ошибкой остаются на экране)
+      _aiSink.report(
+        errors.isEmpty && n > 0
+            ? HandleOutcome.ok({'total': total, 'lines': n, 'qty': qty, 'doc': ''})
+            : (errors.isEmpty
+                  ? HandleOutcome.clarifyKey('needLines')
+                  : (n > 0
+                        ? HandleOutcome.errorKey('h.recvPartial', {'what': errors.take(3).join('; ')})
+                        : HandleOutcome.error(errors.take(3).join('; ')))),
+      );
       if (!mounted) return;
       // 2026-10-22 (мобилка, админ, П8): проведённые строки уходят из списка, непринятые остаются — их можно поправить и
       // провести снова (раньше экран закрывался, и строки с ошибкой пропадали).
@@ -816,6 +933,8 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
       if (n > 0 && left == 0) Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
+      // ответ не дошёл — приход мог пройти; повтор пойдёт тем же ключом (receiptKey по составу) и второй раз не проведётся
+      _aiSink.report(AdminReceiveRepository.outcomeUnknown(e) ? const HandleOutcome(ToolStatus.error, unknown: true) : HandleOutcome.error(e.message));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

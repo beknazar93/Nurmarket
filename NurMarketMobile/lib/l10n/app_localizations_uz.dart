@@ -386,34 +386,6 @@ class AppLocalizationsUz extends AppLocalizations {
   }
 
   @override
-  String get durationLabel => 'Davomiyligi';
-
-  @override
-  String get mastersLabel => 'Ustalar · o\'z narxi va foizi';
-
-  @override
-  String get masterAdd => 'Usta qo\'shish';
-
-  @override
-  String get masterName => 'Usta ismi';
-
-  @override
-  String get masterPercent => '% ustaga';
-
-  @override
-  String get consumablesLabel => 'Ombordan materiallar';
-
-  @override
-  String get consumableAdd => 'Material qo\'shish';
-
-  @override
-  String get onlineBooking => 'Saytda va botda onlayn yozilish';
-
-  @override
-  String get serviceLocalNote =>
-      'Ustalar, davomiylik va materiallar server API\'si bo\'lguncha shu telefonda saqlanadi. Xizmat — NurCRM katalogida.';
-
-  @override
   String get saveService => 'Xizmatni saqlash';
 
   @override
@@ -445,62 +417,7 @@ class AppLocalizationsUz extends AppLocalizations {
       'Internetdan narx olinmaydi — o\'zingiznikini kiriting.';
 
   @override
-  String get bookingsTitle => 'Xizmatlar · yozilish';
-
-  @override
   String get dayToday => 'Bugun';
-
-  @override
-  String get dayTomorrow => 'Ertaga';
-
-  @override
-  String get allMasters => 'Barcha ustalar';
-
-  @override
-  String get bookNew => 'Yozish';
-
-  @override
-  String get bookCheckout => 'Hisob-kitob';
-
-  @override
-  String get bookArrived => 'keldi';
-
-  @override
-  String get bookBooked => 'yozilgan';
-
-  @override
-  String get bookPaid => 'to\'landi';
-
-  @override
-  String get bookFree => 'bo\'sh';
-
-  @override
-  String get bookMarkArrived => '«Keldi» deb belgilash';
-
-  @override
-  String get bookRemind => 'WhatsApp\'da eslatish';
-
-  @override
-  String get bookCancel => 'Yozilishni bekor qilish';
-
-  @override
-  String get bookTime => 'Vaqt';
-
-  @override
-  String get bookClash => 'Ustada bu vaqtda yozilish bor.';
-
-  @override
-  String get bookNoMasters =>
-      'Ustalar hozircha yo\'q — xizmat yaratishda qo\'shing.';
-
-  @override
-  String get bookLocalNote =>
-      'Yozilishlar server API\'si bo\'lguncha shu telefonda saqlanadi. To\'lov — oddiy NurCRM cheki.';
-
-  @override
-  String bookReminder(String name, String when, String master) {
-    return 'Assalomu alaykum, $name! $when $master ustaga yozilganingizni eslatamiz.';
-  }
 
   @override
   String get pricesTitle => 'Sotuv narxlari';
@@ -912,6 +829,12 @@ class AppLocalizationsUz extends AppLocalizations {
   String get paymentMethods => 'To\'lov usullari';
 
   @override
+  String get chartBestDay => 'Eng yaxshi kun';
+
+  @override
+  String get chartWorstDay => 'Eng sust kun';
+
+  @override
   String get topProducts => 'Eng yaxshi mahsulotlar';
 
   @override
@@ -1109,43 +1032,7 @@ class AppLocalizationsUz extends AppLocalizations {
   }
 
   @override
-  String smartPartial(int done, int total, int left) {
-    return '$total tadan $done tasi o‘tkazildi, $left tasi o‘tkazilmadi — «Yuklash» tugmasini yana bosing: o‘tkazilgani qayta qo‘shilmaydi.';
-  }
-
-  @override
-  String get smartNoLink =>
-      'Server bilan aloqa yo‘q — hech narsa o‘tkazilmadi. Ro‘yxat ekranda qoldi, internet paydo bo‘lganda takrorlang.';
-
-  @override
-  String smartRowRejected(String reason) {
-    return 'Rad etildi: $reason';
-  }
-
-  @override
-  String get smartRowUnknown =>
-      'Server javob bermadi — takrorlang: qoldiq ikki marta qo‘shilmaydi.';
-
-  @override
-  String get smartRowLocked =>
-      'Qator serverga yuborilgan — tovar va nomni o‘zgartirib bo‘lmaydi, qayta yuboring.';
-
-  @override
-  String get smartPendingReceipt =>
-      'Oldingi yetkazib beruvchiga kirim javobsiz qoldi — avval uni «Yetkazib beruvchi bilan qabul»da takrorlang, aks holda qoldiq ikki marta qo‘shilishi mumkin.';
-
-  @override
-  String get smartPendingStock =>
-      'Ba’zi qatorlar uchun server javob bermadi — avval «Yuklash»ni yana bosing: qoldiq ikki marta qo‘shilmaydi.';
-
-  @override
   String get sellingPrice => 'Sotuv narxi';
-
-  @override
-  String get durationCustom => 'Boshqa…';
-
-  @override
-  String get minutesHint => 'daqiqa';
 
   @override
   String get photoLabel => 'Rasm';
@@ -3402,4 +3289,1320 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get peNoAccess =>
       'Mahsulotni \"Ombor\" huquqi bor xodim yoki administrator tahrirlay oladi.';
+
+  @override
+  String get smartNoLink =>
+      'Server bilan aloqa yo‘q — hech narsa o‘tkazilmadi. Ro‘yxat ekranda qoldi, internet paydo bo‘lganda takrorlang.';
+
+  @override
+  String smartPartial(int done, int total, int left) {
+    return '$total tadan $done tasi o‘tkazildi, $left tasi o‘tkazilmadi — «Yuklash» tugmasini yana bosing: o‘tkazilgani qayta qo‘shilmaydi.';
+  }
+
+  @override
+  String get smartPendingReceipt =>
+      'Oldingi yetkazib beruvchiga kirim javobsiz qoldi — avval uni «Yetkazib beruvchi bilan qabul»da takrorlang, aks holda qoldiq ikki marta qo‘shilishi mumkin.';
+
+  @override
+  String get smartPendingStock =>
+      'Ba’zi qatorlar uchun server javob bermadi — avval «Yuklash»ni yana bosing: qoldiq ikki marta qo‘shilmaydi.';
+
+  @override
+  String get smartRowLocked =>
+      'Qator serverga yuborilgan — tovar va nomni o‘zgartirib bo‘lmaydi, qayta yuboring.';
+
+  @override
+  String smartRowRejected(String reason) {
+    return 'Rad etildi: $reason';
+  }
+
+  @override
+  String get smartRowUnknown =>
+      'Server javob bermadi — takrorlang: qoldiq ikki marta qo‘shilmaydi.';
+
+  @override
+  String payDebtLeft(String sum) {
+    return 'Qoladigan qarz: $sum';
+  }
+
+  @override
+  String get debtReceiptTitle => 'Qarz to\'langani haqida kvitansiya';
+
+  @override
+  String get returnsTitle => 'Qaytarishlar';
+
+  @override
+  String get shDebtPayments => 'Qarzlarni to\'lash';
+
+  @override
+  String get shDebtPrepay => 'Qarz bo\'yicha oldindan to\'lov';
+
+  @override
+  String get exitPressAgain => 'Chiqish uchun yana bir marta bosing';
+
+  @override
+  String get createProductWithCode => 'Shu kod bilan mahsulot yaratish';
+
+  @override
+  String get printLabel => 'Yorliq chop etish';
+
+  @override
+  String get openingCashField => 'Smena boshida kassadagi summa';
+
+  @override
+  String get advisorGreeting =>
+      'Assalomu alaykum! Men Nur Maslahatchiman. Sotuvlar, qarzlar yoki qoldiqlar haqida so\'rang — do\'koningiz ma\'lumotlari bo\'yicha javob beraman.';
+
+  @override
+  String get a11yBack => 'Orqaga';
+
+  @override
+  String get a11yShowPassword => 'Parolni ko\'rsatish';
+
+  @override
+  String get a11yHidePassword => 'Parolni yashirish';
+
+  @override
+  String get a11yScanner => 'Skaner';
+
+  @override
+  String get a11yCallAi => 'SIga qo\'ng\'iroq qilish';
+
+  @override
+  String get stockNone => 'yo\'q';
+
+  @override
+  String get cartEmptyHint =>
+      'Mahsulot qo\'shing: qidiring, skanerlang yoki kartani bosing';
+
+  @override
+  String get toProductsBtn => 'Mahsulotlarga';
+
+  @override
+  String get closeBtn => 'Yopish';
+
+  @override
+  String clientDebtLine(String sum) {
+    return 'Qarz: $sum so\'m';
+  }
+
+  @override
+  String get apiNoToken => 'Server token qaytarmadi.';
+
+  @override
+  String get apiSessionExpired => 'Sessiya tugadi — qaytadan kiring.';
+
+  @override
+  String get apiTimeout => 'Server o\'z vaqtida javob bermadi.';
+
+  @override
+  String get apiNoConnection => 'Server bilan aloqa yo\'q.';
+
+  @override
+  String apiServerError(String code) {
+    return 'Server xatosi $code.';
+  }
+
+  @override
+  String get apiNetworkError => 'Tarmoq xatosi.';
+
+  @override
+  String get adminNoLink => 'aloqa yo\'q';
+
+  @override
+  String printLabelAsk(String name, String code) {
+    return '«$name» uchun yorliq chop etilsinmi? Shtrix-kod $code';
+  }
+
+  @override
+  String get notNow => 'Hozir emas';
+
+  @override
+  String get bcGenTaken => 'Bu kod serverda band — yangisi berildi.';
+
+  @override
+  String get tapePrint => 'Chop etish';
+
+  @override
+  String get tapeSend => 'Yuborish';
+
+  @override
+  String get zReport => 'Smena Z-hisoboti';
+
+  @override
+  String get xReportNote => 'X-hisobot oraliq: smena yopilmagan.';
+
+  @override
+  String get shSalesBlock => 'Sotuvlar';
+
+  @override
+  String get shCashBlock => 'Kassadagi pul';
+
+  @override
+  String get shPrepayIncluded =>
+      'naqd/naqdsizda — qarz bo\'yicha oldindan to\'lov kiritilgan';
+
+  @override
+  String get shReturnsUnknown =>
+      'Smena qaytarishlari yuklanmadi — aloqa yo\'q.';
+
+  @override
+  String shReturnsPartial(int n) {
+    return 'Qisman: serverning javobida kassiri yo\'q $n ta qaytarish hisobga olinmadi. Saytda tekshiring.';
+  }
+
+  @override
+  String returnsCountN(int n) {
+    return '$n ta qaytarish';
+  }
+
+  @override
+  String get shReturnsCash => 'Naqd qaytarishlar';
+
+  @override
+  String get shCalcRow => 'Qatorlar bo\'yicha hisob';
+
+  @override
+  String shMismatch(String sum) {
+    return 'Qatorlar yig\'indisi serverdan $sum so\'mga farq qiladi — server raqamiga tayaning.';
+  }
+
+  @override
+  String get shNoSplit =>
+      'Qaytarish va qarz to\'lovlari bo\'yicha taqsimot yo\'q — «Kassada bo\'lishi kerak» serverdan olingan.';
+
+  @override
+  String get shPartial =>
+      'Ba\'zi ma\'lumotlar yuklanmadi (aloqa yo\'q) — ekranni yangilang.';
+
+  @override
+  String get debtReceiptBefore => 'To\'lovdan oldingi qarz';
+
+  @override
+  String get debtReceiptMethod => 'To\'lov usuli';
+
+  @override
+  String get debtReceiptAccepted => 'Qabul qilindi';
+
+  @override
+  String get debtReceiptCleared => 'Qarz to\'liq to\'landi.';
+
+  @override
+  String debtReceiptAcceptedLine(String sum, String left) {
+    return 'Qabul qilindi $sum, qoldiq $left';
+  }
+
+  @override
+  String get returnReasonTitle => 'Qaytarish sababi (ixtiyoriy)';
+
+  @override
+  String get returnReasonLabelShort => 'Sabab';
+
+  @override
+  String get returnReasonDefect => 'Nuqson';
+
+  @override
+  String get returnReasonNotFit => 'Mos kelmadi';
+
+  @override
+  String get returnReasonCashier => 'Kassir xatosi';
+
+  @override
+  String get listCachedNote =>
+      'Aloqa yo\'q — oxirgi saqlangan ro\'yxat ko\'rsatilmoqda.';
+
+  @override
+  String get checksLoadFailed => 'Cheklarni yuklab bo\'lmadi';
+
+  @override
+  String get debtsLoadFailed => 'Qarzlarni yuklab bo\'lmadi';
+
+  @override
+  String get callMinimize => 'Yig\'ish';
+
+  @override
+  String get callAiListens => 'SI tinglayapti';
+
+  @override
+  String get callInterrupted => 'To\'xtatdingiz — tinglayapman';
+
+  @override
+  String get callExtend => 'Yana 10 daqiqa';
+
+  @override
+  String get callExtended => 'Qo\'ng\'iroq 10 daqiqaga uzaytirildi';
+
+  @override
+  String get callNoLink => 'SI bilan aloqa yo\'q';
+
+  @override
+  String get callNoLinkWork => 'SI bilan aloqa yo\'q, ekranda ishlang';
+
+  @override
+  String callNoLinkEnds(int n) {
+    return 'Aloqa qaytmasa, $n soniyadan keyin tugaydi';
+  }
+
+  @override
+  String get callNoLinkHelp => 'Savat, qidiruv va ombor SIsiz ishlaydi.';
+
+  @override
+  String get callSlowServer => 'Server sekin javob bermoqda…';
+
+  @override
+  String get callStillLoading =>
+      'Ma\'lumotlar hali yuklanmoqda — kelganda aytaman';
+
+  @override
+  String get callSearching => 'Qidiryapman…';
+
+  @override
+  String get callSpeakingShort => 'Gapiryapman…';
+
+  @override
+  String get callHush => 'Jim';
+
+  @override
+  String get callOpenFull =>
+      'Nur Maslahatchi bilan suhbat — ochish; ushlab turish — «Jim»';
+
+  @override
+  String aiSays(String text) {
+    return 'SI: $text';
+  }
+
+  @override
+  String get aiUndo => 'Bekor qilish';
+
+  @override
+  String get aiCantUndo => 'bekor qilib bo\'lmaydi';
+
+  @override
+  String get aiPickTitle => 'Qaysi biri?';
+
+  @override
+  String get aiAmbiguousHint => 'Raqamni ayting yoki bosing';
+
+  @override
+  String get aiNotThat => 'Bu emas';
+
+  @override
+  String aiYesNumber(String num) {
+    return 'Ha, $num';
+  }
+
+  @override
+  String get aiNoRepeat => 'Yo\'q, qayta aytaman';
+
+  @override
+  String aiConfirmDo(String what) {
+    return 'Bajarish: $what';
+  }
+
+  @override
+  String get aiDo => 'Bajarish';
+
+  @override
+  String get aiDont => 'Kerak emas';
+
+  @override
+  String get aiOrSayYes => 'yoki «ha» deb ayting';
+
+  @override
+  String get aiModeAskMoney => 'Pul oldidan so\'rash';
+
+  @override
+  String get aiWhatPay => 'to\'lov';
+
+  @override
+  String get aiWhatReturn => 'qaytarish';
+
+  @override
+  String get aiWhatReceive => 'kirimni o\'tkazish';
+
+  @override
+  String get aiWhatWriteOff => 'hisobdan chiqarish';
+
+  @override
+  String get aiWhatCount => 'reviziya';
+
+  @override
+  String get aiWhatCloseShift => 'smenani yopish';
+
+  @override
+  String get aiWhatSalary => 'xodimga to\'lov';
+
+  @override
+  String get aiWhatDebt => 'qarzni to\'lash';
+
+  @override
+  String get aiWhatDelete => 'tovarni o\'chirish';
+
+  @override
+  String get aiWhatPrice => 'narxni o\'zgartirish';
+
+  @override
+  String get aiWhatCash => 'kassaga kirim yoki chiqim';
+
+  @override
+  String get aiWhatOther => 'amal';
+
+  @override
+  String get tblBigger => 'Kattaroq';
+
+  @override
+  String get tblSmaller => 'Kichikroq';
+
+  @override
+  String get tblToChat => 'Chatga';
+
+  @override
+  String get tblPdf => 'PDF';
+
+  @override
+  String get tblShare => 'Ulashish';
+
+  @override
+  String get tblPin => 'Mahkamlash';
+
+  @override
+  String get tblPinned => 'Mahkamlangan';
+
+  @override
+  String tblMore(int n) {
+    return 'Yana $n ta ko\'rsatish';
+  }
+
+  @override
+  String tblMoreLeft(int n) {
+    return '$n ta qoldi';
+  }
+
+  @override
+  String get tblAllShown => 'Barcha qatorlar ko\'rsatilgan';
+
+  @override
+  String tblSource(String source, String time) {
+    return 'dastur ma\'lumoti · $source · $time';
+  }
+
+  @override
+  String get tblEmpty => 'Hozircha bo\'sh';
+
+  @override
+  String tblEmptyFilter(String q) {
+    return '«$q» bo\'yicha hech narsa topilmadi';
+  }
+
+  @override
+  String get tblClearFilter => 'Filtrni olib tashlash';
+
+  @override
+  String get tblOpenObject => 'Ochish';
+
+  @override
+  String tblRowsN(int n) {
+    return '$n ta qator';
+  }
+
+  @override
+  String get tblPrev => 'Oldingi jadval';
+
+  @override
+  String get tblNext => 'Keyingi jadval';
+
+  @override
+  String get tblCollapse => 'Panelni yig\'ish';
+
+  @override
+  String get tblClose => 'Jadvalni yopish';
+
+  @override
+  String get tblSentChat => 'Jadval chatga qo\'shildi';
+
+  @override
+  String get tblPdfFailed => 'PDF yaratib bo\'lmadi';
+
+  @override
+  String get vcCamera => 'Kamera';
+
+  @override
+  String get vcCameraOn => 'Kamera yoniq';
+
+  @override
+  String get vcCameraOff => 'Kamera o\'chiq';
+
+  @override
+  String get vcSwitchCamera => 'Boshqa kamera';
+
+  @override
+  String get vcTorch => 'Chiroq';
+
+  @override
+  String get vcRecording => 'Kamera';
+
+  @override
+  String get vcAiSees => 'SI ko\'ryapti';
+
+  @override
+  String get vcEconomy => 'Trafik tejash';
+
+  @override
+  String get vcEconomyHint => '3 soniyada 1 kadr va faqat siz gapirganda';
+
+  @override
+  String get vcStarting => 'Kamerani yoqyapman…';
+
+  @override
+  String get vcSearching => 'Katalogdan qidiryapman…';
+
+  @override
+  String get vcWhatIsIt => 'Bu nima?';
+
+  @override
+  String get vcInvoice => 'Nakladnoy';
+
+  @override
+  String get vcShelf => 'Javon';
+
+  @override
+  String get vcPriceTag => 'Narx yorlig\'i';
+
+  @override
+  String get vcCardProduct => 'Tovar';
+
+  @override
+  String get vcNotFound =>
+      'Katalogdan topilmadi. Yaqinroq tuting yoki shtrix-kodni ko\'rsating';
+
+  @override
+  String get vcExact => 'aniq';
+
+  @override
+  String get vcByBarcode => 'shtrix-kod';
+
+  @override
+  String get vcByPhoto => 'rasm bo\'yicha';
+
+  @override
+  String get vcLooksLike => 'O\'xshaydi:';
+
+  @override
+  String get vcPickHint => 'tanlash uchun bosing';
+
+  @override
+  String vcPrice(String sum) {
+    return 'Narxi: $sum so\'m';
+  }
+
+  @override
+  String vcStock(String qty) {
+    return 'Qoldiq: $qty';
+  }
+
+  @override
+  String vcInvoiceSummary(int n, int known, int fresh) {
+    return 'Qatorlar: $n · katalogda: $known · yangi: $fresh';
+  }
+
+  @override
+  String vcOpenReceive(int n) {
+    return 'Kirimni ochish ($n)';
+  }
+
+  @override
+  String get vcReceiveEndsCall =>
+      'Qo\'ng\'iroq tugaydi, suhbat chatda saqlanadi';
+
+  @override
+  String get vcNewItemsHint =>
+      'Yangi tovarlar katalogda yo\'q — «Ombor → Nakladnoy» orqali qo\'shing';
+
+  @override
+  String get vcNoProcure => 'Kirimni administrator o\'tkazadi';
+
+  @override
+  String get vcShelfHint =>
+      'SI ko\'z bilan chamalab sanaydi — reviziyadan oldin qayta tekshiring';
+
+  @override
+  String get vcShelfCols => 'ko\'rinadi · dasturda';
+
+  @override
+  String get vcShelfThing => 'tovar';
+
+  @override
+  String get vcOnTag => 'Narx yorlig\'ida';
+
+  @override
+  String get vcInProgram => 'Dasturda';
+
+  @override
+  String vcTagMismatch(String tag, String sum) {
+    return 'Narx yorlig\'ida $tag so\'m, dasturda $sum so\'m — mos kelmaydi';
+  }
+
+  @override
+  String get vcTagOk => 'Yorliqdagi narx dasturga mos';
+
+  @override
+  String get vcTagFixHint =>
+      'Narx bu yerda o\'zgartirilmaydi — tovar kartasi orqali';
+
+  @override
+  String vcMoreLines(int n) {
+    return 'yana $n ta qator';
+  }
+
+  @override
+  String get vcNewTag => 'yangi';
+
+  @override
+  String get vcConsentTitle => 'Suhbatda kamerani yoqamizmi?';
+
+  @override
+  String get vcConsentBody =>
+      'Kamera yoniq bo\'lganda kadrlar (soniyasiga taxminan 1 ta) do\'koningizning SI kaliti bilan Google Gemini\'ga ketadi. Ular telefonda ham, NurCRM\'da ham saqlanmaydi — chatda faqat suhbat matni qoladi. Bepul kalitda Google ma\'lumotlardan o\'z modellarini yaxshilash uchun foydalanishi mumkin. Xaridorlarning yuzini, bank kartalarini va begona hujjatlarni ko\'rsatmang.';
+
+  @override
+  String get vcConsentPtSends =>
+      'Kamera yoniq bo\'lganda kadrlar (soniyasiga taxminan 1 ta) do\'koningizning SI kaliti bilan Google Gemini\'ga ketadi.';
+
+  @override
+  String get vcConsentPtSaved =>
+      'Ular telefonda ham, NurCRM\'da ham saqlanmaydi — chatda faqat suhbat matni qoladi.';
+
+  @override
+  String get vcConsentPtFree =>
+      'Bepul kalitda Google ma\'lumotlardan o\'z modellarini yaxshilash uchun foydalanishi mumkin.';
+
+  @override
+  String get vcConsentPtWarn =>
+      'Xaridorlarning yuzini, bank kartalarini va begona hujjatlarni ko\'rsatmang.';
+
+  @override
+  String get vcConsentAgree => 'Kamerani yoqish';
+
+  @override
+  String get vcConsentLater => 'Hozir emas';
+
+  @override
+  String vcCost(int n) {
+    return 'Video qo\'ng\'iroq $n daqiqagacha davom etadi va SI kaliti limitini ovozlidan bir necha barobar tez sarflaydi';
+  }
+
+  @override
+  String get aiAccTitle => 'SI dan foydalanish';
+
+  @override
+  String get aiAccSection => 'SI dan kim foydalanishi mumkin';
+
+  @override
+  String aiAccLimitInfo(int n) {
+    return 'Bepul SI limiti (Google Gemini) butun loyiha uchun umumiy: daqiqasiga va kuniga so\'rovlar kam. Shuning uchun SI dan — Nur Maslahatchi, qo\'ng\'iroq, aqlli kamera, rasm bo\'yicha nakladnoy, ko\'rinishi bo\'yicha tarozi — do\'konning ko\'pi bilan $n xodimi foydalana oladi. Kimga ruxsat berishni tanlang.';
+  }
+
+  @override
+  String aiAccCounter(int a, int b) {
+    return '$b tadan $a';
+  }
+
+  @override
+  String aiAccLimitReached(int n) {
+    return 'Ko\'pi bilan $n xodimni tanlash mumkin. Boshqasiga ruxsat berish uchun avval tanlanganlardan birining belgisini olib tashlang.';
+  }
+
+  @override
+  String aiAccDenied(int n, String names) {
+    return 'SI faqat do\'konning $n xodimiga ochiq: $names. Egasiga murojaat qiling.';
+  }
+
+  @override
+  String get aiAccDeniedNone =>
+      'Hozir do\'konda SI barcha xodimlar uchun o\'chirilgan. Egasiga murojaat qiling.';
+
+  @override
+  String get aiAccRecommend =>
+      'SI ni ikki xodim bilan cheklashni tavsiya qilamiz (umumiy bepul limit)';
+
+  @override
+  String get aiAccConfigure => 'Sozlash';
+
+  @override
+  String get aiAccSaved => 'SI dan foydalanish saqlandi';
+
+  @override
+  String get aiAccOwnerTag => 'egasi';
+
+  @override
+  String get aiAccYouTag => 'siz';
+
+  @override
+  String get aiAccStaffNotLoaded =>
+      'Xodimlar ro\'yxati olinmadi (aloqa yo\'qmi?). Faqat oldin tanlanganlar ko\'rsatildi.';
+
+  @override
+  String get aiAccNobody =>
+      'Hech kim tanlanmadi — SI barcha xodimlar uchun o\'chiriladi.';
+
+  @override
+  String get aiAccManagerOnly =>
+      'Ro\'yxatni egasi yoki administrator o\'zgartiradi.';
+
+  @override
+  String get aiAccNoticeTitle => 'SI — umumiy limit';
+
+  @override
+  String aiAccNoticeBody(int n) {
+    return 'Do\'konning SI si Google\'ning umumiy bepul limitida ishlaydi, shuning uchun unga ko\'pi bilan $n xodimning huquqi bor — sizda bor. Uzoq qo\'ng\'iroqlar va keraksiz so\'rovlarni bekorga boshlamang.';
+  }
+
+  @override
+  String get aiAccGotIt => 'Tushunarli';
+
+  @override
+  String get aiAccMineYes => 'Sizda SI dan foydalanish huquqi bor';
+
+  @override
+  String get aiAccMineNo =>
+      'SI siz uchun mavjud emas — egasiga murojaat qiling';
+
+  @override
+  String get aiAccMineOpen => 'SI barcha xodimlarga ochiq (limit qo\'yilmagan)';
+
+  @override
+  String get aiAccNotSet => 'Belgilanmagan — SI hammaga ochiq';
+
+  @override
+  String get assistantTitle => 'Yordamchi';
+
+  @override
+  String get assistantSub => 'ovozli boshqaruv rejimi';
+
+  @override
+  String get aiModeDo => 'So\'rov bo\'yicha bajarish';
+
+  @override
+  String get aiModeDoHint =>
+      'Ekranlarni ochadi, o\'qiydi, jadvallarni ko\'rsatadi va so\'raganingizni darhol bajaradi — natijani ovoz chiqarib aytadi, «Bekor qilish» tugmasi bilan.';
+
+  @override
+  String get aiModeAskHint =>
+      'So\'rov bo\'yicha kabi, lekin to\'lov, qaytarish, kirim, hisobdan chiqarish, reviziya, smenani yopish, to\'lab berish, qarz, o\'chirish va narx o\'zgartirishdan oldin «Bajarish» kartasi chiqadi.';
+
+  @override
+  String get aiModeWatch => 'Faqat ko\'rish';
+
+  @override
+  String get aiModeWatchHint =>
+      'Faqat ekranlar, o\'qish va jadvallar. Biror narsa qilishni so\'rasangiz: «Bu rejimda ma\'lumotni o\'zgartirmayman — ekranda bajaring yoki rejimni almashtiring» deb javob beradi.';
+
+  @override
+  String get aiModeDefault => 'odatiy';
+
+  @override
+  String get aiModeSofterLocked =>
+      'Egasi belgilagandan yumshoqroq — mavjud emas';
+
+  @override
+  String get aiModeOwnerSet => 'Egasi shu telefondagi hamma uchun belgiladi:';
+
+  @override
+  String get aiModeStricterSelf =>
+      'O\'zingiz uchun qattiqroq rejimni tanlashingiz mumkin';
+
+  @override
+  String get aiModeNoVoice => 'Rejim ovoz bilan o\'zgarmaydi — faqat shu yerda';
+
+  @override
+  String get aiModeAskWhatTitle => 'Nimadan oldin so\'raydi';
+
+  @override
+  String get aiModeAskNote =>
+      '«Bajarish: … summa …» kartasi va bitta tugma — yoki ovoz bilan «ha». Ikki marta tasdiqlash yo\'q.';
+
+  @override
+  String get aiModeFooter =>
+      'Yordamchi huquqlari — foydalanuvchi roli bo\'yicha';
+
+  @override
+  String get aiModeSaved => 'Rejim saqlandi';
+
+  @override
+  String get aiLogTitle => 'SI harakatlari';
+
+  @override
+  String get aiLogSubAll => 'telefondagi barcha yozuvlar';
+
+  @override
+  String get aiLogMoneyOnly => 'Faqat pul';
+
+  @override
+  String get aiLogUndone => 'Bekor qilinganlar';
+
+  @override
+  String get aiLogByDate => 'Sana bo\'yicha filtr';
+
+  @override
+  String get dayYesterday => 'Kecha';
+
+  @override
+  String aiLogUndoneAt(String time) {
+    return 'bekor qilindi $time';
+  }
+
+  @override
+  String get aiLogCantUndoWriteOff =>
+      'bekor qilib bo\'lmaydi · hisobdan chiqarish mumkin';
+
+  @override
+  String get aiUndoRequest => 'bekor qilish — egasiga so\'rov bilan';
+
+  @override
+  String get aiLogUndoGone => 'bekor qilish faqat qo\'ng\'iroqda bo\'lgan';
+
+  @override
+  String aiLogUndoneToast(String what) {
+    return 'Bekor qilindi: $what';
+  }
+
+  @override
+  String get aiLogUndoConflict =>
+      'SI dan keyin o\'zgargan — ekranda tekshiring';
+
+  @override
+  String aiLogUndoFailed(String what) {
+    return 'Bekor qilib bo\'lmadi: $what. Aloqa va ekranni tekshiring.';
+  }
+
+  @override
+  String get aiLogUndoShift =>
+      'Bekor qilib bo\'lmaydi: smena yopilgan yoki kassada pul kam';
+
+  @override
+  String aiLogUndoPartial(int done, int total) {
+    return '$total tadan $done tasi qaytarildi; qolganlari SI dan keyin o\'zgargan yoki bo\'lmadi';
+  }
+
+  @override
+  String get aiLogEmpty => 'SI bu telefonda hali hech narsa qilmagan';
+
+  @override
+  String get aiLogEmptyHint =>
+      'Nur Maslahatchiga qo\'ng\'iroq qilib, nima qilishni ayting — har bir yozuv «Bekor qilish» tugmasi bilan shu yerda paydo bo\'ladi';
+
+  @override
+  String get aiLogCall => 'Maslahatchiga qo\'ng\'iroq';
+
+  @override
+  String get aiLogMineOnly => 'Faqat o\'zingizning amallaringiz ko\'rinadi';
+
+  @override
+  String get aiLogFooter =>
+      'Telefonda saqlanadi, 2000 tagacha yozuv. SI kalitlari, ovoz va mijoz telefonlarisiz.';
+
+  @override
+  String get aiGroupNav => 'Ekranlar';
+
+  @override
+  String get aiGroupCart => 'Chek va buyurtmalar';
+
+  @override
+  String get aiGroupMoney => 'Pul';
+
+  @override
+  String get aiGroupProduct => 'Tovarlar';
+
+  @override
+  String get aiGroupTask => 'Vazifalar';
+
+  @override
+  String get aiGroupSalary => 'Maosh';
+
+  @override
+  String get auditAi => 'SI';
+
+  @override
+  String get stfTasksTitle => 'Vazifalar';
+
+  @override
+  String stfTasksSub(int n, String late) {
+    return 'Vazifalar: $n ta · muddati o\'tgan: $late ta';
+  }
+
+  @override
+  String get stfMyTasksTitle => 'Mening vazifalarim';
+
+  @override
+  String stfMySub(String name, String today, String late) {
+    return '$name · bugun uchun: $today ta · muddati o\'tgan: $late ta';
+  }
+
+  @override
+  String get stfFilterOverdue => 'Muddati o\'tgan';
+
+  @override
+  String get stfFilterDone => 'Bajarilgan';
+
+  @override
+  String get stfStNew => 'yangi';
+
+  @override
+  String get stfStWork => 'jarayonda';
+
+  @override
+  String get stfStDone => 'bajarildi';
+
+  @override
+  String get stfOverdue => 'muddati o\'tdi';
+
+  @override
+  String get stfNoDue => 'muddatsiz';
+
+  @override
+  String get stfDue => 'Muddati';
+
+  @override
+  String get stfRemind => 'Eslatish';
+
+  @override
+  String get stfUrgent => 'Shoshilinch vazifa';
+
+  @override
+  String get stfNewTask => 'Yangi vazifa';
+
+  @override
+  String get stfTaskField => 'Nima qilish kerak';
+
+  @override
+  String get stfTaskHint => 'Masalan: suv javonini qayta sanang';
+
+  @override
+  String get stfAssignee => 'Ijrochi';
+
+  @override
+  String get stfAssigneeHint => 'Xodimni tanlang';
+
+  @override
+  String get stfCreate => 'Vazifa qo\'yish';
+
+  @override
+  String get stfNeedTitle => 'Nima qilish kerakligini yozing';
+
+  @override
+  String get stfNeedAssignee => 'Ijrochini tanlang';
+
+  @override
+  String get stfTaskCreated => 'Vazifa qo\'yildi';
+
+  @override
+  String get stfToWork => 'Ishga olish';
+
+  @override
+  String get stfMarkDone => 'Bajarildi';
+
+  @override
+  String get stfReopen => 'Qayta ochish';
+
+  @override
+  String get stfEditDue => 'Muddatni o\'zgartirish';
+
+  @override
+  String get stfEditAssignee => 'Boshqasiga berish';
+
+  @override
+  String get stfDelete => 'O\'chirish';
+
+  @override
+  String stfDeleteAsk(String title) {
+    return '«$title» vazifasini o\'chiramizmi?';
+  }
+
+  @override
+  String get stfNoTasks => 'Vazifalar yo\'q';
+
+  @override
+  String get stfLoadFail => 'Vazifalarni yuklab bo\'lmadi';
+
+  @override
+  String get stfPriorityHint =>
+      'Shoshilinchlik va eslatma hozircha faqat ilovada ko\'rinadi; server yangilanguncha saytda topshiriqda xizmat belgisi chiqishi mumkin';
+
+  @override
+  String get stfNoBackground =>
+      'Fon bildirishnomalari yo\'q — eslatma ilova ochilganda ko\'rinadi';
+
+  @override
+  String stfOverduePlate(int n, String title) {
+    return 'Muddati o\'tgan: $n ta — «$title»';
+  }
+
+  @override
+  String stfRemindPlate(String title) {
+    return 'Eslatma: «$title»';
+  }
+
+  @override
+  String stfTodayPlate(String today, String late) {
+    return 'Bugungi vazifalar: $today ta · muddati o\'tgan: $late ta';
+  }
+
+  @override
+  String get stfSalaryTitle => 'Maosh';
+
+  @override
+  String stfSalarySub(int n) {
+    return 'xodimlar: $n ta';
+  }
+
+  @override
+  String get stfPeriodMonth => 'Shu oy';
+
+  @override
+  String get stfPeriodLast => 'O\'tgan oy';
+
+  @override
+  String get stfPeriodWeek => '7 kun';
+
+  @override
+  String get stfAccrued => 'Hisoblandi';
+
+  @override
+  String get stfPaid => 'To\'landi';
+
+  @override
+  String get stfLeft => 'Qoldi';
+
+  @override
+  String get stfColEmployee => 'Xodim';
+
+  @override
+  String get stfChecking => 'To\'lovlar tekshirilmoqda…';
+
+  @override
+  String get stfPartialPlate =>
+      'Qisman tekshirildi — to\'lov summasi o\'zi qo\'yilmaydi.';
+
+  @override
+  String get stfTrustTimeout =>
+      'O\'tgan to\'lovlarni tekshirish o\'z vaqtida tugamadi — to\'lashdan oldin saytda tekshiring.';
+
+  @override
+  String get stfTrustJournal =>
+      'Telefondagi to\'lovlar jurnali o\'qilmaydi — to\'lovlar yopiq.';
+
+  @override
+  String get stfTrustNotChecked =>
+      'O\'tgan to\'lovlarni tekshirib bo\'lmadi — to\'lashdan oldin saytda tekshiring.';
+
+  @override
+  String stfTrustUnassigned(String sum, int n) {
+    return 'Xodimga bog\'lanmagan «Maosh» xarajatlari bor: $sum so\'m ($n ta) — saytda tekshiring.';
+  }
+
+  @override
+  String get stfTrustPartial =>
+      '«Maosh» moddasiz to\'lovlar yoki barcha xarajatlar ko\'rinmaydi — to\'lashdan oldin saytda tekshiring.';
+
+  @override
+  String get stfTrustPartialNotes =>
+      'To\'lovlarning bir qismi davrga faqat qisman kirdi — ayrilmadi, tekshiring.';
+
+  @override
+  String get stfTrustByName =>
+      'To\'lovlarning bir qismi faqat xarajat nomidagi ism bo\'yicha topildi — to\'lashdan oldin saytda tekshiring.';
+
+  @override
+  String stfPartialNote(String sum, String period) {
+    return '$period davri uchun $sum so\'m to\'lov bu davrga faqat qisman kiradi — ayrilmadi';
+  }
+
+  @override
+  String get stfSalaryEmpty =>
+      'Davr uchun hisob-kitob yo\'q: sotuv yo\'q yoki hech kimda to\'lov sxemasi sozlanmagan.';
+
+  @override
+  String get stfSalaryDenied =>
+      'Maoshga ruxsat yo\'q: bu akkauntda saytdagi xodimlar tahlili huquqi yo\'q.';
+
+  @override
+  String get stfSalaryFail => 'Maoshni yuklab bo\'lmadi';
+
+  @override
+  String get stfSalaryHint =>
+      'Hisoblangan — server hisobi, kompyuter va saytdagidek. «To\'landi» — shu davrdagi «Maosh» xarajatlari.';
+
+  @override
+  String get stfLockedTag => 'javobsiz to\'lov';
+
+  @override
+  String get stfPayBtn => 'To\'lash';
+
+  @override
+  String stfPayTitle(String name) {
+    return 'To\'lov: $name';
+  }
+
+  @override
+  String get stfKindSalary => 'Maosh';
+
+  @override
+  String get stfKindAdvance => 'Avans';
+
+  @override
+  String get stfPayAmount => 'Summa';
+
+  @override
+  String get stfPayEnterAmount => 'Summani o\'zingiz kiriting';
+
+  @override
+  String get stfPayBox => 'Kassa';
+
+  @override
+  String get stfPayComment => 'Izoh (majburiy emas)';
+
+  @override
+  String get stfPayNeedAmount => 'To\'lov summasini kiriting';
+
+  @override
+  String get stfPayNoCash =>
+      'To\'lov uchun kompaniya kassasi topilmadi — saytda yoki egasi dasturida to\'lang.';
+
+  @override
+  String get stfSalesBoxWarn =>
+      'Bu filialning sotuv kassasi — xarajat uning qoldig\'ini kamaytiradi.';
+
+  @override
+  String stfPayConfirm(String sum, String name, String box) {
+    return '$name xodimiga «$box» kassasidan $sum so\'m to\'lansinmi?';
+  }
+
+  @override
+  String stfPayDone(String sum, String name) {
+    return 'To\'landi $sum so\'m: $name';
+  }
+
+  @override
+  String get stfPayFailed => 'To\'lov o\'tmadi.';
+
+  @override
+  String stfPayUnknown(String sum, String box) {
+    return 'Serverdan javob kelmadi — $sum so\'m to\'lov («$box» kassasi) o\'tgan bo\'lishi mumkin. Takrorlab bo\'lmaydi: xodimni ochib «Serverda tekshirish»ni bosing.';
+  }
+
+  @override
+  String stfPayLock(String sum, String when, String box) {
+    return 'Oldingi $sum so\'m to\'lov ($when, «$box» kassasi) serverdan javobsiz qoldi. Siz tekshirmaguncha bu xodimga yangi to\'lov yopiq.';
+  }
+
+  @override
+  String get stfPayLockShort =>
+      'Bu xodimga oldingi to\'lov serverdan javobsiz qoldi — siz tekshirmaguncha yangisi yopiq.';
+
+  @override
+  String get stfPayDup =>
+      'Xuddi shunday to\'lov hozirgina o\'tdi — takrorlanmaydi.';
+
+  @override
+  String get stfPayJournal =>
+      'Telefondagi to\'lovlar jurnali o\'qilmaydi — usiz ikki marta to\'lashdan himoya yo\'q, to\'lov yuborilmadi.';
+
+  @override
+  String get stfLockCheck => 'Serverda tekshirish';
+
+  @override
+  String get stfLockCheckShort => 'Tekshirish';
+
+  @override
+  String get stfLockYes => 'To\'lov saytda BOR';
+
+  @override
+  String get stfLockNo => 'To\'lov saytda YO\'Q';
+
+  @override
+  String get stfLockYesAsk => 'To\'lov saytda bormi?';
+
+  @override
+  String get stfLockNoAsk => 'To\'lov saytda yo\'qmi?';
+
+  @override
+  String get stfLockResolveHint =>
+      'NurCRM saytidagi «Maosh» xarajatini tekshiring. Noto\'g\'ri bossangiz, to\'lov noto\'g\'ri hisoblanadi yoki ikki marta o\'tadi.';
+
+  @override
+  String get stfLockFound => 'To\'lov serverda topildi va hisobga olindi.';
+
+  @override
+  String get stfLockNotFound =>
+      'Serverda to\'lov topilmadi — qulf qoladi, saytda tekshirgandan keyin o\'zingiz hal qiling.';
+
+  @override
+  String get stfConfirm => 'Tasdiqlash';
+
+  @override
+  String get stfRecentPayouts => 'Shu telefondan so\'nggi to\'lovlar';
+
+  @override
+  String get stfCancelBtn => 'Bekor qilishni so\'rash';
+
+  @override
+  String stfCancelAsk(String sum) {
+    return '$sum so\'m to\'lovni bekor qilishni so\'raymizmi?';
+  }
+
+  @override
+  String get stfCancelHint =>
+      'To\'lovni faqat egasi yoki buxgalter NurCRM saytida bekor qiladi — telefondan so\'rov yuboriladi.';
+
+  @override
+  String get stfCancelSend => 'So\'rov yuborish';
+
+  @override
+  String get stfCancelSent => 'Bekor qilish so\'rovi egasiga yuborildi.';
+
+  @override
+  String get stfSchemeBtn => 'To\'lov sxemasi';
+
+  @override
+  String stfSchemeTitle(String name) {
+    return 'To\'lov sxemasi: $name';
+  }
+
+  @override
+  String get stfSchemeSaved => 'To\'lov sxemasi saqlandi';
+
+  @override
+  String get stfSchemeSalary => 'Maosh';
+
+  @override
+  String get stfSchemePercent => 'Sotuvdan foiz';
+
+  @override
+  String get stfSchemeSalaryPercent => 'Maosh + sotuvdan foiz';
+
+  @override
+  String get stfSchemePerItem => 'Har bir sotilgan mahsulot uchun';
+
+  @override
+  String get stfSchemeSalaryItem => 'Maosh + har bir mahsulot uchun';
+
+  @override
+  String get stfSchemePercentItem => 'Foiz + har bir mahsulot uchun';
+
+  @override
+  String get stfNoScheme => 'sxema sozlanmagan';
+
+  @override
+  String get stfMonthly => 'Oylik maosh';
+
+  @override
+  String get stfPercent => 'Sotuvdan foiz';
+
+  @override
+  String get stfPerItem => 'Har bir sotilgan mahsulot uchun';
+
+  @override
+  String get stfBonus => 'Sotuv uchun hisoblandi';
+
+  @override
+  String get gkOpen => 'Gemini kalitlari (bir nechta akkaunt)';
+
+  @override
+  String get gkTitle => 'Gemini kalitlari';
+
+  @override
+  String get gkHint =>
+      'Kalitlar navbat bilan ishlatiladi: birinchi ishlaydigani. Kalitning limiti tugasa, SI keyingisini o\'zi oladi. Ro\'yxat kassa va egasi dasturidagi bilan bir xil.';
+
+  @override
+  String get gkWarn =>
+      'Google qoidalari limitlarni bir nechta akkaunt yoki loyiha bilan aylanib o\'tishni taqiqlashi mumkin — kalitlar bloklanishi xavfi bor. Google bepul darajasi so\'rovlarni o\'z mahsulotlarini yaxshilash uchun ishlatishi mumkin. Qaror sizda.';
+
+  @override
+  String get gkViewOnly =>
+      'Kalitlar ro\'yxatini egasi va administrator o\'zgartiradi. Sizga kalitlar to\'liq ko\'rsatilmaydi — SI shu ro\'yxat bilan ishlaydi.';
+
+  @override
+  String gkWorkingCount(int a, int b) {
+    return 'Ishlaydigan kalitlar: $a / $b';
+  }
+
+  @override
+  String get gkEmpty =>
+      'Kalit yo\'q. Birinchisini qo\'shing — uni Google AI Studio beradi.';
+
+  @override
+  String get gkAdd => 'Kalit qo\'shish';
+
+  @override
+  String get gkAddBtn => 'Qo\'shish';
+
+  @override
+  String get gkPasteKey => 'Google AI Studio kalitini qo\'ying';
+
+  @override
+  String get gkLabelHint => 'Belgi (ixtiyoriy)';
+
+  @override
+  String gkLabelDefault(int n) {
+    return 'Akkaunt $n';
+  }
+
+  @override
+  String get gkMax => '10 tadan ko\'p emas.';
+
+  @override
+  String get gkDuplicate => 'Bunday kalit ro\'yxatda bor.';
+
+  @override
+  String get gkShow => 'Ko\'rsatish';
+
+  @override
+  String get gkHide => 'Yashirish';
+
+  @override
+  String get gkEnabled => 'Yoqilgan';
+
+  @override
+  String get gkMoveUp => 'Yuqoriga';
+
+  @override
+  String get gkMoveDown => 'Pastga';
+
+  @override
+  String get gkDelete => 'O\'chirish';
+
+  @override
+  String gkDeleteAsk(String name, String tail) {
+    return '«$name» kalitini (…$tail) o\'chiramizmi?';
+  }
+
+  @override
+  String get gkStateWorking => 'ishlaydi';
+
+  @override
+  String gkStateExhausted(String time) {
+    return '$time gacha tugagan';
+  }
+
+  @override
+  String get gkStateInvalid => 'yaroqsiz';
+
+  @override
+  String get gkStateDisabled => 'o\'chiq';
+
+  @override
+  String get gkStateUnchecked => 'tekshirilmagan';
+
+  @override
+  String get gkCheckOk => 'Kalit ishlaydi ✓';
+
+  @override
+  String gkCheckFail(String err) {
+    return 'Tekshirib bo\'lmadi: $err';
+  }
+
+  @override
+  String get aiKeysSavedPhoneOnly =>
+      'Telefonda saqlandi, lekin bulutga ketmadi — kassa va egasi dasturi hozircha ko\'rmaydi. Keyinroq qayta urinib ko\'ring.';
 }

@@ -44,6 +44,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   TodayStats? _today;
   double? _debts;
   int _low = 0;
+  // 2026-10-26 (живой аудит, П10): без связи плитка пишет «нет связи» и даёт «Повторить» (было «…» без пояснения).
+  bool _todayFail = false;
+  bool _debtsFail = false;
   final _find = TextEditingController();
 
   @override
@@ -53,6 +56,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   }
 
   Future<void> _load() async {
+    _todayFail = false;
+    _debtsFail = false;
     final db = ref.read(databaseProvider);
     // 2026-10-22 (мобилка, админ, П11): порог «заканчивается» как на ПК — остаток меньше 10 (было ≤ 3).
     final low = await (db.select(db.products)..where((p) => lowStockSql(p) & p.isService.equals(false))).get();
@@ -61,13 +66,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       final t = await ref.read(adminRepoProvider).today();
       if (mounted) setState(() => _today = t);
     } on ApiException {
-      // без связи — показатели появятся позже
+      // без связи — плитка покажет «нет связи» и «Повторить»
+      if (mounted) setState(() => _todayFail = true);
     }
     try {
       final d = await ref.read(opsRepoProvider).debtors();
       if (mounted) setState(() => _debts = d.fold<double>(0, (s, x) => s + x.debt));
     } on ApiException {
-      // без связи
+      if (mounted) setState(() => _debtsFail = true);
     }
   }
 
@@ -75,24 +81,6 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   Widget build(BuildContext context) {
     final l = context.l;
     final s = ref.watch(sessionProvider);
-    Widget kpi(String label, String value, {Color? color, String? route}) => Expanded(
-      child: Panel(
-        onTap: route == null ? null : () => context.push(route),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: TextStyle(fontSize: 12, color: context.pal.textSoft)),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color),
-            ),
-          ],
-        ),
-      ),
-    );
     // 14.10, владелец: «удобство 10 из 10». Было 20 пунктов одним длинным списком — теперь группы плитками по 3 в ряд
     // (всё на 1–2 экранах), поиск раздела, показатели сверху нажимаются (выручка → сводка, заканчиваются → склад,
     // долги → долги клиентов).
@@ -136,7 +124,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           (Icons.account_balance_outlined, l.esfTitle, '/admin/esf'),
         ],
       ),
-      (l.grpTeam, [(Icons.badge_outlined, l.staff, '/admin/staff'), (Icons.fact_check_outlined, l.auditTitle, '/admin/audit')]),
+      (
+        l.grpTeam,
+        [
+          (Icons.badge_outlined, l.staff, '/admin/staff'),
+          // 2026-10-26 (голос-управление, В7): задачи сотрудникам и зарплата
+          (Icons.checklist_rounded, l.stfTasksTitle, '/admin/tasks'),
+          (Icons.payments_outlined, l.stfSalaryTitle, '/admin/salary'),
+          (Icons.fact_check_outlined, l.auditTitle, '/admin/audit'),
+        ],
+      ),
     ];
     final q = _find.text.trim().toLowerCase();
     // 13.10: только разделы, открытые сотруднику на сайте (NurCRM → Сотрудники → доступы).
@@ -190,20 +187,60 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: [
-            Row(
-              children: [
-                kpi(l.revenueToday, _today == null ? '…' : '${money(_today!.revenue)} ${l.som}', color: context.pal.price, route: '/admin/summary'),
-                const SizedBox(width: 10),
-                kpi(l.checksToday, _today == null ? '…' : '${_today!.checks}', route: '/checks'),
-              ],
+            // 2026-10-26 (живой аудит, П10): ряд плиток одной высоты; «Заканчиваются» + число (раньше число было и в подписи, и в значении).
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: AdminKpiTile(
+                      label: l.revenueToday,
+                      value: _today == null ? null : '${money(_today!.revenue)} ${l.som}',
+                      failed: _todayFail && _today == null,
+                      color: context.pal.price,
+                      onTap: () => context.push('/admin/summary'),
+                      onRetry: _load,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: AdminKpiTile(
+                      label: l.checksToday,
+                      value: _today == null ? null : '${_today!.checks}',
+                      failed: _todayFail && _today == null,
+                      onTap: () => context.push('/checks'),
+                      onRetry: _load,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                kpi(l.runningOut(_low), '$_low', color: _low > 0 ? T.warn : null, route: '/stock?filter=low'),
-                const SizedBox(width: 10),
-                kpi(l.clientsOwe, _debts == null ? '…' : '${money(_debts!)} ${l.som}', color: (_debts ?? 0) > 0 ? T.danger : null, route: '/debts'),
-              ],
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: AdminKpiTile(
+                      label: l.runningOutShort,
+                      value: '$_low',
+                      color: _low > 0 ? context.pal.warn : null,
+                      onTap: () => context.push('/stock?filter=low'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: AdminKpiTile(
+                      label: l.clientsOwe,
+                      value: _debts == null ? null : '${money(_debts!)} ${l.som}',
+                      failed: _debtsFail && _debts == null,
+                      color: (_debts ?? 0) > 0 ? context.pal.danger : null,
+                      onTap: () => context.push('/debts'),
+                      onRetry: _load,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -219,16 +256,85 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: .6, color: context.pal.textSoft),
                 ),
               ),
-              GridView.count(
-                crossAxisCount: 3,
+              // 2026-10-26 (живой аудит, П10): высота плитки растёт вместе со шрифтом (при 1,3× подпись вылезала на 19 px).
+              GridView(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 1.05,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  mainAxisExtent: 76 + 38 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.5),
+                ),
                 children: [for (final x in items) tile(x)],
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 2026-10-26 (живой аудит, П10): плитка-показатель «Управления». [value] == null — ещё грузится («…»); [failed] — нет связи:
+/// «нет связи» и «Повторить». Подпись сверху, значение снизу — в одном ряду плитки одной высоты.
+class AdminKpiTile extends StatelessWidget {
+  final String label;
+  final String? value;
+  final bool failed;
+  final Color? color;
+  final VoidCallback? onTap;
+  final VoidCallback? onRetry;
+  const AdminKpiTile({super.key, required this.label, this.value, this.failed = false, this.color, this.onTap, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pal = context.pal;
+    final soft = TextStyle(fontSize: 12, color: pal.textSoft);
+    return Panel(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 64),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: soft),
+            const SizedBox(height: 4),
+            if (failed)
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                children: [
+                  Text(l.adminNoLink, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: pal.textSoft)),
+                  if (onRetry != null)
+                    InkWell(
+                      onTap: onRetry,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.refresh_rounded, size: 16, color: pal.action),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(l.retry, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: pal.action)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              )
+            else
+              Text(
+                value ?? '…',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color),
+              ),
           ],
         ),
       ),

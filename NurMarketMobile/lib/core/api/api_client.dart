@@ -4,7 +4,20 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../l10n/app_localizations.dart';
 import 'session_store.dart';
+
+/// 2026-10-26 (живой аудит, П4): тексты ошибок сети — на языке приложения. У ApiClient нет контекста, поэтому язык берётся
+/// из [l] (его выставляет MaterialApp.builder в app.dart); пока он не задан (тесты, самый ранний запуск) — по-русски.
+class ApiText {
+  static AppLocalizations? l;
+  static String get noToken => l?.apiNoToken ?? 'Сервер не вернул токен.';
+  static String get sessionExpired => l?.apiSessionExpired ?? 'Сессия истекла — войдите снова.';
+  static String get timeout => l?.apiTimeout ?? 'Сервер не ответил вовремя.';
+  static String get noConnection => l?.apiNoConnection ?? 'Нет связи с сервером.';
+  static String serverError(int code) => l?.apiServerError('$code') ?? 'Ошибка сервера $code.';
+  static String get networkError => l?.apiNetworkError ?? 'Ошибка сети.';
+}
 
 /// Ошибка сервера с понятным текстом для кассира.
 class ApiException implements Exception {
@@ -70,7 +83,7 @@ class ApiClient {
     final map = data as Map<String, dynamic>;
     final access = map['access'] as String? ?? '';
     final refresh = map['refresh'] as String? ?? '';
-    if (access.isEmpty) throw ApiException('Сервер не вернул токен.');
+    if (access.isEmpty) throw ApiException(ApiText.noToken);
     _session = Session(email: email.trim(), access: access, refresh: refresh);
     return map;
   }
@@ -135,7 +148,7 @@ class ApiClient {
           refreshed = true;
           if (await _refresh()) continue;
           _expired.add(null);
-          throw ApiException('Сессия истекла — войдите снова.', status: 401);
+          throw ApiException(ApiText.sessionExpired, status: 401);
         }
         // 429 — сервер просит подождать: пауза (Retry-After или нарастающая) и повтор, не больше трёх раз.
         if (code == 429 && attempt < 3) {
@@ -164,11 +177,11 @@ class ApiClient {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
       case DioExceptionType.sendTimeout:
-        return 'Сервер не ответил вовремя.';
+        return ApiText.timeout;
       case DioExceptionType.connectionError:
-        return 'Нет связи с сервером.';
+        return ApiText.noConnection;
       default:
-        return e.response?.statusCode != null ? 'Ошибка сервера ${e.response!.statusCode}.' : (e.message ?? 'Ошибка сети.');
+        return e.response?.statusCode != null ? ApiText.serverError(e.response!.statusCode!) : (e.message ?? ApiText.networkError);
     }
   }
 }

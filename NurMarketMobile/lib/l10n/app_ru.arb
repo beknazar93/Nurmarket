@@ -34,7 +34,7 @@
   },
   "shiftClosed": "Смена закрыта",
   "mySalesForShift": "Мои продажи за смену",
-  "checksCount": "{n} чеков",
+  "checksCount": "{n, plural, one{{n} чек} few{{n} чека} many{{n} чеков} other{{n} чека}}",
   "@checksCount": {
     "placeholders": {
       "n": {
@@ -47,7 +47,7 @@
   "openingCashHint": "Сколько денег в кассе на начало",
   "openShiftFirst": "Сначала откройте смену на главной.",
   "offlineWorking": "Нет связи с сервером — продажи сохраняются на телефоне и уйдут сами.",
-  "runningOut": "Заканчиваются {n} товаров",
+  "runningOut": "{n, plural, one{Заканчивается {n} товар} few{Заканчиваются {n} товара} many{Заканчиваются {n} товаров} other{Заканчиваются {n} товара}}",
   "@runningOut": {
     "placeholders": {
       "n": {
@@ -62,7 +62,7 @@
   "favorites": "Избранное",
   "nothingFound": "Ничего не найдено",
   "inCheck": "В чеке",
-  "positions": "{n} позиций",
+  "positions": "{n, plural, one{{n} позиция} few{{n} позиции} many{{n} позиций} other{{n} позиции}}",
   "@positions": {
     "placeholders": {
       "n": {
@@ -235,7 +235,7 @@
   "addColor": "Добавить цвет",
   "colorName": "Название цвета",
   "colorSizeGrid": "Цвет × размер — сколько штук",
-  "variantsSummary": "{n} вариантов · {qty} шт",
+  "variantsSummary": "{n, plural, one{{n} вариант · {qty} шт} few{{n} варианта · {qty} шт} many{{n} вариантов · {qty} шт} other{{n} варианта · {qty} шт}}",
   "@variantsSummary": {
     "placeholders": {
       "n": {
@@ -254,15 +254,6 @@
       }
     }
   },
-  "durationLabel": "Длительность",
-  "mastersLabel": "Мастера · своя цена и процент",
-  "masterAdd": "Добавить мастера",
-  "masterName": "Имя мастера",
-  "masterPercent": "% мастеру",
-  "consumablesLabel": "Расходники со склада",
-  "consumableAdd": "Добавить расходник",
-  "onlineBooking": "Онлайн-запись на сайте и в боте",
-  "serviceLocalNote": "Мастера, длительность и расходники хранятся на этом телефоне, пока у сервера нет API услуг. Сама услуга — в каталоге NurCRM.",
   "saveService": "Сохранить услугу",
   "findInternet": "Найти в интернете",
   "internetFound": "Найдено в базе NurCRM",
@@ -273,37 +264,7 @@
   "fillProduct": "Заполнить товар",
   "searchInBrowser": "Искать в браузере",
   "priceNotTaken": "Цена из интернета не берётся — укажите свою.",
-  "bookingsTitle": "Услуги · запись",
   "dayToday": "Сегодня",
-  "dayTomorrow": "Завтра",
-  "allMasters": "Все мастера",
-  "bookNew": "Записать",
-  "bookCheckout": "Рассчитать",
-  "bookArrived": "пришёл",
-  "bookBooked": "записан",
-  "bookPaid": "оплачено",
-  "bookFree": "свободно",
-  "bookMarkArrived": "Отметить «пришёл»",
-  "bookRemind": "Напомнить в WhatsApp",
-  "bookCancel": "Отменить запись",
-  "bookTime": "Время",
-  "bookClash": "У мастера в это время уже есть запись.",
-  "bookNoMasters": "Мастеров пока нет — добавьте их при создании услуги («Новая позиция» → «Услуга»).",
-  "bookLocalNote": "Записи хранятся на этом телефоне, пока у сервера нет API записи. Оплата услуг — обычный чек NurCRM.",
-  "bookReminder": "Здравствуйте, {name}! Напоминаем о записи {when} к мастеру {master}.",
-  "@bookReminder": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      },
-      "when": {
-        "type": "String"
-      },
-      "master": {
-        "type": "String"
-      }
-    }
-  },
   "pricesTitle": "Цены продажи",
   "pricesSub": "закупка изменилась: {a} · новых: {b}",
   "@pricesSub": {
@@ -572,6 +533,8 @@
   "kpiProfit": "Прибыль",
   "revenueByDay": "Выручка по дням",
   "paymentMethods": "Способы оплаты",
+  "chartBestDay": "Лучший день",
+  "chartWorstDay": "Самый слабый день",
   "topProducts": "Лучшие товары",
   "noSalesPeriod": "За этот период продаж нет",
   "abcTitle": "ABC-анализ",
@@ -676,7 +639,7 @@
     }
   },
   "productDeleted": "Товар удалён",
-  "smartUpload": "Загрузить {n} товаров на склад",
+  "smartUpload": "{n, plural, one{Загрузить {n} товар на склад} few{Загрузить {n} товара на склад} many{Загрузить {n} товаров на склад} other{Загрузить {n} товара на склад}}",
   "@smartUpload": {
     "placeholders": {
       "n": {
@@ -702,36 +665,7 @@
       }
     }
   },
-  "smartPartial": "Проведено {done} из {total}, не проведено {left} — нажмите «Загрузить» ещё раз: проведённое не прибавится повторно.",
-  "@smartPartial": {
-    "placeholders": {
-      "done": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      },
-      "left": {
-        "type": "int"
-      }
-    }
-  },
-  "smartNoLink": "Нет связи с сервером — ничего не проведено. Список остался на экране, повторите, когда появится интернет.",
-  "smartRowRejected": "Отклонено: {reason}",
-  "@smartRowRejected": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
-      }
-    }
-  },
-  "smartRowUnknown": "Нет ответа сервера — повторите: остаток не задвоится.",
-  "smartRowLocked": "Строка уже отправлена на сервер — товар и название менять нельзя, повторите отправку.",
-  "smartPendingReceipt": "Прошлый приход поставщику остался без ответа — сначала повторите его через «В приёмку с поставщиком», иначе остаток может прибавиться дважды.",
-  "smartPendingStock": "Для части строк нет ответа сервера — сначала нажмите «Загрузить» ещё раз: так остаток не задвоится.",
   "sellingPrice": "Продажная цена",
-  "durationCustom": "Своя…",
-  "minutesHint": "минут",
   "photoLabel": "Фото",
   "shiftDetails": "Отчёт смены",
   "shOpened": "Открыта",
@@ -948,7 +882,7 @@
   "discountRemove": "Убрать скидку",
   "addedToCheck": "Добавлено в чек",
   "payment": "Оплата",
-  "toPayPositions": "К оплате · {n} позиций",
+  "toPayPositions": "{n, plural, one{К оплате · {n} позиция} few{К оплате · {n} позиции} many{К оплате · {n} позиций} other{К оплате · {n} позиции}}",
   "@toPayPositions": {
     "placeholders": {
       "n": {
@@ -1049,7 +983,7 @@
   "scanProduct": "Сканировать товар",
   "eachScanPlusOne": "Каждый скан — +1 штука",
   "accepted": "Принято",
-  "goodsPieces": "{n} товаров · {qty} шт",
+  "goodsPieces": "{n, plural, one{{n} товар · {qty} шт} few{{n} товара · {qty} шт} many{{n} товаров · {qty} шт} other{{n} товара · {qty} шт}}",
   "@goodsPieces": {
     "placeholders": {
       "n": {
@@ -1135,7 +1069,7 @@
   "sendToAdmin": "Отправить администратору",
   "auditSent": "Ревизия отправлена администратору.",
   "auditQueued": "Ревизия сохранена — уйдёт при связи.",
-  "sinceChecks": "с {time} · {n} чеков",
+  "sinceChecks": "{n, plural, one{с {time} · {n} чек} few{с {time} · {n} чека} many{с {time} · {n} чеков} other{с {time} · {n} чека}}",
   "@sinceChecks": {
     "placeholders": {
       "time": {
@@ -1159,7 +1093,7 @@
     }
   },
   "cashDiffHint": "Если сумма не сходится, администратор увидит разницу в отчёте",
-  "closeShiftPending": "Сначала должны уйти на сервер {n} чеков — нужна связь.",
+  "closeShiftPending": "{n, plural, one{Сначала должен уйти на сервер {n} чек — нужна связь.} few{Сначала должны уйти на сервер {n} чека — нужна связь.} many{Сначала должны уйти на сервер {n} чеков — нужна связь.} other{Сначала должны уйти на сервер {n} чека — нужна связь.}}",
   "@closeShiftPending": {
     "placeholders": {
       "n": {
@@ -1287,7 +1221,7 @@
     }
   },
   "logout": "Выйти из аккаунта",
-  "logoutPending": "На телефоне {n} неотправленных записей. После выхода они останутся и уйдут при следующем входе этого же аккаунта. Выйти?",
+  "logoutPending": "{n, plural, one{На телефоне {n} неотправленная запись. После выхода она останется и уйдёт при следующем входе этого же аккаунта. Выйти?} few{На телефоне {n} неотправленные записи. После выхода они останутся и уйдут при следующем входе этого же аккаунта. Выйти?} many{На телефоне {n} неотправленных записей. После выхода они останутся и уйдут при следующем входе этого же аккаунта. Выйти?} other{На телефоне {n} неотправленные записи. После выхода они останутся и уйдут при следующем входе этого же аккаунта. Выйти?}}",
   "@logoutPending": {
     "placeholders": {
       "n": {
@@ -1419,7 +1353,7 @@
   "notifications": "Уведомления",
   "notifyNewOrder": "Новый заказ с сайта",
   "notifyRunningOut": "Заканчиваются товары",
-  "notifyRunningOutSub": "{n} позиций · пора заказать",
+  "notifyRunningOutSub": "{n, plural, one{{n} позиция · пора заказать} few{{n} позиции · пора заказать} many{{n} позиций · пора заказать} other{{n} позиции · пора заказать}}",
   "@notifyRunningOutSub": {
     "placeholders": {
       "n": {
@@ -1827,7 +1761,7 @@
   "auditApplied": "Ревизия проведена — остатки обновлены.",
   "auditApplyQueued": "Акт ревизии создан — проведение уйдёт при связи.",
   "auditOnlineOnly": "Ревизия проводится только при связи с сервером — пересчёт сохранён, повторите позже.",
-  "auditContinue": "Продолжить пересчёт ({n} товаров)",
+  "auditContinue": "{n, plural, one{Продолжить пересчёт ({n} товар)} few{Продолжить пересчёт ({n} товара)} many{Продолжить пересчёт ({n} товаров)} other{Продолжить пересчёт ({n} товара)}}",
   "@auditContinue": {
     "placeholders": {
       "n": {
@@ -1837,7 +1771,7 @@
   },
   "countedCash": "Пересчитано",
   "openingCashLabel": "На начало смены",
-  "closeShiftFailed": "Сервер не принял {n} чеков — они не попадут в отчёт смены. Отправьте их снова или снимите в «Синхронизации».",
+  "closeShiftFailed": "{n, plural, one{Сервер не принял {n} чек — он не попадёт в отчёт смены. Отправьте его снова или снимите в «Синхронизации».} few{Сервер не принял {n} чека — они не попадут в отчёт смены. Отправьте их снова или снимите в «Синхронизации».} many{Сервер не принял {n} чеков — они не попадут в отчёт смены. Отправьте их снова или снимите в «Синхронизации».} other{Сервер не принял {n} чека — они не попадут в отчёт смены. Отправьте их снова или снимите в «Синхронизации».}}",
   "@closeShiftFailed": {
     "placeholders": {
       "n": {
@@ -2216,5 +2150,854 @@
       }
     }
   },
-  "peNoAccess": "Править товар может сотрудник с правом «Склад» или администратор."
+  "peNoAccess": "Править товар может сотрудник с правом «Склад» или администратор.",
+  "smartNoLink": "Нет связи с сервером — ничего не проведено. Список остался на экране, повторите, когда появится интернет.",
+  "smartPartial": "Проведено {done} из {total}, не проведено {left} — нажмите «Загрузить» ещё раз: проведённое не прибавится повторно.",
+  "@smartPartial": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "left": {
+        "type": "int"
+      }
+    }
+  },
+  "smartPendingReceipt": "Прошлый приход поставщику остался без ответа — сначала повторите его через «В приёмку с поставщиком», иначе остаток может прибавиться дважды.",
+  "smartPendingStock": "Для части строк нет ответа сервера — сначала нажмите «Загрузить» ещё раз: так остаток не задвоится.",
+  "smartRowLocked": "Строка уже отправлена на сервер — товар и название менять нельзя, повторите отправку.",
+  "smartRowRejected": "Отклонено: {reason}",
+  "@smartRowRejected": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "smartRowUnknown": "Нет ответа сервера — повторите: остаток не задвоится.",
+  "payDebtLeft": "Останется долга: {sum}",
+  "@payDebtLeft": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "debtReceiptTitle": "Квитанция об оплате долга",
+  "returnsTitle": "Возвраты",
+  "shDebtPayments": "Оплата долгов",
+  "shDebtPrepay": "Предоплата по долгу",
+  "exitPressAgain": "Нажмите ещё раз, чтобы выйти",
+  "createProductWithCode": "Создать товар с этим кодом",
+  "printLabel": "Напечатать этикетку",
+  "openingCashField": "Сумма в кассе на начало смены",
+  "advisorGreeting": "Здравствуйте! Я Нур Советник. Спросите о продажах, долгах или остатках — отвечу по данным вашего магазина.",
+  "a11yBack": "Назад",
+  "a11yShowPassword": "Показать пароль",
+  "a11yHidePassword": "Скрыть пароль",
+  "a11yScanner": "Сканер",
+  "a11yCallAi": "Позвонить ИИ",
+  "stockNone": "нет",
+  "cartEmptyHint": "Добавьте товар: найдите, отсканируйте или нажмите плитку",
+  "toProductsBtn": "К товарам",
+  "closeBtn": "Закрыть",
+  "clientDebtLine": "Долг: {sum} сом",
+  "@clientDebtLine": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "apiNoToken": "Сервер не вернул токен.",
+  "apiSessionExpired": "Сессия истекла — войдите снова.",
+  "apiTimeout": "Сервер не ответил вовремя.",
+  "apiNoConnection": "Нет связи с сервером.",
+  "apiServerError": "Ошибка сервера {code}.",
+  "@apiServerError": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "apiNetworkError": "Ошибка сети.",
+  "adminNoLink": "нет связи",
+  "printLabelAsk": "Напечатать этикетку для «{name}»? Штрихкод {code}",
+  "@printLabelAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "notNow": "Не сейчас",
+  "bcGenTaken": "Этот код уже занят на сервере — выдан новый.",
+  "tapePrint": "Печать",
+  "tapeSend": "Отправить",
+  "zReport": "Z-итог смены",
+  "xReportNote": "X-отчёт — промежуточный: смена не закрыта.",
+  "shSalesBlock": "Продажи",
+  "shCashBlock": "Деньги в кассе",
+  "shPrepayIncluded": "в наличных/безнале — предоплата по долгу",
+  "shReturnsUnknown": "Возвраты смены не загружены — нет связи.",
+  "shReturnsPartial": "Частично: {n, plural, one{{n} возврат} few{{n} возврата} many{{n} возвратов} other{{n} возврата}} без кассира в ответе сервера — не учтено. Сверьте на сайте.",
+  "@shReturnsPartial": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "returnsCountN": "{n, plural, one{{n} возврат} few{{n} возврата} many{{n} возвратов} other{{n} возврата}}",
+  "@returnsCountN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "shReturnsCash": "Возвраты наличными",
+  "shCalcRow": "Расчёт по строкам",
+  "shMismatch": "Расчёт по строкам расходится с сервером на {sum} сом — полагайтесь на число сервера.",
+  "@shMismatch": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "shNoSplit": "Разбивка по возвратам и оплате долгов недоступна — «Должно быть в кассе» взято с сервера.",
+  "shPartial": "Часть данных не загрузилась (нет связи) — обновите экран.",
+  "debtReceiptBefore": "Долг до оплаты",
+  "debtReceiptMethod": "Способ оплаты",
+  "debtReceiptAccepted": "Принято",
+  "debtReceiptCleared": "Долг погашен полностью.",
+  "debtReceiptAcceptedLine": "Принято {sum}, остаток {left}",
+  "@debtReceiptAcceptedLine": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      },
+      "left": {
+        "type": "String"
+      }
+    }
+  },
+  "returnReasonTitle": "Причина возврата (необязательно)",
+  "returnReasonLabelShort": "Причина",
+  "returnReasonDefect": "Брак",
+  "returnReasonNotFit": "Не подошёл",
+  "returnReasonCashier": "Ошибка кассира",
+  "listCachedNote": "Нет связи — показан последний сохранённый список.",
+  "checksLoadFailed": "Не удалось загрузить чеки",
+  "debtsLoadFailed": "Не удалось загрузить долги",
+  "callMinimize": "Свернуть",
+  "callAiListens": "ИИ слушает",
+  "callInterrupted": "Перебили — слушаю",
+  "callExtend": "Ещё 10 минут",
+  "callExtended": "Звонок продлён на 10 минут",
+  "callNoLink": "Нет связи с ИИ",
+  "callNoLinkWork": "Нет связи с ИИ, работайте на экране",
+  "callNoLinkEnds": "Завершится через {n} с, если связь не вернётся",
+  "@callNoLinkEnds": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "callNoLinkHelp": "Корзина, поиск и склад работают без ИИ.",
+  "callSlowServer": "Сервер отвечает медленно…",
+  "callStillLoading": "Данные ещё грузятся — скажу, когда придут",
+  "callSearching": "Ищу…",
+  "callSpeakingShort": "Говорю…",
+  "callHush": "Замолчи",
+  "callOpenFull": "Звонок с Нур Советником — развернуть; удержание — «Замолчи»",
+  "aiSays": "ИИ: {text}",
+  "@aiSays": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "aiUndo": "Отменить",
+  "aiCantUndo": "отменить нельзя",
+  "aiPickTitle": "Какой вариант?",
+  "aiAmbiguousHint": "Скажите номер или нажмите",
+  "aiNotThat": "Не то",
+  "aiYesNumber": "Да, {num}",
+  "@aiYesNumber": {
+    "placeholders": {
+      "num": {
+        "type": "String"
+      }
+    }
+  },
+  "aiNoRepeat": "Нет, скажу снова",
+  "aiConfirmDo": "Сделать: {what}",
+  "@aiConfirmDo": {
+    "placeholders": {
+      "what": {
+        "type": "String"
+      }
+    }
+  },
+  "aiDo": "Сделать",
+  "aiDont": "Не надо",
+  "aiOrSayYes": "или скажите «да»",
+  "aiModeAskMoney": "Спрашивать перед деньгами",
+  "aiWhatPay": "оплата",
+  "aiWhatReturn": "возврат",
+  "aiWhatReceive": "проведение прихода",
+  "aiWhatWriteOff": "списание",
+  "aiWhatCount": "ревизия",
+  "aiWhatCloseShift": "закрытие смены",
+  "aiWhatSalary": "выплата сотруднику",
+  "aiWhatDebt": "погашение долга",
+  "aiWhatDelete": "удаление товара",
+  "aiWhatPrice": "смена цены",
+  "aiWhatCash": "внесение или изъятие из кассы",
+  "aiWhatOther": "действие",
+  "tblBigger": "Крупнее",
+  "tblSmaller": "Мельче",
+  "tblToChat": "В чат",
+  "tblPdf": "PDF",
+  "tblShare": "Поделиться",
+  "tblPin": "Закрепить",
+  "tblPinned": "Закреплено",
+  "tblMore": "Показать ещё {n}",
+  "@tblMore": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tblMoreLeft": "осталось {n}",
+  "@tblMoreLeft": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tblAllShown": "Все строки показаны",
+  "tblSource": "данные программы · {source} · {time}",
+  "@tblSource": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "tblEmpty": "Пока пусто",
+  "tblEmptyFilter": "По запросу «{q}» ничего не нашлось",
+  "@tblEmptyFilter": {
+    "placeholders": {
+      "q": {
+        "type": "String"
+      }
+    }
+  },
+  "tblClearFilter": "Снять фильтр",
+  "tblOpenObject": "Открыть",
+  "tblRowsN": "{n, plural, one{{n} строка} few{{n} строки} many{{n} строк} other{{n} строки}}",
+  "@tblRowsN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tblPrev": "Предыдущая таблица",
+  "tblNext": "Следующая таблица",
+  "tblCollapse": "Свернуть панель",
+  "tblClose": "Закрыть таблицу",
+  "tblSentChat": "Таблица добавлена в чат",
+  "tblPdfFailed": "Не удалось сделать PDF",
+  "vcCamera": "Камера",
+  "vcCameraOn": "Камера вкл.",
+  "vcCameraOff": "Камера выкл.",
+  "vcSwitchCamera": "Другая камера",
+  "vcTorch": "Фонарик",
+  "vcRecording": "Камера",
+  "vcAiSees": "ИИ видит",
+  "vcEconomy": "Экономия трафика",
+  "vcEconomyHint": "1 кадр в 3 секунды и только когда вы говорите",
+  "vcStarting": "Включаю камеру…",
+  "vcSearching": "Ищу в каталоге…",
+  "vcWhatIsIt": "Что это?",
+  "vcInvoice": "Накладная",
+  "vcShelf": "Полка",
+  "vcPriceTag": "Ценник",
+  "vcCardProduct": "Товар",
+  "vcNotFound": "В каталоге не нашёл. Поднесите ближе или покажите штрихкод",
+  "vcExact": "точно",
+  "vcByBarcode": "штрихкод",
+  "vcByPhoto": "по фото",
+  "vcLooksLike": "Похоже на:",
+  "vcPickHint": "нажмите, чтобы выбрать",
+  "vcPrice": "Цена: {sum} сом",
+  "@vcPrice": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "vcStock": "Остаток: {qty}",
+  "@vcStock": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "vcInvoiceSummary": "Строк: {n} · в каталоге: {known} · новых: {fresh}",
+  "@vcInvoiceSummary": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "known": {
+        "type": "int"
+      },
+      "fresh": {
+        "type": "int"
+      }
+    }
+  },
+  "vcOpenReceive": "Открыть приход ({n})",
+  "@vcOpenReceive": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "vcReceiveEndsCall": "Звонок завершится, разговор сохранится в чате",
+  "vcNewItemsHint": "Новых товаров нет в каталоге — заведите их через «Склад → Накладная»",
+  "vcNoProcure": "Приход проводит администратор",
+  "vcShelfHint": "ИИ считает на глаз — перепроверьте перед ревизией",
+  "vcShelfCols": "видно · в программе",
+  "vcShelfThing": "товар",
+  "vcOnTag": "На ценнике",
+  "vcInProgram": "В программе",
+  "vcTagMismatch": "На ценнике {tag} сом, в программе {sum} сом — не совпадает",
+  "@vcTagMismatch": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      },
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "vcTagOk": "Цена на ценнике совпадает с программой",
+  "vcTagFixHint": "Цену здесь не правим — через карточку товара",
+  "vcMoreLines": "ещё {n} строк",
+  "@vcMoreLines": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "vcNewTag": "новый",
+  "vcConsentTitle": "Включить камеру в разговоре?",
+  "vcConsentBody": "Пока камера включена, кадры (примерно 1 в секунду) уходят в Google Gemini по ключу ИИ вашего магазина. Они не сохраняются ни на телефоне, ни в NurCRM — в чате останется только текст разговора. На бесплатном ключе Google может использовать данные для улучшения своих моделей. Не показывайте лица покупателей, банковские карты и чужие документы.",
+  "vcConsentPtSends": "Пока камера включена, кадры (примерно 1 в секунду) уходят в Google Gemini по ключу ИИ вашего магазина.",
+  "vcConsentPtSaved": "Они не сохраняются ни на телефоне, ни в NurCRM — в чате останется только текст разговора.",
+  "vcConsentPtFree": "На бесплатном ключе Google может использовать данные для улучшения своих моделей.",
+  "vcConsentPtWarn": "Не показывайте лица покупателей, банковские карты и чужие документы.",
+  "vcConsentAgree": "Включить камеру",
+  "vcConsentLater": "Не сейчас",
+  "vcCost": "Видеозвонок длится до {n} мин и расходует лимит ключа ИИ в несколько раз быстрее голосового",
+  "@vcCost": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "aiAccTitle": "Доступ к ИИ",
+  "aiAccSection": "Кому разрешён ИИ",
+  "aiAccLimitInfo": "Бесплатный лимит ИИ (Google Gemini) общий на весь проект: запросов в минуту и в день мало. Поэтому ИИ — Нур Советник, звонок, умная камера, накладная по фото, весы по виду — могут использовать не больше {n} сотрудников магазина. Выберите, кому разрешить.",
+  "@aiAccLimitInfo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "aiAccCounter": "{a} из {b}",
+  "@aiAccCounter": {
+    "placeholders": {
+      "a": {
+        "type": "int"
+      },
+      "b": {
+        "type": "int"
+      }
+    }
+  },
+  "aiAccLimitReached": "Можно выбрать не больше {n} сотрудников. Чтобы дать доступ другому, сначала снимите галочку с кого-то из выбранных.",
+  "@aiAccLimitReached": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "aiAccDenied": "ИИ доступен только {n} сотрудникам магазина: {names}. Обратитесь к владельцу.",
+  "@aiAccDenied": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "aiAccDeniedNone": "ИИ в магазине сейчас выключен для всех сотрудников. Обратитесь к владельцу.",
+  "aiAccRecommend": "Рекомендуем ограничить ИИ двумя сотрудниками (общий бесплатный лимит)",
+  "aiAccConfigure": "Настроить",
+  "aiAccSaved": "Доступ к ИИ сохранён",
+  "aiAccOwnerTag": "владелец",
+  "aiAccYouTag": "вы",
+  "aiAccStaffNotLoaded": "Список сотрудников не получен (нет связи?). Показаны только уже выбранные.",
+  "aiAccNobody": "Никто не выбран — ИИ будет выключен для всех сотрудников.",
+  "aiAccManagerOnly": "Список меняет владелец или администратор.",
+  "aiAccNoticeTitle": "ИИ — общий лимит",
+  "aiAccNoticeBody": "ИИ магазина работает на общем бесплатном лимите Google, поэтому право на него есть не больше чем у {n} сотрудников — у вас оно есть. Не запускайте длинные звонки и лишние запросы без нужды.",
+  "@aiAccNoticeBody": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "aiAccGotIt": "Понятно",
+  "aiAccMineYes": "У вас есть доступ к ИИ",
+  "aiAccMineNo": "ИИ вам недоступен — обратитесь к владельцу",
+  "aiAccMineOpen": "ИИ доступен всем сотрудникам (лимит не задан)",
+  "aiAccNotSet": "Не задано — ИИ доступен всем",
+  "assistantTitle": "Помощник",
+  "assistantSub": "режим голосового управления",
+  "aiModeDo": "Выполнять по просьбе",
+  "aiModeDoHint": "Открывает экраны, читает, показывает таблицы и делает, что вы попросили — сразу, с итогом вслух и кнопкой «Отменить».",
+  "aiModeAskHint": "Как по просьбе, но перед оплатой, возвратом, приходом, списанием, ревизией, закрытием смены, выплатой, долгом, удалением и сменой цены — карточка «Сделать».",
+  "aiModeWatch": "Только смотреть",
+  "aiModeWatchHint": "Только экраны, чтение и таблицы. На просьбу что-то сделать ответит: «В этом режиме я не меняю данные — сделайте на экране или смените режим».",
+  "aiModeDefault": "по умолчанию",
+  "aiModeSofterLocked": "Мягче, чем задал владелец — недоступно",
+  "aiModeOwnerSet": "Владелец задал для всех на этом телефоне:",
+  "aiModeStricterSelf": "Для себя можно выбрать строже",
+  "aiModeNoVoice": "Голосом режим не меняется — только здесь",
+  "aiModeAskWhatTitle": "Перед чем спросит",
+  "aiModeAskNote": "Карточка «Сделать: … сумма …» и одна кнопка — или голосом «да». Двойных подтверждений нет.",
+  "aiModeFooter": "Права помощника — по роли пользователя",
+  "aiModeSaved": "Режим сохранён",
+  "aiLogTitle": "Действия ИИ",
+  "aiLogSubAll": "все записи телефона",
+  "aiLogMoneyOnly": "Только деньги",
+  "aiLogUndone": "Отменённые",
+  "aiLogByDate": "Фильтр по дате",
+  "dayYesterday": "Вчера",
+  "aiLogUndoneAt": "отменено {time}",
+  "@aiLogUndoneAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "aiLogCantUndoWriteOff": "нельзя отменить · можно списать",
+  "aiUndoRequest": "отмена — запросом владельцу",
+  "aiLogUndoGone": "отмена была только в звонке",
+  "aiLogUndoneToast": "Отменено: {what}",
+  "@aiLogUndoneToast": {
+    "placeholders": {
+      "what": {
+        "type": "String"
+      }
+    }
+  },
+  "aiLogUndoConflict": "Уже менялось после ИИ — проверьте на экране",
+  "aiLogUndoFailed": "Не удалось отменить: {what}. Проверьте связь и экран.",
+  "@aiLogUndoFailed": {
+    "placeholders": {
+      "what": {
+        "type": "String"
+      }
+    }
+  },
+  "aiLogUndoShift": "Отменить нельзя: смена уже закрыта или в кассе меньше денег",
+  "aiLogUndoPartial": "Вернули {done} из {total}; остальное менялось после ИИ или не вышло",
+  "@aiLogUndoPartial": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "aiLogEmpty": "ИИ ещё ничего не делал на этом телефоне",
+  "aiLogEmptyHint": "Позвоните Нур Советнику и скажите, что сделать — здесь появится каждая запись с кнопкой «Отменить»",
+  "aiLogCall": "Позвонить советнику",
+  "aiLogMineOnly": "Видны только ваши действия",
+  "aiLogFooter": "Хранится на телефоне, до 2000 записей. Без ключей ИИ, звука и телефонов клиентов.",
+  "aiGroupNav": "Экраны",
+  "aiGroupCart": "Чек и заказы",
+  "aiGroupMoney": "Деньги",
+  "aiGroupProduct": "Товары",
+  "aiGroupTask": "Задачи",
+  "aiGroupSalary": "Зарплата",
+  "auditAi": "ИИ",
+  "stfTasksTitle": "Задачи",
+  "stfTasksSub": "Задач: {n} · просрочено: {late}",
+  "@stfTasksSub": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "late": {
+        "type": "String"
+      }
+    }
+  },
+  "stfMyTasksTitle": "Мои задачи",
+  "stfMySub": "{name} · на сегодня: {today} · просрочено: {late}",
+  "@stfMySub": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "today": {
+        "type": "String"
+      },
+      "late": {
+        "type": "String"
+      }
+    }
+  },
+  "stfFilterOverdue": "Просрочено",
+  "stfFilterDone": "Сделано",
+  "stfStNew": "новая",
+  "stfStWork": "в работе",
+  "stfStDone": "сделано",
+  "stfOverdue": "просрочена",
+  "stfNoDue": "без срока",
+  "stfDue": "Срок",
+  "stfRemind": "Напомнить",
+  "stfUrgent": "Срочная задача",
+  "stfNewTask": "Новая задача",
+  "stfTaskField": "Что сделать",
+  "stfTaskHint": "Например: пересчитать полку с водой",
+  "stfAssignee": "Исполнитель",
+  "stfAssigneeHint": "Выберите сотрудника",
+  "stfCreate": "Поставить задачу",
+  "stfNeedTitle": "Напишите, что нужно сделать",
+  "stfNeedAssignee": "Выберите исполнителя",
+  "stfTaskCreated": "Задача поставлена",
+  "stfToWork": "В работу",
+  "stfMarkDone": "Сделано",
+  "stfReopen": "Вернуть в работу",
+  "stfEditDue": "Изменить срок",
+  "stfEditAssignee": "Передать другому",
+  "stfDelete": "Удалить",
+  "stfDeleteAsk": "Удалить задачу «{title}»?",
+  "@stfDeleteAsk": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "stfNoTasks": "Задач нет",
+  "stfLoadFail": "Не удалось загрузить задачи",
+  "stfPriorityHint": "Срочность и напоминание пока видны только в приложении; на сайте у задачи может появиться служебная пометка — до обновления сервера",
+  "stfNoBackground": "Фоновых уведомлений нет — напоминание покажется при открытии приложения",
+  "stfOverduePlate": "Просрочено: {n} — «{title}»",
+  "@stfOverduePlate": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "stfRemindPlate": "Напоминание: «{title}»",
+  "@stfRemindPlate": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "stfTodayPlate": "Задач на сегодня: {today} · просрочено: {late}",
+  "@stfTodayPlate": {
+    "placeholders": {
+      "today": {
+        "type": "String"
+      },
+      "late": {
+        "type": "String"
+      }
+    }
+  },
+  "stfSalaryTitle": "Зарплата",
+  "stfSalarySub": "сотрудников: {n}",
+  "@stfSalarySub": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "stfPeriodMonth": "Этот месяц",
+  "stfPeriodLast": "Прошлый месяц",
+  "stfPeriodWeek": "7 дней",
+  "stfAccrued": "Начислено",
+  "stfPaid": "Выплачено",
+  "stfLeft": "Осталось",
+  "stfColEmployee": "Сотрудник",
+  "stfChecking": "Проверяем выплаты…",
+  "stfPartialPlate": "Проверено частично — сумма к выплате сама не подставляется.",
+  "stfTrustTimeout": "Проверка прошлых выплат не успела завершиться — проверьте на сайте перед выплатой.",
+  "stfTrustJournal": "Журнал выплат на телефоне не читается — выплаты закрыты.",
+  "stfTrustNotChecked": "Не удалось проверить прошлые выплаты — проверьте на сайте перед выплатой.",
+  "stfTrustUnassigned": "Есть расходы «Зарплата» без привязки к сотруднику: {sum} сом ({n} шт.) — проверьте на сайте.",
+  "@stfTrustUnassigned": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "stfTrustPartial": "Выплаты без статьи «Зарплата» или не все расходы видны — проверьте на сайте перед выплатой.",
+  "stfTrustPartialNotes": "Часть выплат лишь частично попала в период — она не вычтена, проверьте.",
+  "stfTrustByName": "Часть выплат найдена только по имени в названии расхода — проверьте на сайте перед выплатой.",
+  "stfPartialNote": "Выплата {sum} сом за период {period} лишь частично попадает в этот период — не вычтена",
+  "@stfPartialNote": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      },
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "stfSalaryEmpty": "Начислений за период нет: нет продаж или ни у кого не настроена схема оплаты.",
+  "stfSalaryDenied": "Нет доступа к зарплате: у этого аккаунта нет права на аналитику сотрудников на сайте.",
+  "stfSalaryFail": "Не удалось загрузить зарплату",
+  "stfSalaryHint": "Начислено — расчёт сервера, как на компьютере и на сайте. «Выплачено» — расходы «Зарплата» за этот период.",
+  "stfLockedTag": "выплата без ответа",
+  "stfPayBtn": "Выплатить",
+  "stfPayTitle": "Выплата: {name}",
+  "@stfPayTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stfKindSalary": "Зарплата",
+  "stfKindAdvance": "Аванс",
+  "stfPayAmount": "Сумма",
+  "stfPayEnterAmount": "Введите сумму сами",
+  "stfPayBox": "Касса",
+  "stfPayComment": "Комментарий (необязательно)",
+  "stfPayNeedAmount": "Введите сумму выплаты",
+  "stfPayNoCash": "Не нашла кассу компании для выплаты — выплатите на сайте или в программе владельца.",
+  "stfSalesBoxWarn": "Это касса продаж филиала — расход уменьшит её остаток.",
+  "stfPayConfirm": "Выплатить {sum} сом сотруднику {name} из кассы «{box}»?",
+  "@stfPayConfirm": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "box": {
+        "type": "String"
+      }
+    }
+  },
+  "stfPayDone": "Выплачено {sum} сом: {name}",
+  "@stfPayDone": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stfPayFailed": "Выплата не прошла.",
+  "stfPayUnknown": "Ответ сервера не пришёл — выплата {sum} сом (касса «{box}») могла пройти. Повторять нельзя: откройте сотрудника и нажмите «Проверить на сервере».",
+  "@stfPayUnknown": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      },
+      "box": {
+        "type": "String"
+      }
+    }
+  },
+  "stfPayLock": "Прошлая выплата {sum} сом ({when}, касса «{box}») осталась без ответа сервера. Новая выплата этому сотруднику закрыта, пока вы её не проверите.",
+  "@stfPayLock": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      },
+      "when": {
+        "type": "String"
+      },
+      "box": {
+        "type": "String"
+      }
+    }
+  },
+  "stfPayLockShort": "Прошлая выплата этому сотруднику осталась без ответа сервера — новая закрыта, пока вы её не проверите.",
+  "stfPayDup": "Такая же выплата только что уже прошла — повтор не проводится.",
+  "stfPayJournal": "Журнал выплат на телефоне не читается — без него нет защиты от двойной выплаты, выплата не отправлена.",
+  "stfLockCheck": "Проверить на сервере",
+  "stfLockCheckShort": "Проверить",
+  "stfLockYes": "Выплата ЕСТЬ на сайте",
+  "stfLockNo": "Выплаты НЕТ на сайте",
+  "stfLockYesAsk": "Выплата есть на сайте?",
+  "stfLockNoAsk": "Выплаты нет на сайте?",
+  "stfLockResolveHint": "Сверьте расход «Зарплата» на сайте NurCRM. Если нажать неверно, выплата будет учтена неправильно или пройдёт дважды.",
+  "stfLockFound": "Выплата найдена на сервере и учтена.",
+  "stfLockNotFound": "На сервере выплату не нашла — замок остаётся, решите сами после проверки на сайте.",
+  "stfConfirm": "Подтвердить",
+  "stfRecentPayouts": "Недавние выплаты с этого телефона",
+  "stfCancelBtn": "Запросить отмену",
+  "stfCancelAsk": "Запросить отмену выплаты {sum} сом?",
+  "@stfCancelAsk": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "stfCancelHint": "Выплату отменяет только владелец или бухгалтер на сайте NurCRM — с телефона уходит запрос.",
+  "stfCancelSend": "Отправить запрос",
+  "stfCancelSent": "Запрос на отмену отправлен владельцу.",
+  "stfSchemeBtn": "Схема оплаты",
+  "stfSchemeTitle": "Схема оплаты: {name}",
+  "@stfSchemeTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stfSchemeSaved": "Схема оплаты сохранена",
+  "stfSchemeSalary": "Оклад",
+  "stfSchemePercent": "Процент от продаж",
+  "stfSchemeSalaryPercent": "Оклад + процент от продаж",
+  "stfSchemePerItem": "За каждый проданный товар",
+  "stfSchemeSalaryItem": "Оклад + за каждый товар",
+  "stfSchemePercentItem": "Процент + за каждый товар",
+  "stfNoScheme": "схема не настроена",
+  "stfMonthly": "Оклад в месяц",
+  "stfPercent": "Процент от продаж",
+  "stfPerItem": "За каждый проданный товар",
+  "stfBonus": "Начислено за продажи",
+  "gkOpen": "Ключи Gemini (несколько аккаунтов)",
+  "gkTitle": "Ключи Gemini",
+  "gkHint": "Ключи используются по порядку: первый рабочий. Когда у ключа кончился лимит, ИИ сам берёт следующий. Список тот же, что на кассе и в программе владельца.",
+  "gkWarn": "Правила Google могут запрещать обходить лимиты несколькими аккаунтами или проектами — есть риск блокировки ключей. Бесплатный уровень Google может использовать запросы для улучшения своих продуктов. Решаете вы.",
+  "gkViewOnly": "Список ключей меняют владелец и администратор. Вам он показан без ключей целиком — ИИ работает по этому списку.",
+  "gkWorkingCount": "Рабочих ключей: {a} из {b}",
+  "@gkWorkingCount": {
+    "placeholders": {
+      "a": {
+        "type": "int"
+      },
+      "b": {
+        "type": "int"
+      }
+    }
+  },
+  "gkEmpty": "Ключей нет. Добавьте первый — его выдаёт Google AI Studio.",
+  "gkAdd": "Добавить ключ",
+  "gkAddBtn": "Добавить",
+  "gkPasteKey": "Вставьте ключ из Google AI Studio",
+  "gkLabelHint": "Метка (необязательно)",
+  "gkLabelDefault": "Аккаунт {n}",
+  "@gkLabelDefault": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "gkMax": "Не больше 10 ключей.",
+  "gkDuplicate": "Такой ключ уже есть в списке.",
+  "gkShow": "Показать",
+  "gkHide": "Скрыть",
+  "gkEnabled": "Включён",
+  "gkMoveUp": "Выше",
+  "gkMoveDown": "Ниже",
+  "gkDelete": "Удалить",
+  "gkDeleteAsk": "Удалить ключ «{name}» (…{tail})?",
+  "@gkDeleteAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "tail": {
+        "type": "String"
+      }
+    }
+  },
+  "gkStateWorking": "рабочий",
+  "gkStateExhausted": "исчерпан до {time}",
+  "@gkStateExhausted": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "gkStateInvalid": "недействителен",
+  "gkStateDisabled": "выключен",
+  "gkStateUnchecked": "не проверен",
+  "gkCheckOk": "Ключ рабочий ✓",
+  "gkCheckFail": "Не удалось проверить: {err}",
+  "@gkCheckFail": {
+    "placeholders": {
+      "err": {
+        "type": "String"
+      }
+    }
+  },
+  "aiKeysSavedPhoneOnly": "Сохранено на телефоне, но в облако не ушло — касса и программа владельца пока не увидят. Повторите позже."
 }

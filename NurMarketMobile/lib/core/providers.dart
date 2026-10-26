@@ -58,6 +58,7 @@ class SessionController extends Notifier<Session?> {
     state = s;
     // 2026-10-22 (мобилка, деньги, К-6): записи очереди без владельца (до обновления) — этого, сохранённого входа.
     await _claimLegacyQueue(s);
+    unawaited(ref.read(cartProvider.notifier).restoreDraft()); // 2026-10-26 (П3, В-1): незавершённый чек после запуска
     // Реквизиты для чека у входов до 13.10 не сохранены — подтягиваем в фоне, вход не ждёт.
     if (s.companyInn.isEmpty && s.companyAddress.isEmpty) unawaited(_refreshCompany());
     // 13.10: доступы сотрудника — при каждом запуске (владелец мог их поменять на сайте), вход не ждёт.
@@ -141,6 +142,7 @@ class SessionController extends Notifier<Session?> {
     await db.setSetting(_lastOwnerKey, owner);
     await _claimLegacyQueue(s);
     state = s;
+    unawaited(ref.read(cartProvider.notifier).restoreDraft()); // 2026-10-26 (П3, В-1): вошли после истечения сессии — чек на месте
   }
 
   static const _lastOwnerKey = 'session.lastOwner';
@@ -282,7 +284,48 @@ final shiftProvider = NotifierProvider<ShiftController, ShiftState>(ShiftControl
 
 class CartController extends Notifier<Cart> {
   @override
-  Cart build() => const Cart();
+  Cart build() {
+    // 2026-10-26 (живой аудит, П3, В-1): чек пишется в настройки телефона при каждом изменении — переживает перезапуск
+    // приложения (Android выгружает его в фоне). Схема базы не меняется: обычная запись `cart.draft`.
+    listenSelf((_, next) => _persist(next));
+    return const Cart();
+  }
+
+  /// Незавершённый чек: {owner, ws, cart}. Привязан к аккаунту (как очередь, OutboxMeta.ownerOf); пустой чек = '' (стёрт).
+  static const draftKey = 'cart.draft';
+  Future<void> _writing = Future.value();
+
+  void _persist(Cart cart) {
+    try {
+      final owner = OutboxMeta.ownerOf(ref.read(sessionProvider));
+      if (!cart.isEmpty && owner.isEmpty) return; // сессии нет (истекла) — старый черновик не трогаем
+      final value = cart.isEmpty
+          ? ''
+          : jsonEncode({'owner': owner, 'ws': wholesaleMode, 'cart': HeldCart(id: 'draft', at: DateTime.now(), note: '', cart: cart).toJson()});
+      final db = ref.read(databaseProvider);
+      // записи идут по очереди, чтобы старое состояние не затёрло новое
+      _writing = _writing.then((_) => db.setSetting(draftKey, value)).catchError((_) {});
+    } catch (_) {
+      // базы нет (например, в тесте без неё) — чек просто остаётся в памяти
+    }
+  }
+
+  /// Вернуть незавершённый чек после запуска или входа: только своего аккаунта и только в пустой чек.
+  Future<void> restoreDraft() async {
+    try {
+      final raw = await ref.read(databaseProvider).getSetting(draftKey);
+      if (raw == null || raw.isEmpty) return;
+      final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
+      if (m['owner'] != OutboxMeta.ownerOf(ref.read(sessionProvider))) return;
+      if (!state.isEmpty) return;
+      final held = HeldCart.fromJson((m['cart'] as Map).cast<String, dynamic>());
+      if (held.cart.isEmpty) return;
+      wholesaleMode = m['ws'] == true;
+      state = held.cart;
+    } catch (_) {
+      // испорченный черновик — игнорируем, продавать это не мешает
+    }
+  }
 
   /// 13.10, «продажа оптом и в розницу»: в режиме «Опт» товар с оптовой ценой сразу идёт по опту.
   bool wholesaleMode = false;

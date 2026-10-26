@@ -94,7 +94,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String checksCount(int n) {
-    return '$n чеков';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n чека',
+      many: '$n чеков',
+      few: '$n чека',
+      one: '$n чек',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -115,7 +123,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String runningOut(int n) {
-    return 'Заканчиваются $n товаров';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'Заканчиваются $n товара',
+      many: 'Заканчиваются $n товаров',
+      few: 'Заканчиваются $n товара',
+      one: 'Заканчивается $n товар',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -141,7 +157,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String positions(int n) {
-    return '$n позиций';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n позиции',
+      many: '$n позиций',
+      few: '$n позиции',
+      one: '$n позиция',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -377,41 +401,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String variantsSummary(int n, String qty) {
-    return '$n вариантов · $qty шт';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n варианта · $qty шт',
+      many: '$n вариантов · $qty шт',
+      few: '$n варианта · $qty шт',
+      one: '$n вариант · $qty шт',
+    );
+    return '$_temp0';
   }
 
   @override
   String variantsSaved(int n) {
     return 'Сохранено вариантов: $n';
   }
-
-  @override
-  String get durationLabel => 'Длительность';
-
-  @override
-  String get mastersLabel => 'Мастера · своя цена и процент';
-
-  @override
-  String get masterAdd => 'Добавить мастера';
-
-  @override
-  String get masterName => 'Имя мастера';
-
-  @override
-  String get masterPercent => '% мастеру';
-
-  @override
-  String get consumablesLabel => 'Расходники со склада';
-
-  @override
-  String get consumableAdd => 'Добавить расходник';
-
-  @override
-  String get onlineBooking => 'Онлайн-запись на сайте и в боте';
-
-  @override
-  String get serviceLocalNote =>
-      'Мастера, длительность и расходники хранятся на этом телефоне, пока у сервера нет API услуг. Сама услуга — в каталоге NurCRM.';
 
   @override
   String get saveService => 'Сохранить услугу';
@@ -444,62 +448,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get priceNotTaken => 'Цена из интернета не берётся — укажите свою.';
 
   @override
-  String get bookingsTitle => 'Услуги · запись';
-
-  @override
   String get dayToday => 'Сегодня';
-
-  @override
-  String get dayTomorrow => 'Завтра';
-
-  @override
-  String get allMasters => 'Все мастера';
-
-  @override
-  String get bookNew => 'Записать';
-
-  @override
-  String get bookCheckout => 'Рассчитать';
-
-  @override
-  String get bookArrived => 'пришёл';
-
-  @override
-  String get bookBooked => 'записан';
-
-  @override
-  String get bookPaid => 'оплачено';
-
-  @override
-  String get bookFree => 'свободно';
-
-  @override
-  String get bookMarkArrived => 'Отметить «пришёл»';
-
-  @override
-  String get bookRemind => 'Напомнить в WhatsApp';
-
-  @override
-  String get bookCancel => 'Отменить запись';
-
-  @override
-  String get bookTime => 'Время';
-
-  @override
-  String get bookClash => 'У мастера в это время уже есть запись.';
-
-  @override
-  String get bookNoMasters =>
-      'Мастеров пока нет — добавьте их при создании услуги («Новая позиция» → «Услуга»).';
-
-  @override
-  String get bookLocalNote =>
-      'Записи хранятся на этом телефоне, пока у сервера нет API записи. Оплата услуг — обычный чек NurCRM.';
-
-  @override
-  String bookReminder(String name, String when, String master) {
-    return 'Здравствуйте, $name! Напоминаем о записи $when к мастеру $master.';
-  }
 
   @override
   String get pricesTitle => 'Цены продажи';
@@ -910,6 +859,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get paymentMethods => 'Способы оплаты';
 
   @override
+  String get chartBestDay => 'Лучший день';
+
+  @override
+  String get chartWorstDay => 'Самый слабый день';
+
+  @override
   String get topProducts => 'Лучшие товары';
 
   @override
@@ -1086,7 +1041,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String smartUpload(int n) {
-    return 'Загрузить $n товаров на склад';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'Загрузить $n товара на склад',
+      many: 'Загрузить $n товаров на склад',
+      few: 'Загрузить $n товара на склад',
+      one: 'Загрузить $n товар на склад',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1106,43 +1069,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String smartPartial(int done, int total, int left) {
-    return 'Проведено $done из $total, не проведено $left — нажмите «Загрузить» ещё раз: проведённое не прибавится повторно.';
-  }
-
-  @override
-  String get smartNoLink =>
-      'Нет связи с сервером — ничего не проведено. Список остался на экране, повторите, когда появится интернет.';
-
-  @override
-  String smartRowRejected(String reason) {
-    return 'Отклонено: $reason';
-  }
-
-  @override
-  String get smartRowUnknown =>
-      'Нет ответа сервера — повторите: остаток не задвоится.';
-
-  @override
-  String get smartRowLocked =>
-      'Строка уже отправлена на сервер — товар и название менять нельзя, повторите отправку.';
-
-  @override
-  String get smartPendingReceipt =>
-      'Прошлый приход поставщику остался без ответа — сначала повторите его через «В приёмку с поставщиком», иначе остаток может прибавиться дважды.';
-
-  @override
-  String get smartPendingStock =>
-      'Для части строк нет ответа сервера — сначала нажмите «Загрузить» ещё раз: так остаток не задвоится.';
-
-  @override
   String get sellingPrice => 'Продажная цена';
-
-  @override
-  String get durationCustom => 'Своя…';
-
-  @override
-  String get minutesHint => 'минут';
 
   @override
   String get photoLabel => 'Фото';
@@ -1594,7 +1521,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String toPayPositions(int n) {
-    return 'К оплате · $n позиций';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'К оплате · $n позиции',
+      many: 'К оплате · $n позиций',
+      few: 'К оплате · $n позиции',
+      one: 'К оплате · $n позиция',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1844,7 +1779,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String goodsPieces(int n, String qty) {
-    return '$n товаров · $qty шт';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n товара · $qty шт',
+      many: '$n товаров · $qty шт',
+      few: '$n товара · $qty шт',
+      one: '$n товар · $qty шт',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1924,7 +1867,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String sinceChecks(String time, int n) {
-    return 'с $time · $n чеков';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'с $time · $n чека',
+      many: 'с $time · $n чеков',
+      few: 'с $time · $n чека',
+      one: 'с $time · $n чек',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1950,7 +1901,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String closeShiftPending(int n) {
-    return 'Сначала должны уйти на сервер $n чеков — нужна связь.';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'Сначала должны уйти на сервер $n чека — нужна связь.',
+      many: 'Сначала должны уйти на сервер $n чеков — нужна связь.',
+      few: 'Сначала должны уйти на сервер $n чека — нужна связь.',
+      one: 'Сначала должен уйти на сервер $n чек — нужна связь.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2172,7 +2131,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String logoutPending(int n) {
-    return 'На телефоне $n неотправленных записей. После выхода они останутся и уйдут при следующем входе этого же аккаунта. Выйти?';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other:
+          'На телефоне $n неотправленные записи. После выхода они останутся и уйдут при следующем входе этого же аккаунта. Выйти?',
+      many:
+          'На телефоне $n неотправленных записей. После выхода они останутся и уйдут при следующем входе этого же аккаунта. Выйти?',
+      few:
+          'На телефоне $n неотправленные записи. После выхода они останутся и уйдут при следующем входе этого же аккаунта. Выйти?',
+      one:
+          'На телефоне $n неотправленная запись. После выхода она останется и уйдёт при следующем входе этого же аккаунта. Выйти?',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2427,7 +2398,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String notifyRunningOutSub(int n) {
-    return '$n позиций · пора заказать';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n позиции · пора заказать',
+      many: '$n позиций · пора заказать',
+      few: '$n позиции · пора заказать',
+      one: '$n позиция · пора заказать',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2908,7 +2887,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String auditContinue(int n) {
-    return 'Продолжить пересчёт ($n товаров)';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'Продолжить пересчёт ($n товара)',
+      many: 'Продолжить пересчёт ($n товаров)',
+      few: 'Продолжить пересчёт ($n товара)',
+      one: 'Продолжить пересчёт ($n товар)',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2919,7 +2906,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String closeShiftFailed(int n) {
-    return 'Сервер не принял $n чеков — они не попадут в отчёт смены. Отправьте их снова или снимите в «Синхронизации».';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other:
+          'Сервер не принял $n чека — они не попадут в отчёт смены. Отправьте их снова или снимите в «Синхронизации».',
+      many:
+          'Сервер не принял $n чеков — они не попадут в отчёт смены. Отправьте их снова или снимите в «Синхронизации».',
+      few:
+          'Сервер не принял $n чека — они не попадут в отчёт смены. Отправьте их снова или снимите в «Синхронизации».',
+      one:
+          'Сервер не принял $n чек — он не попадёт в отчёт смены. Отправьте его снова или снимите в «Синхронизации».',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -3385,4 +3384,1332 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get peNoAccess =>
       'Править товар может сотрудник с правом «Склад» или администратор.';
+
+  @override
+  String get smartNoLink =>
+      'Нет связи с сервером — ничего не проведено. Список остался на экране, повторите, когда появится интернет.';
+
+  @override
+  String smartPartial(int done, int total, int left) {
+    return 'Проведено $done из $total, не проведено $left — нажмите «Загрузить» ещё раз: проведённое не прибавится повторно.';
+  }
+
+  @override
+  String get smartPendingReceipt =>
+      'Прошлый приход поставщику остался без ответа — сначала повторите его через «В приёмку с поставщиком», иначе остаток может прибавиться дважды.';
+
+  @override
+  String get smartPendingStock =>
+      'Для части строк нет ответа сервера — сначала нажмите «Загрузить» ещё раз: так остаток не задвоится.';
+
+  @override
+  String get smartRowLocked =>
+      'Строка уже отправлена на сервер — товар и название менять нельзя, повторите отправку.';
+
+  @override
+  String smartRowRejected(String reason) {
+    return 'Отклонено: $reason';
+  }
+
+  @override
+  String get smartRowUnknown =>
+      'Нет ответа сервера — повторите: остаток не задвоится.';
+
+  @override
+  String payDebtLeft(String sum) {
+    return 'Останется долга: $sum';
+  }
+
+  @override
+  String get debtReceiptTitle => 'Квитанция об оплате долга';
+
+  @override
+  String get returnsTitle => 'Возвраты';
+
+  @override
+  String get shDebtPayments => 'Оплата долгов';
+
+  @override
+  String get shDebtPrepay => 'Предоплата по долгу';
+
+  @override
+  String get exitPressAgain => 'Нажмите ещё раз, чтобы выйти';
+
+  @override
+  String get createProductWithCode => 'Создать товар с этим кодом';
+
+  @override
+  String get printLabel => 'Напечатать этикетку';
+
+  @override
+  String get openingCashField => 'Сумма в кассе на начало смены';
+
+  @override
+  String get advisorGreeting =>
+      'Здравствуйте! Я Нур Советник. Спросите о продажах, долгах или остатках — отвечу по данным вашего магазина.';
+
+  @override
+  String get a11yBack => 'Назад';
+
+  @override
+  String get a11yShowPassword => 'Показать пароль';
+
+  @override
+  String get a11yHidePassword => 'Скрыть пароль';
+
+  @override
+  String get a11yScanner => 'Сканер';
+
+  @override
+  String get a11yCallAi => 'Позвонить ИИ';
+
+  @override
+  String get stockNone => 'нет';
+
+  @override
+  String get cartEmptyHint =>
+      'Добавьте товар: найдите, отсканируйте или нажмите плитку';
+
+  @override
+  String get toProductsBtn => 'К товарам';
+
+  @override
+  String get closeBtn => 'Закрыть';
+
+  @override
+  String clientDebtLine(String sum) {
+    return 'Долг: $sum сом';
+  }
+
+  @override
+  String get apiNoToken => 'Сервер не вернул токен.';
+
+  @override
+  String get apiSessionExpired => 'Сессия истекла — войдите снова.';
+
+  @override
+  String get apiTimeout => 'Сервер не ответил вовремя.';
+
+  @override
+  String get apiNoConnection => 'Нет связи с сервером.';
+
+  @override
+  String apiServerError(String code) {
+    return 'Ошибка сервера $code.';
+  }
+
+  @override
+  String get apiNetworkError => 'Ошибка сети.';
+
+  @override
+  String get adminNoLink => 'нет связи';
+
+  @override
+  String printLabelAsk(String name, String code) {
+    return 'Напечатать этикетку для «$name»? Штрихкод $code';
+  }
+
+  @override
+  String get notNow => 'Не сейчас';
+
+  @override
+  String get bcGenTaken => 'Этот код уже занят на сервере — выдан новый.';
+
+  @override
+  String get tapePrint => 'Печать';
+
+  @override
+  String get tapeSend => 'Отправить';
+
+  @override
+  String get zReport => 'Z-итог смены';
+
+  @override
+  String get xReportNote => 'X-отчёт — промежуточный: смена не закрыта.';
+
+  @override
+  String get shSalesBlock => 'Продажи';
+
+  @override
+  String get shCashBlock => 'Деньги в кассе';
+
+  @override
+  String get shPrepayIncluded => 'в наличных/безнале — предоплата по долгу';
+
+  @override
+  String get shReturnsUnknown => 'Возвраты смены не загружены — нет связи.';
+
+  @override
+  String shReturnsPartial(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n возврата',
+      many: '$n возвратов',
+      few: '$n возврата',
+      one: '$n возврат',
+    );
+    return 'Частично: $_temp0 без кассира в ответе сервера — не учтено. Сверьте на сайте.';
+  }
+
+  @override
+  String returnsCountN(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n возврата',
+      many: '$n возвратов',
+      few: '$n возврата',
+      one: '$n возврат',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get shReturnsCash => 'Возвраты наличными';
+
+  @override
+  String get shCalcRow => 'Расчёт по строкам';
+
+  @override
+  String shMismatch(String sum) {
+    return 'Расчёт по строкам расходится с сервером на $sum сом — полагайтесь на число сервера.';
+  }
+
+  @override
+  String get shNoSplit =>
+      'Разбивка по возвратам и оплате долгов недоступна — «Должно быть в кассе» взято с сервера.';
+
+  @override
+  String get shPartial =>
+      'Часть данных не загрузилась (нет связи) — обновите экран.';
+
+  @override
+  String get debtReceiptBefore => 'Долг до оплаты';
+
+  @override
+  String get debtReceiptMethod => 'Способ оплаты';
+
+  @override
+  String get debtReceiptAccepted => 'Принято';
+
+  @override
+  String get debtReceiptCleared => 'Долг погашен полностью.';
+
+  @override
+  String debtReceiptAcceptedLine(String sum, String left) {
+    return 'Принято $sum, остаток $left';
+  }
+
+  @override
+  String get returnReasonTitle => 'Причина возврата (необязательно)';
+
+  @override
+  String get returnReasonLabelShort => 'Причина';
+
+  @override
+  String get returnReasonDefect => 'Брак';
+
+  @override
+  String get returnReasonNotFit => 'Не подошёл';
+
+  @override
+  String get returnReasonCashier => 'Ошибка кассира';
+
+  @override
+  String get listCachedNote =>
+      'Нет связи — показан последний сохранённый список.';
+
+  @override
+  String get checksLoadFailed => 'Не удалось загрузить чеки';
+
+  @override
+  String get debtsLoadFailed => 'Не удалось загрузить долги';
+
+  @override
+  String get callMinimize => 'Свернуть';
+
+  @override
+  String get callAiListens => 'ИИ слушает';
+
+  @override
+  String get callInterrupted => 'Перебили — слушаю';
+
+  @override
+  String get callExtend => 'Ещё 10 минут';
+
+  @override
+  String get callExtended => 'Звонок продлён на 10 минут';
+
+  @override
+  String get callNoLink => 'Нет связи с ИИ';
+
+  @override
+  String get callNoLinkWork => 'Нет связи с ИИ, работайте на экране';
+
+  @override
+  String callNoLinkEnds(int n) {
+    return 'Завершится через $n с, если связь не вернётся';
+  }
+
+  @override
+  String get callNoLinkHelp => 'Корзина, поиск и склад работают без ИИ.';
+
+  @override
+  String get callSlowServer => 'Сервер отвечает медленно…';
+
+  @override
+  String get callStillLoading => 'Данные ещё грузятся — скажу, когда придут';
+
+  @override
+  String get callSearching => 'Ищу…';
+
+  @override
+  String get callSpeakingShort => 'Говорю…';
+
+  @override
+  String get callHush => 'Замолчи';
+
+  @override
+  String get callOpenFull =>
+      'Звонок с Нур Советником — развернуть; удержание — «Замолчи»';
+
+  @override
+  String aiSays(String text) {
+    return 'ИИ: $text';
+  }
+
+  @override
+  String get aiUndo => 'Отменить';
+
+  @override
+  String get aiCantUndo => 'отменить нельзя';
+
+  @override
+  String get aiPickTitle => 'Какой вариант?';
+
+  @override
+  String get aiAmbiguousHint => 'Скажите номер или нажмите';
+
+  @override
+  String get aiNotThat => 'Не то';
+
+  @override
+  String aiYesNumber(String num) {
+    return 'Да, $num';
+  }
+
+  @override
+  String get aiNoRepeat => 'Нет, скажу снова';
+
+  @override
+  String aiConfirmDo(String what) {
+    return 'Сделать: $what';
+  }
+
+  @override
+  String get aiDo => 'Сделать';
+
+  @override
+  String get aiDont => 'Не надо';
+
+  @override
+  String get aiOrSayYes => 'или скажите «да»';
+
+  @override
+  String get aiModeAskMoney => 'Спрашивать перед деньгами';
+
+  @override
+  String get aiWhatPay => 'оплата';
+
+  @override
+  String get aiWhatReturn => 'возврат';
+
+  @override
+  String get aiWhatReceive => 'проведение прихода';
+
+  @override
+  String get aiWhatWriteOff => 'списание';
+
+  @override
+  String get aiWhatCount => 'ревизия';
+
+  @override
+  String get aiWhatCloseShift => 'закрытие смены';
+
+  @override
+  String get aiWhatSalary => 'выплата сотруднику';
+
+  @override
+  String get aiWhatDebt => 'погашение долга';
+
+  @override
+  String get aiWhatDelete => 'удаление товара';
+
+  @override
+  String get aiWhatPrice => 'смена цены';
+
+  @override
+  String get aiWhatCash => 'внесение или изъятие из кассы';
+
+  @override
+  String get aiWhatOther => 'действие';
+
+  @override
+  String get tblBigger => 'Крупнее';
+
+  @override
+  String get tblSmaller => 'Мельче';
+
+  @override
+  String get tblToChat => 'В чат';
+
+  @override
+  String get tblPdf => 'PDF';
+
+  @override
+  String get tblShare => 'Поделиться';
+
+  @override
+  String get tblPin => 'Закрепить';
+
+  @override
+  String get tblPinned => 'Закреплено';
+
+  @override
+  String tblMore(int n) {
+    return 'Показать ещё $n';
+  }
+
+  @override
+  String tblMoreLeft(int n) {
+    return 'осталось $n';
+  }
+
+  @override
+  String get tblAllShown => 'Все строки показаны';
+
+  @override
+  String tblSource(String source, String time) {
+    return 'данные программы · $source · $time';
+  }
+
+  @override
+  String get tblEmpty => 'Пока пусто';
+
+  @override
+  String tblEmptyFilter(String q) {
+    return 'По запросу «$q» ничего не нашлось';
+  }
+
+  @override
+  String get tblClearFilter => 'Снять фильтр';
+
+  @override
+  String get tblOpenObject => 'Открыть';
+
+  @override
+  String tblRowsN(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n строки',
+      many: '$n строк',
+      few: '$n строки',
+      one: '$n строка',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tblPrev => 'Предыдущая таблица';
+
+  @override
+  String get tblNext => 'Следующая таблица';
+
+  @override
+  String get tblCollapse => 'Свернуть панель';
+
+  @override
+  String get tblClose => 'Закрыть таблицу';
+
+  @override
+  String get tblSentChat => 'Таблица добавлена в чат';
+
+  @override
+  String get tblPdfFailed => 'Не удалось сделать PDF';
+
+  @override
+  String get vcCamera => 'Камера';
+
+  @override
+  String get vcCameraOn => 'Камера вкл.';
+
+  @override
+  String get vcCameraOff => 'Камера выкл.';
+
+  @override
+  String get vcSwitchCamera => 'Другая камера';
+
+  @override
+  String get vcTorch => 'Фонарик';
+
+  @override
+  String get vcRecording => 'Камера';
+
+  @override
+  String get vcAiSees => 'ИИ видит';
+
+  @override
+  String get vcEconomy => 'Экономия трафика';
+
+  @override
+  String get vcEconomyHint => '1 кадр в 3 секунды и только когда вы говорите';
+
+  @override
+  String get vcStarting => 'Включаю камеру…';
+
+  @override
+  String get vcSearching => 'Ищу в каталоге…';
+
+  @override
+  String get vcWhatIsIt => 'Что это?';
+
+  @override
+  String get vcInvoice => 'Накладная';
+
+  @override
+  String get vcShelf => 'Полка';
+
+  @override
+  String get vcPriceTag => 'Ценник';
+
+  @override
+  String get vcCardProduct => 'Товар';
+
+  @override
+  String get vcNotFound =>
+      'В каталоге не нашёл. Поднесите ближе или покажите штрихкод';
+
+  @override
+  String get vcExact => 'точно';
+
+  @override
+  String get vcByBarcode => 'штрихкод';
+
+  @override
+  String get vcByPhoto => 'по фото';
+
+  @override
+  String get vcLooksLike => 'Похоже на:';
+
+  @override
+  String get vcPickHint => 'нажмите, чтобы выбрать';
+
+  @override
+  String vcPrice(String sum) {
+    return 'Цена: $sum сом';
+  }
+
+  @override
+  String vcStock(String qty) {
+    return 'Остаток: $qty';
+  }
+
+  @override
+  String vcInvoiceSummary(int n, int known, int fresh) {
+    return 'Строк: $n · в каталоге: $known · новых: $fresh';
+  }
+
+  @override
+  String vcOpenReceive(int n) {
+    return 'Открыть приход ($n)';
+  }
+
+  @override
+  String get vcReceiveEndsCall =>
+      'Звонок завершится, разговор сохранится в чате';
+
+  @override
+  String get vcNewItemsHint =>
+      'Новых товаров нет в каталоге — заведите их через «Склад → Накладная»';
+
+  @override
+  String get vcNoProcure => 'Приход проводит администратор';
+
+  @override
+  String get vcShelfHint => 'ИИ считает на глаз — перепроверьте перед ревизией';
+
+  @override
+  String get vcShelfCols => 'видно · в программе';
+
+  @override
+  String get vcShelfThing => 'товар';
+
+  @override
+  String get vcOnTag => 'На ценнике';
+
+  @override
+  String get vcInProgram => 'В программе';
+
+  @override
+  String vcTagMismatch(String tag, String sum) {
+    return 'На ценнике $tag сом, в программе $sum сом — не совпадает';
+  }
+
+  @override
+  String get vcTagOk => 'Цена на ценнике совпадает с программой';
+
+  @override
+  String get vcTagFixHint => 'Цену здесь не правим — через карточку товара';
+
+  @override
+  String vcMoreLines(int n) {
+    return 'ещё $n строк';
+  }
+
+  @override
+  String get vcNewTag => 'новый';
+
+  @override
+  String get vcConsentTitle => 'Включить камеру в разговоре?';
+
+  @override
+  String get vcConsentBody =>
+      'Пока камера включена, кадры (примерно 1 в секунду) уходят в Google Gemini по ключу ИИ вашего магазина. Они не сохраняются ни на телефоне, ни в NurCRM — в чате останется только текст разговора. На бесплатном ключе Google может использовать данные для улучшения своих моделей. Не показывайте лица покупателей, банковские карты и чужие документы.';
+
+  @override
+  String get vcConsentPtSends =>
+      'Пока камера включена, кадры (примерно 1 в секунду) уходят в Google Gemini по ключу ИИ вашего магазина.';
+
+  @override
+  String get vcConsentPtSaved =>
+      'Они не сохраняются ни на телефоне, ни в NurCRM — в чате останется только текст разговора.';
+
+  @override
+  String get vcConsentPtFree =>
+      'На бесплатном ключе Google может использовать данные для улучшения своих моделей.';
+
+  @override
+  String get vcConsentPtWarn =>
+      'Не показывайте лица покупателей, банковские карты и чужие документы.';
+
+  @override
+  String get vcConsentAgree => 'Включить камеру';
+
+  @override
+  String get vcConsentLater => 'Не сейчас';
+
+  @override
+  String vcCost(int n) {
+    return 'Видеозвонок длится до $n мин и расходует лимит ключа ИИ в несколько раз быстрее голосового';
+  }
+
+  @override
+  String get aiAccTitle => 'Доступ к ИИ';
+
+  @override
+  String get aiAccSection => 'Кому разрешён ИИ';
+
+  @override
+  String aiAccLimitInfo(int n) {
+    return 'Бесплатный лимит ИИ (Google Gemini) общий на весь проект: запросов в минуту и в день мало. Поэтому ИИ — Нур Советник, звонок, умная камера, накладная по фото, весы по виду — могут использовать не больше $n сотрудников магазина. Выберите, кому разрешить.';
+  }
+
+  @override
+  String aiAccCounter(int a, int b) {
+    return '$a из $b';
+  }
+
+  @override
+  String aiAccLimitReached(int n) {
+    return 'Можно выбрать не больше $n сотрудников. Чтобы дать доступ другому, сначала снимите галочку с кого-то из выбранных.';
+  }
+
+  @override
+  String aiAccDenied(int n, String names) {
+    return 'ИИ доступен только $n сотрудникам магазина: $names. Обратитесь к владельцу.';
+  }
+
+  @override
+  String get aiAccDeniedNone =>
+      'ИИ в магазине сейчас выключен для всех сотрудников. Обратитесь к владельцу.';
+
+  @override
+  String get aiAccRecommend =>
+      'Рекомендуем ограничить ИИ двумя сотрудниками (общий бесплатный лимит)';
+
+  @override
+  String get aiAccConfigure => 'Настроить';
+
+  @override
+  String get aiAccSaved => 'Доступ к ИИ сохранён';
+
+  @override
+  String get aiAccOwnerTag => 'владелец';
+
+  @override
+  String get aiAccYouTag => 'вы';
+
+  @override
+  String get aiAccStaffNotLoaded =>
+      'Список сотрудников не получен (нет связи?). Показаны только уже выбранные.';
+
+  @override
+  String get aiAccNobody =>
+      'Никто не выбран — ИИ будет выключен для всех сотрудников.';
+
+  @override
+  String get aiAccManagerOnly => 'Список меняет владелец или администратор.';
+
+  @override
+  String get aiAccNoticeTitle => 'ИИ — общий лимит';
+
+  @override
+  String aiAccNoticeBody(int n) {
+    return 'ИИ магазина работает на общем бесплатном лимите Google, поэтому право на него есть не больше чем у $n сотрудников — у вас оно есть. Не запускайте длинные звонки и лишние запросы без нужды.';
+  }
+
+  @override
+  String get aiAccGotIt => 'Понятно';
+
+  @override
+  String get aiAccMineYes => 'У вас есть доступ к ИИ';
+
+  @override
+  String get aiAccMineNo => 'ИИ вам недоступен — обратитесь к владельцу';
+
+  @override
+  String get aiAccMineOpen => 'ИИ доступен всем сотрудникам (лимит не задан)';
+
+  @override
+  String get aiAccNotSet => 'Не задано — ИИ доступен всем';
+
+  @override
+  String get assistantTitle => 'Помощник';
+
+  @override
+  String get assistantSub => 'режим голосового управления';
+
+  @override
+  String get aiModeDo => 'Выполнять по просьбе';
+
+  @override
+  String get aiModeDoHint =>
+      'Открывает экраны, читает, показывает таблицы и делает, что вы попросили — сразу, с итогом вслух и кнопкой «Отменить».';
+
+  @override
+  String get aiModeAskHint =>
+      'Как по просьбе, но перед оплатой, возвратом, приходом, списанием, ревизией, закрытием смены, выплатой, долгом, удалением и сменой цены — карточка «Сделать».';
+
+  @override
+  String get aiModeWatch => 'Только смотреть';
+
+  @override
+  String get aiModeWatchHint =>
+      'Только экраны, чтение и таблицы. На просьбу что-то сделать ответит: «В этом режиме я не меняю данные — сделайте на экране или смените режим».';
+
+  @override
+  String get aiModeDefault => 'по умолчанию';
+
+  @override
+  String get aiModeSofterLocked => 'Мягче, чем задал владелец — недоступно';
+
+  @override
+  String get aiModeOwnerSet => 'Владелец задал для всех на этом телефоне:';
+
+  @override
+  String get aiModeStricterSelf => 'Для себя можно выбрать строже';
+
+  @override
+  String get aiModeNoVoice => 'Голосом режим не меняется — только здесь';
+
+  @override
+  String get aiModeAskWhatTitle => 'Перед чем спросит';
+
+  @override
+  String get aiModeAskNote =>
+      'Карточка «Сделать: … сумма …» и одна кнопка — или голосом «да». Двойных подтверждений нет.';
+
+  @override
+  String get aiModeFooter => 'Права помощника — по роли пользователя';
+
+  @override
+  String get aiModeSaved => 'Режим сохранён';
+
+  @override
+  String get aiLogTitle => 'Действия ИИ';
+
+  @override
+  String get aiLogSubAll => 'все записи телефона';
+
+  @override
+  String get aiLogMoneyOnly => 'Только деньги';
+
+  @override
+  String get aiLogUndone => 'Отменённые';
+
+  @override
+  String get aiLogByDate => 'Фильтр по дате';
+
+  @override
+  String get dayYesterday => 'Вчера';
+
+  @override
+  String aiLogUndoneAt(String time) {
+    return 'отменено $time';
+  }
+
+  @override
+  String get aiLogCantUndoWriteOff => 'нельзя отменить · можно списать';
+
+  @override
+  String get aiUndoRequest => 'отмена — запросом владельцу';
+
+  @override
+  String get aiLogUndoGone => 'отмена была только в звонке';
+
+  @override
+  String aiLogUndoneToast(String what) {
+    return 'Отменено: $what';
+  }
+
+  @override
+  String get aiLogUndoConflict => 'Уже менялось после ИИ — проверьте на экране';
+
+  @override
+  String aiLogUndoFailed(String what) {
+    return 'Не удалось отменить: $what. Проверьте связь и экран.';
+  }
+
+  @override
+  String get aiLogUndoShift =>
+      'Отменить нельзя: смена уже закрыта или в кассе меньше денег';
+
+  @override
+  String aiLogUndoPartial(int done, int total) {
+    return 'Вернули $done из $total; остальное менялось после ИИ или не вышло';
+  }
+
+  @override
+  String get aiLogEmpty => 'ИИ ещё ничего не делал на этом телефоне';
+
+  @override
+  String get aiLogEmptyHint =>
+      'Позвоните Нур Советнику и скажите, что сделать — здесь появится каждая запись с кнопкой «Отменить»';
+
+  @override
+  String get aiLogCall => 'Позвонить советнику';
+
+  @override
+  String get aiLogMineOnly => 'Видны только ваши действия';
+
+  @override
+  String get aiLogFooter =>
+      'Хранится на телефоне, до 2000 записей. Без ключей ИИ, звука и телефонов клиентов.';
+
+  @override
+  String get aiGroupNav => 'Экраны';
+
+  @override
+  String get aiGroupCart => 'Чек и заказы';
+
+  @override
+  String get aiGroupMoney => 'Деньги';
+
+  @override
+  String get aiGroupProduct => 'Товары';
+
+  @override
+  String get aiGroupTask => 'Задачи';
+
+  @override
+  String get aiGroupSalary => 'Зарплата';
+
+  @override
+  String get auditAi => 'ИИ';
+
+  @override
+  String get stfTasksTitle => 'Задачи';
+
+  @override
+  String stfTasksSub(int n, String late) {
+    return 'Задач: $n · просрочено: $late';
+  }
+
+  @override
+  String get stfMyTasksTitle => 'Мои задачи';
+
+  @override
+  String stfMySub(String name, String today, String late) {
+    return '$name · на сегодня: $today · просрочено: $late';
+  }
+
+  @override
+  String get stfFilterOverdue => 'Просрочено';
+
+  @override
+  String get stfFilterDone => 'Сделано';
+
+  @override
+  String get stfStNew => 'новая';
+
+  @override
+  String get stfStWork => 'в работе';
+
+  @override
+  String get stfStDone => 'сделано';
+
+  @override
+  String get stfOverdue => 'просрочена';
+
+  @override
+  String get stfNoDue => 'без срока';
+
+  @override
+  String get stfDue => 'Срок';
+
+  @override
+  String get stfRemind => 'Напомнить';
+
+  @override
+  String get stfUrgent => 'Срочная задача';
+
+  @override
+  String get stfNewTask => 'Новая задача';
+
+  @override
+  String get stfTaskField => 'Что сделать';
+
+  @override
+  String get stfTaskHint => 'Например: пересчитать полку с водой';
+
+  @override
+  String get stfAssignee => 'Исполнитель';
+
+  @override
+  String get stfAssigneeHint => 'Выберите сотрудника';
+
+  @override
+  String get stfCreate => 'Поставить задачу';
+
+  @override
+  String get stfNeedTitle => 'Напишите, что нужно сделать';
+
+  @override
+  String get stfNeedAssignee => 'Выберите исполнителя';
+
+  @override
+  String get stfTaskCreated => 'Задача поставлена';
+
+  @override
+  String get stfToWork => 'В работу';
+
+  @override
+  String get stfMarkDone => 'Сделано';
+
+  @override
+  String get stfReopen => 'Вернуть в работу';
+
+  @override
+  String get stfEditDue => 'Изменить срок';
+
+  @override
+  String get stfEditAssignee => 'Передать другому';
+
+  @override
+  String get stfDelete => 'Удалить';
+
+  @override
+  String stfDeleteAsk(String title) {
+    return 'Удалить задачу «$title»?';
+  }
+
+  @override
+  String get stfNoTasks => 'Задач нет';
+
+  @override
+  String get stfLoadFail => 'Не удалось загрузить задачи';
+
+  @override
+  String get stfPriorityHint =>
+      'Срочность и напоминание пока видны только в приложении; на сайте у задачи может появиться служебная пометка — до обновления сервера';
+
+  @override
+  String get stfNoBackground =>
+      'Фоновых уведомлений нет — напоминание покажется при открытии приложения';
+
+  @override
+  String stfOverduePlate(int n, String title) {
+    return 'Просрочено: $n — «$title»';
+  }
+
+  @override
+  String stfRemindPlate(String title) {
+    return 'Напоминание: «$title»';
+  }
+
+  @override
+  String stfTodayPlate(String today, String late) {
+    return 'Задач на сегодня: $today · просрочено: $late';
+  }
+
+  @override
+  String get stfSalaryTitle => 'Зарплата';
+
+  @override
+  String stfSalarySub(int n) {
+    return 'сотрудников: $n';
+  }
+
+  @override
+  String get stfPeriodMonth => 'Этот месяц';
+
+  @override
+  String get stfPeriodLast => 'Прошлый месяц';
+
+  @override
+  String get stfPeriodWeek => '7 дней';
+
+  @override
+  String get stfAccrued => 'Начислено';
+
+  @override
+  String get stfPaid => 'Выплачено';
+
+  @override
+  String get stfLeft => 'Осталось';
+
+  @override
+  String get stfColEmployee => 'Сотрудник';
+
+  @override
+  String get stfChecking => 'Проверяем выплаты…';
+
+  @override
+  String get stfPartialPlate =>
+      'Проверено частично — сумма к выплате сама не подставляется.';
+
+  @override
+  String get stfTrustTimeout =>
+      'Проверка прошлых выплат не успела завершиться — проверьте на сайте перед выплатой.';
+
+  @override
+  String get stfTrustJournal =>
+      'Журнал выплат на телефоне не читается — выплаты закрыты.';
+
+  @override
+  String get stfTrustNotChecked =>
+      'Не удалось проверить прошлые выплаты — проверьте на сайте перед выплатой.';
+
+  @override
+  String stfTrustUnassigned(String sum, int n) {
+    return 'Есть расходы «Зарплата» без привязки к сотруднику: $sum сом ($n шт.) — проверьте на сайте.';
+  }
+
+  @override
+  String get stfTrustPartial =>
+      'Выплаты без статьи «Зарплата» или не все расходы видны — проверьте на сайте перед выплатой.';
+
+  @override
+  String get stfTrustPartialNotes =>
+      'Часть выплат лишь частично попала в период — она не вычтена, проверьте.';
+
+  @override
+  String get stfTrustByName =>
+      'Часть выплат найдена только по имени в названии расхода — проверьте на сайте перед выплатой.';
+
+  @override
+  String stfPartialNote(String sum, String period) {
+    return 'Выплата $sum сом за период $period лишь частично попадает в этот период — не вычтена';
+  }
+
+  @override
+  String get stfSalaryEmpty =>
+      'Начислений за период нет: нет продаж или ни у кого не настроена схема оплаты.';
+
+  @override
+  String get stfSalaryDenied =>
+      'Нет доступа к зарплате: у этого аккаунта нет права на аналитику сотрудников на сайте.';
+
+  @override
+  String get stfSalaryFail => 'Не удалось загрузить зарплату';
+
+  @override
+  String get stfSalaryHint =>
+      'Начислено — расчёт сервера, как на компьютере и на сайте. «Выплачено» — расходы «Зарплата» за этот период.';
+
+  @override
+  String get stfLockedTag => 'выплата без ответа';
+
+  @override
+  String get stfPayBtn => 'Выплатить';
+
+  @override
+  String stfPayTitle(String name) {
+    return 'Выплата: $name';
+  }
+
+  @override
+  String get stfKindSalary => 'Зарплата';
+
+  @override
+  String get stfKindAdvance => 'Аванс';
+
+  @override
+  String get stfPayAmount => 'Сумма';
+
+  @override
+  String get stfPayEnterAmount => 'Введите сумму сами';
+
+  @override
+  String get stfPayBox => 'Касса';
+
+  @override
+  String get stfPayComment => 'Комментарий (необязательно)';
+
+  @override
+  String get stfPayNeedAmount => 'Введите сумму выплаты';
+
+  @override
+  String get stfPayNoCash =>
+      'Не нашла кассу компании для выплаты — выплатите на сайте или в программе владельца.';
+
+  @override
+  String get stfSalesBoxWarn =>
+      'Это касса продаж филиала — расход уменьшит её остаток.';
+
+  @override
+  String stfPayConfirm(String sum, String name, String box) {
+    return 'Выплатить $sum сом сотруднику $name из кассы «$box»?';
+  }
+
+  @override
+  String stfPayDone(String sum, String name) {
+    return 'Выплачено $sum сом: $name';
+  }
+
+  @override
+  String get stfPayFailed => 'Выплата не прошла.';
+
+  @override
+  String stfPayUnknown(String sum, String box) {
+    return 'Ответ сервера не пришёл — выплата $sum сом (касса «$box») могла пройти. Повторять нельзя: откройте сотрудника и нажмите «Проверить на сервере».';
+  }
+
+  @override
+  String stfPayLock(String sum, String when, String box) {
+    return 'Прошлая выплата $sum сом ($when, касса «$box») осталась без ответа сервера. Новая выплата этому сотруднику закрыта, пока вы её не проверите.';
+  }
+
+  @override
+  String get stfPayLockShort =>
+      'Прошлая выплата этому сотруднику осталась без ответа сервера — новая закрыта, пока вы её не проверите.';
+
+  @override
+  String get stfPayDup =>
+      'Такая же выплата только что уже прошла — повтор не проводится.';
+
+  @override
+  String get stfPayJournal =>
+      'Журнал выплат на телефоне не читается — без него нет защиты от двойной выплаты, выплата не отправлена.';
+
+  @override
+  String get stfLockCheck => 'Проверить на сервере';
+
+  @override
+  String get stfLockCheckShort => 'Проверить';
+
+  @override
+  String get stfLockYes => 'Выплата ЕСТЬ на сайте';
+
+  @override
+  String get stfLockNo => 'Выплаты НЕТ на сайте';
+
+  @override
+  String get stfLockYesAsk => 'Выплата есть на сайте?';
+
+  @override
+  String get stfLockNoAsk => 'Выплаты нет на сайте?';
+
+  @override
+  String get stfLockResolveHint =>
+      'Сверьте расход «Зарплата» на сайте NurCRM. Если нажать неверно, выплата будет учтена неправильно или пройдёт дважды.';
+
+  @override
+  String get stfLockFound => 'Выплата найдена на сервере и учтена.';
+
+  @override
+  String get stfLockNotFound =>
+      'На сервере выплату не нашла — замок остаётся, решите сами после проверки на сайте.';
+
+  @override
+  String get stfConfirm => 'Подтвердить';
+
+  @override
+  String get stfRecentPayouts => 'Недавние выплаты с этого телефона';
+
+  @override
+  String get stfCancelBtn => 'Запросить отмену';
+
+  @override
+  String stfCancelAsk(String sum) {
+    return 'Запросить отмену выплаты $sum сом?';
+  }
+
+  @override
+  String get stfCancelHint =>
+      'Выплату отменяет только владелец или бухгалтер на сайте NurCRM — с телефона уходит запрос.';
+
+  @override
+  String get stfCancelSend => 'Отправить запрос';
+
+  @override
+  String get stfCancelSent => 'Запрос на отмену отправлен владельцу.';
+
+  @override
+  String get stfSchemeBtn => 'Схема оплаты';
+
+  @override
+  String stfSchemeTitle(String name) {
+    return 'Схема оплаты: $name';
+  }
+
+  @override
+  String get stfSchemeSaved => 'Схема оплаты сохранена';
+
+  @override
+  String get stfSchemeSalary => 'Оклад';
+
+  @override
+  String get stfSchemePercent => 'Процент от продаж';
+
+  @override
+  String get stfSchemeSalaryPercent => 'Оклад + процент от продаж';
+
+  @override
+  String get stfSchemePerItem => 'За каждый проданный товар';
+
+  @override
+  String get stfSchemeSalaryItem => 'Оклад + за каждый товар';
+
+  @override
+  String get stfSchemePercentItem => 'Процент + за каждый товар';
+
+  @override
+  String get stfNoScheme => 'схема не настроена';
+
+  @override
+  String get stfMonthly => 'Оклад в месяц';
+
+  @override
+  String get stfPercent => 'Процент от продаж';
+
+  @override
+  String get stfPerItem => 'За каждый проданный товар';
+
+  @override
+  String get stfBonus => 'Начислено за продажи';
+
+  @override
+  String get gkOpen => 'Ключи Gemini (несколько аккаунтов)';
+
+  @override
+  String get gkTitle => 'Ключи Gemini';
+
+  @override
+  String get gkHint =>
+      'Ключи используются по порядку: первый рабочий. Когда у ключа кончился лимит, ИИ сам берёт следующий. Список тот же, что на кассе и в программе владельца.';
+
+  @override
+  String get gkWarn =>
+      'Правила Google могут запрещать обходить лимиты несколькими аккаунтами или проектами — есть риск блокировки ключей. Бесплатный уровень Google может использовать запросы для улучшения своих продуктов. Решаете вы.';
+
+  @override
+  String get gkViewOnly =>
+      'Список ключей меняют владелец и администратор. Вам он показан без ключей целиком — ИИ работает по этому списку.';
+
+  @override
+  String gkWorkingCount(int a, int b) {
+    return 'Рабочих ключей: $a из $b';
+  }
+
+  @override
+  String get gkEmpty =>
+      'Ключей нет. Добавьте первый — его выдаёт Google AI Studio.';
+
+  @override
+  String get gkAdd => 'Добавить ключ';
+
+  @override
+  String get gkAddBtn => 'Добавить';
+
+  @override
+  String get gkPasteKey => 'Вставьте ключ из Google AI Studio';
+
+  @override
+  String get gkLabelHint => 'Метка (необязательно)';
+
+  @override
+  String gkLabelDefault(int n) {
+    return 'Аккаунт $n';
+  }
+
+  @override
+  String get gkMax => 'Не больше 10 ключей.';
+
+  @override
+  String get gkDuplicate => 'Такой ключ уже есть в списке.';
+
+  @override
+  String get gkShow => 'Показать';
+
+  @override
+  String get gkHide => 'Скрыть';
+
+  @override
+  String get gkEnabled => 'Включён';
+
+  @override
+  String get gkMoveUp => 'Выше';
+
+  @override
+  String get gkMoveDown => 'Ниже';
+
+  @override
+  String get gkDelete => 'Удалить';
+
+  @override
+  String gkDeleteAsk(String name, String tail) {
+    return 'Удалить ключ «$name» (…$tail)?';
+  }
+
+  @override
+  String get gkStateWorking => 'рабочий';
+
+  @override
+  String gkStateExhausted(String time) {
+    return 'исчерпан до $time';
+  }
+
+  @override
+  String get gkStateInvalid => 'недействителен';
+
+  @override
+  String get gkStateDisabled => 'выключен';
+
+  @override
+  String get gkStateUnchecked => 'не проверен';
+
+  @override
+  String get gkCheckOk => 'Ключ рабочий ✓';
+
+  @override
+  String gkCheckFail(String err) {
+    return 'Не удалось проверить: $err';
+  }
+
+  @override
+  String get aiKeysSavedPhoneOnly =>
+      'Сохранено на телефоне, но в облако не ушло — касса и программа владельца пока не увидят. Повторите позже.';
 }

@@ -8,6 +8,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nurmarket/core/ai/ai_access.dart';
 import 'package:nurmarket/core/ai/vision.dart';
 import 'package:nurmarket/core/api/api_client.dart';
 import 'package:nurmarket/core/api/session_store.dart';
@@ -62,6 +63,10 @@ class _CloudVision extends VisionService {
     calls++;
     return cloud;
   }
+
+  // 2026-10-26 (ИИ — не больше 2 сотрудникам): правило «кому разрешён ИИ» тоже без сети — список не задан, ИИ у всех, как раньше.
+  @override
+  Future<AiAccessPolicy> accessPolicy({bool force = false}) async => const AiAccessPolicy.unset();
 }
 
 void main() {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ import '../admin/new_item.dart';
 import '../sale/catalog_repository.dart';
 import '../scan/scan_screen.dart';
 import '../scan/smart_camera.dart';
+import 'barcode_label.dart';
 import 'product_edit_repository.dart';
 
 // 2026-10-22 (мобилка, админ): владелец — «в мобилке нельзя редактировать товары на складе». Нажатие на товар склада
@@ -66,6 +68,10 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
   String _unit = 'шт';
   List<String> _alt = [];
   final _photos = <Uint8List>[];
+
+  /// 2026-10-26 (живой аудит, П7, С-12): код, выданный «Сгенерировать» и ещё не сохранённый, — после сохранения спросим
+  /// «Напечатать этикетку?».
+  String? _generatedCode;
 
   Product get p => widget.product;
 
@@ -171,7 +177,28 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
     }
     final repo = ref.read(productEditRepoProvider);
     final code = await BarcodeGenerator.createFree((c) async => _alt.any((a) => ProductDraft.altCode(a) == c) || await repo.barcodeOwner(p.id, c) != null);
-    if (mounted) setState(() => _barcode.text = code);
+    if (!mounted) return;
+    setState(() {
+      _barcode.text = code;
+      _generatedCode = code;
+    });
+    unawaited(_verifyOnServer(code)); // фоном, без блокировки ввода
+  }
+
+  /// 2026-10-26 (живой аудит, П7): код проверяем и по серверу (products/list/?barcode=, 2 с) — товар, заведённый на ПК,
+  /// мог ещё не прийти в базу телефона. Занят — выдаём новый (до 3 раз), нет связи — оставляем как есть.
+  Future<void> _verifyOnServer(String code, {int left = 3}) async {
+    final owner = await serverBarcodeOwner(ref.read(apiProvider), code, exceptProductId: p.id);
+    if (owner == null || !mounted || _barcode.text.trim() != code) return;
+    final repo = ref.read(productEditRepoProvider);
+    final fresh = await BarcodeGenerator.createFree((c) async => _alt.any((a) => ProductDraft.altCode(a) == c) || await repo.barcodeOwner(p.id, c) != null);
+    if (!mounted || _barcode.text.trim() != code) return;
+    setState(() {
+      _barcode.text = fresh;
+      _generatedCode = fresh;
+    });
+    toast(context, context.l.bcGenTaken);
+    if (left > 1) unawaited(_verifyOnServer(fresh, left: left - 1));
   }
 
   void _addAlt(String code) {
@@ -232,7 +259,11 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
       _photos.clear();
       if (!mounted) return;
       toast(context, r.priceRestored ? l.pePriceRestored(money(d.price)) : l.peSaved);
+      // 2026-10-26 (живой аудит, П7): сохранён сгенерированный код — предложить этикетку (иначе товар нечем сканировать)
+      final labelCode = _generatedCode != null && d.barcode == _generatedCode && b.barcode != d.barcode ? d.barcode : null;
+      _generatedCode = null;
       await _load();
+      if (labelCode != null && mounted) await askPrintLabel(context, name: d.name, code: labelCode, price: d.price);
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
     } finally {
@@ -433,6 +464,21 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
               ),
             ),
           ),
+          // 2026-10-26 (живой аудит, П7): этикетка в одно касание — для нового кода и для товара без этикетки
+          if (_barcode.text.trim().isNotEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => printLabelNow(
+                  context,
+                  name: _name.text.trim().isEmpty ? p.name : _name.text.trim(),
+                  code: _barcode.text.trim(),
+                  price: parseNum(_price.text) ?? p.price,
+                ),
+                icon: const Icon(Icons.print_outlined, size: 18),
+                label: Text(l.printLabel),
+              ),
+            ),
           FieldLabel(l.altBarcodesLabel),
           for (final line in _alt)
             ListTile(

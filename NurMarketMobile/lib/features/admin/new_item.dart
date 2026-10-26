@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -8,9 +7,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/ai/assistant/ai_handles.dart';
+import '../../core/ai/assistant/screen_registry.dart' show foldText;
+import '../../core/ai/assistant/tool_registry.dart' show ToolStatus;
 import '../../core/ai/vision.dart';
 import '../../core/api/api_client.dart';
-import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/barcode_generator.dart';
@@ -20,6 +21,7 @@ import '../scan/code_lookup.dart';
 import '../scan/scan_screen.dart';
 import '../scan/smart_camera.dart';
 import '../sale/cart.dart';
+import '../stock/barcode_label.dart';
 import 'admin_receive.dart';
 import '../../core/util/audit.dart';
 import '../../core/ai/product_refs.dart';
@@ -27,7 +29,7 @@ import '../../core/ai/product_refs.dart';
 /// 13.10, макеты Н3, Н4, Н7, Н8 (владелец: «сверься с макетом и доделывай»): новая позиция с телефона — товар, одежда
 /// (размеры × цвета, у каждого варианта свой остаток — api/main/products/{id}/variants/, как карточка кассы), услуга
 /// (kind=service, без остатка). «Найти в интернете» — общая база NurCRM по штрихкоду (название, категория, бренд) и поиск
-/// в браузере; цену из интернета не берём. Мастера, длительность и расходники услуги — на этом телефоне, пока нет API услуг.
+/// в браузере; цену из интернета не берём. 2026-10-27: мастера, длительность и запись у услуги убраны (владелец) — услуга создаётся как обычная позиция без остатка.
 class NewItemScreen extends ConsumerStatefulWidget {
   final String kind;
 
@@ -36,14 +38,6 @@ class NewItemScreen extends ConsumerStatefulWidget {
   const NewItemScreen({super.key, this.kind = 'product', this.barcode});
   @override
   ConsumerState<NewItemScreen> createState() => _NewItemScreenState();
-}
-
-class _MasterRow {
-  final String name;
-  bool on;
-  final TextEditingController price;
-  final TextEditingController percent;
-  _MasterRow(this.name, this.on, String price, String percent) : price = TextEditingController(text: price), percent = TextEditingController(text: percent);
 }
 
 class _NewItemScreenState extends ConsumerState<NewItemScreen> {
@@ -82,16 +76,12 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
   final List<String> _colors = [];
   final Map<String, TextEditingController> _cells = {};
 
-  // услуга (Н8)
-  int _minutes = 30;
-  static const _presetMinutes = [15, 30, 45, 60, 90, 120];
-  final List<_MasterRow> _masters = [];
-  final List<({String id, String name, double qty})> _consumables = [];
-  bool _online = false;
-
   // 2026-10-22 (мобилка, админ, П10): что уже сделано на сервере — повтор после частичной ошибки продолжает с того же
   // места. Раньше id созданного товара не запоминался: второе «Сохранить» создавало второй товар.
   String? _createdId;
+
+  /// 2026-10-26 (живой аудит, П7, С-12): код, выданный «Сгенерировать», — после сохранения спросим «Напечатать этикетку?».
+  String? _generatedCode;
 
   /// Создание осталось без ответа (обрыв, 5xx) — перед повтором ищем товар на сервере.
   bool _createUnknown = false;
@@ -102,6 +92,48 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
 
   /// 2026-10-22 (мобилка, админ, П10): PLU весового товара («кг»); пусто — назначается сам (число весовых + 1).
   final _plu = TextEditingController();
+
+  // 2026-10-26 (голос-управление, В3б): «ручка» для Нур Советника — вписывает название, цену, закупку, штрихкод, единицу и
+  // категорию и нажимает ТУ ЖЕ `_save` (проверка «уже есть», создание один раз, поиск после обрыва — прежние). Итог — `_aiSink`.
+  final _aiSink = OutcomeSink();
+  late final AiScreenHandles _aiHandles = ref.read(aiHandlesProvider);
+  late final AiHandle _aiHandle = AiHandle(fill: _aiFill, run: () => _aiSink.run(_save));
+
+  /// Единица из речи → одна из кнопок экрана (шт, кг, л, упак); null — не поняла.
+  static String? _aiUnit(String raw) {
+    final u = foldText(raw).trim();
+    if (u.isEmpty) return 'шт';
+    const map = {
+      'шт': 'шт', 'штук': 'шт', 'штука': 'шт', 'pcs': 'шт', 'piece': 'шт', 'dona': 'шт', 'adet': 'шт', 'даана': 'шт',
+      'кг': 'кг', 'килограмм': 'кг', 'kg': 'кг', 'kilogram': 'кг', 'килограм': 'кг',
+      'л': 'л', 'литр': 'л', 'l': 'л', 'litr': 'л', 'liter': 'л', 'litre': 'л',
+      'упак': 'упак', 'упаковка': 'упак', 'pack': 'упак', 'qadoq': 'упак', 'paket': 'упак',
+    };
+    return map[u];
+  }
+
+  Future<HandleOutcome?> _aiFill(Map<String, dynamic> a) async {
+    final name = '${a['name'] ?? ''}'.trim();
+    if (name.isEmpty) return HandleOutcome.clarifyKey('needProduct');
+    final price = a['price'] is num ? (a['price'] as num).toDouble() : parseNum('${a['price'] ?? ''}');
+    if (price == null || price <= 0) return HandleOutcome.clarifyKey('needPriceValue');
+    final unit = _aiUnit('${a['unit'] ?? ''}');
+    if (unit == null) return HandleOutcome.clarifyKey('h.unitBad');
+    final cost = a['purchase'] is num ? (a['purchase'] as num).toDouble() : parseNum('${a['purchase'] ?? ''}');
+    String num2(double v) => v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 2);
+    if (!mounted) return HandleOutcome.errorKey('h.screenNotReady');
+    setState(() {
+      if (_createdId == null) _kind = 'product';
+      _name.text = name;
+      // закупка раньше цены: MarginFields пересчитывает цену по наценке при смене закупки — названная цена должна остаться
+      _cost.text = cost == null ? '' : num2(cost);
+      _price.text = num2(price);
+      _barcode.text = '${a['barcode'] ?? ''}'.trim();
+      _category.text = '${a['category'] ?? ''}'.trim();
+      _unit = unit;
+    });
+    return null;
+  }
 
   /// Что-то введено — случайное «Назад» спрашивает (LeaveGuard).
   bool get _dirty =>
@@ -131,7 +163,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMasters();
+    _aiHandles.register('new_item', _aiHandle);
     ref
         .read(adminReceiveRepoProvider)
         .suppliers()
@@ -148,19 +180,9 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
     }
   }
 
-  Future<void> _loadMasters() async {
-    final raw = await ref.read(databaseProvider).getSetting('services.masters');
-    final names = raw == null ? <String>[] : (jsonDecode(raw) as List).map((e) => e.toString()).toList();
-    if (!mounted) return;
-    setState(() {
-      for (final n in names) {
-        _masters.add(_MasterRow(n, false, '', '40'));
-      }
-    });
-  }
-
   @override
   void dispose() {
+    _aiHandles.unregister('new_item', _aiHandle);
     _camera?.dispose();
     _plu.dispose();
     for (final c in _cells.values) {
@@ -344,7 +366,25 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
     setState(() {
       _barcode.text = code;
       _found = false;
+      _generatedCode = code;
     });
+    unawaited(_verifyOnServer(code)); // фоном, без блокировки ввода
+  }
+
+  /// 2026-10-26 (живой аудит, П7): код проверяем и по серверу (products/list/?barcode=, 2 с) — товар, заведённый на ПК,
+  /// мог ещё не прийти в базу телефона. Занят — выдаём новый (до 3 раз), нет связи — оставляем как есть.
+  Future<void> _verifyOnServer(String code, {int left = 3}) async {
+    final owner = await serverBarcodeOwner(ref.read(apiProvider), code);
+    if (owner == null || !mounted || _barcode.text.trim() != code) return;
+    final db = ref.read(databaseProvider);
+    final fresh = await BarcodeGenerator.createFree((c) async => await db.productByBarcode(c) != null);
+    if (!mounted || _barcode.text.trim() != code) return;
+    setState(() {
+      _barcode.text = fresh;
+      _generatedCode = fresh;
+    });
+    toast(context, context.l.bcGenTaken);
+    if (left > 1) unawaited(_verifyOnServer(fresh, left: left - 1));
   }
 
   Future<void> _lookup(String code) async {
@@ -504,74 +544,6 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
     if (v.isNotEmpty && !_colors.contains(v)) setState(() => _colors.add(v));
   }
 
-  Future<void> _addMaster() async {
-    final l = context.l;
-    final ctrl = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(l.masterAdd),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: InputDecoration(hintText: l.masterName),
-          onSubmitted: (v) => Navigator.pop(c, v),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: Text(MaterialLocalizations.of(c).cancelButtonLabel)),
-          FilledButton(onPressed: () => Navigator.pop(c, ctrl.text), child: Text(MaterialLocalizations.of(c).okButtonLabel)),
-        ],
-      ),
-    );
-    final v = name?.trim() ?? '';
-    if (v.isEmpty || _masters.any((m) => m.name == v)) return;
-    setState(() => _masters.add(_MasterRow(v, true, _price.text, '40')));
-    await ref.read(databaseProvider).setSetting('services.masters', jsonEncode(_masters.map((m) => m.name).toList()));
-  }
-
-  Future<void> _addConsumable() async {
-    final l = context.l;
-    final db = ref.read(databaseProvider);
-    final query = TextEditingController();
-    var results = <Product>[];
-    final picked = await showModalBottomSheet<Product>(
-      context: context,
-      isScrollControlled: true,
-      builder: (c) => StatefulBuilder(
-        builder: (c, set) => Padding(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.viewInsetsOf(c).bottom + 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: query,
-                autofocus: true,
-                decoration: InputDecoration(hintText: l.findProduct, prefixIcon: const Icon(Icons.search_rounded)),
-                onChanged: (q) async {
-                  final r = q.trim().length < 2 ? <Product>[] : await db.searchProducts(q.trim(), limit: 20);
-                  set(() => results = r.where((p) => !p.isService).toList());
-                },
-              ),
-              SizedBox(
-                height: 300,
-                child: ListView(
-                  children: [
-                    for (final p in results)
-                      ListTile(title: Text(p.name), subtitle: Text('${qtyText(p.quantity)} ${p.unit}'), onTap: () => Navigator.pop(c, p)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (picked == null || !mounted) return;
-    final qty = await askNumber(context, title: picked.name, hint: picked.unit, initial: 1);
-    if (qty == null || qty <= 0) return;
-    setState(() => _consumables.add((id: picked.id, name: picked.name, qty: qty)));
-  }
-
   Future<void> _save() async {
     final l = context.l;
     final name = _name.text.trim();
@@ -579,6 +551,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
     final price = parseNum(_price.text) ?? (_kind == 'service' ? 0 : ((cost * 1.3 / 5).ceil() * 5).toDouble());
     if (name.isEmpty || price <= 0) {
       toast(context, l.salePrice, error: true);
+      _aiSink.report(HandleOutcome.clarifyKey(name.isEmpty ? 'needProduct' : 'needPriceValue'));
       return;
     }
     if (_busy) return;
@@ -593,6 +566,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
         final hit = await CodeLookup.find(ref.read(databaseProvider), api, code, allowWeightLabel: false);
         if (hit.product != null) {
           if (mounted) toast(context, l.alreadyInStock(hit.product!.name), error: true);
+          _aiSink.report(HandleOutcome.error(l.alreadyInStock(hit.product!.name)));
           return;
         }
       }
@@ -600,22 +574,6 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
         final line = ReceiveLine(productId: '', name: name, unit: 'шт', cost: 0, price: price, qty: 0, isNew: true);
         final id = await _createOnce(line, () => repo.createProduct(line, kind: 'service', category: _category.text, description: _description.text));
         await _afterCreate(id, 0, 0);
-        await ref
-            .read(databaseProvider)
-            .setSetting(
-              'service.$id',
-              jsonEncode({
-                'minutes': _minutes,
-                'masters': [
-                  for (final m in _masters.where((m) => m.on))
-                    {'master': m.name, 'price': parseNum(m.price.text) ?? price, 'percent': (parseNum(m.percent.text) ?? 0).clamp(0, 100)},
-                ],
-                'consumables': [
-                  for (final c in _consumables) {'productId': c.id, 'name': c.name, 'quantity': c.qty},
-                ],
-                'online': _online,
-              }),
-            );
       } else if (_kind == 'clothes') {
         final line = ReceiveLine(productId: '', name: name, barcode: _barcode.text.trim(), unit: 'шт', cost: _effectiveCost, price: price, qty: 0, isNew: true);
         final id = await _createOnce(
@@ -686,11 +644,21 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
         await ref.read(catalogRepoProvider).sync();
       } catch (_) {}
       Audit.log('product', '${l.productCreated}: ${_name.text.trim()}');
+      _aiSink.report(HandleOutcome.ok({'id': _createdId ?? ''}));
       if (!mounted) return;
       toast(context, l.productCreated);
+      // 2026-10-26 (живой аудит, П7): сохранён сгенерированный код — предложить этикетку (иначе товар нечем сканировать)
+      final labelCode = _kind != 'service' && _generatedCode != null && _barcode.text.trim() == _generatedCode ? _generatedCode : null;
+      if (labelCode != null) {
+        _generatedCode = null;
+        await askPrintLabel(context, name: name, code: labelCode, price: price);
+        if (!mounted) return;
+      }
       Navigator.of(context).pop();
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
+      // создание без ответа: экран запомнит это (_createUnknown) и при повторе найдёт товар на сервере, а не создаст второй
+      _aiSink.report(AdminReceiveRepository.outcomeUnknown(e) ? const HandleOutcome(ToolStatus.error, unknown: true) : HandleOutcome.error(e.message));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -737,13 +705,14 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
                   ),
                 ),
               ),
+            // 2026-10-26 (живой аудит, П7, Н-7): подпись над полем, как у остальных (было плавающее labelText)
+            FieldLabel(l.barcodeLabel),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _barcode,
                     keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: l.barcodeLabel),
                     onSubmitted: _lookup,
                   ),
                 ),
@@ -751,6 +720,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
                 IconButton.outlined(tooltip: l.bcGenTooltip, onPressed: _generateCode, icon: const Icon(Icons.casino_outlined)),
                 const SizedBox(width: 8),
                 IconButton.filled(
+                  tooltip: l.a11yScanner,
                   onPressed: () => setState(() => _scanning = !_scanning),
                   icon: Icon(_scanning ? Icons.videocam_off_rounded : Icons.qr_code_scanner_rounded),
                 ),
@@ -766,7 +736,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
                 style: const TextStyle(color: T.success, fontWeight: FontWeight.w700),
               ),
           ],
-          FieldLabel(l.clientName),
+          FieldLabel(l.peName), // 2026-10-26 (живой аудит, П7, Н-7): было «Имя» (clientName)
           TextField(controller: _name),
           Row(
             children: [
@@ -847,7 +817,6 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
             ],
           ],
           if (clothes) ..._clothesSection(context),
-          if (service) ..._serviceSection(context),
           ..._photoSection(context),
           FieldLabel(l.descriptionLabel),
           TextField(controller: _description, minLines: 3, maxLines: 8, keyboardType: TextInputType.multiline),
@@ -1134,83 +1103,6 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
           ),
         ),
       ],
-    ];
-  }
-
-  List<Widget> _serviceSection(BuildContext context) {
-    final l = context.l;
-    final pal = context.pal;
-    return [
-      FieldLabel(l.durationLabel),
-      Wrap(
-        spacing: 6,
-        children: [
-          for (final m in _presetMinutes)
-            ChoiceChip(
-              label: Text(m < 60 ? '$m мин' : '${(m / 60).toStringAsFixed(m % 60 == 0 ? 0 : 1)} ч'),
-              selected: _minutes == m,
-              onSelected: (_) => setState(() => _minutes = m),
-            ),
-          // 14.10, владелец: «добавить кнопку (свой) для длительности» — любое число минут.
-          ChoiceChip(
-            label: Text(_presetMinutes.contains(_minutes) ? l.durationCustom : '$_minutes мин'),
-            selected: !_presetMinutes.contains(_minutes),
-            onSelected: (_) async {
-              final v = await askNumber(context, title: l.durationLabel, hint: l.minutesHint, initial: _minutes.toDouble());
-              if (v != null && v >= 1 && mounted) setState(() => _minutes = v.round());
-            },
-          ),
-        ],
-      ),
-      FieldLabel(l.mastersLabel),
-      for (final m in _masters)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(
-            children: [
-              Checkbox(value: m.on, onChanged: (v) => setState(() => m.on = v ?? false)),
-              Expanded(
-                child: Text(m.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              ),
-              SizedBox(
-                width: 80,
-                child: TextField(
-                  controller: m.price,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(hintText: l.price, isDense: true),
-                ),
-              ),
-              const SizedBox(width: 6),
-              SizedBox(
-                width: 60,
-                child: TextField(
-                  controller: m.percent,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(suffixText: '%', isDense: true),
-                ),
-              ),
-            ],
-          ),
-        ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(onPressed: _addMaster, icon: const Icon(Icons.person_add_alt_1_rounded, size: 18), label: Text(l.masterAdd)),
-      ),
-      FieldLabel(l.consumablesLabel),
-      for (final c in _consumables)
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          title: Text(c.name),
-          subtitle: Text(qtyText(c.qty)),
-          trailing: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(() => _consumables.remove(c))),
-        ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(onPressed: _addConsumable, icon: const Icon(Icons.add_rounded, size: 18), label: Text(l.consumableAdd)),
-      ),
-      SwitchListTile(contentPadding: EdgeInsets.zero, value: _online, onChanged: (v) => setState(() => _online = v), title: Text(l.onlineBooking)),
-      Text(l.serviceLocalNote, style: TextStyle(color: pal.textSoft, fontSize: 12)),
     ];
   }
 }

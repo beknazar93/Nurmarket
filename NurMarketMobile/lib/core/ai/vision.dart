@@ -10,6 +10,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../api/api_client.dart';
 import '../db/database.dart';
 import '../providers.dart';
+import 'ai_access.dart';
+import 'gemini_keys.dart';
 import 'scale_reading.dart';
 
 /// Что увидела камера на снимке.
@@ -40,6 +42,14 @@ class VisionException implements Exception {
   String toString() => message;
 }
 
+/// 2026-10-26 (владелец: ИИ — не больше 2 сотрудникам магазина): у этого сотрудника нет права на ИИ. [message] уже на языке
+/// интерфейса («ИИ доступен только 2 сотрудникам магазина: …. Обратитесь к владельцу»); наследует VisionException, поэтому
+/// старые `on VisionException` показывают его как есть, а не «нет ключа». [names] — кому ИИ разрешён.
+class AiAccessDenied extends VisionException {
+  final List<String> names;
+  const AiAccessDenied(super.message, {this.names = const []});
+}
+
 /// 13.10, доски Т9–Т10 «Умная камера» и вопрос владельца «умная камера при продаже в телефоне где?»: снимок → Gemini
 /// (тот же ключ и те же модели, что у Нур Советника на кассе — TelegramAiChat: секрет TelegramAiKey из личных настроек
 /// NurCRM api/users/app-settings/…; на телефоне его можно ввести и самому) → список товаров на снимке → совпадения
@@ -54,7 +64,6 @@ class VisionService {
   static const _models = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.5-flash'];
   static const _storage = FlutterSecureStorage();
   static const _keyName = 'ai.gemini';
-  static String? _cached;
   static String? _workingModel;
   final Dio _http;
 
@@ -63,7 +72,9 @@ class VisionService {
   static void resetForTest() {
     _workingModel = null;
     _thinkStep.clear();
-    _cached = null;
+    _list = const [];
+    _cloudList = const [];
+    GeminiKeyPool.reset();
     _cachedFor = null;
     _cachedAt = DateTime(2000);
     _noKeyUntil = DateTime(2000);
@@ -71,11 +82,25 @@ class VisionService {
     _groq = null;
     _openRouter = null;
     _fallbackLoaded = false;
+    AiAccessRepository.resetForTest();
+  }
+
+  /// 2026-10-27: прошло 10 минут — запомненный список ключей надо перечитать (для тестов; без выхода из программы).
+  @visibleForTesting
+  static void expireCacheForTest() {
+    _cachedAt = DateTime(2000);
+    _noKeyUntil = DateTime(2000);
   }
 
   // 2026-10-22 (советник мобилки, аудит С-1…С-4): где искать ключ и что уже известно.
   static const _sharedKeyName = 'ai.gemini.shared';
   static const _badKeysName = 'ai.gemini.bad';
+  // 2026-10-27 (дополнительные ключи): остальные ключи списка (строка JSON, формат — gemini_keys.dart).
+  static const _extraName = 'ai.gemini.extra';
+  // Список ключей Gemini: основной первым. Это и есть «запомненное» на 10 минут (раньше — один _cached).
+  static List<GeminiKeyEntry> _list = const [];
+  // Что в последний раз ответило облако (нужно, чтобы при замене знать, какие облачные ключи заменены).
+  static List<GeminiKeyEntry> _cloudList = const [];
   static DateTime _cachedAt = DateTime(2000);
   static DateTime _noKeyUntil = DateTime(2000);
   static String? _cachedFor;
@@ -98,7 +123,7 @@ class VisionService {
   Future<void> _saveBad() async {
     try {
       final list = _bad!.toList();
-      await _storage.write(key: _badKeysName, value: jsonEncode(list.length > 20 ? list.sublist(list.length - 20) : list));
+      await _storage.write(key: _badKeysName, value: jsonEncode(list.length > 60 ? list.sublist(list.length - 60) : list));
     } catch (_) {
       // хранилище телефона недоступно — помним до перезапуска
     }
@@ -106,14 +131,17 @@ class VisionService {
 
   /// 2026-10-22 (аудит С-2): ключ не подошёл (Google ответил «API key not valid» и т. п.) — запоминаем его отпечаток и больше
   /// не берём, пока ключ в облаке не сменится (новый ключ — новый отпечаток) или ключ не вставят вручную заново.
+  /// 2026-10-27: в этот же список попадают ключи, которые пользователь ЗАМЕНИЛ или убрал (см. [_retire]): иначе старый ключ из
+  /// облака («облако первым») через 10 минут или после перезапуска возвращался и перекрывал замену.
   Future<void> markBadKey(String k) async {
     if (k.trim().isEmpty) return;
     (await _badKeys()).add(_fp(k));
     await _saveBad();
-    if (_cached == k.trim()) _cached = null;
     _cachedAt = DateTime(2000);
     _noKeyUntil = DateTime(2000);
   }
+
+  bool _isBad(String key) => _bad?.contains(_fp(key)) ?? false;
 
   Future<void> _unmarkBad(String k) async {
     if ((await _badKeys()).remove(_fp(k))) await _saveBad();
@@ -153,7 +181,8 @@ class VisionService {
     for (final m in both.reversed) {
       if (m == null) continue;
       m.forEach((k, v) {
-        final t = v?.toString().trim() ?? '';
+        // 2026-10-27: список ключей (TelegramAiKeysExtra) сервер может отдать и объектом, а не строкой JSON
+        final t = (v is Map || v is List ? jsonEncode(v) : v?.toString())?.trim() ?? '';
         if (t.isNotEmpty && !t.contains('*') && !t.contains('•')) out['$k'] = t;
       });
     }
@@ -165,7 +194,8 @@ class VisionService {
     final who = api.session?.userId;
     if (who == _cachedFor) return;
     _cachedFor = who;
-    _cached = null;
+    _list = const [];
+    _cloudList = const [];
     _cachedAt = DateTime(2000);
     _noKeyUntil = DateTime(2000);
     _groq = null;
@@ -175,48 +205,94 @@ class VisionService {
 
   String get _companyTag => '${api.session?.companyInn ?? ''}|${api.session?.companyName ?? ''}';
 
+  /// 2026-10-26 (владелец: ИИ — не больше 2 сотрудникам): правило «кому разрешён ИИ» (общие настройки магазина + копия телефона).
+  Future<AiAccessPolicy> accessPolicy({bool force = false}) => AiAccessRepository(api, db).load(force: force);
+
+  /// 2026-10-26: ЕДИНАЯ проверка права на ИИ. Без права — [AiAccessDenied] с понятным текстом (на языке интерфейса). Её делают
+  /// key(), fallbackKeys() и hasChatKey(), а через них — чат Советника, звонок, умная камера, накладная по фото, весы по виду,
+  /// описание товара: отдельно проверять нигде не нужно (но экран может спросить заранее — звонок, до запроса микрофона).
+  Future<void> requireAccess() async {
+    final policy = await accessPolicy();
+    if (AiAccess.canUse(api.session, policy)) return;
+    throw AiAccessDenied(AiAccess.deniedText(ApiText.l, policy), names: [for (final u in policy.users ?? const <AiAccessUser>[]) u.name]);
+  }
+
+  /// Ключ Gemini для запросов к ИИ. Без права на ИИ — [AiAccessDenied] (см. [requireAccess]).
   Future<String?> key() async {
+    await requireAccess();
+    return _loadKey();
+  }
+
+  Future<String?> _loadKey() async {
+    await _loadList();
+    return _firstUsable();
+  }
+
+  /// Первый рабочий ключ списка (включённый, не заменённый, не «недействителен», со свободным лимитом хоть у одной модели).
+  String? _firstUsable() => GeminiKeyPool.pickAny(_list, [..._models, _liveModel], retired: _isBad);
+
+  /// Имя «модели» для отметок лимита звонка (Live считает квоту отдельно).
+  static const _liveModel = 'live';
+
+  /// 2026-10-27: читает список ключей Gemini из облака и телефона и запоминает на 10 минут в [_list].
+  Future<void> _loadList() async {
     _checkUser();
     final now = DateTime.now();
-    // 2026-10-22 (аудит С-4): запомненный ключ — 10 минут, потом перечитать (ключ сменили на ПК — телефон подхватит).
-    if (_cached != null && now.difference(_cachedAt) < const Duration(minutes: 10)) return _cached;
+    // 2026-10-22 (аудит С-4): запомненный список — 10 минут, потом перечитать (ключ сменили на ПК — телефон подхватит).
+    if (_list.isNotEmpty && now.difference(_cachedAt) < const Duration(minutes: 10)) return;
     // 2026-10-22 (аудит С-3): «ключа нет» помним 5 минут — без повторных ожиданий при каждом открытии камеры.
-    if (_cached == null && now.isBefore(_noKeyUntil)) return null;
+    if (_list.isEmpty && now.isBefore(_noKeyUntil)) return;
     final bad = await _badKeys();
-    String? good(Object? k) {
-      final v = k?.toString().trim();
-      return v == null || v.isEmpty || bad.contains(_fp(v)) ? null : v;
-    }
 
-    // 2026-10-22 (советник мобилки): порядок ключей.
+    // 2026-10-22 (советник мобилки): порядок источников.
     // 1) Личные настройки NurCRM (как у кассы и программы владельца). Было: сначала ключ, когда-то вставленный на телефоне, и
     //    облако не читалось вовсе — владелец сменил ключ на ПК (сейчас в облаке ключ вида «AQ.…»), а телефон остался со старым.
-    // 2) Вставленный на телефоне вручную (выше «плохого» облачного — аудит С-2).
+    // 2) Вставленный на телефоне вручную.
     // 3) Ключ этого телефона от прежнего входа владельца или администратора той же компании (аудит С-1). Так же на ПК: ключ ИИ
     //    хранится в настройках компьютера (UserPreferences), и кассир на кассе пользуется ключом, который ввёл владелец.
+    // 2026-10-27 (владелец: «смена ключа не работает»): ключи, которые пользователь заменил или убрал на телефоне, лежат в списке
+    // `bad` (см. _retire) — старый ключ из облака («облако первым») больше не перекрывает замену. Новый ключ с ПК (другой отпечаток)
+    // подхватывается как раньше. Основной ключ и дополнительные берутся из ОДНОГО источника — облако или телефон.
     final cloud = await cloudSecrets();
-    if (cloud != null) _takeFallbackKeys(cloud);
-    var found = good(cloud?['TelegramAiKey']);
-    if (found != null) {
+    if (cloud != null) {
+      _takeFallbackKeys(cloud);
+      _cloudList = GeminiKeys.parse(cloud['TelegramAiKey']?.toString(), cloud['TelegramAiKeysExtra']);
+    }
+    var list = <GeminiKeyEntry>[];
+    final cloudMain = GeminiKeys.clean(cloud?['TelegramAiKey']);
+    if (cloudMain.isNotEmpty && !bad.contains(_fp(cloudMain))) {
+      list = _cloudList;
       try {
-        final shared = '$_companyTag\n$found';
+        final shared = '$_companyTag\n$cloudMain';
         if (await _read(_sharedKeyName) != shared) await _storage.write(key: _sharedKeyName, value: shared);
       } catch (_) {
         // не сохранился на телефоне — в этот раз ключ всё равно есть
       }
     }
-    found ??= good(await _read(_keyName));
-    if (found == null) {
+    if (list.isEmpty) list = GeminiKeys.parse(await _read(_keyName), await _read(_extraName));
+    if (list.isEmpty) {
       final shared = await _read(_sharedKeyName);
       final i = shared?.lastIndexOf('\n') ?? -1;
-      if (shared != null && i >= 0 && shared.substring(0, i) == _companyTag) found = good(shared.substring(i + 1));
+      if (shared != null && i >= 0 && shared.substring(0, i) == _companyTag) {
+        final k = GeminiKeys.clean(shared.substring(i + 1));
+        if (k.isNotEmpty && !bad.contains(_fp(k))) list = [GeminiKeyEntry(key: k)];
+      }
     }
-    // Нет связи — прежний ключ этого запуска лучше, чем ничего.
-    if (found == null && cloud == null && _cached != null && !bad.contains(_fp(_cached!))) found = _cached;
-    _cached = found;
+    // Нет связи — прежний список этого запуска лучше, чем ничего.
+    if (list.isEmpty && cloud == null && _list.isNotEmpty) list = _list.where((e) => !bad.contains(_fp(e.key))).toList();
+    _list = list;
     _cachedAt = now;
-    if (found == null) _noKeyUntil = now.add(const Duration(minutes: 5));
-    return found;
+    if (list.isEmpty) _noKeyUntil = now.add(const Duration(minutes: 5));
+  }
+
+  /// 2026-10-27: пользователь заменил или убрал ключ — старый больше не берём ни из облака, ни из «общего» ключа телефона.
+  Future<void> _retire(Iterable<String> keys) async {
+    final bad = await _badKeys();
+    var changed = false;
+    for (final k in keys) {
+      if (k.trim().isNotEmpty && bad.add(_fp(k))) changed = true;
+    }
+    if (changed) await _saveBad();
   }
 
   /// 14.10, владелец: «в мобилке Нур Советник не работает». На кассе при отказе Gemini (кончился бесплатный лимит,
@@ -250,6 +326,7 @@ class VisionService {
 
   /// 2026-10-22 (советник мобилки): запасные ключи (Groq, OpenRouter) — для проверки «есть ли хоть один ключ» (и тестов).
   Future<({String? groq, String? openRouter})> fallbackKeys() async {
+    await requireAccess();
     await _loadFallbackKeys();
     return (groq: _groq, openRouter: _openRouter);
   }
@@ -303,41 +380,37 @@ class VisionService {
     return keys.groq != null || keys.openRouter != null;
   }
 
-  /// 14.10, «Настройка ИИ»: текущие ключи трёх поставщиков (null — нет).
+  /// 14.10, «Настройка ИИ»: текущие ключи трёх поставщиков (null — нет). gemini — первый рабочий ключ списка.
   Future<({String? gemini, String? groq, String? openRouter})> allKeys() async {
-    final g = await key();
+    // 2026-10-26: «Настройку ИИ» открывают и владелец с администратором, которых нет в списке ИИ, — им ключи видны всегда.
+    if (!AiAccess.canManage(api.session)) await requireAccess();
+    final g = await _loadKey();
     await _loadFallbackKeys();
     return (gemini: g, groq: _groq, openRouter: _openRouter);
   }
 
-  /// Сохранить ключи: на телефоне и в личных настройках NurCRM (secrets — как SettingsCloudSync кассы), чтобы работали
-  /// и на кассе, и в программе владельца. null — не менять, пустая строка — убрать ключ.
-  Future<void> saveAllKeys({String? gemini, String? groq, String? openRouter}) async {
-    Future<void> local(String name, String? v) async {
-      if (v == null) return;
-      if (v.trim().isEmpty) {
-        await _storage.delete(key: name);
-      } else {
-        await _storage.write(key: name, value: v.trim());
-      }
+  /// 2026-10-27: весь список ключей Gemini (основной первым) для экрана «Ключи Gemini». Право — как у [allKeys]. [refresh] —
+  /// перечитать из облака и телефона, не ждать 10 минут.
+  Future<List<GeminiKeyEntry>> geminiEntries({bool refresh = false}) async {
+    if (!AiAccess.canManage(api.session)) await requireAccess();
+    if (refresh) {
+      _cachedAt = DateTime(2000);
+      _noKeyUntil = DateTime(2000);
     }
+    await _loadList();
+    return List.of(_list);
+  }
 
-    await local(_keyName, gemini);
-    await local('ai.groq', groq);
-    await local('ai.openrouter', openRouter);
-    if (gemini != null) _cached = gemini.trim().isEmpty ? null : gemini.trim();
-    // 2026-10-22 (аудит С-2): ключ вставили заново — он снова в работе.
-    if (gemini != null && gemini.trim().isNotEmpty) await _unmarkBad(gemini);
-    _cachedAt = DateTime.now();
-    _noKeyUntil = DateTime(2000);
-    if (groq != null) _groq = groq.trim().isEmpty ? null : groq.trim();
-    if (openRouter != null) _openRouter = openRouter.trim().isEmpty ? null : openRouter.trim();
-    final secrets = <String, Object?>{
-      if (gemini != null) 'TelegramAiKey': gemini.trim().isEmpty ? null : gemini.trim(),
-      if (groq != null) 'GroqApiKey': groq.trim().isEmpty ? null : groq.trim(),
-      if (openRouter != null) 'OpenRouterApiKey': openRouter.trim().isEmpty ? null : openRouter.trim(),
-    };
-    if (secrets.isEmpty) return;
+  /// Состояние ключа для экрана: рабочий / исчерпан до … / недействителен / выключен / не проверен.
+  (GeminiKeyState, DateTime?) geminiStateOf(GeminiKeyEntry e) => GeminiKeyPool.stateOf(e, retired: _isBad(e.key));
+
+  /// «Рабочих ключей: N из M».
+  (int, int) geminiCounts(List<GeminiKeyEntry> list) => GeminiKeyPool.counts(list, retired: _isBad);
+
+  /// Отправка секретов в облако (личные настройки NurCRM: касса и программа владельца). Отдельным методом — для тестов на фейках.
+  /// Касса обязательна (ошибка — исключение), программы владельца у пользователя может не быть.
+  @visibleForTesting
+  Future<void> pushSecrets(Map<String, Object?> secrets) async {
     await api.patch('api/users/app-settings/nurmarket-kassa/', body: {'secrets': secrets});
     try {
       await api.patch('api/users/app-settings/nurmarket-owner/', body: {'secrets': secrets});
@@ -346,33 +419,130 @@ class VisionService {
     }
   }
 
-  /// Проверка ключа одним коротким запросом; null — работает, иначе текст ошибки.
+  /// Сохранить ключи: на телефоне и в личных настройках NurCRM (secrets — как SettingsCloudSync кассы), чтобы работали
+  /// и на кассе, и в программе владельца. null — не менять, пустая строка — убрать ключ.
+  /// 2026-10-27: gemini — это ОСНОВНОЙ ключ (первый в списке); остальные ключи списка не трогаются. Возвращает true, если
+  /// облако приняло ключи; false — на телефоне сохранено и работает, а в облако не ушло (раньше здесь падало исключение уже
+  /// ПОСЛЕ записи на телефон, а старый ключ из облака через 10 минут возвращался и перекрывал замену).
+  Future<bool> saveAllKeys({String? gemini, String? groq, String? openRouter}) async {
+    List<GeminiKeyEntry>? list;
+    if (gemini != null) {
+      await _loadList();
+      final k = GeminiKeys.clean(gemini);
+      final rest = _list.skip(1).toList();
+      list = k.isEmpty ? rest : [GeminiKeyEntry(label: _list.isEmpty ? '' : _list.first.label, key: k), ...rest];
+    }
+    return _store(gemini: list, groq: groq, openRouter: openRouter);
+  }
+
+  /// 2026-10-27: сохранить весь список ключей Gemini (порядок, метки, «включён»). Пустые и повторы отбрасываются, не больше 10.
+  /// Основной ключ уходит как раньше (TelegramAiKey), остальные — TelegramAiKeysExtra. true — облако приняло.
+  Future<bool> saveGeminiKeys(List<GeminiKeyEntry> entries) async {
+    await _loadList(); // чтобы знать, какие ключи заменены (их нельзя отдать обратно из облака)
+    return _store(gemini: entries);
+  }
+
+  Future<bool> _store({List<GeminiKeyEntry>? gemini, String? groq, String? openRouter, bool toCloud = true}) async {
+    Future<void> local(String name, String? v) async {
+      if (v == null) return;
+      try {
+        if (v.trim().isEmpty) {
+          await _storage.delete(key: name);
+        } else {
+          await _storage.write(key: name, value: v.trim());
+        }
+      } catch (_) {
+        // хранилище телефона недоступно — работает до перезапуска (как saveKey)
+      }
+    }
+
+    final secrets = <String, Object?>{};
+    if (gemini != null) {
+      final clean = GeminiKeys.normalize(gemini);
+      final (main, extra) = GeminiKeys.encode(clean);
+      // Всё, что было в списке или в облаке, а теперь нет, — заменено: старый ключ не вернётся из облака (см. _loadList).
+      final keep = {for (final e in clean) e.key};
+      final known = <String>{for (final e in [..._list, ..._cloudList]) e.key};
+      final localMain = GeminiKeys.clean(await _read(_keyName));
+      if (localMain.isNotEmpty) known.add(localMain);
+      final shared = await _read(_sharedKeyName);
+      if (shared != null) known.add(GeminiKeys.clean(shared.substring(shared.lastIndexOf('\n') + 1)));
+      await _retire(known.where((k) => k.isNotEmpty && !keep.contains(k)));
+      for (final e in clean) {
+        if (_isBad(e.key) || !_list.any((x) => x.key == e.key)) {
+          await _unmarkBad(e.key); // ключ вставили заново — он снова в работе
+          GeminiKeyPool.clear(e.key);
+        }
+      }
+      await local(_keyName, main ?? '');
+      await local(_extraName, extra ?? '');
+      _list = clean;
+      secrets['TelegramAiKey'] = main;
+      secrets['TelegramAiKeysExtra'] = extra;
+    }
+    await local('ai.groq', groq);
+    await local('ai.openrouter', openRouter);
+    _cachedAt = DateTime.now();
+    _noKeyUntil = DateTime(2000);
+    if (groq != null) {
+      _groq = groq.trim().isEmpty ? null : groq.trim();
+      secrets['GroqApiKey'] = _groq;
+    }
+    if (openRouter != null) {
+      _openRouter = openRouter.trim().isEmpty ? null : openRouter.trim();
+      secrets['OpenRouterApiKey'] = _openRouter;
+    }
+    if (secrets.isEmpty || !toCloud) return true;
+    try {
+      await pushSecrets(secrets);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Лёгкая проверка ключа Gemini: GET списка моделей (не тратит лимит генерации). Обновляет состояние ключа: рабочий снимает
+  /// отметки «исчерпан» и «недействителен». error — текст для показа (сам ключ из него убран).
+  Future<({GeminiKeyState state, DateTime? until, String? error})> checkGeminiKey(String key) async {
+    final k = GeminiKeys.clean(key);
+    String hide(String m) => k.isEmpty ? m : m.replaceAll(k, '***${GeminiKeys.tail(k)}');
+    try {
+      final r = await _http.get<dynamic>(
+        'https://generativelanguage.googleapis.com/v1beta/models',
+        queryParameters: {'pageSize': 1},
+        options: Options(headers: {'x-goog-api-key': k}, validateStatus: (_) => true, sendTimeout: const Duration(seconds: 15), receiveTimeout: const Duration(seconds: 15)),
+      );
+      final status = r.statusCode ?? 0;
+      if (status < 400) {
+        GeminiKeyPool.clear(k);
+        GeminiKeyPool.reportSuccess(k);
+        await _unmarkBad(k);
+        return (state: GeminiKeyState.working, until: null, error: null);
+      }
+      final body = r.data is Map || r.data is List ? jsonEncode(r.data) : '${r.data}';
+      final e = r.data is Map ? (r.data as Map)['error'] : null;
+      final message = hide((e is Map ? e['message']?.toString() : null) ?? 'HTTP $status');
+      if (GeminiKeyPool.reportFailure(k, '*', status, body)) {
+        final st = GeminiKeyPool.stateOf(GeminiKeyEntry(key: k));
+        return (state: st.$1, until: st.$2, error: st.$1 == GeminiKeyState.invalid ? message : null);
+      }
+      return (state: GeminiKeyState.unchecked, until: null, error: message);
+    } on DioException catch (e) {
+      return (state: GeminiKeyState.unchecked, until: null, error: e.message ?? 'нет связи');
+    } catch (_) {
+      return (state: GeminiKeyState.unchecked, until: null, error: 'нет связи');
+    }
+  }
+
+  /// Проверка ключа; null — работает, иначе текст ошибки. Gemini — лёгкий запрос списка моделей, остальные — короткий чат.
   Future<String?> testKey(String provider, String k) async {
+    k = GeminiKeys.clean(k);
     try {
       if (provider == 'gemini') {
-        String? last;
-        for (final model in [?_workingModel, ..._models.where((m) => m != _workingModel)]) {
-          final r = await _http.post<dynamic>(
-            'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
-            data: {
-              'contents': [
-                {
-                  'role': 'user',
-                  'parts': [
-                    {'text': 'Ответь одним словом: ок'},
-                  ],
-                },
-              ],
-              'generationConfig': {'maxOutputTokens': 10},
-            },
-            options: Options(headers: {'x-goog-api-key': k}, validateStatus: (_) => true),
-          );
-          if ((r.statusCode ?? 0) < 400) return null;
-          final e = r.data is Map ? (r.data as Map)['error'] : null; // 2026-10-22: страница ошибки вместо JSON — без падения
-          last = (e is Map ? e['message']?.toString() : null) ?? 'HTTP ${r.statusCode}';
-          if (r.statusCode == 400 || r.statusCode == 401 || r.statusCode == 403) return last;
-        }
-        return last;
+        final r = await checkGeminiKey(k);
+        if (r.state == GeminiKeyState.working) return null;
+        if (r.state == GeminiKeyState.exhausted) return 'исчерпан лимит запросов Google${r.until == null ? '' : ' до ${hm(r.until!)}'}';
+        return r.error ?? 'ключ не подходит';
       }
       final (url, model) = provider == 'groq'
           ? ('https://api.groq.com/openai/v1/chat/completions', 'openai/gpt-oss-120b')
@@ -396,26 +566,28 @@ class VisionService {
     }
   }
 
+  /// Часы:минуты для «исчерпан до …».
+  static String hm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  /// Один ключ (диалог умной камеры «вставьте ключ»). Пустая строка — ключ не подошёл. Вставленный вручную ключ ставится
+  /// ПЕРВЫМ и перекрывает прежний, в том числе облачный (раньше старый облачный ключ возвращался через 10 минут).
   Future<void> saveKey(String value) async {
     // 2026-10-22 (аудит С-2): saveKey('') зовут, когда ключ не подошёл (умная камера), — запоминаем его как «плохой»,
     // иначе key() тут же снова брал тот же ключ из облака. Вставленный вручную — снимаем отметку.
-    if (value.trim().isEmpty) {
-      if (_cached != null) await markBadKey(_cached!);
-    } else {
-      await _unmarkBad(value);
-    }
-    _cached = value.trim().isEmpty ? null : value.trim();
-    _cachedAt = DateTime.now();
-    _noKeyUntil = DateTime(2000);
-    try {
-      if (_cached == null) {
-        await _storage.delete(key: _keyName);
-      } else {
-        await _storage.write(key: _keyName, value: _cached);
+    final k = GeminiKeys.clean(value);
+    if (k.isEmpty) {
+      // не подошёл тот ключ, который Google только что отклонил (в списке он уже помечен «недействителен»), иначе — первый рабочий
+      final rejected = [for (final e in _list) if (GeminiKeyPool.isInvalid(e.key)) e.key];
+      final cur = rejected.isNotEmpty ? rejected : [?_firstUsable()];
+      for (final x in cur) {
+        await markBadKey(x);
       }
-    } catch (_) {
-      // хранилище телефона недоступно — ключ работает до перезапуска
+      _noKeyUntil = DateTime(2000);
+      return;
     }
+    await _loadList();
+    final rest = _list.skip(1).where((e) => e.key != k).toList();
+    await _store(gemini: [GeminiKeyEntry(label: _list.isEmpty ? '' : _list.first.label, key: k), ...rest], toCloud: false);
   }
 
   /// mode: sale — что держит покупатель (обычно 1–3 товара); shelf — полка; invoice — накладная; labels — этикетки.
@@ -475,6 +647,49 @@ class VisionService {
   /// JPEG или PNG — по первым байтам.
   static String imageMime(Uint8List b) => b.length > 2 && b[0] == 0xFF && b[1] == 0xD8 ? 'image/jpeg' : 'image/png';
 
+  /// 2026-10-27 (дополнительные ключи): ключ для запроса к [model] — «первый рабочий» из списка (включённый, не заменённый, не
+  /// «недействителен», не «исчерпан» для этой модели). [k] — ключ, с которым пришёл вызывающий; если его нет в списке (подставлен
+  /// снаружи, например в тестах), ротации нет и используется он. null — свободных ключей для модели нет.
+  String? _keyFor(String model, String k) {
+    final list = _list;
+    if (list.isEmpty || !list.any((e) => e.key == k)) return k;
+    return GeminiKeyPool.pick(model, list, retired: _isBad);
+  }
+
+  /// Ответ Google с ошибкой: лимит (429/RESOURCE_EXHAUSTED/quota) — ключ «исчерпан до …» (минутный — retryDelay или 60 с, суточный —
+  /// до 00:00 тихоокеанского времени); «API key not valid», 401, 403 — «недействителен» (снова пробуется через 30 минут).
+  /// true — ключ помечен и есть другой: тот же запрос стоит повторить с ним (только чтение/генерация, побочных действий нет).
+  bool _rotate(String used, String model, String k, int status, Object? data) {
+    final body = data is Map || data is List ? jsonEncode(data) : '$data';
+    if (!GeminiKeyPool.reportFailure(used, model, status, body)) return false;
+    final next = _keyFor(model, k);
+    return next != null && next != used;
+  }
+
+  /// Текст, когда для модели не осталось ключей: «исчерпан лимит у всех ключей (N), следующая попытка после HH:mm».
+  String _noKeyText(String model) {
+    final on = _list.where((e) => e.enabled).length;
+    final next = GeminiKeyPool.nextFree(_list, model);
+    final when = next == null ? '' : ', следующая попытка после ${hm(next)}';
+    return on > 1 ? 'исчерпан бесплатный лимит у всех ключей Gemini ($on)$when' : 'исчерпан бесплатный лимит запросов Google$when';
+  }
+
+  /// 2026-10-27: звонок (Live) — ключ отказал ДО начала сеанса (лимит или «API key not valid»): помечаем его и отдаём следующий.
+  /// null — других ключей нет (или причина не про ключ). Вызывается из LiveCall синхронно.
+  String? rotateLiveKey(String failedKey, String reason) {
+    if (_list.isEmpty || !_list.any((e) => e.key == failedKey)) return null;
+    final r = reason.toLowerCase();
+    if (r.contains('api key') || r.contains('api_key')) {
+      GeminiKeyPool.markInvalid(failedKey);
+    } else if (['resource_exhausted', 'quota', 'exhausted', 'rate limit', 'rate_limit'].any(r.contains)) {
+      GeminiKeyPool.markQuota(failedKey, _liveModel, reason);
+    } else {
+      return null;
+    }
+    final next = GeminiKeyPool.pick(_liveModel, _list, retired: _isBad);
+    return next != null && next != failedKey ? next : null;
+  }
+
   /// 2026-10-22 (умная камера, аудит У-14/У-15): один запрос умной камеры или весов к Gemini — как у советника: настройка
   /// «размышлений» по модели (без неё Gemini 3 тратил лимит ответа на размышления и отвечал пусто — это был переход к
   /// следующей модели, ещё одно ожидание), общий срок [total] на все модели (раньше: до 60 с на каждую из 5 моделей),
@@ -491,6 +706,11 @@ class VisionService {
         break;
       }
       final step = _thinkStep[model] ?? (model.startsWith('gemini-3') ? 1 : 0);
+      final used = _keyFor(model, k);
+      if (used == null) {
+        lastError ??= _noKeyText(model); // 2026-10-27: все ключи исчерпаны для этой модели — следующая модель
+        continue;
+      }
       try {
         final r = await _http.post<dynamic>(
           'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
@@ -499,12 +719,16 @@ class VisionService {
             1 => {'thinkingLevel': 'low'},
             _ => null,
           }),
-          options: Options(headers: {'x-goog-api-key': k}, validateStatus: (_) => true, sendTimeout: left, receiveTimeout: left),
+          options: Options(headers: {'x-goog-api-key': used}, validateStatus: (_) => true, sendTimeout: left, receiveTimeout: left),
         );
         final status = r.statusCode ?? 0;
         final data = r.data is Map ? (r.data as Map).cast<String, dynamic>() : const <String, dynamic>{};
         if (status >= 400) {
           final message = (data['error'] is Map ? (data['error'] as Map)['message']?.toString() : null) ?? 'HTTP $status';
+          if (_rotate(used, model, k, status, r.data)) {
+            mi--; // 2026-10-27: ключ исчерпан или недействителен — тот же запрос со следующим ключом
+            continue;
+          }
           if (message.contains('API key') || message.contains('API_KEY') || ((status == 401 || status == 403) && !message.toLowerCase().contains('model'))) {
             throw VisionException(message, noKey: true);
           }
@@ -516,7 +740,7 @@ class VisionService {
           if (_workingModel == model) _workingModel = null;
           lastError = switch (status) {
             404 => 'модель $model недоступна',
-            429 => 'исчерпан бесплатный лимит запросов Google — попробуйте через минуту',
+            429 => _list.length > 1 ? _noKeyText(model) : 'исчерпан бесплатный лимит запросов Google — попробуйте через минуту',
             >= 500 => 'нейросеть Google сейчас перегружена — попробуйте через минуту',
             _ => 'ошибка Google $status: $message',
           };
@@ -525,6 +749,7 @@ class VisionService {
         final text = _text(data);
         if (text != null) {
           _workingModel = model;
+          GeminiKeyPool.reportSuccess(used);
           return text;
         }
         lastError = 'нейросеть вернула пустой ответ';
@@ -656,21 +881,35 @@ class VisionService {
     };
     String? lastError;
     for (final search in [true, false]) {
-      for (final model in [?_workingModel, ..._models.where((m) => m != _workingModel)]) {
+      final models = [?_workingModel, ..._models.where((m) => m != _workingModel)];
+      for (var mi = 0; mi < models.length; mi++) {
+        final model = models[mi];
+        final used = _keyFor(model, k);
+        if (used == null) {
+          lastError ??= _noKeyText(model);
+          continue;
+        }
         try {
           final r = await _http.post<Map<String, dynamic>>(
             'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
             data: body(search),
-            options: Options(headers: {'x-goog-api-key': k}, validateStatus: (_) => true),
+            options: Options(headers: {'x-goog-api-key': used}, validateStatus: (_) => true),
           );
           final data = r.data ?? const {};
           if ((r.statusCode ?? 0) >= 400) {
             lastError = (data['error'] is Map ? (data['error'] as Map)['message']?.toString() : null) ?? 'HTTP ${r.statusCode}';
+            if (_rotate(used, model, k, r.statusCode ?? 0, data)) {
+              mi--; // 2026-10-27: следующий ключ списка
+              continue;
+            }
             if (r.statusCode == 400 && (lastError.contains('API key') || lastError.contains('API_KEY'))) throw VisionException(lastError, noKey: true);
             continue;
           }
           final text = _text(data);
-          if (text != null) return text.trim();
+          if (text != null) {
+            GeminiKeyPool.reportSuccess(used);
+            return text.trim();
+          }
         } on DioException catch (e) {
           lastError = e.message;
         }
@@ -749,12 +988,17 @@ class VisionService {
       }
       final limit = mi == 0 ? const Duration(seconds: 25) : const Duration(seconds: 15);
       final step = _thinkStep[model] ?? (model.startsWith('gemini-3') ? 1 : 0);
+      final used = _keyFor(model, k);
+      if (used == null) {
+        lastError ??= _noKeyText(model); // 2026-10-27: все ключи исчерпаны для этой модели — следующая модель
+        continue;
+      }
       try {
         final r = await _http.post<dynamic>(
           'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
           data: body(step),
           options: Options(
-            headers: {'x-goog-api-key': k},
+            headers: {'x-goog-api-key': used},
             validateStatus: (_) => true,
             sendTimeout: limit < left ? limit : left,
             receiveTimeout: limit < left ? limit : left,
@@ -766,9 +1010,15 @@ class VisionService {
           final message = (data['error'] is Map ? (data['error'] as Map)['message']?.toString() : null) ?? 'HTTP $status';
           final badKey =
               message.contains('API key') || message.contains('API_KEY') || ((status == 401 || status == 403) && !message.toLowerCase().contains('model'));
+          if (_rotate(used, model, k, status, r.data)) {
+            mi--; // 2026-10-27: ключ исчерпан или недействителен — тот же вопрос со следующим ключом списка
+            continue;
+          }
           if (badKey) {
-            await markBadKey(k); // 2026-10-22 (аудит С-2): этот ключ больше не берём, пока его не сменят
-            errors.add('Gemini: ключ Google не подходит — проверьте его в программе владельца ($message)');
+            // 2026-10-22 (аудит С-2): этот ключ больше не берём, пока его не сменят. 2026-10-27: теперь на 30 минут (GeminiKeyPool),
+            // а не навсегда — ротация пробует следующий ключ, а этот снова проверит позже.
+            GeminiKeyPool.markInvalid(used);
+            errors.add('Gemini: ключ Google не подходит — проверьте его в «Настройка ИИ» ($message)');
             return null;
           }
           // Модель не принимает настройку «размышлений» (400) — тот же запрос со следующим шагом (как на ПК).
@@ -780,7 +1030,7 @@ class VisionService {
           if (_workingModel == model) _workingModel = null;
           lastError = switch (status) {
             404 => 'модель $model недоступна',
-            429 => 'исчерпан бесплатный лимит запросов Google — попробуйте через минуту',
+            429 => _list.length > 1 ? _noKeyText(model) : 'исчерпан бесплатный лимит запросов Google — попробуйте через минуту',
             >= 500 => 'нейросеть Google сейчас перегружена — попробуйте через минуту',
             _ => 'ошибка Google $status: $message',
           };
@@ -789,6 +1039,7 @@ class VisionService {
         final text = _text(data);
         if (text != null) {
           _workingModel = model;
+          GeminiKeyPool.reportSuccess(used);
           return text.trim();
         }
         final c = data['candidates'];

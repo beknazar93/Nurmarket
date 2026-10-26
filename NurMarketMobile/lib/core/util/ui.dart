@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:intl/intl.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -60,35 +61,56 @@ class Panel extends StatelessWidget {
 }
 
 /// Квадратная кнопка «назад» как на макетах.
+/// 2026-10-26 (живой аудит, П1, Н-2): касание 48 dp (было 42) и подпись «Назад» для TalkBack.
 class BackSquare extends StatelessWidget {
   const BackSquare({super.key});
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(right: 12),
-    child: Material(
-      color: context.pal.panel,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: context.pal.border),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(context).maybePop(),
-        child: const SizedBox(width: 42, height: 42, child: Icon(Icons.chevron_left_rounded)),
+    child: Semantics(
+      button: true,
+      label: context.l.a11yBack,
+      excludeSemantics: true,
+      child: Material(
+        color: context.pal.panel,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: context.pal.border),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.of(context).maybePop(),
+          child: const SizedBox(width: 48, height: 48, child: Icon(Icons.chevron_left_rounded)),
+        ),
       ),
     ),
   );
 }
 
 /// Заголовок экрана: «назад», название и подпись.
+/// 2026-10-26 (живой аудит, П1, В-4): высота шапки считается от размера шрифта системы — при 1,3× шапка (фикс. 72 dp)
+/// переполнялась на 4 px. Экраны ставят её в `appBar:`, а там высота известна заранее без контекста, поэтому масштаб
+/// берётся из платформы (тот же, что и у MediaQuery.textScaler приложения).
 class ScreenTitle extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final String? subtitle;
   final bool back;
   final List<Widget> actions;
   const ScreenTitle(this.title, {super.key, this.subtitle, this.back = true, this.actions = const []});
+
+  /// Отступы шапки: сверху 12, снизу 8.
+  static const _vPad = 20.0;
+
   @override
-  Size get preferredSize => const Size.fromHeight(72);
+  Size get preferredSize {
+    final s = WidgetsBinding.instance.platformDispatcher.textScaleFactor.clamp(1.0, 2.5);
+    // строка названия 20 sp и подписи 12 sp с запасом на высоту строки Montserrat (по снимкам аудита ≈1,35)
+    final text = 20 * 1.45 * s + (subtitle != null ? 12 * 1.45 * s : 0);
+    final content = text > 48 ? text : 48.0;
+    final h = _vPad + content;
+    return Size.fromHeight(h > 72 ? h.ceilToDouble() : 72);
+  }
+
   @override
   Widget build(BuildContext context) => SafeArea(
     bottom: false,
@@ -124,6 +146,23 @@ class ScreenTitle extends StatelessWidget implements PreferredSizeWidget {
     ),
   );
 }
+
+/// 2026-10-26 (живой аудит, П1, Н-1): экран с ТЁМНОЙ шапкой в светлой теме (вход, главная со сменой) — значки строки
+/// состояния (время, сеть) на нём не видны. Оберните такой экран: значки станут светлыми. На светлой шапке в светлой теме
+/// и во всей тёмной теме стиль выбирает само приложение (app.dart).
+class LightStatusBar extends StatelessWidget {
+  final Widget child;
+  const LightStatusBar({super.key, required this.child});
+  @override
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(value: statusBarStyle(dark: true), child: child);
+}
+
+/// Стиль строки состояния: [dark] — тёмный фон под ней (значки светлые).
+SystemUiOverlayStyle statusBarStyle({required bool dark}) => SystemUiOverlayStyle(
+  statusBarColor: Colors.transparent,
+  statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+  statusBarBrightness: dark ? Brightness.dark : Brightness.light, // iOS: наоборот
+);
 
 /// Первые буквы названия — на плитке товара без фото.
 String initials(String name) {
@@ -185,7 +224,8 @@ void toast(BuildContext context, String text, {bool error = false}) {
 }
 
 /// Спросить число (сумма, количество, вес).
-Future<double?> askNumber(BuildContext context, {required String title, String? hint, double? initial, String? ok}) async {
+// 2026-10-26 (живой аудит, П2, Н-10): необязательные подпись поля [label] и единица [suffix] (сом) — поле открытия смены было без подписи.
+Future<double?> askNumber(BuildContext context, {required String title, String? hint, double? initial, String? ok, String? label, String? suffix}) async {
   // 2026-10-21, владелец: «на Enter при добавлении товара в КП и счёт он удаляет или дублирует». Число в поле не было
   // выделено — «1» и набранное «2» давали 12 (количество «удваивалось»); Enter и «Готово» подряд закрывали окно дважды —
   // второе закрытие уводило с экрана документа. Теперь прежнее число выделено (набор заменяет его), окно закрывается один раз.
@@ -212,13 +252,13 @@ Future<double?> askNumber(BuildContext context, {required String title, String? 
         autofocus: true,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textInputAction: TextInputAction.done,
-        decoration: InputDecoration(hintText: hint),
+        decoration: InputDecoration(hintText: hint, labelText: label, suffixText: suffix),
         onSubmitted: (s) => close(c, parseNum(s)),
       ),
       actions: [
         TextButton(onPressed: () => close(c), child: Text(context.l.cancel)),
         FilledButton(
-          style: FilledButton.styleFrom(minimumSize: const Size(110, 44)),
+          style: FilledButton.styleFrom(minimumSize: const Size(110, 48)), // 2026-10-26 (П1): касание 48 dp
           onPressed: () => close(c, parseNum(ctrl.text)),
           child: Text(ok ?? context.l.done),
         ),

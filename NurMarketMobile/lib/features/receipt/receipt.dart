@@ -222,10 +222,12 @@ class Receipt {
       shift: _shiftNo(sale),
       at: at ?? DateTime.tryParse(str(sale, 'created_at') ?? '')?.toLocal() ?? DateTime.now(),
       cashier:
+          // 2026-10-26 (живой аудит, П4): сервер отдаёт кассира в cashier_display, а кассу — в cashbox_name
+          str(sale, 'cashier_display') ??
           str(sale, 'cashier_name') ??
           str(sale, 'user_display') ??
           (sale['user'] is Map ? str((sale['user'] as Map).cast<String, dynamic>(), 'full_name') ?? '' : ''),
-      cashbox: str(sale, 'cashbox_name') ?? '',
+      cashbox: str(sale, 'cashbox_name') ?? str(sale, 'cashbox_display') ?? '',
       client: client,
       lines: lines,
       discount: roundMoney((gross - total).clamp(0, double.infinity).toDouble()),

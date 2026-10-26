@@ -40,7 +40,10 @@ class ProductFilterBar extends ConsumerStatefulWidget {
   final StockFilter stock;
   final String? category;
   final void Function(StockFilter stock, String? category) onChanged;
-  const ProductFilterBar({super.key, required this.stock, required this.category, required this.onChanged});
+
+  /// 2026-10-26 (живой аудит, П7): отступ внутри прокрутки — крайние чипы не обрезаются по краю отступа экрана.
+  final EdgeInsets padding;
+  const ProductFilterBar({super.key, required this.stock, required this.category, required this.onChanged, this.padding = EdgeInsets.zero});
   @override
   ConsumerState<ProductFilterBar> createState() => _ProductFilterBarState();
 }
@@ -64,10 +67,12 @@ class _ProductFilterBarState extends ConsumerState<ProductFilterBar> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // 2026-10-26 (живой аудит, П7): 44 dp обрезали чип (область касания 48 dp, шрифт 1,3×) — теперь 52.
         SizedBox(
-          height: 44,
+          height: 52,
           child: ListView(
             scrollDirection: Axis.horizontal,
+            padding: widget.padding,
             children: [
               for (final (f, label) in [
                 (StockFilter.all, l.filterAll),
@@ -81,9 +86,10 @@ class _ProductFilterBarState extends ConsumerState<ProductFilterBar> {
         ),
         if (_categories.isNotEmpty)
           SizedBox(
-            height: 44,
+            height: 52,
             child: ListView(
               scrollDirection: Axis.horizontal,
+              padding: widget.padding,
               children: [
                 chip(l.allCategories, widget.category == null, () => widget.onChanged(widget.stock, null)),
                 for (final c in _categories) chip(c, widget.category == c, () => widget.onChanged(widget.stock, c)),

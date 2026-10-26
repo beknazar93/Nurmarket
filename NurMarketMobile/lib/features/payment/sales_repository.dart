@@ -28,8 +28,12 @@ class Client {
   /// 2026-10-21: для КП и счёта — компания (поле llc NurCRM) и ИНН покупателя.
   final String company;
   final String inn;
-  const Client(this.id, this.name, this.phone, {this.company = '', this.inn = ''});
+
+  /// 2026-10-26 (живой аудит, П4): текущий долг клиента (из списка должников) — окно выбора и оплата в долг его показывают.
+  final double debt;
+  const Client(this.id, this.name, this.phone, {this.company = '', this.inn = '', this.debt = 0});
   String get display => phone.isEmpty ? name : '$name · $phone';
+  Client withDebt(double d) => Client(id, name, phone, company: company, inn: inn, debt: d);
 }
 
 /// 2026-10-22 (мобилка, деньги): сервер не ответил на продажу, которую нельзя поставить в очередь (долг, бонусы) —
@@ -217,7 +221,7 @@ class SalesRepository {
   Future<Map<String, dynamic>> _send(Map<String, dynamic> body, String key, {Duration timeout = const Duration(seconds: 15)}) async {
     final resp = await api.post('api/main/pos/checkout/', body: body, headers: {'Idempotency-Key': key}, timeout: timeout);
     // Ответ не того вида — исход неизвестен (как обрыв): повтор тем же ключом.
-    if (resp is! Map) throw ApiException('Ошибка сервера 502.', status: 502);
+    if (resp is! Map) throw ApiException(ApiText.serverError(502), status: 502);
     return resp.cast<String, dynamic>();
   }
 

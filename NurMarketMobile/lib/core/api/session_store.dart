@@ -55,9 +55,15 @@ class Session {
   static const editPrice = 'can_view_market_edit_price';
   static const procurement = 'can_view_market_procurement';
   static const supplier = 'can_view_market_supplier';
+  // 2026-10-26 (голос-управление, В7): зарплата и задачи сотрудникам — флаги сервера (EmployeeUpdate: can_view_salary,
+  // can_edit_salary, can_view_employees). Выплата и схема оплаты — только с editSalary; смотреть начисления — viewSalary.
+  static const viewSalaryFlag = 'can_view_salary';
+  static const editSalaryFlag = 'can_edit_salary';
+  static const viewEmployees = 'can_view_employees';
 
   /// Разделы, которые сайт владельцу открывает всегда (PosPermissions.OwnerSections кассы).
-  static const _ownerSections = {viewProducts, viewAnalytics, viewClients, viewOrders};
+  // 2026-10-26 (голос-управление, В7): и зарплата с сотрудниками — владельцу открыты всегда.
+  static const _ownerSections = {viewProducts, viewAnalytics, viewClients, viewOrders, viewSalaryFlag, editSalaryFlag, viewEmployees};
 
   /// Право как у кассы: флаг с сервера; владельцу — его разделы; продажи/долги — всем. Роль сама прав не даёт.
   bool can(String p) {
@@ -80,6 +86,15 @@ class Session {
   /// сервер ставит по тарифу (комментарий PermissionService кассы), поэтому владельца и администратора не запираем,
   /// а сотруднику нужен «Закупки» или «Поставщики» — раньше хватало одного «Склада».
   bool get canProcure => isAdmin || can(procurement) || can(supplier);
+
+  /// 2026-10-26 (голос-управление, В7): смотреть начисления зарплаты (экран «Зарплата», табель с суммами, голосом «сколько должен»).
+  bool get viewSalary => isOwner || can(viewSalaryFlag);
+
+  /// 2026-10-26 (голос-управление, В7): выплачивать зарплату и менять схему оплаты (деньги — только с этим правом).
+  bool get editSalary => isOwner || can(editSalaryFlag);
+
+  /// 2026-10-26 (голос-управление, В7): ставить задачи сотрудникам и видеть чужие (администратор или «Сотрудники»).
+  bool get manageTasks => isAdmin || can(viewEmployees);
 
   /// Разделы, которым кроме [routePermission] нужны закупки (см. [canProcure]).
   static const _procureRoutes = {'/admin/receive', '/admin/purchase'};
@@ -115,16 +130,21 @@ class Session {
       case '/admin/esf':
       case '/admin/debt-access':
         return viewSettings;
+      // 2026-10-26 (голос-управление, В7): зарплата — can_view_salary; «Задачи» (/admin/tasks) проверяет canRoute через
+      // manageTasks, «Мои задачи» (/tasks/my) открыты всем.
+      case '/admin/salary':
+        return viewSalaryFlag;
     }
     return null;
   }
 
   /// «Управление» на главной: администратор/владелец или сотрудник, которому открыт хоть один раздел управления.
-  bool get showAdmin => isAdmin || const [viewAnalytics, viewOrders, viewShifts, viewSettings].any(can);
+  bool get showAdmin => isAdmin || const [viewAnalytics, viewOrders, viewShifts, viewSettings, viewSalaryFlag].any(can) || manageTasks;
 
   bool canRoute(String loc) {
     // 2026-10-22 (мобилка, админ, П9): уведомления — раздел управления (заказы, долги, остатки), раньше открывался всем.
     if (loc == '/admin' || loc == '/admin/notifications') return showAdmin;
+    if (loc == '/admin/tasks') return manageTasks; // 2026-10-26 (голос-управление, В7)
     final p = routePermission(loc);
     if (p != null && !can(p)) return false;
     return !_procureRoutes.contains(loc) || canProcure;

@@ -130,11 +130,19 @@ Widget reportError(BuildContext context, Object? error, VoidCallback retry) => P
     children: [
       Icon(Icons.cloud_off_rounded, size: 40, color: context.pal.textSoft),
       const SizedBox(height: 8),
-      Text(context.l.reportLoadFailed, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700)),
+      Text(
+        context.l.reportLoadFailed,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
       if (error is ApiException && error.message.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(top: 4),
-          child: Text(error.message, textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, color: context.pal.textSoft)),
+          child: Text(
+            error.message,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11.5, color: context.pal.textSoft),
+          ),
         ),
       const SizedBox(height: 12),
       FilledButton.icon(onPressed: retry, icon: const Icon(Icons.refresh_rounded), label: Text(context.l.retry)),
@@ -245,75 +253,116 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
                 ),
                 FieldLabel(l.revenueByDay),
                 Panel(
-                  child: SizedBox(
-                    height: 150,
-                    child: s.byDay.isEmpty
-                        ? Center(
+                  child: s.byDay.isEmpty
+                      ? SizedBox(
+                          height: 150,
+                          child: Center(
                             child: Text(l.noSalesPeriod, style: TextStyle(color: pal.textSoft)),
-                          )
-                        : _DayBars(s.byDay),
-                  ),
+                          ),
+                        )
+                      : RevenueDayBars(s.byDay),
                 ),
                 if (s.payments.isNotEmpty) ...[
                   FieldLabel(l.paymentMethods),
                   Panel(
                     child: Column(
-                      children: [
-                        for (final e in s.payments.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              children: [
-                                SizedBox(width: 110, child: Text(paymentName(context, e.key))),
-                                Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: LinearProgressIndicator(
-                                      value: s.revenue <= 0 ? 0 : (e.value / s.payments.values.fold(0.0, (a, b) => a + b)).clamp(0, 1).toDouble(),
-                                      minHeight: 10,
-                                      color: T.navy,
-                                      backgroundColor: pal.border,
+                      children: () {
+                        // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — у каждого способа оплаты свой цвет (по ключу, не по порядку).
+                        final methods = s.payments.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+                        final colors = ChartColors.assign([for (final e in methods) e.key]);
+                        return [
+                          for (var i = 0; i < methods.length; i++)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 10,
+                                    height: 10,
+                                    margin: const EdgeInsets.only(right: 8),
+                                    decoration: BoxDecoration(color: colors[i], borderRadius: BorderRadius.circular(3)),
+                                  ),
+                                  SizedBox(width: 100, child: Text(paymentName(context, methods[i].key))),
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: LinearProgressIndicator(
+                                        value: s.revenue <= 0 ? 0 : (methods[i].value / s.payments.values.fold(0.0, (a, b) => a + b)).clamp(0, 1).toDouble(),
+                                        minHeight: 10,
+                                        color: colors[i],
+                                        backgroundColor: pal.border,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  width: 90,
-                                  child: Text(
-                                    money(e.value),
-                                    textAlign: TextAlign.right,
-                                    style: const TextStyle(fontWeight: FontWeight.w700),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 90,
+                                    child: Text(
+                                      money(methods[i].value),
+                                      textAlign: TextAlign.right,
+                                      style: const TextStyle(fontWeight: FontWeight.w700),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                      ],
+                        ];
+                      }(),
                     ),
                   ),
                 ],
                 FieldLabel(l.topProducts),
                 if (products.isEmpty) Text(l.noSalesPeriod, style: TextStyle(color: pal.textSoft)),
-                for (final p in (products.toList()..sort((a, b) => b.revenue.compareTo(a.revenue))).take(10))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Panel(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              p.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w700),
-                            ),
+                // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — у каждого товара свой цвет по названию (стабилен при смене
+                // сортировки и периода), полоса — доля от лучшего товара.
+                ...() {
+                  final top = (products.toList()..sort((a, b) => b.revenue.compareTo(a.revenue))).take(10).toList();
+                  final colors = ChartColors.assign([for (final p in top) p.name]);
+                  final topMax = top.fold(0.0, (m, p) => math.max(m, p.revenue));
+                  return [
+                    for (var i = 0; i < top.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Panel(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 10,
+                                    height: 10,
+                                    margin: const EdgeInsets.only(right: 8),
+                                    decoration: BoxDecoration(color: colors[i], borderRadius: BorderRadius.circular(3)),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      top[i].name,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.w700),
+                                    ),
+                                  ),
+                                  Text('${qtyText(top[i].qty)} · ', style: TextStyle(color: pal.textSoft)),
+                                  Text(money(top[i].revenue), style: const TextStyle(fontWeight: FontWeight.w800)),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: topMax <= 0 ? 0 : (top[i].revenue / topMax).clamp(0, 1).toDouble(),
+                                  minHeight: 6,
+                                  color: colors[i],
+                                  backgroundColor: pal.border,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text('${qtyText(p.qty)} · ', style: TextStyle(color: pal.textSoft)),
-                          Text(money(p.revenue), style: const TextStyle(fontWeight: FontWeight.w800)),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+                  ];
+                }(),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(onPressed: () => context.push('/admin/abc'), icon: const Icon(Icons.bar_chart_rounded), label: Text(l.abcTitle)),
               ]);
@@ -326,34 +375,138 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
   }
 }
 
-class _DayBars extends StatelessWidget {
+/// 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах». Выручка по дням — ВРЕМЕННОЙ ряд: столбцы одного оттенка, но лучший день —
+/// акцентом (жёлтый), самый слабый — приглушённо, сегодня — контуром; под графиком легенда. Выделения — только когда есть что
+/// сравнивать (минимум два дня с продажами, значения не одинаковые; «самый слабый» — от трёх дней с продажами).
+class RevenueDayBars extends StatelessWidget {
   final List<(DateTime, double)> days;
-  const _DayBars(this.days);
+
+  /// «Сегодня» — для проверки в тестах; в приложении текущая дата.
+  final DateTime? today;
+  const RevenueDayBars(this.days, {super.key, this.today});
+
+  /// Номера столбцов: лучшие (все с наибольшей выручкой) и самые слабые (с наименьшей, но не нулевой).
+  static (Set<int>, Set<int>) marks(List<(DateTime, double)> days) {
+    final sold = [
+      for (var i = 0; i < days.length; i++)
+        if (days[i].$2 > 0) i,
+    ];
+    if (sold.length < 2) return ({}, {});
+    final hi = sold.map((i) => days[i].$2).reduce(math.max);
+    final lo = sold.map((i) => days[i].$2).reduce(math.min);
+    if (hi == lo) return ({}, {});
+    return (
+      {
+        for (final i in sold)
+          if (days[i].$2 == hi) i,
+      },
+      sold.length >= 3
+          ? {
+              for (final i in sold)
+                if (days[i].$2 == lo) i,
+            }
+          : <int>{},
+    );
+  }
+
+  /// Цвета: обычный столбец — тёмный (в тёмной теме — светло-серый, жёлтый зарезервирован под лучший день).
+  static Color baseColor(bool dark) => dark ? const Color(0xFF9AA3B2) : T.navy;
+
   @override
   Widget build(BuildContext context) {
+    final l = context.l;
     final pal = context.pal;
+    final now = today ?? DateTime.now();
     final max = days.map((d) => d.$2).fold(0.0, math.max);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    final (best, worst) = marks(days);
+    final base = baseColor(pal.dark);
+    final todayIdx = [
+      for (var i = 0; i < days.length; i++)
+        if (DateUtils.isSameDay(days[i].$1, now)) i,
+    ];
+    Widget chip(Color fill, String text, {Color? border}) => Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        for (final (d, v) in days)
-          Expanded(
-            child: Tooltip(
-              message: '${d.day}.${d.month.toString().padLeft(2, '0')} · ${money(v)}',
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Container(
-                    height: max <= 0 ? 2 : math.max(2, 120 * v / max),
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    decoration: BoxDecoration(color: pal.dark ? T.accent : T.navy, borderRadius: BorderRadius.circular(4)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text('${d.day}', style: TextStyle(fontSize: 9.5, color: pal.textSoft)),
-                ],
-              ),
-            ),
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(3),
+            border: border == null ? null : Border.all(color: border, width: 2),
           ),
+        ),
+        const SizedBox(width: 6),
+        Text(text, style: TextStyle(fontSize: 11.5, color: pal.textSoft)),
+      ],
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 150,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (var i = 0; i < days.length; i++)
+                Expanded(
+                  child: Tooltip(
+                    message:
+                        '${days[i].$1.day}.${days[i].$1.month.toString().padLeft(2, '0')} · ${money(days[i].$2)}${best.contains(i) ? ' · ${l.chartBestDay}' : (worst.contains(i) ? ' · ${l.chartWorstDay}' : '')}',
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        () {
+                          final bar = Container(
+                            height: max <= 0 ? 2 : math.max(2, 120 * days[i].$2 / max),
+                            margin: todayIdx.contains(i) ? null : const EdgeInsets.symmetric(horizontal: 2),
+                            decoration: BoxDecoration(
+                              color: best.contains(i) ? T.accent : (worst.contains(i) ? base.withValues(alpha: .4) : base),
+                              borderRadius: BorderRadius.circular(4),
+                              // жёлтый столбец в светлой теме — тёмно-жёлтым контуром (жёлтый на белом 1,8:1)
+                              border: best.contains(i) && !pal.dark ? Border.all(color: const Color(0xFF8A6200), width: 1) : null,
+                            ),
+                          );
+                          // сегодня — кольцо цвета текста вокруг столбца (столбец тёмный, обычный контур на нём не виден)
+                          if (!todayIdx.contains(i)) return bar;
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: pal.text, width: 1.5),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: bar,
+                          );
+                        }(),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${days[i].$1.day}',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: todayIdx.contains(i) ? pal.text : pal.textSoft,
+                            fontWeight: todayIdx.contains(i) ? FontWeight.w800 : FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (best.isNotEmpty || worst.isNotEmpty || todayIdx.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 14,
+            runSpacing: 4,
+            children: [
+              if (best.isNotEmpty) chip(T.accent, l.chartBestDay, border: pal.dark ? null : const Color(0xFF8A6200)),
+              if (worst.isNotEmpty) chip(base.withValues(alpha: .4), l.chartWorstDay),
+              if (todayIdx.isNotEmpty) chip(Colors.transparent, l.periodToday, border: pal.text),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -448,10 +601,16 @@ class _AbcScreenState extends ConsumerState<AbcScreen> {
               return (n, total <= 0 ? 0 : sum / total * 100);
             }
 
-            Color groupColor(String g) => g == 'A' ? (pal.dark ? T.accent : T.navy) : (g == 'B' ? const Color(0xFFF2B300) : pal.textSoft);
+            // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — группы ABC как в кассе (BarChartRenderer.AbcColor): A зелёный,
+            // B жёлтый, C синий (было тёмный/жёлтый/серый). Столбцы ≥ 3:1 на белом и тёмной панели; для текста — отдельные оттенки.
+            Color groupColor(String g) => g == 'A' ? const Color(0xFF16A34A) : (g == 'B' ? const Color(0xFFF2B300) : const Color(0xFF3B82F6));
             // 2026-10-21, владелец: жёлтая буква «B» на белом не читалась — у текста в светлой теме тёмно-жёлтый (контраст ≈ 8:1),
-            // столбцы графика остаются жёлтыми.
-            Color groupText(String g) => g == 'B' && !pal.dark ? const Color(0xFF7A5A00) : groupColor(g);
+            // столбцы графика остаются жёлтыми. 2026-10-26: так же для A и C — текстом тёмные (светлая тема) или светлые (тёмная) оттенки, ≥ 4,5:1.
+            Color groupText(String g) => switch (g) {
+              'A' => pal.dark ? const Color(0xFF4ADE80) : const Color(0xFF0E7A3A),
+              'B' => pal.dark ? const Color(0xFFF2B300) : const Color(0xFF7A5A00),
+              _ => pal.dark ? const Color(0xFF60A5FA) : const Color(0xFF1D4ED8),
+            };
             Widget tile(String g, String title) {
               final (n, share) = stat(g);
               return Expanded(

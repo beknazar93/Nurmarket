@@ -151,6 +151,35 @@ class OpsRepository {
     return out;
   }
 
+  /// 2026-10-26 (живой аудит, П5): последний загруженный список должников — показывается с «Повторить», когда связи нет.
+  /// Хранится в настройках телефона (не в схеме базы); [owner] — чужой список другому аккаунту не показываем.
+  static const _debtorsCacheKey = 'debtors.cache';
+
+  Future<void> cacheDebtors(String owner, List<Debtor> rows) => db.setSetting(
+    _debtorsCacheKey,
+    jsonEncode({
+      'owner': owner,
+      'rows': [
+        for (final d in rows) {'id': d.clientId, 'n': d.name, 'p': d.phone, 'd': d.debt, 'c': d.salesCount},
+      ],
+    }),
+  );
+
+  Future<List<Debtor>?> cachedDebtors(String owner) async {
+    final raw = await db.getSetting(_debtorsCacheKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
+      if (m['owner'] != owner) return null;
+      return [
+        for (final r in (m['rows'] as List).cast<Map<String, dynamic>>())
+          Debtor(r['id'] as String, r['n'] as String? ?? '', r['p'] as String? ?? '', (r['d'] as num?)?.toDouble() ?? 0, (r['c'] as num?)?.toInt() ?? 0),
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Оплата долга одной суммой: сервер гасит от старых долгов к новым; повтор с тем же ключом не проводит деньги дважды.
   /// 2026-10-22 (мобилка, деньги): ключ живёт до успеха (раньше — только пока открыт диалог: повтор после ошибки = новый).
   Future<Map<String, dynamic>> payDebt({required String clientId, required double amount, required String method, String? shiftId}) =>

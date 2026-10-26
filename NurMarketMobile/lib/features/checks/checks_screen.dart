@@ -155,10 +155,23 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
               ),
             ),
             if (_loading && !_unsent) const LinearProgressIndicator(),
+            // 2026-10-26 (живой аудит, П5): ошибка с «Повторить»; последний загруженный список остаётся на экране.
             if (_error != null && !_unsent)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text(_error!, style: const TextStyle(color: T.danger, fontSize: 12.5)),
+                padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.wifi_off_rounded, color: pal.danger, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _server.isEmpty ? '${l.checksLoadFailed}: $_error' : l.listCachedNote,
+                        style: TextStyle(color: pal.danger, fontSize: 12.5),
+                      ),
+                    ),
+                    TextButton(onPressed: _loading ? null : _load, child: Text(l.retry)),
+                  ],
+                ),
               ),
             Expanded(
               child: RefreshIndicator(
@@ -326,7 +339,8 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
         subtitle: [at, s?.userName].whereType<String>().where((e) => e.isNotEmpty).join(' · '),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        // 2026-10-26 (живой аудит, П5): кнопки действий — в прокрутке с отступом снизу не меньше 24 dp (и над жестовой полосой).
+        padding: EdgeInsets.fromLTRB(16, 4, 16, 24 + MediaQuery.paddingOf(context).bottom),
         children: [
           if (r.pending)
             Container(
@@ -352,7 +366,18 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.all(8),
-              child: Text(_error!, style: const TextStyle(color: T.danger)),
+              child: Row(
+                children: [
+                  Expanded(child: Text(_error!, style: TextStyle(color: pal.danger))),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _error = null);
+                      _load();
+                    },
+                    child: Text(l.retry),
+                  ),
+                ],
+              ),
             ),
           if (_receipt() case final receipt?) ReceiptView(receipt: receipt),
           const SizedBox(height: 14),

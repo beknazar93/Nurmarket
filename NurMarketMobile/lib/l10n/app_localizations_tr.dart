@@ -386,34 +386,6 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
-  String get durationLabel => 'Süre';
-
-  @override
-  String get mastersLabel => 'Ustalar · kendi fiyat ve yüzde';
-
-  @override
-  String get masterAdd => 'Usta ekle';
-
-  @override
-  String get masterName => 'Usta adı';
-
-  @override
-  String get masterPercent => '% ustaya';
-
-  @override
-  String get consumablesLabel => 'Depodan sarf malzemesi';
-
-  @override
-  String get consumableAdd => 'Sarf malzemesi ekle';
-
-  @override
-  String get onlineBooking => 'Sitede ve botta çevrimiçi randevu';
-
-  @override
-  String get serviceLocalNote =>
-      'Ustalar, süre ve malzemeler sunucu API\'si olana kadar bu telefonda saklanır. Hizmetin kendisi NurCRM kataloğundadır.';
-
-  @override
   String get saveService => 'Hizmeti kaydet';
 
   @override
@@ -445,61 +417,7 @@ class AppLocalizationsTr extends AppLocalizations {
       'İnternetten fiyat alınmaz — kendinizinkini girin.';
 
   @override
-  String get bookingsTitle => 'Hizmetler · randevu';
-
-  @override
   String get dayToday => 'Bugün';
-
-  @override
-  String get dayTomorrow => 'Yarın';
-
-  @override
-  String get allMasters => 'Tüm ustalar';
-
-  @override
-  String get bookNew => 'Randevu ver';
-
-  @override
-  String get bookCheckout => 'Hesapla';
-
-  @override
-  String get bookArrived => 'geldi';
-
-  @override
-  String get bookBooked => 'kayıtlı';
-
-  @override
-  String get bookPaid => 'ödendi';
-
-  @override
-  String get bookFree => 'boş';
-
-  @override
-  String get bookMarkArrived => 'Geldi olarak işaretle';
-
-  @override
-  String get bookRemind => 'WhatsApp\'tan hatırlat';
-
-  @override
-  String get bookCancel => 'Randevuyu iptal et';
-
-  @override
-  String get bookTime => 'Saat';
-
-  @override
-  String get bookClash => 'Ustanın bu saatte randevusu var.';
-
-  @override
-  String get bookNoMasters => 'Henüz usta yok — hizmet oluştururken ekleyin.';
-
-  @override
-  String get bookLocalNote =>
-      'Randevular sunucu API\'si olana kadar bu telefonda saklanır. Ödeme normal NurCRM fişidir.';
-
-  @override
-  String bookReminder(String name, String when, String master) {
-    return 'Merhaba $name! $when $master randevunuzu hatırlatırız.';
-  }
 
   @override
   String get pricesTitle => 'Satış fiyatları';
@@ -909,6 +827,12 @@ class AppLocalizationsTr extends AppLocalizations {
   String get paymentMethods => 'Ödeme yöntemleri';
 
   @override
+  String get chartBestDay => 'En iyi gün';
+
+  @override
+  String get chartWorstDay => 'En zayıf gün';
+
+  @override
   String get topProducts => 'En çok satanlar';
 
   @override
@@ -1104,43 +1028,7 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
-  String smartPartial(int done, int total, int left) {
-    return '$total satırdan $done işlendi, $left işlenmedi — «Yükle»ye tekrar basın: işlenenler ikinci kez eklenmez.';
-  }
-
-  @override
-  String get smartNoLink =>
-      'Sunucu ile bağlantı yok — hiçbir şey işlenmedi. Liste ekranda kaldı, internet gelince tekrarlayın.';
-
-  @override
-  String smartRowRejected(String reason) {
-    return 'Reddedildi: $reason';
-  }
-
-  @override
-  String get smartRowUnknown =>
-      'Sunucudan yanıt yok — tekrarlayın: stok iki kez eklenmez.';
-
-  @override
-  String get smartRowLocked =>
-      'Bu satır sunucuya zaten gönderildi — ürün ve ad değiştirilemez, yüklemeyi tekrarlayın.';
-
-  @override
-  String get smartPendingReceipt =>
-      'Önceki tedarikçi girişi yanıtsız kaldı — önce «Tedarikçiyle kabul»den tekrarlayın, aksi halde stok iki kez eklenebilir.';
-
-  @override
-  String get smartPendingStock =>
-      'Bazı satırlar için sunucudan yanıt yok — önce «Yükle»ye tekrar basın: stok iki kez eklenmez.';
-
-  @override
   String get sellingPrice => 'Satış fiyatı';
-
-  @override
-  String get durationCustom => 'Özel…';
-
-  @override
-  String get minutesHint => 'dakika';
 
   @override
   String get photoLabel => 'Fotoğraf';
@@ -3382,4 +3270,1312 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get peNoAccess =>
       'Ürünü \"Depo\" yetkisi olan çalışan veya yönetici düzenleyebilir.';
+
+  @override
+  String get smartNoLink =>
+      'Sunucu ile bağlantı yok — hiçbir şey işlenmedi. Liste ekranda kaldı, internet gelince tekrarlayın.';
+
+  @override
+  String smartPartial(int done, int total, int left) {
+    return '$total satırdan $done işlendi, $left işlenmedi — «Yükle»ye tekrar basın: işlenenler ikinci kez eklenmez.';
+  }
+
+  @override
+  String get smartPendingReceipt =>
+      'Önceki tedarikçi girişi yanıtsız kaldı — önce «Tedarikçiyle kabul»den tekrarlayın, aksi halde stok iki kez eklenebilir.';
+
+  @override
+  String get smartPendingStock =>
+      'Bazı satırlar için sunucudan yanıt yok — önce «Yükle»ye tekrar basın: stok iki kez eklenmez.';
+
+  @override
+  String get smartRowLocked =>
+      'Bu satır sunucuya zaten gönderildi — ürün ve ad değiştirilemez, yüklemeyi tekrarlayın.';
+
+  @override
+  String smartRowRejected(String reason) {
+    return 'Reddedildi: $reason';
+  }
+
+  @override
+  String get smartRowUnknown =>
+      'Sunucudan yanıt yok — tekrarlayın: stok iki kez eklenmez.';
+
+  @override
+  String payDebtLeft(String sum) {
+    return 'Kalan borç: $sum';
+  }
+
+  @override
+  String get debtReceiptTitle => 'Borç ödeme makbuzu';
+
+  @override
+  String get returnsTitle => 'İadeler';
+
+  @override
+  String get shDebtPayments => 'Borç ödemeleri';
+
+  @override
+  String get shDebtPrepay => 'Borca ön ödeme';
+
+  @override
+  String get exitPressAgain => 'Çıkmak için tekrar basın';
+
+  @override
+  String get createProductWithCode => 'Bu kodla ürün oluştur';
+
+  @override
+  String get printLabel => 'Etiket yazdır';
+
+  @override
+  String get openingCashField => 'Vardiya başında kasadaki tutar';
+
+  @override
+  String get advisorGreeting =>
+      'Merhaba! Ben Nur Danışman. Satışlar, borçlar veya stok hakkında sorun — mağazanızın verilerine göre yanıtlarım.';
+
+  @override
+  String get a11yBack => 'Geri';
+
+  @override
+  String get a11yShowPassword => 'Şifreyi göster';
+
+  @override
+  String get a11yHidePassword => 'Şifreyi gizle';
+
+  @override
+  String get a11yScanner => 'Tarayıcı';
+
+  @override
+  String get a11yCallAi => 'YZ\'yi ara';
+
+  @override
+  String get stockNone => 'yok';
+
+  @override
+  String get cartEmptyHint =>
+      'Ürün ekleyin: arayın, tarayın veya kutuya dokunun';
+
+  @override
+  String get toProductsBtn => 'Ürünlere';
+
+  @override
+  String get closeBtn => 'Kapat';
+
+  @override
+  String clientDebtLine(String sum) {
+    return 'Borç: $sum som';
+  }
+
+  @override
+  String get apiNoToken => 'Sunucu jeton döndürmedi.';
+
+  @override
+  String get apiSessionExpired => 'Oturum süresi doldu — tekrar giriş yapın.';
+
+  @override
+  String get apiTimeout => 'Sunucu zamanında yanıt vermedi.';
+
+  @override
+  String get apiNoConnection => 'Sunucu ile bağlantı yok.';
+
+  @override
+  String apiServerError(String code) {
+    return 'Sunucu hatası $code.';
+  }
+
+  @override
+  String get apiNetworkError => 'Ağ hatası.';
+
+  @override
+  String get adminNoLink => 'bağlantı yok';
+
+  @override
+  String printLabelAsk(String name, String code) {
+    return '\"$name\" için etiket yazdırılsın mı? Barkod $code';
+  }
+
+  @override
+  String get notNow => 'Şimdi değil';
+
+  @override
+  String get bcGenTaken =>
+      'Bu kod sunucuda zaten kullanılıyor — yenisi verildi.';
+
+  @override
+  String get tapePrint => 'Yazdır';
+
+  @override
+  String get tapeSend => 'Gönder';
+
+  @override
+  String get zReport => 'Vardiya Z-raporu';
+
+  @override
+  String get xReportNote => 'X raporu ara rapordur: vardiya kapatılmadı.';
+
+  @override
+  String get shSalesBlock => 'Satışlar';
+
+  @override
+  String get shCashBlock => 'Kasadaki para';
+
+  @override
+  String get shPrepayIncluded => 'nakit/nakitsizde: borca ön ödeme dahil';
+
+  @override
+  String get shReturnsUnknown => 'Vardiya iadeleri yüklenemedi — bağlantı yok.';
+
+  @override
+  String shReturnsPartial(int n) {
+    return 'Kısmen: sunucu yanıtında kasiyeri olmayan $n iade sayılmadı. Siteden kontrol edin.';
+  }
+
+  @override
+  String returnsCountN(int n) {
+    return '$n iade';
+  }
+
+  @override
+  String get shReturnsCash => 'Nakit iadeler';
+
+  @override
+  String get shCalcRow => 'Satırlardan hesap';
+
+  @override
+  String shMismatch(String sum) {
+    return 'Satır toplamı sunucudan $sum som farklı — sunucu rakamına güvenin.';
+  }
+
+  @override
+  String get shNoSplit =>
+      'İade ve borç ödemesi dökümü yok — «Kasada olması gereken» sunucudan alındı.';
+
+  @override
+  String get shPartial =>
+      'Bazı veriler yüklenemedi (bağlantı yok) — ekranı yenileyin.';
+
+  @override
+  String get debtReceiptBefore => 'Ödemeden önceki borç';
+
+  @override
+  String get debtReceiptMethod => 'Ödeme yöntemi';
+
+  @override
+  String get debtReceiptAccepted => 'Kabul edildi';
+
+  @override
+  String get debtReceiptCleared => 'Borç tamamen ödendi.';
+
+  @override
+  String debtReceiptAcceptedLine(String sum, String left) {
+    return 'Kabul edildi $sum, kalan $left';
+  }
+
+  @override
+  String get returnReasonTitle => 'İade nedeni (isteğe bağlı)';
+
+  @override
+  String get returnReasonLabelShort => 'Neden';
+
+  @override
+  String get returnReasonDefect => 'Kusurlu';
+
+  @override
+  String get returnReasonNotFit => 'Uymadı';
+
+  @override
+  String get returnReasonCashier => 'Kasiyer hatası';
+
+  @override
+  String get listCachedNote =>
+      'Bağlantı yok — son kaydedilen liste gösteriliyor.';
+
+  @override
+  String get checksLoadFailed => 'Fişler yüklenemedi';
+
+  @override
+  String get debtsLoadFailed => 'Borçlar yüklenemedi';
+
+  @override
+  String get callMinimize => 'Küçült';
+
+  @override
+  String get callAiListens => 'YZ dinliyor';
+
+  @override
+  String get callInterrupted => 'Sözünüz kesildi — dinliyorum';
+
+  @override
+  String get callExtend => '10 dakika daha';
+
+  @override
+  String get callExtended => 'Görüşme 10 dakika uzatıldı';
+
+  @override
+  String get callNoLink => 'YZ ile bağlantı yok';
+
+  @override
+  String get callNoLinkWork => 'YZ ile bağlantı yok, ekrandan devam edin';
+
+  @override
+  String callNoLinkEnds(int n) {
+    return 'Bağlantı gelmezse $n sn sonra biter';
+  }
+
+  @override
+  String get callNoLinkHelp => 'Sepet, arama ve depo YZ olmadan çalışır.';
+
+  @override
+  String get callSlowServer => 'Sunucu yavaş yanıt veriyor…';
+
+  @override
+  String get callStillLoading => 'Veriler hâlâ yükleniyor — gelince söylerim';
+
+  @override
+  String get callSearching => 'Arıyorum…';
+
+  @override
+  String get callSpeakingShort => 'Konuşuyorum…';
+
+  @override
+  String get callHush => 'Sus';
+
+  @override
+  String get callOpenFull =>
+      'Nur Danışman ile görüşme — genişlet; basılı tut — «Sus»';
+
+  @override
+  String aiSays(String text) {
+    return 'YZ: $text';
+  }
+
+  @override
+  String get aiUndo => 'Geri al';
+
+  @override
+  String get aiCantUndo => 'geri alınamaz';
+
+  @override
+  String get aiPickTitle => 'Hangisi?';
+
+  @override
+  String get aiAmbiguousHint => 'Numarayı söyleyin veya dokunun';
+
+  @override
+  String get aiNotThat => 'Hiçbiri';
+
+  @override
+  String aiYesNumber(String num) {
+    return 'Evet, $num';
+  }
+
+  @override
+  String get aiNoRepeat => 'Hayır, tekrar söyleyeceğim';
+
+  @override
+  String aiConfirmDo(String what) {
+    return 'Yap: $what';
+  }
+
+  @override
+  String get aiDo => 'Yap';
+
+  @override
+  String get aiDont => 'Gerek yok';
+
+  @override
+  String get aiOrSayYes => 'veya «evet» deyin';
+
+  @override
+  String get aiModeAskMoney => 'Paradan önce sor';
+
+  @override
+  String get aiWhatPay => 'ödeme';
+
+  @override
+  String get aiWhatReturn => 'iade';
+
+  @override
+  String get aiWhatReceive => 'mal kabulünü işleme';
+
+  @override
+  String get aiWhatWriteOff => 'stoktan düşme';
+
+  @override
+  String get aiWhatCount => 'sayım';
+
+  @override
+  String get aiWhatCloseShift => 'vardiyayı kapatma';
+
+  @override
+  String get aiWhatSalary => 'çalışana ödeme';
+
+  @override
+  String get aiWhatDebt => 'borç ödemesi';
+
+  @override
+  String get aiWhatDelete => 'ürünü silme';
+
+  @override
+  String get aiWhatPrice => 'fiyat değişikliği';
+
+  @override
+  String get aiWhatCash => 'kasaya giriş veya çıkış';
+
+  @override
+  String get aiWhatOther => 'işlem';
+
+  @override
+  String get tblBigger => 'Büyüt';
+
+  @override
+  String get tblSmaller => 'Küçült';
+
+  @override
+  String get tblToChat => 'Sohbete';
+
+  @override
+  String get tblPdf => 'PDF';
+
+  @override
+  String get tblShare => 'Paylaş';
+
+  @override
+  String get tblPin => 'Sabitle';
+
+  @override
+  String get tblPinned => 'Sabitlendi';
+
+  @override
+  String tblMore(int n) {
+    return '$n tane daha göster';
+  }
+
+  @override
+  String tblMoreLeft(int n) {
+    return '$n kaldı';
+  }
+
+  @override
+  String get tblAllShown => 'Tüm satırlar gösteriliyor';
+
+  @override
+  String tblSource(String source, String time) {
+    return 'uygulama verisi · $source · $time';
+  }
+
+  @override
+  String get tblEmpty => 'Henüz boş';
+
+  @override
+  String tblEmptyFilter(String q) {
+    return '«$q» için sonuç bulunamadı';
+  }
+
+  @override
+  String get tblClearFilter => 'Filtreyi kaldır';
+
+  @override
+  String get tblOpenObject => 'Aç';
+
+  @override
+  String tblRowsN(int n) {
+    return '$n satır';
+  }
+
+  @override
+  String get tblPrev => 'Önceki tablo';
+
+  @override
+  String get tblNext => 'Sonraki tablo';
+
+  @override
+  String get tblCollapse => 'Paneli küçült';
+
+  @override
+  String get tblClose => 'Tabloyu kapat';
+
+  @override
+  String get tblSentChat => 'Tablo sohbete eklendi';
+
+  @override
+  String get tblPdfFailed => 'PDF oluşturulamadı';
+
+  @override
+  String get vcCamera => 'Kamera';
+
+  @override
+  String get vcCameraOn => 'Kamera açık';
+
+  @override
+  String get vcCameraOff => 'Kamera kapalı';
+
+  @override
+  String get vcSwitchCamera => 'Diğer kamera';
+
+  @override
+  String get vcTorch => 'Fener';
+
+  @override
+  String get vcRecording => 'Kamera';
+
+  @override
+  String get vcAiSees => 'YZ görüyor';
+
+  @override
+  String get vcEconomy => 'Veri tasarrufu';
+
+  @override
+  String get vcEconomyHint => '3 saniyede 1 kare, yalnızca siz konuşurken';
+
+  @override
+  String get vcStarting => 'Kamera açılıyor…';
+
+  @override
+  String get vcSearching => 'Katalogda arıyorum…';
+
+  @override
+  String get vcWhatIsIt => 'Bu ne?';
+
+  @override
+  String get vcInvoice => 'İrsaliye';
+
+  @override
+  String get vcShelf => 'Raf';
+
+  @override
+  String get vcPriceTag => 'Fiyat etiketi';
+
+  @override
+  String get vcCardProduct => 'Ürün';
+
+  @override
+  String get vcNotFound =>
+      'Katalogda bulunamadı. Yaklaştırın veya barkodu gösterin';
+
+  @override
+  String get vcExact => 'kesin';
+
+  @override
+  String get vcByBarcode => 'barkod';
+
+  @override
+  String get vcByPhoto => 'fotoğrafa göre';
+
+  @override
+  String get vcLooksLike => 'Benziyor:';
+
+  @override
+  String get vcPickHint => 'seçmek için dokunun';
+
+  @override
+  String vcPrice(String sum) {
+    return 'Fiyat: $sum som';
+  }
+
+  @override
+  String vcStock(String qty) {
+    return 'Stok: $qty';
+  }
+
+  @override
+  String vcInvoiceSummary(int n, int known, int fresh) {
+    return 'Satır: $n · katalogda: $known · yeni: $fresh';
+  }
+
+  @override
+  String vcOpenReceive(int n) {
+    return 'Mal kabulünü aç ($n)';
+  }
+
+  @override
+  String get vcReceiveEndsCall => 'Görüşme sona erecek, konuşma sohbette kalır';
+
+  @override
+  String get vcNewItemsHint =>
+      'Yeni ürünler katalogda yok — «Depo → İrsaliye» ile ekleyin';
+
+  @override
+  String get vcNoProcure => 'Mal kabulünü yönetici işler';
+
+  @override
+  String get vcShelfHint =>
+      'YZ gözle sayar — sayımdan önce tekrar kontrol edin';
+
+  @override
+  String get vcShelfCols => 'görünen · programda';
+
+  @override
+  String get vcShelfThing => 'ürün';
+
+  @override
+  String get vcOnTag => 'Etikette';
+
+  @override
+  String get vcInProgram => 'Programda';
+
+  @override
+  String vcTagMismatch(String tag, String sum) {
+    return 'Etikette $tag som, programda $sum som — uyuşmuyor';
+  }
+
+  @override
+  String get vcTagOk => 'Etiket fiyatı programla uyuşuyor';
+
+  @override
+  String get vcTagFixHint =>
+      'Fiyat burada değiştirilmez — ürün kartından yapın';
+
+  @override
+  String vcMoreLines(int n) {
+    return '$n satır daha';
+  }
+
+  @override
+  String get vcNewTag => 'yeni';
+
+  @override
+  String get vcConsentTitle => 'Görüşmede kamera açılsın mı?';
+
+  @override
+  String get vcConsentBody =>
+      'Kamera açıkken kareler (saniyede yaklaşık 1) mağazanızın YZ anahtarıyla Google Gemini\'ye gider. Telefonda da NurCRM\'de de saklanmaz — sohbette yalnızca konuşmanın metni kalır. Ücretsiz anahtarda Google verileri modellerini geliştirmek için kullanabilir. Müşterilerin yüzlerini, banka kartlarını ve başkalarının belgelerini göstermeyin.';
+
+  @override
+  String get vcConsentPtSends =>
+      'Kamera açıkken kareler (saniyede yaklaşık 1) mağazanızın YZ anahtarıyla Google Gemini\'ye gider.';
+
+  @override
+  String get vcConsentPtSaved =>
+      'Telefonda da NurCRM\'de de saklanmaz — sohbette yalnızca konuşmanın metni kalır.';
+
+  @override
+  String get vcConsentPtFree =>
+      'Ücretsiz anahtarda Google verileri modellerini geliştirmek için kullanabilir.';
+
+  @override
+  String get vcConsentPtWarn =>
+      'Müşterilerin yüzlerini, banka kartlarını ve başkalarının belgelerini göstermeyin.';
+
+  @override
+  String get vcConsentAgree => 'Kamerayı aç';
+
+  @override
+  String get vcConsentLater => 'Şimdi değil';
+
+  @override
+  String vcCost(int n) {
+    return 'Görüntülü görüşme $n dakikaya kadar sürer ve YZ anahtarı limitini sesliden birkaç kat hızlı harcar';
+  }
+
+  @override
+  String get aiAccTitle => 'YZ erişimi';
+
+  @override
+  String get aiAccSection => 'YZ\'yi kimler kullanabilir';
+
+  @override
+  String aiAccLimitInfo(int n) {
+    return 'Ücretsiz YZ limiti (Google Gemini) tüm proje için ortaktır: dakikada ve günde az istek yapılabilir. Bu yüzden YZ\'yi — Nur Danışman, görüşme, akıllı kamera, fotoğraftan fatura, görüntüden tartı — en fazla $n mağaza çalışanı kullanabilir. Kime izin verileceğini seçin.';
+  }
+
+  @override
+  String aiAccCounter(int a, int b) {
+    return '$a / $b';
+  }
+
+  @override
+  String aiAccLimitReached(int n) {
+    return 'En fazla $n çalışan seçilebilir. Başkasına erişim vermek için önce seçililerden birinin işaretini kaldırın.';
+  }
+
+  @override
+  String aiAccDenied(int n, String names) {
+    return 'YZ yalnızca $n mağaza çalışanına açık: $names. Lütfen mağaza sahibiyle görüşün.';
+  }
+
+  @override
+  String get aiAccDeniedNone =>
+      'YZ şu anda tüm mağaza çalışanları için kapalı. Lütfen mağaza sahibiyle görüşün.';
+
+  @override
+  String get aiAccRecommend =>
+      'YZ\'yi iki çalışanla sınırlamanızı öneririz (ortak ücretsiz limit)';
+
+  @override
+  String get aiAccConfigure => 'Ayarla';
+
+  @override
+  String get aiAccSaved => 'YZ erişimi kaydedildi';
+
+  @override
+  String get aiAccOwnerTag => 'sahibi';
+
+  @override
+  String get aiAccYouTag => 'siz';
+
+  @override
+  String get aiAccStaffNotLoaded =>
+      'Çalışan listesi alınamadı (bağlantı yok mu?). Yalnızca önceden seçilenler gösteriliyor.';
+
+  @override
+  String get aiAccNobody =>
+      'Kimse seçilmedi — YZ tüm çalışanlar için kapatılacak.';
+
+  @override
+  String get aiAccManagerOnly =>
+      'Listeyi yalnızca sahip veya yönetici değiştirebilir.';
+
+  @override
+  String get aiAccNoticeTitle => 'YZ — ortak limit';
+
+  @override
+  String aiAccNoticeBody(int n) {
+    return 'Mağazanın YZ\'si Google\'ın ortak ücretsiz limitiyle çalışır; bu yüzden en fazla $n çalışanın hakkı vardır — sizde var. Uzun görüşmeleri ve gereksiz istekleri boş yere başlatmayın.';
+  }
+
+  @override
+  String get aiAccGotIt => 'Anladım';
+
+  @override
+  String get aiAccMineYes => 'YZ\'ye erişiminiz var';
+
+  @override
+  String get aiAccMineNo => 'YZ size açık değil — sahibiyle görüşün';
+
+  @override
+  String get aiAccMineOpen => 'YZ tüm çalışanlara açık (limit belirlenmedi)';
+
+  @override
+  String get aiAccNotSet => 'Belirlenmedi — YZ herkese açık';
+
+  @override
+  String get assistantTitle => 'Yardımcı';
+
+  @override
+  String get assistantSub => 'sesli kontrol modu';
+
+  @override
+  String get aiModeDo => 'İstek üzerine yap';
+
+  @override
+  String get aiModeDoHint =>
+      'Ekranları açar, okur, tabloları gösterir ve istediğinizi hemen yapar; sonucu sesli söyler, «Geri al» düğmesi sunar.';
+
+  @override
+  String get aiModeAskHint =>
+      'İstek üzerine gibi, ancak ödeme, iade, mal kabulü, stoktan düşme, sayım, vardiya kapatma, ödeme yapma, borç, silme ve fiyat değişikliğinden önce «Yap» kartı çıkar.';
+
+  @override
+  String get aiModeWatch => 'Yalnızca görüntüle';
+
+  @override
+  String get aiModeWatchHint =>
+      'Yalnızca ekranlar, okuma ve tablolar. Bir şey yapmasını isterseniz: «Bu modda veri değiştirmem — ekrandan yapın veya modu değiştirin» der.';
+
+  @override
+  String get aiModeDefault => 'varsayılan';
+
+  @override
+  String get aiModeSofterLocked =>
+      'Sahibinin belirlediğinden daha gevşek — kullanılamaz';
+
+  @override
+  String get aiModeOwnerSet => 'Sahibi bu telefondaki herkes için belirledi:';
+
+  @override
+  String get aiModeStricterSelf => 'Kendiniz için daha sıkısını seçebilirsiniz';
+
+  @override
+  String get aiModeNoVoice => 'Mod sesle değiştirilemez — yalnızca burada';
+
+  @override
+  String get aiModeAskWhatTitle => 'Önce neyi soracak';
+
+  @override
+  String get aiModeAskNote =>
+      '«Yap: … tutar …» kartı ve tek düğme — veya sesle «evet». Çift onay yok.';
+
+  @override
+  String get aiModeFooter => 'Yardımcının yetkileri kullanıcının rolüne göre';
+
+  @override
+  String get aiModeSaved => 'Mod kaydedildi';
+
+  @override
+  String get aiLogTitle => 'YZ işlemleri';
+
+  @override
+  String get aiLogSubAll => 'telefondaki tüm kayıtlar';
+
+  @override
+  String get aiLogMoneyOnly => 'Yalnızca para';
+
+  @override
+  String get aiLogUndone => 'Geri alınanlar';
+
+  @override
+  String get aiLogByDate => 'Tarihe göre filtre';
+
+  @override
+  String get dayYesterday => 'Dün';
+
+  @override
+  String aiLogUndoneAt(String time) {
+    return 'geri alındı $time';
+  }
+
+  @override
+  String get aiLogCantUndoWriteOff => 'geri alınamaz · stoktan düşebilirsiniz';
+
+  @override
+  String get aiUndoRequest => 'iptal — sahibine talep ile';
+
+  @override
+  String get aiLogUndoGone => 'geri alma yalnızca görüşmedeydi';
+
+  @override
+  String aiLogUndoneToast(String what) {
+    return 'Geri alındı: $what';
+  }
+
+  @override
+  String get aiLogUndoConflict =>
+      'YZ\'den sonra değişmiş — ekrandan kontrol edin';
+
+  @override
+  String aiLogUndoFailed(String what) {
+    return 'Geri alınamadı: $what. Bağlantıyı ve ekranı kontrol edin.';
+  }
+
+  @override
+  String get aiLogUndoShift =>
+      'Geri alınamaz: vardiya kapalı veya kasada para az';
+
+  @override
+  String aiLogUndoPartial(int done, int total) {
+    return '$total içinden $done geri alındı; kalanı YZ\'den sonra değişti veya olmadı';
+  }
+
+  @override
+  String get aiLogEmpty => 'YZ bu telefonda henüz bir şey yapmadı';
+
+  @override
+  String get aiLogEmptyHint =>
+      'Nur Danışman\'ı arayıp ne yapılacağını söyleyin — her kayıt «Geri al» düğmesiyle burada görünür';
+
+  @override
+  String get aiLogCall => 'Danışmanı ara';
+
+  @override
+  String get aiLogMineOnly => 'Yalnızca kendi işlemleriniz görünür';
+
+  @override
+  String get aiLogFooter =>
+      'Telefonda saklanır, en fazla 2000 kayıt. YZ anahtarı, ses ve müşteri telefonu içermez.';
+
+  @override
+  String get aiGroupNav => 'Ekranlar';
+
+  @override
+  String get aiGroupCart => 'Fiş ve siparişler';
+
+  @override
+  String get aiGroupMoney => 'Para';
+
+  @override
+  String get aiGroupProduct => 'Ürünler';
+
+  @override
+  String get aiGroupTask => 'Görevler';
+
+  @override
+  String get aiGroupSalary => 'Maaş';
+
+  @override
+  String get auditAi => 'YZ';
+
+  @override
+  String get stfTasksTitle => 'Görevler';
+
+  @override
+  String stfTasksSub(int n, String late) {
+    return 'Görev: $n · gecikmiş: $late';
+  }
+
+  @override
+  String get stfMyTasksTitle => 'Görevlerim';
+
+  @override
+  String stfMySub(String name, String today, String late) {
+    return '$name · bugün: $today · gecikmiş: $late';
+  }
+
+  @override
+  String get stfFilterOverdue => 'Gecikmiş';
+
+  @override
+  String get stfFilterDone => 'Tamamlanan';
+
+  @override
+  String get stfStNew => 'yeni';
+
+  @override
+  String get stfStWork => 'devam ediyor';
+
+  @override
+  String get stfStDone => 'tamamlandı';
+
+  @override
+  String get stfOverdue => 'gecikti';
+
+  @override
+  String get stfNoDue => 'süresiz';
+
+  @override
+  String get stfDue => 'Son tarih';
+
+  @override
+  String get stfRemind => 'Hatırlat';
+
+  @override
+  String get stfUrgent => 'Acil görev';
+
+  @override
+  String get stfNewTask => 'Yeni görev';
+
+  @override
+  String get stfTaskField => 'Ne yapılacak';
+
+  @override
+  String get stfTaskHint => 'Örneğin: su rafını yeniden sayın';
+
+  @override
+  String get stfAssignee => 'Sorumlu';
+
+  @override
+  String get stfAssigneeHint => 'Çalışan seçin';
+
+  @override
+  String get stfCreate => 'Görev ver';
+
+  @override
+  String get stfNeedTitle => 'Ne yapılması gerektiğini yazın';
+
+  @override
+  String get stfNeedAssignee => 'Sorumluyu seçin';
+
+  @override
+  String get stfTaskCreated => 'Görev verildi';
+
+  @override
+  String get stfToWork => 'Başla';
+
+  @override
+  String get stfMarkDone => 'Tamamlandı';
+
+  @override
+  String get stfReopen => 'Yeniden aç';
+
+  @override
+  String get stfEditDue => 'Son tarihi değiştir';
+
+  @override
+  String get stfEditAssignee => 'Başkasına ver';
+
+  @override
+  String get stfDelete => 'Sil';
+
+  @override
+  String stfDeleteAsk(String title) {
+    return '\"$title\" görevi silinsin mi?';
+  }
+
+  @override
+  String get stfNoTasks => 'Görev yok';
+
+  @override
+  String get stfLoadFail => 'Görevler yüklenemedi';
+
+  @override
+  String get stfPriorityHint =>
+      'Aciliyet ve hatırlatma şimdilik yalnızca uygulamada görünür; sunucu güncellenene kadar sitede görevde servis notu çıkabilir';
+
+  @override
+  String get stfNoBackground =>
+      'Arka plan bildirimi yok — hatırlatma uygulama açıldığında görünür';
+
+  @override
+  String stfOverduePlate(int n, String title) {
+    return 'Gecikmiş: $n — \"$title\"';
+  }
+
+  @override
+  String stfRemindPlate(String title) {
+    return 'Hatırlatma: \"$title\"';
+  }
+
+  @override
+  String stfTodayPlate(String today, String late) {
+    return 'Bugünkü görev: $today · gecikmiş: $late';
+  }
+
+  @override
+  String get stfSalaryTitle => 'Maaş';
+
+  @override
+  String stfSalarySub(int n) {
+    return 'çalışan: $n';
+  }
+
+  @override
+  String get stfPeriodMonth => 'Bu ay';
+
+  @override
+  String get stfPeriodLast => 'Geçen ay';
+
+  @override
+  String get stfPeriodWeek => '7 gün';
+
+  @override
+  String get stfAccrued => 'Tahakkuk';
+
+  @override
+  String get stfPaid => 'Ödenen';
+
+  @override
+  String get stfLeft => 'Kalan';
+
+  @override
+  String get stfColEmployee => 'Çalışan';
+
+  @override
+  String get stfChecking => 'Ödemeler kontrol ediliyor…';
+
+  @override
+  String get stfPartialPlate =>
+      'Kısmen kontrol edildi — ödeme tutarı kendiliğinden doldurulmaz.';
+
+  @override
+  String get stfTrustTimeout =>
+      'Geçmiş ödemelerin kontrolü zamanında bitmedi — ödemeden önce sitede kontrol edin.';
+
+  @override
+  String get stfTrustJournal =>
+      'Telefondaki ödeme günlüğü okunamıyor — ödemeler kapalı.';
+
+  @override
+  String get stfTrustNotChecked =>
+      'Geçmiş ödemeler kontrol edilemedi — ödemeden önce sitede kontrol edin.';
+
+  @override
+  String stfTrustUnassigned(String sum, int n) {
+    return 'Çalışana bağlanmamış \"Maaş\" giderleri var: $sum som ($n) — sitede kontrol edin.';
+  }
+
+  @override
+  String get stfTrustPartial =>
+      '\"Maaş\" kategorisi olmayan ödemeler veya tüm giderler görünmüyor — ödemeden önce sitede kontrol edin.';
+
+  @override
+  String get stfTrustPartialNotes =>
+      'Bazı ödemeler döneme yalnızca kısmen giriyor — düşülmedi, kontrol edin.';
+
+  @override
+  String get stfTrustByName =>
+      'Bazı ödemeler yalnızca gider adındaki isimle bulundu — ödemeden önce sitede kontrol edin.';
+
+  @override
+  String stfPartialNote(String sum, String period) {
+    return '$period dönemi için $sum som ödeme bu döneme yalnızca kısmen giriyor — düşülmedi';
+  }
+
+  @override
+  String get stfSalaryEmpty =>
+      'Bu dönem için tahakkuk yok: satış yok veya kimsede ödeme şeması ayarlı değil.';
+
+  @override
+  String get stfSalaryDenied =>
+      'Maaşlara erişim yok: bu hesabın sitede personel analizi yetkisi yok.';
+
+  @override
+  String get stfSalaryFail => 'Maaş yüklenemedi';
+
+  @override
+  String get stfSalaryHint =>
+      'Tahakkuk, bilgisayardaki ve sitedeki gibi sunucu hesabıdır. \"Ödenen\", bu dönemin \"Maaş\" giderleridir.';
+
+  @override
+  String get stfLockedTag => 'yanıtsız ödeme';
+
+  @override
+  String get stfPayBtn => 'Öde';
+
+  @override
+  String stfPayTitle(String name) {
+    return 'Ödeme: $name';
+  }
+
+  @override
+  String get stfKindSalary => 'Maaş';
+
+  @override
+  String get stfKindAdvance => 'Avans';
+
+  @override
+  String get stfPayAmount => 'Tutar';
+
+  @override
+  String get stfPayEnterAmount => 'Tutarı kendiniz girin';
+
+  @override
+  String get stfPayBox => 'Kasa';
+
+  @override
+  String get stfPayComment => 'Yorum (isteğe bağlı)';
+
+  @override
+  String get stfPayNeedAmount => 'Ödeme tutarını girin';
+
+  @override
+  String get stfPayNoCash =>
+      'Ödeme için şirket kasası bulunamadı — sitede veya sahip programında ödeyin.';
+
+  @override
+  String get stfSalesBoxWarn =>
+      'Bu şubenin satış kasası — gider bakiyesini azaltır.';
+
+  @override
+  String stfPayConfirm(String sum, String name, String box) {
+    return '$name çalışanına \"$box\" kasasından $sum som ödensin mi?';
+  }
+
+  @override
+  String stfPayDone(String sum, String name) {
+    return '$sum som ödendi: $name';
+  }
+
+  @override
+  String get stfPayFailed => 'Ödeme yapılamadı.';
+
+  @override
+  String stfPayUnknown(String sum, String box) {
+    return 'Sunucudan yanıt gelmedi — $sum som ödeme (\"$box\" kasası) yapılmış olabilir. Tekrarlamayın: çalışanı açıp \"Sunucuda kontrol et\"e dokunun.';
+  }
+
+  @override
+  String stfPayLock(String sum, String when, String box) {
+    return 'Önceki $sum som ödeme ($when, \"$box\" kasası) sunucudan yanıt almadı. Siz kontrol edene kadar bu çalışana yeni ödeme kapalı.';
+  }
+
+  @override
+  String get stfPayLockShort =>
+      'Bu çalışana önceki ödeme sunucudan yanıt almadı — siz kontrol edene kadar yenisi kapalı.';
+
+  @override
+  String get stfPayDup => 'Aynı ödeme az önce yapıldı — tekrarlanmaz.';
+
+  @override
+  String get stfPayJournal =>
+      'Telefondaki ödeme günlüğü okunamıyor — onsuz çift ödeme koruması yok, ödeme gönderilmedi.';
+
+  @override
+  String get stfLockCheck => 'Sunucuda kontrol et';
+
+  @override
+  String get stfLockCheckShort => 'Kontrol et';
+
+  @override
+  String get stfLockYes => 'Ödeme sitede VAR';
+
+  @override
+  String get stfLockNo => 'Ödeme sitede YOK';
+
+  @override
+  String get stfLockYesAsk => 'Ödeme sitede var mı?';
+
+  @override
+  String get stfLockNoAsk => 'Ödeme sitede yok mu?';
+
+  @override
+  String get stfLockResolveHint =>
+      'NurCRM sitesindeki \"Maaş\" giderini kontrol edin. Yanlış seçerseniz ödeme yanlış sayılır veya iki kez yapılır.';
+
+  @override
+  String get stfLockFound => 'Ödeme sunucuda bulundu ve sayıldı.';
+
+  @override
+  String get stfLockNotFound =>
+      'Sunucuda ödeme bulunamadı — kilit kalır, siteyi kontrol ettikten sonra kendiniz karar verin.';
+
+  @override
+  String get stfConfirm => 'Onayla';
+
+  @override
+  String get stfRecentPayouts => 'Bu telefondan son ödemeler';
+
+  @override
+  String get stfCancelBtn => 'İptal iste';
+
+  @override
+  String stfCancelAsk(String sum) {
+    return '$sum som ödemenin iptali istensin mi?';
+  }
+
+  @override
+  String get stfCancelHint =>
+      'Ödemeyi yalnızca sahip veya muhasebeci NurCRM sitesinde iptal eder — telefondan talep gönderilir.';
+
+  @override
+  String get stfCancelSend => 'Talebi gönder';
+
+  @override
+  String get stfCancelSent => 'İptal talebi sahibe gönderildi.';
+
+  @override
+  String get stfSchemeBtn => 'Ödeme şeması';
+
+  @override
+  String stfSchemeTitle(String name) {
+    return 'Ödeme şeması: $name';
+  }
+
+  @override
+  String get stfSchemeSaved => 'Ödeme şeması kaydedildi';
+
+  @override
+  String get stfSchemeSalary => 'Sabit maaş';
+
+  @override
+  String get stfSchemePercent => 'Satış yüzdesi';
+
+  @override
+  String get stfSchemeSalaryPercent => 'Sabit maaş + satış yüzdesi';
+
+  @override
+  String get stfSchemePerItem => 'Satılan ürün başına';
+
+  @override
+  String get stfSchemeSalaryItem => 'Sabit maaş + ürün başına';
+
+  @override
+  String get stfSchemePercentItem => 'Yüzde + ürün başına';
+
+  @override
+  String get stfNoScheme => 'şema ayarlanmamış';
+
+  @override
+  String get stfMonthly => 'Aylık maaş';
+
+  @override
+  String get stfPercent => 'Satış yüzdesi';
+
+  @override
+  String get stfPerItem => 'Satılan ürün başına';
+
+  @override
+  String get stfBonus => 'Satışlar için tahakkuk';
+
+  @override
+  String get gkOpen => 'Gemini anahtarları (birden çok hesap)';
+
+  @override
+  String get gkTitle => 'Gemini anahtarları';
+
+  @override
+  String get gkHint =>
+      'Anahtarlar sırayla kullanılır: ilk çalışan. Bir anahtarın limiti bitince yapay zekâ kendisi sonrakini alır. Liste kasadaki ve sahip uygulamasındaki ile aynıdır.';
+
+  @override
+  String get gkWarn =>
+      'Google kuralları limitleri birden çok hesap veya projeyle aşmayı yasaklayabilir — anahtarlar engellenebilir. Google\'ın ücretsiz katmanı istekleri ürünlerini geliştirmek için kullanabilir. Karar sizin.';
+
+  @override
+  String get gkViewOnly =>
+      'Anahtar listesini sahip ve yönetici değiştirir. Size anahtarlar tam gösterilmez — yapay zekâ bu listeyle çalışır.';
+
+  @override
+  String gkWorkingCount(int a, int b) {
+    return 'Çalışan anahtar: $a / $b';
+  }
+
+  @override
+  String get gkEmpty =>
+      'Henüz anahtar yok. İlkini ekleyin — Google AI Studio verir.';
+
+  @override
+  String get gkAdd => 'Anahtar ekle';
+
+  @override
+  String get gkAddBtn => 'Ekle';
+
+  @override
+  String get gkPasteKey => 'Google AI Studio anahtarını yapıştırın';
+
+  @override
+  String get gkLabelHint => 'Etiket (isteğe bağlı)';
+
+  @override
+  String gkLabelDefault(int n) {
+    return 'Hesap $n';
+  }
+
+  @override
+  String get gkMax => 'En fazla 10 anahtar.';
+
+  @override
+  String get gkDuplicate => 'Bu anahtar listede zaten var.';
+
+  @override
+  String get gkShow => 'Göster';
+
+  @override
+  String get gkHide => 'Gizle';
+
+  @override
+  String get gkEnabled => 'Açık';
+
+  @override
+  String get gkMoveUp => 'Yukarı';
+
+  @override
+  String get gkMoveDown => 'Aşağı';
+
+  @override
+  String get gkDelete => 'Sil';
+
+  @override
+  String gkDeleteAsk(String name, String tail) {
+    return '“$name” anahtarı (…$tail) silinsin mi?';
+  }
+
+  @override
+  String get gkStateWorking => 'çalışıyor';
+
+  @override
+  String gkStateExhausted(String time) {
+    return '$time saatine kadar tükendi';
+  }
+
+  @override
+  String get gkStateInvalid => 'geçersiz';
+
+  @override
+  String get gkStateDisabled => 'kapalı';
+
+  @override
+  String get gkStateUnchecked => 'kontrol edilmedi';
+
+  @override
+  String get gkCheckOk => 'Anahtar çalışıyor ✓';
+
+  @override
+  String gkCheckFail(String err) {
+    return 'Kontrol edilemedi: $err';
+  }
+
+  @override
+  String get aiKeysSavedPhoneOnly =>
+      'Telefonda kaydedildi, ancak buluta gitmedi — kasa ve sahip uygulaması henüz görmez. Sonra tekrar deneyin.';
 }

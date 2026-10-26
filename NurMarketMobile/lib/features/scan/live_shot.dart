@@ -21,6 +21,10 @@ class CameraGate {
   static Future<void> _disposing = Future<void>.value();
   static Completer<void>? _freed;
   static CameraDescription? _back;
+  // 2026-10-26 (видеозвонок): передняя камера запоминается рядом с задней; null — её нет (или список ещё не читали).
+  static CameraDescription? _front;
+  static bool _lensesRead = false;
+  static int _lensCount = 0;
 
   /// Дождаться, пока камеру никто не держит (не дольше [timeout] — чтобы зависшая камера не заперла приложение).
   static Future<void> idle({Duration timeout = const Duration(seconds: 3)}) async {
@@ -46,9 +50,36 @@ class CameraGate {
   static Future<CameraDescription> _backCamera() async {
     final known = _back;
     if (known != null) return known;
-    final cams = await availableCameras();
+    final cams = await _readLenses();
     if (cams.isEmpty) throw CameraException('noCamera', 'no camera');
     return _back = cams.firstWhere((c) => c.lensDirection == CameraLensDirection.back, orElse: () => cams.first);
+  }
+
+  static Future<List<CameraDescription>> _readLenses() async {
+    final cams = await availableCameras();
+    _lensesRead = true;
+    _lensCount = cams.length;
+    _front = cams.cast<CameraDescription?>().firstWhere((c) => c!.lensDirection == CameraLensDirection.front, orElse: () => null);
+    return cams;
+  }
+
+  /// 2026-10-26 (видеозвонок): камера нужной стороны. Задняя — как раньше; передней нет — noCamera (молча на заднюю не уходим).
+  static Future<CameraDescription> _camera(CameraLensDirection lens) async {
+    if (lens != CameraLensDirection.front) return _backCamera();
+    if (!_lensesRead) await _readLenses();
+    final f = _front;
+    if (f == null) throw CameraException('noCamera', 'no front camera');
+    return f;
+  }
+
+  /// 2026-10-26 (видеозвонок): есть ли камера этой стороны (для кнопки «Другая камера»). Нет камер вообще — false.
+  static Future<bool> hasLens(CameraLensDirection lens) async {
+    try {
+      if (!_lensesRead) await _readLenses();
+      return lens == CameraLensDirection.front ? _front != null : _lensCount > 0;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// 2026-10-22 (скорость скана): узнать камеры заранее (сканер штрихкодов вызывает при открытии) — умная камера
@@ -59,9 +90,10 @@ class CameraGate {
     } catch (_) {}
   }
 
-  static Future<CameraController> open(ResolutionPreset preset) async {
+  /// 2026-10-26 (видеозвонок): [lens] — сторона камеры; по умолчанию задняя, остальные экраны вызывают как раньше.
+  static Future<CameraController> open(ResolutionPreset preset, {CameraLensDirection lens = CameraLensDirection.back}) async {
     await idle();
-    final c = CameraController(await _backCamera(), preset, enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
+    final c = CameraController(await _camera(lens), preset, enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
     _active.add(c);
     try {
       await c.initialize();

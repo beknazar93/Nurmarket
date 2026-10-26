@@ -1,15 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/providers.dart';
+import '../../core/sync/outbox_meta.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
+import '../admin/admin_repository.dart' show DeletionRow;
+import '../admin/admin_screens.dart' show adminRepoProvider;
 import '../sale/cart.dart' show roundMoney;
+import 'ops_docs.dart';
 import 'ops_repository.dart';
 import 'return_ledger.dart';
+import 'tape_doc.dart';
 import '../../core/util/audit.dart';
+import '../../core/ai/assistant/ai_handles.dart';
+import '../../core/ai/assistant/screen_registry.dart' show productNameMatchesQuery;
+import '../../core/ai/assistant/tool_registry.dart' show ToolStatus;
 
 /// 13.10: «Внесение / изъятие» — деньги в ящик смены и из него, как в кассе (construction/cashflows/).
 class CashOpScreen extends ConsumerStatefulWidget {
@@ -72,7 +82,17 @@ class _CashOpScreenState extends ConsumerState<CashOpScreen> {
         amount: _withdrawal ? -amount : amount,
       );
       toast(context, '${l.cashOpDone}: ${_withdrawal ? '−' : '+'}${money(amount)} ${l.som}');
-      context.pop();
+      // 2026-10-26 (живой аудит, П5): каждый денежный шаг оставляет документ — ордер внесения/изъятия с печатью и PDF.
+      final doc = cashOrderDoc(
+        l,
+        ref.read(sessionProvider),
+        withdrawal: _withdrawal,
+        amount: amount,
+        reason: _reason.text.trim(),
+        drawerAfter: ref.read(shiftProvider).shift?.expectedCash,
+      );
+      await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TapeDocScreen(doc: doc, title: doc.title)));
+      if (mounted) context.pop();
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
     } finally {
@@ -157,6 +177,9 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
   String? _error;
   final _q = TextEditingController();
 
+  /// 2026-10-26 (живой аудит, П5): список взят из памяти телефона (нет связи) — рядом «Повторить».
+  bool _stale = false;
+
   @override
   void initState() {
     super.initState();
@@ -164,11 +187,29 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
   }
 
   Future<void> _load() async {
+    final repo = ref.read(opsRepoProvider);
+    final owner = OutboxMeta.ownerOf(ref.read(sessionProvider));
     try {
-      final rows = await ref.read(opsRepoProvider).debtors();
-      if (mounted) setState(() => _rows = rows);
+      final rows = await repo.debtors();
+      if (mounted) {
+        setState(() {
+          _rows = rows;
+          _error = null;
+          _stale = false;
+        });
+      }
+      await repo.cacheDebtors(owner, rows);
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      final saved = _rows ?? await repo.cachedDebtors(owner);
+      if (mounted) {
+        setState(() {
+          _error = e.message;
+          if (saved != null) {
+            _rows = saved;
+            _stale = true;
+          }
+        });
+      }
     }
   }
 
@@ -243,6 +284,29 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
       ref.read(shiftProvider.notifier).refresh();
       if (!mounted) return;
       toast(context, '${l.payDebtDone}: ${money(sum)} ${l.som}${change > 0 ? ' · ${l.change}: ${money(change)} ${l.som}' : ''}');
+      // 2026-10-26 (живой аудит, П5): после оплаты долга — квитанция «Принято N, остаток M» с печатью, PDF и отправкой.
+      final left = debtLeftAfter(d.debt, sum);
+      final doc = debtReceiptDoc(
+        l,
+        ref.read(sessionProvider),
+        clientName: d.name,
+        phone: d.phone,
+        debtBefore: d.debt,
+        accepted: sum,
+        method: method,
+        change: change,
+      );
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TapeDocScreen(
+            doc: doc,
+            title: l.debtReceiptTitle,
+            subtitle: d.name,
+            banner: _AcceptedBanner(l.debtReceiptAcceptedLine('${money(sum)} ${l.som}', '${money(left)} ${l.som}')),
+          ),
+        ),
+      );
+      if (!mounted) return;
       setState(() => _rows = null);
       await _load();
     } on ApiException catch (e) {
@@ -261,9 +325,13 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
     final total = (_rows ?? []).fold<double>(0, (s, d) => s + d.debt);
     return Scaffold(
       appBar: ScreenTitle(l.debts, subtitle: _rows == null ? null : '${l.debtorsTotal}: ${money(total)} ${l.som}'),
-      body: _error != null
-          ? Center(
-              child: Text(_error!, style: const TextStyle(color: T.danger)),
+      body: _rows == null && _error != null
+          ? _RetryBox(
+              message: '${l.debtsLoadFailed}: $_error',
+              onRetry: () {
+                setState(() => _error = null);
+                _load();
+              },
             )
           : _rows == null
           ? const Center(child: CircularProgressIndicator())
@@ -273,6 +341,11 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                 children: [
                   if (_paying) const LinearProgressIndicator(),
+                  if (_stale)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _RetryBox(message: l.listCachedNote, onRetry: _load, compact: true),
+                    ),
                   TextField(
                     controller: _q,
                     onChanged: (_) => setState(() {}),
@@ -405,6 +478,12 @@ class _HeldScreenState extends ConsumerState<HeldScreen> {
                               const SizedBox(width: 8),
                               OutlinedButton(
                                 onPressed: () async {
+                                  // 2026-10-26 (живой аудит, П5): удаление отложенного чека — в журнал удалений, как строки чека.
+                                  final who = ref.read(sessionProvider)?.userName ?? '';
+                                  final name = '${l.heldChecks}: ${h.note.isEmpty ? TimeOfDay.fromDateTime(h.at).format(context) : h.note}';
+                                  final qty = h.cart.lines.fold<double>(0, (a, x) => a + x.qty);
+                                  await ref.read(adminRepoProvider).logDeletion(DeletionRow(DateTime.now(), name, qty, h.cart.total, l.delete, who));
+                                  Audit.log('delete', '$name · ${money(h.cart.total)} ${l.som}', amount: h.cart.total);
                                   await ref.read(opsRepoProvider).removeHeld(h.id);
                                   await _load();
                                 },
@@ -443,6 +522,81 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
   bool _busy = false;
   bool _ready = false;
 
+  /// 2026-10-26 (живой аудит, П5): причина возврата (необязательно). Сервер её в возврате не принимает (как и у кассы ПК:
+  /// тело — только ключ и касса), поэтому она пишется в журнал телефона и в документ возврата.
+  final _reason = TextEditingController();
+
+  // 2026-10-26 (голос-управление, В3б): «ручка» для Нур Советника — выбирает строки и нажимает ТУ ЖЕ `_submit` без диалога
+  // «Вернуть?» (просьба в звонке = одобрение). Сумма, журнал возвратов и ключ операции — прежние. Итог — через `_aiSink`.
+  final _aiSink = OutcomeSink();
+  late final AiScreenHandles _aiHandles = ref.read(aiHandlesProvider);
+  late final AiHandle _aiHandle = AiHandle(fill: _aiFill, run: _aiRun);
+  final _aiReady = Completer<void>();
+  bool _aiWhole = true;
+
+  /// Сумма, которую сервер уже вернул (задаётся сразу после `returnSale`): если экран упадёт позже, деньги всё равно возвращены.
+  double? _aiPosted;
+
+  @override
+  void dispose() {
+    _aiHandles.unregister('return', _aiHandle);
+    _reason.dispose();
+    super.dispose();
+  }
+
+  Future<HandleOutcome?> _aiFill(Map<String, dynamic> a) async {
+    try {
+      await _aiReady.future.timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      return HandleOutcome.errorKey('h.screenNotReady');
+    }
+    if (!mounted) return HandleOutcome.errorKey('h.screenNotReady');
+    final lines = a['lines'];
+    final whole = a['whole'] == true || lines is! List || lines.isEmpty;
+    final picks = List<double>.filled(_lines.length, 0);
+    if (!whole) {
+      for (final raw in lines) {
+        if (raw is! Map) continue;
+        final query = '${raw['query'] ?? ''}'.trim();
+        final hits = [
+          for (var i = 0; i < _lines.length; i++)
+            if (productNameMatchesQuery(_lines[i].name, query)) i,
+        ];
+        if (hits.isEmpty) return HandleOutcome.notFoundKey('h.lineNone', {'name': query});
+        var i = hits.first;
+        if (hits.length > 1) {
+          final exact = aiMatchByName(hits, query, (h) => _lines[h].name);
+          if (exact.length != 1) {
+            return HandleOutcome(ToolStatus.ambiguous, askKey: 'h.lineMany', askParams: {'list': hits.take(5).map((h) => _lines[h].name).join('; ')});
+          }
+          i = exact.first;
+        }
+        final want = raw['qty'] is num ? (raw['qty'] as num).toDouble() : parseNum('${raw['qty'] ?? ''}');
+        final qty = want ?? _lines[i].refundable;
+        if (qty <= 0) return HandleOutcome.clarifyKey('h.retNoPick');
+        if (picks[i] + qty > _lines[i].refundable + 1e-6) {
+          return HandleOutcome.clarifyKey('h.retQty', {'name': _lines[i].name, 'maxQty': _lines[i].refundable - picks[i]});
+        }
+        picks[i] += qty;
+      }
+      if (picks.every((p) => p <= 0)) return HandleOutcome.clarifyKey('h.retNoPick');
+    }
+    final reason = '${a['reason'] ?? ''}'.trim();
+    setState(() {
+      _aiWhole = whole;
+      for (var i = 0; i < _pick.length; i++) {
+        _pick[i] = picks[i];
+      }
+      if (reason.isNotEmpty) _reason.text = reason;
+    });
+    return null;
+  }
+
+  Future<HandleOutcome> _aiRun() => _aiSink.run(
+    () => _submit(whole: _aiWhole, ask: false),
+    afterEnd: () => _aiPosted == null ? null : HandleOutcome.ok({'amount': _aiPosted}),
+  );
+
   String? get _method => str(widget.sale, 'payment_method');
   ReturnLedger get _journal => ReturnLedger(ref.read(databaseProvider));
 
@@ -451,6 +605,7 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
     super.initState();
     _lines = saleLines(widget.sale);
     _pick = List.filled(_lines.length, 0);
+    _aiHandles.register('return', _aiHandle);
     WidgetsBinding.instance.addPostFrameCallback((_) => _prepare());
   }
 
@@ -469,6 +624,7 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
       _ledger = led;
       _ready = true;
     });
+    if (!_aiReady.isCompleted) _aiReady.complete();
   }
 
   List<(int, double)> _picked({required bool whole}) => [
@@ -492,51 +648,59 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
     return b.toString();
   }
 
-  Future<void> _submit({required bool whole}) async {
+  Future<void> _submit({required bool whole, bool ask = true}) async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      await _submitCore(whole: whole);
+      await _submitCore(whole: whole, ask: ask);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _submitCore({required bool whole}) async {
+  Future<void> _submitCore({required bool whole, bool ask = true}) async {
     final l = context.l;
     final picks = _picked(whole: whole);
     if (picks.isEmpty) {
       if (whole) toast(context, l.returnNothingLeft, error: true);
+      _aiSink.report(whole ? HandleOutcome.errorKey('h.retNothing') : HandleOutcome.clarifyKey('h.retNoPick'));
       return;
     }
     final amount = _amount(picks);
     final led = _ledger;
     if (led != null && led.total > 0 && led.remaining <= 0.004) {
       toast(context, l.returnNothingLeft, error: true);
+      _aiSink.report(HandleOutcome.errorKey('h.retNothing'));
       return;
     }
     final debtLeft = await _debtLeft;
     if (!mounted) return;
     final preview = computeRefundSplit(led, _method, amount, serverDebtLeft: debtLeft);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text('${l.returnTitle} №${widget.number}'),
-        content: Text(_splitText(context, amount, preview)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(whole ? l.returnAll : l.returnSelected)),
-        ],
-      ),
-    );
+    // 2026-10-26 (голос-управление, В3б): от ИИ диалога «Вернуть?» нет — просьба в звонке и есть одобрение
+    final ok = !ask
+        ? true
+        : await showDialog<bool>(
+            context: context,
+            builder: (c) => AlertDialog(
+              title: Text('${l.returnTitle} №${widget.number}'),
+              content: Text(_splitText(context, amount, preview)),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+                FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(whole ? l.returnAll : l.returnSelected)),
+              ],
+            ),
+          );
     if (ok != true || !mounted) return;
     // Весь чек без прошлых возвратов — как раньше одним запросом; иначе строками (остатки строк).
     final untouched = _lines.every((x) => x.refundable >= x.qty - 1e-6);
     final send = whole && untouched ? const <(String, double)>[] : [for (final (i, q) in picks) (_lines[i].id, q)];
     try {
       await ref.read(opsRepoProvider).returnSale(widget.saleId, send);
+      _aiPosted = amount;
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
+      // ответ не дошёл — возврат мог пройти; повтор пойдёт тем же ключом (OpsRepository._withKey) и второй раз не проведётся
+      _aiSink.report(OpsRepository.outcomeUnknown(e) ? const HandleOutcome(ToolStatus.error, unknown: true) : HandleOutcome.error(e.message));
       return;
     }
     // Что записал сервер: меньше расчёта — берём его (денег ушло меньше); выдано по движениям денег — его цифра.
@@ -559,17 +723,25 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
         ),
       );
     }
-    Audit.log('return', '${l.auditReturn} №${widget.number} · ${whole ? l.returnAll : l.returnSelected}', amount: -split.money);
-    ref.read(shiftProvider.notifier).refresh();
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(l.returnDone),
-        content: Text(_splitText(context, finalAmount, split)),
-        actions: [FilledButton(onPressed: () => Navigator.pop(c), child: Text(l.done))],
-      ),
+    final reason = _reason.text.trim();
+    Audit.log(
+      'return',
+      '${l.auditReturn} №${widget.number} · ${whole ? l.returnAll : l.returnSelected}${reason.isEmpty ? '' : ' · $reason'}',
+      amount: -split.money,
     );
+    ref.read(shiftProvider.notifier).refresh();
+    _aiSink.report(HandleOutcome.ok({'amount': finalAmount}));
+    if (!mounted) return;
+    // 2026-10-26 (живой аудит, П5): каждый денежный шаг оставляет документ — документ возврата с печатью, PDF и отправкой.
+    final doc = returnDoc(
+      l,
+      ref.read(sessionProvider),
+      number: widget.number,
+      items: [for (final (i, q) in picks) (_lines[i].name, q)],
+      splitLines: _splitText(context, finalAmount, split).split('\n'),
+      reason: reason,
+    );
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TapeDocScreen(doc: doc, title: l.returnDone, subtitle: '${l.check} №${widget.number}')));
     if (mounted) context.pop(true);
   }
 
@@ -585,7 +757,7 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
       body: !_ready
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + MediaQuery.paddingOf(context).bottom),
               children: [
                 if (led != null && led.total > 0)
                   Padding(
@@ -643,6 +815,17 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
                       ),
                     ),
                   ),
+                const SizedBox(height: 8),
+                FieldLabel(l.returnReasonTitle),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    for (final r in [l.returnReasonDefect, l.returnReasonNotFit, l.returnReasonCashier])
+                      ChoiceChip(label: Text(r), selected: _reason.text == r, onSelected: (_) => setState(() => _reason.text = r)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                TextField(controller: _reason, onChanged: (_) => setState(() {})),
                 const SizedBox(height: 12),
                 Text('${l.returnToCustomer}: ${money(sum)} ${l.som}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 12),
@@ -651,6 +834,76 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
                 OutlinedButton(onPressed: _busy || _lines.every((x) => x.refundable <= 0) ? null : () => _submit(whole: true), child: Text(l.returnAll)),
               ],
             ),
+    );
+  }
+}
+
+/// 2026-10-26 (живой аудит, П5): ошибка загрузки с «Повторить». [compact] — полоса над списком, когда показан последний
+/// сохранённый список; иначе — по центру экрана вместо списка.
+class _RetryBox extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  final bool compact;
+  const _RetryBox({required this.message, required this.onRetry, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pal = context.pal;
+    final retry = OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+      onPressed: onRetry,
+      icon: const Icon(Icons.refresh_rounded),
+      label: Text(l.retry),
+    );
+    if (compact) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        decoration: BoxDecoration(color: pal.warnSoft, borderRadius: BorderRadius.circular(12)),
+        child: Row(
+          children: [
+            Icon(Icons.wifi_off_rounded, color: pal.warn, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message, style: TextStyle(color: pal.warn, fontSize: 12.5))),
+            TextButton(onPressed: onRetry, child: Text(l.retry)),
+          ],
+        ),
+      );
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message, textAlign: TextAlign.center, style: TextStyle(color: pal.danger)),
+            const SizedBox(height: 12),
+            retry,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Крупная строка «Принято N, остаток M» над квитанцией.
+class _AcceptedBanner extends StatelessWidget {
+  final String text;
+  const _AcceptedBanner(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = context.pal;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: pal.successSoft, borderRadius: BorderRadius.circular(14)),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_rounded, color: pal.success),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: TextStyle(color: pal.success, fontWeight: FontWeight.w800, fontSize: 16))),
+        ],
+      ),
     );
   }
 }

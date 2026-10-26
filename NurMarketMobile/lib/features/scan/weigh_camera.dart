@@ -12,6 +12,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
+import '../admin/ai_access_ui.dart';
 import '../sale/sale_screen.dart';
 import 'live_shot.dart';
 import 'cam_label.dart';
@@ -482,12 +483,22 @@ Future<void> weighForSale(BuildContext context, WidgetRef ref) async {
     toast(context, l.openShiftFirst, error: true);
     return;
   }
-  if (await ref.read(visionProvider).key() == null) {
+  // 2026-10-26 (владелец: ИИ — не больше 2 сотрудникам): без права на ИИ — «доступен только …», вес — вручную; с правом — пояснение раз.
+  String? denied;
+  String? key;
+  try {
+    key = await ref.read(visionProvider).key();
+  } on AiAccessDenied catch (e) {
+    denied = e.message;
+  }
+  if (key == null) {
     if (!context.mounted) return;
-    toast(context, l.weighNoAi, error: true);
+    toast(context, denied ?? l.weighNoAi, error: true);
     await _manual(context, ref);
     return;
   }
+  if (!context.mounted) return;
+  await showAiNoticeOnce(context, ref);
   if (!context.mounted) return;
   final r = await WeighCameraPage.open(context);
   if (r == null || !context.mounted) return;

@@ -174,203 +174,184 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   Widget build(BuildContext context) {
     final l = context.l;
     final pal = context.pal;
-    // 13.10, владелец: «добавление новых товаров в склад добавь» — круглая «+ Товар» всегда под рукой поверх списка.
-    final canAdd = ref.read(sessionProvider)?.canRoute('/admin/new-product') ?? false;
-    return Stack(
+    // 2026-10-26 (живой аудит, П7, В-3): плавающая «Новый товар» убрана — она перекрывала строки списка (касание по
+    // товару открывало создание), а плитка «Новый товар» уже есть над поиском.
+    return Column(
       children: [
-        Column(
-          children: [
-            ScreenTitle(l.tabStock, back: false),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Panel(
-                      color: T.accent,
-                      onTap: () => context.push('/stock/receive'),
-                      child: Row(
-                        children: [
-                          Icon(Icons.add_rounded, color: context.pal.action),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              l.receiveByScanner,
-                              style: const TextStyle(fontWeight: FontWeight.w800, color: T.navy),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Panel(
-                      onTap: () => context.push('/stock/audit'),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.fact_check_outlined),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(l.audit, style: const TextStyle(fontWeight: FontWeight.w800)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 13.10, владелец: «на складе нет создания товара и массовой загрузки товара» (и умная камера — Т9).
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _StockAction(icon: Icons.add_box_outlined, text: l.newProduct, onTap: () => context.push('/admin/new-product')),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _StockAction(icon: Icons.upload_file_rounded, text: l.bulkImport, onTap: () => context.push('/stock/import')),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _StockAction(icon: Icons.photo_camera_rounded, text: l.smartCam, onTap: () => context.push('/admin/smartcam')),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-              child: TextField(
-                controller: _q,
-                onChanged: (_) {
-                  _debounce?.cancel();
-                  _debounce = Timer(const Duration(milliseconds: 250), _load);
-                },
-                decoration: InputDecoration(hintText: l.findProduct, prefixIcon: const Icon(Icons.search_rounded)),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ProductFilterBar(
-                stock: switch (_filter) {
-                  'low' => StockFilter.low,
-                  'out' => StockFilter.out,
-                  'in' => StockFilter.inStock,
-                  _ => StockFilter.all,
-                },
-                category: _category,
-                onChanged: (st, c) {
-                  setState(() {
-                    _filter = switch (st) {
-                      StockFilter.low => 'low',
-                      StockFilter.out => 'out',
-                      StockFilter.inStock => 'in',
-                      StockFilter.all => 'all',
-                    };
-                    _category = c;
-                  });
-                  _load();
-                },
-              ),
-            ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  try {
-                    await ref.read(catalogRepoProvider).sync();
-                  } on ApiException catch (e) {
-                    if (context.mounted) toast(context, e.message, error: true);
-                  }
-                  await _load();
-                },
-                // 13.10, владелец: «долистать до низа и ещё потянуть вверх — плавно открывается окно с низким остатком».
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: _onScroll,
-                  child: ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                    itemCount: _list.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
-                    itemBuilder: (c, i) {
-                      if (i == _list.length) {
-                        return Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            children: [
-                              Text(l.pricesByAdmin, style: TextStyle(fontSize: 12, color: pal.textSoft)),
-                              const SizedBox(height: 10),
-                              Text(
-                                l.lowStockPull,
-                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: pal.textSoft),
-                              ),
-                              const SizedBox(height: 40),
-                            ],
-                          ),
-                        );
-                      }
-                      final p = _list[i];
-                      final color = p.quantity <= 0 ? T.danger : (isLowStock(p.quantity, p.minQuantity) ? T.warn : null);
-                      return Panel(
-                        // 13.10, владелец: «кнопку удалить товар добавь» — нажатие на товар: действия с ним
-                        // 2026-10-22 (мобилка, админ): владелец — «нельзя редактировать товары на складе». С правом «Склад» —
-                        // сразу карточка товара (правка, остаток документом, обучение камеры и удаление — в её меню).
-                        onTap: () async {
-                          final s = ref.read(sessionProvider);
-                          if (s != null && s.canRoute('/admin/product')) {
-                            await openProductEditor(context, ref, p);
-                            await _load();
-                          } else {
-                            await _productActions(p);
-                          }
-                        },
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        child: Row(
-                          children: [
-                            ProductThumb(name: p.name, url: p.imageUrl, size: 40),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    p.name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                  Text('${money(p.price)} ${l.som}', style: TextStyle(fontSize: 12, color: pal.textSoft)),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              '${qtyText(p.quantity)} ${p.unit}',
-                              style: TextStyle(fontWeight: FontWeight.w800, color: color),
-                            ),
-                          ],
+        ScreenTitle(l.tabStock, back: false),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Panel(
+                  color: T.accent,
+                  onTap: () => context.push('/stock/receive'),
+                  child: Row(
+                    children: [
+                      Icon(Icons.add_rounded, color: context.pal.action),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.receiveByScanner,
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: T.navy),
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Panel(
+                  onTap: () => context.push('/stock/audit'),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.fact_check_outlined),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(l.audit, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        if (canAdd)
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton.extended(
-              heroTag: 'stock-add',
-              backgroundColor: T.accent,
-              foregroundColor: T.navy,
-              onPressed: () => context.push('/admin/new-product'),
-              icon: const Icon(Icons.add_rounded),
-              label: Text(l.newProduct),
+        // 13.10, владелец: «на складе нет создания товара и массовой загрузки товара» (и умная камера — Т9).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: _StockAction(icon: Icons.add_box_outlined, text: l.newProduct, onTap: () => context.push('/admin/new-product')),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _StockAction(icon: Icons.upload_file_rounded, text: l.bulkImport, onTap: () => context.push('/stock/import')),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _StockAction(icon: Icons.photo_camera_rounded, text: l.smartCam, onTap: () => context.push('/admin/smartcam')),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+          child: TextField(
+            controller: _q,
+            onChanged: (_) {
+              _debounce?.cancel();
+              _debounce = Timer(const Duration(milliseconds: 250), _load);
+            },
+            decoration: InputDecoration(hintText: l.findProduct, prefixIcon: const Icon(Icons.search_rounded)),
+          ),
+        ),
+        ProductFilterBar(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          stock: switch (_filter) {
+            'low' => StockFilter.low,
+            'out' => StockFilter.out,
+            'in' => StockFilter.inStock,
+            _ => StockFilter.all,
+          },
+          category: _category,
+          onChanged: (st, c) {
+            setState(() {
+              _filter = switch (st) {
+                StockFilter.low => 'low',
+                StockFilter.out => 'out',
+                StockFilter.inStock => 'in',
+                StockFilter.all => 'all',
+              };
+              _category = c;
+            });
+            _load();
+          },
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              try {
+                await ref.read(catalogRepoProvider).sync();
+              } on ApiException catch (e) {
+                if (context.mounted) toast(context, e.message, error: true);
+              }
+              await _load();
+            },
+            // 13.10, владелец: «долистать до низа и ещё потянуть вверх — плавно открывается окно с низким остатком».
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _onScroll,
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                itemCount: _list.length + 1,
+                separatorBuilder: (_, _) => const SizedBox(height: 6),
+                itemBuilder: (c, i) {
+                  if (i == _list.length) {
+                    return Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        children: [
+                          Text(l.pricesByAdmin, style: TextStyle(fontSize: 12, color: pal.textSoft)),
+                          const SizedBox(height: 10),
+                          Text(
+                            l.lowStockPull,
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: pal.textSoft),
+                          ),
+                          const SizedBox(height: 40),
+                        ],
+                      ),
+                    );
+                  }
+                  final p = _list[i];
+                  final color = p.quantity <= 0 ? T.danger : (isLowStock(p.quantity, p.minQuantity) ? T.warn : null);
+                  return Panel(
+                    // 13.10, владелец: «кнопку удалить товар добавь» — нажатие на товар: действия с ним
+                    // 2026-10-22 (мобилка, админ): владелец — «нельзя редактировать товары на складе». С правом «Склад» —
+                    // сразу карточка товара (правка, остаток документом, обучение камеры и удаление — в её меню).
+                    onTap: () async {
+                      final s = ref.read(sessionProvider);
+                      if (s != null && s.canRoute('/admin/product')) {
+                        await openProductEditor(context, ref, p);
+                        await _load();
+                      } else {
+                        await _productActions(p);
+                      }
+                    },
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(
+                      children: [
+                        ProductThumb(name: p.name, url: p.imageUrl, size: 40),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                p.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              Text('${money(p.price)} ${l.som}', style: TextStyle(fontSize: 12, color: pal.textSoft)),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '${qtyText(p.quantity)} ${p.unit}',
+                          style: TextStyle(fontWeight: FontWeight.w800, color: color),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
+        ),
       ],
     );
   }
@@ -378,7 +359,16 @@ class _StockScreenState extends ConsumerState<StockScreen> {
 
 // ======================================================================== приёмка
 
-/// Приёмка сканером (Т16): каждый скан — +1 штука; неизвестный штрихкод — администратору; без цен.
+/// 2026-10-26 (живой аудит, П7, С-14): что дал один скан в приёмке и ревизии — товар и сколько штук прибавить.
+/// Штрихкод упаковки (доп. штрихкод с количеством, new_item.dart «В упаковке») прибавляет всю упаковку, обычный — 1.
+/// Этикетка весов — не товар поставки (allowWeightLabel: false), как в самом сканере.
+Future<({Product product, double qty})?> receiveScanHit(AppDatabase db, String code) async {
+  final hit = await db.productByScan(code, allowWeightLabel: false);
+  if (hit == null) return null;
+  return (product: hit.product, qty: hit.qty ?? 1);
+}
+
+/// Приёмка сканером (Т16): каждый скан — +1 штука (штрихкод упаковки — вся упаковка); неизвестный штрихкод — администратору; без цен.
 class ReceiveScreen extends ConsumerStatefulWidget {
   const ReceiveScreen({super.key});
   @override
@@ -429,16 +419,17 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
     if (codes == null) return;
     final db = ref.read(databaseProvider);
     for (final code in codes) {
-      final p = (await db.productByScan(code))?.product; // 13.10: и UPC-A ↔ EAN-13
+      final hit = await receiveScanHit(db, code); // 13.10: и UPC-A ↔ EAN-13; 2026-10-26: и упаковка
+      final p = hit?.product;
       if (p == null) {
         if (!_unknown.contains(code)) _unknown.add(code);
         continue;
       }
       final i = _lines.indexWhere((l) => l.productId == p.id);
       if (i >= 0) {
-        _lines[i].qty += 1;
+        _lines[i].qty += hit!.qty;
       } else {
-        _lines.insert(0, StockLine(productId: p.id, name: p.name, before: p.quantity));
+        _lines.insert(0, StockLine(productId: p.id, name: p.name, before: p.quantity, qty: hit!.qty));
       }
     }
     setState(() {});
@@ -682,10 +673,11 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
         .push<List<String>>(MaterialPageRoute(builder: (_) => const ScanScreen(initial: ScanMode.receive, returnCodes: true)));
     if (codes == null) return;
     for (final code in codes) {
-      final p = (await ref.read(databaseProvider).productByScan(code))?.product; // 13.10: и UPC-A ↔ EAN-13
+      final hit = await receiveScanHit(ref.read(databaseProvider), code); // 13.10: и UPC-A ↔ EAN-13; 2026-10-26: и упаковка
+      final p = hit?.product;
       if (p == null) continue;
       if (!_products.any((x) => x.id == p.id)) _products.insert(0, p);
-      _counted[p.id] = (_counted[p.id] ?? 0) + 1;
+      _counted[p.id] = (_counted[p.id] ?? 0) + hit!.qty;
       _ctrlFor(p).text = qtyText(_counted[p.id]!);
     }
     setState(() {});
@@ -788,6 +780,7 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
         subtitle: l.checkedOf(_counted.length, _products.length),
         actions: [
           IconButton.filled(
+            tooltip: l.a11yScanner, // 2026-10-26 (живой аудит, П7): подпись для TalkBack
             style: IconButton.styleFrom(backgroundColor: T.navy),
             onPressed: _scan,
             icon: const Icon(Icons.qr_code_scanner_rounded, color: T.accent),
@@ -807,7 +800,7 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
             ),
           ),
           SizedBox(
-            height: 48,
+            height: 56, // 2026-10-26 (живой аудит, П7): 48 dp обрезали чипы (поиск 48 + отступ 8)
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),

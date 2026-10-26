@@ -39,6 +39,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
       'receive' => l.receiveWithPrices,
       'cash' => l.cashInOut,
       'shift' => l.shifts,
+      'ai' => l.auditAi, // 2026-10-26 (В5): действия ИИ в звонке
       _ => l.auditSettings,
     };
   }
@@ -53,6 +54,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
     'receive' => Icons.move_to_inbox_outlined,
     'cash' => Icons.swap_vert_rounded,
     'shift' => Icons.schedule_rounded,
+    'ai' => Icons.auto_awesome_outlined,
     _ => Icons.settings_outlined,
   };
 

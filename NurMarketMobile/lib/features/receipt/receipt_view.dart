@@ -235,7 +235,88 @@ class _ZigzagClipper extends CustomClipper<Path> {
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
-/// Чек целиком на отдельном экране: лента, «QR-код» и «Отправить PDF».
+/// 2026-10-26 (живой аудит, П4, В-7): три кнопки чека — значок и короткая подпись в одну строку («Печать», «QR», «PDF»).
+/// Раньше «Отправить PDF» и «Показать QR покупателю» переносились посреди слова на узком экране.
+class ReceiptActionBar extends StatelessWidget {
+  final Receipt receipt;
+
+  /// Заголовок экрана с QR (номер и сумма).
+  final String qrTitle;
+
+  /// Печать после продажи — с импульсом денежного ящика (экран «Оплачено»).
+  final bool afterSale;
+  const ReceiptActionBar({super.key, required this.receipt, required this.qrTitle, this.afterSale = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    return Row(
+      children: [
+        // 2026-10-20: печать на принтер чеков.
+        Expanded(
+          child: _ReceiptAction(icon: Icons.print_outlined, label: l.tapePrint, tooltip: l.prnPrint, onTap: () => printReceiptUi(context, receipt, afterSale: afterSale)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ReceiptAction(icon: Icons.qr_code_2_rounded, label: 'QR', tooltip: l.showQr, onTap: () => ReceiptQrScreen.show(context, receipt: receipt, title: qrTitle)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ReceiptAction(icon: Icons.picture_as_pdf_outlined, label: 'PDF', tooltip: l.sendPdf, filled: true, onTap: () => shareReceiptPdf(receipt)),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReceiptAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String tooltip;
+  final bool filled;
+  final VoidCallback onTap;
+  const _ReceiptAction({required this.icon, required this.label, required this.tooltip, required this.onTap, this.filled = false});
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    final fg = filled ? p.onAction : null;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: filled ? p.action : p.panel,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: filled ? p.action : p.border),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 20, color: fg),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(label, maxLines: 1, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: fg)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Чек целиком на отдельном экране: лента, «Печать», «QR» и «PDF».
 class ReceiptScreen extends StatelessWidget {
   final Receipt receipt;
   const ReceiptScreen({super.key, required this.receipt});
@@ -245,7 +326,6 @@ class ReceiptScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = context.l;
     return Scaffold(
       backgroundColor: context.pal.window,
       appBar: ScreenTitle(receipt.fileName, subtitle: receipt.dateText),
@@ -256,35 +336,7 @@ class ReceiptScreen extends StatelessWidget {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: Row(
-            children: [
-              // 2026-10-20: печать на принтер чеков.
-              IconButton.outlined(
-                style: IconButton.styleFrom(minimumSize: const Size(50, 50), backgroundColor: context.pal.panel),
-                tooltip: l.prnPrint,
-                onPressed: () => printReceiptUi(context, receipt),
-                icon: const Icon(Icons.print_outlined),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: context.pal.panel),
-                  onPressed: () => ReceiptQrScreen.show(context, receipt: receipt, title: receipt.fileName),
-                  icon: const Icon(Icons.qr_code_2_rounded),
-                  label: Text(l.showQr),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                  onPressed: () => shareReceiptPdf(receipt),
-                  icon: const Icon(Icons.picture_as_pdf_outlined),
-                  label: Text(l.sendPdf),
-                ),
-              ),
-            ],
-          ),
+          child: ReceiptActionBar(receipt: receipt, qrTitle: receipt.fileName),
         ),
       ),
     );

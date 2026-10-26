@@ -94,7 +94,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String checksCount(int n) {
-    return '$n receipts';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n receipts',
+      one: '$n receipt',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -115,7 +121,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String runningOut(int n) {
-    return '$n products running out';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n products running out',
+      one: '$n product running out',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -141,7 +153,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String positions(int n) {
-    return '$n items';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n items',
+      one: '$n item',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -378,41 +396,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String variantsSummary(int n, String qty) {
-    return '$n variants · $qty pcs';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n variants · $qty pcs',
+      one: '$n variant · $qty pcs',
+    );
+    return '$_temp0';
   }
 
   @override
   String variantsSaved(int n) {
     return 'Variants saved: $n';
   }
-
-  @override
-  String get durationLabel => 'Duration';
-
-  @override
-  String get mastersLabel => 'Masters · own price and percent';
-
-  @override
-  String get masterAdd => 'Add master';
-
-  @override
-  String get masterName => 'Master\'s name';
-
-  @override
-  String get masterPercent => '% to master';
-
-  @override
-  String get consumablesLabel => 'Consumables from stock';
-
-  @override
-  String get consumableAdd => 'Add consumable';
-
-  @override
-  String get onlineBooking => 'Online booking on site and bot';
-
-  @override
-  String get serviceLocalNote =>
-      'Masters, duration and consumables are kept on this phone until the server has a services API. The service itself is in the NurCRM catalog.';
 
   @override
   String get saveService => 'Save service';
@@ -446,62 +442,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Prices from the internet are not used — enter your own.';
 
   @override
-  String get bookingsTitle => 'Services · bookings';
-
-  @override
   String get dayToday => 'Today';
-
-  @override
-  String get dayTomorrow => 'Tomorrow';
-
-  @override
-  String get allMasters => 'All masters';
-
-  @override
-  String get bookNew => 'Book';
-
-  @override
-  String get bookCheckout => 'Check out';
-
-  @override
-  String get bookArrived => 'arrived';
-
-  @override
-  String get bookBooked => 'booked';
-
-  @override
-  String get bookPaid => 'paid';
-
-  @override
-  String get bookFree => 'free';
-
-  @override
-  String get bookMarkArrived => 'Mark as arrived';
-
-  @override
-  String get bookRemind => 'Remind on WhatsApp';
-
-  @override
-  String get bookCancel => 'Cancel booking';
-
-  @override
-  String get bookTime => 'Time';
-
-  @override
-  String get bookClash => 'The master already has a booking then.';
-
-  @override
-  String get bookNoMasters =>
-      'No masters yet — add them when creating a service.';
-
-  @override
-  String get bookLocalNote =>
-      'Bookings are kept on this phone until the server has a bookings API. Payment is a normal NurCRM receipt.';
-
-  @override
-  String bookReminder(String name, String when, String master) {
-    return 'Hello, $name! A reminder of your booking $when with $master.';
-  }
 
   @override
   String get pricesTitle => 'Sale prices';
@@ -913,6 +854,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentMethods => 'Payment methods';
 
   @override
+  String get chartBestDay => 'Best day';
+
+  @override
+  String get chartWorstDay => 'Weakest day';
+
+  @override
   String get topProducts => 'Top products';
 
   @override
@@ -1089,7 +1036,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String smartUpload(int n) {
-    return 'Upload $n products to stock';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'Upload $n products to stock',
+      one: 'Upload $n product to stock',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1109,43 +1062,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String smartPartial(int done, int total, int left) {
-    return 'Posted $done of $total, $left not posted — press Upload again: what was already posted will not be added twice.';
-  }
-
-  @override
-  String get smartNoLink =>
-      'No connection to the server — nothing was posted. The list stays on screen; retry when the internet is back.';
-
-  @override
-  String smartRowRejected(String reason) {
-    return 'Rejected: $reason';
-  }
-
-  @override
-  String get smartRowUnknown =>
-      'No reply from the server — retry: the stock will not be doubled.';
-
-  @override
-  String get smartRowLocked =>
-      'This row was already sent to the server — the product and name cannot be changed, retry the upload.';
-
-  @override
-  String get smartPendingReceipt =>
-      'The previous supplier receipt got no reply — repeat it first via “Receive with supplier”, otherwise the stock may be added twice.';
-
-  @override
-  String get smartPendingStock =>
-      'Some rows got no reply from the server — press Upload again first: that way the stock will not be doubled.';
-
-  @override
   String get sellingPrice => 'Selling price';
-
-  @override
-  String get durationCustom => 'Custom…';
-
-  @override
-  String get minutesHint => 'minutes';
 
   @override
   String get photoLabel => 'Photo';
@@ -1597,7 +1514,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String toPayPositions(int n) {
-    return 'To pay · $n items';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'To pay · $n items',
+      one: 'To pay · $n item',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1848,7 +1771,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String goodsPieces(int n, String qty) {
-    return '$n products · $qty pcs';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n products · $qty pcs',
+      one: '$n product · $qty pcs',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1928,7 +1857,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String sinceChecks(String time, int n) {
-    return 'since $time · $n receipts';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'since $time · $n receipts',
+      one: 'since $time · $n receipt',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1954,7 +1889,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String closeShiftPending(int n) {
-    return '$n receipts must be sent to the server first — a connection is needed.';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other:
+          '$n receipts must be sent to the server first — a connection is needed.',
+      one:
+          '$n receipt must be sent to the server first — a connection is needed.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2176,7 +2119,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String logoutPending(int n) {
-    return 'There are $n unsent records on the phone. They stay after signing out and will be sent at the next sign-in to this account. Sign out?';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other:
+          'There are $n unsent records on the phone. They stay after signing out and will be sent at the next sign-in to this account. Sign out?',
+      one:
+          'There is $n unsent record on the phone. It stays after signing out and will be sent at the next sign-in to this account. Sign out?',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2431,7 +2382,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String notifyRunningOutSub(int n) {
-    return '$n items · time to order';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n items · time to order',
+      one: '$n item · time to order',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2913,7 +2870,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String auditContinue(int n) {
-    return 'Continue the count ($n products)';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'Continue the count ($n products)',
+      one: 'Continue the count ($n product)',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2924,7 +2887,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String closeShiftFailed(int n) {
-    return 'The server did not accept $n receipts — they will not be in the shift report. Send them again or remove them in “Sync”.';
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other:
+          'The server did not accept $n receipts — they will not be in the shift report. Send them again or remove them in “Sync”.',
+      one:
+          'The server did not accept $n receipt — it will not be in the shift report. Send it again or remove it in “Sync”.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -3393,4 +3364,1330 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get peNoAccess =>
       'Products can be edited by staff with the \"Stock\" permission or an administrator.';
+
+  @override
+  String get smartNoLink =>
+      'No connection to the server — nothing was posted. The list stays on screen; retry when the internet is back.';
+
+  @override
+  String smartPartial(int done, int total, int left) {
+    return 'Posted $done of $total, $left not posted — press Upload again: what was already posted will not be added twice.';
+  }
+
+  @override
+  String get smartPendingReceipt =>
+      'The previous supplier receipt got no reply — repeat it first via “Receive with supplier”, otherwise the stock may be added twice.';
+
+  @override
+  String get smartPendingStock =>
+      'Some rows got no reply from the server — press Upload again first: that way the stock will not be doubled.';
+
+  @override
+  String get smartRowLocked =>
+      'This row was already sent to the server — the product and name cannot be changed, retry the upload.';
+
+  @override
+  String smartRowRejected(String reason) {
+    return 'Rejected: $reason';
+  }
+
+  @override
+  String get smartRowUnknown =>
+      'No reply from the server — retry: the stock will not be doubled.';
+
+  @override
+  String payDebtLeft(String sum) {
+    return 'Debt remaining: $sum';
+  }
+
+  @override
+  String get debtReceiptTitle => 'Debt payment receipt';
+
+  @override
+  String get returnsTitle => 'Returns';
+
+  @override
+  String get shDebtPayments => 'Debt payments';
+
+  @override
+  String get shDebtPrepay => 'Prepayment on debt';
+
+  @override
+  String get exitPressAgain => 'Press again to exit';
+
+  @override
+  String get createProductWithCode => 'Create a product with this code';
+
+  @override
+  String get printLabel => 'Print a label';
+
+  @override
+  String get openingCashField => 'Cash in the drawer at shift start';
+
+  @override
+  String get advisorGreeting =>
+      'Hello! I am Nur Advisor. Ask about sales, debts or stock — I will answer from your store\'s data.';
+
+  @override
+  String get a11yBack => 'Back';
+
+  @override
+  String get a11yShowPassword => 'Show password';
+
+  @override
+  String get a11yHidePassword => 'Hide password';
+
+  @override
+  String get a11yScanner => 'Scanner';
+
+  @override
+  String get a11yCallAi => 'Call the AI';
+
+  @override
+  String get stockNone => 'none';
+
+  @override
+  String get cartEmptyHint => 'Add an item: search, scan or tap a tile';
+
+  @override
+  String get toProductsBtn => 'To products';
+
+  @override
+  String get closeBtn => 'Close';
+
+  @override
+  String clientDebtLine(String sum) {
+    return 'Debt: $sum som';
+  }
+
+  @override
+  String get apiNoToken => 'The server did not return a token.';
+
+  @override
+  String get apiSessionExpired => 'Session expired — sign in again.';
+
+  @override
+  String get apiTimeout => 'The server did not respond in time.';
+
+  @override
+  String get apiNoConnection => 'No connection to the server.';
+
+  @override
+  String apiServerError(String code) {
+    return 'Server error $code.';
+  }
+
+  @override
+  String get apiNetworkError => 'Network error.';
+
+  @override
+  String get adminNoLink => 'no connection';
+
+  @override
+  String printLabelAsk(String name, String code) {
+    return 'Print a label for \"$name\"? Barcode $code';
+  }
+
+  @override
+  String get notNow => 'Not now';
+
+  @override
+  String get bcGenTaken =>
+      'That code is already taken on the server — a new one was issued.';
+
+  @override
+  String get tapePrint => 'Print';
+
+  @override
+  String get tapeSend => 'Send';
+
+  @override
+  String get zReport => 'Shift Z-report';
+
+  @override
+  String get xReportNote => 'X-report is interim: the shift is not closed.';
+
+  @override
+  String get shSalesBlock => 'Sales';
+
+  @override
+  String get shCashBlock => 'Cash in the drawer';
+
+  @override
+  String get shPrepayIncluded =>
+      'included in cash/non-cash: prepayment on debt';
+
+  @override
+  String get shReturnsUnknown => 'Shift returns not loaded — no connection.';
+
+  @override
+  String shReturnsPartial(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n returns',
+      one: '$n return',
+    );
+    return 'Partly: $_temp0 with no cashier in the server reply — not counted. Check on the site.';
+  }
+
+  @override
+  String returnsCountN(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n returns',
+      one: '$n return',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get shReturnsCash => 'Cash refunds';
+
+  @override
+  String get shCalcRow => 'Sum of the rows';
+
+  @override
+  String shMismatch(String sum) {
+    return 'The row total differs from the server by $sum som — rely on the server figure.';
+  }
+
+  @override
+  String get shNoSplit =>
+      'Breakdown of returns and debt payments is unavailable — the expected cash is the server figure.';
+
+  @override
+  String get shPartial =>
+      'Some data did not load (no connection) — refresh the screen.';
+
+  @override
+  String get debtReceiptBefore => 'Debt before payment';
+
+  @override
+  String get debtReceiptMethod => 'Payment method';
+
+  @override
+  String get debtReceiptAccepted => 'Accepted';
+
+  @override
+  String get debtReceiptCleared => 'The debt is fully paid.';
+
+  @override
+  String debtReceiptAcceptedLine(String sum, String left) {
+    return 'Accepted $sum, remaining $left';
+  }
+
+  @override
+  String get returnReasonTitle => 'Return reason (optional)';
+
+  @override
+  String get returnReasonLabelShort => 'Reason';
+
+  @override
+  String get returnReasonDefect => 'Defect';
+
+  @override
+  String get returnReasonNotFit => 'Did not fit';
+
+  @override
+  String get returnReasonCashier => 'Cashier error';
+
+  @override
+  String get listCachedNote => 'No connection — showing the last saved list.';
+
+  @override
+  String get checksLoadFailed => 'Could not load receipts';
+
+  @override
+  String get debtsLoadFailed => 'Could not load debts';
+
+  @override
+  String get callMinimize => 'Minimize';
+
+  @override
+  String get callAiListens => 'AI is listening';
+
+  @override
+  String get callInterrupted => 'Interrupted — listening';
+
+  @override
+  String get callExtend => '10 more minutes';
+
+  @override
+  String get callExtended => 'The call is extended by 10 minutes';
+
+  @override
+  String get callNoLink => 'No connection to AI';
+
+  @override
+  String get callNoLinkWork => 'No connection to AI — work on the screen';
+
+  @override
+  String callNoLinkEnds(int n) {
+    return 'Ends in $n s if the connection does not return';
+  }
+
+  @override
+  String get callNoLinkHelp => 'The cart, search and stock work without AI.';
+
+  @override
+  String get callSlowServer => 'The server is slow to answer…';
+
+  @override
+  String get callStillLoading =>
+      'The data is still loading — I will tell you when it arrives';
+
+  @override
+  String get callSearching => 'Searching…';
+
+  @override
+  String get callSpeakingShort => 'Speaking…';
+
+  @override
+  String get callHush => 'Quiet';
+
+  @override
+  String get callOpenFull => 'Call with Nur Advisor — expand; hold to silence';
+
+  @override
+  String aiSays(String text) {
+    return 'AI: $text';
+  }
+
+  @override
+  String get aiUndo => 'Undo';
+
+  @override
+  String get aiCantUndo => 'cannot be undone';
+
+  @override
+  String get aiPickTitle => 'Which one?';
+
+  @override
+  String get aiAmbiguousHint => 'Say the number or tap';
+
+  @override
+  String get aiNotThat => 'None of these';
+
+  @override
+  String aiYesNumber(String num) {
+    return 'Yes, $num';
+  }
+
+  @override
+  String get aiNoRepeat => 'No, I\'ll say it again';
+
+  @override
+  String aiConfirmDo(String what) {
+    return 'Do: $what';
+  }
+
+  @override
+  String get aiDo => 'Do it';
+
+  @override
+  String get aiDont => 'Don\'t';
+
+  @override
+  String get aiOrSayYes => 'or say \"yes\"';
+
+  @override
+  String get aiModeAskMoney => 'Ask before money';
+
+  @override
+  String get aiWhatPay => 'payment';
+
+  @override
+  String get aiWhatReturn => 'refund';
+
+  @override
+  String get aiWhatReceive => 'posting a goods receipt';
+
+  @override
+  String get aiWhatWriteOff => 'write-off';
+
+  @override
+  String get aiWhatCount => 'stock count';
+
+  @override
+  String get aiWhatCloseShift => 'closing the shift';
+
+  @override
+  String get aiWhatSalary => 'payout to an employee';
+
+  @override
+  String get aiWhatDebt => 'debt payment';
+
+  @override
+  String get aiWhatDelete => 'deleting a product';
+
+  @override
+  String get aiWhatPrice => 'price change';
+
+  @override
+  String get aiWhatCash => 'cash in or out';
+
+  @override
+  String get aiWhatOther => 'action';
+
+  @override
+  String get tblBigger => 'Larger';
+
+  @override
+  String get tblSmaller => 'Smaller';
+
+  @override
+  String get tblToChat => 'To chat';
+
+  @override
+  String get tblPdf => 'PDF';
+
+  @override
+  String get tblShare => 'Share';
+
+  @override
+  String get tblPin => 'Pin';
+
+  @override
+  String get tblPinned => 'Pinned';
+
+  @override
+  String tblMore(int n) {
+    return 'Show $n more';
+  }
+
+  @override
+  String tblMoreLeft(int n) {
+    return '$n left';
+  }
+
+  @override
+  String get tblAllShown => 'All rows are shown';
+
+  @override
+  String tblSource(String source, String time) {
+    return 'app data · $source · $time';
+  }
+
+  @override
+  String get tblEmpty => 'Nothing here yet';
+
+  @override
+  String tblEmptyFilter(String q) {
+    return 'Nothing found for \"$q\"';
+  }
+
+  @override
+  String get tblClearFilter => 'Clear filter';
+
+  @override
+  String get tblOpenObject => 'Open';
+
+  @override
+  String tblRowsN(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n rows',
+      one: '$n row',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tblPrev => 'Previous table';
+
+  @override
+  String get tblNext => 'Next table';
+
+  @override
+  String get tblCollapse => 'Collapse the panel';
+
+  @override
+  String get tblClose => 'Close the table';
+
+  @override
+  String get tblSentChat => 'The table is added to the chat';
+
+  @override
+  String get tblPdfFailed => 'Could not make the PDF';
+
+  @override
+  String get vcCamera => 'Camera';
+
+  @override
+  String get vcCameraOn => 'Camera on';
+
+  @override
+  String get vcCameraOff => 'Camera off';
+
+  @override
+  String get vcSwitchCamera => 'Other camera';
+
+  @override
+  String get vcTorch => 'Flashlight';
+
+  @override
+  String get vcRecording => 'Camera';
+
+  @override
+  String get vcAiSees => 'AI sees';
+
+  @override
+  String get vcEconomy => 'Data saver';
+
+  @override
+  String get vcEconomyHint => '1 frame every 3 seconds, only while you speak';
+
+  @override
+  String get vcStarting => 'Turning the camera on…';
+
+  @override
+  String get vcSearching => 'Searching the catalog…';
+
+  @override
+  String get vcWhatIsIt => 'What is this?';
+
+  @override
+  String get vcInvoice => 'Invoice';
+
+  @override
+  String get vcShelf => 'Shelf';
+
+  @override
+  String get vcPriceTag => 'Price tag';
+
+  @override
+  String get vcCardProduct => 'Product';
+
+  @override
+  String get vcNotFound =>
+      'Not found in the catalog. Move closer or show the barcode';
+
+  @override
+  String get vcExact => 'exact';
+
+  @override
+  String get vcByBarcode => 'barcode';
+
+  @override
+  String get vcByPhoto => 'by photo';
+
+  @override
+  String get vcLooksLike => 'Looks like:';
+
+  @override
+  String get vcPickHint => 'tap to choose';
+
+  @override
+  String vcPrice(String sum) {
+    return 'Price: $sum som';
+  }
+
+  @override
+  String vcStock(String qty) {
+    return 'In stock: $qty';
+  }
+
+  @override
+  String vcInvoiceSummary(int n, int known, int fresh) {
+    return 'Rows: $n · in catalog: $known · new: $fresh';
+  }
+
+  @override
+  String vcOpenReceive(int n) {
+    return 'Open receiving ($n)';
+  }
+
+  @override
+  String get vcReceiveEndsCall =>
+      'The call will end, the conversation stays in the chat';
+
+  @override
+  String get vcNewItemsHint =>
+      'New items are not in the catalog — add them via \"Stock → Invoice\"';
+
+  @override
+  String get vcNoProcure => 'The administrator posts the receipt';
+
+  @override
+  String get vcShelfHint =>
+      'AI counts by eye — double-check before the stock count';
+
+  @override
+  String get vcShelfCols => 'seen · in the app';
+
+  @override
+  String get vcShelfThing => 'item';
+
+  @override
+  String get vcOnTag => 'On the tag';
+
+  @override
+  String get vcInProgram => 'In the app';
+
+  @override
+  String vcTagMismatch(String tag, String sum) {
+    return 'The tag says $tag som, the app says $sum som — mismatch';
+  }
+
+  @override
+  String get vcTagOk => 'The tag price matches the app';
+
+  @override
+  String get vcTagFixHint =>
+      'We do not change the price here — use the product card';
+
+  @override
+  String vcMoreLines(int n) {
+    return '$n more rows';
+  }
+
+  @override
+  String get vcNewTag => 'new';
+
+  @override
+  String get vcConsentTitle => 'Turn the camera on in the call?';
+
+  @override
+  String get vcConsentBody =>
+      'While the camera is on, frames (about 1 per second) go to Google Gemini using your store\'s AI key. They are not saved on the phone or in NurCRM — only the text of the conversation stays in the chat. On a free key Google may use the data to improve its models. Do not show customers\' faces, bank cards or other people\'s documents.';
+
+  @override
+  String get vcConsentPtSends =>
+      'While the camera is on, frames (about 1 per second) go to Google Gemini using your store\'s AI key.';
+
+  @override
+  String get vcConsentPtSaved =>
+      'They are not saved on the phone or in NurCRM — only the text of the conversation stays in the chat.';
+
+  @override
+  String get vcConsentPtFree =>
+      'On a free key Google may use the data to improve its models.';
+
+  @override
+  String get vcConsentPtWarn =>
+      'Do not show customers\' faces, bank cards or other people\'s documents.';
+
+  @override
+  String get vcConsentAgree => 'Turn the camera on';
+
+  @override
+  String get vcConsentLater => 'Not now';
+
+  @override
+  String vcCost(int n) {
+    return 'A video call lasts up to $n min and uses the AI key limit several times faster than a voice call';
+  }
+
+  @override
+  String get aiAccTitle => 'AI access';
+
+  @override
+  String get aiAccSection => 'Who may use AI';
+
+  @override
+  String aiAccLimitInfo(int n) {
+    return 'The free AI limit (Google Gemini) is shared by the whole project: there are few requests per minute and per day. So AI — Nur Advisor, the call, the smart camera, invoice by photo, weighing by sight — can be used by at most $n store employees. Choose who is allowed.';
+  }
+
+  @override
+  String aiAccCounter(int a, int b) {
+    return '$a of $b';
+  }
+
+  @override
+  String aiAccLimitReached(int n) {
+    return 'You can choose at most $n employees. To give access to someone else, first untick one of the chosen.';
+  }
+
+  @override
+  String aiAccDenied(int n, String names) {
+    return 'AI is available only to $n store employees: $names. Please contact the owner.';
+  }
+
+  @override
+  String get aiAccDeniedNone =>
+      'AI is currently turned off for all store employees. Please contact the owner.';
+
+  @override
+  String get aiAccRecommend =>
+      'We recommend limiting AI to two employees (shared free limit)';
+
+  @override
+  String get aiAccConfigure => 'Set up';
+
+  @override
+  String get aiAccSaved => 'AI access saved';
+
+  @override
+  String get aiAccOwnerTag => 'owner';
+
+  @override
+  String get aiAccYouTag => 'you';
+
+  @override
+  String get aiAccStaffNotLoaded =>
+      'Employee list not loaded (no connection?). Only the already chosen are shown.';
+
+  @override
+  String get aiAccNobody =>
+      'Nobody is chosen — AI will be turned off for all employees.';
+
+  @override
+  String get aiAccManagerOnly =>
+      'Only the owner or an administrator can change the list.';
+
+  @override
+  String get aiAccNoticeTitle => 'AI — shared limit';
+
+  @override
+  String aiAccNoticeBody(int n) {
+    return 'The store\'s AI runs on Google\'s shared free limit, so no more than $n employees have the right to it — you are one of them. Don\'t start long calls or unnecessary requests without need.';
+  }
+
+  @override
+  String get aiAccGotIt => 'Got it';
+
+  @override
+  String get aiAccMineYes => 'You have access to AI';
+
+  @override
+  String get aiAccMineNo => 'AI is not available to you — contact the owner';
+
+  @override
+  String get aiAccMineOpen => 'AI is open to all employees (no limit set)';
+
+  @override
+  String get aiAccNotSet => 'Not set — AI is open to all';
+
+  @override
+  String get assistantTitle => 'Assistant';
+
+  @override
+  String get assistantSub => 'voice control mode';
+
+  @override
+  String get aiModeDo => 'Do on request';
+
+  @override
+  String get aiModeDoHint =>
+      'Opens screens, reads, shows tables and does what you ask right away — says the result aloud and offers “Undo”.';
+
+  @override
+  String get aiModeAskHint =>
+      'Same as on request, but before a payment, refund, goods receipt, write-off, stock count, closing the shift, payout, debt payment, deletion or price change there is a “Do it” card.';
+
+  @override
+  String get aiModeWatch => 'View only';
+
+  @override
+  String get aiModeWatchHint =>
+      'Screens, reading and tables only. If you ask it to do something it answers: “In this mode I don\'t change data — do it on the screen or switch the mode.”';
+
+  @override
+  String get aiModeDefault => 'default';
+
+  @override
+  String get aiModeSofterLocked => 'Softer than the owner set — unavailable';
+
+  @override
+  String get aiModeOwnerSet => 'The owner set for everyone on this phone:';
+
+  @override
+  String get aiModeStricterSelf => 'For yourself you can choose a stricter one';
+
+  @override
+  String get aiModeNoVoice => 'The mode cannot be changed by voice — only here';
+
+  @override
+  String get aiModeAskWhatTitle => 'What it asks before';
+
+  @override
+  String get aiModeAskNote =>
+      'A “Do: … amount …” card and one button — or say “yes”. No double confirmations.';
+
+  @override
+  String get aiModeFooter => 'The assistant\'s rights follow the user\'s role';
+
+  @override
+  String get aiModeSaved => 'Mode saved';
+
+  @override
+  String get aiLogTitle => 'AI actions';
+
+  @override
+  String get aiLogSubAll => 'all entries on this phone';
+
+  @override
+  String get aiLogMoneyOnly => 'Money only';
+
+  @override
+  String get aiLogUndone => 'Undone';
+
+  @override
+  String get aiLogByDate => 'Filter by date';
+
+  @override
+  String get dayYesterday => 'Yesterday';
+
+  @override
+  String aiLogUndoneAt(String time) {
+    return 'undone $time';
+  }
+
+  @override
+  String get aiLogCantUndoWriteOff => 'cannot be undone · you can write off';
+
+  @override
+  String get aiUndoRequest => 'cancellation — by request to the owner';
+
+  @override
+  String get aiLogUndoGone => 'undo was only in the call';
+
+  @override
+  String aiLogUndoneToast(String what) {
+    return 'Undone: $what';
+  }
+
+  @override
+  String get aiLogUndoConflict =>
+      'Changed after the AI — please check on the screen';
+
+  @override
+  String aiLogUndoFailed(String what) {
+    return 'Could not undo: $what. Check the connection and the screen.';
+  }
+
+  @override
+  String get aiLogUndoShift =>
+      'Cannot undo: the shift is closed or the drawer has less cash';
+
+  @override
+  String aiLogUndoPartial(int done, int total) {
+    return 'Restored $done of $total; the rest changed after the AI or failed';
+  }
+
+  @override
+  String get aiLogEmpty => 'The AI has not done anything on this phone yet';
+
+  @override
+  String get aiLogEmptyHint =>
+      'Call Nur Advisor and say what to do — every action will appear here with an “Undo” button';
+
+  @override
+  String get aiLogCall => 'Call the advisor';
+
+  @override
+  String get aiLogMineOnly => 'Only your own actions are shown';
+
+  @override
+  String get aiLogFooter =>
+      'Stored on this phone, up to 2000 entries. No AI keys, audio or customer phone numbers.';
+
+  @override
+  String get aiGroupNav => 'Screens';
+
+  @override
+  String get aiGroupCart => 'Receipt and orders';
+
+  @override
+  String get aiGroupMoney => 'Money';
+
+  @override
+  String get aiGroupProduct => 'Products';
+
+  @override
+  String get aiGroupTask => 'Tasks';
+
+  @override
+  String get aiGroupSalary => 'Salary';
+
+  @override
+  String get auditAi => 'AI';
+
+  @override
+  String get stfTasksTitle => 'Tasks';
+
+  @override
+  String stfTasksSub(int n, String late) {
+    return 'Tasks: $n · overdue: $late';
+  }
+
+  @override
+  String get stfMyTasksTitle => 'My tasks';
+
+  @override
+  String stfMySub(String name, String today, String late) {
+    return '$name · for today: $today · overdue: $late';
+  }
+
+  @override
+  String get stfFilterOverdue => 'Overdue';
+
+  @override
+  String get stfFilterDone => 'Done';
+
+  @override
+  String get stfStNew => 'new';
+
+  @override
+  String get stfStWork => 'in progress';
+
+  @override
+  String get stfStDone => 'done';
+
+  @override
+  String get stfOverdue => 'overdue';
+
+  @override
+  String get stfNoDue => 'no due date';
+
+  @override
+  String get stfDue => 'Due';
+
+  @override
+  String get stfRemind => 'Remind';
+
+  @override
+  String get stfUrgent => 'Urgent task';
+
+  @override
+  String get stfNewTask => 'New task';
+
+  @override
+  String get stfTaskField => 'What to do';
+
+  @override
+  String get stfTaskHint => 'For example: recount the water shelf';
+
+  @override
+  String get stfAssignee => 'Assignee';
+
+  @override
+  String get stfAssigneeHint => 'Choose an employee';
+
+  @override
+  String get stfCreate => 'Create task';
+
+  @override
+  String get stfNeedTitle => 'Write what needs to be done';
+
+  @override
+  String get stfNeedAssignee => 'Choose the assignee';
+
+  @override
+  String get stfTaskCreated => 'Task created';
+
+  @override
+  String get stfToWork => 'Start';
+
+  @override
+  String get stfMarkDone => 'Done';
+
+  @override
+  String get stfReopen => 'Reopen';
+
+  @override
+  String get stfEditDue => 'Change the due date';
+
+  @override
+  String get stfEditAssignee => 'Reassign';
+
+  @override
+  String get stfDelete => 'Delete';
+
+  @override
+  String stfDeleteAsk(String title) {
+    return 'Delete the task \"$title\"?';
+  }
+
+  @override
+  String get stfNoTasks => 'No tasks';
+
+  @override
+  String get stfLoadFail => 'Could not load the tasks';
+
+  @override
+  String get stfPriorityHint =>
+      'Urgency and the reminder are only visible in the app for now; the task may show a service note on the site until the server is updated';
+
+  @override
+  String get stfNoBackground =>
+      'There are no background notifications — the reminder shows when you open the app';
+
+  @override
+  String stfOverduePlate(int n, String title) {
+    return 'Overdue: $n — \"$title\"';
+  }
+
+  @override
+  String stfRemindPlate(String title) {
+    return 'Reminder: \"$title\"';
+  }
+
+  @override
+  String stfTodayPlate(String today, String late) {
+    return 'Tasks for today: $today · overdue: $late';
+  }
+
+  @override
+  String get stfSalaryTitle => 'Salary';
+
+  @override
+  String stfSalarySub(int n) {
+    return 'employees: $n';
+  }
+
+  @override
+  String get stfPeriodMonth => 'This month';
+
+  @override
+  String get stfPeriodLast => 'Last month';
+
+  @override
+  String get stfPeriodWeek => '7 days';
+
+  @override
+  String get stfAccrued => 'Accrued';
+
+  @override
+  String get stfPaid => 'Paid';
+
+  @override
+  String get stfLeft => 'Left';
+
+  @override
+  String get stfColEmployee => 'Employee';
+
+  @override
+  String get stfChecking => 'Checking payouts…';
+
+  @override
+  String get stfPartialPlate =>
+      'Checked partially — the payout amount is not filled in automatically.';
+
+  @override
+  String get stfTrustTimeout =>
+      'Checking past payouts did not finish in time — check on the site before paying.';
+
+  @override
+  String get stfTrustJournal =>
+      'The payout log on the phone cannot be read — payouts are closed.';
+
+  @override
+  String get stfTrustNotChecked =>
+      'Past payouts could not be checked — check on the site before paying.';
+
+  @override
+  String stfTrustUnassigned(String sum, int n) {
+    return 'There are \"Salary\" expenses not tied to an employee: $sum som ($n) — check on the site.';
+  }
+
+  @override
+  String get stfTrustPartial =>
+      'Payouts without the \"Salary\" category or not all expenses are visible — check on the site before paying.';
+
+  @override
+  String get stfTrustPartialNotes =>
+      'Some payouts only partly fall into the period — they are not subtracted, please check.';
+
+  @override
+  String get stfTrustByName =>
+      'Some payouts were found only by the name in the expense title — check on the site before paying.';
+
+  @override
+  String stfPartialNote(String sum, String period) {
+    return 'A payout of $sum som for $period only partly falls into this period — not subtracted';
+  }
+
+  @override
+  String get stfSalaryEmpty =>
+      'No accruals for the period: no sales or nobody has a pay scheme.';
+
+  @override
+  String get stfSalaryDenied =>
+      'No access to salaries: this account does not have the employee analytics permission on the site.';
+
+  @override
+  String get stfSalaryFail => 'Could not load the salary';
+
+  @override
+  String get stfSalaryHint =>
+      'Accrued is the server\'s calculation, as on the PC and the site. \"Paid\" is the \"Salary\" expenses for this period.';
+
+  @override
+  String get stfLockedTag => 'payout without reply';
+
+  @override
+  String get stfPayBtn => 'Pay out';
+
+  @override
+  String stfPayTitle(String name) {
+    return 'Payout: $name';
+  }
+
+  @override
+  String get stfKindSalary => 'Salary';
+
+  @override
+  String get stfKindAdvance => 'Advance';
+
+  @override
+  String get stfPayAmount => 'Amount';
+
+  @override
+  String get stfPayEnterAmount => 'Enter the amount yourself';
+
+  @override
+  String get stfPayBox => 'Cash register';
+
+  @override
+  String get stfPayComment => 'Comment (optional)';
+
+  @override
+  String get stfPayNeedAmount => 'Enter the payout amount';
+
+  @override
+  String get stfPayNoCash =>
+      'No company cash register was found for the payout — pay on the site or in the owner program.';
+
+  @override
+  String get stfSalesBoxWarn =>
+      'This is the branch sales cash register — the expense will reduce its balance.';
+
+  @override
+  String stfPayConfirm(String sum, String name, String box) {
+    return 'Pay $sum som to $name from the \"$box\" cash register?';
+  }
+
+  @override
+  String stfPayDone(String sum, String name) {
+    return 'Paid $sum som: $name';
+  }
+
+  @override
+  String get stfPayFailed => 'The payout failed.';
+
+  @override
+  String stfPayUnknown(String sum, String box) {
+    return 'No reply from the server — the payout of $sum som (cash register \"$box\") may have gone through. Do not repeat it: open the employee and tap \"Check on the server\".';
+  }
+
+  @override
+  String stfPayLock(String sum, String when, String box) {
+    return 'The previous payout of $sum som ($when, cash register \"$box\") got no server reply. A new payout to this employee is closed until you check it.';
+  }
+
+  @override
+  String get stfPayLockShort =>
+      'The previous payout to this employee got no server reply — a new one is closed until you check it.';
+
+  @override
+  String get stfPayDup =>
+      'The same payout has just gone through — it is not repeated.';
+
+  @override
+  String get stfPayJournal =>
+      'The payout log on the phone cannot be read — without it there is no protection from a double payout, the payout was not sent.';
+
+  @override
+  String get stfLockCheck => 'Check on the server';
+
+  @override
+  String get stfLockCheckShort => 'Check';
+
+  @override
+  String get stfLockYes => 'The payout IS on the site';
+
+  @override
+  String get stfLockNo => 'The payout is NOT on the site';
+
+  @override
+  String get stfLockYesAsk => 'Is the payout on the site?';
+
+  @override
+  String get stfLockNoAsk => 'The payout is not on the site?';
+
+  @override
+  String get stfLockResolveHint =>
+      'Check the \"Salary\" expense on the NurCRM site. If you choose wrongly, the payout will be counted wrongly or go through twice.';
+
+  @override
+  String get stfLockFound => 'The payout was found on the server and counted.';
+
+  @override
+  String get stfLockNotFound =>
+      'The payout was not found on the server — the lock stays, decide yourself after checking the site.';
+
+  @override
+  String get stfConfirm => 'Confirm';
+
+  @override
+  String get stfRecentPayouts => 'Recent payouts from this phone';
+
+  @override
+  String get stfCancelBtn => 'Request cancellation';
+
+  @override
+  String stfCancelAsk(String sum) {
+    return 'Request cancellation of the $sum som payout?';
+  }
+
+  @override
+  String get stfCancelHint =>
+      'Only the owner or the accountant can cancel a payout on the NurCRM site — the phone sends a request.';
+
+  @override
+  String get stfCancelSend => 'Send the request';
+
+  @override
+  String get stfCancelSent => 'The cancellation request was sent to the owner.';
+
+  @override
+  String get stfSchemeBtn => 'Pay scheme';
+
+  @override
+  String stfSchemeTitle(String name) {
+    return 'Pay scheme: $name';
+  }
+
+  @override
+  String get stfSchemeSaved => 'Pay scheme saved';
+
+  @override
+  String get stfSchemeSalary => 'Salary';
+
+  @override
+  String get stfSchemePercent => 'Percentage of sales';
+
+  @override
+  String get stfSchemeSalaryPercent => 'Salary + percentage of sales';
+
+  @override
+  String get stfSchemePerItem => 'Per item sold';
+
+  @override
+  String get stfSchemeSalaryItem => 'Salary + per item';
+
+  @override
+  String get stfSchemePercentItem => 'Percentage + per item';
+
+  @override
+  String get stfNoScheme => 'no scheme set up';
+
+  @override
+  String get stfMonthly => 'Monthly salary';
+
+  @override
+  String get stfPercent => 'Sales percentage';
+
+  @override
+  String get stfPerItem => 'Per item sold';
+
+  @override
+  String get stfBonus => 'Accrued for sales';
+
+  @override
+  String get gkOpen => 'Gemini keys (several accounts)';
+
+  @override
+  String get gkTitle => 'Gemini keys';
+
+  @override
+  String get gkHint =>
+      'Keys are used in order: the first working one. When a key runs out of its limit, the AI takes the next one by itself. The list is the same as on the till and in the owner app.';
+
+  @override
+  String get gkWarn =>
+      'Google\'s rules may forbid getting around limits with several accounts or projects — your keys could be blocked. Google\'s free tier may use your requests to improve its products. It is your decision.';
+
+  @override
+  String get gkViewOnly =>
+      'The key list is changed by the owner and administrators. You see it without the full keys — the AI works from this list.';
+
+  @override
+  String gkWorkingCount(int a, int b) {
+    return 'Working keys: $a of $b';
+  }
+
+  @override
+  String get gkEmpty =>
+      'No keys yet. Add the first one — Google AI Studio issues it.';
+
+  @override
+  String get gkAdd => 'Add a key';
+
+  @override
+  String get gkAddBtn => 'Add';
+
+  @override
+  String get gkPasteKey => 'Paste a key from Google AI Studio';
+
+  @override
+  String get gkLabelHint => 'Label (optional)';
+
+  @override
+  String gkLabelDefault(int n) {
+    return 'Account $n';
+  }
+
+  @override
+  String get gkMax => 'No more than 10 keys.';
+
+  @override
+  String get gkDuplicate => 'This key is already in the list.';
+
+  @override
+  String get gkShow => 'Show';
+
+  @override
+  String get gkHide => 'Hide';
+
+  @override
+  String get gkEnabled => 'On';
+
+  @override
+  String get gkMoveUp => 'Move up';
+
+  @override
+  String get gkMoveDown => 'Move down';
+
+  @override
+  String get gkDelete => 'Delete';
+
+  @override
+  String gkDeleteAsk(String name, String tail) {
+    return 'Delete the key “$name” (…$tail)?';
+  }
+
+  @override
+  String get gkStateWorking => 'working';
+
+  @override
+  String gkStateExhausted(String time) {
+    return 'exhausted until $time';
+  }
+
+  @override
+  String get gkStateInvalid => 'invalid';
+
+  @override
+  String get gkStateDisabled => 'off';
+
+  @override
+  String get gkStateUnchecked => 'not checked';
+
+  @override
+  String get gkCheckOk => 'The key works ✓';
+
+  @override
+  String gkCheckFail(String err) {
+    return 'Could not check: $err';
+  }
+
+  @override
+  String get aiKeysSavedPhoneOnly =>
+      'Saved on the phone, but not sent to the cloud — the till and the owner app will not see it yet. Try again later.';
 }

@@ -29,6 +29,7 @@ class SaleScreen extends ConsumerStatefulWidget {
 
 class _SaleScreenState extends ConsumerState<SaleScreen> {
   final _search = TextEditingController();
+  final _searchFocus = FocusNode(); // 2026-10-26 (живой аудит, П3, В-2): фокус возвращается в поле после скана
   String? _category; // null — всё, '' — избранное
   List<Product> _products = [];
   List<String> _categories = [];
@@ -41,6 +42,8 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
   void dispose() {
     _debounce?.cancel();
     HardwareKeyboard.instance.removeHandler(_onKey);
+    _search.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -87,6 +90,11 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
     final q = raw.trim();
     if (q.isEmpty || _scanBusy) return;
     _scanBusy = true;
+    _hideNotice();
+    // 2026-10-26 (живой аудит, П3, В-2): после «не найден» код оставался в поле и следующий скан дописывался к нему —
+    // товар не находился. Теперь после любого скана штрихкода поле очищено, а фокус (если он был в поле) вернулся.
+    final hadFocus = _searchFocus.hasFocus;
+    final isCode = RegExp(r'^\d{6,}$').hasMatch(q.replaceAll(' ', ''));
     try {
       final l = context.l;
       final hit = await CodeLookup.find(ref.read(databaseProvider), ref.read(apiProvider), q);
@@ -96,18 +104,59 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
         await addProduct(context, ref, p, qty: hit.qty);
         if (!mounted) return;
         toast(context, l.addedToCheckName(p.name));
-        if (_search.text.isNotEmpty) {
-          _search.clear();
-          await _reload();
-        }
+        await _afterScan(hadFocus);
         return;
       }
-      if (RegExp(r'^\d{6,}$').hasMatch(q.replaceAll(' ', ''))) {
-        toast(context, hit.unavailable ? l.notFoundOffline(q) : l.barcodeNotFound(q), error: true);
+      if (isCode) {
+        await _afterScan(hadFocus);
+        if (!mounted) return;
+        final s = ref.read(sessionProvider);
+        // администратору — сразу «Создать товар с этим кодом» (новый товар открывается с этим штрихкодом)
+        final canCreate = !hit.unavailable && s != null && s.isAdmin && s.canRoute('/admin/new-product');
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(hit.unavailable ? l.notFoundOffline(q) : l.barcodeNotFound(q)),
+              backgroundColor: T.danger,
+              // 2026-10-26 (приёмка 1.18.6, В-2н): у SnackBar с кнопкой по умолчанию persist: true — плашка висела, пока не
+              // нажмут, и закрывала «Оплатить» и нижний ряд. Теперь сама уходит через 5 с (а при следующем скане, вводе в
+              // поиск или касании плитки — сразу, см. _hideNotice).
+              persist: false,
+              duration: const Duration(seconds: 5),
+              // плашка «плавает» НАД нижней панелью с «Оплатить» (её высота измерена по ключу), а не лежит на ней
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.fromLTRB(12, 0, 12, (_payBarKey.currentContext?.size?.height ?? 72) + 8),
+              action: canCreate
+                  ? SnackBarAction(
+                      label: l.createProductWithCode,
+                      textColor: Colors.white,
+                      onPressed: () => context.push('/admin/new-product?barcode=${Uri.encodeQueryComponent(q)}'),
+                    )
+                  : null,
+            ),
+          );
       }
     } finally {
       _scanBusy = false;
     }
+  }
+
+  /// 2026-10-26 (приёмка 1.18.6, В-2н): любое новое действие кассира убирает красную плашку «Штрихкод не найден» —
+  /// она не должна закрывать «Оплатить» и плитки, когда уже не нужна.
+  final _payBarKey = GlobalKey();
+
+  void _hideNotice() {
+    if (mounted) ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+  }
+
+  /// Поле поиска — пустое и (если скан пришёл из поля) снова в фокусе: следующий скан сразу учитывается.
+  Future<void> _afterScan(bool refocus) async {
+    if (_search.text.isNotEmpty) {
+      _search.clear();
+      await _reload();
+    }
+    if (refocus && mounted) _searchFocus.requestFocus();
   }
 
   Future<void> _reload() async {
@@ -127,6 +176,19 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
     final l = context.l;
     final cart = ref.watch(cartProvider);
     final p = context.pal;
+    // 2026-10-26 (живой аудит, П3, С-1): чек оплачен/отложен/очищен — поиск прошлого покупателя не остаётся в поле
+    ref.listen<Cart>(cartProvider, (prev, next) {
+      if (prev != null && !prev.isEmpty && next.isEmpty && _search.text.isNotEmpty) {
+        _search.clear();
+        _reload();
+      }
+    });
+    // сколько штук каждого товара уже в чеке — значок «×2» на плитке
+    final inCart = <String, double>{};
+    for (final ln in cart.lines) {
+      if (!ln.custom) inCart[ln.productId] = (inCart[ln.productId] ?? 0) + ln.qty;
+    }
+    final textScale = MediaQuery.textScalerOf(context).scale(10) / 10;
     return Column(
       children: [
         ScreenTitle(l.newCheck, back: false),
@@ -139,7 +201,10 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
               ButtonSegment(value: true, icon: const Icon(Icons.receipt_long_rounded, size: 18), label: Text(l.checkTab(cart.count))),
             ],
             selected: {_showCheck},
-            onSelectionChanged: (v) => setState(() => _showCheck = v.first),
+            onSelectionChanged: (v) {
+              _hideNotice();
+              setState(() => _showCheck = v.first);
+            },
           ),
         ),
         if (!_showCheck) ...[
@@ -150,14 +215,34 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                 Expanded(
                   child: TextField(
                     controller: _search,
+                    focusNode: _searchFocus,
                     textInputAction: TextInputAction.search,
                     onSubmitted: _submitScan,
                     // поиск после паузы в наборе, а не на каждую букву (на слабых телефонах ввод подтормаживал)
                     onChanged: (_) {
+                      _hideNotice();
                       _debounce?.cancel();
                       _debounce = Timer(const Duration(milliseconds: 250), _reload);
                     },
-                    decoration: InputDecoration(hintText: l.searchProduct, prefixIcon: const Icon(Icons.search_rounded)),
+                    decoration: InputDecoration(
+                      hintText: l.searchProduct,
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      // 2026-10-26 (С-1): кнопка «×» — очистить поиск
+                      suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _search,
+                        builder: (c, v, _) => v.text.isEmpty
+                            ? const SizedBox.shrink()
+                            : IconButton(
+                                tooltip: MaterialLocalizations.of(c).clearButtonTooltip,
+                                icon: const Icon(Icons.close_rounded),
+                                onPressed: () {
+                                  _search.clear();
+                                  _searchFocus.requestFocus();
+                                  _reload();
+                                },
+                              ),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -187,11 +272,13 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
               ],
             ),
           ),
+          // 2026-10-26 (приёмка 1.18.6, Н-6н): чипы категорий были зажаты в 36 dp (высота списка 48 − отступы 12) — теперь
+          // в списке есть место под область касания 48 dp у каждого чипа.
           SizedBox(
-            height: 48,
+            height: 52,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
               children: [
                 for (final (value, label) in [(null, l.all), ('', l.favorites), ..._categories.map((c) => (c, c))])
                   Padding(
@@ -226,14 +313,18 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                           ),
                         )
                       : SliverGrid.builder(
-                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          // 2026-10-26 (П3): высота плитки от шрифта (добавилась строка остатка), а не фиксированное соотношение
+                          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                             maxCrossAxisExtent: 140,
                             mainAxisSpacing: 8,
                             crossAxisSpacing: 8,
-                            childAspectRatio: .82,
+                            mainAxisExtent: 96 + 62 * textScale,
                           ),
                           itemCount: _products.length,
-                          itemBuilder: (c, i) => _ProductTile(_products[i], onTap: () => addProduct(context, ref, _products[i])),
+                          itemBuilder: (c, i) => _ProductTile(_products[i], inCart: inCart[_products[i].id], onTap: () {
+                            _hideNotice();
+                            addProduct(context, ref, _products[i]);
+                          }),
                         ),
                 ),
               if (_showCheck) ...[
@@ -242,14 +333,23 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
                     child: Row(
                       children: [
-                        Text(l.inCheck, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                        // 2026-10-26 (живой аудит, П3): при большом шрифте подпись переносится, а не вылезает за край
+                        Expanded(
+                          child: Wrap(
+                            spacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(l.inCheck, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                              Text(l.positions(cart.count), style: TextStyle(color: p.textSoft, fontSize: 12.5)),
+                            ],
+                          ),
+                        ),
                         const SizedBox(width: 8),
-                        Text(l.positions(cart.count), style: TextStyle(color: p.textSoft, fontSize: 12.5)),
-                        const Spacer(),
                         // 13.10, владелец: «продажа оптом и в розницу» — как переключатель «Розница / Опт» на кассе.
                         SegmentedButton<bool>(
                           showSelectedIcon: false,
-                          style: const ButtonStyle(visualDensity: VisualDensity.compact, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                          // 2026-10-26 (приёмка 1.18.6, Н-6н): было compact + shrinkWrap = 32 dp по высоте; теперь касание 48 dp
+                          style: const ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(0, 48)), tapTargetSize: MaterialTapTargetSize.padded),
                           segments: [
                             ButtonSegment(value: false, label: Text(l.retail)),
                             ButtonSegment(value: true, label: Text(l.wholesale)),
@@ -291,18 +391,29 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                           const Spacer(),
                           Text(
                             '−${money(cart.orderDiscount)} ${l.som}',
-                            style: const TextStyle(color: T.success, fontWeight: FontWeight.w700),
+                            style: TextStyle(color: p.success, fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
                     ),
                   ),
+                // 2026-10-26 (живой аудит, П3, С-11): пустой чек — значок, подсказка и кнопка «К товарам» вместо «0 позиций»
                 if (cart.lines.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Center(
-                        child: Text(l.positions(0), style: TextStyle(color: p.textSoft)),
+                      padding: const EdgeInsets.fromLTRB(32, 32, 32, 16),
+                      child: Column(
+                        children: [
+                          Icon(Icons.shopping_cart_outlined, size: 52, color: p.textSoft),
+                          const SizedBox(height: 12),
+                          Text(l.cartEmptyHint, textAlign: TextAlign.center, style: TextStyle(color: p.textSoft, height: 1.35)),
+                          const SizedBox(height: 16),
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(minimumSize: const Size(160, 48)),
+                            onPressed: () => setState(() => _showCheck = false),
+                            child: Text(l.toProductsBtn),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -311,6 +422,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
           ),
         ),
         Container(
+          key: _payBarKey,
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
           decoration: BoxDecoration(
             color: p.window,
@@ -605,41 +717,73 @@ Future<ProductVariant?> pickVariant(BuildContext context, Product p, List<Produc
 class _ProductTile extends StatelessWidget {
   final Product product;
   final VoidCallback onTap;
-  const _ProductTile(this.product, {required this.onTap});
+
+  /// Сколько этого товара уже в чеке (null — нет): значок «×2».
+  final double? inCart;
+  const _ProductTile(this.product, {required this.onTap, this.inCart});
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
-    return Pressable(
-      onTap: onTap,
-      child: Panel(
-        padding: const EdgeInsets.all(6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: ProductThumb(name: product.name, url: product.imageUrl, fontSize: 18),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              product.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, height: 1.15),
-            ),
-            Text(
-              '${money(product.price)} ${context.l.som}',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.price),
-            ),
-          ],
+    final l = context.l;
+    // 2026-10-26 (живой аудит, П3): мелко остаток («12 шт» / «нет» серым) и «×2», если товар уже в чеке
+    final stock = product.isService ? null : (product.quantity <= 0 ? l.stockNone : '${qtyText(product.quantity)} ${product.unit}');
+    return Semantics(
+      label: inCart == null ? null : '${l.inCheck}: ${qtyText(inCart!)}',
+      child: Pressable(
+        onTap: onTap,
+        child: Panel(
+          padding: const EdgeInsets.all(6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ProductThumb(name: product.name, url: product.imageUrl, fontSize: 18),
+                    if (inCart != null)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(color: T.accent, borderRadius: BorderRadius.circular(10)),
+                          child: Text('×${qtyText(inCart!)}', style: const TextStyle(color: T.navy, fontWeight: FontWeight.w800, fontSize: 11.5)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                product.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, height: 1.15),
+              ),
+              Text(
+                '${money(product.price)} ${l.som}',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.price),
+              ),
+              if (stock != null)
+                Text(
+                  stock,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10.5, color: p.textSoft.withValues(alpha: product.quantity <= 0 ? .7 : 1)),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// 13.10, владелец: «сделай удобной корзину в мобилке». Строка чека — карточка: крупные «−»/«+» (44 точки), нажатие на
+/// 13.10, владелец: «сделай удобной корзину в мобилке». Строка чека — карточка: крупные «−»/«+» (48 точек), нажатие на
 /// количество — ввод числа (и веса), видимые «%» (скидка строки) и корзина (удалить с причиной); «−» на последней штуке
 /// предлагает убрать строку. Свайп влево по-прежнему удаляет.
 Future<bool> _removeLine(BuildContext context, WidgetRef ref, int index) async {
@@ -713,7 +857,7 @@ class _CartRow extends ConsumerWidget {
         onDismissed: (_) => ctrl.remove(index),
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
           decoration: BoxDecoration(
             color: p.panel,
             borderRadius: BorderRadius.circular(14),
@@ -741,34 +885,16 @@ class _CartRow extends ConsumerWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text('${money(line.price)} ${l.som}${line.isWeight ? ' / ${line.unit}' : ''}', style: TextStyle(fontSize: 12.5, color: p.textSoft)),
-                            // строка ↔ опт (только если у товара есть оптовая цена)
-                            if (line.canWholesale)
-                              InkWell(
-                                onTap: () => ctrl.toggleWholesale(index),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: line.wholesale ? T.navy : Colors.transparent,
-                                    border: Border.all(color: line.wholesale ? T.navy : p.border),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    l.wholesaleTag,
-                                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: line.wholesale ? Colors.white : p.textSoft),
-                                  ),
-                                ),
-                              ),
                             if (line.hasPromo)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(color: T.success.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-                                child: Text(l.promoTag, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: T.success)),
+                                decoration: BoxDecoration(color: p.success.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+                                child: Text(l.promoTag, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.success)),
                               ),
                             if (line.discount > 0)
                               Text(
                                 '${l.discount} −${money(line.discount)}',
-                                style: const TextStyle(fontSize: 12.5, color: T.success, fontWeight: FontWeight.w700),
+                                style: TextStyle(fontSize: 12.5, color: p.success, fontWeight: FontWeight.w700),
                               ),
                           ],
                         ),
@@ -776,33 +902,59 @@ class _CartRow extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    '${money(line.total)} ${l.som}',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: p.price),
+                  // 2026-10-26 (приёмка 1.18.6, С-6н): чип «опт» с областью касания 48 dp стоял в строке цены и раздувал её
+                  // (строка чека была 175 dp, на экран влезало 2,5 строки). Теперь он под суммой справа — рядом с ценой места
+                  // уже не занимает, хитбокс 48 dp остался.
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${money(line.total)} ${l.som}',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: p.price),
+                      ),
+                      // строка ↔ опт (только если у товара есть оптовая цена)
+                      if (line.canWholesale)
+                        InkWell(
+                          onTap: () => ctrl.toggleWholesale(index),
+                          borderRadius: BorderRadius.circular(8),
+                          // 2026-10-26 (живой аудит, П3, Н-2): чип «опт» — область касания 48 dp (был 40×24)
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+                            alignment: Alignment.center,
+                            color: Colors.transparent,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: line.wholesale ? T.navy : Colors.transparent,
+                                border: Border.all(color: line.wholesale ? T.navy : p.border),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                l.wholesaleTag,
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: line.wholesale ? Colors.white : p.textSoft),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: line.canWholesale ? 0 : 6),
               Row(
                 children: [
+                  // 2026-10-26 (живой аудит, П3, Н-2): при количестве 1 «−» неактивна (корзина справа одна, а не две)
                   _Step(
-                    icon: line.qty <= 1 && !line.isWeight ? Icons.delete_outline_rounded : Icons.remove,
-                    onTap: () async {
-                      if (line.isWeight) {
-                        await editQty();
-                      } else if (line.qty <= 1) {
-                        if (await _removeLine(context, ref, index)) ctrl.remove(index);
-                      } else {
-                        ctrl.setQty(index, line.qty - 1);
-                      }
-                    },
+                    icon: Icons.remove,
+                    onTap: line.isWeight ? editQty : (line.qty <= 1 ? null : () => ctrl.setQty(index, line.qty - 1)),
                   ),
-                  InkWell(
+                  Flexible(
+                    child: InkWell(
                     onTap: editQty,
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
                       constraints: const BoxConstraints(minWidth: 64),
-                      height: 44,
+                      height: 48,
                       margin: const EdgeInsets.symmetric(horizontal: 6),
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       alignment: Alignment.center,
@@ -810,20 +962,25 @@ class _CartRow extends ConsumerWidget {
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 180),
                         transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
-                        child: Text(
-                          '${qtyText(line.qty)}${line.isWeight ? ' ${line.unit}' : ''}',
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
                           key: ValueKey(line.qty),
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                          child: Text(
+                            '${qtyText(line.qty)}${line.isWeight ? ' ${line.unit}' : ''}',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                          ),
                         ),
                       ),
                     ),
                   ),
+                  ),
                   _Step(icon: Icons.add, dark: true, onTap: () => line.isWeight ? editQty() : ctrl.setQty(index, line.qty + 1)),
                   const Spacer(),
-                  IconButton(tooltip: l.lineDiscount, onPressed: discount, icon: const Icon(Icons.percent_rounded)),
+                  IconButton(tooltip: l.lineDiscount, style: _rowBtn, onPressed: discount, icon: const Icon(Icons.percent_rounded)),
                   IconButton(
                     tooltip: l.deleteProduct,
-                    color: T.danger,
+                    style: _rowBtn,
+                    color: p.danger,
                     onPressed: () async {
                       if (await _removeLine(context, ref, index)) ctrl.remove(index);
                     },
@@ -839,22 +996,28 @@ class _CartRow extends ConsumerWidget {
   }
 }
 
+/// 2026-10-26 (живой аудит, П3, Н-2): значки действий строки чека — касание 48 dp.
+final _rowBtn = IconButton.styleFrom(fixedSize: const Size(48, 48));
+
 class _Step extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap; // null — кнопка неактивна
   final bool dark;
   const _Step({required this.icon, required this.onTap, this.dark = false});
   @override
-  Widget build(BuildContext context) => Material(
-    color: dark ? context.pal.action : context.pal.panel,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-      side: BorderSide(color: dark ? context.pal.action : context.pal.border),
-    ),
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: SizedBox(width: 44, height: 44, child: Icon(icon, size: 20, color: dark ? context.pal.onAction : null)),
+  Widget build(BuildContext context) => Opacity(
+    opacity: onTap == null ? .4 : 1,
+    child: Material(
+      color: dark ? context.pal.action : context.pal.panel,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: dark ? context.pal.action : context.pal.border),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(width: 48, height: 48, child: Icon(icon, size: 20, color: dark ? context.pal.onAction : null)),
+      ),
     ),
   );
 }

@@ -22,6 +22,8 @@ import 'debt_access.dart';
 import '../../core/print/printer_service.dart';
 import '../profile/printer_settings.dart';
 import '../ops/return_ledger.dart';
+import '../../core/ai/assistant/ai_handles.dart';
+import '../../core/ai/assistant/tool_registry.dart' show ToolStatus;
 
 enum ReceiptTo { whatsapp, qr, none }
 
@@ -52,9 +54,89 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   /// 2026-10-22 (мобилка, деньги): срок долга «Вернуть до» — как окно оплаты кассы (по умолчанию 30 дней, как сервер).
   DateTime _debtDue = DateUtils.dateOnly(DateTime.now()).add(const Duration(days: 30));
 
+  // 2026-10-26 (голос-управление, В3б): «ручка» для Нур Советника в звонке — заполняет поля экрана и нажимает ТУ ЖЕ `_pay`
+  // (доступ к долгу, очередь, ключ операции, журнал возвратов — всё как при нажатии кнопки), итог докладывает `_aiSink`.
+  final _aiSink = OutcomeSink();
+  late final AiScreenHandles _aiHandles = ref.read(aiHandlesProvider);
+  late final AiHandle _aiHandle = AiHandle(fill: _aiFill, run: () => _aiSink.run(_pay));
+
+  @override
+  void dispose() {
+    _aiHandles.unregister('pay', _aiHandle);
+    super.dispose();
+  }
+
+  /// Кнопка «Провести оплату» доступна: те же условия, что у кнопки (раньше выражение стояло в build).
+  bool _canPayWith(Cart cart, double received) =>
+      !_busy &&
+      !cart.isEmpty &&
+      switch (_method) {
+        PayMethod.cash => _received.text.isEmpty || received + 0.004 >= cart.total,
+        PayMethod.card => true,
+        PayMethod.debt => _client != null && received <= cart.total,
+      };
+
+  /// Заполнить экран из просьбы: способ, клиент, сколько дали, срок долга. Клиент, выбранный на экране, остаётся.
+  Future<HandleOutcome?> _aiFill(Map<String, dynamic> a) async {
+    final base = ref.read(cartProvider);
+    if (base.isEmpty) return HandleOutcome.clarifyKey('emptyForPay');
+    final method = switch ('${a['method'] ?? 'cash'}') {
+      'card' || 'qr' || 'transfer' => PayMethod.card,
+      'debt' => PayMethod.debt,
+      _ => PayMethod.cash,
+    };
+    final name = '${a['client'] ?? ''}'.trim();
+    if (name.isNotEmpty && (_client == null || aiMatchByName([_client!], name, (c) => c.name).isEmpty)) {
+      final List<Client> found;
+      try {
+        found = await ref.read(salesRepoProvider).clients(name);
+      } on ApiException catch (e) {
+        return HandleOutcome.error(e.message);
+      }
+      final digits = name.replaceAll(RegExp(r'\D'), '');
+      final hits = digits.length >= 4
+          ? found.where((c) => c.phone.replaceAll(RegExp(r'\D'), '').contains(digits)).toList()
+          : aiMatchByName(found, name, (c) => c.name);
+      if (hits.isEmpty) return HandleOutcome.notFoundKey('clientNone');
+      if (hits.length > 1) {
+        return HandleOutcome(ToolStatus.ambiguous, askKey: 'h.clientMany', askParams: {'list': hits.take(5).map((c) => c.display).join('; ')});
+      }
+      if (!mounted) return HandleOutcome.errorKey('h.screenNotReady');
+      setState(() {
+        _client = hits.first;
+        _bonusBalance = null;
+        _redeem.clear();
+      });
+      await _loadBonus();
+    }
+    DateTime? due;
+    final dueText = '${a['due_date'] ?? ''}'.trim();
+    if (method == PayMethod.debt && dueText.isNotEmpty) {
+      due = DateTime.tryParse(dueText);
+      if (due == null || !DateUtils.dateOnly(due).isAfter(DateUtils.dateOnly(DateTime.now()))) return HandleOutcome.clarifyKey('h.dueBad');
+    }
+    final given = a['cash_given'] is num ? (a['cash_given'] as num).toDouble() : parseNum('${a['cash_given'] ?? ''}');
+    if (!mounted) return HandleOutcome.errorKey('h.screenNotReady');
+    setState(() {
+      _method = method;
+      if (due != null) _debtDue = DateUtils.dateOnly(due);
+      // без суммы: наличные — «ровно», в долг — ничего не внесено сейчас, карта — поле скрыто
+      _received.text = method == PayMethod.card || given == null ? '' : given.toStringAsFixed(given.truncateToDouble() == given ? 0 : 2);
+    });
+    final cart = _payCart(base);
+    final received = parseNum(_received.text) ?? 0;
+    if (method == PayMethod.debt && _client == null) return HandleOutcome.clarifyKey('needDebtClient');
+    if (method == PayMethod.cash && _received.text.isNotEmpty && received + 0.004 < cart.total) {
+      return HandleOutcome.clarifyKey('h.payShort', {'given': received, 'total': cart.total, 'short': cart.total - received});
+    }
+    if (!_canPayWith(cart, received)) return HandleOutcome.clarifyKey('h.payNotReady');
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
+    _aiHandles.register('pay', _aiHandle);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final repo = ref.read(debtAccessRepoProvider);
       final rules = await repo.load();
@@ -117,22 +199,23 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final total = cart.total;
     final received = parseNum(_received.text) ?? 0;
     final pal = context.pal;
-    final canPay =
-        !_busy &&
-        !cart.isEmpty &&
-        switch (_method) {
-          PayMethod.cash => _received.text.isEmpty || received + 0.004 >= total,
-          PayMethod.card => true,
-          PayMethod.debt => _client != null && received <= total,
-        };
+    // 2026-10-26 (живой аудит, П4, В-8): в альбомной ориентации (высота < 500 dp) закреплённая кнопка съедала полэкрана —
+    // тогда «Провести оплату» стоит в конце прокручиваемого экрана, а не внизу
+    final compact = MediaQuery.sizeOf(context).height < 500;
+    final canPay = _canPayWith(cart, received);
+    final payButton = FilledButton(
+      onPressed: canPay ? _pay : null,
+      child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: T.navy)) : Text(l.doPay),
+    );
     return Scaffold(
       appBar: ScreenTitle(l.payment),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            decoration: BoxDecoration(color: T.navy, borderRadius: BorderRadius.circular(18)),
+            padding: EdgeInsets.symmetric(vertical: compact ? 10 : 20),
+            // 2026-10-26 (живой аудит, П1/П4, С-7): итог оплаты в тёмной теме — светлее фона и с рамкой, а не сливается с ним
+            decoration: BoxDecoration(color: pal.heroBg, borderRadius: BorderRadius.circular(18), border: Border.all(color: pal.heroBorder)),
             child: Column(
               children: [
                 Text(l.toPayPositions(cart.count), style: const TextStyle(color: Color(0xFFC7D2DB), fontSize: 12.5)),
@@ -164,7 +247,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           if (_method == PayMethod.debt && _debtHint.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(_debtHint, style: const TextStyle(fontSize: 12.5, color: T.warn, fontWeight: FontWeight.w600)),
+              child: Text(_debtHint, style: TextStyle(fontSize: 12.5, color: pal.warn, fontWeight: FontWeight.w600)),
             ),
           // 13.10, владелец: клиент — при любой оплате (бонусы, история); для «в долг» обязателен.
           const SizedBox(height: 14),
@@ -183,10 +266,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         _client?.display ?? l.chooseClient,
                         style: TextStyle(fontWeight: FontWeight.w600, color: _client == null ? pal.textSoft : null),
                       ),
+                      // 2026-10-26 (живой аудит, П4, С-4): у клиента виден его текущий долг
+                      if (_client != null && _client!.debt > 0)
+                        Text(
+                          l.clientDebtLine(money(_client!.debt)),
+                          style: TextStyle(fontSize: 12.5, color: pal.danger, fontWeight: FontWeight.w700),
+                        ),
                       if (_client != null && _bonusBalance != null)
                         Text(
                           '${l.bonusBalance}: ${money(_bonusBalance!)}',
-                          style: const TextStyle(fontSize: 12.5, color: T.success, fontWeight: FontWeight.w700),
+                          style: TextStyle(fontSize: 12.5, color: pal.success, fontWeight: FontWeight.w700),
                         ),
                     ],
                   ),
@@ -263,7 +352,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             if (redeem > 0)
               Text(
                 l.bonusPaid(money(redeem)),
-                style: const TextStyle(color: T.success, fontWeight: FontWeight.w700),
+                style: TextStyle(color: pal.success, fontWeight: FontWeight.w700),
               ),
           ],
           if (_client != null && _bonusEnabled && _bonusPercent > 0)
@@ -289,6 +378,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 ),
               ),
             ),
+            // 2026-10-26 (живой аудит, П4, С-4): в долг — сразу видно, сколько останется должен клиент после внесённого
+            if (_method == PayMethod.debt)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  l.payDebtLeft('${money(roundMoney((total - received).clamp(0, double.infinity).toDouble()))} ${l.som}'),
+                  key: const ValueKey('debt-left'),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: pal.warn),
+                ),
+              ),
             if (_method == PayMethod.cash) ...[
               const SizedBox(height: 8),
               Wrap(
@@ -309,12 +408,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   const Spacer(),
                   Text(
                     '${money(change(received, total))} ${l.som}',
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: T.success),
+                    // 2026-10-26 (живой аудит, П1/П4): «0 сом» сдачи не зелёный (не «успех»); цвета — из палитры темы
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: change(received, total) > 0 ? pal.success : pal.textSoft),
                   ),
                 ],
               ),
               if (_received.text.isNotEmpty && received + 0.004 < total)
-                Text(l.notEnough(money(total - received)), style: const TextStyle(color: T.danger, fontSize: 12.5)),
+                Text(l.notEnough(money(total - received)), style: TextStyle(color: pal.danger, fontSize: 12.5)),
             ],
           ],
           const SizedBox(height: 16),
@@ -331,22 +431,26 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 ),
             ],
           ),
+          if (compact) ...[
+            const SizedBox(height: 16),
+            payButton,
+            SizedBox(height: MediaQuery.paddingOf(context).bottom),
+          ],
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-          child: FilledButton(
-            onPressed: canPay ? _pay : null,
-            child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: T.navy)) : Text(l.doPay),
-          ),
-        ),
-      ),
+      bottomNavigationBar: compact
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                child: payButton,
+              ),
+            ),
     );
   }
 
   Future<void> _pickClient() async {
-    final c = await showModalBottomSheet<Client>(context: context, isScrollControlled: true, builder: (_) => const _ClientPicker());
+    final c = await showModalBottomSheet<Client>(context: context, isScrollControlled: true, useSafeArea: true, builder: (_) => const _ClientPicker());
     if (c != null) {
       setState(() {
         _client = c;
@@ -378,6 +482,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final shift = ref.read(shiftProvider).shift;
     if (shift == null) {
       toast(context, l.openShiftFirst, error: true);
+      _aiSink.report(HandleOutcome.errorKey('noShift'));
       return;
     }
     final method = _method;
@@ -391,6 +496,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       final problem = await repo.check(l, ref.read(sessionProvider), _debtRules ?? await repo.load(), debtAmount);
       if (problem != null) {
         if (mounted) toast(context, problem, error: true);
+        _aiSink.report(HandleOutcome(ToolStatus.denied, ask: problem));
         return;
       }
     }
@@ -410,12 +516,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     } on CheckoutUnknownException {
       // Сервер не ответил — продажа могла пройти. Ключ сохранён: повтор той же оплаты второй раз не проведётся.
       if (mounted) toast(context, l.payOutcomeUnknown, error: true);
+      _aiSink.report(const HandleOutcome(ToolStatus.error, unknown: true));
       return;
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
+      _aiSink.report(HandleOutcome.error(e.message));
       return;
     } catch (e) {
       if (mounted) toast(context, l.payOutcomeUnknown, error: true);
+      _aiSink.report(const HandleOutcome(ToolStatus.error, unknown: true));
       return;
     }
     // Чек уже проведён (или в очереди) — корзину очищаем в любом случае, даже если экран успели закрыть;
@@ -470,6 +579,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // продажа проведена — второстепенное не мешает показать «Оплачено»
     }
     ref.read(shiftProvider.notifier).refresh();
+    // 2026-10-26 (голос-управление, В3б): чек проведён (или в очереди) — докладываем итог ручке ДО перехода на «Оплачено»
+    _aiSink.report(
+      HandleOutcome.ok({
+        'total': result.total,
+        'change': method == PayMethod.cash ? change(received ?? cart.total, cart.total) : 0.0,
+        'number': result.number ?? '',
+        'sale_id': saleId ?? '',
+        'queued': result.queued,
+      }),
+    );
     if (!mounted) return;
     final receipt = Receipt.fromCart(
       session: ref.read(sessionProvider),
@@ -538,86 +657,83 @@ class _PaidScreenState extends State<PaidScreen> {
     }
   }
 
+  // 2026-10-26 (живой аудит, П4, Н-3): номер чека везде как на кассе — с нулями («№001601»), а не «№1601» в одном месте
+  // и «№001601» в другом
+  String get _checkTitle => '${context.l.check} №${info.receipt.numberText}';
+
   void _showQr() => ReceiptQrScreen.show(
     context,
     receipt: info.receipt,
-    title: '${context.l.check} №${info.result.number ?? '—'} · ${money(info.result.total)} ${context.l.som}',
+    title: '$_checkTitle · ${money(info.result.total)} ${context.l.som}',
   );
 
   @override
   Widget build(BuildContext context) {
     final l = context.l;
+    final pal = context.pal;
+    final queued = info.result.queued;
+    // 2026-10-26 (живой аудит, П4, В-8): экран «Оплачено» прокручивается — в альбомной ориентации кнопки не уходят за край
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              const Spacer(),
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.elasticOut,
-                builder: (c, t, child) => Transform.scale(scale: t, child: child),
-                child: CircleAvatar(
-                  radius: 44,
-                  backgroundColor: info.result.queued ? context.pal.warnSoft : context.pal.successSoft,
-                  child: Icon(info.result.queued ? Icons.cloud_upload_outlined : Icons.check_rounded, size: 48, color: info.result.queued ? T.warn : T.success),
+        child: CustomScrollView(
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    const Spacer(),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 700),
+                      curve: Curves.elasticOut,
+                      builder: (c, t, child) => Transform.scale(scale: t, child: child),
+                      child: CircleAvatar(
+                        radius: 44,
+                        backgroundColor: queued ? pal.warnSoft : pal.successSoft,
+                        child: Icon(queued ? Icons.cloud_upload_outlined : Icons.check_rounded, size: 48, color: queued ? pal.warn : pal.success),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      queued ? l.savedOffline : l.paidOk,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      queued ? l.savedOfflineHint : '$_checkTitle · ${money(info.result.total)} ${l.som}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: pal.textSoft),
+                    ),
+                    if (info.change > 0) ...[
+                      const SizedBox(height: 18),
+                      Text(
+                        '${l.change}: ${money(info.change)} ${l.som}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: pal.success),
+                      ),
+                    ],
+                    const Spacer(),
+                    const SizedBox(height: 16),
+                    // 13.10: чек целиком — как бумажная лента (ReceiptScreen).
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                      onPressed: () => ReceiptScreen.show(context, info.receipt),
+                      icon: const Icon(Icons.receipt_long_outlined),
+                      label: Text(l.showReceipt, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                    const SizedBox(height: 10),
+                    // 2026-10-20: печать на принтер чеков (Bluetooth / сеть / USB); 2026-10-26: «Печать», «QR», «PDF» — короткие подписи
+                    ReceiptActionBar(receipt: info.receipt, qrTitle: '$_checkTitle · ${money(info.result.total)} ${l.som}', afterSale: true),
+                    const SizedBox(height: 10),
+                    FilledButton(onPressed: () => context.go('/sale'), child: Text(l.newCheck)),
+                  ],
                 ),
               ),
-              const SizedBox(height: 18),
-              Text(
-                info.result.queued ? l.savedOffline : l.paidOk,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                info.result.queued ? l.savedOfflineHint : '${l.check} №${info.result.number ?? '—'} · ${money(info.result.total)} ${l.som}',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: context.pal.textSoft),
-              ),
-              if (info.change > 0) ...[
-                const SizedBox(height: 18),
-                Text(
-                  '${l.change}: ${money(info.change)} ${l.som}',
-                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: T.success),
-                ),
-              ],
-              const Spacer(),
-              // 2026-10-20: печать на принтер чеков (Bluetooth / сеть / USB).
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                onPressed: () => printReceiptUi(context, info.receipt, afterSale: true),
-                icon: const Icon(Icons.print_outlined),
-                label: Text(l.prnPrint),
-              ),
-              const SizedBox(height: 10),
-              // 13.10: чек целиком — как бумажная лента (ReceiptScreen).
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                onPressed: () => ReceiptScreen.show(context, info.receipt),
-                icon: const Icon(Icons.receipt_long_outlined),
-                label: Text(l.showReceipt),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                onPressed: _showQr,
-                icon: const Icon(Icons.qr_code_2_rounded),
-                label: Text(context.l.showQr),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                onPressed: () => shareReceiptPdf(info.receipt),
-                icon: const Icon(Icons.share_outlined),
-                label: Text(l.sendReceipt),
-              ),
-              const SizedBox(height: 10),
-              FilledButton(onPressed: () => context.go('/sale'), child: Text(l.newCheck)),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -673,10 +789,24 @@ class _ClientPickerState extends ConsumerState<_ClientPicker> {
   bool _loading = false;
   String? _error;
 
+  /// 2026-10-26 (живой аудит, П4, С-4): долги клиентов (clientId → сумма) — в списке видно, кто уже должен.
+  /// Только для продажи; в КП и счетах долги не нужны. Не загрузились (нет связи/прав) — список без долгов.
+  Map<String, double> _debts = const {};
+
   @override
   void initState() {
     super.initState();
     _search();
+    if (!widget.requisites) _loadDebts();
+  }
+
+  Future<void> _loadDebts() async {
+    try {
+      final rows = await ref.read(opsRepoProvider).debtors();
+      if (mounted) setState(() => _debts = {for (final d in rows) d.clientId: d.debt});
+    } catch (_) {
+      // долги не показываем
+    }
   }
 
   Future<void> _search() async {
@@ -700,14 +830,33 @@ class _ClientPickerState extends ConsumerState<_ClientPicker> {
   @override
   Widget build(BuildContext context) {
     final l = context.l;
+    final pal = context.pal;
+    final media = MediaQuery.of(context);
+    // высота: три четверти экрана, но не выше свободного места над клавиатурой и под строкой состояния
+    final maxH = media.size.height - media.padding.top - media.viewInsets.bottom - 8;
+    final height = maxH < media.size.height * .75 ? maxH : media.size.height * .75;
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
       child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * .75,
+        height: height,
         child: Column(
           children: [
+            // 2026-10-26 (живой аудит, П4, С-4): заголовок «Клиент» и «Закрыть» — окно можно закрыть, не выбирая
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+              child: Row(
+                children: [
+                  Expanded(child: Text(l.client, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18))),
+                  TextButton(
+                    style: TextButton.styleFrom(minimumSize: const Size(64, 48), foregroundColor: pal.text),
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(l.closeBtn),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: Row(
                 children: [
                   Expanded(
@@ -721,7 +870,7 @@ class _ClientPickerState extends ConsumerState<_ClientPicker> {
                   const SizedBox(width: 8),
                   IconButton.filled(
                     tooltip: l.newClient,
-                    style: IconButton.styleFrom(backgroundColor: T.navy),
+                    style: IconButton.styleFrom(backgroundColor: T.navy, fixedSize: const Size(48, 48)),
                     onPressed: _create,
                     icon: const Icon(Icons.person_add_alt_1, color: T.accent),
                   ),
@@ -732,7 +881,7 @@ class _ClientPickerState extends ConsumerState<_ClientPicker> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text(_error!, style: const TextStyle(color: T.danger)),
+                child: Text(_error!, style: TextStyle(color: pal.danger)),
               ),
             // 2026-10-21, владелец: «КП — создание нового контакта» — кнопка «+» без подписи была незаметна. Если клиента нет
             // в списке — строка «Новый клиент «…»» прямо в результатах поиска.
@@ -746,11 +895,24 @@ class _ClientPickerState extends ConsumerState<_ClientPicker> {
             Expanded(
               child: ListView.builder(
                 itemCount: _list.length,
-                itemBuilder: (c, i) => ListTile(
-                  title: Text(_list[i].name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text([_list[i].phone, _list[i].company, if (_list[i].inn.isNotEmpty) '${l.innLabel} ${_list[i].inn}'].where((x) => x.isNotEmpty).join(' · ')),
-                  onTap: () => Navigator.pop(context, _list[i]),
-                ),
+                itemBuilder: (c, i) {
+                  final cl = _list[i];
+                  final debt = _debts[cl.id] ?? 0;
+                  final info = [cl.phone, cl.company, if (cl.inn.isNotEmpty) '${l.innLabel} ${cl.inn}'].where((x) => x.isNotEmpty).join(' · ');
+                  return ListTile(
+                    title: Text(cl.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: info.isEmpty && debt <= 0
+                        ? null
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (info.isNotEmpty) Text(info),
+                              if (debt > 0) Text(l.clientDebtLine(money(debt)), style: TextStyle(color: pal.danger, fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                    onTap: () => Navigator.pop(context, debt > 0 ? cl.withDebt(debt) : cl),
+                  );
+                },
               ),
             ),
           ],
@@ -762,7 +924,7 @@ class _ClientPickerState extends ConsumerState<_ClientPicker> {
 
 /// 13.10: выбор клиента из NurCRM — тот же список, что при оплате (для КП и счетов).
 Future<Client?> pickClient(BuildContext context, {bool requisites = false}) =>
-    showModalBottomSheet<Client>(context: context, isScrollControlled: true, builder: (_) => _ClientPicker(requisites: requisites));
+    showModalBottomSheet<Client>(context: context, isScrollControlled: true, useSafeArea: true, builder: (_) => _ClientPicker(requisites: requisites));
 
 /// 2026-10-21, владелец: «КП — создание нового контакта». Окно «Новый клиент»: имя, телефон, для КП/счёта — компания и ИНН.
 /// Сохраняет в NurCRM (POST api/main/clients/) и возвращает клиента — экран выбирает его сразу. Клиент с тем же телефоном
@@ -904,7 +1066,7 @@ class _NewClientDialogState extends ConsumerState<_NewClientDialog> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(_error!, style: const TextStyle(color: T.danger)),
+              child: Text(_error!, style: TextStyle(color: context.pal.danger)),
             ),
         ],
       ),

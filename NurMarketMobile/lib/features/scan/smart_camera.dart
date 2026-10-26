@@ -13,6 +13,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../admin/admin_receive.dart';
+import '../admin/ai_access_ui.dart';
 import '../sale/sale_screen.dart';
 import 'live_shot.dart';
 import '../../core/ai/product_refs.dart';
@@ -38,7 +39,17 @@ Future<Uint8List?> takeProductPhoto(BuildContext context, String mode) {
 /// Ключа ИИ нет ни на сервере, ни на телефоне — предлагаем вставить (как поле ключа в настройках кассы).
 Future<bool> ensureAiKey(BuildContext context, WidgetRef ref) async {
   final vision = ref.read(visionProvider);
-  if (await vision.key() != null) return true;
+  // 2026-10-26 (владелец: ИИ — не больше 2 сотрудникам): без права на ИИ — понятное сообщение «доступен только …», а не «нет ключа»;
+  // с правом — один раз короткое пояснение про общий лимит.
+  try {
+    if (await vision.key() != null) {
+      if (context.mounted) await showAiNoticeOnce(context, ref);
+      return true;
+    }
+  } on AiAccessDenied catch (e) {
+    if (context.mounted) toast(context, e.message, error: true);
+    return false;
+  }
   if (!context.mounted) return false;
   final l = context.l;
   final ctrl = TextEditingController();
@@ -406,6 +417,7 @@ Future<bool?> _askYes(BuildContext context, String text) => showDialog<bool>(
 String aiErrorText(BuildContext c, VisionException e) {
   final l = c.l;
   final m = e.message.toLowerCase();
+  if (e is AiAccessDenied) return e.message; // 2026-10-26: нет права на ИИ — текст уже на языке интерфейса
   if (e.noKey) return l.aiKeyNeeded;
   if (m.contains('связи') || m.contains('connection') || m.contains('socket')) return l.aiErrNoNet;
   if (m.contains('вовремя') || m.contains('timeout')) return l.aiErrSlow;

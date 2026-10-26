@@ -19,11 +19,45 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _login = TextEditingController();
   final _password = TextEditingController();
+  final _passwordFocus = FocusNode();
   bool _busy = false;
   bool _hide = true;
   String? _error;
 
+  @override
+  void dispose() {
+    _login.dispose();
+    _password.dispose();
+    _passwordFocus.dispose();
+    super.dispose();
+  }
+
+  /// 2026-10-26 (живой аудит, П9, Н-1): язык выбирается и до входа — как в профиле (тот же ключ ui.lang).
+  static const _languages = {'ru': 'Русский', 'ky': 'Кыргызча', 'en': 'English', 'tr': 'Türkçe', 'uz': "O'zbekcha"};
+
+  Future<void> _chooseLanguage() async {
+    final current = ref.read(prefsProvider).locale.languageCode;
+    final code = await showModalBottomSheet<String>(
+      context: context,
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final e in _languages.entries)
+              ListTile(
+                title: Text(e.value),
+                trailing: e.key == current ? const Icon(Icons.check_rounded) : null,
+                onTap: () => Navigator.pop(c, e.key),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (code != null) await ref.read(prefsProvider.notifier).setLocale(code);
+  }
+
   Future<void> _submit() async {
+    if (_busy) return;
     if (_login.text.trim().isEmpty || _password.text.isEmpty) {
       setState(() => _error = context.l.loginEmpty);
       return;
@@ -45,81 +79,133 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final l = context.l;
-    return Scaffold(
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: T.navy,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-            ),
-            padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top + 32, 24, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 2026-10-22, брендбук NUR CRM: знак «солнце над горой» для чёрного фона (минимум 28 px — здесь 64).
-                const BrandLogo(width: 130, kind: BrandLogoKind.vertical, variant: BrandVariant.dark),
-                const SizedBox(height: 14),
-                const Text(
-                  'NurMarket',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white),
-                ),
-                const SizedBox(height: 6),
-                Text(l.loginTagline, style: const TextStyle(fontSize: 13, color: Color(0xFFC7D2DB))),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-              children: [
-                FieldLabel(l.loginLabel),
-                TextField(
-                  controller: _login,
-                  keyboardType: TextInputType.emailAddress,
-                  autofillHints: const [AutofillHints.username],
-                  decoration: InputDecoration(hintText: l.loginHint),
-                ),
-                const SizedBox(height: 12),
-                FieldLabel(l.passwordLabel),
-                TextField(
-                  controller: _password,
-                  obscureText: _hide,
-                  autofillHints: const [AutofillHints.password],
-                  onSubmitted: (_) => _submit(),
-                  decoration: InputDecoration(
-                    hintText: '••••••••',
-                    suffixIcon: IconButton(
-                      icon: Icon(_hide ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                      onPressed: () => setState(() => _hide = !_hide),
+    // 2026-10-26 (приёмка 1.18.6, В-1н): на 411×731 dp при открытой клавиатуре «Войти» закрывала поля — шапка с логотипом
+    // (≈280 dp), список и закреплённая кнопка не помещались в остаток над клавиатурой. Теперь весь экран — одна прокрутка:
+    // кнопка идёт СРАЗУ ПОД полями (не поверх), а при клавиатуре шапка сжимается до строки с языком и названием.
+    final kb = MediaQuery.viewInsetsOf(context).bottom > 0;
+    // 2026-10-26 (живой аудит, П9): шапка всегда тёмная — значки строки состояния (время, сеть) светлые и в светлой теме
+    return LightStatusBar(child: Scaffold(
+      resizeToAvoidBottomInset: true,
+      body: LayoutBuilder(
+        builder: (context, box) => SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: box.maxHeight),
+            child: IntrinsicHeight(
+              child: Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: T.navy,
+                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+                    ),
+                    padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top + (kb ? 4 : 32), 24, kb ? 12 : 28),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 2026-10-26 (живой аудит, П9): переключатель языка в шапке (справа), касание 48 dp, подпись для TalkBack
+                        Row(
+                          children: [
+                            if (kb)
+                              const Expanded(
+                                child: Text('NurMarket', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
+                              )
+                            else
+                              const Spacer(),
+                            Semantics(
+                              button: true,
+                              label: '${l.language}: ${_languages[ref.watch(prefsProvider).locale.languageCode] ?? ''}',
+                              excludeSemantics: true,
+                              child: Tooltip(
+                                message: l.language,
+                                child: TextButton.icon(
+                                  style: TextButton.styleFrom(foregroundColor: Colors.white, minimumSize: const Size(48, 48)),
+                                  onPressed: _chooseLanguage,
+                                  icon: const Icon(Icons.language_rounded, size: 20),
+                                  label: Text(ref.watch(prefsProvider).locale.languageCode.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w700)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (!kb) ...[
+                          // 2026-10-22, брендбук NUR CRM: знак «солнце над горой» для чёрного фона (минимум 28 px — здесь 64).
+                          const BrandLogo(width: 130, kind: BrandLogoKind.vertical, variant: BrandVariant.dark),
+                          const SizedBox(height: 14),
+                          const Text(
+                            'NurMarket',
+                            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(l.loginTagline, style: const TextStyle(fontSize: 13, color: Color(0xFFC7D2DB))),
+                        ],
+                      ],
                     ),
                   ),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: context.pal.dangerSoft, borderRadius: BorderRadius.circular(12)),
-                    child: Text(_error!, style: const TextStyle(color: T.danger, fontSize: 13)),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FieldLabel(l.loginLabel),
+                          TextField(
+                            controller: _login,
+                            keyboardType: TextInputType.emailAddress,
+                            autofillHints: const [AutofillHints.username],
+                            // 2026-10-26 (живой аудит, П9): «Далее» на клавиатуре переводит на пароль
+                            textInputAction: TextInputAction.next,
+                            onSubmitted: (_) => _passwordFocus.requestFocus(),
+                            decoration: InputDecoration(hintText: l.loginHint),
+                          ),
+                          const SizedBox(height: 12),
+                          FieldLabel(l.passwordLabel),
+                          TextField(
+                            controller: _password,
+                            focusNode: _passwordFocus,
+                            obscureText: _hide,
+                            autofillHints: const [AutofillHints.password],
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _submit(),
+                            decoration: InputDecoration(
+                              // 2026-10-26 (живой аудит, П9, Н-1): подсказка «Пароль», а не «••••••••» (похоже на введённый пароль)
+                              hintText: l.passwordLabel,
+                              suffixIcon: IconButton(
+                                tooltip: _hide ? l.a11yShowPassword : l.a11yHidePassword,
+                                icon: Icon(_hide ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                                onPressed: () => setState(() => _hide = !_hide),
+                              ),
+                            ),
+                          ),
+                          if (_error != null) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(color: context.pal.dangerSoft, borderRadius: BorderRadius.circular(12)),
+                              child: Text(_error!, style: const TextStyle(color: T.danger, fontSize: 13)),
+                            ),
+                          ],
+                          const Spacer(),
+                          const SizedBox(height: 16),
+                          SafeArea(
+                            top: false,
+                            child: FilledButton(
+                              onPressed: _busy ? null : _submit,
+                              child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: T.navy)) : Text(l.signIn),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
-              ],
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: FilledButton(
-                onPressed: _busy ? null : _submit,
-                child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: T.navy)) : Text(l.signIn),
               ),
             ),
           ),
-        ],
+        ),
       ),
-    );
+    ));
   }
 }
 

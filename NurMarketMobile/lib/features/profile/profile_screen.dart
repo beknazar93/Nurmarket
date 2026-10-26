@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ai/ai_access.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/sync/outbox_meta.dart';
@@ -9,6 +10,7 @@ import '../../core/theme/brand_mark.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../admin/advisor.dart';
+import '../admin/ai_access_ui.dart';
 import 'printer_settings.dart';
 
 /// Профиль (Т19): касса, язык, тёмная тема, работа без интернета (очередь), выход.
@@ -24,6 +26,8 @@ class ProfileScreen extends ConsumerWidget {
     final s = ref.watch(sessionProvider);
     final prefs = ref.watch(prefsProvider);
     final pending = ref.watch(pendingCountProvider).value ?? 0;
+    // 2026-10-26 (владелец: ИИ — не больше 2 сотрудникам): правило «кому разрешён ИИ» — статус рядом с «Настройкой ИИ».
+    final aiPolicy = ref.watch(aiPolicyProvider).value;
     Widget item(IconData icon, String title, {String? sub, Widget? trailing, VoidCallback? onTap}) => ListTile(
       leading: Container(
         width: 36,
@@ -37,7 +41,7 @@ class ProfileScreen extends ConsumerWidget {
       onTap: onTap,
     );
     return Scaffold(
-      appBar: const ScreenTitle(''),
+      appBar: ScreenTitle(l.profileTitle), // 2026-10-26 (П2): у экрана был пустой заголовок
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
@@ -86,11 +90,12 @@ class ProfileScreen extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PrinterSettingsScreen())),
                 ),
-                item(Icons.desktop_windows_outlined, l.linkWithKassa, sub: l.linkWithKassaSub),
+                // 2026-10-26 (живой аудит, П2, Н-6): заглушка «Связь с кассой — в следующем обновлении» убрана до появления функции.
               ],
             ),
           ),
           const SizedBox(height: 12),
+          const AiAccessBanner(), // 2026-10-26: «Рекомендуем ограничить ИИ двумя сотрудниками» — только владельцу и пока список не задан
           Panel(
             padding: EdgeInsets.zero,
             child: Column(
@@ -131,8 +136,37 @@ class ProfileScreen extends ConsumerWidget {
                 item(
                   Icons.auto_awesome_rounded,
                   l.aiSettings,
+                  sub: aiPolicy == null ? null : AiAccess.statusText(l, s, aiPolicy),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AiSettingsScreen())),
+                ),
+                // 2026-10-26: кому разрешён ИИ (не больше 2 сотрудников) — задаёт владелец или администратор.
+                if (AiAccess.canManage(s))
+                  item(
+                    Icons.groups_2_outlined,
+                    l.aiAccTitle,
+                    sub: aiPolicy == null
+                        ? null
+                        : aiPolicy.isSet
+                        ? l.aiAccCounter(aiPolicy.users!.length, AiAccess.limit)
+                        : l.aiAccNotSet,
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AiAccessScreen())),
+                  ),
+                // 2026-10-26 (голос-управление, В5): режим помощника и журнал действий ИИ (доступны всем по роли).
+                item(
+                  Icons.tune_rounded,
+                  l.assistantTitle,
+                  sub: l.assistantSub,
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/ai/settings'),
+                ),
+                item(
+                  Icons.history_rounded,
+                  l.aiLogTitle,
+                  sub: s != null && s.isAdmin ? l.aiLogSubAll : l.aiLogMineOnly,
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/ai/log'),
                 ),
                 item(Icons.dark_mode_outlined, l.appearance),
                 // 14.10, владелец: «смена темы по времени» — четвёртый вариант и часы тёмной темы.
@@ -192,7 +226,7 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
           OutlinedButton(
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), foregroundColor: T.danger),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), foregroundColor: pal.danger),
             onPressed: () async {
               if (pending > 0) {
                 final ok = await showDialog<bool>(
@@ -203,7 +237,7 @@ class ProfileScreen extends ConsumerWidget {
                       TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
                       TextButton(
                         onPressed: () => Navigator.pop(c, true),
-                        child: Text(l.logout, style: const TextStyle(color: T.danger)),
+                        child: Text(l.logout, style: TextStyle(color: pal.danger)),
                       ),
                     ],
                   ),
@@ -297,10 +331,11 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
               // 2026-10-22 (мобилка, деньги, К-6): запись другого аккаунта — ждёт входа своим логином, не отправляется.
               final foreignOwner = r.status == 'sent' || OutboxMeta.belongsTo(r, me, legacyOwner: _legacyOwner) ? null : (OutboxMeta.ownerOfRow(r) ?? _legacyOwner ?? '');
               final (color, label) = switch (r.status) {
-                'sent' => (T.success, l.sent),
-                _ when foreignOwner != null => (T.warn, l.otherAccount),
-                'failed' => (T.danger, l.notAccepted),
-                _ => (T.warn, l.waitsForNetwork),
+                // 2026-10-26 (живой аудит, П1/П2, С-7): цвет текста статуса — из палитры (в тёмной теме светлее, контраст AA)
+                'sent' => (pal.success, l.sent),
+                _ when foreignOwner != null => (pal.warn, l.otherAccount),
+                'failed' => (pal.danger, l.notAccepted),
+                _ => (pal.warn, l.waitsForNetwork),
               };
               return Panel(
                 child: Row(
@@ -343,7 +378,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
                         // 2026-10-22 (мобилка, деньги): не принятое сервером можно снять — не уйдёт и не держит смену.
                         if (r.status == 'failed' && foreignOwner == null)
                           TextButton(
-                            style: TextButton.styleFrom(foregroundColor: T.danger),
+                            style: TextButton.styleFrom(foregroundColor: pal.danger),
                             onPressed: () async {
                               final ok = await showDialog<bool>(
                                 context: context,

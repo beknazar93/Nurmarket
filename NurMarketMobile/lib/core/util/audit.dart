@@ -28,7 +28,7 @@ class AuditEntry {
 }
 
 class Audit {
-  static const kinds = ['sale', 'cart', 'return', 'discount', 'delete', 'price', 'product', 'receive', 'cash', 'shift', 'settings', 'login', 'open'];
+  static const kinds = ['sale', 'cart', 'return', 'discount', 'delete', 'price', 'product', 'receive', 'cash', 'shift', 'settings', 'login', 'open', 'ai'];
 
   /// Кто сейчас работает (ставит app.dart при входе/выходе) — пишется в каждую запись.
   static String currentUser = '';
@@ -41,6 +41,14 @@ class Audit {
 
   static final List<String> _pending = [];
   static Future<void>? _flushing;
+
+  /// Только для тестов экранов: у каждого теста свои «поддельные» часы, и пачка записи с прошлого теста могла остаться
+  /// незавершённой (её таймер умер вместе с тестом) — следующая запись встала бы за ней навсегда.
+  static void resetForTests() {
+    _pending.clear();
+    _flushing = null;
+    _chain = Future.value();
+  }
 
   /// Записать действие. Ошибки записи не мешают работе кассы.
   /// 14.10, стресс-тест: раньше каждая запись открывала файл и сбрасывала его на диск — 6000 записей подряд не
