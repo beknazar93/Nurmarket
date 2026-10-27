@@ -9,14 +9,19 @@ public enum SessionState { Pending, AwaitingConsent, Active, Ended }
 
 /// <param name="User">2026-10-16, v1.1: кто за кассой (имя кассира), необязательно.</param>
 /// <param name="Note">2026-10-16, v1.1: что случилось — пишет кассир перед «Получить код» (до 500 символов), необязательно.</param>
-public sealed record HostInfo(string App, string Version, string Company, string Machine, int ScreenW, int ScreenH, string User = "", string Note = "");
+/// <param name="Caps">2026-10-27, v1.3: что касса умеет сверх базового ("chat", "info", "diag", "logs", "files", "clipboard", "client-active", "view-only", "screen-paused"). Нет поля — касса умеет только экран и ввод.</param>
+public sealed record HostInfo(string App, string Version, string Company, string Machine, int ScreenW, int ScreenH, string User = "", string Note = "", string[]? Caps = null);
 
 /// <summary>Соединение оператора (одна вкладка браузера) и сеанс, к которому оно сейчас привязано.</summary>
-public sealed class OperatorContext(OperatorIdentity identity, WsConnection conn)
+public sealed class OperatorContext(OperatorCredential credential, WsConnection conn)
 {
-    public OperatorIdentity Identity { get; } = identity;
+    /// <summary>2026-10-27 (В-5): вход, с которым открыто соединение; перепроверяется на каждый join и раз в минуту.</summary>
+    public OperatorCredential Credential { get; } = credential;
+    public OperatorIdentity Identity { get; } = credential.Identity;
     public WsConnection Conn { get; } = conn;
     public RelaySession? Session { get; set; }
+    /// <summary>Причина закрытия, заданная сервером (например "revoked"); иначе берётся обычная.</summary>
+    public string? ForcedReason { get; set; }
 }
 
 public sealed class RelaySession
@@ -44,6 +49,11 @@ public sealed class RelaySession
     public DateTimeOffset? ConsentDeadline { get; set; }
     public DateTimeOffset? Started { get; set; }
     public string? EndReason { get; set; }
+    /// <summary>2026-10-27 (В-1/В-2): кассир выбрал «Только просмотр» (consent view_only:true) — ввод оператора не пересылается.</summary>
+    public bool ViewOnly { get; set; }
+    /// <summary>Когда оператор в последний раз что-то делал (мс, Environment.TickCount64) — для предела простоя (С-6).</summary>
+    public long LastActivityMs = Environment.TickCount64;
+    public long LastViewOnlyNoticeMs;
 
     public long BytesToOperator;
     public long BytesToHost;
@@ -63,6 +73,8 @@ public sealed class SessionRegistry
     // Недавно закрытые коды: чтобы оператор увидел «устарел»/«заблокирован», а не «нет такого».
     private readonly ConcurrentDictionary<string, (string Error, DateTimeOffset Until)> _tombstones = new();
     private readonly ConcurrentBag<Task> _journalWrites = new();
+    // 2026-10-27 (В-5): открытые соединения операторов — чтобы закрывать отозванные.
+    private readonly ConcurrentDictionary<string, OperatorContext> _operators = new();
 
     public SessionRegistry(RelayOptions o, Journal journal, ILogger<SessionRegistry> log)
     {
@@ -82,7 +94,8 @@ public sealed class SessionRegistry
         lock (_gate)
         {
             if (_byCode.Count >= _o.MaxSessions) return (null, "server-busy");
-            var pendingFromIp = _byCode.Values.Count(s => s.State == SessionState.Pending && s.HostConn.Ip == hostConn.Ip);
+            // 2026-10-27 (В-7): считаем по IpKey — для IPv6 это сеть /64, а не один адрес из 2^64.
+            var pendingFromIp = _byCode.Values.Count(s => s.State == SessionState.Pending && s.HostConn.IpKey == hostConn.IpKey);
             if (pendingFromIp >= _o.MaxPendingPerIp) return (null, "rate-limited");
 
             string code;
@@ -109,7 +122,7 @@ public sealed class SessionRegistry
         }
     }
 
-    public void Consent(RelaySession s, bool accept)
+    public void Consent(RelaySession s, bool accept, bool viewOnly = false)
     {
         lock (_gate)
         {
@@ -122,6 +135,8 @@ public sealed class SessionRegistry
                 FinishLocked(s, "declined", hostMsg: Msg.End("declined"), operatorMsg: null, closeOperator: false, tombstone: "declined");
                 return;
             }
+            s.ViewOnly = viewOnly;
+            s.LastActivityMs = Environment.TickCount64;
             s.State = SessionState.Active;
             s.Started = DateTimeOffset.UtcNow;
             s.HostConn.SendControl(Msg.Json(new { type = "started", sessionId = s.Id, @operator = op.Identity.Name }));
@@ -131,6 +146,7 @@ public sealed class SessionRegistry
                 sessionId = s.Id,
                 @operator = op.Identity.Name,
                 login = op.Identity.Login,
+                viewOnly = s.ViewOnly, // 2026-10-27, v1.3 (В-1): оператор с первого кадра знает, что ввода нет
                 host = new
                 {
                     app = s.Host.App,
@@ -138,9 +154,10 @@ public sealed class SessionRegistry
                     company = s.Host.Company,
                     machine = s.Host.Machine,
                     screen = new { w = s.Host.ScreenW, h = s.Host.ScreenH },
+                    caps = s.Host.Caps ?? Array.Empty<string>(),
                 },
             }));
-            _log.LogInformation("Сеанс {Session} начат: оператор {Operator} → {Company} / {Machine}", s.Id, op.Identity.Login, s.Host.Company, s.Host.Machine);
+            _log.LogInformation("Сеанс {Session} начат: оператор {Operator} → {Company} / {Machine}{View}", s.Id, op.Identity.Login, s.Host.Company, s.Host.Machine, s.ViewOnly ? " (только просмотр)" : "");
         }
     }
 
@@ -207,7 +224,7 @@ public sealed class SessionRegistry
             s.Operator = ctx;
             s.ConsentDeadline = DateTimeOffset.UtcNow.AddSeconds(_o.ConsentTimeoutSeconds);
             ctx.Session = s;
-            s.HostConn.SendControl(Msg.Json(new { type = "join-request", @operator = ctx.Identity.Name, login = ctx.Identity.Login, ip = ctx.Conn.Ip }));
+            s.HostConn.SendControl(Msg.Json(new { type = "join-request", @operator = ctx.Identity.Name, login = ctx.Identity.Login })); // 2026-10-27: IP оператора кассе не отдаём
             ctx.Conn.SendControl(Msg.Json(new { type = "waiting-consent" }));
             _log.LogInformation("Оператор {Operator} ({Ip}) ждёт согласия кассира {Session}", ctx.Identity.Login, ctx.Conn.Ip, s.Id);
         }
@@ -216,10 +233,10 @@ public sealed class SessionRegistry
     // ---------- завершение ----------
 
     /// <summary>Сторона прислала {"type":"end"}.</summary>
-    public void EndBy(RelaySession s, string side, string? requested)
+    public void EndBy(RelaySession s, string side, string? requested = null)
     {
-        var reason = requested is "error" or "timeout" ? requested : side;
-        lock (_gate) EndLocked(s, reason, fromSide: side);
+        // 2026-10-27: причины error/timeout сторона назвать не может — иначе в журнале можно выдать свой конец за сбой сервера.
+        lock (_gate) EndLocked(s, side, fromSide: side);
     }
 
     /// <summary>Соединение стороны закрылось/оборвалось.</summary>
@@ -326,7 +343,7 @@ public sealed class SessionRegistry
     // ---------- пересылка ----------
 
     /// <summary>Переслать сообщение другой стороне. Буфер in.Buffer переходит сюда.</summary>
-    public async ValueTask ForwardAsync(RelaySession s, bool toOperator, Incoming m)
+    public async ValueTask ForwardAsync(RelaySession s, bool toOperator, Incoming m, string? type = null)
     {
         var target = toOperator ? s.Operator?.Conn : s.HostConn;
         if (s.State != SessionState.Active || target is null)
@@ -334,11 +351,49 @@ public sealed class SessionRegistry
             m.Return();
             return;
         }
+        // Простой считается по вводу оператора и чату; кадры, ack и служебные сообщения его не сбрасывают.
+        if ((!toOperator && type is not (null or "ack" or "pong" or "ping")) || type == "chat")
+            Interlocked.Exchange(ref s.LastActivityMs, Environment.TickCount64);
         if (await target.EnqueueAsync(m.Buffer, m.Length, m.Type, pooled: true).ConfigureAwait(false))
         {
             if (toOperator) Interlocked.Add(ref s.BytesToOperator, m.Length);
             else Interlocked.Add(ref s.BytesToHost, m.Length);
         }
+    }
+
+    // ---------- соединения операторов (В-5) ----------
+
+    public void AddOperator(OperatorContext ctx) => _operators[ctx.Conn.Id] = ctx;
+    public void RemoveOperator(OperatorContext ctx) => _operators.TryRemove(ctx.Conn.Id, out _);
+    public int OperatorCount => _operators.Count;
+
+    /// <summary>Закрыть соединение оператора: ему — error unauthorized, в журнале сеанса причина revoked.</summary>
+    public void KickOperator(OperatorContext ctx, string reason = "revoked")
+    {
+        ctx.ForcedReason = reason;
+        ctx.Conn.SendControl(Msg.Error("unauthorized"));
+        ctx.Conn.Close(WebSocketCloseStatus.PolicyViolation, "unauthorized");
+    }
+
+    /// <summary>Раз в минуту: закрыть соединения, чей вход отозван (смена пароля, удаление, выход, срок).</summary>
+    public int RecheckOperators(TokenService tokens)
+    {
+        var kicked = 0;
+        foreach (var ctx in _operators.Values)
+        {
+            if (tokens.StillValid(ctx.Credential)) continue;
+            _log.LogInformation("Вход оператора {Operator} больше не действителен — закрываем соединение {Conn}", Msg.LogSafe(ctx.Identity.Login), ctx.Conn.Id);
+            KickOperator(ctx);
+            kicked++;
+        }
+        return kicked;
+    }
+
+    /// <summary>Выход оператора: закрыть все его соединения с этим токеном сразу.</summary>
+    public void KickBySignature(string sig)
+    {
+        foreach (var ctx in _operators.Values)
+            if (ctx.Credential.Sig == sig) KickOperator(ctx, "logout");
     }
 
     // ---------- обслуживание ----------
@@ -353,6 +408,17 @@ public sealed class SessionRegistry
             {
                 if (s.State == SessionState.Pending && now > s.ExpiresAt)
                     ExpireLocked(s);
+                else if (s.State == SessionState.Active && s.Started is { } st0 && _o.SessionMaxMinutes > 0 && now - st0 > TimeSpan.FromMinutes(_o.SessionMaxMinutes))
+                {
+                    _log.LogInformation("Сеанс {Session} дошёл до предела {Minutes} мин", s.Id, _o.SessionMaxMinutes);
+                    EndLocked(s, "max", fromSide: "server");
+                }
+                else if (s.State == SessionState.Active && _o.SessionIdleMinutes > 0 &&
+                         Environment.TickCount64 - Interlocked.Read(ref s.LastActivityMs) > (long)(_o.SessionIdleMinutes * 60_000))
+                {
+                    _log.LogInformation("Сеанс {Session} без действий оператора {Minutes} мин", s.Id, _o.SessionIdleMinutes);
+                    EndLocked(s, "idle", fromSide: "server");
+                }
                 else if (s.State == SessionState.AwaitingConsent && s.ConsentDeadline is { } d && now > d)
                 {
                     _log.LogInformation("Кассир не ответил на запрос {Session}", s.Id);

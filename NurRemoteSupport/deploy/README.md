@@ -41,7 +41,7 @@ nano .env
 - есть домен (A-запись указывает на IP сервера): `RELAY_DOMAIN=support.nurmarket.kg`
 - нет домена: `RELAY_DOMAIN=203-0-113-5.sslip.io` (свой IP, точки заменить на дефисы)
 
-Папка данных (операторы, журнал сеансов, заметки операторов `notes.jsonl` — с 17.10.2026, ключ токенов) — `deploy/data`. Сервер внутри контейнера работает не от root (uid 1654), поэтому:
+Папка данных (операторы, журнал сеансов `journal.jsonl`, заметки операторов `notes.jsonl` — в начале месяца прошлый файл уходит в `journal-ГГГГ-ММ.jsonl`/`notes-ГГГГ-ММ.jsonl`, ключ токенов `token-secret`, отозванные токены `revoked-tokens.txt`) — `deploy/data`. Сервер внутри контейнера работает не от root (uid 1654), поэтому:
 
 ```bash
 mkdir -p data && sudo chown 1654:1654 data && chmod 700 data
@@ -66,14 +66,14 @@ docker compose logs -f     # выход — Ctrl+C; ждём строку «Ре
 docker compose run --rm relay add-operator aibek "Айбек"
 ```
 
-Пароль спросит дважды (не показывается на экране), не короче 8 символов. Та же команда для существующего логина **сбрасывает пароль** — старые входы этого оператора сразу перестают действовать.
+Пароль спросит дважды (не показывается на экране), не короче 10 символов. Та же команда для существующего логина **сбрасывает пароль** — старые входы этого оператора сразу перестают действовать.
 
 ```bash
 docker compose run --rm relay list-operators
 docker compose run --rm relay remove-operator aibek
 ```
 
-Перезапускать сервер после этого не нужно — он перечитывает `data/operators.json` сам.
+Перезапускать сервер после этого не нужно — он перечитывает `data/operators.json` сам. Удалённый оператор теряет доступ сразу: его открытые соединения закрываются в течение минуты, а `join` по ним уже не проходит. Оператор сам меняет пароль в программе («Сменить пароль») или на странице.
 
 ## 6. Проверить
 
@@ -123,9 +123,13 @@ crontab -e
 
 Восстановление: остановить (`docker compose down`), распаковать архив в `deploy/`, `sudo chown -R 1654:1654 data`, `docker compose up -d`.
 
+## Доверенные прокси и IP клиента
+
+Сервер лимитирует попытки по IP и пишет IP кассы в журнал. За Caddy в docker настоящий адрес приходит в `X-Forwarded-For`; доверие ему задано в `docker-compose.yml` строкой `Relay__TrustedProxies: "172.16.0.0/12"` — только от сети docker, от остальных заголовок игнорируется. Если у docker другая сеть (`docker network inspect deploy_default`), поправьте её здесь. Для nginx на хосте с systemd доверие к loopback включено по умолчанию. Проверка: `hostIp` у активной кассы в `/api/sessions` должен быть её настоящим адресом, а не `172.…` или `127.0.0.1`. IPv6 в лимитах считается по сети /64.
+
 ## Настройки (необязательно)
 
-Все параметры — в [`../Server/appsettings.example.json`](../Server/appsettings.example.json). Менять переменными окружения в `docker-compose.yml` у `relay`, например `Relay__SessionTtlSeconds: "900"`. Основные: время жизни кода (15 мин), попыток PIN (5), размер сообщения (4 МБ), пинг/тишина (15/45 с), пределы частоты входа и подключений.
+Все параметры — в [`../Server/appsettings.example.json`](../Server/appsettings.example.json). Менять переменными окружения в `docker-compose.yml` у `relay`, например `Relay__SessionTtlSeconds: "900"`. Основные: время жизни кода (15 мин), попыток PIN (5), простой сеанса (30 мин) и наибольшая длительность (4 ч), размер сообщения (4 МБ), пинг/тишина (15/45 с), пределы частоты входа и подключений. Полный список с пояснениями — в [`../README.md`](../README.md), раздел 5.
 
 ## Локальный запуск (разработка, Windows)
 
@@ -143,6 +147,7 @@ dotnet bin\Release\net8.0\Server.dll --urls http://127.0.0.1:5080
 cd NurRemoteSupport\Tools\FakeHost;   dotnet build -c Release
 cd ..\RelayTests;                     dotnet build -c Release
 dotnet bin\Release\net8.0\RelayTests.dll e2e
+dotnet bin\Release\net8.0\RelayTests.dll auth
 dotnet bin\Release\net8.0\RelayTests.dll load --sessions 50 --seconds 30
 ```
 

@@ -9,8 +9,9 @@ services:
     restart: unless-stopped
     environment:
       Relay__DataDir: /data
-      # Сервер наружу не открыт — к нему ходит только Caddy, поэтому X-Forwarded-For можно верить
-      Relay__TrustForwardedHeaders: "true"
+      # Сервер наружу не открыт — к нему ходит только Caddy из сети docker; его X-Forwarded-For (настоящий IP клиента) принимаем
+      # только от этой сети, от остальных — игнорируем (2026-10-27, В-11)
+      Relay__TrustedProxies: "172.16.0.0/12"
       Logging__Console__FormatterName: json
       Logging__Console__FormatterOptions__TimestampFormat: "yyyy-MM-ddTHH:mm:ss.fffZ "
       Logging__Console__FormatterOptions__UseUtcTimestamp: "true"

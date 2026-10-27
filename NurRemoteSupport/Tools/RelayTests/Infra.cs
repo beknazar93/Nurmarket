@@ -30,10 +30,11 @@ public sealed class TestWs : IAsyncDisposable
     public WebSocketCloseStatus? CloseStatus { get; private set; }
     public long BytesReceived;
 
-    public static async Task<TestWs> ConnectAsync(string url, int timeoutMs = 5000)
+    public static async Task<TestWs> ConnectAsync(string url, int timeoutMs = 5000, Action<ClientWebSocketOptions>? configure = null)
     {
         var t = new TestWs();
         t.Ws.Options.KeepAliveInterval = TimeSpan.Zero;
+        configure?.Invoke(t.Ws.Options); // 2026-10-27: свои заголовки (Origin, X-Forwarded-For) для проверок безопасности
         using var cts = new CancellationTokenSource(timeoutMs);
         await t.Ws.ConnectAsync(new Uri(url), cts.Token);
         _ = Task.Run(t.ReceiveLoop);

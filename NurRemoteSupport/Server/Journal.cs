@@ -61,6 +61,7 @@ public sealed class Journal
         await _gate.WaitAsync();
         try
         {
+            Jsonl.RotateIfNeeded(_path); // 2026-10-27 (С-7): новый месяц — прошлый уходит в journal-ГГГГ-ММ.jsonl
             await using var fs = new FileStream(_path, FileMode.Append, FileAccess.Write, FileShare.Read, 4096, FileOptions.WriteThrough);
             var bytes = Encoding.UTF8.GetBytes(line);
             await fs.WriteAsync(bytes);
@@ -76,36 +77,32 @@ public sealed class Journal
         }
     }
 
-    /// <summary>Последние записи (новые сверху). Читает только хвост файла.</summary>
+    /// <summary>Последние записи (новые сверху): текущий файл, затем месячные архивы. Читает только хвост.</summary>
     public async Task<List<JsonNode>> TailAsync(int limit)
     {
         var result = new List<JsonNode>();
-        if (!File.Exists(_path) || limit <= 0) return result;
+        if (limit <= 0) return result;
         await _gate.WaitAsync();
-        byte[] data;
         try
         {
-            await using var fs = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var take = (int)Math.Min(fs.Length, Math.Max(64 * 1024, (long)limit * 1024));
-            fs.Seek(-take, SeekOrigin.End);
-            data = new byte[take];
-            await fs.ReadExactlyAsync(data);
+            foreach (var line in Jsonl.ReadAllNewestFirst(_path))
+            {
+                try
+                {
+                    var node = JsonNode.Parse(line);
+                    if (node is not null) result.Add(node);
+                }
+                catch (JsonException) { /* обрезанная строка */ }
+                if (result.Count >= limit) break;
+            }
+        }
+        catch (IOException ex)
+        {
+            _log.LogWarning(ex, "Не удалось прочитать журнал сеансов");
         }
         finally
         {
             _gate.Release();
-        }
-        var text = Encoding.UTF8.GetString(data);
-        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        // Первая строка может быть обрезана — её пропускаем, если хвост не с начала файла.
-        for (var i = lines.Length - 1; i >= 0 && result.Count < limit; i--)
-        {
-            try
-            {
-                var node = JsonNode.Parse(lines[i]);
-                if (node is not null) result.Add(node);
-            }
-            catch (JsonException) { }
         }
         return result;
     }

@@ -29,7 +29,11 @@ internal sealed class SessionClient : IAsyncDisposable
     public event Action? WaitingConsent;
     public event Action<JsonElement>? Started;                // started (с host: компания, компьютер, версия, экран)
     public event Action<string>? Ended;                       // причина
-    public event Action<int, int>? ScreenSize;
+    public event Action<int, int, int>? ScreenSize;           // ширина, высота, сколько мониторов (2026-10-27)
+    // 2026-10-27, v1.3 (В-4): экран кассы защищён Windows (UAC, блокировка) — касса шлёт screen-paused и снова кадры, сеанс продолжается.
+    public event Action<string>? ScreenPaused;
+    // 2026-10-27, v1.3 (В-2): сервер сообщает, что кассир разрешил только просмотр и ввод оператора не пересылается.
+    public event Action? ViewOnlyByCashier;
     public event Action<int, int, int, int, uint>? FrameReady; // грязная область x, y, w, h и номер кадра
     public event Action<int, int>? Cursor;
     public event Action<string>? Chat;
@@ -40,6 +44,9 @@ internal sealed class SessionClient : IAsyncDisposable
     public event Action<string, byte[]>? FileFromHost;         // имя, содержимое (журналы zip)
     public event Action<string, string, string>? FileStatus;   // id, "saved"/"error", имя или код ошибки
     public event Action<double, double>? Stats;                // кадров/с, кбит/с
+    // 2026-10-26: приоритет кассира — касса сообщает, что кассир работает сам (true) и ввод оператора она не исполняет; false — закончил.
+    // Старая касса сообщение не шлёт — тогда событие просто не приходит.
+    public event Action<bool>? ClientActive;
 
     // ---------- кадр ----------
     public readonly object FrameLock = new();
@@ -152,31 +159,38 @@ internal sealed class SessionClient : IAsyncDisposable
                     OnBinary(ms.GetBuffer().AsSpan(0, (int)ms.Length));
                     continue;
                 }
-                JsonElement m;
+                JsonDocument doc;
                 try
                 {
-                    m = JsonDocument.Parse(ms.ToArray()).RootElement;
+                    doc = JsonDocument.Parse(ms.GetBuffer().AsMemory(0, (int)ms.Length));
                 }
                 catch (JsonException)
                 {
                     continue;
                 }
-                var type = m.TryGetProperty("type", out var t) ? t.GetString() : null;
-                if (type == "end")
+                // 2026-10-27: документ освобождается после разбора (раньше копил арендованную память); события получают копии нужных данных.
+                using (doc)
                 {
-                    reason = m.TryGetProperty("reason", out var rs) ? rs.GetString() ?? "" : "";
-                    break;
+                    var m = doc.RootElement;
+                    if (m.ValueKind != JsonValueKind.Object)
+                        continue;
+                    var type = m.TryGetProperty("type", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() : null;
+                    if (type == "end")
+                    {
+                        reason = m.TryGetProperty("reason", out var rs) && rs.ValueKind == JsonValueKind.String ? rs.GetString() ?? "" : "";
+                        break;
+                    }
+                    OnText(type, m);
                 }
-                OnText(type, m);
             }
         }
         catch (OperationCanceledException)
         {
             reason = "operator";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            reason = "error: " + ex.Message;
+            reason = "error"; // раньше сюда попадал английский текст исключения («The remote party…») — теперь понятная причина
         }
         Ended?.Invoke(reason);
     }
@@ -199,21 +213,35 @@ internal sealed class SessionClient : IAsyncDisposable
                 Started?.Invoke(m.Clone());
                 break;
             case "screen":
-                var w = m.GetProperty("w").GetInt32();
-                var h = m.GetProperty("h").GetInt32();
+                if (!m.TryGetProperty("w", out var we) || !we.TryGetInt32(out var w) || !m.TryGetProperty("h", out var he) || !he.TryGetInt32(out var h))
+                    break;
+                // 2026-10-27: размер из сети проверяем — кривое сообщение не должно выделять гигабайты (макс. 16384×16384 и не больше ~300 МБ кадра).
+                if (w is < 1 or > 16384 || h is < 1 or > 16384 || (long)w * h * 4 > 300L * 1024 * 1024)
+                    break;
                 lock (FrameLock)
                 {
                     W = w;
                     H = h;
                     Frame = new byte[w * h * 4];
                 }
-                ScreenSize?.Invoke(w, h);
+                ScreenSize?.Invoke(w, h, m.TryGetProperty("monitors", out var mon) && mon.TryGetInt32(out var mc) ? Math.Clamp(mc, 1, 16) : 1);
+                break;
+            case "screen-paused":
+                ScreenPaused?.Invoke(S(m, "reason"));
+                break;
+            case "view-only":
+                if (m.TryGetProperty("cashier", out var cashier) && cashier.ValueKind == JsonValueKind.True)
+                    ViewOnlyByCashier?.Invoke();
                 break;
             case "cursor":
-                Cursor?.Invoke(m.GetProperty("x").GetInt32(), m.GetProperty("y").GetInt32());
+                if (m.TryGetProperty("x", out var cx) && cx.TryGetInt32(out var cxv) && m.TryGetProperty("y", out var cy) && cy.TryGetInt32(out var cyv))
+                    Cursor?.Invoke(cxv, cyv);
                 break;
             case "chat":
                 Chat?.Invoke(S(m, "text"));
+                break;
+            case "client-active":
+                ClientActive?.Invoke(m.TryGetProperty("active", out var ca) && ca.ValueKind == JsonValueKind.True);
                 break;
             case "info":
                 Info?.Invoke(S(m, "text"));

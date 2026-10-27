@@ -12,6 +12,8 @@ public readonly record struct Incoming(byte[] Buffer, int Length, WebSocketMessa
 
 public sealed class MessageTooBigException(int limit) : Exception($"Сообщение больше {limit} байт");
 public sealed class SendStallException() : Exception("Очередь отправки не освобождается");
+/// <summary>2026-10-27: сторона нарушила правила (двоичное до сеанса, слишком большое служебное сообщение, ping-флуд) — разрыв.</summary>
+public sealed class PolicyViolationException(string what) : Exception(what);
 
 /// <summary>
 /// Обёртка над WebSocket (2026-09-29):
@@ -22,7 +24,7 @@ public sealed class SendStallException() : Exception("Очередь отпра�
 /// </summary>
 public sealed class WsConnection
 {
-    private readonly record struct Outgoing(byte[] Buffer, int Length, WebSocketMessageType Type, bool Pooled);
+    private readonly record struct Outgoing(byte[] Buffer, int Length, WebSocketMessageType Type, bool Pooled, bool Control = false);
 
     private static readonly byte[] PingBytes = "{\"type\":\"ping\"}"u8.ToArray();
 
@@ -34,6 +36,12 @@ public sealed class WsConnection
     private readonly CancellationTokenSource _cts = new();
     private readonly TaskCompletionSource _finished = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private long _queuedBytes;
+    private long _controlBytes; // 2026-10-27 (В-6): байт служебных сообщений в очереди
+    private double _pingTokens = 5;
+    private long _pingTokensAt = Environment.TickCount64;
+    private int _pingExcess;
+    private long _pingExcessWindowStart = Environment.TickCount64;
+    private long _lastRateLimitedAt;
     private bool _completed;
     private WebSocketCloseStatus _closeStatus = WebSocketCloseStatus.NormalClosure;
     private string _closeText = "end";
@@ -47,6 +55,7 @@ public sealed class WsConnection
         _ws = ws;
         Role = role;
         Ip = ip;
+        IpKey = RelayEndpoints.IpKey(ip);
         _o = o;
         _log = log;
         Id = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(4)).ToLowerInvariant();
@@ -55,6 +64,10 @@ public sealed class WsConnection
     public string Id { get; }
     public string Role { get; }
     public string Ip { get; }
+    /// <summary>Ключ для лимитов: IPv4 как есть, IPv6 — сеть /64 (2026-10-27: один абонент получает целую /64).</summary>
+    public string IpKey { get; }
+    /// <summary>Служебная очередь переполнена и соединение оборвано (В-6).</summary>
+    public bool ControlOverflow { get; private set; }
     public bool PongSeen { get; set; }
     public bool TimedOut { get; private set; }
     public long BytesSent => Interlocked.Read(ref _bytesSent);
@@ -70,13 +83,13 @@ public sealed class WsConnection
     }
 
     /// <summary>Приём одного сообщения целиком. null — сторона закрыла соединение.</summary>
-    public async Task<Incoming?> ReceiveAsync(CancellationToken ct)
+    public async Task<Incoming?> ReceiveAsync(CancellationToken ct, bool restricted = false)
     {
         var buf = ArrayPool<byte>.Shared.Rent(16 * 1024);
         var count = 0;
         try
         {
-            var limit = _o.MaxBinaryMessageBytes;
+            var limit = restricted ? _o.PreSessionTextBytes : _o.MaxBinaryMessageBytes;
             while (true)
             {
                 if (count == buf.Length)
@@ -94,7 +107,9 @@ public sealed class WsConnection
                     return null;
                 }
                 count += r.Count;
-                limit = r.MessageType == WebSocketMessageType.Text ? _o.MaxTextMessageBytes : _o.MaxBinaryMessageBytes;
+                // 2026-10-27 (С-2): до начала сеанса от кассы допустим только короткий текст; двоичное — сразу разрыв.
+                if (restricted && r.MessageType == WebSocketMessageType.Binary) throw new PolicyViolationException("двоичное сообщение до начала сеанса");
+                limit = restricted ? _o.PreSessionTextBytes : r.MessageType == WebSocketMessageType.Text ? _o.MaxTextMessageBytes : _o.MaxBinaryMessageBytes;
                 if (count > limit) throw new MessageTooBigException(limit);
                 Interlocked.Exchange(ref _lastReceived, Environment.TickCount64);
                 if (r.EndOfMessage) return new Incoming(buf, count, r.MessageType);
@@ -156,9 +171,78 @@ public sealed class WsConnection
         lock (_gate)
         {
             if (_completed) return false;
-            _queue.Enqueue(new Outgoing(json, json.Length, WebSocketMessageType.Text, false));
-            _queuedBytes += json.Length;
-            SignalDataLocked();
+            // 2026-10-27 (В-6): сторона, которая не читает ответы (ping-флуд, мусор), не должна копить память без предела.
+            if (_controlBytes + json.Length > _o.ControlQueueBytes)
+            {
+                ControlOverflow = true;
+                _completed = true;
+            }
+            else
+            {
+                _queue.Enqueue(new Outgoing(json, json.Length, WebSocketMessageType.Text, false, Control: true));
+                _queuedBytes += json.Length;
+                _controlBytes += json.Length;
+                SignalDataLocked();
+                return true;
+            }
+        }
+        _log.LogWarning("Служебная очередь больше {Limit} байт — обрываем ({Role} {Conn} {Ip})", _o.ControlQueueBytes, Role, Id, Ip);
+        Abort();
+        return false;
+    }
+
+    public enum PingVerdict { Answer, Drop, Flood }
+
+    /// <summary>
+    /// 2026-10-27 (В-6): ping от стороны не чаще 1 в секунду (запас — 5 подряд). Лишние молча отбрасываются,
+    /// а если лишних больше 50 за 10 секунд — это флуд, соединение рвётся.
+    /// </summary>
+    public PingVerdict CheckPing()
+    {
+        var now = Environment.TickCount64;
+        lock (_gate)
+        {
+            _pingTokens = Math.Min(5, _pingTokens + (now - _pingTokensAt) / 1000.0);
+            _pingTokensAt = now;
+            if (_pingTokens >= 1)
+            {
+                _pingTokens -= 1;
+                return PingVerdict.Answer;
+            }
+            if (now - _pingExcessWindowStart > 10_000)
+            {
+                _pingExcessWindowStart = now;
+                _pingExcess = 0;
+            }
+            return ++_pingExcess > 50 ? PingVerdict.Flood : PingVerdict.Drop;
+        }
+    }
+
+    private double _msgTokens = 60;
+    private long _msgTokensAt = Environment.TickCount64;
+
+    /// <summary>2026-10-27 (В-6): до начала сеанса — не больше 20 сообщений в секунду (запас 60). false — флуд.</summary>
+    public bool AllowPreSessionMessage()
+    {
+        var now = Environment.TickCount64;
+        lock (_gate)
+        {
+            _msgTokens = Math.Min(60, _msgTokens + (now - _msgTokensAt) / 50.0);
+            _msgTokensAt = now;
+            if (_msgTokens < 1) return false;
+            _msgTokens -= 1;
+            return true;
+        }
+    }
+
+    /// <summary>Сказать стороне "rate-limited" не чаще раза в 10 секунд.</summary>
+    public bool TryMarkRateLimitedNotice()
+    {
+        var now = Environment.TickCount64;
+        lock (_gate)
+        {
+            if (_lastRateLimitedAt != 0 && now - _lastRateLimitedAt < 10_000) return false;
+            _lastRateLimitedAt = now;
             return true;
         }
     }
@@ -240,6 +324,7 @@ public sealed class WsConnection
                     lock (_gate)
                     {
                         _queuedBytes -= item.Length;
+                        if (item.Control) _controlBytes -= item.Length;
                         var s = _spaceWaiter;
                         _spaceWaiter = null;
                         s?.TrySetResult();
@@ -269,6 +354,7 @@ public sealed class WsConnection
                     if (left.Pooled) ArrayPool<byte>.Shared.Return(left.Buffer);
                 }
                 _queuedBytes = 0;
+                _controlBytes = 0;
                 _spaceWaiter?.TrySetResult();
                 _spaceWaiter = null;
             }

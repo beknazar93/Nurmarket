@@ -1,5 +1,18 @@
 # Caddy сам получает и продлевает сертификат Let's Encrypt для RELAY_DOMAIN (порты 80 и 443 должны быть открыты).
 {$RELAY_DOMAIN} {
+	# 2026-10-27 (С-4): параметры token и ticket (WebSocket) не пишем в журнал доступа.
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					delete token
+					delete ticket
+				}
+			}
+		}
+	}
 	encode gzip
 	header {
 		Strict-Transport-Security "max-age=31536000"

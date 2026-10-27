@@ -1,5 +1,6 @@
 # 2026-10-16: запуск ретранслятора без Docker (systemd). /etc/systemd/system/nurremote.service
-# Программа — в /opt/nurremote (dotnet publish), ключ оператора — в /etc/nurremote.env (OPERATOR_KEY=..., chmod 600).
+# 2026-10-27: исправлено под актуальный сервер — Server.dll, адрес через ASPNETCORE_URLS, данные в /var/lib/nurremote.
+# Программа — в /opt/nurremote (dotnet publish NurRemoteSupport/Server -c Release -o out /p:UseAppHost=false), операторы — командой add-operator (см. README).
 [Unit]
 Description=NurMarket remote support relay (NurRemoteSupport)
 After=network-online.target
@@ -9,12 +10,17 @@ Wants=network-online.target
 User=nurremote
 Group=nurremote
 WorkingDirectory=/opt/nurremote
-# Сборка без самодостаточного режима: нужен aspnetcore-runtime-8.0. Самодостаточная: ExecStart=/opt/nurremote/NurRemoteSupport.Server
-ExecStart=/usr/bin/dotnet /opt/nurremote/NurRemoteSupport.Server.dll
-Environment=BIND=127.0.0.1
-Environment=PORT=8080
+# Нужен aspnetcore-runtime-8.0. Самодостаточная сборка (publish -r linux-x64 --self-contained): ExecStart=/opt/nurremote/Server
+ExecStart=/usr/bin/dotnet /opt/nurremote/Server.dll
+# Слушаем только localhost: наружу — через nginx/Caddy с HTTPS (порт 8080 в файрволе не открывать).
+Environment=ASPNETCORE_URLS=http://127.0.0.1:8080
+# Данные (operators.json, journal*.jsonl, notes*.jsonl, token-secret, revoked-tokens.txt) — отдельная папка, права 700.
+Environment=Relay__DataDir=/var/lib/nurremote
 Environment=DOTNET_NOLOGO=1
+# Необязательные Relay__* (например Relay__SessionMaxMinutes=240) — в /etc/nurremote.env, chmod 600.
 EnvironmentFile=-/etc/nurremote.env
+StateDirectory=nurremote
+StateDirectoryMode=0700
 Restart=always
 RestartSec=5
 SyslogIdentifier=nurremote
@@ -22,6 +28,7 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
+ReadWritePaths=/var/lib/nurremote
 
 [Install]
 WantedBy=multi-user.target

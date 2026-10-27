@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Text.Json;
 
@@ -15,6 +16,18 @@ public static class RelayEndpoints
         return ip.ToString();
     }
 
+    /// <summary>
+    /// 2026-10-27 (В-7): ключ для лимитов. IPv4 — как есть; IPv6 — сеть /64 (один абонент получает 2^64 адресов,
+    /// по одному адресу лимит обходился бы бесплатно).
+    /// </summary>
+    public static string IpKey(string ip)
+    {
+        if (!IPAddress.TryParse(ip, out var a) || a.AddressFamily != AddressFamily.InterNetworkV6 || a.IsIPv4MappedToIPv6) return ip;
+        var b = a.GetAddressBytes();
+        Array.Clear(b, 8, 8);
+        return new IPAddress(b) + "/64";
+    }
+
     private static readonly WebSocketAcceptContext AcceptCtx = new()
     {
         KeepAliveInterval = TimeSpan.FromSeconds(15),
@@ -23,13 +36,27 @@ public static class RelayEndpoints
 
     // ---------- хост (касса) ----------
 
-    public static async Task HandleHostAsync(HttpContext http, SessionRegistry registry, AttemptLimiter limiter, RelayOptions o, ILoggerFactory lf)
+    public static async Task HandleHostAsync(HttpContext http, SessionRegistry registry, AttemptLimiter limiter, ConnectionGate gate, RelayOptions o, ILoggerFactory lf)
     {
         if (!http.WebSockets.IsWebSocketRequest)
         {
             http.Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
         }
+        // 2026-10-27 (В-6): одновременных соединений кассы с одной сети — не больше предела (иначе тысячи «молчащих» сокетов держат память).
+        var gateKey = "host:" + IpKey(ClientIp(http));
+        if (!gate.TryEnter(gateKey, o.MaxHostConnectionsPerIp))
+        {
+            lf.CreateLogger("Relay.Host").LogWarning("Слишком много одновременных соединений кассы с {Ip}", ClientIp(http));
+            http.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            return;
+        }
+        try { await HandleHostCoreAsync(http, registry, limiter, o, lf); }
+        finally { gate.Leave(gateKey); }
+    }
+
+    private static async Task HandleHostCoreAsync(HttpContext http, SessionRegistry registry, AttemptLimiter limiter, RelayOptions o, ILoggerFactory lf)
+    {
         var log = lf.CreateLogger("Relay.Host");
         var ip = ClientIp(http);
         using var ws = await http.WebSockets.AcceptWebSocketAsync(AcceptCtx);
@@ -40,7 +67,7 @@ public static class RelayEndpoints
         var reason = "disconnect";
         try
         {
-            if (!limiter.TryHit("hostconn:" + ip, o.HostConnectsPerMinutePerIp, TimeSpan.FromMinutes(1)))
+            if (!limiter.TryHit("hostconn:" + conn.IpKey, o.HostConnectsPerMinutePerIp, TimeSpan.FromMinutes(1)))
             {
                 log.LogWarning("Слишком много подключений кассы с {Ip}", ip);
                 conn.SendControl(Msg.Error("rate-limited"));
@@ -52,7 +79,7 @@ public static class RelayEndpoints
             using (var helloCts = CancellationTokenSource.CreateLinkedTokenSource(conn.Token))
             {
                 helloCts.CancelAfter(TimeSpan.FromSeconds(o.HelloTimeoutSeconds));
-                first = await conn.ReceiveAsync(helloCts.Token);
+                first = await conn.ReceiveAsync(helloCts.Token, restricted: true);
             }
             if (first is not { } hello) return;
             HostInfo? info;
@@ -76,8 +103,15 @@ public static class RelayEndpoints
             // 2. основной цикл
             while (true)
             {
-                var got = await conn.ReceiveAsync(conn.Token);
+                // 2026-10-27 (С-2): до начала сеанса — только короткий текст (двоичное = разрыв) и не чаще 20 сообщений в секунду.
+                var preSession = session.State != SessionState.Active;
+                var got = await conn.ReceiveAsync(conn.Token, restricted: preSession);
                 if (got is not { } m) break;
+                if (preSession && !conn.AllowPreSessionMessage())
+                {
+                    m.Return();
+                    throw new PolicyViolationException("слишком много сообщений до начала сеанса");
+                }
                 if (m.Type == WebSocketMessageType.Binary)
                 {
                     await registry.ForwardAsync(session, toOperator: true, m);
@@ -92,7 +126,7 @@ public static class RelayEndpoints
                     if (session.State == SessionState.Ended) { reason = session.EndReason ?? reason; }
                     continue;
                 }
-                await registry.ForwardAsync(session, toOperator: true, m);
+                await registry.ForwardAsync(session, toOperator: true, m, type);
             }
         }
         catch (MessageTooBigException ex)
@@ -101,6 +135,12 @@ public static class RelayEndpoints
             reason = "error";
             conn.SetCloseStatus(WebSocketCloseStatus.MessageTooBig, "too big");
             if (session is not null) registry.Disconnected(session, "host", reason);
+        }
+        catch (PolicyViolationException ex)
+        {
+            log.LogWarning("Касса {Ip}: нарушение правил — {Message}", ip, ex.Message);
+            reason = "error";
+            conn.SetCloseStatus(WebSocketCloseStatus.PolicyViolation, "policy");
         }
         catch (SendStallException)
         {
@@ -119,6 +159,7 @@ public static class RelayEndpoints
         finally
         {
             if (conn.TimedOut) reason = "timeout";
+            if (conn.ControlOverflow) reason = "error";
             if (session is not null) registry.Disconnected(session, "host", reason);
             conn.Close();
             await DrainAsync(conn);
@@ -131,7 +172,7 @@ public static class RelayEndpoints
         switch (type)
         {
             case "ping":
-                conn.SendControl(Pong(m));
+                AnswerPing(m, conn);
                 break;
             case "pong":
                 conn.PongSeen = true;
@@ -139,15 +180,12 @@ public static class RelayEndpoints
             case "consent":
             {
                 using var doc = JsonDocument.Parse(m.Buffer.AsMemory(0, m.Length));
-                registry.Consent(s, Msg.Bool(doc.RootElement, "accept") == true);
+                registry.Consent(s, Msg.Bool(doc.RootElement, "accept") == true, Msg.Bool(doc.RootElement, "view_only") == true);
                 break;
             }
             case "end":
-            {
-                using var doc = JsonDocument.Parse(m.Buffer.AsMemory(0, m.Length));
-                registry.EndBy(s, "host", Msg.Str(doc.RootElement, "reason", 32));
+                registry.EndBy(s, "host");
                 break;
-            }
             // остальное служебное от хоста (hello повторно, подделки) — отбрасываем
         }
     }
@@ -160,7 +198,7 @@ public static class RelayEndpoints
             using var doc = JsonDocument.Parse(m.Buffer.AsMemory(0, m.Length));
             var r = doc.RootElement;
             if (r.ValueKind != JsonValueKind.Object) return null;
-            if (Msg.Str(r, "type") != "hello" || Msg.Str(r, "role") != "host" || Msg.Int(r, "protocol") != 1) return null;
+            if (Msg.PeekType(m.Span) != "hello" || Msg.Str(r, "type") != "hello" || Msg.Str(r, "role") != "host" || Msg.Int(r, "protocol") != 1) return null;
             int w = 0, h = 0;
             if (r.TryGetProperty("screen", out var sc) && sc.ValueKind == JsonValueKind.Object)
             {
@@ -174,12 +212,46 @@ public static class RelayEndpoints
                 Msg.Str(r, "machine") ?? "",
                 w, h,
                 Msg.Str(r, "user") ?? "",
-                Msg.Str(r, "note", 500) ?? "");
+                Msg.Str(r, "note", 500) ?? "",
+                ParseCaps(r));
         }
         catch (JsonException)
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// 2026-10-27 (В-6): ответ на ping не чаще 1 в секунду. Лишние молча отбрасываются (раз в 10 с сторона получает rate-limited),
+    /// а флуд (больше 50 лишних за 10 с) рвёт соединение.
+    /// </summary>
+    private static void AnswerPing(Incoming m, WsConnection conn)
+    {
+        switch (conn.CheckPing())
+        {
+            case WsConnection.PingVerdict.Answer:
+                conn.SendControl(Pong(m));
+                break;
+            case WsConnection.PingVerdict.Drop:
+                if (conn.TryMarkRateLimitedNotice()) conn.SendControl(Msg.Error("rate-limited"));
+                break;
+            default:
+                throw new PolicyViolationException("ping-флуд");
+        }
+    }
+
+    /// <summary>2026-10-27, v1.3: возможности кассы из hello (необязательное "caps":[…]) — не больше 16 коротких слов.</summary>
+    private static string[]? ParseCaps(JsonElement hello)
+    {
+        if (!hello.TryGetProperty("caps", out var c) || c.ValueKind != JsonValueKind.Array) return null;
+        var list = new List<string>();
+        foreach (var item in c.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String) continue;
+            var v = new string((item.GetString() ?? "").Where(ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_').Take(32).ToArray());
+            if (v.Length > 0 && !list.Contains(v) && list.Count < 16) list.Add(v);
+        }
+        return list.ToArray();
     }
 
     private static byte[] Pong(Incoming ping)
@@ -214,6 +286,15 @@ public static class RelayEndpoints
 
     // ---------- оператор (браузер) ----------
 
+    /// <summary>2026-10-27: Origin браузера должен совпадать с адресом сервера (иначе чужая страница могла бы открыть WebSocket от имени оператора). Программа оператора Origin не шлёт.</summary>
+    private static bool OriginAllowed(HttpContext http)
+    {
+        var origin = http.Request.Headers.Origin.ToString();
+        if (origin.Length == 0) return true;
+        return Uri.TryCreate(origin, UriKind.Absolute, out var u) &&
+               string.Equals(u.Host, http.Request.Host.Host, StringComparison.OrdinalIgnoreCase);
+    }
+
     public static async Task HandleOperatorAsync(HttpContext http, SessionRegistry registry, AttemptLimiter limiter, TokenService tokens, RelayOptions o, ILoggerFactory lf)
     {
         if (!http.WebSockets.IsWebSocketRequest)
@@ -221,22 +302,32 @@ public static class RelayEndpoints
             http.Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
         }
+        if (!OriginAllowed(http))
+        {
+            http.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
         // 2026-10-19 (проверка безопасности): программа оператора шлёт токен заголовком Authorization (адреса попадают в журналы
         // прокси); из адреса (?token=) — только для браузерного оператора, который не умеет заголовки у WebSocket.
         var auth = http.Request.Headers.Authorization.ToString();
-        var token = auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? auth["Bearer ".Length..].Trim() : http.Request.Query["token"].ToString();
-        var identity = tokens.Validate(token);
-        if (identity is null)
+        // 2026-10-27 (С-4): страница входит по одноразовому билету (?ticket=, 30 с, POST /api/ws-ticket) — токен в адрес не попадает.
+        // ?token= оставлен для старых страниц.
+        var cred = http.Request.Query.TryGetValue("ticket", out var ticketQ)
+            ? tokens.RedeemTicket(ticketQ.ToString())
+            : tokens.Parse(auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? auth["Bearer ".Length..].Trim() : http.Request.Query["token"].ToString());
+        if (cred is null)
         {
             http.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
+        var identity = cred.Identity;
         var log = lf.CreateLogger("Relay.Operator");
         var ip = ClientIp(http);
         using var ws = await http.WebSockets.AcceptWebSocketAsync(AcceptCtx);
         var conn = new WsConnection(ws, "operator", ip, o, log);
         conn.Start();
-        var ctx = new OperatorContext(identity, conn);
+        var ctx = new OperatorContext(cred, conn);
+        registry.AddOperator(ctx);
         var reason = "disconnect";
         log.LogInformation("Оператор {Operator} подключился с {Ip}", identity.Login, ip);
 
@@ -255,7 +346,7 @@ public static class RelayEndpoints
                 var type = Msg.PeekType(m.Span);
                 if (type is null || Msg.Reserved.Contains(type))
                 {
-                    try { HandleOperatorControl(type, m, ctx, registry, limiter, o, log); }
+                    try { HandleOperatorControl(type, m, ctx, registry, limiter, tokens, o, log); }
                     catch (JsonException) { }
                     finally { m.Return(); }
                     continue;
@@ -265,7 +356,19 @@ public static class RelayEndpoints
                     m.Return();
                     continue;
                 }
-                await registry.ForwardAsync(s, toOperator: false, m);
+                // 2026-10-27 (В-2): кассир выбрал «Только просмотр» — сервер не пересылает ввод, даже если оператор шлёт его в обход программы.
+                if (s.ViewOnly && Msg.IsInputType(type))
+                {
+                    m.Return();
+                    var nowMs = Environment.TickCount64;
+                    if (nowMs - s.LastViewOnlyNoticeMs > 5000)
+                    {
+                        s.LastViewOnlyNoticeMs = nowMs;
+                        conn.SendControl(Msg.Json(new { type = "view-only", value = true, cashier = true }));
+                    }
+                    continue;
+                }
+                await registry.ForwardAsync(s, toOperator: false, m, type);
             }
         }
         catch (MessageTooBigException ex)
@@ -274,6 +377,12 @@ public static class RelayEndpoints
             reason = "error";
             conn.SetCloseStatus(WebSocketCloseStatus.MessageTooBig, "too big");
             if (ctx.Session is { } s) registry.Disconnected(s, "operator", reason);
+        }
+        catch (PolicyViolationException ex)
+        {
+            log.LogWarning("Оператор {Operator}: нарушение правил — {Message}", identity.Login, ex.Message);
+            reason = "error";
+            conn.SetCloseStatus(WebSocketCloseStatus.PolicyViolation, "policy");
         }
         catch (SendStallException)
         {
@@ -291,6 +400,9 @@ public static class RelayEndpoints
         finally
         {
             if (conn.TimedOut) reason = "timeout";
+            if (conn.ControlOverflow) reason = "error";
+            if (ctx.ForcedReason is { } forced) reason = forced;
+            registry.RemoveOperator(ctx);
             if (ctx.Session is { } s) registry.Disconnected(s, "operator", reason);
             conn.Close();
             await DrainAsync(conn);
@@ -299,12 +411,12 @@ public static class RelayEndpoints
         }
     }
 
-    private static void HandleOperatorControl(string? type, Incoming m, OperatorContext ctx, SessionRegistry registry, AttemptLimiter limiter, RelayOptions o, ILogger log)
+    private static void HandleOperatorControl(string? type, Incoming m, OperatorContext ctx, SessionRegistry registry, AttemptLimiter limiter, TokenService tokens, RelayOptions o, ILogger log)
     {
         switch (type)
         {
             case "ping":
-                ctx.Conn.SendControl(Pong(m));
+                AnswerPing(m, ctx.Conn);
                 return;
             case "pong":
                 ctx.Conn.PongSeen = true;
@@ -325,8 +437,16 @@ public static class RelayEndpoints
                     ctx.Conn.SendControl(Msg.Error("bad-request"));
                     return;
                 }
+                // 2026-10-27 (В-5): вход перепроверяется на каждый join — удалённый оператор или оператор со сброшенным паролем
+                // не может продолжить по уже открытому соединению.
+                if (!tokens.StillValid(ctx.Credential))
+                {
+                    log.LogInformation("Оператор {Operator}: вход недействителен, join отклонён", ctx.Identity.Login);
+                    registry.KickOperator(ctx);
+                    return;
+                }
                 var window = TimeSpan.FromMinutes(1);
-                if (!limiter.TryHit("join-ip:" + ctx.Conn.Ip, o.JoinPerMinute, window) ||
+                if (!limiter.TryHit("join-ip:" + ctx.Conn.IpKey, o.JoinPerMinute, window) ||
                     !limiter.TryHit("join-op:" + ctx.Identity.Login, o.JoinPerMinute, window))
                 {
                     log.LogWarning("Слишком много попыток входа: {Operator} {Ip}", ctx.Identity.Login, ctx.Conn.Ip);
@@ -346,14 +466,7 @@ public static class RelayEndpoints
                     ctx.Conn.SendControl(Msg.Error("not-joined"));
                     return;
                 }
-                string? reason = null;
-                try
-                {
-                    using var doc = JsonDocument.Parse(m.Buffer.AsMemory(0, m.Length));
-                    reason = Msg.Str(doc.RootElement, "reason", 32);
-                }
-                catch (JsonException) { }
-                registry.EndBy(s, "operator", reason);
+                registry.EndBy(s, "operator");
                 return;
             }
             case null:

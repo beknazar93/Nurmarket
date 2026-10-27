@@ -34,7 +34,8 @@ public sealed class OperatorRecord
 /// </summary>
 public sealed class OperatorStore
 {
-    public const int Iterations = 210_000;
+    // 2026-10-27: новые хэши — 600 тыс. итераций (рекомендация OWASP); старые (210 тыс.) проверяются как раньше и обновятся при сбросе/смене пароля.
+    public const int Iterations = 600_000;
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         WriteIndented = true,

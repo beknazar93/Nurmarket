@@ -9,11 +9,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>NurMarketSupport</AssemblyName>
     <RootNamespace>NurRemoteSupport.Operator</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.0.2</Version>
     <Product>NurMarket Поддержка</Product>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport> <!-- нужно Avalonia для UI Automation (дикторы, проверка tools/qa) -->
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 2026-10-27: шрифт брендбука Montserrat (OFL), тот же, что в кассе -->
+    <AvaloniaResource Include="Assets\Fonts\*.ttf" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.2.5" />

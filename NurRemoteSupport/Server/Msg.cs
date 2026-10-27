@@ -20,25 +20,48 @@ public static class Msg
 
     public static byte[] End(string reason) => Json(new { type = "end", reason });
 
-    /// <summary>Быстро достаёт верхнеуровневое поле "type" (без разбора всего сообщения). null — не JSON-объект или нет type.</summary>
+    /// <summary>
+    /// Достаёт верхнеуровневое поле "type". null — не JSON-объект, нет type или он не строка.
+    /// 2026-10-27 (С-1): если ключ "type" встречается в объекте дважды — тоже null: иначе сервер видел бы первый,
+    /// а касса (JsonDocument берёт последний) — другой, и оператор мог бы протащить служебное сообщение.
+    /// </summary>
     public static string? PeekType(ReadOnlySpan<byte> json)
     {
         try
         {
             var r = new Utf8JsonReader(json, new JsonReaderOptions { MaxDepth = 32 });
             if (!r.Read() || r.TokenType != JsonTokenType.StartObject) return null;
+            string? result = null;
+            var seen = false;
             while (r.Read())
             {
-                if (r.TokenType == JsonTokenType.EndObject) return null;
+                if (r.TokenType == JsonTokenType.EndObject) return result;
                 if (r.TokenType != JsonTokenType.PropertyName) return null;
                 var isType = r.ValueTextEquals("type"u8);
                 if (!r.Read()) return null;
-                if (isType) return r.TokenType == JsonTokenType.String ? r.GetString() : null;
-                r.Skip();
+                if (isType)
+                {
+                    if (seen) return null;
+                    seen = true;
+                    result = r.TokenType == JsonTokenType.String ? r.GetString() : null;
+                }
+                if (r.TokenType is JsonTokenType.StartObject or JsonTokenType.StartArray) r.Skip();
             }
         }
         catch (JsonException) { }
         return null;
+    }
+
+    /// <summary>2026-10-27 (В-2): ввод оператора, который при «Только просмотр» кассира не пересылается (мышь, клавиши, текст, буфер, файлы).</summary>
+    public static bool IsInputType(string type) =>
+        type is "mouse" or "key" or "text" or "clipboard-set" or "clipboard-get" || type.StartsWith("file-", StringComparison.Ordinal);
+
+    /// <summary>2026-10-27: строка от клиента для лога — без управляющих символов и не длиннее max.</summary>
+    public static string LogSafe(string? s, int max = 64)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        var t = new string(s.Where(c => !char.IsControl(c)).ToArray());
+        return t.Length > max ? t[..max] + "…" : t;
     }
 
     public static string? Str(JsonElement root, string name, int maxLen = 100)

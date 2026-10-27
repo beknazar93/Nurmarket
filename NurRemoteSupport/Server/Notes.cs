@@ -34,6 +34,7 @@ public sealed class NotesStore(RelayOptions o)
         await _lock.WaitAsync();
         try
         {
+            Jsonl.RotateIfNeeded(_path); // 2026-10-27 (С-7): ротация по месяцам
             await File.AppendAllTextAsync(_path, line, new UTF8Encoding(false));
         }
         finally
@@ -46,36 +47,37 @@ public sealed class NotesStore(RelayOptions o)
     public async Task<List<NoteEntry>> ListAsync(string? company, string? machine, int limit)
     {
         var result = new List<NoteEntry>();
-        if (!File.Exists(_path))
-            return result;
-        string[] lines;
+        // 2026-10-27 (С-7): читаем с конца файла (и месячных архивов) и останавливаемся, набрав limit, — а не весь файл целиком.
+        // Верхний предел просмотра — чтобы запрос по редкой компании не читал годы истории.
+        const int MaxScan = 20_000;
+        var scanned = 0;
         await _lock.WaitAsync();
         try
         {
-            lines = await File.ReadAllLinesAsync(_path, Encoding.UTF8);
+            foreach (var line in Jsonl.ReadAllNewestFirst(_path))
+            {
+                if (++scanned > MaxScan || result.Count >= limit) break;
+                NoteEntry? e;
+                try
+                {
+                    e = JsonSerializer.Deserialize<NoteEntry>(line);
+                }
+                catch (JsonException)
+                {
+                    continue; // испорченная строка (обрыв записи) — пропускаем
+                }
+                if (e is null)
+                    continue;
+                if (!string.IsNullOrWhiteSpace(company) && !string.Equals(e.Company, company.Trim(), StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (!string.IsNullOrWhiteSpace(machine) && !string.Equals(e.Machine, machine.Trim(), StringComparison.OrdinalIgnoreCase))
+                    continue;
+                result.Add(e);
+            }
         }
         finally
         {
             _lock.Release();
-        }
-        for (var i = lines.Length - 1; i >= 0 && result.Count < limit; i--)
-        {
-            NoteEntry? e;
-            try
-            {
-                e = JsonSerializer.Deserialize<NoteEntry>(lines[i]);
-            }
-            catch (JsonException)
-            {
-                continue; // испорченная строка (обрыв записи) — пропускаем
-            }
-            if (e is null)
-                continue;
-            if (!string.IsNullOrWhiteSpace(company) && !string.Equals(e.Company, company.Trim(), StringComparison.OrdinalIgnoreCase))
-                continue;
-            if (!string.IsNullOrWhiteSpace(machine) && !string.Equals(e.Machine, machine.Trim(), StringComparison.OrdinalIgnoreCase))
-                continue;
-            result.Add(e);
         }
         return result;
     }

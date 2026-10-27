@@ -11,7 +11,7 @@ using System.Text.Json;
 namespace NurRemoteSupport.RelayTests;
 
 /// <summary>Сквозная проверка ретранслятора по PROTOCOL.md (2026-09-29).</summary>
-public sealed class E2E(string dll)
+public sealed partial class E2E(string dll)
 {
     private const string Login = "aibek";
     private const string Name = "Айбек Тестов";
@@ -54,6 +54,38 @@ public sealed class E2E(string dll)
             if (_fail > before) DumpLog(b);
         }
 
+        Console.WriteLine("=== Сервер C (безопасность: просмотр, отзыв входа, флуд, IPv6) ===");
+        await using (var c = await ServerProcess.StartAsync(dll, new()
+        {
+            ["JoinPerMinute"] = "1000",
+            ["LoginPerMinutePerIp"] = "100",
+            ["HostConnectsPerMinutePerIp"] = "100000",
+            ["MaxPendingPerIp"] = "3",
+            ["OperatorRecheckSeconds"] = "2",
+            ["TrustedProxies"] = "127.0.0.0/8",
+        }))
+        {
+            var before = _fail;
+            await SuiteC(c);
+            if (_fail > before) DumpLog(c);
+        }
+
+        Console.WriteLine("=== Сервер D (пределы простоя и длительности сеанса) ===");
+        await using (var d = await ServerProcess.StartAsync(dll, new()
+        {
+            ["JoinPerMinute"] = "1000",
+            ["LoginPerMinutePerIp"] = "100",
+            ["HostConnectsPerMinutePerIp"] = "100000",
+            ["MaxPendingPerIp"] = "1000",
+            ["SessionIdleMinutes"] = "0.05",
+            ["SessionMaxMinutes"] = "0.1",
+        }))
+        {
+            var before = _fail;
+            await SuiteD(d);
+            if (_fail > before) DumpLog(d);
+        }
+
         Console.WriteLine();
         Console.WriteLine($"ИТОГ: пройдено {_pass}, провалено {_fail}");
         foreach (var f in _failures) Console.WriteLine("  - " + f);
@@ -65,7 +97,7 @@ public sealed class E2E(string dll)
         Console.WriteLine("--- хвост лога сервера ---");
         string log;
         lock (s.Log) log = s.Log.ToString();
-        foreach (var l in log.Split('\n').TakeLast(40)) Console.WriteLine("  | " + l.TrimEnd());
+        foreach (var l in log.Split('\n').TakeLast(150)) Console.WriteLine("  | " + l.TrimEnd());
     }
 
     private async Task Step(string name, Func<Task> body)
@@ -285,7 +317,7 @@ public sealed class E2E(string dll)
             await op.ExpectAsync("waiting-consent");
             var jr = await host!.ExpectAsync("join-request");
             Assert(jr.GetProperty("operator").GetString() == Name && jr.GetProperty("login").GetString() == Login, jr.ToString());
-            Assert(jr.GetProperty("ip").GetString() == "127.0.0.1", "ip " + jr);
+            Assert(!jr.TryGetProperty("ip", out _), "IP оператора кассе не передаётся (2026-10-27): " + jr);
         });
 
         await Step("второй оператор на тот же код → busy; повторный join на том же соединении → bad-request", async () =>
@@ -637,9 +669,131 @@ public sealed class E2E(string dll)
             }
         });
 
+        // ---------- 2026-10-26: приоритет кассира (client-active) ----------
+
+        await Step("приоритет кассира: сервер пересылает client-active оператору как есть (необязательное сообщение), а ввод оператора кассе — как раньше", async () =>
+        {
+            var (h, o, _, _) = await Started(s, token);
+            await using var hh = h;
+            await using var oo = o;
+            await h.SendJsonAsync(new { type = "client-active", active = true });
+            var got = await o.ExpectAsync("client-active", 3000);
+            Assert(got.GetProperty("active").GetBoolean(), got.ToString());
+            await h.SendJsonAsync(new { type = "client-active", active = false });
+            got = await o.ExpectAsync("client-active", 3000);
+            Assert(!got.GetProperty("active").GetBoolean(), got.ToString());
+            // старая касса client-active не шлёт, старый оператор его игнорирует: ввод по-прежнему доходит до кассы
+            await o.SendJsonAsync(new { type = "mouse", action = "move", x = 5, y = 6 });
+            var mouse = await h.ExpectAsync("mouse", 3000);
+            Assert(mouse.GetProperty("x").GetInt32() == 5, mouse.ToString());
+        });
+
+        await Step("FakeHost (расписание client-active): оператор видит true/false по порядку, ввод во время «кассир работает» пропущен, после — исполнен", async () =>
+        {
+            var exe = Path.Combine(ServerProcess.FindRoot(), "Tools", "FakeHost", "bin", "Release", "net8.0-windows", "FakeHost.exe");
+            Assert(File.Exists(exe), "нет FakeHost.exe — соберите Tools/FakeHost (Release)");
+            using var fh = ProcLines.Start(exe, $"--url {s.WsUrl}/ws/host --seconds 12 --size 640x360 --accept auto --company \"Фейк2\" --client-active \"1500:true,3500:false\"");
+            var codeLine = await fh.WaitAsync(l => l.StartsWith("CODE="), 15000);
+            await using var o = await NewOperator(s, token);
+            await o.SendJsonAsync(new { type = "join", code = codeLine[5..14], pin = codeLine[^4..] });
+            await o.ExpectAsync("waiting-consent");
+            await o.ExpectAsync("started", 5000);
+            var on = await o.ExpectAsync("client-active", 5000, skip: true);
+            Assert(on.GetProperty("active").GetBoolean(), on.ToString());
+            await o.SendJsonAsync(new { type = "mouse", action = "down", x = 100, y = 100, button = 0 });
+            await fh.WaitAsync(l => l.Contains("ввод пропущен: кассир работает (mouse)"), 3000);
+            var off = await o.ExpectAsync("client-active", 5000, skip: true);
+            Assert(!off.GetProperty("active").GetBoolean(), off.ToString());
+            await o.SendJsonAsync(new { type = "mouse", action = "down", x = 200, y = 120, button = 0 });
+            await fh.WaitAsync(l => l.Contains("мышь down кнопка 0 в (200,120)"), 3000);
+            Assert(!fh.Has(l => l.Contains("в (100,100)")), "ввод во время «кассир работает» не пропущен");
+            await o.SendJsonAsync(new { type = "end", reason = "operator" });
+        });
+
+        await Step("HostHarness (настоящий код кассы, ввод имитируется): ввод кассира → ReleaseAll, client-active true, ввод оператора пропущен, через паузу — false и ввод снова идёт", async () =>
+        {
+            var exe = Path.Combine(ServerProcess.FindRoot(), "Tools", "HostHarness", "bin", "Debug", "net8.0-windows", "HostHarness.exe");
+            if (!File.Exists(exe))
+            {
+                Console.WriteLine("        ПРОПУЩЕНО: нет Tools/HostHarness/bin/Debug/net8.0-windows/HostHarness.exe (собирается вместе с кассой)");
+                return;
+            }
+            using var hp = ProcLines.Start(exe, $"--url {s.WsUrl}/ws/host --grace-ms 1500 --seconds 50");
+            var codeLine = await hp.WaitAsync(l => l.StartsWith("CODE="), 30000);
+            await using var o = await NewOperator(s, token);
+            await o.SendJsonAsync(new { type = "join", code = codeLine[5..14], pin = codeLine[^4..] });
+            await o.ExpectAsync("waiting-consent");
+            await o.ExpectAsync("started", 8000);
+            await hp.WaitAsync(l => l.StartsWith("сеанс начат"), 8000);
+            await hp.WaitAsync(l => l.Contains("приоритет кассира"), 8000);
+            // 1) пока кассир молчит — ввод оператора исполняется (имитацией)
+            await o.SendJsonAsync(new { type = "mouse", action = "down", x = 100, y = 100, button = 0 });
+            await hp.WaitAsync(l => l.StartsWith("INPUT mouse") && l.Contains("flags=0x8003"), 3000);
+            await o.SendJsonAsync(new { type = "mouse", action = "up", x = 100, y = 100, button = 0 });
+            await o.SendJsonAsync(new { type = "key", action = "down", code = "ShiftLeft", key = "Shift" });
+            await hp.WaitAsync(l => l.StartsWith("INPUT key vk=0xA0 down"), 3000);
+            await o.SendJsonAsync(new { type = "text", text = "привет" });
+            await hp.WaitAsync(l => l == "INPUT text \"привет\"", 3000);
+            Assert(!hp.Has(l => l.StartsWith("CLIENT-ACTIVE")), "client-active до действий кассира");
+            // 2) кассир коснулся мыши: зажатый Shift отпущен, оператору — client-active true
+            hp.Send("client");
+            await hp.WaitAsync(l => l == "CLIENT-ACTIVE true", 3000);
+            Assert(hp.Has(l => l.StartsWith("INPUT key vk=0xA0 up")), "зажатая оператором клавиша не отпущена");
+            var on = await o.ExpectAsync("client-active", 3000, skip: true);
+            Assert(on.GetProperty("active").GetBoolean(), on.ToString());
+            // 3) пока кассир работает — мышь, клавиша и текст оператора не исполняются
+            var before = hp.Count(l => l.StartsWith("INPUT "));
+            await o.SendJsonAsync(new { type = "mouse", action = "move", x = 300, y = 200 });
+            await o.SendJsonAsync(new { type = "mouse", action = "down", x = 300, y = 200, button = 0 });
+            await o.SendJsonAsync(new { type = "key", action = "down", code = "KeyA", key = "a" });
+            await o.SendJsonAsync(new { type = "text", text = "не должно напечататься" });
+            await Task.Delay(600);
+            Assert(hp.Count(l => l.StartsWith("INPUT ")) == before, "ввод оператора исполнен во время работы кассира:\n" + hp.Dump());
+            // 4) кассир затих — через паузу client-active false, и ввод оператора снова идёт
+            var off = await o.ExpectAsync("client-active", 5000, skip: true);
+            Assert(!off.GetProperty("active").GetBoolean(), off.ToString());
+            await hp.WaitAsync(l => l == "CLIENT-ACTIVE false", 3000);
+            await o.SendJsonAsync(new { type = "mouse", action = "down", x = 400, y = 220, button = 2 });
+            await hp.WaitAsync(l => l.StartsWith("INPUT mouse") && l.Contains("flags=0x8009"), 3000);
+            await o.SendJsonAsync(new { type = "end", reason = "operator" });
+            await hp.WaitAsync(l => l.StartsWith("конец:"), 8000);
+        });
+
+        await Step("HostHarness «Только просмотр»: ввода нет, наблюдения за кассиром нет — client-active не шлётся", async () =>
+        {
+            var exe = Path.Combine(ServerProcess.FindRoot(), "Tools", "HostHarness", "bin", "Debug", "net8.0-windows", "HostHarness.exe");
+            if (!File.Exists(exe))
+            {
+                Console.WriteLine("        ПРОПУЩЕНО: нет HostHarness.exe");
+                return;
+            }
+            using var hp = ProcLines.Start(exe, $"--url {s.WsUrl}/ws/host --consent view --grace-ms 1500 --seconds 30");
+            var codeLine = await hp.WaitAsync(l => l.StartsWith("CODE="), 30000);
+            await using var o = await NewOperator(s, token);
+            await o.SendJsonAsync(new { type = "join", code = codeLine[5..14], pin = codeLine[^4..] });
+            await o.ExpectAsync("waiting-consent");
+            await o.ExpectAsync("started", 8000);
+            await hp.WaitAsync(l => l.StartsWith("сеанс начат"), 8000);
+            await o.SendJsonAsync(new { type = "mouse", action = "down", x = 100, y = 100, button = 0 });
+            await o.SendJsonAsync(new { type = "text", text = "x" });
+            hp.Send("client");
+            var until = Environment.TickCount64 + 2000;
+            while (Environment.TickCount64 < until)
+            {
+                var m = await o.NextAsync(300);
+                Assert(m is null || m.Type != WebSocketMessageType.Text || m.JsonType != "client-active", "client-active при «Только просмотр»");
+            }
+            Assert(!hp.Has(l => l.StartsWith("INPUT ")), "ввод исполнен при «Только просмотр»:\n" + hp.Dump());
+            await o.SendJsonAsync(new { type = "end", reason = "operator" });
+        });
+
         await Step("журнал: каждая строка — JSON со всеми полями; API отдаёт новые сверху", async () =>
         {
-            var lines = await File.ReadAllLinesAsync(Path.Combine(s.DataDir, "journal.jsonl"));
+            await Task.Delay(300); // 2026-10-27: даём дописать журнал после последнего сеанса и читаем, не мешая записи
+            string[] lines;
+            using (var jf = new FileStream(Path.Combine(s.DataDir, "journal.jsonl"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var jr = new StreamReader(jf, Encoding.UTF8))
+                lines = (await jr.ReadToEndAsync()).Split('\n', StringSplitOptions.RemoveEmptyEntries);
             Assert(lines.Length >= 8, "строк " + lines.Length);
             foreach (var l in lines)
             {
@@ -870,5 +1024,67 @@ public sealed class E2E(string dll)
             }
             Assert(limited, "ограничения нет");
         });
+    }
+}
+
+/// <summary>2026-10-26: дочерний процесс (FakeHost, HostHarness): строки его вывода и стандартный ввод.</summary>
+internal sealed class ProcLines : IDisposable
+{
+    private readonly Process _p;
+    private readonly List<string> _lines = new();
+
+    private ProcLines(Process p) => _p = p;
+
+    public static ProcLines Start(string exe, string args)
+    {
+        var psi = new ProcessStartInfo(exe, args)
+        {
+            RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true, UseShellExecute = false,
+            StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8,
+        };
+        var p = Process.Start(psi)!;
+        var pl = new ProcLines(p);
+        p.OutputDataReceived += (_, e) => { if (e.Data is not null) lock (pl._lines) pl._lines.Add(e.Data.Trim()); };
+        p.ErrorDataReceived += (_, e) => { if (e.Data is not null) lock (pl._lines) pl._lines.Add("ERR " + e.Data.Trim()); };
+        p.BeginOutputReadLine();
+        p.BeginErrorReadLine();
+        return pl;
+    }
+
+    public bool Has(Func<string, bool> pred) { lock (_lines) return _lines.Any(pred); }
+
+    public int Count(Func<string, bool> pred) { lock (_lines) return _lines.Count(pred); }
+
+    public string Dump() { lock (_lines) return string.Join("\n", _lines.TakeLast(150)); }
+
+    public void Send(string line)
+    {
+        _p.StandardInput.WriteLine(line);
+        _p.StandardInput.Flush();
+    }
+
+    public async Task<string> WaitAsync(Func<string, bool> pred, int timeoutMs)
+    {
+        var until = Environment.TickCount64 + timeoutMs;
+        while (Environment.TickCount64 < until)
+        {
+            lock (_lines)
+                if (_lines.FirstOrDefault(pred) is { } l) return l;
+            await Task.Delay(20);
+        }
+        throw new Exception("не дождались строки процесса; вывод:\n" + Dump());
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            if (!_p.HasExited) _p.Kill(true);
+        }
+        catch (Exception)
+        {
+            // уже завершён
+        }
+        _p.Dispose();
     }
 }

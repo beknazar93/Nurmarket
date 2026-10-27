@@ -24,6 +24,8 @@ internal sealed class Settings
     public string Login { get; set; } = "";
     public string Lang { get; set; } = "ru";
     public int Quality { get; set; } = 60;
+    /// <summary>2026-10-27: тёмная тема (брендбук NUR CRM).</summary>
+    public bool Dark { get; set; }
 
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketSupport", "settings.json");

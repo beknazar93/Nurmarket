@@ -49,12 +49,59 @@ public sealed class RelayOptions
     public int MaxPendingPerIp { get; set; } = 10;
 
     public int LoginPerMinutePerIp { get; set; } = 10;
+    /// <summary>Устарело (2026-10-27): не используется, см. LoginFailuresPer15MinPerLoginIp. Оставлено, чтобы старые relay.json не ломались.</summary>
     public int LoginFailuresPer15MinPerLogin { get; set; } = 10;
     public int JoinPerMinute { get; set; } = 20;
     public int HostConnectsPerMinutePerIp { get; set; } = 30;
 
-    /// <summary>Доверять X-Forwarded-For/Proto (включать только за своим Caddy, когда порт сервера наружу не открыт).</summary>
+    /// <summary>
+    /// Устарело: доверять X-Forwarded-For/Proto ЛЮБОМУ отправителю (только если порт сервера наружу не открыт).
+    /// 2026-10-27 (В-11): вместо него — TrustedProxies.
+    /// </summary>
     public bool TrustForwardedHeaders { get; set; }
+
+    /// <summary>
+    /// 2026-10-27 (В-11): чьим X-Forwarded-For/Proto верить — адреса и сети через запятую ("172.16.0.0/12,10.0.0.5").
+    /// Пусто — только loopback (nginx/Caddy на этой же машине). От остальных заголовки игнорируются: подделка в обход прокси не работает.
+    /// </summary>
+    public string? TrustedProxies { get; set; }
+
+    /// <summary>2026-10-27 (С-6): сеанс без ввода оператора (мышь, клавиши, текст, чат…) дольше стольких минут завершается (end idle). 0 — без предела.</summary>
+    public double SessionIdleMinutes { get; set; } = 30;
+
+    /// <summary>2026-10-27 (С-6): наибольшая длительность сеанса, минут (end max). 0 — без предела.</summary>
+    public double SessionMaxMinutes { get; set; } = 240;
+
+    /// <summary>2026-10-27 (В-6): предел очереди служебных сообщений одного соединения (байт); больше — разрыв.</summary>
+    public int ControlQueueBytes { get; set; } = 1024 * 1024;
+
+    /// <summary>2026-10-27 (В-6): наибольший размер текста от кассы до начала сеанса (hello и пр.), байт; двоичное до сеанса — разрыв.</summary>
+    public int PreSessionTextBytes { get; set; } = 4 * 1024;
+
+    /// <summary>2026-10-27 (В-6): одновременных соединений кассы с одной сети (IPv4-адрес или IPv6 /64).</summary>
+    public int MaxHostConnectionsPerIp { get; set; } = 200;
+
+    /// <summary>2026-10-27 (С-3): ошибок входа с одного логина с ОДНОГО IP за 15 мин до блокировки (чужие IP не мешают).</summary>
+    public int LoginFailuresPer15MinPerLoginIp { get; set; } = 10;
+
+    /// <summary>2026-10-27 (С-3): ошибок входа с логина со ВСЕХ IP за 15 мин, после которых ответ задерживается (растёт с числом ошибок). Блокировки нет.</summary>
+    public int LoginGlobalFailureDelayAfter { get; set; } = 100;
+
+    /// <summary>2026-10-27 (С-5): наименьшая длина нового пароля оператора.</summary>
+    public int MinPasswordLength { get; set; } = 10;
+
+    /// <summary>2026-10-27 (С-7): заметок в минуту от одного оператора.</summary>
+    public int NotesPerMinute { get; set; } = 30;
+
+    /// <summary>2026-10-27 (В-5): как часто (секунд) закрываются соединения операторов с отозванным/истёкшим токеном.</summary>
+    public int OperatorRecheckSeconds { get; set; } = 60;
+
+    /// <summary>Папка данных относительно папки программы, а не текущей папки (2026-10-27): add-operator из любого места пишет в тот же operators.json.</summary>
+    public RelayOptions ResolvePaths()
+    {
+        if (!Path.IsPathRooted(DataDir)) DataDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, DataDir));
+        return this;
+    }
 
     /// <summary>Сколько записей журнала отдавать в /api/sessions по умолчанию.</summary>
     public int JournalPageSize { get; set; } = 100;

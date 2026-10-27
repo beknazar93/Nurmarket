@@ -36,6 +36,15 @@ internal sealed class Options
     // 2026-10-16, v1.1: кассир и проблема в hello (очередь программы оператора).
     public string User = "Тест Кассир";
     public string Note = "";
+    // 2026-10-26: приоритет кассира — расписание "мс:true,мс:false" от начала сеанса: FakeHost шлёт {"type":"client-active"} и в это время
+    // сам не исполняет ввод оператора (как настоящая касса).
+    public string ClientSchedule = "";
+    // 2026-10-27, v1.3: возможности кассы в hello. --caps none — «старая» касса 1.17.61 без поля caps (чат, сведения, файлы молчат);
+    // --caps a,b,c — свой список. По умолчанию FakeHost умеет всё, что у него реализовано.
+    public string Caps = "client-active,view-only,screen-paused,chat,info,diag,logs,files,clipboard";
+    // 2026-10-27: --screen-pause "мс:длительность" — имитация UAC/блокировки: через мс от начала сеанса шлёт screen-paused и перестаёт слать кадры
+    // на длительность мс, потом кадры идут снова (сеанс не рвётся).
+    public string ScreenPause = "";
 
     public static Options Parse(string[] args)
     {
@@ -65,6 +74,9 @@ internal sealed class Options
                 case "--tile": o.TileSize = Math.Clamp(int.Parse(Next()), 32, 1024); break;
                 case "--user": o.User = Next(); break;
                 case "--note": o.Note = Next(); break;
+                case "--client-active": o.ClientSchedule = Next(); break;
+                case "--caps": o.Caps = Next(); break;
+                case "--screen-pause": o.ScreenPause = Next(); break;
                 case "-h":
                 case "--help":
                     Console.WriteLine("FakeHost [--url ws://…/ws/host] [--company X] [--size 1280x720] [--fps 15] [--quality 60] [--screen] [--accept auto|ask|decline|none] [--frames N] [--seconds N]");
@@ -126,6 +138,7 @@ internal sealed class Host(Options o)
     private volatile bool _started, _ended;
     private volatile int _quality = o.Quality;
     private volatile bool _viewOnly;
+    private volatile bool _clientActive; // 2026-10-26: кассир «работает» — ввод оператора пропускается
     private volatile bool _forceFull = true;
     private uint _frameNo;
     private long _lastAck;
@@ -144,6 +157,7 @@ internal sealed class Host(Options o)
             type = "hello", role = "host", protocol = 1, app = "FakeHost", version = o.Version,
             company = o.Company, machine = o.Machine, screen = new { w = o.Width, h = o.Height },
             user = o.User, note = o.Note,
+            caps = o.Caps == "none" ? null : o.Caps.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
         }, ct);
 
         Task? stream = null;
@@ -171,19 +185,47 @@ internal sealed class Host(Options o)
                     await SendJsonAsync(new { type = "pong" }, ct);
                     break;
                 // 2026-10-16, v1.1: простые ответы на инструменты программы оператора (настоящая касса отвечает подробно).
-                case "chat":
+                case "chat" when HasCap("chat"):
                     Console.WriteLine($"чат от оператора: {m.GetProperty("text").GetString()}");
                     await SendJsonAsync(new { type = "chat", text = "FakeHost получил: " + m.GetProperty("text").GetString() }, ct);
                     break;
-                case "info-request":
+                case "info-request" when HasCap("info"):
                     await SendJsonAsync(new { type = "info", text = $"FakeHost {o.Version}\nКомпания: {o.Company}\nКомпьютер: {o.Machine}\nЭкран: {o.Width}×{o.Height}" }, ct);
                     break;
-                case "diag-request":
+                case "diag-request" when HasCap("diag"):
                     await SendJsonAsync(new { type = "diag", items = new object[] { new { name = "Связь с NurCRM", ok = (bool?)true, detail = "FakeHost: проверка-заглушка" }, new { name = "Принтер чеков", ok = (bool?)false, detail = "FakeHost: принтера нет" }, new { name = "Версия программы", ok = (bool?)null, detail = o.Version } } }, ct);
                     break;
-                case "logs-request":
+                case "logs-request" when HasCap("logs"):
                     await SendJsonAsync(new { type = "logs", text = string.Join("\n", Enumerable.Range(1, 20).Select(i => $"{DateTime.Now:HH:mm:ss} [INFO] FakeHost строка {i}")) }, ct);
                     break;
+                // 2026-10-27, v1.3: буфер обмена и файлы (только если в caps есть clipboard/files; со старой кассой — молчание)
+                case "clipboard-set" when HasCap("clipboard"):
+                    _clipboard = m.GetProperty("text").GetString() ?? "";
+                    Console.WriteLine($"  буфер кассы ← {_clipboard.Length} символов");
+                    break;
+                case "clipboard-get" when HasCap("clipboard"):
+                    await SendJsonAsync(new { type = "clipboard", text = _clipboard }, ct);
+                    break;
+                case "file-begin" when HasCap("files"):
+                    _files[m.GetProperty("id").GetString()!] = (m.GetProperty("name").GetString() ?? "file", 0L);
+                    break;
+                case "file-chunk" when HasCap("files"):
+                {
+                    var id = m.GetProperty("id").GetString()!;
+                    if (_files.TryGetValue(id, out var f))
+                        _files[id] = (f.name, f.bytes + Convert.FromBase64String(m.GetProperty("data").GetString() ?? "").Length);
+                    break;
+                }
+                case "file-end" when HasCap("files"):
+                {
+                    var id = m.GetProperty("id").GetString()!;
+                    if (_files.Remove(id, out var f))
+                    {
+                        Console.WriteLine($"  файл «{f.name}»: {f.bytes} байт принято (не сохраняется)");
+                        await SendJsonAsync(new { type = "file-saved", id, name = f.name }, ct);
+                    }
+                    break;
+                }
                 case "session":
                 {
                     var code = m.GetProperty("code").GetString()!;
@@ -198,7 +240,8 @@ internal sealed class Host(Options o)
                 case "join-request":
                 {
                     var op = m.GetProperty("operator").GetString();
-                    Console.WriteLine($"Запрос подключения: оператор «{op}», IP {m.GetProperty("ip").GetString()}");
+                    // 2026-10-27: сервер больше не передаёт кассе IP оператора (поле ip убрано)
+                    Console.WriteLine($"Запрос подключения: оператор «{op}»");
                     _ = AnswerConsentAsync(op ?? "", ct);
                     break;
                 }
@@ -206,6 +249,8 @@ internal sealed class Host(Options o)
                     _operator = m.GetProperty("operator").GetString() ?? "";
                     Console.WriteLine($"СЕАНС НАЧАТ: {m.GetProperty("sessionId").GetString()}, оператор «{_operator}»");
                     _started = true;
+                    if (o.ClientSchedule.Length > 0) _ = Task.Run(() => RunClientScheduleAsync(ct), ct);
+                    if (o.ScreenPause.Length > 0) _ = Task.Run(() => RunScreenPauseAsync(ct), ct);
                     stream = Task.Run(() => StreamAsync(ct), ct);
                     break;
                 case "expired":
@@ -232,6 +277,9 @@ internal sealed class Host(Options o)
                     _ackSignal.Release();
                     break;
                 }
+                case "mouse" or "key" or "text" when _clientActive:
+                    Console.WriteLine($"  ввод пропущен: кассир работает ({type})");
+                    break;
                 case "mouse":
                     OnMouse(m);
                     break;
@@ -290,6 +338,44 @@ internal sealed class Host(Options o)
         return 0;
     }
 
+    private bool HasCap(string cap) => o.Caps != "none" && o.Caps.Split(',').Contains(cap);
+    private string _clipboard = "";
+    private readonly Dictionary<string, (string name, long bytes)> _files = new();
+    private volatile bool _screenPaused;
+
+    /// <summary>2026-10-27: имитация UAC/блокировки — screen-paused, кадры не идут, затем снова идут.</summary>
+    private async Task RunScreenPauseAsync(CancellationToken ct)
+    {
+        var p = o.ScreenPause.Split(':');
+        if (p.Length != 2 || !int.TryParse(p[0], out var at) || !int.TryParse(p[1], out var len)) return;
+        await Task.Delay(at, ct);
+        if (_ended) return;
+        _screenPaused = true;
+        Console.WriteLine("  экран защищён Windows (имитация) → screen-paused");
+        await SendJsonAsync(new { type = "screen-paused", reason = "secure-desktop" }, ct);
+        await Task.Delay(len, ct);
+        _screenPaused = false;
+        _forceFull = true; // после паузы — полный кадр, как у кассы
+        Console.WriteLine("  экран снова доступен");
+    }
+
+    /// <summary>2026-10-26: расписание «кассир работает» из --client-active "1500:true,3500:false" (мс от начала сеанса).</summary>
+    private async Task RunClientScheduleAsync(CancellationToken ct)
+    {
+        var start = Stopwatch.StartNew();
+        foreach (var step in o.ClientSchedule.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var p = step.Split(':');
+            if (p.Length != 2 || !int.TryParse(p[0], out var at) || !bool.TryParse(p[1], out var active)) continue;
+            var wait = at - (int)start.ElapsedMilliseconds;
+            if (wait > 0) await Task.Delay(wait, ct);
+            if (_ended) return;
+            _clientActive = active;
+            Console.WriteLine($"  кассир {(active ? "работает" : "закончил")} → client-active {(active ? "true" : "false")}");
+            await SendJsonAsync(new { type = "client-active", active }, ct);
+        }
+    }
+
     private void TrimTyped()
     {
         if (_typed.Length > 80) _typed.Remove(0, _typed.Length - 80);
@@ -342,6 +428,13 @@ internal sealed class Host(Options o)
                 Console.WriteLine("  → отказ");
                 await SendJsonAsync(new { type = "consent", accept = false }, ct);
                 return;
+            case "view":
+                // 2026-10-27: кассир выбрал «Только просмотр» (consent view_only:true) — как настоящая касса
+                await Task.Delay(300, ct);
+                Console.WriteLine("  → разрешено только просмотр (--accept view)");
+                _viewOnly = true;
+                await SendJsonAsync(new { type = "consent", accept = true, view_only = true }, ct);
+                return;
             case "ask":
             {
                 Console.Write($"Разрешить оператору «{op}» подключиться? [y/N] (60 с): ");
@@ -383,6 +476,7 @@ internal sealed class Host(Options o)
             if (o.MaxSeconds > 0 && began.Elapsed.TotalSeconds >= o.MaxSeconds) break;
             if (o.MaxFrames > 0 && _frameNo >= o.MaxFrames) break;
 
+            if (_screenPaused) { await Task.Delay(100, ct); continue; } // 2026-10-27: экран защищён — кадров нет
             // Не больше 2 неподтверждённых кадров (PROTOCOL.md)
             while (_frameNo - Interlocked.Read(ref _lastAck) >= 2 && !_ended)
                 await _ackSignal.WaitAsync(TimeSpan.FromMilliseconds(500), ct);

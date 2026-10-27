@@ -66,3 +66,29 @@ public sealed class AttemptLimiter
         }
     }
 }
+
+/// <summary>2026-10-27 (В-6): счётчик одновременных соединений по ключу (сеть /64 или IPv4).</summary>
+public sealed class ConnectionGate
+{
+    private readonly ConcurrentDictionary<string, int> _n = new();
+
+    public bool TryEnter(string key, int max)
+    {
+        var ok = true;
+        _n.AddOrUpdate(key, 1, (_, c) =>
+        {
+            ok = c < max;
+            return ok ? c + 1 : c;
+        });
+        return ok;
+    }
+
+    public void Leave(string key)
+    {
+        while (_n.TryGetValue(key, out var c))
+        {
+            if (c <= 1) { if (_n.TryRemove(new KeyValuePair<string, int>(key, c))) return; }
+            else if (_n.TryUpdate(key, c - 1, c)) return;
+        }
+    }
+}
