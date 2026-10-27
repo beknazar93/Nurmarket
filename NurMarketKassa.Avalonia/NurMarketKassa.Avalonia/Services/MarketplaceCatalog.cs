@@ -115,7 +115,10 @@ public sealed class MarketplaceItem
 
     public string KindLabel => Kind switch
     {
-        MarketplaceKind.Theme => Tr.T("Тема", "Тема", "Theme", "Tema", "Mavzu"),
+        // 2026-10-27: темы сайта (sitetheme:*) — свой вид «Тема сайта», чтобы не путать с темой кассы.
+        MarketplaceKind.Theme => Id.StartsWith("sitetheme:", StringComparison.Ordinal)
+            ? Tr.T("Тема сайта", "Сайт темасы", "Website theme", "Site teması", "Sayt mavzusi")
+            : Tr.T("Тема", "Тема", "Theme", "Tema", "Mavzu"),
         MarketplaceKind.Layout => Tr.T("Вид кассы", "Касса көрүнүшү", "Till layout", "Kasa görünümü", "Kassa ko'rinishi"),
         MarketplaceKind.Service => Tr.T("Услуга", "Кызмат", "Service", "Hizmet", "Xizmat"),
         _ => Tr.T("Функция", "Функция", "Feature", "Özellik", "Funksiya"),
@@ -566,6 +569,13 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
             "The owner app theme and the till theme are chosen separately: the “Selected” mark refers to the program you are in now. To change the till theme, open this section in the till itself.",
             "Sahip programının teması ile kasanın teması ayrı seçilir: «Seçili» işareti şu an içinde olduğunuz programa aittir. Kasa temasını değiştirmek için bu bölümü kasanın kendisinde açın.",
             "Egasi dasturi mavzusi va kassa mavzusi alohida tanlanadi: «Tanlangan» belgisi hozir turgan dasturingizga tegishli. Kassa mavzusini o'zgartirish uchun bu bo'limni kassaning o'zida oching.");
+        // 2026-10-27 (аудит редакторов, В-5): своя тема выбрана, а на этой кассе её нет (создана на другом компьютере) — раньше молча включалась «Классическая».
+        if (AccentThemeService.MissingCustomThemeId is not null)
+            themeNote = (themeNote.Length > 0 ? themeNote + " " : "") + T("⚠ Выбранной в настройках своей темы нет на этой кассе (она создана на другом компьютере), поэтому показана «Классическая». Перенесите тему файлом: «Редактор тем» → «Экспорт» на той кассе и «Импорт» здесь.",
+                "⚠ Жөндөөдө тандалган өз тема бул кассада жок (башка компьютерде түзүлгөн), ошондуктан «Классикалык» көрсөтүлдү. Темаңызды файл менен которуңуз: «Темалар редактору» → ал кассада «Экспорт», бул жерде «Импорт».",
+                "⚠ The custom theme chosen in the settings is not on this till (it was created on another computer), so “Classic” is shown. Move the theme with a file: “Theme editor” → “Export” on that till and “Import” here.",
+                "⚠ Ayarlarda seçilen özel tema bu kasada yok (başka bir bilgisayarda oluşturulmuş), bu yüzden «Klasik» gösteriliyor. Temayı dosyayla taşıyın: «Tema düzenleyici» → o kasada «Dışa aktar», burada «İçe aktar».",
+                "⚠ Sozlamalarda tanlangan o'z mavzusi bu kassada yo'q (boshqa kompyuterda yaratilgan), shuning uchun «Klassik» ko'rsatilmoqda. Mavzuni fayl bilan ko'chiring: «Mavzu muharriri» → u kassada «Eksport», bu yerda «Import».");
         var selectedText = T("Выбрана", "Тандалган", "Selected", "Seçili", "Tanlangan");
         var themeIds = AccentThemeService.AvailableThemes.Select(t => t.Id).ToList();
 
@@ -607,6 +617,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
             RelatedIds = themeIds.Take(4).Select(i => "theme:" + i).ToList(),
         });
 
+        MarketplaceSiteThemes.Append(items, _run); // 2026-10-27: темы сайта (в т.ч. 10 тем одежды) — ТЗ «Сайт», С-3
         MarketplaceContent.Enrich(items); // 2026-10-23: группы и (позже) контент страницы «подробно» — отдельным файлом
         return items;
     }
@@ -676,15 +687,20 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         string note, string selectedText, bool dark, IReadOnlyList<string> related)
     {
         var hex = AccentThemeService.GetAccentHex(themeId) ?? "#FFB208";
+        // 2026-10-27 (аудит редакторов, В-7): команда несёт id темы — редактор открывает именно её, а не применённую или первую.
         var secondary = custom
-            ? new[] { new MarketplaceAction(T("Изменить в редакторе", "Редактордо өзгөртүү", "Edit in the editor", "Düzenleyicide değiştir", "Muharrirda o'zgartirish"), () => _run("themeeditor")) }
+            ? new[] { new MarketplaceAction(T("Изменить в редакторе", "Редактордо өзгөртүү", "Edit in the editor", "Düzenleyicide değiştir", "Muharrirda o'zgartirish"), () => _run("themeeditor:" + themeId)) }
             : Array.Empty<MarketplaceAction>();
+        // 2026-10-27 (аудит редакторов, В-8): у своей темы с нечитаемыми цветами — пометка на плитке; применить её можно только через «Всё равно применить».
+        var unreadable = custom && CustomThemeStore.Find(themeId) is { } customDef && AccentThemeService.CheckContrastBoth(customDef).Count > 0;
         return new MarketplaceItem
         {
             Id = "theme:" + themeId,
             Kind = MarketplaceKind.Theme,
             Title = label,
-            ShortDescription = custom ? T("Своя тема", "Өз тема", "Custom theme", "Özel tema", "O'z mavzu") : ShortTheme(description),
+            ShortDescription = custom
+                ? T("Своя тема", "Өз тема", "Custom theme", "Özel tema", "O'z mavzu") + (unreadable ? " · " + T("⚠ плохо читается", "⚠ начар окулат", "⚠ hard to read", "⚠ zor okunuyor", "⚠ yomon o'qiladi") : "")
+                : ShortTheme(description),
             LongDescription = description,
             IconGlyph = "🎨",
             IconColor = hex,

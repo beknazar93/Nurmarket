@@ -94,11 +94,11 @@
         <Border CornerRadius="8" Padding="20,16" Background="{DynamicResource CustomerDisplaySurfaceBrush}"
                 BorderBrush="{DynamicResource CustomerDisplayBorderBrush}" BorderThickness="1">
           <StackPanel Spacing="10">
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowSubtotals}">
               <TextBlock Classes="cd-soft" Text="{Binding SubtotalLabel}" FontSize="{DynamicResource CdFont16}"/>
               <TextBlock Grid.Column="1" Classes="cd-text cd-num" Text="{Binding SubtotalNumberText}" FontSize="{DynamicResource CdFont16}"/>
             </Grid>
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowSubtotals}">
               <TextBlock Classes="cd-soft" Text="{Binding DiscountLabel}" FontSize="{DynamicResource CdFont16}"/>
               <TextBlock Grid.Column="1" Classes="cd-text cd-num" Text="{Binding DiscountNumberText}" FontSize="{DynamicResource CdFont16}"/>
             </Grid>

@@ -23,6 +23,7 @@ using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Analytics;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Core.Contracts;
+using ChartPalette = NurMarketKassa.Core.Application.ChartPalette;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
 using NurMarketKassa.Services.Lan;
@@ -674,7 +675,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => { if (Authorize(PosPermissions.ViewOrders)) OpenSection("siteorders", () => new SiteOrdersWindow()); });
         // 2026-10-05, владелец (снимок витрины): «где редактор сайта??» — вид витрины (SiteEditorWindow).
         Add("siteeditor", "StoreIcon", Tr.T("Редактор сайта", "Сайттын редактору", "Website editor", "Web sitesi düzenleyici", "Sayt muharriri"), true,
-            () => OpenSection("siteeditor", () => new SiteEditorWindow()));
+            // 2026-10-27 (аудит редакторов, В-2): раньше без проверки прав — любой сотрудник мог менять и публиковать сайт; как у «Настроек сайта».
+            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("siteeditor", () => new SiteEditorWindow()); });
         Add("sitesettings", "SiteSettingsIcon", Tr.T("Настройки сайта", "Сайттын жөндөөлөрү", "Website settings", "Web sitesi ayarları", "Sayt sozlamalari"), true,
             OpenSiteSettings);
         // 2026-10-05, запрос NurCRM: «экран „Магазин в приложении“, чтобы владельцы подключались сами» (бесплатно на любом тарифе).
@@ -1790,6 +1792,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         ChartBars.Children.Clear();
         ChartBars.ColumnDefinitions.Clear();
         ChartBars.RowDefinitions = new RowDefinitions("*,Auto");
+        ChartLegend.Children.Clear();
 
         var byDay = new Dictionary<DateTime, double>();
         if (report.ValueKind == JsonValueKind.Object
@@ -1842,6 +1845,9 @@ public partial class OwnerShellWindow : Window, IMainShell
                 outlier[i] = false && values[i] >= 3 * median && values[i] >= ChartOutlierMinSom;
             }
         }
+        // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах»: выручка по дням — временной ряд: столбцы одного оттенка, лучший день — акцентом
+        // (жёлтый), самый слабый — приглушённо, сегодня — кольцом (было: «сегодня» жёлтым), внизу легенда.
+        var (bestDays, worstDays) = ChartPalette.SeriesMarks(values);
         var scaleMax = values.Where((_, i) => !outlier[i]).DefaultIfEmpty(0).Max();
         var capped = outlier.Any(o => o) && scaleMax > 0;
         if (!capped)
@@ -1880,9 +1886,12 @@ public partial class OwnerShellWindow : Window, IMainShell
                 Height = height,
                 CornerRadius = new CornerRadius(6, 6, 2, 2),
             };
-            UseBrush(bar, Border.BackgroundProperty, value <= 0 ? "BrushBorder" : isToday ? "BrushAccent" : "BrushText");
-            ToolTip.SetTip(bar, $"{day.ToString("ddd, d MMMM", culture)} — {Amount(value)} {Som()}");
-            Control barView = bar;
+            if (value <= 0)
+                UseBrush(bar, Border.BackgroundProperty, "BrushBorder");
+            ToolTip.SetTip(bar, $"{day.ToString("ddd, d MMMM", culture)} — {Amount(value)} {Som()}"
+                + (bestDays.Contains(i) ? " · " + Tr.T("лучший день", "эң мыкты күн", "best day", "en iyi gün", "eng yaxshi kun")
+                    : worstDays.Contains(i) ? " · " + Tr.T("самый слабый день", "эң начар күн", "weakest day", "en zayıf gün", "eng sust kun") : ""));
+            Control barView = value > 0 ? BarChartRenderer.StyleSeriesBar(bar, this, bestDays.Contains(i), worstDays.Contains(i), isToday) : bar;
             if (isOutlier)
             {
                 // Отметка разрыва: косая полоса цвета карточки поперёк столбца.
@@ -1918,6 +1927,12 @@ public partial class OwnerShellWindow : Window, IMainShell
             Grid.SetRow(label, 1);
             ChartBars.Children.Add(label);
         }
+
+        if (BarChartRenderer.SeriesLegend(this, bestDays.Count > 0, worstDays.Count > 0, days.Contains(DateTime.Today),
+                Tr.T("Лучший день", "Эң мыкты күн", "Best day", "En iyi gün", "Eng yaxshi kun"),
+                Tr.T("Самый слабый день", "Эң начар күн", "Weakest day", "En zayıf gün", "Eng sust kun"),
+                Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun")) is { } legend)
+            ChartLegend.Children.Add(legend);
     }
 
     private void ApplyPayments(JsonElement report)
@@ -1945,27 +1960,26 @@ public partial class OwnerShellWindow : Window, IMainShell
         PaymentsCountText.Text = sum > 0 ? $"{Whole(sum)} {Som()}" : "";
         PaymentsEmptyText.IsVisible = methods.Count == 0;
 
-        // 2026-10-18, этап О1: у цвета одна роль — способы различаются оттенком цвета текста темы (не зелёным/синим).
-        double[] shades = { 1, 0.6, 0.38, 0.22, 0.12 };
+        // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — у каждого способа оплаты свой цвет из общей палитры (ChartPalette) по ключу способа,
+        // тот же, что в «Финансах» и мобилке (с 2026-10-18, этап О1, способы различались оттенком цвета текста).
+        var methodColors = ChartPalette.Assign(methods.Select(m => (string?)ChartPalette.PaymentKey(m.Method)).ToList());
         for (var i = 0; i < methods.Count; i++)
         {
             var (method, count, total) = methods[i];
-            var shade = shades[Math.Min(i, shades.Length - 1)];
             var share = sum > 0 ? total / sum : 0;
 
             PaymentsBar.ColumnDefinitions.Add(new ColumnDefinition(Math.Max(share, 0.004), GridUnitType.Star));
             var segment = new Border
             {
-                Opacity = shade,
+                Background = Brush.Parse(methodColors[i]),
                 Margin = new Thickness(0, 0, i < methods.Count - 1 ? 2 : 0, 0),
             };
-            UseBrush(segment, Border.BackgroundProperty, "BrushText");
+            ToolTip.SetTip(segment, $"{PaymentLabel(method)}: {Whole(total)} {Som()}");
             Grid.SetColumn(segment, i);
             PaymentsBar.Children.Add(segment);
 
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
-            var dot = new Ellipse { Width = 10, Height = 10, Opacity = shade, VerticalAlignment = VerticalAlignment.Center };
-            UseBrush(dot, Shape.FillProperty, "BrushText");
+            var dot = new Ellipse { Width = 10, Height = 10, Fill = Brush.Parse(methodColors[i]), VerticalAlignment = VerticalAlignment.Center };
             row.Children.Add(dot);
 
             var name = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 8, 0), TextTrimming = TextTrimming.CharacterEllipsis };
@@ -2061,6 +2075,9 @@ public partial class OwnerShellWindow : Window, IMainShell
             (items.Count == 0 ? "продаж нет" : string.Join("; ", items.Select(i => $"{i.Name} — продано {i.Sold:0.###}, выручка {i.Revenue:0.##} сом"))) + ".");
         TopEmptyText.IsVisible = items.Count == 0;
         var max = items.Count == 0 ? 0 : items.Max(i => i.Revenue);
+        // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — у каждого товара свой цвет по названию (ChartPalette): плашка места и полоса доли
+        // (раньше — нейтральные); цвет товара тот же на других экранах и в мобилке.
+        var productColors = ChartPalette.Assign(items.Select(i => (string?)i.Name).ToList());
 
         for (var i = 0; i < items.Count; i++)
         {
@@ -2068,8 +2085,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
 
             // 2026-10-18, этап О1: место — нейтральной плашкой у всех (жёлтый — только у «сегодня» и главной кнопки).
-            var rank = new Border { Width = 28, Height = 28, CornerRadius = new CornerRadius(8), VerticalAlignment = VerticalAlignment.Center };
-            UseBrush(rank, Border.BackgroundProperty, "BrushInputAlt");
+            var rank = new Border { Width = 28, Height = 28, CornerRadius = new CornerRadius(8), VerticalAlignment = VerticalAlignment.Center, Background = Brush.Parse(productColors[i]) };
             var rankText = new TextBlock
             {
                 Text = (i + 1).ToString(CultureInfo.InvariantCulture),
@@ -2078,7 +2094,7 @@ public partial class OwnerShellWindow : Window, IMainShell
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            UseBrush(rankText, TextBlock.ForegroundProperty, "BrushText");
+            rankText.Foreground = ChartPalette.OnColorIsDark(productColors[i]) ? Brushes.Black : Brushes.White; // контраст ≥ 4,5:1 на любом цвете палитры
             rank.Child = rankText;
             row.Children.Add(rank);
 
@@ -2098,8 +2114,7 @@ public partial class OwnerShellWindow : Window, IMainShell
                     new ColumnDefinition(Math.Max(1 - share, 0.0001), GridUnitType.Star),
                 },
             };
-            var fill = new Border { CornerRadius = new CornerRadius(3), Opacity = 0.6 };
-            UseBrush(fill, Border.BackgroundProperty, "BrushText");
+            var fill = new Border { CornerRadius = new CornerRadius(3), Background = Brush.Parse(productColors[i]) };
             fillGrid.Children.Add(fill);
             track.Child = fillGrid;
             middle.Children.Add(track);

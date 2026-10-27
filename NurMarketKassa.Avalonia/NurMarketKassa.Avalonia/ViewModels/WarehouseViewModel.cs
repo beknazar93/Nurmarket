@@ -837,6 +837,10 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             }, TimeSpan.FromSeconds(hideAfterSeconds));
     }
 
+    /// <summary>2026-10-27 (приёмка 26.10, Д-9): короткое сообщение без окна (в программе владельца ShowToast открывался модальным «Сообщением»
+    /// с кнопкой «Понятно») — плашка под кнопкой «Оприходовать», гаснет через 6 с.</summary>
+    public void ShowReceivingInfo(string text) => SetReceivingNotice(text, isError: false, hideAfterSeconds: 6);
+
     private static string BackgroundNoticeText => Tr.T(
         "Операция выполняется в фоне — можно продолжать работу",
         "Операция фондо аткарылууда — иштей берсеңиз болот",

@@ -102,7 +102,7 @@
             Background="{DynamicResource BrushDialogPanel}"
             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
             BoxShadow="0 12 32 0 #33101828">
-        <Grid RowDefinitions="Auto,*,Auto">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
 
             <!-- ============ шапка ============ -->
             <Border Grid.Row="0" Padding="24,18,16,14" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1"
@@ -121,8 +121,15 @@
                 </Grid>
             </Border>
 
+            <!-- 2026-10-27 (аудит редакторов, В-8): плашка о плохой читаемости — над списком, а не в конце прокручиваемого списка цветов.
+                 Само окно редактора остаётся в прежней теме кассы (снимок ресурсов), поэтому плашка читается при любых цветах темы. -->
+            <Border x:Name="ContrastBanner" Grid.Row="1" IsVisible="False" Margin="24,10,24,0" Padding="12,8" CornerRadius="8"
+                    Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
+                <TextBlock x:Name="ContrastText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+            </Border>
+
             <!-- ============ содержимое ============ -->
-            <Grid Grid.Row="1" Margin="24,16,24,8">
+            <Grid Grid.Row="2" Margin="24,16,24,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="220"/>
                     <ColumnDefinition Width="20"/>
@@ -175,8 +182,6 @@
                         <StackPanel>
                             <TextBlock x:Name="ColorsLabel" Classes="te-section"/>
                             <StackPanel x:Name="ColorRowsPanel" Spacing="2"/>
-                            <TextBlock x:Name="ContrastText" FontSize="12" TextWrapping="Wrap" Margin="8,6,0,0" IsVisible="False"
-                                       Foreground="{DynamicResource BrushWarning}"/>
                         </StackPanel>
 
                         <StackPanel Spacing="2">
@@ -225,8 +230,10 @@
                 <ScrollViewer Grid.Column="4" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                 <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="0,0,10,0">
                     <TextBlock x:Name="PreviewLabel" Classes="te-section"/>
-                    <!-- Кусок кассы кистями текущей темы: меняется вместе со всей программой. -->
-                    <Border Grid.Row="1" Background="{DynamicResource BrushWindowBackdrop}" BorderBrush="{DynamicResource BrushBorder}"
+                    <!-- Кусок кассы кистями текущей темы: меняется вместе со всей программой.
+                         2026-10-27 (В-8): у блока свой снимок ресурсов и свой светлый/тёмный вариант (PreviewHost), остальное окно — в прежней теме. -->
+                    <ThemeVariantScope x:Name="PreviewScope" Grid.Row="1">
+                    <Border x:Name="PreviewHost" Background="{DynamicResource BrushWindowBackdrop}" BorderBrush="{DynamicResource BrushBorder}"
                             BorderThickness="1" CornerRadius="{DynamicResource SettingsCardRadius}" ClipToBounds="True">
                         <Grid RowDefinitions="Auto,*">
                             <Border Background="{DynamicResource BrushWindowAlt}" BorderBrush="{DynamicResource BrushBorder}"
@@ -287,7 +294,7 @@
                                                 <TextBlock x:Name="PreviewWarningText" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource BrushWarning}"/>
                                             </Border>
                                             <Border Background="{DynamicResource BrushDangerSoft}" CornerRadius="4" Padding="6,1">
-                                                <TextBlock Text="-10%" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"/>
+                                                <TextBlock Text="-10%" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource BrushDangerOnSoft}"/>
                                             </Border>
                                         </StackPanel>
                                         <Border Height="1" Background="{DynamicResource BrushBorder}"/>
@@ -304,6 +311,7 @@
                             </Grid>
                         </Grid>
                     </Border>
+                    </ThemeVariantScope>
 
                     <TextBlock x:Name="PickerLabel" Grid.Row="2" Classes="te-section" Margin="0,14,0,6"/>
                     <pickers:PhotoshopColorPicker x:Name="ColorPicker" Grid.Row="3" HorizontalAlignment="Left" VerticalAlignment="Top"/>
@@ -312,7 +320,7 @@
             </Grid>
 
             <!-- ============ низ ============ -->
-            <Border Grid.Row="2" Padding="24,12" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
+            <Border Grid.Row="3" Padding="24,12" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
                 <Grid ColumnDefinitions="*,Auto,8,Auto,8,Auto">
                     <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" TextWrapping="Wrap"
                                Foreground="{DynamicResource BrushTextSoft}"/>

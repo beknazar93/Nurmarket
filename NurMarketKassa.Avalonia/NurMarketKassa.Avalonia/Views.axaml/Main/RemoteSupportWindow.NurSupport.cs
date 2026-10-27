@@ -349,11 +349,11 @@ public partial class RemoteSupportWindow
                 $"Support session in progress: {RemoteSupportSession.Host?.Operator}. The operator only sees the screen — no mouse or keyboard control. “End” disconnects at once.",
                 $"Destek oturumu sürüyor: {RemoteSupportSession.Host?.Operator}. Operatör yalnızca ekranı görüyor — fare ve klavye kullanamaz. «Bitir» — hemen bağlantıyı keser.",
                 $"Qo'llab-quvvatlash seansi davom etmoqda: {RemoteSupportSession.Host?.Operator}. Operator faqat ekranni ko'radi — sichqoncha va klaviatura unga yopiq. «Tugatish» — darhol uzish."),
-            RemoteSupportHost.State.InSession => T($"Идёт сеанс поддержки: {RemoteSupportSession.Host?.Operator}. Оператор видит экран и может управлять. «Завершить» — сразу отключить.",
-                $"Колдоо сеансы жүрүп жатат: {RemoteSupportSession.Host?.Operator}. Оператор экранды көрүп, башкара алат. «Аяктоо» — дароо ажыратуу.",
-                $"Support session in progress: {RemoteSupportSession.Host?.Operator}. The operator sees the screen and can control it. “End” disconnects at once.",
-                $"Destek oturumu sürüyor: {RemoteSupportSession.Host?.Operator}. Operatör ekranı görüyor ve kontrol edebiliyor. «Bitir» — hemen bağlantıyı keser.",
-                $"Qo'llab-quvvatlash seansi davom etmoqda: {RemoteSupportSession.Host?.Operator}. Operator ekranni ko'radi va boshqara oladi. «Tugatish» — darhol uzish."),
+            RemoteSupportHost.State.InSession => T($"Идёт сеанс поддержки: {RemoteSupportSession.Host?.Operator}. Оператор видит экран и может управлять. «Завершить» — сразу отключить. Пока вы сами работаете мышью или клавиатурой, оператор ждёт. Экстренно: Ctrl+Alt+Shift+Esc.",
+                $"Колдоо сеансы жүрүп жатат: {RemoteSupportSession.Host?.Operator}. Оператор экранды көрүп, башкара алат. «Аяктоо» — дароо ажыратуу. Өзүңүз чычкан же клавиатура менен иштеп жатканда оператор күтөт. Шашылыш: Ctrl+Alt+Shift+Esc.",
+                $"Support session in progress: {RemoteSupportSession.Host?.Operator}. The operator sees the screen and can control it. “End” disconnects at once. While you use the mouse or keyboard yourself, the operator waits. Emergency: Ctrl+Alt+Shift+Esc.",
+                $"Destek oturumu sürüyor: {RemoteSupportSession.Host?.Operator}. Operatör ekranı görüyor ve kontrol edebiliyor. «Bitir» — hemen bağlantıyı keser. Fareyi veya klavyeyi siz kullanırken operatör bekler. Acil durum: Ctrl+Alt+Shift+Esc.",
+                $"Qo'llab-quvvatlash seansi davom etmoqda: {RemoteSupportSession.Host?.Operator}. Operator ekranni ko'radi va boshqara oladi. «Tugatish» — darhol uzish. Siz o'zingiz sichqoncha yoki klaviatura bilan ishlaganingizda operator kutadi. Favqulodda: Ctrl+Alt+Shift+Esc."),
             // 2026-10-21: без связи — одно понятное сообщение (кнопка «Получить код» при этом выключена) (пакет 3, п. 143).
             _ when _nurServerOk == false => RemoteSupportHost.UnreachableText(),
             _ when _nurServerOk is null => T("Проверяю связь с сервером поддержки…", "Колдоо сервери менен байланышты текшерип жатам…",
@@ -418,6 +418,8 @@ public static class RemoteSupportSession
         };
         host.ConsentRequested += AskConsentAsync; // 2026-10-15: не к экземпляру окна — окно могут закрыть, а сеанс идёт
         host.SessionStarted += op => Dispatcher.UIThread.Post(() => ShowBanner(op));
+        // 2026-10-26: приоритет кассира — полоса сообщает кассиру, что ввод оператора приостановлен, пока он работает сам.
+        host.ClientActiveChanged += active => Dispatcher.UIThread.Post(() => SetBannerClientActive(active));
         host.Ended += reason =>
         {
             LastEnd = reason;
@@ -607,9 +609,11 @@ public static class RemoteSupportSession
         };
         var text = new TextBlock
         {
-            Text = Tr.T($"Идёт сеанс поддержки: {op}", $"Колдоо сеансы жүрүп жатат: {op}", $"Support session: {op}", $"Destek oturumu: {op}", $"Yordam seansi: {op}"),
+            Text = BannerText(op),
             Foreground = Brushes.White, FontWeight = FontWeight.SemiBold, FontSize = 14, VerticalAlignment = VerticalAlignment.Center,
         };
+        _bannerText = text;
+        _bannerOp = op;
         _banner = new Window
         {
             SystemDecorations = SystemDecorations.None, Topmost = true, ShowInTaskbar = false, CanResize = false, SizeToContent = SizeToContent.WidthAndHeight,
@@ -622,12 +626,56 @@ public static class RemoteSupportSession
                 _banner.Position = new PixelPoint(screen.WorkingArea.X + (int)((screen.WorkingArea.Width - _banner.Bounds.Width * screen.Scaling) / 2), screen.WorkingArea.Y);
         };
         _banner.Show();
+        // 2026-10-26: полоса с «Завершить» всегда сверху: оператор мог открыть свой topmost-диспетчер задач — раз в секунду
+        // возвращаем полосу на самый верх (без фокуса и без движения), чтобы кассир мог в любой момент её нажать.
+        if (OperatingSystem.IsWindows())
+        {
+            _bannerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _bannerTimer.Tick += (_, _) =>
+            {
+                try
+                {
+                    if (_banner?.TryGetPlatformHandle()?.Handle is { } hwnd && hwnd != IntPtr.Zero)
+                        SetWindowPos(hwnd, new IntPtr(-1), 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0010 | 0x0200); // NOMOVE|NOSIZE|NOACTIVATE|NOOWNERZORDER
+                }
+                catch (Exception)
+                {
+                    // окно уже закрывается
+                }
+            };
+            _bannerTimer.Start();
+        }
+    }
+
+    private static TextBlock? _bannerText;
+    private static string _bannerOp = "";
+    private static DispatcherTimer? _bannerTimer;
+
+    private static string BannerText(string op) => Tr.T($"Идёт сеанс поддержки: {op}", $"Колдоо сеансы жүрүп жатат: {op}", $"Support session: {op}", $"Destek oturumu: {op}", $"Yordam seansi: {op}");
+
+    /// <summary>2026-10-26: «Кассир работает — управление оператора приостановлено»: полоса говорит кассиру, что его ввод главнее.</summary>
+    private static void SetBannerClientActive(bool active)
+    {
+        if (_bannerText is null)
+            return;
+        _bannerText.Text = active
+            ? Tr.T($"Вы работаете — управление оператора ({_bannerOp}) приостановлено", $"Сиз иштеп жатасыз — оператордун ({_bannerOp}) башкаруусу токтотулду",
+                $"You are working — the operator’s ({_bannerOp}) control is paused", $"Siz çalışıyorsunuz — operatörün ({_bannerOp}) kontrolü durduruldu",
+                $"Siz ishlayapsiz — operatorning ({_bannerOp}) boshqaruvi to'xtatildi")
+            : BannerText(_bannerOp);
     }
 
     private static void HideBanner()
     {
+        _bannerTimer?.Stop();
+        _bannerTimer = null;
+        _bannerText = null;
         _banner?.Close();
         _banner = null;
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
 }
 #endif

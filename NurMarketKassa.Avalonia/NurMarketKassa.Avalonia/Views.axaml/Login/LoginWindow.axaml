@@ -1,6 +1,7 @@
 <Window x:Class="NurMarketKassa.AvaloniaHost.Views.LoginWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sec="using:NurMarketKassa.AvaloniaHost.Views.Controls"
         xmlns:vm="using:NurMarketKassa.ViewModels"
         xmlns:brand="using:NurMarketKassa.AvaloniaHost.Controls"
         x:DataType="vm:LoginViewModel"
@@ -346,7 +347,7 @@
                             <TextBlock Grid.Column="0" Text="&#xE72E;" FontFamily="Segoe MDL2 Assets"
                                        FontSize="16" VerticalAlignment="Center"
                                        Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,12,0" />
-                            <TextBox x:Name="PasswordBox" Grid.Column="1"
+                            <sec:SecretTextBox x:Name="PasswordBox" Grid.Column="1"
                                      Classes="LoginFluentPasswordBox"
                                      Watermark="{DynamicResource csh.login.passwordWatermark}"
                                      GotFocus="FluentField_GotFocus"
@@ -520,7 +521,7 @@
 
                     <TextBlock Text="{DynamicResource csh.login.password}" Classes="LoginFieldLabel"/>
                     <Border Classes="LoginFluentField">
-                      <TextBox Text="{Binding LocalPassword}" PasswordChar="•" Classes="LoginFluentPasswordBox" Margin="16,0"/>
+                      <sec:SecretTextBox Text="{Binding LocalPassword}" PasswordChar="•" Classes="LoginFluentPasswordBox" Margin="16,0"/>
                     </Border>
 
                     <TextBlock Text="{Binding ErrorMessage}" FontSize="13" FontWeight="SemiBold"
@@ -548,7 +549,7 @@
 
                     <TextBlock Text="{DynamicResource csh.login.password}" Classes="LoginFieldLabel"/>
                     <Border Classes="LoginFluentField">
-                      <TextBox Text="{Binding LocalPassword}" PasswordChar="•" Classes="LoginFluentPasswordBox" Margin="16,0"/>
+                      <sec:SecretTextBox Text="{Binding LocalPassword}" PasswordChar="•" Classes="LoginFluentPasswordBox" Margin="16,0"/>
                     </Border>
 
                     <TextBlock Text="{Binding ErrorMessage}" FontSize="13" FontWeight="SemiBold"

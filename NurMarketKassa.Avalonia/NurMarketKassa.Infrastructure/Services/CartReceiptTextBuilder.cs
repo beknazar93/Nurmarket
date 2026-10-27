@@ -128,7 +128,8 @@ public static class CartReceiptTextBuilder
                     var lineTotal = LineTotalDouble(it);
                     var isWeight = CartDisplayHelper.LineMustWeigh(it);
 
-                    var qtyStr = isWeight ? FormatQty(qty) : qty.ToString("0");
+                    // 2026-10-26 (ХМ2): дробная строка «Хозтоваров» (2.5 м) печатается как есть, а не «3»; иначе прежнее qty.ToString("0").
+                    var qtyStr = isWeight || QuantityRules.IsFractionalLine(it) ? FormatQty(qty) : qty.ToString("0");
                     var unitStr = FormatMoney(unitPrice);
                     var totalStr = FormatMoney(lineTotal);
 

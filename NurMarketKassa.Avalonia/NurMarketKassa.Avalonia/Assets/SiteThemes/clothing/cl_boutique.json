@@ -1,0 +1,133 @@
+{
+ "code": "cl_boutique",
+ "name": {
+  "ru": "Бутик Крем",
+  "ky": "Бутик Крем",
+  "en": "Boutique Cream",
+  "tr": "Butik Krem",
+  "uz": "Butik Krem"
+ },
+ "description": {
+  "ru": "Кремовый фон и бронза, логотип по центру, крупные карточки. Для женской одежды и бутиков.",
+  "ky": "Каймак түстүү фон жана коло, логотип ортодо, чоң карточкалар. Аялдар кийими жана бутиктер үчүн.",
+  "en": "Cream background and bronze, centred logo, large cards. For womenswear and boutiques.",
+  "tr": "Krem zemin ve bronz, ortada logo, büyük kartlar. Kadın giyim ve butikler için.",
+  "uz": "Krem fon va bronza, logotip markazda, katta kartochkalar. Ayollar kiyimi va butiklar uchun."
+ },
+ "spheres": [
+  "clothing"
+ ],
+ "version": 1,
+ "voice_words": {
+  "ru": [
+   "бутик крем",
+   "кремов"
+  ],
+  "ky": [
+   "каймак"
+  ],
+  "en": [
+   "cream"
+  ],
+  "tr": [
+   "krem"
+  ],
+  "uz": [
+   "krem"
+  ]
+ },
+ "images": {
+  "hero.image": {
+   "file": "cl_boutique_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "cl_boutique_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#F7F2EA",
+    "surface": "#FFFDF9",
+    "text": "#2B2118",
+    "text_muted": "#6B5D50",
+    "accent": "#6B4F2A",
+    "accent_text": "#FFFFFF",
+    "border": "#E6DCCD",
+    "header_bg": "#FFFDF9",
+    "header_text": "#2B2118",
+    "footer_bg": "#2B2118",
+    "footer_text": "#F3EBDD",
+    "price": "#2B2118",
+    "old_price": "#75675A",
+    "badge_new_bg": "#6B4F2A",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#9F1239",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Montserrat",
+    "base_size": 15,
+    "heading_weight": 600
+   },
+   "radius": 4,
+   "shadow": "soft",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_center",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "cover",
+   "overlay": 0.25,
+   "align": "center"
+  },
+  "categories": {
+   "style": "list",
+   "show_all": true,
+   "show_count": false
+  },
+  "products": {
+   "columns": {
+    "desktop": 3,
+    "tablet": 2,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "large",
+   "photo_ratio": "3:4",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": true,
+    "category": false,
+    "stock": "low_only",
+    "unit": false,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "new_badge_days": 21,
+   "shadow": false,
+   "border": false
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

@@ -1,5 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
@@ -24,6 +26,21 @@ public partial class ReceiptPreviewDialog : Window
     public ReceiptPreviewDialog(object? title, object? content)
         : this(title?.ToString() ?? Tr.T("Предпросмотр чека", "Чекти алдын ала көрүү", "Receipt preview", "Fiş önizleme", "Chekni oldindan ko'rish"), content?.ToString() ?? "")
     {
+    }
+
+    /// <summary>2026-10-27, владелец: «вид чека как в мобилке» — предпросмотр копии чека после оплаты показывает бумагу чека (общий контрол)
+    /// и панель «QR / PDF / Отправить»; печатная лента (текст ESC/POS) этим не заменяется — это её просмотр в настройках кассы.</summary>
+    internal ReceiptPreviewDialog(SaleReceiptCardData card) : this("")
+    {
+        var bar = new ReceiptActionBar { GetData = () => card, OwnerWindow = this, IsReady = true };
+        Shell.Content = new StackPanel
+        {
+            Children =
+            {
+                new Border { Padding = new Avalonia.Thickness(0, 4, 0, 14), Child = SaleReceiptCardView.Build(card) },
+                bar,
+            },
+        };
     }
 
     private void PrintButton_Click(object? sender, RoutedEventArgs e)

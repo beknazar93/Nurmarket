@@ -118,6 +118,17 @@ public sealed class VoiceControlService : IVoiceControlService
         }
     }
 
+    private const int MaxUtteranceBytes = 16000 * 2 * 30;
+
+    /// <summary>Очищает буфер фразы; разросшуюся ёмкость (MemoryStream сам её не отдаёт) заменяет новым потоком. Вызывать под _lock.</summary>
+    private void ResetUtteranceBuffer()
+    {
+        if (_utteranceAudio.Capacity > 256 * 1024)
+            _utteranceAudio = new MemoryStream();
+        else
+            _utteranceAudio.SetLength(0);
+    }
+
     private void OnAudioData(object? sender, WaveInEventArgs e)
     {
         byte[] utteranceAudio;
@@ -139,11 +150,20 @@ public sealed class VoiceControlService : IVoiceControlService
             _utteranceAudio.Write(e.Buffer, 0, e.BytesRecorded);
 
             if (!_recognizer.AcceptWaveform(e.Buffer, e.BytesRecorded))
+            {
+                // 2026-10-27 (приёмка Opus 26.10, память: +380 МБ за 2 ч простоя): без конца фразы буфер звука рос без предела
+                // (16 кГц × 16 бит ≈ 115 МБ в час). Фраза-команда короче 30 с — длиннее копить незачем.
+                if (_utteranceAudio.Length > MaxUtteranceBytes)
+                    ResetUtteranceBuffer();
                 return;
+            }
 
             resultJson = _recognizer.Result();
-            utteranceAudio = _utteranceAudio.ToArray();
-            _utteranceAudio.SetLength(0);
+            // 2026-10-27: копия звука (в куче больших объектов) нужна только для фразы с текстом (голосовой замок); пустой «конец фразы» — не копируем.
+            utteranceAudio = string.IsNullOrWhiteSpace(VoiceCommandParser.ExtractRecognizedText(resultJson))
+                ? Array.Empty<byte>()
+                : _utteranceAudio.ToArray();
+            ResetUtteranceBuffer();
         }
 
         var text = VoiceCommandParser.ExtractRecognizedText(resultJson);

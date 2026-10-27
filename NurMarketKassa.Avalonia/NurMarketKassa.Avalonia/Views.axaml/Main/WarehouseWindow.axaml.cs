@@ -952,8 +952,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         _stockAbcCts?.Cancel();
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
         // 2026-10-24, пакет Р2: подсчёт ревизии сохраняется черновиком, замок «открыта в другой программе» снимается.
-        RevisionOnWindowClosed();
-        ReceivingBackgroundOnClosed();
+        // 2026-10-27 (утечки): сбой в ревизии не должен оставлять окно в статическом списке «Приходов в фоне» и подписанным на очередь.
+        try { RevisionOnWindowClosed(); }
+        finally { ReceivingBackgroundOnClosed(); }
         // 2026-10-23: список «Массового добавления» не теряется — последний вид сохраняется черновиком.
         _bulk.SaveDraftNow();
     }
@@ -1231,39 +1232,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
 
     /// <summary>Редактор этикеток — стал платной доп. услугой (2026-09-07, раньше был бесплатным).
     /// Тот же паттерн, что и EnsurePriceTagEditorUnlocked ниже.</summary>
-    private bool EnsureLabelEditorUnlocked()
-    {
-        if (UserPreferences.Instance.LabelEditorUnlocked)
-            return true;
-
-        var serial = SerialActivationDialog.Show(this, Tr.T("Редактор этикетки", "Этикетка редактору", "Label editor", "Etiket düzenleyici", "Yorliq muharriri"));
-        if (serial == null)
-            return false;
-
-        var isPermanent = LicenseKeys.IsPermanentSerial("labeleditor", serial);
-        if (!isPermanent && !LicenseKeys.IsMasterSerial(serial))
-        {
-            PosAlertDialog.Show(this,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
-                Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
-                PosAlertKind.Error);
-            return false;
-        }
-
-        UserPreferences.Instance.LabelEditorUnlocked = true;
-        if (isPermanent)
-            UserPreferences.Instance.SaveToDisk();
-        else
-            LicenseKeys.ActivateMasterAccessFor("labeleditor");
-
-        PosAlertDialog.Show(this,
-            Tr.T("Редактор этикетки активирован", "Этикетка редактору иштетилди", "Label editor activated", "Etiket düzenleyici etkinleştirildi", "Yorliq muharriri faollashtirildi"),
-            Tr.T(
-                "Теперь доступен редактор этикеток.",
-                "Эми этикетка редактору жеткиликтүү.", "The label editor is now available.", "Etiket düzenleyici artık kullanılabilir.", "Endi yorliq muharriri mavjud."),
-            PosAlertKind.Success);
-        return true;
-    }
+    // 2026-10-27 (аудит редакторов, Б-2): проверка покупки — одна на все окна (PaidFeatureGate), здесь только вход из Склада.
+    private bool EnsureLabelEditorUnlocked() => PaidFeatureGate.EnsureUnlocked(PaidFeature.LabelEditor, this);
 
     /// <summary>Редактор ценников — тоже платная доп. услуга (2026-09-04). Если ещё не
     /// разблокирован, сразу предлагает ввести код (без промежуточного "это платно" алерта —
@@ -1307,37 +1277,12 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     /// хотя серийник и диалог активации те же самые (единый мастер-ключ для всех доп. услуг).</summary>
     private bool EnsureBulkPriceTagUnlocked()
     {
-        if (UserPreferences.Instance.BulkPriceTagUnlocked)
-            return true;
-
-        var serial = SerialActivationDialog.Show(this, Tr.T("Массовая печать ценников", "Ценниктерди массалык басып чыгаруу", "Bulk price tag printing", "Toplu fiyat etiketi yazdırma", "Narx yorliqlarini ommaviy chop etish"));
-        if (serial == null)
-            return false;
-
-        var isPermanent = LicenseKeys.IsPermanentSerial("bulktag", serial);
-        if (!isPermanent && !LicenseKeys.IsMasterSerial(serial))
-        {
-            PosAlertDialog.Show(this,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
-                Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
-                PosAlertKind.Error);
-            return false;
-        }
-
-        UserPreferences.Instance.BulkPriceTagUnlocked = true;
-        if (isPermanent)
-            UserPreferences.Instance.SaveToDisk();
-        else
-            LicenseKeys.ActivateMasterAccessFor("bulktag");
-        RefreshPaidFeatureVisibility();
-
-        PosAlertDialog.Show(this,
-            Tr.T("Массовая печать ценников активирована", "Ценниктерди массалык басып чыгаруу иштетилди", "Bulk price tag printing activated", "Toplu fiyat etiketi yazdırma etkinleştirildi", "Narx yorliqlarini ommaviy chop etish faollashtirildi"),
-            Tr.T(
-                "Теперь доступна кнопка «🏷 Массовая печать ценников» в Склад → Товары — выберите нужные товары и распечатайте ценники сразу для всех.",
-                "Эми Склад → Товарлар бетинде «🏷 Ценниктерди массалык басып чыгаруу» баскычы жеткиликтүү — керектүү товарларды тандап, баарынын ценниктерин бир жолу басып чыгарыңыз.", "The “🏷 Bulk print price tags” button is now available in Warehouse → Products — select the products you need and print price tags for all of them at once.", "Depo → Ürünler bölümünde artık «🏷 Toplu fiyat etiketi yazdır» düğmesi var — gerekli ürünleri seçin ve hepsinin fiyat etiketlerini tek seferde yazdırın.", "Endi Ombor → Mahsulotlar bo'limida «🏷 Narx yorliqlarini ommaviy chop etish» tugmasi mavjud — kerakli mahsulotlarni tanlang va barchasi uchun narx yorliqlarini birdaniga chop eting."),
-            PosAlertKind.Success);
-        return true;
+        // 2026-10-27 (аудит редакторов, Б-2): проверка покупки — общая (PaidFeatureGate); здесь только обновление видимости кнопок после покупки.
+        var wasUnlocked = UserPreferences.Instance.BulkPriceTagUnlocked;
+        var ok = PaidFeatureGate.EnsureUnlocked(PaidFeature.BulkPriceTag, this);
+        if (ok && !wasUnlocked)
+            RefreshPaidFeatureVisibility();
+        return ok;
     }
 
     private async void AddProduct_Click(object? sender, RoutedEventArgs e)

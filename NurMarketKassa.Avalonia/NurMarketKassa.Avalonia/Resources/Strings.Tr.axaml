@@ -328,7 +328,7 @@
 
   <!-- NurCRM destek -->
   <!-- 2026-10-16: удалённая помощь — только своя «Nur Destek» -->
-  <x:String x:Key="remoteSupport.intro">Uzaktan yardım — «Nur Destek»: NurMarket operatörü kasanın ekranını görür ve sorunu çözmenize yardımcı olur. Destek hattını arayın veya WhatsApp'tan yazın: +996 559 340 032, ardından «Destek için kod al» düğmesine basın ve kodu ve PIN'i operatöre söyleyin.</x:String>
+  <x:String x:Key="remoteSupport.intro">Uzaktan yardım — «Nur Destek»: NurMarket operatörü kasanın ekranını görür ve sorunu çözmenize yardımcı olur. Destek hattını arayın veya WhatsApp'tan yazın: +996 221 068 796, ardından «Destek için kod al» düğmesine basın ve kodu ve PIN'i operatöre söyleyin.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Cihaz bilgilerini kopyala</x:String>
 
@@ -367,7 +367,7 @@
   <x:String x:Key="kb.q.logsQ">Arıza sırasında ne olduğunu nereden görebilirim?</x:String>
   <x:String x:Key="kb.q.logsA">Yan menü → "Günlükler ve hatalar" — son zamandaki uyarıları, hataları ve sunucu bağlantı kesintilerini gösterir. "Günlük klasörünü aç" düğmesi ayrıntılı teknik dosyaların bulunduğu klasörü açar — bunları desteğe gönderebilirsiniz.</x:String>
   <x:String x:Key="kb.q.remoteSupportQ">NurCRM desteğinden uzaktan yardım nasıl alınır?</x:String>
-  <x:String x:Key="kb.q.remoteSupportA">Yan menü → "NurCRM destek" → "Nur Destek" bölümü → "Destek için kod al". Kodu ve PIN'i telefonda veya WhatsApp'ta destek görevlisine bildirin (+996 559 340 032); erişim istediğinde "İzin ver" veya "Yalnızca izle" düğmesine basın. İzniniz olmadan kimse bağlanamaz.</x:String>
+  <x:String x:Key="kb.q.remoteSupportA">Yan menü → "NurCRM destek" → "Nur Destek" bölümü → "Destek için kod al". Kodu ve PIN'i telefonda veya WhatsApp'ta destek görevlisine bildirin (+996 221 068 796); erişim istediğinde "İzin ver" veya "Yalnızca izle" düğmesine basın. İzniniz olmadan kimse bağlanamaz.</x:String>
   <x:String x:Key="kb.q.printerQ">Kasa, USB ile bağlı fiş yazıcısını görmüyor — ne yapmalıyım?</x:String>
   <x:String x:Key="kb.q.printerA">Ayarlar → Yazdırma bölümünde tekrar "Bul"a basın (liste kendiliğinden yenilenmez). Yazıcı Zadig ile kurulduysa ve hâlâ görünmüyorsa — yeniden bağlayıp tekrar deneyin veya "NurCRM destek" üzerinden desteğe başvurun.</x:String>
   <x:String x:Key="common.comment">Açıklama</x:String>
@@ -1123,7 +1123,7 @@
   <x:String x:Key="warehouse.printLabelButton">Yazdır</x:String>
   <x:String x:Key="warehouse.colPriceTag">Fiyat etiketi</x:String>
   <x:String x:Key="warehouse.priceTagButton">Fiyat etiketi</x:String>
-  <x:String x:Key="warehouse.bulkPriceTagButton">Toplu fiyat etiketi yazdır</x:String>
+  <x:String x:Key="warehouse.bulkPriceTagButton">Barkod ve fiyat etiketi yazdır</x:String>
   <x:String x:Key="warehouse.analyticsLockedTitle">Depo analitiği — ücretli ek hizmet</x:String>
   <x:String x:Key="warehouse.analyticsLockedDesc">Grafikler ve kategori dağılımı, seri numarasıyla etkinleştirildikten sonra kullanılabilir — Pazaryerindeki temalar ve sesli kontrol gibi.</x:String>
   <x:String x:Key="warehouse.analyticsUnlockButton">Etkinleştir</x:String>

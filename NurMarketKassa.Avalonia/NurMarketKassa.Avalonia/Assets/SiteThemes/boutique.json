@@ -14,6 +14,7 @@
   "tr": "Siyah-beyaz, sade, büyük fotoğraflar. Giyim, ayakkabı, aksesuar için.",
   "uz": "Oq-qora, qat'iy, katta rasmlar. Kiyim, poyabzal, aksessuarlar uchun."
  },
+ "spheres": ["clothing"],
  "images": {
   "hero.image": {
    "file": "boutique_hero.jpg",
@@ -41,7 +42,7 @@
     "footer_bg": "#F5F5F4",
     "footer_text": "#111111",
     "price": "#111111",
-    "old_price": "#9A9A9A",
+    "old_price": "#757575",
     "badge_new_bg": "#111111",
     "badge_new_text": "#FFFFFF",
     "badge_sale_bg": "#B91C1C",

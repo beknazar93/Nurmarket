@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Хозмаг — калькулятор расхода «Сколько нужно?» (Д-ХМ2, ХМ5)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Hardware-shared.css">
+<style>
+  .calc{ display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:16px; }
+  .s1024 .calc{ gap:12px; }
+  .types .seg-btn{ flex-direction:column; gap:4px; min-height:60px; }
+  .s1024 .types .seg-btn{ min-height:56px; }
+  .types .seg-btn .ic{ color:inherit; }
+  .in2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .in3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .res{ display:flex; flex-direction:column; border-radius:var(--r-card); border:1px solid var(--border); overflow:hidden; }
+  .res div{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:10px 14px; border-top:1px solid var(--border); font-size:13.5px; }
+  .res div:first-child{ border-top:0; }
+  .res div span{ color:var(--text-soft); }
+  .res div b{ font-size:16px; }
+  .res div.main{ background:var(--accent-soft); }
+  .res div.main b{ font-size:22px; }
+  .acc{ display:flex; gap:10px; }
+  .acc .card{ flex:1; padding:10px 12px; gap:6px; }
+  .acc .card b{ font-size:13.5px; } .acc .card .sub{ font-size:12px; }
+  .acc .card .chk{ min-height:36px; font-size:13px; }
+  .norms td .inp{ width:110px; }
+  .s1024 .lbl .inp{ height:48px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <code>HardwareCalcWindow</code>, кнопка «Сколько нужно?» в карточке товара в продаже и в «Подробнее». Виды: плитка, ламинат, краска, обои, смесь (В-Х6 — все пять). Ввод площади или Д × Ш, «минус проём», запас 0 / 5 / 10 / 15 % (15 — для диагональной укладки).
+    Итог тремя строками: нужно → с запасом → упаковок (и сумма). «В чек» добавляет упаковки, если товар продаётся упаковками, иначе м². Сопутствующие — правило «Плитка → Клей, Затирка, Крестики» (ХМ10): считаются по норме на м², добавляются галочками.
+    Контрольные цифры — таблица 7.2 ТЗ (плитка 3×4 → 10 уп; краска 32 м² → 4 банки; обои → 9 рулонов). <code>Нормы</code> — программа владельца: таблица норм по категориям, «Сбросить к типовым». На 1024×600 — без мелких полей: большие кнопки запаса и быстрые площади.
+  </div>
+</div>
+<script src="Hardware-shared.js"></script>
+<script>
+(function(){
+  const I = HW.icon, t = HW.t, btn = HW.btn, inp = HW.inp, chk = HW.chk;
+  const frame = document.getElementById('frame');
+  const TYPES = [['tile','view-grid-outline','Плитка','hw.calc.tile'],['lam','shape-outline','Ламинат','hw.calc.laminate'],['paint','format-color-fill','Краска','hw.calc.paint'],['wall','image-outline','Обои','hw.calc.wallpaper'],['mix','package-variant-closed','Смесь','hw.calc.mix']];
+  const types = cur => '<div class="seg types" role="radiogroup">'+TYPES.map(x=>'<button class="seg-btn'+(x[0]===cur?' on':'')+'" data-key="'+x[3]+'">'+I(x[1],20)+'<span class="kyok">'+t(x[2])+'</span></button>').join('')+'</div>';
+  const reserve = v => '<label class="lbl">'+t('Запас','hw.calc.reserve')+'<div class="quick">'+['0','5','10','15'].map(x=>'<button class="num'+(x===v?' on':'')+'">'+x+' %</button>').join('')+'<span class="hint" style="align-self:center">'+t('15 % — укладка по диагонали','hw.calc.diagHint')+'</span></div></label>';
+
+  function left(st){
+    if (st==='paint') return '<div class="in2">'+inp('Площадь стен','32',{key:'hw.calc.area',unit:'м²',cls:'focus'})+inp('Слоёв','2',{key:'hw.calc.layers'})+'</div>'+
+      '<div class="in2">'+inp('Расход краски','0,12',{key:'hw.calc.consumption',unit:'л/м²',hint:'из нормы категории «Краски» — правится'})+inp('Банка','2,5',{key:'hw.calc.pack',unit:'л',cls:'ro',hint:'из упаковки товара'})+'</div>'+reserve('10');
+    if (st==='wall') return '<div class="in3">'+inp('Периметр','14',{key:'hw.calc.perimeter',unit:'м'})+inp('Высота стен','2,7',{key:'hw.calc.height',unit:'м'})+inp('Раппорт','0',{key:'hw.calc.rapport',unit:'см'})+'</div>'+
+      '<div class="in2">'+inp('Рулон','10,05 × 0,53',{key:'hw.calc.roll',unit:'м',cls:'ro',hint:'из карточки товара'})+inp('Минус проёмы','0',{key:'hw.calc.openings',unit:'м²'})+'</div>'+reserve('0');
+    if (st==='mix') return '<div class="in2">'+inp('Площадь','12',{key:'hw.calc.area',unit:'м²'})+inp('Расход','5',{key:'hw.calc.consumption',unit:'кг/м²',hint:'клей плиточный, слой 6 мм'})+'</div>'+
+      '<div class="in2">'+inp('Мешок','25',{key:'hw.calc.pack',unit:'кг',cls:'ro'})+'</div>'+reserve('10');
+    // плитка / ламинат
+    const touch = HW.isTouch(frame);
+    return '<div class="seg soft" style="width:auto;align-self:flex-start"><button class="seg-btn on" data-key="hw.calc.byArea">'+t('Площадь')+'</button><button class="seg-btn" data-key="hw.calc.byLw">'+t('Д × Ш')+'</button></div>'+
+      (touch
+        ? '<div class="stepline"><button class="sq">'+I('minus',22)+'</button><div class="bigval"><b class="num">12,0</b><span class="u">м²</span></div><button class="sq plus">'+I('plus',22)+'</button></div><div class="quick">'+['5','10','15','20','30','50'].map(x=>'<button class="num">'+x+'</button>').join('')+'</div>'
+        : '<div class="in3">'+inp('Площадь','12,00',{key:'hw.calc.area',unit:'м²',cls:'focus',hint:'или 3,0 × 4,0 м'})+inp('Минус проём','0',{key:'hw.calc.openings',unit:'м²'})+inp('В упаковке','1,44',{key:'hw.calc.pack',unit:'м²',cls:'ro',hint:'из карточки товара'})+'</div>')+
+      reserve(st==='lam'?'5':'10');
+  }
+  function right(st){
+    const R = {
+      tile:  { l:['Нужно','12,00 м²'], m:['С запасом 10 %','13,20 м²'], p:['Упаковок','10 уп · 14,40 м²'], sum:'7 490 сом', cta:'В чек 10 уп', acc:[['Клей плиточный 25 кг','12 м² × 5 кг/м² = 60 → 66 кг','3 мешка · 1 260 сом',true],['Затирка 2 кг','12 м² × 0,4 = 4,8 → 5,3 кг','3 уп · 780 сом',true],['Крестики 2 мм 100 шт','≈ 8 шт/м²','1 уп · 60 сом',false]] },
+      lam:   { l:['Нужно','18,50 м²'], m:['С запасом 7 %','19,80 м²'], p:['Упаковок','10 уп · 21,30 м²'], sum:'8 900 сом', cta:'В чек 10 уп', acc:[['Подложка 3 мм','19,8 м² → рулон 10 м²','2 рулона · 1 180 сом',true],['Плинтус 2,5 м','периметр 18 м','8 шт · 1 440 сом',false]] },
+      paint: { l:['Нужно','32 × 2 × 0,12 = 7,68 л'], m:['С запасом 10 %','8,45 л'], p:['Банок 2,5 л','4 банки · 10 л'], sum:'4 760 сом', cta:'В чек 4 банки', acc:[['Грунт глубокого проникновения 5 л','32 м² × 0,1 л/м²','1 канистра · 890 сом',true],['Валик 25 см + ванночка','','1 набор · 320 сом',false]] },
+      wall:  { l:['Полос из рулона','floor(10,05 / 2,7) = 3'], m:['Полос нужно','ceil(14 / 0,53) = 27'], p:['Рулонов','9 рулонов'], sum:'13 050 сом', cta:'В чек 9 рулонов', acc:[['Клей обойный 250 г','на 7–8 рулонов','2 уп · 360 сом',true]] },
+      mix:   { l:['Нужно','12 × 5 = 60 кг'], m:['С запасом 10 %','66 кг'], p:['Мешков 25 кг','3 мешка · 75 кг'], sum:'1 260 сом', cta:'В чек 3 мешка', acc:[] },
+    }[st] || {};
+    const r = R;
+    return '<div class="res"><div><span>'+t(r.l[0])+'</span><b class="num">'+r.l[1]+'</b></div><div><span>'+t(r.m[0])+'</span><b class="num">'+r.m[1]+'</b></div><div class="main"><span>'+t(r.p[0])+'</span><b class="num">'+r.p[1]+'</b></div><div><span>'+t('Сумма','hw.calc.sum')+'</span><b class="num">'+r.sum+'</b></div></div>'+
+      (r.acc.length ? '<div class="col" style="gap:6px"><span class="h2" style="font-size:13.5px">'+t('Сопутствующие','hw.calc.related')+' <span class="muted" style="font-weight:500">— '+t('К плитке — клей и затирка','hw.calc.relatedHint')+'</span></span><div class="acc">'+r.acc.map(a=>'<div class="card"><b>'+a[0]+'</b><span class="sub">'+a[1]+'</span><span class="num" style="font-weight:700">'+a[2]+'</span>'+chk('Добавить', a[3], {key:'hw.calc.addRelated'})+'</div>').join('')+'</div></div>' : '');
+  }
+  function calc(st){
+    const touch = HW.isTouch(frame);
+    const cta = {tile:'В чек 10 уп',lam:'В чек 10 уп',paint:'В чек 4 банки',wall:'В чек 9 рулонов',mix:'В чек 3 мешка'}[st];
+    const name = {tile:'Плитка 30×60 «Атлас» серый',lam:'Ламинат 33 кл. «Дуб натур»',paint:'Краска фасадная «Alpina» 2,5 л',wall:'Обои виниловые 10,05×0,53',mix:'Клей плиточный «Ceresit CM 11» 25 кг'}[st];
+    frame.innerHTML = HW.kassaBg({}) + HW.modal({ title:'Сколько нужно?', key:'hw.calc.title', icon:'calculator', cls:'xl', sub:name+' · 520 сом/м² · 749 сом/уп (1,44 м²)',
+      body:'<div class="calc"><div class="col" style="gap:12px">'+types(st)+left(st)+'</div><div class="col" style="gap:12px">'+right(st)+'</div></div>',
+      foot:'<span class="hint">'+I('information-outline',15)+t('Упаковки округляются вверх. Формулы одинаковые в кассе, мобилке и витрине','hw.calc.footHint')+'</span><span class="sp"></span>'+btn('Отмена','secondary','common.cancel')+btn(cta+' + сопутствующие (2)','primary','hw.calc.toReceiptAll')+(touch?'':btn('Только '+cta.replace('В чек ','') ,'dark','hw.calc.toReceiptOnly')) });
+  }
+  function norms(){
+    const rows = [['Плитка и напольные покрытия','запас 10 % · диагональ 15 %','—','уп (м²)'],['Ламинат','запас 5–7 %','—','уп (м²)'],['Краски и лаки','0,12 л/м² за слой · слоёв 2','л/м²','банка (л)'],['Обои и клей','рулон 10,05 × 0,53 · раппорт из названия','—','рулон'],['Сухие смеси: клей плиточный','5 кг/м² (слой 6 мм)','кг/м²','мешок (кг)'],['Сухие смеси: затирка','0,4 кг/м² (шов 2 мм)','кг/м²','уп (кг)'],['Сухие смеси: штукатурка','8,5 кг/м² на 10 мм','кг/м²','мешок (кг)'],['Грунт','0,1 л/м²','л/м²','канистра (л)']];
+    frame.innerHTML = '<div class="kassa"><div class="top">'+I('cog-outline',20)+'<b>Настройки — Калькулятор расхода</b><span class="tag">Программа владельца · ключ hardwareCalc</span><span class="sp"></span>'+btn('Сбросить к типовым','secondary sm','hw.norms.reset')+btn('Сохранить','primary sm','common.save')+'</div>'+
+      '<div style="padding:var(--pad);display:flex;flex-direction:column;gap:10px;flex:1;min-height:0">'+
+      HW.plate('info','information-outline','<b>'+t('Нормы расхода по категориям','hw.norms.title')+'</b> — '+t('кассир в окне «Сколько нужно?» видит их как значения по умолчанию и может поправить на один расчёт. Менять нормы может только владелец','hw.norms.hint'))+
+      '<div class="tbl norms"><table><thead><tr><th>Категория</th><th>Норма</th><th>Ед. нормы</th><th>Считаем в</th><th>Запас по умолчанию</th><th>Сопутствующие (ХМ10)</th></tr></thead><tbody>'+
+      rows.map((r,i)=>'<tr><td><b>'+r[0]+'</b></td><td><div class="inp"><span class="v num">'+r[1]+'</span></div></td><td class="soft">'+r[2]+'</td><td class="soft">'+r[3]+'</td><td><div class="inp" style="width:90px"><span class="v num">'+(i===1?'7':'10')+'</span><span class="u">%</span></div></td><td class="soft" style="font-size:12.5px">'+(i===0?'Клей плиточный, Затирка, Крестики':i===1?'Подложка, Плинтус':i===2?'Грунт, Валик':i===3?'Клей обойный':'—')+'</td></tr>').join('')+'</tbody></table></div></div></div>';
+  }
+  HW.toolbar(frame, { title:'Hardware-Calc — сколько нужно', onState:s => s==='norms' ? norms() : calc(s), states:[
+    { id:'tile', label:'Плитка 3×4' }, { id:'lam', label:'Ламинат' }, { id:'paint', label:'Краска 32 м²' }, { id:'wall', label:'Обои' }, { id:'mix', label:'Смесь (клей)' }, { id:'norms', label:'Владелец: нормы' } ] });
+})();
+</script>
+</body></html>

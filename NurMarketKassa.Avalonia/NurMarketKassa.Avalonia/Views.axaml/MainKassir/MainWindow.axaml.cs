@@ -284,6 +284,7 @@ public partial class MainWindow : Window
 
         progress?.Report(Tr.T("Обновление смены...", "Смена жаңыртылууда...", "Updating the shift…", "Vardiya güncelleniyor...", "Smena yangilanmoqda..."));
         await RefreshShiftStateAsync(cancellationToken).ConfigureAwait(true);
+        StartPhoneSalePrint(); // 2026-10-27, К-П1: печать чеков телефона на этой кассе (по умолчанию выключено)
 
         progress?.Report(Tr.T("Подготовка рабочего места...", "Жумуш орду даярдалууда...", "Preparing the workstation…", "Çalışma alanı hazırlanıyor...", "Ish joyi tayyorlanmoqda..."));
         await _viewModel.InitializeAsync(cancellationToken).ConfigureAwait(true);
@@ -2199,22 +2200,22 @@ public partial class MainWindow : Window
         // 2026-10-06, владелец: «новым клиентам при первом запуске спрашивать сферу маркета» — только на новой установке.
         _ = MarketSphereChoiceWindow.MaybeAskAsync(this);
 
+        // 2026-10-27 (приёмка 26.10, Д-5): экран покупателя открываем ДО модального окна «Касса обновлена» (оно держит этот метод,
+        // пока его не закроют, и экран покупателя после обновления не появлялся); причина и итог — в журнал (CUSTOMER_DISPLAY).
+        // Если окно кассы свёрнуто или не показано, повторяем при первой активации (Activated) — см. сторожа в сервисе.
+        if (UserPreferences.Instance.CustomerDisplay.IsEnabled)
+        {
+            var result = _customerDisplay.OpenForSession(this, "запуск кассы");
+            if (result.IsSuccess)
+                Dispatcher.UIThread.Post(Activate, DispatcherPriority.Background);
+            else
+                _ = OfferExtendClonedDisplayAsync();
+        }
+
         if (!_whatsNewShown)
         {
             _whatsNewShown = true;
             ShowWhatsNewIfUpdated();
-        }
-
-        if (UserPreferences.Instance.CustomerDisplay.IsEnabled)
-        {
-            var result = _customerDisplay.OpenForSession(this);
-            if (result.IsSuccess)
-                Dispatcher.UIThread.Post(Activate, DispatcherPriority.Background);
-            else
-            {
-                PosLogger.Log(result.Message, "CUSTOMER_DISPLAY");
-                _ = OfferExtendClonedDisplayAsync();
-            }
         }
 
         if (!_subscriptionMonitorStarted)
@@ -2514,6 +2515,7 @@ public partial class MainWindow : Window
         SaleDoneBar.Dismiss();
         ServerOutageMonitor.Recovered -= OnServerRecovered;
         _shiftWatchTimer?.Stop(); // 2026-10-22 (П1)
+        _balanceRefreshTimer?.Stop(); // 2026-10-27: разовый таймер обновления остатка не должен пережить окно
         ServerOutageMonitor.QueueFlushed -= OnQueueFlushed;
         MarketSpheres.Changed -= OnMarketSphereChanged;
         Screens.Changed -= OnCashierScreensChanged;
@@ -2538,8 +2540,7 @@ public partial class MainWindow : Window
             if (!UserPreferences.Instance.CustomerDisplay.IsEnabled)
                 return;
 
-            var result = _customerDisplay.OpenForSession(this);
-            PosLogger.Log(result.Message, "CUSTOMER_DISPLAY");
+            _customerDisplay.OpenForSession(this, "смена экранов Windows"); // 2026-10-27: итог пишет сервис
             Activate();
         }, DispatcherPriority.Background);
     }
@@ -3237,11 +3238,9 @@ public partial class MainWindow : Window
             $"Smena {openedText} da ochildi, boshlang'ich summa {openingText}.");
         if (UserPreferences.Instance.CustomerDisplay.IsEnabled)
         {
-            var displayResult = _customerDisplay.OpenForSession(this);
+            var displayResult = _customerDisplay.OpenForSession(this, "открытие смены");
             if (displayResult.IsSuccess)
                 Dispatcher.UIThread.Post(Activate, DispatcherPriority.Background);
-            else
-                PosLogger.Log(displayResult.Message, "CUSTOMER_DISPLAY");
         }
     }
 

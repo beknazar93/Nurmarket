@@ -91,7 +91,8 @@ public sealed class ReceivingRaiseDialog : Window
                 $"{(r.OldMarkup is { } o ? Money(o) : "—")} → {(r.NewMarkup is { } n ? Money(n) : "—")} %", soft: false));
         _empty.IsVisible = _preview.Count == 0;
         _apply.IsEnabled = _preview.Count > 0;
-        _apply.Content = T($"Применить к {_preview.Count} строкам", $"{_preview.Count} сапка колдонуу", $"Apply to {_preview.Count} lines",
+        // 2026-10-27 (приёмка 26.10, Д-8): «к 1 строке / к 2 строкам», «1 line / 2 lines».
+        _apply.Content = T($"Применить к {_preview.Count} {Tr.Plural(_preview.Count, "строке", "строкам", "строкам")}", $"{_preview.Count} сапка колдонуу", $"Apply to {_preview.Count} {Tr.PluralEn(_preview.Count, "line", "lines")}",
             $"{_preview.Count} satıra uygula", $"{_preview.Count} qatorga qo'llash");
     }
 

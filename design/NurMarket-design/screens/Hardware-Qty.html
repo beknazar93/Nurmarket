@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Хозмаг — окно «Количество / длина / площадь» (Д-ХМ3, ХМ6)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Hardware-shared.css">
+<style>
+  .qty{ display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:16px; }
+  .phone .qty{ grid-template-columns:1fr; gap:10px; }
+  .s1024 .qty{ gap:12px; }
+  .lw{ display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:end; }
+  .lw .x{ font-size:22px; font-weight:800; padding-bottom:12px; color:var(--text-soft); }
+  .lw .bigval{ min-height:56px; } .lw .bigval b{ font-size:28px; }
+  .s1024 .lw .bigval{ min-height:50px; } .s1024 .stepline .sq{ width:52px; height:52px; } .s1024 .bigval{ min-height:56px; }
+  .meta{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .meta div{ padding:8px 12px; border-radius:var(--r-btn); background:var(--input-alt); border:1px solid var(--border); }
+  .meta small{ display:block; font-size:11.5px; color:var(--text-soft); font-weight:600; }
+  .meta b{ font-size:16px; }
+  .phone .pad button{ min-height:60px; }
+  .phone .tot b{ font-size:20px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <code>QuantityPadDialog</code> — открывается по нажатию на количество в строке и при добавлении товара с дробной единицей. Цифры — только экранная панель окна (как в оплате), без своей клавиатуры.
+    Слева: режимы «Количество / Д × Ш / Упаковки» (Д×Ш и «Упаковки» — только если у товара м² или есть упаковка), большое поле с единицей, ±шаг, быстрые кнопки по единице (м: 0,5…100; м²: 1…20; л: 0,5…10),
+    «Вся бухта 87,5 м» / «Целая упаковка». Справа: цифры, остаток и цена, итог строки. Ошибки — подписью под полем, без всплывающих окон: <code>Минимум</code>, <code>Не кратно</code> (кнопка «Округлить до 2,6»), «Больше остатка».
+    Enter = Готово, Esc = Отмена; после закрытия фокус возвращается сканеру. На 1024×600 — кнопки ≥ 56 px, на телефоне — нижний лист (мобилка МХ4).
+  </div>
+</div>
+<script src="Hardware-shared.js"></script>
+<script>
+(function(){
+  const I = HW.icon, t = HW.t, btn = HW.btn;
+  const frame = document.getElementById('frame');
+  const S = {
+    m:      { name:'Кабель ВВГнг 3×2,5', unit:'м', val:'2,5', step:'0,1', min:'1 м', rest:'87,5 м', price:'85', sum:'212,50', quick:['0,5','1','2','3','5','10','25','50','100'], whole:'Вся бухта · 87,5 м', mode:'qty', on:'' },
+    min:    { name:'Кабель ВВГнг 3×2,5', unit:'м', val:'0,5', step:'0,1', min:'1 м', rest:'87,5 м', price:'85', sum:'42,50', quick:['0,5','1','2','3','5','10','25','50','100'], whole:'Вся бухта · 87,5 м', mode:'qty', on:'0,5', err:'min' },
+    step:   { name:'Кабель ВВГнг 3×2,5', unit:'м', val:'2,57', step:'0,1', min:'1 м', rest:'87,5 м', price:'85', sum:'218,45', quick:['0,5','1','2','3','5','10','25','50','100'], whole:'Вся бухта · 87,5 м', mode:'qty', err:'step' },
+    over:   { name:'Кабель ВВГнг 3×2,5', unit:'м', val:'120', step:'0,1', min:'1 м', rest:'87,5 м', price:'85', sum:'10 200,00', quick:['0,5','1','2','3','5','10','25','50','100'], whole:'Вся бухта · 87,5 м', mode:'qty', err:'over' },
+    m2:     { name:'Плитка 30×60 «Атлас» серый', unit:'м²', val:'7,56', step:'0,01', min:'0,5 м²', rest:'240 м² · 166 уп', price:'520', sum:'3 931,20', quick:['1','2','5','10','20'], whole:'Целая упаковка · 1,44 м²', mode:'lw', l:'2,4', w:'3,15' },
+    pack:   { name:'Плитка 30×60 «Атлас» серый', unit:'уп', val:'6', step:'1', min:'1 уп', rest:'166 уп (240 м²)', price:'749', sum:'4 494,00', quick:['1','2','5','10','20'], mode:'pack', sub:'= 8,64 м²' },
+    l:      { name:'Растворитель 646 на розлив', unit:'л', val:'1,5', step:'0,1', min:'0,5 л', rest:'18,2 л', price:'120', sum:'180,00', quick:['0,5','1','2','5','10'], mode:'qty', on:'' },
+  };
+  const modes = (s, has) => '<div class="seg" role="radiogroup">'+[['qty','Количество','hw.qty.modeQty'],['lw','Д × Ш','hw.qty.modeLw'],['pack','Упаковки','hw.qty.modePack']].filter(m=>m[0]==='qty' || has).map(m=>'<button class="seg-btn'+(s.mode===m[0]?' on':'')+'" data-key="'+m[2]+'"><span class="kyok">'+t(m[1])+'</span></button>').join('')+'</div>';
+  const pad = () => '<div class="pad">'+['7','8','9','4','5','6','1','2','3'].map(d=>'<button>'+d+'</button>').join('')+'<button class="fn">,</button><button>0</button><button class="fn" aria-label="Стереть">'+I('backspace-outline',22)+'</button></div>';
+
+  function render(st){
+    const s = S[st]; const has = st!=='l' && st!=='m' && st!=='min' && st!=='step' && st!=='over' ? true : (st==='m2'||st==='pack');
+    const hasPack = s.whole || s.mode==='pack';
+    const errLine = s.err==='min' ? '<span class="hint err">'+I('information-outline',16)+t('Меньше минимума — 1 м','hw.qty.errMin')+'</span>'
+                  : s.err==='step' ? '<div class="row"><span class="hint err">'+I('information-outline',16)+t('Не кратно 0,1 м','hw.qty.errStep')+'</span><span class="sp"></span>'+btn('Округлить до 2,6','secondary sm','hw.qty.roundTo')+'</div>'
+                  : s.err==='over' ? '<div class="row"><span class="hint err">'+I('information-outline',16)+t('Больше остатка','hw.qty.errOver')+' — 87,5 м</span><span class="sp"></span>'+btn('Взять 87,5 м','secondary sm','hw.qty.takeRest')+'</div>'
+                  : '<span class="hint">'+t('Шаг','hw.qty.step')+' '+s.step+' '+s.unit+' · '+t('Минимум','hw.qty.min')+' '+s.min+'</span>';
+    const left =
+      modes(s, st==='m2'||st==='pack'||st==='tile')+
+      (s.mode==='lw'
+        ? '<div class="lw"><label class="lbl">'+t('Длина','hw.qty.len')+'<div class="bigval"><b class="num">'+s.l+'</b><span class="u">м</span></div></label><span class="x">×</span><label class="lbl">'+t('Ширина','hw.qty.width')+'<div class="bigval" style="border-color:var(--border-strong)"><b class="num">'+s.w+'</b><span class="u">м</span><span class="cur"></span></div></label></div>'+
+          '<div class="tot"><span class="l">'+t('Площадь','hw.qty.area')+' = 2,4 × 3,15</span><b class="num">7,56 м²</b></div>'+
+          '<div class="row" style="gap:12px;flex-wrap:wrap">'+HW.chk('Округлить до упаковки — 6 уп (8,64 м²)', true, {key:'hw.qty.roundPack'})+'</div>'
+        : '<div class="stepline"><button class="sq" aria-label="Минус шаг">'+I('minus',22)+'</button><div class="bigval'+(s.err?' err':'')+'"><b class="num">'+s.val+'</b><span class="u">'+s.unit+'</span><span class="cur"></span></div><button class="sq plus" aria-label="Плюс шаг">'+I('plus',22)+'</button></div>'+
+          (s.sub ? '<div class="tot"><span class="l">'+t('Это','hw.qty.equals')+'</span><b class="num">'+s.sub+'</b></div>' : '')+errLine)+
+      '<div class="quick">'+s.quick.map(q=>'<button class="num'+(q===s.on?' on':'')+'">'+q+'</button>').join('')+(s.whole ? '<button class="wide" data-key="hw.qty.whole">'+I('package-variant-closed',16)+t(s.whole.split(' · ')[0])+' · '+s.whole.split(' · ')[1]+'</button>' : '')+
+        (s.mode==='lw' ? '<button class="wide" data-key="hw.qty.minusOpening">'+I('minus',16)+t('проём (дверь 1,6 м²)')+'</button>' : '')+'</div>';
+    const meta = '<div class="meta"><div><small>'+t('Остаток','hw.qty.rest')+'</small><b class="num">'+s.rest+'</b></div><div><small>'+t('Цена','hw.qty.price')+'</small><b class="num">'+s.price+' сом / '+s.unit+'</b></div></div>'+
+      '<div class="tot"><span class="l">'+t('Сумма строки','hw.qty.lineSum')+'</span><b class="num">'+s.sum+' сом</b></div>';
+    const right = HW.isPhone(frame) ? meta + pad() : pad() + meta;   /* телефон: итог над панелью, панель внизу у большого пальца */
+    const body = '<div class="qty"><div class="col" style="gap:12px">'+left+'</div><div class="col" style="gap:10px">'+right+'</div></div>';
+    const foot = btn('Отмена · Esc','secondary','common.cancel')+'<span class="sp"></span>'+(s.err ? btn('Готово · Enter','primary disabled','common.done',' disabled') : btn('Готово · Enter','primary','common.done'));
+    const phone = HW.isPhone(frame);
+    frame.innerHTML = (phone ? HW.phone({ title:'Продажа', sub:'Чек № 1047 · 3 строки', nav:'sale', body:'<div class="listrow"><div class="m"><b>Кабель ВВГнг 3×2,5</b><span>2,5 м × 85</span></div><b class="num">212,50</b></div><div class="listrow"><div class="m"><b>Плитка 30×60 «Атлас»</b><span>10 уп (14,40 м²) × 749</span></div><b class="num">7 490</b></div>' })
+                           : HW.kassaBg({ active:0 }))+
+      HW.modal({ title: s.name, icon: s.mode==='lw' ? 'ruler-square' : 'counter', key:'', cls:'lg', sheet:phone,
+        sub: t(s.mode==='lw' ? 'Площадь по длине и ширине — результат округляется вверх до шага' : 'Количество в '+(s.unit==='уп'?'упаковках':'единице товара'), s.mode==='lw'?'hw.qty.subLw':'hw.qty.subQty'),
+        body, foot: phone ? foot.replace(/ · Esc| · Enter/g,'') : foot });
+  }
+  HW.toolbar(frame, { title:'Hardware-Qty — длина, площадь, упаковки', sizes:['1296','1024','phone'], onState:render, states:[
+    { id:'m', label:'2,5 м кабеля' }, { id:'min', label:'Ошибка: минимум' }, { id:'step', label:'Ошибка: не кратно' }, { id:'over', label:'Больше остатка' },
+    { id:'m2', label:'Д × Ш плитка' }, { id:'pack', label:'Упаковки' }, { id:'l', label:'Литры на розлив' } ] });
+})();
+</script>
+</body></html>

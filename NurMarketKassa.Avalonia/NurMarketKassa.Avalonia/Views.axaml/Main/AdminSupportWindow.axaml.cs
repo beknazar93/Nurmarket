@@ -7,7 +7,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 
 public partial class AdminSupportWindow : Window
 {
-    private const string Phone = "+996559340032";
+    private const string Phone = "+996221068796";
 
     public AdminSupportWindow()
     {

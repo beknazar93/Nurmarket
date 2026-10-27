@@ -733,6 +733,12 @@ internal static class UiKit
         return t;
     }
 
+    /// <summary>2026-10-27 (приёмка 26.10, Д-4): поле секрета (ключ ИИ, токен) — то же, что Input, но без выдачи значения через UI Automation, пока оно скрыто точками.</summary>
+    public static TextBox SecretInput(Control host, string watermark, double height = 44)
+    {
+        return new NurMarketKassa.AvaloniaHost.Views.Controls.SecretTextBox { Watermark = watermark, Height = height, Padding = new Thickness(12, 0), CornerRadius = new CornerRadius(10), FontSize = 15, VerticalContentAlignment = VerticalAlignment.Center };
+    }
+
     public static TextBlock Label(Control host, string text)
     {
         var t = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 4, 0, 0) };

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Хозмаг — ценник 58×40, 100×70, А4 и этикетки (Д-ХМ4, ХМ7)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Hardware-shared.css">
+<style>
+  .pt{ display:grid; grid-template-columns:280px minmax(0,1fr) 300px; gap:16px; min-height:0; }
+  .s1024 .pt{ grid-template-columns:220px minmax(0,1fr) 250px; gap:10px; }
+  .tpl{ display:flex; flex-direction:column; gap:6px; }
+  .tpl button{ display:flex; align-items:center; gap:10px; min-height:52px; padding:0 12px; border-radius:var(--r-btn); border:1px solid var(--border); background:var(--panel); text-align:left; font-size:13.5px; font-weight:600; color:var(--text); cursor:pointer; }
+  .tpl button small{ display:block; font-size:11.5px; color:var(--text-soft); font-weight:500; }
+  .tpl button.on{ border-color:var(--text); background:var(--accent-soft); font-weight:700; }
+  .tpl button .ic{ color:var(--text-soft); }
+  .preview{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:var(--panel-soft); border-radius:var(--r-card); border:1px dashed var(--border-strong); padding:22px; min-height:360px; }
+  .ptag .nm{ font-weight:700; line-height:1.15; overflow:hidden; }
+  .ptag .main{ display:flex; align-items:baseline; gap:6px; }
+  .ptag .main b{ line-height:1; letter-spacing:-.02em; }
+  .ptag .pack{ font-weight:700; }
+  .ptag .bot{ display:flex; justify-content:space-between; align-items:flex-end; margin-top:auto; gap:8px; }
+  .a4{ background:#fff; width:297px; height:420px; padding:10px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(8,1fr); gap:3px; box-shadow:0 2px 10px rgba(0,0,0,.25); }
+  .a4 div{ border:1px solid #bbb; padding:3px 4px; font-size:5.5px; color:#000; line-height:1.2; display:flex; flex-direction:column; overflow:hidden; }
+  .a4 div b{ font-size:12px; line-height:1; margin-top:1px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <code>PriceTagPrintDialog</code> с новым видом <code>hardware_58x40</code> (ХМ7). Ценник чёрно-белый: главная цена крупно — за <b>базовую единицу</b> («520 сом / м²»), вторая — за упаковку («749 сом / уп 1,44 м²»), артикул, одна характеристика (из названия, не выдумываем), штрихкод, «опт от 10 уп — 690».
+    Читаемость с 2 м: цена ≥ 44 pt на 58×40, ≥ 72 pt на 100×70. <code>Без упаковки</code> — одна цена, место отдано названию. <code>А4</code> — 24 на лист (3 × 8). <code>Отрез</code> 40×30 — длина, цена, сумма, дата, штрихкод товара. <code>Ячейка</code> — после Б-58, код ячейки крупно.
+    Массовая печать по категории — существующий <code>BulkPriceTagPrintDialog</code> (пункт списка).
+  </div>
+</div>
+<script src="Hardware-shared.js"></script>
+<script>
+(function(){
+  const I = HW.icon, t = HW.t, btn = HW.btn, inp = HW.inp, chk = HW.chk;
+  const frame = document.getElementById('frame');
+  const TPL = [['58','Хозмаг 58×40','цена за ед. и за упаковку · по умолчанию','label-outline'],['100','Хозмаг 100×70','крупно, для стеллажа','label-outline'],['a4','А4 — 24 ценника','3 × 8, обычный принтер','printer-outline'],['cut','Этикетка «Отрез» 40×30','длина, сумма, дата','content-cut'],['cell','Этикетка «Ячейка» 58×40','после Б-58','map-marker-outline'],['old','Стандартный 58×40','как раньше (одна цена)','tag-text-outline']];
+  const tag = (w, h, scale, noPack) => { const s = scale; return '<div class="ptag" style="width:'+w+'px;height:'+h+'px;padding:'+(10*s)+'px '+(12*s)+'px">'+
+    '<div class="nm" style="font-size:'+(13.5*s)+'px;height:'+((noPack?48:34)*s)+'px">Плитка керамическая 30×60 «Атлас» серый'+(noPack?' матовая, 1 сорт':'')+'</div>'+
+    '<div class="main" style="margin-top:'+(4*s)+'px"><b style="font-size:'+(44*s)+'px">520</b><span style="font-size:'+(14*s)+'px;font-weight:700">сом / м²</span></div>'+
+    (noPack ? '' : '<div class="pack" style="font-size:'+(15*s)+'px;margin-top:'+(4*s)+'px">749 сом / уп <span style="font-weight:500">(1,44 м²)</span></div>')+
+    '<div class="bot"><div style="font-size:'+(10.5*s)+'px;line-height:1.3">Арт. PL-3060-GR · 30×60 см<br>опт от 10 уп — 690 сом/уп</div>'+HW.barcode(120*s,30*s,'4870012345678')+'</div><span class="mm">'+(w===329?'58 × 40':'100 × 70')+' мм</span></div>'; };
+  const cutTag = () => '<div class="ptag" style="width:227px;height:170px;padding:8px 10px"><div class="nm" style="font-size:11.5px;height:28px">Кабель ВВГнг 3×2,5</div><div class="main" style="margin-top:2px"><b style="font-size:34px">97,5</b><span style="font-size:13px;font-weight:700">м</span><span style="margin-left:auto;font-size:10px">отрез</span></div><div style="font-size:12px;font-weight:700;margin-top:2px">85 сом/м · <b>8 287,50 сом</b></div><div class="bot"><div style="font-size:9.5px;line-height:1.3">26.10.2026 14:32<br>чек 1047</div>'+HW.barcode(96,24,'4870023456789')+'</div><span class="mm">40 × 30 мм</span></div>';
+  const cellTag = () => '<div class="ptag" style="width:329px;height:227px;padding:10px 12px;align-items:center;text-align:center"><div style="font-size:11px;font-weight:600;letter-spacing:.08em">РЯД Б · СТЕЛЛАЖ 04 · ПОЛКА 2</div><b style="font-size:72px;line-height:1;letter-spacing:-.02em;margin-top:6px">Б-04-2</b><div class="nm" style="font-size:12.5px;margin-top:8px;height:30px">Труба ППР 20×3,4 PN20 · Фитинги ППР 20</div><div class="bot" style="width:100%;align-items:center;justify-content:center">'+HW.barcode(150,28,'2000000000401')+'</div><span class="mm">58 × 40 мм</span></div>';
+  const oldTag = () => '<div class="ptag" style="width:329px;height:227px;padding:10px 12px"><div class="nm" style="font-size:14px;height:50px">Плитка керамическая 30×60 «Атлас» серый</div><div class="main" style="margin-top:8px"><b style="font-size:56px">520</b><span style="font-size:16px;font-weight:700">сом</span></div><div class="bot"><div style="font-size:10.5px">Хозмаг «Мастер»</div>'+HW.barcode(120,30,'4870012345678')+'</div><span class="mm">58 × 40 мм</span></div>';
+  const a4 = () => '<div class="a4">'+Array.from({length:24},(_,i)=>'<div><span style="height:12px;overflow:hidden">'+['Плитка 30×60 «Атлас» серый','Ламинат 33 кл. «Дуб натур»','Кабель ВВГнг 3×2,5','Цемент М400 50 кг','Клей плиточный 25 кг','Краска фасадная 2,5 л'][i%6]+'</span><b>'+['520','890','85','520','420','1 190'][i%6]+'<span style="font-size:5px;font-weight:600"> /'+['м²','м²','м','мешок','мешок','банка'][i%6]+'</span></b><span style="font-weight:700">'+['749 /уп 1,44 м²','1 896 /уп 2,13 м²','8 500 /бухта 100 м','опт от 10 — 480','','476 /л'][i%6]+'</span><span style="margin-top:auto;display:flex;justify-content:space-between"><span>арт.</span><span style="width:40px;height:9px;background:repeating-linear-gradient(90deg,#000 0 1px,#fff 1px 2.4px)"></span></span></div>').join('')+'</div>';
+
+  function render(st){
+    const preview = st==='58' ? tag(329,227,1) : st==='100' ? tag(567,397,1.72) : st==='nopack' ? tag(329,227,1,true) : st==='a4' ? a4() : st==='cut' ? cutTag() : st==='cell' ? cellTag() : oldTag();
+    const curTpl = st==='nopack' ? '58' : st;
+    const fields = st==='cut' ? inp('Длина / количество','97,5',{key:'tag.cutQty',unit:'м'})+inp('Сумма','8 287,50',{key:'tag.cutSum',unit:'сом',cls:'ro'})+chk('Дата и номер чека', true, {key:'tag.cutDate'})
+      : st==='cell' ? inp('Ячейка','Б-04-2',{key:'tag.cell',hint:'после Б-58 — из карточки товара; пока вводится вручную'})+inp('Товары на полке','Труба ППР 20×3,4; Фитинги ППР 20',{key:'tag.cellItems'})
+      : inp('Цена за единицу','520',{key:'tag.price',unit:'сом / м²',cls:'ro'})+inp('Цена за упаковку',st==='nopack'?'':'749',{key:'tag.packPrice',unit:'сом / уп',cls:'ro',ph:'нет упаковки — одна цена',hint:'из единицы «уп» карточки (Б-53) или packages'})+
+        inp('Характеристика','30×60 см',{key:'tag.attr',hint:'до Б-57 — из названия; пусто, если не распознано'})+chk('Опт от 10 уп — 690 сом', true, {key:'tag.wholesale'})+chk('Артикул', true, {key:'tag.article'})+chk('Штрихкод', true, {key:'tag.barcode'});
+    frame.innerHTML = '<div class="kassa" style="opacity:.5"><div class="top">'+I('package-variant-closed',20)+'<b>Склад — Товары</b></div><div class="body"></div></div>'+
+      HW.modal({ title:'Ценник', key:'tag.title', icon:'tag-text-outline', cls:'xl', sub:'Плитка керамическая 30×60 «Атлас» серый · арт. PL-3060-GR',
+        body:'<div class="pt"><div class="tpl">'+TPL.map(x=>'<button'+(x[0]===curTpl?' class="on"':'')+'>'+I(x[3],20)+'<span>'+x[1]+'<small>'+x[2]+'</small></span></button>').join('')+'<span class="hint" style="margin-top:4px">'+I('information-outline',15)+t('Шаблон по умолчанию для сферы — «Хозмаг 58×40». Массово по категории — Склад → Ценники','tag.defaultHint')+'</span></div>'+
+          '<div class="preview">'+preview+'<span class="hint">'+t('Предпросмотр 1:1 на экране · печать ч/б, TSPL или ESC/POS растр','tag.previewHint')+'</span></div>'+
+          '<div class="col" style="gap:10px">'+HW.sel('Принтер', st==='a4' ? 'HP LaserJet (А4)' : 'Xprinter XP-365B (58 мм)', {key:'tag.printer'})+inp('Копий', st==='a4' ? '1 лист · 24 товара' : '1', {key:'tag.copies'})+fields+'</div></div>',
+        foot:btn('Сделать шаблоном по умолчанию','link','tag.setDefault')+'<span class="sp"></span>'+btn('Закрыть','secondary','common.close')+btn('Напечатать','primary','common.print') });
+  }
+  HW.toolbar(frame, { title:'Hardware-PriceTag — ценники и этикетки', onState:render, states:[
+    { id:'58', label:'58×40' }, { id:'nopack', label:'58×40 без упаковки' }, { id:'100', label:'100×70' }, { id:'a4', label:'А4 · 24 шт' }, { id:'cut', label:'Этикетка «Отрез»' }, { id:'cell', label:'Этикетка «Ячейка»' }, { id:'old', label:'Старый шаблон' } ] });
+})();
+</script>
+</body></html>

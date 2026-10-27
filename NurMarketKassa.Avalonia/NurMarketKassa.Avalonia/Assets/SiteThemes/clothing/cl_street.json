@@ -1,0 +1,133 @@
+{
+ "code": "cl_street",
+ "name": {
+  "ru": "Streetwear",
+  "ky": "Streetwear",
+  "en": "Streetwear",
+  "tr": "Streetwear",
+  "uz": "Streetwear"
+ },
+ "description": {
+  "ru": "Чёрный фон и кислотный лайм, узкий жирный шрифт, прямые углы. Для уличной одежды и кроссовок.",
+  "ky": "Кара фон жана кычкыл лайм, тар калың шрифт, тик бурчтар. Көчө кийими жана кроссовкалар үчүн.",
+  "en": "Black background and acid lime, condensed bold font, sharp corners. For streetwear and sneakers.",
+  "tr": "Siyah zemin ve asit limon, dar kalın yazı tipi, keskin köşeler. Sokak giyimi ve spor ayakkabılar için.",
+  "uz": "Qora fon va kislotali laym, tor yo'g'on shrift, to'g'ri burchaklar. Ko'cha kiyimi va krossovkalar uchun."
+ },
+ "spheres": [
+  "clothing"
+ ],
+ "version": 1,
+ "voice_words": {
+  "ru": [
+   "стрит",
+   "уличн"
+  ],
+  "ky": [
+   "көчө"
+  ],
+  "en": [
+   "street"
+  ],
+  "tr": [
+   "sokak"
+  ],
+  "uz": [
+   "ko'cha"
+  ]
+ },
+ "images": {
+  "hero.image": {
+   "file": "cl_street_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "cl_street_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "dark",
+   "colors": {
+    "background": "#111111",
+    "surface": "#1B1B1B",
+    "text": "#F5F5F5",
+    "text_muted": "#A3A3A3",
+    "accent": "#C6F432",
+    "accent_text": "#111111",
+    "border": "#2E2E2E",
+    "header_bg": "#000000",
+    "header_text": "#FFFFFF",
+    "footer_bg": "#000000",
+    "footer_text": "#D4D4D4",
+    "price": "#C6F432",
+    "old_price": "#9A9A9A",
+    "badge_new_bg": "#C6F432",
+    "badge_new_text": "#111111",
+    "badge_sale_bg": "#F43F5E",
+    "badge_sale_text": "#111111"
+   },
+   "font": {
+    "family": "Roboto Condensed",
+    "base_size": 16,
+    "heading_weight": 800
+   },
+   "radius": 0,
+   "shadow": "none",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_left",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "cover",
+   "overlay": 0.45,
+   "align": "left"
+  },
+  "categories": {
+   "style": "chips",
+   "show_all": true,
+   "show_count": false
+  },
+  "products": {
+   "columns": {
+    "desktop": 4,
+    "tablet": 3,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "standard",
+   "photo_ratio": "3:4",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": true,
+    "category": false,
+    "stock": "low_only",
+    "unit": false,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "new_badge_days": 21,
+   "shadow": false,
+   "border": true
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

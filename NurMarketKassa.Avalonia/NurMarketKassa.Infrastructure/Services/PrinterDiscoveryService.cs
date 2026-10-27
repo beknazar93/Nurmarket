@@ -7,6 +7,10 @@ public sealed record DiscoveredPrinter(string Label, string DevicePath)
 {
     // ComboBox без явного ItemTemplate показывает ToString() каждого элемента.
     public override string ToString() => Label;
+
+    /// <summary>2026-10-27 (приёмка Opus 26.10): «виртуальный» принтер (Microsoft Print to PDF, XPS, OneNote, факс, PDF-принтеры) —
+    /// не принтер этикеток, его нельзя запоминать в настройках как принтер этикеток.</summary>
+    public bool IsVirtual => PrinterDiscoveryService.IsVirtualDocumentPrinter(Label);
 }
 
 /// <summary>
@@ -16,6 +20,19 @@ public sealed record DiscoveredPrinter(string Label, string DevicePath)
 /// </summary>
 public static class PrinterDiscoveryService
 {
+    private static readonly string[] VirtualPrinterMarkers = ["pdf", "xps", "onenote", "fax", "document writer", "print to file", "snagit", "send to"];
+
+    /// <summary>Имя похоже на виртуальный принтер документов (PDF/XPS/OneNote/факс). Реальные принтеры этикеток так не называются.</summary>
+    public static bool IsVirtualDocumentPrinter(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+        foreach (var marker in VirtualPrinterMarkers)
+            if (name.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                return true;
+        return false;
+    }
+
     private static readonly string[] LptPortsToProbe = ["LPT1", "LPT2", "LPT3", "LPT4"];
 
     private static string? _lastWinUsbLine;

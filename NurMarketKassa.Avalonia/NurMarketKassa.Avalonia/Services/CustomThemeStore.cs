@@ -82,6 +82,17 @@ public static class CustomThemeStore
 
     private static List<CustomThemeDefinition>? _themes;
 
+    /// <summary>2026-10-27 (аудит редакторов, В-6): папка для файла тем вместо %AppData% — выставляет только стенд проверок
+    /// отражением (GetFolderPath обходит подмену переменной APPDATA). В программе всегда null.</summary>
+#pragma warning disable CS0649
+    private static string? _rootOverride;
+#pragma warning restore CS0649
+
+    /// <summary>2026-10-27 (аудит редакторов, В-6): что случилось с файлом тем при чтении — null, если всё в порядке. Не пусто, когда
+    /// файл оказался испорченным: его копия сохранена рядом (<c>.bad</c>), а темы восстановлены из последней хорошей копии (<c>.bak</c>), если она есть.
+    /// Редактор тем показывает это сообщение; список «Мои темы» молча пустым не остаётся.</summary>
+    public static string? LoadProblem { get; private set; }
+
     /// <summary>Список изменился (сохранили, удалили, импортировали) — галерея тем перестраивается.</summary>
     public static event Action? Changed;
 
@@ -184,7 +195,21 @@ public static class CustomThemeStore
     private static List<CustomThemeDefinition> Themes => _themes ??= Load();
 
     private static string FilePath(string folder) =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), folder, FileName);
+        Path.Combine(_rootOverride ?? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), folder, FileName);
+
+    /// <summary>Читает файл тем; бросает исключение, если файл испорчен.</summary>
+    private static List<CustomThemeDefinition> ReadFile(string path)
+    {
+        var list = JsonSerializer.Deserialize<List<CustomThemeDefinition>>(File.ReadAllText(path), Json) ?? new();
+        foreach (var theme in list)
+        {
+            theme.Light ??= new CustomThemeColors();
+            theme.Dark ??= new CustomThemeColors();
+            Sanitize(theme.Light);
+            Sanitize(theme.Dark);
+        }
+        return list.Where(t => IsCustomId(t.Id)).ToList();
+    }
 
     private static List<CustomThemeDefinition> Load()
     {
@@ -199,22 +224,55 @@ public static class CustomThemeStore
                 var path = FilePath(folder);
                 if (!File.Exists(path))
                     continue;
-                var list = JsonSerializer.Deserialize<List<CustomThemeDefinition>>(File.ReadAllText(path), Json) ?? new();
-                foreach (var theme in list)
-                {
-                    theme.Light ??= new CustomThemeColors();
-                    theme.Dark ??= new CustomThemeColors();
-                    Sanitize(theme.Light);
-                    Sanitize(theme.Dark);
-                }
-                return list.Where(t => IsCustomId(t.Id)).ToList();
+                return ReadFile(path);
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Свои темы не прочитались: {ex.Message}", "WARNING");
+                // 2026-10-27 (аудит редакторов, В-6): раньше пустой список молча записывался поверх файла первым же «Сохранить» — все темы
+                // пропадали. Теперь испорченный файл откладывается рядом (.bad), а темы берутся из последней хорошей копии (.bak).
+                var recovered = RecoverFromCorrupt(FilePath(folder));
+                if (recovered is not null)
+                    return recovered;
             }
         }
         return new List<CustomThemeDefinition>();
+    }
+
+    private static List<CustomThemeDefinition>? RecoverFromCorrupt(string path)
+    {
+        try
+        {
+            File.Copy(path, path + ".bad", overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Копия испорченного файла тем не сохранилась: {ex.Message}", "WARNING");
+        }
+
+        List<CustomThemeDefinition>? restored = null;
+        try
+        {
+            if (File.Exists(path + ".bak"))
+                restored = ReadFile(path + ".bak");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Копия файла тем (.bak) тоже не читается: {ex.Message}", "WARNING");
+        }
+
+        LoadProblem = restored is not null
+            ? Tr.T($"Файл своих тем был повреждён. Темы восстановлены из последней копии ({restored.Count}); испорченный файл сохранён рядом как custom-themes.json.bad.",
+                $"Өз темалар файлы бузулган. Темалар акыркы көчүрмөдөн калыбына келтирилди ({restored.Count}); бузулган файл custom-themes.json.bad деп жанына сакталды.",
+                $"The custom themes file was damaged. Themes were restored from the last backup ({restored.Count}); the damaged file is kept next to it as custom-themes.json.bad.",
+                $"Özel temalar dosyası bozulmuş. Temalar son yedekten geri yüklendi ({restored.Count}); bozuk dosya yanına custom-themes.json.bad olarak kaydedildi.",
+                $"O'z mavzulari fayli buzilgan. Mavzular oxirgi nusxadan tiklandi ({restored.Count}); buzilgan fayl yoniga custom-themes.json.bad nomi bilan saqlandi.")
+            : Tr.T("Файл своих тем был повреждён и не читается. Его копия сохранена рядом как custom-themes.json.bad — пришлите её в поддержку, темы можно вернуть.",
+                "Өз темалар файлы бузулган жана окулбайт. Анын көчүрмөсү custom-themes.json.bad деп жанына сакталды — колдоого жөнөтүңүз, темаларды кайтарууга болот.",
+                "The custom themes file was damaged and cannot be read. A copy is kept next to it as custom-themes.json.bad — send it to support, the themes can be recovered.",
+                "Özel temalar dosyası bozulmuş ve okunamıyor. Bir kopyası yanına custom-themes.json.bad olarak kaydedildi — destek ekibine gönderin, temalar kurtarılabilir.",
+                "O'z mavzulari fayli buzilgan va o'qilmaydi. Nusxasi yoniga custom-themes.json.bad nomi bilan saqlandi — yordam xizmatiga yuboring, mavzularni qaytarish mumkin.");
+        return restored;
     }
 
     private static void Persist()
@@ -229,6 +287,19 @@ public static class CustomThemeStore
         {
             var path = FilePath(NurMarketKassa.Services.AppMode.DataFolderName);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            // 2026-10-27 (В-6): прежний хороший файл — в .bak (испорченный в копию не попадает).
+            if (File.Exists(path))
+            {
+                try
+                {
+                    ReadFile(path);
+                    File.Copy(path, path + ".bak", overwrite: true);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Копия файла тем (.bak) не обновлена: {ex.Message}", "WARNING");
+                }
+            }
             // Сначала во временный файл, затем подмена — чтобы сбой питания не оставил полфайла.
             var temp = path + ".tmp";
             File.WriteAllText(temp, json);

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Хозмаг — корзина с несколькими единицами, «Объект», цена прораба (ХМ2, ХМ3, ХМ8)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Hardware-shared.css">
+<style>
+  .client{ display:flex; align-items:center; gap:8px; min-height:44px; padding:0 8px 0 10px; border-radius:var(--r-btn); border:1px solid var(--border); background:var(--input-alt); font-size:13px; }
+  .client b{ font-size:13.5px; }
+  .obj{ display:flex; align-items:center; gap:8px; min-height:40px; padding:0 10px; border-radius:var(--r-btn); border:1px dashed var(--border-strong); font-size:13px; color:var(--text-soft); }
+  .obj.set{ border-style:solid; color:var(--text); background:var(--panel); }
+  .obj .ic{ color:var(--text-soft); }
+  .pro{ display:flex; align-items:center; gap:8px; min-height:36px; padding:0 12px; border-radius:var(--r-btn); background:var(--accent); color:var(--accent-fg); font-size:13px; font-weight:800; }
+  .line .q .chip{ height:20px; font-size:11px; }
+  .pick{ display:flex; flex-direction:column; gap:8px; }
+  .pick button{ display:flex; align-items:center; gap:12px; min-height:64px; padding:0 14px; border-radius:var(--r-card); border:1px solid var(--border-strong); background:var(--panel); text-align:left; cursor:pointer; color:var(--text); }
+  .pick button b{ font-size:16px; } .pick button small{ display:block; font-size:12.5px; color:var(--text-soft); font-weight:500; margin-top:2px; }
+  .pick button .k{ margin-left:auto; font-size:12px; color:var(--text-soft); font-weight:700; }
+  .pick button.on{ border-color:var(--text); background:var(--accent-soft); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    Главное окно кассы в сфере <code>hardware</code>. Строки чека с разными единицами: «2,5 м × 85», «10 уп (14,40 м²) × 749 · 520 сом/м²», «400 шт» с чипом «Коробка ×200 · 2 скана» (ХМ3), цемент «10 мешков» с чипом «опт от 10», гвозди «1,250 кг» (весы), услуги «Доставка», «Подъём».
+    Поле «Объект» — под клиентом, дублируется в чек, долг и смету (ХМ9/Б-56). <code>Прораб</code> — выбран клиент с галочкой «прораб»: все строки на опт, плашка «Цена прораба» (ХМ8), «В долг · 14 дней». <code>Штуками или коробкой</code> — <code>PackageChoiceDialog</code> при добавлении из каталога с «запомнить до конца смены».
+    <code>Объект</code> — выбор из объектов клиента или новый адрес. Плитки каталога показывают цену за базовую единицу и за упаковку, остаток в обеих.
+  </div>
+</div>
+<script src="Hardware-shared.js"></script>
+<script>
+(function(){
+  const I = HW.icon, t = HW.t, btn = HW.btn, chk = HW.chk;
+  const frame = document.getElementById('frame');
+  const linesRetail = [
+    { n:'Кабель ВВГнг 3×2,5', q:'<b>2,5 м</b> × 85 сом/м <span class="chip unit">м</span>', s:'212,50' },
+    { n:'Плитка 30×60 «Атлас» серый', q:'<b>10 уп</b> (14,40 м²) × 749 <span class="muted">· 520 сом/м²</span>', s:'7 490', chip:'из калькулятора' },
+    { n:'Саморез 3,5×25', q:'<b>400 шт</b> × 0,90', s:'360', chip:'Коробка ×200 · 2 скана' },
+    { n:'Цемент М400 50 кг', q:'<b>10 мешков</b> × 480 <span class="chip ok">опт от 10</span> <s class="muted">520</s>', s:'4 800' },
+    { n:'Гвозди строительные 100', q:'<b>1,250 кг</b> × 95 '+I('scale',14), s:'118,75' },
+    { n:'Доставка', q:'<b>1</b> × 500 · по городу', s:'500', chip:'услуга' },
+  ];
+  const linesPro = linesRetail.map(l => Object.assign({}, l));
+  linesPro[0].q = '<b>2,5 м</b> × 79 <s class="muted">85</s> <span class="chip unit">м</span>'; linesPro[0].s = '197,50';
+  linesPro[1].q = '<b>10 уп</b> (14,40 м²) × 690 <s class="muted">749</s> <span class="muted">· 480 сом/м²</span>'; linesPro[1].s = '6 900';
+  linesPro[2].q = '<b>400 шт</b> × 0,80 <s class="muted">0,90</s>'; linesPro[2].s = '320';
+  linesPro.push({ n:'Подъём на этаж', q:'<b>4 эт.</b> × 100 · без лифта', s:'400', chip:'услуга' });
+
+  const clientRetail = '<button class="btn secondary sm">'+I('account-group-outline',16)+t('Клиент','basket.client')+'</button>';
+  const clientPro = '<div class="client">'+I('shield-account-outline',18)+'<div class="col" style="gap:0"><b>Азамат Бекназаров</b><span class="muted">+996 555 12-34-56 · долг 24 300 из 50 000</span></div><span class="chip acc">'+t('Прораб')+'</span><button class="sq ghost" style="width:36px;height:36px">'+I('close',16)+'</button></div>';
+  const objEmpty = '<div class="obj">'+I('map-marker-outline',16)+t('Объект — адрес или название стройки','hw.object.ph')+'<span class="sp"></span>'+I('chevron-down',16)+'</div>';
+  const objSet = '<div class="obj set">'+I('map-marker-outline',16)+'<span>'+t('Объект','hw.object')+': <b>ул. Ахунбаева, 12 · 4 этаж</b></span><span class="sp"></span>'+I('pencil-outline',16)+'</div>';
+  const footerPro = '<div class="pro">'+I('percent',16)+t('Цена прораба','hw.proPrice')+' · '+t('все строки по опту','hw.proPriceHint')+'<span class="sp"></span><span style="font-weight:600">−1 162,50</span></div>'+objSet;
+
+  function render(st){
+    const pro = st==='pro' || st==='object';
+    const bg = HW.kassaBg({ lines: pro ? linesPro : linesRetail, client: pro ? clientPro : clientRetail, footer: pro ? footerPro : objEmpty, total: pro ? '12 736,25' : '13 481,25', active: st==='pack' ? -1 : -1 });
+    let modal = '';
+    if (st==='pack') modal = HW.modal({ title:'Саморез 3,5×25 — как добавить?', key:'pack.choiceTitle', icon:'package-variant-closed', cls:'md', sub:'остаток 4 200 шт · 21 коробка · 2 короба',
+      body:'<div class="pick"><button class="on"><span class="chip unit lg">шт</span><span><b>'+t('Штуками','pack.pcs')+'</b><small>0,90 сом/шт · ввод количества</small></span><span class="k">1</span></button>'+
+        '<button><span class="chip unit lg">×200</span><span><b>'+t('Коробкой','pack.box')+' · 200 шт</b><small>170 сом/коробка (0,85 за шт) · штрихкод 4870034567890</small></span><span class="k">2</span></button>'+
+        '<button><span class="chip unit lg">×2 000</span><span><b>Коробом · 10 коробок</b><small>1 650 сом · для прорабов и бригад</small></span><span class="k">3</span></button></div>'+
+        chk('Запомнить до конца смены', true, {key:'pack.remember', sub:'следующий раз саморез добавится штуками без вопроса; скан коробки всегда добавит 200'}),
+      foot:'<span class="hint">'+t('Клавиши 1–3 или Enter — отмеченный вариант','pack.keysHint')+'</span><span class="sp"></span>'+btn('Отмена','secondary','common.cancel')+btn('Добавить штуками','primary','pack.addPcs') });
+    if (st==='object') modal = HW.modal({ title:'Объект', key:'hw.object', icon:'map-marker-outline', cls:'md', sub:'Азамат Бекназаров · прораб',
+      body:'<div class="field focus">'+I('magnify',18)+'<input placeholder="Адрес или название стройки" value="Ахун"></div>'+
+        '<div class="pick"><button class="on"><span>'+I('home-outline',20)+'</span><span><b>ул. Ахунбаева, 12</b><small>4 этаж, без лифта · 3 чека · долг 24 300</small></span><span class="k">выбран</span></button>'+
+        '<button><span>'+I('home-outline',20)+'</span><span><b>ЖК «Ак-Босого», корп. 3</b><small>кв. 47 · 1 чек</small></span></button>'+
+        '<button><span>'+I('plus',20)+'</span><span><b>Новый объект «Ахун…»</b><small>сохранится у клиента (до Б-56 — в документе и чеке текстом)</small></span></button></div>'+
+        '<span class="hint">'+I('information-outline',15)+t('Объект попадает в чек, долг «Вернуть до…» и смету. Без клиента объект тоже можно указать — текстом','hw.object.hint')+'</span>',
+      foot:btn('Без объекта','secondary','hw.object.none')+'<span class="sp"></span>'+btn('Выбрать','primary','common.choose') });
+    frame.innerHTML = bg + modal;
+  }
+  HW.toolbar(frame, { title:'Hardware-Cart — корзина хозмага', onState:render, states:[
+    { id:'cart', label:'Розница' }, { id:'pro', label:'Прораб (цена прораба)' }, { id:'pack', label:'Штуками или коробкой' }, { id:'object', label:'Выбор объекта' } ] });
+})();
+</script>
+</body></html>

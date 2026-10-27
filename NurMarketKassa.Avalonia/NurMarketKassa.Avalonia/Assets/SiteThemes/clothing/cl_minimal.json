@@ -1,0 +1,132 @@
+{
+ "code": "cl_minimal",
+ "name": {
+  "ru": "Минимал",
+  "ky": "Минимал",
+  "en": "Minimal",
+  "tr": "Minimal",
+  "uz": "Minimal"
+ },
+ "description": {
+  "ru": "Светлый, тонкие линии, кнопки контуром. Для базовой одежды и капсульных гардеробов.",
+  "ky": "Ачык, ичке сызыктар, контурлуу баскычтар. Базалык кийим жана капсула гардеробу үчүн.",
+  "en": "Light, thin lines, outlined buttons. For basics and capsule wardrobes.",
+  "tr": "Açık tonlar, ince çizgiler, çerçeveli düğmeler. Basic giyim ve kapsül gardıroplar için.",
+  "uz": "Yorug', ingichka chiziqlar, kontur tugmalar. Oddiy kiyim va kapsula garderoblari uchun."
+ },
+ "spheres": [
+  "clothing"
+ ],
+ "version": 1,
+ "voice_words": {
+  "ru": [
+   "минимал"
+  ],
+  "ky": [
+   "минимал"
+  ],
+  "en": [
+   "minimal"
+  ],
+  "tr": [
+   "minimal"
+  ],
+  "uz": [
+   "minimal"
+  ]
+ },
+ "images": {
+  "hero.image": {
+   "file": "cl_minimal_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "cl_minimal_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#FAFAF8",
+    "surface": "#FFFFFF",
+    "text": "#1A1A1A",
+    "text_muted": "#5F5F5F",
+    "accent": "#1A1A1A",
+    "accent_text": "#FFFFFF",
+    "border": "#E7E5E0",
+    "header_bg": "#FAFAF8",
+    "header_text": "#1A1A1A",
+    "footer_bg": "#F0EEE9",
+    "footer_text": "#1A1A1A",
+    "price": "#1A1A1A",
+    "old_price": "#6B6B6B",
+    "badge_new_bg": "#1A1A1A",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#B42318",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Inter",
+    "base_size": 15,
+    "heading_weight": 600
+   },
+   "radius": 0,
+   "shadow": "none",
+   "button_style": "outline",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_left",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "split",
+   "overlay": 0,
+   "align": "left"
+  },
+  "categories": {
+   "style": "chips",
+   "show_all": true,
+   "show_count": false
+  },
+  "products": {
+   "columns": {
+    "desktop": 4,
+    "tablet": 3,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "compact",
+   "photo_ratio": "3:4",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": true,
+    "category": false,
+    "stock": "low_only",
+    "unit": false,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "new_badge_days": 21,
+   "shadow": false,
+   "border": false
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

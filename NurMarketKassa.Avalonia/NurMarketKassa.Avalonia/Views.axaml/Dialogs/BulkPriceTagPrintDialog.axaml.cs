@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using NurMarketKassa.Models.Pos;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
@@ -88,8 +89,16 @@ public partial class BulkPriceTagPrintDialog : Window
         UpdateEmptyText();
     }
 
-    public static async Task Open(Window? owner)
+    /// <summary>2026-10-26: из Склада и Маркетплейса теперь открывается единое окно «Печать штрихкодов и ценников»
+    /// (<see cref="BarcodePrintWindow"/>, как на сайте); это окно с готовыми видами ценников доступно из него кнопкой «Виды ценников…».</summary>
+    public static Task Open(Window? owner) => BarcodePrintWindow.Open(owner);
+
+    /// <summary>Прежнее окно массовой печати (готовые виды ценников) — как было до 26.10.2026.</summary>
+    public static async Task OpenLegacy(Window? owner)
     {
+        // 2026-10-27 (аудит редакторов, Б-2): та же проверка покупки массовой печати, что и у нового окна.
+        if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.BulkPriceTag, owner))
+            return;
         var dialog = new BulkPriceTagPrintDialog();
         await dialog.ShowDialog(owner!).ConfigureAwait(true);
     }

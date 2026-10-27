@@ -83,10 +83,10 @@
 
       <!-- Сводка и QR -->
       <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*">
-        <Border Classes="cd-card" Padding="20,16" IsVisible="{Binding HasItems}">
+        <Border Classes="cd-card" Padding="20,16" IsVisible="{Binding ShowSummaryCard}">
           <StackPanel Spacing="10">
             <TextBlock Classes="cd-text" Text="{DynamicResource csh.customer.receiptTitle}" FontSize="{DynamicResource CdFont20}" FontWeight="Bold"/>
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowSubtotals}">
               <TextBlock Classes="cd-soft" Text="{Binding SubtotalLabel}" FontSize="{DynamicResource CdFont16}"/>
               <TextBlock Grid.Column="1" Classes="cd-text cd-num" Text="{Binding SubtotalNumberText}" FontSize="{DynamicResource CdFont16}"/>
             </Grid>
@@ -111,7 +111,7 @@
 
     <!-- Зелёная полоса «К оплате» — как кнопка «Оплатить» у кассира -->
     <Border Grid.Row="2" Margin="0,18,0,0" CornerRadius="{DynamicResource CustomerDisplayCornerRadius}" Padding="28,14"
-            Background="{DynamicResource CustomerDisplaySuccessBrush}" IsVisible="{Binding HasItems}">
+            Background="{DynamicResource CustomerDisplaySuccessBrush}" IsVisible="{Binding ShowSummaryBlock}">
       <Grid ColumnDefinitions="Auto,*,Auto">
         <StackPanel VerticalAlignment="Center" Spacing="2">
           <TextBlock Text="{Binding TotalDueLabel}" FontSize="{DynamicResource CdFont24}" FontWeight="Bold"

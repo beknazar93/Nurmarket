@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Витрина одежды — тема «Яркий базар» (cl_bazaar) — Д-С1</title>
+<!-- 2026-10-27: макет главной страницы витрины market.nurcrm.kg в теме cl_bazaar (ТЗ «Сайт — темы для магазина одежды…» 26.10, разделы 3 и 6, бриф Д-С1).
+     Шрифты — только из 7, которые знает фронт (ТЗ 1.3). Фото — силуэты кодом. Общие данные тем — SiteThemes-Clothing-shared.js. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800&family=Noto+Sans:wght@400;600;700&family=PT+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="SiteThemes-Clothing-shared.css">
+<style>
+  .frame.sitewrap{ width:auto; height:auto; background:transparent; box-shadow:none; border-radius:0; overflow:visible; display:block; }
+  .frame.sitewrap.phone .site{ width:390px; height:844px; }
+  .params{ display:flex; flex-wrap:wrap; gap:6px 14px; margin:4px 0 8px; }
+  .params span{ white-space:nowrap; }
+  .params i{ display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-2px; margin-right:4px; box-shadow:0 0 0 1px rgba(255,255,255,.25); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame sitewrap" id="frame" data-site="cl_bazaar"></div>
+  <div class="note" id="note"></div>
+</div>
+<script src="SiteThemes-Clothing-shared.js"></script>
+<script>
+(function(){
+  const frame = document.getElementById('frame'), note = document.getElementById('note');
+  function render(st){
+    const th = ST.byCode(frame.dataset.site || 'cl_bazaar');
+    const ph = frame.classList.contains('phone'), w1440 = frame.classList.contains('w1440');
+    frame.innerHTML = ST.storefront(th, { phone: ph, state: st, cls: w1440 ? 'w1440' : '' });
+    document.title = 'Витрина одежды — тема «' + th.name.ru + '» (' + th.code + ')';
+    const c = th.colors; const sw = k => '<i style="background:' + c[k] + '"></i>' + k + ' ' + c[k];
+    const rows = ST.contrastRows(th);
+    const worst = rows.reduce((a, r) => r.v < a.v ? r : a, rows[0]);
+    note.innerHTML = '<b>' + th.name.ru + '</b> · <code>' + th.code + '</code> · ' + th.for.ru + '<br>'
+      + '<div class="params"><span>шрифт <b>' + th.font + '</b> ' + th.base + ' / заголовки ' + th.hw + '</span><span>скругление <b>' + th.radius + '</b></span><span>тень <b>' + th.shadow + '</b></span>'
+      + '<span>кнопки <b>' + th.btn + '</b></span><span>шапка <b>' + th.header + '</b></span><span>главный блок <b>' + th.hero.style + ' / ' + th.hero.overlay + ' / ' + th.hero.align + '</b></span>'
+      + '<span>категории <b>' + th.cats + '</b></span><span>колонки <b>' + th.cols.join(' / ') + '</b></span><span>карточка <b>' + th.card + '</b>' + (th.cardBorder ? ' · рамка' : '') + (th.cardShadow ? ' · тень' : '') + '</span>'
+      + '<span>остаток <b>' + th.stock + '</b></span><span>категория в карточке <b>' + (th.category ? 'да' : 'нет') + '</b></span><span>mode <b>' + th.mode + '</b></span></div>'
+      + '<div class="params">' + ST.KEYS.map(sw).join('</span><span>').replace(/^/, '<span>') + '</span></div>'
+      + 'Контраст WCAG (расчёт): минимум <b class="ok">' + worst.v.toFixed(2) + ':1</b> (' + worst.name + ') — все пары ≥ 4,5:1. '
+      + '<details><summary>таблица</summary><table><tr><th>пара</th><th>цвета</th><th>контраст</th></tr>'
+      + rows.map(r => '<tr><td>' + r.name + '</td><td>' + r.a + ' / ' + r.b + '</td><td class="ok">' + r.v.toFixed(2) + '</td></tr>').join('') + '</table></details>'
+      + 'Состояния: <code>normal</code> — главная; <code>empty</code> — пустой каталог (вешалка, кнопки WhatsApp/Telegram); <code>nophoto</code> — у товаров нет фото (заглушка <code>' + th.code + '_ph.jpg</code> — вешалка в цветах темы); '
+      + '<code>long</code> — длинные названия (2 строки и обрез, цена не прыгает); <code>few</code> — 2 товара (сетка не растягивается, подпись о поступлениях). '
+      + 'Фильтры размер/цвет/цена и избранное — вторая версия фронта (Ф-2), в теме их нет; баннер — картинка владельца, текст на тёмном затемнении ≥ ' + Math.max(th.hero.overlay, 0.2) + '. Объявление над шапкой — владельца, тема не трогает.';
+    if (frame.dataset.ky) ST.applyKy(true);
+  }
+  ST.toolbar(frame, { title: 'SiteThemes-Clothing-Bazaar — витрина «Яркий базар»', themes: true, theme: 'cl_bazaar', appTheme: false, keys: false, sizes: ['1296', '1440', 'phone'], onState: render,
+    states: [ { id:'normal', label:'Главная' }, { id:'empty', label:'Пустой каталог' }, { id:'nophoto', label:'Нет фото' }, { id:'long', label:'Длинные названия' }, { id:'few', label:'Мало товаров' } ] });
+})();
+</script>
+</body></html>

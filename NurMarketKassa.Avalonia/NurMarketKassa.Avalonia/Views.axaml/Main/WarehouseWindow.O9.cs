@@ -16,7 +16,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 public partial class WarehouseWindow
 {
     // Ширина таблицы, меньше которой второстепенная колонка прячется (1366 — таблица ~1180, 1024 — ~840).
-    private const double ReceivingNarrowWidth = 1000;
+    private const double ReceivingNarrowWidth = 1250; // 2026-10-27: было 1000 — между 1000 и 1206 широкий вид уже не помещался (прокрутка вбок, срезанные ячейки)
     private const double WriteOffHistoryNarrowWidth = 600;
 
     private void InitO9Look()
@@ -71,8 +71,11 @@ public partial class WarehouseWindow
             // 2026-10-19: «Было» 72 → 84 — кыргызское «Болгон» переносилось посреди слова.
             // 2026-10-21 (пакет 1, п. 71): узкая таблица — числа чуть плотнее, название на 2 строки (стиль rcv-name), строка выше.
             var widths = wide
-                ? new (DataGridColumn Column, double Width)[] { (RcvColBarcode, 136), (RcvColUnit, 56), (RcvColWas, 84), (RcvColQty, 92), (RcvColPurchase, 96), (RcvColMarkup, 92), (RcvColSale, 96), (RcvColChange, 100), (RcvColTotal, 104) }
-                : new (DataGridColumn Column, double Width)[] { (RcvColBarcode, 132), (RcvColUnit, 56), (RcvColWas, 72), (RcvColQty, 80), (RcvColPurchase, 80), (RcvColMarkup, 78), (RcvColSale, 80), (RcvColChange, 84), (RcvColTotal, 80) };
+                ? new (DataGridColumn Column, double Width)[] { (RcvColBarcode, 160), (RcvColUnit, 56), (RcvColWas, 84), (RcvColQty, 92), (RcvColPurchase, 96), (RcvColMarkup, 100), (RcvColSale, 96), (RcvColChange, 120), (RcvColTotal, 104) }
+                : new (DataGridColumn Column, double Width)[] { (RcvColBarcode, 158), (RcvColUnit, 56), (RcvColWas, 72), (RcvColQty, 88), (RcvColPurchase, 92), (RcvColMarkup, 100), (RcvColSale, 92), (RcvColChange, 120), (RcvColTotal, 84) };
+            // 2026-10-27 (приёмка 26.10, Д-6): на окне ~1080 заголовки рвались по слогам («Принят о», «Нацен ка %»), «Динамика» обрезалась, штрихкод — до 12 цифр:
+            // колонки узкого вида не уже, чем нужно слову заголовка, «Динамика» 120 (чтобы «маржа −97 %» не резалась), штрихкод 158 (13 цифр), «Наценка %» 100 (кыргызское «Кошумча» не рвётся). Узкий вид занимает 950 точек (с названием 170); уже 950 — «Сумма» прячется (итог виден внизу).
+            RcvColTotal.IsVisible = wide || e.NewSize.Width >= 950;
             ReceivingGrid.RowHeight = wide ? 44 : 52;
             foreach (var (column, width) in widths)
                 if (column.Width.Value != width)

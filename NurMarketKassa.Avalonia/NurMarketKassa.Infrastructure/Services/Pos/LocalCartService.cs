@@ -53,12 +53,14 @@ public static class LocalCartService
         if (existing != null && !product.MustWeigh)
         {
             var oldQty = JsonNumericReader.ToDouble(existing["quantity"]);
-            existing["quantity"] = oldQty + qty;
+            // 2026-10-26 (ХМ2): «Хозтовары» + дробная единица — сумма по шагу единицы; иначе прежнее oldQty + qty.
+            existing["quantity"] = QuantityRules.MergeQuantity(existing, product, null, oldQty, qty);
             RecalcLine(existing);
         }
         else
         {
             var line = BuildLine(productId, product.Title, unitPrice, qty, product.MustWeigh);
+            QuantityRules.StampLine(line, product, null); // 2026-10-26 (ХМ2): метка дробной строки (только «Хозтовары»)
             items.Add(line);
         }
 
@@ -263,9 +265,13 @@ public static class LocalCartService
         if (line == null)
             return;
 
+        // 2026-10-26 (ХМ2): дробная единица «Хозтоваров» — по шагу и минимуму; иначе прежнее Math.Round(qty, 0).
+        var fractionalRule = QuantityRules.ForLine(line);
+        if (fractionalRule != null)
+            line[QuantityRules.FractionalField] = true;
         line["quantity"] = IsWeighedLine(line)
             ? JsonNumericReader.RoundWeight(qty)
-            : Math.Round(qty, 0);
+            : fractionalRule != null ? QuantityRules.Normalize(qty, fractionalRule) : Math.Round(qty, 0);
         // Скидка суммой не должна пережить уменьшение количества строки.
         if (line.TryGetPropertyValue("discount_total", out var dt) && dt != null)
         {
@@ -360,7 +366,7 @@ public static class LocalCartService
     {
         var qty = JsonNumericReader.ToDouble(line["quantity"]);
         var unitPrice = JsonNumericReader.ToDouble(line["unit_price"]);
-        var gross = Math.Round(qty * unitPrice, 2, MidpointRounding.AwayFromZero);
+        var gross = QuantityRules.Gross(qty, unitPrice); // 2026-10-26 (ХМ2)
         double discount = 0;
         if (line.TryGetPropertyValue("discount_total", out var dt) && dt != null)
             discount = JsonNumericReader.ToDouble(dt);

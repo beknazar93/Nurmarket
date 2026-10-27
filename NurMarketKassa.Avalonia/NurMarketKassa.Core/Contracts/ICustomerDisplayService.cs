@@ -31,6 +31,10 @@ public sealed class CustomerDisplayCartSnapshot
     public double? CashReceived { get; init; }
     /// <summary>Сдача покупателю. Null, пока оплата ещё не подтверждена кассиром.</summary>
     public double? ChangeDue { get; init; }
+    /// <summary>2026-10-26, владелец («второй монитор не показывает, сколько внесено»): сколько оплачено — только для показа
+    /// после оплаты. Для наличных это сумма чека (внесено и сдача — в полях выше), для безнала, смешанной оплаты и
+    /// предоплаты долга — оплаченная сумма, без сдачи. Null — оплата ещё не прошла или платить было нечего.</summary>
+    public double? PaidAmount { get; init; }
 }
 
 /// <summary>Строка чека на экране покупателя.</summary>

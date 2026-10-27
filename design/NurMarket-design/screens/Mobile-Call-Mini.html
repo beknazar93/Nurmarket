@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Мобилка — мини-плашка звонка поверх раздела (Г2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Mobile-Call-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <h3>Г2 · Мини-плашка звонка (<code>AssistantOverlay</code>, капсула 56 dp)</h3>
+    ИИ открыл раздел → звонок сам свернулся в плашку, разговор продолжается. На плашке: точка состояния, подпись, уровень голоса, таймер,
+    «Микрофон» 48 dp, «Завершить» 48 dp (красный круг). Нажатие по капсуле — развернуть; удержание — «Замолчи» (подсказка 48 dp под пальцем).
+    Две позиции: под строкой состояния (<code>top</code>) и над нижним меню (<code>bottom</code>) — место запоминается при перетаскивании.
+    <h3>Состояния</h3>
+    <ul>
+      <li><code>sale-listening</code> — «Продажа», точка красная мигает (ИИ слушает), полосы уровня голоса.</li>
+      <li><code>stock-thinking</code> — «Склад» с фильтром «Мало» (ИИ открыл его сам); плашка «Ищу…», точка жёлтая, три точки.</li>
+      <li><code>product-speaking</code> — карточка товара; плашка внизу над меню, «Говорю…», эквалайзер.</li>
+      <li><code>sale-noconn</code> — нет связи: плашка оранжевая (<code>T.brandOrange</code>), текст тёмный, под ней счётчик «завершится через 14 с».</li>
+      <li><code>stock-micoff</code> — микрофон выключен: плашка серая, подпись «Микрофон выкл.», точка серая без мигания.</li>
+      <li><code>sale-hold</code> — удержание: подсказка «Замолчи» (красный квадрат «стоп»), капсула чуть сжата (scale .97).</li>
+      <li><code>stock-action</code> — под плашкой строка итога действия «ИИ: открыл Склад → фильтр «мало» · 4 товара» без «Отменить» (навигация — отмена голосом «назад»).</li>
+      <li><code>stock-moved</code> — пользователь сам сменил экран: через 1 с тишины ИИ получает «[Программа] Пользователь открыл экран «Склад»» — на плашке ничего не меняется (невидимое состояние, для Sonnet).</li>
+    </ul>
+    В тёмной теме капсула <code>#333333</code>, в светлой — <code>T.navy #191919</code>; «нет связи» и «микрофон выкл.» одинаковы в обеих темах.
+    Длинные подписи (ky) усекаются многоточием в середине капсулы — таймер и кнопки не сдвигаются.
+  </div>
+</div>
+<script src="Mobile-Call-shared.js"></script>
+<script>
+(function(){
+  const I = MC.icon, frame = document.getElementById('frame');
+  function render(state){
+    const [sec, st] = state.split('-');
+    const pos = (st === 'speaking') ? 'bottom' : 'top';
+    let overlay = '';
+    if (st === 'hold') overlay = MC.pill({ state:'listening', time:'03:41', pos }).replace('class="pill', 'style="transform:scale(.97)" class="pill') +
+      '<div class="hold-tip" style="top:' + (30 + 56 + 10) + 'px">' + I('stop', 20) + '<span data-ky data-key="callHush">Замолчи</span></div>';
+    else if (st === 'action') overlay = MC.pill({ state:'speaking', time:'03:44', pos }) +
+      MC.actLine({ text:'открыл <b>Склад</b> → фильтр «мало» · 4 товара', sub:'«открой склад, что заканчивается» · 14:05 · в журнале', kind:'ok', undo:false, style:'top:' + (30 + 56 + 8) + 'px', key:'aiActNavigate' });
+    else if (st === 'noconn') overlay = MC.pill({ state:'noconn', time:'05:31', pos, text:'Нет связи с ИИ' }) +
+      '<div class="act warn" style="top:' + (30 + 56 + 8) + 'px">' + I('wifi-off', 22) + '<div class="tx"><span data-ky data-key="callNoLinkWork">Нет связи с ИИ, работайте на экране</span><small>завершится через <b class="num">14 с</b>, если связь не вернётся</small></div><i class="life" style="animation-duration:20s;background:var(--orange)"></i></div>';
+    else if (st === 'moved') overlay = MC.pill({ state:'listening', time:'03:50', pos });
+    else overlay = MC.pill({ state:st, time:{ listening:'03:41', thinking:'03:43', speaking:'03:47', micoff:'04:40' }[st] || '03:41', pos });
+    frame.innerHTML = MC.statusBar({ cam:true }) + (pos === 'top' ? MC.pillSpace() : '') + MC.section(sec) + overlay + MC.gesture();
+    if (st === 'moved') frame.insertAdjacentHTML('beforeend', '<div class="toast" style="bottom:104px;background:transparent;box-shadow:none;color:var(--text-soft);font-size:calc(11px*var(--k));justify-content:center">' + I('info', 16) + '<span>в ИИ ушло: «[Программа] Пользователь открыл экран «Склад», фильтр «мало»» — на экране ничего не показывается</span></div>');
+  }
+  MC.toolbar(frame, { title:'Mobile-Call-Mini — мини-плашка поверх раздела', onState:render, states:[
+    { id:'sale-listening', label:'Продажа · слушает' }, { id:'stock-thinking', label:'Склад · ищу…' }, { id:'product-speaking', label:'Товар · говорит (внизу)' },
+    { id:'sale-noconn', label:'нет связи' }, { id:'stock-micoff', label:'микрофон выкл.' }, { id:'sale-hold', label:'удержание — Замолчи' },
+    { id:'stock-action', label:'строка действия' }, { id:'stock-moved', label:'сам сменил экран' } ] });
+})();
+</script>
+</body></html>

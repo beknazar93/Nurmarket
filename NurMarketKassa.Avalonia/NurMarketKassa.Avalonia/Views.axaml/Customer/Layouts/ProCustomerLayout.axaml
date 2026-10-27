@@ -100,7 +100,7 @@
         </StackPanel>
         <StackPanel Grid.Row="1" Spacing="8" Margin="0,16,0,0">
           <Border Classes="cd-divider"/>
-          <Grid ColumnDefinitions="*,Auto">
+          <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowSubtotals}">
             <TextBlock Classes="cd-soft" Text="{Binding SubtotalLabel}" FontSize="{DynamicResource CdFont16}"/>
             <TextBlock Grid.Column="1" Classes="cd-text cd-num" Text="{Binding SubtotalNumberText}" FontSize="{DynamicResource CdFont16}"/>
           </Grid>

@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sec="using:NurMarketKassa.AvaloniaHost.Views.Controls"
         xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.SwitchCashierDialog"
         Title="{DynamicResource switchCashier.title}"
@@ -43,7 +44,7 @@
                KeyDown="InputBox_KeyDown"/>
       <TextBlock Text="{DynamicResource switchCashier.passwordWatermark}" FontSize="13" FontWeight="SemiBold"
                  Foreground="{DynamicResource BrushTextSoft}" Margin="0,8,0,0"/>
-      <TextBox x:Name="PasswordBox"
+      <sec:SecretTextBox x:Name="PasswordBox"
                PasswordChar="•"
                Watermark="{DynamicResource switchCashier.passwordWatermark}"
                Height="46" FontSize="15"

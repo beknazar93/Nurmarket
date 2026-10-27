@@ -1339,6 +1339,24 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 await ShowReceiptDetailsByIdAsync(item.Id, item.ReceiptNumber);
         }
 
+        private SaleReceiptCardData? _receiptCard;
+        private ReceiptActionBar? _popupBar;
+
+        /// <summary>2026-10-27: панель действий под карточкой чека — создаётся один раз; «Печать» — прежняя повторная печать.</summary>
+        private void EnsurePopupActionBar()
+        {
+            if (_popupBar != null)
+                return;
+            _popupBar = new ReceiptActionBar
+            {
+                GetData = () => _receiptCard,
+                Print = () => { PrintReceiptAgain_Click(this, new RoutedEventArgs()); return Task.CompletedTask; },
+                OwnerWindow = this,
+                IsReady = true,
+            };
+            PopupActionBarHost.Content = _popupBar;
+        }
+
         private async Task ShowReceiptDetailsByIdAsync(string receiptId, string receiptNumber)
         {
             if (string.IsNullOrEmpty(receiptId)) return;
@@ -1380,8 +1398,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 var receiptDiscount = ReadSaleDiscount(json);
                 var receiptTotal = ReadSaleTotal(json);
                 // 2026-10-23, владелец: «чек красивым как в мобилке» — карточка вместо моноширинного текста (печать — прежним текстом).
-                PopupReceiptHost.Content = SaleReceiptCardView.Build(
-                    SaleReceiptCardData.Build(json, receiptNumber, receiptDiscount, receiptTotal));
+                // 2026-10-27: общий контрол чека «как в мобилке» + панель «Печать / QR / PDF / Отправить».
+                var card = SaleReceiptCardData.Build(json, receiptNumber, receiptDiscount, receiptTotal);
+                _receiptCard = card;
+                PopupReceiptHost.Content = SaleReceiptCardView.Build(card);
+                EnsurePopupActionBar();
 
                 PopupTitle.Text = Tr.T("Чек ", "Чек ", "Receipt ", "Fiş ", "Chek ") + receiptNumber;
                 _currentReceiptJson = json;

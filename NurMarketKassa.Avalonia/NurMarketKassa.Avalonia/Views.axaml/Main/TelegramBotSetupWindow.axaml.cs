@@ -175,8 +175,15 @@ public partial class TelegramBotSetupWindow : Window
         }
     }
 
+    // 2026-10-27 (приёмка 26.10, Д-11): режим «бот на сервере» блок «Группа заказов» узнавал один раз при открытии окна (до ответа сервера),
+    // когда LastKnownServerMode ещё пуст, и писал «Сначала определите получателя» при работающем серверном боте. Теперь берёт режим из
+    // последнего показанного статуса сервера и перерисовывается после каждого ответа.
+    private bool? _serverModeShown;
+
     private void ShowServerStatus(ServerBotSettings? s)
     {
+        _serverModeShown = s?.IsServerMode == true;
+        Avalonia.Threading.Dispatcher.UIThread.Post(RefreshOrdersGroup);
         if (s is null)
         {
             ServerChips.Children.Clear();
@@ -525,7 +532,7 @@ public partial class TelegramBotSetupWindow : Window
     private void RefreshOrdersGroup()
     {
         var prefs = UserPreferences.Instance;
-        var serverMode = NurMarketKassa.Services.Api.ServerTelegramBotApi.LastKnownServerMode == true;
+        var serverMode = _serverModeShown ?? NurMarketKassa.Services.Api.ServerTelegramBotApi.LastKnownServerMode == true;
         var connected = !string.IsNullOrWhiteSpace(prefs.TelegramOrdersChatId);
         var removed = !connected && prefs.TelegramOrdersBotRemoved;
         var title = string.IsNullOrWhiteSpace(prefs.TelegramOrdersChatTitle) ? "" : prefs.TelegramOrdersChatTitle!;

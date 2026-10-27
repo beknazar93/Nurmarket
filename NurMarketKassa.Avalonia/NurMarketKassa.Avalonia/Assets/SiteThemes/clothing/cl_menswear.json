@@ -1,0 +1,132 @@
+{
+ "code": "cl_menswear",
+ "name": {
+  "ru": "Мужская классика",
+  "ky": "Эркектер классикасы",
+  "en": "Menswear Classic",
+  "tr": "Erkek Klasik",
+  "uz": "Erkaklar klassikasi"
+ },
+ "description": {
+  "ru": "Тёмно-синяя шапка, строгий шрифт, рамки у карточек. Для костюмов, рубашек и обуви.",
+  "ky": "Кою көк баш бөлүк, катаал шрифт, карточкаларда алкак. Костюмдар, көйнөктөр жана бут кийим үчүн.",
+  "en": "Navy header, classic font, framed cards. For suits, shirts and shoes.",
+  "tr": "Lacivert üst bölüm, klasik yazı tipi, çerçeveli kartlar. Takım elbise, gömlek ve ayakkabı için.",
+  "uz": "To'q ko'k sarlavha, qat'iy shrift, kartochkalarda ramka. Kostyumlar, ko'ylaklar va poyabzal uchun."
+ },
+ "spheres": [
+  "clothing"
+ ],
+ "version": 1,
+ "voice_words": {
+  "ru": [
+   "мужск"
+  ],
+  "ky": [
+   "эркек"
+  ],
+  "en": [
+   "menswear"
+  ],
+  "tr": [
+   "erkek"
+  ],
+  "uz": [
+   "erkak"
+  ]
+ },
+ "images": {
+  "hero.image": {
+   "file": "cl_menswear_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "cl_menswear_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#F4F5F7",
+    "surface": "#FFFFFF",
+    "text": "#14213D",
+    "text_muted": "#4B5563",
+    "accent": "#14213D",
+    "accent_text": "#FFFFFF",
+    "border": "#DDE1E7",
+    "header_bg": "#14213D",
+    "header_text": "#FFFFFF",
+    "footer_bg": "#0E1730",
+    "footer_text": "#E5E7EB",
+    "price": "#14213D",
+    "old_price": "#6B7280",
+    "badge_new_bg": "#0F766E",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#B91C1C",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "PT Sans",
+    "base_size": 16,
+    "heading_weight": 700
+   },
+   "radius": 4,
+   "shadow": "soft",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_left",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "split",
+   "overlay": 0,
+   "align": "left"
+  },
+  "categories": {
+   "style": "list",
+   "show_all": true,
+   "show_count": false
+  },
+  "products": {
+   "columns": {
+    "desktop": 4,
+    "tablet": 3,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "standard",
+   "photo_ratio": "3:4",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": true,
+    "category": true,
+    "stock": "low_only",
+    "unit": false,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "new_badge_days": 21,
+   "shadow": false,
+   "border": true
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

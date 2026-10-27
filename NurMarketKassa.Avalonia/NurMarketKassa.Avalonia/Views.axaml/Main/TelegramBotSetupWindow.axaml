@@ -1,6 +1,7 @@
 ﻿<Window x:Class="NurMarketKassa.AvaloniaHost.Views.TelegramBotSetupWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sec="using:NurMarketKassa.AvaloniaHost.Views.Controls"
         x:CompileBindings="False"
         Title="{DynamicResource loc.owner.tgSetup.title}"
         Height="760"
@@ -104,7 +105,7 @@
             <TextBlock Classes="StepTitle" Text="{DynamicResource loc.owner.tgSetup.step2}"/>
             <TextBlock Classes="StepBody"
                        Text="{DynamicResource loc.owner.tgSetup.step2Body}"/>
-            <TextBox x:Name="TokenBox" Watermark="123456789:AAG..." PasswordChar="•"/>
+            <sec:SecretTextBox x:Name="TokenBox" Watermark="123456789:AAG..." PasswordChar="•"/>
             <StackPanel Orientation="Horizontal" Spacing="10">
               <Button Classes="Primary" x:Name="CheckTokenButton" Content="{DynamicResource loc.owner.tgSetup.checkToken}" Click="CheckToken_Click"/>
               <Button Content="{DynamicResource loc.owner.tgSetup.pasteToken}" Click="PasteToken_Click"/>
@@ -184,7 +185,7 @@
             <StackPanel x:Name="ServerAiPanel" Spacing="6" IsVisible="False">
               <TextBlock Classes="StepBody" x:Name="ServerAiHint"/>
               <WrapPanel>
-                <TextBox x:Name="ServerAiKeyBox" Width="340" PasswordChar="•" Watermark="AIza..." Margin="0,0,10,8"/>
+                <sec:SecretTextBox x:Name="ServerAiKeyBox" Width="340" PasswordChar="•" Watermark="AIza..." Margin="0,0,10,8"/>
                 <Button Classes="Primary" x:Name="ServerAiSaveButton" Margin="0,0,10,8" Click="ServerAiSave_Click"/>
                 <Button x:Name="ServerAiGetKeyButton" Margin="0,0,10,8" Click="ServerAiGetKey_Click"/>
               </WrapPanel>

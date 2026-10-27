@@ -90,6 +90,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     private bool _isMoreActionsVisible;
     private double? _lastCashReceivedForDisplay;
     private double? _lastChangeDueForDisplay;
+    // 2026-10-26, владелец (второй монитор): сколько оплачено (безнал, смешанная, предоплата долга), экран показывает итог оплаты,
+    // и номер сброса — чтобы поздний сброс прошлой оплаты не стёр показ следующей.
+    private double? _lastPaidAmountForDisplay;
+    private bool _customerDisplayShowsPayment;
+    private int _customerDisplayResetVersion;
     private readonly List<string> _pendingInsufficientStockNotes = new();
 
     public BasketPanelViewModel(
@@ -1032,7 +1037,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         try
         {
             EnsureCartInitialized();
-            var qty = ParseQuantity(ManualQuantity, product.MustWeigh);
+            var qty = ParseQuantity(ManualQuantity, product.MustWeigh, QuantityRules.ForTile(product)); // 2026-10-26 (ХМ2)
             if (string.IsNullOrWhiteSpace(lineNameOverride))
                 _cart.AddItem(product, qty);
             else
@@ -1108,7 +1113,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         try
         {
             EnsureCartInitialized();
-            var qty = ParseQuantity(quantity.ToString(CultureInfo.InvariantCulture), product.MustWeigh);
+            var qty = ParseQuantity(quantity.ToString(CultureInfo.InvariantCulture), product.MustWeigh, QuantityRules.ForTile(product)); // 2026-10-26 (ХМ2)
             _cart.AddItem(product, qty);
             SyncLinesAndTotals();
             CartMessage = Tr.T($"Голосом добавлено: {product.Title}.", $"Үн менен кошулду: {product.Title}.",
@@ -1698,6 +1703,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         await RunOnUiThreadAsync(() =>
         {
             IsBusy = true;
+            // 2026-10-26: новая оплата — итог прошлой на экране покупателя больше не нужен, а его отложенный сброс не должен задеть эту.
+            ForgetPaymentOnCustomerDisplay();
             _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Processing, Tr.T("Идёт оплата...", "Төлөм жүрүп жатат...", "Processing payment...", "Ödeme işleniyor...", "To'lov amalga oshirilmoqda..."));
         }).ConfigureAwait(false);
 
@@ -1878,28 +1885,6 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
             await RunOnUiThreadAsync(() =>
             {
-                if (checkoutVm.PaymentMethod == "cash" &&
-                    double.TryParse(cashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var cashPaid))
-                {
-                    _lastCashReceivedForDisplay = cashPaid;
-                    // 2026-09-13, живой баг: totals был посчитан ДО открытия диалога оплаты, а
-                    // кассир мог внутри него применить скидку на чек или списать баллы лояльности
-                    // (checkoutVm.EffectiveTotalDue меняется, totals.TotalDue — нет). С клиента
-                    // списывается верная (пересчитанная) сумма, но экран покупателя показывал
-                    // сдачу от СТАРОЙ суммы — например, скидка снизила сумму на 85 сом, а сдача на
-                    // экране покупателя показывала на 85 сом меньше, чем реально нужно вернуть.
-                    // 2026-09-28: если сервер провёл продажу на другую сумму (TotalMismatchWarning),
-                    // сдача на экране покупателя — от суммы сервера.
-                    _lastChangeDueForDisplay = Math.Max(0, cashPaid - (result.TotalMismatchWarning != null
-                        ? result.TotalAmount
-                        : checkoutVm.EffectiveTotalDue));
-                }
-                else
-                {
-                    _lastCashReceivedForDisplay = null;
-                    _lastChangeDueForDisplay = null;
-                }
-
                 // 2026-10-20, владелец (долг Д5): продажа «в долг» — покупатель видит, сколько в долг и до какого числа.
                 var thanks = Tr.T("Спасибо за покупку!", "Сатып алганыңыз үчүн рахмат!", "Thank you for your purchase!", "Alışverişiniz için teşekkürler!", "Xaridingiz uchun rahmat!");
                 if (checkoutVm.IsDebtMode && checkoutVm.DebtScheduleForApi is { } debtPlan)
@@ -1909,7 +1894,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                     thanks += "\n" + Tr.T($"В долг {debtSum} — до {dueText}", $"Карызга {debtSum} — {dueText} чейин", $"On credit {debtSum} — until {dueText}",
                         $"Veresiye {debtSum} — {dueText} tarihine kadar", $"Qarzga {debtSum} — {dueText} gacha");
                 }
-                _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Success, thanks);
+                // 2026-10-26: внесено / сдача / оплачено и «Оплата принята» — одним вызовом (раньше здесь стояли суммы для наличных и статус).
+                ShowPaymentResultOnCustomerDisplay(checkoutVm.PaymentMethod, cashReceived,
+                    result.TotalMismatchWarning != null ? result.TotalAmount : checkoutVm.EffectiveTotalDue, thanks);
                 // 2026-10-04: чек оплачен — клиент QR остаётся у этого покупателя, а не переходит к следующему.
                 ForgetReceiptClient(paidSessionId);
                 SyncLinesAndTotals();
@@ -2261,11 +2248,22 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     {
         try
         {
-            await Task.Delay(4000).ConfigureAwait(false);
+            // 2026-10-26, владелец (второй монитор): итог оплаты («внесено», «сдача») держался ровно 4 с, хотя в настройках
+            // «Очистить экран через, сек.» — например, 10. Теперь после удачной оплаты ждём не меньше этой настройки.
+            var version = Interlocked.Increment(ref _customerDisplayResetVersion);
+            var delayMs = 4000;
+            if (_customerDisplayShowsPayment)
+                delayMs = Math.Max(delayMs, UserPreferences.Instance.CustomerDisplay.ClearDelaySeconds * 1000);
+            await Task.Delay(delayMs).ConfigureAwait(false);
             await RunOnUiThreadAsync(() =>
             {
+                // началась новая оплата или следующий покупатель — экран уже очищен, этот сброс устарел
+                if (version != Volatile.Read(ref _customerDisplayResetVersion))
+                    return;
                 _lastCashReceivedForDisplay = null;
                 _lastChangeDueForDisplay = null;
+                _lastPaidAmountForDisplay = null;
+                _customerDisplayShowsPayment = false;
                 _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle);
                 PushCustomerDisplay();
             }).ConfigureAwait(false);
@@ -2274,6 +2272,48 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         {
             PosLogger.Log($"PAY status reset failed: {ex}", "PAYMENT");
         }
+    }
+
+    /// <summary>2026-10-26, владелец (второй монитор): итог удачной оплаты на экране покупателя — «Оплата принята», сколько
+    /// внесено и сдача (наличные), для безнала, смешанной оплаты и предоплаты долга — сколько оплачено, без выдуманной сдачи.
+    /// Только показ: деньги и чек не меняются. Раньше это стояло прямо в PayCoreAsync и умело только наличные.</summary>
+    private void ShowPaymentResultOnCustomerDisplay(string paymentMethod, string cashReceived, double effectiveTotal, string message)
+    {
+        var parsed = double.TryParse(cashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var cashPaid);
+        if (paymentMethod == "cash" && parsed)
+        {
+            _lastCashReceivedForDisplay = cashPaid;
+            // 2026-09-13, живой баг: totals был посчитан ДО открытия диалога оплаты, а
+            // кассир мог внутри него применить скидку на чек или списать баллы лояльности
+            // (checkoutVm.EffectiveTotalDue меняется, totals.TotalDue — нет). С клиента
+            // списывается верная (пересчитанная) сумма, но экран покупателя показывал
+            // сдачу от СТАРОЙ суммы — например, скидка снизила сумму на 85 сом, а сдача на
+            // экране покупателя показывала на 85 сом меньше, чем реально нужно вернуть.
+            // 2026-09-28: если сервер провёл продажу на другую сумму (TotalMismatchWarning),
+            // сдача на экране покупателя — от суммы сервера (effectiveTotal уже учитывает это).
+            _lastChangeDueForDisplay = Math.Max(0, cashPaid - effectiveTotal);
+        }
+        else
+        {
+            _lastCashReceivedForDisplay = null;
+            _lastChangeDueForDisplay = null;
+        }
+        // оплачено: наличные, безнал и смешанная — весь чек; «в долг» — только предоплата, если она была
+        _lastPaidAmountForDisplay = paymentMethod == "debt"
+            ? (parsed && cashPaid > 0.004 ? cashPaid : null)
+            : (effectiveTotal > 0.004 ? effectiveTotal : null);
+        _customerDisplayShowsPayment = true;
+        _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Success, message);
+    }
+
+    /// <summary>2026-10-26: убрать итог прошлой оплаты (суммы и пометку) и отменить её отложенный сброс экрана.</summary>
+    private void ForgetPaymentOnCustomerDisplay()
+    {
+        Interlocked.Increment(ref _customerDisplayResetVersion);
+        _lastCashReceivedForDisplay = null;
+        _lastChangeDueForDisplay = null;
+        _lastPaidAmountForDisplay = null;
+        _customerDisplayShowsPayment = false;
     }
 
     /// <summary>public (не private): нужен извне для автосохранения текущего чека при
@@ -2571,7 +2611,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         if (NeedsRemovalReason(line))
         {
             var request = new CartRemovalReasonRequest(line.Title, line.Quantity, line.Unit, line.LineTotal,
-                CanRemoveOne: !line.IsWeight && line.Quantity > 1 + 1e-6);
+                CanRemoveOne: !line.IsWeight && line.Quantity > 1 + 1e-6 && FractionalRule(line) == null); // 2026-10-26 (ХМ2): «Только 1» не для метров
             reason = await AskRemovalReason!(request).ConfigureAwait(true);
             if (reason is null || !IsLineInCart(line))
                 return;
@@ -2702,8 +2742,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         if (!string.IsNullOrWhiteSpace(line!.ProductId) && _stockLimitLookup != null)
             line.MaxStockQuantity = _stockLimitLookup(line.ProductId, line.SalePackageId);
 
-        var step = line.IsWeight ? 0.1 : 1;
-        var next = Math.Round(line.Quantity + step, line.IsWeight ? 3 : 0);
+        var rule = FractionalRule(line); // 2026-10-26 (ХМ2): метры/м²/литры — шаг единицы, не 1
+        var step = line.IsWeight ? 0.1 : rule != null ? (double)rule.Step : 1;
+        var next = rule != null ? QuantityRules.Normalize(line.Quantity + step, rule) : Math.Round(line.Quantity + step, line.IsWeight ? 3 : 0);
         if (line.MaxStockQuantity is { } limit && next > limit + 1e-6)
         {
             // Не тупик: предлагаем пополнить склад — ровно так же, как при добавлении товара
@@ -2816,17 +2857,20 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         if (!CanChangeLineQuantity(line))
             return;
 
-        var minimum = line!.IsWeight ? 0.1 : 1;
+        var rule = FractionalRule(line!); // 2026-10-26 (ХМ2)
+        var minimum = line!.IsWeight ? 0.1 : rule != null ? (double)rule.Min : 1;
         if (line.Quantity <= minimum + 1e-6)
         {
-            CartMessage = line.IsWeight
+            CartMessage = rule != null
+                ? QuantityRules.MinimumMessage(rule, line.Unit)
+                : line.IsWeight
                 ? Tr.T("Минимальный вес — 0,1 кг.", "Минималдуу салмак — 0,1 кг.", "Minimum weight is 0.1 kg.", "Minimum ağırlık 0,1 kg'dır.", "Minimal og'irlik — 0,1 kg.")
                 : Tr.T("Меньше 1 нельзя.", "1ден аз болушу мүмкүн эмес.", "Cannot be less than 1.", "1'den az olamaz.", "1 dan kam bo'lishi mumkin emas.");
             return;
         }
 
-        var step = line.IsWeight ? 0.1 : 1;
-        var next = Math.Round(line.Quantity - step, line.IsWeight ? 3 : 0);
+        var step = line.IsWeight ? 0.1 : rule != null ? (double)rule.Step : 1;
+        var next = rule != null ? QuantityRules.Normalize(line.Quantity - step, rule) : Math.Round(line.Quantity - step, line.IsWeight ? 3 : 0);
         if (next < minimum)
             next = minimum;
 
@@ -2842,7 +2886,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         if (!IsLineInCart(line!))
             return;
 
-        var minimum = line!.IsWeight ? 0.1 : 1;
+        var rule = FractionalRule(line!); // 2026-10-26 (ХМ2)
+        var minimum = line!.IsWeight ? 0.1 : rule != null ? (double)rule.Min : 1;
         if (!double.TryParse(line.QuantityInput.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var typed)
             || typed <= 0)
         {
@@ -2854,7 +2899,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         if (!string.IsNullOrWhiteSpace(line.ProductId) && _stockLimitLookup != null)
             line.MaxStockQuantity = _stockLimitLookup(line.ProductId, line.SalePackageId);
 
-        var next = Math.Round(typed, line.IsWeight ? 3 : 0);
+        var next = rule != null ? QuantityRules.Normalize(typed, rule) : Math.Round(typed, line.IsWeight ? 3 : 0);
+        if (rule != null && typed < minimum - 1e-6)
+            CartMessage = QuantityRules.MinimumMessage(rule, line.Unit);
         if (next < minimum)
             next = minimum;
 
@@ -3320,6 +3367,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                     Unit = item.MustWeigh ? Tr.T("кг", "кг", "kg", "kg", "kg") : LineUnit(item.ProductId, item.Barcode),
                     UnitPrice = (double)item.UnitPrice,
                     IsWeight = item.MustWeigh,
+                    // 2026-10-26 (ХМ2): шаг дробной единицы «Хозтоваров» для кнопки «+» (null — как раньше, 1 или 0.1 кг).
+                    FractionalStep = QuantityRules.Active && !item.MustWeigh && string.IsNullOrEmpty(item.SalePackageId)
+                        ? (double?)QuantityRules.ForUnit(LineUnit(item.ProductId, item.Barcode))?.Step
+                        : null,
                     SalePackageId = item.SalePackageId,
                     MaxStockQuantity = string.IsNullOrWhiteSpace(item.ProductId)
                         ? null
@@ -3438,6 +3489,14 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
     private void PushCustomerDisplay()
     {
+        // 2026-10-26: итог оплаты теперь держится дольше (настройка «Очистить экран через»), а следующий покупатель может начать
+        // сканировать раньше — как только в чеке появились товары, итог прошлой оплаты убираем сразу.
+        if (_customerDisplayShowsPayment && Lines.Count > 0)
+        {
+            ForgetPaymentOnCustomerDisplay();
+            _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle);
+        }
+
         _customerDisplay.UpdateCart(new CustomerDisplayCartSnapshot
         {
             Lines = Lines.Select(line => new CustomerDisplayLine
@@ -3454,6 +3513,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             Total = Total,
             CashReceived = _lastCashReceivedForDisplay,
             ChangeDue = _lastChangeDueForDisplay,
+            PaidAmount = _lastPaidAmountForDisplay,
         });
 
         // Отдельный дисплей цены на COM-порту (2026-09-04, не второй монитор) — тот же хук,
@@ -3479,14 +3539,22 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         }
     }
 
-    private static double ParseQuantity(string? raw, bool mustWeigh)
+    /// <param name="rule">2026-10-26 (ХМ2): правило дробной единицы «Хозтоваров» (м, м², л) — шаг и минимум вместо целого; null — как раньше.</param>
+    private static double ParseQuantity(string? raw, bool mustWeigh, QuantityRule? rule = null)
     {
         if (!double.TryParse(raw?.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var qty)
             || qty <= 0)
             qty = 1;
 
+        if (!mustWeigh && rule != null)
+            return QuantityRules.Normalize(qty, rule);
         return mustWeigh ? Math.Round(qty, 3) : Math.Round(qty, 0, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>2026-10-26 (ХМ2): правило дробного количества для строки чека; null — весовая, поштучная из упаковки,
+    /// не «Хозтовары» или единица целая (всё как раньше).</summary>
+    private static QuantityRule? FractionalRule(CartLineItemVm line) =>
+        line.IsWeight || !string.IsNullOrEmpty(line.SalePackageId) ? null : QuantityRules.ForUnit(line.Unit);
 
     private void RaiseCartCommands()
     {

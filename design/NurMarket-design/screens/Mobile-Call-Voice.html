@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Мобилка — звонок с Нур Советником — голос (Г1)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Mobile-Call-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <h3>Г1 · Экран «Разговор» (голос, камера выключена)</h3>
+    Экран как сейчас (<code>advisor_call.dart</code>), добавлено: «Свернуть ⌄» в шапке (звонок живёт в контроллере — закрыть экран ≠ завершить),
+    метка «● ИИ слушает» (правило 2.5 г/5), третья кнопка «Камера» в ряду (ТЗ видеозвонка), кнопка «Ещё 10 минут» за минуту до конца (вопрос 6).
+    <h3>Состояния</h3>
+    <ul>
+      <li><code>preparing</code> — «Готовлю данные магазина…», круг тёмный, спиннер; кнопки ряда неактивны.</li>
+      <li><code>listening</code> — круг тёмный, пульс 1,1 с + три кольца (в коде: размер 150 + уровень×40, анимация 120 мс); живой субтитр «Вы: …» тёмным.</li>
+      <li><code>thinking</code> — круг <code>accentSoft</code>, три точки; подпись «Думаю…»; при долгом инструменте — «Ищу…» и «Сервер отвечает медленно…» через 4 с.</li>
+      <li><code>speaking</code> — круг жёлтый, эквалайзер (5 полос, 0,7 с); «Говорю… (нажмите, чтобы перебить)».</li>
+      <li><code>interrupt</code> — пользователь перебил: реплика ИИ обрезана «…» курсивом, чип «Перебили — слушаю», круг снова тёмный.</li>
+      <li><code>micoff</code> — микрофон выключен: круг серый с перечёркнутым микрофоном, кнопка «Микрофон выкл.» залита серым, метка «ИИ слушает» скрыта.</li>
+      <li><code>warn</code> — за минуту до конца: строка стоимости красная «Через минуту звонок завершится», таймер красный, кнопка «Ещё 10 минут» (48 dp, жёлтая).</li>
+      <li><code>noconn</code> — нет связи: оранжевая плашка «Нет связи с ИИ, работайте на экране · завершится через 14 с», круг серый; «Повторить» / «Закрыть».</li>
+      <li><code>ended</code> — лимит: плашка «Звонок завершён: прошло 10 мин…», кнопка внизу «Закрыть», таблицы → в чат.</li>
+    </ul>
+    Нажатие на круг во время речи ИИ — перебить; удержание круга — «Замолчи» (5.4). Все кнопки ≥ 48 dp; «Завершить» 56 dp красная.
+  </div>
+</div>
+<script src="Mobile-Call-shared.js"></script>
+<script>
+(function(){
+  const I = MC.icon, frame = document.getElementById('frame');
+  const TURNS = [
+    ['u', 'Сколько мы продали вчера?'],
+    ['a', 'Вчера 44 тысячи сом, 58 чеков. На 9 % меньше, чем позавчера.'],
+    ['u', 'А что заканчивается на складе?'],
+  ];
+  function subs(state){
+    let list = TURNS.slice();
+    let live = '';
+    if (state === 'thinking') live = '<div class="sub live"><b data-ky>Нур Советник</b>: Сейчас посмотрю…</div>';
+    if (state === 'speaking') live = '<div class="sub live"><b data-ky>Нур Советник</b>: Заканчиваются четыре товара: сок Gracio — 2 штуки, масло «Шоро» — одна, молоко «Эльвест» — три, хлеб «Нарын» кончился. Показываю таблицу</div>';
+    if (state === 'interrupt') { list.push(['a', 'Заканчиваются четыре товара: сок Gracio — 2 штуки, масло <span class="cut">…</span>']); live = '<div class="sub live"><b data-ky>Вы</b>: Стоп, закажи сок у поставщика</div>'; }
+    if (state === 'listening' || state === 'micoff' || state === 'warn') live = '<div class="sub live"><b data-ky>Вы</b>: Открой склад, что' + (state === 'listening' ? ' заканч' : ' заканчивается') + '</div>';
+    if (state === 'preparing') { list = []; }
+    return '<div class="subs">' + list.map(t => '<div class="sub"><b data-ky>' + (t[0] === 'u' ? 'Вы' : 'Нур Советник') + '</b>: ' + t[1] + '</div>').join('') + live + '</div>';
+  }
+  function orb(state){
+    const cls = { preparing:'', listening:'listening', thinking:'thinking', speaking:'speaking', interrupt:'listening', micoff:'muted', warn:'listening', noconn:'off', ended:'ended' }[state];
+    let inner = I('mic', 64);
+    if (state === 'speaking') inner = '<span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>';
+    if (state === 'thinking') inner = '<span class="dots"><i></i><i></i><i></i></span>';
+    if (state === 'micoff') inner = I('mic-off', 64);
+    if (state === 'noconn') inner = I('wifi-off', 56);
+    if (state === 'ended') inner = I('phone-hangup', 56);
+    if (state === 'preparing') inner = '<span class="spin" style="width:40px;height:40px;border-width:4px;border-color:rgba(255,255,255,.3);border-top-color:#fff"></span>';
+    const label = { preparing:['Готовлю данные магазина…','callPreparing'], listening:['Слушаю…','callListening'], thinking:['Думаю…','callThinking'], speaking:['Говорю… (нажмите, чтобы перебить)','callSpeaking'],
+      interrupt:['Слушаю…','callListening'], micoff:['Микрофон выкл.','callMicOff'], warn:['Слушаю…','callListening'], noconn:['Подключаюсь…','callConnecting'], ended:['Звонок завершён','callEnded'] }[state];
+    const rings = '<i class="ring"></i><i class="ring"></i><i class="ring"></i>';
+    const rec = (state === 'listening' || state === 'warn' || state === 'interrupt') ? '<span class="rec"><i></i><span data-ky data-key="callAiListens">ИИ слушает</span></span>' : (state === 'interrupt' ? '' : '<span style="height:28px"></span>');
+    const chip = state === 'interrupt' ? '<span class="tag acc" style="height:28px;font-size:calc(12px*var(--k))">' + I('hand', 14) + '<span data-ky data-key="callInterrupted">Перебили — слушаю</span></span>' : '';
+    return '<div class="orb-wrap"><div class="orb ' + cls + '" role="button" aria-label="Перебить; удержание — «Замолчи»">' + rings + inner + '</div>' +
+      '<div class="state-t' + (state === 'micoff' || state === 'noconn' || state === 'ended' ? ' soft' : '') + '" data-ky data-key="' + label[1] + '">' + label[0] + '</div>' + (chip || rec) + '</div>';
+  }
+  function render(state){
+    const live = !(state === 'noconn' || state === 'ended' || state === 'preparing');
+    const time = { preparing:'00:00', listening:'03:12', thinking:'03:14', speaking:'03:18', interrupt:'03:22', micoff:'04:40', warn:'09:00', noconn:'05:31', ended:'10:00' }[state];
+    const cost = state === 'warn'
+      ? '<div class="hint c bad" data-ky data-key="callLimitSoon">Через минуту звонок завершится</div>'
+      : '<div class="hint c" data-ky data-key="callCost">Звонок длится до 10 мин и расходует лимит ключа ИИ быстрее, чем чат.</div>';
+    const timer = '<div class="timer num" style="text-align:center' + (state === 'warn' ? ';color:var(--danger)' : '') + '"><b' + (state === 'warn' ? ' style="color:var(--danger)"' : '') + '>' + time + '</b> / 10:00</div>';
+    const more = state === 'warn' ? '<button class="btn tonal sm" style="align-self:center;background:var(--accent);color:var(--accent-fg)">' + I('clock', 18) + '<span data-ky data-key="callExtend">Ещё 10 минут</span></button>' : '';
+    let problem = '';
+    if (state === 'noconn') problem = '<div class="plate warn">' + I('wifi-off', 22) + '<div class="tx"><b class="w" data-ky data-key="callNoLink">Нет связи с ИИ, работайте на экране</b><br><span class="hint">Звонок завершится через <b class="num">14 с</b>, если связь не вернётся. Корзина, поиск и склад работают без ИИ.</span></div></div>' +
+      '<div class="ctrl"><button class="btn tonal"><span class="ell" data-ky data-key="retry">Повторить</span></button><button class="btn ghost"><span class="ell" data-ky data-key="callClose">Закрыть</span></button></div>';
+    if (state === 'ended') problem = '<div class="plate">' + I('info', 22) + '<div class="tx" data-key="callEndedLimit">Звонок завершён: прошло 10 мин. Можно позвонить снова.<br><span class="hint">Разговор и 2 таблицы сохранены в чате советника.</span></div></div>' +
+      '<div class="ctrl"><button class="btn tonal">' + I('phone', 18) + '<span class="ell" data-ky data-key="retry">Повторить</span></button></div>';
+    if (state === 'thinking') problem = '<div class="plate info" style="min-height:44px;padding:6px 12px">' + I('clock', 20) + '<div class="tx hint" style="color:var(--text-muted)" data-ky data-key="callSlowServer">Сервер отвечает медленно…</div></div>';
+    const dis = live ? '' : ' disabled';
+    const micBtn = '<button class="btn ' + (state === 'micoff' ? 'muted' : '') + '"' + dis + '>' + I(state === 'micoff' ? 'mic-off' : 'mic', 20) + '<span class="ell" data-ky data-key="' + (state === 'micoff' ? 'callMicOff' : 'callMicOn') + '">' + (state === 'micoff' ? 'Микрофон выкл.' : 'Микрофон вкл.') + '</span></button>';
+    const camBtn = '<button class="btn"' + dis + '>' + I('camera', 20) + '<span class="ell" data-ky data-key="vcCamera">Камера</span></button>';
+    const spkBtn = '<button class="btn"' + dis + '>' + I('speaker', 20) + '<span class="ell" data-ky data-key="callSpeakerOn">Громкая связь</span></button>';
+    frame.innerHTML = MC.statusBar({ time:'14:05', cam:live }) +
+      '<div class="hdr"><div class="tt"><b data-ky data-key="callTitle">Разговор</b><span data-ky data-key="advisorTitle">Нур Советник</span></div>' +
+        '<button class="ib lbl outl" aria-label="Свернуть звонок — разговор продолжится поверх разделов">' + I('chevron-down', 20) + '<span data-ky data-key="callMinimize">Свернуть</span></button></div>' +
+      '<div class="body tight">' + cost + timer + more + orb(state) + subs(state) + problem +
+        '<div class="ctrl">' + micBtn + camBtn + spkBtn + '</div>' +
+        '<button class="btn cta ' + (state === 'ended' ? 'dark' : 'danger') + '">' + I(state === 'ended' ? 'close' : 'phone-hangup', 22) + '<span data-ky data-key="' + (state === 'ended' ? 'callClose' : 'callEnd') + '">' + (state === 'ended' ? 'Закрыть' : 'Завершить') + '</span></button>' +
+      '</div>' + MC.gesture();
+  }
+  MC.toolbar(frame, { title:'Mobile-Call-Voice — голосовой звонок', onState:render, states:[
+    { id:'listening', label:'слушает' }, { id:'preparing', label:'готовлю данные' }, { id:'thinking', label:'думаю / ищу' }, { id:'speaking', label:'говорит' },
+    { id:'interrupt', label:'перебили' }, { id:'micoff', label:'микрофон выкл.' }, { id:'warn', label:'за минуту до конца' }, { id:'noconn', label:'нет связи' }, { id:'ended', label:'завершён (лимит)' } ] });
+})();
+</script>
+</body></html>

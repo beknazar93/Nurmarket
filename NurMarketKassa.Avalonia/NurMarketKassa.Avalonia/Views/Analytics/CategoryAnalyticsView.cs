@@ -375,11 +375,8 @@ public sealed class CategoryAnalyticsView : UserControl
         if (d.Top.Count > 0)
         {
             var chart = new StackPanel { Spacing = 4 };
-            // Кисть темы: до присоединения к окну FindResource пуст — тогда берём из ресурсов приложения (иначе полосы «радугой»).
-            var brush = this.FindResource("BrushText") as IBrush;
-            if (brush == null && Application.Current is { } app && app.TryGetResource("BrushText", app.ActualThemeVariant, out var res))
-                brush = res as IBrush;
-            BarChartRenderer.Render(chart, d.Top.Select(t => (t.Name, t.Revenue, Money(t.Revenue))).ToList(), brush);
+            // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — товары категории разноцветные (цвет по названию, ChartPalette); раньше — одной кистью темы.
+            BarChartRenderer.Render(chart, d.Top.Select(t => (t.Name, t.Revenue, Money(t.Revenue))).ToList());
             var table = SectionCards.LinesTable(this,
                 d.Top.Select(t => (t.Name, t.Qty.ToString("0.###"), Money(t.Revenue),
                     t.PurchasePrice > 0 && t.Revenue > 0 ? Pct((t.Revenue - t.Cost) / t.Revenue * 100) : "—")).ToList(),

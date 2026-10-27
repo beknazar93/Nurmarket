@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Хозмаг — карточка товара: единицы, упаковки, штрихкоды (ХМ4, Б-53)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Hardware-shared.css">
+<style>
+  .tabs{ display:flex; gap:2px; border-bottom:1px solid var(--border); padding:0 22px; }
+  .tabs span{ min-height:44px; display:flex; align-items:center; padding:0 12px; font-size:13.5px; font-weight:600; color:var(--text-soft); border-bottom:3px solid transparent; white-space:nowrap; }
+  .tabs span.on{ color:var(--text); border-bottom-color:var(--accent); font-weight:700; }
+  .s1024 .tabs span{ padding:0 9px; font-size:12.5px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px 12px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px 12px; }
+  .units{ position:relative; }
+  .units .list{ position:absolute; left:0; top:calc(100% + 4px); z-index:5; width:100%; background:var(--panel); border:1px solid var(--border-strong); border-radius:var(--r-btn); box-shadow:var(--shadow); overflow:hidden; display:grid; grid-template-columns:1fr 1fr; }
+  .units .list div{ display:flex; align-items:center; gap:8px; min-height:42px; padding:0 12px; font-size:13.5px; border-top:1px solid var(--border); }
+  .units .list div:nth-child(-n+2){ border-top:0; } .units .list div.on{ background:var(--accent-soft); font-weight:700; }
+  .units .list small{ margin-left:auto; color:var(--text-soft); font-size:11.5px; }
+  .utbl td .chk{ min-height:40px; }
+  .utbl .code{ font-family:ui-monospace,Consolas,monospace; font-size:13px; letter-spacing:.02em; }
+  .frac{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .frac .inp.ro{ pointer-events:none; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <code>ProductEditDialog</code>, вкладка «Единицы и упаковка» (для <code>hardware</code> вместо «Упаковка»). Базовая единица — свободный текст с подсказками 14 единиц профиля (3.3); касса узнаёт её по синонимам («пог.м» → м).
+    Таблица единиц продажи (после Б-53): единица, сколько базовых, свой штрихкод, цена, «по умолчанию при добавлении». <code>Плитка</code> м²/уп 1,44; <code>Кабель</code> м/бухта 100 м (цена бухты пустая = по м);
+    <code>Саморез</code> шт / коробка 200 / короб 10 коробок; <code>До Б-53</code> — то, что касса умеет сейчас: одна упаковка + доп. штрихкод с «кол-во в упаковке (скан добавит столько)».
+    Блок «Дробное количество» — только чтение из единицы до Б-52 («изменить» неактивно). «Для калькулятора» берёт м² из упаковки и норму из категории.
+  </div>
+</div>
+<script src="Hardware-shared.js"></script>
+<script>
+(function(){
+  const I = HW.icon, t = HW.t, btn = HW.btn, inp = HW.inp, sel = HW.sel, chk = HW.chk;
+  const frame = document.getElementById('frame');
+  const UNITS = [['шт','pcs','целое'],['м','m','шаг 0,1'],['м²','m2','шаг 0,01'],['м³','m3','шаг 0,01'],['кг','kg','весы / 0,1'],['л','l','шаг 0,1'],['т','t','шаг 0,01'],['уп','pack','целое'],['коробка','box','целое'],['мешок','bag','целое'],['рулон','roll','целое'],['лист','sheet','целое'],['комплект','set','целое'],['пара','pair','целое']];
+  const P = {
+    tile:  { name:'Плитка керамическая 30×60 «Атлас» серый', art:'PL-3060-GR', cat:'Плитка и напольные покрытия', unit:'м²', uc:'m2', price:'520', frac:['0,01','0,5 м²','2'], units:[
+              { u:'м²', base:'—', k:1, code:'4870012345678', price:'520', def:false, isBase:true }, { u:'уп', k:'1,44', code:'4870012345685', price:'749', def:true, hint:'упаковка 8 плиток' } ],
+            calc:{ a:'1,44 м² в упаковке', b:'норма: категория «Плитка» → запас 10 % (15 % по диагонали)', c:'сопутствующие: Клей 5 кг/м², Затирка 0,4 кг/м²' } },
+    cable: { name:'Кабель ВВГнг 3×2,5', art:'VVG-3x25', cat:'Электрика', unit:'м', uc:'m', price:'85', frac:['0,1','1 м','2'], units:[
+              { u:'м', base:'—', k:1, code:'4870023456789', price:'85', def:true, isBase:true }, { u:'бухта', k:'100', code:'4870023456796', price:'', def:false, hint:'цена пустая — считается по м: 8 500' } ],
+            calc:{ a:'бухта 100 м — кнопка «Вся бухта» в окне длины', b:'минимум продажи 1 м', c:'отрез: этикетка «Отрез» 40×30' } },
+    screw: { name:'Саморез по дереву 3,5×25 жёлтый', art:'SM-3525-Y', cat:'Крепёж', unit:'шт', uc:'pcs', price:'0,90', frac:null, units:[
+              { u:'шт', base:'—', k:1, code:'—', price:'0,90', def:true, isBase:true, hint:'без штрихкода: продаётся по названию' }, { u:'коробка', k:'200', code:'4870034567890', price:'170', def:false, hint:'скан коробки = +200 шт' }, { u:'короб', k:'2 000', code:'4870034567906', price:'1 650', def:false, hint:'10 коробок — для прорабов' } ],
+            calc:null },
+  };
+  const unitRow = (r, i) => '<tr>'+
+    '<td>'+(r.isBase ? '<b>'+r.u+'</b> <span class="chip">'+t('базовая','hw.unit.base')+'</span>' : '<div class="inp" style="height:40px;width:130px"><span class="v">'+r.u+'</span>'+I('chevron-down',16)+'</div>')+'</td>'+
+    '<td>'+(r.isBase ? '<span class="muted">—</span>' : '<div class="row" style="gap:6px"><div class="inp num" style="height:40px;width:96px"><span class="v">'+r.k+'</span></div><span class="muted" style="font-size:12.5px">'+UNITS.find(u=>u[0]===P[cur].unit)[0]+'</span></div>')+'</td>'+
+    '<td><div class="row" style="gap:6px">'+(r.code==='—' ? '<span class="muted">нет</span>' : '<span class="code num">'+r.code+'</span>')+'<button class="sq ghost" style="width:40px;height:40px" aria-label="Сканировать">'+I('barcode-scan',18)+'</button></div></td>'+
+    '<td><div class="inp num" style="height:40px;width:110px">'+(r.price ? '<span class="v">'+r.price+'</span>' : '<span class="v muted">по базовой</span>')+'<span class="u">сом</span></div></td>'+
+    '<td>'+chk('', r.def, {radio:true})+'</td>'+
+    '<td class="soft" style="font-size:12px;max-width:220px;white-space:normal;line-height:1.25">'+(r.hint||'')+'</td>'+
+    '<td>'+(r.isBase ? '' : '<button class="sq ghost" aria-label="Убрать">'+I('close',18)+'</button>')+'</td></tr>';
+  let cur = 'tile';
+
+  function render(st){
+    cur = st==='legacy' || st==='units' ? 'tile' : st;
+    const p = P[cur]; const legacy = st==='legacy';
+    const unitsDd = st==='units' ? '<div class="list">'+UNITS.map(u=>'<div'+(u[0]===p.unit?' class="on"':'')+'><b>'+u[0]+'</b><span class="muted" style="font-size:12px">'+u[1]+'</span><small>'+u[2]+'</small></div>').join('')+'</div>' : '';
+    const body =
+      '<div class="grid3">'+
+        '<div class="units">'+inp('Базовая единица (как считаете остаток)', p.unit, {key:'product.unit', cls:st==='units'?'focus':'', hint:'синонимы: м, м., метр, пог.м → m · неизвестная единица — штучная'})+unitsDd+'</div>'+
+        inp('Цена за базовую единицу', p.price, {key:'product.price', unit:'сом / '+p.unit})+
+        inp('Оптовая цена', cur==='tile'?'480':cur==='cable'?'79':'0,80', {key:'product.wholesale', unit:'сом / '+p.unit, hint:'цена прораба до Б-55 — это опт (ХМ8)'})+
+      '</div>'+
+      (legacy
+        ? '<div class="card"><h3>'+I('package-variant-closed',18)+t('Продавать и упаковкой','hw.pack.title')+' <span class="chip">до Б-53 — одна упаковка</span></h3>'+
+            '<div class="grid3">'+inp('Название упаковки','уп',{key:'pack.name'})+inp('В упаковке','1,44',{key:'pack.qty',unit:p.unit})+inp('Цена упаковки','749',{key:'pack.price',unit:'сом'})+'</div>'+
+            chk('Продавать и упаковкой (выбор «штуками или упаковкой» при добавлении)', true, {key:'hw.pack.enable'})+'</div>'+
+          '<div class="card"><h3>'+I('barcode',18)+t('Дополнительные штрихкоды','product.altBarcodes')+'</h3>'+
+            '<div class="grid3" style="grid-template-columns:1.4fr 1fr 1.2fr">'+inp('Штрихкод','4870012345685',{key:'alt.code'})+inp('Кол-во в упаковке (скан добавит столько)','1,44',{key:'hw.alt.qty',unit:p.unit,hint:'подпись видна только при включённом «Скан упаковки = N»'})+inp('Название','упаковка 8 плиток',{key:'alt.name'})+'</div>'+
+            btn('+ Ещё штрихкод','link','alt.add')+'</div>'
+        : '<div class="card" style="padding:0;overflow:hidden"><div class="row" style="padding:12px 14px 6px"><h3 style="margin:0">'+I('package-variant-closed',18)+t('Единицы продажи и закупки','hw.units.title')+'</h3><span class="chip acc">Б-53</span><span class="sp"></span>'+btn('+ Добавить единицу','secondary sm','hw.units.add')+'</div>'+
+            '<div class="tbl utbl" style="border:0;border-radius:0;border-top:1px solid var(--border)"><table><thead><tr><th>'+t('Единица','hw.units.col.unit')+'</th><th>'+t('Сколько базовых','hw.units.col.factor')+'</th><th>'+t('Штрихкод','hw.units.col.barcode')+'</th><th>'+t('Цена','hw.units.col.price')+'</th><th>'+t('По умолчанию','hw.units.col.default')+'</th><th></th><th></th></tr></thead><tbody>'+p.units.map(unitRow).join('')+'</tbody></table></div>'+
+            '<div class="row" style="padding:8px 14px;gap:16px;flex-wrap:wrap">'+chk('Скан единицы добавляет её целиком (коробка ×200 = 200 шт)', true, {key:'hw.units.scanWhole'})+chk('Запоминать выбор «штуками / коробкой» до конца смены', true, {key:'hw.units.rememberChoice'})+'</div></div>')+
+      '<div class="grid2">'+
+        '<div class="card"><h3>'+I('ruler-square',18)+t('Дробное количество','hw.frac.title')+(p.frac?'':' <span class="chip">шт — целое</span>')+'</h3>'+
+          (p.frac ? '<div class="frac">'+inp('Шаг',p.frac[0],{key:'hw.frac.step',unit:p.unit,cls:'ro'})+inp('Минимум продажи',p.frac[1],{key:'hw.frac.min',cls:'ro'})+inp('Знаков после запятой',p.frac[2],{key:'hw.frac.decimals',cls:'ro'})+'<label class="lbl"><span>&nbsp;</span>'+btn('Изменить','secondary sm disabled','hw.frac.edit',' disabled')+'</label></div><span class="hint">'+I('information-outline',15)+t('Берётся из единицы (3.3). Свой шаг и минимум на товар — после Б-52','hw.frac.hint')+'</span>'
+                  : '<span class="sub">'+t('Единица «шт» — количество целое. Нужны дробные? Укажите базовой единицей м, м², кг или л','hw.frac.pcsHint')+'</span>')+'</div>'+
+        '<div class="card"><h3>'+I('calculator',18)+t('Для калькулятора','hw.calc.block')+'</h3>'+(p.calc ? '<div class="kv"><dt>Упаковка</dt><dd>'+p.calc.a+'</dd><dt>Норма</dt><dd>'+p.calc.b+'</dd><dt>Сопутствующие</dt><dd>'+p.calc.c+'</dd></div><span class="hint">'+t('Нормы по категориям — Настройки владельца → Калькулятор (ключ hardwareCalc)','hw.calc.blockHint')+'</span>' : '<span class="sub">'+t('Для крепежа калькулятор не нужен. Для плитки, краски, обоев, смесей — считает упаковки по площади','hw.calc.na')+'</span>')+'</div>'+
+      '</div>';
+    frame.innerHTML = '<div class="kassa" style="opacity:.5"><div class="top">'+I('package-variant-closed',20)+'<b>Склад — Товары</b></div><div class="body"></div></div>'+
+      HW.modal({ title:p.name, key:'', icon:'package-variant-closed', cls:'xl', sub:'Арт. '+p.art+' · '+p.cat+' · остаток '+(cur==='tile'?'240 м² (166 уп)':cur==='cable'?'87,5 м (0,88 бухты)':'4 200 шт (21 коробка)'),
+        body:'<div class="tabs" style="margin:0 -22px 4px;padding-left:22px">'+['Основное','Цены','Единицы и упаковка','Штрихкоды','Склад','Сроки','Подробнее'].map(x=>'<span'+(x==='Единицы и упаковка'?' class="on"':'')+(x==='Единицы и упаковка'?' data-key="hw.tab.units"':'')+'>'+x+'</span>').join('')+'</div>'+body,
+        foot:btn('Печать ценника','secondary','product.printTag')+'<span class="sp"></span>'+btn('Отмена','secondary','common.cancel')+btn('Сохранить','primary','common.save') });
+  }
+  HW.toolbar(frame, { title:'Hardware-Product — единицы и упаковка', onState:render, states:[
+    { id:'tile', label:'Плитка м²/уп' }, { id:'cable', label:'Кабель м/бухта' }, { id:'screw', label:'Саморез шт/коробка/короб' }, { id:'units', label:'Подсказки единиц' }, { id:'legacy', label:'До Б-53' } ] });
+})();
+</script>
+</body></html>

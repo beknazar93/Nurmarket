@@ -28,8 +28,9 @@ public sealed class GeminiLiveVoice
 
     // 2026-10-21: ключ — заголовком x-goog-api-key, а не «?key=» в адресе (адрес попадает в журналы прокси и антивирусов).
     // Так подключается и официальный SDK Google (python-genai, live.py: ws_connect(uri, additional_headers={'x-goog-api-key': …})) (пакет 7, п. 159).
-    private const string Endpoint =
-        "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
+    // 2026-10-26: адрес берётся из GeminiKeyPool.LiveEndpoint (в программе — этот же wss://generativelanguage.googleapis.com/…; другой только в стенде).
+    private const string QuotaReason = "закончился бесплатный лимит живого голоса Google — попробуйте позже";
+    private const string KeyReason = "Google не принял ключ ИИ";
 
     private static readonly WaveFormat MicFormat = new(16000, 16, 1);
     private static readonly WaveFormat SpeakerFormat = new(24000, 16, 1);
@@ -208,33 +209,61 @@ public sealed class GeminiLiveVoice
         string? lastReason = null;
         foreach (var model in models)
         {
-            using var ws = new ClientWebSocket();
-            ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
-            ws.Options.SetRequestHeader("x-goog-api-key", key);
-            var watch = System.Diagnostics.Stopwatch.StartNew();
-            try
+            // 2026-10-26, владелец: «несколько Google-аккаунтов». Ключ выбирается при открытии соединения: первый рабочий из списка
+            // (GeminiKeyPool); отказ по лимиту или ключу ДО начала сеанса — следующий ключ той же модели. Сеанс уже идёт — ключ не меняется.
+            for (var swap = 0; swap <= GeminiKeyPool.MaxKeys; swap++)
             {
-                using var connect = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                connect.CancelAfter(TimeSpan.FromSeconds(15));
-                await ws.ConnectAsync(new Uri(Endpoint), connect.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (!ct.IsCancellationRequested)
-            {
-                return (false, "нет связи с Google (" + Clean(ex.Message) + ")");
-            }
-            _ws = ws;
-            await SendJsonAsync(Setup(model), ct).ConfigureAwait(false);
-            var (opened, reason) = await ReceiveAsync(ws, model, watch, ct).ConfigureAwait(false);
-            _ws = null;
-            if (opened || ct.IsCancellationRequested)
-                return (opened, reason);
-            // Модель недоступна этому ключу (или у неё кончился лимит) — пробуем следующую.
-            PosLogger.Log($"Живой разговор ИИ: {model} не открылась ({reason}).", "WARNING");
-            lastReason = reason;
-            if (_resumeHandle is not null)
-            {
-                // Ключ возобновления привязан к модели — с другой моделью разговор начинается заново.
-                _resumeHandle = null;
+                var usedKey = key;
+                if (GeminiKeyPool.Entries().Count > 0)
+                {
+                    usedKey = GeminiKeyPool.Pick(model)!;
+                    if (usedKey is null)
+                    {
+                        lastReason = GeminiKeyPool.UnavailableMessage(model);
+                        break;
+                    }
+                }
+                using var ws = new ClientWebSocket();
+                ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+                ws.Options.SetRequestHeader("x-goog-api-key", usedKey);
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                try
+                {
+                    using var connect = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    connect.CancelAfter(TimeSpan.FromSeconds(15));
+                    await ws.ConnectAsync(new Uri(GeminiKeyPool.LiveEndpoint), connect.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (!ct.IsCancellationRequested)
+                {
+                    // Отказ на рукопожатии: «The server returned status code '429' …» — лимит или ключ; другой ключ ещё не пробовали — пробуем.
+                    var code = System.Text.RegularExpressions.Regex.Match(ex.Message, @"status code '(\d{3})'") is { Success: true } m ? int.Parse(m.Groups[1].Value) : 0;
+                    if (code is 429 or 401 or 403 && GeminiKeyPool.ReportFailure(usedKey, model, code, code == 429 ? "RESOURCE_EXHAUSTED" : "API key not valid")
+                        && GeminiKeyPool.Pick(model) is not null)
+                        continue;
+                    return (false, "нет связи с Google (" + Clean(ex.Message) + ")");
+                }
+                _ws = ws;
+                await SendJsonAsync(Setup(model), ct).ConfigureAwait(false);
+                var (opened, reason) = await ReceiveAsync(ws, model, watch, ct).ConfigureAwait(false);
+                _ws = null;
+                if (opened && !ct.IsCancellationRequested)
+                    GeminiKeyPool.ReportSuccess(usedKey);
+                if (opened || ct.IsCancellationRequested)
+                    return (opened, reason);
+                // Модель недоступна этому ключу (или у неё кончился лимит) — пробуем следующую.
+                PosLogger.Log($"Живой разговор ИИ: {model} не открылась ({reason}).", "WARNING");
+                lastReason = reason;
+                if (_resumeHandle is not null)
+                {
+                    // Ключ возобновления привязан к модели — с другой моделью разговор начинается заново.
+                    _resumeHandle = null;
+                }
+                // Лимит или недействительный ключ — этот ключ помечается, соединение повторяется со следующим ключом (если есть).
+                if ((reason == QuotaReason || reason == KeyReason)
+                    && GeminiKeyPool.ReportFailure(usedKey, model, reason == QuotaReason ? 429 : 401, reason == QuotaReason ? "RESOURCE_EXHAUSTED" : "API key not valid")
+                    && GeminiKeyPool.Pick(model) is not null)
+                    continue;
+                break;
             }
         }
         return (false, lastReason);
@@ -524,9 +553,9 @@ public sealed class GeminiLiveVoice
         var t = Clean(text ?? "");
         if (t.Contains("quota", StringComparison.OrdinalIgnoreCase) || t.Contains("RESOURCE_EXHAUSTED", StringComparison.OrdinalIgnoreCase)
             || t.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
-            return "закончился бесплатный лимит живого голоса Google — попробуйте позже";
+            return QuotaReason;
         if (t.Contains("API key", StringComparison.OrdinalIgnoreCase) || t.Contains("PERMISSION_DENIED", StringComparison.OrdinalIgnoreCase))
-            return "Google не принял ключ ИИ";
+            return KeyReason;
         if (t.Length == 0)
             return status is null or WebSocketCloseStatus.NormalClosure ? "Google закрыл соединение" : $"Google закрыл соединение ({status})";
         return "Google: " + (t.Length > 160 ? t[..160] : t);
@@ -536,7 +565,7 @@ public sealed class GeminiLiveVoice
     /// 2026-10-21: и ключа, которым звонок подключался на самом деле (TelegramAiChat.AiKey), и любого «key=…» (пакет 7, п. 159).</summary>
     private static string Clean(string text)
     {
-        foreach (var key in new[] { UserPreferences.Instance.TelegramAiKey, TelegramAiChat.AiKey })
+        foreach (var key in new[] { UserPreferences.Instance.TelegramAiKey, TelegramAiChat.AiKey }.Concat(GeminiKeyPool.Entries().Select(e => e.Key)))
             if (!string.IsNullOrEmpty(key))
                 text = text.Replace(key, "***");
         return System.Text.RegularExpressions.Regex.Replace(text, @"(?i)\bkey=[^&\s""']+", "key=***");

@@ -150,7 +150,10 @@ public sealed class ProductAnalyticsWindow : Window
             items.Add((MonthShort[m], byMonth[m], Money(byMonth[m])));
 
         var body = new StackPanel();
-        BarChartRenderer.Render(body, items);
+        // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — месяцы это ВРЕМЕННОЙ ряд: полосы одного оттенка, лучший месяц — жёлтым, слабый — приглушённо,
+        // текущий — контуром (раньше полосы шли «радугой» по порядку).
+        BarChartRenderer.RenderTimeSeriesBars(body, items, DateTime.Today.Month - 1,
+            Tr.T("Текущий месяц", "Азыркы ай", "Current month", "Bu ay", "Joriy oy"));
         return Card(Tr.T("Выручка по месяцам (вся история)", "Айлар боюнча түшүм (бүт тарых)",
                          "Revenue by month (all history)", "Aylara göre ciro (tüm geçmiş)",
                          "Oylar bo'yicha tushum (butun tarix)"), body);

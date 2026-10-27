@@ -62,6 +62,10 @@ public sealed class LabelTemplate
     /// прежнее поведение — формат подбирается по длине кода.</summary>
     public LabelBarcodeFormat BarcodeFormat { get; set; } = LabelBarcodeFormat.Auto;
 
+    /// <summary>2026-10-26: «Толщина штриха» окна «Печать штрихкодов и ценников» — наибольшая ширина узкого штриха в точках
+    /// принтера 203 dpi (1, 2, 3). 0 — как раньше: штрих максимально широкий, что помещается в блок. Старые шаблоны без этого поля читаются как 0.</summary>
+    public int BarcodeModuleDots { get; set; }
+
     /// <summary>Строка цифр под штрих-кодом — раньше рисовалась всегда, теперь опциональна.</summary>
     public bool BarcodeShowDigits { get; set; } = true;
 
@@ -97,6 +101,7 @@ public sealed class LabelTemplate
         Variant = CloneLayout(Variant ?? new LabelElementLayout { Enabled = false }),
         BarcodeFormat = BarcodeFormat,
         BarcodeShowDigits = BarcodeShowDigits,
+        BarcodeModuleDots = BarcodeModuleDots,
         BarcodeMargin = BarcodeMargin,
         PriceCurrencyText = PriceCurrencyText,
         PriceHideDecimals = PriceHideDecimals,

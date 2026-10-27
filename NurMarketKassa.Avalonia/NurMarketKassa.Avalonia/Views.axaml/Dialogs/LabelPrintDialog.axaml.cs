@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using NurMarketKassa.Models.Pos;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
@@ -51,6 +52,8 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
         }
     }
 
+    private bool _initializing; // 2026-10-27: стартовая подстановка принтера в настройки не пишется
+
     public DiscoveredPrinter? SelectedPrinter
     {
         get => _selectedPrinter;
@@ -60,7 +63,9 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
                 return;
             _selectedPrinter = value;
             OnPropertyChanged();
-            if (value is not null)
+            // 2026-10-27 (приёмка 26.10): в настройки владельца попадал «Microsoft Print to PDF» — окно само подставляло первый принтер из списка.
+            // Запоминаем только выбор кассира (не стартовую подстановку) и только реальный принтер этикеток, не PDF/XPS/OneNote/факс.
+            if (value is not null && !_initializing && !value.IsVirtual)
             {
                 UserPreferences.Instance.LabelPrinterDevicePath = value.DevicePath;
                 UserPreferences.Instance.SaveToDisk();
@@ -109,9 +114,11 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
         }
 
         var savedPath = UserPreferences.Instance.LabelPrinterDevicePath;
+        _initializing = true;
         SelectedPrinter = (savedPath is not null
             ? Printers.FirstOrDefault(p => string.Equals(p.DevicePath, savedPath, StringComparison.OrdinalIgnoreCase))
-            : null) ?? Printers.FirstOrDefault();
+            : null) ?? Printers.FirstOrDefault(p => !p.IsVirtual) ?? Printers.FirstOrDefault();
+        _initializing = false;
 
         if (!CanPrint)
             StatusMessage = Tr.T("У товара не указан штрих-код — печать недоступна.", "Товардын штрихкоду көрсөтүлгөн эмес — басып чыгаруу мүмкүн эмес.", "The product has no barcode — printing is unavailable.", "Ürünün barkodu yok — yazdırılamaz.", "Mahsulotda shtrix-kod ko'rsatilmagan — chop etib bo'lmaydi.");
@@ -182,6 +189,9 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
 
     private async void EditTemplateButton_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-10-27 (аудит редакторов, Б-2): редактор этикеток платный — из этого бесплатного окна он открывался без проверки покупки.
+        if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.LabelEditor, this))
+            return;
         var editor = new LabelTemplateEditorDialog(_template, ProductName, HasBarcode ? Barcode : "4870145004807", PriceText);
         await editor.ShowDialog(this).ConfigureAwait(true);
         if (editor.Saved)

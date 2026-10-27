@@ -192,7 +192,10 @@ public sealed class AvaloniaPosCheckoutUiFlow : IPosCheckoutUiFlow
                     cartJson ?? "{}",
                     paymentMethodKey: paymentMethod,
                     cashReceived: cashReceived);
-                var preview = new ReceiptPreviewDialog(receiptText);
+                // 2026-10-27, владелец: «вид чека как в мобилке» — предпросмотр после оплаты показывает бумагу чека; текст для печати — прежний (receiptText).
+                var preview = SafeReceiptCard(cartJson, paymentMethod, cashReceived) is { } card
+                    ? new ReceiptPreviewDialog(card)
+                    : new ReceiptPreviewDialog(receiptText);
                 await PosDialogHost.ShowAsync(preview, owner).ConfigureAwait(true);
                 if (preview.IsPrintRequested)
                     await PrintReceiptAsync(owner, cartJson, paymentMethod, cashReceived).ConfigureAwait(true);
@@ -208,6 +211,24 @@ public sealed class AvaloniaPosCheckoutUiFlow : IPosCheckoutUiFlow
     {
         if (_bridge.OpenNextDeferredCart != null)
             await _bridge.OpenNextDeferredCart().ConfigureAwait(true);
+    }
+
+    /// <summary>2026-10-27: бумага чека из корзины только что проведённой продажи; null — корзина не разобралась (покажем текст, как раньше).</summary>
+    private static SaleReceiptCardData? SafeReceiptCard(string? cartJson, string? paymentMethod, string? cashReceived)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(string.IsNullOrWhiteSpace(cartJson) ? "{}" : cartJson);
+            var json = doc.RootElement;
+            var totals = CartTotalsCalculator.Calculate(json);
+            return SaleReceiptCardData.Build(json, null, (decimal)(totals.LineDiscounts + totals.OrderDiscount), (decimal)totals.TotalDue,
+                paymentMethodOverride: paymentMethod, cashReceivedOverride: cashReceived, soldAt: DateTime.Now);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Предпросмотр чека: бумага не собрана ({ex.Message}) — текст.", "PAYMENT");
+            return null;
+        }
     }
 
     private static async Task PrintReceiptAsync(

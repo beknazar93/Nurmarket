@@ -3,7 +3,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.AvaloniaHost.Views.Main.Controls;
+using NurMarketKassa.Services;
 using NurMarketKassa.ViewModels.Main;
 
 namespace NurMarketKassa.AvaloniaHost.Views.MainKassir;
@@ -54,6 +56,8 @@ public partial class MainWindow
 
             // «Печать копии» — копия именно этой продажи; нет снимка продажи — кнопки нет.
             SaleDoneBar.PrintCopy = sale is null ? null : button => PrintSaleDoneCopyAsync(button, sale);
+            // 2026-10-27: «Чек» — чек этой продажи на экране «как в мобилке» (окно с бумагой и панелью «Печать / QR / PDF / Отправить»).
+            SaleDoneBar.ShowReceipt = sale is null ? null : _ => ShowSaleDoneReceiptAsync(sale);
 
             var host = SaleDoneBar.GetVisualParent() as Control;
             var hostWidth = host?.Bounds.Width ?? 0;
@@ -87,6 +91,48 @@ public partial class MainWindow
         if (e.Source is Visual v && SaleDoneBar.IsOwnButton(v))
             return;
         SaleDoneBar.Dismiss();
+    }
+
+    /// <summary>2026-10-27: окно «Чек» с плашки. Продажа на сервере — чек из ответа сервера (как в «Продажах»), офлайн или сервер не ответил —
+    /// из корзины этой продажи (как копия офлайн-чека). Деньги и печать не меняются: «Печать» — та же «Печать копии» плашки.</summary>
+    private async Task ShowSaleDoneReceiptAsync(LastSaleInfo sale)
+    {
+        System.Text.Json.JsonElement json = default;
+        string? number = null;
+        var fromServer = false;
+        if (!sale.SavedOffline && !string.IsNullOrWhiteSpace(sale.SaleId))
+        {
+            try
+            {
+                json = await App.SalesApi.PosSaleGetAsync(sale.SaleId, CancellationToken.None).ConfigureAwait(true);
+                number = SalesWindow.TryReceiptNumber(json);
+                fromServer = true;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Окно «Чек» с плашки: сервер не отдал продажу {sale.SaleId} ({ex.Message}) — из корзины.", "PAYMENT");
+            }
+        }
+        if (!fromServer)
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(string.IsNullOrWhiteSpace(sale.CartJson) ? "{}" : sale.CartJson);
+            json = doc.RootElement.Clone();
+        }
+
+        SaleReceiptCardData card;
+        if (fromServer)
+        {
+            card = SaleReceiptCardData.Build(json, number, SalesWindow.ReadSaleDiscount(json), SalesWindow.ReadSaleTotal(json));
+        }
+        else
+        {
+            var totals = CartTotalsCalculator.Calculate(json);
+            card = SaleReceiptCardData.Build(json, null, (decimal)(totals.LineDiscounts + totals.OrderDiscount), (decimal)sale.Total,
+                paymentMethodOverride: sale.PaymentMethod, cashReceivedOverride: sale.CashReceivedText, soldAt: sale.SoldAt, savedOffline: sale.SavedOffline);
+        }
+
+        var dialog = new ReceiptViewDialog(card, async () => await ReceiptHistoryService.PrintSaleCopyAsync(sale).ConfigureAwait(true));
+        await PosDialogHost.ShowAsync(dialog, this).ConfigureAwait(true);
     }
 
     /// <summary>2026-10-18, ревью этапа 6: «Печать копии» с плашки — как «Печать последнего чека» в меню «Ещё»

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Мобилка — Профиль → Помощник: режим (Г6)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Mobile-Call-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <h3>Г6 · «Помощник» (<code>/ai/settings</code>): режим голосового управления</h3>
+    Три режима радиокнопками (карточка ≥ 72 dp, заголовок + объяснение одной-двумя строками), отметка «по умолчанию».
+    Для сотрудника — режим, который задал владелец, показан замком; сотрудник может выбрать только строже (для себя). Голосом режим не меняется — только здесь.
+    Внизу ссылка «Действия ИИ ›» и «Голосовой звонок доступен всем, у кого есть ключ ИИ магазина».
+    <h3>Состояния</h3>
+    <ul>
+      <li><code>owner</code> — владелец, выбран «Выполнять по просьбе» (по умолчанию).</li>
+      <li><code>watch</code> — выбран «Только смотреть»: объяснение, что ИИ ответит на просьбу об действии.</li>
+      <li><code>ask</code> — «Спрашивать перед деньгами»: список денежных действий, перед которыми будет карточка «Сделать».</li>
+      <li><code>employee</code> — кассир: плашка «Владелец задал для всех на этом телефоне: Спрашивать перед деньгами»; «Выполнять по просьбе» недоступен (мягче), «Только смотреть» можно выбрать для себя.</li>
+    </ul>
+  </div>
+</div>
+<script src="Mobile-Call-shared.js"></script>
+<script>
+(function(){
+  const I = MC.icon, frame = document.getElementById('frame');
+  const MODES = [
+    { id:'do', ic:'bolt', t:'Выполнять по просьбе', key:'aiModeDo', s:'Открывает экраны, читает, показывает таблицы и делает, что вы попросили — сразу, с итогом вслух и кнопкой «Отменить».', def:true },
+    { id:'ask', ic:'shield', t:'Спрашивать перед деньгами', key:'aiModeAsk', s:'Как по просьбе, но перед оплатой, возвратом, приходом, списанием, ревизией, закрытием смены, выплатой, долгом, удалением и сменой цены — карточка «Сделать».' },
+    { id:'watch', ic:'eye', t:'Только смотреть', key:'aiModeWatch', s:'Только экраны, чтение и таблицы. На просьбу что-то сделать ответит: «В этом режиме я не меняю данные — сделайте на экране или смените режим».' }
+  ];
+  function render(state){
+    const sel = { owner:'do', watch:'watch', ask:'ask', employee:'ask' }[state];
+    const emp = state === 'employee';
+    const radios = MODES.map(m => { const on = m.id === sel; const dis = emp && m.id === 'do';
+      return '<div class="radio' + (on ? ' on' : '') + (dis ? ' dis' : '') + '" role="radio" aria-checked="' + on + '"' + (dis ? ' aria-disabled="true"' : '') + '><span class="rb"></span>' + I(m.ic, 22) + '<div class="t"><b><span data-ky data-key="' + m.key + '">' + m.t + '</span>' + (m.def ? '<span class="tag soft" data-ky data-key="aiModeDefault">по умолчанию</span>' : '') + (emp && on ? '<span class="tag acc">' + I('lock', 12) + 'владелец</span>' : '') + '</b><span data-key="' + m.key + 'Hint">' + m.s + '</span>' + (dis ? '<span style="color:var(--warn);font-weight:700" data-key="aiModeSofterLocked">Мягче, чем задал владелец — недоступно</span>' : '') + '</div></div>'; }).join('');
+    const empPlate = emp ? '<div class="plate info">' + I('lock', 22) + '<div class="tx"><span data-ky data-key="aiModeOwnerSet">Владелец задал для всех на этом телефоне:</span> <b data-ky>Спрашивать перед деньгами</b><br><span class="hint" data-ky data-key="aiModeStricterSelf">Для себя можно выбрать строже</span></div></div>' : '';
+    const extra = state === 'ask' ? '<div class="card" style="gap:4px"><b style="font-size:calc(13px*var(--k))">Перед чем спросит</b><span class="hint">оплата · возврат · проведение прихода · списание · ревизия · закрытие смены · выплата зарплаты · погашение долга · удаление товара · смена цены</span><span class="hint">Карточка «Сделать: … сумма …» и одна кнопка — или голосом «да». Двойных подтверждений нет.</span></div>' : '';
+    frame.innerHTML = MC.statusBar() + MC.hdr('Помощник', emp ? 'Айгерим С. · кассир' : 'режим голосового управления · владелец', null, true) +
+      '<div class="body">' + empPlate + '<div style="display:flex;flex-direction:column;gap:8px">' + radios + '</div>' + extra +
+      '<div class="plate" style="min-height:44px">' + I('mic-off', 20) + '<div class="tx hint" style="color:var(--text-muted)" data-ky data-key="aiModeNoVoice">Голосом режим не меняется — только здесь</div></div>' +
+      '<div class="sp"></div>' +
+      '<button class="btn full" style="justify-content:space-between">' + I('history', 20) + '<span class="sp" style="text-align:left" data-ky data-key="aiLogTitle">Действия ИИ</span><span class="tag soft">11</span>' + I('chevron-right', 20) + '</button>' +
+      '<div class="hint c">Звонок доступен всем, у кого есть ключ ИИ магазина; права — по роли пользователя</div></div>' + MC.gesture();
+  }
+  MC.toolbar(frame, { title:'Mobile-Call-Settings — режим помощника', onState:render, states:[
+    { id:'owner', label:'владелец · по просьбе' }, { id:'ask', label:'спрашивать перед деньгами' }, { id:'watch', label:'только смотреть' }, { id:'employee', label:'сотрудник · задал владелец' } ] });
+})();
+</script>
+</body></html>

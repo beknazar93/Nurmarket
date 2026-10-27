@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Маркетплейс → Темы — плитка «Тема сайта» и страница «подробно» (Д-С3)</title>
+<!-- 2026-10-27: макет плиток sitetheme:<code> в Маркетплейсе (группа Themes, метка «Сайт») и страницы «подробно» (ТЗ 26.10, 3.7 п. 3, бриф Д-С3, пакет С-3).
+     Превью 16:10 — та же миниатюра, что в редакторе (_thumb.png 480×300). Цена/«Бесплатно»/«Куплено» — состояния плитки MarketplaceItem.StatusLine. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800&family=Noto+Sans:wght@400;600;700&family=PT+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="SiteThemes-Clothing-shared.css">
+<style>
+  .mhead{ display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+  .mhead .field{ width:300px; }
+  .s1024 .mhead .field{ width:220px; }
+  .sub{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .detail .slide .site{ pointer-events:none; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    Маркетплейс → вкладка «Темы» → подфильтр «Темы сайта». Плитка отличается от темы кассы значком <code>Сайт</code> (глобус) в углу превью и подписью вида «Тема сайта».
+    Низ плитки — <code>StatusLine</code>: «Бесплатно» (в тарифе), «Куплено ✓» (ключ NMK-… или уже в тарифе), цена «990 сом» — только если владелец решит продавать темы отдельно (вопрос владельцу, по умолчанию все бесплатные).
+    Состояния: <code>owner</code> — программа владельца, витрина подключена: главная кнопка «Открыть в редакторе сайта» (раздел открывается, сразу подтверждение темы); <code>kassa</code> — касса: кнопка «Открыть в программе владельца» неактивна с пояснением;
+    <code>detail</code> — страница «подробно»: 3 слайда 1280×720 (главная, карточка, телефон), «Для кого», «Как включить», кнопка. Темы сайта показываются только при подключённой витрине (<code>IsShowcaseConnected</code>).
+  </div>
+</div>
+<script src="SiteThemes-Clothing-shared.js"></script>
+<script>
+(function(){
+  const I = ST.icon, t = ST.t;
+  const frame = document.getElementById('frame');
+  const TABS = ['Продажи','Склад','Владелец','Наборы','Виды кассы','Темы','Скоро'];
+  /* состояние плитки: free / bought / price (цена — пример состояния, решение владельца) */
+  const STATUS = { cl_minimal:'free', cl_boutique:'bought', cl_street:'free', cl_kids:'free', cl_menswear:'free', cl_sport:'free', cl_modest:'free', cl_evening:'price', cl_dark_luxe:'price', cl_bazaar:'free' };
+  const OLDB = { code:'boutique', name:{ru:'Бутик'}, for:{ru:'Чёрно-белый, для одежды. Прежняя тема.'}, header:'logo_center', hero:{style:'cover',overlay:.3}, cols:[3,2,2], radius:2, btn:'outline',
+    colors:(function(){ const o={}; 'FFFFFF FFFFFF 111111 6B6B6B 111111 FFFFFF EAEAEA FFFFFF 111111 F5F5F4 111111 111111 7A7A7A 111111 FFFFFF B91C1C FFFFFF'.split(' ').forEach((h,i)=>o[ST.KEYS[i]]='#'+h); return o; })() };
+  function status(code){
+    const s = STATUS[code] || 'free';
+    return s === 'bought' ? '<span class="bought">'+I('check',14)+t('Куплено')+'</span>' : s === 'price' ? '<span class="price num">990 сом</span>' : '<span class="free">'+t('Бесплатно')+'</span>';
+  }
+  function tile(th, kassa){
+    return '<div class="mtile" data-code="'+th.code+'"><span class="kind">'+I('web',12)+t('Сайт')+'</span>'+ST.mini(th)+
+      '<div class="nm">'+th.name.ru+'</div><div class="for">'+th.for.ru+'</div>'+
+      '<div class="foot"><span class="muted" style="font-weight:600;font-size:12px">'+t('Тема сайта')+' · '+t('Одежда')+'</span>'+status(th.code)+'</div></div>';
+  }
+  function kassaTile(name, sub){ /* тема кассы — для сравнения отличия значка */
+    return '<div class="mtile" style="opacity:.75"><span class="kind kassa">'+I('store',12)+'Касса</span><div class="mini" style="--c-background:#F4F4F4;--c-header_bg:#191919;--c-header_text:#FFFFFF;--c-surface:#FFFFFF;--c-border:#DDDDDD;--c-accent:#FFB208;--c-text:#191919;--c-price:#191919;--hero-bg:#FFB208;--hero-ov:0;--hero-tx:#191919;--ph-bg:#EEEEEE;--ph-fg:#AAAAAA;--mini-r:3px;--mini-cols:4"><div class="mh"><i class="l"></i><i class="s"></i></div><div class="hero split"><div class="img"></div><div class="tx"><i class="b"></i><i></i><i class="k"></i></div></div><div class="cards"><div><div class="ph"></div><i></i><i class="p"></i></div><div><div class="ph"></div><i></i><i class="p"></i></div><div><div class="ph"></div><i></i><i class="p"></i></div><div><div class="ph"></div><i></i><i class="p"></i></div></div></div>'+
+      '<div class="nm">'+name+'</div><div class="for">'+sub+'</div><div class="foot"><span class="muted" style="font-weight:600;font-size:12px">'+t('Темы кассы')+'</span><span class="free">'+t('Бесплатно')+'</span></div></div>';
+  }
+  function render(st){
+    const kassa = st === 'kassa', s1024 = frame.classList.contains('s1024');
+    const chrome = '<div class="chrome"><div class="tt"><h1>'+t('Маркетплейс')+'</h1><span class="st">'+(kassa ? 'Касса 1 · кассир Айбек' : 'Программа владельца · NBS · витрина подключена')+'</span></div><span class="sp"></span>'+
+      '<div class="field">'+I('magnify',18)+'<input placeholder="Найти в Маркетплейсе"></div><button class="btn secondary sm">'+I('history',16)+'Ключи</button></div>';
+    const tabs = '<div class="mtabs">'+TABS.map(x=>'<button'+(x==='Темы'?' class="on"':'')+'>'+t(x)+(x==='Темы'?' · '+(kassa?'11':'27'):'')+'</button>').join('')+'</div>';
+    const sub = '<div class="sub"><div class="chips"><button'+(kassa?'':' class="on"')+'>'+I('web',14)+t('Темы сайта')+' <small>11</small></button><button'+(kassa?' class="on"':'')+'>'+I('store',14)+t('Темы кассы')+' <small>11</small></button><button>'+t('Виды кассы')+'</button></div><span class="sp"></span>'+
+      (kassa ? '' : '<span class="muted" style="font-size:12.5px">'+t('Темы сайта применяются в «Редакторе сайта» · покупатели видят после «Опубликовать»')+'</span>')+'</div>';
+    let body;
+    if (st === 'detail'){
+      const th = ST.byCode('cl_street');
+      const slide = frame.dataset.slide || 'home';
+      const sw = s1024 ? 560 : 760, sh = Math.round(sw * 720 / 1280);
+      const slideHtml = slide === 'phone' ? ST.scaled(th, sw, sh, { phone:true, bg:th.colors.background }) : ST.scaled(th, sw, sh, { state: slide === 'card' ? 'few' : 'normal', bg:th.colors.background });
+      body = '<div class="detail"><div class="slides"><div class="row" style="display:flex;align-items:center;gap:8px"><button class="sq ghost" aria-label="Назад">'+I('arrowLeft',22)+'</button><span style="font-weight:700">'+t('Темы')+' / '+t('Темы сайта')+'</span></div>'+
+        '<div class="slide" style="display:flex;align-items:center;justify-content:center">'+slideHtml+'</div>'+
+        '<div class="thumbs">'+[['home','Главная'],['card','Карточка'],['phone','Телефон']].map(s=>'<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;cursor:pointer" data-slide="'+s[0]+'"><div class="mini'+(s[0]===slide?' on':'')+'" style="pointer-events:none">'+ST.mini(th)+'</div><span class="muted" style="font-size:12px;font-weight:600;text-align:center">'+s[1]+'</span></div>').join('')+'</div></div>'+
+        '<div class="info"><span class="chip sitechip" style="align-self:flex-start">'+I('web',12)+t('Тема сайта')+' · '+t('Одежда')+'</span><h2>'+th.name.ru+' <span class="free" style="font-size:14px;color:var(--success)">'+t('Бесплатно')+'</span></h2>'+
+        '<p>'+th.for.ru+'</p><div class="sw-row">'+['background','surface','accent','text','badge_sale_bg','footer_bg'].map(k=>'<i style="background:'+th.colors[k]+'" title="'+k+'"></i>').join('')+'<span class="muted" style="font-size:12.5px;align-self:center">'+th.font+' · скругление '+th.radius+' · '+th.cols[0]+' колонки</span></div>'+
+        '<h3>'+t('Для кого')+'</h3><p>Уличная одежда, кроссовки, дропы. Тёмный фон, кислотный акцент, узкий жирный шрифт, карточки с рамкой. Остаток показывается, когда мало.</p>'+
+        '<h3>'+t('Как включить')+'</h3><ol><li>«Открыть в редакторе сайта» — откроется раздел «Тема».</li><li>Подтвердите «Применить к сайту». Если у вас свой баннер — спросим, оставить ли его.</li><li>Нажмите «Опубликовать» — покупатели увидят тему на market.nurcrm.kg.</li></ol>'+
+        '<p class="muted" style="font-size:12.5px">Тексты, телефон, товары и разделы не меняются. Вернуть прежний вид — «История версий».</p><span class="sp"></span>'+
+        '<button class="btn dark" style="align-self:stretch">'+I('openIn',18)+t('Открыть в редакторе сайта')+'</button></div></div>';
+    } else {
+      const list = ST.THEMES.concat([OLDB]);
+      body = '<div class="mgrid">'+(kassa ? list.slice(0,4).map(th=>tile(th,true)).join('')+kassaTile('NurMarket','Брендовая: жёлтый и графит')+kassaTile('Классическая','По умолчанию у кассиров')+kassaTile('Терминал','Моноширинный, тёмный') : list.map(th=>tile(th,false)).join(''))+'</div>';
+    }
+    const overlay = kassa ? '<div class="plate warn" style="margin:0 var(--pad) var(--pad)">'+I('lock',20)+'<span class="tx"><b>'+t('Тема сайта')+'</b> — '+t('Применяется только в программе владельца при подключённой витрине')+'. Здесь плитки только для просмотра.</span><button class="btn secondary sm dis" disabled>'+t('Открыть в программе владельца')+'</button></div>' : '';
+    frame.innerHTML = chrome + '<div class="body" style="flex-direction:column;gap:10px">' + tabs + sub + body + '</div>' + overlay;
+    frame.querySelectorAll('[data-slide]').forEach(b => b.addEventListener('click', () => { frame.dataset.slide = b.dataset.slide; render(st); }));
+  }
+  ST.toolbar(frame, { title:'SiteThemes-Clothing-Market — Маркетплейс → Темы и виды', sizes:['1296','1024'], onState: render, states:[
+    { id:'owner', label:'Владелец · плитки' }, { id:'detail', label:'Подробно' }, { id:'kassa', label:'Касса · недоступно' } ] });
+})();
+</script>
+</body></html>

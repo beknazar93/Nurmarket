@@ -217,7 +217,7 @@ public partial class MainWindow
         }
         else
         {
-            qtyToAdd = ParseManualQuantity(_viewModel.Basket.ManualQuantity, false);
+            qtyToAdd = ParseManualQuantity(_viewModel.Basket.ManualQuantity, false, QuantityRules.ForTile(vm));
             if (qtyToAdd <= 0)
             {
                 PosMessageBox.Show(this, Tr.T("Укажите корректное количество.", "Туура санды көрсөтүңүз.", "Enter a valid quantity.", "Geçerli bir miktar girin.", "To'g'ri miqdorni kiriting."), Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor"),
@@ -244,7 +244,8 @@ public partial class MainWindow
         // иначе взвешенный товар всегда добавится как "1" вместо настоящего веса.
         // Сброс поля к "1" после добавления уже делает сам AddProductFromCatalog
         // (UserPreferences.ResetManualAddQtyAfterAdd, включено по умолчанию), поэтому здесь ничего досбрасывать не нужно.
-        _viewModel.Basket.ManualQuantity = mustWeigh
+        // 2026-10-26 (ХМ2): дробная единица «Хозтоваров» (2.5 м) не округляется до целого и в поле количества.
+        _viewModel.Basket.ManualQuantity = mustWeigh || QuantityRules.ForTile(vm) != null
             ? qtyToAdd.ToString("0.###", CultureInfo.InvariantCulture)
             : qtyToAdd.ToString("0", CultureInfo.InvariantCulture);
         _viewModel.Basket.AddProductFromCatalog(vm, lineNameOverride);
@@ -1296,12 +1297,15 @@ public partial class MainWindow
     private IDeferredCartService ResolveDeferredCartService() =>
         _deferredCartService ??= App.GetRequiredService<IDeferredCartService>();
 
-    private static double ParseManualQuantity(string raw, bool mustWeigh)
+    /// <param name="rule">2026-10-26 (ХМ2): правило дробной единицы «Хозтоваров» (м, м², л); null — как раньше, до целого.</param>
+    private static double ParseManualQuantity(string raw, bool mustWeigh, QuantityRule? rule = null)
     {
         raw = (raw ?? "1").Trim().Replace(',', '.');
         if (!double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var qty))
             return 0;
 
+        if (!mustWeigh && rule != null)
+            return qty > 0 ? QuantityRules.Normalize(qty, rule) : 0;
         return mustWeigh ? Math.Round(qty, 3) : Math.Round(qty, 0, MidpointRounding.AwayFromZero);
     }
 

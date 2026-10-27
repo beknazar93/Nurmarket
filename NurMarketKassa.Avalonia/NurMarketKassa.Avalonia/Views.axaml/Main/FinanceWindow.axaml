@@ -562,6 +562,8 @@
                                                                 Height="150" VerticalAlignment="Bottom"/>
                                                 </ScrollViewer>
                                             </Border>
+                                            <!-- 2026-10-26: легенда «лучший день / самый слабый / сегодня» — в UpdateDailyRevenueChart -->
+                                            <StackPanel x:Name="DailyRevenueLegend" Margin="2,0,0,0"/>
                                             <!-- 2026-10-24 (аудит, круг 8, С-4): подпись задаётся в UpdateCharts через Tr.T -->
                                             <TextBlock x:Name="DailyRevenueNote" FontSize="11.5" Margin="2,4,0,0" Foreground="{DynamicResource BrushTextSoft}"/>
 
@@ -572,6 +574,7 @@
                                                                 Height="120" VerticalAlignment="Bottom"/>
                                                 </ScrollViewer>
                                             </Border>
+                                            <StackPanel x:Name="HourlyRevenueLegend" Margin="2,0,0,0"/>
 
                                             <TextBlock Text="{DynamicResource finance.revenueTrendTitle}" FontWeight="SemiBold" FontSize="14" Margin="0,16,0,8" Foreground="{DynamicResource BrushText}"/>
                                             <Border Classes="KpiCard">

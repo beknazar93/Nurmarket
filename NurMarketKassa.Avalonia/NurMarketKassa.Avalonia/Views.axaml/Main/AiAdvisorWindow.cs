@@ -188,6 +188,16 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         Grid.SetColumn(saveKey, 2);
         keyRow.Children.Add(saveKey);
         keyStack.Children.Add(keyRow);
+        // 2026-10-26: несколько ключей из разных Google-аккаунтов (бесплатный лимит считается на аккаунт) — отдельное окно списка.
+        var manyKeys = UiKit.Ghost(this, T("Несколько ключей (разные аккаунты)…", "Бир нече ачкыч (ар башка аккаунттар)…", "Several keys (different accounts)…",
+            "Birden çok anahtar (farklı hesaplar)…", "Bir nechta kalit (turli hisoblar)…"));
+        manyKeys.HorizontalAlignment = HorizontalAlignment.Left;
+        manyKeys.Click += async (_, _) =>
+        {
+            await GeminiKeysWindow.ShowAsync(this).ConfigureAwait(true);
+            RefreshKeyCard();
+        };
+        keyStack.Children.Add(manyKeys);
         Use(_keyStatus, TextBlock.ForegroundProperty, "BrushTextSoft");
         keyStack.Children.Add(_keyStatus);
         _keyCard.Child = keyStack;
@@ -1181,6 +1191,8 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             if (show)
                 _scroll.Offset = new Vector(0, 0);
         });
+        Item(T("Ключи Gemini (несколько аккаунтов)…", "Gemini ачкычтары (бир нече аккаунт)…", "Gemini keys (several accounts)…", "Gemini anahtarları (birden çok hesap)…", "Gemini kalitlari (bir nechta hisob)…"),
+            () => _ = GeminiKeysWindow.ShowAsync(this).ContinueWith(_ => Dispatcher.UIThread.Post(RefreshKeyCard), TaskScheduler.Default));
         Item("☀ " + T("Утренний отчёт…", "Эртең мененки отчёт…", "Morning report…", "Sabah raporu…", "Ertalabki hisobot…"), () => _ = MorningReportSettingsWindow.ShowAsync(this));
         Item("✉ " + T("Напоминания должникам…", "Карыздарга эскертүүлөр…", "Debt reminders…", "Borç hatırlatmaları…", "Qarz eslatmalari…"), OpenDebtReminders);
         models.Flyout = gearMenu;
@@ -3913,7 +3925,8 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
         section.Children.Add(hint);
         var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
-        var box = UiKit.Input(this, saved ? savedWatermark
+        // 2026-10-27: Д-4 — скрытый ключ не отдаётся через UI Automation
+        var box = UiKit.SecretInput(this, saved ? savedWatermark
             : T($"Ключ {name} ({sample})", $"{name} ачкычы ({sample})", $"{name} key ({sample})", $"{name} anahtarı ({sample})", $"{name} kaliti ({sample})"));
         box.PasswordChar = '•';
         row.Children.Add(box);
@@ -4139,6 +4152,9 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     {
         if (!SiteEditorWindow.LooksLikeCommand(text) || ProductActionPlan.OpenSection is not { } openSection)
             return null;
+        // 2026-10-27 (аудит редакторов, В-1): вопрос («Как опубликовать сайт?») — только объяснение, редактор не открываем и ничего не публикуем.
+        if (SiteEditorWindow.IsQuestion(text))
+            return SiteEditorWindow.PublishHowTo();
         openSection("siteeditor");
         for (var i = 0; i < 60 && SiteEditorWindow.Current is not { IsReady: true }; i++)
             await Task.Delay(250).ConfigureAwait(true);

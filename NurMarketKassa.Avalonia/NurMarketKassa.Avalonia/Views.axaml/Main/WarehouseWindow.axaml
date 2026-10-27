@@ -478,7 +478,8 @@
 
                 <!-- Правый блок: Кнопки управления окном (Свернуть / Закрыть) -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <Border x:Name="ScanHintBorder" Background="{DynamicResource BrushInputAlt}" CornerRadius="8" Padding="10,4" Margin="0,0,8,0">
+                    <!-- 2026-10-26, владелец: «что там в правом углу сканер делает, он не работает — убери его». Подсказка скрыта (элемент оставлен: на него ссылается код окна). -->
+                    <Border x:Name="ScanHintBorder" IsVisible="False" Background="{DynamicResource BrushInputAlt}" CornerRadius="8" Padding="10,4" Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" Width="18" TextAlignment="Center" FontSize="12"
                                        Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>

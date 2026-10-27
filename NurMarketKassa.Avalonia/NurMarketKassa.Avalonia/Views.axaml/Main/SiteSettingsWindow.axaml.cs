@@ -51,6 +51,7 @@ public partial class SiteSettingsWindow : Window, IOwnerSection
     public SiteSettingsWindow()
     {
         InitializeComponent();
+        this.FitToScreen(); // 2026-10-27 (аудит редакторов, С-1): отдельное окно 1100×760 не помещалось на экране 1024×600
         _api = App.GetRequiredService<ShowcaseApiService>();
         _slugDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _slugDebounce.Tick += async (_, _) =>

@@ -5,7 +5,7 @@
         x:DataType="dialogs:LabelTemplateEditorDialog"
         x:CompileBindings="False"
         Title="{DynamicResource labelEditor.title}"
-        Width="1280" Height="820" MinWidth="960" MinHeight="600"
+        Width="1280" Height="820" MinWidth="960" MinHeight="440"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         FontFamily="Segoe UI, Inter, Noto Sans"
@@ -29,8 +29,14 @@
          • кнопки — обводкой (были серые заливки), одна жёлтая «Сохранить»; выбранный инструмент — тёмно-синий (был
            бледно-жёлтый); значок в заголовке — без жёлтой рамки. Имена элементов и обработчики — прежние. -->
 
+    <!-- 2026-10-27 (аудит редакторов, С-1): MinHeight 440 (было 600) — на экране 1024×600 окно по FitToScreen не может быть ниже минимума, и строка
+         «Отмена / Сохранить» уходила за край; колонки внутри прокручиваются. -->
     <Window.Styles>
+        <Style Selector="NumericUpDown, ComboBox, CheckBox, ToggleButton"> <!-- 2026-10-27 (аудит редакторов, С-2): цели касания не меньше 44 px -->
+            <Setter Property="MinHeight" Value="44"/>
+        </Style>
         <Style Selector="Button.tool-item">
+            <Setter Property="MinHeight" Value="44"/> <!-- 2026-10-27 (аудит редакторов, С-2): цель касания не меньше 44 px (было 39) -->
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -279,6 +285,8 @@
             <TextBlock Grid.Column="0" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"
                        Text="{DynamicResource labelEditor.instructions}" TextWrapping="Wrap" Margin="0,0,16,0"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                <!-- 2026-10-26: вход в окно «Печать штрихкодов и ценников» (сохраняет шаблон и открывает массовую печать); текст — в коде (5 языков). -->
+                <Button x:Name="BulkPrintButton" Classes="sec-outline" MinHeight="44" Click="BulkPrintButton_Click"/>
                 <Button IsCancel="True" Content="{DynamicResource common.cancel}" Classes="sec-outline" MinWidth="110" MinHeight="44" Click="CancelButton_Click"/>
                 <Button Content="{DynamicResource common.save}" Classes="sec-primary" MinWidth="140" MinHeight="44" Click="SaveButton_Click"/>
             </StackPanel>

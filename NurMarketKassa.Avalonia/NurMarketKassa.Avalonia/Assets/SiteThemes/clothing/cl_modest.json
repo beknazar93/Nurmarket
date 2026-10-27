@@ -1,0 +1,134 @@
+{
+ "code": "cl_modest",
+ "name": {
+  "ru": "Хиджаб и этно",
+  "ky": "Хиджаб жана этно",
+  "en": "Modest & Ethnic",
+  "tr": "Tesettür ve Etnik",
+  "uz": "Hijob va etno"
+ },
+ "description": {
+  "ru": "Изумруд и песок, крупные фото, логотип по центру. Для хиджабов, платьев в пол и национальной одежды.",
+  "ky": "Зымырыт жана кум түсү, чоң сүрөттөр, логотип ортодо. Хиджабдар, узун көйнөктөр жана улуттук кийим үчүн.",
+  "en": "Emerald and sand, large photos, centred logo. For hijabs, maxi dresses and ethnic wear.",
+  "tr": "Zümrüt ve kum rengi, büyük fotoğraflar, ortada logo. Tesettür, uzun elbise ve etnik giyim için.",
+  "uz": "Zumrad va qum rangi, katta rasmlar, logotip markazda. Hijob, uzun ko'ylak va milliy kiyim uchun."
+ },
+ "spheres": [
+  "clothing"
+ ],
+ "version": 1,
+ "voice_words": {
+  "ru": [
+   "хиджаб",
+   "этно"
+  ],
+  "ky": [
+   "хиджаб",
+   "этно"
+  ],
+  "en": [
+   "hijab"
+  ],
+  "tr": [
+   "tesettür"
+  ],
+  "uz": [
+   "hijob"
+  ]
+ },
+ "images": {
+  "hero.image": {
+   "file": "cl_modest_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "cl_modest_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#F6F3EC",
+    "surface": "#FFFFFF",
+    "text": "#1E2B26",
+    "text_muted": "#55625C",
+    "accent": "#0F5B4A",
+    "accent_text": "#FFFFFF",
+    "border": "#E3DCCB",
+    "header_bg": "#0F5B4A",
+    "header_text": "#FFFFFF",
+    "footer_bg": "#0B3F33",
+    "footer_text": "#F1E9D2",
+    "price": "#0F5B4A",
+    "old_price": "#6B6F6A",
+    "badge_new_bg": "#A16207",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#9F1239",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Noto Sans",
+    "base_size": 16,
+    "heading_weight": 700
+   },
+   "radius": 14,
+   "shadow": "soft",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_center",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "cover",
+   "overlay": 0.3,
+   "align": "center"
+  },
+  "categories": {
+   "style": "tiles",
+   "show_all": true,
+   "show_count": false
+  },
+  "products": {
+   "columns": {
+    "desktop": 3,
+    "tablet": 2,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "large",
+   "photo_ratio": "3:4",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": true,
+    "category": false,
+    "stock": "low_only",
+    "unit": false,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "new_badge_days": 21,
+   "shadow": true,
+   "border": false
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

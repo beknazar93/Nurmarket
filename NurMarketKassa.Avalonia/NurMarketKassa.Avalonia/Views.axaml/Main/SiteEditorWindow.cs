@@ -31,7 +31,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// 2026-10-05, владелец: «создай несколько тем готовых для сайта как темы и редактор оставь» — сверху галерея «Темы сайта»
 /// (Assets/SiteThemes: набор настроек, обложка главного блока, заглушка товара без фото, превью). Тема меняет весь вид, но не
 /// тексты, телефон и товары магазина; после неё всё можно подправить ниже и опубликовать.</summary>
-public sealed class SiteEditorWindow : Window, IOwnerSection
+public sealed partial class SiteEditorWindow : Window, IOwnerSection
 {
     private const string DesignPath = "api/main/showcase/design/";
 
@@ -73,10 +73,7 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
     // Правки принимаются только когда редактор построен (_editorReady) и только если значение правда другое.
     private bool _editorReady;
 
-    /// <summary>Готовая тема витрины из Assets/SiteThemes/{code}.json.</summary>
-    private sealed record SiteTheme(string Code, string Name, string Description, JsonObject Patch, List<(string Path, string File, string Kind)> Images);
-
-    private static List<SiteTheme>? _themes;
+    // 2026-10-27: темы читает SiteThemeCatalog (Services), показ галереи и применение — SiteEditorWindow.Themes.cs.
 
     /// <summary>Картинки темы, уже загруженные на сервер в этом сеансе (тема → адрес поля → номер картинки):
     /// повторное применение той же темы не плодит копии в медиатеке.</summary>
@@ -214,6 +211,7 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             Current = this;
             await LoadAsync().ConfigureAwait(true);
             _loadedOnce = true;
+            await ApplyPendingThemeAsync().ConfigureAwait(true); // 2026-10-27: пришли из Маркетплейса («Открыть в редакторе сайта»)
         };
         Closed += (_, _) =>
         {
@@ -491,10 +489,34 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
 
     private bool Flag(string path) => Get(path) is JsonValue v && v.ToString().Equals("true", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>2026-10-27 (аудит редакторов, В-3): текущее сохранение черновика — следующий вызов ждёт его, а не выходит молча.</summary>
+    private Task? _saveTask;
+
+    /// <summary>2026-10-27 (аудит редакторов, В-3): раньше правка, сделанная ВО ВРЕМЯ сохранения, оставалась только в очереди
+    /// (вызов выходил при _saving, таймер уже остановлен) и уходила на сервер лишь со следующей правкой; «Опубликовать» и «Применить
+    /// тему» в это время сохраняли «ничего». Теперь вызов дожидается идущего сохранения, а правки, пришедшие за это время,
+    /// догоняются повторным сохранением через 0,8 с после успешного ответа.</summary>
     private async Task SaveDraftAsync()
     {
-        if (_locked || _saving || _patch.Count == 0)
+        while (_saveTask is { IsCompleted: false } running)
+            await running.ConfigureAwait(true);
+        if (_locked || _patch.Count == 0)
             return;
+        var task = SaveDraftCoreAsync();
+        _saveTask = task;
+        var ok = await task.ConfigureAwait(true);
+        if (ok && _patch.Count > 0 && !_locked)
+        {
+            _saveTimer.Stop();
+            _saveTimer.Start();
+        }
+    }
+
+    private async Task<bool> SaveDraftCoreAsync()
+    {
+        var ok = false;
+        if (_locked || _saving || _patch.Count == 0)
+            return false;
         var patch = _patch;
         _patch = new JsonObject();
         _saving = true;
@@ -505,6 +527,7 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             _hasUnpublished = data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("has_unpublished_changes", out var hu) || hu.ValueKind != JsonValueKind.False;
             ShowWarnings(data);
             PosLogger.Log($"Редактор сайта: черновик сохранён ({string.Join(", ", patch.Select(p => p.Key))}).", "INFO");
+            ok = true;
             await RefreshPreviewAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
@@ -527,6 +550,7 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             _saving = false;
             RefreshState();
         }
+        return ok;
     }
 
     private void ShowWarnings(JsonElement data)
@@ -982,38 +1006,6 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
         LockInputs();
     }
 
-    private static List<SiteTheme> LoadThemes()
-    {
-        if (_themes is not null)
-            return _themes;
-        var list = new List<SiteTheme>();
-        try
-        {
-            using var order = AssetLoader.Open(new Uri("avares://NurMarketKassa.Avalonia/Assets/SiteThemes/themes.json"));
-            var codes = JsonSerializer.Deserialize<List<string>>(order) ?? new List<string>();
-            foreach (var code in codes)
-            {
-                using var stream = AssetLoader.Open(new Uri($"avares://NurMarketKassa.Avalonia/Assets/SiteThemes/{code}.json"));
-                if (JsonNode.Parse(stream) is not JsonObject doc || doc["patch"] is not JsonObject patch)
-                    continue;
-                string Local(string key) => doc[key] is JsonObject n
-                    ? T(n["ru"]?.ToString() ?? "", n["ky"]?.ToString() ?? "", n["en"]?.ToString() ?? "", n["tr"]?.ToString() ?? "", n["uz"]?.ToString() ?? "")
-                    : code;
-                var images = new List<(string, string, string)>();
-                if (doc["images"] is JsonObject imgs)
-                    foreach (var (path, value) in imgs)
-                        if (value is JsonObject v && v["file"]?.ToString() is { Length: > 0 } file)
-                            images.Add((path, file, v["kind"]?.ToString() ?? "other"));
-                list.Add(new SiteTheme(code, Local("name"), Local("description"), patch, images));
-            }
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Редактор сайта: темы не прочитаны ({ex.Message}).", "WARNING");
-        }
-        return _themes = list;
-    }
-
     /// <summary>Галерея тем: превью, название, для какого магазина, «Применить»; нынешняя тема отмечена.</summary>
     // ── 2026-10-06, владелец: «добавь редактор к нашему ИИ звонку» — команды голосом или текстом из Нур Советника ──
 
@@ -1025,37 +1017,63 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
     /// <summary>Редактор загрузил черновик с сервера — команды можно выполнять.</summary>
     public bool IsReady => _loadedOnce;
 
-    private static readonly Dictionary<string, string[]> ThemeWords = new()
-    {
-        ["sunny"] = new[] { "солнеч", "күн", "sunny", "güneş", "quyosh" },
-        ["midnight"] = new[] { "ночн", "түн", "midnight", "night", "gece", "tun" },
-        ["fresh"] = new[] { "свеж", "рынок", "базар", "fresh", "taze", "yangi" },
-        ["boutique"] = new[] { "бутик", "boutique", "butik" },
-        ["alatoo"] = new[] { "ала-тоо", "ала тоо", "алатоо", "ala-too", "alatoo", "ala too" },
-        ["clean"] = new[] { "чист", "таза", "clean", "temiz", "toza" },
-    };
-
     /// <summary>Похоже на команду редактору сайта (тема, стиль, опубликовать) — для звонка и чата советника.</summary>
     public static bool LooksLikeCommand(string phrase)
     {
         var t = phrase.ToLowerInvariant();
         var site = new[] { "сайт", "витрин", "тем", "стил", "оформлен", "дизайн", "website", "theme", "style", "site", "tema", "stil", "mavzu", "uslub", "sayt" }.Any(t.Contains);
         var publish = new[] { "опублик", "жарыяла", "publish", "yayınla", "e'lon" }.Any(t.Contains);
-        return site && (publish || ThemeWords.Values.Any(w => w.Any(t.Contains)) || new[] { "тёмн", "темн", "светл", "dark", "light", "караңгы", "жарык" }.Any(t.Contains));
+        return site && (publish || SiteThemeCatalog.MentionsTheme(t) || new[] { "тёмн", "темн", "светл", "dark", "light", "караңгы", "жарык" }.Any(t.Contains));
     }
 
+    // 2026-10-27 (аудит редакторов, В-1): Нур Советник публиковал сайт на ВОПРОС «Как опубликовать сайт?» (слова «сайт» + «опублик»), и черновик
+    // сразу видели покупатели. Теперь вопрос только объясняется, а публикация — только по повелительной форме («опубликуй сайт») и после
+    // подтверждения в окне; нераспознанная форма («опубликовать сайт») тоже ничего не публикует, а подсказывает, как.
+
+    private static readonly System.Text.RegularExpressions.Regex QuestionWords = new(
+        @"\b(как|что|где|почему|зачем|куда|когда|можно|нужно ли|кантип|эмне|кайда|мүмкүнбү|how|what|where|why|when|can|could|should|nasıl|neden|nerede|ne zaman|qanday|nima|qayerda|nega|mumkinmi)\b",
+        System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    private static readonly System.Text.RegularExpressions.Regex PublishImperative = new(
+        @"(опубликуй|опубликуйте|жарыялагыла|\bжарыяла\b|жарыялаңыз|(?<!to )\bpublish\b|\byayınla\b|\byayınlayın\b|e'lon qil(ing|gin)?\b)",
+        System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>Фраза — вопрос («Как опубликовать сайт?», «можно ли поставить тему?»): сайт не меняется, владельцу объясняют.</summary>
+    public static bool IsQuestion(string phrase)
+    {
+        var t = phrase.ToLowerInvariant();
+        return t.Contains('?') || QuestionWords.IsMatch(t);
+    }
+
+    /// <summary>Явная команда публикации: повелительная форма и не вопрос.</summary>
+    public static bool IsPublishCommand(string phrase)
+    {
+        var t = phrase.ToLowerInvariant();
+        return !IsQuestion(t) && PublishImperative.IsMatch(t);
+    }
+
+    /// <summary>Ответ на вопрос о сайте или на неясную фразу про публикацию — ничего не меняет.</summary>
+    public static string PublishHowTo() => T(
+        "Это вопрос или неясная команда, поэтому на сайте я ничего не менял. Чтобы опубликовать: откройте «Редактор сайта» и нажмите «Опубликовать» — или скажите «опубликуй сайт»; перед публикацией программа спросит подтверждение. Чтобы поставить тему: «поставь тему Ала-Тоо».",
+        "Бул суроо же түшүнүксүз буйрук, ошондуктан сайтта эч нерсени өзгөрткөн жокмун. Жарыялоо үчүн: «Сайттын редакторун» ачып, «Жарыялоо» баскычын басыңыз — же «сайтты жарыяла» деңиз; жарыялоодон мурун программа ырастоону сурайт. Тема коюу үчүн: «Ала-Тоо темасын кой».",
+        "This is a question or an unclear command, so I changed nothing on the website. To publish: open the “Website editor” and press “Publish” — or say “publish the website”; the program asks for confirmation first. To set a theme: “set the Ala-Too theme”.",
+        "Bu bir soru veya belirsiz bir komut, bu yüzden sitede hiçbir şeyi değiştirmedim. Yayınlamak için: «Web sitesi düzenleyici»yi açıp «Yayınla»ya basın — ya da «siteyi yayınla» deyin; yayından önce program onay ister. Tema için: «Ala-Too temasını koy».",
+        "Bu savol yoki tushunarsiz buyruq, shuning uchun saytda hech narsani o'zgartirmadim. E'lon qilish uchun: «Sayt muharriri»ni ochib, «E'lon qilish»ni bosing — yoki «saytni e'lon qil» deng; e'lon qilishdan oldin dastur tasdiq so'raydi. Mavzu uchun: «Ala-Too mavzusini qo'y».");
+
     /// <summary>Выполнить команду: «поставь тему Ала-Тоо» — тема в черновик (без вопроса: голос — уже подтверждение),
-    /// «тёмный стиль» — стиль, «опубликуй сайт» — публикация. Ответ — что сделано; null — команда не понята.</summary>
+    /// «тёмный стиль» — стиль, «опубликуй сайт» — публикация (только после подтверждения). Ответ — что сделано; null — команда не понята.</summary>
     public async Task<string?> VoiceCommandAsync(string phrase)
     {
         var t = phrase.ToLowerInvariant();
+        if (IsQuestion(t))
+            return PublishHowTo(); // 2026-10-27 (В-1): вопрос ничего не меняет
         if (_locked)
             return T("Редактор сайта сейчас только для просмотра — сохранять изменения сервер не разрешает.", "Сайттын редактору азыр көрүү үчүн гана — сервер өзгөртүүнү сактоого уруксат бербейт.",
                 "The website editor is view-only right now — the server doesn't allow saving.", "Site düzenleyici şu an yalnızca görüntüleme modunda — sunucu kaydetmeye izin vermiyor.",
                 "Sayt muharriri hozir faqat ko'rish uchun — server saqlashga ruxsat bermaydi.");
         var done = new List<string>();
-        if (LoadThemes().FirstOrDefault(th => ThemeWords.TryGetValue(th.Code, out var words) && words.Any(t.Contains)
-                                              || t.Contains(th.Name.ToLowerInvariant())) is { } theme)
+        // 2026-10-27: слова тем — из данных (voice_words), самое длинное совпадение первым («тёмный люкс» раньше «тёмн»).
+        if (SiteThemeCatalog.FindByWords(t, UserPreferences.Instance.MarketSphere) is { } theme)
         {
             done.Add(await ApplyThemeAsync(theme, confirm: false).ConfigureAwait(true)
                 ? T($"Тема «{theme.Name}» поставлена в черновик.", $"«{theme.Name}» темасы долбоорго коюлду.", $"The “{theme.Name}” theme is in the draft.",
@@ -1071,8 +1089,28 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             done.Add(T($"Стиль «{preset.Name}» поставлен в черновик.", $"«{preset.Name}» стили долбоорго коюлду.", $"The “{preset.Name}” style is in the draft.",
                 $"«{preset.Name}» stili taslağa kondu.", $"«{preset.Name}» uslubi qoralamaga qo'yildi."));
         }
-        if (new[] { "опублик", "жарыяла", "publish", "yayınla", "e'lon" }.Any(t.Contains))
+        if (new[] { "опублик", "жарыяла", "publish", "yayınla", "e'lon" }.Any(t.Contains) && !IsPublishCommand(t))
+            done.Add(PublishHowTo()); // 2026-10-27 (В-1): «опубликовать сайт» без повелительной формы — не команда
+        else if (new[] { "опублик", "жарыяла", "publish", "yayınla", "e'lon" }.Any(t.Contains))
         {
+            // 2026-10-27 (В-1): публикация видна покупателям сразу — перед ней всегда окно подтверждения.
+            if (!_hasUnpublished && _patch.Count == 0 && done.Count == 0)
+            {
+                done.Add(T("Нечего публиковать — на сайте уже всё опубликовано.", "Жарыялоого эч нерсе жок — сайтта баары жарыяланган.", "Nothing to publish — everything is already live.",
+                    "Yayınlanacak bir şey yok — her şey zaten yayında.", "E'lon qiladigan narsa yo'q — hammasi allaqachon e'lon qilingan."));
+                return string.Join(" ", done);
+            }
+            var okPublish = await ConfirmAsync(
+                T("Опубликовать сайт? Покупатели сразу увидят текущий черновик.", "Сайтты жарыялайсызбы? Кардарлар азыркы долбоорду дароо көрөт.",
+                    "Publish the website? Customers will see the current draft right away.", "Site yayınlansın mı? Müşteriler mevcut taslağı hemen görür.",
+                    "Sayt e'lon qilinsinmi? Xaridorlar joriy qoralamani darhol ko'radi."),
+                T("Опубликовать", "Жарыялоо", "Publish", "Yayınla", "E'lon qilish"), T("Не публиковать", "Жарыялабоо", "Don't publish", "Yayınlama", "E'lon qilmaslik")).ConfigureAwait(true);
+            if (!okPublish)
+            {
+                done.Add(T("Публикация отменена — сайт не менялся.", "Жарыялоо жокко чыгарылды — сайт өзгөргөн жок.", "Publishing cancelled — the website is unchanged.",
+                    "Yayın iptal edildi — site değişmedi.", "E'lon qilish bekor qilindi — sayt o'zgarmadi."));
+                return string.Join(" ", done);
+            }
             await PublishAsync().ConfigureAwait(true);
             done.Add(_hasUnpublished
                 ? T("Опубликовать не получилось — сообщение в редакторе.", "Жарыялоо болбой калды — билдирүү редактордо.", "Publishing failed — see the editor message.",
@@ -1084,138 +1122,6 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
         if (done.Count > 0)
             PosLogger.Log($"Редактор сайта: команда Нур Советника выполнена ({done.Count}).", "INFO");
         return done.Count > 0 ? string.Join(" ", done) : null;
-    }
-
-    private void BuildThemes(StackPanel host)
-    {
-        host.Children.Add(Hint(T("Весь вид сайта одним нажатием: цвета, шрифт, шапка, главный блок с картинкой, карточки товаров, подвал. "
-                                 + "Название, телефон, тексты и товары магазина не меняются. Покупатели увидят тему после «Опубликовать».",
-            "Сайттын бүт көрүнүшү бир басуу менен: түстөр, шрифт, баш бөлүк, сүрөттүү башкы блок, товар карточкалары, төмөнкү бөлүк. "
-            + "Дүкөндүн аты, телефону, тексттери жана товарлары өзгөрбөйт. Кардарлар теманы «Жарыялоодон» кийин көрүшөт.",
-            "The whole website look in one click: colours, font, header, main block with a picture, product cards, footer. "
-            + "The shop's name, phone, texts and products stay. Customers see the theme after “Publish”.",
-            "Sitenin tüm görünümü tek tıkla: renkler, yazı tipi, üst bölüm, resimli ana blok, ürün kartları, alt bilgi. "
-            + "Mağaza adı, telefon, metinler ve ürünler değişmez. Müşteriler temayı «Yayınla»dan sonra görür.",
-            "Saytning butun ko'rinishi bir bosishda: ranglar, shrift, sarlavha, rasmli asosiy blok, mahsulot kartochkalari, pastki qism. "
-            + "Do'kon nomi, telefoni, matnlari va mahsulotlari o'zgarmaydi. Xaridorlar mavzuni «E'lon qilish»dan keyin ko'radi.")));
-        var wrap = new WrapPanel { Orientation = Orientation.Horizontal };
-        var accent = Str("theme.colors.accent").ToUpperInvariant();
-        var background = Str("theme.colors.background").ToUpperInvariant();
-        var font = Str("theme.font.family");
-        foreach (var theme in LoadThemes())
-        {
-            var current = theme.Patch["theme"] is JsonObject th
-                          && (th["colors"]?["accent"]?.ToString() ?? "").ToUpperInvariant() == accent
-                          && (th["colors"]?["background"]?.ToString() ?? "").ToUpperInvariant() == background
-                          && (th["font"]?["family"]?.ToString() ?? "") == font;
-            var card = new Border { Width = 184, CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(current ? 2 : 1), Margin = new Thickness(0, 0, 8, 8), ClipToBounds = true };
-            // 2026-10-19, этап О10 (аудит: 5+ жёлтых «Применить»): карточка темы белая, выбранная — тёмной рамкой (как темы
-            // Маркетплейса), «Применить» — обводкой; жёлтая на экране одна — «Опубликовать».
-            Use(card, Border.BackgroundProperty, "BrushPanel");
-            Use(card, Border.BorderBrushProperty, current ? "BrushText" : "BrushBorder");
-            var stack = new StackPanel();
-            try
-            {
-                using var thumb = AssetLoader.Open(new Uri($"avares://NurMarketKassa.Avalonia/Assets/SiteThemes/{theme.Code}_thumb.png"));
-                stack.Children.Add(new Image { Source = new Bitmap(thumb), Height = 115, Stretch = Stretch.UniformToFill });
-            }
-            catch
-            {
-                // нет превью — только название
-            }
-            var info = new StackPanel { Spacing = 3, Margin = new Thickness(10, 8, 10, 10) };
-            var name = new TextBlock { Text = theme.Name + (current ? "  ✓" : ""), FontSize = 14, FontWeight = FontWeight.Bold };
-            Use(name, TextBlock.ForegroundProperty, "BrushText");
-            info.Children.Add(name);
-            var about = Hint(theme.Description);
-            about.MinHeight = 32;
-            info.Children.Add(about);
-            var apply = current
-                ? UiKit.Ghost(this, T("Применена", "Колдонулду", "Applied", "Uygulandı", "Qo'llangan"))
-                : UiKit.Ghost(this, T("Применить", "Колдонуу", "Apply", "Uygula", "Qo'llash"));
-            apply.Height = 32;
-            apply.Margin = new Thickness(0, 6, 0, 0);
-            apply.HorizontalAlignment = HorizontalAlignment.Stretch;
-            apply.Click += async (_, _) => await ApplyThemeAsync(theme).ConfigureAwait(true);
-            info.Children.Add(apply);
-            stack.Children.Add(info);
-            card.Child = stack;
-            wrap.Children.Add(card);
-        }
-        host.Children.Add(wrap);
-    }
-
-    /// <summary>Применить тему: картинки темы — на сервер (showcase/media/), весь набор настроек — в черновик одним запросом.</summary>
-    private async Task<bool> ApplyThemeAsync(SiteTheme theme, bool confirm = true)
-    {
-        if (_locked)
-            return false;
-        var ok = !confirm || await ConfirmAsync(T($"Применить тему «{theme.Name}»? Поменяются цвета, шрифт, вид блоков и картинки. Название, телефон и товары останутся. "
-                                      + "Покупатели увидят после «Опубликовать»; до этого можно всё подправить или нажать «Отменить изменения».",
-            $"«{theme.Name}» темасын колдоносузбу? Түстөр, шрифт, блоктордун көрүнүшү жана сүрөттөр өзгөрөт. Аты, телефону жана товарлар калат. "
-            + "Кардарлар «Жарыялоодон» кийин көрүшөт; ага чейин баарын оңдосо же «Өзгөртүүлөрдү жокко чыгаруу» басса болот.",
-            $"Apply the “{theme.Name}” theme? Colours, font, block styles and pictures will change. The name, phone and products stay. "
-            + "Customers see it after “Publish”; until then you can adjust anything or press “Discard changes”.",
-            $"«{theme.Name}» teması uygulansın mı? Renkler, yazı tipi, blok görünümleri ve resimler değişir. Ad, telefon ve ürünler kalır. "
-            + "Müşteriler «Yayınla»dan sonra görür; o zamana kadar düzenleyebilir ya da «Değişiklikleri geri al»a basabilirsiniz.",
-            $"«{theme.Name}» mavzusi qo'llansinmi? Ranglar, shrift, bloklar ko'rinishi va rasmlar o'zgaradi. Nomi, telefoni va mahsulotlar qoladi. "
-            + "Xaridorlar «E'lon qilish»dan keyin ko'radi; ungacha hammasini tuzatish yoki «O'zgarishlarni bekor qilish»ni bosish mumkin."),
-            // 2026-10-22 (модалки, пакет 4): глагол «Применить тему» вместо «Да».
-            T("Применить тему", "Теманы колдонуу", "Apply theme", "Temayı uygula", "Mavzuni qo'llash"), T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true);
-        if (!ok)
-            return false;
-        _saveTimer.Stop();
-        await SaveDraftAsync().ConfigureAwait(true);
-        ShowBanner(T("Применяю тему…", "Тема колдонулууда…", "Applying the theme…", "Tema uygulanıyor…", "Mavzu qo'llanmoqda…"), warning: false);
-        try
-        {
-            var patch = (JsonObject)theme.Patch.DeepClone();
-            if (!UploadedThemeImages.TryGetValue(theme.Code, out var uploaded))
-                UploadedThemeImages[theme.Code] = uploaded = new Dictionary<string, string>();
-            foreach (var (path, file, kind) in theme.Images)
-            {
-                if (!uploaded.TryGetValue(path, out var id))
-                {
-                    var temp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nurmarket-theme-" + file);
-                    await using (var asset = AssetLoader.Open(new Uri($"avares://NurMarketKassa.Avalonia/Assets/SiteThemes/{file}")))
-                    await using (var output = System.IO.File.Create(temp))
-                        await asset.CopyToAsync(output).ConfigureAwait(true);
-                    var data = await _api.UploadFileAsync("api/main/showcase/media/", "file", temp, new Dictionary<string, string> { ["kind"] = kind }).ConfigureAwait(true);
-                    id = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("id", out var idv) ? idv.ToString() : "";
-                    if (id.Length == 0)
-                        throw new InvalidOperationException(T("сервер не вернул номер картинки", "сервер сүрөттүн номерин кайтарган жок", "the server returned no picture id", "sunucu resim numarası döndürmedi", "server rasm raqamini qaytarmadi"));
-                    uploaded[path] = id;
-                    try
-                    {
-                        System.IO.File.Delete(temp);
-                    }
-                    catch
-                    {
-                        // временный файл удалит Windows
-                    }
-                }
-                SetIn(patch, path, JsonValue.Create(id));
-            }
-            var result = await _api.RequestAsync(new HttpMethod("PATCH"), DesignPath + "draft/", patch, null, CancellationToken.None, TimeSpan.FromSeconds(30)).ConfigureAwait(true);
-            PosLogger.Log($"Редактор сайта: применена тема {theme.Code}.", "INFO");
-            await LoadAsync().ConfigureAwait(true);
-            // 2026-10-05, владелец: «темы не применяются» — сервер тему сохраняет, а сайт витрины NurCRM оформление пока не читает
-            // (docs/ТЗ для фронтенда NurCRM - витрина должна показывать оформление из редактора). Говорим об этом прямо.
-            // 2026-10-07: market.nurcrm.kg оформление уже показывает (предпросмотр справа — тоже).
-            ShowBanner(T($"Тема «{theme.Name}» сохранена в черновике — справа предпросмотр. Нравится — «Опубликовать»: покупатели увидят на market.nurcrm.kg.",
-                $"«{theme.Name}» темасы долбоордо сакталды — оң жакта алдын ала көрүү. Жакса — «Жарыялоо»: кардарлар market.nurcrm.kg дарегинде көрүшөт.",
-                $"The “{theme.Name}” theme is saved in the draft — preview on the right. Like it — “Publish”: customers will see it on market.nurcrm.kg.",
-                $"«{theme.Name}» teması taslağa kaydedildi — sağda önizleme. Beğendiyseniz — «Yayınla»: müşteriler market.nurcrm.kg'de görür.",
-                $"«{theme.Name}» mavzusi qoralamada saqlandi — o'ngda oldindan ko'rish. Yoqsa — «E'lon qilish»: xaridorlar market.nurcrm.kg da ko'radi."), warning: false);
-            ShowWarningsAppend(result);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            ShowBanner(T("Тема не применилась: ", "Тема колдонулган жок: ", "The theme wasn't applied: ", "Tema uygulanmadı: ", "Mavzu qo'llanmadi: ") + ServerTelegramBotApi.DescribeFields(ex), warning: true);
-            PosLogger.Log($"Редактор сайта: тема {theme.Code} не применилась ({ex.Message}).", "WARNING");
-            return false;
-        }
     }
 
     /// <summary>Предупреждения сервера о контрасте после темы — под сообщением о теме (у готовых тем их быть не должно).</summary>

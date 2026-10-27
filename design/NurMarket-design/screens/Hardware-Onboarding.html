@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Хозмаг — онбординг 5 шагов (Д-ХМ5, ХМ13)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Hardware-shared.css">
+<style>
+  .two{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .big-tile{ display:flex; flex-direction:column; gap:8px; padding:16px 18px; border-radius:var(--r-card); border:1px solid var(--border); background:var(--panel); min-height:150px; text-align:left; cursor:pointer; }
+  .big-tile.on{ border:2px solid var(--text); background:var(--accent-soft); padding:15px 17px; }
+  .big-tile b{ font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px; }
+  .big-tile span{ font-size:12.5px; color:var(--text-soft); line-height:1.4; }
+  .big-tile .inc{ display:flex; flex-wrap:wrap; gap:4px; margin-top:auto; }
+  .cats{ display:grid; grid-template-columns:repeat(3,1fr); gap:2px 16px; }
+  .s1024 .cats{ grid-template-columns:repeat(2,1fr); }
+  .cats .chk{ min-height:40px; font-size:13.5px; }
+  .svc{ display:grid; grid-template-columns:1.2fr 140px 1fr; gap:10px; align-items:center; min-height:52px; padding:4px 0; border-bottom:1px solid var(--border); }
+  .svc:last-child{ border-bottom:0; }
+  .svc b{ font-size:14px; } .svc .hint{ font-size:12px; }
+  .prev{ display:flex; gap:18px; align-items:center; }
+  .prog{ height:6px; border-radius:3px; background:var(--panel-soft); overflow:hidden; }
+  .prog i{ display:block; height:100%; background:var(--accent); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    Онбординг показывается один раз после выбора <code>hardware</code> (первый запуск или смена сферы) только владельцу; кассир его не видит (3.6). «Пропустить» — всегда в шапке, закрывает без создания чего-либо.
+    Шаг 1 — размер магазина (повторяет переключатель окна выбора, можно поменять). Шаг 2 — галочки включают пункты 3.2. Шаг 3 — категории создаются <b>только</b> по «Создать отмеченные (N)»; товары не трогаются.
+    Шаг 4 — услуги с ценой (0 = цена вводится в чеке). Шаг 5 — пробная печать ценника на выбранном принтере или «Позже». <code>Итог</code> — что сделано, что отложено.
+  </div>
+</div>
+<script src="Hardware-shared.js"></script>
+<script>
+(function(){
+  const I = HW.icon, t = HW.t, btn = HW.btn, chk = HW.chk;
+  const frame = document.getElementById('frame');
+  const STEPS = [['Магазин','hw.ob.step1'],['Как продаёте','hw.ob.step2'],['Категории','hw.ob.step3'],['Услуги','hw.ob.step4'],['Ценник','hw.ob.step5']];
+  const CATS = ['Крепёж','Инструмент','Электрика','Сантехника','Краски и лаки','Сухие смеси','Плитка и напольные покрытия','Обои и клей','Листовые материалы','Пиломатериалы','Утеплитель и изоляция','Сад и огород','Бытовая химия и хозтовары','Герметики и пена','Спецодежда и СИЗ'];
+  const steps = n => '<div class="steps">'+STEPS.map((s,i)=>'<span class="step'+(i+1===n?' on':i+1<n?' done':'')+'"><i>'+(i+1<n?I('check',14):i+1)+'</i><span data-key="'+s[1]+'">'+s[0]+'</span></span>').join('')+'</div>';
+
+  function body(n){
+    if (n===1) return '<p class="h2">'+t('Какой у вас магазин?','hw.ob.q1')+'</p><div class="two">'+
+      '<button class="big-tile on"><b>🏪 '+t('Хозмаг у дома','hw.sizeHome')+'</b><span>20–80 м², 1–2 кассы, 2–5 тыс. товаров. Крепёж поштучно и на вес, сантехника, электрика, краска, бытовая химия, садовое.</span><span class="inc">'+['Метры и м²','Коробка = N шт','Калькулятор','Ценник за уп'].map(c=>'<span class="chip dark">'+c+'</span>').join('')+'</span></button>'+
+      '<button class="big-tile"><b>🏗 '+t('Строительный маркет','hw.sizeMarket')+'</b><span>Склад, 3–15 тыс. товаров. Мешки, листы, трубы, кабель бухтами, плитка и ламинат по м². Прорабы в долг, доставка, заказ под клиента.</span><span class="inc">'+['Всё из хозмага','Цена прораба','Долг 14 дней','Смета / КП на виду'].map(c=>'<span class="chip">'+c+'</span>').join('')+'</span></button></div>'+
+      '<span class="hint">'+I('information-outline',15)+t('Переключатель меняет только то, что включено по умолчанию. Всё остальное можно включить позже','hw.ob.sizeHint')+'</span>';
+    if (n===2) return '<p class="h2">'+t('Как вы продаёте?','hw.ob.q2')+'</p><div class="two" style="gap:4px 20px">'+
+      chk('метры и м² (кабель, плитка)', true, {key:'hw.ob.sellMeters', sub:'дробное количество с шагом 0,1 м / 0,01 м², окно «Длина / площадь»'})+
+      chk('мешки и коробки, а также штуки из них', true, {key:'hw.ob.sellPacks', sub:'скан коробки ×200 добавит 200 шт; «штуками или коробкой» при добавлении'})+
+      chk('на вес (гвозди)', true, {key:'hw.ob.sellWeight', sub:'весы и весовые этикетки — как в продуктах'})+
+      chk('в долг прорабам', false, {key:'hw.ob.sellDebt', sub:'цена прораба для отмеченных клиентов, срок 14 дней, поле «Объект»'})+'</div>';
+    if (n===3) return '<div class="row"><p class="h2" style="flex:1">'+t('Категории','hw.ob.q3')+' <span class="muted" style="font-weight:500;font-size:13px">— отмечено 12 из 15</span></p>'+btn('Снять все','link','common.uncheckAll')+'</div>'+
+      '<div class="cats">'+CATS.map((c,i)=>chk(c, ![10,11,14].includes(i), {key:'hw.cat.'+(i+1)})).join('')+'</div>'+
+      '<span class="hint">'+I('information-outline',15)+t('Создадутся только категории (пустые). Уже существующие с таким именем не дублируются. Товары не меняются','hw.ob.catsHint')+'</span>';
+    if (n===4) return '<p class="h2">'+t('Услуги','hw.ob.q4')+' <span class="muted" style="font-weight:500;font-size:13px">— товары вида «услуга», попадут в горячие кнопки F1–F3</span></p>'+
+      '<div class="card" style="padding:4px 14px">'+
+      [['Доставка','по городу; цена 0 — спросит в чеке','500','сом','F1'],['Резка','кабель, труба, стекло — за отрез','50','сом','F2'],['Подъём на этаж','за этаж без лифта; цена 0 — в чеке','0','сом','F3']].map(s=>
+        '<div class="svc">'+chk(s[0], true, {})+'<div class="inp"><span class="v num">'+s[2]+'</span><span class="u">'+s[3]+'</span></div><span class="hint">'+s[1]+' · <b>'+s[4]+'</b></span></div>').join('')+'</div>'+
+      '<span class="hint">'+I('information-outline',15)+t('Также предложим горячие кнопки «Пакет», «Гвозди (кг)», «Саморез (шт)» — после выбора товаров','hw.ob.hotkeysHint')+'</span>';
+    if (n===5) return '<p class="h2">'+t('Ценник','hw.ob.q5')+' <span class="muted" style="font-weight:500;font-size:13px">— шаблон «Хозмаг 58×40»: цена за единицу и за упаковку</span></p>'+
+      '<div class="prev"><div class="ptag" style="width:329px;height:227px;padding:10px 12px">'+
+        '<div style="font-size:13.5px;font-weight:700;line-height:1.15;height:34px;overflow:hidden">Плитка керамическая 30×60 «Атлас» серый</div>'+
+        '<div style="display:flex;align-items:baseline;gap:6px;margin-top:4px"><b style="font-size:44px;line-height:1;letter-spacing:-.02em">520</b><span style="font-size:14px;font-weight:700">сом / м²</span></div>'+
+        '<div style="font-size:15px;font-weight:700;margin-top:4px">749 сом / уп <span style="font-weight:500">(1,44 м²)</span></div>'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto"><div style="font-size:10.5px;line-height:1.3">Арт. PL-3060-GR · 30×60 см<br>опт от 10 уп — 690 сом/уп</div>'+HW.barcode(120,30,'4870012345678')+'</div><span class="mm">58 × 40 мм</span></div>'+
+        '<div class="col" style="flex:1;gap:10px">'+HW.sel('Принтер этикеток','Xprinter XP-365B (58 мм)',{key:'hw.ob.printer'})+'<span class="hint">'+t('Нет принтера этикеток? Ценники можно печатать на А4 — 24 на лист','hw.ob.a4Hint')+'</span>'+
+        '<div class="row">'+btn('Напечатать пробный','dark','hw.ob.printTest')+btn('Позже','secondary','common.later')+'</div></div></div>';
+    return '<div class="plate ok">'+I('check-circle-outline',22)+'<span class="tx"><b>'+t('Хозмаг настроен','hw.ob.doneTitle')+'</b><br>'+t('Создано 12 категорий и 3 услуги. Ценник «Хозмаг 58×40» — шаблон по умолчанию.','hw.ob.doneBody')+'</span></div>'+
+      '<ul class="ul" style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13.5px">'+
+      ['Метры и м²: включено','Скан коробки = N шт: включено','Весовые: как раньше','Долг прорабам: выключено — Настройки → Операции','Пробный ценник: отложен','Горячие кнопки F1–F3: Доставка, Резка, Подъём'].map(x=>'<li class="row">'+I('check',16)+x+'</li>').join('')+'</ul>'+
+      '<span class="hint">'+I('information-outline',15)+t('Подсказки больше не покажутся. Повторить — Настройки → Операции → «Пройти подсказки заново»','hw.ob.doneHint')+'</span>';
+  }
+  function render(st){
+    const n = st==='done' ? 6 : Number(st.replace('s',''));
+    frame.innerHTML = '<div class="kassa" style="opacity:.55"><div class="top">'+I('store-outline',20)+'<b>Хозмаг «Мастер» — программа владельца</b><span class="sp"></span></div><div class="body"></div></div>'+
+      HW.modal({ title: n===6 ? 'Готово' : 'Настроим хозмаг — шаг '+n+' из 5', key: n===6?'hw.ob.titleDone':'hw.ob.title', icon:'hammer', cls:'lg',
+        sub: n===6 ? '' : '<span class="row" style="gap:12px">'+steps(n)+'<span class="sp"></span><a href="#" style="color:var(--text);font-weight:700;min-height:44px;display:inline-flex;align-items:center" data-key="common.skip">Пропустить</a></span>',
+        body: '<div class="prog"><i style="width:'+(n===6?100:n*20)+'%"></i></div>'+body(n),
+        foot: n===6 ? '<span class="sp"></span>'+btn('Открыть кассу','primary','hw.ob.openKassa')
+                    : (n>1 ? btn('Назад','secondary','common.back') : '')+'<span class="sp"></span>'+(n===3 ? btn('Создать отмеченные (12)','primary','hw.ob.createCats') : n===4 ? btn('Создать 3 услуги','primary','hw.ob.createSvcs') : n===5 ? btn('Завершить','primary','common.finish') : btn('Далее','primary','common.next')) });
+  }
+  HW.toolbar(frame, { title:'Hardware-Onboarding — 5 шагов', onState:render, states:[
+    { id:'s1', label:'1 Магазин' }, { id:'s2', label:'2 Как продаёте' }, { id:'s3', label:'3 Категории' }, { id:'s4', label:'4 Услуги' }, { id:'s5', label:'5 Ценник' }, { id:'done', label:'Итог' } ] });
+})();
+</script>
+</body></html>

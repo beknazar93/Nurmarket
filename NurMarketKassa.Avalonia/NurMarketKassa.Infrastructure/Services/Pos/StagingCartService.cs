@@ -146,9 +146,10 @@ public static class StagingCartService
             // Без TrimEnd: формат "0.###" и так не печатает хвостовые нули, а у ЦЕЛОГО количества
             // он не печатает и точку — поэтому TrimEnd('0') откусывал нули самого числа и
             // 10.000 кг уходило на сервер как "1" (живой баг: чек на 1000 сом проводился как 100).
+            // 2026-10-26 (ХМ2): «Хозтовары» — дробные м/м²/л уходят как есть ("2.5"); для остальных PieceText = прежнее Math.Round(qty, 0).
             var qtyStr = CartDisplayHelper.LineMustWeigh(it)
                 ? qty.ToString("0.###", CultureInfo.InvariantCulture)
-                : Math.Round(qty, 0).ToString(CultureInfo.InvariantCulture);
+                : QuantityRules.PieceText(it, qty);
             var unitPrice = CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(it));
             var salePackageId = CartDisplayHelper.SalePackageId(it);
             var serverVariantId = CartDisplayHelper.ServerVariantId(it);

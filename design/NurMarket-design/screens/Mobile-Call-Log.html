@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Мобилка — Профиль → Действия ИИ (Г5)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Mobile-Call-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <h3>Г5 · «Действия ИИ» (<code>/ai/log</code>, Профиль)</h3>
+    Список по дням: время, значок группы (навигация / корзина / деньги / товар / задачи / зарплата), сказанная фраза серым курсивом, итог жирным,
+    справа «Отменить» (40 dp в строке, хитбокс 48) либо серое «нельзя отменить» / «отменено 14:07». Фильтры-чипы: Все · Только деньги · Отменённые.
+    Сотрудник видит свои записи, владелец и администратор — все записи телефона. Внизу — откуда данные: телефон, до 2000 записей, без ключей, звука и телефонов клиентов.
+    <h3>Состояния</h3>
+    <ul>
+      <li><code>owner</code> — все записи за «Сегодня» и «Вчера», смешанные группы, у денег значок на жёлтой подложке.</li>
+      <li><code>money</code> — фильтр «Только деньги»: оплата, приход, выплата, долг.</li>
+      <li><code>employee</code> — кассир: плашка «Видны только ваши действия», записей меньше, «Отменить» только у своих отменяемых.</li>
+      <li><code>undone</code> — после нажатия «Отменить»: тост «Отменено: возврат чека 1043…», запись помечена «отменено 14:07», ниже — новая запись об отмене.</li>
+      <li><code>empty</code> — пусто: «ИИ ещё ничего не делал на этом телефоне», подсказка про звонок.</li>
+    </ul>
+  </div>
+</div>
+<script src="Mobile-Call-shared.js"></script>
+<script>
+(function(){
+  const I = MC.icon, frame = document.getElementById('frame');
+  const G = { nav:'compass', cart:'cart', money:'cash', product:'package', task:'tasks', salary:'account' };
+  const ROWS = [
+    { d:'Сегодня', t:'14:07', g:'money', said:'отмени последнее', res:'Отменено: возврат чека 1043 на 1 250 сом · возврат № 212', undo:'no', note:'это отмена' , mine:true },
+    { d:'Сегодня', t:'14:05', g:'money', said:'оплата наличными, полторы тысячи', res:'Оплата наличными 1 250 сом · сдача 250 · чек 1043', undo:'yes', mine:true, undoneAt:'14:07' },
+    { d:'Сегодня', t:'14:04', g:'cart', said:'пробей две колы и марс', res:'В чек: Кока-Кола 1 л ×2, Mars 50 г ×1', undo:'yes', mine:true },
+    { d:'Сегодня', t:'13:52', g:'nav', said:'открой склад, что заканчивается', res:'Открыт Склад → фильтр «мало» · 4 товара', undo:'no', mine:true },
+    { d:'Сегодня', t:'12:30', g:'money', said:'проведи приход', res:'Приход № 4512 на 12 400 сом · 8 строк · «Кока-Кола Бишкек»', undo:'cant', cantText:'нельзя отменить · можно списать', mine:false },
+    { d:'Сегодня', t:'11:15', g:'task', said:'поставь Нурлану задачу пересчитать полку с водой до завтра', res:'Задача Нурлану Б.: «Пересчитать полку с водой» · до 27.10', undo:'yes', mine:false },
+    { d:'Сегодня', t:'10:02', g:'product', said:'поставь сникерсу 120', res:'Snickers 50 г: цена 110 → 120 сом', undo:'yes', mine:false },
+    { d:'Вчера', t:'20:02', g:'money', said:'закрой смену', res:'Смена № 42 закрыта · наличные 2 860 · карта 1 035', undo:'cant', cantText:'нельзя отменить', mine:false },
+    { d:'Вчера', t:'18:40', g:'salary', said:'выплати Айбеку восемнадцать пятьсот', res:'Выплата Айбеку Т. 18 500 сом наличными из кассы «Основная» · остаток 0', undo:'req', mine:false },
+    { d:'Вчера', t:'18:36', g:'money', said:'погаси долг Айгуль две тысячи', res:'Долг [Д3] погашен на 2 000 сом · остаток 5 400', undo:'cant', cantText:'нельзя отменить', mine:false },
+    { d:'Вчера', t:'17:10', g:'product', said:'подними неликвиду наценку десять процентов', res:'Наценка +10 % · 6 товаров', undo:'yes', mine:false }
+  ];
+  function row(r, state){
+    let right;
+    if (state === 'undone' && r.undoneAt) right = '<span class="no">' + I('check', 14) + '<span><span data-ky>отменено</span> ' + r.undoneAt + '</span></span>';
+    else if (r.undo === 'yes') right = '<button class="btn sm" data-ky data-key="aiUndo">Отменить</button>';
+    else if (r.undo === 'cant') right = '<span class="no">' + I('lock', 14) + '<span data-key="aiCantUndo">' + r.cantText + '</span></span>';
+    else if (r.undo === 'req') right = '<span class="no">' + I('clock', 14) + '<span data-key="aiUndoRequest">отмена — запросом владельцу</span></span>';
+    else right = '';
+    return '<div class="log"><span class="gi ' + (r.g === 'money' || r.g === 'salary' ? 'money' : '') + '">' + I(G[r.g], 20) + '</span><div class="t"><span class="tm num">' + r.t + (r.mine ? '' : ' · Бекназар') + '</span><span class="said">«' + r.said + '»</span><span class="res">' + r.res + '</span></div><div class="r">' + right + '</div></div>';
+  }
+  function render(state){
+    let rows = ROWS;
+    if (state === 'money') rows = ROWS.filter(r => r.g === 'money' || r.g === 'salary');
+    if (state === 'employee') rows = ROWS.filter(r => r.mine);
+    if (state === 'owner' || state === 'money') rows = rows.filter(r => !(r.t === '14:07'));
+    if (state === 'empty') rows = [];
+    const chips = '<div class="chips"><span class="chip' + (state !== 'money' ? ' on' : '') + '" data-ky>Все</span><span class="chip' + (state === 'money' ? ' on' : '') + '">' + I('cash', 16) + '<span data-ky data-key="aiLogMoneyOnly">Только деньги</span></span><span class="chip" data-ky data-key="aiLogUndone">Отменённые</span></div>';
+    let list = '';
+    if (!rows.length) list = '<div class="sheet inpage empty" style="border:0;justify-content:center;align-items:center;display:flex;flex-direction:column;gap:8px;text-align:center;color:var(--text-soft);background:transparent">' + I('sparkle', 40) + '<b data-key="aiLogEmpty" style="color:var(--text-muted)">ИИ ещё ничего не делал на этом телефоне</b><span class="hint" data-key="aiLogEmptyHint">Позвоните Нур Советнику и скажите, что сделать — здесь появится каждая запись с кнопкой «Отменить»</span><button class="btn tonal sm" style="margin-top:6px">' + I('phone', 18) + '<span>Позвонить советнику</span></button></div>';
+    else { let day = ''; list = '<div class="list" style="overflow:auto">' + rows.map(r => { const h = r.d !== day ? '<div class="day" data-ky>' + r.d + (r.d === 'Сегодня' ? ', 26 октября' : ', 25 октября') + '</div>' : ''; day = r.d; return h + row(r, state); }).join('') + '</div>'; }
+    const emp = state === 'employee' ? '<div class="plate info" style="min-height:44px">' + I('account', 20) + '<div class="tx" data-ky data-key="aiLogMineOnly">Видны только ваши действия</div></div>' : '';
+    const toast = state === 'undone' ? '<div class="toast" style="bottom:36px">' + I('check-circle', 20) + '<span>Отменено: возврат чека 1043 на 1 250 сом</span></div>' : '';
+    frame.innerHTML = MC.statusBar() + MC.hdr('Действия ИИ', state === 'employee' ? 'Айгерим С. · кассир' : 'все записи телефона · владелец', '<button class="ib" aria-label="Фильтр по дате">' + I('calendar', 22) + '</button>', true) +
+      '<div class="body">' + chips + emp + list + '<div class="hint c" data-ky data-key="aiLogFooter">Хранится на телефоне, до 2000 записей. Без ключей ИИ, звука и телефонов клиентов.</div></div>' + toast + MC.gesture();
+  }
+  MC.toolbar(frame, { title:'Mobile-Call-Log — Действия ИИ', onState:render, states:[
+    { id:'owner', label:'владелец · все' }, { id:'money', label:'только деньги' }, { id:'employee', label:'сотрудник · свои' }, { id:'undone', label:'после «Отменить»' }, { id:'empty', label:'пусто' } ] });
+})();
+</script>
+</body></html>

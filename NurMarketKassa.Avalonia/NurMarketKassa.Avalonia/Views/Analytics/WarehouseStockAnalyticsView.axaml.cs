@@ -88,11 +88,11 @@ public partial class WarehouseStockAnalyticsView : UserControl
                 ValueText = $"{x.Value:N2} {Som}",
             })
             .ToList();
-        // 2026-10-21 (пакет 2, п. 98, «радуга»): полосы рейтинга — одним цветом текста темы, как в «Аналитике» (О10).
-        var barBrush = this.FindResource("BrushText") as IBrush;
+        // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — полосы товаров и категорий снова разноцветные (с 2026-10-21, п. 98, были одним
+        // цветом): цвет по хэшу названия (ChartPalette), стабилен при смене сортировки и тот же на других экранах и в мобилке.
         BarChartRenderer.Render(AnalyticsTopValueChart, topValue
             .Select(x => (x.Product.Title, (double)x.Value, $"{x.Value:N0} {Som}"))
-            .ToList(), barBrush);
+            .ToList());
 
         var byCategory = products
             .GroupBy(p => string.IsNullOrWhiteSpace(p.Category) ? Tr.T("Без категории", "Категориясыз", "No category", "Kategorisiz", "Kategoriyasiz") : p.Category!.Trim())
@@ -122,7 +122,7 @@ public partial class WarehouseStockAnalyticsView : UserControl
             .Take(10)
             .Select(g => (g.Name, g.Value, $"{g.Value:N0} {Som}"))
             .ToList();
-        BarChartRenderer.Render(AnalyticsCategoryChart, categoryChartData, barBrush);
+        BarChartRenderer.Render(AnalyticsCategoryChart, categoryChartData);
         // 2026-10-21 (пакет 2, п. 98): круговая скрыта в разметке (повтор полос) — не рисуется.
     }
 }

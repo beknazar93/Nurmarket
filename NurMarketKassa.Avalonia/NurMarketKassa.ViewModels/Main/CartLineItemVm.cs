@@ -34,6 +34,9 @@ public sealed class CartLineItemVm : ViewModelBase
     public double UnitPrice { get; init; }
     public bool IsWeight { get; init; }
 
+    /// <summary>2026-10-26 (ХМ2): шаг «+» у дробной единицы «Хозтоваров» (0.1 м); null — шаг 1 (штучный) или 0.1 кг (весовой).</summary>
+    public double? FractionalStep { get; init; }
+
     /// <summary>Заполнен, если строка продаётся поштучно из пачки — тогда Quantity в ШТУКАХ,
     /// а остаток товара в каталоге хранится в ПАЧКАХ.</summary>
     public string? SalePackageId { get; init; }
@@ -108,7 +111,7 @@ public sealed class CartLineItemVm : ViewModelBase
     }
 
     public bool CanIncrease =>
-        !MaxStockQuantity.HasValue || Quantity + (IsWeight ? 0.1 : 1) <= MaxStockQuantity.Value + 1e-6;
+        !MaxStockQuantity.HasValue || Quantity + (IsWeight ? 0.1 : FractionalStep ?? 1) <= MaxStockQuantity.Value + 1e-6;
 
     public double LineTotal
     {

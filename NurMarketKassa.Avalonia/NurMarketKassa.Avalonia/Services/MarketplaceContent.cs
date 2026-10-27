@@ -77,6 +77,8 @@ internal static partial class MarketplaceContent
             Layout(item);
         else if (item.Id.StartsWith("theme:", StringComparison.Ordinal))
             Theme(item);
+        else if (item.Id.StartsWith("sitetheme:", StringComparison.Ordinal))
+            SiteTheme(item); // 2026-10-27: темы сайта — MarketplaceSiteThemes.cs
     }
 
     // ------------------------------------------------------------------ общее

@@ -205,7 +205,7 @@ public sealed class CartService : ICartService, IDisposable
     {
         var quantity = CartDisplayHelper.LineQuantity(line);
         var unitPrice = CartDisplayHelper.UnitPrice(line);
-        var gross = quantity * unitPrice;
+        var gross = QuantityRules.Active ? QuantityRules.Gross(quantity, unitPrice) : quantity * unitPrice; // 2026-10-26 (ХМ2)
         var discount = ReadLineDiscount(line, gross);
         var (discountPercent, fixedDiscountAmount) = ReadDiscountDefinition(line);
 

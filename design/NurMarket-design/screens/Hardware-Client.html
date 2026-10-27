@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Хозмаг — клиент-прораб: группа цен, лимит долга, объекты (ХМ8, Б-55, Б-56)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Hardware-shared.css">
+<style>
+  .cl{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; }
+  .s1024 .cl{ gap:10px; }
+  .avatar{ width:52px; height:52px; border-radius:16px; background:var(--text); color:var(--panel); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:17px; flex:0 0 auto; }
+  .bar{ height:10px; border-radius:5px; background:var(--panel-soft); overflow:hidden; }
+  .bar i{ display:block; height:100%; background:var(--accent); }
+  .bar.warn i{ background:var(--warning); }
+  .objs .listrow{ min-height:56px; }
+  .tabs{ display:flex; gap:2px; border-bottom:1px solid var(--border); }
+  .tabs span{ min-height:44px; display:flex; align-items:center; padding:0 12px; font-size:13.5px; font-weight:600; color:var(--text-soft); border-bottom:3px solid transparent; }
+  .tabs span.on{ color:var(--text); border-bottom-color:var(--accent); font-weight:700; }
+  .lvl{ display:flex; flex-direction:column; gap:6px; }
+  .lvl .chk{ padding:4px 10px; border:1px solid var(--border); border-radius:var(--r-btn); min-height:48px; }
+  .lvl .chk.on{ border-color:var(--text); background:var(--accent-soft); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    Карточка клиента (<code>NewClientDialog</code> / карточка в «Клиентах»). <code>Карточка</code> — до Б-55: одна галочка «Покупает по оптовой цене (прораб)» (ХМ8, ключ <code>clientPriceGroups</code>); после Б-55 — уровень цены (Розница / Опт / Прораб / Бригада), показан затенённым с пометкой.
+    Долг: текущий 24 300 из лимита 50 000 (лимит — Б-56; до него поле неактивно), срок по умолчанию 14 дней для «Строительного маркета». Объекты клиента — список с чеками и долгом по объекту, «+ Объект».
+    <code>Близко к лимиту</code> — 48 900 из 50 000: плашка, «В долг» в кассе предупредит. <code>Должники</code> — программа владельца: фильтр «Прорабы» и «> 30 дней», колонка «Объект».
+  </div>
+</div>
+<script src="Hardware-shared.js"></script>
+<script>
+(function(){
+  const I = HW.icon, t = HW.t, btn = HW.btn, inp = HW.inp, chk = HW.chk;
+  const frame = document.getElementById('frame');
+  function card(st){
+    const warn = st==='limit';
+    const debt = warn ? '48 900' : '24 300', pct = warn ? 98 : 49;
+    frame.innerHTML = '<div class="kassa" style="opacity:.5"><div class="top">'+I('account-group-outline',20)+'<b>Клиенты</b></div><div class="body"></div></div>'+
+      HW.modal({ title:'Азамат Бекназаров', key:'', icon:'shield-account-outline', cls:'xl', sub:'+996 555 12-34-56 · клиент с 03.2025 · 47 чеков на 612 400 сом',
+        body:'<div class="tabs" style="margin:0 -22px;padding:0 22px">'+['Карточка','Покупки','Долги','Документы','Объекты'].map(x=>'<span'+(x==='Карточка'?' class="on"':'')+'>'+x+(x==='Долги'?' · 2':x==='Документы'?' · 5':'')+'</span>').join('')+'</div>'+
+          (warn ? HW.plate('warn','information-outline','<b>'+t('Долг близко к лимиту','hw.client.nearLimit')+'</b>: 48 900 из 50 000 сом. '+t('Новый долг больше 1 100 сом касса не оформит без владельца','hw.client.nearLimitHint'), btn('Поднять лимит','secondary sm','hw.client.raiseLimit')) : '')+
+          '<div class="cl"><div class="col" style="gap:12px">'+
+            '<div class="row" style="gap:12px"><span class="avatar">АБ</span><div class="col" style="gap:6px;flex:1">'+inp('Имя','Азамат Бекназаров',{key:'client.name'})+'</div></div>'+
+            '<div class="row" style="gap:10px">'+inp('Телефон','+996 555 12-34-56',{key:'client.phone',style:'flex:1'})+inp('Бригада / фирма','ИП Бекназаров, бригада 4 чел.',{key:'hw.client.company',style:'flex:1.3'})+'</div>'+
+            '<div class="card"><h3>'+I('percent',18)+t('Цены','hw.client.prices')+'</h3>'+
+              '<div class="row" style="gap:12px">'+chk('Покупает по оптовой цене (прораб)', true, {key:'hw.client.proWholesale', sub:'выбрал в чеке → все строки на опт, плашка «Цена прораба» (ХМ8, до Б-55)'})+'</div>'+
+              '<div class="lvl" style="opacity:.55"><span class="hint">'+t('Уровень цены','hw.client.priceLevel')+' · <b>после Б-55</b> — заменит галочку</span><div class="row" style="gap:6px">'+['Розница','Опт','Прораб','Бригада'].map((x,i)=>'<span class="chip'+(i===2?' dark':'')+' lg">'+x+'</span>').join('')+'</div></div></div>'+
+          '</div><div class="col" style="gap:12px">'+
+            '<div class="card"><h3>'+I('cash',18)+t('Долг','client.debt')+'</h3>'+
+              '<div class="row" style="align-items:baseline"><b style="font-size:22px" class="num">'+debt+' сом</b><span class="muted">из лимита 50 000</span><span class="sp"></span>'+(warn?'<span class="chip warn">98 %</span>':'<span class="chip ok">49 %</span>')+'</div>'+
+              '<div class="bar'+(warn?' warn':'')+'"><i style="width:'+pct+'%"></i></div>'+
+              '<div class="row" style="gap:10px">'+inp('Лимит долга','50 000',{key:'hw.client.debtLimit',unit:'сом',hint:'Б-56 · до него — только подсказка кассиру',style:'flex:1'})+inp('Срок долга по умолчанию','14',{key:'hw.client.debtDays',unit:'дней',hint:'Строительный маркет — 14 (3.2)',style:'flex:1'})+'</div>'+
+              '<div class="kv"><dt>Вернуть до</dt><dd>02.11.2026 · 18 300 <span class="chip warn">через 7 дней</span></dd><dt></dt><dd>15.11.2026 · 6 000</dd></div>'+
+              '<div class="row">'+btn('Принять оплату долга','primary sm','debt.pay')+btn('Напомнить в WhatsApp','secondary sm','debt.remind')+'</div></div>'+
+            '<div class="card objs"><h3>'+I('map-marker-outline',18)+t('Объекты','hw.client.objects')+' <span class="chip">2</span><span class="sp"></span>'+btn('+ Объект','secondary sm','hw.object.add')+'</h3>'+
+              '<div class="listrow"><div class="m"><b>ул. Ахунбаева, 12 · 4 этаж</b><span>3 чека · 31 200 сом · долг 18 300 · смета № 27</span></div>'+I('chevron-right',18)+'</div>'+
+              '<div class="listrow"><div class="m"><b>ЖК «Ак-Босого», корп. 3, кв. 47</b><span>1 чек · 8 400 сом · долг 6 000</span></div>'+I('chevron-right',18)+'</div>'+
+              '<span class="hint">'+t('До Б-56 объекты хранятся текстом в чеке и документе; после — список у клиента на сервере','hw.client.objectsHint')+'</span></div>'+
+          '</div></div>',
+        foot:btn('Удалить клиента','link','client.delete')+'<span class="sp"></span>'+btn('Отмена','secondary','common.cancel')+btn('Сохранить','primary','common.save') });
+  }
+  function debtors(){
+    const rows = [['Азамат Бекназаров','прораб','48 900','ул. Ахунбаева, 12','02.11.2026','7 дн.',false],['Бригада Нурлана','бригада','31 500','ЖК «Ак-Босого» к. 3','18.10.2026','просрочен 8 дн.',true],['Эркин Т.','прораб','12 000','частный дом, с. Лебединовка','20.09.2026','просрочен 36 дн.',true],['Айгуль С.','','1 850','—','30.10.2026','4 дн.',false]];
+    frame.innerHTML = '<div class="kassa"><div class="top">'+I('account-clock-outline',20)+'<b>Должники</b><span class="tag">Программа владельца</span><span class="sp"></span><span class="num" style="font-weight:700">Всего 94 250 сом · 4 клиента</span></div>'+
+      '<div style="padding:var(--pad);display:flex;flex-direction:column;gap:10px;flex:1;min-height:0">'+
+      '<div class="row" style="flex-wrap:wrap"><div class="field" style="width:300px">'+I('magnify',18)+'<input placeholder="Клиент, телефон, объект"></div>'+
+        '<div class="seg" style="width:auto"><button class="seg-btn on">Все</button><button class="seg-btn" data-key="hw.debtors.pro">'+t('Прорабы')+' · 3</button><button class="seg-btn">Просрочено · 2</button><button class="seg-btn" data-key="hw.debtors.over30">> 30 дней · 1</button></div><span class="sp"></span>'+btn('Напомнить всем просроченным','secondary sm','debt.remindAll')+'</div>'+
+      '<div class="tbl"><table><thead><tr><th>Клиент</th><th></th><th class="r">Долг</th><th>Объект</th><th>Вернуть до</th><th>Срок</th><th></th></tr></thead><tbody>'+
+      rows.map(r=>'<tr><td><b>'+r[0]+'</b></td><td>'+(r[1]?'<span class="chip acc">'+r[1]+'</span>':'')+'</td><td class="r num"><b>'+r[2]+'</b></td><td class="soft">'+r[3]+'</td><td class="num">'+r[4]+'</td><td>'+(r[6]?'<span class="chip bad">'+r[5]+'</span>':'<span class="chip">'+r[5]+'</span>')+'</td><td><div class="row" style="justify-content:flex-end">'+btn('Оплата','primary sm','debt.pay')+btn('Напомнить','secondary sm','debt.remind')+'</div></td></tr>').join('')+'</tbody></table></div>'+
+      HW.plate('info','robot-outline','<b>Нур Советник:</b> Эркин Т. должен 12 000 сом больше 30 дней — напомнить? Бригада Нурлана берёт по объекту «Ак-Босого» каждую неделю: предложить лимит 60 000 (ХМ11)')+'</div></div>';
+  }
+  HW.toolbar(frame, { title:'Hardware-Client — клиент-прораб', onState:s => s==='debtors' ? debtors() : card(s), states:[ { id:'card', label:'Карточка' }, { id:'limit', label:'Близко к лимиту' }, { id:'debtors', label:'Владелец: должники' } ] });
+})();
+</script>
+</body></html>

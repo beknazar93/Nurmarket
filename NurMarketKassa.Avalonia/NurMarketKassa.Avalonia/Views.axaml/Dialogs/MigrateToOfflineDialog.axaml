@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sec="using:NurMarketKassa.AvaloniaHost.Views.Controls"
         xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.MigrateToOfflineDialog"
         Title="{DynamicResource migrateOffline.title}"
@@ -43,7 +44,7 @@
         <TextBox x:Name="EmailBox"
                  Watermark="{DynamicResource csh.login.email}"
                  Height="46" FontSize="15" VerticalContentAlignment="Center"/>
-        <TextBox x:Name="PasswordBox"
+        <sec:SecretTextBox x:Name="PasswordBox"
                  PasswordChar="•"
                  Watermark="{DynamicResource csh.login.passwordWatermark}"
                  Height="46" FontSize="15" VerticalContentAlignment="Center"/>

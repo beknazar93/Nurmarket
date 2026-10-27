@@ -201,20 +201,39 @@ public static class TelegramVoice
 
     private static async Task<(string Json, int Status)> PostAsync(string model, string key, string body, CancellationToken ct)
     {
-        try
+        // 2026-10-26: ключ — первый рабочий из списка (GeminiKeyPool); 429 / недействительный ключ — запрос (распознавание или озвучка, без
+        // побочных действий) повторяется со следующим ключом. Свободных ключей нет — как ответ 429.
+        for (var attempt = 0; attempt <= GeminiKeyPool.MaxKeys; attempt++)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post,
-                $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent");
-            request.Headers.Add("x-goog-api-key", key);
-            request.Content = new StringContent(body, Encoding.UTF8, "application/json");
-            using var response = await Http.SendAsync(request, ct).ConfigureAwait(false);
-            return (await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false), (int)response.StatusCode);
+            var used = key;
+            if (GeminiKeyPool.Entries().Count > 0)
+            {
+                used = GeminiKeyPool.Pick(model)!;
+                if (used is null)
+                    return ("", 429);
+            }
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post,
+                    $"{GeminiKeyPool.BaseUrl}/v1beta/models/{model}:generateContent");
+                request.Headers.Add("x-goog-api-key", used);
+                request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+                using var response = await Http.SendAsync(request, ct).ConfigureAwait(false);
+                var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                var status = (int)response.StatusCode;
+                if (response.IsSuccessStatusCode)
+                    GeminiKeyPool.ReportSuccess(used);
+                else if (GeminiKeyPool.ReportFailure(used, model, status, json) && GeminiKeyPool.Pick(model) is not null)
+                    continue;
+                return (json, status);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                PosLogger.Log($"Голос в боте: нет связи с Google ({ex.GetType().Name}).", "TELEGRAM");
+                return ("", 0);
+            }
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            PosLogger.Log($"Голос в боте: нет связи с Google ({ex.GetType().Name}).", "TELEGRAM");
-            return ("", 0);
-        }
+        return ("", 429);
     }
 
     private static string? ReadText(string json)

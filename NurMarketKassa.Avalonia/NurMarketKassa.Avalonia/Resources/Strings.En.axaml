@@ -328,7 +328,7 @@
 
   <!-- NurCRM support -->
   <!-- 2026-10-16: удалённая помощь — только своя «Nur Support» -->
-  <x:String x:Key="remoteSupport.intro">Remote help — “Nur Support”: a NurMarket operator sees the till's screen and helps you sort things out. Call support or message us on WhatsApp: +996 559 340 032, then click “Get a code for support” and read the code and PIN to the operator.</x:String>
+  <x:String x:Key="remoteSupport.intro">Remote help — “Nur Support”: a NurMarket operator sees the till's screen and helps you sort things out. Call support or message us on WhatsApp: +996 221 068 796, then click “Get a code for support” and read the code and PIN to the operator.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Copy device information</x:String>
 
@@ -367,7 +367,7 @@
   <x:String x:Key="kb.q.logsQ">Where can I see what happened during a failure?</x:String>
   <x:String x:Key="kb.q.logsA">Side menu → "Logs and errors" shows recent warnings, errors and server disconnects. The "Open logs folder" button opens the folder with detailed technical files, which you can send to support.</x:String>
   <x:String x:Key="kb.q.remoteSupportQ">How do I get remote help from NurCRM support?</x:String>
-  <x:String x:Key="kb.q.remoteSupportA">Side menu → "NurCRM support" → "Nur Support" block → "Get a code for support". Read the code and PIN to the support agent by phone or on WhatsApp (+996 559 340 032), and when they ask for access, click "Allow" or "View only". Nobody can connect without your permission.</x:String>
+  <x:String x:Key="kb.q.remoteSupportA">Side menu → "NurCRM support" → "Nur Support" block → "Get a code for support". Read the code and PIN to the support agent by phone or on WhatsApp (+996 221 068 796), and when they ask for access, click "Allow" or "View only". Nobody can connect without your permission.</x:String>
   <x:String x:Key="kb.q.printerQ">The till doesn't see a receipt printer connected via USB — what should I do?</x:String>
   <x:String x:Key="kb.q.printerA">In Settings → Printing, click "Find" again (the list doesn't refresh on its own). If the printer was set up with Zadig and still doesn't appear, reconnect it and try again, or contact support via "NurCRM support".</x:String>
   <x:String x:Key="common.comment">Comment</x:String>
@@ -1123,7 +1123,7 @@
   <x:String x:Key="warehouse.printLabelButton">Print</x:String>
   <x:String x:Key="warehouse.colPriceTag">Price tag</x:String>
   <x:String x:Key="warehouse.priceTagButton">Price tag</x:String>
-  <x:String x:Key="warehouse.bulkPriceTagButton">Bulk print price tags</x:String>
+  <x:String x:Key="warehouse.bulkPriceTagButton">Print barcodes and price tags</x:String>
   <x:String x:Key="warehouse.analyticsLockedTitle">Warehouse analytics — paid add-on</x:String>
   <x:String x:Key="warehouse.analyticsLockedDesc">Charts and category breakdowns become available after activation with a serial number — just like themes and voice control in the Marketplace.</x:String>
   <x:String x:Key="warehouse.analyticsUnlockButton">Activate</x:String>

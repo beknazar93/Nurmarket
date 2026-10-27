@@ -39,15 +39,12 @@ public sealed class ClientPurchasesWindow : Window
         TextWrapping = TextWrapping.Wrap,
     };
 
-    private readonly TextBox _receipt = new()
-    {
-        IsReadOnly = true,
-        AcceptsReturn = true,
-        FontFamily = new FontFamily("Consolas, Courier New, monospace"),
-        FontSize = 12,
-        MinWidth = 320,
-        TextWrapping = TextWrapping.NoWrap,
-    };
+    // 2026-10-27, владелец: «вид чека как в мобилке» — чек клиента рисует общий контрол (SaleReceiptCardView) вместо моноширинного
+    // текста; под ним панель «QR / PDF / Отправить» (ReceiptActionBar). Печатный текст чека (SaleReceiptTextBuilder) не затронут.
+    private readonly ContentControl _paper = new() { HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly NurMarketKassa.AvaloniaHost.Services.ReceiptActionBar _bar = new() { IsVisible = false };
+    private readonly TextBlock _receiptNote = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private NurMarketKassa.Services.SaleReceiptCardData? _card;
 
     private readonly string _clientId;
     private readonly TextBlock _rentalsHead = new() { FontSize = 14, FontWeight = FontWeight.SemiBold, Margin = new Avalonia.Thickness(0, 0, 0, 6), IsVisible = false };
@@ -95,9 +92,17 @@ public sealed class ClientPurchasesWindow : Window
             Margin = new Avalonia.Thickness(0, 0, 0, 6),
         };
         UseBrush(receiptTitle, TextBlock.ForegroundProperty, "BrushText");
-        var right = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Avalonia.Thickness(12, 0, 0, 0), Width = 340 };
+        var right = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Avalonia.Thickness(12, 0, 0, 0), Width = 372 };
         right.Children.Add(receiptTitle);
-        var receiptScroll = new ScrollViewer { Content = _receipt, MinHeight = 160, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
+        _bar.GetData = () => _card;
+        _bar.OwnerWindow = this;
+        _bar.Margin = new Avalonia.Thickness(0, 10, 0, 0);
+        var receiptScroll = new ScrollViewer
+        {
+            Content = new StackPanel { Children = { _receiptNote, _paper, _bar } },
+            MinHeight = 160,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+        };
         Grid.SetRow(receiptScroll, 1);
         right.Children.Add(receiptScroll);
         // 2026-10-21, владелец: «из продажи/чека клиента — накладная по чеку» — строки чека в новую накладную (редактор документа).
@@ -355,7 +360,10 @@ public sealed class ClientPurchasesWindow : Window
         {
             _currentSale = null;
             _waybillButton.IsVisible = false;
-            _receipt.Text = "";
+            _card = null;
+            _paper.Content = null;
+            _bar.IsVisible = false;
+            _receiptNote.IsVisible = false;
             return;
         }
 
@@ -365,16 +373,23 @@ public sealed class ClientPurchasesWindow : Window
             _currentSale = sale;
             _currentReceipt = row.ReceiptText == "—" ? ClientDocEditorWindow.ReceiptNumber(sale) : row.ReceiptText;
             _waybillButton.IsVisible = AppMode.IsOwner;
-            _receipt.Text = SaleReceiptTextBuilder.Build(
-                sale,
-                row.ReceiptText == "—" ? null : row.ReceiptText,
-                discount: 0m,
-                total: null);
+            // 2026-10-27: скидка и итог — теми же функциями, что в «Продажах» (SalesWindow.ReadSaleDiscount / ReadSaleTotal): раньше здесь
+            // шло discount 0 / total null, и чек клиента мог не сходиться с чеком в «Продажах».
+            _card = SaleReceiptCardData.Build(sale, row.ReceiptText == "—" ? null : row.ReceiptText,
+                SalesWindow.ReadSaleDiscount(sale), SalesWindow.ReadSaleTotal(sale));
+            _paper.Content = NurMarketKassa.AvaloniaHost.Services.SaleReceiptCardView.Build(_card);
+            _bar.IsReady = true;
+            _bar.IsVisible = true;
+            _receiptNote.IsVisible = false;
         }
         catch (Exception ex)
         {
-            _receipt.Text = Tr.T("Чек не загрузился", "Чек жүктөлгөн жок", "Could not load the receipt",
+            _card = null;
+            _paper.Content = null;
+            _bar.IsVisible = false;
+            _receiptNote.Text = Tr.T("Чек не загрузился", "Чек жүктөлгөн жок", "Could not load the receipt",
                 "Fiş yüklenemedi", "Chek yuklanmadi") + ": " + ex.Message;
+            _receiptNote.IsVisible = true;
         }
     }
 

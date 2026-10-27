@@ -116,10 +116,31 @@ public sealed class ProductDetailsWindow : Window
             Close();
         };
 
-        Content = SectionCards.Shell(Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), null, root, SectionCards.Buttons(close, add));
+        // 2026-10-26 (ТЗ хозмаг, ХМ5): «Сколько нужно?» — калькулятор расхода, только в магазине «Хозтовары и стройматериалы».
+        var buttons = SectionCards.Buttons(close, add);
+        if (MarketSpheres.IsHardware && !product.IsService)
+            buttons.Children.Insert(0, BuildCalcButton());
+
+        Content = SectionCards.Shell(Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), null, root, buttons);
 
         if (string.IsNullOrWhiteSpace(product.Description))
             Opened += async (_, _) => await LoadDescriptionAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>2026-10-26 (ХМ5): кнопка «Сколько нужно?» открывает калькулятор расхода; «В чек» из него кладёт товар в чек тем же
+    /// способом, что добавление с известным количеством (MainWindow.AddWeighedProductWithKnownWeightAsync), и закрывает карточку.</summary>
+    private Button BuildCalcButton()
+    {
+        var calc = SectionCards.Secondary(Tr.T("Сколько нужно?", "Канча керек?", "How much do I need?", "Ne kadar gerekir?", "Qancha kerak?"));
+        calc.Click += async (_, _) =>
+        {
+            var window = new HardwareCalcWindow(_product, quantity =>
+                (Owner as Views.MainKassir.MainWindow ?? throw new InvalidOperationException("нет окна кассы"))
+                    .AddWeighedProductWithKnownWeightAsync(_product, quantity));
+            if (await window.ShowDialog<bool>(this).ConfigureAwait(true))
+                Close();
+        };
+        return calc;
     }
 
     /// <summary>2026-10-23: фото 170×170 (клик — на весь экран) или заглушка-значок «товар», если фото нет.</summary>

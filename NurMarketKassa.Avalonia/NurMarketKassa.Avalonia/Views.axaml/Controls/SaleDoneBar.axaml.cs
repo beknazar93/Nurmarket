@@ -35,6 +35,9 @@ public partial class SaleDoneBar : UserControl
     /// <summary>«Печать копии» — существующая «Печать последнего чека» (BasketExtraActions). Задаёт MainWindow.</summary>
     public Func<Button, Task>? PrintCopy { get; set; }
 
+    /// <summary>2026-10-27: «Чек» — открыть окно с чеком этой продажи (задаёт MainWindow); null — кнопки нет.</summary>
+    public Func<Button, Task>? ShowReceipt { get; set; }
+
     public SaleDoneBar()
     {
         InitializeComponent();
@@ -72,6 +75,8 @@ public partial class SaleDoneBar : UserControl
 
         PrintCopyText.Text = Tr.T("Печать копии", "Көчүрмөнү басуу", "Print a copy", "Kopya yazdır", "Nusxasini chop etish");
         PrintCopyButton.IsVisible = PrintCopy != null;
+        ReceiptText.Text = Tr.T("Чек", "Чек", "Receipt", "Fiş", "Chek");
+        ReceiptButton.IsVisible = ShowReceipt != null;
         ToolTip.SetTip(CloseButton, Tr.T("Скрыть", "Жашыруу", "Hide", "Gizle", "Yashirish"));
 
         _elapsed = TimeSpan.Zero;
@@ -87,8 +92,8 @@ public partial class SaleDoneBar : UserControl
     /// <summary>2026-10-18, ревью этапа 6: нажатие внутри «Печать копии» или ✕ — их собственное действие; любое другое
     /// нажатие по плашке её убирает (MainWindow.OnSaleDonePointerTunnel).</summary>
     public bool IsOwnButton(Avalonia.Visual source) =>
-        ReferenceEquals(source, PrintCopyButton) || ReferenceEquals(source, CloseButton)
-        || PrintCopyButton.IsVisualAncestorOf(source) || CloseButton.IsVisualAncestorOf(source);
+        ReferenceEquals(source, PrintCopyButton) || ReferenceEquals(source, CloseButton) || ReferenceEquals(source, ReceiptButton)
+        || PrintCopyButton.IsVisualAncestorOf(source) || CloseButton.IsVisualAncestorOf(source) || ReceiptButton.IsVisualAncestorOf(source);
 
     /// <summary>Убрать плашку сразу (скан, клавиша, касание кассы, новая оплата, ✕).</summary>
     public void Dismiss()
@@ -136,6 +141,23 @@ public partial class SaleDoneBar : UserControl
         {
             _printing = false;
             _lastTickUtc = DateTime.UtcNow;
+        }
+    }
+
+    // 2026-10-27: плашка убирается, окно «Чек» открывается поверх (оно модальное и держит кассу, пока кассир его не закроет).
+    private async void ReceiptButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ShowReceipt == null)
+            return;
+        var show = ShowReceipt;
+        Dismiss();
+        try
+        {
+            await show(ReceiptButton).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Плашка «Продажа прошла»: окно чека: {ex.Message}", "PAYMENT");
         }
     }
 

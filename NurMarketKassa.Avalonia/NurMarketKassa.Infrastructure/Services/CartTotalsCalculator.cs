@@ -44,7 +44,7 @@ public static class CartTotalsCalculator
             lineCount++;
             var qty = CartDisplayHelper.LineQuantity(it);
             var unitPrice = CartDisplayHelper.UnitPrice(it);
-            var gross = RoundMoney(qty * unitPrice);
+            var gross = QuantityRules.Gross(qty, unitPrice); // 2026-10-26 (ХМ2): в «Хозтоварах» — decimal, иначе прежнее RoundMoney(qty * unitPrice)
             subtotal = RoundMoney(subtotal + gross);
 
             var disc = ReadDiscount(it);

@@ -328,7 +328,7 @@
 
   <!-- NurCRM texnik yordam -->
   <!-- 2026-10-16: удалённая помощь — только своя «Nur Yordam» -->
-  <x:String x:Key="remoteSupport.intro">Masofaviy yordam — «Nur Yordam»: NurMarket operatori kassa ekranini ko'radi va muammoni hal qilishga yordam beradi. Yordam xizmatiga qo'ng'iroq qiling yoki WhatsApp'ga yozing: +996 559 340 032, so'ng «Yordam uchun kod olish» tugmasini bosing va operatorga kod hamda PIN'ni ayting.</x:String>
+  <x:String x:Key="remoteSupport.intro">Masofaviy yordam — «Nur Yordam»: NurMarket operatori kassa ekranini ko'radi va muammoni hal qilishga yordam beradi. Yordam xizmatiga qo'ng'iroq qiling yoki WhatsApp'ga yozing: +996 221 068 796, so'ng «Yordam uchun kod olish» tugmasini bosing va operatorga kod hamda PIN'ni ayting.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Qurilma ma'lumotlarini nusxalash</x:String>
 
@@ -367,7 +367,7 @@
   <x:String x:Key="kb.q.logsQ">Nosozlik paytida nima bo'lganini qayerdan ko'rish mumkin?</x:String>
   <x:String x:Key="kb.q.logsA">Yon menyu → "Jurnal va xatolar" — so'nggi vaqtdagi ogohlantirishlar, xatolar va server bilan aloqa uzilishlarini ko'rsatadi. "Jurnal papkasini ochish" tugmasi batafsil texnik fayllar joylashgan papkani ochadi — ularni yordam xizmatiga yuborish mumkin.</x:String>
   <x:String x:Key="kb.q.remoteSupportQ">NurCRM yordam xizmatidan masofaviy yordam qanday olinadi?</x:String>
-  <x:String x:Key="kb.q.remoteSupportA">Yon menyu → "NurCRM texnik yordami" → "Nur Yordam" bloki → "Yordam uchun kod olish". Kod va PIN'ni operatorga telefon yoki WhatsApp orqali ayting (+996 559 340 032), u ruxsat so'raganda "Ruxsat berish" yoki "Faqat ko'rish" tugmasini bosing. Ruxsatingizsiz hech kim ulanmaydi.</x:String>
+  <x:String x:Key="kb.q.remoteSupportA">Yon menyu → "NurCRM texnik yordami" → "Nur Yordam" bloki → "Yordam uchun kod olish". Kod va PIN'ni operatorga telefon yoki WhatsApp orqali ayting (+996 221 068 796), u ruxsat so'raganda "Ruxsat berish" yoki "Faqat ko'rish" tugmasini bosing. Ruxsatingizsiz hech kim ulanmaydi.</x:String>
   <x:String x:Key="kb.q.printerQ">Kassa USB orqali ulangan chek printerini ko'rmayapti — nima qilish kerak?</x:String>
   <x:String x:Key="kb.q.printerA">Sozlamalar → Chop etish bo'limida "Topish" tugmasini yana bosing (ro'yxat o'zi yangilanmaydi). Agar printer Zadig orqali sozlangan bo'lsa-yu, baribir ko'rinmasa — uni qayta ulang va yana urinib ko'ring yoki "NurCRM texnik yordami" orqali murojaat qiling.</x:String>
   <x:String x:Key="common.comment">Izoh</x:String>
@@ -1123,7 +1123,7 @@
   <x:String x:Key="warehouse.printLabelButton">Chop etish</x:String>
   <x:String x:Key="warehouse.colPriceTag">Narx yorlig'i</x:String>
   <x:String x:Key="warehouse.priceTagButton">Narx yorlig'i</x:String>
-  <x:String x:Key="warehouse.bulkPriceTagButton">Narx yorliqlarini ommaviy chop etish</x:String>
+  <x:String x:Key="warehouse.bulkPriceTagButton">Shtrix-kod va narx yorliqlarini chop etish</x:String>
   <x:String x:Key="warehouse.analyticsLockedTitle">Ombor tahlili — pullik qo'shimcha xizmat</x:String>
   <x:String x:Key="warehouse.analyticsLockedDesc">Grafiklar va toifalar bo'yicha taqsimot seriya raqami bilan faollashtirilgandan keyin ochiladi — Marketpleysdagi mavzular va ovozli boshqaruv kabi.</x:String>
   <x:String x:Key="warehouse.analyticsUnlockButton">Faollashtirish</x:String>

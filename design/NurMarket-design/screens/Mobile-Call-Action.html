@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Мобилка — действия ИИ в звонке: итог, отмена, уточнение (Г4)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Mobile-Call-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <h3>Г4 · Итог действия, отмена, уточнение, «Спрашивать перед деньгами»</h3>
+    Принцип ТЗ 2.2: просьба = одобрение, окна «Вы уверены?» нет. Защита — строка итога под плашкой на 8 с (полоса времени внизу строки),
+    «Отменить» = голосовое «отмени последнее», журнал. Текст итога пишет программа (поле <code>say</code>).
+    <h3>Состояния</h3>
+    <ul>
+      <li><code>paid</code> — «ИИ: оплата наличными 1 250 сом · чек 1043 · Отменить» (отмена — полный возврат чека, только с правом «Возврат»).</li>
+      <li><code>receipt</code> — «ИИ: провёл приход на 12 400 сом · 8 строк · № 4512 · Отменить» + строка журнала; экран приёмки показывает «Проведено».</li>
+      <li><code>receipt-undo</code> — нажали «Отменить» у прихода: карточка «Приход проведён — отменить нельзя. Могу списать те же товары» с кнопкой «Списать те же товары» (это и есть отдельная просьба) и «Оставить».</li>
+      <li><code>undone</code> — отмена выполнена: зелёная строка «Отменено: возврат чека 1043 на 1 250 сом · возврат № 212».</li>
+      <li><code>irreversible</code> — «ИИ: смена закрыта · отменить нельзя» с замком, без кнопки; подстрока «могу открыть новую — скажите».</li>
+      <li><code>ambiguous</code> — «две Колы — какую?»: панель с вариантами 1–2 (56 dp, номер в круге, цена и остаток), «Скажите номер или нажмите», «Не то».</li>
+      <li><code>clarify</code> — число не расслышано: «Цена 120 — правильно?» → «Да, 120» / «Нет, скажу снова» (переспрос по 2.5 д, не просьба разрешения).</li>
+      <li><code>confirm</code> — только режим «Спрашивать перед деньгами»: карточка «Сделать: оплата наличными», крупно «1 250 сом», «Сделать» 56 dp / «Не надо»; «или скажите «да»».</li>
+      <li><code>denied</code> — нет права: красная строка «У вас нет права менять цены» (это отказ, не вопрос); кнопки нет.</li>
+      <li><code>pending</code> — долгий инструмент: плашка «Ищу…»; через 4 с строка «Сервер отвечает медленно…»; через 8 с — «Данные ещё грузятся — скажу, когда придут».</li>
+      <li><code>already</code> — повтор той же команды за 10 с: «уже сделано: Кола ×2 в чеке» серым (идемпотентность, 2.5 е).</li>
+    </ul>
+    Опасные операции (возврат, выплата, долг, удаление, смена) требуют объект в речи — иначе <code>ambiguous/clarify</code>, а не выполнение.
+  </div>
+</div>
+<script src="Mobile-Call-shared.js"></script>
+<script>
+(function(){
+  const I = MC.icon, frame = document.getElementById('frame');
+  const Y = 30 + 56 + 8;   /* под плашкой сверху */
+  function render(state){
+    let base = MC.section('sale'), pillSt = 'speaking', over = '';
+    switch (state){
+      case 'paid':
+        over = MC.actLine({ text:'оплата наличными <b class="num">1 250 сом</b> · сдача 250 · чек <b class="num">1043</b>', sub:'«оплата наличными, полторы тысячи» · 14:05', undo:true, style:'top:' + Y + 'px', key:'aiActPaid' }); break;
+      case 'receipt':
+        base = MC.section('receive', { posted:true });
+        over = MC.actLine({ text:'провёл приход на <b class="num">12 400 сом</b> · 8 строк · № 4512', sub:'«проведи приход» · 14:05 · записано в «Действия ИИ»', undo:true, style:'top:' + Y + 'px', key:'aiActReceipt' }); break;
+      case 'receipt-undo':
+        base = MC.section('receive', { posted:true }); pillSt = 'speaking';
+        over = '<div class="scrim"></div><div class="dlg"><h2 data-key="aiUndoReceiptTitle">Приход проведён — отменить нельзя</h2><p data-key="aiUndoReceiptBody">Могу списать те же 8 товаров (174 шт) документом списания — остатки вернутся к прежним, а приход № 4512 останется в истории. Сделать?</p>' +
+          '<div class="btns"><button class="btn cta dark">' + I('undo', 20) + '<span data-ky data-key="aiWriteOffSame">Списать те же товары</span></button><button class="btn"><span data-ky data-key="aiKeep">Оставить</span></button></div>' +
+          '<span class="hint c">или скажите «спиши» / «оставь»</span></div>'; break;
+      case 'undone':
+        over = MC.actLine({ text:'отменено — возврат чека <b class="num">1043</b> на <b class="num">1 250 сом</b> · возврат № 212', sub:'чек и возврат видны в истории · 14:07', undo:false, style:'top:' + Y + 'px', key:'aiActUndone' }); break;
+      case 'irreversible':
+        base = MC.section('home');
+        over = MC.actLine({ text:'смена закрыта · <span data-ky>отменить нельзя</span>', sub:'могу открыть новую — скажите · «закрой смену» · 20:02', undo:false, kind:'lock', style:'top:' + Y + 'px', key:'aiActIrreversible' }); break;
+      case 'ambiguous':
+        pillSt = 'speaking';
+        over = '<div class="scrim"></div><div class="sheet" style="height:auto"><div class="hd"><i></i></div><div class="ttl"><div class="t"><b data-key="aiAmbiguousTitle">Колы две — какую?</b><span data-ky data-key="aiAmbiguousHint">Скажите номер или нажмите</span></div><button class="ib" aria-label="Закрыть">' + I('close', 22) + '</button></div>' +
+          '<div class="opts"><button class="opt"><span class="n">1</span><span class="t"><b>Кока-Кола 0,5 л</b><span class="num">остаток 24 шт · Напитки</span></span><span class="pr num">60 сом</span></button>' +
+          '<button class="opt"><span class="n">2</span><span class="t"><b>Кока-Кола 1,5 л</b><span class="num">остаток 8 шт · Напитки</span></span><span class="pr num">120 сом</span></button>' +
+          '<button class="btn ghost sm" style="align-self:center"><span data-ky data-key="aiNotThat">Не то</span></button></div>' +
+          '<div class="tot-line" style="padding-bottom:12px"><span class="hint">«пробей две Колы» · ответ «вторую / экинчиси / ikkinchi» — тот же инструмент с pick: 2</span></div>' + MC.gesture() + '</div>'; break;
+      case 'clarify':
+        base = MC.section('product');
+        over = '<div class="act warn" style="top:' + Y + 'px;flex-wrap:wrap">' + I('info', 22) + '<div class="tx"><span data-key="aiClarifyPrice"><b>ИИ:</b> Цена <b class="num">120</b> — правильно? В речи числа не нашёл.</span></div>' +
+          '<div style="display:flex;gap:6px;width:100%;padding:2px 0 4px 34px"><button class="btn sm tonal"><span data-ky data-key="aiYesNumber">Да, 120</span></button><button class="btn sm"><span data-ky data-key="aiNoRepeat">Нет, скажу снова</span></button></div></div>'; break;
+      case 'confirm':
+        over = '<div class="scrim"></div><div class="dlg" style="top:auto;bottom:24px;transform:none;align-items:stretch"><span class="hint" style="display:flex;align-items:center;gap:6px">' + I('shield', 16) + '<span data-ky data-key="aiModeAskMoney">Спрашивать перед деньгами</span></span>' +
+          '<h2><span data-key="aiConfirmDo">Сделать: оплата наличными</span></h2><div style="font-size:calc(34px*var(--k));font-weight:800;color:var(--price);line-height:1.1" class="num">1 250 сом</div>' +
+          '<p>Чек № 1043 · 3 товара · получено 1 500, сдача 250</p>' +
+          '<div class="btns"><button class="btn cta">' + I('check', 22) + '<span data-ky data-key="aiDo">Сделать</span></button><button class="btn"><span data-ky data-key="aiDont">Не надо</span></button></div><span class="hint c" data-ky data-key="aiOrSayYes">или скажите «да»</span></div>'; break;
+      case 'denied':
+        base = MC.section('product');
+        over = MC.actLine({ text:'у вас нет права менять цены', sub:'«поставь цену 120» · права роли «Кассир» · 14:05', undo:false, kind:'bad', style:'top:' + Y + 'px', key:'aiActDenied' }).replace('<b>ИИ:</b> у вас', '<b>ИИ:</b> У вас'); break;
+      case 'pending':
+        base = MC.section('stock'); pillSt = 'thinking';
+        over = '<div class="act warn" style="top:' + Y + 'px">' + I('clock', 22) + '<div class="tx"><span data-ky data-key="callSlowServer">Сервер отвечает медленно…</span><small data-ky data-key="callStillLoading">Данные ещё грузятся — скажу, когда придут</small></div><span class="spin"></span></div>'; break;
+      case 'already':
+        over = MC.actLine({ text:'уже сделано — Кока-Кола 1 л ×2 в чеке', sub:'повтор той же команды за 10 с не задваивает', undo:false, kind:'lock', style:'top:' + Y + 'px', key:'aiActAlready' }); break;
+    }
+    over = over.replace('<div class="scrim"></div>', '<div class="scrim" style="top:' + Y + 'px"></div>');   /* плашка остаётся над затемнением */
+    frame.innerHTML = MC.statusBar({ cam:true }) + MC.pillSpace() + base + MC.pill({ state:pillSt, time:'03:41' }) + over + (state === 'ambiguous' ? '' : MC.gesture());
+  }
+  MC.toolbar(frame, { title:'Mobile-Call-Action — итог действия, отмена, уточнение', onState:render, states:[
+    { id:'paid', label:'оплата · Отменить' }, { id:'receipt', label:'приход 12 400' }, { id:'receipt-undo', label:'отмена прихода → списать' }, { id:'undone', label:'отменено' }, { id:'irreversible', label:'необратимо' },
+    { id:'ambiguous', label:'две Колы — какую?' }, { id:'clarify', label:'число не расслышано' }, { id:'confirm', label:'спрашивать перед деньгами' }, { id:'denied', label:'нет права' }, { id:'pending', label:'сервер медленно' }, { id:'already', label:'уже сделано' } ] });
+})();
+</script>
+</body></html>

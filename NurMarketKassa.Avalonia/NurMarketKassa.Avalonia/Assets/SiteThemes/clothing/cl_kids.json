@@ -1,0 +1,132 @@
+{
+ "code": "cl_kids",
+ "name": {
+  "ru": "Детская одежда",
+  "ky": "Балдар кийими",
+  "en": "Kids",
+  "tr": "Çocuk giyim",
+  "uz": "Bolalar kiyimi"
+ },
+ "description": {
+  "ru": "Тёплый жёлтый, скругление 20, округлый шрифт, плитки категорий. Для детской одежды и обуви.",
+  "ky": "Жылуу сары, 20 тегеректик, жумуру шрифт, категория плиткалары. Балдар кийими жана бут кийими үчүн.",
+  "en": "Warm yellow, rounded corners, round font, category tiles. For kids' clothes and shoes.",
+  "tr": "Sıcak sarı, yuvarlak köşeler, yuvarlak yazı tipi, kategori kutuları. Çocuk giyimi ve ayakkabıları için.",
+  "uz": "Iliq sariq, yumaloq burchaklar, yumaloq shrift, kategoriya plitkalari. Bolalar kiyimi va poyabzali uchun."
+ },
+ "spheres": [
+  "clothing"
+ ],
+ "version": 1,
+ "voice_words": {
+  "ru": [
+   "детск"
+  ],
+  "ky": [
+   "балдар"
+  ],
+  "en": [
+   "kids"
+  ],
+  "tr": [
+   "çocuk"
+  ],
+  "uz": [
+   "bolalar"
+  ]
+ },
+ "images": {
+  "hero.image": {
+   "file": "cl_kids_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "cl_kids_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#FFF9EC",
+    "surface": "#FFFFFF",
+    "text": "#1F2A44",
+    "text_muted": "#56607A",
+    "accent": "#FFC83D",
+    "accent_text": "#1F2A44",
+    "border": "#F1E3C2",
+    "header_bg": "#FFFFFF",
+    "header_text": "#1F2A44",
+    "footer_bg": "#1F2A44",
+    "footer_text": "#FFF4D6",
+    "price": "#1F2A44",
+    "old_price": "#6B7280",
+    "badge_new_bg": "#2563EB",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#DC2626",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Nunito",
+    "base_size": 16,
+    "heading_weight": 800
+   },
+   "radius": 20,
+   "shadow": "soft",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_left",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "split",
+   "overlay": 0,
+   "align": "left"
+  },
+  "categories": {
+   "style": "tiles",
+   "show_all": true,
+   "show_count": false
+  },
+  "products": {
+   "columns": {
+    "desktop": 4,
+    "tablet": 3,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "standard",
+   "photo_ratio": "3:4",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": true,
+    "category": false,
+    "stock": "low_only",
+    "unit": false,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "new_badge_days": 21,
+   "shadow": true,
+   "border": false
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

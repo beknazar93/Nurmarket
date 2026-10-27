@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Хозмаг и стройматериалы — макеты Д-ХМ1…Д-ХМ6</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#191919;color:#F5F5F5;font-family:Montserrat,system-ui,sans-serif;padding:28px 32px}
+h1{font-size:22px;font-weight:800;margin:0 0 6px}
+h2{font-size:15px;font-weight:800;margin:22px 0 8px;color:#FFB208}
+p{color:#CCC;font-size:13.5px;line-height:1.5;max-width:960px;margin:0 0 18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;max-width:1300px}
+a.card{display:block;padding:16px 18px;border-radius:12px;background:#222;border:1px solid #3D3D3D;color:inherit;text-decoration:none}
+a.card:hover{border-color:#FFB208}
+a.card b{display:block;font-size:15px;margin-bottom:6px}
+a.card span{font-size:12.5px;color:#AAA;line-height:1.45}
+a.card i{display:inline-block;font-style:normal;font-size:11px;font-weight:700;color:#191919;background:#FFB208;border-radius:6px;padding:2px 7px;margin-bottom:8px;margin-right:4px}
+a.card i.g{background:#3D3D3D;color:#CCC}
+code{background:#333;color:#FFD27A;padding:1px 5px;border-radius:4px;font-size:12px}
+</style></head>
+<body>
+<h1>Вид магазина «Хозмаг и стройматериалы» — макеты (26.10.2026)</h1>
+<p>По «ТЗ Вид магазина — Хозмаг и стройматериалы (26.10.2026)», раздел 6 (Д-ХМ1…Д-ХМ6) и список экранов из задания. В каждом макете сверху панель: тема (светлая/тёмная), окно 1296×879 / 1024×600 / телефон 390×844, «ky — длинные подписи», «ключи Tr.T» и состояния. Параметры адресом: <code>?theme=dark&amp;size=1024&amp;ky=1&amp;keys=1#состояние</code>.
+Общие стили — <code>Hardware-shared.css</code> (токены кассы, брендбук NUR CRM), скрипт — <code>Hardware-shared.js</code> (значки MarketplaceIcons + новые с пометкой NEW, панель, ModalShell, фон кассы, телефон).</p>
+
+<h2>Касса и программа владельца</h2>
+<div class="grid">
+  <a class="card" href="Hardware-Sphere.html"><i>Д-ХМ5</i><i class="g">СФ2</i><b>Hardware-Sphere — вид магазина</b><span>Окно «Какой у вас магазин?» с 12 плитками и выбранным «🔨 Хозтовары и стройматериалы», переключатель «Хозмаг у дома / Строительный маркет»; Настройки → Операции → «Сфера магазина», «Что изменится»; предупреждение «Обновите все кассы».</span></a>
+  <a class="card" href="Hardware-Onboarding.html"><i>Д-ХМ5</i><i class="g">ХМ13</i><b>Hardware-Onboarding — 5 шагов</b><span>Магазин → Как продаёте → Категории (создать отмеченные) → Услуги с ценой → Пробный ценник; прогресс, «Пропустить», итог.</span></a>
+  <a class="card" href="Hardware-Product.html"><i class="g">ХМ4 · Б-53</i><b>Hardware-Product — единицы и упаковка</b><span>Карточка товара: базовая единица с подсказками (14 единиц), таблица единиц продажи с коэффициентом, штрихкодом и ценой (плитка м²/уп, кабель м/бухта, саморез шт/коробка/короб); «Дробное количество»; «Для калькулятора»; вариант до Б-53.</span></a>
+  <a class="card" href="Hardware-Qty.html"><i>Д-ХМ3</i><i class="g">ХМ6</i><b>Hardware-Qty — длина, площадь, упаковки</b><span>Окно количества: 2,5 м на цифровой панели, ±0,1, быстрые 0,5/1/2/5/10/25…, «Вся бухта»; ошибки «минимум», «не кратно», «больше остатка» подписью; Д × Ш = 7,56 м² и округление до упаковки; литры; телефонный лист.</span></a>
+  <a class="card" href="Hardware-Cut.html"><i class="g">П14 · P3</i><b>Hardware-Cut — отрез и обрезки</b><span>Отрез 97,5 из 100 м с выбором «оставить обрезком / отдать / списать», услуга «Резка»; склад «Обрезки» со скидкой; этикетка «Отрез» 40×30.</span></a>
+  <a class="card" href="Hardware-Calc.html"><i>Д-ХМ2</i><i class="g">ХМ5</i><b>Hardware-Calc — сколько нужно</b><span>Плитка / ламинат / краска / обои / смесь; площадь или Д × Ш, минус проём, запас 0/5/10/15 %; итог тремя строками; сопутствующие «к плитке — клей и затирка»; «В чек»; сенсорный вариант; нормы владельца.</span></a>
+  <a class="card" href="Hardware-PriceTag.html"><i>Д-ХМ4</i><i class="g">ХМ7</i><b>Hardware-PriceTag — ценники</b><span>58×40 с ценой за м² и за упаковку, без упаковки, 100×70, А4 24 шт, этикетки «Отрез» и «Ячейка», старый шаблон; предпросмотр 1:1.</span></a>
+  <a class="card" href="Hardware-Cart.html"><i class="g">ХМ2 · ХМ3 · ХМ8</i><b>Hardware-Cart — корзина</b><span>Строки с разными единицами (м, уп + м², шт из коробки ×200, мешки с оптом от 10, кг с весов, услуги), поле «Объект», клиент-прораб с плашкой «Цена прораба», выбор «штуками или коробкой», выбор объекта.</span></a>
+  <a class="card" href="Hardware-Quote.html"><i class="g">ХМ9</i><b>Hardware-Quote — смета на объект</b><span>Редактор КП / Смета / Счёт / Накладная с полем «Объект», строки с дробным количеством, доставка и подъём; бланк «Фирменный NUR CRM»; отправка в WhatsApp; «В чек» без округления.</span></a>
+  <a class="card" href="Hardware-Client.html"><i class="g">ХМ8 · Б-55 · Б-56</i><b>Hardware-Client — клиент-прораб</b><span>Галочка «Покупает по оптовой цене (прораб)», уровни цен после Б-55, лимит и срок долга, объекты клиента; «близко к лимиту»; должники владельца с фильтром «Прорабы» и «> 30 дней».</span></a>
+</div>
+
+<h2>Мобилка и онлайн-витрина</h2>
+<div class="grid">
+  <a class="card" href="Hardware-MobileStock.html"><i class="g">МХ3 · МХ5</i><b>Hardware-MobileStock — кладовщик</b><span>390×844: поиск «труба 20» с ячейками, «не найдено», карточка «Где лежит Б-04-2» с единицами и штрихкодами, приёмка коробками 10 × 200 = 2 000, ревизия по ячейке.</span></a>
+  <a class="card" href="Hardware-Showcase.html"><i>Д-ХМ1</i><i>Д-ХМ6</i><b>Hardware-Showcase — витрина</b><span>Карточка товара сайта: «м² / упаковка», шаг «кратно 1,44 м²», «Рассчитать по площади», «С этим берут», «Аналоги», наличие; корзина с дробным количеством, доставка (этаж, лифт), «Нужна смета»; темы Clean и «Стройка»; десктоп и телефон.</span></a>
+</div>
+</body></html>

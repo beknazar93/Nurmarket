@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Редактор сайта → Тема — галерея тем одежды, предпросмотр, «Применить к сайту» (Д-С2)</title>
+<!-- 2026-10-27: макет раздела «Тема» редактора сайта в программе владельца (ТЗ «Сайт — темы для магазина одежды…» 26.10, бриф Д-С2, пакет С-2).
+     Токены — кассы (SiteThemes-Clothing-shared.css .frame), светлая/тёмная, 1296×879 и 1024×600, кнопки ≥ 44 px. Жёлтая кнопка одна — «Опубликовать». -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800&family=Noto+Sans:wght@400;600;700&family=PT+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="SiteThemes-Clothing-shared.css">
+<style>
+  .gal .plate{ margin-bottom:0; }
+  .dim .tcard{ opacity:.55; }
+  .prev .seg{ margin:8px 8px 0; }
+  .prev .seg button{ flex:1; }
+  .s1024 .prev{ display:none; }                     /* 1024×600: предпросмотр — кнопкой в шапке */
+  .s1024 .chrome .only1024{ display:inline-flex; }
+  .chrome .only1024{ display:none; }
+  .kv{ display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:13px; }
+  .kv dt{ color:var(--text-soft); margin:0; } .kv dd{ margin:0; font-weight:600; }
+  .opt{ display:flex; align-items:center; gap:12px; min-height:56px; padding:8px 14px; border:1px solid var(--border-strong); border-radius:var(--r-card); cursor:pointer; }
+  .opt.on{ border:2px solid var(--text); background:var(--accent-soft); padding:7px 13px; }
+  .opt i{ width:22px; height:22px; border-radius:50%; border:2px solid var(--border-strong); flex:0 0 auto; }
+  .opt.on i{ border-color:var(--text); box-shadow:0 0 0 5px var(--text) inset; background:var(--panel); }
+  .opt .tx{ flex:1; display:flex; flex-direction:column; gap:2px; font-size:14px; font-weight:700; }
+  .opt .tx small{ font-size:12px; font-weight:500; color:var(--text-soft); }
+  .opt .thumb{ width:84px; border-radius:6px; overflow:hidden; border:1px solid var(--border); flex:0 0 auto; }
+  .opt .thumb div{ aspect-ratio:3/1; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    Программа владельца → «Сайт» → «Редактор сайта» → группа <code>Темы сайта</code> (у сферы <code>clothing</code> открыт фильтр «Одежда и обувь»). Слева — группы редактора (как сейчас), в центре — галерея тем
+    (2 в ряд на 1296, 3 в ряд на 1024, превью 16:10 без названия на картинке, название и «для кого» из <code>name/description</code>, метка «Одежда» из <code>spheres</code>), справа — предпросмотр черновика (компьютер + телефон).
+    Выбранная тема — тёмная рамка и «Применена ✓» (сравнение <code>accent, background, font, header_bg, border</code>, С-0). Состояния: <code>preview</code> — окно «Посмотреть» (местный мини-сайт, ни одного запроса);
+    <code>banner</code> — вопрос «Оставить ваш баннер?» (по умолчанию — оставить, В-3); <code>applying</code>; <code>draft</code> — тема в черновике, «Опубликовать» подсвечена; <code>unpublished</code> — чужие правки в черновике;
+    <code>error</code>; <code>locked</code> — витрина не подключена (403 <code>feature_disabled</code>), только просмотр. На 1024×600 предпросмотр справа убран — кнопка «Предпросмотр» в шапке, галерея 3 в ряд, «Применить к сайту» переносится в 2 строки внутри 44 px, подписи «для кого» в одну строку.
+  </div>
+</div>
+<script src="SiteThemes-Clothing-shared.js"></script>
+<script>
+(function(){
+  const I = ST.icon, t = ST.t;
+  const frame = document.getElementById('frame');
+  /* прежние 6 тем — упрощённо, только для фильтров «Все» / «Продукты» / «Для любого» (цвета из Assets/SiteThemes/*.json приблизительно) */
+  const OLD = [
+    ['sunny','Солнечный','Жёлтый и белый, крупные фото. Для продуктов и любого магазина.','FFFFFF FFFFFF 111111 6B6B6B F7D74F 181F2B EAEAEA FFFFFF 111111 FFF8DC 111111 111111 7A7A7A F7D74F 181F2B DC2626 FFFFFF',['grocery','any'],'split',4,14,'filled','chips'],
+    ['midnight','Ночной','Тёмный и дорогой вид.','0F141B 1A212B F1F5F9 94A3B8 F7D74F 181F2B 2C3644 0F141B F1F5F9 0B0F15 CBD5E1 F1F5F9 8A94A3 F7D74F 181F2B DC2626 FFFFFF',['any'],'cover',4,12,'filled','chips'],
+    ['fresh','Свежий рынок','Зелёный, для продуктов.','F3FAF5 FFFFFF 14301F 4B6355 16A34A FFFFFF D7EADD FFFFFF 14301F 14301F E7F6EC 14301F 6B7A70 16A34A FFFFFF DC2626 FFFFFF',['grocery'],'card',4,12,'filled','tiles'],
+    ['boutique','Бутик','Чёрно-белый, для одежды. Прежняя тема, получает метку «одежда».','FFFFFF FFFFFF 111111 6B6B6B 111111 FFFFFF EAEAEA FFFFFF 111111 F5F5F4 111111 111111 7A7A7A 111111 FFFFFF B91C1C FFFFFF',['clothing'],'cover',3,2,'outline','list'],
+    ['alatoo','Ала-Тоо','Красный с золотом и узором. Для любого магазина.','FFF8F0 FFFFFF 2A0A12 6B4A52 B3123A FFFFFF F1DCD2 B3123A FFFFFF 8E0E2E FFE4C7 8E0E2E 7A6A6E E1B13A 2A0A12 B3123A FFFFFF',['any'],'cover',4,8,'filled','chips'],
+    ['clean','Чистый','Голубой и белый, аптека. Для любого магазина.','F7FAFD FFFFFF 0B2A3C 4B6475 1D4ED8 FFFFFF DCE6F0 FFFFFF 0B2A3C 0B2A3C E3F2FD 0B2A3C 6B7C8A 1D4ED8 FFFFFF DC2626 FFFFFF',['any'],'split',4,10,'filled','chips'],
+  ].map(r => { const o = {}; r[3].split(' ').forEach((h,i) => o[ST.KEYS[i]] = '#'+h);
+    return { code:r[0], name:{ru:r[1]}, for:{ru:r[2]}, colors:o, spheres:r[4], header: r[0]==='boutique' ? 'logo_center' : 'logo_left', hero:{style:r[5],overlay:.3}, cols:[r[6],2,2], radius:r[7], btn:r[8], cats:r[9], old:true }; });
+  const NEW = ST.THEMES.map(th => Object.assign({ spheres:['clothing'] }, th));
+  const ALL = NEW.concat(OLD);
+  const GROUPS = ['Темы сайта','Готовые цвета','Цвета','Шрифт и форма','Шапка','Главный блок','Разделы и порядок','Категории','Товары','Карточка товара','Корзина и заказ','Подвал','Google и соцсети','Telegram','Чат на сайте'];
+  const FILTERS = [['mine','Для вашего магазина','site.filterMine'],['clothing','Одежда и обувь','site.filterClothing'],['grocery','Продукты','site.filterGrocery'],['any','Для любого','site.filterAny'],['all','Все','site.filterAll']];
+  const APPLIED = 'cl_boutique', TARGET = 'cl_street';
+
+  function card(th, st, applied, draft, locked){
+    const name = th.name.ru, isNew = !th.old;
+    return '<div class="tcard'+(applied?' on':'')+(draft?' draft':'')+'" data-code="'+th.code+'">'+
+      (applied ? '<span class="chip dark badge">'+I('check',12)+t('Применена','site.themeApplied')+'</span>' : draft ? '<span class="chip acc badge">'+t('В черновике','site.themeDraft')+'</span>' : '')+
+      ST.mini(th)+
+      '<div class="nm"><span>'+name+'</span>'+(th.spheres.includes('clothing') ? '<span class="chip sphere">'+I('tshirt',12)+t('Одежда')+'</span>' : '')+'</div>'+
+      '<div class="for">'+th.for.ru+'</div>'+
+      '<div class="acts"><button class="btn secondary sm view">'+I('eye',16)+t('Посмотреть','site.themeView')+'</button>'+
+      '<button class="btn dark sm'+(locked||applied?' dis':'')+'">'+t(applied ? 'Применена' : 'Применить к сайту', applied ? 'site.themeApplied' : 'site.themeApply')+'</button></div></div>';
+  }
+  function previewPanel(th, draft){
+    const s1024 = frame.classList.contains('s1024');
+    const w = 390 - 2, hDesk = Math.round(879 * (w / 1296)), hPhone = 300;
+    return '<aside class="prev"><div class="ph">'+I('monitor',18)+t('Предпросмотр черновика','site.previewDraft')+'<span class="url">· market.nurcrm.kg/catalog/nbs</span></div>'+
+      (draft ? '<div class="plate info" style="margin:8px 8px 0;min-height:44px;padding:6px 12px;font-size:12.5px">'+I('info',18)+'<span class="tx"><b>'+t('Тема в черновике','site.draftBanner')+'</b> — '+t('Покупатели увидят после «Опубликовать»')+'</span></div>' : '')+
+      '<div class="pv"><div style="display:flex;flex-direction:column;gap:8px;padding:8px">'+ST.scaled(th, w - 16, hDesk - 10, { bg:'transparent' })+
+      '<div style="display:flex;justify-content:center">'+ST.scaled(th, 160, 346, { phone:true })+'</div></div></div>'+
+      '<div class="pb"><div class="kv"><dt>'+t('Тема')+'</dt><dd>'+th.name.ru+'</dd><dt>'+t('Шрифт')+'</dt><dd>'+th.font+' '+th.base+'</dd><dt>'+t('Колонки')+'</dt><dd>'+th.cols.join(' / ')+'</dd></div></div></aside>';
+  }
+  function render(st){
+    const s1024 = frame.classList.contains('s1024');
+    const locked = st === 'locked', draft = st === 'draft', dim = st === 'applying';
+    const appliedCode = draft ? TARGET : APPLIED;
+    const filter = st === 'locked' ? 'mine' : 'mine';
+    const list = ALL.filter(th => filter === 'all' ? true : filter === 'mine' ? th.spheres.includes('clothing') : th.spheres.includes(filter));
+    const pubOn = draft;
+    const chrome = '<div class="chrome"><button class="sq ghost" aria-label="Назад">'+I('arrowLeft',22)+'</button><div class="tt"><h1>'+t('Редактор сайта')+' <span class="muted" style="font-weight:600;font-size:14px">→ '+t('Тема')+'</span></h1>'+
+      (locked ? '<span class="st warn">'+I('lock',14)+t('Онлайн-витрина не подключена')+' · '+t('Редактор только для просмотра')+'</span>'
+       : draft ? '<span class="st warn">'+I('alert',14)+' Есть неопубликованные изменения · черновик от 27.10 09:41</span>'
+       : '<span class="st ok">'+I('check',14)+t('Всё опубликовано')+' · версия 15 · 26.10.2026 14:35</span>')+'</div><span class="sp"></span>'+
+      '<button class="btn secondary sm only1024">'+I('eye',16)+t('Предпросмотр')+'</button>'+
+      '<button class="btn secondary sm">'+I('openIn',16)+t('Смотреть сайт')+'</button><button class="btn secondary sm">'+I('history',16)+t('История версий')+'</button>'+
+      '<button class="btn primary'+(pubOn?'':' off')+'" data-key="site.publish">'+t('Опубликовать')+'</button></div>';
+    const groups = '<nav class="groups">'+GROUPS.map((g,i)=>'<button'+(i===0?' class="on"':'')+'>'+(i===0?I('palette',16):'')+t(g)+'</button>').join('')+'</nav>';
+    let plate = '';
+    if (locked) plate = '<div class="plate warn">'+I('lock',20)+'<span class="tx"><b>'+t('Онлайн-витрина не подключена')+'</b> — '+t('Редактор только для просмотра')+'. Темы можно посмотреть, применить — после подключения услуги.</span><button class="btn secondary sm">'+t('Подключить витрину')+'</button></div>';
+    if (dim) plate = '<div class="plate info"><span class="spin"></span><span class="tx"><b>'+t('Применяю тему…','site.applying')+'</b> «Streetwear» — загружаю картинки 2 из 3, затем черновик одним запросом. Другие правки не трогаю.</span></div>';
+    if (draft) plate = '<div class="plate info">'+I('sparkle',20)+'<span class="tx"><b>'+t('Тема в черновике','site.draftBanner')+'</b> — '+t('Покупатели увидят после «Опубликовать»')+'. Ваш баннер, тексты, телефон и разделы сохранены.</span><button class="btn link">'+t('Отменить изменения')+'</button></div>';
+    if (st === 'error') plate = '<div class="plate bad">'+I('wifioff',20)+'<span class="tx"><b>Не удалось применить тему: нет связи с сервером.</b> Черновик не изменён — повторите, когда появится связь.</span><button class="btn secondary sm">'+t('Повторить')+'</button></div>';
+    const gal = '<section class="gal'+(dim?' dim':'')+'"><div class="hd"><div><h2>'+t('Темы сайта','site.themeTitle')+'</h2><p>Весь вид витрины одним нажатием: цвета, шрифт, шапка, карточки. Тексты, телефон, товары и ваш баннер тема не меняет.</p></div><span class="sp"></span>'+
+      '<button class="btn secondary sm">'+I('list',16)+t('Порядок разделов для одежды','site.sectionsOrder')+'</button></div>'+
+      '<div class="chips">'+FILTERS.map(f=>'<button'+(f[0]===filter?' class="on"':'')+' data-key="'+f[2]+'">'+f[1]+(f[0]==='mine'?' <small>· '+t('Одежда и обувь')+'</small>':'')+(f[0]==='all'?' <small>16</small>':f[0]==='clothing'||f[0]==='mine'?' <small>11</small>':'')+'</button>').join('')+'</div>'+
+      plate+'<div class="tgrid">'+list.map(th => card(th, st, th.code === APPLIED, draft && th.code === TARGET, locked)).join('')+'</div></section>';
+    let overlay = '';
+    if (st === 'preview'){
+      const th = ST.byCode(TARGET); const ph = frame.dataset.pv === 'phone';
+      const W = s1024 ? 900 : 1000, H = s1024 ? 360 : 560;
+      overlay = '<div class="overlay"><div class="modal lg"><div class="mh"><div class="tt"><h2>'+I('eye',22)+t('Посмотреть')+': '+th.name.ru+'</h2><p>'+th.for.ru+' · местный предпросмотр, на сервер ничего не уходит</p></div>'+
+        '<div class="seg"><button class="'+(ph?'':'on')+'" data-pv="desktop">'+I('monitor',16)+t('Компьютер')+'</button><button class="'+(ph?'on':'')+'" data-pv="phone">'+I('cellphone',16)+t('Телефон')+'</button></div>'+
+        '<button class="sq ghost" aria-label="Закрыть">'+I('close',20)+'</button></div>'+
+        '<div class="mb" style="padding-bottom:0"><div style="display:flex;justify-content:center;background:var(--input-alt);border-radius:var(--r-card);padding:8px">'+ST.scaled(th, W - 16, H, { phone: ph })+'</div></div>'+
+        '<div class="mf"><span class="muted" style="font-size:12.5px">Шрифт '+th.font+' · скругление '+th.radius+' · колонки '+th.cols.join('/')+' · кнопки '+th.btn+'</span><span class="sp"></span><button class="btn secondary">'+t('Закрыть')+'</button><button class="btn dark">'+t('Применить к сайту','site.themeApply')+'</button></div></div></div>';
+    }
+    if (st === 'banner'){
+      const th = ST.byCode(TARGET);
+      overlay = '<div class="overlay"><div class="modal"><div class="mh"><div class="tt"><h2>'+I('image',22)+t('Оставить ваш баннер?','site.keepBanner')+'</h2><p>У магазина уже есть свой баннер в главном блоке. Тема «'+th.name.ru+'» идёт со своей картинкой.</p></div><button class="sq ghost" aria-label="Закрыть">'+I('close',20)+'</button></div>'+
+        '<div class="mb"><div class="opt on"><i></i><span class="tx">'+t('Оставить мой баннер','site.keepBannerYes')+'<small>Картинка, заголовок и кнопка главного блока останутся вашими</small></span><span class="thumb"><div style="background:linear-gradient(120deg,#5B6B8C,#2E3A55)"></div></span></div>'+
+        '<div class="opt"><i></i><span class="tx">'+t('Заменить на баннер темы','site.keepBannerNo')+'<small>Ваш баннер сохранится в «Истории версий»</small></span><span class="thumb"><div style="background:'+th.heroBg+'"></div></span></div></div>'+
+        '<div class="mf"><button class="btn link">'+t('Отмена')+'</button><span class="sp"></span><button class="btn dark">'+t('Применить к сайту','site.themeApply')+'</button></div></div></div>';
+    }
+    if (st === 'unpublished'){
+      overlay = '<div class="overlay"><div class="modal"><div class="mh"><div class="tt"><h2>'+I('alert',22)+'В черновике есть ваши неопубликованные изменения</h2><p>26.10 14:02 вы меняли «Главный блок» и «Подвал». Тема «Streetwear» уже в черновике.</p></div><button class="sq ghost" aria-label="Закрыть">'+I('close',20)+'</button></div>'+
+        '<div class="mb">Опубликовать вместе с темой? Покупатели увидят и тему, и ваши правки. Или оставить всё в черновике и опубликовать позже из редактора.</div>'+
+        '<div class="mf"><button class="btn link">'+t('Отмена')+'</button><span class="sp"></span><button class="btn secondary">'+t('Только в черновик','site.draftOnly')+'</button><button class="btn dark">'+t('Опубликовать вместе','site.publishTogether')+'</button></div></div></div>';
+    }
+    frame.innerHTML = chrome + '<div class="body">' + groups + gal + previewPanel(ST.byCode(appliedCode), draft) + '</div>' + overlay +
+      (st === 'draft' ? '<div class="toast">'+I('check',18)+'Тема «Streetwear» в черновике · ваш баннер оставлен</div>' : '');
+    frame.querySelectorAll('[data-pv]').forEach(b => b.addEventListener('click', () => { frame.dataset.pv = b.dataset.pv; render(st); }));
+  }
+  ST.toolbar(frame, { title:'SiteThemes-Clothing-Editor — Редактор сайта → Тема', sizes:['1296','1024'], onState: render, states:[
+    { id:'gallery', label:'Галерея' }, { id:'preview', label:'«Посмотреть»' }, { id:'banner', label:'Оставить баннер?' }, { id:'applying', label:'Применяется' },
+    { id:'draft', label:'Тема в черновике' }, { id:'unpublished', label:'Чужие правки' }, { id:'error', label:'Ошибка' }, { id:'locked', label:'Витрина не подключена' } ] });
+})();
+</script>
+</body></html>

@@ -1,0 +1,132 @@
+{
+ "code": "cl_bazaar",
+ "name": {
+  "ru": "Яркий базар",
+  "ky": "Жаркын базар",
+  "en": "Bright Bazaar",
+  "tr": "Renkli Pazar",
+  "uz": "Yorqin bozor"
+ },
+ "description": {
+  "ru": "Оранжевый, 5 колонок, остаток всегда виден. Для рынков и оптовых магазинов (Дордой, Ош-базар).",
+  "ky": "Кызгылт сары, 5 мамыча, калдык дайыма көрүнөт. Базарлар жана көтөрмө дүкөндөр үчүн (Дордой, Ош базары).",
+  "en": "Orange, 5 columns, stock always visible. For markets and wholesale shops (Dordoi, Osh Bazaar).",
+  "tr": "Turuncu, 5 sütun, stok her zaman görünür. Pazarlar ve toptan mağazalar için (Dordoi, Osh Pazarı).",
+  "uz": "To'q sariq, 5 ustun, qoldiq doim ko'rinadi. Bozorlar va ulgurji do'konlar uchun (Dordoy, Osh bozori)."
+ },
+ "spheres": [
+  "clothing"
+ ],
+ "version": 1,
+ "voice_words": {
+  "ru": [
+   "базар"
+  ],
+  "ky": [
+   "базар"
+  ],
+  "en": [
+   "bazaar"
+  ],
+  "tr": [
+   "pazar"
+  ],
+  "uz": [
+   "bozor"
+  ]
+ },
+ "images": {
+  "hero.image": {
+   "file": "cl_bazaar_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "cl_bazaar_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#FFF7ED",
+    "surface": "#FFFFFF",
+    "text": "#1C1917",
+    "text_muted": "#57534E",
+    "accent": "#C2410C",
+    "accent_text": "#FFFFFF",
+    "border": "#FED7AA",
+    "header_bg": "#C2410C",
+    "header_text": "#FFFFFF",
+    "footer_bg": "#1C1917",
+    "footer_text": "#FFEDD5",
+    "price": "#B91C1C",
+    "old_price": "#78716C",
+    "badge_new_bg": "#15803D",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#B91C1C",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Nunito",
+    "base_size": 16,
+    "heading_weight": 800
+   },
+   "radius": 12,
+   "shadow": "soft",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_left",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "card",
+   "overlay": 0,
+   "align": "left"
+  },
+  "categories": {
+   "style": "chips",
+   "show_all": true,
+   "show_count": false
+  },
+  "products": {
+   "columns": {
+    "desktop": 5,
+    "tablet": 3,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "standard",
+   "photo_ratio": "3:4",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": true,
+    "category": true,
+    "stock": "always",
+    "unit": false,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "new_badge_days": 21,
+   "shadow": true,
+   "border": false
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

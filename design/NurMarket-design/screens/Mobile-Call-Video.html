@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Мобилка — видеозвонок с Нур Советником (В1)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Mobile-Call-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <h3>В1 · Видеозвонок — тот же экран «Разговор», камера включается кнопкой</h3>
+    Предпросмотр 3:4 на всю ширину минус 16, не выше 46 % экрана (44 % на 740), скругление 16. Подписи поверх кадра — всегда тёмная подложка
+    <code>CamLabel rgba(0,0,0,.62)</code> и белый текст ≥ 13 sp в обеих темах. «● Камера» (красная точка) видна всё время, пока камера открыта;
+    «ИИ видит» зелёная, если кадр ушёл ≤ 2 с назад, иначе «Пауза — ИИ не видит» серая. Справа сверху «Другая камера» и «Фонарик» 48 dp;
+    справа снизу круг состояния 56 dp (нажатие перебивает). Быстрые кнопки 48 dp: «Что это? / Накладная / Полка / Ценник» («Полка» — только с правом «Склад»).
+    Карточка результата выезжает снизу над рядом кнопок (260 мс), ✕ справа, новая заменяет старую. Ничего не проводится: «Открыть приход» завершает звонок и ведёт на экран приёмки.
+    <h3>Состояния</h3>
+    <ul>
+      <li><code>consent</code> — окно согласия перед первым включением (значки: камера, облако Google, замок «не сохраняется», «не показывайте карты и лица»), «Включить камеру» 56 / «Не сейчас».</li>
+      <li><code>starting</code> — «Включаю камеру…» на тёмном кадре, кнопка «Камера» уже залита жёлтым.</li>
+      <li><code>sees</code> — «ИИ видит», круг «Слушаю» 56 dp в углу кадра, субтитры 2–4 строки.</li>
+      <li><code>paused</code> — тишина 60 с: «Пауза — ИИ не видит», подпись «Долго тихо — камера на паузе. Скажите что-нибудь…».</li>
+      <li><code>economy</code> — переключатель «Экономия трафика» включён, подсказка «1 кадр в 3 секунды и только когда вы говорите».</li>
+      <li><code>switching</code> — «Другая камера»: последний кадр заморожен серым, спиннер ≈ 0,5–1 с; фонарик спрятан (фронтальная).</li>
+      <li><code>shot</code> — чёткий снимок: вспышка-затемнение 180 мс, «Снимаю чётко — держите ровно…», кнопки неактивны.</li>
+      <li><code>searching</code> — «Ищу в каталоге…» на кнопке «Что это?» со спиннером, остальные кнопки неактивны (одно распознавание за раз).</li>
+      <li><code>product</code> — карточка «Товар»: фото 56, название, цена крупно, «Остаток: 12 шт», «✓ точно» (штрихкод/эталон).</li>
+      <li><code>looks</code> — «Похоже на:» три варианта-кнопки 48 dp, нажатие выбирает.</li>
+      <li><code>notfound</code> — «В каталоге не нашёл. Поднесите ближе или покажите штрихкод», «Повторить».</li>
+      <li><code>invoice</code> — «Строк: 8 · в каталоге: 6 · новых: 2», список 5 + «ещё 3», «Открыть приход (6)» 56 dp + «Звонок завершится, разговор сохранится в чате»; подсказка про новые товары.</li>
+      <li><code>shelf</code> — «товар — видно — в программе», разница цветом (больше <code>warn</code>, меньше <code>danger</code>), «ИИ считает на глаз — перепроверьте перед ревизией».</li>
+      <li><code>tagok</code> / <code>tagbad</code> — две цены рядом и большой ✓ или ⚠; кнопки «Исправить цену» нет (деньги — через карточку товара).</li>
+      <li><code>denied</code> — нет права камеры: плашка + «Открыть настройки»; звонок продолжается голосом, камера выкл.</li>
+      <li><code>busy</code> — камера занята: «Повторить». <code>rejected</code> — модель не принимает видео: разговор продолжается голосом, кнопка «Камера» недоступна до конца звонка.</li>
+    </ul>
+    Переключатель «844×390» — горизонтальный вид: предпросмотр слева (58 %), справа время, субтитры, карточка, быстрые кнопки 2×2, ряд кнопок, «Завершить».
+  </div>
+</div>
+<script src="Mobile-Call-shared.js"></script>
+<script>
+(function(){
+  const I = MC.icon, som = MC.som, frame = document.getElementById('frame');
+  /* «кадр» — условная сцена: полка с товарами, рисуется блоками */
+  function scene(kind, frozen){
+    const b = (l, t, w, h, c, r) => '<span style="position:absolute;left:' + l + '%;top:' + t + '%;width:' + w + '%;height:' + h + '%;background:' + c + ';border-radius:' + (r || 6) + 'px"></span>';
+    let s = '<div class="scene' + (frozen ? ' frozen' : '') + '" style="background:linear-gradient(180deg,#3B3128 0%,#2A231C 100%)">';
+    if (kind === 'invoice' || kind === 'tag') {
+      s += '<span style="position:absolute;left:12%;top:10%;width:76%;height:80%;background:#F3EFE6;border-radius:6px;transform:rotate(-2deg);box-shadow:0 8px 20px rgba(0,0,0,.4)"></span>';
+      for (let i = 0; i < (kind === 'tag' ? 3 : 9); i++) s += '<span style="position:absolute;left:' + (18) + '%;top:' + (20 + i * 7) + '%;width:' + (kind === 'tag' ? 40 + i * 10 : 50 + (i * 13) % 20) + '%;height:2.2%;background:#8A8378;border-radius:2px;transform:rotate(-2deg)"></span>';
+      if (kind === 'tag') s += '<span style="position:absolute;left:20%;top:48%;font:800 ' + 40 + 'px Montserrat;color:#191919;transform:rotate(-2deg)">120</span>';
+    } else {
+      s += b(0, 44, 100, 3, '#5B4636', 2) + b(0, 84, 100, 3, '#5B4636', 2);
+      s += b(6, 16, 12, 28, '#B91C1C') + b(20, 16, 12, 28, '#B91C1C') + b(36, 20, 13, 24, '#F59E0B') + b(52, 20, 13, 24, '#F59E0B') + b(70, 24, 12, 20, '#4ADE80') + b(84, 24, 11, 20, '#4ADE80');
+      s += b(6, 60, 9, 24, '#7C2D12') + b(17, 60, 9, 24, '#7C2D12') + b(28, 60, 9, 24, '#7C2D12') + b(42, 56, 18, 28, '#FDE68A') + b(66, 58, 14, 26, '#60A5FA') + b(84, 58, 11, 26, '#60A5FA');
+      if (kind === 'product') s += '<span style="position:absolute;left:3%;top:12%;width:32%;height:34%;border:2.5px solid #4ADE80;border-radius:10px"></span>';
+    }
+    return s + '</div>';
+  }
+  function cam(o){
+    const h = frame.classList.contains('s360') ? 'calc(740px*.44)' : 'calc(844px*.46)';
+    const lbls = o.off ? '' :
+      '<span class="lbl" style="left:12px;top:12px"><i class="rec"></i><span data-ky data-key="vcRecording">Камера</span></span>' +
+      (o.sees === false ? '<span class="lbl" style="left:12px;top:48px"><i class="off"></i><span data-ky data-key="vcPaused">Пауза — ИИ не видит</span></span>'
+                        : '<span class="lbl" style="left:12px;top:48px"><i class="ok"></i><span data-ky data-key="vcAiSees">ИИ видит</span></span>');
+    const btns = o.off ? '' :
+      '<button class="rb" style="right:12px;top:12px" aria-label="Другая камера">' + I('camera-flip', 22) + '</button>' +
+      (o.front ? '' : '<button class="rb' + (o.torch ? ' on' : '') + '" style="right:12px;top:68px" aria-label="Фонарик">' + I('torch', 22) + '</button>');
+    const orb = o.off ? '' : '<div class="orb mini ' + (o.orb || 'listening') + '" style="position:absolute;right:12px;bottom:12px" role="button" aria-label="Перебить">' + (o.orb === 'speaking' ? '<span class="eq sm" aria-hidden="true"><i></i><i></i><i></i><i></i></span>' : I('mic', 56)) + '</div>';
+    const center = o.center ? '<div class="center">' + o.center + '</div>' : '';
+    const bottom = o.bottom ? '<div class="bottom-lbl"><span class="lbl">' + o.bottom + '</span></div>' : '';
+    return '<div class="cam" style="height:' + h + '">' + scene(o.scene || 'shelf', o.frozen) + (o.flash ? '<div class="flash"></div>' : '') + lbls + btns + orb + center + bottom + '</div>';
+  }
+  const quick = (o) => { o = o || {}; const dis = o.dis ? ' disabled' : '';
+    return '<div class="quick">' +
+      '<button class="btn' + (o.active === 'product' ? ' prim' : '') + '"' + dis + '>' + (o.active === 'product' && o.searching ? '<span class="spin' + ' onacc' + '" style="border-color:rgba(255,255,255,.3);border-top-color:currentColor"></span>' : I('search', 18)) + '<span data-ky data-key="vcWhatIsIt">' + (o.active === 'product' && o.searching ? 'Ищу в каталоге…' : 'Что это?') + '</span></button>' +
+      '<button class="btn' + (o.active === 'invoice' ? ' prim' : '') + '"' + dis + '>' + I('pdf', 18) + '<span data-ky data-key="vcInvoice">Накладная</span></button>' +
+      '<button class="btn' + (o.active === 'shelf' ? ' prim' : '') + '"' + dis + '>' + I('package', 18) + '<span data-ky data-key="vcShelf">Полка</span></button>' +
+      '<button class="btn' + (o.active === 'label' ? ' prim' : '') + '"' + dis + '>' + I('cash', 18) + '<span data-ky data-key="vcPriceTag">Ценник</span></button></div>'; };
+  const subs = (a, b) => '<div class="subs"><div class="sub"><b data-ky>Вы</b>: ' + a + '</div>' + (b ? '<div class="sub live"><b data-ky>Нур Советник</b>: ' + b + '</div>' : '') + '</div>';
+  const rh = (t, key) => '<div class="rh"><b data-ky data-key="' + key + '">' + t + '</b><button class="ib" aria-label="Закрыть карточку">' + I('close', 22) + '</button></div>';
+  function card(kind){
+    const bottom = 'bottom:' + (12 + 24 + 56 + 8 + 52 + 10) + 'px';
+    let c = '';
+    if (kind === 'product') c = rh('Товар', 'vcCardProduct') + '<div class="row" style="align-items:flex-start">' + MC.ph(56) + '<div class="sp" style="display:flex;flex-direction:column;gap:4px"><b style="font-size:calc(15px*var(--k));line-height:1.2">Кока-Кола 1 л</b><span class="price num" data-key="vcPrice">95 сом</span></div></div>' +
+      '<div class="line"><span data-key="vcStock"><span data-ky>Остаток</span>: <b class="num" style="color:var(--text)">12 шт</b></span><span class="tag ok" data-key="vcExact">' + I('check', 14) + '<span data-ky>точно</span> · штрихкод</span></div>';
+    if (kind === 'looks') c = rh('Товар', 'vcCardProduct') + '<div class="row">' + MC.ph(56) + '<div class="sp"><b style="font-size:calc(14px*var(--k))" data-ky data-key="vcLooksLike">Похоже на:</b><div class="hint">нажмите, чтобы выбрать — 0,5 / 1 / 2 л камера не различит</div></div></div>' +
+      '<div class="vars"><button class="btn"><span class="ell">Кока-Кола 1 л</span><b class="num">95 сом</b></button><button class="btn"><span class="ell">Кока-Кола 0,5 л</span><b class="num">60 сом</b></button><button class="btn"><span class="ell">Кока-Кола 2 л</span><b class="num">150 сом</b></button></div>';
+    if (kind === 'notfound') c = rh('Товар', 'vcCardProduct') + '<div class="plate warn" style="margin-right:6px">' + I('search', 22) + '<div class="tx" data-ky data-key="vcNotFound">В каталоге не нашёл. Поднесите ближе или покажите штрихкод</div></div><div class="row" style="justify-content:flex-end;padding-right:6px"><button class="btn sm"><span data-ky data-key="retry">Повторить</span></button></div>';
+    if (kind === 'invoice') c = rh('Накладная', 'vcInvoice') + '<div class="hint" style="color:var(--text-muted);font-weight:700" data-key="vcInvoiceSummary">Строк: 8 · в каталоге: 6 · новых: 2</div>' +
+      [['Кока-Кола 1 л', 24, 70, 1], ['Fanta 1 л', 24, 68, 1], ['Sprite 1 л', 12, 68, 1], ['BonAqua 0,5 л', 48, 22, 1], ['Burn 0,25 л', 24, 55, 0]].map(l => '<div class="line"><span>' + l[0] + (l[3] ? '' : ' <span class="tag new">новый</span>') + '</span><b class="num">' + l[1] + ' × ' + som(l[2]) + '</b></div>').join('') +
+      '<div class="hint">ещё 3 строки</div><div class="hint" data-key="vcNewItemsHint">Новых товаров нет в каталоге — заведите их через «Склад → Накладная»</div>' +
+      '<button class="btn cta" style="margin-right:6px">' + I('package', 20) + '<span data-key="vcOpenReceive"><span data-ky>Открыть приход</span> (6)</span></button><div class="hint c" data-ky data-key="vcReceiveEndsCall">Звонок завершится, разговор сохранится в чате</div>';
+    if (kind === 'shelf') c = rh('Полка', 'vcShelf') + '<div class="line" style="min-height:24px"><span style="font-weight:700;color:var(--text-soft);font-size:calc(11px*var(--k))">товар</span><b style="font-weight:700;color:var(--text-soft);font-size:calc(11px*var(--k))">видно · в программе</b></div>' +
+      [['Кока-Кола 2 л', 2, 2, ''], ['Fanta 1 л', 2, 4, 'danger'], ['Mars 50 г', 3, 1, 'warn'], ['Макароны «Макфа» 450 г', 1, 1, '']].map(r => '<div class="line"><span style="color:var(--text)">' + r[0] + '</span><b class="num"><span style="color:var(--' + (r[3] || 'text') + ')">' + r[1] + '</span> · ' + r[2] + '</b></div>').join('') +
+      '<div class="plate warn" style="margin-right:6px;min-height:44px">' + I('alert', 20) + '<div class="tx" data-ky data-key="vcShelfHint">ИИ считает на глаз — перепроверьте перед ревизией</div></div>';
+    if (kind === 'tagok' || kind === 'tagbad') { const ok = kind === 'tagok';
+      c = rh('Ценник', 'vcPriceTag') + '<div class="hint">Сок Gracio яблочный 1 л</div><div class="cmp" style="margin-right:6px"><div class="v"><small data-ky>На ценнике</small><b class="num">120 сом</b></div><span class="big-ic ' + (ok ? 'ok' : 'bad') + '">' + I(ok ? 'check' : 'alert', 28) + '</span><div class="v"><small data-ky>В программе</small><b class="num">' + (ok ? '120' : '135') + ' сом</b></div></div>' +
+        '<div class="hint" style="font-weight:700;color:var(--' + (ok ? 'success' : 'warn') + ')" data-key="' + (ok ? 'vcTagOk' : 'vcTagMismatch') + '">' + (ok ? 'Цена на ценнике совпадает с программой' : 'На ценнике 120 сом, в программе 135 сом — не совпадает') + '</div>' + (ok ? '' : '<div class="hint">Цену здесь не правим — через карточку товара</div>'); }
+    return c ? '<div class="rcard" style="' + bottom + '">' + c + '</div>' : '';
+  }
+  function render(state){
+    const land = frame.classList.contains('land');
+    const camOn = !(state === 'consent' || state === 'denied' || state === 'rejected' || state === 'busy');
+    const orb = (state === 'product' || state === 'invoice' || state === 'shelf' || state === 'tagok' || state === 'tagbad' || state === 'looks' || state === 'notfound') ? 'speaking' : 'listening';
+    let camHtml = '';
+    if (camOn){
+      const o = { orb, scene: (state === 'invoice' ? 'invoice' : (state === 'tagok' || state === 'tagbad' ? 'tag' : (state === 'product' || state === 'looks' ? 'product' : 'shelf'))) };
+      if (state === 'starting') { o.center = '<span class="spin" style="border-color:rgba(255,255,255,.3);border-top-color:#fff;width:28px;height:28px"></span><span class="lbl" data-key="vcStarting">Включаю камеру…</span>'; o.sees = false; o.orb = 'listening'; }
+      if (state === 'paused') { o.sees = false; o.bottom = '<span data-key="vcPausedSilence">Долго тихо — камера на паузе. Скажите что-нибудь, и ИИ снова увидит</span>'; }
+      if (state === 'economy') { o.bottom = '<span data-key="vcEconomyHint">Экономия: 1 кадр в 3 секунды и только когда вы говорите</span>'; }
+      if (state === 'switching') { o.frozen = true; o.front = true; o.sees = false; o.center = '<span class="spin" style="border-color:rgba(255,255,255,.3);border-top-color:#fff;width:28px;height:28px"></span><span class="lbl" data-ky data-key="vcSwitchCamera">Другая камера</span>'; }
+      if (state === 'shot') { o.flash = true; o.center = '<span class="lbl" data-ky data-key="vcShooting">Снимаю чётко — держите ровно…</span>'; }
+      if (state === 'searching') { o.center = '<span class="lbl">' + I('search', 16) + '<span data-ky data-key="vcSearching">Ищу в каталоге…</span></span>'; }
+      camHtml = cam(o);
+    } else {
+      camHtml = '<div class="orb-wrap"><div class="orb listening" style="width:120px;height:120px"><i class="ring"></i><i class="ring"></i><i class="ring"></i>' + I('mic', 56) + '</div><div class="state-t" data-ky data-key="callListening">Слушаю…</div></div>';
+    }
+    let problem = '';
+    if (state === 'denied') problem = '<div class="plate bad">' + I('camera', 22) + '<div class="tx" data-key="vcCameraDenied">Нет доступа к камере. Разрешите камеру для NurMarket в настройках телефона.</div><button class="btn sm"><span data-ky data-key="callOpenSettings">Открыть настройки</span></button></div>';
+    if (state === 'busy') problem = '<div class="plate warn">' + I('camera', 22) + '<div class="tx" data-key="vcCameraBusy">Камера занята. Повторите через секунду</div><button class="btn sm"><span data-ky data-key="retry">Повторить</span></button></div>';
+    if (state === 'rejected') problem = '<div class="plate warn">' + I('alert', 22) + '<div class="tx" data-key="vcVideoRejected">Эта модель ИИ не принимает видео — разговор продолжается голосом</div></div>';
+    const eco = state === 'economy';
+    const topline = '<div class="row" style="justify-content:space-between"><span class="timer num"><b>03:12</b> / 10:00</span><span class="sw' + (eco ? ' on' : '') + '" role="switch" aria-checked="' + eco + '"><span data-ky data-key="vcEconomy">Экономия трафика</span><i></i></span></div>';
+    const cost = camOn ? '<div class="hint" data-ky data-key="vcCost">Видеозвонок расходует лимит ключа ИИ в несколько раз быстрее голосового</div>' : '';
+    const q = camOn ? quick({ active:{ product:'product', looks:'product', notfound:'product', searching:'product', invoice:'invoice', shelf:'shelf', tagok:'label', tagbad:'label' }[state], searching: state === 'searching', dis: state === 'searching' || state === 'shot' || state === 'switching' || state === 'starting' }) : '';
+    const s = { sees: subs('Что это и сколько осталось?', ''), paused: subs('…', ''), economy: subs('Что это?', 'Сейчас посмотрю в каталоге'), product: subs('Что это и сколько осталось?', 'Это Кока-Кола один литр, 95 сом, остаток 12 штук.'),
+      looks: subs('Сколько стоит это?', 'Похоже на Кока-Колу — выберите объём на экране.'), notfound: subs('Что это?', 'В каталоге не нашёл — поднесите ближе или покажите штрихкод.'),
+      invoice: subs('Прими накладную', 'Восемь строк, шесть товаров нашёл, два новых. Откройте приход, чтобы проверить и провести.'), shelf: subs('Пересчитай полку', 'Фанты на полке две, а в программе четыре; Марса три, в программе один. Считаю на глаз.'),
+      tagok: subs('Ценник совпадает?', 'Да, 120 сом — как в программе.'), tagbad: subs('Проверь ценник', 'На ценнике 120, в программе 135 — не совпадает.'), shot: subs('Что это?', ''), searching: subs('Что это?', 'Сейчас посмотрю в каталоге…'),
+      switching: subs('Включи другую камеру', ''), starting: subs('Включи камеру', ''), denied: subs('Включи камеру', 'Камера не разрешена — разговор продолжается голосом.'), busy: subs('Включи камеру', ''), rejected: subs('Включи камеру', 'Эта модель видео не принимает — продолжаю голосом.'), consent: subs('Включи камеру', '') }[state];
+    const camBtn = '<button class="btn' + (camOn ? ' on' : '') + (state === 'rejected' ? ' dis' : '') + '"' + (state === 'rejected' ? ' disabled' : '') + '>' + I('camera', 20) + '<span class="ell" data-ky data-key="' + (camOn ? 'vcCameraOn' : 'vcCamera') + '">' + (camOn ? 'Камера вкл.' : 'Камера') + '</span></button>';
+    const ctrl = '<div class="ctrl"><button class="btn">' + I('mic', 20) + '<span class="ell" data-ky data-key="callMicOn">Микрофон вкл.</span></button>' + camBtn + '<button class="btn">' + I('speaker', 20) + '<span class="ell" data-ky data-key="callSpeakerOn">Громкая связь</span></button></div>';
+    const end = '<button class="btn cta danger">' + I('phone-hangup', 22) + '<span data-ky data-key="callEnd">Завершить</span></button>';
+    const header = '<div class="hdr"><div class="tt"><b data-ky data-key="callTitle">Разговор</b><span data-ky data-key="advisorTitle">Нур Советник</span></div><button class="ib lbl outl">' + I('chevron-down', 20) + '<span data-ky data-key="callMinimize">Свернуть</span></button></div>';
+    let body;
+    if (land) body = '<div class="body vcall">' + camHtml.replace('class="cam"', 'class="cam" data-land="1"') + '<div class="side">' + topline + s + problem + q + ctrl + end + '</div></div>';
+    else body = '<div class="body tight">' + topline + camHtml + cost + q + s + problem + ctrl + end + '</div>';
+    let overlay = card(state);
+    if (state === 'consent') overlay = '<div class="scrim"></div><div class="dlg"><h2 data-ky data-key="vcConsentTitle">Включить камеру в разговоре?</h2>' +
+      '<div class="pts"><div class="pt">' + I('camera', 20) + '<span>Пока камера включена, кадры (примерно 1 в секунду) уходят в Google Gemini по ключу ИИ вашего магазина.</span></div>' +
+      '<div class="pt">' + I('lock', 20) + '<span>Они не сохраняются ни на телефоне, ни в NurCRM — в чате останется только текст разговора.</span></div>' +
+      '<div class="pt">' + I('cloud', 20) + '<span>На бесплатном ключе Google может использовать данные для улучшения своих моделей.</span></div>' +
+      '<div class="pt bad">' + I('card-off', 20) + '<span>Не показывайте лица покупателей, банковские карты и чужие документы.</span></div></div>' +
+      '<div class="btns"><button class="btn cta">' + I('camera', 22) + '<span data-ky data-key="vcConsentAgree">Включить камеру</span></button><button class="btn"><span data-ky data-key="vcConsentLater">Не сейчас</span></button></div></div>';
+    frame.innerHTML = MC.statusBar({ cam:true }) + header + body + overlay + MC.gesture();
+  }
+  MC.toolbar(frame, { title:'Mobile-Call-Video — видеозвонок', onState:render, sizes:['390','360','land'], states:[
+    { id:'sees', label:'ИИ видит' }, { id:'consent', label:'согласие' }, { id:'starting', label:'включается' }, { id:'paused', label:'пауза' }, { id:'economy', label:'экономия' }, { id:'switching', label:'другая камера' },
+    { id:'shot', label:'чёткий снимок' }, { id:'searching', label:'ищу в каталоге' }, { id:'product', label:'товар · точно' }, { id:'looks', label:'похоже на' }, { id:'notfound', label:'не найден' },
+    { id:'invoice', label:'накладная → приход' }, { id:'shelf', label:'полка' }, { id:'tagok', label:'ценник ✓' }, { id:'tagbad', label:'ценник ⚠' }, { id:'denied', label:'нет права' }, { id:'busy', label:'занята' }, { id:'rejected', label:'модель без видео' } ] });
+})();
+</script>
+</body></html>

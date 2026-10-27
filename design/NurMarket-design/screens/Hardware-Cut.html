@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Хозмаг — отрез и обрезки (П14, Б-61, P3)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Hardware-shared.css">
+<style>
+  .bar-rest{ height:28px; border-radius:8px; background:var(--panel-soft); display:flex; overflow:hidden; border:1px solid var(--border); }
+  .bar-rest i{ display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; }
+  .bar-rest .sold{ background:var(--text); color:var(--panel); }
+  .bar-rest .left{ background:var(--accent); color:var(--accent-fg); }
+  .opt{ display:flex; flex-direction:column; gap:8px; }
+  .opt .chk{ padding:8px 12px; border:1px solid var(--border); border-radius:var(--r-btn); min-height:52px; }
+  .opt .chk.on{ border-color:var(--text); background:var(--accent-soft); }
+  .rem{ display:grid; grid-template-columns:1fr auto auto; gap:10px; align-items:center; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    Отрезной товар (кабель, труба, линолеум) — приоритет <b>P3</b>, по заявке магазина (В-Х8, Б-61). Макет — чтобы в окне длины уже сейчас было место под эту ветку.
+    <code>Отрез</code> — в окне длины товара с бухтой: продаём 97,5 м из 100 → остаток 2,5 м меньше минимума продажи 1 м? нет, но меньше «полезного» остатка магазина (5 м): касса предлагает «оставить обрезком» (отдельная строка остатка со скидкой)
+    или «списать как отход». Услуга «Резка» добавляется строкой по галочке. <code>Обрезки</code> — склад: список обрезков по товару, «Продать со скидкой» ставит обрезок в чек целиком. <code>Этикетка</code> — «Отрез» 40×30 на бухту/кусок в зоне выдачи.
+  </div>
+</div>
+<script src="Hardware-shared.js"></script>
+<script>
+(function(){
+  const I = HW.icon, t = HW.t, btn = HW.btn, chk = HW.chk;
+  const frame = document.getElementById('frame');
+  function cut(){
+    return HW.kassaBg({ active:0 }) + HW.modal({ title:'Кабель ВВГнг 3×2,5 — отрез', icon:'content-cut', key:'hw.cut.title', cls:'md',
+      sub:t('Бухта № 2 · 100 м · после отреза останется 2,5 м','hw.cut.sub'),
+      body:'<div class="stepline"><button class="sq">'+I('minus',22)+'</button><div class="bigval"><b class="num">97,5</b><span class="u">м</span></div><button class="sq plus">'+I('plus',22)+'</button></div>'+
+        '<div class="bar-rest"><i class="sold" style="flex:97.5">отрез 97,5 м</i><i class="left" style="flex:2.5;min-width:72px">2,5 м</i></div>'+
+        '<span class="hint">'+I('information-outline',16)+t('Остаток бухты 2,5 м меньше полезного остатка (5 м). Что с ним сделать?','hw.cut.remHint')+'</span>'+
+        '<div class="opt">'+chk('Оставить обрезком — 2,5 м', true, {radio:true, key:'hw.cut.keepRem', sub:'остаток хранится отдельной строкой «обрезок», продаётся целиком со скидкой 20 %'})+
+          chk('Отдать покупателю бесплатно (вся бухта 100 м по цене 97,5 м)', false, {radio:true, key:'hw.cut.giveAway'})+
+          chk('Списать как отход — 2,5 м · 212,50 сом', false, {radio:true, key:'hw.cut.writeOff', sub:'уйдёт в «Списание» с причиной «обрезок»'})+'</div>'+
+        '<div class="row" style="gap:16px;flex-wrap:wrap">'+chk('Услуга «Резка» — 50 сом', true, {key:'hw.cut.service'})+chk('Напечатать этикетку «Отрез»', true, {key:'hw.cut.printLabel'})+'</div>'+
+        '<div class="tot"><span class="l">97,5 м × 85 сом + резка 50</span><b class="num">8 337,50 сом</b></div>',
+      foot:btn('Отмена','secondary','common.cancel')+'<span class="sp"></span>'+btn('В чек 97,5 м','primary','hw.cut.toReceipt') });
+  }
+  function remnants(){
+    const rows = [['Кабель ВВГнг 3×2,5','2,5 м','бухта № 2 · 26.10','85','68','-20 %'],['Труба ППР 20×3,4','0,8 м','хлыст 4 м · 24.10','65','45','-30 %'],['Линолеум «Таркетт» 3 м','1,4 м × 3 м','рулон 25 м · 19.10','890','620','-30 %'],['Кабель ПВС 2×1,5','3,2 м','бухта № 1 · 12.10','48','38','-20 %']];
+    return '<div class="kassa"><div class="top">'+I('package-variant-closed',20)+'<b>Склад — Обрезки</b><span class="tag">4 позиции · 1 180 сом по закупке</span><span class="sp"></span>'+btn('Списать всё старше 90 дней','secondary sm','hw.rem.writeOffOld')+'</div>'+
+      '<div style="padding:var(--pad);display:flex;flex-direction:column;gap:10px;min-height:0;flex:1">'+
+      '<div class="row"><div class="field" style="width:360px">'+I('magnify',18)+'<input placeholder="Товар, бухта, ячейка"></div><div class="seg" style="width:auto"><button class="seg-btn on">Все</button><button class="seg-btn">Кабель</button><button class="seg-btn">Труба</button><button class="seg-btn">Рулонные</button></div></div>'+
+      '<div class="tbl"><table><thead><tr><th>Товар</th><th>Обрезок</th><th>Откуда</th><th class="r">Цена / ед</th><th class="r">Цена обрезка</th><th>Скидка</th><th></th></tr></thead><tbody>'+
+      rows.map(r=>'<tr><td><b>'+r[0]+'</b></td><td class="num"><b>'+r[1]+'</b></td><td class="soft">'+r[2]+'</td><td class="r num">'+r[3]+'</td><td class="r num"><b>'+r[4]+'</b> сом/'+(r[0].includes('Линолеум')?'м':'м')+'</td><td><span class="chip warn">'+r[5]+'</span></td><td><div class="row" style="justify-content:flex-end">'+btn('Продать со скидкой','primary sm','hw.rem.sell')+btn('Этикетка','secondary sm','hw.rem.label')+'</div></td></tr>').join('')+'</tbody></table></div>'+
+      HW.plate('info','information-outline',t('Обрезок продаётся только целиком. Скидка по умолчанию — из профиля (кабель 20 %, рулонные 30 %), правится в строке','hw.rem.hint'))+'</div></div>';
+  }
+  function label(){
+    return HW.kassaBg({}) + HW.modal({ title:'Этикетка «Отрез» 40×30', icon:'label-outline', key:'hw.cutLabel.title', cls:'md',
+      body:'<div class="row" style="gap:24px;align-items:flex-start">'+
+        '<div class="ptag" style="width:227px;height:170px;padding:8px 10px"><div style="font-size:11.5px;font-weight:700;line-height:1.15;height:28px;overflow:hidden">Кабель ВВГнг 3×2,5</div>'+
+          '<div style="display:flex;align-items:baseline;gap:4px;margin-top:2px"><b style="font-size:34px;line-height:1">97,5</b><span style="font-size:13px;font-weight:700">м</span><span style="margin-left:auto;font-size:10px">отрез</span></div>'+
+          '<div style="font-size:12px;font-weight:700;margin-top:2px">85 сом/м · <b>8 287,50 сом</b></div>'+
+          '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto"><div style="font-size:9.5px;line-height:1.3">26.10.2026 14:32<br>чек 1047 · Айбек</div>'+HW.barcode(96,24,'4870023456789')+'</div><span class="mm">40 × 30 мм</span></div>'+
+        '<div class="col" style="flex:1;gap:10px">'+HW.sel('Принтер','Xprinter XP-365B',{key:'label.printer'})+HW.inp('Копий','1',{key:'label.copies'})+chk('Печатать автоматически после отреза', true, {key:'hw.cutLabel.auto'})+'<span class="hint">'+t('Штрихкод — товара: скан этикетки в кассе найдёт кабель, длину кассир подтвердит','hw.cutLabel.hint')+'</span></div></div>',
+      foot:btn('Закрыть','secondary','common.close')+'<span class="sp"></span>'+btn('Напечатать','primary','common.print') });
+  }
+  HW.toolbar(frame, { title:'Hardware-Cut — отрез и обрезки (P3)', onState:s => { frame.innerHTML = s==='cut' ? cut() : s==='rem' ? remnants() : label(); }, states:[
+    { id:'cut', label:'Отрез 97,5 из 100' }, { id:'rem', label:'Склад: обрезки' }, { id:'label', label:'Этикетка «Отрез»' } ] });
+})();
+</script>
+</body></html>

@@ -1086,7 +1086,9 @@
                                         <TextBlock x:Name="ChartTitle" Classes="cardTitle" TextWrapping="Wrap"/>
                                         <TextBlock Grid.Column="1" x:Name="ChartTotalText" Classes="cardHint num" Margin="12,0,0,0"/>
                                     </Grid>
-                                    <Panel Height="230">
+                                    <!-- 2026-10-26: легенда «лучший день / самый слабый / сегодня» — в ApplyChart; Panel 230 → 238: кольцо «сегодня» добавляет 7 px -->
+                                    <StackPanel x:Name="ChartLegend" DockPanel.Dock="Bottom"/>
+                                    <Panel Height="238">
                                         <Grid x:Name="ChartBars"/>
                                         <TextBlock x:Name="ChartEmptyText" Classes="empty" IsVisible="False"/>
                                     </Panel>

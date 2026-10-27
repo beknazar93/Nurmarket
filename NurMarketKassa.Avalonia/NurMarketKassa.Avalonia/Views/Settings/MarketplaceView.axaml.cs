@@ -131,6 +131,9 @@ public partial class MarketplaceView : UserControl
                     OpenFeature(id);
                     break;
                 case "theme":
+                    // 2026-10-27 (аудит редакторов, В-8): свою плохо читаемую тему молча не применяем — «Всё равно применить?».
+                    if (CustomThemeStore.Find(id) is { } customToApply && !ThemeReadability.ConfirmApply(TopLevel.GetTopLevel(this) as Window, customToApply))
+                        break;
                     App.ApplyAccentTheme(id);
                     // Предпросмотры рисуются под текущий светлый/тёмный вариант, а отметка — на выбранной теме.
                     RebuildThemedCards();
@@ -141,7 +144,17 @@ public partial class MarketplaceView : UserControl
                     Store.Reload();
                     break;
                 case "themeeditor":
-                    OpenThemeEditor_Click(this, e);
+                    // 2026-10-27 (аудит редакторов, В-7): «Изменить в редакторе» на карточке своей темы открывает именно эту тему (themeeditor:<id>).
+                    OpenThemeEditor(string.IsNullOrEmpty(id) ? null : id);
+                    break;
+                case "sitetheme":
+                    // 2026-10-27 (ТЗ «Сайт», С-3): тема сайта — открыть «Редактор сайта»; тема ждёт подтверждения там (SiteThemeCatalog.PendingThemeCode).
+                    if (ProductActionPlan.OpenSection is null)
+                        break;
+                    SiteThemeCatalog.PendingThemeCode = id;
+                    if (SiteEditorWindow.Current is { IsReady: true } openEditor)
+                        _ = openEditor.ApplyPendingThemeAsync();
+                    ProductActionPlan.OpenSection("siteeditor");
                     break;
                 case "customerdisplay":
                     OpenCustomerDisplayEditor_Click(this, e);
@@ -338,13 +351,17 @@ public partial class MarketplaceView : UserControl
 
     /// <summary>«Редактор тем» (2026-09-28). Окно модальное: после закрытия галерея
     /// перестраивается — там могли появиться, измениться или исчезнуть свои темы.</summary>
-    private async void OpenThemeEditor_Click(object? sender, RoutedEventArgs e)
+    private void OpenThemeEditor_Click(object? sender, RoutedEventArgs e) => OpenThemeEditor(null);
+
+    private async void OpenThemeEditor(string? themeId)
     {
         try
         {
             if (TopLevel.GetTopLevel(this) is not Window owner)
                 return;
             var editor = new ThemeEditorWindow();
+            if (!string.IsNullOrEmpty(themeId))
+                editor.OpenTheme(themeId);
             await editor.ShowDialog<bool?>(owner).ConfigureAwait(true);
         }
         catch (Exception ex)

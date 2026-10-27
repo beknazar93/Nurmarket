@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Мобилка — задачи сотрудникам и зарплата в звонке (Г7)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Mobile-Call-shared.css">
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <h3>Г7 · Задачи (<code>/admin/tasks</code>, <code>/tasks/my</code>) и Зарплата (<code>/admin/salary</code>)</h3>
+    Карточка задачи: заголовок, исполнитель, срок, флажок приоритета (красный — высокий, префикс «❗» в заголовке для сайта), чип статуса (новая / в работе / сделано), «просрочена» красным.
+    Плашка на главной «Задач на сегодня: 2 · просрочено 1». Зарплата: период чипами, карточки «Начислено / Выплачено / Осталось», таблица сотрудников,
+    «Выплатить» в строке (48 dp), жёлтая плашка «проверено частично — сумма к выплате сама не подставляется».
+    <h3>Состояния</h3>
+    <ul>
+      <li><code>home</code> — главная с плашкой задач и мини-плашкой звонка.</li>
+      <li><code>tasks</code> — список задач администратора, фильтры «Все · Просрочено · Мои», ИИ только что создал задачу → строка «ИИ: задача Нурлану … · Отменить».</li>
+      <li><code>my</code> — «Мои задачи» кассира: 2 на сегодня, одна просрочена, кнопка «В работу» / «Сделано» 48 dp.</li>
+      <li><code>salary</code> — экран зарплаты за октябрь, таблица компактная (сотрудник / начислено / осталось / «Выплатить»), плашка «проверено частично».</li>
+      <li><code>payout</code> — после «выплати Айбеку»: строка «ИИ: выплатила Айбеку Т. 18 500 сом наличными из кассы «Основная» · остаток 0», отмена — только запросом владельцу (без кнопки «Отменить»).</li>
+      <li><code>salary-table</code> — та же зарплата как таблица в звонке (панель, 8 колонок) — см. <code>Mobile-Call-Table.html#wide</code>.</li>
+    </ul>
+  </div>
+</div>
+<script src="Mobile-Call-shared.js"></script>
+<script>
+(function(){
+  const I = MC.icon, fmt = MC.fmt, frame = document.getElementById('frame');
+  const Y = 30 + 56 + 8;
+  const TASKS = [
+    { t:'Пересчитать полку с водой', who:'Нурлан Б.', due:'до 27.10', st:'new', hi:true, fresh:true },
+    { t:'Выставить ценники на новые соки', who:'Айгерим С.', due:'до 26.10 18:00', st:'work' },
+    { t:'Принять накладную «Кока-Кола Бишкек»', who:'Бекназар', due:'25.10', st:'new', over:true, hi:true },
+    { t:'Протереть витрину с молочкой', who:'Айгерим С.', due:'до 26.10', st:'done' },
+    { t:'Заказать сахар у «Ак-Марал»', who:'Айбек Т.', due:'до 28.10', st:'new' }
+  ];
+  const stTag = s => ({ new:'<span class="tag soft" data-ky>новая</span>', work:'<span class="tag acc" data-ky>в работе</span>', done:'<span class="tag ok">' + I('check', 12) + '<span data-ky>сделано</span></span>' })[s];
+  const task = (k, o) => '<div class="task"' + (k.fresh ? ' style="border-color:var(--accent-strong);box-shadow:0 0 0 1px var(--accent-strong) inset"' : '') + '><span class="fl' + (k.hi ? ' hi' : '') + '">' + I('flag', 16) + '</span><div class="t"><b>' + (k.hi ? '❗ ' : '') + k.t + '</b><div class="meta">' + (o && o.my ? '' : '<span>' + I('account', 14) + ' ' + k.who + '</span>') + '<span class="' + (k.over ? 'ov' : '') + '">' + I('calendar', 14) + ' ' + (k.over ? '<span data-ky>просрочена</span> · ' : '') + k.due + '</span>' + stTag(k.st) + '</div>' +
+    (o && o.my && k.st !== 'done' ? '<div class="row" style="margin-top:4px"><button class="btn sm' + (k.st === 'work' ? ' tonal' : '') + '"><span data-ky>' + (k.st === 'work' ? 'Сделано' : 'В работу') + '</span></button></div>' : '') + '</div></div>';
+  function render(state){
+    let html = '', pill = '';
+    if (state === 'home'){
+      html = MC.section('home', { extra:'<div class="plate info" style="cursor:pointer">' + I('tasks', 22) + '<div class="tx"><b data-key="tasksTodayPlate"><span data-ky>Задач на сегодня</span>: 2 · <span class="neg" data-ky>просрочено</span> 1</b><br><span class="hint">Напоминание: «Пересчитать полку с водой» — завтра 09:00</span></div>' + I('chevron-right', 20) + '</div>' });
+      pill = MC.pill({ state:'listening', time:'00:42' });
+    }
+    if (state === 'tasks'){
+      html = MC.hdr('Задачи', '5 задач · 1 просрочена', '<button class="ib filled rd" aria-label="Новая задача">' + I('plus', 24) + '</button>', true) + '<div class="body">' +
+        '<div class="chips"><span class="chip on" data-ky>Все</span><span class="chip"><span data-ky>просрочено</span> · 1</span><span class="chip" data-ky>Мои задачи</span><span class="chip" data-ky>сделано</span></div>' +
+        '<div class="list" style="overflow:auto">' + TASKS.map(k => task(k)).join('') + '</div>' +
+        '<div class="hint c">Приоритет и напоминание хранятся в описании ⟦nm: …⟧ до Б-62; сайт видит их текстом</div></div>' + MC.nav('Ещё');
+      pill = MC.pill({ state:'speaking', time:'02:10' }) + MC.actLine({ text:'задача Нурлану Б. «Пересчитать полку с водой» · до 27.10 · высокий', sub:'«поставь Нурлану задачу пересчитать полку с водой до завтра» · 11:15', undo:true, style:'top:' + Y + 'px', key:'aiActTask' });
+    }
+    if (state === 'my'){
+      const mine = [ { t:'Выставить ценники на новые соки', due:'сегодня до 18:00', st:'work' }, { t:'Протереть витрину с молочкой', due:'сегодня', st:'new', hi:true }, { t:'Пересчитать холодильник с напитками', due:'24.10', st:'new', over:true } ];
+      html = MC.hdr('Мои задачи', 'Айгерим С. · 2 на сегодня · 1 просрочена', null, true) + '<div class="body">' +
+        '<div class="plate warn" style="min-height:44px">' + I('alert', 20) + '<div class="tx"><b class="w">Просрочена 1 задача</b> — «Пересчитать холодильник с напитками»</div></div>' +
+        '<div class="list" style="overflow:auto">' + mine.map(k => task(k, { my:true })).join('') + '</div>' +
+        '<div class="hint c">Фоновых уведомлений нет — напоминание покажется при открытии приложения</div></div>' + MC.nav('Ещё');
+    }
+    if (state === 'salary' || state === 'payout'){
+      const paid = state === 'payout';
+      const rows = [ ['Айбек Т.', 24300, paid ? 0 : 18500, paid], ['Айгерим С.', 21150, 0, false], ['Нурлан Б.', 18000, 9000, false], ['Жылдыз К.', 17900, 17900, false], ['Бакыт О.', 12600, 0, false] ];
+      const left = rows.reduce((s, r) => s + r[2], 0);
+      html = MC.hdr('Зарплата', 'NBS · 5 сотрудников', '<button class="ib" aria-label="Ещё">' + I('more', 22) + '</button>', true) + '<div class="body">' +
+        '<div class="chips"><span class="chip" data-ky>Сентябрь</span><span class="chip on" data-ky>Октябрь</span><span class="chip">' + I('calendar', 16) + ' 01.10–26.10</span></div>' +
+        '<div class="kpis"><div class="kpi"><small data-ky>Начислено</small><b class="num">93 950</b></div><div class="kpi"><small data-ky>Выплачено</small><b class="num">' + fmt(93950 - left) + '</b></div><div class="kpi"><small data-ky>Осталось</small><b class="num" style="color:var(--price)">' + fmt(left) + '</b></div></div>' +
+        '<div class="plate warn" style="min-height:44px">' + I('alert', 20) + '<div class="tx" data-ky data-key="salaryPartial">проверено частично — сумма к выплате сама не подставляется</div></div>' +
+        '<div class="sheet inpage" style="border-radius:var(--r-card)"><div class="tblw" style="border-top:0"><table class="tbl" style="width:100%"><thead><tr><th class="fx" style="padding:0 8px" data-ky>Сотрудник</th><th class="r" style="padding:0 6px" data-ky>Начислено</th><th class="r" style="padding:0 6px" data-ky>Осталось</th><th style="padding:0 6px"></th></tr></thead><tbody>' +
+          rows.map(r => '<tr class="tap"' + (r[3] ? ' style="outline:2px solid var(--accent-strong);outline-offset:-2px"' : '') + '><td class="fx" style="padding:0 8px;max-width:110px">' + r[0] + '</td><td class="r num" style="padding:0 6px">' + fmt(r[1]) + '</td><td class="r num" style="padding:0 6px">' + (r[2] ? '<b>' + fmt(r[2]) + '</b>' : '<span class="tag ok">0</span>') + '</td><td class="r" style="padding:0 6px 0 2px">' + (r[2] ? '<button class="btn sm tonal" style="min-height:40px;padding:0 10px"><span data-ky data-key="salaryPay">Выплатить</span></button>' : '') + '</td></tr>').join('') +
+          '</tbody></table></div></div>' +
+        '<div class="hint c">Начисление — серверный расчёт как на ПК и сайте; «выплачено» — расходы «Зарплата» с меткой [#user период]</div></div>' + MC.nav('Ещё');
+      pill = MC.pill({ state:paid ? 'speaking' : 'listening', time:paid ? '04:12' : '03:58' });
+      if (paid) pill += MC.actLine({ text:'выплатила Айбеку Т. <b class="num">18 500 сом</b> наличными из кассы «Основная» · остаток 0', sub:'отмена — только запросом владельцу на сайте · расход «Зарплата: Айбек Т. [#12 01.10–26.10]»', undo:false, kind:'lock', style:'top:' + Y + 'px', key:'aiActPayout' });
+    }
+    frame.innerHTML = MC.statusBar({ cam:!!pill }) + (pill ? MC.pillSpace() : '') + html + pill + MC.gesture();
+  }
+  MC.toolbar(frame, { title:'Mobile-Call-Staff — задачи и зарплата', onState:render, states:[
+    { id:'home', label:'главная · плашка задач' }, { id:'tasks', label:'задачи · ИИ создал' }, { id:'my', label:'мои задачи (кассир)' }, { id:'salary', label:'зарплата' }, { id:'payout', label:'выплата голосом' } ] });
+})();
+</script>
+</body></html>

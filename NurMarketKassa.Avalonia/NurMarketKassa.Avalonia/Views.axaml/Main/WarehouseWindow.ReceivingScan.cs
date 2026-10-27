@@ -275,7 +275,8 @@ public partial class WarehouseWindow
             if (result is null)
                 return;
             _viewModel.SelectOrAddReceivingSupplier(result.Supplier);
-            App.AppHost?.Services.GetService<IUserPrompts>()?.ShowToast(result.Existed
+            // 2026-10-27 (приёмка 26.10, Д-9): плашка под кнопкой «Оприходовать» вместо ShowToast — в программе владельца он открывался модальным окном.
+            _viewModel.ShowReceivingInfo(result.Existed
                 ? TR("Такой поставщик уже есть — выбран.", "Мындай жеткирүүчү бар — тандалды.", "This supplier already exists — selected.",
                     "Bu tedarikçi zaten var — seçildi.", "Bunday yetkazib beruvchi allaqachon bor — tanlandi.")
                 : TR("Поставщик добавлен и выбран.", "Жеткирүүчү кошулду жана тандалды.", "Supplier added and selected.",
@@ -458,7 +459,7 @@ public partial class WarehouseWindow
         var dialog = new ReceivingRaiseDialog(_viewModel.ReceivingLines.ToList());
         await dialog.ShowDialog(this).ConfigureAwait(true);
         if (dialog.AppliedCount > 0)
-            PosLogger.Log($"Приёмка: «Обновить цены продажи» — {dialog.AppliedCount} строк.", "STOCK");
+            PosLogger.Log($"Приёмка: «Обновить цены продажи» — {dialog.AppliedCount} {Tr.Plural(dialog.AppliedCount, "строка", "строки", "строк")}.", "STOCK");
         RefreshReceivingSummary();
     }
 
@@ -470,8 +471,9 @@ public partial class WarehouseWindow
         if (changed.Count > shown.Count)
             shown.Add(TR($"…и ещё {changed.Count - shown.Count}", $"…жана дагы {changed.Count - shown.Count}", $"…and {changed.Count - shown.Count} more",
                 $"…ve {changed.Count - shown.Count} tane daha", $"…va yana {changed.Count - shown.Count}"));
-        var message = TR($"Цена продажи изменится у {changed.Count} товаров:", $"{changed.Count} товардын сатуу баасы өзгөрөт:",
-                $"The sale price will change for {changed.Count} products:", $"{changed.Count} ürünün satış fiyatı değişecek:",
+        // 2026-10-27 (приёмка 26.10, Д-8): склонение «у 1 товара / у 2 товаров», «for 1 product».
+        var message = TR($"Цена продажи изменится у {changed.Count} {Tr.Plural(changed.Count, "товара", "товаров", "товаров")}:", $"{changed.Count} товардын сатуу баасы өзгөрөт:",
+                $"The sale price will change for {changed.Count} {Tr.PluralEn(changed.Count, "product", "products")}:", $"{changed.Count} ürünün satış fiyatı değişecek:",
                 $"{changed.Count} ta mahsulotning sotuv narxi o'zgaradi:")
             + "\n\n" + string.Join("\n", shown);
         return PosConfirmDialog.ShowModalAsync(this,

@@ -19,7 +19,7 @@
         <Style Selector="Button.period">
             <Setter Property="Padding" Value="14,7"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
-            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="MinHeight" Value="44"/> <!-- 2026-10-27 (аудит редакторов, С-2): цель касания не меньше 44 px -->
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
@@ -136,7 +136,7 @@
                             <Border Background="{DynamicResource BrushInputAlt}" CornerRadius="8,0,0,8" Padding="10,0" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1,1,0,1">
                                 <TextBlock x:Name="SlugPrefixText" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
                             </Border>
-                            <TextBox x:Name="SlugBox" Grid.Column="1" MaxLength="50" FontSize="14" CornerRadius="0,8,8,0" MinHeight="36"
+                            <TextBox x:Name="SlugBox" Grid.Column="1" MaxLength="50" FontSize="14" CornerRadius="0,8,8,0" MinHeight="44"
                                      VerticalContentAlignment="Center" TextChanged="SlugBox_TextChanged"/>
                         </Grid>
                         <TextBlock x:Name="SlugStatusText" Classes="status" IsVisible="False"/>
@@ -147,7 +147,7 @@
                     <StackPanel>
                         <TextBlock x:Name="PhoneTitle" Classes="fieldTitle"/>
                         <Grid ColumnDefinitions="*,Auto">
-                            <TextBox x:Name="PhoneBox" MaxLength="60" FontSize="14" MinHeight="36" CornerRadius="8"
+                            <TextBox x:Name="PhoneBox" MaxLength="60" FontSize="14" MinHeight="44" CornerRadius="8"
                                      VerticalContentAlignment="Center" TextChanged="PhoneBox_TextChanged"/>
                             <Button x:Name="AddCodeButton" Grid.Column="1" Classes="period" Margin="8,0,0,0" IsVisible="False" Click="AddCode_Click"/>
                         </Grid>

@@ -146,7 +146,9 @@ public static class ProductUnitNormalizer
         var qtyCulture = CultureInfo.GetCultureInfo("ru-RU");
         var qtyStr = isWeightTab
             ? vm.Quantity.ToString("F2", qtyCulture)
-            : vm.Quantity.ToString("F0", qtyCulture);
+            : QuantityRules.ForUnit(unitDisplay) != null
+                ? vm.Quantity.ToString("0.###", qtyCulture) // 2026-10-26 (ХМ2): остаток м/м²/л «Хозтоваров» не до целого
+                : vm.Quantity.ToString("F0", qtyCulture);
         vm.StockInfo = $"{qtyStr} {unitDisplay}";
         vm.IsLowStock = vm.Quantity < StockSyncService.LowStockThreshold;
     }

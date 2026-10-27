@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -381,6 +382,7 @@ public sealed partial class MarketplaceStoreView
     /// <summary>Колесо мыши над рядом/чипами листает по горизонтали; на краю отдаёт колесо вертикальной прокрутке страницы.</summary>
     private static void EnableWheelScroll(ScrollViewer sv)
     {
+        EnableDragScroll(sv);
         sv.PointerWheelChanged += (_, e) =>
         {
             var max = sv.Extent.Width - sv.Viewport.Width;
@@ -393,6 +395,59 @@ public sealed partial class MarketplaceStoreView
             sv.Offset = new Vector(Math.Clamp(x, 0, max), sv.Offset.Y);
             e.Handled = true;
         };
+    }
+
+    /// <summary>2026-10-26, владелец: «карточки в Маркетплейсе руками не двигаются, только стрелкой сверху». Ряд плиток и чипы
+    /// листаются перетаскиванием (мышь, палец, перо): плитки — это кнопки, они забирали нажатие у ScrollViewer, поэтому
+    /// встроенное панорамирование не срабатывало. Пока сдвиг меньше порога — обычный клик по плитке; дальше ряд
+    /// забирает указатель, и «клик» по плитке после перетаскивания не происходит.</summary>
+    private static void EnableDragScroll(ScrollViewer sv)
+    {
+        const double threshold = 8;
+        var pressed = false;
+        var dragging = false;
+        var startX = 0.0;
+        var startOffset = 0.0;
+
+        sv.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
+        {
+            var point = e.GetCurrentPoint(sv);
+            if (e.Pointer.Type == PointerType.Mouse && !point.Properties.IsLeftButtonPressed)
+                return;
+            pressed = true;
+            dragging = false;
+            startX = point.Position.X;
+            startOffset = sv.Offset.X;
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+
+        sv.AddHandler(InputElement.PointerMovedEvent, (_, e) =>
+        {
+            if (!pressed)
+                return;
+            var max = sv.Extent.Width - sv.Viewport.Width;
+            if (max <= 0.5)
+                return;
+            var dx = e.GetCurrentPoint(sv).Position.X - startX;
+            if (!dragging)
+            {
+                if (Math.Abs(dx) < threshold)
+                    return;
+                dragging = true;
+                e.Pointer.Capture(sv);
+            }
+            sv.Offset = new Vector(Math.Clamp(startOffset - dx, 0, max), sv.Offset.Y);
+            e.Handled = true;
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+
+        void End(PointerEventArgs e)
+        {
+            if (dragging && ReferenceEquals(e.Pointer.Captured, sv))
+                e.Pointer.Capture(null);
+            pressed = false;
+            dragging = false;
+        }
+        sv.AddHandler(InputElement.PointerReleasedEvent, (_, e) => End(e), RoutingStrategies.Tunnel, handledEventsToo: true);
+        sv.PointerCaptureLost += (_, _) => { pressed = false; dragging = false; };
     }
 
     // ------------------------------------------------------------------ плитка
@@ -668,7 +723,9 @@ public sealed partial class MarketplaceStoreView
             var heading = Block(200, 20, 6);
             heading.HorizontalAlignment = HorizontalAlignment.Left;
             heading.Margin = new Thickness(0, 0, 0, 12);
-            stack.Children.Add(new StackPanel { Children = { heading, new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = strip } } });
+            var stripScroll = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = strip };
+            EnableDragScroll(stripScroll); // 2026-10-26: ленту можно тянуть рукой
+            stack.Children.Add(new StackPanel { Children = { heading, stripScroll } });
         }
         return new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = stack };
     }

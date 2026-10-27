@@ -121,7 +121,7 @@ public static class BarcodeLabelService
         var codeTextHeight = template.BarcodeShowDigits ? Math.Min(rect.Height * 0.22f, 16f) : 0f;
         var labelRect = new RectangleF(0, 0, MmToPx(template.WidthMm), MmToPx(template.HeightMm));
         DrawLinearBlock(g, rect, labelRect, code, template.BarcodeFormat, template.BarcodeMargin,
-            codeTextHeight, Math.Clamp(codeTextHeight * 0.72f, 6f, 14f));
+            codeTextHeight, Math.Clamp(codeTextHeight * 0.72f, 6f, 14f), template.BarcodeModuleDots);
     }
 
     // ---------- Штрих-код: выбор символики и точная отрисовка (2026-09-28) ----------
@@ -238,8 +238,9 @@ public static class BarcodeLabelService
 
     /// <summary>Линейный штрих-код и (если <paramref name="digitsHeight"/> &gt; 0) цифры под ним.
     /// rect/labelRect — в мировых координатах g (точки 203 dpi, при печати масштабируются).</summary>
+    /// <param name="maxModuleDots">2026-10-26: «Толщина штриха» — потолок ширины узкого штриха в точках 203 dpi (0 — без потолка).</param>
     internal static void DrawLinearBlock(Graphics g, RectangleF rect, RectangleF labelRect, string? rawCode,
-        LabelBarcodeFormat format, int quietModules, float digitsHeight, float digitsFontSize)
+        LabelBarcodeFormat format, int quietModules, float digitsHeight, float digitsFontSize, int maxModuleDots = 0)
     {
         var plan = PlanBarcode(rawCode, format);
         if (plan.Content.Length == 0)
@@ -266,6 +267,9 @@ public static class BarcodeLabelService
                 else if (target > m && matrix.Width * target + 2 <= devLabel.Width)
                     m = target;
             }
+            // 2026-10-26: «Толщина штриха» — штрих не толще заданного (в 300/600 dpi — тот же физический размер).
+            if (m > 0 && maxModuleDots > 0)
+                m = Math.Max(1, Math.Min(m, (int)Math.Round(maxModuleDots * Math.Max(scale, 1f))));
             if (m > 0)
             {
                 var widthPx = matrix.Width * m;
@@ -478,7 +482,12 @@ public static class BarcodeLabelService
                 Alignment = StringAlignment.Center,
                 LineAlignment = StringAlignment.Center,
             };
+            // 2026-10-27 (приёмка Opus 26.10, Д-10): крупный шрифт (120 px) рисовался поверх штрихкода и цены и мог сделать штрихкод нечитаемым.
+            // Теперь текст обрезается по прямоугольнику своего блока; в редакторе — жёлтая строка «Текст не помещается в блок» (HasTextOverflow).
+            var clipState = g.Save();
+            g.SetClip(rect, System.Drawing.Drawing2D.CombineMode.Intersect);
             g.DrawString(text, manualFont, Brushes.Black, rect, format);
+            g.Restore(clipState);
             return;
         }
 
@@ -495,6 +504,38 @@ public static class BarcodeLabelService
         g.DrawString(displayText, font, Brushes.Black,
             rect.X + Math.Max(0, (rect.Width - size.Width) / 2f),
             rect.Y + Math.Max(0, (rect.Height - size.Height) / 2f));
+    }
+
+    /// <summary>2026-10-27 (приёмка 26.10, Д-10): есть ли блок, где текст с РУЧНЫМ размером шрифта не помещается в свой прямоугольник (по высоте —
+    /// с переносом по ширине блока — или по ширине одного слова). Для жёлтой строки в редакторе этикетки; рисование не меняет.</summary>
+    public static bool HasTextOverflow(string productName, string? priceText, LabelTemplate template,
+        string? sku = null, string? unit = null, string? storeName = null, string? variantText = null)
+    {
+        using var probe = new Bitmap(1, 1);
+        using var g = Graphics.FromImage(probe);
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+
+        bool Over(LabelElementLayout box, string? text, FontStyle style)
+        {
+            var size = ResolveFontSizePx(box, template);
+            var rect = ToPxRect(box);
+            if (size <= 0 || !box.Enabled || rect.Width < 4 || rect.Height < 4 || string.IsNullOrWhiteSpace(text))
+                return false;
+            using var font = new Font(ResolveFontFamily(box, template), Math.Max((float)size, 1f), style);
+            var measured = g.MeasureString(text, font, (int)Math.Ceiling(rect.Width));
+            return measured.Height > rect.Height + 1f || measured.Width > rect.Width + 1f;
+        }
+
+        var variantElement = template.Variant;
+        if (!string.IsNullOrWhiteSpace(variantText) && variantElement is not { Enabled: true })
+            productName = productName + " — " + variantText!.Trim();
+        var skuText = string.IsNullOrWhiteSpace(template.SkuCustomText) ? sku : template.SkuCustomText;
+        return Over(template.ProductName, productName, FontStyle.Regular)
+               || (!string.IsNullOrWhiteSpace(priceText) && Over(template.Price, FormatPriceText(priceText!, template), FontStyle.Bold))
+               || Over(template.Sku, skuText, FontStyle.Regular)
+               || Over(template.Unit, unit, FontStyle.Regular)
+               || Over(template.StoreName, storeName, FontStyle.Regular)
+               || (!string.IsNullOrWhiteSpace(variantText) && variantElement is { Enabled: true } && Over(variantElement, variantText!.Trim(), FontStyle.Bold));
     }
 
     /// <summary>

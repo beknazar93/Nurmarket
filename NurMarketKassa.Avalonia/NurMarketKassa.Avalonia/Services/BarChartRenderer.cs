@@ -10,6 +10,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using ChartPalette = NurMarketKassa.Core.Application.ChartPalette;
 using NurMarketKassa.Ui.Shared;
 
 namespace NurMarketKassa.AvaloniaHost.Services;
@@ -21,10 +22,13 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// корректно тянутся при изменении размера окна.</summary>
 public static class BarChartRenderer
 {
-    private static readonly string[] Palette =
-        { "#F59E0B", "#3B82F6", "#22C55E", "#A855F7", "#EF4444", "#14B8A6", "#EC4899", "#64748B", "#F97316", "#0EA5E9" };
+    // 2026-10-26, владелец: «в аналитике, сводке используй РАЗНЫЕ ЦВЕТА в диаграммах». Единая палитра — ChartPalette (Core, та же,
+    // что в мобилке); цвет категории — по хэшу названия, а не по порядку (не «прыгает» при сортировке и обновлении).
+    private const string AccentYellow = "#FFB208";
+    private const string SeriesBlue = "#5470E1";
 
-    /// <param name="barBrush">2026-10-19, этап О10: один цвет всех полос (рейтинг товаров — не категории); null — палитра, как было.</param>
+    /// <param name="barBrush">Один цвет всех полос (для ВРЕМЕННОГО ряда есть RenderTimeSeriesBars); null — у каждой полосы свой цвет
+    /// из палитры по названию (2026-10-26: рейтинги товаров и категорий снова разноцветные по просьбе владельца; с 2026-10-19 были одним цветом).</param>
     public static void Render(StackPanel container, IReadOnlyList<(string Label, double Value, string ValueText)> items, IBrush? barBrush = null)
     {
         container.Children.Clear();
@@ -42,11 +46,12 @@ public static class BarChartRenderer
         var max = items.Max(i => i.Value);
         if (max <= 0) max = 1;
 
+        var colors = ChartPalette.Assign(items.Select(i => (string?)i.Label).ToList());
         for (var i = 0; i < items.Count; i++)
         {
             var (label, value, valueText) = items[i];
             var fraction = Math.Clamp(value / max, 0.03, 1.0);
-            var color = barBrush ?? Brush.Parse(Palette[i % Palette.Length]);
+            var color = barBrush ?? Brush.Parse(colors[i]);
 
             // 2026-10-19, этап О10: подпись 150 → 220 — названия товаров («Сыр «Российский» весовой») целиком.
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("220,*,Auto") };
@@ -90,9 +95,137 @@ public static class BarChartRenderer
         }
     }
 
+    /// <summary>2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах». ВРЕМЕННОЙ ряд горизонтальными полосами (выручка по месяцам): полосы
+    /// одного оттенка (цвет текста темы), лучший период — акцентом (жёлтый), самый слабый — приглушённо, текущий — контуром;
+    /// под диаграммой легенда. Выделения по правилам <see cref="ChartPalette.SeriesMarks"/>.</summary>
+    public static void RenderTimeSeriesBars(StackPanel container, IReadOnlyList<(string Label, double Value, string ValueText)> items, int currentIndex = -1, string? currentWord = null)
+    {
+        container.Children.Clear();
+        if (items.Count == 0)
+        {
+            container.Children.Add(new TextBlock { Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"), FontSize = 12, Foreground = Brushes.Gray });
+            return;
+        }
+
+        var max = items.Max(i => i.Value);
+        if (max <= 0) max = 1;
+        var (best, worst) = ChartPalette.SeriesMarks(items.Select(i => i.Value).ToList());
+        var accent = Brush.Parse(AccentYellow);
+
+        for (var i = 0; i < items.Count; i++)
+        {
+            var (label, value, valueText) = items[i];
+            var fraction = Math.Clamp(value / max, 0.03, 1.0);
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("220,*,Auto") };
+            var labelText = new TextBlock
+            {
+                Text = label,
+                FontSize = 12,
+                FontWeight = i == currentIndex ? FontWeight.Bold : FontWeight.Normal,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 0, 10, 0),
+            };
+            Grid.SetColumn(labelText, 0);
+            var track = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions(
+                    $"{fraction.ToString("0.###", CultureInfo.InvariantCulture)}*,{(1 - fraction).ToString("0.###", CultureInfo.InvariantCulture)}*"),
+                Height = 20,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            var fill = new Border { CornerRadius = new CornerRadius(5) };
+            if (best.Contains(i))
+            {
+                fill.Background = accent;
+                fill.BorderBrush = Brush.Parse("#8A6200"); // тёмно-жёлтый контур: жёлтый на белом — 1,8:1
+                fill.BorderThickness = new Thickness(1);
+            }
+            else
+            {
+                fill.Bind(Border.BackgroundProperty, container.GetResourceObservable("BrushText"));
+                if (worst.Contains(i)) fill.Opacity = 0.4;
+            }
+            if (i == currentIndex)
+            {
+                // текущий период — контур цвета текста темы
+                fill.BorderThickness = new Thickness(2);
+                fill.Bind(Border.BorderBrushProperty, container.GetResourceObservable("BrushText"));
+            }
+            Grid.SetColumn(fill, 0);
+            track.Children.Add(fill);
+            Grid.SetColumn(track, 1);
+            var valueLabel = new TextBlock { Text = valueText, FontSize = 12, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+            Grid.SetColumn(valueLabel, 2);
+            row.Children.Add(labelText);
+            row.Children.Add(track);
+            row.Children.Add(valueLabel);
+            container.Children.Add(row);
+        }
+
+        var legend = SeriesLegend(container, best.Count > 0, worst.Count > 0, currentIndex >= 0,
+            Tr.T("Лучший период", "Эң мыкты мезгил", "Best period", "En iyi dönem", "Eng yaxshi davr"),
+            Tr.T("Самый слабый", "Эң начар", "Weakest", "En zayıf", "Eng sust"),
+            currentWord ?? Tr.T("Текущий", "Азыркы", "Current", "Güncel", "Joriy"));
+        if (legend != null) container.Children.Add(legend);
+    }
+
+    /// <summary>2026-10-26: оформление столбца ВРЕМЕННОГО ряда (выручка по дням/часам): обычный — цвет текста темы, лучший — акцент
+    /// (жёлтый с тёмно-жёлтым контуром: жёлтый на белом 1,8:1), самый слабый — приглушённо, текущий (сегодня) — кольцо цвета текста
+    /// вокруг столбца (контур на тёмном столбце не виден). Возвращает то, что нужно положить в панель (столбец или его кольцо).</summary>
+    public static Control StyleSeriesBar(Border bar, Control themeSource, bool best, bool worst, bool current)
+    {
+        if (best)
+        {
+            bar.Background = Brush.Parse(AccentYellow);
+            bar.BorderBrush = Brush.Parse("#8A6200");
+            bar.BorderThickness = new Thickness(1);
+        }
+        else
+        {
+            bar.Bind(Border.BackgroundProperty, themeSource.GetResourceObservable("BrushText"));
+            if (worst) bar.Opacity = 0.4;
+        }
+        if (!current) return bar;
+        var ring = new Border
+        {
+            Padding = new Thickness(2),
+            BorderThickness = new Thickness(1.5),
+            CornerRadius = new CornerRadius(bar.CornerRadius.TopLeft + 2),
+            HorizontalAlignment = bar.HorizontalAlignment,
+            Child = bar,
+        };
+        ring.Bind(Border.BorderBrushProperty, themeSource.GetResourceObservable("BrushText"));
+        return ring;
+    }
+
+    /// <summary>Легенда временного ряда (лучший / самый слабый / текущий); null — выделений нет и легенда не нужна.</summary>
+    public static WrapPanel? SeriesLegend(Control themeSource, bool hasBest, bool hasWorst, bool hasCurrent, string bestWord, string worstWord, string currentWord)
+    {
+        var legend = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
+        void Chip(IBrush fill, string text, IBrush? border = null, double opacity = 1)
+        {
+            var chip = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 16, 0), Spacing = 6 };
+            chip.Children.Add(new Border
+            {
+                Width = 12, Height = 12, CornerRadius = new CornerRadius(3), Background = fill, Opacity = opacity,
+                BorderBrush = border, BorderThickness = border == null ? new Thickness(0) : new Thickness(1.5), VerticalAlignment = VerticalAlignment.Center,
+            });
+            var t = new TextBlock { Text = text, FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+            t.Bind(TextBlock.ForegroundProperty, themeSource.GetResourceObservable("BrushTextSoft"));
+            chip.Children.Add(t);
+            legend.Children.Add(chip);
+        }
+        if (hasBest) Chip(Brush.Parse(AccentYellow), bestWord, Brush.Parse("#8A6200"));
+        if (hasWorst) Chip(Brush.Parse("#64748B"), worstWord, null, 0.5);
+        if (hasCurrent) Chip(Brushes.Transparent, currentWord, Brushes.Gray);
+        return legend.Children.Count > 0 ? legend : null;
+    }
+
     /// <summary>Круговая диаграмма (пироги/donut без выреза) — доли строятся через
     /// Path+ArcSegment, легенда — отдельным списком справа с процентами.</summary>
-    public static void RenderPie(StackPanel container, IReadOnlyList<(string Label, double Value, string ValueText)> items, double diameter = 170)
+    public static void RenderPie(StackPanel container, IReadOnlyList<(string Label, double Value, string ValueText)> items, double diameter = 170,
+        IReadOnlyDictionary<string, string>? colorKeys = null)
     {
         container.Children.Clear();
         var positive = items.Where(i => i.Value > 0).ToList();
@@ -114,11 +247,13 @@ public static class BarChartRenderer
         var legend = new StackPanel { Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
 
         var startAngle = -90.0;
+        // colorKeys: подпись → ключ цвета (способы оплаты: цвет не зависит от языка подписи и тот же, что в «Сводке»).
+        var colors = ChartPalette.Assign(positive.Select(i => colorKeys != null && colorKeys.TryGetValue(i.Label, out var k) ? k : i.Label).ToList<string?>());
         for (var i = 0; i < positive.Count; i++)
         {
             var (label, value, valueText) = positive[i];
             var sweep = value / total * 360.0;
-            var color = Brush.Parse(Palette[i % Palette.Length]);
+            var color = Brush.Parse(colors[i]);
 
             // Единственная доля (100%) — полный круг вместо вырожденной дуги.
             if (positive.Count == 1)
@@ -250,24 +385,41 @@ public static class BarChartRenderer
             canvas.Children.Add(new Polygon
             {
                 Points = areaPoints,
-                Fill = new SolidColorBrush(Color.Parse("#3B82F6"), 0.22),
+                Fill = new SolidColorBrush(Color.Parse(SeriesBlue), 0.22),
             });
         }
 
         canvas.Children.Add(new Polyline
         {
             Points = linePoints,
-            Stroke = Brush.Parse("#3B82F6"),
+            Stroke = Brush.Parse(SeriesBlue),
             StrokeThickness = 2.5,
             StrokeJoin = PenLineJoin.Round,
         });
 
+        // 2026-10-26: лучший период — акцентом (жёлтая точка покрупнее), самый слабый — пустой точкой; остальные — как были.
+        var (bestPoints, worstPoints) = ChartPalette.SeriesMarks(points.Select(pt => pt.Value).ToList());
         for (var i = 0; i < points.Count; i++)
         {
             var p = PointAt(i);
-            var dot = new Ellipse { Width = 8, Height = 8, Fill = Brush.Parse("#3B82F6") };
-            Canvas.SetLeft(dot, p.X - 4);
-            Canvas.SetTop(dot, p.Y - 4);
+            var isBest = bestPoints.Contains(i);
+            var size = isBest ? 12 : 8;
+            var dot = new Ellipse { Width = size, Height = size, Fill = Brush.Parse(isBest ? AccentYellow : SeriesBlue) };
+            if (isBest)
+            {
+                dot.Stroke = Brush.Parse("#191919");
+                dot.StrokeThickness = 1.5;
+                ToolTip.SetTip(dot, Tr.T("Лучший день", "Эң мыкты күн", "Best day", "En iyi gün", "Eng yaxshi kun"));
+            }
+            else if (worstPoints.Contains(i))
+            {
+                dot.Fill = Brushes.Transparent;
+                dot.Stroke = Brush.Parse(SeriesBlue);
+                dot.StrokeThickness = 2;
+                ToolTip.SetTip(dot, Tr.T("Самый слабый день", "Эң начар күн", "Weakest day", "En zayıf gün", "Eng sust kun"));
+            }
+            Canvas.SetLeft(dot, p.X - size / 2.0);
+            Canvas.SetTop(dot, p.Y - size / 2.0);
             canvas.Children.Add(dot);
 
             var label = new TextBlock
@@ -772,7 +924,8 @@ public static class BarChartRenderer
                     Text = share.ToString("0.#", CultureInfo.CurrentCulture) + " %", // 2026-10-18, доводка О4: запятая по культуре
                     FontSize = 13,
                     FontWeight = FontWeight.Bold,
-                    Foreground = Brushes.White,
+                    // 2026-10-26: чёрный или белый — что контрастнее на цвете группы (белый на жёлтом «B» был 2:1)
+                    Foreground = ChartPalette.OnColorIsDark(AbcColor(group)) ? Brushes.Black : Brushes.White,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                 },
@@ -995,8 +1148,8 @@ public static class BarChartRenderer
         }
 
         var legendRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(0, 0, 0, 8) };
-        legendRow.Children.Add(BuildLegendChip("#F59E0B", barLegend));
-        legendRow.Children.Add(BuildLegendChip("#3B82F6", lineLegend));
+        legendRow.Children.Add(BuildLegendChip(ChartPalette.Hex[0], barLegend));
+        legendRow.Children.Add(BuildLegendChip(SeriesBlue, lineLegend));
         container.Children.Add(legendRow);
 
         const double height = 170;
@@ -1022,7 +1175,7 @@ public static class BarChartRenderer
             {
                 Width = barWidth,
                 Height = barHeight,
-                Background = Brush.Parse("#F59E0B"),
+                Background = Brush.Parse(ChartPalette.Hex[0]),
                 CornerRadius = new CornerRadius(4, 4, 0, 0),
             };
             Canvas.SetLeft(bar, XAt(i) - barWidth / 2);
@@ -1052,14 +1205,14 @@ public static class BarChartRenderer
         canvas.Children.Add(new Polyline
         {
             Points = linePoints,
-            Stroke = Brush.Parse("#3B82F6"),
+            Stroke = Brush.Parse(SeriesBlue),
             StrokeThickness = 2.5,
             StrokeJoin = PenLineJoin.Round,
         });
 
         foreach (var p in linePoints)
         {
-            var dot = new Ellipse { Width = 8, Height = 8, Fill = Brush.Parse("#3B82F6") };
+            var dot = new Ellipse { Width = 8, Height = 8, Fill = Brush.Parse(SeriesBlue) };
             Canvas.SetLeft(dot, p.X - 4);
             Canvas.SetTop(dot, p.Y - 4);
             canvas.Children.Add(dot);

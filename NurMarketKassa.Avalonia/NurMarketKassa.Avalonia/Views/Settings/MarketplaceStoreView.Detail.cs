@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
@@ -864,6 +864,7 @@ public sealed partial class MarketplaceStoreView
         foreach (var item in items)
             strip.Children.Add(BuildTile(item));
         var scroll = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = strip };
+        EnableDragScroll(scroll); // 2026-10-26: ленту можно тянуть рукой
         // Колесо мыши листает ленту по горизонтали (полосы прокрутки нет).
         scroll.PointerWheelChanged += (_, e) =>
         {

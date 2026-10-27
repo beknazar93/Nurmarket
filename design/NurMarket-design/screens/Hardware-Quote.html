@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Хозмаг — смета / КП на объект (ХМ9)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Hardware-shared.css">
+<style>
+  .doc{ flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:var(--gap); padding:var(--pad); }
+  .s1024 .doc{ grid-template-columns:1fr; }
+  .s1024 .doc .paper-wrap{ display:none; }
+  .hdr{ display:grid; grid-template-columns:1.2fr 1.4fr .7fr; gap:10px; }
+  .s1024 .hdr{ grid-template-columns:1fr 1fr; }
+  .paper-wrap{ display:flex; align-items:flex-start; justify-content:center; background:var(--panel-soft); border-radius:var(--r-card); border:1px dashed var(--border-strong); padding:16px; overflow:auto; min-height:0; }
+  .paper{ width:420px; min-height:560px; background:#fff; color:#191919; box-shadow:0 6px 24px rgba(0,0,0,.25); font-size:8.5px; display:flex; flex-direction:column; }
+  .paper .ph{ background:#191919; color:#fff; padding:12px 16px; display:flex; align-items:center; gap:10px; }
+  .paper .ph b{ font-size:12px; } .paper .ph small{ font-size:7.5px; color:#CCC; display:block; }
+  .paper .sun{ width:22px; height:22px; border-radius:50%; background:#FFB208; position:relative; }
+  .paper .sun::after{ content:""; position:absolute; left:-4px; right:-4px; bottom:-3px; height:9px; background:#fff; clip-path:polygon(0 100%,50% 0,100% 100%); }
+  .paper .pb{ padding:12px 16px; display:flex; flex-direction:column; gap:8px; flex:1; }
+  .paper h4{ margin:0; font-size:13px; }
+  .paper table{ width:100%; border-collapse:collapse; font-size:7.5px; }
+  .paper th{ background:#FFB208; color:#191919; text-align:left; padding:4px 5px; font-weight:800; }
+  .paper td{ padding:4px 5px; border-bottom:1px solid #DDD; }
+  .paper td.r, .paper th.r{ text-align:right; }
+  .paper .tot{ background:#191919; color:#fff; border:0; border-radius:0; padding:8px 12px; margin-top:auto; }
+  .paper .tot b{ color:#FFB208; font-size:14px; }
+  .paper .pat{ height:6px; background:repeating-linear-gradient(90deg,#FFB208 0 6px,transparent 6px 12px); opacity:.6; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame" data-theme="light"></div>
+  <div class="note">
+    <code>ClientDocEditorWindow</code> (Клиенты → КП / Счёт / Накладная) с новым заголовком «Смета» (тот же вид <code>Quote</code>, другая печать) и полем «Объект» (ХМ9). Строки — из чека клиента с дробным количеством и единицами, услуги «Доставка» и «Подъём» строкой (уже есть «свободная строка»).
+    Для прораба — «Цена прораба» (опт) и подпись в бланке. Справа — предпросмотр бланка «Фирменный NUR CRM» (чёрная шапка со знаком, жёлтая шапка таблицы, чёрный итог). <code>Отправить</code> — WhatsApp / Telegram / PDF.
+    <code>В чек</code> — «Продать»: строки уходят в корзину без округления (мобилка МХ2). На 1024×600 предпросмотр скрыт — кнопка «Предпросмотр» открывает его отдельно.
+  </div>
+</div>
+<script src="Hardware-shared.js"></script>
+<script>
+(function(){
+  const I = HW.icon, t = HW.t, btn = HW.btn, inp = HW.inp, chk = HW.chk;
+  const frame = document.getElementById('frame');
+  const ROWS = [['Кабель ВВГнг 3×2,5','м','2,5','79','197,50',''],['Плитка 30×60 «Атлас» серый','уп','10','690','6 900,00','14,40 м² · 480 сом/м²'],['Клей плиточный 25 кг','мешок','3','400','1 200,00','66 кг по норме'],['Затирка 2 кг','уп','3','240','720,00',''],['Саморез 3,5×25','шт','400','0,80','320,00','2 коробки ×200'],['Цемент М400 50 кг','мешок','10','480','4 800,00','опт от 10']];
+  const SVC = [['Доставка по городу','услуга','1','500','500,00'],['Подъём на 4 этаж без лифта','услуга','4','100','400,00']];
+  const total = '15 037,50';
+  const paper = () => '<div class="paper"><div class="ph"><span class="sun"></span><div><b>Хозмаг «Мастер»</b><small>Бишкек, ул. Киевская 100 · +996 312 00-00-00 · ИНН 0123456789</small></div><div style="margin-left:auto;text-align:right"><b>СМЕТА № 27</b><small>от 26.10.2026 · действует 7 дней</small></div></div>'+
+    '<div class="pat"></div><div class="pb"><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px"><span><b>Заказчик:</b> Азамат Бекназаров (прораб) · +996 555 12-34-56</span><span><b>Объект:</b> ул. Ахунбаева, 12 · 4 этаж</span><span><b>Цены:</b> прораб (опт)</span><span><b>Оплата:</b> в долг до 09.11.2026</span></div>'+
+    '<table><thead><tr><th>№</th><th>Наименование</th><th class="r">Кол-во</th><th>Ед.</th><th class="r">Цена</th><th class="r">Сумма</th></tr></thead><tbody>'+
+    ROWS.concat(SVC).map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+r[0]+(r[5]?'<br><span style="color:#666">'+r[5]+'</span>':'')+'</td><td class="r">'+r[2]+'</td><td>'+r[1]+'</td><td class="r">'+r[3]+'</td><td class="r">'+r[4]+'</td></tr>').join('')+'</tbody></table>'+
+    '<div style="font-size:7.5px;color:#666">Количество упаковок рассчитано с запасом 10 %. Остатки материалов не принимаются обратно после вскрытия упаковки.</div>'+
+    '<div class="tot"><span>Итого по смете</span><b style="float:right">'+total+' сом</b></div></div></div>';
+
+  function editor(st){
+    frame.innerHTML = '<div class="kassa"><div class="top">'+I('file-document-outline',20)+'<b>Документ клиенту</b><span class="tag">Клиенты → Азамат Бекназаров</span><span class="sp"></span><button class="sq ghost">'+I('close',20)+'</button></div>'+
+      '<div class="doc"><div class="col" style="gap:10px;min-height:0">'+
+        '<div class="row"><div class="seg" style="flex:1">'+[['КП','doc.quote'],['Смета','hw.doc.estimate'],['Счёт','doc.invoice'],['Накладная','doc.waybill']].map(x=>'<button class="seg-btn'+(x[0]==='Смета'?' on':'')+'" data-key="'+x[1]+'"><span class="kyok">'+t(x[0])+'</span></button>').join('')+'</div><span class="chip acc lg">'+I('percent',14)+t('Цена прораба','hw.proPrice')+'</span></div>'+
+        '<div class="hdr">'+HW.sel('Клиент','Азамат Бекназаров · прораб',{key:'doc.client'})+inp('Объект','ул. Ахунбаева, 12 · 4 этаж',{key:'hw.object',cls:'focus'})+inp('Действует','7',{key:'doc.validDays',unit:'дней'})+'</div>'+
+        '<div class="tbl" style="flex:1"><table><thead><tr><th>Наименование</th><th class="r">Кол-во</th><th>Ед.</th><th class="r">Цена</th><th class="r">Сумма</th><th></th></tr></thead><tbody>'+
+          ROWS.map(r=>'<tr><td><b>'+r[0]+'</b>'+(r[5]?'<br><span class="muted" style="font-size:12px">'+r[5]+'</span>':'')+'</td><td class="r"><div class="inp num" style="width:84px;margin-left:auto"><span class="v">'+r[2]+'</span></div></td><td class="soft">'+r[1]+'</td><td class="r num">'+r[3]+'</td><td class="r num"><b>'+r[4]+'</b></td><td><button class="sq ghost">'+I('close',16)+'</button></td></tr>').join('')+
+          SVC.map(r=>'<tr class="svc"><td>'+I(r[0].startsWith('Доставка')?'truck-outline':'stairs',16)+' '+r[0]+'</td><td class="r num">'+r[2]+'</td><td class="soft">'+r[1]+'</td><td class="r num">'+r[3]+'</td><td class="r num"><b>'+r[4]+'</b></td><td><button class="sq ghost">'+I('close',16)+'</button></td></tr>').join('')+
+          '</tbody></table></div>'+
+        '<div class="row" style="flex-wrap:wrap;gap:8px">'+btn('+ Из чека клиента','secondary sm','doc.fromReceipt')+btn('+ Товар','secondary sm','doc.addItem')+btn('+ Доставка / подъём / резка','secondary sm','hw.doc.addService')+'<span class="sp"></span><div class="tot" style="padding:6px 14px"><span class="l">'+t('Итого')+' · 8 строк</span><b class="num">'+total+' сом</b></div></div>'+
+        '<div class="row" style="flex-wrap:wrap;gap:8px">'+chk('Запас 10 % указан в примечании', true, {key:'hw.doc.reserveNote'})+'<span class="sp"></span>'+(HW.isTouch(frame)?btn('Предпросмотр','secondary','doc.preview'):'')+btn('Отправить','secondary','doc.send')+btn('Печать','secondary','common.print')+btn('В чек','primary','doc.sell')+'</div>'+
+      '</div><div class="paper-wrap">'+paper()+'</div></div></div>'+
+      (st==='send' ? HW.modal({ title:'Отправить смету № 27', key:'doc.sendTitle', icon:'send-outline', cls:'md', sub:'Азамат Бекназаров · +996 555 12-34-56',
+        body:'<div class="pick" style="display:flex;flex-direction:column;gap:8px">'+[['WhatsApp','PDF + текст с итогом · откроется чат','cellphone-message'],['Telegram','через бота магазина — клиент уже подписан','send-outline'],['Сохранить PDF','Смета_27_Ахунбаева-12.pdf','file-document-outline']].map((x,i)=>'<button class="listrow" style="cursor:pointer'+(i===0?';border-color:var(--text);background:var(--accent-soft)':'')+'">'+I(x[2]||'send-outline',22)+'<div class="m"><b>'+x[0]+'</b><span>'+x[1]+'</span></div>'+I('chevron-right',18)+'</button>').join('')+'</div>'+
+          '<label class="lbl">'+t('Текст сообщения','doc.sendText')+'<div class="inp" style="height:auto;min-height:64px;align-items:flex-start;padding:8px 10px;line-height:1.35;font-size:13px">Азамат, смета на объект ул. Ахунбаева, 12 — '+total+' сом (цены прораба, действует 7 дней). Доставка и подъём включены.</div></label>',
+        foot:btn('Отмена','secondary','common.cancel')+'<span class="sp"></span>'+btn('Отправить в WhatsApp','primary','doc.sendWa') }) : '')+
+      (st==='sold' ? '<div class="toast">'+I('check-circle-outline',20)+'<span data-key="hw.doc.soldToast">Смета № 27 → чек № 1048: 8 строк, количество без округления</span></div>' : '');
+  }
+  HW.toolbar(frame, { title:'Hardware-Quote — смета на объект', onState:editor, states:[ { id:'edit', label:'Редактор + бланк' }, { id:'send', label:'Отправить' }, { id:'sold', label:'В чек' } ] });
+})();
+</script>
+</body></html>

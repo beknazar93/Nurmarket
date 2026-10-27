@@ -255,7 +255,7 @@ public static class QuickCheckoutBody
                     continue;
                 var qty = ReadMoney(line["qty"]);
                 var price = ReadMoney(line["price"]);
-                subtotal = RoundMoney(subtotal + RoundMoney(qty * price));
+                subtotal = RoundMoney(subtotal + QuantityRules.Gross(qty, price)); // 2026-10-26 (ХМ2): сумма строки как на сервере
                 lineDiscounts = RoundMoney(lineDiscounts + ReadMoney(line["discount"]));
             }
         }
@@ -281,7 +281,7 @@ public static class QuickCheckoutBody
     private static string QuantityText(JsonElement it, double qty) =>
         CartDisplayHelper.LineMustWeigh(it)
             ? qty.ToString("0.###", CultureInfo.InvariantCulture)
-            : Math.Round(qty, 0).ToString(CultureInfo.InvariantCulture);
+            : QuantityRules.PieceText(it, qty); // 2026-10-26 (ХМ2): дробные м/м² в «Хозтоварах», иначе прежнее Math.Round(qty, 0)
 
     /// <summary>2026-09-29: сумма двух чисел тела запроса («2» + «1» → «3», «1.50» + «0.50» → «2.00»)
     /// для строк одного товара, объединённых в одну позицию. Количество — без хвостовых нулей

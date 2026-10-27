@@ -53,7 +53,7 @@ public static class DeferredCartServerSync
                 // Без TrimEnd — см. StagingCartService: у целого количества формат не печатает
                 // точку, и TrimEnd('0') превращал 10 в 1.
                 ? qty.ToString("0.###", CultureInfo.InvariantCulture)
-                : Math.Round(qty, 0).ToString(CultureInfo.InvariantCulture);
+                : QuantityRules.PieceText(it, qty); // 2026-10-26 (ХМ2): дробные м/м² в «Хозтоварах», иначе прежнее Math.Round(qty, 0)
 
             await api.PosAddItemAsync(serverCartId, productId, qtyStr, ct: cancellationToken).ConfigureAwait(false);
         }

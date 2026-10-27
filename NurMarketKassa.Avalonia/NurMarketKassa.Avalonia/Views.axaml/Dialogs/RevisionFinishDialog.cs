@@ -255,8 +255,8 @@ internal sealed class RevisionFinishDialog : Window
                 "Some documents are already created on the server: press “Apply” to finish without duplicates.", "Bazı tutanaklar sunucuda oluşturuldu: «Uygula»ya basın — tekrar olmadan tamamlanır.", "Aktlarning bir qismi serverda yaratilgan: «Qo'llash»ni bosing — takrorlarsiz yakunlanadi."), 12.5, bold: true));
 
         _sold.Text = _s.SalesCorrection && _preview.SoldDuringCount > 0
-            ? T($"Продано во время ревизии: {_preview.SoldDuringCount} товаров, поправка учтена.", $"Ревизия учурунда сатылган: {_preview.SoldDuringCount} товар, оңдоо эске алынды.",
-                $"Sold during the stocktake: {_preview.SoldDuringCount} products, adjustment applied.", $"Sayım sırasında satılan: {_preview.SoldDuringCount} ürün, düzeltme uygulandı.", $"Inventarizatsiya vaqtida sotilgan: {_preview.SoldDuringCount} mahsulot, tuzatish hisobga olindi.")
+            ? T($"Продано во время ревизии: {_preview.SoldDuringCount} {Tr.Plural(_preview.SoldDuringCount, "товар", "товара", "товаров")}, поправка учтена.", $"Ревизия учурунда сатылган: {_preview.SoldDuringCount} товар, оңдоо эске алынды.",
+                $"Sold during the stocktake: {_preview.SoldDuringCount} {Tr.PluralEn(_preview.SoldDuringCount, "product", "products")}, adjustment applied.", $"Sayım sırasında satılan: {_preview.SoldDuringCount} ürün, düzeltme uygulandı.", $"Inventarizatsiya vaqtida sotilgan: {_preview.SoldDuringCount} mahsulot, tuzatish hisobga olindi.")
             : "";
         _sold.IsVisible = _sold.Text.Length > 0;
         if (_preview.Warnings.Count > 0)

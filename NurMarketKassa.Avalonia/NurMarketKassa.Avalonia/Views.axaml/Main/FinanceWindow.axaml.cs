@@ -1,5 +1,6 @@
 ﻿using NurMarketKassa.Services;
 using NurMarketKassa.Models;
+using ChartPalette = NurMarketKassa.Core.Application.ChartPalette;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs; using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Analytics;
@@ -1013,11 +1014,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 })
                 .ToList();
 
-            // 2026-10-19, этап О10 (аудит: «радужные полосы — каждый товар свой цвет без смысла»): полосы одним цветом текста темы.
-            var barBrush = this.FindResource("BrushText") as IBrush;
+            // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — полосы товаров снова разноцветные (было одним цветом с 2026-10-19, О10):
+            // цвет товара — по хэшу названия (ChartPalette), не по порядку, тот же на всех экранах и в мобилке.
             BarChartRenderer.Render(PopularProductsChart, TopItems
                 .Select(t => (t.ProductName, (double)t.Revenue, $"{t.Revenue:N0} {Som}"))
-                .ToList(), barBrush);
+                .ToList());
             BarChartRenderer.RenderPie(PopularProductsPie, TopItems
                 .Take(10)
                 .Select(t => (t.ProductName, (double)t.Revenue, $"{t.Revenue:N0} {Som}"))
@@ -1025,7 +1026,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             BarChartRenderer.Render(UnpopularProductsChart, unpopular
                 .Take(10)
                 .Select(p => (p.Title, p.Quantity, $"{p.Quantity:N0} {Pcs}"))
-                .ToList(), barBrush);
+                .ToList());
 
             RefreshAllProductsSection();
         }
@@ -2607,11 +2608,6 @@ namespace NurMarketKassa.AvaloniaHost.Views
             DailySummaryText.Text = sb.ToString();
         }
 
-        // Тот же порядок цветов, что у круговой диаграммы (BarChartRenderer.Palette): раньше в полосе
-        // «Долг» был зелёным, а в круге рядом — синим (2026-09-25).
-        private static readonly string[] PaymentPalette =
-            { "#F59E0B", "#3B82F6", "#22C55E", "#A855F7", "#EF4444", "#14B8A6", "#EC4899", "#64748B" };
-
         private void UpdateCharts(List<SaleItem> sales)
         {
             // 2026-09-29, стресс-тест: список обрезан (см. _salesListTruncated) — оплаты и выручка по
@@ -2665,6 +2661,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private void UpdatePaymentSplitPie(List<SaleItem> sales)
         {
+            var colorKeys = sales
+                .GroupBy(s => NormalizePaymentMethodLabel(s.PaymentMethod))
+                .ToDictionary(g => g.Key, g => ChartPalette.PaymentKey(g.First().PaymentMethod));
             var byMethod = sales
                 .GroupBy(s => NormalizePaymentMethodLabel(s.PaymentMethod))
                 .Select(g => (Label: g.Key, Value: (double)g.Sum(s => s.TotalAmount), ValueText: $"{AmtText(g.Sum(s => s.TotalAmount))} {Som}"))
@@ -2672,7 +2671,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .OrderByDescending(x => x.Value)
                 .ThenBy(x => x.Label, StringComparer.Ordinal)
                 .ToList();
-            BarChartRenderer.RenderPie(PaymentSplitPie, byMethod);
+            BarChartRenderer.RenderPie(PaymentSplitPie, byMethod, colorKeys: colorKeys);
         }
 
         /// <summary>Линейная (тренд), с областями (накопительно) и комбинированная (выручка +
@@ -2769,7 +2768,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             decimal total = sales.Sum(s => s.TotalAmount);
             var byMethod = sales
                 .GroupBy(s => NormalizePaymentMethodLabel(s.PaymentMethod))
-                .Select(g => new { Label = g.Key, Total = g.Sum(s => s.TotalAmount) })
+                .Select(g => new { Label = g.Key, Total = g.Sum(s => s.TotalAmount), Key = ChartPalette.PaymentKey(g.First().PaymentMethod) })
                 .Where(x => x.Total > 0)
                 .OrderByDescending(x => x.Total)
                 .ThenBy(x => x.Label, StringComparer.Ordinal)
@@ -2788,10 +2787,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 return;
             }
 
+            // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — цвет способа оплаты по ключу (ChartPalette), тот же в круговой, «Сводке» и мобилке.
+            var methodColors = ChartPalette.Assign(byMethod.Select(x => (string?)x.Key).ToList());
             for (var i = 0; i < byMethod.Count; i++)
             {
                 var entry = byMethod[i];
-                var color = PaymentPalette[i % PaymentPalette.Length];
+                var color = methodColors[i];
                 var isFirst = i == 0;
                 var isLast = i == byMethod.Count - 1;
 
@@ -2840,6 +2841,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             const double barWidth = 22;
 
             HourlyRevenueBars.Children.Clear();
+            HourlyRevenueLegend.Children.Clear();
 
             if (sales.Count == 0)
             {
@@ -2860,6 +2862,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var maxVal = byHour.Count > 0 ? byHour.Values.Max() : 0m;
             if (maxVal <= 0) maxVal = 1;
 
+            // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах»: временной ряд — столбцы одного оттенка, лучший час — акцентом, слабый — приглушённо.
+            var (bestHours, worstHours) = ChartPalette.SeriesMarks(Enumerable.Range(0, 24).Select(h => byHour.TryGetValue(h, out var hv) ? (double)hv : 0.0).ToList());
             for (var hour = 0; hour < 24; hour++)
             {
                 var value = byHour.TryGetValue(hour, out var v) ? v : 0m;
@@ -2871,7 +2875,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     VerticalAlignment = VerticalAlignment.Bottom,
                     Spacing = 4,
                 };
-                column.Children.Add(new Border
+                var hourBar = new Border
                 {
                     Width = barWidth,
                     Height = barHeight,
@@ -2880,7 +2884,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     CornerRadius = new CornerRadius(3, 3, 0, 0),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     [ToolTip.TipProperty] = $"{hour:00}:00 — {value:N2} {Som}",
-                });
+                };
+                column.Children.Add(value > 0 ? BarChartRenderer.StyleSeriesBar(hourBar, this, bestHours.Contains(hour), worstHours.Contains(hour), false) : hourBar);
                 column.Children.Add(new TextBlock
                 {
                     Text = $"{hour:00}",
@@ -2890,6 +2895,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 });
                 HourlyRevenueBars.Children.Add(column);
             }
+
+            if (BarChartRenderer.SeriesLegend(this, bestHours.Count > 0, worstHours.Count > 0, false,
+                    Tr.T("Лучший час", "Эң мыкты саат", "Best hour", "En iyi saat", "Eng yaxshi soat"),
+                    Tr.T("Самый слабый час", "Эң начар саат", "Weakest hour", "En zayıf saat", "Eng sust soat"), "") is { } hourLegend)
+                HourlyRevenueLegend.Children.Add(hourLegend);
         }
 
         private void UpdateDailyRevenueChart(List<SaleItem> sales)
@@ -2898,6 +2908,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             const double barWidth = 28;
 
             DailyRevenueBars.Children.Clear();
+            DailyRevenueLegend.Children.Clear();
 
             var byDay = sales
                 .GroupBy(s => s.CreatedAt.Date)
@@ -2921,8 +2932,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var maxVal = byDay.Max(x => x.Total);
             if (maxVal <= 0) maxVal = 1;
 
+            // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах»: выручка по дням — временной ряд: столбцы одного оттенка, лучший день — акцентом
+            // (жёлтый), самый слабый — приглушённо, сегодня — кольцом; внизу легенда.
+            var (bestDays, worstDays) = ChartPalette.SeriesMarks(byDay.Select(x => (double)x.Total).ToList());
+            var hasToday = false;
             foreach (var day in byDay)
             {
+                var dayIndex = byDay.IndexOf(day);
+                var isToday = day.Date == DateTime.Today;
+                hasToday |= isToday;
                 var barHeight = Math.Max(3, (double)(day.Total / maxVal) * maxBarHeight);
 
                 var column = new StackPanel
@@ -2938,7 +2956,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     Foreground = Brushes.Gray,
                     HorizontalAlignment = HorizontalAlignment.Center,
                 });
-                column.Children.Add(new Border
+                var dayBar = new Border
                 {
                     Width = barWidth,
                     Height = barHeight,
@@ -2946,7 +2964,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     CornerRadius = new CornerRadius(4, 4, 0, 0),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     [ToolTip.TipProperty] = $"{day.Date:dd.MM.yyyy}: {day.Total:N2} {Som}",
-                });
+                };
+                column.Children.Add(BarChartRenderer.StyleSeriesBar(dayBar, this, bestDays.Contains(dayIndex), worstDays.Contains(dayIndex), isToday));
                 column.Children.Add(new TextBlock
                 {
                     Text = day.Date.ToString("dd.MM"),
@@ -2956,6 +2975,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 });
                 DailyRevenueBars.Children.Add(column);
             }
+
+            if (BarChartRenderer.SeriesLegend(this, bestDays.Count > 0, worstDays.Count > 0, hasToday,
+                    Tr.T("Лучший день", "Эң мыкты күн", "Best day", "En iyi gün", "Eng yaxshi kun"),
+                    Tr.T("Самый слабый день", "Эң начар күн", "Weakest day", "En zayıf gün", "Eng sust kun"),
+                    Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun")) is { } dayLegend)
+                DailyRevenueLegend.Children.Add(dayLegend);
         }
 
         private void UpdateHistory(List<SaleItem> sales, List<RefundItem> refunds)

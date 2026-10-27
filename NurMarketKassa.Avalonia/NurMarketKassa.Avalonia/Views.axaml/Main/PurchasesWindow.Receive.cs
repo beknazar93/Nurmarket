@@ -948,7 +948,7 @@ public sealed partial class PurchasesWindow
         var dialog = new ReceivingRaiseDialog(s.Lines.Where(l => l.Quantity > 0).ToList());
         await dialog.ShowDialog(this).ConfigureAwait(true);
         if (dialog.AppliedCount > 0)
-            PosLogger.Log($"Закупки: «Обновить цены продажи» — {dialog.AppliedCount} строк.", "STOCK");
+            PosLogger.Log($"Закупки: «Обновить цены продажи» — {dialog.AppliedCount} {Tr.Plural(dialog.AppliedCount, "строка", "строки", "строк")}.", "STOCK");
         if (_receive == s)
             ReceiveRefresh();
     }
@@ -961,8 +961,9 @@ public sealed partial class PurchasesWindow
         if (changed.Count > shown.Count)
             shown.Add(T($"…и ещё {changed.Count - shown.Count}", $"…жана дагы {changed.Count - shown.Count}", $"…and {changed.Count - shown.Count} more",
                 $"…ve {changed.Count - shown.Count} tane daha", $"…va yana {changed.Count - shown.Count}"));
-        var message = T($"Цена продажи изменится у {changed.Count} товаров:", $"{changed.Count} товардын сатуу баасы өзгөрөт:",
-                $"The sale price will change for {changed.Count} products:", $"{changed.Count} ürünün satış fiyatı değişecek:",
+        // 2026-10-27 (приёмка 26.10, Д-8): склонение «у 1 товара / у 2 товаров», «for 1 product».
+        var message = T($"Цена продажи изменится у {changed.Count} {Tr.Plural(changed.Count, "товара", "товаров", "товаров")}:", $"{changed.Count} товардын сатуу баасы өзгөрөт:",
+                $"The sale price will change for {changed.Count} {Tr.PluralEn(changed.Count, "product", "products")}:", $"{changed.Count} ürünün satış fiyatı değişecek:",
                 $"{changed.Count} ta mahsulotning sotuv narxi o'zgaradi:")
             + "\n\n" + string.Join("\n", shown);
         return PosConfirmDialog.ShowModalAsync(this,
@@ -1216,13 +1217,17 @@ public sealed partial class PurchasesWindow
         Chain(purchase, () => sale);
         Chain(sale, () => null);
 
-        Grid.SetColumn(qty, 2);
-        g.Children.Add(qty);
+        // 2026-10-27 (приёмка 26.10, Д-7): у «Закупки» и «Продажи» под полем строка «▲ +12 %»/«маржа» (высота 13 с отступом) — поля центрировались
+        // вместе с ней и стояли выше «Количества» и «Наценки %». Под последними — такая же пустая полоса, чтобы все четыре поля были на одной линии.
+        var qtyBox = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { qty, new Border { Height = 13 } } };
+        Grid.SetColumn(qtyBox, 2);
+        g.Children.Add(qtyBox);
         var purchaseBox = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { purchase, purchaseSub } };
         Grid.SetColumn(purchaseBox, 3);
         g.Children.Add(purchaseBox);
-        Grid.SetColumn(markup, 4);
-        g.Children.Add(markup);
+        var markupBox = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { markup, new Border { Height = 13 } } };
+        Grid.SetColumn(markupBox, 4);
+        g.Children.Add(markupBox);
         var saleBox = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { sale, saleSub } };
         Grid.SetColumn(saleBox, 5);
         g.Children.Add(saleBox);

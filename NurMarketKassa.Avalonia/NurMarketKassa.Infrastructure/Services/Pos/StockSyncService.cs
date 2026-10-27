@@ -93,7 +93,10 @@ public static class StockSyncService
         var qtyCulture = CultureInfo.GetCultureInfo("ru-RU");
         vm.StockInfo = mustWeigh
             ? $"{quantity.ToString("F2", qtyCulture)} {Tr.T("кг", "кг", "kg", "kg", "kg")}"
-            : $"{quantity.ToString("F0", qtyCulture)} {Tr.T("шт.", "даана", "pcs", "adet", "dona")}";
+            : QuantityRules.ForUnit(vm.Unit) != null
+                // 2026-10-26 (ХМ2): остаток дробной единицы «Хозтоваров» (37.4 м) — не до целого и в своей единице.
+                ? $"{quantity.ToString("0.###", qtyCulture)} {vm.Unit}"
+                : $"{quantity.ToString("F0", qtyCulture)} {Tr.T("шт.", "даана", "pcs", "adet", "dona")}";
         vm.IsLowStock = quantity < LowStockThreshold;
     }
 

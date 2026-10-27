@@ -67,7 +67,8 @@ public static class ReceiptSnapshotCartEditor
         {
             // Если товар уже есть в чеке — просто увеличиваем количество, НЕ проверяя MustWeigh
             var oldQty = JsonNumericReader.ToDouble(existing["quantity"]);
-            existing["quantity"] = oldQty + qty;
+            // 2026-10-26 (ХМ2): «Хозтовары» + дробная единица (м, м², л) — сумма по шагу единицы; иначе прежнее oldQty + qty.
+            existing["quantity"] = QuantityRules.MergeQuantity(existing, product, salePackageId, oldQty, qty);
 
             // Исправляем потенциальный баг, когда is_weight ошибочно стало true после возврата в чек
             if (existing["is_weight"]?.GetValue<bool>() != product.MustWeigh)
@@ -86,6 +87,7 @@ public static class ReceiptSnapshotCartEditor
         else
         {
             var line = BuildLine(productId, title, product.Barcode, unitPrice, qty, product.MustWeigh, salePackageId);
+            QuantityRules.StampLine(line, product, salePackageId); // 2026-10-26 (ХМ2): метка дробной строки (только «Хозтовары»)
             // 2026-09-29: метка варианта — по ней следующий скан того же варианта сливается в эту
             // строку, а скан основного штрихкода или другого варианта — нет.
             if (variantName != null)
@@ -156,9 +158,13 @@ public static class ReceiptSnapshotCartEditor
         if (line == null)
             throw new InvalidOperationException("CartItem not found in this cart.");
 
+        // 2026-10-26 (ХМ2): дробная единица «Хозтоваров» — по шагу и минимуму; иначе прежнее Math.Round(qty, 0).
+        var fractionalRule = QuantityRules.ForLine(line);
+        if (fractionalRule != null)
+            line[QuantityRules.FractionalField] = true;
         line["quantity"] = IsWeighedLine(line)
             ? JsonNumericReader.RoundWeight(qty)
-            : Math.Round(qty, 0);
+            : fractionalRule != null ? QuantityRules.Normalize(qty, fractionalRule) : Math.Round(qty, 0);
         // Скидка суммой была выставлена под прежний gross: после смены количества
         // её нужно переклампить, иначе «лишняя» скидка утечёт на другие строки чека.
         ClampLineDiscountToGross(line);
@@ -542,7 +548,7 @@ public static class ReceiptSnapshotCartEditor
     {
         var qty = JsonNumericReader.ToDouble(line["quantity"]);
         var unitPrice = JsonNumericReader.ToDouble(line["unit_price"]);
-        var gross = Math.Round(qty * unitPrice, 2, MidpointRounding.AwayFromZero);
+        var gross = QuantityRules.Gross(qty, unitPrice); // 2026-10-26 (ХМ2)
         // 2026-09-28, продажа №1136: сумма строки — с той же скидкой, что в итоге чека и в запросе
         // на сервер (CartDisplayHelper.EffectiveLineDiscount: скидка кассира или акция товара).
         // Раньше здесь был свой разбор (только discount_total / discount_percent, без акций).

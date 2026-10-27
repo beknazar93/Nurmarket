@@ -39,7 +39,8 @@ public static class TelegramAiChat
     // 2026-10-05: на тарифе «Старт» ИИ нет (TariffGate.CanUseAi) — ключ как будто не задан.
     public static bool IsConfigured => !string.IsNullOrWhiteSpace(AiKey);
 
-    internal static string? AiKey => TariffGate.CanUseAi ? UserPreferences.Instance.TelegramAiKey : null;
+    // 2026-10-26: «настроен ли ИИ» — есть хоть один включённый ключ Gemini (список ключей, GeminiKeyPool); сам запрос берёт ключ из списка по очереди.
+    internal static string? AiKey => TariffGate.CanUseAi ? GeminiKeyPool.FirstEnabledKey() : null;
 
     private const string SystemPrompt =
         "Ты — ИИ-помощник владельца магазина в Кыргызстане и общаешься с ним в Telegram. "
@@ -1097,8 +1098,9 @@ public static class TelegramAiChat
     /// <summary>Проверка ключа из настроек: короткий запрос без данных магазина.</summary>
     public static async Task<(bool Ok, string Message)> TestKeyAsync(string key, CancellationToken ct)
     {
+        // 2026-10-26: проверяется именно этот ключ — без перебора списка (rotate: false).
         var (answer, error, _) = await GenerateGeminiAsync(key.Trim(), "Отвечай одним коротким предложением.",
-            new List<(string, string)>(), "Скажи по-русски, что ты на связи.", ct, webSearch: false).ConfigureAwait(false);
+            new List<(string, string)>(), "Скажи по-русски, что ты на связи.", ct, webSearch: false, rotate: false).ConfigureAwait(false);
         return answer != null ? (true, $"{answer.Trim()} ({_workingModel})") : (false, error ?? "нет ответа");
     }
 
@@ -1126,7 +1128,7 @@ public static class TelegramAiChat
     /// (Gemini сам решает, когда искать). Модель без поддержки поиска (400 про tool) — тот же запрос без поиска.</summary>
     private static async Task<(string? Answer, string? Error, IReadOnlyList<WebSource> Sources)> GenerateGeminiAsync(
         string key, string system, List<(string Role, string Text)> history, string question, CancellationToken ct, bool webSearch,
-        bool fallbackWithoutSearch = true)
+        bool fallbackWithoutSearch = true, bool rotate = true)
     {
         if (webSearch && WebSearchUnavailable && fallbackWithoutSearch)
             webSearch = false;
@@ -1176,9 +1178,23 @@ public static class TelegramAiChat
         // как раньше, до 45 с на модель); модель не ответила вовремя — сразу следующая, а не ожидание до конца общего таймаута.
         var started = System.Diagnostics.Stopwatch.StartNew();
         var overall = image is not null ? TimeSpan.FromSeconds(90) : TimeSpan.FromSeconds(40);
+        var keySwitches = 0;
         for (var mi = 0; mi < models.Count; mi++)
         {
             var model = models[mi];
+            // 2026-10-26, владелец: «добавь возможность добавить API Gemini из нескольких Google-аккаунтов». Ключ — первый рабочий из списка
+            // (GeminiKeyPool); у исчерпанного ключа этой модели запрос идёт со следующим. Список пуст (ключ передан напрямую) — как раньше.
+            var usedKey = key;
+            if (rotate && GeminiKeyPool.Entries().Count > 0)
+            {
+                var picked = GeminiKeyPool.Pick(model);
+                if (picked is null)
+                {
+                    lastError = GeminiKeyPool.UnavailableMessage(model);
+                    continue;
+                }
+                usedKey = picked;
+            }
             var left = overall - started.Elapsed;
             if (left < TimeSpan.FromSeconds(5))
             {
@@ -1192,8 +1208,8 @@ public static class TelegramAiChat
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Post,
-                    $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent");
-                request.Headers.Add("x-goog-api-key", key);
+                    $"{GeminiKeyPool.BaseUrl}/v1beta/models/{model}:generateContent");
+                request.Headers.Add("x-goog-api-key", usedKey);
                 // 2026-10-21 (О3, ответ 13–25 с): обычный вопрос — без «размышлений» модели (thinkingBudget 0): лёгкие модели Gemini
                 // по умолчанию «думали» по 10+ с. Накладная по фото — как раньше. Модель не принимает настройку — запоминаем и шлём без неё.
                 // Шаг для модели: 0 — thinkingBudget 0 (Gemini 2.x), 1 — thinkingLevel «low» (Gemini 3), 2 — как есть.
@@ -1210,6 +1226,17 @@ public static class TelegramAiChat
                 using var response = await Http.SendAsync(request, attempt.Token).ConfigureAwait(false);
                 var json = await response.Content.ReadAsStringAsync(attempt.Token).ConfigureAwait(false);
                 PosLogger.Log($"ИИ: {model} — {(int)response.StatusCode} за {attemptWatch.ElapsedMilliseconds} мс (запрос {sendBody.Length} симв.{(noThinking ? ", без размышлений" : "")}; {UsageText(json)}).", "INFO");
+                // 2026-10-26: лимит (429/RESOURCE_EXHAUSTED) или недействительный ключ — ключ помечается, запрос читает/генерирует (побочных
+                // действий нет) и повторяется со следующим ключом той же модели; ключей не осталось — следующая модель. 429 на запрос с поиском —
+                // это квота поиска, а не ключа (ниже), ключ не трогаем.
+                if (rotate && !response.IsSuccessStatusCode && !(webSearch && (int)response.StatusCode == 429)
+                    && GeminiKeyPool.ReportFailure(usedKey, model, (int)response.StatusCode, json))
+                {
+                    lastError = GeminiKeyPool.UnavailableMessage(model);
+                    if (GeminiKeyPool.Pick(model) is not null && ++keySwitches <= GeminiKeyPool.MaxKeys * 2)
+                        mi--;
+                    continue;
+                }
                 // 2026-10-21: живая проверка — Gemini 3.5 на thinkingBudget 0 отвечает общим «invalid argument»: любая 400 без размышлений → повтор с ними.
                 if (noThinking && response.StatusCode == HttpStatusCode.BadRequest)
                 {
@@ -1224,6 +1251,8 @@ public static class TelegramAiChat
                     if (!string.IsNullOrWhiteSpace(text))
                     {
                         _workingModel = model;
+                        if (rotate)
+                            GeminiKeyPool.ReportSuccess(usedKey);
                         return (text, null, webSearch ? ReadSources(json) : none);
                     }
 

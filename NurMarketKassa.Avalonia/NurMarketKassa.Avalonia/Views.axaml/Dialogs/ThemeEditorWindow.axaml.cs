@@ -42,6 +42,12 @@ public partial class ThemeEditorWindow : Window
     public ThemeEditorWindow()
     {
         InitializeComponent();
+        this.FitToScreen(); // 2026-10-27 (аудит редакторов, С-1): высота окна 720 жёстко — на экране 1024×600 низ с кнопками уходил за край
+        // 2026-10-27 (аудит редакторов, В-8): окно редактора закрепляет за собой ПРЕЖНЮЮ тему кассы (снимок ресурсов и её светлый/тёмный вариант),
+        // пока редактируемая тема красит всю программу за окном и блок «Предпросмотр» (у него свой снимок). Раньше редактор перекрашивал сам
+        // себя: с плохими цветами его подписи и кнопки становились нечитаемыми (43 из 47 надписей ниже AA).
+        RequestedThemeVariant = UserPreferences.Instance.DarkTheme ? ThemeVariant.Dark : ThemeVariant.Light;
+        Resources = AccentThemeService.SnapshotResources();
         _editDark = UserPreferences.Instance.DarkTheme;
         ApplyTexts();
         BuildBaseCombo();
@@ -56,6 +62,16 @@ public partial class ThemeEditorWindow : Window
             LoadTheme(existing.Clone(), saved: true);
         else
             LoadTheme(CustomThemeStore.Create(AccentThemeService.Normalize(current), CustomThemeStore.DefaultName), saved: false);
+
+        // 2026-10-27 (аудит редакторов, В-5/В-6): предупреждения при открытии — файл тем был испорчен или выбранной своей темы нет на этой кассе.
+        if (CustomThemeStore.LoadProblem is { } problem)
+            SetStatus(problem, warn: true);
+        else if (AccentThemeService.MissingCustomThemeId is not null)
+            SetStatus(Tr.T("Выбранной в настройках своей темы нет на этой кассе (она создана на другом компьютере) — пока показана «Классическая». Перенесите тему файлом: «Экспорт» на той кассе и «Импорт» здесь.",
+                "Жөндөөдө тандалган өз тема бул кассада жок (башка компьютерде түзүлгөн) — азырынча «Классикалык» көрсөтүлүп турат. Темаңызды файл менен которуңуз: ал кассада «Экспорт», бул жерде «Импорт».",
+                "The custom theme chosen in the settings is not on this till (it was created on another computer) — “Classic” is shown for now. Move the theme with a file: “Export” on that till and “Import” here.",
+                "Ayarlarda seçilen özel tema bu kasada yok (başka bir bilgisayarda oluşturulmuş) — şimdilik «Klasik» gösteriliyor. Temayı dosyayla taşıyın: o kasada «Dışa aktar», burada «İçe aktar».",
+                "Sozlamalarda tanlangan o'z mavzusi bu kassada yo'q (boshqa kompyuterda yaratilgan) — hozircha «Klassik» ko'rsatilmoqda. Mavzuni fayl bilan ko'chiring: u kassada «Eksport», bu yerda «Import»."), warn: true);
     }
 
     /// <summary>Тема, которую надо открыть сразу (карточка «Изменить» в галерее).</summary>
@@ -275,7 +291,25 @@ public partial class ThemeEditorWindow : Window
         if (Application.Current is { } app)
             app.RequestedThemeVariant = _editDark ? ThemeVariant.Dark : ThemeVariant.Light;
         AccentThemeService.ApplyDefinition(_working, _editDark);
+        // 2026-10-27 (В-8): блок «Предпросмотр» получает снимок только что применённой темы и свой вариант (светлый/тёмный); остальное окно не меняется.
+        PreviewHost.Resources = AccentThemeService.SnapshotResources();
+        PreviewScope.RequestedThemeVariant = _editDark ? ThemeVariant.Dark : ThemeVariant.Light;
         UpdateContrastHint();
+    }
+
+    /// <summary>2026-10-27 (В-8): окна-вопросы (сохранить? удалить? применить плохую тему?) — отдельные окна и берут ресурсы программы; пока на ней
+    /// живой предпросмотр, они могли бы стать нечитаемыми. На время вопроса программа возвращается к сохранённой теме, потом предпросмотр включается снова.</summary>
+    private T InSavedTheme<T>(Func<T> ask)
+    {
+        RestoreAppTheme();
+        try
+        {
+            return ask();
+        }
+        finally
+        {
+            ApplyPreview();
+        }
     }
 
     /// <summary>Окно закрыто: касса возвращается к своей теме из настроек (если тему применили —
@@ -343,26 +377,12 @@ public partial class ThemeEditorWindow : Window
 
     private void UpdateContrastHint()
     {
-        var c = AccentThemeService.GetEffectiveColors(_working, _editDark);
-        var problems = new List<string>();
-        void Check(string? fg, string? bg, double min, string what)
-        {
-            if (fg is null || bg is null)
-                return;
-            var ratio = AccentThemeService.Contrast(fg, bg);
-            if (ratio < min)
-                problems.Add(Tr.T($"{what}: контраст {ratio:0.0}:1, нужно от {min:0.#}:1",
-                    $"{what}: контраст {ratio:0.0}:1, {min:0.#}:1 же андан жогору керек",
-                    $"{what}: contrast {ratio:0.0}:1, needs at least {min:0.#}:1",
-                    $"{what}: kontrast {ratio:0.0}:1, en az {min:0.#}:1 olmalı",
-                    $"{what}: kontrast {ratio:0.0}:1, kamida {min:0.#}:1 kerak"));
-        }
-
-        Check(c.Text, c.Panel, 4.5, KeyLabel(ColorKey.Text));
-        Check(c.TextSoft, c.Panel, 3.0, KeyLabel(ColorKey.TextSoft));
-        Check(c.AccentText, c.Accent, 3.0, KeyLabel(ColorKey.AccentText));
-        ContrastText.IsVisible = problems.Count > 0;
-        ContrastText.Text = "⚠ " + string.Join("\n⚠ ", problems);
+        // 2026-10-27 (аудит редакторов, В-8): проверяются все пары (текст/панель/окно, второстепенный текст, текст на акценте, цена, состояния) по порогу 4,5:1
+        // для обоих вариантов; плашка стоит над списком цветов, а не в его конце.
+        var issues = AccentThemeService.CheckContrastBoth(_working);
+        ContrastBanner.IsVisible = issues.Count > 0;
+        ContrastText.Text = issues.Count == 0 ? "" : "⚠ " + Tr.T("Эта тема плохо читается — кассир может не разобрать надписи:", "Бул тема начар окулат — кассир жазууларды окуй албай калышы мүмкүн:",
+            "This theme is hard to read — the cashier may not make out the text:", "Bu tema zor okunuyor — kasiyer yazıları okuyamayabilir:", "Bu mavzu yomon o'qiladi — kassir yozuvlarni o'qiy olmasligi mumkin:") + "\n" + ThemeReadability.Describe(issues, 3);
     }
 
     private void RefreshVariantButtons()
@@ -572,6 +592,9 @@ public partial class ThemeEditorWindow : Window
 
     private void Apply_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-10-27 (аудит редакторов, В-8): нечитаемую тему нельзя применить молча — «Всё равно применить?»; тему можно сохранить и поправить дальше.
+        if (!InSavedTheme(() => ThemeReadability.ConfirmApply(this, _working)))
+            return;
         SaveWorking();
         // Светлый/тёмный режим кассы не трогаем — тема несёт оба варианта.
         App.ApplyAccentTheme(_working.Id);
@@ -580,14 +603,14 @@ public partial class ThemeEditorWindow : Window
 
     private void Delete_Click(object? sender, RoutedEventArgs e)
     {
-        var confirmed = PosConfirmDialog.Show(this,
+        var confirmed = InSavedTheme(() => PosConfirmDialog.Show(this,
             Tr.T("Удалить тему?", "Теманы өчүрөсүзбү?", "Delete the theme?", "Tema silinsin mi?", "Mavzu o'chirilsinmi?"),
             Tr.T($"Тема «{_working.Name}» будет удалена с этой кассы.", $"«{_working.Name}» темасы бул кассадан өчүрүлөт.",
                 $"The theme “{_working.Name}” will be removed from this till.", $"«{_working.Name}» teması bu kasadan silinecek.",
                 $"«{_working.Name}» mavzusi bu kassadan o'chiriladi."),
             Tr.T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"),
             Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
-            PosConfirmAccent.Danger);
+            PosConfirmAccent.Danger));
         if (!confirmed)
             return;
 
@@ -684,13 +707,13 @@ public partial class ThemeEditorWindow : Window
     {
         if (!IsDirty)
             return true;
-        var save = PosConfirmDialog.Show(this,
+        var save = InSavedTheme(() => PosConfirmDialog.Show(this,
             Tr.T("Сохранить изменения?", "Өзгөртүүлөрдү сактайсызбы?", "Save changes?", "Değişiklikler kaydedilsin mi?", "O'zgarishlar saqlansinmi?"),
             Tr.T($"В теме «{_working.Name}» есть несохранённые изменения.", $"«{_working.Name}» темасында сакталбаган өзгөртүүлөр бар.",
                 $"The theme “{_working.Name}” has unsaved changes.", $"«{_working.Name}» temasında kaydedilmemiş değişiklikler var.",
                 $"«{_working.Name}» mavzusida saqlanmagan o'zgarishlar bor."),
             Tr.T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"),
-            Tr.T("Не сохранять", "Сактабоо", "Don't save", "Kaydetme", "Saqlamaslik"));
+            Tr.T("Не сохранять", "Сактабоо", "Don't save", "Kaydetme", "Saqlamaslik")));
         if (save)
             SaveWorking();
         return true;

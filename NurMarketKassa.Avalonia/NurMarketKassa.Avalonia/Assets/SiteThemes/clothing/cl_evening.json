@@ -1,0 +1,137 @@
+{
+ "code": "cl_evening",
+ "name": {
+  "ru": "Вечерний и свадебный",
+  "ky": "Кечки жана той кийими",
+  "en": "Evening & Bridal",
+  "tr": "Abiye ve Gelinlik",
+  "uz": "Kechki va to'y kiyimi"
+ },
+ "description": {
+  "ru": "Слоновая кость и винный, одна колонка на телефоне, остаток скрыт. Для вечерних и свадебных платьев.",
+  "ky": "Пил сөөгү жана шарап түсү, телефондо бир мамыча, калдык жашыруун. Кечки жана той көйнөктөрү үчүн.",
+  "en": "Ivory and wine, one column on the phone, stock hidden. For evening and bridal dresses.",
+  "tr": "Fildişi ve şarap rengi, telefonda tek sütun, stok gizli. Abiye ve gelinlikler için.",
+  "uz": "Fil suyagi va sharob rangi, telefonda bitta ustun, qoldiq yashirin. Kechki va to'y liboslari uchun."
+ },
+ "spheres": [
+  "clothing"
+ ],
+ "version": 1,
+ "voice_words": {
+  "ru": [
+   "вечерн",
+   "свадеб"
+  ],
+  "ky": [
+   "кечки",
+   "той кийим"
+  ],
+  "en": [
+   "evening",
+   "bridal"
+  ],
+  "tr": [
+   "abiye",
+   "gelinlik"
+  ],
+  "uz": [
+   "kechki",
+   "to'y"
+  ]
+ },
+ "images": {
+  "hero.image": {
+   "file": "cl_evening_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "cl_evening_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#FBF7F4",
+    "surface": "#FFFFFF",
+    "text": "#2A1E22",
+    "text_muted": "#6E5A60",
+    "accent": "#7F1D3A",
+    "accent_text": "#FFFFFF",
+    "border": "#EFE3DE",
+    "header_bg": "#FFFFFF",
+    "header_text": "#2A1E22",
+    "footer_bg": "#F3E8E4",
+    "footer_text": "#2A1E22",
+    "price": "#7F1D3A",
+    "old_price": "#75666A",
+    "badge_new_bg": "#2A1E22",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#7F1D3A",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Montserrat",
+    "base_size": 15,
+    "heading_weight": 500
+   },
+   "radius": 6,
+   "shadow": "soft",
+   "button_style": "outline",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_center",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "cover",
+   "overlay": 0.2,
+   "align": "center"
+  },
+  "categories": {
+   "style": "tiles",
+   "show_all": true,
+   "show_count": false
+  },
+  "products": {
+   "columns": {
+    "desktop": 3,
+    "tablet": 2,
+    "mobile": 1
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "large",
+   "photo_ratio": "3:4",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": true,
+    "category": false,
+    "stock": "hidden",
+    "unit": false,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "new_badge_days": 21,
+   "shadow": false,
+   "border": false
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

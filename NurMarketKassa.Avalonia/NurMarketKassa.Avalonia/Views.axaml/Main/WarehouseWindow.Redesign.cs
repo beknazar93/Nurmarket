@@ -131,6 +131,10 @@ public partial class WarehouseWindow
         // кнопками «Все / Заканчивается / …» ниже), шапка окна плотнее; строка таблицы 44 (зона касания сохранена).
         var tiny = ClientSize.Height > 0 && ClientSize.Height < 660;
         WarehouseKpiPanel.IsVisible = !tiny;
+        // 2026-10-26, владелец: «дублирование фильтра идёт» — плитки «Заканчивается / Нет в наличии / Срок годности» уже фильтруют
+        // (нажатие включает, повторное снимает), а ряд «Наличие» повторял то же самое. Ряд показывается только там, где плиток нет.
+        if (StockFilterPanel.Parent?.Parent is Control stockFilterGroup)
+            stockFilterGroup.IsVisible = tiny;
         if (!_isOwnerSection)
             WindowHeaderBorder.Padding = tiny ? new Thickness(12, 4) : new Thickness(16, 10);
         WindowHeaderBorder.Margin = new Thickness(0, 0, 0, tiny ? 6 : (_isOwnerSection ? 8 : 16));

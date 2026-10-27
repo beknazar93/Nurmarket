@@ -7,6 +7,10 @@
 
   <UserControl.Styles>
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+    <!-- 2026-10-27 (аудит редакторов, С-2): все поля и кнопки страницы — высотой 44 px (было 34–36): касание пальцем на сенсорном моноблоке. -->
+    <Style Selector="CheckBox.ToggleSwitch">
+      <Setter Property="MinHeight" Value="44"/>
+    </Style>
 
     <Style Selector="RadioButton.PrintModePill">
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
@@ -14,7 +18,7 @@
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
       <Setter Property="Padding" Value="10,6"/>
       <Setter Property="FontSize" Value="12"/>
-      <Setter Property="MinHeight" Value="36"/>
+      <Setter Property="MinHeight" Value="44"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -46,7 +50,7 @@
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Padding" Value="14,6"/>
-      <Setter Property="Height" Value="36"/>
+      <Setter Property="Height" Value="44"/>
       <Setter Property="HorizontalAlignment" Value="Left"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="CornerRadius" Value="6"/>
@@ -113,7 +117,7 @@
                 <TextBlock Text="{DynamicResource posSettings.print.foundPrinters}" Classes="FieldLabel"/>
                 <Grid ColumnDefinitions="*,8,Auto">
                   <ComboBox Grid.Column="0" x:Name="DiscoveredPrintersCombo" x:FieldModifier="public"
-                            Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                            Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="44"
                             PlaceholderText="{DynamicResource posSettings.print.nothingFoundPlaceholder}"/>
                   <Button Grid.Column="2" x:Name="BtnFindPrinters" x:FieldModifier="public"
                           Content="{DynamicResource printSettings.findButton}" Classes="PrintGoldButton"/>
@@ -121,7 +125,7 @@
 
                 <TextBlock Text="{DynamicResource printSettings.lptWatermark}" Classes="FieldLabel" Margin="0,6,0,0"/>
                 <Grid ColumnDefinitions="*,8,Auto">
-                  <TextBox Grid.Column="0" x:Name="ReceiptLptBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36"/>
+                  <TextBox Grid.Column="0" x:Name="ReceiptLptBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44"/>
                   <Button Grid.Column="2" x:Name="BtnPhysicalPrint" x:FieldModifier="public"
                           Content="{DynamicResource printSettings.testButton}" Classes="PrintGoldButton"/>
                 </Grid>
@@ -131,7 +135,7 @@
 
               <StackPanel Grid.Column="2" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.retriesOnFailure}" Classes="FieldLabel"/>
-                <TextBox x:Name="ReceiptRetryBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36"/>
+                <TextBox x:Name="ReceiptRetryBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44"/>
               </StackPanel>
             </Grid>
 
@@ -151,7 +155,7 @@
                 <TextBlock Text="{DynamicResource posSettings.print.cashDrawerPin}" Classes="FieldLabel"/>
                 <Grid ColumnDefinitions="*,8,Auto">
                   <ComboBox Grid.Column="0" x:Name="CashDrawerPinCombo" x:FieldModifier="public"
-                            Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                            Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="44">
                     <ComboBoxItem Content="{DynamicResource printSettings.cashDrawerPin2}" Tag="0"/>
                     <ComboBoxItem Content="{DynamicResource printSettings.cashDrawerPin5}" Tag="1"/>
                   </ComboBox>
@@ -165,7 +169,7 @@
             <Grid ColumnDefinitions="*,12,*,12,1.2*">
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.tapeWidth}" Classes="FieldLabel"/>
-                <ComboBox x:Name="ReceiptPaperWidthCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                <ComboBox x:Name="ReceiptPaperWidthCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="44">
                   <ComboBoxItem Content="{DynamicResource printSettings.width58}" Tag="58"/>
                   <ComboBoxItem Content="{DynamicResource printSettings.width80}" Tag="80"/>
                   <!-- 2026-10-05, владелец: «чековый принтер XP-80 — невозможно настроить ширину». У XP-80 и похожих
@@ -176,7 +180,7 @@
 
               <StackPanel Grid.Column="2" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.graphicsDots}" Classes="FieldLabel"/>
-                <TextBox x:Name="GraphicWidthBox" x:FieldModifier="public" Text="384" Classes="ModernTextBox" Height="36"/>
+                <TextBox x:Name="GraphicWidthBox" x:FieldModifier="public" Text="384" Classes="ModernTextBox" Height="44"/>
               </StackPanel>
 
               <StackPanel Grid.Column="4" Spacing="4">
@@ -198,7 +202,7 @@
             <Grid ColumnDefinitions="*,12,2.2*">
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.charsPerLine}" Classes="FieldLabel"/>
-                <TextBox x:Name="ReceiptCharWidthBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36"/>
+                <TextBox x:Name="ReceiptCharWidthBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44"/>
               </StackPanel>
               <TextBlock Grid.Column="2" Text="{DynamicResource posSettings.print.widthHint}" Classes="FieldLabel"
                          TextWrapping="Wrap" VerticalAlignment="Center"/>
@@ -224,7 +228,7 @@
             <Grid ColumnDefinitions="*,12,*,12,*">
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.encoding}" Classes="FieldLabel"/>
-                <ComboBox x:Name="ReceiptEncCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                <ComboBox x:Name="ReceiptEncCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="44">
                   <ComboBoxItem Content="cp866" Tag="cp866"/>
                   <ComboBoxItem Content="cp1251" Tag="cp1251"/>
                   <ComboBoxItem Content="wpc1251" Tag="wpc1251"/>
@@ -238,7 +242,7 @@
 
               <StackPanel Grid.Column="2" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.escTable}" Classes="FieldLabel"/>
-                <ComboBox x:Name="ReceiptTableCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                <ComboBox x:Name="ReceiptTableCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="44">
                   <ComboBoxItem Content="{DynamicResource posSettings.print.auto}" Tag=""/>
                   <ComboBoxItem Content="17 — CP866" Tag="17"/>
                   <ComboBoxItem Content="46 — CP1251" Tag="46"/>
@@ -251,7 +255,7 @@
 
               <StackPanel Grid.Column="4" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.escR}" Classes="FieldLabel"/>
-                <TextBox x:Name="ReceiptEscRBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36"/>
+                <TextBox x:Name="ReceiptEscRBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44"/>
               </StackPanel>
             </Grid>
             </Border>
@@ -266,7 +270,7 @@
             <Grid ColumnDefinitions="*,12,*">
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.fontSize}" Classes="FieldLabel"/>
-                <ComboBox x:Name="TextFontSizeCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                <ComboBox x:Name="TextFontSizeCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="44">
                   <ComboBoxItem Content="6" Tag="6"/><ComboBoxItem Content="8" Tag="8"/>
                   <ComboBoxItem Content="10" Tag="10"/><ComboBoxItem Content="12" Tag="12"/>
                   <ComboBoxItem Content="14" Tag="14"/><ComboBoxItem Content="16" Tag="16"/>
@@ -278,7 +282,7 @@
 
             <Button x:Name="TestTextPrintButton" x:FieldModifier="public"
                     Content="{DynamicResource printSettings.previewTextReceipt}"
-                    Classes="SettingsFlatButton" HorizontalAlignment="Stretch" Height="36"/>
+                    Classes="SettingsFlatButton" HorizontalAlignment="Stretch" Height="44"/>
           </StackPanel>
         </Border>
 
@@ -297,7 +301,7 @@
             <Grid ColumnDefinitions="*,16,*">
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.font}" Classes="FieldLabel"/>
-                <ComboBox x:Name="GraphicFontCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                <ComboBox x:Name="GraphicFontCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="44">
                   <ComboBoxItem Content="Consolas" Tag="Consolas"/>
                   <ComboBoxItem Content="Lucida Console" Tag="Lucida Console"/>
                   <ComboBoxItem Content="Courier New" Tag="Courier New"/>
@@ -308,7 +312,7 @@
 
               <StackPanel Grid.Column="2" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.fontSize}" Classes="FieldLabel"/>
-                <ComboBox x:Name="GraphicFontSizeCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                <ComboBox x:Name="GraphicFontSizeCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="44">
                   <ComboBoxItem Content="6" Tag="6"/><ComboBoxItem Content="8" Tag="8"/>
                   <ComboBoxItem Content="10" Tag="10"/><ComboBoxItem Content="12" Tag="12"/>
                   <ComboBoxItem Content="14" Tag="14"/><ComboBoxItem Content="16" Tag="16"/>
@@ -359,14 +363,14 @@
             <!-- QR и Предпросмотр -->
             <Grid ColumnDefinitions="Auto,8,Auto,*,Auto" Margin="0,4,0,0">
               <Button Grid.Column="0" x:Name="LoadGraphicQrButton" x:FieldModifier="public"
-                      Content="{DynamicResource printSettings.uploadQr}" Classes="SettingsFlatButton" Height="34"/>
+                      Content="{DynamicResource printSettings.uploadQr}" Classes="SettingsFlatButton" Height="44"/>
               <Button Grid.Column="2" x:Name="DeleteGraphicQrButton" x:FieldModifier="public"
-                      Content="{DynamicResource printSettings.deleteQr}" Classes="SettingsFlatButton" Height="34"/>
+                      Content="{DynamicResource printSettings.deleteQr}" Classes="SettingsFlatButton" Height="44"/>
               <TextBlock Grid.Column="3" x:Name="GraphicQrStatusText" x:FieldModifier="public"
                          Text="{DynamicResource printSettings.qrNotLoaded}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
                          VerticalAlignment="Center" Margin="8,0"/>
               <Button Grid.Column="4" x:Name="TestGraphicPrintButton" x:FieldModifier="public"
-                      Content="{DynamicResource printSettings.previewButton}" Classes="SettingsFlatButton" Height="34"/>
+                      Content="{DynamicResource printSettings.previewButton}" Classes="SettingsFlatButton" Height="44"/>
             </Grid>
           </StackPanel>
         </Border>

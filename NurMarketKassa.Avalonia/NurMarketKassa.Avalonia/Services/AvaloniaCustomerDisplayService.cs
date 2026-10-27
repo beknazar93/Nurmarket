@@ -31,6 +31,20 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
     private bool _closedManually;
     private bool _closingInternally;
     private bool _requiresSecondaryScreen;
+    // 2026-10-27 (приёмка Opus 26.10, Д-5): экран покупателя не открылся при запуске и позже пропал, а журнал молчал.
+    // Теперь каждое открытие/скрытие/закрытие пишет причину в журнал (CUSTOMER_DISPLAY), а сторож раз в 30 с возвращает окно,
+    // если оно должно быть открыто (включено в настройках, сеанс активен, кассир не закрывал сам), а второй монитор есть.
+    private WeakReference<Window>? _owner;
+    private bool _sessionActive;
+    private bool _userClosing;
+    private DispatcherTimer? _watchdog;
+    private int _watchdogRestores;
+    /// <summary>Для проверки в стенде: подмена списка экранов Windows (в боевой работе null).</summary>
+    internal static Func<Window, IReadOnlyList<Screen>?>? ScreensOverride;
+
+    private static IReadOnlyList<Screen>? ScreensOf(Window owner) => ScreensOverride is { } over ? over(owner) : owner.Screens?.All;
+
+    private static void Log(string message) => PosLogger.Log(message, "CUSTOMER_DISPLAY");
 
     public AvaloniaCustomerDisplayService(
         CustomerDisplayStateService state,
@@ -62,6 +76,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
     public void Hide()
     {
         _state.Hide();
+        Log("Скрыт по запросу программы (Hide).");
         Dispatcher.UIThread.Post(() =>
         {
             CaptureWindowBounds();
@@ -161,8 +176,21 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
     private static extern int QueryDisplayConfig(uint flags, ref uint numPathArrayElements, IntPtr pathArray,
         ref uint numModeInfoArrayElements, IntPtr modeInfoArray, out int currentTopologyId);
 
-    public CustomerDisplayOpenResult OpenForSession(Window owner) =>
-        OpenOnSecondaryScreen(owner, respectEnabledSetting: true);
+    /// <summary>2026-10-27: reason — почему открываем («запуск кассы», «смена экранов», «открытие смены»); итог каждого открытия пишется в журнал.</summary>
+    public CustomerDisplayOpenResult OpenForSession(Window owner, string reason = "")
+    {
+        // Сеанс начался: если второго монитора пока нет (Windows поднимает его позже запуска кассы), сторож откроет окно, когда он появится.
+        if (UserPreferences.Instance.CustomerDisplay.IsEnabled)
+        {
+            _sessionActive = true;
+            _closedManually = false;
+        }
+        var result = OpenOnSecondaryScreen(owner, respectEnabledSetting: true);
+        Log($"Открытие ({(reason.Length == 0 ? "сеанс" : reason)}): {(result.IsSuccess ? "успех" : "не открыт")} — {result.Message}");
+        if (UserPreferences.Instance.CustomerDisplay.IsEnabled)
+            StartWatchdog(owner);
+        return result;
+    }
 
     public CustomerDisplayOpenResult TestSecondaryScreen(Window owner) =>
         OpenOnSecondaryScreen(owner, respectEnabledSetting: false);
@@ -180,7 +208,10 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         {
             _state.Hide();
             if (_window is { IsVisible: true } && _requiresSecondaryScreen)
+            {
                 _window.Hide();
+                Log("Скрыто: второй монитор пропал (спящий режим монитора или отключение) — вернётся, когда он появится.");
+            }
             return new CustomerDisplayOpenResult(
                 false,
                 IsWindowsDisplayCloned()
@@ -203,6 +234,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         }
 
         _closedManually = false;
+        _sessionActive = true;
         _state.Show();
         EnsureWindowVisible(false, settings, requireSecondaryScreen: true);
         return IsOpen
@@ -212,7 +244,13 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
             : new CustomerDisplayOpenResult(false, Tr.T("Не удалось открыть экран покупателя.", "Сатып алуучунун экранын ачуу мүмкүн болгон жок.", "Could not open the customer display.", "Müşteri ekranı açılamadı.", "Xaridor ekranini ochib bo'lmadi."));
     }
 
-    public void CloseForSession() => _ = CloseAsync(false);
+    public void CloseForSession()
+    {
+        // Сеанс закончился (смена закрыта / окно кассы закрыто): сторож окно не возвращает, пока сеанс не откроют снова.
+        _sessionActive = false;
+        Log("Закрыт: сеанс кассы закончился (смена закрыта или окно кассы закрыто).");
+        _ = CloseAsync(false);
+    }
 
     public void OpenManually()
     {
@@ -244,6 +282,11 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         }
 
         _closedManually = closedManually;
+        if (closedManually)
+        {
+            _sessionActive = false;
+            Log("Закрыт вручную (кнопка «Экран», Esc или настройки) — сам не откроется до следующего запуска/смены.");
+        }
         _state.Hide();
         CaptureWindowBounds();
         var window = _window;
@@ -259,7 +302,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
 
     public IReadOnlyList<DisplayScreenOption> GetScreens(Window owner)
     {
-        var screens = owner.Screens?.All;
+        var screens = ScreensOf(owner);
         if (screens is null)
             return [];
 
@@ -368,13 +411,26 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
                 var window = new CustomerDisplayWindow(_viewModel);
                 _window = window;
                 window.Screens.Changed += OnScreensChanged;
+                window.Closing += (_, e) =>
+                {
+                    // 2026-10-27: причина закрытия в журнал. Кнопка закрытия окна (режим «в окне») — решение кассира;
+                    // закрытие системой (выключение, завершение программы) ручным не считаем — сторож вернёт окно.
+                    if (_closingInternally)
+                        return;
+                    _userClosing = e.CloseReason == WindowCloseReason.WindowClosing;
+                    Log($"Окно закрывается не программой кассы: причина {e.CloseReason}.");
+                };
                 window.Closed += (_, _) =>
                 {
                     window.Screens.Changed -= OnScreensChanged;
                     if (ReferenceEquals(_window, window))
                         _window = null;
-                    if (!_closingInternally)
+                    if (!_closingInternally && _userClosing)
+                    {
                         _closedManually = true;
+                        _sessionActive = false;
+                    }
+                    _userClosing = false;
                 };
             }
 
@@ -382,7 +438,10 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
             _window.ApplySettings(settings);
             ApplyWindowPlacement(_window, settings, requireSecondaryScreen);
             if (!_window.IsVisible)
+            {
                 _window.Show();
+                Log($"Окно показано (экран {settings.SelectedScreenId}, режим {settings.WindowMode}).");
+            }
         }
         catch (Exception ex)
         {
@@ -447,7 +506,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         out string warning,
         bool requireSecondaryScreen = false)
     {
-        var screens = window.Screens?.All ??
+        var screens = ScreensOf(window) ??
                       throw new InvalidOperationException("Список мониторов недоступен.");
         var options = new List<(DisplayScreenOption option, Screen screen)>(screens.Count);
         for (var i = 0; i < screens.Count; i++)
@@ -502,13 +561,55 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Customer display screen change fallback failed: {ex}", "CUSTOMER_DISPLAY");
+            PosLogger.Log($"Customer display screen change fallback failed (окно закрыто, сторож вернёт при появлении монитора): {ex}", "CUSTOMER_DISPLAY");
             _ = CloseAsync(false);
+        }
+    }
+
+    /// <summary>2026-10-27: сторож. Раз в 30 с: если экран покупателя должен быть открыт, но окна нет (пропало при сне монитора,
+    /// не открылось при запуске, закрылось системой) и второй монитор виден — открывает снова и пишет в журнал, что нашёл.</summary>
+    private void StartWatchdog(Window owner)
+    {
+        _owner = new WeakReference<Window>(owner);
+        if (_watchdog is not null)
+            return;
+        // первая проверка через 5 с (запуск с ярлыка: окно кассы ещё разворачивается), дальше раз в 30 с
+        _watchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _watchdog.Tick += (_, _) =>
+        {
+            _watchdog.Interval = TimeSpan.FromSeconds(30);
+            WatchdogTick();
+        };
+        _watchdog.Start();
+    }
+
+    internal bool WatchdogTick()
+    {
+        try
+        {
+            if (!_sessionActive || _closedManually || IsOpen || !UserPreferences.Instance.CustomerDisplay.IsEnabled)
+                return false;
+            if (_owner is null || !_owner.TryGetTarget(out var owner))
+                return false;
+            if (!GetScreens(owner).Any(screen => !screen.IsPrimary))
+                return false;
+
+            var result = OpenOnSecondaryScreen(owner, respectEnabledSetting: true);
+            _watchdogRestores++;
+            Log($"Сторож вернул окно (раз {_watchdogRestores}): {(result.IsSuccess ? "успех" : "не вышло")} — {result.Message}");
+            return result.IsSuccess;
+        }
+        catch (Exception ex)
+        {
+            Log($"Сторож экрана покупателя: {ex.GetType().Name}: {ex.Message}");
+            return false;
         }
     }
 
     public void Dispose()
     {
+        _watchdog?.Stop();
+        _watchdog = null;
         _viewModel.CloseRequested = null;
         _ = CloseAsync(false);
     }

@@ -13,94 +13,140 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Склад: «Ревизия» — пересчёт сканером (скан → факт), акты, выгрузка в Excel, CSV и PDF; «Приёмка»: скан → строка, наценка, подорожание, кнопка «＋ поставщик»",
-        "Оприходование в фоне: окно не ждёт сервер (плохой интернет — «операция выполняется в фоне»), новое окно «Приходы в фоне», повторы без дублей",
-        "Нур Советник: накладная по штрихкодам, кнопка «Сгенерировать» штрихкод; ввод в полях больше не теряет символы",
-        "Генератор штрихкода в карточке товара и закупке: код не начинается с 0 и 2 и не повторяет коды каталога",
-        "Telegram-бот: «Группа заказов» — заказы приходят владельцу, в группу или в оба места",
-        "Редактор этикеток: можно печатать только штрихкод, только название или только цену; размер текста не ограничен",
-        "Скан в открытой карточке товара больше не срабатывает в окне «Склад»; поле «Штрихкод» в карточке шире",
+        "Новое окно «Печать штрихкодов и ценников»: массовая печать, листы A4, этикетка подбирается автоматически",
+        "Редактор этикеток: шаблон магазина больше не затирается шаблоном по умолчанию; платные функции проверяются единой проверкой покупки",
+        "Сводка и аналитика: столбцы и доли диаграмм разных цветов",
+        "Темы сайта для магазина одежды (10 тем); проверка читаемости своих тем; испорченный файл тем восстанавливается",
+        "Чек как в мобилке: экранный вид чека и PDF «бумага»",
+        "Ключи Gemini из нескольких аккаунтов: окно «Ключи Gemini», автоматическая смена ключа",
+        "Поля ключей и паролей не отдают значение через UI Automation, пока оно скрыто точками",
+        "Печать чеков с телефона на кассе (по умолчанию выключена)",
+        "Второй монитор: «внесено» и «сдача» при включённой галочке, сторож экрана покупателя возвращает пропавшее окно",
+        "Удалённая помощь: пока кассир работает мышью или клавиатурой, ввод оператора уступает кассиру; номер техподдержки +996 221 068 796",
+        "Склад: убрана лишняя подсказка сканера, фильтр «Наличие» больше не дублирует плитки, приёмка в узком окне",
+        "Маркетплейс: ряды карточек листаются мышью и пальцем; «Редактор сайта»: публикация только по команде и после подтверждения, нужно право «Настройки»",
+        "Исправлено: утечка памяти голосового управления (буфер звука не больше 30 с); принтер этикеток не запоминает виртуальные (PDF/XPS)",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Кампа: «Ревизия» — сканер менен кайра эсептөө (скан → факт), актылар, Excel, CSV жана PDFке чыгаруу; «Кабыл алуу»: скан → сап, кошумча баа, кымбаттоо, «＋ жеткирүүчү» баскычы",
-        "Фондо кирешелөө: терезе серверди күтпөйт (интернет начар болсо — «операция фондо аткарылууда»), «Фондогу кирешелер» жаңы терезеси, кайталоолор дубликатсыз",
-        "Нур Кеңешчи: штрихкод боюнча накладная, штрихкодду «Түзүү» баскычы; талааларга киргизүү символдорду жоготпойт",
-        "Товардын карточкасында жана сатып алууда штрихкод генератору: код 0 жана 2 менен башталбайт, каталогдогу коддорду кайталабайт",
-        "Telegram-бот: «Буйрутмалар тобу» — буйрутмалар ээсине, топко же экөөнө тең келет",
-        "Этикетка редактору: штрихкодду гана, атын гана же баасын гана басууга болот; текст өлчөмү чектелбейт",
-        "Товардын ачык карточкасындагы скан «Кампа» терезесинде иштебейт; карточкадагы «Штрихкод» талаасы кеңирээк",
+        "Жаңы «Штрихкод жана баа белгилерин басуу» терезеси: жапырт басуу, A4 барактары, этикетка автоматтык тандалат",
+        "Этикетка редактору: дүкөндүн шаблону демейки шаблон менен жазылып калбайт; акы төлөнүүчү функциялар сатып алууну бирдиктүү текшерүү менен текшерилет",
+        "Жыйынтык жана аналитика: диаграммалардын мамычалары жана үлүштөрү ар түрдүү түстө",
+        "Кийим дүкөнү үчүн сайт темалары (10 тема); өз темаларыңыздын окулуучулугун текшерүү; бузулган темалар файлы калыбына келет",
+        "Чек мобилкадагыдай: экрандагы чек көрүнүшү жана PDF «кагаз»",
+        "Бир нече аккаунттун Gemini ачкычтары: «Gemini ачкычтары» терезеси, ачкычты автоматтык алмаштыруу",
+        "Ачкыч жана сырсөз талаалары мааниси чекиттер менен жашырылганда UI Automation аркылуу бербейт",
+        "Кассада телефондон чектерди басуу (демейки боюнча өчүк)",
+        "Экинчи монитор: белгиленген болсо «киргизилди» жана «кайтарым», сатып алуучунун экранынын кароолчусу жоголгон терезени кайтарат",
+        "Алыстан жардам: кассир чычкан же баскычтоп менен иштегенде оператордун киргизүүсү кассирге жол берет; колдоонун номери +996 221 068 796",
+        "Кампа: ашыкча сканер кеңеши алынды, «Бар болушу» чыпкасы плиткаларды кайталабайт, тар терезеде кабыл алуу",
+        "Маркетплейс: карточка катарлары чычкан жана манжа менен сүрүлөт; «Сайт редактору»: жарыялоо буйрук менен жана ырастоодон кийин гана, «Жөндөөлөр» укугу керек",
+        "Оңдолду: үн менен башкарууда эс тутум агып кетүүсү (үн буфери 30 сек.ден ашпайт); этикетка принтери виртуалдык (PDF/XPS) принтерлерди эстебейт",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Stock: “Revision” — counting with a scanner (scan → actual), acts, export to Excel, CSV and PDF; “Receiving”: scan → row, markup, price rise, the “＋ supplier” button",
-        "Receiving in the background: the window does not wait for the server (bad internet — “the operation runs in the background”), a new “Receipts in the background” window, retries without duplicates",
-        "Nur Advisor: an invoice by barcodes, a “Generate” barcode button; typing in fields no longer loses characters",
-        "Barcode generator in the product card and purchasing: the code never starts with 0 or 2 and never repeats catalog codes",
-        "Telegram bot: “Orders group” — orders go to the owner, to the group, or to both",
-        "Label editor: you can print only the barcode, only the name or only the price; the text size is not limited",
-        "A scan in an open product card no longer triggers in the “Stock” window; the “Barcode” field in the card is wider",
+        "New “Print barcodes and price tags” window: bulk printing, A4 sheets, the label is fitted automatically",
+        "Label editor: the store template is no longer overwritten by the default one; paid features are checked by one common purchase check",
+        "Summary and analytics: chart bars and shares in different colors",
+        "Site themes for a clothing store (10 themes); readability check of your own themes; a damaged themes file is restored",
+        "Receipt like in the mobile app: an on-screen receipt view and a PDF “paper” receipt",
+        "Gemini keys from several accounts: the “Gemini keys” window, automatic key rotation",
+        "Key and password fields do not expose the value through UI Automation while it is hidden by dots",
+        "Printing receipts from the phone at the register (off by default)",
+        "Second monitor: “paid” and “change” when the checkbox is on, a customer-screen watchdog brings back a lost window",
+        "Remote help: while the cashier works with the mouse or keyboard, the operator’s input yields to the cashier; support number +996 221 068 796",
+        "Stock: the extra scanner hint is removed, the “Availability” filter no longer duplicates the tiles, receiving in a narrow window",
+        "Marketplace: card rows scroll with the mouse and a finger; “Site editor”: publishing only on command and after confirmation, the “Settings” permission is required",
+        "Fixed: a memory leak in voice control (the audio buffer is at most 30 s); the label printer does not remember virtual (PDF/XPS) printers",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Depo: «Sayım» — tarayıcıyla sayım (tarama → fiili), tutanaklar, Excel, CSV ve PDF dışa aktarma; «Mal kabul»: tarama → satır, kâr oranı, zam, «＋ tedarikçi» düğmesi",
-        "Arka planda mal girişi: pencere sunucuyu beklemez (kötü internette «işlem arka planda yürütülüyor»), yeni «Arka plandaki girişler» penceresi, tekrarlar çift kayıtsız",
-        "Nur Danışman: barkodlarla fatura, «Oluştur» barkod düğmesi; alanlara yazarken karakterler artık kaybolmaz",
-        "Ürün kartında ve satın almada barkod üretici: kod 0 ve 2 ile başlamaz, katalog kodlarını tekrarlamaz",
-        "Telegram botu: «Sipariş grubu» — siparişler sahibe, gruba veya ikisine gelir",
-        "Etiket düzenleyici: yalnızca barkod, yalnızca ad veya yalnızca fiyat yazdırılabilir; yazı boyutu sınırsız",
-        "Açık ürün kartındaki tarama artık «Depo» penceresinde çalışmaz; kartta «Barkod» alanı daha geniş",
+        "Yeni «Barkod ve fiyat etiketi yazdırma» penceresi: toplu yazdırma, A4 sayfaları, etiket otomatik seçilir",
+        "Etiket düzenleyici: mağaza şablonu artık varsayılan şablonla ezilmez; ücretli işlevler tek ortak satın alma denetimiyle kontrol edilir",
+        "Özet ve analiz: grafiklerin sütunları ve payları farklı renklerde",
+        "Giyim mağazası için site temaları (10 tema); kendi temalarınızın okunabilirlik denetimi; bozulan tema dosyası geri yüklenir",
+        "Mobil uygulamadaki gibi fiş: ekran fiş görünümü ve PDF «kâğıt»",
+        "Birden çok hesabın Gemini anahtarları: «Gemini anahtarları» penceresi, otomatik anahtar değişimi",
+        "Anahtar ve parola alanları, değer noktalarla gizliyken UI Automation üzerinden vermez",
+        "Kasada telefondan fiş yazdırma (varsayılan olarak kapalı)",
+        "İkinci monitör: kutu işaretliyse «ödenen» ve «para üstü», müşteri ekranı bekçisi kaybolan pencereyi geri getirir",
+        "Uzaktan yardım: kasiyer fare veya klavye kullanırken operatörün girişi kasiyere yol verir; destek numarası +996 221 068 796",
+        "Depo: gereksiz tarayıcı ipucu kaldırıldı, «Stok durumu» filtresi kutucukları tekrarlamaz, dar pencerede mal kabul",
+        "Pazaryeri: kart sıraları fare ve parmakla kaydırılır; «Site düzenleyici»: yayınlama yalnızca komutla ve onaydan sonra, «Ayarlar» yetkisi gerekir",
+        "Düzeltildi: sesli kontrolde bellek sızıntısı (ses tamponu en çok 30 sn); etiket yazıcısı sanal (PDF/XPS) yazıcıları hatırlamaz",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Ombor: «Taftish» — skaner bilan qayta hisoblash (skan → haqiqiy), dalolatnomalar, Excel, CSV va PDFga chiqarish; «Qabul»: skan → qator, ustama, qimmatlash, «＋ yetkazib beruvchi» tugmasi",
-        "Fonda kirim: oyna serverni kutmaydi (yomon internetda «amal fonda bajarilmoqda»), yangi «Fondagi kirimlar» oynasi, takrorlar dublikatsiz",
-        "Nur Maslahatchi: shtrix-kodlar bo'yicha hisob-faktura, shtrix-kodni «Yaratish» tugmasi; maydonlarga yozishda belgilar endi yo'qolmaydi",
-        "Mahsulot kartasida va xaridda shtrix-kod generatori: kod 0 va 2 bilan boshlanmaydi, katalogdagi kodlarni takrorlamaydi",
-        "Telegram-bot: «Buyurtmalar guruhi» — buyurtmalar egasiga, guruhga yoki ikkalasiga keladi",
-        "Yorliq muharriri: faqat shtrix-kodni, faqat nomni yoki faqat narxni chop etish mumkin; matn o'lchami cheklanmagan",
-        "Ochiq mahsulot kartasidagi skan endi «Ombor» oynasida ishlamaydi; kartadagi «Shtrix-kod» maydoni kengroq",
+        "Yangi «Shtrix-kod va narx yorliqlarini chop etish» oynasi: ommaviy chop etish, A4 varaqlar, yorliq avtomatik tanlanadi",
+        "Yorliq muharriri: do'kon shabloni endi standart shablon bilan o'chirilmaydi; pullik funksiyalar yagona xarid tekshiruvi bilan tekshiriladi",
+        "Xulosa va tahlil: diagramma ustunlari va ulushlari turli ranglarda",
+        "Kiyim do'koni uchun sayt mavzulari (10 ta); o'z mavzularingiz o'qilishini tekshirish; buzilgan mavzular fayli tiklanadi",
+        "Chek mobil ilovadagidek: ekrandagi chek ko'rinishi va PDF «qog'oz»",
+        "Bir nechta akkauntning Gemini kalitlari: «Gemini kalitlari» oynasi, kalitni avtomatik almashtirish",
+        "Kalit va parol maydonlari qiymat nuqtalar bilan yashirin bo'lsa, UI Automation orqali bermaydi",
+        "Kassada telefondan cheklarni chop etish (odatda o'chiq)",
+        "Ikkinchi monitor: belgi yoqilgan bo'lsa «kiritildi» va «qaytim», xaridor ekrani qorovuli yo'qolgan oynani qaytaradi",
+        "Masofaviy yordam: kassir sichqoncha yoki klaviatura bilan ishlaganda operator kiritishi kassirga yo'l beradi; yordam raqami +996 221 068 796",
+        "Ombor: ortiqcha skaner maslahati olib tashlandi, «Mavjudligi» filtri plitkalarni takrorlamaydi, tor oynada qabul",
+        "Marketplace: kartalar qatorlari sichqoncha va barmoq bilan suriladi; «Sayt muharriri»: e'lon qilish faqat buyruq bilan va tasdiqlangandan keyin, «Sozlamalar» huquqi kerak",
+        "Tuzatildi: ovozli boshqaruvda xotira oqishi (ovoz buferi 30 soniyadan oshmaydi); yorliq printeri virtual (PDF/XPS) printerlarni eslamaydi",
     ];
 
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно
     // «Касса обновлена» показывало пункты десктопа («на вашем компьютере», «сведения о компьютере») —
     // у Android свой список, тот же, что в выпуске Nurmarket-Android.
+    // 2026-10-27: Android 1.17.62 (тестовая) — то же, что на Windows в 1.17.62, без пунктов только для компьютера (печать, второй монитор, удалённая помощь, чеки с телефона, Склад).
     // 2026-10-24: Android 1.17.60 (тестовая) — то же, что на Windows в 1.17.60, без пунктов только для компьютера (воронка, окна и панель задач, горячие клавиши, импорт) и без программы владельца.
     // 2026-10-21: Android 1.17.59 (тестовая) — то же, что на Windows в 1.17.59, без пунктов только для компьютера.
     // 2026-10-11: Android 1.17.58 (после 1.17.53 — всё, что вышло на Windows в 1.17.54–1.17.58).
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
-        "Генератор штрихкода в карточке товара и закупке: код не начинается с 0 и 2 и не повторяет коды каталога",
-        "Скан в открытой карточке товара больше не срабатывает в окне «Склад»; поле «Штрихкод» в карточке шире",
+        "Сводка и аналитика: столбцы и доли диаграмм разных цветов",
+        "Темы сайта для магазина одежды (10 тем); проверка читаемости своих тем",
+        "Чек как в мобилке: экранный вид чека",
+        "Ключи Gemini из нескольких аккаунтов: окно «Ключи Gemini», автоматическая смена ключа",
+        "Маркетплейс: ряды карточек листаются пальцем; «Редактор сайта»: публикация только по команде и после подтверждения",
     ];
 
     public static readonly string[] AndroidLatestKy =
     [
-        "Товардын карточкасында жана сатып алууда штрихкод генератору: код 0 жана 2 менен башталбайт, каталогдогу коддорду кайталабайт",
-        "Товардын ачык карточкасындагы скан «Кампа» терезесинде иштебейт; карточкадагы «Штрихкод» талаасы кеңирээк",
+        "Жыйынтык жана аналитика: диаграммалардын мамычалары жана үлүштөрү ар түрдүү түстө",
+        "Кийим дүкөнү үчүн сайт темалары (10 тема); өз темаларыңыздын окулуучулугун текшерүү",
+        "Чек мобилкадагыдай: экрандагы чек көрүнүшү",
+        "Бир нече аккаунттун Gemini ачкычтары: «Gemini ачкычтары» терезеси, ачкычты автоматтык алмаштыруу",
+        "Маркетплейс: карточка катарлары манжа менен сүрүлөт; «Сайт редактору»: жарыялоо буйрук менен жана ырастоодон кийин гана",
     ];
 
     public static readonly string[] AndroidLatestEn =
     [
-        "Barcode generator in the product card and purchasing: the code never starts with 0 or 2 and never repeats catalog codes",
-        "A scan in an open product card no longer triggers in the “Stock” window; the “Barcode” field in the card is wider",
+        "Summary and analytics: chart bars and shares in different colors",
+        "Site themes for a clothing store (10 themes); readability check of your own themes",
+        "Receipt like in the mobile app: an on-screen receipt view",
+        "Gemini keys from several accounts: the “Gemini keys” window, automatic key rotation",
+        "Marketplace: card rows scroll with a finger; “Site editor”: publishing only on command and after confirmation",
     ];
 
     public static readonly string[] AndroidLatestTr =
     [
-        "Ürün kartında ve satın almada barkod üretici: kod 0 ve 2 ile başlamaz, katalog kodlarını tekrarlamaz",
-        "Açık ürün kartındaki tarama artık «Depo» penceresinde çalışmaz; kartta «Barkod» alanı daha geniş",
+        "Özet ve analiz: grafiklerin sütunları ve payları farklı renklerde",
+        "Giyim mağazası için site temaları (10 tema); kendi temalarınızın okunabilirlik denetimi",
+        "Mobil uygulamadaki gibi fiş: ekran fiş görünümü",
+        "Birden çok hesabın Gemini anahtarları: «Gemini anahtarları» penceresi, otomatik anahtar değişimi",
+        "Pazaryeri: kart sıraları parmakla kaydırılır; «Site düzenleyici»: yayınlama yalnızca komutla ve onaydan sonra",
     ];
 
     public static readonly string[] AndroidLatestUz =
     [
-        "Mahsulot kartasida va xaridda shtrix-kod generatori: kod 0 va 2 bilan boshlanmaydi, katalogdagi kodlarni takrorlamaydi",
-        "Ochiq mahsulot kartasidagi skan endi «Ombor» oynasida ishlamaydi; kartadagi «Shtrix-kod» maydoni kengroq",
+        "Xulosa va tahlil: diagramma ustunlari va ulushlari turli ranglarda",
+        "Kiyim do'koni uchun sayt mavzulari (10 ta); o'z mavzularingiz o'qilishini tekshirish",
+        "Chek mobil ilovadagidek: ekrandagi chek ko'rinishi",
+        "Bir nechta akkauntning Gemini kalitlari: «Gemini kalitlari» oynasi, kalitni avtomatik almashtirish",
+        "Marketplace: kartalar qatorlari barmoq bilan suriladi; «Sayt muharriri»: e'lon qilish faqat buyruq bilan va tasdiqlangandan keyin",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

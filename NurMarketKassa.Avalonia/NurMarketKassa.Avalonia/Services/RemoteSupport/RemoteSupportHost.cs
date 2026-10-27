@@ -56,7 +56,7 @@ public sealed class RemoteSupportHost : IAsyncDisposable
 
     /// <summary>2026-10-16: телефон поддержки NurMarket (тот же, что в окне «Поддержка», AdminSupportWindow) — для сообщения
     /// «сервер поддержки недоступен».</summary>
-    public const string SupportPhone = "+996 559 340 032";
+    public const string SupportPhone = "+996 221 068 796";
 
     /// <summary>2026-10-16: сервер поддержки недоступен — что делать кассиру.</summary>
     public static string UnreachableText() => Tr.T(
@@ -103,6 +103,42 @@ public sealed class RemoteSupportHost : IAsyncDisposable
     private long _lastAck;
     private Thread? _streamThread;
     private int _screenW, _screenH;
+
+    // 2026-10-26, владелец: «приоритет клиента должен быть выше». Пока кассир сам работает (мышь, клавиатура, сенсорный экран),
+    // ввод оператора не исполняется, а зажатое оператором отпускается; оператору уходит {"type":"client-active","active":…}
+    // (необязательное сообщение: старый оператор его игнорирует, старая касса его не шлёт). Как узнаём ввод кассира —
+    // в ClientInputWatcher. Замок: ввод оператора, ReleaseAll и смена состояния — в одном потоке за раз.
+    private readonly ClientInputWatcher _watcher;
+    private readonly object _inputLock = new();
+    private bool _clientActive;
+    private int _clientFlips;
+
+    /// <param name="simulateInput">Только стенд (HostHarness): ввод оператора не исполняется, а сообщается событием
+    /// <see cref="InputExecuted"/>; хуки не ставятся, «ввод кассира» подаётся вызовом <see cref="NoteClientInput"/>. Настоящую мышь
+    /// и клавиатуру ПК проверка не трогает.</param>
+    public RemoteSupportHost(bool simulateInput = false)
+    {
+        SimulateInput = simulateInput;
+        _watcher = new ClientInputWatcher(simulateInput);
+        _watcher.EmergencyStop += OnEmergencyStop;
+    }
+
+    public bool SimulateInput { get; }
+
+    /// <summary>2026-10-26: сколько миллисекунд после последнего действия кассира ввод оператора не исполняется (по умолчанию 3 с).</summary>
+    public int ClientPriorityMs { get; set; } = 3000;
+
+    /// <summary>Кассир сейчас работает сам — ввод оператора приостановлен.</summary>
+    public bool ClientActive => _clientActive;
+
+    /// <summary>Изменилось «кассир работает» (вызывается из потока ввода или таймера — в окне передавать через Dispatcher).</summary>
+    public event Action<bool>? ClientActiveChanged;
+
+    /// <summary>Стенд (<see cref="SimulateInput"/>): что касса исполнила бы вместо SendInput.</summary>
+    public event Action<string>? InputExecuted;
+
+    /// <summary>Стенд: «кассир коснулся мыши или клавиатуры».</summary>
+    public void NoteClientInput() => _watcher.NoteClientInput();
 
     private void SetState(State s)
     {
@@ -229,6 +265,9 @@ public sealed class RemoteSupportHost : IAsyncDisposable
                         }
                         PosLogger.Log($"Удалённая помощь: сеанс начат, оператор «{Operator}»{(_localViewOnly ? ", только просмотр" : "")}.", "INFO");
                         SessionStarted?.Invoke(Operator);
+                        // 2026-10-26: при «Только просмотр» кассира ввода у оператора нет — наблюдать за кассиром незачем (хуки не ставим).
+                        if (!_localViewOnly)
+                            _ = Task.Run(() => ClientMonitorAsync(ct));
                         _streamThread = new Thread(() => StreamLoop(ct)) { IsBackground = true, Name = "RemoteSupportStream" };
                         _streamThread.Start();
                         break;
@@ -268,7 +307,7 @@ public sealed class RemoteSupportHost : IAsyncDisposable
                         {
                             try
                             {
-                                OnMouse(m);
+                                RunOperatorInput(() => OnMouse(m));
                             }
                             catch (InvalidOperationException)
                             {
@@ -281,7 +320,7 @@ public sealed class RemoteSupportHost : IAsyncDisposable
                         {
                             try
                             {
-                                OnKey(m);
+                                RunOperatorInput(() => OnKey(m));
                             }
                             catch (InvalidOperationException)
                             {
@@ -291,7 +330,7 @@ public sealed class RemoteSupportHost : IAsyncDisposable
                         break;
                     case "text":
                         if (Current == State.InSession && !_viewOnly && !_localViewOnly && Str(m, "text") is { } tx)
-                            TypeText(tx);
+                            RunOperatorInput(() => TypeText(tx));
                         break;
                     case "quality":
                         if (!TryNum(m, "value", out var qv))
@@ -334,6 +373,7 @@ public sealed class RemoteSupportHost : IAsyncDisposable
         finally
         {
             ReleaseAll();
+            _watcher.Stop(); // 2026-10-26: хуки ввода живут только во время сеанса
             var wasSession = Current == State.InSession;
             SetState(State.Ended);
             _ackSignal.Release();
@@ -509,6 +549,7 @@ public sealed class RemoteSupportHost : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await StopAsync().ConfigureAwait(false);
+        _watcher.Dispose();
         _ws.Dispose();
     }
 
@@ -637,6 +678,101 @@ public sealed class RemoteSupportHost : IAsyncDisposable
         }
     }
 
+    // ---------- приоритет кассира (2026-10-26) ----------
+
+    /// <summary>Исполнить ввод оператора, только если кассир сейчас не работает сам. Первое же действие кассира отпускает всё,
+    /// что оператор держал нажатым (ReleaseAll), и ввод оператора пропускается, пока кассир не затихнет на <see cref="ClientPriorityMs"/>.
+    /// Возвращает false, если ввод пропущен.</summary>
+    private bool RunOperatorInput(Action execute)
+    {
+        bool active, changed;
+        lock (_inputLock)
+        {
+            active = EvaluateClientActiveLocked(out changed);
+            if (!active)
+                execute();
+        }
+        if (changed)
+            RaiseClientActiveChanged(active);
+        return !active;
+    }
+
+    /// <summary>Пересчитать «кассир работает»; при переходе в «работает» — отпустить всё, что держит оператор. Вызывать под _inputLock.</summary>
+    private bool EvaluateClientActiveLocked(out bool changed)
+    {
+        var active = _watcher.IsActive(ClientPriorityMs);
+        changed = active != _clientActive;
+        if (changed)
+        {
+            _clientActive = active;
+            if (active)
+                ReleaseAll();
+        }
+        return active;
+    }
+
+    private void RaiseClientActiveChanged(bool active)
+    {
+        // В журнал — только первые переходы сеанса: кассир может работать с перерывами весь сеанс.
+        if (Interlocked.Increment(ref _clientFlips) <= 6)
+            PosLogger.Log(active ? "Удалённая помощь: кассир работает сам — ввод оператора приостановлен." : "Удалённая помощь: кассир закончил — ввод оператора снова разрешён.", "INFO");
+        try
+        {
+            ClientActiveChanged?.Invoke(active);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Удалённая помощь: обработчик «кассир работает» упал ({ex.Message}).", "WARNING");
+        }
+    }
+
+    /// <summary>Пока идёт сеанс: ставит хуки ввода, раз в 200 мс пересчитывает «кассир работает» (так оператор узнаёт и о том, что
+    /// кассир закончил, даже если сам ничего не шлёт) и сообщает об изменении: {"type":"client-active","active":true|false}.
+    /// Сообщение необязательное — старые операторы его игнорируют, старые кассы не шлют; шлёт один этот цикл, поэтому порядок
+    /// «работает → закончил» не путается.</summary>
+    private async Task ClientMonitorAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Run(_watcher.Start, ct).ConfigureAwait(false);
+            PosLogger.Log(SimulateInput ? "Удалённая помощь: приоритет кассира — стенд." : _watcher.HooksInstalled
+                ? "Удалённая помощь: приоритет кассира включён (перехват мыши и клавиатуры)."
+                : "Удалённая помощь: приоритет кассира включён по запасному способу (без перехвата).", "INFO");
+            var sent = false;
+            while (Current == State.InSession && !ct.IsCancellationRequested)
+            {
+                bool active, changed;
+                lock (_inputLock)
+                    active = EvaluateClientActiveLocked(out changed);
+                if (changed)
+                    RaiseClientActiveChanged(active);
+                if (active != sent)
+                {
+                    sent = active;
+                    await SendJsonAsync(new { type = "client-active", active }, ct).ConfigureAwait(false);
+                }
+                await Task.Delay(200, ct).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // сеанс завершён
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Удалённая помощь: слежение за вводом кассира остановлено ({ex.Message}).", "WARNING");
+        }
+    }
+
+    /// <summary>Кассир нажал Ctrl+Alt+Shift+Esc — сеанс завершается сразу (оператор не может вызвать это сам: его ввод помечен).</summary>
+    private void OnEmergencyStop()
+    {
+        if (Current != State.InSession)
+            return;
+        PosLogger.Log("Удалённая помощь: кассир нажал Ctrl+Alt+Shift+Esc — сеанс завершается.", "INFO");
+        _ = StopAsync();
+    }
+
     // ---------- ввод оператора ----------
 
     private void OnMouse(JsonElement m)
@@ -673,10 +809,24 @@ public sealed class RemoteSupportHost : IAsyncDisposable
         SendMouse(nx, ny, flags, data);
     }
 
-    private static void SendMouse(int nx, int ny, uint flags, int data)
+    private void SendMouse(int nx, int ny, uint flags, int data)
     {
-        var input = new INPUT { type = INPUT_MOUSE, u = new InputUnion { mi = new MOUSEINPUT { dx = nx, dy = ny, mouseData = data, dwFlags = flags } } };
-        SendInput(1, new[] { input }, Marshal.SizeOf<INPUT>());
+        // 2026-10-26: dwExtraInfo = метка кассы — по ней ClientInputWatcher отличает ввод оператора от ввода кассира.
+        var input = new INPUT { type = INPUT_MOUSE, u = new InputUnion { mi = new MOUSEINPUT { dx = nx, dy = ny, mouseData = data, dwFlags = flags, dwExtraInfo = ClientInputWatcher.OwnMarker } } };
+        Inject(new[] { input }, $"mouse {nx},{ny} flags=0x{flags:X} data={data}");
+    }
+
+    /// <summary>2026-10-26: единственное место, где касса исполняет ввод оператора. На стенде (simulateInput) — только сообщает.</summary>
+    private void Inject(INPUT[] inputs, string? trace)
+    {
+        if (SimulateInput)
+        {
+            if (trace is not null)
+                InputExecuted?.Invoke(trace);
+            return;
+        }
+        _watcher.NoteOwnInput();
+        SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
     }
 
     private void OnKey(JsonElement m)
@@ -698,46 +848,58 @@ public sealed class RemoteSupportHost : IAsyncDisposable
         SendKey(vk.Code, vk.Extended, up);
     }
 
-    private static void SendKey(ushort vk, bool extended, bool up)
+    private void SendKey(ushort vk, bool extended, bool up)
     {
         var flags = (up ? KEYEVENTF_KEYUP : 0u) | (extended ? KEYEVENTF_EXTENDEDKEY : 0u);
-        var input = new INPUT { type = INPUT_KEYBOARD, u = new InputUnion { ki = new KEYBDINPUT { wVk = vk, wScan = (ushort)MapVirtualKey(vk, 0), dwFlags = flags } } };
-        SendInput(1, new[] { input }, Marshal.SizeOf<INPUT>());
+        var input = new INPUT { type = INPUT_KEYBOARD, u = new InputUnion { ki = new KEYBDINPUT { wVk = vk, wScan = (ushort)MapVirtualKey(vk, 0), dwFlags = flags, dwExtraInfo = ClientInputWatcher.OwnMarker } } };
+        Inject(new[] { input }, $"key vk=0x{vk:X2} {(up ? "up" : "down")}");
     }
 
-    private static void TypeText(string text)
+    private void TypeText(string text)
     {
         if (text.Length > 10_000)
             text = text[..10_000];
+        var typed = new StringBuilder();
+        var n = 0;
         foreach (var ch in text.Replace("\r\n", "\n"))
         {
+            // 2026-10-26: кассир взялся за мышь или клавиатуру посреди длинного текста — недопечатанное оператора бросаем.
+            if (++n % 8 == 0 && _watcher.IsActive(ClientPriorityMs))
+                break;
             if (ch == '\n')
             {
                 SendKey(0x0D, false, false);
                 SendKey(0x0D, false, true);
                 continue;
             }
-            var down = new INPUT { type = INPUT_KEYBOARD, u = new InputUnion { ki = new KEYBDINPUT { wScan = ch, dwFlags = KEYEVENTF_UNICODE } } };
-            var upIn = new INPUT { type = INPUT_KEYBOARD, u = new InputUnion { ki = new KEYBDINPUT { wScan = ch, dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP } } };
-            SendInput(2, new[] { down, upIn }, Marshal.SizeOf<INPUT>());
+            var down = new INPUT { type = INPUT_KEYBOARD, u = new InputUnion { ki = new KEYBDINPUT { wScan = ch, dwFlags = KEYEVENTF_UNICODE, dwExtraInfo = ClientInputWatcher.OwnMarker } } };
+            var upIn = new INPUT { type = INPUT_KEYBOARD, u = new InputUnion { ki = new KEYBDINPUT { wScan = ch, dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, dwExtraInfo = ClientInputWatcher.OwnMarker } } };
+            Inject(new[] { down, upIn }, null);
+            typed.Append(ch);
         }
+        if (SimulateInput && typed.Length > 0)
+            InputExecuted?.Invoke("text \"" + typed + "\"");
     }
 
     /// <summary>Конец сеанса или «только просмотр» — отпустить всё, что оператор держал нажатым.</summary>
     private void ReleaseAll()
     {
-        try
+        // 2026-10-26: замок — ReleaseAll зовут и поток приёма, и слежение за кассиром.
+        lock (_inputLock)
         {
-            foreach (var vk in _keysDown.ToList())
-                SendKey(vk, false, true);
-            _keysDown.Clear();
-            foreach (var b in _buttonsDown.ToList())
-                SendMouse(0, 0, b switch { 2 => MOUSEEVENTF_RIGHTUP, 1 => MOUSEEVENTF_MIDDLEUP, _ => MOUSEEVENTF_LEFTUP }, 0);
-            _buttonsDown.Clear();
-        }
-        catch
-        {
-            // ввод недоступен — ничего не держим
+            try
+            {
+                foreach (var vk in _keysDown.ToList())
+                    SendKey(vk, false, true);
+                _keysDown.Clear();
+                foreach (var b in _buttonsDown.ToList())
+                    SendMouse(0, 0, b switch { 2 => MOUSEEVENTF_RIGHTUP, 1 => MOUSEEVENTF_MIDDLEUP, _ => MOUSEEVENTF_LEFTUP }, 0);
+                _buttonsDown.Clear();
+            }
+            catch
+            {
+                // ввод недоступен — ничего не держим
+            }
         }
     }
 

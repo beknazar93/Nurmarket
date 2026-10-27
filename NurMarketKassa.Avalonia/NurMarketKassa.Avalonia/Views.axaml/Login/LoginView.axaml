@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sec="using:NurMarketKassa.AvaloniaHost.Views.Controls"
              xmlns:vm="using:NurMarketKassa.ViewModels"
              x:Class="NurMarketKassa.AvaloniaHost.Views.LoginView"
              x:DataType="vm:LoginViewModel"
@@ -85,7 +86,7 @@
                     <TextBlock Text="{DynamicResource csh.login.password}"
                                FontSize="13"
                                Foreground="{DynamicResource BrushTextMuted}"/>
-                    <TextBox Text="{Binding Password}"
+                    <sec:SecretTextBox Text="{Binding Password}"
                              PasswordChar="*"
                              Watermark="{DynamicResource csh.login.passwordWatermark}"
                              FontSize="14"
@@ -195,7 +196,7 @@
 
                 <StackPanel Spacing="8">
                     <TextBlock Text="{DynamicResource csh.login.password}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
-                    <TextBox Text="{Binding LocalPassword}" PasswordChar="*"
+                    <sec:SecretTextBox Text="{Binding LocalPassword}" PasswordChar="*"
                              FontSize="14" Padding="14,12"
                              Background="{DynamicResource BrushInput}"
                              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10"
@@ -232,7 +233,7 @@
 
                 <StackPanel Spacing="8">
                     <TextBlock Text="{DynamicResource csh.login.password}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
-                    <TextBox Text="{Binding LocalPassword}" PasswordChar="*"
+                    <sec:SecretTextBox Text="{Binding LocalPassword}" PasswordChar="*"
                              FontSize="14" Padding="14,12"
                              Background="{DynamicResource BrushInput}"
                              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10"

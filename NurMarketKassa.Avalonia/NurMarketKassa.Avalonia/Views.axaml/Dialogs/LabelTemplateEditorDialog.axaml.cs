@@ -9,6 +9,8 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
@@ -63,6 +65,10 @@ public partial class LabelTemplateEditorDialog : Window
     private readonly string _sampleBarcode;
     private readonly string? _samplePriceText;
     private readonly Action<LabelTemplate> _saveAction;
+    /// <summary>2026-10-27 (аудит редакторов, Б-1): шаблон на момент открытия — «Сохранить» без правок ничего не пишет на диск.</summary>
+    private readonly string _openedJson;
+    /// <summary>2026-10-27 (Б-2): редактор ЭТИКЕТКИ (не ценника: у ценника есть titleOverride) — платный, открывается только с покупкой.</summary>
+    private readonly bool _isLabelEditor;
 
     private readonly Dictionary<LabelElementKind, Border> _canvasBoxes = new();
     private readonly Dictionary<LabelElementKind, Button> _toolButtons = new();
@@ -83,9 +89,15 @@ public partial class LabelTemplateEditorDialog : Window
 
     public bool Saved { get; private set; }
 
-    /// <summary>Parameterless ctor required by Avalonia XAML runtime loader / designer.</summary>
+    /// <summary>Parameterless ctor required by Avalonia XAML runtime loader / designer; им же редактор открывают из Склада и
+    /// Маркетплейса.
+    /// 2026-10-27 (аудит редакторов, Б-1): раньше брался <see cref="LabelTemplate.CreateDefault"/> — «Сохранить» затирало настоящий
+    /// шаблон магазина шаблоном по умолчанию. Теперь открывается сохранённый шаблон (<see cref="LabelTemplateStore.Load"/>).</summary>
     public LabelTemplateEditorDialog()
-        : this(LabelTemplate.CreateDefault(), "Образец товара", "4870145004807", "285 сом")
+        : this(LabelTemplateStore.Load(),
+               Tr.T("Образец товара", "Товардын үлгүсү", "Sample product", "Örnek ürün", "Mahsulot namunasi"),
+               "4870145004807",
+               Tr.T("285 сом", "285 сом", "285 som", "285 som", "285 so'm"))
     {
     }
 
@@ -94,6 +106,8 @@ public partial class LabelTemplateEditorDialog : Window
         Action<LabelTemplate>? saveAction = null, string? titleOverride = null)
     {
         _template = template.Clone();
+        _openedJson = System.Text.Json.JsonSerializer.Serialize(_template);
+        _isLabelEditor = string.IsNullOrWhiteSpace(titleOverride);
         _sampleProductName = sampleProductName;
         _sampleBarcode = string.IsNullOrWhiteSpace(sampleBarcode) ? "4870145004807" : sampleBarcode;
         _samplePriceText = samplePriceText;
@@ -105,6 +119,9 @@ public partial class LabelTemplateEditorDialog : Window
         if (!string.IsNullOrWhiteSpace(titleOverride))
             Title = titleOverride;
 
+        // 2026-10-26: шаблон этикетки (не ценника) — можно сразу перейти к массовой печати этикеток и штрихкодов.
+        BulkPrintButton.Content = Tr.T("Печать штрихкодов и ценников…", "Штрих-коддорду жана баа белгилерин басуу…", "Print barcodes and price tags…", "Barkod ve fiyat etiketi yazdır…", "Shtrix-kod va narx yorliqlarini chop etish…");
+        BulkPrintButton.IsVisible = saveAction is null;
         // 2026-10-22 (модалки, пакет 3): видимая подпись у кнопок масштаба холста (раньше — только всплывающая подсказка).
         ZoomCaption.Text = Tr.T("Масштаб", "Масштаб", "Zoom", "Yakınlaştırma", "Masshtab");
 
@@ -675,6 +692,22 @@ public partial class LabelTemplateEditorDialog : Window
         // Штрих-код, который нельзя напечатать как выбрано (не EAN, кириллица, не влезает),
         // раньше просто молча не печатался или печатался нечитаемым — теперь объясняем почему.
         var warning = BarcodeLabelService.DescribeBarcodeProblem(_sampleBarcode, _template);
+        // 2026-10-27 (приёмка 26.10, Д-10): крупный ручной шрифт не помещается в блок — текст обрезается по блоку; предупреждаем жёлтой строкой.
+        try
+        {
+            if (BarcodeLabelService.HasTextOverflow(_sampleProductName, _samplePriceText, _template,
+                    sku: "SKU-001", unit: "шт", storeName: UserPreferences.Instance.StoreName, variantText: SampleVariantText))
+            {
+                var overflow = Tr.T("Текст не помещается в блок — увеличьте блок или уменьшите шрифт.", "Текст блокко батпайт — блокту чоңойтуңуз же шрифтти кичирейтиңиз.",
+                    "The text does not fit its block — enlarge the block or reduce the font size.", "Metin bloğa sığmıyor — bloğu büyütün veya yazı boyutunu küçültün.",
+                    "Matn blokka sig'mayapti — blokni kattalashtiring yoki shriftni kichraytiring.");
+                warning = string.IsNullOrEmpty(warning) ? overflow : warning + "\n" + overflow;
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Label template overflow check failed: {ex.Message}", "DEBUG");
+        }
         BarcodeWarningText.Text = warning ?? "";
         BarcodeWarningText.IsVisible = warning is not null;
     }
@@ -771,10 +804,43 @@ public partial class LabelTemplateEditorDialog : Window
     private void SaveButton_Click(object? sender, RoutedEventArgs e)
     {
         SavePrinterCalibration();
-        _saveAction(_template);
+        SaveTemplateIfChanged();
         Saved = true;
         Close();
     }
 
+    /// <summary>2026-10-27 (аудит редакторов, Б-1): без правок шаблон не перезаписывается (даже если окно когда-то открылось не с тем шаблоном).</summary>
+    private void SaveTemplateIfChanged()
+    {
+        if (System.Text.Json.JsonSerializer.Serialize(_template) != _openedJson)
+            _saveAction(_template);
+    }
+
+    /// <summary>2026-10-27 (аудит редакторов, Б-2): страховка — платный редактор этикеток не остаётся открытым без покупки,
+    /// каким бы окном его ни открыли (проверка покупки — <see cref="PaidFeatureGate"/>).</summary>
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        if (_isLabelEditor && !PaidFeatureGate.IsUnlocked(PaidFeature.LabelEditor))
+        {
+            PosLogger.Log("Редактор этикеток открыт без покупки — окно закрыто.", "WARNING");
+            Dispatcher.UIThread.Post(Close);
+        }
+    }
+
     private void CancelButton_Click(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>2026-10-26: сохраняет шаблон (как «Сохранить») и открывает окно «Печать штрихкодов и ценников» с ним.</summary>
+    private async void BulkPrintButton_Click(object? sender, RoutedEventArgs e)
+    {
+        // 2026-10-27 (Б-2): массовая печать — отдельная покупка; проверяем ДО сохранения и закрытия редактора.
+        if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.BulkPriceTag, this))
+            return;
+        SavePrinterCalibration();
+        SaveTemplateIfChanged();
+        Saved = true;
+        var owner = Owner as Window;
+        Close();
+        await BarcodePrintWindow.Open(owner).ConfigureAwait(true);
+    }
 }

@@ -47,7 +47,8 @@ public static class SettingsCloudSync
 
     /// <summary>Ключи ИИ — в личных настройках, но в отдельном поле "secrets" (бэкенд 05.10: «секреты передавать в secrets» —
     /// хранятся отдельно и отдаются только самому пользователю).</summary>
-    private static readonly string[] SecretKeys = { "TelegramAiKey", "GroqApiKey", "OpenRouterApiKey" };
+    // 2026-10-26: TelegramAiKeysExtra — дополнительные ключи Gemini (строка JSON, GeminiKeyPool); основной остаётся в TelegramAiKey.
+    private static readonly string[] SecretKeys = { "TelegramAiKey", "TelegramAiKeysExtra", "GroqApiKey", "OpenRouterApiKey" };
 
     // 2026-10-18: облачные поля кодов сотрудников (см. EmployeeAccessGate): новое — имена и хэши, версия списка,
     // старое (его читают кассы до обновления) — только имена. Открытые коды и пароли в облако не уходят.
@@ -68,6 +69,9 @@ public static class SettingsCloudSync
         "RentalLatePenaltyPerDay", "DebtLatePenaltyText",
         // 2026-10-06: срок обмена и категории без обмена (магазин одежды) — одинаковые на всех кассах.
         "ExchangeDaysLimit", "NonExchangeableCategories",
+        // 2026-10-26 (ТЗ хозмаг ХМ1): точная сфера магазина (hardware…). На сервер в market_sphere уходит только базовая —
+        // точное значение другие кассы и мобилка берут отсюда. null не отправляется (см. фильтр _lastCompany).
+        "MarketSphereDetail",
     };
 
     private static readonly string[] AllKeys = PersonalKeys.Concat(SecretKeys).Concat(CompanyKeys).ToArray();
@@ -413,6 +417,8 @@ public static class SettingsCloudSync
                     SectionVisibility.RaiseChanged();
                 if (appliedKeys.Contains("UnlockedPacks"))
                     TariffGate.RaisePacksChanged();
+                if (appliedKeys.Contains("MarketSphereDetail"))
+                    MarketSpheres.RaiseChanged(); // 2026-10-26: ХМ1 — точная сфера пришла из облака
                 Applied?.Invoke();
             }
         }

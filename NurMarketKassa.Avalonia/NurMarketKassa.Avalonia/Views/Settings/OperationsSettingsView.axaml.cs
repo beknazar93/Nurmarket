@@ -602,6 +602,7 @@ public partial class OperationsSettingsView : UserControl
             return;
         }
 
+        TelegramAiManyKeysButton.Content = Tr.T("Несколько ключей…", "Бир нече ачкыч…", "Several keys…", "Birden çok anahtar…", "Bir nechta kalit…");
         AiKeysRevealButton.Content = _aiKeysRevealed
             ? Tr.T("Скрыть ключи", "Ачкычтарды жашыруу", "Hide keys", "Anahtarları gizle", "Kalitlarni yashirish")
             : Tr.T("Показать ключи", "Ачкычтарды көрсөтүү", "Show keys", "Anahtarları göster", "Kalitlarni ko'rsatish");
@@ -640,6 +641,14 @@ public partial class OperationsSettingsView : UserControl
         prefs.SaveToDisk();
         if (!_aiKeysRevealed)
             RefreshAiKeyBoxes();
+    }
+
+    /// <summary>2026-10-26: окно списка ключей Gemini (до 10, из разных Google-аккаунтов). Поле выше — основной (первый) ключ.</summary>
+    private async void TelegramAiManyKeys_Click(object? sender, RoutedEventArgs e)
+    {
+        SaveTelegramAiKey();
+        await GeminiKeysWindow.ShowAsync(TopLevel.GetTopLevel(this) as Window).ConfigureAwait(true);
+        RefreshAiKeyBoxes();
     }
 
     private void TelegramAiGetKey_Click(object? sender, RoutedEventArgs e)

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Хозмаг — онлайн-витрина: карточка «м² / упаковка», калькулятор, «Нужна смета» (Д-ХМ1, Д-ХМ6)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Hardware-shared.css">
+<style>
+  .frame.site{ background:var(--sb); color:var(--st); overflow:auto; }
+  .site .nav{ display:flex; align-items:center; gap:16px; padding:14px 32px; border-bottom:1px solid var(--sl); position:sticky; top:0; background:var(--sb); z-index:2; }
+  .phone .site .nav, .site.ph .nav{ padding:12px 16px; gap:10px; }
+  .site .logo{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:17px; }
+  .site .logo i{ width:26px; height:26px; border-radius:50%; background:var(--sa); display:inline-block; position:relative; }
+  .site .logo i::after{ content:""; position:absolute; left:-5px; right:-5px; bottom:-3px; height:11px; background:var(--sb); clip-path:polygon(0 100%,50% 0,100% 100%); }
+  .site .crumbs{ color:var(--st2); font-size:12.5px; }
+  .site .wrap{ padding:22px 32px 40px; display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:28px; max-width:1200px; margin:0 auto; }
+  .site.ph .wrap{ grid-template-columns:1fr; padding:14px 16px 100px; gap:14px; }
+  .site .gal{ display:flex; flex-direction:column; gap:10px; }
+  .site .img{ aspect-ratio:4/3; border-radius:16px; background:linear-gradient(135deg,#8A8F98,#C9CDD3 55%,#9BA1AA); position:relative; overflow:hidden; }
+  .site .img::after{ content:""; position:absolute; inset:0; background:repeating-linear-gradient(90deg,transparent 0 48%,rgba(255,255,255,.35) 48% 50%),repeating-linear-gradient(0deg,transparent 0 31%,rgba(255,255,255,.35) 31% 33%); }
+  .site .thumbs{ display:flex; gap:8px; } .site .thumbs span{ width:64px; height:48px; border-radius:8px; background:#B4B8BF; } .site .thumbs span.on{ outline:2px solid var(--st); }
+  .site h1{ margin:0; font-size:24px; font-weight:800; line-height:1.15; }
+  .site.ph h1{ font-size:20px; }
+  .site .price{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .site .price b{ font-size:36px; font-weight:800; line-height:1; }
+  .site .price .per{ font-size:16px; font-weight:700; color:var(--st2); }
+  .site .price .pack{ font-size:16px; font-weight:700; padding:6px 10px; border-radius:10px; background:var(--sb2); }
+  .site .avail{ display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; color:var(--st); }
+  .site .avail i{ width:10px; height:10px; border-radius:50%; background:#16A34A; display:inline-block; }
+  .site .qty{ display:flex; align-items:center; gap:0; border:1px solid var(--sl); border-radius:12px; overflow:hidden; height:52px; }
+  .site .qty button{ width:52px; height:100%; border:0; background:var(--sb2); color:var(--st); font-size:22px; font-weight:700; cursor:pointer; }
+  .site .qty b{ flex:1; text-align:center; font-size:18px; }
+  .site .sub{ font-size:12.5px; color:var(--st2); line-height:1.35; }
+  .site .box{ border:1px solid var(--sl); border-radius:14px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; background:var(--sb); }
+  .site .box h3{ margin:0; font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px; }
+  .site .box.calc{ border-color:var(--sa); background:color-mix(in srgb,var(--sa) 10%,var(--sb)); }
+  .site .sinp{ height:46px; border:1px solid var(--sl); border-radius:10px; padding:0 12px; display:flex; align-items:center; gap:6px; background:var(--sb); font-weight:700; }
+  .site .sinp span{ color:var(--st2); font-weight:500; font-size:12.5px; margin-left:auto; }
+  .site .spec{ display:grid; grid-template-columns:1fr 1fr; font-size:13.5px; }
+  .site .spec div{ display:contents; } .site .spec dt{ padding:8px 0; color:var(--st2); border-top:1px solid var(--sl); margin:0; } .site .spec dd{ padding:8px 0; border-top:1px solid var(--sl); margin:0; font-weight:600; }
+  .site .rel{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .site .rel div{ border:1px solid var(--sl); border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:6px; font-size:12.5px; }
+  .site .rel div i{ height:64px; border-radius:8px; background:#B4B8BF; display:block; }
+  .site .rel div b{ font-size:13px; line-height:1.2; }
+  .site .rel div .pr{ font-weight:800; margin-top:auto; }
+  .site .ph-cta{ position:sticky; bottom:0; display:flex; gap:10px; padding:12px 16px 22px; background:var(--sb); border-top:1px solid var(--sl); }
+  .site .cart-line{ display:grid; grid-template-columns:56px 1fr auto; gap:12px; align-items:center; padding:12px 0; border-top:1px solid var(--sl); }
+  .site .cart-line i{ height:56px; border-radius:8px; background:#B4B8BF; display:block; }
+  .site .cart-line .qty{ height:40px; width:140px; } .site .cart-line .qty button{ width:40px; }
+  .site .tog{ display:flex; gap:8px; } .site .tog span{ flex:1; min-height:48px; border:1px solid var(--sl); border-radius:12px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:700; } .site .tog span.on{ border-color:var(--st); background:var(--sb2); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame site" id="frame" data-theme="light"></div>
+  <div class="note">
+    Онлайн-витрина (фронт сайта NurCRM вне репозитория — макет как ТЗ для него, раздел 4.5). Данные — из <code>showcase/{id}/</code> после Б-52/53/57/59/60. Переключатель темы здесь — «Clean» и «Стройка» (ХМ12: тёмно-серый с оранжевым), это темы сайта, не кассы.
+    <code>Карточка</code> — цена за м² крупно, за упаковку рядом; переключатель «м² / упаковка»; количество с шагом и подписью «кратно 1,44 м²»; наличие «240 м² · 166 уп»; характеристики; «С этим берут» (клей, затирка, крестики); «В корзину» и «Нужна смета».
+    <code>Калькулятор</code> — «Рассчитать по площади» раскрыт: те же формулы, что в кассе (запас 10 %). <code>Корзина</code> — дробное количество, самовывоз / доставка (адрес, этаж, лифт) / подъём, «Нужна смета» → заказ уходит владельцу как запрос КП (<code>needs_quote=true</code>). <code>Отправлено</code> — подтверждение.
+  </div>
+</div>
+<script src="Hardware-shared.js"></script>
+<script>
+(function(){
+  const I = HW.icon, t = HW.t;
+  const frame = document.getElementById('frame');
+  const nav = ph => '<div class="nav"><span class="logo"><i></i>'+(ph?'Мастер':'Хозмаг «Мастер»')+'</span>'+(ph?'':'<span class="crumbs">Каталог / Плитка и напольные покрытия / Керамическая плитка</span>')+'<span class="sp"></span><span class="sbtn s" style="min-height:40px;padding:0 12px">'+I('magnify',18)+(ph?'':' Поиск')+'</span><span class="sbtn s" style="min-height:40px;padding:0 12px">'+I('cart-outline',18)+' 2</span></div>';
+  const sbtn = (l, cls, ic, key) => '<button class="sbtn '+cls+'">'+(ic?I(ic,18):'')+t(l,key)+'</button>';
+  const calcBox = open => '<div class="box'+(open?' calc':'')+'"><h3>'+I('calculator',18)+t('Рассчитать по площади','site.calcTitle')+'<span class="sp"></span>'+I(open?'chevron-down':'chevron-right',18)+'</h3>'+
+    (open ? '<div class="row" style="gap:8px"><div class="sinp" style="flex:1">3,0<span>м</span></div><span style="font-weight:800">×</span><div class="sinp" style="flex:1">4,0<span>м</span></div><span style="font-weight:800">=</span><div class="sinp" style="flex:1">12,00<span>м²</span></div></div>'+
+      '<div class="row" style="gap:8px;flex-wrap:wrap"><span class="sub">'+t('Запас')+'</span>'+['0 %','5 %','10 %','15 %'].map((x,i)=>'<span class="chip lg'+(i===2?' dark':'')+'" style="height:36px;border-radius:18px">'+x+'</span>').join('')+'<span class="sub">15 % — по диагонали</span></div>'+
+      '<div class="box" style="padding:10px 14px;gap:4px"><div class="row" style="justify-content:space-between"><span class="sub">Нужно</span><b>12,00 м²</b></div><div class="row" style="justify-content:space-between"><span class="sub">С запасом 10 %</span><b>13,20 м²</b></div><div class="row" style="justify-content:space-between;font-size:17px"><b>10 упаковок · 14,40 м²</b><b>7 490 сом</b></div></div>'+
+      '<div class="row" style="gap:8px">'+sbtn('В корзину 10 уп','p','cart-outline','site.calcToCart')+sbtn('+ клей и затирка (3 + 3)','s','','site.calcRelated')+'</div>' : '<span class="sub">'+t('Введите длину и ширину — посчитаем упаковки с запасом, как на кассе магазина','site.calcHint')+'</span>')+'</div>';
+
+  function card(st, ph){
+    const openCalc = st==='calc';
+    return nav(ph)+'<div class="wrap"><div class="gal"><div class="img"></div><div class="thumbs"><span class="on"></span><span></span><span></span><span></span></div>'+
+      (ph?'':'<div class="box"><h3>'+t('Характеристики','site.specs')+'</h3><dl class="spec"><dt>Размер</dt><dd>30 × 60 см</dd><dt>Поверхность</dt><dd>матовая</dd><dt>Назначение</dt><dd>пол, стены</dd><dt>В упаковке</dt><dd>8 шт · 1,44 м²</dd><dt>Вес упаковки</dt><dd>27 кг</dd><dt>Сорт / партия</dt><dd>1 сорт · партия 2409 (оттенок A)</dd></dl></div>')+'</div>'+
+      '<div class="col" style="gap:14px"><span class="sub">Арт. PL-3060-GR · Керамическая плитка</span><h1>Плитка керамическая 30×60 «Атлас» серый матовый</h1>'+
+      '<div class="price"><b>520</b><span class="per">сом / м²</span><span class="pack">749 сом / уп <span style="font-weight:500;color:var(--st2)">(1,44 м²)</span></span></div>'+
+      '<div class="avail"><i></i>'+t('В наличии','site.inStock')+': 240 м² · 166 уп <span class="sub">· склад «Основной», партия 2409</span></div>'+
+      '<div class="sseg"><span class="on">м²</span><span>упаковка</span></div>'+
+      '<div class="row" style="gap:12px"><div class="qty" style="flex:1"><button>−</button><b>8,64 м²</b><button>+</button></div><div class="col" style="flex:1;gap:2px"><span class="sub"><b>'+t('кратно 1,44 м²','site.multiple')+'</b> — 6 упаковок</span><span class="sub">= 4 494 сом · шаг 1 уп</span></div></div>'+
+      calcBox(openCalc)+
+      '<div class="row" style="gap:10px">'+sbtn('В корзину','p','cart-outline','site.addToCart')+sbtn('Нужна смета','s','file-document-outline','site.needQuote')+'</div>'+
+      '<span class="sub">'+t('«Нужна смета» — опишите объект, менеджер посчитает материалы и пришлёт КП в WhatsApp','site.needQuoteHint')+'</span>'+
+      '<div class="box"><h3>'+t('С этим берут','site.related')+'</h3><div class="rel">'+[['Клей плиточный Ceresit CM 11, 25 кг','420 сом / мешок','на 12 м² — 3 мешка'],['Затирка Ceresit CE 40, 2 кг','260 сом / уп','на 12 м² — 3 уп'],['Крестики 2 мм, 100 шт','60 сом / уп','≈ 8 шт на м²']].map(r=>'<div><i></i><b>'+r[0]+'</b><span class="sub">'+r[2]+'</span><span class="pr">'+r[1]+'</span></div>').join('')+'</div></div>'+
+      '<div class="box"><h3>'+t('Аналоги','site.analogs')+'</h3><div class="rel">'+[['Плитка 30×60 «Атлас» бежевый','520 сом / м²'],['Плитка 30×60 «Лофт» серый','480 сом / м²'],['Керамогранит 60×60 «Грей»','690 сом / м²']].map(r=>'<div><i></i><b>'+r[0]+'</b><span class="pr">'+r[1]+'</span></div>').join('')+'</div></div>'+
+      (ph?'<div class="box"><h3>'+t('Характеристики','site.specs')+'</h3><dl class="spec"><dt>Размер</dt><dd>30 × 60 см</dd><dt>В упаковке</dt><dd>8 шт · 1,44 м²</dd><dt>Вес упаковки</dt><dd>27 кг</dd></dl></div>':'')+
+      '</div></div>'+(ph?'<div class="ph-cta">'+sbtn('В корзину · 4 494','p','','site.addToCart')+sbtn('Смета','s','file-document-outline','site.needQuote')+'</div>':'');
+  }
+  function cart(ph){
+    return nav(ph)+'<div class="wrap" style="'+(ph?'':'grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr)')+'"><div class="col" style="gap:4px"><h1 style="margin-bottom:8px">Корзина · 3 товара</h1>'+
+      [['Плитка 30×60 «Атлас» серый','10 уп · 14,40 м² · 749 сом/уп','7 490'],['Клей плиточный Ceresit CM 11, 25 кг','3 мешка · 420 сом','1 260'],['Кабель ВВГнг 3×2,5','2,5 м · 85 сом/м · шаг 0,1 м, минимум 1 м','212,50']].map(r=>'<div class="cart-line"><i></i><div class="col" style="gap:3px"><b>'+r[0]+'</b><span class="sub">'+r[1]+'</span><div class="qty"><button>−</button><b style="font-size:14px">'+r[1].split(' · ')[0]+'</b><button>+</button></div></div><b style="font-size:16px">'+r[2]+' сом</b></div>').join('')+
+      '<div class="box" style="margin-top:14px"><h3>'+I('truck-outline',18)+t('Получение','site.delivery')+'</h3><div class="tog"><span>'+I('store-outline',16)+'Самовывоз</span><span class="on">'+I('truck-outline',16)+'Доставка</span></div>'+
+        '<div class="sinp">ул. Ахунбаева, 12<span>адрес</span></div><div class="row" style="gap:8px"><div class="sinp" style="flex:1">4<span>этаж</span></div><div class="tog" style="flex:2"><span class="on">Лифта нет</span><span>Лифт есть</span></div></div>'+
+        '<div class="row" style="justify-content:space-between"><span class="sub">Доставка по городу 500 · подъём на 4 этаж без лифта 400 (27 кг × 10 уп)</span><b>900 сом</b></div></div></div>'+
+      '<div class="col" style="gap:12px"><div class="box"><div class="row" style="justify-content:space-between"><span class="sub">Товары</span><b>8 962,50</b></div><div class="row" style="justify-content:space-between"><span class="sub">Доставка и подъём</span><b>900</b></div><div class="row" style="justify-content:space-between;font-size:20px;border-top:1px solid var(--sl);padding-top:8px"><b>Итого</b><b>9 862,50 сом</b></div>'+sbtn('Оформить заказ','p','','site.checkout')+'</div>'+
+        '<div class="box calc"><h3>'+I('file-document-outline',18)+t('Нужна смета','site.needQuote')+'</h3><span class="sub">'+t('Не уверены в количестве? Опишите объект — менеджер проверит расчёт, предложит цену прораба и пришлёт КП','site.quoteHint')+'</span><div class="sinp" style="height:auto;min-height:64px;align-items:flex-start;padding:10px 12px;font-weight:500;font-size:13px">Ванная 3×4, стены до 2,7 м, нужна ещё плитка на стены и затирка. Прораб Азамат.</div><div class="sinp">+996 555 12-34-56<span>WhatsApp</span></div>'+sbtn('Отправить запрос на смету','s','send-outline','site.sendQuote')+'</div></div></div>';
+  }
+  function sent(ph){
+    return nav(ph)+'<div class="wrap" style="grid-template-columns:1fr;max-width:640px"><div class="box" style="align-items:center;text-align:center;padding:32px 24px;gap:12px">'+I('check-circle-outline',48)+'<h1>'+t('Запрос на смету отправлен','site.quoteSentTitle')+'</h1><span class="sub" style="font-size:14px">'+t('Менеджер магазина получил корзину (3 товара на 8 962,50 сом) и описание объекта. КП придёт в WhatsApp +996 555 12-34-56 в рабочее время (сегодня до 19:00).','site.quoteSentBody')+'</span><span class="sub">Заказ № 2026-10-26-14 · <b>needs_quote</b> · товары зарезервированы на 24 часа</span><div class="row" style="gap:10px">'+sbtn('В каталог','s','','site.toCatalog')+sbtn('Написать в WhatsApp','p','cellphone-message','site.wa')+'</div></div></div>';
+  }
+  const bar = document.createElement('div'); /* переключатель темы сайта */
+  function render(st){
+    const ph = HW.isPhone(frame);
+    frame.classList.toggle('ph', ph);
+    frame.innerHTML = st==='cart' ? cart(ph) : st==='sent' ? sent(ph) : card(st, ph);
+  }
+  HW.toolbar(frame, { title:'Hardware-Showcase — витрина хозмага', sizes:['1296','phone'], onState:render, states:[
+    { id:'card', label:'Карточка товара' }, { id:'calc', label:'Калькулятор открыт' }, { id:'cart', label:'Корзина + доставка' }, { id:'sent', label:'Смета отправлена' } ] });
+  /* тема сайта: Clean / Стройка — отдельная группа, вставляем в панель */
+  const tb = document.querySelector('.tb'); const g = document.createElement('div'); g.className = 'grp'; g.innerHTML = '<span>Тема сайта</span><button data-site="clean" class="on">Clean</button><button data-site="build">Стройка</button>';
+  tb.insertBefore(g, tb.children[2]); g.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; frame.classList.toggle('build', b.dataset.site==='build'); Array.from(g.querySelectorAll('button')).forEach(x => x.classList.toggle('on', x===b)); });
+  /* тема кассы (светлая/тёмная) на витрину не действует — скрываем её группу */
+  tb.querySelector('[data-t]').parentElement.style.display = 'none';
+})();
+</script>
+</body></html>

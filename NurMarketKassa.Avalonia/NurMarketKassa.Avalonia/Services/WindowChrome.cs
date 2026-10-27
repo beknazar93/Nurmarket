@@ -26,7 +26,11 @@ internal static class WindowChrome
     /// <summary>Красит заголовок окна под тему; повторно — при смене темы. Ошибки глотает (рамка останется системной).</summary>
     public static void Apply(Window window)
     {
-        lock (Tracked) Tracked.Add(new WeakReference<Window>(window));
+        lock (Tracked)
+        {
+            Tracked.RemoveAll(w => !w.TryGetTarget(out _)); // 2026-10-27: закрытые окна не копятся до смены темы
+            Tracked.Add(new WeakReference<Window>(window));
+        }
         window.Opened += (_, _) => Paint(window);
         window.ActualThemeVariantChanged += (_, _) =>
         {

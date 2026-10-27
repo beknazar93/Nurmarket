@@ -86,9 +86,9 @@ public static class AccentThemeService
     private static readonly Palette BaseLight = new(
         Window: "#EFF3F8", WindowAlt: "#FFFFFF", Panel: "#FFFFFF", PanelElevated: "#FFFFFF", PanelSoft: "#E2E8F0",
         Input: "#FFFFFF", InputAlt: "#F1F5F9", Border: "#CBD5E1", BorderStrong: "#94A3B8",
-        Text: "#0F172A", TextMuted: "#334155", TextSoft: "#64748B",
+        Text: "#0F172A", TextMuted: "#334155", TextSoft: "#59677C",
         Accent: "#FFB208", AccentStrong: "#E69F00", AccentSoft: "#FFF1DB", AccentForeground: "#191919", // 2026-10-22: брендовый жёлтый (было #F7D617)
-        TileBg: "#FFFFFF", TileBorder: "#E2E8F0", Price: "#A16207", Meta: "#94A3B8", Stock: "#475569",
+        TileBg: "#FFFFFF", TileBorder: "#E2E8F0", Price: "#A16207", Meta: "#5D6774", Stock: "#475569",
         TabBg: "#E2E8F0", TabBgHover: "#CBD5E1", TabBgSelected: "#FFB208", TabBorderSelected: "#E69F00",
         Focus: "#FFB208", Money: "#0F172A", SurfaceSubtle: "#F8FAFC");
 
@@ -149,9 +149,9 @@ public static class AccentThemeService
                 Window = "#E8EBEF", WindowAlt = "#F4F6F8", Panel = "#F8F9FB", PanelElevated = "#FFFFFF",
                 PanelSoft = "#DDE1E7", Input = "#FFFFFF", InputAlt = "#EDEFF3",
                 Border = "#C2C8D0", BorderStrong = "#8A929D",
-                Text = "#111827", TextMuted = "#374151", TextSoft = "#6B7280",
+                Text = "#111827", TextMuted = "#374151", TextSoft = "#5C626E",
                 Accent = "#1F2937", AccentStrong = "#111827", AccentSoft = "#DFE3E8", AccentForeground = "#FFFFFF",
-                TileBg = "#FFFFFF", TileBorder = "#CDD3DB", Price = "#111827", Meta = "#9CA3AF", Stock = "#4B5563",
+                TileBg = "#FFFFFF", TileBorder = "#CDD3DB", Price = "#111827", Meta = "#5E6269", Stock = "#4B5563",
                 TabBg = "#DDE1E7", TabBgHover = "#CDD3DB", TabBgSelected = "#1F2937", TabBorderSelected = "#111827",
                 Focus = "#1F2937", Money = "#111827", SurfaceSubtle = "#F3F4F6",
             },
@@ -176,11 +176,11 @@ public static class AccentThemeService
                 Window = "#FBE7D8", WindowAlt = "#FFF6EE", Panel = "#FFF8F2", PanelElevated = "#FFFFFF",
                 PanelSoft = "#F6DFCE", Input = "#FFFFFF", InputAlt = "#FDF3EA",
                 Border = "#EFCDB2", BorderStrong = "#D89B6C",
-                Text = "#4A2A17", TextMuted = "#7A4A2A", TextSoft = "#A97A56",
-                Accent = "#EA580C", AccentStrong = "#C2410C", AccentSoft = "#FFE6D2", AccentForeground = "#FFFFFF",
-                TileBg = "#FFFDFB", TileBorder = "#F0CDB0", Price = "#C2410C", Meta = "#B08968", Stock = "#7A4A2A",
-                TabBg = "#F6DFCE", TabBgHover = "#EFCDB2", TabBgSelected = "#EA580C", TabBorderSelected = "#C2410C",
-                Focus = "#EA580C", Money = "#4A2A17", SurfaceSubtle = "#FFF7F0",
+                Text = "#4A2A17", TextMuted = "#7A4A2A", TextSoft = "#7F5C40",
+                Accent = "#C2410C", AccentStrong = "#9A3412", AccentSoft = "#FFE6D2", AccentForeground = "#FFFFFF",
+                TileBg = "#FFFDFB", TileBorder = "#F0CDB0", Price = "#C2410C", Meta = "#795F48", Stock = "#7A4A2A",
+                TabBg = "#F6DFCE", TabBgHover = "#EFCDB2", TabBgSelected = "#C2410C", TabBorderSelected = "#9A3412",
+                Focus = "#C2410C", Money = "#4A2A17", SurfaceSubtle = "#FFF7F0",
             },
             BaseDark with
             {
@@ -204,9 +204,9 @@ public static class AccentThemeService
                 Window = "#E3EFE5", WindowAlt = "#F2F8F3", Panel = "#F6FBF7", PanelElevated = "#FFFFFF",
                 PanelSoft = "#D8E8DA", Input = "#FFFFFF", InputAlt = "#EFF6F0",
                 Border = "#BBD6BE", BorderStrong = "#7FAE85",
-                Text = "#14281B", TextMuted = "#2F4F38", TextSoft = "#5C7E65",
+                Text = "#14281B", TextMuted = "#2F4F38", TextSoft = "#4E6B56",
                 Accent = "#15803D", AccentStrong = "#166534", AccentSoft = "#D6F0DC", AccentForeground = "#FFFFFF",
-                TileBg = "#FFFFFF", TileBorder = "#C3DCC7", Price = "#166534", Meta = "#8AA890", Stock = "#2F4F38",
+                TileBg = "#FFFFFF", TileBorder = "#C3DCC7", Price = "#166534", Meta = "#566859", Stock = "#2F4F38",
                 TabBg = "#D8E8DA", TabBgHover = "#C3DCC7", TabBgSelected = "#15803D", TabBorderSelected = "#166534",
                 Focus = "#15803D", Money = "#14281B", SurfaceSubtle = "#F4F9F5",
             },
@@ -262,9 +262,9 @@ public static class AccentThemeService
                 Window = "#EAEADC", WindowAlt = "#F5F5EB", Panel = "#F7F7EE", PanelElevated = "#FDFDF7",
                 PanelSoft = "#E4E4D6", Input = "#FFFFFF", InputAlt = "#F0F0E4",
                 Border = "#C9C9B4", BorderStrong = "#8F8F76",
-                Text = "#1B2B1B", TextMuted = "#33472F", TextSoft = "#5F7355",
+                Text = "#1B2B1B", TextMuted = "#33472F", TextSoft = "#56694D",
                 Accent = "#166534", AccentStrong = "#14532D", AccentSoft = "#DCE9D5", AccentForeground = "#F2F2E9",
-                TileBg = "#FAFAF3", TileBorder = "#D8D8C4", Price = "#14532D", Meta = "#8F8F76", Stock = "#33472F",
+                TileBg = "#FAFAF3", TileBorder = "#D8D8C4", Price = "#14532D", Meta = "#646453", Stock = "#33472F",
                 TabBg = "#E4E4D6", TabBgHover = "#D8D8C4", TabBgSelected = "#166534", TabBorderSelected = "#14532D",
                 Focus = "#166534", Money = "#1B2B1B", SurfaceSubtle = "#F7F7EE",
             },
@@ -292,9 +292,9 @@ public static class AccentThemeService
                 Window = "#E9EEF6", WindowAlt = "#F6F9FD", Panel = "#FFFFFF", PanelElevated = "#FFFFFF",
                 PanelSoft = "#DCE5F2", Input = "#FFFFFF", InputAlt = "#EEF3FA",
                 Border = "#C3D0E4", BorderStrong = "#8FA4C4",
-                Text = "#0B1B33", TextMuted = "#27405F", TextSoft = "#5B7A9E",
+                Text = "#0B1B33", TextMuted = "#27405F", TextSoft = "#4C6685",
                 Accent = "#2563EB", AccentStrong = "#1D4ED8", AccentSoft = "#DBE7FE", AccentForeground = "#FFFFFF",
-                TileBg = "#FFFFFF", TileBorder = "#CBD8EC", Price = "#1D4ED8", Meta = "#8FA4C4", Stock = "#27405F",
+                TileBg = "#FFFFFF", TileBorder = "#CBD8EC", Price = "#1D4ED8", Meta = "#576478", Stock = "#27405F",
                 TabBg = "#DCE5F2", TabBgHover = "#C3D0E4", TabBgSelected = "#2563EB", TabBorderSelected = "#1D4ED8",
                 Focus = "#2563EB", Money = "#0B1B33", SurfaceSubtle = "#F3F7FC",
             },
@@ -304,7 +304,7 @@ public static class AccentThemeService
                 PanelSoft = "#1F2C42", Input = "#131C2B", InputAlt = "#182336",
                 Border = "#28374F", BorderStrong = "#3D5271",
                 Text = "#EAF1FB", TextMuted = "#C3D3E8", TextSoft = "#8DA3C0",
-                Accent = "#3B82F6", AccentStrong = "#2563EB", AccentSoft = "#16233A", AccentForeground = "#04101F",
+                Accent = "#3B82F6", AccentStrong = "#60A5FA", AccentSoft = "#16233A", AccentForeground = "#04101F",
                 TileBg = "#182336", TileBorder = "#28374F", Price = "#93C5FD", Meta = "#8DA3C0", Stock = "#C3D3E8",
                 TabBg = "#182336", TabBgHover = "#1F2C42", TabBgSelected = "#3B82F6", TabBorderSelected = "#2563EB",
                 Focus = "#3B82F6", Money = "#EAF1FB", SurfaceSubtle = "#131C2B",
@@ -322,9 +322,9 @@ public static class AccentThemeService
                 Window = "#F1F3F5", WindowAlt = "#FAFBFC", Panel = "#FFFFFF", PanelElevated = "#FFFFFF",
                 PanelSoft = "#E6E9EC", Input = "#FFFFFF", InputAlt = "#F2F4F6",
                 Border = "#D3D8DD", BorderStrong = "#9AA3AC",
-                Text = "#15202B", TextMuted = "#3B4754", TextSoft = "#6E7A87",
+                Text = "#15202B", TextMuted = "#3B4754", TextSoft = "#5E6873",
                 Accent = "#0F766E", AccentStrong = "#115E59", AccentSoft = "#D6F0EC", AccentForeground = "#FFFFFF",
-                TileBg = "#FFFFFF", TileBorder = "#DFE4E9", Price = "#115E59", Meta = "#9AA3AC", Stock = "#3B4754",
+                TileBg = "#FFFFFF", TileBorder = "#DFE4E9", Price = "#115E59", Meta = "#63686E", Stock = "#3B4754",
                 TabBg = "#E6E9EC", TabBgHover = "#D3D8DD", TabBgSelected = "#0F766E", TabBorderSelected = "#115E59",
                 Focus = "#0F766E", Money = "#15202B", SurfaceSubtle = "#F7F8F9",
             },
@@ -352,9 +352,9 @@ public static class AccentThemeService
                 Window = "#F5F2FA", WindowAlt = "#FBFAFE", Panel = "#FFFFFF", PanelElevated = "#FFFFFF",
                 PanelSoft = "#E9E3F4", Input = "#FFFFFF", InputAlt = "#F4F0FB",
                 Border = "#DCD2EC", BorderStrong = "#A892CE",
-                Text = "#241A3B", TextMuted = "#43325F", TextSoft = "#7A6796",
+                Text = "#241A3B", TextMuted = "#43325F", TextSoft = "#6F5E88",
                 Accent = "#7C3AED", AccentStrong = "#6D28D9", AccentSoft = "#EDE4FE", AccentForeground = "#FFFFFF",
-                TileBg = "#FFFFFF", TileBorder = "#E4DBF2", Price = "#6D28D9", Meta = "#A892CE", Stock = "#43325F",
+                TileBg = "#FFFFFF", TileBorder = "#E4DBF2", Price = "#6D28D9", Meta = "#6D5F86", Stock = "#43325F",
                 TabBg = "#E9E3F4", TabBgHover = "#DCD2EC", TabBgSelected = "#7C3AED", TabBorderSelected = "#6D28D9",
                 Focus = "#7C3AED", Money = "#241A3B", SurfaceSubtle = "#FAF7FE",
                 Header = "#6D28D9", HeaderText = "#FFFFFF",
@@ -365,7 +365,7 @@ public static class AccentThemeService
                 PanelSoft = "#2C2149", Input = "#1C1530", InputAlt = "#241B3C",
                 Border = "#372A59", BorderStrong = "#4F3C7D",
                 Text = "#EDE7FA", TextMuted = "#CFC2EC", TextSoft = "#9B8AC0",
-                Accent = "#A855F7", AccentStrong = "#9333EA", AccentSoft = "#241B3C", AccentForeground = "#12071F",
+                Accent = "#A855F7", AccentStrong = "#C084FC", AccentSoft = "#241B3C", AccentForeground = "#12071F",
                 TileBg = "#241B3C", TileBorder = "#372A59", Price = "#D8B4FE", Meta = "#9B8AC0", Stock = "#CFC2EC",
                 TabBg = "#241B3C", TabBgHover = "#2C2149", TabBgSelected = "#A855F7", TabBorderSelected = "#9333EA",
                 Focus = "#A855F7", Money = "#EDE7FA", SurfaceSubtle = "#1C1530",
@@ -386,9 +386,9 @@ public static class AccentThemeService
                 Window = "#F6EDDF", WindowAlt = "#FFFCF7", Panel = "#FFFCF7", PanelElevated = "#FFFCF7",
                 PanelSoft = "#F1E3CF", Input = "#FFFFFF", InputAlt = "#FBF3E7",
                 Border = "#E4CFB2", BorderStrong = "#C49A6C",
-                Text = "#3B1F12", TextMuted = "#5E3622", TextSoft = "#8C6547",
+                Text = "#3B1F12", TextMuted = "#5E3622", TextSoft = "#815D41",
                 Accent = "#C8102E", AccentStrong = "#9E0B22", AccentSoft = "#FBE1DC", AccentForeground = "#FFFFFF",
-                TileBg = "#FFFCF7", TileBorder = "#EAD6BB", Price = "#A10E26", Meta = "#B08E6E", Stock = "#5E3622",
+                TileBg = "#FFFCF7", TileBorder = "#EAD6BB", Price = "#A10E26", Meta = "#78614B", Stock = "#5E3622",
                 TabBg = "#F1E3CF", TabBgHover = "#E8D3B6", TabBgSelected = "#C8102E", TabBorderSelected = "#9E0B22",
                 Focus = "#C8102E", Money = "#3B1F12", SurfaceSubtle = "#FDF6EC",
             },
@@ -566,17 +566,77 @@ public static class AccentThemeService
         app.Resources["CatalogTileStockSize"] = Math.Round(skin.TileStockSize * font, 1);
     }
 
+    /// <summary>2026-10-27 (аудит редакторов, В-5): id своей темы, которая выбрана в настройках, но на этой кассе её нет (тема создана на другом
+    /// компьютере: определение темы хранится только в custom-themes.json, а выбор — AccentTheme — синхронизируется). null — всё в порядке.
+    /// Настройка при этом НЕ затирается (после переноса темы файлом она включится сама); пока её нет, показана «Классическая», и об этом
+    /// говорят Маркетплейс и редактор тем.</summary>
+    public static string? MissingCustomThemeId { get; private set; }
+
     public static void Apply(string? themeId, bool dark)
     {
         // Своя тема (редактор тем, 2026-09-28) — встроенная база + свои цвета, скругление и шрифт.
         if (CustomThemeStore.Find(themeId) is { } custom)
         {
+            MissingCustomThemeId = null;
             ApplyDefinition(custom, dark);
             return;
         }
 
+        // 2026-10-27 (В-5): раньше «Классическая» включалась молча.
+        var missing = CustomThemeStore.IsCustomId(themeId) ? themeId : null;
+        if (missing is not null && !string.Equals(missing, MissingCustomThemeId, StringComparison.OrdinalIgnoreCase))
+            PosLogger.Log($"Своя тема «{missing}» выбрана в настройках, но её нет на этой кассе — показана «Классическая».", "WARNING");
+        MissingCustomThemeId = missing;
         ApplyCore(Resolve(themeId), dark, null);
     }
+
+    /// <summary>2026-10-27 (аудит редакторов, В-8): снимок всех ресурсов кассы, записанных темой (кисти, радиусы, шрифт и т. д.). Редактор тем
+    /// закрепляет за собой снимок прежней темы, пока красится вся программа, — чтобы сам оставался читаемым при любых цветах.</summary>
+    public static Avalonia.Controls.ResourceDictionary SnapshotResources()
+    {
+        var dict = new Avalonia.Controls.ResourceDictionary();
+        if (Application.Current is { } app)
+            foreach (var pair in app.Resources)
+                dict[pair.Key] = pair.Value;
+        return dict;
+    }
+
+    /// <summary>Пара «цвет текста на фоне», которая читается хуже нормы.</summary>
+    public sealed record ContrastIssue(string What, double Ratio, double Min, bool Dark);
+
+    /// <summary>2026-10-27 (аудит редакторов, В-8): проверка читаемости своей темы по WCAG для одного варианта: основной и второстепенный
+    /// текст на панелях и на фоне окна, текст на акценте (кнопки), цена на плитке, цвета состояний на своём мягком фоне. Порог — 4,5:1.</summary>
+    public static IReadOnlyList<ContrastIssue> CheckContrast(CustomThemeDefinition def, bool dark)
+    {
+        var skin = BuildCustomSkin(def);
+        var p = dark ? skin.Dark : skin.Light;
+        var o = def.ColorsFor(dark);
+        var issues = new List<ContrastIssue>();
+        void Add(string fg, string bg, string what, double min = 4.5)
+        {
+            var ratio = Contrast(fg, bg);
+            if (ratio < min)
+                issues.Add(new ContrastIssue(what, ratio, min, dark));
+        }
+
+        Add(p.Text, p.Panel, Tr.T("Основной текст на панелях", "Негизги текст панелдерде", "Main text on panels", "Panellerde ana metin", "Panellarda asosiy matn"));
+        Add(p.Text, p.Window, Tr.T("Основной текст на фоне окна", "Негизги текст терезенин фонунда", "Main text on the window background", "Pencere arka planında ana metin", "Oyna fonida asosiy matn"));
+        Add(p.TextSoft, p.Panel, Tr.T("Второстепенный текст на панелях", "Кошумча текст панелдерде", "Secondary text on panels", "Panellerde ikincil metin", "Panellarda ikkinchi darajali matn"));
+        Add(p.TextSoft, p.Window, Tr.T("Второстепенный текст на фоне окна", "Кошумча текст терезенин фонунда", "Secondary text on the window background", "Pencere arka planında ikincil metin", "Oyna fonida ikkinchi darajali matn"));
+        Add(p.AccentForeground, p.Accent, Tr.T("Текст на акценте (главные кнопки)", "Акценттеги текст (башкы баскычтар)", "Text on the accent (main buttons)", "Vurgu üzerindeki metin (ana düğmeler)", "Urg'u ustidagi matn (asosiy tugmalar)"));
+        Add(p.Price, p.TileBg, Tr.T("Цена на плитке товара", "Товар плиткасындагы баа", "Price on a product tile", "Ürün karosundaki fiyat", "Mahsulot plitkasidagi narx"));
+        if (o.Success is { } ok)
+            Add(ok, Mix(ok, p.Panel, dark ? 0.78 : 0.86), Tr.T("Цвет «Успех» на своём фоне", "«Ийгилик» түсү өз фонунда", "“Success” colour on its background", "«Başarı» rengi kendi arka planında", "«Muvaffaqiyat» rangi o'z fonida"));
+        if (o.Warning is { } warn)
+            Add(warn, Mix(warn, p.Panel, dark ? 0.78 : 0.86), Tr.T("Цвет «Предупреждение» на своём фоне", "«Эскертүү» түсү өз фонунда", "“Warning” colour on its background", "«Uyarı» rengi kendi arka planında", "«Ogohlantirish» rangi o'z fonida"));
+        if (o.Danger is { } bad)
+            Add(bad, Mix(bad, p.Panel, dark ? 0.78 : 0.86), Tr.T("Цвет «Ошибка» на своём фоне", "«Ката» түсү өз фонунда", "“Error” colour on its background", "«Hata» rengi kendi arka planında", "«Xato» rangi o'z fonida"));
+        return issues;
+    }
+
+    /// <summary>Проблемы читаемости обоих вариантов (светлого и тёмного) — тема несёт оба, и применяется любой из них.</summary>
+    public static IReadOnlyList<ContrastIssue> CheckContrastBoth(CustomThemeDefinition def) =>
+        CheckContrast(def, false).Concat(CheckContrast(def, true)).ToList();
 
     /// <summary>Применяет свою тему (в том числе ещё не сохранённую — живой предпросмотр в
     /// редакторе тем). Настройки не пишет.</summary>
@@ -908,7 +968,7 @@ public static class AccentThemeService
             {
                 Accent = accent, AccentStrong = strong, AccentSoft = Mix(accent, panel, dark ? 0.72 : 0.84),
                 TabBgSelected = accent, TabBorderSelected = strong, Focus = accent,
-                Price = Readable(accent, p.TileBg, text, 3.0),
+                Price = Readable(accent, p.TileBg, text, 4.5), // 2026-10-27 (аудит редакторов, С-9): цена — текст, нужен AA (было 3,0)
                 AccentForeground = o.AccentText ?? BestTextOn(accent),
             };
         }

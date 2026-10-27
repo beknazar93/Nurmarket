@@ -361,6 +361,12 @@ public sealed class UserPreferences
     /// Только на время запуска, на диск не пишется.</summary>
     public bool MarketSphereWasInFile { get; private set; }
 
+    /// <summary>2026-10-26 (ТЗ хозмаг ХМ1 + СФ1): точная сфера магазина (например «hardware»), когда она не совпадает с базовой.
+    /// MarketSphere всегда остаётся БАЗОВОЙ (grocery / clothing / services) — от неё зависят прежние ветки и поле market_sphere
+    /// на сервере (значение hardware сервер отклонит). null — точная сфера не задана (все существующие магазины).
+    /// Ключ общих настроек компании (SettingsCloudSync.CompanyKeys): другие кассы магазина видят ту же сферу.</summary>
+    public string? MarketSphereDetail { get; set; }
+
     /// <summary>Ручной оверрайд скруглённости кнопок (px) поверх значения активной темы —
     /// null означает "как задано в теме" (см. AccentThemeService.Apply).</summary>
     public double? CustomButtonRadius { get; set; }
@@ -565,6 +571,11 @@ public sealed class UserPreferences
     /// (aistudio.google.com). Есть ключ — на вопросы, которые не узнал помощник бота, отвечает
     /// нейросеть по сводке магазина. Как и токен бота, на диск пишется только через DPAPI.</summary>
     public string? TelegramAiKey { get; set; }
+
+    /// <summary>2026-10-26, владелец: «добавь возможность добавить API Gemini из нескольких Google-аккаунтов». Дополнительные ключи
+    /// Gemini и метка/флаг основного — строка JSON (формат в GeminiKeyPool). Основной ключ остаётся в <see cref="TelegramAiKey"/> —
+    /// его читают мобилка, бот на сервере и старые кассы. Как и ключ, на диск — только через DPAPI, в облако — в «secrets».</summary>
+    public string? TelegramAiKeysExtra { get; set; }
 
     /// <summary>2026-10-05, владелец: «найди бесплатную модель, которая ищет в интернете», «настрой несколько моделей».
     /// Бесплатные ключи запасных моделей (AiProviders): Groq — поиск в интернете (gpt-oss + browser_search) и запасные
@@ -908,6 +919,13 @@ public sealed class UserPreferences
             {
                 p.TelegramAiKey = gemini;
                 taken.Add("ключ ИИ Gemini");
+            }
+            // 2026-10-26: дополнительные ключи Gemini общие у кассы и программы владельца так же, как основной ключ.
+            var geminiExtra = Open(fromFile.TelegramAiKeysExtraProtected);
+            if (Take("geminiextra", geminiExtra, p.TelegramAiKeysExtra))
+            {
+                p.TelegramAiKeysExtra = geminiExtra;
+                taken.Add("дополнительные ключи Gemini");
             }
             var groq = Open(fromFile.GroqApiKeyProtected);
             if (Take("groq", groq, p.GroqApiKey))
@@ -1322,6 +1340,8 @@ public sealed class UserPreferences
                 p.OwnerPhone = fromFile.OwnerPhone;
             if (!string.IsNullOrWhiteSpace(fromFile.TelegramAiKeyProtected))
                 p.TelegramAiKey = WindowsDpapiHelper.UnprotectFromBase64(fromFile.TelegramAiKeyProtected);
+            if (!string.IsNullOrWhiteSpace(fromFile.TelegramAiKeysExtraProtected))
+                p.TelegramAiKeysExtra = WindowsDpapiHelper.UnprotectFromBase64(fromFile.TelegramAiKeysExtraProtected);
             if (!string.IsNullOrWhiteSpace(fromFile.GroqApiKeyProtected))
                 p.GroqApiKey = WindowsDpapiHelper.UnprotectFromBase64(fromFile.GroqApiKeyProtected);
             if (!string.IsNullOrWhiteSpace(fromFile.OpenRouterApiKeyProtected))
@@ -1467,6 +1487,7 @@ public sealed class UserPreferences
                 p.MarketSphere = MarketSpheres.Normalize(fromFile.MarketSphere);
                 p.MarketSphereWasInFile = true;
             }
+            p.MarketSphereDetail = SphereCatalog.SanitizeDetail(fromFile.MarketSphereDetail); // 2026-10-26: ХМ1
             p.MarketSphereServerSeen = fromFile.MarketSphereServerSeen;
             p.MarketSphereChoicePending = fromFile.MarketSphereChoicePending ?? false;
             if (fromFile.CustomerDisplay is not null)
@@ -1663,6 +1684,7 @@ public sealed class UserPreferences
                 TelegramBotUsername = TelegramBotUsername,
                 OwnerPhone = OwnerPhone,
                 TelegramAiKeyProtected = string.IsNullOrWhiteSpace(TelegramAiKey) ? null : WindowsDpapiHelper.ProtectToBase64(TelegramAiKey),
+                TelegramAiKeysExtraProtected = string.IsNullOrWhiteSpace(TelegramAiKeysExtra) ? null : WindowsDpapiHelper.ProtectToBase64(TelegramAiKeysExtra),
                 GroqApiKeyProtected = string.IsNullOrWhiteSpace(GroqApiKey) ? null : WindowsDpapiHelper.ProtectToBase64(GroqApiKey),
                 OpenRouterApiKeyProtected = string.IsNullOrWhiteSpace(OpenRouterApiKey) ? null : WindowsDpapiHelper.ProtectToBase64(OpenRouterApiKey),
                 LanSyncEnabled = LanSyncEnabled,
@@ -1762,6 +1784,7 @@ public sealed class UserPreferences
                 CompactLayoutMode = CompactLayoutMode,
                 CatalogTileScalePercent = CatalogTileScalePercent,
                 MarketSphere = MarketSphere,
+                MarketSphereDetail = MarketSphereDetail,
                 MarketSphereServerSeen = MarketSphereServerSeen,
                 MarketSphereChoicePending = MarketSphereChoicePending ? true : null,
                 UpdateTesterCode = UpdateTesterCode,
@@ -1972,6 +1995,7 @@ public sealed class UserPreferences
         public bool? TelegramShiftSummaryEnabled { get; set; }
         public string? OwnerPhone { get; set; }
         public string? TelegramAiKeyProtected { get; set; }
+        public string? TelegramAiKeysExtraProtected { get; set; }
         public string? GroqApiKeyProtected { get; set; }
         public string? OpenRouterApiKeyProtected { get; set; }
         public bool? LanSyncEnabled { get; set; }
@@ -2069,6 +2093,7 @@ public sealed class UserPreferences
         public string? CompactLayoutMode { get; set; }
         public double? CatalogTileScalePercent { get; set; }
         public string? MarketSphere { get; set; }
+        public string? MarketSphereDetail { get; set; }
         public string? MarketSphereServerSeen { get; set; }
         public bool? MarketSphereChoicePending { get; set; }
         public string? UpdateTesterCode { get; set; }
@@ -2089,16 +2114,27 @@ public static class MarketSpheres
     public const string Grocery = "grocery";
     public const string Clothing = "clothing";
     public const string Services = "services";
+    /// <summary>2026-10-26 (ТЗ хозмаг ХМ1): «Хозтовары и стройматериалы». Только в MarketSphereDetail; в MarketSphere и на
+    /// сервер уходит базовая grocery.</summary>
+    public const string Hardware = "hardware";
 
+    /// <summary>БАЗОВАЯ сфера (grocery / clothing / services). 2026-10-26: id из каталога сфер (hardware…) → его базовая;
+    /// неизвестное значение → grocery, как и раньше. Именно это значение пишется в MarketSphere и уходит в market_sphere.</summary>
     public static string Normalize(string? value) => value switch
     {
         Clothing => Clothing,
         Services => Services,
-        _ => Grocery,
+        _ => SphereCatalog.TryGet(value)?.BaseBehavior ?? Grocery,
     };
 
     public static bool IsClothing => UserPreferences.Instance.MarketSphere == Clothing;
     public static bool IsServices => UserPreferences.Instance.MarketSphere == Services;
+
+    /// <summary>2026-10-26 (ХМ1): профиль текущей сферы — точный (hardware…), если он задан и совместим с базовой сферой, иначе базовый.</summary>
+    public static SphereProfile Profile => SphereCatalog.Resolve(UserPreferences.Instance.MarketSphere, UserPreferences.Instance.MarketSphereDetail);
+
+    /// <summary>2026-10-26 (ХМ1): магазин «Хозтовары и стройматериалы». Для других сфер всегда false — их поведение не меняется.</summary>
+    public static bool IsHardware => Profile.Id == Hardware;
 
     /// <summary>2026-10-20, владелец: «добавь возможность проката во всех видах магазина» — прокат есть в любой сфере
     /// (было только «Одежда» и «Услуги»). Убрать — галочкой в «Показывать разделы» (kassa.rental / rentals).</summary>
@@ -2109,11 +2145,23 @@ public static class MarketSpheres
 
     public static void Set(string sphere)
     {
+        var prefs = UserPreferences.Instance;
         var normalized = Normalize(sphere);
-        if (UserPreferences.Instance.MarketSphere == normalized)
+        // 2026-10-26 (ХМ1): точная сфера. Id из каталога с другой базой (hardware) запоминается как есть; выбор обычной сферы
+        // трогает MarketSphereDetail только если точная сфера уже была (тогда пишется явное значение, иначе другие кассы магазина
+        // вернули бы старое hardware из облака). Магазины без точной сферы файл не меняют: Detail остаётся null.
+        var exact = SphereCatalog.TryGet(sphere)?.Id;
+        var detail = exact is not null && exact != normalized
+            ? exact
+            : prefs.MarketSphereDetail is null ? null : normalized;
+        if (prefs.MarketSphere == normalized && prefs.MarketSphereDetail == detail)
             return;
-        UserPreferences.Instance.MarketSphere = normalized;
-        UserPreferences.Instance.SaveToDisk();
+        prefs.MarketSphere = normalized;
+        prefs.MarketSphereDetail = detail;
+        prefs.SaveToDisk();
         Changed?.Invoke();
     }
+
+    /// <summary>2026-10-26: точная сфера пришла из общих настроек компании (SettingsCloudSync) — окна перестраиваются.</summary>
+    public static void RaiseChanged() => Changed?.Invoke();
 }

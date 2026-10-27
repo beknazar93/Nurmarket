@@ -1,5 +1,6 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sec="using:NurMarketKassa.AvaloniaHost.Views.Controls"
              xmlns:models="using:NurMarketKassa.Models"
              xmlns:conv="using:NurMarketKassa.Converters"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.OperationsSettingsView"
@@ -130,7 +131,7 @@
                        Text="{DynamicResource loc.settings.telegram.manualHint}"/>
 
             <TextBlock Text="{DynamicResource loc.settings.telegram.tokenLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-            <TextBox x:Name="TelegramTokenBox" x:FieldModifier="public"
+            <sec:SecretTextBox x:Name="TelegramTokenBox" x:FieldModifier="public"
                      PasswordChar="•" Watermark="123456789:AA..."/>
 
             <StackPanel Orientation="Horizontal" Spacing="10">
@@ -175,11 +176,13 @@
             <TextBlock Text="{DynamicResource loc.settings.telegram.aiTitle}" FontWeight="SemiBold" Margin="0,8,0,0"/>
             <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
                        Text="{DynamicResource loc.settings.telegram.aiHint}"/>
-            <TextBox x:Name="TelegramAiKeyBox" x:FieldModifier="public" PasswordChar="•" Watermark="AIza..."
+            <sec:SecretTextBox x:Name="TelegramAiKeyBox" x:FieldModifier="public" PasswordChar="•" Watermark="AIza..."
                      LostFocus="TelegramAiKey_LostFocus"/>
             <StackPanel Orientation="Horizontal" Spacing="10">
               <Button Classes="btn-secondary" Content="{DynamicResource loc.settings.telegram.aiGetKey}" Click="TelegramAiGetKey_Click"/>
               <Button Classes="btn-secondary" x:Name="TelegramAiTestButton" Content="{DynamicResource loc.settings.telegram.aiTest}" Click="TelegramAiTest_Click"/>
+              <!-- 2026-10-26: несколько ключей Gemini из разных Google-аккаунтов (GeminiKeysWindow); подпись — в RefreshAiKeyBoxes (5 языков). -->
+              <Button Classes="btn-secondary" x:Name="TelegramAiManyKeysButton" Click="TelegramAiManyKeys_Click"/>
             </StackPanel>
             <TextBlock x:Name="TelegramAiStatusText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
 
@@ -188,7 +191,7 @@
             <TextBlock Text="{DynamicResource loc.settings.telegram.groqTitle}" FontWeight="SemiBold" Margin="0,8,0,0"/>
             <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
                        Text="{DynamicResource loc.settings.telegram.groqHint}"/>
-            <TextBox x:Name="GroqKeyBox" x:FieldModifier="public" PasswordChar="•" Watermark="gsk_..."
+            <sec:SecretTextBox x:Name="GroqKeyBox" x:FieldModifier="public" PasswordChar="•" Watermark="gsk_..."
                      LostFocus="GroqKey_LostFocus"/>
             <StackPanel Orientation="Horizontal" Spacing="10">
               <Button Classes="btn-secondary" Content="{DynamicResource loc.settings.telegram.aiGetKey}" Click="GroqGetKey_Click"/>
@@ -199,7 +202,7 @@
             <TextBlock Text="{DynamicResource loc.settings.telegram.routerTitle}" FontWeight="SemiBold" Margin="0,8,0,0"/>
             <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
                        Text="{DynamicResource loc.settings.telegram.routerHint}"/>
-            <TextBox x:Name="OpenRouterKeyBox" x:FieldModifier="public" PasswordChar="•" Watermark="sk-or-..."
+            <sec:SecretTextBox x:Name="OpenRouterKeyBox" x:FieldModifier="public" PasswordChar="•" Watermark="sk-or-..."
                      LostFocus="OpenRouterKey_LostFocus"/>
             <StackPanel Orientation="Horizontal" Spacing="10">
               <Button Classes="btn-secondary" Content="{DynamicResource loc.settings.telegram.aiGetKey}" Click="OpenRouterGetKey_Click"/>

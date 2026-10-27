@@ -1,0 +1,132 @@
+{
+ "code": "cl_sport",
+ "name": {
+  "ru": "Спорт",
+  "ky": "Спорт",
+  "en": "Sport",
+  "tr": "Spor",
+  "uz": "Sport"
+ },
+ "description": {
+  "ru": "Белый, чёрный и красный, узкий шрифт, чёткие карточки. Для спортивной одежды и формы.",
+  "ky": "Ак, кара жана кызыл, тар шрифт, так карточкалар. Спорттук кийим жана форма үчүн.",
+  "en": "White, black and red, condensed font, crisp cards. For sportswear and team kits.",
+  "tr": "Beyaz, siyah ve kırmızı, dar yazı tipi, net kartlar. Spor giyim ve forma için.",
+  "uz": "Oq, qora va qizil, tor shrift, aniq kartochkalar. Sport kiyimi va forma uchun."
+ },
+ "spheres": [
+  "clothing"
+ ],
+ "version": 1,
+ "voice_words": {
+  "ru": [
+   "спорт"
+  ],
+  "ky": [
+   "спорт"
+  ],
+  "en": [
+   "sport"
+  ],
+  "tr": [
+   "spor"
+  ],
+  "uz": [
+   "sport"
+  ]
+ },
+ "images": {
+  "hero.image": {
+   "file": "cl_sport_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "cl_sport_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#FFFFFF",
+    "surface": "#F6F7F9",
+    "text": "#0B0F19",
+    "text_muted": "#4B5563",
+    "accent": "#E11D48",
+    "accent_text": "#FFFFFF",
+    "border": "#E5E7EB",
+    "header_bg": "#0B0F19",
+    "header_text": "#FFFFFF",
+    "footer_bg": "#0B0F19",
+    "footer_text": "#E5E7EB",
+    "price": "#0B0F19",
+    "old_price": "#6B7280",
+    "badge_new_bg": "#15803D",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#E11D48",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Roboto Condensed",
+    "base_size": 16,
+    "heading_weight": 800
+   },
+   "radius": 8,
+   "shadow": "soft",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_left",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "cover",
+   "overlay": 0.35,
+   "align": "left"
+  },
+  "categories": {
+   "style": "chips",
+   "show_all": true,
+   "show_count": false
+  },
+  "products": {
+   "columns": {
+    "desktop": 4,
+    "tablet": 3,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "standard",
+   "photo_ratio": "3:4",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": true,
+    "category": true,
+    "stock": "low_only",
+    "unit": false,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "new_badge_days": 21,
+   "shadow": false,
+   "border": false
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

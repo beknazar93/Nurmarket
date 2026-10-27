@@ -107,7 +107,10 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
     }
     // 2026-10-20, живая проверка: экран покупателя показывал суммы без разрядов («237425,66 сом») — теперь
     // как в чеке кассы (MoneyText: «237 425,66 сом»). Только показ.
-    public string TotalText => MoneyText.Som(_snapshot.Total);
+    // 2026-10-26, владелец (второй монитор): после оплаты чек уже пустой и «К оплате» было 0,00 — вместо него «Оплачено …»
+    // (см. ShowPaymentResultTotal); до оплаты и при выключенных галочках всё как раньше.
+    private double DisplayTotal => ShowPaymentResultTotal ? _snapshot.PaidAmount!.Value : _snapshot.Total;
+    public string TotalText => MoneyText.Som(DisplayTotal);
     public string SubtotalText => Tr.T($"Промежуточный итог: {MoneyText.Som(_snapshot.Subtotal)}", $"Аралык жыйынтык: {MoneyText.Som(_snapshot.Subtotal)}",
         $"Subtotal: {MoneyText.Som(_snapshot.Subtotal)}", $"Ara toplam: {MoneyText.Som(_snapshot.Subtotal)}", $"Oraliq jami: {MoneyText.Som(_snapshot.Subtotal)}");
     public string DiscountText => Tr.T($"Скидка: {MoneyText.Som(_snapshot.Discount)}", $"Арзандатуу: {MoneyText.Som(_snapshot.Discount)}",
@@ -115,10 +118,21 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
     public string SubtotalAmountText => MoneyText.Som(_snapshot.Subtotal);
     // 2026-10-20, живая проверка: «Скидка -0,00 сом» при пустом чеке — минус только у настоящей скидки.
     public string DiscountAmountText => (_snapshot.Discount > 0.004 ? "-" : "") + MoneyText.Som(Math.Max(0, _snapshot.Discount));
-    public bool HasCashInfo => _snapshot.CashReceived.HasValue && Settings.ShowChangeAfterPayment &&
-        (Settings.ShowPaidAmount || Settings.ShowChange);
-    public bool ShowPaidAmountColumn => HasCashInfo && Settings.ShowPaidAmount;
-    public bool ShowChangeColumn => HasCashInfo && Settings.ShowChange;
+    // 2026-10-26, владелец (второй монитор): «внесено» («Внесённая сумма») зависело ещё и от «Показывать сдачу после оплаты» —
+    // теперь эта настройка относится только к сдаче. Внесено — только у наличных (там есть сколько внесли).
+    public bool ShowPaidAmountColumn => _snapshot.CashReceived.HasValue && Settings.ShowPaidAmount;
+    public bool ShowChangeColumn => _snapshot.CashReceived.HasValue && Settings.ShowChange && Settings.ShowChangeAfterPayment;
+    public bool HasCashInfo => ShowPaidAmountColumn || ShowChangeColumn;
+    /// <summary>2026-10-26: оплата принята, чек уже пустой, и владелец включил показ суммы / сдачи — на экране итог оплаты:
+    /// «Оплачено …» (наличные, безнал, смешанная, предоплата долга). Подытог и скидка пустого чека при этом скрываются.</summary>
+    public bool ShowPaymentResultTotal => IsPaymentSuccess && IsEmpty && _snapshot.PaidAmount.HasValue
+        && (Settings.ShowPaidAmount || Settings.ShowChange);
+    public bool ShowSubtotals => !ShowPaymentResultTotal;
+    /// <summary>Итоговая плашка/сводка в видах, где она раньше прячется у пустого чека («Карточки», «Минимал»).</summary>
+    public bool ShowSummaryBlock => HasItems || ShowPaymentResultTotal || HasCashInfo;
+    /// <summary>Карточка сводки «Карточек»: есть что в неё положить (позиции чека или «получено»).</summary>
+    public bool ShowSummaryCard => HasItems || HasCashInfo;
+    public bool ShowGreeting => IsEmpty && !ShowSummaryBlock;
     public string CashReceivedText => MoneyText.Som(_snapshot.CashReceived ?? 0);
     public string ChangeDueText => MoneyText.Som(_snapshot.ChangeDue ?? 0);
     public string ItemCountText => Tr.T($"{Lines.Count} поз.", $"{Lines.Count} сап",
@@ -311,15 +325,19 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
     public CustomerDisplayItemViewModel? LastLine => Lines.Count > 0 ? Lines[0] : null;
     public bool HasLastLine => Lines.Count > 0;
     public string LastAddedCaption => Tr.T("ТОЛЬКО ЧТО ДОБАВЛЕНО", "ЖАҢЫ ЭЛЕ КОШУЛДУ", "JUST ADDED", "YENİ EKLENDİ", "HOZIRGINA QO'SHILDI");
-    public string TotalNumberText => Money(_snapshot.Total);
+    public string TotalNumberText => Money(DisplayTotal);
     public string SubtotalNumberText => Money(_snapshot.Subtotal);
     public string DiscountNumberText => "−" + Money(_snapshot.Discount);
     public string CashReceivedNumberText => Money(_snapshot.CashReceived ?? 0);
     public string ChangeDueNumberText => Money(_snapshot.ChangeDue ?? 0);
     public bool HasDiscount => _snapshot.Discount > 0.004;
     public string CurrencyText => Tr.T("сом", "сом", "som", "som", "so'm");
-    public string TotalDueLabel => Tr.T("К оплате", "Төлөөгө", "To pay", "Ödenecek", "To'lovga");
-    public string TotalLabel => Tr.T("Итого", "Жыйынтык", "Total", "Toplam", "Jami");
+    public string TotalDueLabel => ShowPaymentResultTotal
+        ? Tr.T("Оплачено", "Төлөндү", "Paid", "Ödendi", "To'landi")
+        : Tr.T("К оплате", "Төлөөгө", "To pay", "Ödenecek", "To'lovga");
+    public string TotalLabel => ShowPaymentResultTotal
+        ? Tr.T("Оплачено", "Төлөндү", "Paid", "Ödendi", "To'landi")
+        : Tr.T("Итого", "Жыйынтык", "Total", "Toplam", "Jami");
     public string SubtotalLabel => Tr.T("Промежуточный итог", "Аралык жыйынтык", "Subtotal", "Ara toplam", "Oraliq jami");
     public string DiscountLabel => Tr.T("Скидка", "Арзандатуу", "Discount", "İndirim", "Chegirma");
     public string ReceivedLabel => Tr.T("Получено", "Алынды", "Received", "Alınan", "Qabul qilindi");

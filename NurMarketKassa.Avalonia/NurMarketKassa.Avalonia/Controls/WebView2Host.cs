@@ -34,6 +34,7 @@ public sealed class WebView2Host : NativeControlHost
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
         var handle = base.CreateNativeControlCore(parent);
+        _destroyed = false; // 2026-10-27: хост могли прикрепить заново после Destroy
         _ = InitializeAsync(handle.Handle);
         return handle;
     }
@@ -50,6 +51,13 @@ public sealed class WebView2Host : NativeControlHost
             _environment = await CoreWebView2Environment.CreateAsync(userDataFolder: userDataFolder)
                 .ConfigureAwait(true);
             _controller = await _environment.CreateCoreWebView2ControllerAsync(hwnd).ConfigureAwait(true);
+            // 2026-10-27 (утечки дескрипторов): окно закрыли, пока WebView2 создавался, — контроллер появился уже после Destroy и никто бы его не закрыл.
+            if (_destroyed)
+            {
+                try { _controller.Close(); } catch { }
+                _controller = null;
+                return;
+            }
             _controller.Bounds = new System.Drawing.Rectangle(0, 0, (int)Bounds.Width, (int)Bounds.Height);
             _controller.IsVisible = true;
 
@@ -72,8 +80,11 @@ public sealed class WebView2Host : NativeControlHost
             _controller.Bounds = new System.Drawing.Rectangle(0, 0, (int)Bounds.Width, (int)Bounds.Height);
     }
 
+    private bool _destroyed;
+
     protected override void DestroyNativeControlCore(IPlatformHandle control)
     {
+        _destroyed = true;
         try
         {
             _controller?.Close();

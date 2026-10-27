@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>Темы сайта для магазина одежды — макеты Д-С1…Д-С3</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#191919;color:#F5F5F5;font-family:Montserrat,system-ui,sans-serif;padding:28px 32px}
+h1{font-size:22px;font-weight:800;margin:0 0 6px}
+h2{font-size:15px;font-weight:800;margin:22px 0 8px;color:#FFB208}
+p{color:#CCC;font-size:13.5px;line-height:1.5;max-width:960px;margin:0 0 18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;max-width:1300px}
+a.card{display:block;padding:16px 18px;border-radius:12px;background:#222;border:1px solid #3D3D3D;color:inherit;text-decoration:none}
+a.card:hover{border-color:#FFB208}
+a.card b{display:block;font-size:15px;margin-bottom:6px}
+a.card span{font-size:12.5px;color:#AAA;line-height:1.45}
+a.card i{display:inline-block;font-style:normal;font-size:11px;font-weight:700;color:#191919;background:#FFB208;border-radius:6px;padding:2px 7px;margin-bottom:8px;margin-right:4px}
+a.card i.g{background:#3D3D3D;color:#CCC}
+a.card em{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:3px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(255,255,255,.2)}
+code{background:#333;color:#FFD27A;padding:1px 5px;border-radius:4px;font-size:12px}
+table{border-collapse:collapse;font-size:12.5px;margin-bottom:18px}
+td,th{border:1px solid #3D3D3D;padding:4px 10px;text-align:left}
+th{color:#AAA;font-weight:600}
+</style></head>
+<body>
+<h1>Темы сайта для магазина одежды — макеты (27.10.2026)</h1>
+<p>По «ТЗ Сайт — темы для магазина одежды, Telegram-бот и ИИ-ассистент на витрине (26.10.2026)», разделы 3 и 6 (Д-С1…Д-С3). В каждом макете сверху панель: тема сайта (10), окно 1296×879 / 1440×900 / 390×844 (витрина) или 1296×879 / 1024×600 + светлая/тёмная программа (редактор, Маркетплейс), «ky — длинные подписи», «ключи Tr.T», состояния.
+Параметры адресом: <code>?site=cl_street&amp;size=phone&amp;theme=dark&amp;ky=1#состояние</code>. Общие стили — <code>SiteThemes-Clothing-shared.css</code> (токены кассы для программы + 17 цветов темы сайта для витрины), данные тем и витрина — <code>SiteThemes-Clothing-shared.js</code>.</p>
+
+<h2>Витрина — главная страница в каждой теме (Д-С1)</h2>
+<div class="grid" id="themes"></div>
+
+<h2>Программа владельца</h2>
+<div class="grid">
+  <a class="card" href="SiteThemes-Clothing-Editor.html"><i>Д-С2</i><i class="g">С-2</i><b>SiteThemes-Clothing-Editor — Редактор сайта → Тема</b><span>Фильтры по сфере, галерея (2 в ряд на 1296, 3 на 1024) с превью 16:10, «Посмотреть» (мини-сайт компьютер/телефон, без запросов), «Применить к сайту», «Оставить ваш баннер?», применяется, тема в черновике («Опубликовать» подсвечена), чужие правки, ошибка, витрина не подключена. 1296×879 и 1024×600, светлая/тёмная.</span></a>
+  <a class="card" href="SiteThemes-Clothing-Market.html"><i>Д-С3</i><i class="g">С-3</i><b>SiteThemes-Clothing-Market — Маркетплейс → Темы</b><span>Плитка «Тема сайта» (значок «Сайт», превью 16:10, название, «для кого», Бесплатно / Куплено / цена), страница «подробно» с 3 слайдами, «Для кого», «Как включить», «Открыть в редакторе сайта»; касса — кнопка недоступна.</span></a>
+</div>
+
+<h2>Таблица тем</h2>
+<table id="tbl"><tr><th>Код</th><th>Название</th><th>Фон / карточка / текст / акцент / текст на акценте</th><th>Шрифт</th><th>Радиус</th><th>Кнопки</th><th>Колонки</th><th>Карточка</th><th>Мин. контраст</th></tr></table>
+<script src="SiteThemes-Clothing-shared.js"></script>
+<script>
+(function(){
+  const FILES = { cl_minimal:'Minimal', cl_boutique:'BoutiqueCream', cl_street:'Streetwear', cl_kids:'Kids', cl_menswear:'Menswear', cl_sport:'Sport', cl_modest:'Modest', cl_evening:'Evening', cl_dark_luxe:'DarkLuxe', cl_bazaar:'Bazaar' };
+  document.getElementById('themes').innerHTML = ST.THEMES.map(th => '<a class="card" href="SiteThemes-Clothing-'+FILES[th.code]+'.html"><i class="g">'+th.code+'</i><b>'+th.name.ru+'</b><span>'+
+    ['background','surface','text','accent','badge_sale_bg'].map(k=>'<em style="background:'+th.colors[k]+'"></em>').join('')+' '+th.for.ru+'<br>'+th.font+' '+th.base+' · скругление '+th.radius+' · '+th.btn+' · колонки '+th.cols.join('/')+'</span></a>').join('');
+  const tbl = document.getElementById('tbl');
+  ST.THEMES.forEach(th => { const c = th.colors; const rows = ST.contrastRows(th); const w = rows.reduce((a,r)=>r.v<a.v?r:a, rows[0]);
+    tbl.insertAdjacentHTML('beforeend', '<tr><td><code>'+th.code+'</code></td><td>'+th.name.ru+'</td><td>'+[c.background,c.surface,c.text,c.accent,c.accent_text].map(h=>'<em style="background:'+h+'"></em>'+h).join(' ')+'</td><td>'+th.font+' '+th.base+'/'+th.hw+'</td><td>'+th.radius+'</td><td>'+th.btn+'</td><td>'+th.cols.join('/')+'</td><td>'+th.card+'</td><td>'+w.v.toFixed(2)+':1 ('+w.name+')</td></tr>'); });
+})();
+</script>
+</body></html>
