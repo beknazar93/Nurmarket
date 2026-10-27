@@ -25,7 +25,8 @@ public static class AppChangelog
         "Удалённая помощь: пока кассир работает мышью или клавиатурой, ввод оператора уступает кассиру; номер техподдержки +996 221 068 796",
         "Склад: убрана лишняя подсказка сканера, фильтр «Наличие» больше не дублирует плитки, приёмка в узком окне",
         "Маркетплейс: ряды карточек листаются мышью и пальцем; «Редактор сайта»: публикация только по команде и после подтверждения, нужно право «Настройки»",
-        "Исправлено: утечка памяти голосового управления (буфер звука не больше 30 с); принтер этикеток не запоминает виртуальные (PDF/XPS)",
+        "Убрано голосовое управление кассой — теперь есть ИИ-ассистент",
+        "Исправлено: принтер этикеток не запоминает виртуальные (PDF/XPS)",
     ];
 
     public static readonly string[] LatestKy =
@@ -42,7 +43,8 @@ public static class AppChangelog
         "Алыстан жардам: кассир чычкан же баскычтоп менен иштегенде оператордун киргизүүсү кассирге жол берет; колдоонун номери +996 221 068 796",
         "Кампа: ашыкча сканер кеңеши алынды, «Бар болушу» чыпкасы плиткаларды кайталабайт, тар терезеде кабыл алуу",
         "Маркетплейс: карточка катарлары чычкан жана манжа менен сүрүлөт; «Сайт редактору»: жарыялоо буйрук менен жана ырастоодон кийин гана, «Жөндөөлөр» укугу керек",
-        "Оңдолду: үн менен башкарууда эс тутум агып кетүүсү (үн буфери 30 сек.ден ашпайт); этикетка принтери виртуалдык (PDF/XPS) принтерлерди эстебейт",
+        "Кассанын үн менен башкаруусу алынды — эми ИИ-жардамчы бар",
+        "Оңдолду: этикетка принтери виртуалдык (PDF/XPS) принтерлерди эстебейт",
     ];
 
     public static readonly string[] LatestEn =
@@ -59,7 +61,8 @@ public static class AppChangelog
         "Remote help: while the cashier works with the mouse or keyboard, the operator’s input yields to the cashier; support number +996 221 068 796",
         "Stock: the extra scanner hint is removed, the “Availability” filter no longer duplicates the tiles, receiving in a narrow window",
         "Marketplace: card rows scroll with the mouse and a finger; “Site editor”: publishing only on command and after confirmation, the “Settings” permission is required",
-        "Fixed: a memory leak in voice control (the audio buffer is at most 30 s); the label printer does not remember virtual (PDF/XPS) printers",
+        "Voice control of the till removed — there is now an AI assistant",
+        "Fixed: the label printer does not remember virtual (PDF/XPS) printers",
     ];
 
     public static readonly string[] LatestTr =
@@ -76,7 +79,8 @@ public static class AppChangelog
         "Uzaktan yardım: kasiyer fare veya klavye kullanırken operatörün girişi kasiyere yol verir; destek numarası +996 221 068 796",
         "Depo: gereksiz tarayıcı ipucu kaldırıldı, «Stok durumu» filtresi kutucukları tekrarlamaz, dar pencerede mal kabul",
         "Pazaryeri: kart sıraları fare ve parmakla kaydırılır; «Site düzenleyici»: yayınlama yalnızca komutla ve onaydan sonra, «Ayarlar» yetkisi gerekir",
-        "Düzeltildi: sesli kontrolde bellek sızıntısı (ses tamponu en çok 30 sn); etiket yazıcısı sanal (PDF/XPS) yazıcıları hatırlamaz",
+        "Kasanın sesli kontrolü kaldırıldı — artık bir yapay zekâ asistanı var",
+        "Düzeltildi: etiket yazıcısı sanal (PDF/XPS) yazıcıları hatırlamaz",
     ];
 
     public static readonly string[] LatestUz =
@@ -93,7 +97,8 @@ public static class AppChangelog
         "Masofaviy yordam: kassir sichqoncha yoki klaviatura bilan ishlaganda operator kiritishi kassirga yo'l beradi; yordam raqami +996 221 068 796",
         "Ombor: ortiqcha skaner maslahati olib tashlandi, «Mavjudligi» filtri plitkalarni takrorlamaydi, tor oynada qabul",
         "Marketplace: kartalar qatorlari sichqoncha va barmoq bilan suriladi; «Sayt muharriri»: e'lon qilish faqat buyruq bilan va tasdiqlangandan keyin, «Sozlamalar» huquqi kerak",
-        "Tuzatildi: ovozli boshqaruvda xotira oqishi (ovoz buferi 30 soniyadan oshmaydi); yorliq printeri virtual (PDF/XPS) printerlarni eslamaydi",
+        "Kassaning ovozli boshqaruvi olib tashlandi — endi SI yordamchisi bor",
+        "Tuzatildi: yorliq printeri virtual (PDF/XPS) printerlarni eslamaydi",
     ];
 
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно

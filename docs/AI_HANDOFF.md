@@ -74,7 +74,7 @@ nurmarketDesctop/
 | Обновления | `Infrastructure/Services/VelopackUpdateService.cs`, `ReleaseNotesText.cs` (описание релиза → обычный текст), `AppChangelog.cs` («Что нового») |
 | Переводы | `Infrastructure/Services/Tr.cs` (`Tr.T(ru, ky, en, tr, uz)`), `Avalonia/Resources/Strings.*.axaml` |
 | Настройки | `Infrastructure/Services/UserPreferences.cs` |
-| Голос | `Infrastructure/Services/Hardware/DefaultVoiceCommandParser.cs`, обработка — `MainWindow` (`VoiceIntent.*`) |
+| Голос (голосовое управление кассой) | **убрано 27.10.2026** (Vosk/SpeakerVerification/VoiceControlTestWindow удалены, есть ИИ-ассистент); ИИ-голос Нур Советника — `Hardware/GeminiLiveVoice.cs`, `VoiceChatAudio.cs`, `AiAdvisorWindow` — остался |
 | Изоляция аккаунтов | `Avalonia/Services/AccountDataIsolation.cs` |
 | Telegram-бот владельца | `Infrastructure/Services/TelegramReportBuilder.cs` |
 

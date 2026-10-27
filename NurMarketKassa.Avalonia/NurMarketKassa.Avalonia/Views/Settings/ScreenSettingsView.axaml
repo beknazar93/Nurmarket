@@ -181,17 +181,6 @@
               </Grid>
 
               <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Grid.Column="0">
-                  <TextBlock Text="{DynamicResource posSettings.screen.voiceControl}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
-                  <TextBlock Text="{DynamicResource posSettings.screen.voiceControlMovedDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
-                </StackPanel>
-                <Button Grid.Column="1" x:Name="VoiceControlOpenMarketplaceButton" x:FieldModifier="public" Classes="SecondaryButton"
-                        Content="{DynamicResource posSettings.screen.voiceControlOpenMarketplace}"
-                        FontSize="12" Padding="10,4" VerticalAlignment="Top"/>
-              </Grid>
-
-              <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{DynamicResource posSettings.screen.autoTouchKeyboard}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                 <CheckBox Grid.Column="1" x:Name="AutoTouchKeyboardCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
               </Grid>

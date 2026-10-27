@@ -154,8 +154,7 @@ internal static class AvaloniaHostServiceRegistration
         services.AddSingleton<IShiftOpenCoordinator, AvaloniaShiftOpenCoordinator>();
         services.AddSingleton<ScaleWeightProvider>();
         services.AddSingleton<IScaleWeightProvider>(sp => sp.GetRequiredService<ScaleWeightProvider>());
-        services.AddSingleton<SpeakerVerificationService>();
-        services.AddSingleton<IVoiceControlService, VoiceControlService>();
+        // 2026-10-27: голосовое управление кассой убрано (есть ИИ-ассистент) — сервисы голоса больше не регистрируются.
     }
 
     public static void InitializeAuthInfrastructure(IServiceProvider services)

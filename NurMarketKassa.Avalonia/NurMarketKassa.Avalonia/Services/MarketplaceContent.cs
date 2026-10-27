@@ -46,7 +46,7 @@ internal static partial class MarketplaceContent
             "sms" => MarketplaceGroup.Soon,
             "timesheet" or "export" or "telegram" => MarketplaceGroup.Owner,
             "scales" or "analytics" or "pricetag" or "bulktag" or "labeleditor" => MarketplaceGroup.Warehouse,
-            _ => MarketplaceGroup.Sales, // voice, loyalty, shiftstats, language
+            _ => MarketplaceGroup.Sales, // loyalty, shiftstats, language
         };
     }
 
@@ -54,7 +54,6 @@ internal static partial class MarketplaceContent
     {
         switch (item.Id)
         {
-            case "voice": Voice(item); return;
             case "loyalty": Loyalty(item); return;
             case "timesheet": Timesheet(item); return;
             case "scales": Scales(item); return;

@@ -251,76 +251,7 @@ public partial class MainWindow
         _viewModel.Basket.AddProductFromCatalog(vm, lineNameOverride);
     }
 
-    /// <summary>Голосовое добавление товара с поштучной упаковкой (2026-09-04) — раньше
-    /// BasketPanelViewModel.AddProductByVoice всегда добавляло по цене ЦЕЛОЙ ПАЧКИ, потому что
-    /// не знало про HasPieceOption вообще: кассир говорил "касса манго два", а получал 2 пачки
-    /// по цене пачки — PackageChoiceDialog и его звуковая подсказка (VoicePromptPlayer)
-    /// открывались только при клике по карточке товара (AddProductFromCatalogAsync выше), но не
-    /// при голосовом добавлении.
-    ///
-    /// unitKind (VoiceCommandParser.ExtractQuantity) — если кассир сразу назвал единицу словом
-    /// ("20 штук"/"2 пачки"), способ продажи уже однозначен и диалог не нужен вообще: "касса
-    /// ессе манго 20 штук" сразу уходит поштучно, "касса ессе манго 2 пачки" — целыми пачками.
-    /// PackageChoiceDialog остаётся только на случай голого числа без единицы (UnitKind.None) —
-    /// тогда неясно, что кассир имел в виду, и нужно уточнение, как и раньше.</summary>
-    internal async Task AddProductByVoiceAsync(CatalogProductTileVm vm, double quantity, VoiceUnitKind unitKind = VoiceUnitKind.None)
-    {
-        var basket = _viewModel.Basket;
-        var mustWeigh = ProductUnitNormalizer.RequiresWeighing(vm);
-
-        if (!vm.HasPieceOption || mustWeigh)
-        {
-            basket.AddProductByVoice(vm, quantity);
-            return;
-        }
-
-        if (unitKind == VoiceUnitKind.Piece)
-        {
-            await AddPieceModeByVoiceAsync(vm, quantity).ConfigureAwait(true);
-            return;
-        }
-        if (unitKind == VoiceUnitKind.Pack)
-        {
-            basket.AddProductByVoice(vm, quantity);
-            return;
-        }
-
-        var pkgDlg = new PackageChoiceDialog(vm.Title, vm.PriceLine, vm.Quantity, vm.PieceOption, triggeredByVoice: true);
-        if (await PosDialogHost.ShowModalAsync(pkgDlg, this).ConfigureAwait(true) != true)
-            return;
-
-        if (!pkgDlg.IsPieceMode)
-        {
-            basket.AddProductByVoice(vm, pkgDlg.Quantity);
-            return;
-        }
-
-        await AddPieceModeByVoiceAsync(vm, pkgDlg.Quantity).ConfigureAwait(true);
-    }
-
-    /// <summary>Общая часть поштучного добавления — что при явном "N штук" в самой голосовой
-    /// команде, что при выборе "Поштучно" в PackageChoiceDialog. Логика проверки остатка та же,
-    /// что и в AddProductFromCatalogAsync (клик по карточке) — продублирована, а не вынесена в
-    /// общий метод, т.к. у голосового пути нет ни открытия смены, ни диалога взвешивания.</summary>
-    private async Task AddPieceModeByVoiceAsync(CatalogProductTileVm vm, double pieceQuantity)
-    {
-        var basket = _viewModel.Basket;
-        var cart = ResolveCartService();
-        var pieceOption = vm.PieceOption!;
-        var packageEquivalentQty = pieceQuantity / pieceOption.QuantityInPackage;
-        var reservedElsewhere = basket.GetQuantityInOtherOpenReceipts(vm.Id);
-        if (!StockAvailabilityService.CanAddQuantity(
-                vm.Id, packageEquivalentQty, cart, additionalReserved: reservedElsewhere))
-        {
-            if (!await ShowNoStockBlockedAsync(vm.Title, vm.Id, mustWeigh: false, allowOverride: true).ConfigureAwait(true))
-                return;
-            if (!await TryReplenishStockForOverrideAsync(vm, pieceQuantity, mustWeigh: false).ConfigureAwait(true))
-                return;
-        }
-
-        basket.AddProductFromCatalogWithOverride(vm, pieceQuantity, pieceOption.PieceUnitPrice, pieceOption.Id);
-    }
-
+    // 2026-10-27: голосовое добавление товара (AddProductByVoiceAsync) убрано вместе с голосовым управлением — есть ИИ-ассистент.
     /// <summary>Штрих-код от весов (Штрих-М и совместимые) уже несёт вес в самом коде —
     /// диалог взвешивания здесь не нужен, вес известен из штрих-кода.</summary>
     internal async Task AddWeighedProductWithKnownWeightAsync(CatalogProductTileVm vm, double weightKg)

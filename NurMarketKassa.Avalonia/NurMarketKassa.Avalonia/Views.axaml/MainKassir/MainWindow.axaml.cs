@@ -36,7 +36,6 @@ public partial class MainWindow : Window
     private readonly IUserPrompts _prompts;
     private readonly IPermissionService _permissions;
     private readonly AvaloniaCustomerDisplayService _customerDisplay;
-    private readonly IVoiceControlService _voiceControl;
     private readonly PosHotkeyService _hotkeys = new();
     private readonly IBarcodeInputService _barcodeInputService;
     private readonly CancellationTokenSource _windowCts = new();
@@ -113,8 +112,6 @@ public partial class MainWindow : Window
         _permissions = ResolveService<IPermissionService>();
         _customerDisplay = customerDisplay;
         _barcodeInputService = ResolveService<IBarcodeInputService>();
-        _voiceControl = ResolveService<IVoiceControlService>();
-        _voiceControl.CommandRecognized += OnVoiceCommandRecognized;
         _hostBridge.Window = this;
         WireDialogBridge();
 
@@ -1250,164 +1247,7 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(() => _viewModel.Basket.EnqueueBarcode(barcode));
     }
 
-    /// <summary>Срабатывает из фонового аудио-потока NAudio (не UI-поток) — тот же приём,
-    /// что и OnBarcodeScanned: единственный общий на всё приложение слушатель, поэтому
-    /// добавляем в корзину только если сейчас активно именно окно кассы.</summary>
-    /// <summary>Диспетчер намерений голосовых команд (VoiceIntent) — опасные операции (удаление
-    /// позиции, очистка чека) НЕ подтверждаются отдельным голосовым "да"/"нет": вместо этого
-    /// команда просто дёргает те же ICommand, что и обычный клик мышью, а значит проходит через
-    /// уже существующие в кассе защитные механизмы (ClearCartCommand — диалог Да/Нет,
-    /// RemoveLineCommand — пароль кассира) без необходимости дублировать их голосом.</summary>
-    private void OnVoiceCommandRecognized(VoiceCommandResult result)
-    {
-        if (!IsActive)
-            return;
-
-        Dispatcher.UIThread.Post(() =>
-        {
-            // Голосовой замок (2026-09-05) — команда произнесена не тем голосом, что был
-            // зарегистрирован: ничего не выполняем, только предупреждаем. Это мягкая проверка
-            // (по решению пользователя), а не пароль — простуда/шум могут ошибочно не совпасть,
-            // поэтому нельзя просто молчать, кассир должен понимать, ПОЧЕМУ команда не сработала.
-            if (result.VoiceMatched == false)
-            {
-                // Порядок важен: ShowToast/PosMessageBox — БЛОКИРУЮЩИЙ модальный диалог (см.
-                // AvaloniaUserPrompts.ShowToast → PosMessageBox.Show, синхронный вызов, если мы
-                // уже в UI-потоке — а OnVoiceCommandRecognized именно там и работает). Голос,
-                // вызванный ПОСЛЕ ShowToast, реально звучал только после того, как кассир уже
-                // закрыл диалог (2026-09-05, подтверждено пользователем) — подсказка должна
-                // запускаться ДО открытия диалога, чтобы звучать, пока он на экране.
-                VoicePromptPlayer.PlayVoiceMismatch();
-                _prompts.ShowToast(
-                    Tr.T("Голосовой замок: команда не выполнена — голос не совпадает с зарегистрированным.",
-                        "Үн кулпусу: буйрук аткарылган жок — үн катталган үнгө дал келбейт.", "Voice lock: command not executed — the voice does not match the registered one.", "Ses kilidi: komut yerine getirilmedi — ses, kayıtlı sesle eşleşmiyor.", "Ovozli qulf: buyruq bajarilmadi — ovoz ro'yxatdan o'tgan ovozga mos kelmadi."),
-                    isWarning: true);
-                return;
-            }
-
-            var basket = _viewModel.Basket;
-            switch (result.Intent)
-            {
-                case VoiceIntent.AddProduct:
-                    if (result.Product != null)
-                    {
-                        // Раньше здесь всегда был basket.AddProductByVoice напрямую — товар с
-                        // поштучной ценой (HasPieceOption) добавлялся по цене целой пачки, минуя
-                        // PackageChoiceDialog и его звуковую подсказку. AddProductByVoiceAsync
-                        // (MainWindow.Dialogs.cs) сама решает, нужен ли диалог выбора.
-                        _ = AddProductByVoiceAsync(result.Product, result.Quantity, result.UnitKind);
-                    }
-                    else if (result.Candidates.Count > 1)
-                    {
-                        var names = string.Join(", ", result.Candidates.Take(5).Select(p => p.Title));
-                        VoicePromptPlayer.PlayClarifyProduct();
-                        _prompts.ShowToast(
-                            Tr.T($"Голос: уточните товар — «{result.ProductQuery}» подходит нескольким: {names}.",
-                                $"Үн: товарды тактаңыз — «{result.ProductQuery}» бир нече товарга дал келет: {names}.", $"Voice: please specify the product — “{result.ProductQuery}” matches several: {names}.", $"Sesli komut: ürünü netleştirin — «{result.ProductQuery}» birden fazla ürüne uyuyor: {names}.", $"Ovoz: mahsulotni aniqlashtiring — «{result.ProductQuery}» bir nechta mahsulotga mos keladi: {names}."),
-                            isWarning: true);
-                    }
-                    else if (string.IsNullOrWhiteSpace(result.ProductQuery) && result.UnitKind != VoiceUnitKind.None)
-                    {
-                        // "касса пачка"/"касса поштучно 3" — товар не назван вообще, значит это не
-                        // "не найдено", а вероятный голосовой ответ на уже открытый
-                        // PackageChoiceDialog (он сам подписан на CommandRecognized и уже обработал
-                        // эту же команду, если диалог действительно открыт). Если диалога сейчас
-                        // нет — команда просто без адресата, ругать "не найдено" тут неверно,
-                        // товар для поиска и не назывался.
-                    }
-                    else
-                    {
-                        VoicePromptPlayer.PlayProductNotFound();
-                        var phrase = string.IsNullOrWhiteSpace(result.ProductQuery) ? result.RawText : result.ProductQuery;
-                        if (!OfferTeachVoicePhrase(phrase))
-                        {
-                            // Учить нечему (пустая фраза) — тогда хотя бы обычное предупреждение.
-                            _prompts.ShowToast(
-                                Tr.T($"Голос: товар не найден («{result.RawText}»).", $"Үн: товар табылган жок («{result.RawText}»).",
-                                    $"Voice: product not found (“{result.RawText}”).", $"Sesli komut: ürün bulunamadı («{result.RawText}»).",
-                                    $"Ovoz: mahsulot topilmadi («{result.RawText}»)."),
-                                isWarning: true);
-                        }
-                    }
-                    break;
-
-                case VoiceIntent.FindProduct:
-                    if (result.Candidates.Count == 0)
-                    {
-                        VoicePromptPlayer.PlayProductNotFound();
-                        if (!OfferTeachVoicePhrase(result.ProductQuery))
-                        {
-                            _prompts.ShowToast(Tr.T($"Голос: ничего не найдено по «{result.ProductQuery}».", $"Үн: «{result.ProductQuery}» боюнча эч нерсе табылган жок.",
-                                $"Voice: nothing found for “{result.ProductQuery}”.", $"Sesli komut: «{result.ProductQuery}» için hiçbir şey bulunamadı.",
-                                $"Ovoz: «{result.ProductQuery}» bo'yicha hech narsa topilmadi."), isWarning: true);
-                        }
-                    }
-                    else
-                        _prompts.ShowToast(Tr.T($"Найдено: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}.", $"Табылды: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}.", $"Found: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}.", $"Bulunanlar: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}.", $"Topildi: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}."));
-                    break;
-
-                case VoiceIntent.RemoveLastItem:
-                {
-                    // 2026-09-28: строки чека хранятся новыми сверху (как их показывает чек и
-                    // берёт Num −). LastOrDefault здесь убирал самую старую позицию вместо только
-                    // что добавленной.
-                    var lastLine = basket.Lines.FirstOrDefault();
-                    if (lastLine is null)
-                    {
-                        VoicePromptPlayer.PlayCartEmpty();
-                        _prompts.ShowToast(Tr.T("Голос: чек пуст, удалять нечего.", "Үн: чек бош, өчүрө турган эч нерсе жок.", "Voice: the receipt is empty, nothing to remove.", "Sesli komut: fiş boş, silinecek bir şey yok.", "Ovoz: chek bo'sh, o'chiradigan narsa yo'q."), isWarning: true);
-                        break;
-                    }
-                    if (basket.RemoveLineCommand.CanExecute(lastLine))
-                        basket.RemoveLineCommand.Execute(lastLine);
-                    break;
-                }
-
-                case VoiceIntent.ClearCart:
-                    ExecuteCommand(basket.ClearCartCommand);
-                    break;
-
-                case VoiceIntent.Pay:
-                    if (!basket.HasItems)
-                    {
-                        VoicePromptPlayer.PlayCartEmpty();
-                        _prompts.ShowToast(Tr.T("Голос: чек пуст, оплачивать нечего.", "Үн: чек бош, төлөй турган эч нерсе жок.", "Voice: the receipt is empty, nothing to pay.", "Sesli komut: fiş boş, ödenecek bir şey yok.", "Ovoz: chek bo'sh, to'lanadigan narsa yo'q."), isWarning: true);
-                    }
-                    else
-                        ExecuteCommand(basket.PayCommand);
-                    break;
-
-                case VoiceIntent.AiAnswer:
-                    // 2026-10-05: кассир спросил голосом («касса сколько стоит пепси») — ответ ИИ (VoiceAi).
-                    _prompts.ShowToast(Tr.T("ИИ: ", "ИИ: ", "AI: ", "YZ: ", "SI: ") + result.ProductQuery);
-                    break;
-
-                case VoiceIntent.Cancel:
-                case VoiceIntent.Unknown:
-                default:
-                    // RepeatLast уже разрешён в VoiceControlService в готовый AddProduct-результат
-                    // (или в Unknown, если повторять нечего) — здесь отдельной ветки не нужно.
-                    break;
-            }
-        });
-    }
-
-    /// <summary>2026-09-09: "товар не найден" голосом — вместо того чтобы кассир шёл в Настройки
-    /// → Регистрация голоса и печатал фразу заново, сразу предлагаем привязать её к товару здесь
-    /// же (TeachVoicePhraseDialog → VoiceLexiconStore.AddProductAlias) — САМА этот диалог уже
-    /// объясняет, что товар не найден, поэтому отдельное предупреждение перед ним не нужно (было
-    /// два диалога подряд, кассир видел только первый и не понимал, куда делась кнопка привязки).
-    /// Пустая фраза (например, сказали только "касса" без ничего) — предлагать нечего, диалог не
-    /// открываем, вызывающий код должен сам показать обычное предупреждение. Возвращает true, если
-    /// диалог открылся.</summary>
-    private bool OfferTeachVoicePhrase(string? phrase)
-    {
-        if (string.IsNullOrWhiteSpace(phrase))
-            return false;
-
-        PosDialogHost.Show(new TeachVoicePhraseDialog(phrase.Trim(), CatalogCacheService.Products), this);
-        return true;
-    }
+    // 2026-10-27: обработчик голосовых команд (OnVoiceCommandRecognized) и обучение фразам убраны вместе с голосовым управлением — есть ИИ-ассистент.
 
     /// <summary>Ставит окно на основной монитор и применяет реальный режим полного экрана.
     /// РАНЬШЕ последняя строка жёстко ставила WindowState.Maximized — это откатывало
@@ -2234,11 +2074,6 @@ public partial class MainWindow : Window
             _ = MonitorOfflineGraceAsync(_windowCts.Token);
         }
 
-        // Каталог к этому моменту уже загружен (InitializeApplicationAsync выше) — словарь
-        // распознавания голоса строится из реальных названий товаров, а не пустого списка.
-        // Start() сам ничего не делает, если UserPreferences.VoiceControlEnabled == false.
-        _voiceControl.Start();
-
         RefreshBackgroundWallpaper();
         RefreshLayoutMode();
     }
@@ -2521,8 +2356,6 @@ public partial class MainWindow : Window
         Screens.Changed -= OnCashierScreensChanged;
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
         PosDataEvents.ClientDebtChanged -= OnClientDebtChangedRefreshBalance;
-        _voiceControl.CommandRecognized -= OnVoiceCommandRecognized;
-        _voiceControl.Stop();
         _telegramRetryTimer?.Stop();
         _telegramBot?.Stop();
         _customerDisplay.CloseForSession();

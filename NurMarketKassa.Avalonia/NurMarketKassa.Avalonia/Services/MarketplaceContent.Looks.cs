@@ -14,7 +14,7 @@ internal static partial class MarketplaceContent
         TariffGate.Packs.Ai =>
         [
             T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"),
-            T("ИИ в Telegram-боте и голосовом управлении", "Telegram-боттогу жана үн менен башкаруудагы ИИ", "AI in the Telegram bot and voice control", "Telegram botunda ve sesli kontrolde yapay zekâ", "Telegram-botda va ovozli boshqaruvda SI"),
+            T("ИИ в Telegram-боте", "Telegram-боттогу ИИ", "AI in the Telegram bot", "Telegram botunda yapay zekâ", "Telegram-botda SI"),
             T("Поиск фото товаров", "Товардын сүрөтүн издөө", "Product photo search", "Ürün fotoğrafı arama", "Mahsulot rasmini qidirish"),
             T("Ключи ИИ", "ИИ ачкычтары", "AI keys", "Yapay zekâ anahtarları", "SI kalitlari"),
         ],

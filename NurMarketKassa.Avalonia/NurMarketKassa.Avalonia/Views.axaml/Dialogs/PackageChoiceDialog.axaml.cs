@@ -20,18 +20,7 @@ public partial class PackageChoiceDialog : Window
     private readonly ProductPackageOption? _pieceOption;
     private readonly double _stockQuantity;
     private readonly double _wholePackPrice;
-    private readonly IVoiceControlService? _voiceControl;
-
-    /// <summary>Кассир хоть раз тронул диалог мышью ИЛИ клавиатурой (2026-09-05, по жалобе
-    /// пользователя: "отключи голос при ручном выборе") — как только это произошло,
-    /// OnVoiceAnswer полностью перестаёт действовать до конца жизни этого диалога. Выставляется
-    /// в двух Tunnel-обработчиках на самом окне (PointerPressed + KeyDown) — ловят клик/нажатие
-    /// по чему угодно внутри (радиокнопки, стрелки/Tab-навигация, "Далее", печать в поле
-    /// количества, "Добавить") ДО того, как событие дойдёт до конкретного контроля. Именно
-    /// PointerPressed/KeyDown, а не Checked/IsCheckedChanged — последние срабатывают и от
-    /// программной установки IsChecked из самого OnVoiceAnswer, их нельзя было бы отличить от
-    /// настоящего клика.</summary>
-    private bool _manualInteraction;
+    // 2026-10-27: голосовое управление кассой убрано (есть ИИ-ассистент) — голосовые ответы диалога и подсказка удалены.
 
     /// <summary>True — выбран режим "Поштучно"; Quantity в этом случае — число штук (не пачек).</summary>
     public bool IsPieceMode { get; private set; }
@@ -41,19 +30,11 @@ public partial class PackageChoiceDialog : Window
 
     public PackageChoiceDialog() : this("", "", 0, null) { }
 
-    /// <summary>triggeredByVoice — открыт ли этот диалог голосовой командой (AddProductByVoiceAsync)
-    /// или кликом по карточке товара (AddProductFromCatalogAsync). По умолчанию false (клик):
-    /// звуковая подсказка вопроса и приём голосовых ответов ("касса пачка"/"касса даана") имеют
-    /// смысл только тогда, когда кассир и так уже разговаривал с кассой голосом — при обычном
-    /// клике мышью включать голос было бы неожиданно и мешало бы (2026-09-05, по прямому
-    /// требованию пользователя: "при выборе мышкой озвучка не должна быть! озвучка активируется
-    /// только после слова касса").</summary>
     public PackageChoiceDialog(
         string productTitle,
         string wholePackPriceLine,
         double stockQuantity,
-        ProductPackageOption? pieceOption,
-        bool triggeredByVoice = false)
+        ProductPackageOption? pieceOption)
     {
         InitializeComponent();
         this.ClampToScreenHeight();
@@ -67,7 +48,7 @@ public partial class PackageChoiceDialog : Window
         // Раньше здесь был обобщённый вопрос "Как добавить в корзину?" — при наличии
         // поштучной опции (единственный случай, когда это окно вообще открывается, см.
         // MainWindow.Dialogs.cs AddProductFromCatalogAsync) кассир должен сразу видеть тот же
-        // вопрос, который заодно и озвучивается (VoicePromptPlayer.PlayPieceOrPackChoice).
+        // вопрос, который заодно и озвучивается .
         QuestionText.Text = pieceOption != null
             ? Tr.T("Поштучно или целая пачка?", "Даанадан же бүтүн пачкадан?", "By the piece or a whole pack?", "Adet mi, tam paket mi?", "Donalabmi yoki butun paketmi?")
             : Tr.T("Как добавить в корзину?", "Себетке кантип кошуу керек?", "How should it be added to the cart?", "Sepete nasıl eklenir?", "Savatga qanday qo'shilsin?");
@@ -102,27 +83,6 @@ public partial class PackageChoiceDialog : Window
 
         Opened += (_, _) => WholePackOption.Focus();
 
-        // Голосовая подсказка "Поштучно или целая пачка?" — только когда у товара ДЕЙСТВИТЕЛЬНО
-        // есть выбор (pieceOption != null, т.е. видна опция "Поштучно"); если у товара нет
-        // поштучной цены, PieceOption скрыт и озвучивать нечего — играть подсказку в этом случае
-        // было бы неверно (вопрос про два варианта, когда фактически доступен только один).
-        //
-        // Кассир может ОТВЕТИТЬ на этот же вопрос голосом, не повторяя название товара — "касса
-        // поштучно 3"/"касса пачка" (2026-09-05, по жалобе пользователя: раньше такие голые
-        // команды без названия товара падали в Unknown/"товар не найден", хотя явно относились
-        // к уже открытому диалогу). Подписка только на время жизни этого диалога, только когда
-        // выбор вообще есть, и ТОЛЬКО когда диалог сам открыт голосом (triggeredByVoice) — при
-        // обычном клике по карточке товара мышью ни подсказка, ни приём голосовых ответов не
-        // включаются вообще.
-        if (pieceOption != null && triggeredByVoice)
-        {
-            Opened += (_, _) => VoicePromptPlayer.PlayPieceOrPackChoice();
-
-            _voiceControl = App.GetRequiredService<IVoiceControlService>();
-            _voiceControl.CommandRecognized += OnVoiceAnswer;
-            Closed += (_, _) => _voiceControl.CommandRecognized -= OnVoiceAnswer;
-        }
-
         // 2026-10-22 (модалки, пакет 1): окно открывается сканом — Enter сканера (серия быстрых клавиш) не нажимает «Далее»
         // и не добавляет количество (раньше Enter конца кода сразу проводил выбор). Подключено раньше обработчика окна.
 
@@ -138,14 +98,6 @@ public partial class PackageChoiceDialog : Window
             "The barcode scan was ignored. Choose an option and press Next or Enter.",
             "Barkod okutması kabul edilmedi. Bir seçenek seçip «İleri» veya Enter'a basın.",
             "Shtrix-kod qabul qilinmadi. Variantni tanlang va «Keyingi» yoki Enter tugmasini bosing.")));
-
-        // См. _manualInteraction — ЛЮБОЙ физический ввод внутри диалога (клик мышью ИЛИ клавиша
-        // — стрелки/Tab/Enter/печать в поле количества) навсегда отключает голосовые ответы для
-        // НЕГО (не для остальной кассы, только для этого конкретного окна). Два отдельных
-        // обработчика (не один общий), оба Tunnel — оба успевают сработать ДО специфической
-        // обработки конкретного контрола (переключения радиокнопки, "Далее" и т.д.).
-        AddHandler(PointerPressedEvent, (_, _) => _manualInteraction = true, RoutingStrategies.Tunnel);
-        AddHandler(KeyDownEvent, (_, _) => _manualInteraction = true, RoutingStrategies.Tunnel);
     }
 
     private void Option_Checked(object? sender, RoutedEventArgs e)
@@ -158,61 +110,6 @@ public partial class PackageChoiceDialog : Window
         // Checked (группа переключилась), соседний PieceOption.IsChecked ещё не успевает
         // обновиться до false в момент этого события — берём режим прямо из sender.
         SetStockText(_pieceOption != null && ReferenceEquals(sender, PieceOption));
-    }
-
-    /// <summary>Голосовой ответ на вопрос "Поштучно или целая пачка?" (2026-09-05) — "касса
-    /// поштучно 3"/"касса пачка"/"касса целая пачка 2". Только команды БЕЗ названия товара
-    /// (ProductQuery пуст): если кассир назвал конкретный товар голосом, это отдельная новая
-    /// команда добавления, а не ответ этому диалогу — обрабатывать её здесь нельзя, иначе
-    /// "касса молоко 2 пачки" на фоне открытого диалога про манго добавило бы молоко как манго.
-    /// Выбирает нужный RadioButton, проходит тот же путь, что и ручной клик "Далее" → ввод
-    /// количества → "Добавить" (TryCloseOk), включая проверку остатка — никакой отдельной
-    /// логики добавления в обход обычной валидации.</summary>
-    private void OnVoiceAnswer(VoiceCommandResult result)
-    {
-        // Диагностика (2026-09-05) — раньше здесь не логировалось НИЧЕГО при отказе, и когда
-        // пользователь сообщил "пачка/даана не срабатывает, диалог открыт", разобраться, на
-        // каком именно условии голос отсеялся, было невозможно без чтения кода. Логируем
-        // причину каждого отказа, чтобы следующий такой случай был виден в логе сразу.
-        if (result.Intent != VoiceIntent.AddProduct || result.UnitKind == VoiceUnitKind.None)
-            return; // не команда "добавить" или единица не распознана — не ответ этому диалогу, лог не нужен (шум)
-
-        if (_manualInteraction)
-        {
-            PosLogger.Log("PackageChoiceDialog: голосовой ответ проигнорирован — кассир уже взаимодействовал вручную.", "VOICE");
-            return;
-        }
-        if (!string.IsNullOrWhiteSpace(result.ProductQuery))
-            return; // назван конкретный товар — отдельная новая команда, не ответ этому диалогу (шум, не логируем)
-        if (result.UnitKind == VoiceUnitKind.Piece && _pieceOption == null)
-        {
-            PosLogger.Log("PackageChoiceDialog: сказано \"поштучно\", но у товара нет поштучной цены — игнорируется.", "VOICE");
-            return;
-        }
-        // Голосовой замок (2026-09-05) — чужой голос не должен уметь ответить на этот диалог
-        // ("касса поштучно 3"), даже если сам вопрос был задан легитимному кассиру. null
-        // (замок выключен/голос не зарегистрирован) пропускается, как и везде.
-        if (result.VoiceMatched == false)
-        {
-            PosLogger.Log("PackageChoiceDialog: голосовой ответ отклонён голосовым замком.", "VOICE");
-            return;
-        }
-
-        PosLogger.Log($"PackageChoiceDialog: голосовой ответ принят — unitKind={result.UnitKind}, qty={result.Quantity}.", "VOICE");
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (!IsVisible)
-                return;
-            if (_manualInteraction)
-                return;
-
-            (result.UnitKind == VoiceUnitKind.Piece ? PieceOption : WholePackOption).IsChecked = true;
-            if (Step1Panel.IsVisible)
-                Next_Click(this, new RoutedEventArgs());
-
-            QuantityBox.Text = result.Quantity.ToString("0.###", CultureInfo.InvariantCulture);
-            TryCloseOk();
-        });
     }
 
     /// <summary>В режиме "Поштучно" остаток пересчитывается в штуки (пачки × шт. в пачке) —

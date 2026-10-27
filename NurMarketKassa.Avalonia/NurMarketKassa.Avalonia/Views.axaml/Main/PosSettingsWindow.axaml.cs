@@ -118,7 +118,6 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private CheckBox FullscreenCheck => _screenView.FullscreenCheck;
         private CheckBox TrueFullscreenCheck => _screenView.TrueFullscreenCheck;
         private CheckBox LowPerformanceModeCheck => _screenView.LowPerformanceModeCheck;
-        private Button VoiceControlOpenMarketplaceButton => _screenView.VoiceControlOpenMarketplaceButton;
         private CheckBox AutostartCheck => _screenView.AutostartCheck;
         private CheckBox AutoTouchKeyboardCheck => _screenView.AutoTouchKeyboardCheck;
         private CheckBox ShowCatalogPhotosCheck => _screenView.ShowCatalogPhotosCheck;
@@ -511,7 +510,6 @@ namespace NurMarketKassa.AvaloniaHost.Views
             RentalPenaltyBox.TextChanged += (_, _) => { penaltySave.Stop(); penaltySave.Start(); };
             _screenView.SaveRequested += ScreenSaveRequested;
             _screenView.UiScaleChanged += (_, _) => RefreshUiScale();
-            VoiceControlOpenMarketplaceButton.Click += (_, _) => NavigateToMarketplaceExtras();
 
             _updatesView.CheckUpdateButton.Click += CheckUpdate_Click;
             _updatesView.UpdateNowButton.Click += UpdateNow_Click;

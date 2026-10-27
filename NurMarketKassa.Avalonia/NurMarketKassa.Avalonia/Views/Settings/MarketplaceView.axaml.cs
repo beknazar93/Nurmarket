@@ -45,7 +45,7 @@ public partial class MarketplaceView : UserControl
 
     // 2026-10-23: хранилище прежних карточек доп. функций. На экране они не показываются (витрина рисует каталог), но
     // обработчики активации по-прежнему обновляют их, а любое изменение списка перечитывает каталог (ScheduleStoreReload).
-    // Единственная карточка, которую видно, — «Голосовое управление» (загрузка моделей) на странице функции.
+    // 2026-10-27: видимых прежних карточек не осталось (голосовое управление убрано).
     private readonly WrapPanel ExtrasWrapPanel = new();
     private readonly Border _inlineHost = new();
     private bool _storeReloadPending;
@@ -62,34 +62,14 @@ public partial class MarketplaceView : UserControl
         }, DispatcherPriority.Background);
     }
 
-    /// <summary>Из прежних карточек видна только «Голосовое управление» (кнопки загрузки моделей, переключатель, проверка);
-    /// шапка и описание скрыты — они уже есть на странице.</summary>
+    /// <summary>2026-10-27: из прежних карточек больше не видна ни одна (единственной была «Голосовое управление» — убрана).</summary>
     private void ApplyInlineVisibility()
     {
         foreach (var child in ExtrasWrapPanel.Children)
-        {
-            var show = ReferenceEquals(child, _voiceControlCard);
-            child.IsVisible = show;
-            if (show && child is Border { Child: Panel panel } card)
-            {
-                card.Width = double.NaN;
-                card.Margin = default;
-                for (var i = 0; i < Math.Min(2, panel.Children.Count); i++)
-                    panel.Children[i].IsVisible = false;
-            }
-        }
+            child.IsVisible = false;
     }
 
-    private Control? ProvideInlineControl(string id)
-    {
-        if (id != "voice" || !UserPreferences.Instance.VoiceControlUnlocked)
-            return null;
-        // Блок мог остаться в прежней странице, пока строится новая.
-        if (_inlineHost.Parent is Panel old)
-            old.Children.Remove(_inlineHost);
-        ApplyInlineVisibility();
-        return _inlineHost;
-    }
+    private Control? ProvideInlineControl(string id) => null;
 
     /// <summary>Команды действий каталога (см. LocalMarketplaceCatalogSource): существующая логика кассы, без изменений.</summary>
     private void Run(string command)
@@ -105,7 +85,6 @@ public partial class MarketplaceView : UserControl
                 case "unlock":
                     switch (id)
                     {
-                        case "voice": VoiceUnlockButton_Click(this, e); break;
                         case "loyalty": LoyaltyUnlockButton_Click(this, e); break;
                         case "timesheet": StaffTimesheetUnlockButton_Click(this, e); break;
                         case "scales": ScalesUnlockButton_Click(this, e); break;
@@ -378,7 +357,6 @@ public partial class MarketplaceView : UserControl
     private void RebuildThemedCards()
     {
         RefreshLoyaltyCard();
-        RefreshVoiceControlCard();
         RefreshWarehouseAnalyticsCard();
         RefreshPriceTagEditorCard();
         RefreshLabelEditorCard();
@@ -421,295 +399,7 @@ public partial class MarketplaceView : UserControl
         return LicenseKeys.IsMasterSerial(serial);
     }
 
-    private Border? _voiceControlCard;
-
-    /// <summary>Пересобирает карточку "Голосовое управление" в "Доп. функциях" под текущее
-    /// состояние (заблокировано / разблокировано-не-скачано / установлено) — тот же приём,
-    /// что и BuildThemeGallery для тем, только для одной карточки, а не набора.</summary>
-    private void RefreshVoiceControlCard()
-    {
-        if (_voiceControlCard is not null)
-            ExtrasWrapPanel.Children.Remove(_voiceControlCard);
-
-        _voiceControlCard = BuildVoiceControlCard();
-        ExtrasWrapPanel.Children.Add(_voiceControlCard);
-    }
-
-    private Border BuildVoiceControlCard()
-    {
-        var prefs = UserPreferences.Instance;
-        var unlocked = prefs.VoiceControlUnlocked;
-        // 2026-10-24 (аудит, круг 8, С-9): у владельца голос не работает — смотрим модели КАССЫ этого ПК, а не своей папки.
-        var ownerView = AppMode.IsOwner;
-        var installedRu = ownerView ? VoiceModelDownloadService.IsInstalledInKassa(VoiceModelLanguage.Russian) : VoiceModelDownloadService.IsInstalled(VoiceModelLanguage.Russian);
-        var installedKy = ownerView ? VoiceModelDownloadService.IsInstalledInKassa(VoiceModelLanguage.Kyrgyz) : VoiceModelDownloadService.IsInstalled(VoiceModelLanguage.Kyrgyz);
-        var installed = installedRu || installedKy;
-
-        var titleText = new TextBlock
-        {
-            Text = Tr.T("🎙 Голосовое управление", "🎙 Үн менен башкаруу", "🎙 Voice control", "🎙 Sesli kontrol", "🎙 Ovozli boshqaruv"),
-            Classes = { "SettingsCardTitle" },
-            FontSize = 14,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-
-        var (badgeText, badgeBrushKey) = (unlocked, installed) switch
-        {
-            (false, _) => (Tr.T("🔒 Платно", "🔒 Акылуу", "🔒 Paid", "🔒 Ücretli", "🔒 Pullik"), "BrushWarning"),
-            (true, false) => (Tr.T("✓ Разблокировано", "✓ Ачылды", "✓ Unlocked", "✓ Kilidi açıldı", "✓ Ochildi"), "BrushAccent"),
-            (true, true) => (Tr.T("✓ Установлено", "✓ Орнотулду", "✓ Installed", "✓ Kuruldu", "✓ O'rnatildi"), "BrushAccent"),
-        };
-
-        var badge = new Border
-        {
-            Background = ThemeBrush($"{badgeBrushKey}Soft", Brushes.Transparent),
-            BorderBrush = ThemeBrush(badgeBrushKey, Brushes.Orange),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(8, 3),
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock
-            {
-                Text = badgeText,
-                FontSize = 10,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = ThemeBrush(badgeBrushKey, Brushes.DarkOrange),
-            },
-        };
-
-        var headerRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        Grid.SetColumn(badge, 1);
-        headerRow.Children.Add(titleText);
-        headerRow.Children.Add(badge);
-
-        var descText = new TextBlock
-        {
-            Text = Tr.T(
-                "Кассир говорит «касса» и название товара — программа сама находит и добавляет его в чек. Работает офлайн. Пакет распознавания речи (~113 МБ) скачивается отдельно, чтобы не утяжелять базовую кассу.",
-                "Кассир «касса» деп, андан кийин товардын атын айтат — программа аны өзү таап, чекке кошот. Офлайн иштейт. Кепти таануу пакети (~113 МБ) негизги кассаны оордотпош үчүн өзүнчө жүктөлөт.", "The cashier says “kassa” and the product name — the program finds it and adds it to the receipt. Works offline. The speech recognition pack (~113 MB) is downloaded separately to keep the base till lightweight.", "Kasiyer «kassa» deyip ürün adını söyler — program ürünü kendisi bulur ve fişe ekler. Çevrimdışı çalışır. Ses tanıma paketi (~113 MB), temel kasayı ağırlaştırmamak için ayrıca indirilir.", "Kassir «kassa» so'zini va mahsulot nomini aytadi — dastur mahsulotni o'zi topib, chekka qo'shadi. Oflayn ishlaydi. Asosiy kassani og'irlashtirmaslik uchun nutqni tanish paketi (~113 MB) alohida yuklab olinadi."),
-            Classes = { "SettingsCardBody" },
-            FontSize = 12,
-            Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
-            TextWrapping = TextWrapping.Wrap,
-        };
-
-        var content = new StackPanel { Spacing = 8 };
-        content.Children.Add(headerRow);
-        content.Children.Add(descText);
-
-        if (!unlocked)
-        {
-            var unlockButton = new Button
-            {
-                Classes = { "btn-secondary" },
-                Content = Tr.T("🔒 Активировать — 2000 сом", "🔒 Активдештирүү — 2000 сом", "🔒 Activate — 2000 som", "🔒 Etkinleştir — 2000 som", "🔒 Faollashtirish — 2000 so'm"),
-                Height = 32,
-                Padding = new Thickness(14, 4),
-                HorizontalAlignment = HorizontalAlignment.Left,
-            };
-            unlockButton.Click += VoiceUnlockButton_Click;
-            content.Children.Add(unlockButton);
-        }
-        else if (ownerView)
-        {
-            // 2026-10-24 (аудит, круг 8, С-9): у владельца — только статус моделей кассы, без скачивания, переключателя и проверки.
-            foreach (var (isInstalled, ruOk, ruNo) in new[]
-            {
-                (installedRu,
-                    Tr.T("Русская модель установлена в кассе этого компьютера", "Орус модели бул компьютердин кассасында орнотулган", "The Russian model is installed in this computer's till", "Rusça model bu bilgisayarın kasasında kurulu", "Rus modeli shu kompyuterning kassasida o'rnatilgan"),
-                    Tr.T("Русская модель не установлена — скачайте в кассе: Маркетплейс → Голосовое управление", "Орус модели орнотулган эмес — кассадан жүктөп алыңыз: Маркетплейс → Үн менен башкаруу", "The Russian model is not installed — download it in the till: Marketplace → Voice control", "Rusça model kurulu değil — kasadan indirin: Pazar yeri → Sesli kontrol", "Rus modeli o'rnatilmagan — kassada yuklab oling: Marketpleys → Ovozli boshqaruv")),
-                (installedKy,
-                    Tr.T("Кыргызская модель установлена в кассе этого компьютера", "Кыргыз модели бул компьютердин кассасында орнотулган", "The Kyrgyz model is installed in this computer's till", "Kırgızca model bu bilgisayarın kasasında kurulu", "Qirg'iz modeli shu kompyuterning kassasida o'rnatilgan"),
-                    Tr.T("Кыргызская модель не установлена — скачайте в кассе: Маркетплейс → Голосовое управление", "Кыргыз модели орнотулган эмес — кассадан жүктөп алыңыз: Маркетплейс → Үн менен башкаруу", "The Kyrgyz model is not installed — download it in the till: Marketplace → Voice control", "Kırgızca model kurulu değil — kasadan indirin: Pazar yeri → Sesli kontrol", "Qirg'iz modeli o'rnatilmagan — kassada yuklab oling: Marketpleys → Ovozli boshqaruv")),
-            })
-            {
-                content.Children.Add(new TextBlock
-                {
-                    Text = (isInstalled ? "✓ " : "") + (isInstalled ? ruOk : ruNo),
-                    FontSize = 12,
-                    Foreground = ThemeBrush(isInstalled ? "BrushAccent" : "BrushTextSoft", Brushes.Gray),
-                    TextWrapping = TextWrapping.Wrap,
-                });
-            }
-        }
-        else
-        {
-            // Обе языковые модели можно скачать независимо — ту, что ещё не установлена,
-            // всегда предлагаем (не только когда не установлена ни одна), чтобы можно было
-            // добавить второй язык в любой момент, не переактивируя доп. услугу заново.
-            if (!installedRu)
-                content.Children.Add(BuildVoiceModelDownloadRow(
-                    VoiceModelLanguage.Russian, Tr.T("⬇ Скачать русскую модель (~113 МБ)", "⬇ Орусча моделди жүктөп алуу (~113 МБ)", "⬇ Download the Russian model (~113 MB)", "⬇ Rusça modeli indir (~113 MB)", "⬇ Rus modelini yuklab olish (~113 MB)")));
-            if (!installedKy)
-                content.Children.Add(BuildVoiceModelDownloadRow(
-                    VoiceModelLanguage.Kyrgyz, Tr.T("⬇ Скачать кыргызскую модель (~60 МБ)", "⬇ Кыргызча моделди жүктөп алуу (~60 МБ)", "⬇ Download the Kyrgyz model (~60 MB)", "⬇ Kırgızca modeli indir (~60 MB)", "⬇ Qirg'iz modelini yuklab olish (~60 MB)")));
-
-            if (installed)
-            {
-                var enableCheck = new CheckBox
-                {
-                    Classes = { "ToggleSwitch" },
-                    Height = 40,
-                    Content = new TextBlock { Text = Tr.T("Включить голосовое управление", "Үн менен башкарууну күйгүзүү", "Enable voice control", "Sesli kontrolü etkinleştir", "Ovozli boshqaruvni yoqish"), FontSize = 12 },
-                    IsChecked = prefs.VoiceControlEnabled,
-                };
-                enableCheck.Click += VoiceEnabledCheck_Click;
-
-                var testButton = new Button
-                {
-                    Classes = { "btn-secondary" },
-                    Content = Tr.T("🎙 Проверить и обучение", "🎙 Текшерүү жана үйрөтүү", "🎙 Test and train", "🎙 Test et ve eğit", "🎙 Tekshirish va o'rgatish"),
-                    Height = 32,
-                    Padding = new Thickness(14, 4),
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                };
-                testButton.Click += (_, _) => VoiceControlTestWindow.Open(TopLevel.GetTopLevel(this) as Window);
-
-                content.Children.Add(enableCheck);
-                content.Children.Add(testButton);
-            }
-        }
-
-        return new Border
-        {
-            Classes = { "SettingsCard" },
-            Width = 390, // 2026-10-19, О7: 3 карточки в ряд на 1366, 2 — на 1024 (было 330 — 2 в ряд и пустое поле)
-            Padding = new Thickness(14),
-            Margin = new Thickness(0, 0, 10, 10),
-            Child = content,
-        };
-    }
-
-    private void VoiceUnlockButton_Click(object? sender, RoutedEventArgs e)
-    {
-        var owner = TopLevel.GetTopLevel(this) as Window;
-        var serial = SerialActivationDialog.Show(owner, Tr.T("Голосовое управление", "Үн менен башкаруу", "Voice control", "Sesli kontrol", "Ovozli boshqaruv"));
-        if (serial == null)
-            return; // отменено
-
-        if (!TryValidateSerial(serial, "voice", out var isPermanent))
-        {
-            PosAlertDialog.Show(
-                owner,
-                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
-                Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
-                PosAlertKind.Error);
-            return;
-        }
-
-        UserPreferences.Instance.VoiceControlUnlocked = true;
-        if (isPermanent)
-            UserPreferences.Instance.SaveToDisk();
-        else
-            LicenseKeys.ActivateMasterAccessFor("voice");
-
-        PosAlertDialog.Show(
-            owner,
-            Tr.T("Доп. услуга разблокирована", "Кошумча кызмат ачылды", "Add-on unlocked", "Ek hizmet kilidi açıldı", "Qo'shimcha xizmat ochildi"),
-            Tr.T(
-                "Серийный номер принят — теперь можно скачать пакет распознавания речи.",
-                "Сериялык номер кабыл алынды — эми кепти таануу пакетин жүктөп алсаңыз болот.", "Serial number accepted — you can now download the speech recognition pack.", "Seri numarası kabul edildi — artık ses tanıma paketini indirebilirsiniz.", "Seriya raqami qabul qilindi — endi nutqni tanish paketini yuklab olish mumkin."),
-            PosAlertKind.Success);
-
-        RefreshVoiceControlCard();
-    }
-
-    /// <summary>Одна строка "скачать модель X" в карточке — кнопка + прогресс-бар + статус,
-    /// та же структура для любого языка, отличается только текст кнопки и передаваемый
-    /// VoiceModelLanguage.</summary>
-    private StackPanel BuildVoiceModelDownloadRow(VoiceModelLanguage language, string buttonLabel)
-    {
-        var downloadButton = new Button
-        {
-            Classes = { "btn-primary" },
-            Content = buttonLabel,
-            Height = 32,
-            Padding = new Thickness(14, 4),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-        };
-        var progressBar = new ProgressBar
-        {
-            Minimum = 0,
-            Maximum = 100,
-            Height = 6,
-            IsVisible = false,
-            Margin = new Thickness(0, 4, 0, 0),
-        };
-        var statusText = new TextBlock
-        {
-            FontSize = 11,
-            Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
-            IsVisible = false,
-        };
-        downloadButton.Click += async (_, _) =>
-            await StartVoiceModelDownloadAsync(language, downloadButton, progressBar, statusText).ConfigureAwait(true);
-
-        var row = new StackPanel { Spacing = 4 };
-        row.Children.Add(downloadButton);
-        row.Children.Add(progressBar);
-        row.Children.Add(statusText);
-        return row;
-    }
-
-    private async System.Threading.Tasks.Task StartVoiceModelDownloadAsync(
-        VoiceModelLanguage language, Button button, ProgressBar progressBar, TextBlock statusText)
-    {
-        button.IsEnabled = false;
-        progressBar.IsVisible = true;
-        statusText.IsVisible = true;
-        statusText.Text = Tr.T("Загрузка… 0%", "Жүктөлүүдө… 0%", "Downloading… 0%", "İndiriliyor… %0", "Yuklanmoqda… 0%");
-
-        var progress = new Progress<double>(percent =>
-        {
-            progressBar.Value = percent;
-            statusText.Text = percent < 100
-                ? Tr.T($"Загрузка… {percent:F0}%", $"Жүктөлүүдө… {percent:F0}%",
-                    $"Downloading… {percent:F0}%", $"İndiriliyor… %{percent:F0}", $"Yuklanmoqda… {percent:F0}%")
-                : Tr.T("Распаковка…", "Архив ачылууда…", "Unpacking…", "Paket açılıyor…", "Arxivdan chiqarilmoqda…");
-        });
-
-        var (ok, error) = await VoiceModelDownloadService.DownloadAndInstallAsync(language, progress).ConfigureAwait(true);
-
-        var owner = TopLevel.GetTopLevel(this) as Window;
-        if (!ok)
-        {
-            button.IsEnabled = true;
-            // Показываем НАСТОЯЩУЮ причину. Раньше на любую ошибку писали «Проверьте интернет»,
-            // и владелец искал проблему в связи, хотя файла просто нет на сервере.
-            statusText.Text = error ?? Tr.T("Загрузка отменена.", "Жүктөө токтотулду.",
-                "Download canceled.", "İndirme iptal edildi.", "Yuklash bekor qilindi.");
-            return;
-        }
-
-        PosAlertDialog.Show(
-            owner,
-            Tr.T("Пакет установлен", "Пакет орнотулду", "Package installed", "Paket kuruldu", "Paket o'rnatildi"),
-            Tr.T(
-                "Голосовое управление скачано — теперь включите его переключателем.",
-                "Үн менен башкаруу жүктөлдү — эми аны которгуч менен күйгүзүңүз.", "Voice control downloaded — now turn it on with the switch.", "Sesli kontrol indirildi — şimdi anahtarı açarak etkinleştirin.", "Ovozli boshqaruv yuklab olindi — endi uni almashtirgich bilan yoqing."),
-            PosAlertKind.Success);
-
-        RefreshVoiceControlCard();
-    }
-
-    private void VoiceEnabledCheck_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not CheckBox check)
-            return;
-
-        UserPreferences.Instance.VoiceControlEnabled = check.IsChecked == true;
-        UserPreferences.Instance.SaveToDisk();
-
-        try
-        {
-            App.GetRequiredService<IVoiceControlService>().Start();
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Голосовое управление: не удалось применить настройку: {ex}", "VOICE");
-        }
-    }
+    // 2026-10-27: карточка «Голосовое управление» (активация, загрузка моделей, переключатель, проверка) убрана — есть ИИ-ассистент.
 
     private Border? _loyaltyCard;
 
@@ -1406,11 +1096,11 @@ public partial class MarketplaceView : UserControl
     {
         yield return (TariffGate.Packs.Ai,
             Tr.T("ИИ-советник и ИИ в боте", "ИИ-кеңешчи жана боттогу ИИ", "AI advisor and the bot's AI", "Yapay zekâ danışmanı ve bottaki yapay zekâ", "SI maslahatchi va botdagi SI"),
-            Tr.T("Советы по продажам и закупкам в программе владельца, ИИ в Telegram-боте и голосовом управлении, поиск фото товаров и поиск в интернете.",
-                "Ээсинин программасында сатуу жана сатып алуу боюнча кеңештер, Telegram-боттогу жана үн менен башкаруудагы ИИ, товардын сүрөтүн жана интернеттен издөө.",
-                "Sales and purchasing advice in the owner app, AI in the Telegram bot and voice control, product photo search and web search.",
-                "Sahip programında satış ve satın alma tavsiyeleri, Telegram botunda ve sesli kontrolde yapay zekâ, ürün fotoğrafı ve internet araması.",
-                "Egasi dasturida sotuv va xarid bo'yicha maslahatlar, Telegram-botda va ovozli boshqaruvda SI, mahsulot rasmi va internetda qidirish."));
+            Tr.T("Советы по продажам и закупкам в программе владельца, ИИ в Telegram-боте, поиск фото товаров и поиск в интернете.",
+                "Ээсинин программасында сатуу жана сатып алуу боюнча кеңештер, Telegram-боттогу ИИ, товардын сүрөтүн жана интернеттен издөө.",
+                "Sales and purchasing advice in the owner app, AI in the Telegram bot, product photo search and web search.",
+                "Sahip programında satış ve satın alma tavsiyeleri, Telegram botunda yapay zekâ, ürün fotoğrafı ve internet araması.",
+                "Egasi dasturida sotuv va xarid bo'yicha maslahatlar, Telegram-botda SI, mahsulot rasmi va internetda qidirish."));
         yield return (TariffGate.Packs.Clients,
             Tr.T("Клиенты, воронка и WhatsApp", "Кардарлар, воронка жана WhatsApp", "Customers, funnel and WhatsApp", "Müşteriler, huni ve WhatsApp", "Mijozlar, voronka va WhatsApp"),
             Tr.T("База клиентов с долгами и скидками, воронка продаж, переписка в WhatsApp из программы.",

@@ -1102,30 +1102,6 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Добавление товара по голосовой команде (VoiceControlService, 2026-09-04) — как
-    /// AddProductFromCatalog, но количество приходит явным параметром (распознано из речи), а
-    /// не из поля ManualQuantity, которое кассир руками не трогал.</summary>
-    public void AddProductByVoice(CatalogProductTileVm product, double quantity)
-    {
-        if (product is null)
-            return;
-
-        try
-        {
-            EnsureCartInitialized();
-            var qty = ParseQuantity(quantity.ToString(CultureInfo.InvariantCulture), product.MustWeigh, QuantityRules.ForTile(product)); // 2026-10-26 (ХМ2)
-            _cart.AddItem(product, qty);
-            SyncLinesAndTotals();
-            CartMessage = Tr.T($"Голосом добавлено: {product.Title}.", $"Үн менен кошулду: {product.Title}.",
-                $"Added by voice: {product.Title}.", $"Sesle eklendi: {product.Title}.", $"Ovoz orqali qo'shildi: {product.Title}.");
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"CART voice add failed: {ex}", "CART");
-            _prompts.ShowError(Tr.T("Не удалось добавить товар голосом.", "Товарды үн менен кошуу мүмкүн болгон жок.", "Could not add the product by voice.", "Ürün sesle eklenemedi.", "Mahsulotni ovoz orqali qo'shib bo'lmadi."));
-        }
-    }
-
     public void CreateNewReceipt()
     {
         // 2026-10-02: на пустом чеке «+ Новый чек» не открывает ещё одну пустую вкладку.

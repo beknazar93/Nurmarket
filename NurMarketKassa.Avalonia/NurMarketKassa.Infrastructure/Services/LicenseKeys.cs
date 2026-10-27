@@ -26,7 +26,7 @@ public static class LicenseKeys
     /// менять надо и там, и там.</summary>
     private static readonly Dictionary<string, string> PermanentSerials = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["voice"] = "NMK-VOICE-8F21-PERM",
+        // 2026-10-27: ключ "voice" убран вместе с голосовым управлением (есть ИИ-ассистент).
         ["loyalty"] = "NMK-LOYAL-4C77-PERM",
         ["timesheet"] = "NMK-SHIFT-9K02-PERM",
         ["analytics"] = "NMK-STAT-3R58-PERM",
@@ -60,7 +60,7 @@ public static class LicenseKeys
     public static bool IsMasterSerial(string? serial) =>
         string.Equals(serial?.Trim(), MasterTestSerial, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Постоянный ключ для конкретной фичи (slug — "voice"/"loyalty"/"timesheet"/
+    /// <summary>Постоянный ключ для конкретной фичи (slug — "loyalty"/"timesheet"/
     /// "analytics"/"language"/"pricetag"/"bulktag"/"theme").</summary>
     public static bool IsPermanentSerial(string featureSlug, string? serial) =>
         (PermanentSerials.TryGetValue(featureSlug, out var real) &&
@@ -136,7 +136,6 @@ public static class LicenseKeys
     {
         switch (slug)
         {
-            case "voice": prefs.VoiceControlUnlocked = false; break;
             case "loyalty": prefs.LoyaltyEnabled = false; break;
             case "timesheet": prefs.StaffTimesheetUnlocked = false; break;
             case "analytics": prefs.WarehouseAnalyticsUnlocked = false; break;

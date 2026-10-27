@@ -26,6 +26,7 @@
 - **Второй монитор.** «Внесено» и «сдача» при включённой галочке; сторож экрана покупателя возвращает пропавшее окно.
 - **Удалённая помощь.** Пока кассир работает мышью или клавиатурой, ввод оператора уступает кассиру. Номер техподдержки: +996 221 068 796.
 - **Маркетплейс.** Ряды карточек листаются мышью и пальцем.
+- **Убрано голосовое управление кассой** — теперь есть ИИ-ассистент (Нур Советник).
 
 ### Исправлено: было → стало
 
@@ -36,7 +37,6 @@
 | Диаграммы в «Сводке» и аналитике были одного цвета | Столбцы и доли разных цветов |
 | Испорченный файл тем ломал список тем | Предупреждение при открытии, прежний хороший файл — в .bak, файл восстанавливается |
 | Поля ключей и паролей отдавали значение через UI Automation | Скрытое точками значение не отдаётся |
-| Память голосового управления росла без предела (+380 МБ за 2 часа простоя) | Буфер звука не больше 30 с |
 | Принтер этикеток мог запомниться виртуальным (PDF/XPS) | Виртуальные принтеры не запоминаются |
 | Склад: лишняя подсказка сканера в углу; фильтр «Наличие» повторял плитки; приёмка не влезала в узкое окно | Подсказка убрана, дубль фильтра убран, узкая приёмка |
 | Второй монитор не показывал, сколько внесено; итог оплаты держался 4 с | «Внесено» и «сдача» показываются при включённой галочке; сторож возвращает пропавшее окно |
@@ -69,7 +69,8 @@
 - **Экинчи монитор.** Белгиленген болсо «киргизилди» жана «кайтарым»; сатып алуучунун экранынын кароолчусу жоголгон терезени кайтарат.
 - **Алыстан жардам.** Кассир чычкан же баскычтоп менен иштегенде оператордун киргизүүсү кассирге жол берет. Колдоонун номери: +996 221 068 796.
 - **Маркетплейс.** Карточка катарлары чычкан жана манжа менен сүрүлөт.
-- **Оңдоолор.** Үн менен башкарууда эс тутум агып кетүүсү (үн буфери 30 сек.ден ашпайт); этикетка принтери виртуалдык (PDF/XPS) принтерлерди эстебейт; Кампа: ашыкча сканер кеңеши жана «Бар болушу» чыпкасынын кайталанышы алынды, тар терезеде кабыл алуу; «Сайт редактору»: жарыялоо буйрук менен жана ырастоодон кийин гана.
+- **Кассанын үн менен башкаруусу алынды** — эми ИИ-жардамчы бар (Нур Кеңешчи).
+- **Оңдоолор.** этикетка принтери виртуалдык (PDF/XPS) принтерлерди эстебейт; Кампа: ашыкча сканер кеңеши жана «Бар болушу» чыпкасынын кайталанышы алынды, тар терезеде кабыл алуу; «Сайт редактору»: жарыялоо буйрук менен жана ырастоодон кийин гана.
 
 **Чектөөлөр.** Тирүү кабыл алуу бүтө элек — ошондуктан тесттик версия.
 
@@ -89,7 +90,8 @@
 - **Second monitor.** “Paid” and “change” when the checkbox is on; the customer-screen watchdog brings back a lost window.
 - **Remote help.** While the cashier works with the mouse or keyboard, the operator’s input yields to the cashier. Support number: +996 221 068 796.
 - **Marketplace.** Card rows scroll with the mouse and a finger.
-- **Fixes.** A memory leak in voice control (the audio buffer is at most 30 s); the label printer does not remember virtual (PDF/XPS) printers; Stock: the extra scanner hint and the duplicated “Availability” filter are removed, receiving in a narrow window; “Site editor”: publishing only on command and after confirmation.
+- **Voice control of the till removed** — there is now an AI assistant (Nur Advisor).
+- **Fixes.** The label printer does not remember virtual (PDF/XPS) printers; Stock: the extra scanner hint and the duplicated “Availability” filter are removed, receiving in a narrow window; “Site editor”: publishing only on command and after confirmation.
 
 **Limitations.** The live acceptance is not finished — that is why it is a test build.
 
@@ -109,7 +111,8 @@
 - **İkinci monitör.** Kutu işaretliyse «ödenen» ve «para üstü»; müşteri ekranı bekçisi kaybolan pencereyi geri getirir.
 - **Uzaktan yardım.** Kasiyer fare veya klavye kullanırken operatörün girişi kasiyere yol verir. Destek numarası: +996 221 068 796.
 - **Pazaryeri.** Kart sıraları fare ve parmakla kaydırılır.
-- **Düzeltmeler.** Sesli kontrolde bellek sızıntısı (ses tamponu en çok 30 sn); etiket yazıcısı sanal (PDF/XPS) yazıcıları hatırlamaz; Depo: gereksiz tarayıcı ipucu ve tekrarlanan «Stok durumu» filtresi kaldırıldı, dar pencerede mal kabul; «Site düzenleyici»: yayınlama yalnızca komutla ve onaydan sonra.
+- **Kasanın sesli kontrolü kaldırıldı** — artık bir yapay zekâ asistanı var (Nur Danışman).
+- **Düzeltmeler.** Etiket yazıcısı sanal (PDF/XPS) yazıcıları hatırlamaz; Depo: gereksiz tarayıcı ipucu ve tekrarlanan «Stok durumu» filtresi kaldırıldı, dar pencerede mal kabul; «Site düzenleyici»: yayınlama yalnızca komutla ve onaydan sonra.
 
 **Sınırlamalar.** Canlı kabul bitmedi — bu yüzden test sürümü.
 
@@ -129,6 +132,7 @@
 - **Ikkinchi monitor.** Belgi yoqilgan bo'lsa «kiritildi» va «qaytim»; xaridor ekrani qorovuli yo'qolgan oynani qaytaradi.
 - **Masofaviy yordam.** Kassir sichqoncha yoki klaviatura bilan ishlaganda operator kiritishi kassirga yo'l beradi. Yordam raqami: +996 221 068 796.
 - **Marketplace.** Kartalar qatorlari sichqoncha va barmoq bilan suriladi.
-- **Tuzatishlar.** Ovozli boshqaruvda xotira oqishi (ovoz buferi 30 soniyadan oshmaydi); yorliq printeri virtual (PDF/XPS) printerlarni eslamaydi; Ombor: ortiqcha skaner maslahati va takrorlanuvchi «Mavjudligi» filtri olib tashlandi, tor oynada qabul; «Sayt muharriri»: e'lon qilish faqat buyruq bilan va tasdiqlangandan keyin.
+- **Kassaning ovozli boshqaruvi olib tashlandi** — endi SI yordamchisi bor (Nur Maslahatchi).
+- **Tuzatishlar.** Yorliq printeri virtual (PDF/XPS) printerlarni eslamaydi; Ombor: ortiqcha skaner maslahati va takrorlanuvchi «Mavjudligi» filtri olib tashlandi, tor oynada qabul; «Sayt muharriri»: e'lon qilish faqat buyruq bilan va tasdiqlangandan keyin.
 
 **Cheklovlar.** Jonli qabul tugamagan — shuning uchun test versiyasi.

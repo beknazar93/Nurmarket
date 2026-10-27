@@ -186,30 +186,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         var start = TariffGate.IsStartTariff;
         var packPrice = new MarketplacePrice(TariffGate.PackActivationFee, MarketplacePricePeriod.OneTime, TariffGate.PackMonthlyFee);
 
-        // --- Голосовое управление (2000 сом; модели скачиваются отдельно)
-        {
-            var unlocked = prefs.VoiceControlUnlocked;
-            var installed = VoiceModelInstalled();
-            items.Add(Gated("voice", "🎙", "#7C3AED",
-                T("Голосовое управление", "Үн менен башкаруу", "Voice control", "Sesli kontrol", "Ovozli boshqaruv"),
-                T("Скажите «касса» и название товара", "«Касса» деп айтып, товардын атын айтыңыз", "Say “kassa” and a product name", "«Kassa» deyip ürün adını söyleyin", "«Kassa» va mahsulot nomini ayting"),
-                T("Кассир говорит «касса» и название товара — программа сама находит и добавляет его в чек. Работает офлайн. Пакет распознавания речи (~113 МБ) скачивается отдельно, чтобы не утяжелять базовую кассу.",
-                  "Кассир «касса» деп, андан кийин товардын атын айтат — программа аны өзү таап, чекке кошот. Офлайн иштейт. Кепти таануу пакети (~113 МБ) негизги кассаны оордотпош үчүн өзүнчө жүктөлөт.",
-                  "The cashier says “kassa” and the product name — the program finds it and adds it to the receipt. Works offline. The speech recognition pack (~113 MB) is downloaded separately to keep the base till lightweight.",
-                  "Kasiyer «kassa» deyip ürün adını söyler — program ürünü kendisi bulur ve fişe ekler. Çevrimdışı çalışır. Ses tanıma paketi (~113 MB), temel kasayı ağırlaştırmamak için ayrıca indirilir.",
-                  "Kassir «kassa» so'zini va mahsulot nomini aytadi — dastur mahsulotni o'zi topib, chekka qo'shadi. Oflayn ishlaydi. Asosiy kassani og'irlashtirmaslik uchun nutqni tanish paketi (~113 MB) alohida yuklab olinadi."),
-                [T("Команда «касса» + название товара добавляет товар в чек", "«Касса» + товардын аты буйругу товарды чекке кошот", "The “kassa” + product name command adds the product to the receipt", "«Kassa» + ürün adı komutu ürünü fişe ekler", "«Kassa» + mahsulot nomi buyrug'i mahsulotni chekka qo'shadi"),
-                 T("Работает офлайн, без интернета", "Интернетсиз, офлайн иштейт", "Works offline, no internet needed", "İnternetsiz, çevrimdışı çalışır", "Internetsiz, oflayn ishlaydi"),
-                 T("Русская (~113 МБ) и кыргызская (~60 МБ) модели скачиваются независимо", "Орус (~113 МБ) жана кыргыз (~60 МБ) моделдери өз алдынча жүктөлөт", "Russian (~113 MB) and Kyrgyz (~60 MB) models download independently", "Rusça (~113 MB) ve Kırgızca (~60 MB) modeller bağımsız indirilir", "Rus (~113 MB) va qirg'iz (~60 MB) modellari alohida yuklab olinadi"),
-                 AppMode.IsOwner ? T("Проверка и обучение распознавания — в окне кассы (Маркетплейс → Голосовое управление)", "Таанууну текшерүү жана үйрөтүү — кассанын терезесинде (Маркетплейс → Үн менен башкаруу)", "Test and train recognition — in the kassa window (Marketplace → Voice control)", "Tanıma testi ve eğitimi — kasa penceresinde (Mağaza → Sesli kontrol)", "Tanishni tekshirish va o'rgatish — kassa oynasida (Marketplace → Ovozli boshqaruv)") : T("Проверка и обучение распознавания — кнопка в этом же разделе", "Таанууну текшерүү жана үйрөтүү — ушул эле бөлүмдөгү баскыч", "Test and train recognition — a button in this same section", "Tanıma testi ve eğitimi — bu bölümdeki düğme", "Tanishni tekshirish va o'rgatish — shu bo'limdagi tugma")],
-                [T("Микрофон на компьютере кассы", "Касса компьютериндеги микрофон", "A microphone on the till computer", "Kasa bilgisayarında mikrofon", "Kassa kompyuterida mikrofon"),
-                 T("Место на диске: ~113 МБ (русская модель) и ~60 МБ (кыргызская)", "Дисктеги орун: ~113 МБ (орус модели) жана ~60 МБ (кыргыз модели)", "Disk space: ~113 MB (Russian model) and ~60 MB (Kyrgyz)", "Disk alanı: ~113 MB (Rusça model) ve ~60 MB (Kırgızca)", "Diskda joy: ~113 MB (rus modeli) va ~60 MB (qirg'iz modeli)")],
-                unlocked, new MarketplacePrice(2000), openLabel: null,
-                tags: [T("Голос", "Үн", "Voice", "Ses", "Ovoz"), TagSales],
-                statusText: !unlocked ? "" : installed ? T("Установлено", "Орнотулду", "Installed", "Kuruldu", "O'rnatildi") : T("Разблокировано", "Ачылды", "Unlocked", "Kilidi açıldı", "Ochildi"),
-                installedStatus: unlocked && installed, featured: true, inline: "voice",
-                related: ["loyalty", "language"]));
-        }
+        // 2026-10-27: карточка «Голосовое управление» убрана — есть ИИ-ассистент.
 
         // --- Программа лояльности (1500 сом; после активации работает сама)
         items.Add(Gated("loyalty", "🎁", "#DB2777",
@@ -230,7 +207,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
             tags: [TagSales, T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar")],
             statusText: T("Включено", "Күйгүзүлгөн", "Enabled", "Etkin", "Yoqilgan"), installedStatus: true,
             whatsNew: T("В Маркетплейсе с 05.09.2026", "Маркетплейсте 05.09.2026 тартып", "In the Marketplace since 05.09.2026", "Marketplace'te 05.09.2026'dan beri", "Marketpleysda 05.09.2026 dan beri"),
-            featured: true, related: ["voice", "timesheet"]));
+            featured: true, related: ["timesheet"]));
 
         // --- Учёт сотрудников (1500 сом; открывает табель)
         items.Add(Gated("timesheet", "🧑‍💼", "#0D9488",
@@ -438,7 +415,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
                 tags: [TagLook, T("Языки", "Тилдер", "Languages", "Diller", "Tillar")],
                 statusText: T("Активировано", "Активдештирилди", "Activated", "Etkinleştirildi", "Faollashtirildi"), installedStatus: true,
                 whatsNew: T("В Маркетплейсе с 07.09.2026", "Маркетплейсте 07.09.2026 тартып", "In the Marketplace since 07.09.2026", "Marketplace'te 07.09.2026'dan beri", "Marketpleysda 07.09.2026 dan beri"),
-                related: ["voice", "nurmarket"]));
+                related: ["nurmarket"]));
         }
 
         // --- SMS (скоро)
@@ -746,13 +723,6 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         KassaLayouts.OneC => T("Как «Рабочее место кассира» 1С", "1С «Кассирдин жумуш орду» сыяктуу", "Like the 1C “Cashier workplace”", "1C «Kasiyer çalışma yeri» gibi", "1C «Kassir ish joyi» kabi"),
         _ => "",
     };
-
-    // 2026-10-24: у владельца модель лежит в профиле КАССЫ — статус берём оттуда, как в блоке «Управление» (аудит круга 8, С-9).
-    private static bool VoiceModelInstalled() => AppMode.IsOwner
-        ? VoiceModelDownloadService.IsInstalledInKassa(VoiceModelLanguage.Russian)
-          || VoiceModelDownloadService.IsInstalledInKassa(VoiceModelLanguage.Kyrgyz)
-        : VoiceModelDownloadService.IsInstalled(VoiceModelLanguage.Russian)
-          || VoiceModelDownloadService.IsInstalled(VoiceModelLanguage.Kyrgyz);
 
     /// <summary>Та же проверка, что была в галерее тем: «Выбрана» — на теме, цвета которой реально включены сейчас.</summary>
     private static string AppliedThemeId(string saved, IEnumerable<string> builtInIds) => MarketplaceView.AppliedThemeId(saved, builtInIds);
