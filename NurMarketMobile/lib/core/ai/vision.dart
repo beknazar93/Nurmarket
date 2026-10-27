@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -8,9 +9,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/api_client.dart';
+import '../catalog/catalog_matcher.dart';
+import '../catalog/product_matcher.dart' show autoGap, autoScore;
 import '../db/database.dart';
 import '../providers.dart';
 import 'ai_access.dart';
+import 'assistant/ai_journal.dart';
+import 'cam_aliases.dart';
 import 'gemini_keys.dart';
 import 'scale_reading.dart';
 
@@ -22,8 +27,14 @@ class SeenItem {
   final String barcode;
   final int count;
   final double labelPrice;
-  const SeenItem({required this.name, this.brand = '', this.size = '', this.barcode = '', this.count = 1, this.labelPrice = 0});
+
+  /// 2026-10-27: название по-русски, как назвал бы продавец (ИИ отвечает name_ru); пусто — ИИ его не дал.
+  final String nameRu;
+  const SeenItem({required this.name, this.brand = '', this.size = '', this.barcode = '', this.count = 1, this.labelPrice = 0, this.nameRu = ''});
   String get title => [brand, name, size].where((x) => x.trim().isNotEmpty).join(' ');
+
+  /// 2026-10-27: то же по-русски («Спрайт 1 л» вместо «Sprite 1 L») — второй вариант для сверки с каталогом.
+  String get titleRu => nameRu.trim().isEmpty ? '' : [brand, nameRu, size].where((x) => x.trim().isNotEmpty).join(' ');
 }
 
 /// Увиденное + лучшие совпадения в каталоге (score 0..1; ≥ 0.99 — штрихкод совпал).
@@ -32,14 +43,47 @@ class SeenMatch {
   final List<(Product, double)> candidates;
   const SeenMatch(this.seen, this.candidates);
   Product? get best => candidates.isNotEmpty && candidates.first.$2 >= 0.5 ? candidates.first.$1 : null;
+
+  /// 2026-10-27: товар, выбранный БЕЗ вопроса: лучший ≥ 0,85 и отрыв от второго ≥ 0,15 (иначе выбирает человек). Остаток на
+  /// складе уходит только такому товару — «похоже» ([best]) для денег не годится.
+  Product? get picked {
+    if (candidates.isEmpty || candidates.first.$2 < autoScore) return null;
+    if (candidates.length > 1 && candidates.first.$2 - candidates[1].$2 < autoGap) return null;
+    return candidates.first.$1;
+  }
 }
+
+/// 2026-10-27: чем закончилась попытка ИИ — для понятного текста вместо общего «не ответил».
+enum VisionIssue { quota, keyRejected, timeout }
 
 class VisionException implements Exception {
   final String message;
   final bool noKey;
-  const VisionException(this.message, {this.noKey = false});
+
+  /// 2026-10-27: причина (лимит / Google отклонил ключ / долго не отвечает) и момент, когда можно пробовать снова.
+  final VisionIssue? issue;
+  final DateTime? until;
+  const VisionException(this.message, {this.noKey = false, this.issue, this.until});
+
+  /// Нужна кнопка «Настройка ИИ»: ключа нет, его отклонил Google или кончился лимит (поможет второй ключ).
+  bool get showSettings => noKey || issue == VisionIssue.quota || issue == VisionIssue.keyRejected;
   @override
   String toString() => message;
+}
+
+/// 2026-10-27: что случилось с последней попыткой чата (код, модель, хвост ключа) — для журнала и экрана «Ключи Gemini».
+class _ChatFail {
+  /// Общий срок вышел — фоновая работа этого вопроса больше не шлёт запросов в Google (лимит общий с кассой и ботом).
+  bool cancelled = false;
+
+  /// 2026-10-27: короткий вопрос без сводки магазина — первой модели даём меньше времени.
+  bool fast = false;
+  VisionIssue? issue;
+  DateTime? until;
+  String? model;
+  Object? code;
+  String? keyTail;
+  String? detail;
 }
 
 /// 2026-10-26 (владелец: ИИ — не больше 2 сотрудникам магазина): у этого сотрудника нет права на ИИ. [message] уже на языке
@@ -82,6 +126,7 @@ class VisionService {
     _groq = null;
     _openRouter = null;
     _fallbackLoaded = false;
+    lastChatError = null;
     AiAccessRepository.resetForTest();
   }
 
@@ -577,10 +622,12 @@ class VisionService {
     final k = GeminiKeys.clean(value);
     if (k.isEmpty) {
       // не подошёл тот ключ, который Google только что отклонил (в списке он уже помечен «недействителен»), иначе — первый рабочий
+      // 2026-10-27: только временная пометка на 30 минут (как у ротации ключей), а не «навсегда»: один отказ Google раньше выключал
+      // общий облачный ключ на этом телефоне даже после перезапуска. Ключ не стирается.
       final rejected = [for (final e in _list) if (GeminiKeyPool.isInvalid(e.key)) e.key];
       final cur = rejected.isNotEmpty ? rejected : [?_firstUsable()];
       for (final x in cur) {
-        await markBadKey(x);
+        GeminiKeyPool.markInvalid(x);
       }
       _noKeyUntil = DateTime(2000);
       return;
@@ -650,10 +697,11 @@ class VisionService {
   /// 2026-10-27 (дополнительные ключи): ключ для запроса к [model] — «первый рабочий» из списка (включённый, не заменённый, не
   /// «недействителен», не «исчерпан» для этой модели). [k] — ключ, с которым пришёл вызывающий; если его нет в списке (подставлен
   /// снаружи, например в тестах), ротации нет и используется он. null — свободных ключей для модели нет.
-  String? _keyFor(String model, String k) {
+  /// 2026-10-27: [skip] — пары «ключ\nмодель», которым Google ответил отказом без явной причины (403): в этом вопросе их не повторяем.
+  String? _keyFor(String model, String k, {Set<String> skip = const {}}) {
     final list = _list;
-    if (list.isEmpty || !list.any((e) => e.key == k)) return k;
-    return GeminiKeyPool.pick(model, list, retired: _isBad);
+    if (list.isEmpty || !list.any((e) => e.key == k)) return skip.contains('$k\n$model') ? null : k;
+    return GeminiKeyPool.pick(model, list, retired: (key) => _isBad(key) || skip.contains('$key\n$model'));
   }
 
   /// Ответ Google с ошибкой: лимит (429/RESOURCE_EXHAUSTED/quota) — ключ «исчерпан до …» (минутный — retryDelay или 60 с, суточный —
@@ -674,12 +722,76 @@ class VisionService {
     return on > 1 ? 'исчерпан бесплатный лимит у всех ключей Gemini ($on)$when' : 'исчерпан бесплатный лимит запросов Google$when';
   }
 
+  /// 2026-10-27: ключи есть, но для модели свободных нет — лимит исчерпан или Google отклонил ключ (повтор через 30 минут).
+  /// Записывает причину в [fail] (только если [first]: до этого ничего не случилось) и возвращает текст.
+  String _noFreeKey(String model, _ChatFail fail, bool first) {
+    DateTime? rejected;
+    for (final e in _list.where((e) => e.enabled && !_isBad(e.key))) {
+      final u = GeminiKeyPool.invalidUntil(e.key);
+      if (u != null && (rejected == null || u.isBefore(rejected))) rejected = u;
+    }
+    final free = _list.any((e) => e.enabled && !_isBad(e.key) && !GeminiKeyPool.isInvalid(e.key));
+    if (rejected != null && !free) {
+      if (first) {
+        fail.issue = VisionIssue.keyRejected;
+        fail.until = rejected;
+      }
+      return 'Google отклонил ключ, повтор после ${hm(rejected)}';
+    }
+    if (first) {
+      fail.issue = VisionIssue.quota;
+      fail.until = GeminiKeyPool.nextFree(_list, model);
+    }
+    return _noKeyText(model);
+  }
+
+  /// 2026-10-27: ключи в списке есть, но все временно отклонены Google (30 минут) — ошибка «Google отклонил ключ, повтор после HH:mm»
+  /// с кнопкой «Настройка ИИ»; ключей нет совсем — прежнее «Добавьте ключ ИИ…». Зовёт экран Советника, когда [hasChatKey] = false.
+  VisionException noKeyFailure({bool note = true}) {
+    DateTime? until;
+    for (final e in _list.where((e) => e.enabled && !_isBad(e.key))) {
+      final u = GeminiKeyPool.invalidUntil(e.key);
+      if (u != null && (until == null || u.isBefore(until))) until = u;
+    }
+    if (until == null) return const VisionException('no key', noKey: true);
+    final fail = _ChatFail()
+      ..issue = VisionIssue.keyRejected
+      ..until = until
+      ..code = 'ключ';
+    final e = VisionException('Google отклонил ключ, повтор после ${hm(until)}', issue: VisionIssue.keyRejected, until: until);
+    if (note) _noteChatError(fail, e);
+    return e;
+  }
+
+  /// Последняя ошибка чата Советника в этом запуске (для экрана «Ключи Gemini»; после перезапуска читается из журнала).
+  static AiChatError? lastChatError;
+
+  /// 2026-10-27: следующий вопрос чата короткий и без сводки магазина — первой модели даём меньше времени (12 с вместо 25).
+  /// Флагом, а не параметром: у [chat] есть подменяющие её фейки в тестах. Сбрасывается самим [chat].
+  bool fastChat = false;
+
+  /// 2026-10-27: модель, ответившая на последний вопрос чата (для журнала замеров ai_perf).
+  static String? lastChatModel;
+
+  void _noteChatError(_ChatFail fail, VisionException e) {
+    final n = AiChatError(
+      at: GeminiKeyPool.clock(),
+      code: '${fail.code ?? (e.issue == VisionIssue.timeout ? 'таймаут' : '—')}',
+      model: fail.model ?? '',
+      keyTail: fail.keyTail ?? '',
+      text: (fail.detail ?? e.message).replaceAll(RegExp(r'\s+'), ' ').trim(),
+    );
+    lastChatError = n;
+    unawaited(AiJournal.recordChatError(n));
+  }
+
   /// 2026-10-27: звонок (Live) — ключ отказал ДО начала сеанса (лимит или «API key not valid»): помечаем его и отдаём следующий.
   /// null — других ключей нет (или причина не про ключ). Вызывается из LiveCall синхронно.
   String? rotateLiveKey(String failedKey, String reason) {
     if (_list.isEmpty || !_list.any((e) => e.key == failedKey)) return null;
     final r = reason.toLowerCase();
-    if (r.contains('api key') || r.contains('api_key')) {
+    // 2026-10-27: «недействителен» — только при явной причине от Google (как для обычных запросов), иначе звонок не выключает ключ
+    if (GeminiKeyPool.isInvalidKeyText(reason)) {
       GeminiKeyPool.markInvalid(failedKey);
     } else if (['resource_exhausted', 'quota', 'exhausted', 'rate limit', 'rate_limit'].any(r.contains)) {
       GeminiKeyPool.markQuota(failedKey, _liveModel, reason);
@@ -729,7 +841,8 @@ class VisionService {
             mi--; // 2026-10-27: ключ исчерпан или недействителен — тот же запрос со следующим ключом
             continue;
           }
-          if (message.contains('API key') || message.contains('API_KEY') || ((status == 401 || status == 403) && !message.toLowerCase().contains('model'))) {
+          // 2026-10-27: «ключ не подошёл» — только при явной причине от Google (раньше любой 403 без слова model)
+          if (GeminiKeyPool.isInvalidKey(status, r.data is Map || r.data is List ? jsonEncode(r.data) : '${r.data}')) {
             throw VisionException(message, noKey: true);
           }
           if (status == 400 && step < 2) {
@@ -740,7 +853,7 @@ class VisionService {
           if (_workingModel == model) _workingModel = null;
           lastError = switch (status) {
             404 => 'модель $model недоступна',
-            429 => _list.length > 1 ? _noKeyText(model) : 'исчерпан бесплатный лимит запросов Google — попробуйте через минуту',
+            429 => _noKeyText(model), // 2026-10-27: и при одном ключе — «следующая попытка после HH:mm», а не «через минуту»
             >= 500 => 'нейросеть Google сейчас перегружена — попробуйте через минуту',
             _ => 'ошибка Google $status: $message',
           };
@@ -809,11 +922,12 @@ class VisionService {
     return parseScaleJson(text);
   }
 
-  Future<List<SeenItem>> recognize(Uint8List jpeg, {String mode = 'sale'}) async {
+  Future<List<SeenItem>> recognize(Uint8List jpeg, {String mode = 'sale', String mime = 'image/jpeg'}) async {
     final k = await key();
     if (k == null) throw const VisionException('no key', noKey: true);
     final task = switch (mode) {
-      'invoice' => 'На фото — накладная поставщика. Перечисли строки товаров: название как в накладной, количество (count), цена за штуку (label_price).',
+      'invoice' =>
+        'На фото (или в файле) — накладная поставщика. Перечисли строки товаров: название как в накладной, количество (count), цена за штуку (label_price), штрихкод или артикул — если для него есть колонка.',
       'labels' => 'На фото — этикетки или ценники. Перечисли товары: название, штрихкод с этикетки, если читается, цена (label_price).',
       'shelf' =>
         'На фото — полка магазина. Перечисли все разные товары: бренд, название, объём/вес, сколько штук видно (count), штрихкод — только если он читается.',
@@ -825,7 +939,8 @@ class VisionService {
         'systemInstruction': {
           'parts': [
             {
-              'text': 'Ты распознаёшь товары магазина в Кыргызстане по фото. Отвечай ТОЛЬКО JSON-массивом объектов {"name","brand","size","barcode","count","label_price"}. Не выдумывай: неуверен — пиши, что видно, barcode пустой.',
+              // 2026-10-27: короткое name, name_ru — по-русски (каталог магазина в основном русский/смешанный), без описаний
+              'text': 'Ты распознаёшь товары магазина в Кыргызстане по фото. Отвечай ТОЛЬКО JSON-массивом объектов {"name","name_ru","brand","size","barcode","count","label_price"}. name — как написано на упаковке, коротко (вид, вкус), без описаний и рекламных слов; brand — марка как на упаковке; size — объём или вес; name_ru — то же название по-русски, как назвал бы продавец. Не выдумывай: неуверен — пиши, что видно, barcode пустой.',
             },
           ],
         },
@@ -835,7 +950,7 @@ class VisionService {
             'parts': [
               {'text': task},
               {
-                'inline_data': {'mime_type': 'image/jpeg', 'data': base64Encode(jpeg)},
+                'inline_data': {'mime_type': mime, 'data': base64Encode(jpeg)},
               },
             ],
           },
@@ -843,7 +958,7 @@ class VisionService {
         // 2026-10-22: в продаже на снимке 1–3 товара — короткий ответ быстрее; накладная и полка — длиннее
         'generationConfig': {'temperature': 0.1, 'responseMimeType': 'application/json', 'maxOutputTokens': mode == 'sale' ? 1024 : 4096, 'thinkingConfig': ?thinking},
       },
-      total: Duration(seconds: mode == 'sale' ? 12 : 25),
+      total: Duration(seconds: mime == 'application/pdf' ? 40 : (mode == 'sale' ? 12 : 25)),
     );
     return parseSeen(text);
   }
@@ -902,7 +1017,7 @@ class VisionService {
               mi--; // 2026-10-27: следующий ключ списка
               continue;
             }
-            if (r.statusCode == 400 && (lastError.contains('API key') || lastError.contains('API_KEY'))) throw VisionException(lastError, noKey: true);
+            if (r.statusCode == 400 && GeminiKeyPool.isInvalidKeyText(lastError)) throw VisionException(lastError, noKey: true);
             continue;
           }
           final text = _text(data);
@@ -919,16 +1034,42 @@ class VisionService {
   }
 
   /// 13.10, Нур Советник на телефоне: разговор (вопросы и ответы по очереди) со сводкой магазина в системной части.
-  Future<String> chat(String system, List<({bool user, String text})> history) async {
+  /// 2026-10-27: [budget] — общий срок ответа (с ожиданием подключения и запасными ИИ): по его истечении — ошибка «ИИ долго не
+  /// отвечает» (VisionIssue.timeout) с кнопкой «Повторить», а не бесконечный индикатор. Последняя ошибка пишется в журнал ИИ.
+  Future<String> chat(String system, List<({bool user, String text})> history, {Duration budget = const Duration(seconds: 45)}) async {
+    final fail = _ChatFail()..fast = fastChat;
+    fastChat = false;
+    try {
+      return await _chat(system, history, fail, budget).timeout(
+        budget,
+        onTimeout: () {
+          fail.cancelled = true;
+          fail.issue = VisionIssue.timeout;
+          throw const VisionException('ИИ долго не отвечает…', issue: VisionIssue.timeout);
+        },
+      );
+    } on VisionException catch (e) {
+      if (e is! AiAccessDenied) _noteChatError(fail, e);
+      rethrow;
+    }
+  }
+
+  Future<String> _chat(String system, List<({bool user, String text})> history, _ChatFail fail, Duration budget) async {
     final k = await key();
     final errors = <String>[];
     if (k != null) {
-      final text = await _geminiChat(k, system, history, errors);
+      final text = await _geminiChat(k, system, history, errors, fail, budget);
       if (text != null) return text;
     }
+    if (fail.cancelled) throw const VisionException('ИИ долго не отвечает…', issue: VisionIssue.timeout);
     final alt = await _fallbackChat(system, history, errors);
     if (alt != null) return alt;
-    throw VisionException(errors.isEmpty ? 'no key' : errors.join('\n'), noKey: errors.isEmpty);
+    if (errors.isEmpty) {
+      final e = noKeyFailure(note: false);
+      if (e.issue != null) fail.code = 'ключ';
+      throw e;
+    }
+    throw VisionException(errors.join('\n'), issue: fail.issue, until: fail.until);
   }
 
   /// 2026-10-22 (советник мобилки): шаг «размышлений» по моделям, как ThinkingStep в TelegramAiChat кассы:
@@ -941,7 +1082,14 @@ class VisionService {
   /// подряд две реплики одной стороны и тексты ошибок уходили в историю. Теперь: maxOutputTokens 4096 + thinkingConfig,
   /// части «thought» пропускаются, у каждой попытки свой срок (первая 25 с, дальше 15 с, всего 50 с), 404/5xx/пусто —
   /// следующая модель, неподходящий ключ — сразу к запасным ИИ (Groq, OpenRouter). null — Gemini не ответил (причина в [errors]).
-  Future<String?> _geminiChat(String k, String system, List<({bool user, String text})> history, List<String> errors) async {
+  Future<String?> _geminiChat(
+    String k,
+    String system,
+    List<({bool user, String text})> history,
+    List<String> errors,
+    _ChatFail fail,
+    Duration budget,
+  ) async {
     final contents = <Map<String, dynamic>>[];
     for (final m in history.length > 30 ? history.sublist(history.length - 30) : history) {
       final role = m.user ? 'user' : 'model';
@@ -979,45 +1127,61 @@ class VisionService {
     final models = [?_workingModel, ..._models.where((m) => m != _workingModel)];
     final started = Stopwatch()..start();
     String? lastError;
+    final denied = <String>{}; // 2026-10-27: пары «ключ\nмодель» с отказом 403 без явной причины — в этом вопросе не повторяем
     for (var mi = 0; mi < models.length; mi++) {
       final model = models[mi];
-      final left = const Duration(seconds: 50) - started.elapsed;
+      if (fail.cancelled) break;
+      final left = budget - started.elapsed; // 2026-10-27: было 50 с на Gemini; теперь общий бюджет чата (45 с)
       if (left < const Duration(seconds: 5)) {
         lastError ??= 'Google не ответил вовремя';
+        fail.issue ??= VisionIssue.timeout;
         break;
       }
-      final limit = mi == 0 ? const Duration(seconds: 25) : const Duration(seconds: 15);
+      // 2026-10-27 (расследование «ИИ долго думает»): короткий вопрос без сводки (fast) — первая модель не дольше 12 с, потом запасная
+      final limit = mi == 0 ? (fail.fast ? const Duration(seconds: 12) : const Duration(seconds: 25)) : const Duration(seconds: 15);
       final step = _thinkStep[model] ?? (model.startsWith('gemini-3') ? 1 : 0);
-      final used = _keyFor(model, k);
+      final used = _keyFor(model, k, skip: denied);
       if (used == null) {
-        lastError ??= _noKeyText(model); // 2026-10-27: все ключи исчерпаны для этой модели — следующая модель
+        lastError ??= _noFreeKey(model, fail, lastError == null); // 2026-10-27: свободных ключей для модели нет — следующая модель
         continue;
       }
+      fail
+        ..issue = null
+        ..until = null
+        ..model = model
+        ..code = null
+        ..keyTail = GeminiKeys.tail(used)
+        ..detail = null;
+      final cap = limit < left ? limit : left;
       try {
-        final r = await _http.post<dynamic>(
-          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
-          data: body(step),
-          options: Options(
-            headers: {'x-goog-api-key': used},
-            validateStatus: (_) => true,
-            sendTimeout: limit < left ? limit : left,
-            receiveTimeout: limit < left ? limit : left,
-          ),
-        );
+        final r = await _http
+            .post<dynamic>(
+              'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
+              data: body(step),
+              options: Options(headers: {'x-goog-api-key': used}, validateStatus: (_) => true, sendTimeout: cap, receiveTimeout: cap),
+            )
+            // connectTimeout Dio (15 с) считается сверху — общий срок попытки держим сами
+            .timeout(cap + const Duration(seconds: 1));
         final status = r.statusCode ?? 0;
         final data = r.data is Map ? (r.data as Map).cast<String, dynamic>() : const <String, dynamic>{};
         if (status >= 400) {
           final message = (data['error'] is Map ? (data['error'] as Map)['message']?.toString() : null) ?? 'HTTP $status';
-          final badKey =
-              message.contains('API key') || message.contains('API_KEY') || ((status == 401 || status == 403) && !message.toLowerCase().contains('model'));
+          fail
+            ..code = status
+            ..detail = message;
           if (_rotate(used, model, k, status, r.data)) {
             mi--; // 2026-10-27: ключ исчерпан или недействителен — тот же вопрос со следующим ключом списка
             continue;
           }
-          if (badKey) {
+          // 2026-10-27: «ключ не подошёл» — только при явной причине от Google (401, API key not valid/expired, leaked, suspended…).
+          // Раньше так считался любой 403 без слова model, и после одного отказа чат 30 минут писал «Добавьте ключ ИИ».
+          if (GeminiKeyPool.isInvalidKey(status, r.data is Map || r.data is List ? jsonEncode(r.data) : '${r.data}')) {
             // 2026-10-22 (аудит С-2): этот ключ больше не берём, пока его не сменят. 2026-10-27: теперь на 30 минут (GeminiKeyPool),
             // а не навсегда — ротация пробует следующий ключ, а этот снова проверит позже.
             GeminiKeyPool.markInvalid(used);
+            fail
+              ..issue = VisionIssue.keyRejected
+              ..until = GeminiKeyPool.invalidUntil(used);
             errors.add('Gemini: ключ Google не подходит — проверьте его в «Настройка ИИ» ($message)');
             return null;
           }
@@ -1028,9 +1192,22 @@ class VisionService {
             continue;
           }
           if (_workingModel == model) _workingModel = null;
+          if (status == 429) {
+            fail
+              ..issue = VisionIssue.quota
+              ..until = GeminiKeyPool.blockedUntil(used, model);
+          }
+          if (status == 403) {
+            // 2026-10-27: отказ без явной причины (не про ключ) — не помечаем ключ; пробуем другой ключ на этой модели, затем другую модель
+            denied.add('$used\n$model');
+            if (_keyFor(model, k, skip: denied) != null) {
+              mi--;
+              continue;
+            }
+          }
           lastError = switch (status) {
             404 => 'модель $model недоступна',
-            429 => _list.length > 1 ? _noKeyText(model) : 'исчерпан бесплатный лимит запросов Google — попробуйте через минуту',
+            429 => _noKeyText(model), // 2026-10-27: и при одном ключе — «следующая попытка после HH:mm», а не «через минуту»
             >= 500 => 'нейросеть Google сейчас перегружена — попробуйте через минуту',
             _ => 'ошибка Google $status: $message',
           };
@@ -1039,6 +1216,7 @@ class VisionService {
         final text = _text(data);
         if (text != null) {
           _workingModel = model;
+          lastChatModel = model; // 2026-10-27: для журнала замеров ai_perf (только имя модели, не ключ)
           GeminiKeyPool.reportSuccess(used);
           return text.trim();
         }
@@ -1048,6 +1226,13 @@ class VisionService {
         lastError = blocked != null || reason == 'SAFETY' || reason == 'PROHIBITED_CONTENT'
             ? 'Google отказался отвечать на этот вопрос (${blocked ?? reason})'
             : 'нейросеть вернула пустой ответ${reason == null ? '' : ' ($reason)'}';
+        fail.detail = lastError;
+      } on TimeoutException {
+        if (_workingModel == model) _workingModel = null;
+        lastError = 'Google не ответил вовремя';
+        fail
+          ..issue = VisionIssue.timeout
+          ..detail = lastError;
       } on DioException catch (e) {
         if (_workingModel == model) _workingModel = null;
         lastError = switch (e.type) {
@@ -1055,6 +1240,12 @@ class VisionService {
           DioExceptionType.connectionError => 'нет связи с Google',
           _ => e.message ?? 'нет связи с Google',
         };
+        fail
+          ..code = e.type.name
+          ..detail = lastError;
+        if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.sendTimeout || e.type == DioExceptionType.receiveTimeout) {
+          fail.issue = VisionIssue.timeout;
+        }
         if (e.type == DioExceptionType.connectionError) break; // нет интернета — другие модели не помогут
       }
     }
@@ -1089,6 +1280,7 @@ class VisionService {
         if (e is Map && (e['name']?.toString().trim().isNotEmpty ?? false))
           SeenItem(
             name: e['name'].toString().trim(),
+            nameRu: e['name_ru']?.toString().trim() ?? '',
             brand: e['brand']?.toString().trim() ?? '',
             size: e['size']?.toString().trim() ?? '',
             barcode: (e['barcode']?.toString() ?? '').replaceAll(RegExp(r'\D'), ''),
@@ -1169,30 +1361,33 @@ class VisionService {
     return (10 - sum % 10) % 10 == c.codeUnitAt(c.length - 1) - 48;
   }
 
-  /// Совпадения в каталоге: штрихкод (с верной контрольной цифрой) — 0,9; иначе похожесть названия (бренд, название, объём).
+  /// Совпадения в каталоге: штрихкод (с верной контрольной цифрой) — 0,97; иначе похожесть названия по ВСЕМУ каталогу телефона.
+  /// 2026-10-27 (владелец: «на фото существующий товар не находит»): вместо поиска `LIKE` по первым 5 буквам (40 штук по
+  /// алфавиту), «1л» как слова и латиницы без кириллицы — общий матчер [CatalogMatcher]: объём отдельно, одна азбука, веса слов,
+  /// алиасы обучения, топ-5. Названия на латинице и по-русски (name_ru) пробуются оба — берётся лучшая оценка товара.
   Future<List<SeenMatch>> match(List<SeenItem> items) async {
-    // 2026-10-22 (скорость скана): база отвечает по очереди (один поток), поэтому параллель не помогает; выигрыш — не искать
-    // одно и то же слово дважды (одинаковые товары кадра, слово и его основа) и штрихкод проверять по индексу.
-    final memo = <String, Future<List<Product>>>{};
+    try {
+      await CamAliases.ensureLocal(db);
+      // общие алиасы компании подтягиваются в фоне — первый кадр не ждёт сервер
+      if (api.session != null) CamAliases.ensure(db, api).then((_) {}, onError: (_) {});
+    } catch (_) {}
     final out = <SeenMatch>[];
     for (final s in items) {
       final found = <String, (Product, double)>{};
       // 2026-10-22 (аудит У-6): штрихкод от ИИ — подсказка, не «точно»: проверяется цифра, ищется как скан
       if (validEan(s.barcode)) {
         final hit = await db.productByScan(s.barcode);
-        if (hit != null) found[hit.product.id] = (hit.product, 0.9);
+        if (hit != null) found[hit.product.id] = (hit.product, 0.97);
       }
-      final raw = s.title.toLowerCase().replaceAll(RegExp(r'[«»"().,/\\\-+]'), ' ').split(RegExp(r'\s+')).where((w) => w.length >= 3);
-      final terms = <String>{for (final w in raw.take(4)) ...{w, normWord(w)}};
-      for (final w in terms) {
-        final q = w.length > 5 ? w.substring(0, 5) : w;
-        for (final p in await memo.putIfAbsent(q, () => db.searchProducts(q, limit: 40))) {
-          final score = nameScore(s.title, p.name);
-          if (score > (found[p.id]?.$2 ?? 0)) found[p.id] = (p, score);
+      for (final q in {s.title, s.titleRu}) {
+        if (q.trim().isEmpty) continue;
+        // 2026-10-27 (ревью М-2): по фото без объёма в ответе ИИ товар с объёмом в названии — только вариант, не автовыбор
+        for (final h in await CatalogMatcher.find(db, q, requireVolume: true)) {
+          if (h.score > (found[h.product.id]?.$2 ?? 0)) found[h.product.id] = (h.product, h.score);
         }
       }
       final list = found.values.toList()..sort((a, b) => b.$2.compareTo(a.$2));
-      out.add(SeenMatch(s, list.take(3).toList()));
+      out.add(SeenMatch(s, list.take(5).toList()));
     }
     return out;
   }

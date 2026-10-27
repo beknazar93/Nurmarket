@@ -167,4 +167,18 @@ void main() {
       expect(_check(const [], 'что угодно')!.status, 'not_requested');
     });
   });
+
+  // 2026-10-27 (ревью М-7): вопрос «как называется…» — не просьба переименовать; просьба-глагол проходит на пяти языках
+  group('переименование: вопрос не просьба', () {
+    test('вопросы про название не проходят ворота', () {
+      for (final q in ['как называется эта вода', 'какое название у этого товара', 'как его имя', 'аталышы кандай', "nomi nima", 'what is the name of it', 'adı ne']) {
+        expect(_check(Intents.rename, q)?.status, 'not_requested', reason: q);
+      }
+    });
+    test('просьбы переименовать проходят: ru, ky, uz, en, tr', () {
+      for (final q in ['переименуй в Кола Зеро', 'поменяй название на Кола Зеро', 'назови Кола Зеро', 'атын өзгөрт', "nomini o'zgartir", 'rename it', 'change the name', 'adını değiştir']) {
+        expect(_check(Intents.rename, q), isNull, reason: q);
+      }
+    });
+  });
 }

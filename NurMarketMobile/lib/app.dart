@@ -17,6 +17,7 @@ import 'features/admin/advisor.dart';
 import 'features/admin/ai_access_ui.dart';
 import 'features/admin/analytics.dart';
 import 'features/admin/admin_receive.dart';
+import 'features/admin/invoice_import.dart';
 import 'features/admin/admin_repository.dart';
 import 'features/admin/admin_screens.dart';
 import 'features/admin/new_item.dart';
@@ -46,6 +47,7 @@ import 'features/assistant/call_controller.dart';
 import 'features/assistant/call_overlay.dart';
 import 'features/staff/salary_screen.dart';
 import 'features/staff/tasks_screen.dart';
+import 'features/tester/tester_screen.dart';
 
 /// Маршруты (ТЗ, раздел 3: go_router — переходы и по ссылкам из пуш-уведомлений).
 /// Этап 1 — экраны кассира; экраны администратора (Т8–Т14, Т20–Т26) — этап 2.
@@ -58,7 +60,8 @@ GoRouter buildRouter(Reader read, {required bool signedIn, Listenable? refresh})
   redirect: (context, state) {
     final s = read(sessionProvider);
     final loc = state.matchedLocation;
-    if (s == null && loc != '/login') return '/login';
+    // 2026-10-27: «Режим тестировщика» открывается и до входа (5 нажатий на логотип на экране входа)
+    if (s == null && loc != '/login' && loc != '/tester') return '/login';
     if (s != null && s.cashboxId == null && loc != '/cashbox' && loc != '/login') return '/cashbox';
     // 13.10, владелец: «доступы в мобилке работают?» — раздел, закрытый сотруднику на сайте, не открывается и по ссылке.
     if (s != null && !s.canRoute(loc)) return '/denied';
@@ -104,6 +107,8 @@ GoRouter buildRouter(Reader read, {required bool signedIn, Listenable? refresh})
     GoRoute(path: '/close-shift', builder: (_, _) => const CloseShiftScreen()),
     GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
     GoRoute(path: '/sync', builder: (_, _) => const SyncScreen()),
+    // 2026-10-27, владелец: «Режим тестировщика» — список функций версии с отметками «проверено / проблема» (5 нажатий на логотип)
+    GoRoute(path: '/tester', builder: (_, _) => const TesterScreen()),
     // 2026-10-26 (голос-управление, В5): режим помощника и журнал действий ИИ (открыты всем по роли, права — в самих экранах).
     GoRoute(path: '/ai/settings', builder: (_, _) => const AssistantSettingsScreen()),
     GoRoute(path: '/ai/log', builder: (_, _) => const AiLogScreen()),
@@ -129,10 +134,20 @@ GoRouter buildRouter(Reader read, {required bool signedIn, Listenable? refresh})
     GoRoute(path: '/admin/deletions', builder: (_, _) => const DeletionsScreen()),
     GoRoute(
       path: '/admin/receive',
-      builder: (_, s) => AdminReceiveScreen(initialLines: s.extra is List<ReceiveLine> ? s.extra as List<ReceiveLine> : null),
+      builder: (_, s) => s.extra is ReceiveHandoff
+          ? AdminReceiveScreen(
+              initialLines: (s.extra as ReceiveHandoff).lines,
+              initialSupplierId: (s.extra as ReceiveHandoff).supplierId,
+              onPosted: (s.extra as ReceiveHandoff).onPosted,
+              initialInvoiceKeys: (s.extra as ReceiveHandoff).invoiceKeys,
+            )
+          : AdminReceiveScreen(initialLines: s.extra is List<ReceiveLine> ? s.extra as List<ReceiveLine> : null),
     ),
+    // 2026-10-27: «Загрузить накладную» — электронная накладная поставщика (Excel / CSV / XML) → строки прихода
+    GoRoute(path: '/admin/invoice', builder: (_, s) => InvoiceImportScreen(forReceive: s.extra == true, initialFile: s.extra is InvoiceFileArg ? s.extra as InvoiceFileArg : null)),
     // 13.10, доски Т9–Т10: умная камера — снимок полки, накладной, этикеток → приёмка.
-    GoRoute(path: '/admin/smartcam', builder: (_, _) => const SmartCameraScreen()),
+    // 2026-10-27: ?mode=invoice — «Сфотографировать накладную» открывает режим «Накладная», а не «Полка»
+    GoRoute(path: '/admin/smartcam', builder: (_, s) => SmartCameraScreen(initialMode: s.uri.queryParameters['mode'])),
     GoRoute(path: '/admin/staff', builder: (_, _) => const StaffScreen()),
     // 14.10, владелец: QR для оплаты, как на десктопе.
     GoRoute(path: '/admin/payqr', builder: (_, _) => const PayQrSettingsScreen()),

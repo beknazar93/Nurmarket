@@ -132,9 +132,9 @@ class VideoProductCard extends VideoCard {
   String get aiMessage {
     if (notFound) return '[Программа] Камера: в каталоге не нашла. Предложи поднести ближе или показать штрихкод.';
     if (looksLike) {
-      return '[Программа] Камера: товар не определён точно, похоже на: ${alternatives.map((p) => '«${p.name}» ${_n(p.price)} сом').join('; ')}. Скажи это коротко и попроси выбрать на экране. Ничего не меняй.';
+      return '[Программа] Камера: товар не определён точно, похоже на: ${alternatives.map((p) => '«${p.name}» ${_n(p.price)} сом').join('; ')}. Скажи это коротко и попроси выбрать на экране или назвать товар. Сам ничего не меняй: правь товар только по просьбе пользователя вслух.';
     }
-    return '[Программа] Камера: товар «$name», цена ${_n(price)} сом${stock == null ? '' : ', остаток ${_n(stock!)} $unit'}${exactBarcode ? ', точно по штрихкоду' : ', похоже, не точно'}. Скажи это коротко. Ничего не меняй.';
+    return '[Программа] Камера: товар «$name», цена ${_n(price)} сом${stock == null ? '' : ', остаток ${_n(stock!)} $unit'}${exactBarcode ? ', точно по штрихкоду' : ', похоже, не точно'}. Скажи это коротко. Сам ничего не меняй; если пользователь попросит изменить этот товар вслух (цена, название, штрихкод…) — инструмент с ref = "camera".';
   }
 
   @override
@@ -289,12 +289,13 @@ class VisionVideoRecognizer implements VideoRecognizer {
     final matches = await vision.match(await vision.recognize(jpeg, mode: 'sale'));
     final first = matches.where((m) => m.candidates.isNotEmpty).firstOrNull;
     if (first == null) return const VideoProductCard();
-    final top = first.candidates.first;
-    if (top.$2 >= 0.99) {
-      final p = top.$1;
-      return VideoProductCard(product: p, name: p.name, price: p.price, stock: ctx.canStock ? p.quantity : null, unit: p.unit, exactBarcode: true);
+    // 2026-10-27 (мобилка, видеозвонок, М2): раньше «найден» было только при оценке ≥ 0,99 (по сути — только штрихкод), поэтому
+    // карточка почти всегда говорила «Похоже на». Теперь общее правило матчера: лучший ≥ 0,85 с отрывом ≥ 0,15, иначе 5 вариантов.
+    final picked = first.picked;
+    if (picked != null) {
+      return VideoProductCard(product: picked, name: picked.name, price: picked.price, stock: ctx.canStock ? picked.quantity : null, unit: picked.unit, exactBarcode: first.candidates.first.$2 >= 0.97);
     }
-    return VideoProductCard(alternatives: [for (final c in first.candidates.take(3)) c.$1]);
+    return VideoProductCard(alternatives: [for (final c in first.candidates.take(5)) c.$1]);
   }
 
   Future<VideoCard> _invoice(Uint8List jpeg, VideoAskContext ctx) async {

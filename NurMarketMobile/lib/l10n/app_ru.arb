@@ -558,7 +558,7 @@
   "paretoTitle": "Диаграмма Парето",
   "paretoHint": "Столбцы — вклад товара, линия — накопленная доля. Товары левее отметки 80 % — группа A.",
   "advisorTitle": "Нур Советник",
-  "advisorOnline": "Данные магазина подключены",
+  "advisorOnline": "Отвечает по данным вашего магазина",
   "advisorAsk": "Спросите о своём магазине…",
   "advisorThinking": "Советник думает…",
   "advisorQ1": "Сколько продали вчера?",
@@ -566,7 +566,7 @@
   "advisorQ3": "Что заказать?",
   "advisorQ4": "Как прошла неделя?",
   "advisorNew": "Новый разговор",
-  "advisorNoKey": "Добавьте ключ ИИ в программе владельца: Нур Советник → ⚙ → Модели ИИ и ключи",
+  "advisorNoKey": "Ключа ИИ нет. Добавьте его в «Настройка ИИ» → «Ключи Gemini» на этом телефоне (или в программе владельца: Нур Советник → ⚙ → Модели ИИ и ключи)",
   "advisorStageData": "Собираю данные магазина…",
   "advisorStageAsk": "Спрашиваю ИИ…",
   "advisorError": "Советник не ответил: {error}",
@@ -1003,7 +1003,7 @@
     }
   },
   "unknownBarcode": "Неизвестный штрихкод",
-  "unknownBarcodeHint": "{code} · администратор получит его и заведёт товар",
+  "unknownBarcodeHint": "{code} · не найден ни в каталоге, ни в справочнике NurCRM. Заведите товар — код никуда не отправляется",
   "@unknownBarcodeHint": {
     "placeholders": {
       "code": {
@@ -2441,6 +2441,51 @@
   "vcInvoice": "Накладная",
   "vcShelf": "Полка",
   "vcPriceTag": "Ценник",
+  "wizAddProduct": "Добавить товар",
+  "wizTitle": "Добавление товара",
+  "wizSlotFront": "Спереди",
+  "wizSlotBack": "Сзади",
+  "wizSlotSide": "Сбоку",
+  "wizSlotCode": "Штрихкод",
+  "wizShootSide": "Снять: {side}",
+  "@wizShootSide": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "wizCreate": "Создать товар",
+  "wizDraft": "«{name}» · {price} сом",
+  "@wizDraft": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "wizHint": "Скажите «готово» или нажмите «Снять»",
+  "wizDuplicate": "Уже есть: «{name}»",
+  "@wizDuplicate": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "wizPhotoAlt": "Снимок: {side}",
+  "@wizPhotoAlt": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "wizEnterCode": "Ввести штрихкод",
+  "wizEnterCodeHint": "Отсканируйте сканером или введите цифры",
   "vcCardProduct": "Товар",
   "vcNotFound": "В каталоге не нашёл. Поднесите ближе или покажите штрихкод",
   "vcExact": "точно",
@@ -2594,7 +2639,7 @@
   "aiAccMineYes": "У вас есть доступ к ИИ",
   "aiAccMineNo": "ИИ вам недоступен — обратитесь к владельцу",
   "aiAccMineOpen": "ИИ доступен всем сотрудникам (лимит не задан)",
-  "aiAccNotSet": "Не задано — ИИ доступен всем",
+  "aiAccNotSet": "Не задано — ИИ у всех сотрудников (владельцу и администратору — всегда)",
   "assistantTitle": "Помощник",
   "assistantSub": "режим голосового управления",
   "aiModeDo": "Выполнять по просьбе",
@@ -2999,5 +3044,965 @@
       }
     }
   },
-  "aiKeysSavedPhoneOnly": "Сохранено на телефоне, но в облако не ушло — касса и программа владельца пока не увидят. Повторите позже."
+  "aiKeysSavedPhoneOnly": "Сохранено на телефоне, но в облако не ушло — касса и программа владельца пока не увидят. Повторите позже.",
+  "klTitle": "Связь с кассой",
+  "klProfileOff": "Не подключена",
+  "klKassaName": "Касса «{name}»",
+  "@klKassaName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "klScanQr": "Сканировать QR на кассе",
+  "klScanQrHint": "На компьютере с кассой откройте окно «Подключить телефон» и наведите камеру на QR-код. Телефон и касса должны быть в одной Wi-Fi сети, касса — запущена.",
+  "klScanQrTitle": "Наведите камеру на QR-код на экране кассы",
+  "klNotKassaQr": "Это не QR-код кассы NurMarket",
+  "klBadQr": "Не удалось прочитать QR-код. Откройте на кассе окно «Подключить телефон» и сканируйте заново.",
+  "klQrVersion": "Эта касса новее приложения. Обновите NurMarket на телефоне.",
+  "klManual": "Ввести ссылку вручную",
+  "klManualHint": "Вставьте текст QR-кода (nurmarket-link:…)",
+  "klConnect": "Подключить",
+  "klConnected": "Касса «{name}» подключена",
+  "@klConnected": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "klConnectedPlain": "Касса подключена",
+  "klStUnpaired": "Касса не подключена",
+  "klStUnknown": "Связь не проверена",
+  "klStOnline": "На связи",
+  "klStNotFound": "Касса не найдена в этой сети",
+  "klStRevoked": "Телефон отключён на кассе",
+  "klStBadTime": "Проверьте время на телефоне",
+  "klStDisabled": "Приём с телефонов выключен на кассе",
+  "klStRePair": "Связь устарела — сканируйте QR на кассе заново",
+  "klChecking": "Проверка связи…",
+  "klShiftOpen": "Смена на кассе: открыта",
+  "klShiftClosed": "Смена на кассе: закрыта",
+  "klCheckNow": "Проверить связь",
+  "klDisconnect": "Отключить",
+  "klDisconnectAsk": "Отключить телефон от кассы «{name}»? Подключить снова можно по QR-коду. На самой кассе телефон останется в списке — удалите его и там.",
+  "@klDisconnectAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "klDisconnected": "Телефон отключён от кассы",
+  "klScannerMode": "Сканер для кассы",
+  "klScannerHint": "Наведите на штрихкод — товар сразу попадёт в чек на кассе",
+  "klSetupAsk": "Связь с кассой не настроена",
+  "klSetup": "Настроить",
+  "klScSending": "Отправка…",
+  "klScAdded": "Добавлен",
+  "klScNotFound": "Не найден",
+  "klScTillInactive": "Окно кассы не открыто",
+  "klScQueued": "Нет связи — в очереди",
+  "klScQueueFull": "Очередь заполнена — код не принят",
+  "klScExpired": "Не отправлен: касса не ответила",
+  "klScFailed": "Касса не приняла код",
+  "klLastCode": "Последний код",
+  "klCounter": "Добавлено в чек: {n}",
+  "@klCounter": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "klQueueLeft": "В очереди: {n}",
+  "@klQueueLeft": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "globalSource": "из справочника NurCRM",
+  "globalFoundAsk": "В справочнике NurCRM есть: {name}",
+  "@globalFoundAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "globalCatalogTitle": "Справочник товаров",
+  "globalCatalogStatus": "Справочник: {count} товаров, обновлён {date}, добавлено: {added}",
+  "@globalCatalogStatus": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "added": {
+        "type": "String"
+      }
+    }
+  },
+  "globalCatalogOff": "Справочник недоступен",
+  "globalBulkFilled": "Названий подставлено из справочника NurCRM: {n}",
+  "@globalBulkFilled": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "advisorQuota": "Лимит ИИ исчерпан до {time} (общий с кассой и ботом). Можно добавить второй ключ из другого аккаунта Google.",
+  "@advisorQuota": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "advisorQuotaLater": "Лимит ИИ исчерпан (общий с кассой и ботом). Попробуйте позже или добавьте второй ключ из другого аккаунта Google.",
+  "advisorKeyRejected": "Google отклонил ключ, повтор после {time}. Проверьте ключ в «Настройка ИИ» → «Ключи Gemini».",
+  "@advisorKeyRejected": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "advisorTimeout": "ИИ долго не отвечает. Проверьте интернет и нажмите «Повторить».",
+  "gkLastError": "Последняя ошибка: {text}",
+  "@gkLastError": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "aiAccOwnerNote": "Вас нет в списке, но владельцу и администратору ИИ доступен всегда.",
+  "pePriceCheckTitle": "Проверьте цену",
+  "pePriceUpAsk": "Цена {now} вместо {was} — сохранить?\nЭто в {times} раз больше прежней.",
+  "@pePriceUpAsk": {
+    "placeholders": {
+      "now": {
+        "type": "String"
+      },
+      "was": {
+        "type": "String"
+      },
+      "times": {
+        "type": "String"
+      }
+    }
+  },
+  "pePriceDownAsk": "Цена {now} вместо {was} — сохранить?\nЭто в {times} раз меньше прежней.",
+  "@pePriceDownAsk": {
+    "placeholders": {
+      "now": {
+        "type": "String"
+      },
+      "was": {
+        "type": "String"
+      },
+      "times": {
+        "type": "String"
+      }
+    }
+  },
+  "peBelowCostAsk": "Цена {now} ниже закупки {cost} — продажа в убыток. Сохранить?",
+  "@peBelowCostAsk": {
+    "placeholders": {
+      "now": {
+        "type": "String"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "peMarkupAsk": "Цена {now} при закупке {cost}: наценка {pct} %. Нет ли ошибки в цифрах? Сохранить?",
+  "@peMarkupAsk": {
+    "placeholders": {
+      "now": {
+        "type": "String"
+      },
+      "cost": {
+        "type": "String"
+      },
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "peFixPrice": "Исправить",
+  "peSaveAsIs": "Сохранить как есть",
+  "klSearching": "Ищу кассу в сети Wi-Fi…",
+  "klHelpNotFound": "Касса не отвечает. Проверьте: 1) касса запущена; 2) в настройках кассы включено «Принимать сканы с телефонов» (по умолчанию оно выключено); 3) телефон в той же Wi-Fi сети, что и компьютер с кассой, а не на мобильном интернете.",
+  "klHelpDisabled": "На кассе выключен приём с телефонов. Включите «Принимать сканы с телефонов» в настройках кассы и нажмите «Проверить связь».",
+  "klHelpRePair": "Касса не узнаёт этот телефон (его отключили или QR устарел). Нажмите «Сканировать QR заново» и наведите камеру на QR в окне «Подключить телефон» на кассе.",
+  "klHelpBadTime": "Время на телефоне и на кассе расходится больше чем на 10 минут. Включите автоматическую дату и время на телефоне (и проверьте время на кассе), затем нажмите «Проверить связь».",
+  "klRescanQr": "Сканировать QR заново",
+  "klScRefused": "Код не отправлен — сначала восстановите связь с кассой",
+  "aiAccDraftNote": "Список ещё не сохранён: сейчас ИИ доступен всем сотрудникам. Отметьте до 2 человек и нажмите «Сохранить» — у остальных ИИ выключится. Владельцу и администратору ИИ доступен всегда.",
+  "aiAccAlways": "Владельцу и администратору ИИ доступен всегда, независимо от списка.",
+  "invTitle": "Загрузить накладную",
+  "invSub": "Excel, CSV или XML от поставщика",
+  "invHint": "Выберите файл накладной от поставщика: Excel (.xlsx), CSV или XML (электронная накладная, счёт-фактура). Строки попадут в приход — вы проверите количество и цены и проведёте его как обычно.",
+  "invPick": "Выбрать файл накладной",
+  "invPhotoHint": "PDF и фото накладной читает «Умная камера» (нужен ключ ИИ)",
+  "invPhotoBtn": "Накладная по фото",
+  "invReading": "Читаем накладную…",
+  "invFileName": "Файл: {name}",
+  "@invFileName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "invOtherFile": "Другой файл",
+  "invDocLine": "Накладная № {num} от {date}",
+  "@invDocLine": {
+    "placeholders": {
+      "num": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "invDocNum": "Накладная № {num}",
+  "@invDocNum": {
+    "placeholders": {
+      "num": {
+        "type": "String"
+      }
+    }
+  },
+  "invDocDate": "Накладная от {date}",
+  "@invDocDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "invDocNone": "Номер и дата в файле не найдены",
+  "invSupplierFile": "В файле: {name}",
+  "@invSupplierFile": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "invSupplierFileInn": "В файле: {name}, ИНН {inn}",
+  "@invSupplierFileInn": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "inn": {
+        "type": "String"
+      }
+    }
+  },
+  "invSupplierInnOnly": "В файле ИНН: {inn}",
+  "@invSupplierInnOnly": {
+    "placeholders": {
+      "inn": {
+        "type": "String"
+      }
+    }
+  },
+  "invSupplierNoneInFile": "В файле поставщик не указан",
+  "invSupByInn": "Найден по ИНН",
+  "invSupByName": "Найден по названию",
+  "invSupNotFound": "Такого поставщика нет — выберите из списка или создайте",
+  "invSupCreate": "Создать поставщика",
+  "invSupCreated": "Поставщик «{name}» создан",
+  "@invSupCreated": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "invSupFail": "Не удалось создать поставщика: {text}",
+  "@invSupFail": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "invSupOffline": "Нет связи: список поставщиков не загружен",
+  "invSupKept": "Приход остался на прежнем поставщике",
+  "invDupPosted": "Эта накладная уже загружалась и проведена",
+  "invDupPending": "Эта накладная уже добавлена в приход, который ещё не проведён",
+  "invDupAnyway": "Всё равно добавить",
+  "invTotalLines": "По строкам: {sum}",
+  "@invTotalLines": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "invTotalFile": "В файле: {sum}",
+  "@invTotalFile": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "invTotalOk": "Итоги сходятся",
+  "invTotalBad": "Итоги не сходятся: разница {diff}. Проверьте количество и цены.",
+  "@invTotalBad": {
+    "placeholders": {
+      "diff": {
+        "type": "String"
+      }
+    }
+  },
+  "invTotalNone": "Итог в файле не найден",
+  "invTotalVatHint": "С НДС итоги сходятся — включите «Закупка с НДС»",
+  "invVat": "Закупка с НДС",
+  "invVatSub": "По умолчанию закупка берётся без НДС",
+  "invCurrency": "Валюта накладной: {cur}. Вы работаете в сомах — проверьте цены: программа их не пересчитывает.",
+  "@invCurrency": {
+    "placeholders": {
+      "cur": {
+        "type": "String"
+      }
+    }
+  },
+  "invGenCodes": "Новым товарам без штрихкода дать свой код",
+  "invGenCodesSub": "Иначе они будут без штрихкода",
+  "invSummary": "Строк: {n} · на складе: {stock} · новых: {fresh} · не распознано: {bad}",
+  "@invSummary": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "stock": {
+        "type": "String"
+      },
+      "fresh": {
+        "type": "String"
+      },
+      "bad": {
+        "type": "String"
+      }
+    }
+  },
+  "invStBarcode": "На складе · по штрихкоду",
+  "invStArticle": "На складе · по артикулу",
+  "invStName": "На складе · по названию",
+  "invStFuzzy": "Похоже на: {name}",
+  "@invStFuzzy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "invStCatalog": "Новый · есть в справочнике NurCRM",
+  "invStManual": "Новый · заполните вручную",
+  "invStBad": "Не распознана",
+  "invBadNoName": "Нет названия, штрихкода и артикула",
+  "invBadNoQty": "Нет количества",
+  "invUseCandidate": "Это «{name}»",
+  "@invUseCandidate": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "invAsNew": "Новый товар",
+  "invSrcRow": "Строка файла: {n}",
+  "@invSrcRow": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "invArticle": "Артикул: {code}",
+  "@invArticle": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "invCostMissing": "Укажите закупку",
+  "invPriceMissing": "Укажите цену продажи",
+  "invRemoveRow": "Убрать строку",
+  "invAdd": "Добавить в приход · {n}",
+  "@invAdd": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "invAddFix": "Исправьте отмеченные строки",
+  "invAdding": "Готовим строки…",
+  "invMerged": "Повторы товара в накладной объединены: {n}",
+  "@invMerged": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "invErrTooBig": "Файл больше 10 МБ — такую накладную не открыть",
+  "invErrEmpty": "Файл пустой",
+  "invErrPdf": "Это PDF или фото. Их читает «Умная камера» (кнопка ниже)",
+  "invErrXls": "Старый формат Excel (.xls) не читается — сохраните файл как .xlsx или .csv",
+  "invErrBroken": "Файл повреждён или это не накладная",
+  "invErrNoTable": "В файле не нашли таблицу товаров: нужны столбцы «Наименование», «Количество» и «Цена»",
+  "invErrUnsafe": "XML содержит DTD или внешние сущности — такой файл не открывается из соображений безопасности",
+  "invErrTooMany": "Слишком много строк (больше 5000)",
+  "invErrFormat": "Неподдерживаемый файл: нужен .xlsx, .csv или .xml",
+  "tsTitle": "Режим тестировщика",
+  "tsBuildLine": "Версия {version} (сборка {build})",
+  "@tsBuildLine": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
+  "tsTestBuild": "тестовая сборка",
+  "tsDevice": "Устройство",
+  "tsDeviceId": "ID устройства: {id}",
+  "@tsDeviceId": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "tsDeviceNameTitle": "Название устройства",
+  "tsDeviceNameHint": "Например: телефон кассира",
+  "tsRename": "Назвать устройство",
+  "tsScreenLine": "Экран {w}×{h} dp, шрифт ×{scale}, язык {lang}",
+  "@tsScreenLine": {
+    "placeholders": {
+      "w": {
+        "type": "String"
+      },
+      "h": {
+        "type": "String"
+      },
+      "scale": {
+        "type": "String"
+      },
+      "lang": {
+        "type": "String"
+      }
+    }
+  },
+  "tsSummary": "Проверено {done} из {total}, проблем: {issues}",
+  "@tsSummary": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      },
+      "issues": {
+        "type": "String"
+      }
+    }
+  },
+  "tsVersionFilter": "Версия",
+  "tsVersionCurrent": "{v} (текущая)",
+  "@tsVersionCurrent": {
+    "placeholders": {
+      "v": {
+        "type": "String"
+      }
+    }
+  },
+  "tsAreaProgress": "{done} из {total}",
+  "@tsAreaProgress": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "tsChanged": "Что изменилось",
+  "tsHowTo": "Как проверить",
+  "tsSevMoney": "Деньги",
+  "tsSevImportant": "Важное",
+  "tsSevNormal": "Обычное",
+  "tsMarkOk": "Проверено",
+  "tsMarkIssue": "Есть проблема",
+  "tsNotChecked": "Не проверено",
+  "tsCheckedAt": "Проверено {when}",
+  "@tsCheckedAt": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "tsIssueAt": "Проблема {when}",
+  "@tsIssueAt": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "tsNoComment": "Без комментария",
+  "tsUndoHint": "Нажмите ещё раз, чтобы снять отметку",
+  "tsCountNone": "Пока не проверено ни на одном устройстве",
+  "tsCountLocalOk": "Проверено: 1 устройство (это)",
+  "tsCountLocalIssue": "Проблема: 1 устройство (это)",
+  "tsCountShared": "Проверено на устройствах: {ok} · проблема на устройствах: {issue}",
+  "@tsCountShared": {
+    "placeholders": {
+      "ok": {
+        "type": "String"
+      },
+      "issue": {
+        "type": "String"
+      }
+    }
+  },
+  "tsSyncOff": "Общий счётчик недоступен (нужны права или сервер)",
+  "tsRefresh": "Обновить счётчики",
+  "tsCopyReport": "Скопировать отчёт",
+  "tsShareReport": "Отправить отчёт",
+  "tsCopied": "Отчёт скопирован — вставьте его в сообщение",
+  "tsIssueTitle": "Что не так?",
+  "tsIssueHint": "Опишите проблему",
+  "tsAttachShot": "Прикрепить скриншот",
+  "tsShotAttached": "Скриншот прикреплён",
+  "tsShotRemove": "Убрать скриншот",
+  "tsEditComment": "Изменить комментарий",
+  "tsEmpty": "Для этой версии нет пунктов",
+  "tsCodeTitle": "Код тестировщика",
+  "tsCodeHint": "Введите код",
+  "tsCodeOn": "Режим тестировщика включён: нажмите на логотип 5 раз",
+  "tsCodeBad": "Код не подходит",
+  "tsTapMore": "Режим тестировщика: осталось нажатий — {n}",
+  "@tsTapMore": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pdNoRights": "Удалять товары может сотрудник с правом «Склад» или администратор.",
+  "pdGone": "Товара уже нет на сервере — убрал его и с телефона.",
+  "pdRefused": "Сервер не разрешил удалить товар: {msg}. Если он уже в продажах или документах, спишите остаток вместо удаления.",
+  "@pdRefused": {
+    "placeholders": {
+      "msg": {
+        "type": "String"
+      }
+    }
+  },
+  "pdOffline": "Нет связи с сервером — товар НЕ удалён. Повторите, когда сеть появится.",
+  "pdFailed": "Товар не удалён: {msg}",
+  "@pdFailed": {
+    "placeholders": {
+      "msg": {
+        "type": "String"
+      }
+    }
+  },
+  "pdQueueBlock": "С этим товаром есть неотправленные операции: {n}. Дождитесь отправки и повторите.",
+  "@pdQueueBlock": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pdAuditFail": "Не удалён",
+  "pdAsk": "Удалить «{name}»? Товар исчезнет из каталога NurCRM, с кассы и из мобилки. Отменить это нельзя.",
+  "@pdAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pdStockWarn": "На складе {qty} {unit}. Остаток пропадёт вместе с товаром. Если товар не нужен, лучше сначала списать остаток.",
+  "@pdStockWarn": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "pdTypeName": "Для подтверждения введите название товара:",
+  "pdTypeHint": "Регистр не важен",
+  "ctTitle": "Умная камера",
+  "ctAngleFront": "спереди",
+  "ctAngleBack": "сзади",
+  "ctAngleSide": "сбоку",
+  "ctCount": "Эталонов: {n} из {a}",
+  "@ctCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "a": {
+        "type": "int"
+      }
+    }
+  },
+  "ctNone": "Не обучена: по фото товар пока не узнаётся точно",
+  "ctTrained": "Обучена: при продаже товар узнаётся по этим снимкам",
+  "ctTrain": "Обучить камеру",
+  "ctReset": "Сбросить эталоны",
+  "ctResetAsk": "Убрать все эталонные снимки этого товара с телефона? Фото в NurCRM останутся.",
+  "ctSaved": "Эталон сохранён",
+  "ctRemoved": "Эталон убран",
+  "ctShotHint": "Товар целиком в рамке, {angle}",
+  "@ctShotHint": {
+    "placeholders": {
+      "angle": {
+        "type": "String"
+      }
+    }
+  },
+  "ctBarcodeNone": "Штрихкода нет — отсканируйте его",
+  "ctBarcodeOk": "Штрихкод: {code}",
+  "@ctBarcodeOk": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "ctNote": "Снимки хранятся на этом телефоне. «Обучить камеру» — полный курс до 5 снимков и штрихкод; он ещё добавляет фото товара в NurCRM.",
+  "ctSlot": "Фото {n}",
+  "@ctSlot": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ctSlotAdd": "Фото {n}: снять {angle}",
+  "@ctSlotAdd": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "angle": {
+        "type": "String"
+      }
+    }
+  },
+  "ctSlotRetake": "Фото {n}: переснять",
+  "@ctSlotRetake": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ctRemove": "Убрать",
+  "camPickTitle": "Похоже на — выберите, если это он",
+  "camFromGallery": "Из галереи",
+  "camFromFile": "Из файла",
+  "camInvoiceSrcHint": "Накладную можно сфотографировать, выбрать из галереи или из файла: фото, PDF, Excel, CSV, XML.",
+  "camPageOf": "Фото {n} из {a}",
+  "@camPageOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "a": {
+        "type": "int"
+      }
+    }
+  },
+  "camFileNoProcure": "Загрузка файла накладной — с правом «Закупки». Сфотографируйте накладную — строки появятся здесь.",
+  "camFileTooBig": "Файл больше 8 МБ — выберите меньше или сфотографируйте накладную.",
+  "camFileBadType": "Такой файл не подходит. Нужны Excel (xlsx), CSV, XML, TXT, PDF или фото.",
+  "camFileReadFail": "Не удалось прочитать файл.",
+  "recvFoundGlobal": "Найдено в справочнике NurCRM: «{name}»",
+  "@recvFoundGlobal": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recvAddProduct": "Завести товар",
+  "recvLooksLike": "Похоже на ваш «{name}»",
+  "@recvLooksLike": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recvBindCode": "Привязать штрихкод",
+  "recvTypo": "Опечатка в штрихкоде карточки «{name}»: записано {stored}, верный {code}",
+  "@recvTypo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "stored": {
+        "type": "String"
+      },
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "recvFixCode": "Исправить",
+  "recvBound": "Штрихкод привязан к «{name}»",
+  "@recvBound": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recvFixed": "Штрихкод исправлен",
+  "recvNoRight": "Завести, привязать или исправить может сотрудник с правом «Склад».",
+  "recvSearching": "Ищу {code} на сервере и в справочнике…",
+  "@recvSearching": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "pkTitle": "Упаковки / поштучная продажа",
+  "pkSwitch": "Продавать поштучно из упаковки",
+  "pkSwitchHint": "Например, пачка сигарет или упаковка воды 6 шт: можно продать и упаковкой, и штукой. Остаток ведётся в упаковках.",
+  "pkName": "Название упаковки",
+  "pkNameHint": "Пачка, блок, коробка",
+  "pkQty": "Штук в упаковке",
+  "pkPackPrice": "Цена упаковки: {price} сом (это цена продажи выше)",
+  "@pkPackPrice": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "pkPiecePrice": "Цена штуки",
+  "pkAuto": "Авто",
+  "pkAutoTip": "Посчитать цену штуки заново: цена упаковки ÷ штук",
+  "pkMarkup": "Наценка штуки: {n} %",
+  "@pkMarkup": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pkBelowCost": "Штука дешевле закупки ({cost} сом)",
+  "@pkBelowCost": {
+    "placeholders": {
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "pkQtyBad": "Штук в упаковке — целое число, не меньше 2",
+  "pkPieceBad": "Укажите цену штуки",
+  "pkMismatch": "{qty} шт × {piece} сом = {sum} сом, а упаковка стоит {pack} сом — расхождение больше 5 %. Сохранить так?",
+  "@pkMismatch": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      },
+      "piece": {
+        "type": "String"
+      },
+      "sum": {
+        "type": "String"
+      },
+      "pack": {
+        "type": "String"
+      }
+    }
+  },
+  "pkMismatchTitle": "Цены штуки и упаковки расходятся",
+  "pkWeightBlocked": "Весовой товар (кг) нельзя продавать поштучно из упаковки.",
+  "pkMulti": "У товара несколько упаковок — их правят на сайте или кассе.",
+  "pkQuick": "Быстро",
+  "pkWordPack": "Пачка",
+  "pkWordPackage": "Упаковка",
+  "pkWordCrate": "Ящик",
+  "pkWordBlock": "Блок",
+  "pkWordBox": "Коробка",
+  "pkPcs": "шт",
+  "pkChoiceTitle": "Как продать?",
+  "pkChoicePiece": "Штука",
+  "pkChoiceStock": "Остаток: {stock}",
+  "@pkChoiceStock": {
+    "placeholders": {
+      "stock": {
+        "type": "String"
+      }
+    }
+  },
+  "pkLinePiece": "шт. из «{name}»",
+  "@pkLinePiece": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pkQtyInPacks": "Количество вводится в упаковках: 12 — это 12 пачек, штуки продаются из них долями.",
+  "pkPackShort": "уп.",
+  "pkNoPackId": "Упаковка ещё не сохранена на сервере — сначала обновите каталог.",
+  "camNotThis": "Не тот товар",
+  "camNotThisDone": "Запомненное название забыто — выберите товар заново.",
+  "camAliasesTitle": "Запомненные названия:",
+  "camAliasForget": "Забыть название",
+  "invDupPostedNow": "Эта накладная уже проведена раньше (на этом телефоне или на кассе). Если провести приход ещё раз, остаток и долг поставщику удвоятся.",
+  "invSupOtherDoc": "В этом приходе уже есть накладная другого поставщика. Сначала проведите её, потом загрузите эту.",
+  "invSupConflictTitle": "Чей это приход?",
+  "invSupConflictBody": "Накладная: {doc}. В приходе выбран: {keep}. Приход и долг запишутся на одного поставщика — выберите.",
+  "@invSupConflictBody": {
+    "placeholders": {
+      "doc": {
+        "type": "String"
+      },
+      "keep": {
+        "type": "String"
+      }
+    }
+  },
+  "invSupConflictKeep": "Оставить: {name}",
+  "@invSupConflictKeep": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "invSupConflictDoc": "Из накладной: {name}",
+  "@invSupConflictDoc": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recvCostAvg": "Закупка пересчитана как средняя по количеству у позиций: {n}",
+  "@recvCostAvg": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "invPackWarn": "В накладной «{unit}» — это упаковка, а товар «{name}» считается в «{pu}». Выберите, как принять: иначе упаковки попадут в остаток как штуки по цене упаковки.",
+  "@invPackWarn": {
+    "placeholders": {
+      "unit": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "pu": {
+        "type": "String"
+      }
+    }
+  },
+  "invPackSize": "Штук в упаковке",
+  "invPackToPieces": "Пересчитать в штуки",
+  "invPackAsIs": "Принять как есть",
+  "invPackBad": "Укажите, сколько штук в упаковке: целое число от 2.",
+  "invPackDonePieces": "1 упак. = {n} шт → {qty} шт по {cost} сом",
+  "@invPackDonePieces": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "qty": {
+        "type": "String"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "invPackDoneAsIs": "Принято как есть: остаток вырастет на {qty} {unit}, закупка {cost} сом за {unit}",
+  "@invPackDoneAsIs": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "invPackChange": "Изменить",
+  "pieceSaleMode": "Продавать поштучно из упаковки",
+  "pieceSaleModeSub": "Выключите, если сервер списывает целые пачки вместо штук. Тогда такой товар продаётся только упаковкой.",
+  "pieceSaleTesterWarn": "Тест: поштучная продажа из упаковки ещё не подтверждена сервером. После оплаты проверьте остаток товара.",
+  "pieceStockMismatch": "Остаток на сервере после продажи штуки не сошёлся: {list}. Проверьте остаток товара и сообщите администратору.",
+  "@pieceStockMismatch": {
+    "placeholders": {
+      "list": {
+        "type": "String"
+      }
+    }
+  },
+  "klScStale": "Код устарел — отсканируйте снова",
+  "klScBusy": "Идёт оплата — сканируйте после неё",
+  "invCurrencyOk": "Цены в {cur}, а приход ведётся в сомах. Добавить как есть (1 {cur} = 1 сом) — я проверил суммы",
+  "@invCurrencyOk": {
+    "placeholders": {
+      "cur": {
+        "type": "String"
+      }
+    }
+  },
+  "invGrossOnly": "В файле только цены с НДС. Закупка пересчитана без НДС по ставке строки (нет ставки — взята цена с НДС). Проверьте закупку.",
+  "invUnitCheck": "Проверьте · единица: в накладной «{inv}», у товара «{item}»",
+  "@invUnitCheck": {
+    "placeholders": {
+      "inv": {
+        "type": "String"
+      },
+      "item": {
+        "type": "String"
+      }
+    }
+  }
 }

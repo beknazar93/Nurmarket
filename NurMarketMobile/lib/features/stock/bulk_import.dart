@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:xml/xml.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
@@ -32,6 +33,30 @@ class ImportRow {
   final String category;
   const ImportRow({required this.name, this.barcode = '', this.price = 0, this.cost = 0, this.qty = 0, this.unit = 'шт', this.category = ''});
   bool get valid => name.trim().isNotEmpty && price > 0;
+
+  ImportRow copyWith({String? name, String? category}) =>
+      ImportRow(name: name ?? this.name, barcode: barcode, price: price, cost: cost, qty: qty, unit: unit, category: category ?? this.category);
+
+  /// 2026-10-27: строка со штрихкодом, но без названия — название (и пустую категорию) берём из встроенного справочника NurCRM,
+  /// без сети. Введённое в файле не затирается. Возвращает новые строки и сколько названий подставлено.
+  static Future<(List<ImportRow>, int)> fillNames(List<ImportRow> rows, GlobalProducts catalog) async {
+    var filled = 0;
+    final out = <ImportRow>[];
+    for (final r in rows) {
+      if (r.name.trim().isNotEmpty || r.barcode.isEmpty) {
+        out.add(r);
+        continue;
+      }
+      final g = await catalog.local(r.barcode);
+      if (g == null) {
+        out.add(r);
+        continue;
+      }
+      filled++;
+      out.add(r.copyWith(name: g.name, category: r.category.isEmpty ? g.category : null));
+    }
+    return (out, filled);
+  }
 }
 
 class BulkParser {
@@ -60,7 +85,8 @@ class BulkParser {
       if (i < 0) i = header.indexWhere((h) => h.isNotEmpty && entry.value.any((w) => h.startsWith(w)) && !map.values.contains(header.indexOf(h)));
       if (i >= 0 && !map.values.contains(i)) map[entry.key] = i;
     }
-    final hasHeader = map.containsKey('name');
+    // 2026-10-27: файл «штрихкод + цена + количество» без столбца названий тоже с заголовком — названия подставит справочник NurCRM
+    final hasHeader = map.containsKey('name') || (map.containsKey('barcode') && map.length >= 2);
     if (!hasHeader) {
       for (var i = 0; i < _defaultOrder.length; i++) {
         map[_defaultOrder[i]] = i;
@@ -292,11 +318,18 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
   late final BulkUploader _up = BulkUploader(ref.read(adminReceiveRepoProvider), ref.read(apiProvider));
   bool _busy = false;
 
-  Future<void> _setRows(List<ImportRow> rows) async {
+  Future<void> _setRows(List<ImportRow> parsed) async {
     final l = context.l;
+    // 2026-10-27: названия по штрихкодам из встроенного справочника NurCRM (там, где в файле названия нет)
+    var rows = parsed, filled = 0;
+    try {
+      (rows, filled) = await ImportRow.fillNames(parsed, ref.read(globalProductsProvider)).timeout(const Duration(seconds: 8));
+    } catch (_) {}
+    if (!mounted) return;
     await _up.prepare(ref.read(databaseProvider), rows);
     if (!mounted) return;
     if (rows.isEmpty) toast(context, l.bulkNothing, error: true);
+    if (filled > 0) toast(context, l.globalBulkFilled(filled));
     setState(() => _rows = rows);
   }
 

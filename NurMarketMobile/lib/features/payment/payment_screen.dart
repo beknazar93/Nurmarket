@@ -715,6 +715,28 @@ class _PaidScreenState extends State<PaidScreen> {
                         style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: pal.success),
                       ),
                     ],
+                    // 2026-10-27 (ревью М-6): остаток после продажи штуки из упаковки не сошёлся с сервером — жёлтая плашка
+                    if (info.result.stockWarnings.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        key: const Key('packStockWarn'),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: pal.warnSoft, borderRadius: BorderRadius.circular(12)),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: pal.warn),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                l.pieceStockMismatch(info.result.stockWarnings.map((w) => '${w.name} (${qtyText(w.expected)} → ${qtyText(w.actual)})').join('; ')),
+                                style: TextStyle(color: pal.warn, fontWeight: FontWeight.w700, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const Spacer(),
                     const SizedBox(height: 16),
                     // 13.10: чек целиком — как бумажная лента (ReceiptScreen).

@@ -10,6 +10,7 @@ import '../features/payment/sales_repository.dart';
 import '../features/sale/cart.dart';
 import '../features/sale/catalog_repository.dart';
 import '../features/shift/shift_repository.dart';
+import '../features/stock/product_packages.dart' show PiecePack;
 import '../features/stock/stock_repository.dart';
 import 'api/api_client.dart';
 import 'api/session_store.dart';
@@ -75,6 +76,8 @@ class SessionController extends Notifier<Session?> {
       final user = (profile['user'] is Map ? profile['user'] : profile) as Map;
       final u = user.cast<String, dynamic>();
       final s = cur.copyWith(
+        // 2026-10-27: номер пользователя подгружается, если при входе профиль не загрузился (нужен для списка «Доступ к ИИ»)
+        userId: cur.userId.isEmpty ? (str(u, 'id') ?? '') : cur.userId,
         role: str(u, 'role_display') ?? str(u, 'role') ?? cur.role,
         isOwner: u['is_owner'] == true || str(u, 'role') == 'owner',
         perms: Session.extractPerms(profile),
@@ -330,16 +333,21 @@ class CartController extends Notifier<Cart> {
   /// 13.10, «продажа оптом и в розницу»: в режиме «Опт» товар с оптовой ценой сразу идёт по опту.
   bool wholesaleMode = false;
 
-  void add(Product p, {double qty = 1, String? variantId, String? variantLabel, double? variantPrice}) {
+  /// [piece] — штука из упаковки (2026-10-27, М4): цена строки — цена штуки, в чек уходит sale_package_id; опт у штуки не действует.
+  /// [packName] — название упаковки товара с поштучной опцией (подпись строки).
+  void add(Product p, {double qty = 1, String? variantId, String? variantLabel, double? variantPrice, PiecePack? piece, String? packName}) {
     final line = CartLine(
       productId: p.id,
       name: variantLabel == null ? p.name : '${p.name} ($variantLabel)',
-      price: variantPrice ?? p.price,
+      price: piece?.piecePrice ?? variantPrice ?? p.price,
       qty: qty,
       isWeight: p.isWeight,
-      unit: p.unit,
-      wholesalePrice: variantId == null ? p.wholesalePrice : 0,
+      unit: piece == null ? p.unit : 'шт',
+      wholesalePrice: variantId == null && piece == null ? p.wholesalePrice : 0,
       variantId: variantId,
+      salePackageId: piece?.id,
+      perPack: piece?.qty ?? 1,
+      packName: packName,
       promo: PromoRule.parse(p.promoRules),
     );
     if (wholesaleMode) line.setWholesale(true);

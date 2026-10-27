@@ -1,20 +1,31 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:path_provider/path_provider.dart';
 
+import '../../core/ai/cam_aliases.dart';
 import '../../core/ai/vision.dart';
+import '../../core/catalog/catalog_matcher.dart';
+import '../../core/invoice/invoice_parser.dart' show InvoiceParser;
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
+import '../../l10n/app_localizations.dart';
 import '../admin/admin_receive.dart';
 import '../admin/ai_access_ui.dart';
+import '../admin/invoice_import.dart' show InvoiceFileArg;
 import '../sale/sale_screen.dart';
+import 'code_lookup.dart';
 import 'live_shot.dart';
 import '../../core/ai/product_refs.dart';
 import '../../core/util/audit.dart';
@@ -85,6 +96,44 @@ Future<List<SeenMatch>?> photoAndRecognize(BuildContext context, WidgetRef ref, 
   if (!await ensureAiKey(context, ref) || !context.mounted) return null;
   final jpeg = await takeProductPhoto(context, mode);
   if (jpeg == null || !context.mounted) return null;
+  return recognizeBytes(context, ref, jpeg, mode);
+}
+
+/// 2026-10-27: штрихкод со снимка (сканер читает файл, камеру не занимает) — до ИИ. Для проверок подменяется.
+@visibleForTesting
+Future<String?> Function(Uint8List jpeg) shotBarcodeReader = _readShotBarcode;
+
+Future<String?> _readShotBarcode(Uint8List jpeg) async {
+  File? tmp;
+  final scanner = MobileScannerController(autoStart: false);
+  try {
+    final dir = await getTemporaryDirectory();
+    tmp = File('${dir.path}${Platform.pathSeparator}shot_${DateTime.now().microsecondsSinceEpoch}.jpg');
+    await tmp.writeAsBytes(jpeg, flush: true);
+    final r = await scanner.analyzeImage(tmp.path);
+    final v = r?.barcodes.firstOrNull?.rawValue;
+    return v == null || v.trim().isEmpty ? null : v.trim();
+  } finally {
+    await scanner.dispose();
+    try {
+      await tmp?.delete();
+    } catch (_) {}
+  }
+}
+
+/// Распознать готовые байты (снимок с камеры, фото из галереи, PDF из файла): окно «Узнаю…», ИИ, сопоставление.
+/// 2026-10-27 (владелец: «на фото существующий товар не находит»): полка — штрихкод со снимка читается ДО ИИ (код есть в базе —
+/// товар готов без запроса к Gemini); эталоны обучения сверяются на полке и в продаже (были только в продаже); накладная и
+/// ценники — документ, а не вид упаковки, эталоны там не нужны. [mime] — 'application/pdf' для PDF; [page]/[pages] — «Фото 2 из 3».
+Future<List<SeenMatch>?> recognizeBytes(
+  BuildContext context,
+  WidgetRef ref,
+  Uint8List bytes,
+  String mode, {
+  String mime = 'image/jpeg',
+  int? page,
+  int? pages,
+}) async {
   final l = context.l;
   showDialog<void>(
     context: context,
@@ -94,26 +143,48 @@ Future<List<SeenMatch>?> photoAndRecognize(BuildContext context, WidgetRef ref, 
         children: [
           const CircularProgressIndicator(),
           const SizedBox(width: 16),
-          Expanded(child: Text(l.recognizing)),
+          Expanded(child: Text(pages != null && pages > 1 && page != null ? '${l.recognizing}\n${l.camPageOf(page, pages)}' : l.recognizing)),
         ],
       ),
     ),
   );
   try {
     final vision = ref.read(visionProvider);
-    final seen = await vision.recognize(jpeg, mode: mode);
+    final isImage = mime.startsWith('image/');
+    String? code;
+    if (mode == 'shelf' && isImage) {
+      try {
+        code = await shotBarcodeReader(bytes).timeout(const Duration(seconds: 3));
+      } catch (_) {
+        code = null;
+      }
+      if (code != null) {
+        final hit = await CodeLookup.find(ref.read(databaseProvider), ref.read(apiProvider), code, allowWeightLabel: false);
+        if (hit.product != null) {
+          if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+          final p = hit.product!;
+          return [SeenMatch(SeenItem(name: p.name, barcode: code, count: hit.qty?.round().clamp(1, 999) ?? 1), [(p, 1.0)])];
+        }
+      }
+    }
+    var seen = await vision.recognize(bytes, mode: mode, mime: mime);
+    // штрихкод снимка не нашёл товара, но на снимке один товар — код достаётся его карточке
+    if (code != null && seen.length == 1 && seen.first.barcode.isEmpty) {
+      final s0 = seen.first;
+      seen = [SeenItem(name: s0.name, nameRu: s0.nameRu, brand: s0.brand, size: s0.size, barcode: code, count: s0.count, labelPrice: s0.labelPrice)];
+    }
     var matches = await vision.match(seen);
     // 14.10, владелец: обученные товары (3 фото + штрихкод) — точное совпадение с эталонами, первыми в списке.
-    if (mode == 'sale') matches = mergeExact(await exactMatches(ref, jpeg, matches), matches);
+    if (isImage && (mode == 'sale' || mode == 'shelf')) matches = mergeExact(await exactMatches(ref, bytes, matches), matches);
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     return matches;
   } on VisionException catch (e) {
     if (context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
       if (e.noKey) {
-        // ключ не подошёл — забываем его, в следующий раз спросим заново
+        // 2026-10-27: ключ Google отклонил — он уже помечен на 30 минут (ротация ключей); НЕ стираем и не помечаем «навсегда»
+        // (раньше saveKey('') навсегда выключал общий облачный ключ на этом телефоне и ломал чат Советника)
         toast(context, l.aiKeyNeeded, error: true);
-        await ref.read(visionProvider).saveKey('');
       } else {
         toast(context, e.message, error: true);
       }
@@ -395,7 +466,7 @@ Future<void> recognizeForSale(BuildContext context, WidgetRef ref) async {
           show((c) => _salePanel(c, ref, matches, checking: !done, seconds: sec, added: added));
         });
       } on VisionException catch (e) {
-        if (e.noKey) await ref.read(visionProvider).saveKey(''); // ключ не подошёл — в следующий раз спросим заново
+        // 2026-10-27: ключ при отказе Google уже помечен на 30 минут; не стираем (было saveKey('') — «навсегда»)
         show((c) => _errorPanel(c, aiErrorText(c, e)));
       }
     },
@@ -575,6 +646,61 @@ Future<bool> camHasPendingReceipt(AppDatabase db) async {
   }
 }
 
+/// 2026-10-27: выбранный файл или фото накладной (байты, имя, тип для ИИ).
+class CamPicked {
+  final Uint8List bytes;
+  final String name;
+  final String mime;
+
+  /// Файл слишком большой, чтобы читать его в память: байтов нет.
+  final bool tooBig;
+  const CamPicked(this.bytes, this.name, {this.mime = 'image/jpeg', this.tooBig = false});
+}
+
+/// Куда идёт выбранный файл накладной по расширению: таблицы читает «Загрузить накладную», PDF и фото — ИИ.
+enum CamFileRoute { table, ai, oldExcel, unsupported }
+
+/// Файл больше — в ИИ не отправляем (до base64: в Gemini уходит +33 %).
+const camMaxAiBytes = 8 * 1024 * 1024;
+
+String _ext(String name) {
+  final i = name.lastIndexOf('.');
+  return i < 0 ? '' : name.substring(i + 1).toLowerCase().trim();
+}
+
+/// Маршрут по расширению: xlsx/csv/xml/txt/tsv — таблица; pdf/jpg/jpeg/png/webp — ИИ; xls — «сохраните как .xlsx».
+CamFileRoute camFileRoute(String name) => switch (_ext(name)) {
+  'xlsx' || 'csv' || 'xml' || 'txt' || 'tsv' => CamFileRoute.table,
+  'pdf' || 'jpg' || 'jpeg' || 'png' || 'webp' => CamFileRoute.ai,
+  'xls' => CamFileRoute.oldExcel,
+  _ => CamFileRoute.unsupported,
+};
+
+/// Тип файла для ИИ: PDF — application/pdf, остальное — картинка.
+String camMimeOf(String name) => switch (_ext(name)) {
+  'pdf' => 'application/pdf',
+  'png' => 'image/png',
+  'webp' => 'image/webp',
+  _ => 'image/jpeg',
+};
+
+/// «Из галереи»: системный выбор фото (Android 13+ — Photo Picker, разрешений не нужно); несколько страниц накладной.
+Future<List<CamPicked>> _pickImages() async {
+  final shots = await ImagePicker().pickMultiImage(maxWidth: 2400, imageQuality: 85);
+  return [for (final x in shots) CamPicked(await x.readAsBytes(), x.name, mime: camMimeOf(x.name))];
+}
+
+/// «Из файла»: системный выбор файла (SAF, разрешений не нужно).
+Future<CamPicked?> _pickFile() async {
+  final files = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['xlsx', 'csv', 'xml', 'txt', 'tsv', 'pdf', 'jpg', 'jpeg', 'png', 'webp']);
+  final f = files.firstOrNull;
+  if (f == null) return null;
+  final len = await f.length();
+  // таблицы читаются до InvoiceParser.maxBytes, для ИИ — до camMaxAiBytes; больше любого предела — не читаем в память
+  if (len != null && len > InvoiceParser.maxBytes) return CamPicked(Uint8List(0), f.name, tooBig: true);
+  return CamPicked(Uint8List.fromList(await f.readAsBytes()), f.name, mime: camMimeOf(f.name));
+}
+
 class _CamItem {
   final SeenMatch seen;
   Product? product;
@@ -585,9 +711,15 @@ class _CamItem {
   final TextEditingController name;
   final TextEditingController cost;
   final TextEditingController price;
-  // 2026-10-22 (аудит У-7): совпадение слабее 0,75 — не «этот товар», а выбор: кандидаты или новый
+  // 2026-10-27 (ревью М-3): что запомнено при выборе варианта в этой позиции (чтобы «Не тот товар» это отменило) и
+  // товары, которые кассир отверг («не тот») — в вариантах их больше нет
+  String? learnedId;
+  List<String> learned = [];
+  final Set<String> rejected = {};
+  // 2026-10-27: товар берётся сам, только если лучший ≥ 0,85 и отрыв от второго ≥ 0,15 ([SeenMatch.picked]); иначе — карточка
+  // «Похоже на» с вариантами (раньше порог 0,75: всё слабее уходило в «Новые» и выглядело как «товар не найден»)
   _CamItem(this.seen)
-    : product = seen.candidates.isNotEmpty && seen.candidates.first.$2 >= 0.75 ? seen.candidates.first.$1 : null,
+    : product = seen.picked,
       qty = seen.seen.count.toDouble(),
       name = TextEditingController(text: seen.seen.title),
       cost = TextEditingController(text: seen.seen.labelPrice > 0 ? seen.seen.labelPrice.toStringAsFixed(0) : ''),
@@ -600,16 +732,33 @@ class SmartCameraScreen extends ConsumerStatefulWidget {
   final List<SeenMatch>? debugMatches;
   @visibleForTesting
   final String? debugMode;
-  const SmartCameraScreen({super.key, this.debugMatches, this.debugMode});
+
+  /// 2026-10-27: режим из маршрута (?mode=invoice — «Сфотографировать накладную» из «Загрузить накладную»).
+  final String? initialMode;
+
+  /// Только для проверок без системных окон выбора: фото «из галереи» и файл «из файла».
+  @visibleForTesting
+  final Future<List<CamPicked>> Function()? debugPickImages;
+  @visibleForTesting
+  final Future<CamPicked?> Function()? debugPickFile;
+  const SmartCameraScreen({super.key, this.debugMatches, this.debugMode, this.initialMode, this.debugPickImages, this.debugPickFile});
   @override
   ConsumerState<SmartCameraScreen> createState() => _SmartCameraScreenState();
 }
 
 class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
-  late String _mode = widget.debugMode ?? 'shelf';
+  late String _mode = widget.debugMode ?? (const {'shelf', 'invoice', 'labels'}.contains(widget.initialMode) ? widget.initialMode! : 'shelf');
   late final List<_CamItem> _items = [for (final m in widget.debugMatches ?? const <SeenMatch>[]) _CamItem(m)];
   int _shots = 0;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 2026-10-27: индекс сопоставления строится, пока кассир наводит камеру (на большом каталоге — доли секунды)
+    unawaited(CatalogMatcher.warm(ref.read(databaseProvider)));
+  }
+
   // 2026-10-26 (П0): защита от двойного нажатия (ставится синхронно, до первого await), всего проведено за эту загрузку
   // и итог последней попытки («проведено N из M…»), который остаётся на экране.
   bool _posting = false;
@@ -619,11 +768,16 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
   Future<void> _shoot() async {
     final found = await photoAndRecognize(context, ref, _mode);
     if (found == null || !mounted) return;
+    _addMatches(found);
+  }
+
+  /// Результат распознавания (снимок, фото из галереи, PDF) → позиции экрана; тот же товар — к количеству.
+  void _addMatches(List<SeenMatch> found) {
     if (found.isEmpty) toast(context, context.l.recognizedNone, error: true);
     setState(() {
       _shots++;
       for (final m in found) {
-        final same = m.best == null ? null : _items.where((x) => x.product?.id == m.best!.id).firstOrNull;
+        final same = m.picked == null ? null : _items.where((x) => x.product?.id == m.picked!.id).firstOrNull;
         if (same != null) {
           same.qty += m.seen.count;
         } else {
@@ -631,6 +785,163 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
         }
       }
     });
+  }
+
+  /// 2026-10-27 (владелец: «в накладной добавь выбор из галереи»): одно или несколько фото накладной из галереи (страницы).
+  /// 2026-10-27 (владелец: «не только из камеры, но и из галереи»): то же для «Полки» и «Этикеток» — фото из галереи
+  /// идёт в тот же разбор, что и живой снимок текущего режима.
+  Future<void> _fromGallery() async {
+    if (_busy) return;
+    final l = context.l;
+    final pick = widget.debugPickImages ?? _pickImages;
+    final mode = _mode; // режим на момент выбора: пока идёт разбор, вкладку могут переключить
+    List<CamPicked> files;
+    try {
+      files = await pick();
+    } catch (_) {
+      if (mounted) toast(context, l.camFileReadFail, error: true);
+      return;
+    }
+    if (files.isEmpty || !mounted) return;
+    if (!await ensureAiKey(context, ref) || !mounted) return;
+    for (var i = 0; i < files.length; i++) {
+      final f = files[i];
+      if (f.bytes.length > camMaxAiBytes) {
+        toast(context, l.camFileTooBig, error: true);
+        continue;
+      }
+      final found = await recognizeBytes(context, ref, f.bytes, mode, mime: f.mime, page: i + 1, pages: files.length);
+      if (found == null || !mounted) return;
+      _addMatches(found);
+    }
+  }
+
+  /// «Из файла»: таблица (xlsx/csv/xml/txt/tsv) — в экран «Загрузить накладную»; PDF и фото — в ИИ.
+  Future<void> _fromFile() async {
+    if (_busy) return;
+    final l = context.l;
+    CamPicked? f;
+    try {
+      f = await (widget.debugPickFile ?? _pickFile)();
+    } catch (_) {
+      if (mounted) toast(context, l.camFileReadFail, error: true);
+      return;
+    }
+    if (f == null || !mounted) return;
+    if (f.tooBig) {
+      toast(context, camFileRoute(f.name) == CamFileRoute.table ? l.invErrTooBig : l.camFileTooBig, error: true);
+      return;
+    }
+    switch (camFileRoute(f.name)) {
+      case CamFileRoute.table:
+        if (!(ref.read(apiProvider).session?.canRoute('/admin/invoice') ?? false)) {
+          toast(context, l.camFileNoProcure, error: true);
+          return;
+        }
+        if (f.bytes.length > InvoiceParser.maxBytes) {
+          toast(context, l.invErrTooBig, error: true);
+          return;
+        }
+        await context.push('/admin/invoice', extra: InvoiceFileArg(f.bytes, f.name));
+      case CamFileRoute.ai:
+        if (f.bytes.length > camMaxAiBytes) {
+          toast(context, l.camFileTooBig, error: true);
+          return;
+        }
+        if (!await ensureAiKey(context, ref) || !mounted) return;
+        final found = await recognizeBytes(context, ref, f.bytes, 'invoice', mime: camMimeOf(f.name));
+        if (found == null || !mounted) return;
+        _addMatches(found);
+      case CamFileRoute.oldExcel:
+        toast(context, l.invErrXls, error: true);
+      case CamFileRoute.unsupported:
+        toast(context, l.camFileBadType, error: true);
+    }
+  }
+
+  /// Кассир выбрал «Это «…»?» — запоминаем, как ИИ называл упаковку: в следующий раз товар узнаётся сразу (оценка 1,0).
+  /// Алиас общий для компании, если хватает прав записи; иначе остаётся на этом телефоне ([CamAliases]).
+  void _learn(_CamItem x, Product p) {
+    // 2026-10-27 (ревью М-3): выбор другого варианта отменяет прежнее запоминание этой позиции
+    if (x.learnedId != null && x.learnedId != p.id) _unlearn(x);
+    final names = {x.seen.seen.title, x.seen.seen.titleRu}.where((t) => t.trim().length >= 3);
+    final db = ref.read(databaseProvider);
+    final api = ref.read(apiProvider);
+    x.learnedId = p.id;
+    x.learned = [for (final n in names) CamAliases.normalize(n)];
+    for (final n in names) {
+      CamAliases.add(db, api, p.id, n).then((_) {}, onError: (_) {});
+    }
+  }
+
+  /// 2026-10-27 (ревью М-3): забыть названия, запомненные в этой позиции (отметка «удалено» уходит и на сервер).
+  void _unlearn(_CamItem x) {
+    final id = x.learnedId;
+    if (id == null) return;
+    final db = ref.read(databaseProvider);
+    final api = ref.read(apiProvider);
+    for (final n in x.learned) {
+      CamAliases.remove(db, api, id, text: n).then((_) {}, onError: (_) {});
+    }
+    x.learnedId = null;
+    x.learned = [];
+  }
+
+  /// 2026-10-27 (ревью М-3): «Не тот товар» — позиция возвращается к вариантам, а названия, по которым товар был выбран
+  /// (запомненные ранее или сейчас), забываются: ошибка не закрепляется для всей компании.
+  void _notThis(_CamItem x) {
+    final p = x.product;
+    if (p == null) return;
+    if (camLineLocked(x.line)) {
+      toast(context, context.l.smartRowLocked, error: true);
+      return;
+    }
+    final db = ref.read(databaseProvider);
+    final api = ref.read(apiProvider);
+    for (final n in {x.seen.seen.title, x.seen.seen.titleRu, ...x.learned}) {
+      if (n.trim().length < 3) continue;
+      final norm = CamAliases.normalize(n);
+      if ((CamAliases.current[p.id] ?? const <String>[]).contains(norm)) {
+        CamAliases.remove(db, api, p.id, text: norm).then((_) {}, onError: (_) {});
+      }
+    }
+    setState(() {
+      x.rejected.add(p.id);
+      x.product = null;
+      x.learnedId = null;
+      x.learned = [];
+    });
+    toast(context, context.l.camNotThisDone);
+  }
+
+  /// Запомненные названия товара [p] — по одному можно удалить (правка запомненного).
+  Widget _aliasChips(Product p) {
+    final names = CamAliases.current[p.id] ?? const <String>[];
+    if (names.isEmpty) return const SizedBox.shrink();
+    final pal = context.pal;
+    final db = ref.read(databaseProvider);
+    final api = ref.read(apiProvider);
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(context.l.camAliasesTitle, style: TextStyle(color: pal.textSoft, fontSize: 12)),
+          for (final n in names)
+            InputChip(
+              key: ValueKey('alias_${p.id}_$n'),
+              label: Text(n, style: const TextStyle(fontSize: 12)),
+              onDeleted: () {
+                CamAliases.remove(db, api, p.id, text: n).then((_) {}, onError: (_) {});
+                setState(() {});
+              },
+              deleteButtonTooltipMessage: context.l.camAliasForget,
+            ),
+        ],
+      ),
+    );
   }
 
   static double _autoPrice(double cost) => cost <= 0 ? 0 : ((cost * 1.3 / 5).ceil() * 5).toDouble();
@@ -836,6 +1147,19 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
             ],
           ),
           _rowStatus(x),
+          // 2026-10-27 (ревью М-3): неверный выбор можно отменить, запомненные названия — посмотреть и удалить
+          if (x.seen.candidates.isNotEmpty || x.learnedId != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: ValueKey('notThis_${p.id}'),
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: () => _notThis(x),
+                icon: const Icon(Icons.undo_rounded, size: 18),
+                label: Text(context.l.camNotThis),
+              ),
+            ),
+          _aliasChips(p),
         ],
       ),
     );
@@ -868,30 +1192,40 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
               IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(() => _items.remove(x))),
             ],
           ),
-          // 2026-10-22 (аудит У-7): похоже на товар из базы, но не уверенно — кассир выбирает сам
-          if (x.seen.candidates.isNotEmpty)
+          // 2026-10-27: похоже на товары из базы, но не уверенно — до 5 вариантов крупными кнопками, кассир выбирает сам;
+          // выбор запоминается алиасом ([_learn]) — в следующий раз товар узнаётся сразу
+          if (x.seen.candidates.any((c) => !x.rejected.contains(c.$1.id))) ...[
             Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  for (final (p, _) in x.seen.candidates)
-                    ActionChip(
-                      avatar: const Icon(Icons.inventory_2_outlined, size: 16),
-                      label: Text(l.isItProduct(p.name), overflow: TextOverflow.ellipsis),
-                      onPressed: () {
-                        // 2026-10-26 (П0): строка, уже ушедшая на сервер, товар не меняет (иначе остаток уйдёт не туда)
-                        if (camLineLocked(x.line)) {
-                          toast(context, l.smartRowLocked, error: true);
-                          return;
-                        }
-                        setState(() => x.product = p);
-                      },
-                    ),
-                ],
-              ),
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(l.camPickTitle, style: TextStyle(color: pal.textSoft, fontSize: 12.5, fontWeight: FontWeight.w700)),
             ),
+            for (final (p, score) in x.seen.candidates.where((c) => !x.rejected.contains(c.$1.id)).take(5))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: OutlinedButton(
+                  key: ValueKey('cand_${p.id}'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), alignment: Alignment.centerLeft, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                  onPressed: () {
+                    // 2026-10-26 (П0): строка, уже ушедшая на сервер, товар не меняет (иначе остаток уйдёт не туда)
+                    if (camLineLocked(x.line)) {
+                      toast(context, l.smartRowLocked, error: true);
+                      return;
+                    }
+                    setState(() => x.product = p);
+                    _learn(x, p);
+                  },
+                  child: Row(
+                    children: [
+                      const Icon(Icons.inventory_2_outlined, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(l.isItProduct(p.name), maxLines: 2, overflow: TextOverflow.ellipsis)),
+                      const SizedBox(width: 6),
+                      Text('${(score * 100).round()}%', style: TextStyle(color: pal.textSoft, fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
           TextField(
             controller: x.name,
             readOnly: camLineLocked(x.line),
@@ -926,6 +1260,65 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
     );
   }
 
+  /// 2026-10-27 (владелец: подписи «Накладн/ая», «Этикетк/и» рвались посреди слова): три равные вкладки «значок над подписью»;
+  /// подпись в одну строку и сама уменьшается под ширину ячейки (любой язык, шрифт 1,3), высота от 56 dp.
+  Widget _modeTabs(AppLocalizations l) {
+    final tabs = [
+      ('shelf', Icons.shelves, l.smartShelf),
+      ('invoice', Icons.receipt_long_rounded, l.smartInvoice),
+      ('labels', Icons.sell_outlined, l.smartLabels),
+    ];
+    final cs = Theme.of(context).colorScheme;
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < tabs.length; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            Expanded(
+              child: Semantics(
+                button: true,
+                selected: _mode == tabs[i].$1,
+                child: Material(
+                  color: _mode == tabs[i].$1 ? cs.secondaryContainer : Colors.transparent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: cs.outline)),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    key: Key('cam_mode_${tabs[i].$1}'),
+                    onTap: () => setState(() => _mode = tabs[i].$1),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 56),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(tabs[i].$2, size: 20, color: _mode == tabs[i].$1 ? cs.onSecondaryContainer : cs.onSurface),
+                            const SizedBox(height: 2),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                tabs[i].$3,
+                                maxLines: 1,
+                                softWrap: false,
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _mode == tabs[i].$1 ? cs.onSecondaryContainer : cs.onSurface),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l;
@@ -938,15 +1331,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 140),
         children: [
-          SegmentedButton<String>(
-            segments: [
-              ButtonSegment(value: 'shelf', icon: const Icon(Icons.shelves, size: 18), label: Text(l.smartShelf)),
-              ButtonSegment(value: 'invoice', icon: const Icon(Icons.receipt_long_rounded, size: 18), label: Text(l.smartInvoice)),
-              ButtonSegment(value: 'labels', icon: const Icon(Icons.sell_outlined, size: 18), label: Text(l.smartLabels)),
-            ],
-            selected: {_mode},
-            onSelectionChanged: (s) => setState(() => _mode = s.first),
-          ),
+          _modeTabs(l),
           const SizedBox(height: 12),
           // большая «кнопка-видоискатель»: снимок системной камерой
           InkWell(
@@ -1003,6 +1388,39 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
               ),
             ),
           ),
+          // 2026-10-27 (владелец: «в накладной добавь выбор из галереи и из файла»; «не только из камеры, но и из галереи»):
+          // «Из галереи» — во всех режимах (сразу под зоной снимка, в прокручиваемом списке), «Из файла» (PDF, Excel, CSV, XML) — только в накладной
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('cam_gallery'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                  onPressed: _busy ? null : _fromGallery,
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: Text(l.camFromGallery, maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+              ),
+              if (_mode == 'invoice') ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('cam_file'),
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                    onPressed: _busy ? null : _fromFile,
+                    icon: const Icon(Icons.attach_file_rounded),
+                    label: Text(l.camFromFile, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (_mode == 'invoice')
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(l.camInvoiceSrcHint, style: TextStyle(color: pal.textSoft, fontSize: 12)),
+            ),
           if (_summary != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),

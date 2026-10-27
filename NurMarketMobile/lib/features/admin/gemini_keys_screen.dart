@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/ai/ai_access.dart';
+import '../../core/ai/assistant/ai_journal.dart';
 import '../../core/ai/gemini_keys.dart';
 import '../../core/ai/vision.dart';
 import '../../core/providers.dart';
@@ -38,6 +39,7 @@ class _GeminiKeysScreenState extends ConsumerState<GeminiKeysScreen> {
   bool _saving = false;
   bool _dirty = false;
   String? _addError;
+  String? _lastError; // 2026-10-27: последняя ошибка чата Советника (код, модель, хвост ключа) — одной строкой
 
   bool get _canEdit => AiAccess.canManage(ref.read(sessionProvider));
 
@@ -65,11 +67,13 @@ class _GeminiKeysScreenState extends ConsumerState<GeminiKeysScreen> {
       if (mounted) toast(context, e.message, error: true);
       list = const [];
     }
+    final last = VisionService.lastChatError ?? await AiJournal.readChatError();
     if (!mounted) return;
     setState(() {
       _rows
         ..clear()
         ..addAll(list.map(_Row.new));
+      _lastError = last?.line;
       _dirty = false;
       _loaded = true;
     });
@@ -253,6 +257,14 @@ class _GeminiKeysScreenState extends ConsumerState<GeminiKeysScreen> {
                         : (ok == 0 ? T.danger : T.success),
                   ),
                 ),
+                if (_lastError != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    l.gkLastError(_lastError!),
+                    key: const Key('gkLastError'),
+                    style: TextStyle(color: pal.textSoft, fontSize: 12),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 if (_rows.isEmpty)
                   Text(l.gkEmpty, style: TextStyle(color: pal.textSoft)),

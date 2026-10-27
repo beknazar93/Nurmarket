@@ -860,7 +860,11 @@ void main() {
       final noWord = await rig.say('удали товар Вода', 'delete_product', {'query': 'Сникерс'});
       expect(noWord.status, ToolStatus.clarify); // «Сникерс» в речи не звучало
       expect(rig.host.deleted, isEmpty);
-      final ok = await rig.say('удали товар Вода', 'delete_product', {'query': 'Вода'});
+      // 2026-10-27 (М2): удаление голосом — два шага: карточка и вопрос, потом «да» вслух
+      final ask = await rig.say('удали товар Вода', 'delete_product', {'query': 'Вода'});
+      expect(ask.status, ToolStatus.clarify);
+      expect(rig.host.deleted, isEmpty);
+      final ok = await rig.say('да, удали', 'delete_product', {'query': 'Вода', 'confirm': true});
       expect(ok.status, ToolStatus.ok);
       expect(rig.host.deleted, ['p4']);
       final u = await rig.say('отмени', 'undo_last');

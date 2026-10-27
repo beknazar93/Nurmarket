@@ -902,7 +902,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get advisorTitle => 'Nur Advisor';
 
   @override
-  String get advisorOnline => 'Shop data connected';
+  String get advisorOnline => 'Answers from your shop data';
 
   @override
   String get advisorAsk => 'Ask about your shop…';
@@ -927,7 +927,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get advisorNoKey =>
-      'Add an AI key in the owner\'s program: Nur Advisor → ⚙ → AI models and keys';
+      'There is no AI key. Add it on this phone in “AI settings” → “Gemini keys” (or in the owner\'s program: Nur Advisor → ⚙ → AI models and keys)';
 
   @override
   String get advisorStageData => 'Gathering shop data…';
@@ -1790,7 +1790,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String unknownBarcodeHint(String code) {
-    return '$code · the administrator will get it and add the product';
+    return '$code · not in the catalog or the NurCRM directory. Add the product — the code is not sent anywhere';
   }
 
   @override
@@ -3859,6 +3859,56 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vcPriceTag => 'Price tag';
 
   @override
+  String get wizAddProduct => 'Add a product';
+
+  @override
+  String get wizTitle => 'Adding a product';
+
+  @override
+  String get wizSlotFront => 'Front';
+
+  @override
+  String get wizSlotBack => 'Back';
+
+  @override
+  String get wizSlotSide => 'Side';
+
+  @override
+  String get wizSlotCode => 'Barcode';
+
+  @override
+  String wizShootSide(String side) {
+    return 'Shoot: $side';
+  }
+
+  @override
+  String get wizCreate => 'Create product';
+
+  @override
+  String wizDraft(String name, String price) {
+    return '\"$name\" · $price som';
+  }
+
+  @override
+  String get wizHint => 'Say \"ready\" or tap Shoot';
+
+  @override
+  String wizDuplicate(String name) {
+    return 'Already exists: \"$name\"';
+  }
+
+  @override
+  String wizPhotoAlt(String side) {
+    return 'Shot: $side';
+  }
+
+  @override
+  String get wizEnterCode => 'Enter barcode';
+
+  @override
+  String get wizEnterCodeHint => 'Scan it with a scanner or type the digits';
+
+  @override
   String get vcCardProduct => 'Product';
 
   @override
@@ -4060,7 +4110,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiAccMineOpen => 'AI is open to all employees (no limit set)';
 
   @override
-  String get aiAccNotSet => 'Not set — AI is open to all';
+  String get aiAccNotSet =>
+      'Not set — AI is open to all employees (the owner and administrator always have it)';
 
   @override
   String get assistantTitle => 'Assistant';
@@ -4690,4 +4741,1102 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get aiKeysSavedPhoneOnly =>
       'Saved on the phone, but not sent to the cloud — the till and the owner app will not see it yet. Try again later.';
+
+  @override
+  String get klTitle => 'Till link';
+
+  @override
+  String get klProfileOff => 'Not connected';
+
+  @override
+  String klKassaName(String name) {
+    return 'Till “$name”';
+  }
+
+  @override
+  String get klScanQr => 'Scan the QR on the till';
+
+  @override
+  String get klScanQrHint =>
+      'On the till computer open the “Connect phone” window and point the camera at the QR code. The phone and the till must be on the same Wi-Fi network, and the till must be running.';
+
+  @override
+  String get klScanQrTitle =>
+      'Point the camera at the QR code on the till screen';
+
+  @override
+  String get klNotKassaQr => 'This is not a NurMarket till QR code';
+
+  @override
+  String get klBadQr =>
+      'Could not read the QR code. Open the “Connect phone” window on the till and scan again.';
+
+  @override
+  String get klQrVersion =>
+      'This till is newer than the app. Update NurMarket on the phone.';
+
+  @override
+  String get klManual => 'Enter the link manually';
+
+  @override
+  String get klManualHint => 'Paste the QR code text (nurmarket-link:…)';
+
+  @override
+  String get klConnect => 'Connect';
+
+  @override
+  String klConnected(String name) {
+    return 'Till “$name” connected';
+  }
+
+  @override
+  String get klConnectedPlain => 'Till connected';
+
+  @override
+  String get klStUnpaired => 'No till connected';
+
+  @override
+  String get klStUnknown => 'Link not checked';
+
+  @override
+  String get klStOnline => 'Connected';
+
+  @override
+  String get klStNotFound => 'Till not found on this network';
+
+  @override
+  String get klStRevoked => 'The phone was disconnected on the till';
+
+  @override
+  String get klStBadTime => 'Check the time on the phone';
+
+  @override
+  String get klStDisabled => 'Receiving from phones is turned off on the till';
+
+  @override
+  String get klStRePair =>
+      'The link is outdated — scan the QR on the till again';
+
+  @override
+  String get klChecking => 'Checking the link…';
+
+  @override
+  String get klShiftOpen => 'Shift on the till: open';
+
+  @override
+  String get klShiftClosed => 'Shift on the till: closed';
+
+  @override
+  String get klCheckNow => 'Check the link';
+
+  @override
+  String get klDisconnect => 'Disconnect';
+
+  @override
+  String klDisconnectAsk(String name) {
+    return 'Disconnect the phone from the till “$name”? You can connect again with a QR code. On the till itself the phone stays in the list — remove it there too.';
+  }
+
+  @override
+  String get klDisconnected => 'The phone was disconnected from the till';
+
+  @override
+  String get klScannerMode => 'Scanner for the till';
+
+  @override
+  String get klScannerHint =>
+      'Point at the barcode — the product goes straight into the receipt on the till';
+
+  @override
+  String get klSetupAsk => 'The till link is not set up';
+
+  @override
+  String get klSetup => 'Set up';
+
+  @override
+  String get klScSending => 'Sending…';
+
+  @override
+  String get klScAdded => 'Added';
+
+  @override
+  String get klScNotFound => 'Not found';
+
+  @override
+  String get klScTillInactive => 'The till window is not open';
+
+  @override
+  String get klScQueued => 'No connection — queued';
+
+  @override
+  String get klScQueueFull => 'The queue is full — code not accepted';
+
+  @override
+  String get klScExpired => 'Not sent: the till did not respond';
+
+  @override
+  String get klScFailed => 'The till did not accept the code';
+
+  @override
+  String get klLastCode => 'Last code';
+
+  @override
+  String klCounter(int n) {
+    return 'Added to the receipt: $n';
+  }
+
+  @override
+  String klQueueLeft(int n) {
+    return 'Queued: $n';
+  }
+
+  @override
+  String get globalSource => 'from the NurCRM catalog';
+
+  @override
+  String globalFoundAsk(String name) {
+    return 'The NurCRM catalog has: $name';
+  }
+
+  @override
+  String get globalCatalogTitle => 'Product catalog';
+
+  @override
+  String globalCatalogStatus(String count, String date, String added) {
+    return 'Catalog: $count products, updated $date, added: $added';
+  }
+
+  @override
+  String get globalCatalogOff => 'Catalog unavailable';
+
+  @override
+  String globalBulkFilled(int n) {
+    return 'Names filled in from the NurCRM catalog: $n';
+  }
+
+  @override
+  String advisorQuota(String time) {
+    return 'AI limit used up until $time (shared with the till and the bot). You can add a second key from another Google account.';
+  }
+
+  @override
+  String get advisorQuotaLater =>
+      'AI limit used up (shared with the till and the bot). Try later or add a second key from another Google account.';
+
+  @override
+  String advisorKeyRejected(String time) {
+    return 'Google rejected the key, retry after $time. Check the key in “AI settings” → “Gemini keys”.';
+  }
+
+  @override
+  String get advisorTimeout =>
+      'The AI is taking too long to answer. Check the internet and tap “Retry”.';
+
+  @override
+  String gkLastError(String text) {
+    return 'Last error: $text';
+  }
+
+  @override
+  String get aiAccOwnerNote =>
+      'You are not in the list, but the owner and the administrator can always use AI.';
+
+  @override
+  String get pePriceCheckTitle => 'Check the price';
+
+  @override
+  String pePriceUpAsk(String now, String was, String times) {
+    return 'Price $now instead of $was — save?\nThat is $times× the old price.';
+  }
+
+  @override
+  String pePriceDownAsk(String now, String was, String times) {
+    return 'Price $now instead of $was — save?\nThat is $times× lower than the old price.';
+  }
+
+  @override
+  String peBelowCostAsk(String now, String cost) {
+    return 'Price $now is below the purchase price $cost — selling at a loss. Save?';
+  }
+
+  @override
+  String peMarkupAsk(String now, String cost, String pct) {
+    return 'Price $now with purchase price $cost: markup $pct %. Is there a typo in the numbers? Save?';
+  }
+
+  @override
+  String get peFixPrice => 'Fix it';
+
+  @override
+  String get peSaveAsIs => 'Save as is';
+
+  @override
+  String get klSearching => 'Looking for the till on Wi-Fi…';
+
+  @override
+  String get klHelpNotFound =>
+      'The till does not answer. Check: 1) the till is running; 2) “Accept scans from phones” is turned on in the till settings (it is off by default); 3) the phone is on the same Wi-Fi network as the till computer, not on mobile data.';
+
+  @override
+  String get klHelpDisabled =>
+      'Receiving from phones is off on the till. Turn on “Accept scans from phones” in the till settings and tap “Check the link”.';
+
+  @override
+  String get klHelpRePair =>
+      'The till does not recognise this phone (it was disconnected or the QR is outdated). Tap “Scan the QR again” and point the camera at the QR in the “Connect a phone” window on the till.';
+
+  @override
+  String get klHelpBadTime =>
+      'The time on the phone and on the till differs by more than 10 minutes. Turn on automatic date and time on the phone (and check the time on the till), then tap “Check the link”.';
+
+  @override
+  String get klRescanQr => 'Scan the QR again';
+
+  @override
+  String get klScRefused =>
+      'Code not sent — restore the link with the till first';
+
+  @override
+  String get aiAccDraftNote =>
+      'The list is not saved yet: right now AI is open to all employees. Tick up to 2 people and tap “Save” — AI will turn off for the rest. The owner and the administrator can always use AI.';
+
+  @override
+  String get aiAccAlways =>
+      'The owner and the administrator can always use AI, whatever the list says.';
+
+  @override
+  String get invTitle => 'Upload an invoice';
+
+  @override
+  String get invSub => 'Excel, CSV or XML from the supplier';
+
+  @override
+  String get invHint =>
+      'Choose the supplier\'s invoice file: Excel (.xlsx), CSV or XML (electronic invoice). The lines go into the receipt — you check quantities and prices and post it as usual.';
+
+  @override
+  String get invPick => 'Choose invoice file';
+
+  @override
+  String get invPhotoHint =>
+      'PDF and photos of an invoice are read by the Smart camera (needs an AI key)';
+
+  @override
+  String get invPhotoBtn => 'Invoice from a photo';
+
+  @override
+  String get invReading => 'Reading the invoice…';
+
+  @override
+  String invFileName(String name) {
+    return 'File: $name';
+  }
+
+  @override
+  String get invOtherFile => 'Another file';
+
+  @override
+  String invDocLine(String num, String date) {
+    return 'Invoice no. $num of $date';
+  }
+
+  @override
+  String invDocNum(String num) {
+    return 'Invoice no. $num';
+  }
+
+  @override
+  String invDocDate(String date) {
+    return 'Invoice of $date';
+  }
+
+  @override
+  String get invDocNone => 'No number or date found in the file';
+
+  @override
+  String invSupplierFile(String name) {
+    return 'In the file: $name';
+  }
+
+  @override
+  String invSupplierFileInn(String name, String inn) {
+    return 'In the file: $name, TIN $inn';
+  }
+
+  @override
+  String invSupplierInnOnly(String inn) {
+    return 'TIN in the file: $inn';
+  }
+
+  @override
+  String get invSupplierNoneInFile => 'The file does not name a supplier';
+
+  @override
+  String get invSupByInn => 'Found by TIN';
+
+  @override
+  String get invSupByName => 'Found by name';
+
+  @override
+  String get invSupNotFound =>
+      'No such supplier — pick one from the list or create it';
+
+  @override
+  String get invSupCreate => 'Create supplier';
+
+  @override
+  String invSupCreated(String name) {
+    return 'Supplier “$name” created';
+  }
+
+  @override
+  String invSupFail(String text) {
+    return 'Could not create the supplier: $text';
+  }
+
+  @override
+  String get invSupOffline => 'No connection: the supplier list was not loaded';
+
+  @override
+  String get invSupKept => 'The receipt kept its supplier';
+
+  @override
+  String get invDupPosted => 'This invoice was already loaded and posted';
+
+  @override
+  String get invDupPending =>
+      'This invoice is already in a receipt that has not been posted yet';
+
+  @override
+  String get invDupAnyway => 'Add anyway';
+
+  @override
+  String invTotalLines(String sum) {
+    return 'By lines: $sum';
+  }
+
+  @override
+  String invTotalFile(String sum) {
+    return 'In the file: $sum';
+  }
+
+  @override
+  String get invTotalOk => 'The totals match';
+
+  @override
+  String invTotalBad(String diff) {
+    return 'The totals differ by $diff. Check quantities and prices.';
+  }
+
+  @override
+  String get invTotalNone => 'No total found in the file';
+
+  @override
+  String get invTotalVatHint =>
+      'With VAT the totals match — turn on “Cost incl. VAT”';
+
+  @override
+  String get invVat => 'Cost incl. VAT';
+
+  @override
+  String get invVatSub => 'By default the cost is taken without VAT';
+
+  @override
+  String invCurrency(String cur) {
+    return 'Invoice currency: $cur. You work in som — check the prices: the app does not convert them.';
+  }
+
+  @override
+  String get invGenCodes => 'Give new items without a barcode our own code';
+
+  @override
+  String get invGenCodesSub => 'Otherwise they stay without a barcode';
+
+  @override
+  String invSummary(int n, String stock, String fresh, String bad) {
+    return 'Lines: $n · in stock: $stock · new: $fresh · unrecognized: $bad';
+  }
+
+  @override
+  String get invStBarcode => 'In stock · by barcode';
+
+  @override
+  String get invStArticle => 'In stock · by article';
+
+  @override
+  String get invStName => 'In stock · by name';
+
+  @override
+  String invStFuzzy(String name) {
+    return 'Looks like: $name';
+  }
+
+  @override
+  String get invStCatalog => 'New · in the NurCRM catalog';
+
+  @override
+  String get invStManual => 'New · fill in by hand';
+
+  @override
+  String get invStBad => 'Not recognized';
+
+  @override
+  String get invBadNoName => 'No name, barcode or article';
+
+  @override
+  String get invBadNoQty => 'No quantity';
+
+  @override
+  String invUseCandidate(String name) {
+    return 'It is “$name”';
+  }
+
+  @override
+  String get invAsNew => 'New product';
+
+  @override
+  String invSrcRow(int n) {
+    return 'File row: $n';
+  }
+
+  @override
+  String invArticle(String code) {
+    return 'Article: $code';
+  }
+
+  @override
+  String get invCostMissing => 'Enter the cost';
+
+  @override
+  String get invPriceMissing => 'Enter the selling price';
+
+  @override
+  String get invRemoveRow => 'Remove the row';
+
+  @override
+  String invAdd(int n) {
+    return 'Add to receipt · $n';
+  }
+
+  @override
+  String get invAddFix => 'Fix the marked rows';
+
+  @override
+  String get invAdding => 'Preparing the rows…';
+
+  @override
+  String invMerged(int n) {
+    return 'Repeated items in the invoice were merged: $n';
+  }
+
+  @override
+  String get invErrTooBig => 'The file is over 10 MB — it cannot be opened';
+
+  @override
+  String get invErrEmpty => 'The file is empty';
+
+  @override
+  String get invErrPdf =>
+      'This is a PDF or a photo. The Smart camera reads those (button below)';
+
+  @override
+  String get invErrXls =>
+      'The old Excel format (.xls) cannot be read — save the file as .xlsx or .csv';
+
+  @override
+  String get invErrBroken => 'The file is damaged or is not an invoice';
+
+  @override
+  String get invErrNoTable =>
+      'No product table found: the columns “Name”, “Quantity” and “Price” are needed';
+
+  @override
+  String get invErrUnsafe =>
+      'The XML contains a DTD or external entities — it is not opened for security reasons';
+
+  @override
+  String get invErrTooMany => 'Too many rows (over 5000)';
+
+  @override
+  String get invErrFormat =>
+      'Unsupported file: .xlsx, .csv or .xml is required';
+
+  @override
+  String get tsTitle => 'Tester mode';
+
+  @override
+  String tsBuildLine(String version, String build) {
+    return 'Version $version (build $build)';
+  }
+
+  @override
+  String get tsTestBuild => 'test build';
+
+  @override
+  String get tsDevice => 'Device';
+
+  @override
+  String tsDeviceId(String id) {
+    return 'Device ID: $id';
+  }
+
+  @override
+  String get tsDeviceNameTitle => 'Device name';
+
+  @override
+  String get tsDeviceNameHint => 'e.g. the cashier\'s phone';
+
+  @override
+  String get tsRename => 'Name this device';
+
+  @override
+  String tsScreenLine(String w, String h, String scale, String lang) {
+    return 'Screen $w×$h dp, font ×$scale, language $lang';
+  }
+
+  @override
+  String tsSummary(String done, String total, String issues) {
+    return 'Checked $done of $total, problems: $issues';
+  }
+
+  @override
+  String get tsVersionFilter => 'Version';
+
+  @override
+  String tsVersionCurrent(String v) {
+    return '$v (current)';
+  }
+
+  @override
+  String tsAreaProgress(String done, String total) {
+    return '$done of $total';
+  }
+
+  @override
+  String get tsChanged => 'What changed';
+
+  @override
+  String get tsHowTo => 'How to check';
+
+  @override
+  String get tsSevMoney => 'Money';
+
+  @override
+  String get tsSevImportant => 'Important';
+
+  @override
+  String get tsSevNormal => 'Regular';
+
+  @override
+  String get tsMarkOk => 'Checked';
+
+  @override
+  String get tsMarkIssue => 'Problem';
+
+  @override
+  String get tsNotChecked => 'Not checked';
+
+  @override
+  String tsCheckedAt(String when) {
+    return 'Checked $when';
+  }
+
+  @override
+  String tsIssueAt(String when) {
+    return 'Problem $when';
+  }
+
+  @override
+  String get tsNoComment => 'No comment';
+
+  @override
+  String get tsUndoHint => 'Tap again to remove the mark';
+
+  @override
+  String get tsCountNone => 'Not checked on any device yet';
+
+  @override
+  String get tsCountLocalOk => 'Checked: 1 device (this one)';
+
+  @override
+  String get tsCountLocalIssue => 'Problem: 1 device (this one)';
+
+  @override
+  String tsCountShared(String ok, String issue) {
+    return 'Checked on devices: $ok · problem on devices: $issue';
+  }
+
+  @override
+  String get tsSyncOff =>
+      'The shared counter is unavailable (rights or a server needed)';
+
+  @override
+  String get tsRefresh => 'Refresh counters';
+
+  @override
+  String get tsCopyReport => 'Copy report';
+
+  @override
+  String get tsShareReport => 'Send report';
+
+  @override
+  String get tsCopied => 'Report copied — paste it into a message';
+
+  @override
+  String get tsIssueTitle => 'What is wrong?';
+
+  @override
+  String get tsIssueHint => 'Describe the problem';
+
+  @override
+  String get tsAttachShot => 'Attach a screenshot';
+
+  @override
+  String get tsShotAttached => 'Screenshot attached';
+
+  @override
+  String get tsShotRemove => 'Remove the screenshot';
+
+  @override
+  String get tsEditComment => 'Edit the comment';
+
+  @override
+  String get tsEmpty => 'No items for this version';
+
+  @override
+  String get tsCodeTitle => 'Tester code';
+
+  @override
+  String get tsCodeHint => 'Enter the code';
+
+  @override
+  String get tsCodeOn => 'Tester mode is on: tap the logo 5 times';
+
+  @override
+  String get tsCodeBad => 'The code is not valid';
+
+  @override
+  String tsTapMore(int n) {
+    return 'Tester mode: taps left — $n';
+  }
+
+  @override
+  String get pdNoRights =>
+      'Only staff with the Stock right or an administrator can delete products.';
+
+  @override
+  String get pdGone =>
+      'The product is already gone from the server — removed it from the phone too.';
+
+  @override
+  String pdRefused(String msg) {
+    return 'The server did not allow deleting the product: $msg. If it is already in sales or documents, write the stock off instead.';
+  }
+
+  @override
+  String get pdOffline =>
+      'No connection to the server — the product was NOT deleted. Try again when the network is back.';
+
+  @override
+  String pdFailed(String msg) {
+    return 'The product was not deleted: $msg';
+  }
+
+  @override
+  String pdQueueBlock(int n) {
+    return 'This product has unsent operations: $n. Wait for them to be sent, then try again.';
+  }
+
+  @override
+  String get pdAuditFail => 'Not deleted';
+
+  @override
+  String pdAsk(String name) {
+    return 'Delete “$name”? The product disappears from the NurCRM catalog, the till and the app. This cannot be undone.';
+  }
+
+  @override
+  String pdStockWarn(String qty, String unit) {
+    return '$qty $unit in stock. The stock disappears with the product. If you no longer need it, write the stock off first.';
+  }
+
+  @override
+  String get pdTypeName => 'To confirm, type the product name:';
+
+  @override
+  String get pdTypeHint => 'Letter case does not matter';
+
+  @override
+  String get ctTitle => 'Smart camera';
+
+  @override
+  String get ctAngleFront => 'front';
+
+  @override
+  String get ctAngleBack => 'back';
+
+  @override
+  String get ctAngleSide => 'side';
+
+  @override
+  String ctCount(int n, int a) {
+    return 'References: $n of $a';
+  }
+
+  @override
+  String get ctNone =>
+      'Not trained: the product is not yet recognised exactly from a photo';
+
+  @override
+  String get ctTrained =>
+      'Trained: the product is recognised from these shots when selling';
+
+  @override
+  String get ctTrain => 'Train the camera';
+
+  @override
+  String get ctReset => 'Clear references';
+
+  @override
+  String get ctResetAsk =>
+      'Remove all reference shots of this product from the phone? Photos in NurCRM stay.';
+
+  @override
+  String get ctSaved => 'Reference saved';
+
+  @override
+  String get ctRemoved => 'Reference removed';
+
+  @override
+  String ctShotHint(String angle) {
+    return 'Whole product in the frame, $angle';
+  }
+
+  @override
+  String get ctBarcodeNone => 'No barcode — scan it';
+
+  @override
+  String ctBarcodeOk(String code) {
+    return 'Barcode: $code';
+  }
+
+  @override
+  String get ctNote =>
+      'Shots are kept on this phone. “Train the camera” is the full course of up to 5 shots and a barcode; it also adds a product photo to NurCRM.';
+
+  @override
+  String ctSlot(int n) {
+    return 'Shot $n';
+  }
+
+  @override
+  String ctSlotAdd(int n, String angle) {
+    return 'Shot $n: take $angle';
+  }
+
+  @override
+  String ctSlotRetake(int n) {
+    return 'Shot $n: retake';
+  }
+
+  @override
+  String get ctRemove => 'Remove';
+
+  @override
+  String get camPickTitle => 'Looks like — pick it if that is the one';
+
+  @override
+  String get camFromGallery => 'From gallery';
+
+  @override
+  String get camFromFile => 'From file';
+
+  @override
+  String get camInvoiceSrcHint =>
+      'Take a photo of the invoice or pick it from the gallery or a file: photo, PDF, Excel, CSV, XML.';
+
+  @override
+  String camPageOf(int n, int a) {
+    return 'Photo $n of $a';
+  }
+
+  @override
+  String get camFileNoProcure =>
+      'Loading an invoice file needs the “Purchases” permission. Photograph the invoice — the lines will appear here.';
+
+  @override
+  String get camFileTooBig =>
+      'The file is over 8 MB — pick a smaller one or photograph the invoice.';
+
+  @override
+  String get camFileBadType =>
+      'This file type is not supported. Use Excel (xlsx), CSV, XML, TXT, PDF or a photo.';
+
+  @override
+  String get camFileReadFail => 'Could not read the file.';
+
+  @override
+  String recvFoundGlobal(String name) {
+    return 'Found in the NurCRM directory: “$name”';
+  }
+
+  @override
+  String get recvAddProduct => 'Add product';
+
+  @override
+  String recvLooksLike(String name) {
+    return 'Looks like your “$name”';
+  }
+
+  @override
+  String get recvBindCode => 'Link barcode';
+
+  @override
+  String recvTypo(String name, String stored, String code) {
+    return 'Typo in the barcode of “$name”: stored $stored, correct $code';
+  }
+
+  @override
+  String get recvFixCode => 'Fix';
+
+  @override
+  String recvBound(String name) {
+    return 'Barcode linked to “$name”';
+  }
+
+  @override
+  String get recvFixed => 'Barcode fixed';
+
+  @override
+  String get recvNoRight =>
+      'Adding, linking or fixing needs the “Stock” permission.';
+
+  @override
+  String recvSearching(String code) {
+    return 'Looking up $code on the server and in the directory…';
+  }
+
+  @override
+  String get pkTitle => 'Packs / single-piece sale';
+
+  @override
+  String get pkSwitch => 'Sell singles from a pack';
+
+  @override
+  String get pkSwitchHint =>
+      'For example a pack of cigarettes or a 6-bottle water pack: sell it as a pack or by the piece. Stock is kept in packs.';
+
+  @override
+  String get pkName => 'Pack name';
+
+  @override
+  String get pkNameHint => 'Pack, block, box';
+
+  @override
+  String get pkQty => 'Pieces per pack';
+
+  @override
+  String pkPackPrice(String price) {
+    return 'Pack price: $price som (the selling price above)';
+  }
+
+  @override
+  String get pkPiecePrice => 'Price per piece';
+
+  @override
+  String get pkAuto => 'Auto';
+
+  @override
+  String get pkAutoTip => 'Recalculate: pack price ÷ pieces';
+
+  @override
+  String pkMarkup(int n) {
+    return 'Piece markup: $n %';
+  }
+
+  @override
+  String pkBelowCost(String cost) {
+    return 'A piece costs less than the purchase ($cost som)';
+  }
+
+  @override
+  String get pkQtyBad => 'Pieces per pack must be a whole number, at least 2';
+
+  @override
+  String get pkPieceBad => 'Enter the price per piece';
+
+  @override
+  String pkMismatch(String qty, String piece, String sum, String pack) {
+    return '$qty pcs × $piece som = $sum som, but the pack costs $pack som — more than 5 % apart. Save anyway?';
+  }
+
+  @override
+  String get pkMismatchTitle => 'Piece and pack prices differ';
+
+  @override
+  String get pkWeightBlocked =>
+      'A weighed item (kg) cannot be sold by the piece from a pack.';
+
+  @override
+  String get pkMulti =>
+      'This item has several packs — edit them on the website or the till.';
+
+  @override
+  String get pkQuick => 'Quick';
+
+  @override
+  String get pkWordPack => 'Pack';
+
+  @override
+  String get pkWordPackage => 'Package';
+
+  @override
+  String get pkWordCrate => 'Crate';
+
+  @override
+  String get pkWordBlock => 'Block';
+
+  @override
+  String get pkWordBox => 'Box';
+
+  @override
+  String get pkPcs => 'pcs';
+
+  @override
+  String get pkChoiceTitle => 'How to sell?';
+
+  @override
+  String get pkChoicePiece => 'Piece';
+
+  @override
+  String pkChoiceStock(String stock) {
+    return 'In stock: $stock';
+  }
+
+  @override
+  String pkLinePiece(String name) {
+    return 'pcs from “$name”';
+  }
+
+  @override
+  String get pkQtyInPacks =>
+      'Quantity is entered in packs: 12 means 12 packs, pieces are sold from them.';
+
+  @override
+  String get pkPackShort => 'packs';
+
+  @override
+  String get pkNoPackId =>
+      'The pack is not saved on the server yet — refresh the catalog first.';
+
+  @override
+  String get camNotThis => 'Not this product';
+
+  @override
+  String get camNotThisDone =>
+      'The remembered name is forgotten — pick the product again.';
+
+  @override
+  String get camAliasesTitle => 'Remembered names:';
+
+  @override
+  String get camAliasForget => 'Forget this name';
+
+  @override
+  String get invDupPostedNow =>
+      'This invoice was already posted earlier (on this phone or on the till). Posting the receipt again will double the stock and the supplier debt.';
+
+  @override
+  String get invSupOtherDoc =>
+      'This receipt already holds an invoice from another supplier. Post it first, then load this one.';
+
+  @override
+  String get invSupConflictTitle => 'Whose receipt is this?';
+
+  @override
+  String invSupConflictBody(String doc, String keep) {
+    return 'Invoice: $doc. Selected in the receipt: $keep. The receipt and the debt go to one supplier — choose.';
+  }
+
+  @override
+  String invSupConflictKeep(String name) {
+    return 'Keep: $name';
+  }
+
+  @override
+  String invSupConflictDoc(String name) {
+    return 'From the invoice: $name';
+  }
+
+  @override
+  String recvCostAvg(int n) {
+    return 'Purchase cost re-averaged by quantity on items: $n';
+  }
+
+  @override
+  String invPackWarn(String unit, String name, String pu) {
+    return 'In the invoice \"$unit\" is a pack, but the item \"$name\" is counted in \"$pu\". Choose how to receive it: otherwise packs go into stock as pieces at the pack price.';
+  }
+
+  @override
+  String get invPackSize => 'Pieces per pack';
+
+  @override
+  String get invPackToPieces => 'Convert to pieces';
+
+  @override
+  String get invPackAsIs => 'Receive as is';
+
+  @override
+  String get invPackBad =>
+      'Enter how many pieces are in a pack: a whole number from 2.';
+
+  @override
+  String invPackDonePieces(int n, String qty, String cost) {
+    return '1 pack = $n pcs → $qty pcs at $cost som';
+  }
+
+  @override
+  String invPackDoneAsIs(String qty, String unit, String cost) {
+    return 'Received as is: stock grows by $qty $unit, cost $cost som per $unit';
+  }
+
+  @override
+  String get invPackChange => 'Change';
+
+  @override
+  String get pieceSaleMode => 'Sell singles from a pack';
+
+  @override
+  String get pieceSaleModeSub =>
+      'Turn off if the server writes off whole packs instead of pieces. Then such an item is sold by the pack only.';
+
+  @override
+  String get pieceSaleTesterWarn =>
+      'Test: single-piece sale from a pack is not yet confirmed by the server. Check the item stock after payment.';
+
+  @override
+  String pieceStockMismatch(String list) {
+    return 'The server stock did not match after selling a piece: $list. Check the item stock and tell the administrator.';
+  }
+
+  @override
+  String get klScStale => 'Code expired — scan again';
+
+  @override
+  String get klScBusy => 'Payment in progress — scan after it';
+
+  @override
+  String invCurrencyOk(String cur) {
+    return 'Prices are in $cur, but the receipt is kept in som. Add as is (1 $cur = 1 som) — I checked the amounts';
+  }
+
+  @override
+  String get invGrossOnly =>
+      'The file has prices with VAT only. The purchase cost was recalculated without VAT by the row\'s rate (no rate — the VAT price is used). Check the cost.';
+
+  @override
+  String invUnitCheck(String inv, String item) {
+    return 'Check · unit: the invoice says \"$inv\", the item uses \"$item\"';
+  }
 }

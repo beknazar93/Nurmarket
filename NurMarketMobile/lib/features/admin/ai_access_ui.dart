@@ -134,7 +134,9 @@ class _AiAccessPanelState extends ConsumerState<AiAccessPanel> {
         _policy = policy;
         _dirty = false;
       });
-      toast(context, l.aiAccSaved);
+      // 2026-10-27: владелец убрал себя из списка — предупреждаем: ему ИИ всё равно доступен (владелец и администратор — всегда)
+      final self = session?.isAdmin ?? false;
+      toast(context, self && !policy.contains(session!.userId) ? '${l.aiAccSaved}. ${l.aiAccOwnerNote}' : l.aiAccSaved);
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
     } finally {
@@ -177,6 +179,13 @@ class _AiAccessPanelState extends ConsumerState<AiAccessPanel> {
               ),
               const SizedBox(height: 8),
               Text(l.aiAccLimitInfo(AiAccess.limit), style: TextStyle(color: pal.textSoft, fontSize: 12.5, height: 1.35)),
+              // 2026-10-27 (аудит мобилки, С-6): «1 из 2» при несохранённом списке путало с «ИИ доступен всем» — поясняем, что это черновик,
+              // и что владельцу и администратору ИИ доступен всегда.
+              Padding(
+                key: const Key('aiAccAlways'),
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(!_policy!.isSet && manage ? l.aiAccDraftNote : l.aiAccAlways, style: TextStyle(color: pal.textSoft, fontSize: 12.5, height: 1.35)),
+              ),
               if (!_policy!.isSet && manage)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),

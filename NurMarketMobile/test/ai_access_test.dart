@@ -146,7 +146,9 @@ void main() {
       expect(AiAccess.canUse(_anna, p), isTrue);
       expect(AiAccess.canUse(_boris, p), isTrue);
       expect(AiAccess.canUse(_vera, p), isFalse);
-      expect(AiAccess.canUse(_owner, p), isFalse, reason: 'владельца можно снять — тогда у него тоже нет ИИ');
+      // 2026-10-27: владелец и администратор пользуются ИИ всегда, список ограничивает остальных
+      expect(AiAccess.canUse(_owner, p), isTrue, reason: 'владелец вне списка всё равно имеет ИИ');
+      expect(AiAccess.canUse(_admin, p), isTrue, reason: 'администратор вне списка всё равно имеет ИИ');
       expect(AiAccess.canUse(null, p), isFalse);
     });
 
@@ -312,10 +314,17 @@ void main() {
       expect(adapter.calls, 1);
     });
 
-    test('владелец, которого сняли со списка, ИИ не получает, но «Настройку ИИ» (ключи) открывает', () async {
+    test('владелец и администратор вне списка ИИ всё равно получают ключ (2026-10-27); кассир вне списка — отказ', () async {
       final (v, _, _) = make(_owner, _policyJson([('u-anna', 'Анна'), ('u-boris', 'Борис')]));
-      await expectLater(v.key(), throwsA(isA<AiAccessDenied>()));
+      expect(await v.key(), 'AIzaTestKey');
+      expect(await v.hasChatKey(), isTrue);
       expect((await v.allKeys()).gemini, 'AIzaTestKey');
+      VisionService.resetForTest();
+      final (va, _, _) = make(_admin, _policyJson([('u-anna', 'Анна'), ('u-boris', 'Борис')]));
+      expect(await va.key(), 'AIzaTestKey');
+      VisionService.resetForTest();
+      final (vv, _, _) = make(_vera, _policyJson([('u-anna', 'Анна'), ('u-boris', 'Борис')]));
+      await expectLater(vv.key(), throwsA(isA<AiAccessDenied>()));
     });
 
     test('владелец по умолчанию — в списке: ИИ работает', () async {
@@ -547,12 +556,11 @@ void main() {
       await t.pumpWidget(app(const AiAccessGate(child: screen), _anna, _Api(staffServer(ai: ai), _anna), scroll: false));
       await t.pumpAndSettle();
       expect(find.text('ЭКРАН ИИ'), findsOneWidget);
-      // владелец, снятый со списка: отказ, но с кнопкой «Настроить»
+      // 2026-10-27: владелец вне списка — экран ИИ открыт (владелец и администратор пользуются ИИ всегда)
       AiAccessRepository.resetForTest();
       await t.pumpWidget(app(const AiAccessGate(child: screen), _owner, _Api(staffServer(ai: _policyJson([('u-anna', 'Анна')])), _owner), scroll: false));
       await t.pumpAndSettle();
-      expect(find.text('ЭКРАН ИИ'), findsNothing);
-      expect(find.text(l.aiAccConfigure), findsOneWidget);
+      expect(find.text('ЭКРАН ИИ'), findsOneWidget);
       // старый магазин без списка
       AiAccessRepository.resetForTest();
       await t.pumpWidget(app(const AiAccessGate(child: screen), _vera, _Api(staffServer(), _vera), scroll: false));

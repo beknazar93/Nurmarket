@@ -72,6 +72,90 @@ class ProductRefs {
     await db.setSetting(_indexKey, jsonEncode(index));
   }
 
+  // 2026-10-27 (мобилка, М3): владелец — «в редактировании товара нет возможности обучения умной камеры». В карточке товара
+  // эталоны видны по одному (3 места) и снимаются/убираются по отдельности. Место = позиция в списке refs.index; пустое
+  // место — '' (старый [load] такие пути пропускает, [save] их стирает без ошибки), схема и ключ настройки не менялись.
+
+  /// Сколько мест под эталоны в карточке товара (столько же ходит в сверку при продаже).
+  static const slotCount = maxPerProduct;
+
+  static bool _filled(String path) => path.isNotEmpty;
+
+  /// Снимки по местам; пустое место или потерянный файл — null.
+  static Future<List<Uint8List?>> slots(AppDatabase db, String productId) async {
+    final paths = (await _index(db))[productId] ?? const <String>[];
+    final out = <Uint8List?>[];
+    for (var i = 0; i < slotCount; i++) {
+      Uint8List? bytes;
+      if (i < paths.length && _filled(paths[i])) {
+        try {
+          bytes = await File(paths[i]).readAsBytes();
+        } catch (_) {}
+      }
+      out.add(bytes);
+    }
+    return out;
+  }
+
+  /// Сколько эталонов реально лежит на телефоне.
+  static Future<int> count(AppDatabase db, String productId) async => (await slots(db, productId)).where((s) => s != null).length;
+
+  /// Записать снимок в место [slot] (0…slotCount-1); прежний снимок этого места заменяется.
+  static Future<void> setSlot(AppDatabase db, String productId, int slot, Uint8List shot) async {
+    if (productId.isEmpty || slot < 0 || slot >= slotCount) return;
+    final dir = await _dir();
+    final index = await _index(db);
+    final paths = [...(index[productId] ?? const <String>[])];
+    while (paths.length < slotCount) {
+      paths.add('');
+    }
+    final old = paths[slot];
+    final bytes = await compact(shot);
+    final f = File('${dir.path}/${productId}_$slot.${_isJpeg(bytes) ? 'jpg' : 'png'}');
+    await f.writeAsBytes(bytes);
+    if (_filled(old) && old != f.path) {
+      try {
+        await File(old).delete();
+      } catch (_) {}
+    }
+    paths[slot] = f.path;
+    index[productId] = paths;
+    await db.setSetting(_indexKey, jsonEncode(index));
+  }
+
+  /// Убрать эталон из места [slot]; когда мест не осталось — товар считается необученным.
+  static Future<void> clearSlot(AppDatabase db, String productId, int slot) async {
+    final index = await _index(db);
+    final paths = [...(index[productId] ?? const <String>[])];
+    if (slot < 0 || slot >= paths.length) return;
+    if (_filled(paths[slot])) {
+      try {
+        await File(paths[slot]).delete();
+      } catch (_) {}
+    }
+    paths[slot] = '';
+    if (paths.every((p) => !_filled(p))) {
+      index.remove(productId);
+    } else {
+      index[productId] = paths;
+    }
+    await db.setSetting(_indexKey, jsonEncode(index));
+  }
+
+  /// Убрать все эталоны товара с телефона (фото в NurCRM не трогает).
+  static Future<void> clearAll(AppDatabase db, String productId) async {
+    final index = await _index(db);
+    final paths = index.remove(productId);
+    if (paths == null) return;
+    for (final old in paths) {
+      if (!_filled(old)) continue;
+      try {
+        await File(old).delete();
+      } catch (_) {}
+    }
+    await db.setSetting(_indexKey, jsonEncode(index));
+  }
+
   static Future<Set<String>> trainedIds(AppDatabase db) async => (await _index(db)).keys.toSet();
 
   static Future<List<Uint8List>> load(AppDatabase db, String productId) async {

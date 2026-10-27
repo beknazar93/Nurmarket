@@ -330,6 +330,10 @@ class HeldCart {
           'wp': l.wholesalePrice,
           'ws': l.wholesale,
           'v': l.variantId,
+          // 2026-10-27 (М4): штука из упаковки — id упаковки, штук в упаковке, название (черновик чека и отложенные не теряют их)
+          if (l.salePackageId != null) 'sp': l.salePackageId,
+          if (l.perPack > 1) 'pp': l.perPack,
+          if (l.packName != null) 'pn': l.packName,
           if (l.hasPromo)
             'pm': [
               for (final r in l.promo) {'position': r.position, 'min_amount': r.minAmount, 'discount_percent': r.percent, if (r.quantity != null) 'promo_quantity': r.quantity},
@@ -360,6 +364,9 @@ class HeldCart {
             wholesalePrice: (l['wp'] as num?)?.toDouble() ?? 0,
             wholesale: l['ws'] as bool? ?? false,
             variantId: l['v'] as String?,
+            salePackageId: l['sp'] as String?,
+            perPack: (l['pp'] as num?)?.toDouble() ?? 1,
+            packName: l['pn'] as String?,
             promo: PromoRule.parse(l['pm']),
           ),
       ],

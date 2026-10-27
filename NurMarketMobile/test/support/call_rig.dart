@@ -15,6 +15,7 @@ import 'package:go_router/go_router.dart';
 import 'package:nurmarket/core/ai/assistant/action_tools.dart';
 import 'package:nurmarket/core/ai/assistant/ai_journal.dart';
 import 'package:nurmarket/core/ai/assistant/nav_tools.dart';
+import 'package:nurmarket/core/ai/assistant/product_wizard.dart' show WizardBackend;
 import 'package:nurmarket/core/ai/assistant/read_tools.dart';
 import 'package:nurmarket/core/ai/assistant/staff_tools.dart';
 import 'package:nurmarket/core/ai/live_call.dart';
@@ -357,6 +358,9 @@ class CallRig {
   final Session session;
   final bool camera;
   final Duration maxDuration;
+
+  /// 2026-10-27 (М2): подставной справочник / ИИ по фото / создание для мастера «добавить товар».
+  final WizardBackend? wizardBackend;
   late AppDatabase db;
   late ProviderContainer container;
   late AssistantCallController c;
@@ -371,7 +375,7 @@ class CallRig {
   final prepared = <CallPrep>[];
   final journal = MemoryJournal();
 
-  CallRig({this.lang = 'ru', this.dark = false, Session? session, this.camera = false, this.maxDuration = const Duration(minutes: 10), bool useFakeNav = true})
+  CallRig({this.lang = 'ru', this.dark = false, Session? session, this.camera = false, this.maxDuration = const Duration(minutes: 10), bool useFakeNav = true, this.wizardBackend})
     : session = session ?? testOwner() {
     driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
     LiveCall.resetForTest();
@@ -401,6 +405,7 @@ class CallRig {
       reads: FakeReads(),
       staff: FakeStaff(),
       journal: journal,
+      wizardBackend: wizardBackend,
     );
     container = ProviderContainer(
       overrides: [

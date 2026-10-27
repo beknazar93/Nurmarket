@@ -20,15 +20,22 @@ import 'package:go_router/go_router.dart';
 import '../../core/ai/assistant/action_tools.dart';
 import '../../core/ai/assistant/ai_handles.dart';
 import '../../core/ai/assistant/ai_journal.dart';
+import '../../core/ai/assistant/call_focus.dart';
+import '../../core/ai/assistant/call_product_search.dart' show searchForCall;
 import '../../core/ai/assistant/call_table.dart';
 import '../../core/ai/assistant/lang.dart' show detectLang;
+import '../../core/ai/assistant/ai_perf.dart';
+import '../../core/ai/assistant/nav_router.dart';
 import '../../core/ai/assistant/nav_tools.dart';
+import '../../core/ai/assistant/product_wizard.dart';
 import '../../core/ai/assistant/read_tools.dart';
 import '../../core/ai/assistant/screen_opener.dart';
 import '../../core/ai/assistant/screen_registry.dart';
 import '../../core/ai/assistant/staff_tools.dart';
 import '../../core/ai/assistant/tool_registry.dart';
 import '../../core/ai/assistant/undo.dart';
+import '../../core/ai/assistant/wizard_tools.dart';
+import '../../core/ai/gemini_keys.dart' show GeminiKeyPool;
 import '../../core/ai/live_call.dart';
 import '../../core/ai/live_tools.dart';
 import '../../core/ai/live_video.dart';
@@ -47,11 +54,15 @@ import '../scan/live_shot.dart' show CameraGate;
 import '../stock/product_edit.dart' show ProductEditScreen;
 import '../profile/printer_settings.dart' show PrinterSettingsScreen;
 import '../admin/advisor.dart' show AiSettingsScreen;
+import '../admin/ai_access_ui.dart' show AiAccessScreen;
+import '../admin/gemini_keys_screen.dart' show GeminiKeysScreen;
+import '../profile/kassa_link_screen.dart' show KassaLinkScreen;
 import 'assistant_mode.dart';
 import 'call_consent.dart';
 import 'call_table_pdf.dart';
 import 'call_turn.dart';
 import 'call_video_bridge.dart';
+import 'call_wizard_backend.dart';
 
 export 'call_turn.dart';
 
@@ -137,9 +148,15 @@ class CallDeps {
   final ReadSource? reads;
   final StaffSource? staff;
   final AiJournal? journal;
+
+  /// 2026-10-27 (М2): справочник / ИИ по фото / создание для мастера «добавить товар» (в тестах — мок).
+  final WizardBackend? wizardBackend;
   final Duration actionLife;
   final Duration noLinkLimit;
   final Duration slowAfter;
+
+  /// 2026-10-27: локальная навигация по словам пользователя (без ИИ): через сколько тишины в расшифровке разбирать фразу; null — выключено.
+  final Duration? localNavDelay;
   const CallDeps({
     this.audio,
     this.connect,
@@ -152,9 +169,11 @@ class CallDeps {
     this.reads,
     this.staff,
     this.journal,
+    this.wizardBackend,
     this.actionLife = const Duration(seconds: 8),
     this.noLinkLimit = const Duration(seconds: 20),
     this.slowAfter = const Duration(seconds: 4),
+    this.localNavDelay = const Duration(milliseconds: 600),
   });
 }
 
@@ -221,6 +240,10 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
   final _ai = StringBuffer();
   ToolRegistry? registry;
   ActionKit? kit;
+
+  /// 2026-10-27 (мобилка, видеозвонок, М2): «этот товар» (карточка камеры) и мастер «добавить товар».
+  final focus = CallFocus();
+  ProductWizard? wizard;
   AssistantMode mode = AssistantMode.defaultMode;
   CallRequest? _req;
 
@@ -540,6 +563,8 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     warned = false;
     videoBusy = null;
     videoCard = null;
+    focus.clear();
+    wizard?.reset();
     actionLine = null;
     ambiguous = null;
     numberPrompt = null;
@@ -566,7 +591,7 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     final reg = ToolRegistry(hideActionsInViewOnly: true);
     final navHost = nav ?? _FallbackNav();
     registerNavTools(reg, navHost);
-    registerReadTools(reg, ReadContext(deps.reads ?? RepoReadSource.fromReader(_read), tables));
+    registerReadTools(reg, ReadContext(deps.reads ?? RepoReadSource.fromReader(_read), tables, focus: focus));
     final opener = _openerHost == null ? null : buildScreenOpener(host: _openerHost!, read: _read);
     final host = deps.actions ??
         RepoActionHost.fromReader(
@@ -574,15 +599,26 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
           productSales: (f, t) => _read(analyticsRepoProvider).products(f, t),
           opener: opener,
         );
+    // 2026-10-27 (М2): мастер «добавить товар» нужен только со включаемой камерой; черновик живёт в памяти звонка
+    ProductWizard? wiz;
+    if (hasCamera) {
+      wiz = ProductWizard(host: host, backend: deps.wizardBackend ?? RepoWizardBackend(_read), camera: _wizardStill, cameraOn: () => video?.cameraOn == true, focus: focus);
+      wiz.addListener(notifyListeners);
+    }
+    wizard?.dispose();
+    wizard = wiz;
     final k = ActionKit(
       host: host,
       undo: UndoStack(),
       journal: deps.journal ?? AiJournal(),
       handles: _safeHandles(),
       tables: tables,
+      focus: focus,
+      wizard: wiz,
       model: null,
     );
     registerActionTools(reg, k);
+    if (wiz != null) registerWizardTools(reg, k, wiz);
     // 2026-10-26 (В7): настоящий источник — задачи, табель, зарплата, выплата и схема оплаты (раньше был только список сотрудников)
     registerStaffTools(reg, k, deps.staff ?? _read(staffSourceProvider), tables: tables);
     for (final t in _serviceTools()) {
@@ -687,7 +723,8 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     ActionLine? line;
     if (status == ToolStatus.ok.wire && tool != null) {
       final isUndoTool = tc.name == 'undo_last';
-      if (tool.isAction || isUndoTool) {
+      // 2026-10-27 (М2): шаги мастера «добавить товар» (старт, кадр, поля) строкой итога не показываем — состояние видно в панели
+      if ((tool.isAction && tc.name != 'product_wizard') || isUndoTool) {
         final already = say.startsWith(toolMsg('already', lang));
         final irreversible = tool.isAction && !undo && !already && !isUndoTool;
         line = ActionLine(
@@ -846,6 +883,7 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
       'salary_payout' => l.aiWhatSalary,
       'pay_debt' => l.aiWhatDebt,
       'delete_product' => l.aiWhatDelete,
+      'wizard_create' => l.wizCreate,
       'set_price' || 'bulk_markup' => l.aiWhatPrice,
       'cash_in_out' => l.aiWhatCash,
       _ => l.aiWhatOther,
@@ -879,8 +917,55 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
   // реплики
   // =================================================================================================================
 
+  // --- 2026-10-27: локальная навигация — первый путь («открой приёмку» не ждёт ИИ и не зависит от его выбора раздела)
+  Timer? _localNavTimer;
+  String _localNavDone = '';
+
+  void _scheduleLocalNav() {
+    final delay = deps.localNavDelay;
+    if (delay == null) return;
+    _localNavTimer?.cancel();
+    _localNavTimer = Timer(delay, () => unawaited(_localNavNow()));
+  }
+
+  /// Фраза пользователя целиком (после паузы) разобрана как ЯСНАЯ просьба открыть раздел → открываем сами теми же инструментами
+  /// (право, проверка открытия, журнал). ИИ получает справку «раздел уже открыт» и не обязан вызывать open_screen: если вызовет
+  /// — получит «открыла» (а не «уже открыт»). Неясное, с ничьей или с остатком слов — по-прежнему решает ИИ.
+  Future<void> _localNavNow() async {
+    final c = call;
+    final reg = registry;
+    final s = _session;
+    if (c == null || c.ended || reg == null || s == null || phase != CallPhase.active) return;
+    final turn = c.speech.last;
+    if (turn == null || turn.echoSuspect) return;
+    final said = turn.text.trim();
+    if (said.isEmpty || said == _localNavDone) return;
+    // ИИ уже сам открыл раздел в этой реплике (или ещё работает инструмент) — его выбор может быть точнее (фильтр, период), не перебиваем
+    if (_toolsInFlight > 0 || _navByToolAt.isAfter(turn.at)) return;
+    final sw = Stopwatch()..start();
+    final d = parseNavCommand(said, session: s);
+    final parseMs = sw.elapsedMilliseconds;
+    final def = d.def;
+    if (d.kind != NavKind.open || !d.confident || def == null || !def.allowedFor(s)) return;
+    _localNavDone = said;
+    final lang = _langNow();
+    final env = ToolEnv(session: s, speech: c.speech, mode: mode, lang: lang, screen: nav?.location ?? '');
+    final res = await reg.execute(LiveToolCall('loc${DateTime.now().microsecondsSinceEpoch}', 'open_screen', {'screen': def.key, ...d.args}), env);
+    (AiPerfTrace('call.nav')
+          ..tag('screen', def.key)
+          ..tag('ok', '${res.status == ToolStatus.ok}')
+          ..tag('path', 'local')
+          ..ms('parse', parseMs)
+          ..ms('open', sw.elapsedMilliseconds - parseMs))
+        .finish();
+    if (res.status == ToolStatus.ok && !c.ended) {
+      c.sendText('[Программа] По просьбе пользователя программа уже открыла «${def.fullTitle(lang)}». Скажи об этом одной короткой фразой; open_screen повторно вызывать не нужно.', respond: false);
+    }
+  }
+
   void _onUserSpeech(String text, bool echoSuspect) {
     if (echoSuspect) return;
+    _scheduleLocalNav();
     final p = moneyPrompt;
     if (p != null && p.isOpen) {
       final t = _speechNorm(text);
@@ -1024,9 +1109,11 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     c?.state.removeListener(_onCallState);
     c?.videoActive.removeListener(notifyListeners);
     WidgetsBinding.instance.removeObserver(this);
-    if (detail != null && (detail.contains('API key') || detail.contains('API_KEY'))) {
+    // 2026-10-27: Google явно отклонил ключ — только временная пометка на 30 минут (rotateLiveKey), а не «навсегда» (markBadKey):
+    // раньше после одного звонка общий облачный ключ оставался плохим на этом телефоне даже после перезапуска.
+    if (detail != null && GeminiKeyPool.isInvalidKeyText(detail)) {
       try {
-        unawaited(_read(visionProvider).markBadKey(key));
+        _read(visionProvider).rotateLiveKey(key, detail);
       } catch (_) {}
     }
     final v = video;
@@ -1321,6 +1408,77 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
   bool get canStock => _session?.can(Session.viewProducts) ?? false;
   bool get canProcure => _session?.canProcure ?? false;
 
+  // =================================================================================================================
+  // 2026-10-27 (мобилка, видеозвонок, М2): мастер «добавить товар» — кнопки экрана ведут тот же мастер, что и голос
+  // =================================================================================================================
+
+  /// Кнопка «Добавить товар» видна: есть камера в звонке, право «Склад» (создание товара) и режим не «Только смотреть».
+  bool get canAddProduct => wizard != null && mode != AssistantMode.viewOnly && (_session?.canRoute('/admin/new-product') ?? false);
+
+  bool get wizardActive => wizard?.active == true;
+
+  Future<void> _wizardSay(WizardOut o) async {
+    notifyListeners();
+    final c = call;
+    if (c != null && !c.ended && o.say.isNotEmpty) {
+      await _sendWhenQuiet('[Программа] Мастер добавления товара: ${o.say} Скажи это пользователю как есть, коротко.', true);
+    }
+  }
+
+  Future<void> wizardStart() async {
+    final w = wizard;
+    if (w == null || !canAddProduct) return;
+    await _wizardSay(w.start(_langNow()));
+  }
+
+  /// Кнопка «Снять»: кадр текущей (или выбранной) стороны. Нажатие — само подтверждение, слова «готово» не нужно.
+  Future<void> wizardShoot([WizardSide? side]) async {
+    final w = wizard;
+    if (w == null || !w.active) return;
+    await _wizardSay(await w.shoot(side, _langNow(), viaUi: true));
+  }
+
+  /// Штрихкод введён руками или принят со сканера (сканер печатает цифры в поле): дубль, название — тот же путь, что со снимка.
+  Future<void> wizardBarcode(String code) async {
+    final w = wizard;
+    if (w == null || !w.active || code.trim().isEmpty) return;
+    await _wizardSay(await w.acceptBarcode(code, _langNow()));
+  }
+
+  Future<void> wizardCancel() async {
+    final w = wizard;
+    if (w == null || !w.active) return;
+    await _wizardSay(w.cancel(_langNow()));
+  }
+
+  /// Кнопка «Создать товар» (показывается, когда есть название и цена): тот же путь, что `wizard_create`, с журналом и отменой.
+  Future<void> wizardCreate() async {
+    final w = wizard;
+    final k = kit;
+    final s = _session;
+    final c = call;
+    if (w == null || k == null || s == null || c == null || !w.active || !canAddProduct) return;
+    final lang = _langNow();
+    final r = ToolRequest(
+      LiveToolCall('ui-${DateTime.now().microsecondsSinceEpoch}', 'wizard_create', const {}),
+      ToolEnv(session: s, speech: c.speech, mode: mode, lang: lang),
+    );
+    final res = await wizardCreateRun(k, w, r, viaUi: true);
+    if (res.status == ToolStatus.ok) {
+      _showLine(ActionLine(++_lineId, res.say, sub: _subOf(), kind: ActionKind.ok, undoable: res.undo));
+    }
+    await _wizardSay(WizardOut(res.status, res.say));
+  }
+
+  /// Снимок с потока камеры для мастера (тот же `takeStill`, что у «Что это?»).
+  Future<WizardStill> _wizardStill() async {
+    final v = video;
+    if (v == null || !v.cameraOn) return (bytes: null, barcode: null, error: videoMsg('noCamera', _langNow()));
+    final still = await v.takeStill(ResolutionPreset.high);
+    if (!still.ok) return (bytes: null, barcode: null, error: videoMsg(still.errorKey ?? 'stillFailed', _langNow()));
+    return (bytes: still.bytes, barcode: still.barcode, error: null);
+  }
+
   VideoRecognizer? _recognizerOverride;
   set recognizer(VideoRecognizer r) => _recognizerOverride = r;
 
@@ -1347,6 +1505,7 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     }
     videoBusy = null;
     videoCard = card;
+    focus.newFrame(card is VideoProductCard ? card.product : null); // «этот товар» = с камеры; не узнали — сброс (ревью М-4)
     turns.add(CallTurn(false, card.chatText, table: true));
     notifyListeners();
     final c = call;
@@ -1391,6 +1550,7 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     final card = videoCard;
     if (card is! VideoProductCard) return;
     videoCard = card.choose(p, canStock: canStock);
+    focus.setCamera(p);
     notifyListeners();
     final c = call;
     if (c != null && !c.ended) unawaited(_sendWhenQuiet(videoCard!.aiMessage, true));
@@ -1426,6 +1586,7 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     _slowTimer?.cancel();
     _pendingTimer?.cancel();
     _moveTimer?.cancel();
+    _localNavTimer?.cancel();
     _router?.routerDelegate.removeListener(_onRouteChanged);
     WidgetsBinding.instance.removeObserver(this);
     final c = call;
@@ -1434,6 +1595,8 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
       c.end();
     }
     unawaited(video?.dispose());
+    wizard?.removeListener(notifyListeners);
+    wizard?.dispose();
     unawaited(_notices.close());
     finishedTick.dispose();
     panelInset.dispose();
@@ -1448,10 +1611,26 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
 
 /// Навигация ИИ поверх go_router. [openRoute] возвращается сразу после начала перехода; перед каждым переходом звонок
 /// сворачивается в плашку (полный экран закрывается синхронно — «назад» не заденет его).
-class RouterNavHost implements NavHost {
+class RouterNavHost implements NavHost, NavVerifier {
   final GoRouter router;
   final AssistantCallController c;
   RouterNavHost(this.router, this.c);
+
+  /// 2026-10-27: какой экран вне маршрутов поставлен последним (для подтверждения открытия).
+  String? _auxOpened;
+
+  static String _path(String l) => Uri.tryParse(l)?.path ?? l;
+
+  /// Подтверждение открытия: адрес роутера стал целью (или страница вне маршрутов поставлена) — не позже [wait].
+  @override
+  Future<bool> confirmed(String where, {Duration wait = const Duration(milliseconds: 1500)}) async {
+    final end = DateTime.now().add(wait);
+    while (true) {
+      if (where.startsWith('/') ? _path(location) == _path(where) : _auxOpened == where) return true;
+      if (!DateTime.now().isBefore(end)) return false;
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+    }
+  }
 
   Reader get _read => c._read;
 
@@ -1475,14 +1654,21 @@ class RouterNavHost implements NavHost {
   @override
   Future<void> openAux(String key) async {
     _before();
+    _auxOpened = null;
     final nav = router.routerDelegate.navigatorKey.currentState;
     if (nav == null) return;
     final Widget? page = switch (key) {
       'printer' => const PrinterSettingsScreen(),
       'ai_keys' => const AiSettingsScreen(),
+      'kassa_link' => const KassaLinkScreen(), // 2026-10-27: экраны профиля, которые раньше голосом не открывались
+      'gemini_keys' => const GeminiKeysScreen(),
+      'ai_access' => const AiAccessScreen(),
       _ => null,
     };
-    if (page != null) unawaited(nav.push<void>(MaterialPageRoute<void>(builder: (_) => page)));
+    if (page != null) {
+      _auxOpened = key;
+      unawaited(nav.push<void>(MaterialPageRoute<void>(builder: (_) => page)));
+    }
   }
 
   @override
@@ -1510,7 +1696,9 @@ class RouterNavHost implements NavHost {
       final r = await CodeLookup.find(db, _read(apiProvider), barcode);
       return r.product == null ? const [] : [_nav(r.product!)];
     }
-    final rows = await db.searchProducts(query ?? '', limit: 30);
+    // 2026-10-27 (М2): общий матчер (Асу = ASU, «винстон»), а не подстроки
+    final q = query ?? '';
+    final rows = q.trim().isEmpty ? await db.searchProducts(q, limit: 30) : [for (final h in await searchForCall(db, q, top: 30)) h.product];
     return [for (final p in rows) _nav(p)];
   }
 

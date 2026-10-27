@@ -126,6 +126,9 @@ class AiAccess {
 
   /// Главная проверка. Список не задан — можно всем (старые магазины); задан — только тем, кто в нём.
   static bool canUse(Session? s, AiAccessPolicy policy) {
+    // 2026-10-27 (расследование «ИИ не отвечает»): владелец и администратор пользуются ИИ всегда, даже если не вошли в список из
+    // двух сотрудников (список ограничивает остальных); иначе владелец, выбрав двух кассиров, сам видел замок и «не отвечает».
+    if (s != null && s.isAdmin) return true;
     if (!policy.isSet) return true;
     if (s == null) return false;
     return policy.contains(s.userId);

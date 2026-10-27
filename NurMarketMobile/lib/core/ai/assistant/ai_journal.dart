@@ -84,6 +84,48 @@ class AiActionRecord {
   }
 }
 
+/// 2026-10-27 (расследование «ИИ не отвечает в переписке»): последняя ошибка чата Нур Советника — когда, какой код ответа Google,
+/// какая модель и последние 4 символа ключа (сам ключ не пишется). Одна запись — `ai_last_error.json` рядом с журналом ИИ;
+/// показывается строкой «Последняя ошибка: …» в «Ключи Gemini».
+class AiChatError {
+  final DateTime at;
+  final String code;
+  final String model;
+  final String keyTail;
+  final String text;
+  const AiChatError({required this.at, required this.code, this.model = '', this.keyTail = '', this.text = ''});
+
+  /// Одна строка для экрана: «14:05 · 403 · gemini-3.5-flash-lite · …AB12 · текст».
+  String get line {
+    String two(int n) => n.toString().padLeft(2, '0');
+    final t = text.length > 90 ? '${text.substring(0, 90)}…' : text;
+    return [
+      '${two(at.hour)}:${two(at.minute)}',
+      code,
+      if (model.isNotEmpty) model,
+      if (keyTail.isNotEmpty) '…$keyTail',
+      if (t.isNotEmpty) t,
+    ].join(' · ');
+  }
+
+  Map<String, dynamic> toJson() => {'at': at.toIso8601String(), 'code': code, 'model': model, 'key': keyTail, 'text': text};
+
+  static AiChatError? fromJson(Object? j) {
+    try {
+      final m = j as Map;
+      return AiChatError(
+        at: DateTime.parse(m['at'] as String),
+        code: '${m['code'] ?? ''}',
+        model: '${m['model'] ?? ''}',
+        keyTail: '${m['key'] ?? ''}',
+        text: '${m['text'] ?? ''}',
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
 class AiJournal {
   static const maxRecords = 2000;
 
@@ -92,6 +134,31 @@ class AiJournal {
 
   static Future<File> _file() async =>
       File('${(testDirectory ?? Audit.testDirectory ?? await getApplicationDocumentsDirectory()).path}/ai_actions.jsonl');
+
+  static Future<File> _errorFile() async =>
+      File('${(testDirectory ?? Audit.testDirectory ?? await getApplicationDocumentsDirectory()).path}/ai_last_error.json');
+
+  /// 2026-10-27: записать последнюю ошибку чата Советника (перезаписывает прежнюю). Сбой записи ничему не мешает.
+  static Future<void> recordChatError(AiChatError e) async {
+    try {
+      await _serial(() async => (await _errorFile()).writeAsString(jsonEncode(e.toJson()), flush: true));
+    } catch (_) {
+      // журнал не записался — ответ ИИ важнее
+    }
+  }
+
+  /// Последняя записанная ошибка чата Советника (null — не было или файл не читается).
+  static Future<AiChatError?> readChatError() async {
+    try {
+      // срок 3 с: экран «Ключи Gemini» не должен зависеть от чтения файла
+      return await _serial(() async {
+        final f = await _errorFile();
+        return await f.exists() ? AiChatError.fromJson(jsonDecode(await f.readAsString())) : null;
+      }).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      return null;
+    }
+  }
 
   static Future<void> _chain = Future.value();
 

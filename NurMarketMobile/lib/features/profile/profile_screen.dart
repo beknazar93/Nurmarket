@@ -3,14 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/ai/ai_access.dart';
+import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
+import '../../core/link/kassa_link.dart';
 import '../../core/providers.dart';
 import '../../core/sync/outbox_meta.dart';
 import '../../core/theme/brand_mark.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/tester/tester_mode.dart';
 import '../../core/util/ui.dart';
+import '../sale/piece_sale_mode.dart';
 import '../admin/advisor.dart';
 import '../admin/ai_access_ui.dart';
+import 'kassa_link_screen.dart';
 import 'printer_settings.dart';
 
 /// Профиль (Т19): касса, язык, тёмная тема, работа без интернета (очередь), выход.
@@ -90,7 +95,22 @@ class ProfileScreen extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PrinterSettingsScreen())),
                 ),
-                // 2026-10-26 (живой аудит, П2, Н-6): заглушка «Связь с кассой — в следующем обновлении» убрана до появления функции.
+                // 2026-10-27: «Связь с кассой» — сопряжение телефона с кассой по QR (сканер для кассы). Только в мобилке.
+                if (KassaLink.supported)
+                  ListenableBuilder(
+                    listenable: KassaLink.instance,
+                    builder: (context, _) {
+                      final link = KassaLink.instance;
+                      if (!link.loaded) link.ensureLoaded();
+                      return item(
+                        Icons.cast_connected_rounded,
+                        l.klTitle,
+                        sub: !link.isPaired ? l.klProfileOff : [if (link.kassaName.isNotEmpty) l.klKassaName(link.kassaName), link.status.text(l)].join(' · '),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const KassaLinkScreen())),
+                      );
+                    },
+                  ),
               ],
             ),
           ),
@@ -129,7 +149,18 @@ class ProfileScreen extends ConsumerWidget {
                   Icons.checkroom_rounded,
                   l.clothingMode,
                   sub: l.clothingModeSub,
-                  trailing: Switch(value: prefs.clothing, onChanged: (v) => ref.read(prefsProvider.notifier).setClothing(v)),
+                  // 2026-10-27 (аудит мобилки, Н-5): у переключателя своя подпись для TalkBack (раньше читалось только «выключено»)
+                  trailing: Semantics(label: l.clothingMode, child: Switch(value: prefs.clothing, onChanged: (v) => ref.read(prefsProvider.notifier).setClothing(v))),
+                ),
+                // 2026-10-27 (ревью М-6): быстро выключить продажу штуки из упаковки, если сервер её не понимает
+                item(
+                  Icons.view_in_ar_rounded,
+                  l.pieceSaleMode,
+                  sub: l.pieceSaleModeSub,
+                  trailing: Semantics(
+                    label: l.pieceSaleMode,
+                    child: Switch(key: const Key('pieceSaleSwitch'), value: ref.watch(pieceSaleProvider), onChanged: (v) => ref.read(pieceSaleProvider.notifier).setOn(v)),
+                  ),
                 ),
                 // 13.10, макет ТМ3: светлая, тёмная или как в системе.
                 // 14.10, владелец: «Нур Советник — настройка и добавление ИИ».
@@ -221,6 +252,18 @@ class ProfileScreen extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/sync'),
                 ),
+                // 2026-10-27: встроенный справочник готовых наименований NurCRM — сколько товаров, от какой выгрузки, сколько добавлено
+                item(
+                  Icons.menu_book_outlined,
+                  l.globalCatalogTitle,
+                  sub: ref
+                      .watch(globalCatalogStatusProvider)
+                      .when(
+                        data: (st) => st == null ? l.globalCatalogOff : l.globalCatalogStatus(groupThousands(st.count), niceCatalogDate(st.exportedAt), '${st.added}'),
+                        loading: () => null,
+                        error: (_, _) => l.globalCatalogOff,
+                      ),
+                ),
               ],
             ),
           ),
@@ -252,7 +295,8 @@ class ProfileScreen extends ConsumerWidget {
           // 2026-10-22, брендбук NUR CRM: логотип внизу профиля («о приложении»).
           Padding(
             padding: const EdgeInsets.only(top: 28, bottom: 8),
-            child: Center(child: BrandLogo(width: 130, variant: pal.dark ? BrandVariant.dark : BrandVariant.light)),
+            // 2026-10-27: 5 быстрых нажатий на логотип — «Режим тестировщика» (только тестовая сборка или по коду)
+            child: Center(child: TesterTap(child: BrandLogo(width: 130, variant: pal.dark ? BrandVariant.dark : BrandVariant.light))),
           ),
         ],
       ),

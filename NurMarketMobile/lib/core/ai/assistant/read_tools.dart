@@ -25,9 +25,12 @@ import '../../providers.dart';
 import '../../util/audit.dart';
 import '../../util/product_picker.dart' show isLowStock;
 import '../live_tools.dart';
+import 'call_focus.dart';
+import 'call_product_search.dart';
 import 'call_table.dart';
 import 'recommendations.dart';
 import 'tool_registry.dart';
+import 'wizard_texts.dart';
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Источник данных
@@ -70,7 +73,7 @@ abstract class ReadSource {
 typedef Reader = T Function<T>(ProviderListenable<T> provider);
 
 /// Рабочий источник: те же репозитории, что у экранов («Сводка», «Склад», «Долги», «Смены», «Чеки»).
-class RepoReadSource implements ReadSource {
+class RepoReadSource implements ReadSource, ScoredProductSearch {
   final AnalyticsRepository analytics;
   final OpsRepository ops;
   final AdminRepository admin;
@@ -111,8 +114,19 @@ class RepoReadSource implements ReadSource {
   Future<SalesSummary> sales(DateTime from, DateTime to) => analytics.sales(from, to);
   @override
   Future<List<ProductSales>> productSales(DateTime from, DateTime to) => analytics.products(from, to);
+  // 2026-10-27 (мобилка, видеозвонок, М2): поиск по названию — общий матчер (Асу = ASU, «пепси полтора литра», «винстон»), а не
+  // «каждое слово запроса — подстрока карточки». Пустой запрос — весь каталог, как раньше.
   @override
-  Future<List<Product>> catalog(String query, {String? category, int limit = 20000}) => db.searchProducts(query, category: category, limit: limit);
+  Future<List<Product>> catalog(String query, {String? category, int limit = 20000}) async {
+    if (query.trim().isEmpty) return db.searchProducts(query, category: category, limit: limit);
+    var list = [for (final h in await searchForCall(db, query, top: limit < 30 ? limit : 30)) h.product];
+    final c = (category ?? '').trim();
+    if (c.isNotEmpty) list = list.where((p) => p.category == c).toList();
+    return list;
+  }
+
+  @override
+  Future<List<ProductHit>> findScored(String query, {int top = 5}) => searchForCall(db, query, top: top);
   @override
   Future<({Product? product, bool unavailable})> findByCode(String code) async {
     final r = await CodeLookup.find(db, api, code);
@@ -167,7 +181,10 @@ class RepoReadSource implements ReadSource {
 class ReadContext {
   final ReadSource src;
   final TableStore tables;
-  ReadContext(this.src, this.tables);
+
+  /// 2026-10-27 (М2): «этот товар» с камеры звонка (`ref: "camera"`).
+  final CallFocus? focus;
+  ReadContext(this.src, this.tables, {this.focus});
 }
 
 /// Подключить инструменты чтения к реестру звонка.
@@ -799,6 +816,7 @@ AssistantTool _productInfo(ReadContext c) => AssistantTool(
     parameters: sObj({
       'query': sStr(),
       'barcode': sStr(),
+      'ref': sStr(desc: '"camera" = the product on the last camera card ("this one"); "last" = the product used last. Instead of query.'),
       'pick': sInt(desc: '1-based option number after ambiguous'),
     }),
   ),
@@ -809,27 +827,54 @@ AssistantTool _productInfo(ReadContext c) => AssistantTool(
     final s = env.session;
     final query = '${r.args['query'] ?? ''}'.trim();
     final barcode = '${r.args['barcode'] ?? ''}'.trim();
-    if (query.isEmpty && barcode.isEmpty) {
+    // 2026-10-27 (мобилка, видеозвонок, М2): «этот товар» — с карточки камеры
+    final ref = '${r.args['ref'] ?? ''}'.trim();
+    final refProduct = ref.isNotEmpty && barcode.isEmpty && CallFocus.isRef(ref) ? c.focus?.byRef(ref) : null;
+    if (query.isEmpty && barcode.isEmpty && refProduct == null) {
+      if (ref.isNotEmpty && CallFocus.isRef(ref)) {
+        final camera = ref.toLowerCase().startsWith('cam') || ref.toLowerCase() == 'video';
+        return ToolResult(ToolStatus.clarify, wt(camera ? 'noCameraProduct' : 'noLastProduct', lang));
+      }
       return ToolResult(ToolStatus.clarify, tr5(lang, 'Какой товар?', 'Кайсы товар?', 'Qaysi mahsulot?', 'Which product?', 'Hangi ürün?'));
     }
-    Product? product;
-    if (barcode.isNotEmpty) {
+    Product? product = refProduct;
+    List<Product> cands = const [];
+    var scores = const <double>[];
+    var scored = false;
+    if (refProduct != null) {
+      // товар уже известен — поиск не нужен
+    } else if (barcode.isNotEmpty) {
       final f = await c.src.findByCode(barcode);
       if (f.unavailable && f.product == null) {
         return ToolResult(ToolStatus.offline, tr5(lang, 'Сервер не ответил — по штрихкоду не нашла.', 'Сервер жооп берген жок — штрихкод боюнча табылган жок.', 'Server javob bermadi — shtrixkod bo\'yicha topilmadi.', 'The server did not answer — barcode not found.', 'Sunucu yanıt vermedi — barkod bulunamadı.'));
       }
       product = f.product;
     } else {
-      final cands = await c.src.catalog(query, limit: 30);
-      final exact = cands.where((p) => p.name.trim().toLowerCase() == query.toLowerCase()).toList();
       final pick = r.args['pick'] is num ? (r.args['pick'] as num).toInt() : null;
-      if (pick != null && pick >= 1 && pick <= cands.length) {
-        product = cands[pick - 1];
-      } else if (cands.length == 1) {
-        product = cands.first;
-      } else if (exact.length == 1) {
-        product = exact.first;
-      } else if (cands.length > 1) {
+      final src = c.src;
+      if (src is ScoredProductSearch) {
+        // 2026-10-27 (М2): матчер с оценкой. «Нашла» — только лучший ≥ 0,85 с отрывом ≥ 0,15, иначе кандидаты и вопрос.
+        scored = true;
+        final hits = await (src as ScoredProductSearch).findScored(query, top: 5);
+        cands = [for (final h in hits) h.product];
+        scores = [for (final h in hits) h.score];
+        if (pick != null && pick >= 1 && pick <= cands.length) {
+          product = cands[pick - 1];
+        } else {
+          product = confidentHit(hits)?.product;
+        }
+      } else {
+        cands = await c.src.catalog(query, limit: 30);
+        final exact = cands.where((p) => p.name.trim().toLowerCase() == query.toLowerCase()).toList();
+        if (pick != null && pick >= 1 && pick <= cands.length) {
+          product = cands[pick - 1];
+        } else if (cands.length == 1) {
+          product = cands.first;
+        } else if (exact.length == 1) {
+          product = exact.first;
+        }
+      }
+      if (product == null && cands.isNotEmpty) {
         final showStock = s.can(Session.viewProducts);
         final t = CallTable.build(
           id: c.tables.nextId(),
@@ -857,15 +902,28 @@ AssistantTool _productInfo(ReadContext c) => AssistantTool(
           objectRoute: 'product',
         );
         final top = cands.take(5).toList();
-        final listed = [for (var i = 0; i < top.length; i++) '${i + 1} — ${_clip(top[i].name, 30)}, ${_money(top[i].price, lang)}'].join('; ');
-        final say = tr5(
-          lang,
-          'Нашла несколько: $listed. Какой — скажите номер.',
-          'Бир нече табылды: $listed. Кайсы — номерин айтыңыз.',
-          'Bir nechta topildi: $listed. Qaysi — raqamini ayting.',
-          'Several found: $listed. Which one — say the number.',
-          'Birkaç tane buldum: $listed. Hangisi — numarasını söyleyin.',
-        );
+        // 2026-10-27 (М2): у каждого кандидата — цена и остаток (если есть право), чтобы ответ был сразу полезен
+        String stockOf(Product p) => showStock && !p.isService ? ', ${tr5(lang, 'остаток', 'калдык', 'qoldiq', 'stock', 'stok')} ${_qty(p.quantity, p.unit, lang)}' : '';
+        final listed = [
+          for (var i = 0; i < top.length; i++) '${i + 1} — ${_clip(top[i].name, 30)}, ${_money(top[i].price, lang)}${scored ? stockOf(top[i]) : ''}',
+        ].join('; ');
+        final say = scored && top.length == 1
+            ? tr5(
+                lang,
+                'Похоже на: $listed. Это он? Если да — скажите «да».',
+                'Окшош: $listed. Ушулбу? Ооба болсо — «ооба» деңиз.',
+                'Shunga o\'xshaydi: $listed. Shumi? Ha bo\'lsa — «ha» deng.',
+                'Looks like: $listed. Is it this one? If so, say "yes".',
+                'Şuna benziyor: $listed. Bu mu? Öyleyse "evet" deyin.',
+              )
+            : tr5(
+                lang,
+                'Нашла несколько: $listed. Какой — скажите номер.',
+                'Бир нече табылды: $listed. Кайсы — номерин айтыңыз.',
+                'Bir nechta topildi: $listed. Qaysi — raqamini ayting.',
+                'Several found: $listed. Which one — say the number.',
+                'Birkaç tane buldum: $listed. Hangisi — numarasını söyleyin.',
+              );
         return _show(
           c,
           env,
@@ -874,7 +932,16 @@ AssistantTool _productInfo(ReadContext c) => AssistantTool(
           [],
           status: ToolStatus.ambiguous,
           options: [
-            for (var i = 0; i < top.length; i++) {'n': i + 1, 'title': _clip(top[i].name, 40), 'price': top[i].price},
+            for (var i = 0; i < top.length; i++)
+              {
+                'n': i + 1,
+                'title': _clip(top[i].name, 40),
+                'price': top[i].price,
+                // 2026-10-27 (М2): оценка совпадения, остаток (если есть право) и штрихкод — модель и экран видят, насколько уверен поиск
+                if (scored && i < scores.length) 'score': double.parse(scores[i].toStringAsFixed(2)),
+                if (scored && showStock && !top[i].isService) 'stock': top[i].quantity,
+                if (scored && (top[i].barcode ?? '').isNotEmpty) 'barcode': top[i].barcode,
+              },
           ],
         );
       }
@@ -923,7 +990,12 @@ AssistantTool _productInfo(ReadContext c) => AssistantTool(
       '$n — ${_money(p.price, lang)}$stockPart.',
       '$n — ${_money(p.price, lang)}$stockPart.',
     );
-    return _show(c, env, t, say, ['price ${_money(p.price, lang)}', if (seeStock && !p.isService) 'stock ${_qty(p.quantity, p.unit, lang)}']);
+    c.focus?.setLast(p); // 2026-10-27 (М2): «поставь ему цену 120» — этот же товар
+    return _show(c, env, t, say, [
+      'price ${_money(p.price, lang)}',
+      if (seeStock && !p.isService) 'stock ${_qty(p.quantity, p.unit, lang)}',
+      if ((p.barcode ?? '').isNotEmpty) 'barcode ${p.barcode}',
+    ]);
   }),
 );
 

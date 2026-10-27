@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/util/access.dart';
 import '../../core/api/session_store.dart';
+import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
@@ -16,6 +17,9 @@ import '../admin/admin_screens.dart';
 import '../scan/code_lookup.dart';
 import '../scan/scan_animations.dart';
 import '../scan/weigh_camera.dart';
+import '../../core/tester/tester_mode.dart' show TesterGate;
+import '../stock/product_packages.dart';
+import 'piece_sale_mode.dart';
 import 'cart.dart';
 import 'catalog_repository.dart';
 import '../../core/util/audit.dart';
@@ -33,6 +37,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
   String? _category; // null — всё, '' — избранное
   List<Product> _products = [];
   List<String> _categories = [];
+  Map<String, PiecePack> _packs = {}; // 2026-10-27 (М4): поштучные упаковки товаров — остаток плитки как «12 пачек + 5 шт»
   Timer? _debounce;
 
   /// 13.10, владелец: «в чеке отдельное таб-окно» — «Товары» и «Чек» отдельными вкладками.
@@ -113,11 +118,20 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
         final s = ref.read(sessionProvider);
         // администратору — сразу «Создать товар с этим кодом» (новый товар открывается с этим штрихкодом)
         final canCreate = !hit.unavailable && s != null && s.isAdmin && s.canRoute('/admin/new-product');
+        // 2026-10-27: код есть во встроенном справочнике NurCRM — ненавязчивая подсказка в той же плашке (без ожидания сети)
+        final known = canCreate ? await ref.read(globalProductsProvider).localIfReady(q) : null;
+        if (!mounted) return;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
             SnackBar(
-              content: Text(hit.unavailable ? l.notFoundOffline(q) : l.barcodeNotFound(q)),
+              content: Text(
+                hit.unavailable
+                    ? l.notFoundOffline(q)
+                    : known == null
+                    ? l.barcodeNotFound(q)
+                    : '${l.barcodeNotFound(q)}\n${l.globalFoundAsk(known.name)}',
+              ),
               backgroundColor: T.danger,
               // 2026-10-26 (приёмка 1.18.6, В-2н): у SnackBar с кнопкой по умолчанию persist: true — плашка висела, пока не
               // нажмут, и закрывала «Оплатить» и нижний ряд. Теперь сама уходит через 5 с (а при следующем скане, вводе в
@@ -163,10 +177,12 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
     final db = ref.read(databaseProvider);
     final cats = await db.categories();
     final list = await db.searchProducts(_search.text, category: _category == '' ? null : _category, favorites: _category == '', limit: 5000);
+    final packs = await PackageStore.read(db);
     if (mounted) {
       setState(() {
         _categories = cats;
         _products = list;
+        _packs = packs;
       });
     }
   }
@@ -178,8 +194,10 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
     final p = context.pal;
     // 2026-10-26 (живой аудит, П3, С-1): чек оплачен/отложен/очищен — поиск прошлого покупателя не остаётся в поле
     ref.listen<Cart>(cartProvider, (prev, next) {
-      if (prev != null && !prev.isEmpty && next.isEmpty && _search.text.isNotEmpty) {
-        _search.clear();
+      if (prev != null && !prev.isEmpty && next.isEmpty) {
+        if (_search.text.isNotEmpty) _search.clear();
+        // 2026-10-27 (аудит мобилки, С-2): после проданного чека остаток на плитке — из базы телефона (продажа уже вычла его
+        // локально, sales_repository._applyStock); раньше список перечитывался только при очистке поиска и показывал старые «48 шт».
         _reload();
       }
     });
@@ -321,7 +339,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                             mainAxisExtent: 96 + 62 * textScale,
                           ),
                           itemCount: _products.length,
-                          itemBuilder: (c, i) => _ProductTile(_products[i], inCart: inCart[_products[i].id], onTap: () {
+                          itemBuilder: (c, i) => _ProductTile(_products[i], inCart: inCart[_products[i].id], pack: _packs[_products[i].id], onTap: () {
                             _hideNotice();
                             addProduct(context, ref, _products[i]);
                           }),
@@ -606,6 +624,27 @@ Future<void> addProduct(BuildContext context, WidgetRef ref, Product p, {double?
     return;
   }
   var q = qty ?? 1;
+  // 2026-10-27 (М4): у товара есть поштучная опция (packages) — сначала «Пачка / Штука», как PackageChoiceDialog кассы.
+  // Без id упаковки на сервере штуку продать нельзя (sale_package_id) — такой товар продаётся целиком, как раньше.
+  PiecePack? pack;
+  var testerWarn = false;
+  if (!p.isWeight) {
+    final found = (await PackageStore.read(ref.read(databaseProvider)))[p.id];
+    // 2026-10-27 (ревью М-6): флаг `pack_checkout_mode` = off — поштучная продажа выключена, товар идёт упаковкой целиком
+    if (found?.id != null && await PieceSaleMode.isOn(ref.read(databaseProvider))) {
+      pack = found;
+      testerWarn = await TesterGate.isAllowed(ref.read(databaseProvider));
+    }
+  }
+  if (pack != null && qty == null && context.mounted) {
+    final piece = await askPackOrPiece(context, p, pack, testerWarn: testerWarn);
+    if (piece == null) return;
+    if (piece) {
+      ref.read(cartProvider.notifier).add(p, qty: 1, piece: pack, packName: pack.label(l.pkWordPackage));
+      return;
+    }
+  }
+  if (!context.mounted) return;
   if (p.isWeight && qty == null) {
     final kg = await askNumber(context, title: l.weightOf(p.name), hint: l.kg);
     if (kg == null || kg <= 0) return;
@@ -626,7 +665,92 @@ Future<void> addProduct(BuildContext context, WidgetRef ref, Product p, {double?
       return;
     }
   }
-  ref.read(cartProvider.notifier).add(p, qty: q);
+  ref.read(cartProvider.notifier).add(p, qty: q, packName: pack?.label(l.pkWordPackage));
+}
+
+/// 2026-10-27 (М4): «Как продать?» — две крупные кнопки с ценами: упаковка целиком или штука из неё (остаток в штуках — упаковки × штук).
+/// true — штука, false — упаковка, null — закрыли.
+Future<bool?> askPackOrPiece(BuildContext context, Product p, PiecePack pack, {bool testerWarn = false}) {
+  final l = context.l;
+  final packWord = pack.label(l.pkWordPackage);
+  final pieces = stockInPieces(p.quantity, pack);
+  Widget option(Key key, {required String title, required String price, required String sub, required bool piece, bool empty = false}) {
+    final style = (piece ? OutlinedButton.styleFrom : FilledButton.styleFrom)(
+      minimumSize: const Size.fromHeight(72),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    );
+    final content = Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+              Text(sub, style: TextStyle(fontSize: 12.5, color: empty ? T.danger : null)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(price, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Semantics(
+        button: true,
+        label: '$title, $price, $sub',
+        excludeSemantics: true,
+        child: piece
+            ? OutlinedButton(key: key, style: style, onPressed: () => Navigator.pop(context, true), child: content)
+            : FilledButton(key: key, style: style, onPressed: () => Navigator.pop(context, false), child: content),
+      ),
+    );
+  }
+
+  return showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    builder: (c) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+        child: Column(
+          key: const Key('packChoiceSheet'),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            Text(
+              '${l.pkChoiceTitle} · ${l.pkChoiceStock(stockWithPack(qtyText, p.quantity, pack, packWord: l.pkPackShort, pcs: l.pkPcs))}',
+              style: TextStyle(color: c.pal.textSoft),
+            ),
+            const SizedBox(height: 12),
+            // 2026-10-27 (ревью М-6): в режиме тестировщика — прямое предупреждение, что путь ещё не подтверждён сервером
+            if (testerWarn)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(l.pieceSaleTesterWarn, key: const Key('packTesterWarn'), style: TextStyle(color: c.pal.warn, fontSize: 12.5, fontWeight: FontWeight.w700)),
+              ),
+            option(
+              const Key('packChoiceWhole'),
+              title: packWord,
+              price: '${money(p.price)} ${l.som}',
+              sub: '${qtyText(pack.qty)} ${l.pkPcs} · ${p.quantity <= 0 ? l.stockNone : qtyText(p.quantity)}',
+              piece: false,
+              empty: p.quantity <= 0,
+            ),
+            option(
+              const Key('packChoicePiece'),
+              title: l.pkChoicePiece,
+              price: '${money(pack.piecePrice)} ${l.som}',
+              sub: pieces < 1 ? l.stockNone : '${qtyText(pieces.floorToDouble())} ${l.pkPcs}',
+              piece: true,
+              empty: pieces < 1,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// С5: цвет чипами, размеры с остатком; «В чек · 44». Мало осталось — переспросить.
@@ -720,13 +844,22 @@ class _ProductTile extends StatelessWidget {
 
   /// Сколько этого товара уже в чеке (null — нет): значок «×2».
   final double? inCart;
-  const _ProductTile(this.product, {required this.onTap, this.inCart});
+
+  /// 2026-10-27 (М4): поштучная опция товара — остаток «12 пачек + 5 шт»
+  final PiecePack? pack;
+  const _ProductTile(this.product, {required this.onTap, this.inCart, this.pack});
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
     final l = context.l;
     // 2026-10-26 (живой аудит, П3): мелко остаток («12 шт» / «нет» серым) и «×2», если товар уже в чеке
-    final stock = product.isService ? null : (product.quantity <= 0 ? l.stockNone : '${qtyText(product.quantity)} ${product.unit}');
+    final stock = product.isService
+        ? null
+        : (product.quantity <= 0
+              ? l.stockNone
+              : pack == null
+              ? '${qtyText(product.quantity)} ${product.unit}'
+              : stockWithPack(qtyText, product.quantity, pack, packWord: l.pkPackShort, pcs: l.pkPcs));
     return Semantics(
       label: inCart == null ? null : '${l.inCheck}: ${qtyText(inCart!)}',
       child: Pressable(
@@ -884,7 +1017,15 @@ class _CartRow extends ConsumerWidget {
                           spacing: 6,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            Text('${money(line.price)} ${l.som}${line.isWeight ? ' / ${line.unit}' : ''}', style: TextStyle(fontSize: 12.5, color: p.textSoft)),
+                            Text('${money(line.price)} ${l.som}${line.isWeight ? ' / ${line.unit}' : (line.isPiece ? ' / ${l.pkPcs}' : '')}', style: TextStyle(fontSize: 12.5, color: p.textSoft)),
+                            // 2026-10-27 (М4): товар с упаковкой — подпись «Пачка» или «шт. из «Пачка»»
+                            if (line.packName != null)
+                              Container(
+                                key: Key('packTag_${line.isPiece ? 'piece' : 'whole'}'),
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(color: p.border.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(8)),
+                                child: Text(line.isPiece ? l.pkLinePiece(line.packName!) : line.packName!, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.textSoft)),
+                              ),
                             if (line.hasPromo)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),

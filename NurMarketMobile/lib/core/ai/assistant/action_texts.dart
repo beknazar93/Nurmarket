@@ -679,6 +679,14 @@ const _t = <String, List<String>>{
     'The shift is closed and cannot be reopened. I can open a new one.',
     'Vardiya kapandı, aynısı yeniden açılamaz. Yenisini açabilirim.',
   ],
+  // 2026-10-27 (ревью М-1): удаление голосом заблокировано очередью неотправленных операций
+  'deleteQueued': [
+    'Не удаляю «{name}»: с этим товаром есть неотправленные операции ({n}). Дождитесь отправки и повторите.',
+    '«{name}» өчүрүлгөн жок: бул товар боюнча жиберилбеген операциялар бар ({n}). Жиберилгенин күтүп, кайра айтыңыз.',
+    "«{name}» o'chirilmadi: bu tovar bo'yicha yuborilmagan amallar bor ({n}). Yuborilishini kutib, qayta ayting.",
+    'Not deleting "{name}": it has unsent operations ({n}). Wait until they are sent and try again.',
+    '"{name}" silinmedi: bu ürünle ilgili gönderilmemiş işlemler var ({n}). Gönderilmesini bekleyip tekrar deneyin.',
+  ],
   'why.delete': [
     'Товар удалён. Могу создать заново, но история продаж не вернётся.',
     'Товар өчүрүлдү. Кайра түзө алам, бирок сатуу тарыхы кайтпайт.',

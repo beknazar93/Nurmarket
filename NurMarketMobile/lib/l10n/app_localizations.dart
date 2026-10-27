@@ -1667,7 +1667,7 @@ abstract class AppLocalizations {
   /// No description provided for @advisorOnline.
   ///
   /// In ru, this message translates to:
-  /// **'Данные магазина подключены'**
+  /// **'Отвечает по данным вашего магазина'**
   String get advisorOnline;
 
   /// No description provided for @advisorAsk.
@@ -1715,7 +1715,7 @@ abstract class AppLocalizations {
   /// No description provided for @advisorNoKey.
   ///
   /// In ru, this message translates to:
-  /// **'Добавьте ключ ИИ в программе владельца: Нур Советник → ⚙ → Модели ИИ и ключи'**
+  /// **'Ключа ИИ нет. Добавьте его в «Настройка ИИ» → «Ключи Gemini» на этом телефоне (или в программе владельца: Нур Советник → ⚙ → Модели ИИ и ключи)'**
   String get advisorNoKey;
 
   /// No description provided for @advisorStageData.
@@ -3257,7 +3257,7 @@ abstract class AppLocalizations {
   /// No description provided for @unknownBarcodeHint.
   ///
   /// In ru, this message translates to:
-  /// **'{code} · администратор получит его и заведёт товар'**
+  /// **'{code} · не найден ни в каталоге, ни в справочнике NurCRM. Заведите товар — код никуда не отправляется'**
   String unknownBarcodeHint(String code);
 
   /// No description provided for @postpone.
@@ -6686,6 +6686,90 @@ abstract class AppLocalizations {
   /// **'Ценник'**
   String get vcPriceTag;
 
+  /// No description provided for @wizAddProduct.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавить товар'**
+  String get wizAddProduct;
+
+  /// No description provided for @wizTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавление товара'**
+  String get wizTitle;
+
+  /// No description provided for @wizSlotFront.
+  ///
+  /// In ru, this message translates to:
+  /// **'Спереди'**
+  String get wizSlotFront;
+
+  /// No description provided for @wizSlotBack.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сзади'**
+  String get wizSlotBack;
+
+  /// No description provided for @wizSlotSide.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сбоку'**
+  String get wizSlotSide;
+
+  /// No description provided for @wizSlotCode.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкод'**
+  String get wizSlotCode;
+
+  /// No description provided for @wizShootSide.
+  ///
+  /// In ru, this message translates to:
+  /// **'Снять: {side}'**
+  String wizShootSide(String side);
+
+  /// No description provided for @wizCreate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Создать товар'**
+  String get wizCreate;
+
+  /// No description provided for @wizDraft.
+  ///
+  /// In ru, this message translates to:
+  /// **'«{name}» · {price} сом'**
+  String wizDraft(String name, String price);
+
+  /// No description provided for @wizHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Скажите «готово» или нажмите «Снять»'**
+  String get wizHint;
+
+  /// No description provided for @wizDuplicate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Уже есть: «{name}»'**
+  String wizDuplicate(String name);
+
+  /// No description provided for @wizPhotoAlt.
+  ///
+  /// In ru, this message translates to:
+  /// **'Снимок: {side}'**
+  String wizPhotoAlt(String side);
+
+  /// No description provided for @wizEnterCode.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ввести штрихкод'**
+  String get wizEnterCode;
+
+  /// No description provided for @wizEnterCodeHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отсканируйте сканером или введите цифры'**
+  String get wizEnterCodeHint;
+
   /// No description provided for @vcCardProduct.
   ///
   /// In ru, this message translates to:
@@ -7013,7 +7097,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiAccNotSet.
   ///
   /// In ru, this message translates to:
-  /// **'Не задано — ИИ доступен всем'**
+  /// **'Не задано — ИИ у всех сотрудников (владельцу и администратору — всегда)'**
   String get aiAccNotSet;
 
   /// No description provided for @assistantTitle.
@@ -8107,6 +8191,1788 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Сохранено на телефоне, но в облако не ушло — касса и программа владельца пока не увидят. Повторите позже.'**
   String get aiKeysSavedPhoneOnly;
+
+  /// No description provided for @klTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Связь с кассой'**
+  String get klTitle;
+
+  /// No description provided for @klProfileOff.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не подключена'**
+  String get klProfileOff;
+
+  /// No description provided for @klKassaName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Касса «{name}»'**
+  String klKassaName(String name);
+
+  /// No description provided for @klScanQr.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сканировать QR на кассе'**
+  String get klScanQr;
+
+  /// No description provided for @klScanQrHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'На компьютере с кассой откройте окно «Подключить телефон» и наведите камеру на QR-код. Телефон и касса должны быть в одной Wi-Fi сети, касса — запущена.'**
+  String get klScanQrHint;
+
+  /// No description provided for @klScanQrTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Наведите камеру на QR-код на экране кассы'**
+  String get klScanQrTitle;
+
+  /// No description provided for @klNotKassaQr.
+  ///
+  /// In ru, this message translates to:
+  /// **'Это не QR-код кассы NurMarket'**
+  String get klNotKassaQr;
+
+  /// No description provided for @klBadQr.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось прочитать QR-код. Откройте на кассе окно «Подключить телефон» и сканируйте заново.'**
+  String get klBadQr;
+
+  /// No description provided for @klQrVersion.
+  ///
+  /// In ru, this message translates to:
+  /// **'Эта касса новее приложения. Обновите NurMarket на телефоне.'**
+  String get klQrVersion;
+
+  /// No description provided for @klManual.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ввести ссылку вручную'**
+  String get klManual;
+
+  /// No description provided for @klManualHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Вставьте текст QR-кода (nurmarket-link:…)'**
+  String get klManualHint;
+
+  /// No description provided for @klConnect.
+  ///
+  /// In ru, this message translates to:
+  /// **'Подключить'**
+  String get klConnect;
+
+  /// No description provided for @klConnected.
+  ///
+  /// In ru, this message translates to:
+  /// **'Касса «{name}» подключена'**
+  String klConnected(String name);
+
+  /// No description provided for @klConnectedPlain.
+  ///
+  /// In ru, this message translates to:
+  /// **'Касса подключена'**
+  String get klConnectedPlain;
+
+  /// No description provided for @klStUnpaired.
+  ///
+  /// In ru, this message translates to:
+  /// **'Касса не подключена'**
+  String get klStUnpaired;
+
+  /// No description provided for @klStUnknown.
+  ///
+  /// In ru, this message translates to:
+  /// **'Связь не проверена'**
+  String get klStUnknown;
+
+  /// No description provided for @klStOnline.
+  ///
+  /// In ru, this message translates to:
+  /// **'На связи'**
+  String get klStOnline;
+
+  /// No description provided for @klStNotFound.
+  ///
+  /// In ru, this message translates to:
+  /// **'Касса не найдена в этой сети'**
+  String get klStNotFound;
+
+  /// No description provided for @klStRevoked.
+  ///
+  /// In ru, this message translates to:
+  /// **'Телефон отключён на кассе'**
+  String get klStRevoked;
+
+  /// No description provided for @klStBadTime.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверьте время на телефоне'**
+  String get klStBadTime;
+
+  /// No description provided for @klStDisabled.
+  ///
+  /// In ru, this message translates to:
+  /// **'Приём с телефонов выключен на кассе'**
+  String get klStDisabled;
+
+  /// No description provided for @klStRePair.
+  ///
+  /// In ru, this message translates to:
+  /// **'Связь устарела — сканируйте QR на кассе заново'**
+  String get klStRePair;
+
+  /// No description provided for @klChecking.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверка связи…'**
+  String get klChecking;
+
+  /// No description provided for @klShiftOpen.
+  ///
+  /// In ru, this message translates to:
+  /// **'Смена на кассе: открыта'**
+  String get klShiftOpen;
+
+  /// No description provided for @klShiftClosed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Смена на кассе: закрыта'**
+  String get klShiftClosed;
+
+  /// No description provided for @klCheckNow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверить связь'**
+  String get klCheckNow;
+
+  /// No description provided for @klDisconnect.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отключить'**
+  String get klDisconnect;
+
+  /// No description provided for @klDisconnectAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отключить телефон от кассы «{name}»? Подключить снова можно по QR-коду. На самой кассе телефон останется в списке — удалите его и там.'**
+  String klDisconnectAsk(String name);
+
+  /// No description provided for @klDisconnected.
+  ///
+  /// In ru, this message translates to:
+  /// **'Телефон отключён от кассы'**
+  String get klDisconnected;
+
+  /// No description provided for @klScannerMode.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сканер для кассы'**
+  String get klScannerMode;
+
+  /// No description provided for @klScannerHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Наведите на штрихкод — товар сразу попадёт в чек на кассе'**
+  String get klScannerHint;
+
+  /// No description provided for @klSetupAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Связь с кассой не настроена'**
+  String get klSetupAsk;
+
+  /// No description provided for @klSetup.
+  ///
+  /// In ru, this message translates to:
+  /// **'Настроить'**
+  String get klSetup;
+
+  /// No description provided for @klScSending.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отправка…'**
+  String get klScSending;
+
+  /// No description provided for @klScAdded.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавлен'**
+  String get klScAdded;
+
+  /// No description provided for @klScNotFound.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не найден'**
+  String get klScNotFound;
+
+  /// No description provided for @klScTillInactive.
+  ///
+  /// In ru, this message translates to:
+  /// **'Окно кассы не открыто'**
+  String get klScTillInactive;
+
+  /// No description provided for @klScQueued.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи — в очереди'**
+  String get klScQueued;
+
+  /// No description provided for @klScQueueFull.
+  ///
+  /// In ru, this message translates to:
+  /// **'Очередь заполнена — код не принят'**
+  String get klScQueueFull;
+
+  /// No description provided for @klScExpired.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не отправлен: касса не ответила'**
+  String get klScExpired;
+
+  /// No description provided for @klScFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Касса не приняла код'**
+  String get klScFailed;
+
+  /// No description provided for @klLastCode.
+  ///
+  /// In ru, this message translates to:
+  /// **'Последний код'**
+  String get klLastCode;
+
+  /// No description provided for @klCounter.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавлено в чек: {n}'**
+  String klCounter(int n);
+
+  /// No description provided for @klQueueLeft.
+  ///
+  /// In ru, this message translates to:
+  /// **'В очереди: {n}'**
+  String klQueueLeft(int n);
+
+  /// No description provided for @globalSource.
+  ///
+  /// In ru, this message translates to:
+  /// **'из справочника NurCRM'**
+  String get globalSource;
+
+  /// No description provided for @globalFoundAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'В справочнике NurCRM есть: {name}'**
+  String globalFoundAsk(String name);
+
+  /// No description provided for @globalCatalogTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Справочник товаров'**
+  String get globalCatalogTitle;
+
+  /// No description provided for @globalCatalogStatus.
+  ///
+  /// In ru, this message translates to:
+  /// **'Справочник: {count} товаров, обновлён {date}, добавлено: {added}'**
+  String globalCatalogStatus(String count, String date, String added);
+
+  /// No description provided for @globalCatalogOff.
+  ///
+  /// In ru, this message translates to:
+  /// **'Справочник недоступен'**
+  String get globalCatalogOff;
+
+  /// No description provided for @globalBulkFilled.
+  ///
+  /// In ru, this message translates to:
+  /// **'Названий подставлено из справочника NurCRM: {n}'**
+  String globalBulkFilled(int n);
+
+  /// No description provided for @advisorQuota.
+  ///
+  /// In ru, this message translates to:
+  /// **'Лимит ИИ исчерпан до {time} (общий с кассой и ботом). Можно добавить второй ключ из другого аккаунта Google.'**
+  String advisorQuota(String time);
+
+  /// No description provided for @advisorQuotaLater.
+  ///
+  /// In ru, this message translates to:
+  /// **'Лимит ИИ исчерпан (общий с кассой и ботом). Попробуйте позже или добавьте второй ключ из другого аккаунта Google.'**
+  String get advisorQuotaLater;
+
+  /// No description provided for @advisorKeyRejected.
+  ///
+  /// In ru, this message translates to:
+  /// **'Google отклонил ключ, повтор после {time}. Проверьте ключ в «Настройка ИИ» → «Ключи Gemini».'**
+  String advisorKeyRejected(String time);
+
+  /// No description provided for @advisorTimeout.
+  ///
+  /// In ru, this message translates to:
+  /// **'ИИ долго не отвечает. Проверьте интернет и нажмите «Повторить».'**
+  String get advisorTimeout;
+
+  /// No description provided for @gkLastError.
+  ///
+  /// In ru, this message translates to:
+  /// **'Последняя ошибка: {text}'**
+  String gkLastError(String text);
+
+  /// No description provided for @aiAccOwnerNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Вас нет в списке, но владельцу и администратору ИИ доступен всегда.'**
+  String get aiAccOwnerNote;
+
+  /// No description provided for @pePriceCheckTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверьте цену'**
+  String get pePriceCheckTitle;
+
+  /// No description provided for @pePriceUpAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цена {now} вместо {was} — сохранить?\nЭто в {times} раз больше прежней.'**
+  String pePriceUpAsk(String now, String was, String times);
+
+  /// No description provided for @pePriceDownAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цена {now} вместо {was} — сохранить?\nЭто в {times} раз меньше прежней.'**
+  String pePriceDownAsk(String now, String was, String times);
+
+  /// No description provided for @peBelowCostAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цена {now} ниже закупки {cost} — продажа в убыток. Сохранить?'**
+  String peBelowCostAsk(String now, String cost);
+
+  /// No description provided for @peMarkupAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цена {now} при закупке {cost}: наценка {pct} %. Нет ли ошибки в цифрах? Сохранить?'**
+  String peMarkupAsk(String now, String cost, String pct);
+
+  /// No description provided for @peFixPrice.
+  ///
+  /// In ru, this message translates to:
+  /// **'Исправить'**
+  String get peFixPrice;
+
+  /// No description provided for @peSaveAsIs.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сохранить как есть'**
+  String get peSaveAsIs;
+
+  /// No description provided for @klSearching.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ищу кассу в сети Wi-Fi…'**
+  String get klSearching;
+
+  /// No description provided for @klHelpNotFound.
+  ///
+  /// In ru, this message translates to:
+  /// **'Касса не отвечает. Проверьте: 1) касса запущена; 2) в настройках кассы включено «Принимать сканы с телефонов» (по умолчанию оно выключено); 3) телефон в той же Wi-Fi сети, что и компьютер с кассой, а не на мобильном интернете.'**
+  String get klHelpNotFound;
+
+  /// No description provided for @klHelpDisabled.
+  ///
+  /// In ru, this message translates to:
+  /// **'На кассе выключен приём с телефонов. Включите «Принимать сканы с телефонов» в настройках кассы и нажмите «Проверить связь».'**
+  String get klHelpDisabled;
+
+  /// No description provided for @klHelpRePair.
+  ///
+  /// In ru, this message translates to:
+  /// **'Касса не узнаёт этот телефон (его отключили или QR устарел). Нажмите «Сканировать QR заново» и наведите камеру на QR в окне «Подключить телефон» на кассе.'**
+  String get klHelpRePair;
+
+  /// No description provided for @klHelpBadTime.
+  ///
+  /// In ru, this message translates to:
+  /// **'Время на телефоне и на кассе расходится больше чем на 10 минут. Включите автоматическую дату и время на телефоне (и проверьте время на кассе), затем нажмите «Проверить связь».'**
+  String get klHelpBadTime;
+
+  /// No description provided for @klRescanQr.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сканировать QR заново'**
+  String get klRescanQr;
+
+  /// No description provided for @klScRefused.
+  ///
+  /// In ru, this message translates to:
+  /// **'Код не отправлен — сначала восстановите связь с кассой'**
+  String get klScRefused;
+
+  /// No description provided for @aiAccDraftNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Список ещё не сохранён: сейчас ИИ доступен всем сотрудникам. Отметьте до 2 человек и нажмите «Сохранить» — у остальных ИИ выключится. Владельцу и администратору ИИ доступен всегда.'**
+  String get aiAccDraftNote;
+
+  /// No description provided for @aiAccAlways.
+  ///
+  /// In ru, this message translates to:
+  /// **'Владельцу и администратору ИИ доступен всегда, независимо от списка.'**
+  String get aiAccAlways;
+
+  /// No description provided for @invTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Загрузить накладную'**
+  String get invTitle;
+
+  /// No description provided for @invSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Excel, CSV или XML от поставщика'**
+  String get invSub;
+
+  /// No description provided for @invHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выберите файл накладной от поставщика: Excel (.xlsx), CSV или XML (электронная накладная, счёт-фактура). Строки попадут в приход — вы проверите количество и цены и проведёте его как обычно.'**
+  String get invHint;
+
+  /// No description provided for @invPick.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбрать файл накладной'**
+  String get invPick;
+
+  /// No description provided for @invPhotoHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'PDF и фото накладной читает «Умная камера» (нужен ключ ИИ)'**
+  String get invPhotoHint;
+
+  /// No description provided for @invPhotoBtn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Накладная по фото'**
+  String get invPhotoBtn;
+
+  /// No description provided for @invReading.
+  ///
+  /// In ru, this message translates to:
+  /// **'Читаем накладную…'**
+  String get invReading;
+
+  /// No description provided for @invFileName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Файл: {name}'**
+  String invFileName(String name);
+
+  /// No description provided for @invOtherFile.
+  ///
+  /// In ru, this message translates to:
+  /// **'Другой файл'**
+  String get invOtherFile;
+
+  /// No description provided for @invDocLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Накладная № {num} от {date}'**
+  String invDocLine(String num, String date);
+
+  /// No description provided for @invDocNum.
+  ///
+  /// In ru, this message translates to:
+  /// **'Накладная № {num}'**
+  String invDocNum(String num);
+
+  /// No description provided for @invDocDate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Накладная от {date}'**
+  String invDocDate(String date);
+
+  /// No description provided for @invDocNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Номер и дата в файле не найдены'**
+  String get invDocNone;
+
+  /// No description provided for @invSupplierFile.
+  ///
+  /// In ru, this message translates to:
+  /// **'В файле: {name}'**
+  String invSupplierFile(String name);
+
+  /// No description provided for @invSupplierFileInn.
+  ///
+  /// In ru, this message translates to:
+  /// **'В файле: {name}, ИНН {inn}'**
+  String invSupplierFileInn(String name, String inn);
+
+  /// No description provided for @invSupplierInnOnly.
+  ///
+  /// In ru, this message translates to:
+  /// **'В файле ИНН: {inn}'**
+  String invSupplierInnOnly(String inn);
+
+  /// No description provided for @invSupplierNoneInFile.
+  ///
+  /// In ru, this message translates to:
+  /// **'В файле поставщик не указан'**
+  String get invSupplierNoneInFile;
+
+  /// No description provided for @invSupByInn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Найден по ИНН'**
+  String get invSupByInn;
+
+  /// No description provided for @invSupByName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Найден по названию'**
+  String get invSupByName;
+
+  /// No description provided for @invSupNotFound.
+  ///
+  /// In ru, this message translates to:
+  /// **'Такого поставщика нет — выберите из списка или создайте'**
+  String get invSupNotFound;
+
+  /// No description provided for @invSupCreate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Создать поставщика'**
+  String get invSupCreate;
+
+  /// No description provided for @invSupCreated.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поставщик «{name}» создан'**
+  String invSupCreated(String name);
+
+  /// No description provided for @invSupFail.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось создать поставщика: {text}'**
+  String invSupFail(String text);
+
+  /// No description provided for @invSupOffline.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи: список поставщиков не загружен'**
+  String get invSupOffline;
+
+  /// No description provided for @invSupKept.
+  ///
+  /// In ru, this message translates to:
+  /// **'Приход остался на прежнем поставщике'**
+  String get invSupKept;
+
+  /// No description provided for @invDupPosted.
+  ///
+  /// In ru, this message translates to:
+  /// **'Эта накладная уже загружалась и проведена'**
+  String get invDupPosted;
+
+  /// No description provided for @invDupPending.
+  ///
+  /// In ru, this message translates to:
+  /// **'Эта накладная уже добавлена в приход, который ещё не проведён'**
+  String get invDupPending;
+
+  /// No description provided for @invDupAnyway.
+  ///
+  /// In ru, this message translates to:
+  /// **'Всё равно добавить'**
+  String get invDupAnyway;
+
+  /// No description provided for @invTotalLines.
+  ///
+  /// In ru, this message translates to:
+  /// **'По строкам: {sum}'**
+  String invTotalLines(String sum);
+
+  /// No description provided for @invTotalFile.
+  ///
+  /// In ru, this message translates to:
+  /// **'В файле: {sum}'**
+  String invTotalFile(String sum);
+
+  /// No description provided for @invTotalOk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Итоги сходятся'**
+  String get invTotalOk;
+
+  /// No description provided for @invTotalBad.
+  ///
+  /// In ru, this message translates to:
+  /// **'Итоги не сходятся: разница {diff}. Проверьте количество и цены.'**
+  String invTotalBad(String diff);
+
+  /// No description provided for @invTotalNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Итог в файле не найден'**
+  String get invTotalNone;
+
+  /// No description provided for @invTotalVatHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'С НДС итоги сходятся — включите «Закупка с НДС»'**
+  String get invTotalVatHint;
+
+  /// No description provided for @invVat.
+  ///
+  /// In ru, this message translates to:
+  /// **'Закупка с НДС'**
+  String get invVat;
+
+  /// No description provided for @invVatSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'По умолчанию закупка берётся без НДС'**
+  String get invVatSub;
+
+  /// No description provided for @invCurrency.
+  ///
+  /// In ru, this message translates to:
+  /// **'Валюта накладной: {cur}. Вы работаете в сомах — проверьте цены: программа их не пересчитывает.'**
+  String invCurrency(String cur);
+
+  /// No description provided for @invGenCodes.
+  ///
+  /// In ru, this message translates to:
+  /// **'Новым товарам без штрихкода дать свой код'**
+  String get invGenCodes;
+
+  /// No description provided for @invGenCodesSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Иначе они будут без штрихкода'**
+  String get invGenCodesSub;
+
+  /// No description provided for @invSummary.
+  ///
+  /// In ru, this message translates to:
+  /// **'Строк: {n} · на складе: {stock} · новых: {fresh} · не распознано: {bad}'**
+  String invSummary(int n, String stock, String fresh, String bad);
+
+  /// No description provided for @invStBarcode.
+  ///
+  /// In ru, this message translates to:
+  /// **'На складе · по штрихкоду'**
+  String get invStBarcode;
+
+  /// No description provided for @invStArticle.
+  ///
+  /// In ru, this message translates to:
+  /// **'На складе · по артикулу'**
+  String get invStArticle;
+
+  /// No description provided for @invStName.
+  ///
+  /// In ru, this message translates to:
+  /// **'На складе · по названию'**
+  String get invStName;
+
+  /// No description provided for @invStFuzzy.
+  ///
+  /// In ru, this message translates to:
+  /// **'Похоже на: {name}'**
+  String invStFuzzy(String name);
+
+  /// No description provided for @invStCatalog.
+  ///
+  /// In ru, this message translates to:
+  /// **'Новый · есть в справочнике NurCRM'**
+  String get invStCatalog;
+
+  /// No description provided for @invStManual.
+  ///
+  /// In ru, this message translates to:
+  /// **'Новый · заполните вручную'**
+  String get invStManual;
+
+  /// No description provided for @invStBad.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не распознана'**
+  String get invStBad;
+
+  /// No description provided for @invBadNoName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет названия, штрихкода и артикула'**
+  String get invBadNoName;
+
+  /// No description provided for @invBadNoQty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет количества'**
+  String get invBadNoQty;
+
+  /// No description provided for @invUseCandidate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Это «{name}»'**
+  String invUseCandidate(String name);
+
+  /// No description provided for @invAsNew.
+  ///
+  /// In ru, this message translates to:
+  /// **'Новый товар'**
+  String get invAsNew;
+
+  /// No description provided for @invSrcRow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Строка файла: {n}'**
+  String invSrcRow(int n);
+
+  /// No description provided for @invArticle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Артикул: {code}'**
+  String invArticle(String code);
+
+  /// No description provided for @invCostMissing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Укажите закупку'**
+  String get invCostMissing;
+
+  /// No description provided for @invPriceMissing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Укажите цену продажи'**
+  String get invPriceMissing;
+
+  /// No description provided for @invRemoveRow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Убрать строку'**
+  String get invRemoveRow;
+
+  /// No description provided for @invAdd.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавить в приход · {n}'**
+  String invAdd(int n);
+
+  /// No description provided for @invAddFix.
+  ///
+  /// In ru, this message translates to:
+  /// **'Исправьте отмеченные строки'**
+  String get invAddFix;
+
+  /// No description provided for @invAdding.
+  ///
+  /// In ru, this message translates to:
+  /// **'Готовим строки…'**
+  String get invAdding;
+
+  /// No description provided for @invMerged.
+  ///
+  /// In ru, this message translates to:
+  /// **'Повторы товара в накладной объединены: {n}'**
+  String invMerged(int n);
+
+  /// No description provided for @invErrTooBig.
+  ///
+  /// In ru, this message translates to:
+  /// **'Файл больше 10 МБ — такую накладную не открыть'**
+  String get invErrTooBig;
+
+  /// No description provided for @invErrEmpty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Файл пустой'**
+  String get invErrEmpty;
+
+  /// No description provided for @invErrPdf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Это PDF или фото. Их читает «Умная камера» (кнопка ниже)'**
+  String get invErrPdf;
+
+  /// No description provided for @invErrXls.
+  ///
+  /// In ru, this message translates to:
+  /// **'Старый формат Excel (.xls) не читается — сохраните файл как .xlsx или .csv'**
+  String get invErrXls;
+
+  /// No description provided for @invErrBroken.
+  ///
+  /// In ru, this message translates to:
+  /// **'Файл повреждён или это не накладная'**
+  String get invErrBroken;
+
+  /// No description provided for @invErrNoTable.
+  ///
+  /// In ru, this message translates to:
+  /// **'В файле не нашли таблицу товаров: нужны столбцы «Наименование», «Количество» и «Цена»'**
+  String get invErrNoTable;
+
+  /// No description provided for @invErrUnsafe.
+  ///
+  /// In ru, this message translates to:
+  /// **'XML содержит DTD или внешние сущности — такой файл не открывается из соображений безопасности'**
+  String get invErrUnsafe;
+
+  /// No description provided for @invErrTooMany.
+  ///
+  /// In ru, this message translates to:
+  /// **'Слишком много строк (больше 5000)'**
+  String get invErrTooMany;
+
+  /// No description provided for @invErrFormat.
+  ///
+  /// In ru, this message translates to:
+  /// **'Неподдерживаемый файл: нужен .xlsx, .csv или .xml'**
+  String get invErrFormat;
+
+  /// No description provided for @tsTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Режим тестировщика'**
+  String get tsTitle;
+
+  /// No description provided for @tsBuildLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Версия {version} (сборка {build})'**
+  String tsBuildLine(String version, String build);
+
+  /// No description provided for @tsTestBuild.
+  ///
+  /// In ru, this message translates to:
+  /// **'тестовая сборка'**
+  String get tsTestBuild;
+
+  /// No description provided for @tsDevice.
+  ///
+  /// In ru, this message translates to:
+  /// **'Устройство'**
+  String get tsDevice;
+
+  /// No description provided for @tsDeviceId.
+  ///
+  /// In ru, this message translates to:
+  /// **'ID устройства: {id}'**
+  String tsDeviceId(String id);
+
+  /// No description provided for @tsDeviceNameTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Название устройства'**
+  String get tsDeviceNameTitle;
+
+  /// No description provided for @tsDeviceNameHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Например: телефон кассира'**
+  String get tsDeviceNameHint;
+
+  /// No description provided for @tsRename.
+  ///
+  /// In ru, this message translates to:
+  /// **'Назвать устройство'**
+  String get tsRename;
+
+  /// No description provided for @tsScreenLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Экран {w}×{h} dp, шрифт ×{scale}, язык {lang}'**
+  String tsScreenLine(String w, String h, String scale, String lang);
+
+  /// No description provided for @tsSummary.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверено {done} из {total}, проблем: {issues}'**
+  String tsSummary(String done, String total, String issues);
+
+  /// No description provided for @tsVersionFilter.
+  ///
+  /// In ru, this message translates to:
+  /// **'Версия'**
+  String get tsVersionFilter;
+
+  /// No description provided for @tsVersionCurrent.
+  ///
+  /// In ru, this message translates to:
+  /// **'{v} (текущая)'**
+  String tsVersionCurrent(String v);
+
+  /// No description provided for @tsAreaProgress.
+  ///
+  /// In ru, this message translates to:
+  /// **'{done} из {total}'**
+  String tsAreaProgress(String done, String total);
+
+  /// No description provided for @tsChanged.
+  ///
+  /// In ru, this message translates to:
+  /// **'Что изменилось'**
+  String get tsChanged;
+
+  /// No description provided for @tsHowTo.
+  ///
+  /// In ru, this message translates to:
+  /// **'Как проверить'**
+  String get tsHowTo;
+
+  /// No description provided for @tsSevMoney.
+  ///
+  /// In ru, this message translates to:
+  /// **'Деньги'**
+  String get tsSevMoney;
+
+  /// No description provided for @tsSevImportant.
+  ///
+  /// In ru, this message translates to:
+  /// **'Важное'**
+  String get tsSevImportant;
+
+  /// No description provided for @tsSevNormal.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обычное'**
+  String get tsSevNormal;
+
+  /// No description provided for @tsMarkOk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверено'**
+  String get tsMarkOk;
+
+  /// No description provided for @tsMarkIssue.
+  ///
+  /// In ru, this message translates to:
+  /// **'Есть проблема'**
+  String get tsMarkIssue;
+
+  /// No description provided for @tsNotChecked.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не проверено'**
+  String get tsNotChecked;
+
+  /// No description provided for @tsCheckedAt.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверено {when}'**
+  String tsCheckedAt(String when);
+
+  /// No description provided for @tsIssueAt.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проблема {when}'**
+  String tsIssueAt(String when);
+
+  /// No description provided for @tsNoComment.
+  ///
+  /// In ru, this message translates to:
+  /// **'Без комментария'**
+  String get tsNoComment;
+
+  /// No description provided for @tsUndoHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нажмите ещё раз, чтобы снять отметку'**
+  String get tsUndoHint;
+
+  /// No description provided for @tsCountNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Пока не проверено ни на одном устройстве'**
+  String get tsCountNone;
+
+  /// No description provided for @tsCountLocalOk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверено: 1 устройство (это)'**
+  String get tsCountLocalOk;
+
+  /// No description provided for @tsCountLocalIssue.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проблема: 1 устройство (это)'**
+  String get tsCountLocalIssue;
+
+  /// No description provided for @tsCountShared.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверено на устройствах: {ok} · проблема на устройствах: {issue}'**
+  String tsCountShared(String ok, String issue);
+
+  /// No description provided for @tsSyncOff.
+  ///
+  /// In ru, this message translates to:
+  /// **'Общий счётчик недоступен (нужны права или сервер)'**
+  String get tsSyncOff;
+
+  /// No description provided for @tsRefresh.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обновить счётчики'**
+  String get tsRefresh;
+
+  /// No description provided for @tsCopyReport.
+  ///
+  /// In ru, this message translates to:
+  /// **'Скопировать отчёт'**
+  String get tsCopyReport;
+
+  /// No description provided for @tsShareReport.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отправить отчёт'**
+  String get tsShareReport;
+
+  /// No description provided for @tsCopied.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отчёт скопирован — вставьте его в сообщение'**
+  String get tsCopied;
+
+  /// No description provided for @tsIssueTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Что не так?'**
+  String get tsIssueTitle;
+
+  /// No description provided for @tsIssueHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Опишите проблему'**
+  String get tsIssueHint;
+
+  /// No description provided for @tsAttachShot.
+  ///
+  /// In ru, this message translates to:
+  /// **'Прикрепить скриншот'**
+  String get tsAttachShot;
+
+  /// No description provided for @tsShotAttached.
+  ///
+  /// In ru, this message translates to:
+  /// **'Скриншот прикреплён'**
+  String get tsShotAttached;
+
+  /// No description provided for @tsShotRemove.
+  ///
+  /// In ru, this message translates to:
+  /// **'Убрать скриншот'**
+  String get tsShotRemove;
+
+  /// No description provided for @tsEditComment.
+  ///
+  /// In ru, this message translates to:
+  /// **'Изменить комментарий'**
+  String get tsEditComment;
+
+  /// No description provided for @tsEmpty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Для этой версии нет пунктов'**
+  String get tsEmpty;
+
+  /// No description provided for @tsCodeTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Код тестировщика'**
+  String get tsCodeTitle;
+
+  /// No description provided for @tsCodeHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Введите код'**
+  String get tsCodeHint;
+
+  /// No description provided for @tsCodeOn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Режим тестировщика включён: нажмите на логотип 5 раз'**
+  String get tsCodeOn;
+
+  /// No description provided for @tsCodeBad.
+  ///
+  /// In ru, this message translates to:
+  /// **'Код не подходит'**
+  String get tsCodeBad;
+
+  /// No description provided for @tsTapMore.
+  ///
+  /// In ru, this message translates to:
+  /// **'Режим тестировщика: осталось нажатий — {n}'**
+  String tsTapMore(int n);
+
+  /// No description provided for @pdNoRights.
+  ///
+  /// In ru, this message translates to:
+  /// **'Удалять товары может сотрудник с правом «Склад» или администратор.'**
+  String get pdNoRights;
+
+  /// No description provided for @pdGone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Товара уже нет на сервере — убрал его и с телефона.'**
+  String get pdGone;
+
+  /// No description provided for @pdRefused.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сервер не разрешил удалить товар: {msg}. Если он уже в продажах или документах, спишите остаток вместо удаления.'**
+  String pdRefused(String msg);
+
+  /// No description provided for @pdOffline.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи с сервером — товар НЕ удалён. Повторите, когда сеть появится.'**
+  String get pdOffline;
+
+  /// No description provided for @pdFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Товар не удалён: {msg}'**
+  String pdFailed(String msg);
+
+  /// No description provided for @pdQueueBlock.
+  ///
+  /// In ru, this message translates to:
+  /// **'С этим товаром есть неотправленные операции: {n}. Дождитесь отправки и повторите.'**
+  String pdQueueBlock(int n);
+
+  /// No description provided for @pdAuditFail.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалён'**
+  String get pdAuditFail;
+
+  /// No description provided for @pdAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Удалить «{name}»? Товар исчезнет из каталога NurCRM, с кассы и из мобилки. Отменить это нельзя.'**
+  String pdAsk(String name);
+
+  /// No description provided for @pdStockWarn.
+  ///
+  /// In ru, this message translates to:
+  /// **'На складе {qty} {unit}. Остаток пропадёт вместе с товаром. Если товар не нужен, лучше сначала списать остаток.'**
+  String pdStockWarn(String qty, String unit);
+
+  /// No description provided for @pdTypeName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Для подтверждения введите название товара:'**
+  String get pdTypeName;
+
+  /// No description provided for @pdTypeHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Регистр не важен'**
+  String get pdTypeHint;
+
+  /// No description provided for @ctTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Умная камера'**
+  String get ctTitle;
+
+  /// No description provided for @ctAngleFront.
+  ///
+  /// In ru, this message translates to:
+  /// **'спереди'**
+  String get ctAngleFront;
+
+  /// No description provided for @ctAngleBack.
+  ///
+  /// In ru, this message translates to:
+  /// **'сзади'**
+  String get ctAngleBack;
+
+  /// No description provided for @ctAngleSide.
+  ///
+  /// In ru, this message translates to:
+  /// **'сбоку'**
+  String get ctAngleSide;
+
+  /// No description provided for @ctCount.
+  ///
+  /// In ru, this message translates to:
+  /// **'Эталонов: {n} из {a}'**
+  String ctCount(int n, int a);
+
+  /// No description provided for @ctNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не обучена: по фото товар пока не узнаётся точно'**
+  String get ctNone;
+
+  /// No description provided for @ctTrained.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обучена: при продаже товар узнаётся по этим снимкам'**
+  String get ctTrained;
+
+  /// No description provided for @ctTrain.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обучить камеру'**
+  String get ctTrain;
+
+  /// No description provided for @ctReset.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сбросить эталоны'**
+  String get ctReset;
+
+  /// No description provided for @ctResetAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Убрать все эталонные снимки этого товара с телефона? Фото в NurCRM останутся.'**
+  String get ctResetAsk;
+
+  /// No description provided for @ctSaved.
+  ///
+  /// In ru, this message translates to:
+  /// **'Эталон сохранён'**
+  String get ctSaved;
+
+  /// No description provided for @ctRemoved.
+  ///
+  /// In ru, this message translates to:
+  /// **'Эталон убран'**
+  String get ctRemoved;
+
+  /// No description provided for @ctShotHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Товар целиком в рамке, {angle}'**
+  String ctShotHint(String angle);
+
+  /// No description provided for @ctBarcodeNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкода нет — отсканируйте его'**
+  String get ctBarcodeNone;
+
+  /// No description provided for @ctBarcodeOk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкод: {code}'**
+  String ctBarcodeOk(String code);
+
+  /// No description provided for @ctNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Снимки хранятся на этом телефоне. «Обучить камеру» — полный курс до 5 снимков и штрихкод; он ещё добавляет фото товара в NurCRM.'**
+  String get ctNote;
+
+  /// No description provided for @ctSlot.
+  ///
+  /// In ru, this message translates to:
+  /// **'Фото {n}'**
+  String ctSlot(int n);
+
+  /// No description provided for @ctSlotAdd.
+  ///
+  /// In ru, this message translates to:
+  /// **'Фото {n}: снять {angle}'**
+  String ctSlotAdd(int n, String angle);
+
+  /// No description provided for @ctSlotRetake.
+  ///
+  /// In ru, this message translates to:
+  /// **'Фото {n}: переснять'**
+  String ctSlotRetake(int n);
+
+  /// No description provided for @ctRemove.
+  ///
+  /// In ru, this message translates to:
+  /// **'Убрать'**
+  String get ctRemove;
+
+  /// No description provided for @camPickTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Похоже на — выберите, если это он'**
+  String get camPickTitle;
+
+  /// No description provided for @camFromGallery.
+  ///
+  /// In ru, this message translates to:
+  /// **'Из галереи'**
+  String get camFromGallery;
+
+  /// No description provided for @camFromFile.
+  ///
+  /// In ru, this message translates to:
+  /// **'Из файла'**
+  String get camFromFile;
+
+  /// No description provided for @camInvoiceSrcHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Накладную можно сфотографировать, выбрать из галереи или из файла: фото, PDF, Excel, CSV, XML.'**
+  String get camInvoiceSrcHint;
+
+  /// No description provided for @camPageOf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Фото {n} из {a}'**
+  String camPageOf(int n, int a);
+
+  /// No description provided for @camFileNoProcure.
+  ///
+  /// In ru, this message translates to:
+  /// **'Загрузка файла накладной — с правом «Закупки». Сфотографируйте накладную — строки появятся здесь.'**
+  String get camFileNoProcure;
+
+  /// No description provided for @camFileTooBig.
+  ///
+  /// In ru, this message translates to:
+  /// **'Файл больше 8 МБ — выберите меньше или сфотографируйте накладную.'**
+  String get camFileTooBig;
+
+  /// No description provided for @camFileBadType.
+  ///
+  /// In ru, this message translates to:
+  /// **'Такой файл не подходит. Нужны Excel (xlsx), CSV, XML, TXT, PDF или фото.'**
+  String get camFileBadType;
+
+  /// No description provided for @camFileReadFail.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось прочитать файл.'**
+  String get camFileReadFail;
+
+  /// No description provided for @recvFoundGlobal.
+  ///
+  /// In ru, this message translates to:
+  /// **'Найдено в справочнике NurCRM: «{name}»'**
+  String recvFoundGlobal(String name);
+
+  /// No description provided for @recvAddProduct.
+  ///
+  /// In ru, this message translates to:
+  /// **'Завести товар'**
+  String get recvAddProduct;
+
+  /// No description provided for @recvLooksLike.
+  ///
+  /// In ru, this message translates to:
+  /// **'Похоже на ваш «{name}»'**
+  String recvLooksLike(String name);
+
+  /// No description provided for @recvBindCode.
+  ///
+  /// In ru, this message translates to:
+  /// **'Привязать штрихкод'**
+  String get recvBindCode;
+
+  /// No description provided for @recvTypo.
+  ///
+  /// In ru, this message translates to:
+  /// **'Опечатка в штрихкоде карточки «{name}»: записано {stored}, верный {code}'**
+  String recvTypo(String name, String stored, String code);
+
+  /// No description provided for @recvFixCode.
+  ///
+  /// In ru, this message translates to:
+  /// **'Исправить'**
+  String get recvFixCode;
+
+  /// No description provided for @recvBound.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкод привязан к «{name}»'**
+  String recvBound(String name);
+
+  /// No description provided for @recvFixed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкод исправлен'**
+  String get recvFixed;
+
+  /// No description provided for @recvNoRight.
+  ///
+  /// In ru, this message translates to:
+  /// **'Завести, привязать или исправить может сотрудник с правом «Склад».'**
+  String get recvNoRight;
+
+  /// No description provided for @recvSearching.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ищу {code} на сервере и в справочнике…'**
+  String recvSearching(String code);
+
+  /// No description provided for @pkTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Упаковки / поштучная продажа'**
+  String get pkTitle;
+
+  /// No description provided for @pkSwitch.
+  ///
+  /// In ru, this message translates to:
+  /// **'Продавать поштучно из упаковки'**
+  String get pkSwitch;
+
+  /// No description provided for @pkSwitchHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Например, пачка сигарет или упаковка воды 6 шт: можно продать и упаковкой, и штукой. Остаток ведётся в упаковках.'**
+  String get pkSwitchHint;
+
+  /// No description provided for @pkName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Название упаковки'**
+  String get pkName;
+
+  /// No description provided for @pkNameHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Пачка, блок, коробка'**
+  String get pkNameHint;
+
+  /// No description provided for @pkQty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штук в упаковке'**
+  String get pkQty;
+
+  /// No description provided for @pkPackPrice.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цена упаковки: {price} сом (это цена продажи выше)'**
+  String pkPackPrice(String price);
+
+  /// No description provided for @pkPiecePrice.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цена штуки'**
+  String get pkPiecePrice;
+
+  /// No description provided for @pkAuto.
+  ///
+  /// In ru, this message translates to:
+  /// **'Авто'**
+  String get pkAuto;
+
+  /// No description provided for @pkAutoTip.
+  ///
+  /// In ru, this message translates to:
+  /// **'Посчитать цену штуки заново: цена упаковки ÷ штук'**
+  String get pkAutoTip;
+
+  /// No description provided for @pkMarkup.
+  ///
+  /// In ru, this message translates to:
+  /// **'Наценка штуки: {n} %'**
+  String pkMarkup(int n);
+
+  /// No description provided for @pkBelowCost.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штука дешевле закупки ({cost} сом)'**
+  String pkBelowCost(String cost);
+
+  /// No description provided for @pkQtyBad.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штук в упаковке — целое число, не меньше 2'**
+  String get pkQtyBad;
+
+  /// No description provided for @pkPieceBad.
+  ///
+  /// In ru, this message translates to:
+  /// **'Укажите цену штуки'**
+  String get pkPieceBad;
+
+  /// No description provided for @pkMismatch.
+  ///
+  /// In ru, this message translates to:
+  /// **'{qty} шт × {piece} сом = {sum} сом, а упаковка стоит {pack} сом — расхождение больше 5 %. Сохранить так?'**
+  String pkMismatch(String qty, String piece, String sum, String pack);
+
+  /// No description provided for @pkMismatchTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цены штуки и упаковки расходятся'**
+  String get pkMismatchTitle;
+
+  /// No description provided for @pkWeightBlocked.
+  ///
+  /// In ru, this message translates to:
+  /// **'Весовой товар (кг) нельзя продавать поштучно из упаковки.'**
+  String get pkWeightBlocked;
+
+  /// No description provided for @pkMulti.
+  ///
+  /// In ru, this message translates to:
+  /// **'У товара несколько упаковок — их правят на сайте или кассе.'**
+  String get pkMulti;
+
+  /// No description provided for @pkQuick.
+  ///
+  /// In ru, this message translates to:
+  /// **'Быстро'**
+  String get pkQuick;
+
+  /// No description provided for @pkWordPack.
+  ///
+  /// In ru, this message translates to:
+  /// **'Пачка'**
+  String get pkWordPack;
+
+  /// No description provided for @pkWordPackage.
+  ///
+  /// In ru, this message translates to:
+  /// **'Упаковка'**
+  String get pkWordPackage;
+
+  /// No description provided for @pkWordCrate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ящик'**
+  String get pkWordCrate;
+
+  /// No description provided for @pkWordBlock.
+  ///
+  /// In ru, this message translates to:
+  /// **'Блок'**
+  String get pkWordBlock;
+
+  /// No description provided for @pkWordBox.
+  ///
+  /// In ru, this message translates to:
+  /// **'Коробка'**
+  String get pkWordBox;
+
+  /// No description provided for @pkPcs.
+  ///
+  /// In ru, this message translates to:
+  /// **'шт'**
+  String get pkPcs;
+
+  /// No description provided for @pkChoiceTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Как продать?'**
+  String get pkChoiceTitle;
+
+  /// No description provided for @pkChoicePiece.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штука'**
+  String get pkChoicePiece;
+
+  /// No description provided for @pkChoiceStock.
+  ///
+  /// In ru, this message translates to:
+  /// **'Остаток: {stock}'**
+  String pkChoiceStock(String stock);
+
+  /// No description provided for @pkLinePiece.
+  ///
+  /// In ru, this message translates to:
+  /// **'шт. из «{name}»'**
+  String pkLinePiece(String name);
+
+  /// No description provided for @pkQtyInPacks.
+  ///
+  /// In ru, this message translates to:
+  /// **'Количество вводится в упаковках: 12 — это 12 пачек, штуки продаются из них долями.'**
+  String get pkQtyInPacks;
+
+  /// No description provided for @pkPackShort.
+  ///
+  /// In ru, this message translates to:
+  /// **'уп.'**
+  String get pkPackShort;
+
+  /// No description provided for @pkNoPackId.
+  ///
+  /// In ru, this message translates to:
+  /// **'Упаковка ещё не сохранена на сервере — сначала обновите каталог.'**
+  String get pkNoPackId;
+
+  /// No description provided for @camNotThis.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не тот товар'**
+  String get camNotThis;
+
+  /// No description provided for @camNotThisDone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Запомненное название забыто — выберите товар заново.'**
+  String get camNotThisDone;
+
+  /// No description provided for @camAliasesTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Запомненные названия:'**
+  String get camAliasesTitle;
+
+  /// No description provided for @camAliasForget.
+  ///
+  /// In ru, this message translates to:
+  /// **'Забыть название'**
+  String get camAliasForget;
+
+  /// No description provided for @invDupPostedNow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Эта накладная уже проведена раньше (на этом телефоне или на кассе). Если провести приход ещё раз, остаток и долг поставщику удвоятся.'**
+  String get invDupPostedNow;
+
+  /// No description provided for @invSupOtherDoc.
+  ///
+  /// In ru, this message translates to:
+  /// **'В этом приходе уже есть накладная другого поставщика. Сначала проведите её, потом загрузите эту.'**
+  String get invSupOtherDoc;
+
+  /// No description provided for @invSupConflictTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чей это приход?'**
+  String get invSupConflictTitle;
+
+  /// No description provided for @invSupConflictBody.
+  ///
+  /// In ru, this message translates to:
+  /// **'Накладная: {doc}. В приходе выбран: {keep}. Приход и долг запишутся на одного поставщика — выберите.'**
+  String invSupConflictBody(String doc, String keep);
+
+  /// No description provided for @invSupConflictKeep.
+  ///
+  /// In ru, this message translates to:
+  /// **'Оставить: {name}'**
+  String invSupConflictKeep(String name);
+
+  /// No description provided for @invSupConflictDoc.
+  ///
+  /// In ru, this message translates to:
+  /// **'Из накладной: {name}'**
+  String invSupConflictDoc(String name);
+
+  /// No description provided for @recvCostAvg.
+  ///
+  /// In ru, this message translates to:
+  /// **'Закупка пересчитана как средняя по количеству у позиций: {n}'**
+  String recvCostAvg(int n);
+
+  /// No description provided for @invPackWarn.
+  ///
+  /// In ru, this message translates to:
+  /// **'В накладной «{unit}» — это упаковка, а товар «{name}» считается в «{pu}». Выберите, как принять: иначе упаковки попадут в остаток как штуки по цене упаковки.'**
+  String invPackWarn(String unit, String name, String pu);
+
+  /// No description provided for @invPackSize.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штук в упаковке'**
+  String get invPackSize;
+
+  /// No description provided for @invPackToPieces.
+  ///
+  /// In ru, this message translates to:
+  /// **'Пересчитать в штуки'**
+  String get invPackToPieces;
+
+  /// No description provided for @invPackAsIs.
+  ///
+  /// In ru, this message translates to:
+  /// **'Принять как есть'**
+  String get invPackAsIs;
+
+  /// No description provided for @invPackBad.
+  ///
+  /// In ru, this message translates to:
+  /// **'Укажите, сколько штук в упаковке: целое число от 2.'**
+  String get invPackBad;
+
+  /// No description provided for @invPackDonePieces.
+  ///
+  /// In ru, this message translates to:
+  /// **'1 упак. = {n} шт → {qty} шт по {cost} сом'**
+  String invPackDonePieces(int n, String qty, String cost);
+
+  /// No description provided for @invPackDoneAsIs.
+  ///
+  /// In ru, this message translates to:
+  /// **'Принято как есть: остаток вырастет на {qty} {unit}, закупка {cost} сом за {unit}'**
+  String invPackDoneAsIs(String qty, String unit, String cost);
+
+  /// No description provided for @invPackChange.
+  ///
+  /// In ru, this message translates to:
+  /// **'Изменить'**
+  String get invPackChange;
+
+  /// No description provided for @pieceSaleMode.
+  ///
+  /// In ru, this message translates to:
+  /// **'Продавать поштучно из упаковки'**
+  String get pieceSaleMode;
+
+  /// No description provided for @pieceSaleModeSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выключите, если сервер списывает целые пачки вместо штук. Тогда такой товар продаётся только упаковкой.'**
+  String get pieceSaleModeSub;
+
+  /// No description provided for @pieceSaleTesterWarn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Тест: поштучная продажа из упаковки ещё не подтверждена сервером. После оплаты проверьте остаток товара.'**
+  String get pieceSaleTesterWarn;
+
+  /// No description provided for @pieceStockMismatch.
+  ///
+  /// In ru, this message translates to:
+  /// **'Остаток на сервере после продажи штуки не сошёлся: {list}. Проверьте остаток товара и сообщите администратору.'**
+  String pieceStockMismatch(String list);
+
+  /// No description provided for @klScStale.
+  ///
+  /// In ru, this message translates to:
+  /// **'Код устарел — отсканируйте снова'**
+  String get klScStale;
+
+  /// No description provided for @klScBusy.
+  ///
+  /// In ru, this message translates to:
+  /// **'Идёт оплата — сканируйте после неё'**
+  String get klScBusy;
+
+  /// No description provided for @invCurrencyOk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цены в {cur}, а приход ведётся в сомах. Добавить как есть (1 {cur} = 1 сом) — я проверил суммы'**
+  String invCurrencyOk(String cur);
+
+  /// No description provided for @invGrossOnly.
+  ///
+  /// In ru, this message translates to:
+  /// **'В файле только цены с НДС. Закупка пересчитана без НДС по ставке строки (нет ставки — взята цена с НДС). Проверьте закупку.'**
+  String get invGrossOnly;
+
+  /// No description provided for @invUnitCheck.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверьте · единица: в накладной «{inv}», у товара «{item}»'**
+  String invUnitCheck(String inv, String item);
 }
 
 class _AppLocalizationsDelegate

@@ -6,6 +6,7 @@ import '../../core/api/api_client.dart';
 import '../../core/providers.dart';
 import '../../core/theme/brand_mark.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/tester/tester_mode.dart';
 import '../../core/util/ui.dart';
 import '../shift/shift_repository.dart';
 
@@ -131,7 +132,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                         if (!kb) ...[
                           // 2026-10-22, брендбук NUR CRM: знак «солнце над горой» для чёрного фона (минимум 28 px — здесь 64).
-                          const BrandLogo(width: 130, kind: BrandLogoKind.vertical, variant: BrandVariant.dark),
+                          // 2026-10-27: 5 быстрых нажатий на логотип — «Режим тестировщика» (только тестовая сборка или по коду)
+                          const TesterTap(child: BrandLogo(width: 130, kind: BrandLogoKind.vertical, variant: BrandVariant.dark)),
                           const SizedBox(height: 14),
                           const Text(
                             'NurMarket',

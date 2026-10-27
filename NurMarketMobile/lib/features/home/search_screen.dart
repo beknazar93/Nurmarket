@@ -80,6 +80,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         (Icons.dashboard_customize_outlined, l.admin, '/admin'),
         (Icons.sell_outlined, l.productPrice, '/admin/product'),
         (Icons.move_to_inbox_outlined, l.receiveWithPrices, '/admin/receive'),
+        (Icons.upload_file_rounded, l.invTitle, '/admin/invoice'),
         (Icons.photo_camera_rounded, l.smartCam, '/admin/smartcam'),
         (Icons.auto_awesome_rounded, l.advisorTitle, '/admin/advisor'),
         (Icons.dashboard_outlined, l.summaryTitle, '/admin/summary'),

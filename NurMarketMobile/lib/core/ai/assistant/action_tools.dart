@@ -26,6 +26,7 @@ import '../../../features/payment/sales_repository.dart' show Client, SalesRepos
 import '../../../features/sale/cart.dart';
 import '../../../features/scan/code_lookup.dart';
 import '../../../features/shift/shift_repository.dart';
+import '../../../features/stock/product_delete.dart' as pdel show pendingOpsFor;
 import '../../../features/stock/product_edit_repository.dart';
 import '../../../features/stock/stock_repository.dart';
 import '../../api/api_client.dart';
@@ -37,6 +38,8 @@ import '../live_tools.dart';
 import 'action_texts.dart';
 import 'ai_handles.dart';
 import 'ai_journal.dart';
+import 'call_focus.dart';
+import 'call_product_search.dart';
 import 'call_table.dart';
 import 'intent_gate.dart';
 import 'read_tools.dart' show Reader;
@@ -44,6 +47,7 @@ import 'recommendations.dart';
 import 'screen_registry.dart' show barcodeFromText, foldText, foldTokens, productNameMatchesQuery;
 import 'tool_registry.dart';
 import 'undo.dart';
+import 'wizard_texts.dart';
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Окружение: что нужно действиям от приложения
@@ -114,8 +118,14 @@ abstract class ActionHost {
   Future<OpenResult> openScreenFor(String handleKey, Map<String, dynamic> args);
 }
 
+/// 2026-10-27 (мобилка, ревью М-1): необязательная возможность хозяина действий — сколько неотправленных операций (чеки,
+/// приёмки, ревизии) ещё ссылаются на товар. Фейки без неё работают по-старому (проверки нет).
+abstract interface class PendingOpsSource {
+  Future<int> pendingOpsFor(String productId);
+}
+
 /// Рабочая реализация: репозитории и провайдеры приложения. Не проверяется юнит-тестами сети (живая проверка — В9).
-class RepoActionHost implements ActionHost {
+class RepoActionHost implements ActionHost, ScoredProductSearch, PendingOpsSource {
   final AppDatabase db;
   final ApiClient api;
   final AdminRepository admin;
@@ -179,8 +189,16 @@ class RepoActionHost implements ActionHost {
     );
   }
 
+  // 2026-10-27 (мобилка, видеозвонок, М2): поиск по названию — общий матчер (Асу = ASU, «винстон», «пепси полтора литра»),
+  // а не «каждое слово запроса — подстрока карточки»; штрихкод и артикул — точно. Пустой запрос — как раньше.
   @override
-  Future<List<Product>> findProducts(String query, {int limit = 30}) => db.searchProducts(query, limit: limit);
+  Future<List<Product>> findProducts(String query, {int limit = 30}) async {
+    if (query.trim().isEmpty) return db.searchProducts(query, limit: limit);
+    return [for (final h in await searchForCall(db, query, top: limit)) h.product];
+  }
+
+  @override
+  Future<List<ProductHit>> findScored(String query, {int top = 5}) => searchForCall(db, query, top: top);
   @override
   Future<List<Product>> allProducts() => db.searchProducts('', limit: 20000);
   @override
@@ -232,6 +250,9 @@ class RepoActionHost implements ActionHost {
   Future<bool> applyCount(String note, Map<String, double> counted) => stock.applyAudit(note, counted);
   @override
   Future<void> deleteProduct(String id) => admin.deleteProduct(id);
+  // 2026-10-27 (М-1): та же проверка, что у ручного удаления (product_delete.dart)
+  @override
+  Future<int> pendingOpsFor(String productId) => pdel.pendingOpsFor(db, productId);
   @override
   Future<List<ProductSales>> productSales(DateTime from, DateTime to) => salesFn(from, to);
 
@@ -288,6 +309,15 @@ class ActionKit {
   final AiScreenHandles handles;
   final TableStore? tables;
 
+  /// 2026-10-27 (мобилка, видеозвонок, М2): «этот товар» — товар с карточки камеры и последний обработанный ([CallFocus]).
+  final CallFocus? focus;
+
+  /// Мастер «добавить товар»: «отмена» вслух, пока он идёт, сбрасывает черновик.
+  final WizardHook? wizard;
+
+  /// 2026-10-27 (М2): удаление товара в два шага — программа показала карточку и ждёт «да» вслух.
+  ({String id, DateTime at})? pendingDelete;
+
   /// Имя модели звонка — в журнал (не ключ).
   final String? model;
 
@@ -306,6 +336,8 @@ class ActionKit {
     this.journal,
     AiScreenHandles? handles,
     this.tables,
+    this.focus,
+    this.wizard,
     this.model,
     DateTime Function()? now,
     this.bulkMax = 40,
@@ -342,6 +374,8 @@ class ActionKit {
     String status = 'ok',
   }) async {
     final env = r.env;
+    // 2026-10-27 (ревью М-8): любое другое выполненное действие снимает ожидание «да» на удаление товара
+    if (tool != 'delete_product') pendingDelete = null;
     final entry = UndoEntry(id: r.call.id, userId: env.session.userId, at: env.now(), tool: tool, label: label, data: data, undo: undoFn, whyNot: whyNot);
     undo.push(entry);
     final j = journal;
@@ -423,7 +457,30 @@ ActionKit registerActionTools(ToolRegistry registry, ActionKit kit) {
 
 typedef _ProductPick = ({Product? product, ToolResult? stop});
 
+/// 2026-10-27 (мобилка, видеозвонок, М2): товар для инструмента. `ref: "camera"` — товар с последней карточки камеры
+/// («поставь ЭТОМУ цену 120»), `ref: "last"` — с которым последним работал инструмент. Без ссылки — поиск по названию /
+/// штрихкоду, как раньше. Найденный товар запоминается как «последний».
 Future<_ProductPick> _pickProduct(ActionKit k, ToolRequest r, {String? query, String? code, Object? pick}) async {
+  final ref = _s(r.args['ref']);
+  if (ref.isNotEmpty && CallFocus.isRef(ref) && _s(code).isEmpty) {
+    final f = k.focus?.byRef(ref);
+    if (f != null) {
+      final fresh = await k.host.productById(f.id) ?? f;
+      k.focus?.setLast(fresh);
+      return (product: fresh, stop: null);
+    }
+    if (_s(query).isEmpty) {
+      final camera = ref.toLowerCase().startsWith('cam') || ref.toLowerCase() == 'video';
+      return (product: null, stop: ToolResult(ToolStatus.clarify, wt(camera ? 'noCameraProduct' : 'noLastProduct', r.env.lang)));
+    }
+  }
+  final res = await _pickProductCore(k, r, query: query, code: code, pick: pick);
+  final p = res.product;
+  if (p != null) k.focus?.setLast(p);
+  return res;
+}
+
+Future<_ProductPick> _pickProductCore(ActionKit k, ToolRequest r, {String? query, String? code, Object? pick}) async {
   final env = r.env;
   final lang = env.lang;
   var barcode = _s(code);
@@ -442,27 +499,44 @@ Future<_ProductPick> _pickProduct(ActionKit k, ToolRequest r, {String? query, St
     if (f.product != null) return (product: f.product, stop: null);
     return (product: null, stop: f.unavailable ? _fail(env, 'offlineCode', const {}, ToolStatus.offline) : _fail(env, 'productNone', const {}, ToolStatus.notFound));
   }
-  final raw = await k.host.findProducts(q, limit: 30);
-  // Слова запроса — начала слов названия («нан» не находит «Финансы»); если так не осталось ничего (поиск мог сработать по
-  // артикулу) — оставляем то, что нашла база.
-  final strict = raw.where((p) => productNameMatchesQuery(p.name, q)).toList();
-  var hits = strict.isEmpty ? raw : strict;
-  final seen = <String>{};
-  hits = [
-    for (final p in hits)
-      if (seen.add(p.id)) p,
-  ]..sort((a, b) {
-      final c = foldText(a.name).compareTo(foldText(b.name));
-      return c != 0 ? c : a.id.compareTo(b.id);
-    });
-  if (hits.isEmpty) return (product: null, stop: _fail(env, 'productNone', const {}, ToolStatus.notFound));
-  final pk = _int(pick);
-  if (pk != null && pk >= 1 && pk <= hits.length) return (product: hits[pk - 1], stop: null);
-  if (hits.length == 1) return (product: hits.first, stop: null);
-  // Название сказано целиком и совпало ровно с одним товаром — вопрос не нужен.
-  final qn = foldTokens(q).join(' ');
-  final exact = hits.where((p) => foldTokens(p.name).join(' ') == qn).toList();
-  if (exact.length == 1) return (product: exact.first, stop: null);
+  final host = k.host;
+  final scored = host is ScoredProductSearch;
+  List<Product> hits;
+  var scores = const <double>[];
+  if (scored) {
+    // 2026-10-27 (мобилка, видеозвонок, М2): общий матчер. Порядок — по оценке (не по алфавиту); «нашла» — только лучший
+    // ≥ 0,85 с отрывом ≥ 0,15, иначе кандидаты с номерами и вопрос (даже если кандидат один: «Это он?»).
+    final sh = await (host as ScoredProductSearch).findScored(q, top: 5);
+    hits = [for (final h in sh) h.product];
+    scores = [for (final h in sh) h.score];
+    if (hits.isEmpty) return (product: null, stop: _fail(env, 'productNone', const {}, ToolStatus.notFound));
+    final pk = _int(pick);
+    if (pk != null && pk >= 1 && pk <= hits.length) return (product: hits[pk - 1], stop: null);
+    final sure = confidentHit(sh);
+    if (sure != null) return (product: sure.product, stop: null);
+  } else {
+    final raw = await k.host.findProducts(q, limit: 30);
+    // Слова запроса — начала слов названия («нан» не находит «Финансы»); если так не осталось ничего (поиск мог сработать по
+    // артикулу) — оставляем то, что нашла база.
+    final strict = raw.where((p) => productNameMatchesQuery(p.name, q)).toList();
+    hits = strict.isEmpty ? raw : strict;
+    final seen = <String>{};
+    hits = [
+      for (final p in hits)
+        if (seen.add(p.id)) p,
+    ]..sort((a, b) {
+        final c = foldText(a.name).compareTo(foldText(b.name));
+        return c != 0 ? c : a.id.compareTo(b.id);
+      });
+    if (hits.isEmpty) return (product: null, stop: _fail(env, 'productNone', const {}, ToolStatus.notFound));
+    final pk = _int(pick);
+    if (pk != null && pk >= 1 && pk <= hits.length) return (product: hits[pk - 1], stop: null);
+    if (hits.length == 1) return (product: hits.first, stop: null);
+    // Название сказано целиком и совпало ровно с одним товаром — вопрос не нужен.
+    final qn = foldTokens(q).join(' ');
+    final exact = hits.where((p) => foldTokens(p.name).join(' ') == qn).toList();
+    if (exact.length == 1) return (product: exact.first, stop: null);
+  }
   // Неоднозначно: варианты с номерами — таблицей на экране и коротко моделью.
   final shown = hits.take(8).toList();
   if (k.tables != null) {
@@ -492,9 +566,17 @@ Future<_ProductPick> _pickProduct(ActionKit k, ToolRequest r, {String? query, St
     product: null,
     stop: ToolResult(
       ToolStatus.ambiguous,
-      am(tooMany ? 'productTooMany' : 'productMany', lang, {'list': list, 'n': '${hits.length}'}),
+      scored && hits.length == 1 ? wt('askThis', lang, {'list': list}) : am(tooMany ? 'productTooMany' : 'productMany', lang, {'list': list, 'n': '${hits.length}'}),
       options: [
-        for (var i = 0; i < shown.length && i < 5; i++) {'n': i + 1, 'title': _clip(shown[i].name, 40), 'price': shown[i].price},
+        for (var i = 0; i < shown.length && i < 5; i++)
+          {
+            'n': i + 1,
+            'title': _clip(shown[i].name, 40),
+            'price': shown[i].price,
+            if (scored && i < scores.length) 'score': double.parse(scores[i].toStringAsFixed(2)),
+            if (scored && env.session.can(Session.viewProducts) && !shown[i].isService) 'stock': shown[i].quantity,
+            if (scored && (shown[i].barcode ?? '').isNotEmpty) 'barcode': shown[i].barcode,
+          },
       ],
       data: {'total': hits.length},
       tableId: k.tables?.current?.id,
@@ -509,7 +591,8 @@ Future<_ProductPick> _pickProduct(ActionKit k, ToolRequest r, {String? query, St
 
 Map<String, dynamic> _query() => sStr(desc: 'Product name as said');
 Map<String, dynamic> _pick() => sInt(desc: '1-based option number after ambiguous');
-Map<String, dynamic> _linesSchema(String qtyKey) => sArr(sObj({'query': sStr(), 'barcode': sStr(), qtyKey: sNum(), 'pick': sInt()}, required: [qtyKey]));
+Map<String, dynamic> _ref() => sStr(desc: '"camera" = the product on the last camera card ("this one"); "last" = the product used last. Instead of query.');
+Map<String, dynamic> _linesSchema(String qtyKey) => sArr(sObj({'query': sStr(), 'barcode': sStr(), 'ref': sStr(), qtyKey: sNum(), 'pick': sInt()}, required: [qtyKey]));
 
 List<double> _lineValues(Object? lines, List<String> keys) {
   final out = <double>[];
@@ -1231,6 +1314,7 @@ AssistantTool _writeOff(ActionKit k, bool Function(Session) products) => Assista
     'Write off a quantity of ONE product from stock. ru: спиши две бутылки воды, бой; ky: эсептен чыгар.',
     parameters: sObj({
       'query': _query(),
+      'ref': _ref(),
       'barcode': sStr(),
       'pick': _pick(),
       'qty': sNum(),
@@ -1310,21 +1394,84 @@ AssistantTool _stockCount(ActionKit k, bool Function(Session) products) => Assis
 AssistantTool _deleteProduct(ActionKit k) => AssistantTool(
   decl: ToolDecl(
     'delete_product',
-    'Delete ONE product (owner/admin only). ru: удали товар Кола; ky: товарды өчүр.',
-    parameters: sObj({'query': _query(), 'barcode': sStr(), 'pick': _pick()}),
+    'Delete ONE product (owner/admin only) in TWO steps: the first call shows the product card and asks; when the user then says yes aloud, call again with confirm true. '
+        'ref "camera" = the product on the camera card. ru: удали товар Кола; ky: товарды өчүр.',
+    parameters: sObj({'query': _query(), 'ref': _ref(), 'barcode': sStr(), 'pick': _pick(), 'confirm': sBool(desc: 'true only on the second call, after the user said yes aloud')}),
   ),
   group: ToolGroup.money,
-  allowed: (s) => s.isAdmin,
+  allowed: (s) => s.isAdmin && s.canRoute('/admin/product'),
   needs: 'Администратор',
   intentWords: Intents.delete,
-  objectArgs: const ['query'],
-  numericArgs: const ['barcode'], // удаление по штрихкоду: цифры должны прозвучать (объект просьбы)
+  // 2026-10-27 (М2): второй вызов (confirm) — «да» вслух; первый — слово-просьба и объект (название / цифры штрихкода)
+  gateFor: (a) => a['confirm'] == true
+      ? const [GateReq(words: Intents.deleteConfirm)]
+      : const [GateReq(words: Intents.delete, objects: ['query'], numeric: ['barcode'])],
   run: (r) => _guard(r.env, () => k.serial(() async {
     final env = r.env;
     final lang = env.lang;
     final pp = await _pickProduct(k, r, query: _s(r.args['query']), code: _s(r.args['barcode']), pick: r.args['pick']);
     if (pp.stop != null) return pp.stop!;
     final p = pp.product!;
+    // 2026-10-27 (мобилка, ревью М-1): как ручное удаление — пока с товаром есть неотправленные чеки/приёмки/ревизии, удалять
+    // нельзя (при досылке сервер не найдёт товар: деньги в ящике, продажи нет). Причину говорим вслух.
+    final Object host = k.host;
+    if (host is PendingOpsSource) {
+      final queued = await host.pendingOpsFor(p.id);
+      if (queued > 0) {
+        k.pendingDelete = null;
+        return _fail(env, 'deleteQueued', {'name': _clip(p.name, 40), 'n': '$queued'});
+      }
+    }
+    // 2026-10-27 (мобилка, видеозвонок, М2): удаление голосом — только после карточки товара и отдельного «да» вслух, сказанного
+    // ПОСЛЕ вопроса программы. Просьба «удали» одна товар не удаляет.
+    final pend = k.pendingDelete;
+    final turn = env.speech.last;
+    // 2026-10-27 (ревью М-8): «нет» снимает ожидание «да» — позднее случайное «да» прежний товар не удалит
+    if (r.args['confirm'] == true && pend != null && pend.id == p.id && turn != null && turn.at.isAfter(pend.at) && speechHasAny(turn.text, Intents.no) && !saidYes(turn.text)) {
+      k.pendingDelete = null;
+      return ToolResult(ToolStatus.clarify, wt('deleteCancelled', lang, {'name': _clip(p.name, 40)}));
+    }
+    final confirmed = r.args['confirm'] == true &&
+        pend != null &&
+        pend.id == p.id &&
+        env.now().difference(pend.at) <= const Duration(seconds: 90) &&
+        turn != null &&
+        turn.at.isAfter(pend.at) &&
+        saidYes(turn.text); // «да» без «нет»: «нет, не удаляй» подтверждением не считается
+    if (!confirmed) {
+      final seeStock = env.session.can(Session.viewProducts) && !p.isService;
+      k.pendingDelete = (id: p.id, at: env.now());
+      if (k.tables != null) {
+        String label(String ru, String ky, String uz, String en, String tr) => tr5(lang, ru, ky, uz, en, tr);
+        k.tables!.add(
+          CallTable.build(
+            id: k.tables!.nextId(),
+            title: _clip(p.name, 60),
+            card: true,
+            columns: [
+              CallColumn('field', label('Поле', 'Талаа', 'Maydon', 'Field', 'Alan'), CellKind.text, numeric: false),
+              CallColumn('value', label('Значение', 'Мааниси', 'Qiymat', 'Value', 'Değer'), CellKind.text, numeric: false),
+            ],
+            rows: [
+              [label('Цена', 'Баасы', 'Narxi', 'Price', 'Fiyat'), Cell(p.price, CellKind.money)],
+              if (seeStock) [label('Остаток', 'Калдык', 'Qoldiq', 'Stock', 'Stok'), Cell(p.quantity, CellKind.qty, unit: p.unit)],
+              if ((p.barcode ?? '').isNotEmpty) [label('Штрихкод', 'Штрихкод', 'Shtrixkod', 'Barcode', 'Barkod'), Cell(p.barcode, CellKind.text)],
+            ],
+            source: 'phone',
+            at: env.now(),
+            lang: lang,
+            objectRoute: 'product',
+          ),
+        );
+      }
+      final stock = seeStock ? wt('stockPart', lang, {'qty': _q(p.quantity, lang, p.unit)}) : '';
+      return ToolResult(
+        ToolStatus.clarify,
+        wt(r.args['confirm'] == true && pend != null ? 'deleteNeedYes' : 'deleteAsk', lang, {'name': _clip(p.name, 40), 'price': _m(p.price, lang), 'stock': stock}),
+        data: {'awaiting': 'yes', 'product': p.name},
+      );
+    }
+    k.pendingDelete = null;
     // В журнал — все поля товара до удаления: «восстановить» = создать заново (история продаж не вернётся).
     final snapshot = {
       'id': p.id,
@@ -1337,6 +1484,8 @@ AssistantTool _deleteProduct(ActionKit k) => AssistantTool(
       'quantity': p.quantity,
     };
     await k.host.deleteProduct(p.id);
+    if (k.focus?.camera?.id == p.id) k.focus!.camera = null;
+    if (k.focus?.last?.id == p.id) k.focus!.last = null;
     Audit.log('product', 'ИИ: удалён ${p.name}');
     final say = am('deleted', lang, {'name': _clip(p.name, 40)});
     await k.commit(
@@ -1363,6 +1512,7 @@ AssistantTool _setPrice(ActionKit k) => AssistantTool(
     'Set price of ONE product: price, purchase cost, wholesale price, or markup_percent over purchase. A price below purchase is allowed with a warning. ru: поставь цену 120; ky: баасын койчу.',
     parameters: sObj({
       'query': _query(),
+      'ref': _ref(),
       'barcode': sStr(),
       'pick': _pick(),
       'price': sNum(),
@@ -1431,7 +1581,11 @@ Future<UndoResult> _undoDraft(ActionKit k, Product p, {required ProductDraft exp
       !_moneyDiff(cur.purchase, expected.purchase) &&
       !_moneyDiff(cur.wholesale, expected.wholesale) &&
       cur.barcode.trim() == expected.barcode.trim() &&
-      (cur.minQty ?? 0) == (expected.minQty ?? 0);
+      (cur.minQty ?? 0) == (expected.minQty ?? 0) &&
+      cur.name.trim() == expected.name.trim() && // 2026-10-27 (М2): название, категория, единица и доп. штрихкоды тоже правятся голосом
+      cur.category.trim() == expected.category.trim() &&
+      cur.unit.trim() == expected.unit.trim() &&
+      cur.alt.join(r'|') == expected.alt.join(r'|');
   if (!same) return UndoResult.conflict;
   await k.host.saveDraft(p.id, cur, restore);
   return UndoResult.ok;
@@ -1599,12 +1753,20 @@ Future<ToolResult> _bulkRun(ActionKit k, ToolRequest r) async {
 AssistantTool _productEdit(ActionKit k) => AssistantTool(
   decl: ToolDecl(
     'product_edit',
-    'Change the barcode (new_barcode) or the minimum stock (min_qty) of ONE product. ru: поставь штрихкод, минимальный остаток 5.',
+    'Edit ONE product card, only what the user asked aloud: new_name, category, unit, new_barcode (main), add_alt_barcode (+pack_qty pieces) / remove_alt_barcode, min_qty. '
+        'For the product shown on the camera pass ref "camera". ru: переименуй, категория, единица, штрихкод, минимальный остаток 5.',
     parameters: sObj({
       'query': _query(),
+      'ref': _ref(),
       'code': sStr(desc: 'Current barcode of the product, if scanned'),
       'pick': _pick(),
+      'new_name': sStr(),
+      'category': sStr(),
+      'unit': sStr(desc: 'шт, кг, л…'),
       'new_barcode': sStr(),
+      'add_alt_barcode': sStr(),
+      'pack_qty': sNum(desc: 'Pieces in the pack of add_alt_barcode'),
+      'remove_alt_barcode': sStr(),
       'min_qty': sNum(),
     }),
   ),
@@ -1612,38 +1774,101 @@ AssistantTool _productEdit(ActionKit k) => AssistantTool(
   allowed: (s) => s.canRoute('/admin/product'),
   needs: 'Склад',
   gateFor: (a) => [
+    if (_s(a['new_name']).isNotEmpty) const GateReq(words: Intents.rename, objects: ['new_name']),
+    if (_s(a['category']).isNotEmpty) const GateReq(words: Intents.category, objects: ['category']),
+    if (_s(a['unit']).isNotEmpty) const GateReq(words: Intents.unit),
     if (_s(a['new_barcode']).isNotEmpty) const GateReq(words: Intents.barcode, numeric: ['new_barcode']),
+    if (_s(a['add_alt_barcode']).isNotEmpty) const GateReq(words: Intents.barcode, numeric: ['add_alt_barcode']),
+    if (_s(a['remove_alt_barcode']).isNotEmpty) const GateReq(words: Intents.barcode, numeric: ['remove_alt_barcode']),
     if (a['min_qty'] != null) const GateReq(words: Intents.minQty, numeric: ['min_qty']),
-    if (_s(a['new_barcode']).isEmpty && a['min_qty'] == null) const GateReq(words: Intents.barcode),
+    if (_s(a['new_name']).isEmpty &&
+        _s(a['category']).isEmpty &&
+        _s(a['unit']).isEmpty &&
+        _s(a['new_barcode']).isEmpty &&
+        _s(a['add_alt_barcode']).isEmpty &&
+        _s(a['remove_alt_barcode']).isEmpty &&
+        a['min_qty'] == null)
+      const GateReq(words: Intents.barcode),
   ],
   run: (r) => _guard(r.env, () async {
     final env = r.env;
     final lang = env.lang;
-    final newCode = _s(r.args['new_barcode']).replaceAll(RegExp(r'\s+'), '');
+    String codeOf(String key) => _s(r.args[key]).replaceAll(RegExp(r'\s+'), '');
+    final newCode = codeOf('new_barcode');
+    final addAlt = codeOf('add_alt_barcode');
+    final removeAlt = codeOf('remove_alt_barcode');
+    final packQty = _dbl(r.args['pack_qty']);
+    final newName = _s(r.args['new_name']);
+    final newCategory = _s(r.args['category']);
+    final newUnit = _s(r.args['unit']);
     final minQty = _dbl(r.args['min_qty']);
-    if (newCode.isEmpty && minQty == null) return _fail(env, 'nothingToChange');
+    if (newCode.isEmpty && addAlt.isEmpty && removeAlt.isEmpty && newName.isEmpty && newCategory.isEmpty && newUnit.isEmpty && minQty == null) return _fail(env, 'nothingToChange');
     if (minQty != null && minQty < 0) return _fail(env, 'needQty');
     final pp = await _pickProduct(k, r, query: _s(r.args['query']), code: _s(r.args['code']), pick: r.args['pick']);
     if (pp.stop != null) return pp.stop!;
     final p = pp.product!;
-    if (newCode.isNotEmpty) {
-      final owner = await k.host.barcodeOwner(p.id, newCode);
+    for (final c in [newCode, addAlt]) {
+      if (c.isEmpty) continue;
+      final owner = await k.host.barcodeOwner(p.id, c);
       if (owner != null) return _fail(env, 'barcodeTaken', {'name': _clip(owner, 40)});
     }
     final before = await k.host.loadDraft(p);
-    final after = before.copyWith(barcode: newCode.isEmpty ? null : newCode, minQty: minQty);
+    final alt = [...before.alt];
+    if (removeAlt.isNotEmpty) {
+      final i = alt.indexWhere((l) => ProductDraft.altCode(l) == removeAlt);
+      if (i < 0) return ToolResult(ToolStatus.notFound, wt('editAltNone', lang, {'name': _clip(p.name, 40), 'code': removeAlt}));
+      alt.removeAt(i);
+    }
+    if (addAlt.isNotEmpty) {
+      if (before.allCodes.contains(addAlt)) return ToolResult(ToolStatus.clarify, wt('editAltHave', lang, {'name': _clip(p.name, 40), 'code': addAlt}));
+      final pack = packQty != null && packQty > 1 ? packQty : null;
+      alt.add(pack == null ? addAlt : '$addAlt|${pack == pack.roundToDouble() ? pack.toStringAsFixed(0) : pack}|');
+    }
+    final altChanged = alt.join('\n') != before.alt.join('\n');
+    final after = before.copyWith(
+      name: newName.isEmpty ? null : newName,
+      category: newCategory.isEmpty ? null : newCategory,
+      unit: newUnit.isEmpty ? null : newUnit,
+      barcode: newCode.isEmpty ? null : newCode,
+      alt: altChanged ? alt : null,
+      minQty: minQty,
+    );
+    final nameCh = after.name.trim() != before.name.trim();
+    final catCh = after.category.trim() != before.category.trim();
+    final unitCh = after.unit.trim() != before.unit.trim();
+    final codeCh = after.barcode.trim() != before.barcode.trim();
+    final minCh = minQty != null && (minQty - (before.minQty ?? 0)).abs() > 0.0005;
+    if (!nameCh && !catCh && !unitCh && !codeCh && !altChanged && !minCh) return ToolResult(ToolStatus.ok, wt('editSame', lang, {'name': _clip(p.name, 40)}));
     await k.host.saveDraft(p.id, before, after);
     final say = [
-      if (newCode.isNotEmpty) am('barcodeSet', lang, {'name': _clip(p.name, 40), 'code': newCode, 'from': before.barcode.isEmpty ? am('noBarcode', lang) : before.barcode}),
-      if (minQty != null) am('minSet', lang, {'name': _clip(p.name, 40), 'qty': _q(minQty, lang, p.unit), 'from': _q(before.minQty ?? 0, lang, p.unit)}),
+      if (nameCh) wt('editName', lang, {'from': _clip(before.name, 40), 'to': _clip(after.name, 40)}),
+      if (catCh) wt('editCategory', lang, {'name': _clip(after.name, 40), 'to': after.category, 'from': before.category.isEmpty ? '—' : before.category}),
+      if (unitCh) wt('editUnit', lang, {'name': _clip(after.name, 40), 'to': after.unit, 'from': before.unit.isEmpty ? '—' : before.unit}),
+      if (codeCh) am('barcodeSet', lang, {'name': _clip(p.name, 40), 'code': newCode, 'from': before.barcode.isEmpty ? am('noBarcode', lang) : before.barcode}),
+      if (addAlt.isNotEmpty && altChanged) wt('editAltAdd', lang, {'name': _clip(p.name, 40), 'code': addAlt}),
+      if (removeAlt.isNotEmpty && altChanged) wt('editAltRemove', lang, {'name': _clip(p.name, 40), 'code': removeAlt}),
+      if (minCh) am('minSet', lang, {'name': _clip(p.name, 40), 'qty': _q(minQty, lang, p.unit), 'from': _q(before.minQty ?? 0, lang, p.unit)}),
     ].join(' ');
-    Audit.log('product', 'ИИ: ${p.name}${newCode.isEmpty ? '' : ' · штрихкод $newCode'}${minQty == null ? '' : ' · мин. остаток $minQty'}');
+    Audit.log(
+      'product',
+      'ИИ: ${p.name}${nameCh ? ' · название → ${after.name}' : ''}${catCh ? ' · категория → ${after.category}' : ''}${unitCh ? ' · единица → ${after.unit}' : ''}${codeCh ? ' · штрихкод $newCode' : ''}${altChanged ? ' · доп. штрихкод' : ''}${minCh ? ' · мин. остаток $minQty' : ''}',
+    );
     await k.commit(
       r,
       tool: 'product_edit',
       say: say,
       label: (l) => '${tr5(l, 'карточка', 'карта', 'karta', 'card', 'kart')} ${_clip(p.name, 24)}',
-      data: {'id': p.id, 'barcode_from': before.barcode, 'barcode_to': after.barcode, 'min_from': before.minQty, 'min_to': after.minQty},
+      data: {
+        'id': p.id,
+        'barcode_from': before.barcode,
+        'barcode_to': after.barcode,
+        'min_from': before.minQty,
+        'min_to': after.minQty,
+        if (nameCh) ...{'name_from': before.name, 'name_to': after.name},
+        if (catCh) ...{'category_from': before.category, 'category_to': after.category},
+        if (unitCh) ...{'unit_from': before.unit, 'unit_to': after.unit},
+        if (altChanged) ...{'alt_from': before.alt, 'alt_to': alt},
+      },
       undoFn: (l) => _undoDraft(k, p, expected: after, restore: before, label: _clip(p.name, 30)),
     );
     return ToolResult(ToolStatus.ok, say, undo: true);
@@ -2082,6 +2307,9 @@ AssistantTool _undoLast(ActionKit k) => AssistantTool(
   dedupe: false,
   intentWords: Intents.undo,
   run: (r) => _guard(r.env, () async {
+    // 2026-10-27 (М2): пока идёт мастер «добавить товар», «отмена» сбрасывает черновик, а не откатывает прошлое действие
+    final w = k.wizard;
+    if (w != null && w.active) return ToolResult(ToolStatus.ok, w.cancelNow(r.env.lang));
     final n = (_int(r.args['n']) ?? 1).clamp(1, 5);
     final res = await _undoSteps(k, r.env.session, r.env.lang, n);
     return ToolResult(res.done > 0 ? ToolStatus.ok : ToolStatus.notFound, res.say);

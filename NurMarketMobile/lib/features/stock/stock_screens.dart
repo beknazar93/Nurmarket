@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
@@ -15,6 +16,9 @@ import '../../core/util/ui.dart';
 import '../admin/admin_screens.dart';
 import '../scan/scan_screen.dart';
 import 'product_edit.dart';
+import 'product_edit_repository.dart';
+import 'product_packages.dart';
+import 'receive_lookup.dart';
 import 'stock_repository.dart';
 import '../scan/smart_camera.dart';
 
@@ -32,6 +36,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   // 14.10, владелец: «фильтр везде, где есть товары» — к остатку добавлены категории.
   String? _category;
   List<Product> _list = [];
+  Map<String, PiecePack> _packs = {}; // 2026-10-27 (М4): остаток товара с упаковкой — «12 пачек + 5 шт»
   Timer? _debounce;
 
   @override
@@ -133,7 +138,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
             ListTile(
               leading: ProductThumb(name: p.name, url: p.imageUrl, size: 44),
               title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: Text('${qtyText(p.quantity)} ${p.unit} · ${money(p.price)} ${l.som}${p.barcode == null ? '' : ' · ${p.barcode}'}'),
+              subtitle: Text('${_stockText(p)} · ${money(p.price)} ${l.som}${p.barcode == null ? '' : ' · ${p.barcode}'}'),
             ),
             // 2026-10-22 (мобилка, админ): «Цена» → полная карточка товара (product_edit.dart).
             if (s != null && s.canRoute('/admin/product'))
@@ -167,7 +172,21 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     if (_filter == 'low') list = list.where((p) => p.quantity > 0 && isLowStock(p.quantity, p.minQuantity)).toList(); // 2026-10-22 (мобилка, админ, П11)
     if (_filter == 'out') list = list.where((p) => p.quantity <= 0).toList();
     if (_filter == 'in') list = list.where((p) => p.quantity > 0).toList();
-    if (mounted) setState(() => _list = list);
+    final packs = await PackageStore.read(ref.read(databaseProvider));
+    if (mounted) {
+      setState(() {
+        _list = list;
+        _packs = packs;
+      });
+    }
+  }
+
+  /// 2026-10-27 (М4): остаток товара: с поштучной упаковкой — «12 пачек + 5 шт», без неё — «245 шт» как раньше.
+  String _stockText(Product p) {
+    final pk = _packs[p.id];
+    return pk == null
+        ? '${qtyText(p.quantity)} ${p.unit}'
+        : stockWithPack(qtyText, p.quantity, pk, packWord: context.l.pkPackShort, pcs: context.l.pkPcs);
   }
 
   @override
@@ -341,7 +360,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                           ),
                         ),
                         Text(
-                          '${qtyText(p.quantity)} ${p.unit}',
+                          _stockText(p),
                           style: TextStyle(fontWeight: FontWeight.w800, color: color),
                         ),
                       ],
@@ -370,7 +389,10 @@ Future<({Product product, double qty})?> receiveScanHit(AppDatabase db, String c
 
 /// Приёмка сканером (Т16): каждый скан — +1 штука (штрихкод упаковки — вся упаковка); неизвестный штрихкод — администратору; без цен.
 class ReceiveScreen extends ConsumerStatefulWidget {
-  const ReceiveScreen({super.key});
+  /// Только для проверок без камеры: коды, которые «отсканировал» кассир.
+  @visibleForTesting
+  final Future<List<String>?> Function()? debugScan;
+  const ReceiveScreen({super.key, this.debugScan});
   @override
   ConsumerState<ReceiveScreen> createState() => _ReceiveScreenState();
 }
@@ -378,9 +400,24 @@ class ReceiveScreen extends ConsumerStatefulWidget {
 class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
   final List<StockLine> _lines = [];
   final List<String> _unknown = [];
+  // 2026-10-27: сколько раз отсканирован неизвестный код (раньше повтор не считался), что про него нашлось, какой код ищем сейчас
+  final Map<String, double> _unknownQty = {};
+  final Map<String, ReceiveFind> _finds = {};
+  final Set<String> _searching = {};
   bool _busy = false;
 
   static const _draftKey = 'receive.draft';
+
+  GlobalProducts? get _globals {
+    try {
+      return ref.read(globalProductsProvider);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Завести, привязать или исправить штрихкод — только с правом на товары (как «Новый товар»).
+  bool get _canEdit => ref.read(sessionProvider)?.canRoute('/admin/new-product') ?? false;
 
   @override
   void initState() {
@@ -400,7 +437,17 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
         );
       }
       _unknown.addAll((j['unknown'] as List).cast<String>());
+      final q = j['unknownQty'];
+      if (q is Map) {
+        for (final e in q.entries) {
+          _unknownQty['${e.key}'] = (e.value as num).toDouble();
+        }
+      }
     });
+    // что про неизвестные коды нашлось (без сети: локальный справочник и телефон)
+    for (final code in List.of(_unknown)) {
+      unawaited(_recheck(code, network: false));
+    }
   }
 
   Future<void> _saveDraft() => ref
@@ -410,30 +457,93 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
         jsonEncode({
           'lines': _lines.map((l) => {'productId': l.productId, 'name': l.name, 'before': l.before, 'qty': l.qty}).toList(),
           'unknown': _unknown,
+          'unknownQty': _unknownQty,
         }),
       );
 
   Future<void> _scan() async {
-    final codes = await Navigator.of(context)
-        .push<List<String>>(MaterialPageRoute(builder: (_) => const ScanScreen(initial: ScanMode.receive, returnCodes: true)));
+    final codes = await (widget.debugScan?.call() ??
+        Navigator.of(context).push<List<String>>(MaterialPageRoute(builder: (_) => const ScanScreen(initial: ScanMode.receive, returnCodes: true))));
     if (codes == null) return;
     final db = ref.read(databaseProvider);
     for (final code in codes) {
-      final hit = await receiveScanHit(db, code); // 13.10: и UPC-A ↔ EAN-13; 2026-10-26: и упаковка
-      final p = hit?.product;
-      if (p == null) {
-        if (!_unknown.contains(code)) _unknown.add(code);
+      // 2026-10-26: сначала телефон (и UPC-A <-> EAN-13, и упаковка) — быстро. Неизвестное — сервер и справочник NurCRM.
+      final hit = await receiveScanHit(db, code);
+      if (hit != null) {
+        _addLine(hit.product, hit.qty);
         continue;
       }
-      final i = _lines.indexWhere((l) => l.productId == p.id);
-      if (i >= 0) {
-        _lines[i].qty += hit!.qty;
-      } else {
-        _lines.insert(0, StockLine(productId: p.id, name: p.name, before: p.quantity, qty: hit!.qty));
+      // повторный скан неизвестного кода считается (раньше терялся)
+      if (_unknown.contains(code)) {
+        _unknownQty[code] = (_unknownQty[code] ?? 1) + 1;
+        continue;
       }
+      _unknown.add(code);
+      _unknownQty[code] = 1;
+      if (mounted) setState(() {});
+      await _recheck(code);
     }
-    setState(() {});
+    if (mounted) setState(() {});
     await _saveDraft();
+  }
+
+  void _addLine(Product p, double qty) {
+    final i = _lines.indexWhere((l) => l.productId == p.id);
+    if (i >= 0) {
+      _lines[i].qty += qty;
+    } else {
+      _lines.insert(0, StockLine(productId: p.id, name: p.name, before: p.quantity, qty: qty));
+    }
+  }
+
+  /// Найти неизвестный код: сервер -> справочник NurCRM. Товар нашёлся — в строки приёмки с накопленным количеством.
+  Future<void> _recheck(String code, {bool network = true}) async {
+    if (_searching.contains(code)) return;
+    if (mounted) setState(() => _searching.add(code));
+    try {
+      final f = await resolveReceiveCode(ref.read(databaseProvider), ref.read(apiProvider), _globals, code, network: network);
+      if (!mounted) return;
+      if (f.kind == ReceiveKind.found) {
+        _unknown.remove(code);
+        _addLine(f.product!, (_unknownQty.remove(code) ?? 1) * f.qty);
+        _finds.remove(code);
+      } else {
+        _finds[code] = f;
+      }
+    } finally {
+      if (mounted) setState(() => _searching.remove(code));
+    }
+    await _saveDraft();
+  }
+
+  Future<void> _addNew(String code) async {
+    if (!_canEdit) {
+      toast(context, context.l.recvNoRight, error: true);
+      return;
+    }
+    await context.push('/admin/new-product?barcode=$code');
+    if (mounted) await _recheck(code);
+  }
+
+  /// «Привязать штрихкод» (доп. код к похожему товару) и «Исправить» (основной код карточки) — через карточку товара.
+  Future<void> _bind(String code, Product p, {required bool fix}) async {
+    final l = context.l;
+    if (!_canEdit) {
+      toast(context, l.recvNoRight, error: true);
+      return;
+    }
+    try {
+      final repo = ref.read(productEditRepoProvider);
+      final local = await ref.read(databaseProvider).productById(p.id) ?? p;
+      final before = ProductDraft.fromServer(await repo.load(p.id), local);
+      final after = fix ? before.copyWith(barcode: code) : before.copyWith(alt: [...before.alt, code]);
+      await repo.save(p.id, before, after, canPrices: false);
+      if (!mounted) return;
+      toast(context, fix ? l.recvFixed : l.recvBound(p.name));
+      await _recheck(code, network: false);
+    } on ApiException catch (e) {
+      if (mounted) toast(context, e.message, error: true);
+    }
   }
 
   Future<void> _post() async {
@@ -456,6 +566,81 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Карточка кода, которого нет в каталоге: что нашлось в справочнике NurCRM и что с этим можно сделать.
+  Widget _unknownCard(String code) {
+    final l = context.l;
+    final f = _finds[code];
+    final qty = _unknownQty[code] ?? 1;
+    final searching = _searching.contains(code);
+    final canEdit = _canEdit;
+    final lines = <Widget>[];
+    final buttons = <Widget>[];
+    Widget head(String t) => Text(t, style: const TextStyle(color: T.warn, fontWeight: FontWeight.w800));
+    Widget small(String t) => Text(t, style: const TextStyle(color: T.warn, fontSize: 12));
+    Widget button(String label, VoidCallback onTap, {Key? key}) => FilledButton.tonal(
+      key: key,
+      style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+      onPressed: searching ? null : onTap,
+      child: Text(label),
+    );
+    switch (f?.kind) {
+      case ReceiveKind.typo:
+        lines.add(head(l.recvTypo(f!.product!.name, f.product!.barcode ?? '', code)));
+        if (canEdit) buttons.add(button(l.recvFixCode, () => _bind(code, f.product!, fix: true), key: ValueKey('fix_$code')));
+      case ReceiveKind.similar:
+        lines.add(head(l.recvFoundGlobal(f!.global!.name)));
+        lines.add(small(l.recvLooksLike(f.product!.name)));
+        if (canEdit) {
+          buttons.add(button(l.recvBindCode, () => _bind(code, f.product!, fix: false), key: ValueKey('bind_$code')));
+          buttons.add(button(l.recvAddProduct, () => _addNew(code), key: ValueKey('add_$code')));
+        }
+      case ReceiveKind.global:
+        lines.add(head(l.recvFoundGlobal(f!.global!.name)));
+        if (canEdit) buttons.add(button(l.recvAddProduct, () => _addNew(code), key: ValueKey('add_$code')));
+      default:
+        lines.add(head(l.unknownBarcode));
+        if (!searching) {
+          lines.add(small(l.unknownBarcodeHint(code)));
+          if (canEdit) buttons.add(button(l.recvAddProduct, () => _addNew(code), key: ValueKey('add_$code')));
+        }
+    }
+    if (searching) lines.add(small(l.recvSearching(code)));
+    if (!canEdit && f != null && f.kind != ReceiveKind.none) lines.add(small(l.recvNoRight));
+    return Container(
+      key: ValueKey('unknown_$code'),
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: context.pal.warnSoft, borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: lines)),
+              if (qty > 1) Padding(padding: const EdgeInsets.only(left: 8), child: head('×${qtyText(qty)}')),
+              IconButton(
+                key: ValueKey('drop_$code'),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.close_rounded, size: 20),
+                onPressed: () {
+                  setState(() {
+                    _unknown.remove(code);
+                    _unknownQty.remove(code);
+                    _finds.remove(code);
+                  });
+                  _saveDraft();
+                },
+              ),
+            ],
+          ),
+          if (searching) const Padding(padding: EdgeInsets.only(top: 6), child: LinearProgressIndicator()),
+          if (buttons.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Wrap(spacing: 8, runSpacing: 8, children: buttons)),
+        ],
+      ),
+    );
   }
 
   @override
@@ -491,8 +676,9 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
           Row(
             children: [
               Text(l.accepted, style: const TextStyle(fontWeight: FontWeight.w800)),
-              const Spacer(),
-              Text(l.goodsPieces(_lines.length, qtyText(pieces)), style: TextStyle(fontSize: 12.5, color: pal.textSoft)),
+              const SizedBox(width: 8),
+              // 2026-10-27: на 360 dp с шрифтом 1,3 (ky/uz) подпись не помещалась в строку
+              Expanded(child: Text(l.goodsPieces(_lines.length, qtyText(pieces)), textAlign: TextAlign.end, style: TextStyle(fontSize: 12.5, color: pal.textSoft))),
             ],
           ),
           const SizedBox(height: 6),
@@ -548,22 +734,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
                 ],
               ),
             ),
-          for (final code in _unknown)
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: context.pal.warnSoft, borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.unknownBarcode,
-                    style: const TextStyle(color: T.warn, fontWeight: FontWeight.w800),
-                  ),
-                  Text(l.unknownBarcodeHint(code), style: const TextStyle(color: T.warn, fontSize: 12)),
-                ],
-              ),
-            ),
+          for (final code in _unknown) _unknownCard(code),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -571,17 +742,21 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
           child: Row(
             children: [
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(minimumSize: const Size(100, T.ctaHeight)),
-                onPressed: () async {
-                  await _saveDraft();
-                  if (context.mounted) Navigator.pop(context);
-                },
-                child: Text(l.postpone),
+              // 2026-10-27: на 360 dp с шрифтом 1,3 (ky/uz) обе кнопки не помещались в строку — «Отложить» сжимается
+              Flexible(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(100, T.ctaHeight)),
+                  onPressed: () async {
+                    await _saveDraft();
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  child: Text(l.postpone, maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: FilledButton(onPressed: _busy || _lines.isEmpty ? null : _post, child: Text(l.postPieces(qtyText(pieces)))),
+                flex: 2,
+                child: FilledButton(onPressed: _busy || _lines.isEmpty ? null : _post, child: Text(l.postPieces(qtyText(pieces)), textAlign: TextAlign.center)),
               ),
             ],
           ),

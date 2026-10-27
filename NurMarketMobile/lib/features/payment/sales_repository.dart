@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/sync/outbox_meta.dart';
+import '../../core/util/audit.dart';
 import '../sale/cart.dart';
 import 'receipt_qr.dart';
 
@@ -43,6 +44,17 @@ class CheckoutUnknownException extends ApiException {
   CheckoutUnknownException(super.message, {this.debt = false});
 }
 
+/// 2026-10-27 (ревью М-6): расхождение остатка после продажи штуки из упаковки.
+class PackStockMismatch {
+  final String productId;
+  final String name;
+
+  /// Ожидали (остаток телефона до продажи минус доля упаковки) и получили от сервера — в упаковках.
+  final double expected;
+  final double actual;
+  const PackStockMismatch(this.productId, this.name, this.expected, this.actual);
+}
+
 class CheckoutResult {
   final bool queued;
   final String key;
@@ -54,7 +66,11 @@ class CheckoutResult {
 
   /// Ответ сервера целиком — для чека: смена, фискальные реквизиты (13.10).
   final Map<String, dynamic>? response;
-  const CheckoutResult({required this.queued, required this.key, this.number, required this.total, this.receiptUrl, this.response});
+
+  /// 2026-10-27 (ревью М-6): товары, у которых остаток на сервере после продажи штуки из пачки не совпал с ожидаемым
+  /// (штука должна списать долю пачки, а не пачку). Пусто — совпало или проверить не удалось. Экран «Оплачено» показывает жёлтую плашку.
+  final List<PackStockMismatch> stockWarnings;
+  const CheckoutResult({required this.queued, required this.key, this.number, required this.total, this.receiptUrl, this.response, this.stockWarnings = const []});
 }
 
 /// Продажа одним запросом: POST api/main/pos/checkout/ с заголовком Idempotency-Key.
@@ -74,7 +90,8 @@ class SalesRepository {
         items.add({'custom': true, 'name': l.name, 'price': l.price.toStringAsFixed(2), 'qty': _qty(l)});
         continue;
       }
-      final key = '${l.productId}|${l.price.toStringAsFixed(2)}|${l.variantId ?? ''}';
+      // 2026-10-27 (М4): штука из упаковки — отдельная позиция (своя упаковка), как PushGroupKey кассы
+      final key = '${l.productId}|${l.price.toStringAsFixed(2)}|${l.variantId ?? ''}${l.salePackageId == null ? '' : '|${l.salePackageId}'}';
       final existing = merged[key];
       if (existing != null) {
         existing['qty'] = (double.parse(existing['qty'] as String) + l.qty).toStringAsFixed(l.isWeight ? 3 : 0);
@@ -86,6 +103,13 @@ class SalesRepository {
       if (l.wholesale) line['is_wholesale'] = true;
       // 13.10: размер/цвет одежды — поле variant, как у кассы (QuickCheckoutBody).
       if (l.variantId != null) line['variant'] = l.variantId;
+      // 2026-10-27 (М4): штука из упаковки (количество — штуки, цена — цена штуки): sale_package_id, как строка чека кассы
+      // (StagingCartService.PushItemsFromSnapshotAsync); price_override — цена строки намеренно не равна цене товара
+      // (QuickCheckoutBody.IsIntentionalPrice кассы). Остальные строки не меняются.
+      if (l.salePackageId != null) {
+        line['sale_package_id'] = l.salePackageId;
+        line['price_override'] = true;
+      }
       // 18.10: у товара с акцией скидку строки назначает сервер — ручную не отправляем.
       if (!l.hasPromo && l.discount > 0) line['discount'] = l.discount.toStringAsFixed(2);
       merged[key] = line;
@@ -175,7 +199,7 @@ class SalesRepository {
       id: key,
       kind: 'sale',
       // 2026-10-22: в очереди — кто продал и на какой кассе (cashbox при досылке, привязка к аккаунту, К-6).
-      body: jsonEncode(OutboxMeta.attach(body, owner: OutboxMeta.ownerOf(session), cashboxId: session?.cashboxId, at: now)),
+      body: jsonEncode(OutboxMeta.attach(body, owner: OutboxMeta.ownerOf(session), cashboxId: session?.cashboxId, at: now, packs: _packFactors(cart))),
       createdAt: now,
       total: Value(cart.total),
       summary: Value(summary),
@@ -188,6 +212,8 @@ class SalesRepository {
       ),
     );
 
+    // 2026-10-27 (ревью М-6): остаток товаров со штуками из упаковки ДО продажи (сервер, иначе телефон) — для сверки после неё
+    final before = await _packStockBefore(cart);
     Map<String, dynamic> resp;
     try {
       resp = await _send(body, key);
@@ -208,6 +234,7 @@ class SalesRepository {
     await db.enqueue(row);
     await db.markSent(key, serverId: str(resp, 'id'), serverNumber: str(resp, 'number'));
     await _applyStock(cart);
+    final warnings = before.isEmpty ? const <PackStockMismatch>[] : await verifyPackStock(cart, before);
     return CheckoutResult(
       queued: false,
       key: key,
@@ -215,7 +242,64 @@ class SalesRepository {
       total: num0(resp, 'total') > 0 ? num0(resp, 'total') : cart.total,
       receiptUrl: eReceiptUrl(resp),
       response: resp,
+      stockWarnings: warnings,
     );
+  }
+
+  /// 2026-10-27 (ревью М-6): остатки до продажи у товаров, которые продаются штукой из упаковки (id → остаток в упаковках):
+  /// свежий с сервера (до 3 с), иначе остаток телефона. Без таких строк — пусто, ничего не запрашивается.
+  Future<Map<String, double>> _packStockBefore(Cart cart) async {
+    final out = <String, double>{};
+    try {
+      for (final l in cart.lines) {
+        if (l.custom || l.salePackageId == null || out.containsKey(l.productId)) continue;
+        try {
+          const t = Duration(seconds: 3);
+          final m = (await api.get('api/main/products/${l.productId}/', timeout: t).timeout(t)) as Map;
+          out[l.productId] = num0(m.cast<String, dynamic>(), 'quantity');
+          continue;
+        } catch (_) {
+          // сервер не ответил — берём остаток телефона
+        }
+        final p = await db.productById(l.productId);
+        if (p != null) out[l.productId] = p.quantity;
+      }
+    } catch (_) {
+      // без остатка сверять нечего
+    }
+    return out;
+  }
+
+  /// 2026-10-27 (ревью М-6): продажа штуки из упаковки — путь, который касса сама ещё не использует. Если сервер не знает
+  /// `sale_package_id`, он спишет упаковки как штуки (3 сигареты → 3 пачки). После продажи сверяем остаток товара на сервере с
+  /// ожидаемым (остаток телефона до продажи минус доля упаковки); расхождение — в журнал и жёлтую плашку. Сверка не держит
+  /// оплату дольше нескольких секунд; нет связи — молча пропускается. Параллельная продажа того же товара на другой кассе
+  /// даст ложное предупреждение — это только подсказка, на деньги не влияет.
+  Future<List<PackStockMismatch>> verifyPackStock(Cart cart, Map<String, double> before, {Duration timeout = const Duration(seconds: 4)}) async {
+    final out = <PackStockMismatch>[];
+    final sold = <String, double>{};
+    final names = <String, String>{};
+    for (final l in cart.lines) {
+      if (l.custom || l.salePackageId == null) continue;
+      sold[l.productId] = (sold[l.productId] ?? 0) + l.stockQty;
+      names[l.productId] = l.name;
+    }
+    for (final e in sold.entries) {
+      final was = before[e.key];
+      if (was == null) continue;
+      try {
+        final m = (await api.get('api/main/products/${e.key}/', timeout: timeout).timeout(timeout)) as Map;
+        final actual = num0(m.cast<String, dynamic>(), 'quantity');
+        final expected = was - e.value;
+        if ((actual - expected).abs() > 0.011) {
+          out.add(PackStockMismatch(e.key, names[e.key] ?? '', expected, actual));
+          Audit.log('sale', 'Остаток после штуки из упаковки не сошёлся: ${names[e.key]} · ожидали ${expected.toStringAsFixed(3)}, сервер ${actual.toStringAsFixed(3)}');
+        }
+      } catch (_) {
+        // нет связи или ответ не того вида — сверку пропускаем
+      }
+    }
+    return out;
   }
 
   Future<Map<String, dynamic>> _send(Map<String, dynamic> body, String key, {Duration timeout = const Duration(seconds: 15)}) async {
@@ -273,9 +357,17 @@ class SalesRepository {
     return false;
   }
 
+  /// 2026-10-27 (М4): {sale_package_id: штук в упаковке} по штукам из упаковки чека — для остатка телефона при снятии и пересчёте
+  /// очереди (остаток товара хранится в упаковках). null — таких строк нет, тело очереди прежнее.
+  static Map<String, double>? _packFactors(Cart cart) {
+    final m = <String, double>{for (final l in cart.lines) if (l.salePackageId != null && l.perPack > 1) l.salePackageId!: l.perPack};
+    return m.isEmpty ? null : m;
+  }
+
   Future<void> _applyStock(Cart cart) async {
     for (final l in cart.lines) {
-      if (!l.custom) await db.adjustStock(l.productId, -l.qty);
+      // 2026-10-27 (М4): штука из упаковки списывает долю упаковки (stockQty = qty / штук в упаковке); у остальных строк = qty
+      if (!l.custom) await db.adjustStock(l.productId, -l.stockQty);
     }
   }
 

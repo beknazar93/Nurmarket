@@ -22,6 +22,7 @@ import '../scan/scan_screen.dart';
 import '../scan/smart_camera.dart';
 import '../sale/cart.dart';
 import '../stock/barcode_label.dart';
+import '../stock/product_packages.dart';
 import 'admin_receive.dart';
 import '../../core/util/audit.dart';
 import '../../core/ai/product_refs.dart';
@@ -50,6 +51,9 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
   final _price = TextEditingController();
   final _qty = TextEditingController(text: '0');
   String _unit = 'шт';
+
+  // 2026-10-27 (М4): «Продавать поштучно из упаковки» — цена упаковки = розничная цена, закупка упаковки = закупка
+  late final PackFormController _pack = PackFormController(price: _price, cost: _cost);
 
   // 13.10, владелец: «добавь поставщиков, оптовую и розничную цену, скидку от поставщиков, доп. штрихкоды, фото».
   final _wholesale = TextEditingController();
@@ -184,6 +188,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
   void dispose() {
     _aiHandles.unregister('new_item', _aiHandle);
     _camera?.dispose();
+    _pack.dispose();
     _plu.dispose();
     for (final c in _cells.values) {
       c.dispose();
@@ -555,6 +560,22 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
       return;
     }
     if (_busy) return;
+    // 2026-10-27 (М4): поштучная продажа из упаковки — проверки до создания товара (штук целое ≥ 2, цена штуки, расхождение > 5 %)
+    if (_kind == 'product' && _pack.enabled && _createdId == null) {
+      if (_unit == 'кг') {
+        toast(context, l.pkWeightBlocked, error: true);
+        return;
+      }
+      final pr = _pack.problem;
+      if (pr == PackProblem.qtyBad || pr == PackProblem.pieceBad) {
+        toast(context, packErrorText(context, pr)!, error: true);
+        return;
+      }
+      if (pr == PackProblem.mismatch) {
+        final keep = await confirmPackMismatch(context, _pack);
+        if (!mounted || !keep) return;
+      }
+    }
     setState(() => _busy = true);
     final repo = ref.read(adminReceiveRepoProvider);
     final api = ref.read(apiProvider);
@@ -634,6 +655,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
             description: _description.text,
             isWeight: weight,
             plu: plu,
+            packages: weight || _pack.toPack() == null ? null : [_pack.toPack()!.toInput(_unit)],
           ),
         );
         final errors = await _afterCreate(id, qty, _effectiveCost);
@@ -730,11 +752,14 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(onPressed: _findInternet, icon: const Icon(Icons.travel_explore_rounded, size: 18), label: Text(l.findInternet)),
             ),
-            if (_found)
+            if (_found) ...[
               Text(
                 l.foundInBase,
                 style: const TextStyle(color: T.success, fontWeight: FontWeight.w700),
               ),
+              // 2026-10-27: откуда подставлено — встроенный справочник NurCRM (работает и без связи)
+              Text(l.globalSource, style: TextStyle(color: context.pal.textSoft, fontSize: 12)),
+            ],
           ],
           FieldLabel(l.peName), // 2026-10-26 (живой аудит, П7, Н-7): было «Имя» (clientName)
           TextField(controller: _name),
@@ -800,13 +825,29 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
           if (_kind == 'product') ...[
             FieldLabel(l.quantityLabel),
             TextField(controller: _qty, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+            ListenableBuilder(
+              listenable: _pack,
+              builder: (c, _) => _pack.enabled && _unit != 'кг'
+                  ? Padding(padding: const EdgeInsets.only(top: 4), child: Text(l.pkQtyInPacks, style: TextStyle(color: pal.textSoft, fontSize: 12)))
+                  : const SizedBox.shrink(),
+            ),
             FieldLabel(l.unitLabel),
             Wrap(
               spacing: 6,
               children: [
-                for (final u in ['шт', 'кг', 'л', 'упак']) ChoiceChip(label: Text(u), selected: _unit == u, onSelected: (_) => setState(() => _unit = u)),
+                for (final u in ['шт', 'кг', 'л', 'упак'])
+                  ChoiceChip(
+                    label: Text(u),
+                    selected: _unit == u,
+                    onSelected: (_) => setState(() {
+                      _unit = u;
+                      if (u == 'кг') _pack.setEnabled(false); // весовой товар нельзя продавать поштучно из упаковки
+                    }),
+                  ),
               ],
             ),
+            // 2026-10-27 (М4): упаковки — для любого штучного товара; остаток выше вводится в упаковках
+            PackSection(ctrl: _pack, blocked: _unit == 'кг'),
             if (_unit == 'кг') ...[
               FieldLabel(l.pAPluLabel),
               TextField(

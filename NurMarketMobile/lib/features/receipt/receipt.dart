@@ -201,7 +201,8 @@ class Receipt {
         ReceiptLine(
           name: str(m, 'product_name') ?? str(m, 'name') ?? str(m, 'title') ?? '',
           qty: qty,
-          unit: str(m, 'unit') ?? '',
+          // 2026-10-27 (М4): штука из упаковки (sale_package_id в строке продажи) — «3 шт × 12», а не единица упаковки товара
+          unit: (str(m, 'sale_package_id') ?? '').isNotEmpty ? 'шт' : (str(m, 'unit') ?? ''),
           price: price,
           discount: num0(m, 'discount_total') > 0 ? num0(m, 'discount_total') : roundMoney((qty * price - lineTotal).clamp(0, double.infinity).toDouble()),
           total: lineTotal,

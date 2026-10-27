@@ -501,4 +501,115 @@ abstract final class Intents {
     'create product', 'new product', 'add product',
     'yeni ürün', 'ürün ekle',
   ];
+
+  // 2026-10-27 (мобилка, видеозвонок, М2): правки товара голосом и мастер «добавить товар» в звонке.
+  /// Название товара: «переименуй», «назови», «название …».
+  /// 2026-10-27 (ревью М-7): только слова-ПРОСЬБЫ (глагол или «смени название»). Голые существительные «название», «имя», «называется»,
+  /// «name» были в списке — вопрос «как называется эта вода?» считался просьбой переименовать.
+  static const rename = [
+    'переимен', 'назови', 'назвать', 'переназов', 'поменяй назван', 'измени назван', 'смени назван', 'постав назван', 'нов назван', 'нов имя',
+    'атын өзгөрт', 'аталышын өзгөрт', 'атоо', 'кайра ата', 'жаңы ат',
+    "nomini o'zgartir", 'nomini ozgartir', 'nomini almashtir', 'nomla', 'yangi nom',
+    'rename', 'call it', 'change the name', 'change name', 'set the name', 'set name', 'new name',
+    'adını değiştir', 'ismini değiştir', 'yeniden adlandır', 'adlandır', 'yeni ad',
+  ];
+
+  static const category = [
+    'категор', 'раздел', 'групп',
+    'категория', 'бөлүм', 'топ',
+    "bo'lim", 'kategoriya', 'guruh',
+    'category', 'section', 'group',
+    'kategori', 'bölüm', 'grup',
+  ];
+
+  static const unit = [
+    'единиц', 'измерени', 'в штук', 'в килограмм', 'в литр', 'штучн', 'весов', 'на вес',
+    'бирдик', 'өлчөм', 'даана', 'килограмм',
+    'birlik', "o'lchov", 'dona', 'kilogramm',
+    'unit', 'measure', 'by weight', 'pieces',
+    'birim', 'ölçü', 'adet', 'kilogram',
+  ];
+
+  /// Подтверждение вслух («да») после того, как программа зачитала итог.
+  static const wizardConfirm = [
+    'да', 'создай', 'создавай', 'создать', 'подтвержд', 'верно', 'правильно', 'давай', 'ага', 'угу', 'хорошо', 'ок', 'окей',
+    'ооба', 'туура', 'жарайт', 'түз',
+    'ha', 'xa', 'yarat', "to'g'ri", 'togri', 'mayli', 'ok',
+    'yes', 'yeah', 'create', 'confirm', 'correct', 'right', 'do it', 'go ahead',
+    'evet', 'oluştur', 'doğru', 'tamam', 'onay',
+  ];
+
+  /// «Готово / снимай / сзади …» — реплика, после которой мастер снимает кадр.
+  static const wizardShot = [
+    'готов', 'снима', 'сними', 'снять', 'давай', 'есть', 'вот', 'спереди', 'сзади', 'сбоку', 'передн', 'задн', 'боков', 'сторон', 'штрихкод', 'ещё', 'еще',
+    'пересними', 'повтори', 'дальше', 'поехали', 'всё', 'все', 'так',
+    'даяр', 'тарт', 'сүрөт', 'алды', 'арты', 'капта', 'дагы', 'болду', 'штрих',
+    'tayyor', 'suratga', 'old', 'orqa', 'yon', 'yana', 'shtrix', 'tamom', 'ol',
+    'ready', 'done', 'shoot', 'capture', 'take', 'front', 'back', 'side', 'more', 'next', 'go', 'barcode', 'now', 'retake',
+    'hazır', 'çek', 'önden', 'arka', 'yan', 'daha', 'tamam', 'barkod',
+  ];
+
+  /// «Хватит / достаточно / пропусти» — закупку и остаток не называть, итог сразу.
+  static const wizardFinish = [
+    'хватит', 'достаточно', 'пропусти', 'пропуск', 'дальше', 'создавай', 'без закупк', 'без остатк',
+    'жетет', 'болду', 'өткөр',
+    "bo'ldi", 'boldi', 'yetarli', "o'tkaz",
+    'enough', 'skip', "that's all", 'thats all', 'done',
+    'yeter', 'geç', 'atla',
+  ];
+
+  static const noBarcode = [
+    'без штрих', 'нет штрих', 'штрихкода нет', 'пропусти штрих', 'пропустить штрих', 'без кода', 'нет кода',
+    'штрихкодсуз', 'штрихкод жок', 'кодсуз',
+    'shtrixkodsiz', "shtrixkod yo'q", 'shtrixkod yoq', 'kodsiz',
+    'no barcode', 'without barcode', 'without a barcode', 'skip barcode', 'no code',
+    'barkodsuz', 'barkod yok', 'kodsuz',
+  ];
+
+  /// «Отмена» мастера: сбросить черновик товара.
+  static const wizardCancel = [
+    'отмен', 'отбой', 'сброс', 'не надо', 'не нужно', 'хватит', 'забудь', 'стоп',
+    'жокко чыгар', 'болбойт', 'керек эмес', 'токтот',
+    'bekor', 'kerak emas', "to'xta", 'toxta',
+    'cancel', 'forget it', 'never mind', 'stop', 'abort',
+    'iptal', 'vazgeç', 'gerek yok', 'dur',
+  ];
+
+  static const wizardTeach = [
+    'обуч', 'научи', 'эталон', 'камеру', 'запомни',
+    'үйрөт', 'эстеп кал',
+    "o'rgat", 'orgat', 'eslab qol',
+    'teach', 'train', 'remember',
+    'eğit', 'egit', 'hatırla',
+  ];
+
+  /// Подтверждение УДАЛЕНИЯ вслух (второй шаг после показа карточки товара).
+  static const deleteConfirm = [
+    'да', 'удал', 'подтвержд', 'точно', 'уверен',
+    'ооба', 'өчүр', 'ырастаймын',
+    'ha', 'xa', "o'chir", 'ochir', 'tasdiqlay',
+    'yes', 'delete', 'confirm', 'sure', 'remove',
+    'evet', 'sil', 'onay', 'eminim',
+  ];
+
+  /// «Да» вслух (строгая проверка внутри инструмента: подтверждение удаления и создания товара).
+  static const yes = [
+    'да', 'ага', 'угу', 'конечно', 'верно', 'правильно', 'давай', 'создай', 'создавай', 'создать', 'удали', 'удаляй', 'удалить', 'подтвержд', 'хорошо', 'ок', 'окей',
+    'ооба', 'туура', 'жарайт', 'өчүр',
+    'ha', 'xa', 'mayli', "to'g'ri", 'togri', 'yarat', "o'chir", 'ochir',
+    'yes', 'yeah', 'ok', 'okay', 'create', 'confirm', 'correct', 'right', 'sure', 'go ahead', 'do it', 'delete',
+    'evet', 'tamam', 'doğru', 'onay', 'oluştur', 'sil',
+  ];
+
+  /// «Нет» вслух: отменяет любое «да» в той же реплике («нет, не удаляй», «не надо создавать»).
+  static const no = [
+    'нет', 'не', 'неа', 'отмен', 'стоп', 'подожди', 'погоди', 'стой', 'отбой', 'передума',
+    'жок', 'эмес', 'токто', 'болбойт',
+    'yoq', "yo'q", 'emas', 'bekor', "to'xta", 'toxta',
+    'no', 'not', "don't", 'dont', 'stop', 'wait', 'cancel', 'never',
+    'hayır', 'hayir', 'değil', 'iptal', 'dur', 'vazgeç',
+  ];
 }
+
+/// Пользователь сказал «да» и не сказал «нет» в той же реплике. Для подтверждений с последствиями (удалить, создать товар).
+bool saidYes(String text) => speechHasAny(text, Intents.yes) && !speechHasAny(text, Intents.no);

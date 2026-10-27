@@ -79,7 +79,27 @@ class ScreenDef {
   final List<ParamDef> params;
   final List<_Phrase> _phrases;
 
-  ScreenDef._(this.key, this.route, this.aux, this.exists, this.voiceOpen, this.titles, this.params, this._phrases);
+  /// 2026-10-27: раздел-родитель для пути в ответе («Склад → Приёмка»): программа называет то, что реально открыла.
+  final String? parent;
+
+  /// 2026-10-27: добавочное право экрана вне маршрутов (например «Доступ к ИИ» — владелец или право «Настройки»).
+  final bool Function(Session s)? gate;
+
+  ScreenDef._(this.key, this.route, this.aux, this.exists, this.voiceOpen, this.titles, this.params, this._phrases, this.parent, this.gate);
+
+  /// 2026-10-27: фразы экрана (слова и вес: название 2, синоним 1) для локального маршрутизатора (nav_router.dart).
+  Iterable<({List<String> tokens, int weight})> get phrases => _phrases.map((p) => (tokens: p.tokens, weight: p.weight));
+
+  /// Название с разделом-родителем: «Склад → Приёмка с поставщиком».
+  String fullTitle(String lang) {
+    ScreenDef? up;
+    if (parent != null) {
+      for (final d in _screens) {
+        if (d.key == parent) up = d;
+      }
+    }
+    return up == null ? title(lang) : '${up.title(lang)} → ${title(lang)}';
+  }
 
   String title(String lang) {
     final i = kNavLangs.indexOf(lang);
@@ -87,7 +107,7 @@ class ScreenDef {
   }
 
   /// Право как у самого маршрута (Session.canRoute: redirect → /denied). Экраны вне маршрутов открыты всем.
-  bool allowedFor(Session s) => route == null ? true : s.canRoute(route!);
+  bool allowedFor(Session s) => (route == null ? true : s.canRoute(route!)) && (gate?.call(s) ?? true);
 
   /// Путь для сравнения с адресом (без параметров).
   String get path => route ?? 'aux:$aux';
@@ -102,6 +122,8 @@ ScreenDef _def(
   bool exists = true,
   bool voiceOpen = true,
   List<ParamDef> params = const [],
+  String? parent,
+  bool Function(Session s)? gate,
 }) {
   assert(titles.length == 5 && syn.length == 5);
   final phrases = <_Phrase>[];
@@ -115,12 +137,235 @@ ScreenDef _def(
       if (tokens.isNotEmpty) phrases.add(_Phrase(tokens, 1));
     }
   }
-  return ScreenDef._(key, route, aux, exists, voiceOpen, titles, params, phrases);
+  // 2026-10-27: разговорные слова и «глубокие цели» (приёмка, накладная, ключи Gemini …) — отдельной таблицей _extraSyn
+  for (final p in (_extraSyn[key] ?? '').split('|')) {
+    final tokens = foldTokens(p);
+    if (tokens.isNotEmpty) phrases.add(_Phrase(tokens, 1));
+  }
+  return ScreenDef._(key, route, aux, exists, voiceOpen, titles, params, phrases, parent, gate);
 }
 
 const _stockFilters = {'low', 'out', 'in', 'all'};
 const _periods = {'today', 'week', 'month'};
 const _q = ParamDef('query', 'q');
+
+/// 2026-10-27 (расследование «ИИ неправильно открывает разделы»): разговорные слова и «глубокие цели» — дополнение к синонимам
+/// в [_screens]. Каждая запись: слова/фразы через «|», по языкам ru, ky, uz, en, tr; все — синонимы веса 1 (название экрана
+/// весит 2). Фраза засчитывается, только если все её слова есть в речи. Правило: слово не должно стоять у двух экранов сразу,
+/// кроме случаев, когда выбор нужно предложить кнопками (например «табель» — Смены или Зарплата).
+const _extraSyn = <String, String>{
+  'home': 'домой|на главную|главный экран|главная страница|рабочий стол|стартовая|'
+      'башкы экран|баштапкы бет|башкы бетке|башкы бетти|'
+      'bosh ekran|asosiy sahifa|bosh sahifaga|'
+      'home screen|main page|start page|homepage|'
+      'ana ekran|baslangic|ana sayfaya',
+  'sale': 'продажи|новая продажа|экран продажи|пробить чек|начать продажу|продавать|кассовый режим|'
+      'жаңы сатуу|сатуу экраны|сатуу бөлүмү|сатуу жасоо|'
+      'sotish|yangi sotuv|sotuv ekrani|savdo|'
+      'new sale|sales screen|checkout|point of sale|pos|selling|'
+      'yeni satis|satis ekrani|satis yap|satislar',
+  'scan': 'сканировать|сканер штрихкодов|считать штрихкод|проверка цены|сканер цен|проверить цену|'
+      'сканерлоо|штрих код окуу|баа текшерүү|'
+      'skanerlash|shtrix kod oqish|narx tekshirish|'
+      'barcode scanner|price check|scan barcode|check price|'
+      'barkod okuyucu|tarama|fiyat sorgula|fiyat kontrol',
+  'checks': 'чек|список чеков|кассовые чеки|квитанции|продажи за день|журнал чеков|'
+      'чектер тизмеси|сатуулар тарыхы|квитанциялар|'
+      'cheklar royxati|sotuvlar tarixi|kvitansiyalar|cheklar tarixi|'
+      'receipt|receipts list|transactions|sales log|check list|'
+      'fis listesi|fis gecmisi|satis gecmisi|fisleri|fisi',
+  'stock': 'кладовая|список товаров|каталог|номенклатура|запасы|складской учет|товарные остатки|остаток товара|'
+      'товар тизмеси|каталог|запас|кампадагы товарлар|'
+      'mahsulotlar|katalog|ombor hisobi|tovar royxati|'
+      'catalog|stock list|items|goods|inventory list|stock levels|'
+      'urun listesi|katalog|stok listesi|stoklar|depom',
+  'stock_receive': 'простой приход|быстрый приход|приход товара|принять приход|'
+      'жөнөкөй кирим|кирим жасоо|тез кирим|'
+      'oddiy kirim|tovar kirimi|tez kirim|'
+      'simple receipt|quick receive|receive stock|stock in|'
+      'basit giris|hizli giris|mal girisi yap',
+  'stock_audit': 'ревизию|сверка остатков|подсчет остатков|пересчет склада|провести ревизию|инвентарь|'
+      'калдыктарды саноо|ревизия жүргүзүү|санап чыгуу|'
+      'qayta sanash|qoldiqlarni sanash|reviziya otkazish|'
+      'stock audit|inventory check|count stock|stock taking|stocktaking|'
+      'stok sayimi|sayim yap|envanter sayimi|sayim',
+  'stock_import': 'импорт товаров|загрузить товары|загрузить из файла|массовое добавление|добавить много товаров|загрузка из эксель|импорт из excel|'
+      'товар жүктөө|топтом жүктөө|excel жүктөө|'
+      'tovar yuklash|excel dan yuklash|ommaviy qoshish|'
+      'import products|bulk upload|bulk add|import from excel|upload from excel|'
+      'urun yukle|excelden yukle|toplu ekleme|toplu urun',
+  'close_shift': 'конец смены|завершить смену|закрытие кассы|закончить смену|'
+      'сменаны бүтүрүү|'
+      'smenani tugatish|'
+      'finish shift|close register|shift closing|'
+      'gun sonu|vardiyayi bitir',
+  'profile': 'настройки|мои настройки|настройки приложения|смена языка|сменить тему|кабинет|личный кабинет|'
+      'жөндөөлөр|тема|тил тандоо|жеке кабинет|'
+      'sozlash|mening profilim|shaxsiy kabinet|tilni almashtirish|'
+      'my profile|app settings|my settings|change language|change theme|'
+      'ayarlarim|hesabim|tema|dil degistir|kisisel',
+  'ai_log': 'что делал ии|история действий ии|лог ии|действия помощника|журнал помощника|'
+      'ии эмне кылды|ии тарыхы|'
+      'ai nima qildi|ai tarixi|ai amallari|'
+      'what did ai do|ai history|ai journal|assistant actions|'
+      'yapay zeka gecmisi|yz islemleri|yz gunlugu',
+  'assistant_settings': 'помощника|настройки помощника|режим ии|права ии|настройка помощника|режим работы ии|'
+      'жардамчы режими|жардамчынын жөндөөлөрү|'
+      'yordamchi rejimi|yordamchi sozlamalari|'
+      'assistant settings|ai mode|helper|'
+      'yardimci modu|yardimci ayarlari|yz modu',
+  'sync': 'синхронизацию|отправка данных|очередь отправки|'
+      'шайкештирүү|'
+      'sinxronlash|malumotlarni yuborish|'
+      'sync now|sync data|outbox|'
+      'senkronlama|veri gonder',
+  'cash': 'положить деньги|взять деньги|инкассация|деньги в кассе|'
+      'акча кассага|'
+      'kassaga pul|kassadan pul|'
+      'put money in|take money out|'
+      'kasaya para koy|kasadan para al',
+  'debts': 'кто должен|задолженность|долги клиентов|список долгов|'
+      'карызы барлар|'
+      'qarzdorlar|'
+      'who owes|receivables|'
+      'borclular|alacaklar',
+  'held': 'отложенные чеки|отложить чек|отложенное|парковка чеков|отложенные продажи|'
+      'токтотулган сатуулар|'
+      'saqlangan sotuvlar|'
+      'parked sales|held sales|'
+      'bekleyen satislar|askidaki satislar',
+  'rentals': 'взять в аренду|выдача в прокат|прокатные позиции|список проката|'
+      'ижарага берүү|'
+      'ijaraga berish|'
+      'rent|rentals list|'
+      'kiralamalar|kirala',
+  'rental_new': 'оформить прокат|выдать прокат|создать прокат|'
+      'ижара түзүү|'
+      'ijara rasmiylashtirish|'
+      'create rental|start rental|'
+      'kiralama olustur',
+  'admin': 'админ панель|панель управления|меню управления|'
+      'башкаруу панели|админ|'
+      'boshqaruv paneli|'
+      'admin panel|control panel|'
+      'yonetim paneli|admin paneli',
+  'prices': 'изменить цену|поменять цену|цены товаров|установить цену|наценка|'
+      'баа өзгөртүү|'
+      'narx ozgartirish|'
+      'change price|set price|markup|'
+      'fiyat degistir|fiyat guncelle',
+  'shifts': 'кассовые смены|рабочие смены|мои смены|табель|'
+      'смена тарыхы|иш убактысы|'
+      'smenalar tarixi|jadval|tabel|'
+      'shift history|timesheet|work shifts|'
+      'vardiya gecmisi|puantaj',
+  'orders': 'заказы с сайта|интернет заказы|интернет магазин|'
+      'сайттан заказдар|'
+      'buyurtma|zakaz|'
+      'site orders|web orders|online orders|'
+      'online siparis',
+  'clients': 'база клиентов|мои клиенты|контрагенты|'
+      'кардарлар базасы|'
+      'mijozlar bazasi|'
+      'customer list|my customers|'
+      'musteri listesi|musterilerim',
+  'purchase': 'заказать у поставщика|заявка поставщику|закупить|'
+      'сатып алуу|жеткирүүчүлөр|'
+      'taminotchi|taminotchiga buyurtma|xaridlar|'
+      'purchase order|order from supplier|procurement|'
+      'tedarikciler|tedarikci siparis',
+  'deletions': 'удаления|удаленные позиции|отмененные позиции|'
+      'өчүрүлгөндөр|'
+      'ochirilganlar|'
+      'deleted lines|voided items|'
+      'silinen satirlar',
+  'receive': 'приемка|приемка от поставщика|принять от поставщика|приход от поставщика|поступление|поступление товара|принять накладную|принять поставку|'
+      'кабыл алуу|жеткирүүчүдөн кабыл алуу|товар кабыл алуу|'
+      'qabul|tovar qabul|qabul qilish|postavshikdan qabul|nakladnoy qabul|'
+      'receive goods|incoming goods|goods receipt|receiving|supplier delivery|'
+      'mal kabulu|teslim alma|tedarikci teslimati',
+  'invoice': 'загрузить накладную|накладную загрузить|загрузка накладной|электронная накладная|накладная из файла|накладная excel|'
+      'накладная жүктөө|накладнойду жүктөө|'
+      'nakladnoy yuklash|nakladnoyni yuklash|hisob faktura|'
+      'upload invoice|import invoice|load invoice|supplier invoice|'
+      'fatura yukle|irsaliye yukle|irsaliye yukleme',
+  'smartcam': 'сфотографировать накладную|фото накладной|накладная по фото|снять накладную|сканировать накладную|камера накладная|камера для накладной|сфотографировать полку|'
+      'накладнаяны сүрөткө тартуу|текче сүрөтү|'
+      'nakladnoyni suratga olish|javon surati|'
+      'photo of invoice|scan invoice|photograph invoice|shelf photo|take photo of invoice|'
+      'irsaliye fotografi|irsaliyeyi cek|raf fotografi',
+  'staff': 'сотрудники и права|управление сотрудниками|кадры|команда|мои сотрудники|продавцы|кассиры|'
+      'ишчилер|кызматкер|'
+      'ishchilar|xodim|hodimlar|'
+      'team|workers|users|'
+      'calisan|ekip',
+  'payqr': 'оплата по qr|реквизиты qr|настройка qr|'
+      'qr төлөм жөндөө|'
+      'qr tolov sozlash|'
+      'qr settings|qr setup|'
+      'qr ayarlari',
+  'audit': 'журнал аудита|история действий|кто что делал|журнал действий|'
+      'аракеттер журналы|'
+      'harakatlar jurnali|'
+      'activity log|who did what|'
+      'islem gunlugu',
+  'notifications': 'колокольчик|'
+      'коңгуроо|'
+      'qongiroq|'
+      'bell|notification center|'
+      'bildirim merkezi',
+  'quotes': 'счет клиенту|предложение клиенту|коммерческое|'
+      'кардарга сунуш|'
+      'mijozga taklif|'
+      'offer to client|price offer|'
+      'musteri teklifi',
+  'advisor': 'ии чат|чат с ии|консультант|чат с советником|открыть чат|'
+      'ии чат|кеңешчи|'
+      'ai chat|maslahatchi chat|'
+      'ai chat|ai advisor|chat with advisor|'
+      'yz sohbet|yapay zeka sohbeti|sohbet',
+  'summary': 'аналитика|прибыль|прибыль и деньги|показатели|итоги дня|финансовый отчет|отчет по продажам|'
+      'аналитика|пайда|статистика|'
+      'analitika|foyda|statistika|'
+      'analytics|profit|overview|sales report|financial report|'
+      'analiz|kar|genel bakis|satis raporu',
+  'abc': 'abc анализ|abc-анализ|анализ abc|топ товаров|'
+      'abc талдоо|'
+      'abc tahlili|'
+      'abc report|top products|'
+      'abc raporu',
+  'esf': 'электронная счет фактура|выписать эсф|'
+      'эсф жазуу|'
+      'esf yozish|'
+      'issue esf|e invoice kg|'
+      'esf olustur',
+  'new_product': 'добавить позицию|завести товар|карточка нового товара|новая карточка|добавление товара|создание товара|'
+      'товар түзүү|жаңы товар кошуу|'
+      'tovar yaratish|yangi mahsulot|'
+      'add item|new item|create item|'
+      'urun olustur|yeni stok',
+  'tasks': 'задания|поручения|список задач|планировщик|'
+      'милдеттер|'
+      'topshiriqlar|'
+      'to do|todo|assignments|'
+      'yapilacaklar|isler',
+  'salary': 'расчет зарплаты|выплата зарплаты|табель|начисления|'
+      'айлык эсептөө|'
+      'oylik hisoblash|'
+      'payroll|wages|paycheck|'
+      'maas hesabi|bordro',
+  'printer': 'настройки принтера|подключить принтер|принтер чеков|настроить принтер|'
+      'принтер жөндөө|'
+      'printer sozlamalari|'
+      'printer settings|connect printer|receipt printer|'
+      'yazici ayarlari|yazici baglan',
+  'ai_keys': 'ключи ии|ключ ии|подключить ии|настроить ии|ключ нейросети|модели ии|'
+      'ии ачкычы|ии жөндөө|'
+      'ai kaliti|ai sozlash|'
+      'ai keys|ai key|set up ai|ai providers|'
+      'yz ayarlari|yapay zeka anahtari',
+};
+
 
 /// Реестр экранов (раздел 7 ТЗ). Порядок — как в таблице ТЗ.
 final List<ScreenDef> _screens = [
@@ -169,25 +414,25 @@ final List<ScreenDef> _screens = [
   ]),
   _def('stock_receive', '/stock/receive', ['Приход (простой)', 'Кириш (жөнөкөй)', 'Kirim (oddiy)', 'Simple receipt', 'Basit giriş'], [
     'приход|оприходовать|оприходование|простой приход',
-    'кириш|кирим|кабыл алуу',
-    'kirim|qabul',
+    'кириш|кирим',
+    'kirim',
     'receive|goods in|simple receive',
     'mal girisi|giris',
-  ]),
+  ], parent: 'stock'),
   _def('stock_audit', '/stock/audit', ['Ревизия', 'Ревизия', 'Reviziya', 'Stock count', 'Sayım'], [
     'ревизия|инвентаризация|пересчет|пересчитать',
     'ревизия|санап чыгуу|саноо',
     'reviziya|inventarizatsiya|sanash',
     'stocktake|stock count|inventory count|recount',
     'sayim|envanter',
-  ]),
+  ], parent: 'stock'),
   _def('stock_import', '/stock/import', ['Массовая загрузка', 'Жалпы жүктөө', 'Ommaviy yuklash', 'Bulk import', 'Toplu yükleme'], [
     'массовая загрузка|импорт|загрузка товаров|загрузить из excel',
     'жалпы жуктоо|импорт',
     'ommaviy yuklash|import',
     'bulk import|import|upload products',
     'toplu yukleme|ice aktar',
-  ]),
+  ], parent: 'stock'),
   // Карточка товара — вне маршрутов: открывается инструментом open_product (openProductEditor), не open_screen.
   _def('product', null, ['Карточка товара', 'Товар картасы', 'Tovar kartasi', 'Product card', 'Ürün kartı'], ['', '', '', '', ''], aux: 'product', voiceOpen: false),
   _def('pay', '/pay', ['Оплата', 'Төлөм', "To'lov", 'Payment', 'Ödeme'], [
@@ -218,21 +463,21 @@ final List<ScreenDef> _screens = [
     'ai harakatlari',
     'ai actions|ai log',
     'yapay zeka islemleri',
-  ]), // 2026-10-26 (В5): экран готов (/ai/log), exists: true
+  ], parent: 'profile'), // 2026-10-26 (В5): экран готов (/ai/log), exists: true
   _def('assistant_settings', '/ai/settings', ['Помощник', 'Жардамчы', 'Yordamchi', 'Assistant', 'Yardımcı'], [
     'помощник|режим помощника',
     'жардамчы',
     'yordamchi',
     'assistant|assistant mode',
     'yardimci',
-  ]), // 2026-10-26 (В5): экран готов (/ai/settings), exists: true
+  ], parent: 'profile'), // 2026-10-26 (В5): экран готов (/ai/settings), exists: true
   _def('sync', '/sync', ['Синхронизация', 'Шайкештирүү', 'Sinxronlash', 'Sync', 'Senkronizasyon'], [
     'синхронизация|синхронизировать|обновить данные|очередь',
     'шайкештируу|синхрондоо',
     'sinxronlash|sinxronizatsiya',
     'sync|synchronization',
     'senkronizasyon|senkron',
-  ]),
+  ], parent: 'profile'),
   _def('cash', '/cash', ['Внесение и изъятие', 'Салуу жана алуу', 'Kirim va chiqim', 'Cash in/out', 'Kasa giriş çıkış'], [
     'внесение|изъятие|внести деньги|изъять деньги|движение денег',
     'акча салуу|акча алуу',
@@ -276,7 +521,7 @@ final List<ScreenDef> _screens = [
     'yangi ijara',
     'new rental',
     'yeni kiralama',
-  ]),
+  ], parent: 'rentals'),
   _def('admin', '/admin', ['Управление', 'Башкаруу', 'Boshqaruv', 'Management', 'Yönetim'], [
     'управление|админка|администрирование',
     'башкаруу|башкарма',
@@ -323,7 +568,7 @@ final List<ScreenDef> _screens = [
     'yetkazib beruvchiga buyurtma|xarid',
     'supplier order|purchase|purchasing|suppliers',
     'tedarikci siparisi|satin alma',
-  ]),
+  ], parent: 'stock'),
   _def('deletions', '/admin/deletions', ['Удалено из чека', 'Чектен өчүрүлгөн', 'Chekdan o\'chirilgan', 'Deleted items', 'Silinenler'], [
     'удалено из чека|удаленные|удаления',
     'чектен очурулгон',
@@ -337,20 +582,22 @@ final List<ScreenDef> _screens = [
     'qabul|yetkazib beruvchidan qabul',
     'goods receipt|receive from supplier|receiving',
     'tedarikciden mal kabul|mal kabul',
-  ]),
+  ], parent: 'stock'),
   _def('invoice', '/admin/invoice', ['Накладная', 'Накладная', 'Hisob-faktura', 'Invoice', 'İrsaliye'], [
     'накладная',
     'накладная',
     'nakladnoy|faktura',
     'invoice|waybill',
     'irsaliye',
-  ], exists: false),
+  ], parent: 'stock'), // 2026-10-27: маршрут /admin/invoice появился (загрузка накладной) — экран настоящий
   _def('smartcam', '/admin/smartcam', ['Умная камера', 'Акылдуу камера', 'Aqlli kamera', 'Smart camera', 'Akıllı kamera'], [
     'умная камера|камера|фото полки',
     'акылдуу камера',
     'aqlli kamera',
     'smart camera|camera',
     'akilli kamera|kamera',
+  ], parent: 'stock', params: [
+    ParamDef('tab', 'mode', values: {'shelf', 'invoice', 'labels'}, live: true), // 2026-10-27: /admin/smartcam?mode= — SmartCameraScreen.initialMode
   ]),
   _def('staff', '/admin/staff', ['Сотрудники и права', 'Кызматкерлер жана укуктар', 'Xodimlar va huquqlar', 'Staff and permissions', 'Personel ve yetkiler'], [
     'сотрудники|права|доступы|персонал|работники',
@@ -432,7 +679,7 @@ final List<ScreenDef> _screens = [
     'yeni urun|urun ekle',
   ], params: [
     ParamDef('tab', 'kind', values: {'product', 'clothes', 'service'}, live: true),
-  ]),
+  ], parent: 'stock'),
   _def('tasks', '/admin/tasks', ['Задачи', 'Тапшырмалар', 'Vazifalar', 'Tasks', 'Görevler'], [
     'задачи|задача',
     'тапшырмалар|тапшырма',
@@ -463,14 +710,43 @@ final List<ScreenDef> _screens = [
     'printer',
     'printer|printing',
     'yazici',
-  ], aux: 'printer'),
+  ], aux: 'printer', parent: 'profile'),
   _def('ai_keys', null, ['Настройка ИИ', 'ИИ жөндөөсү', 'AI sozlamalari', 'AI settings', 'Yapay zeka ayarları'], [
     'настройка ии|настройки ии|ключ ии|нейросеть',
     'ии жондоосу',
     'ai sozlamalari',
     'ai settings|ai keys',
     'yapay zeka ayarlari',
-  ], aux: 'ai_keys'),
+  ], aux: 'ai_keys', parent: 'profile'),
+  // 2026-10-27: экраны профиля и «глубокие цели» (раздел «Связь с кассой», «Ключи Gemini», «Доступ к ИИ», «Режим тестировщика»)
+  _def('kassa_link', null, ['Связь с кассой', 'Кассага туташуу', 'Kassa bilan aloqa', 'Till link', 'Kasa bağlantısı'], [
+    'связь с кассой|сопряжение с кассой|подключить к кассе|подключение к кассе|сканер для кассы|телефон как сканер|привязать к кассе',
+    'кассага туташуу|кассага байланыш|кассага туташтыруу|телефон сканер',
+    'kassa bilan aloqa|kassaga ulash|kassaga ulanish|telefon skaner',
+    'till link|link with register|register link|connect to register|connect to till|phone as scanner|pair with till|pair with register',
+    'kasa baglantisi|kasaya baglan|kasaya bagla|telefonu tarayici yap|kasa eslestirme',
+  ], aux: 'kassa_link', parent: 'profile'),
+  _def('gemini_keys', null, ['Ключи Gemini', 'Gemini ачкычтары', 'Gemini kalitlari', 'Gemini keys', 'Gemini anahtarları'], [
+    'ключи gemini|ключ gemini|ключи джемини|ключи гемини|несколько ключей|ключи|gemini|джемини|гемини',
+    'gemini ачкычтары|gemini ачкыч|ачкычтар|ачкыч',
+    'gemini kalitlari|gemini kaliti|kalitlar|kalit',
+    'gemini keys|gemini key|keys|api keys|google keys',
+    'gemini anahtarlari|gemini anahtari|anahtarlar|anahtar',
+  ], aux: 'gemini_keys', parent: 'profile'),
+  _def('ai_access', null, ['Доступ к ИИ', 'ИИге жеткиликтүүлүк', 'SI dan foydalanish', 'AI access', 'YZ erişimi'], [
+    'доступ к ии|кому можно ии|кому разрешен ии|доступ ии|разрешить ии сотрудникам',
+    'иидин жеткиликтуулугу|ии кимге мумкун',
+    'si dan foydalanish|ai dan foydalanish|kimga ai mumkin',
+    'ai access|who can use ai|ai permissions|ai users',
+    'yz erisimi|yapay zeka erisimi|yz kimler',
+  ], aux: 'ai_access', parent: 'profile', gate: (s) => s.isOwner || s.can(Session.viewSettings)),
+  _def('tester', '/tester', ['Режим тестировщика', 'Тестирлөөчү режими', 'Sinovchi rejimi', 'Tester mode', 'Test modu'], [
+    'режим тестировщика|тестировщик|тестовый режим|проверка функций|тестирование|режим проверки',
+    'тестирлоочу режими|тестирлоочу|сынак режими',
+    'sinovchi rejimi|sinovchi|test rejimi',
+    'tester mode|tester|test mode|qa mode',
+    'test modu|test kullanicisi|tester modu',
+  ], parent: 'profile'),
 ];
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -495,7 +771,7 @@ class ScreenRegistry {
   const ScreenRegistry();
 
   /// Маршруты app.dart, которых в реестре нарочно нет: вход, выбор кассы, отказ в доступе (ИИ их не открывает).
-  static const excludedRoutes = {'/login', '/cashbox', '/denied'};
+  static const excludedRoutes = {'/login', '/cashbox', '/denied'}; // 2026-10-27: '/tester' теперь в реестре (экран «Режим тестировщика»)
 
   List<ScreenDef> get all => _screens;
 

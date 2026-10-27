@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- вымышленная электронная счёт-фактура произвольной структуры -->
+<invoice>
+  <header>
+    <number>ЭСФ-2026-0099</number>
+    <date>2026-10-20</date>
+    <currency>KGS</currency>
+  </header>
+  <seller>
+    <name>ОсОО «Ала-Тоо Опт»</name>
+    <tin>02345678901234</tin>
+  </seller>
+  <buyer>
+    <name>ИП Тестов</name>
+    <tin>11111111111111</tin>
+  </buyer>
+  <productSet>
+    <product>
+      <description>Мука высший сорт 50 кг</description>
+      <barcode>4870001234567</barcode>
+      <unit>меш</unit>
+      <quantity>10</quantity>
+      <unitPrice>2 150,00</unitPrice>
+      <turnoverSize>21500</turnoverSize>
+      <vatRate>12</vatRate>
+    </product>
+    <product>
+      <description>Масло подсолнечное 1 л</description>
+      <barcode>4870001234574</barcode>
+      <unit>л</unit>
+      <quantity>36</quantity>
+      <unitPrice>118.50</unitPrice>
+      <turnoverSize>4266</turnoverSize>
+      <vatRate>12</vatRate>
+    </product>
+  </productSet>
+  <total>25766</total>
+</invoice>

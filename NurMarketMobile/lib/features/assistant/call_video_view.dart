@@ -198,6 +198,20 @@ class QuickAskButtons extends StatelessWidget {
       btn(VideoAsk.invoice, Icons.description_outlined, l.vcInvoice),
       if (c.canStock) btn(VideoAsk.shelf, Icons.inventory_2_outlined, l.vcShelf),
       btn(VideoAsk.label, Icons.payments_outlined, l.vcPriceTag),
+      // 2026-10-27 (мобилка, видеозвонок, М2): «Добавить товар» — мастер: спереди, сзади, сбоку, штрихкод
+      if (c.canAddProduct && !c.wizardActive)
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            side: BorderSide(color: pal.border, width: 1.5),
+            foregroundColor: pal.text,
+            textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          ),
+          onPressed: off ? null : c.wizardStart,
+          icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+          label: Text(l.wizAddProduct, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
     ];
     if (grid) {
       return GridView.count(

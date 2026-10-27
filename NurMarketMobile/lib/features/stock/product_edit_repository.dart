@@ -3,6 +3,7 @@ import 'package:drift/drift.dart' show Value;
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../sale/catalog_repository.dart';
+import 'product_packages.dart';
 import 'stock_repository.dart';
 
 // 2026-10-22 (мобилка, админ): владелец — «в мобилке нельзя редактировать товары на складе». Карточка товара со склада:
@@ -26,6 +27,12 @@ class ProductDraft {
   /// null — сервер минимум не отдал и его не вписали: не отправляем (как MinimumQuantity кассы).
   final double? minQty;
 
+  /// 2026-10-27 (М4): поштучная продажа из упаковки (packages сервера); null — её нет.
+  final PiecePack? pack;
+
+  /// 2026-10-27 (М4): у товара несколько упаковок или это комплект — упаковки здесь не правятся и `packages_input` не уходит.
+  final bool packLocked;
+
   const ProductDraft({
     required this.name,
     required this.unit,
@@ -36,6 +43,8 @@ class ProductDraft {
     required this.purchase,
     required this.wholesale,
     required this.minQty,
+    this.pack,
+    this.packLocked = false,
   });
 
   /// Карточка с сервера (GET products/{id}/); чего нет в ответе — из базы телефона.
@@ -53,6 +62,9 @@ class ProductDraft {
       purchase: num0(m, 'purchase_price'),
       wholesale: m.containsKey('wholesale_price') ? num0(m, 'wholesale_price') : local.wholesalePrice,
       minQty: rawMin == null ? (local.minQuantity > 0 ? local.minQuantity : null) : num0(m, m.containsKey('minimum_quantity') ? 'minimum_quantity' : 'min_quantity'),
+      // 2026-10-27 (М4): у комплекта (bundle) packages — состав набора, не поштучная продажа: не трогаем
+      pack: str(m, 'kind') == 'bundle' ? null : PiecePack.first(m['packages']),
+      packLocked: str(m, 'kind') == 'bundle' || PiecePack.parseAll(m['packages']).length > 1,
     );
   }
 
@@ -66,6 +78,8 @@ class ProductDraft {
     double? purchase,
     double? wholesale,
     double? minQty,
+    PiecePack? pack,
+    bool clearPack = false,
   }) => ProductDraft(
     name: name ?? this.name,
     unit: unit ?? this.unit,
@@ -76,6 +90,8 @@ class ProductDraft {
     purchase: purchase ?? this.purchase,
     wholesale: wholesale ?? this.wholesale,
     minQty: minQty ?? this.minQty,
+    pack: clearPack ? null : (pack ?? this.pack),
+    packLocked: packLocked,
   );
 
   static String altCode(String line) => line.split('|').first.trim();
@@ -123,6 +139,13 @@ Map<String, dynamic> productPatchBody(ProductDraft before, ProductDraft after, {
   }
   final m = after.minQty;
   if (m != null && (before.minQty == null || (m - before.minQty!).abs() > 0.0005)) body['minimum_quantity'] = _qty(m);
+  // 2026-10-27 (М4): поштучная продажа — packages_input полной заменой, как BuildProductBody кассы; пустой список — снять.
+  // Не шлём, если упаковка не менялась, у товара несколько упаковок/комплект, или товар весовой (поштучно нельзя).
+  if (!before.packLocked && !after.packLocked && !isWeightUnit(after.unit)) {
+    final a = after.pack, b = before.pack;
+    final changed = (a == null) != (b == null) || (a != null && !a.sameAs(b));
+    if (changed) body['packages_input'] = a == null ? <Object>[] : [a.toInput(after.unit.trim())];
+  }
   return body;
 }
 
@@ -211,6 +234,19 @@ class ProductEditRepository {
         restored = true;
         server = fix is Map && fix.containsKey('price') ? fix.cast<String, dynamic>() : {...server, 'price': after.price};
       }
+    }
+    // 2026-10-27 (М4): упаковка записана — в базу телефона кладём то, что вернул сервер (id упаковки нужен для продажи штуки);
+    // ответ без packages дополняем карточкой.
+    if (body.containsKey('packages_input')) {
+      var full = server;
+      if (full == null || !full.containsKey('packages')) {
+        try {
+          full = await load(id);
+        } on ApiException {
+          full = null;
+        }
+      }
+      await PackageStore.put(db, id, full != null && full.containsKey('packages') ? PiecePack.first(full['packages']) : after.pack);
     }
     await _saveLocal(id, server, after, canPrices: canPrices);
     return ProductSaveResult(changed: true, priceRestored: restored, server: server);

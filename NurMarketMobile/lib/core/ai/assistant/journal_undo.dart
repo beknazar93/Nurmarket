@@ -66,7 +66,7 @@ class JournalUndo {
 
   static const _receive = {'receive_from_supplier', 'receive_simple'};
   static const _moneyTools = {'checkout', 'return_sale', 'close_shift', 'open_shift', 'cash_in_out', 'pay_debt', 'receive_from_supplier', 'receive_simple', 'write_off', 'stock_count', 'add_bonus'};
-  static const _productTools = {'set_price', 'bulk_markup', 'product_edit', 'create_product', 'delete_product'};
+  static const _productTools = {'set_price', 'bulk_markup', 'product_edit', 'create_product', 'delete_product', 'product_wizard', 'wizard_create'};
   static const _cartTools = {'cart_edit', 'hold_cart', 'set_order_status', 'create_client'};
 
   /// Значок группы. Запись об отмене (`undo_last`) берёт группу отменённого действия.
@@ -147,9 +147,16 @@ class JournalUndo {
         if (!_okId(d['id'])) return false;
         final codeChanged = '${r.args['new_barcode'] ?? ''}'.trim().isNotEmpty;
         final minChanged = r.args['min_qty'] != null;
-        if (!codeChanged && !minChanged) return false;
+        // 2026-10-27 (М2): название, категория, единица и доп. штрихкоды тоже правятся голосом
+        final nameCh = d['name_to'] is String;
+        final catCh = d['category_to'] is String;
+        final unitCh = d['unit_to'] is String;
+        final altCh = d['alt_to'] is List;
+        if (!codeChanged && !minChanged && !nameCh && !catCh && !unitCh && !altCh) return false;
         if (codeChanged && (d['barcode_from'] is! String || d['barcode_to'] is! String || _masked(d['barcode_from']) || _masked(d['barcode_to']))) return false;
         if (minChanged && (_n(d['min_from']) == null || _n(d['min_to']) == null)) return false;
+        if ((nameCh && d['name_from'] is! String) || (catCh && d['category_from'] is! String) || (unitCh && d['unit_from'] is! String)) return false;
+        if (altCh && (d['alt_from'] is! List || [...(d['alt_from'] as List), ...(d['alt_to'] as List)].any((e) => e is! String || _masked(e)))) return false;
         return true;
       case 'cash_in_out':
         return (d['kind'] == 'in' || d['kind'] == 'out') && (_n(d['amount']) ?? 0) > 0 && _okId(d['shift']);
@@ -248,12 +255,27 @@ class JournalUndoer {
     final cur = await host.loadDraft(p);
     final codeChanged = '${r.args['new_barcode'] ?? ''}'.trim().isNotEmpty;
     final minChanged = r.args['min_qty'] != null;
+    final nameCh = d['name_to'] is String;
+    final catCh = d['category_to'] is String;
+    final unitCh = d['unit_to'] is String;
+    final altCh = d['alt_to'] is List;
     if (codeChanged && cur.barcode.trim() != '${d['barcode_to']}'.trim()) return const JournalUndoOutcome(UndoStatus.conflict);
     if (minChanged && JournalUndo._diff(cur.minQty ?? 0, (d['min_to'] as num).toDouble())) return const JournalUndoOutcome(UndoStatus.conflict);
+    if (nameCh && cur.name.trim() != '${d['name_to']}'.trim()) return const JournalUndoOutcome(UndoStatus.conflict);
+    if (catCh && cur.category.trim() != '${d['category_to']}'.trim()) return const JournalUndoOutcome(UndoStatus.conflict);
+    if (unitCh && cur.unit.trim() != '${d['unit_to']}'.trim()) return const JournalUndoOutcome(UndoStatus.conflict);
+    if (altCh && cur.alt.join('\n') != [for (final e in d['alt_to'] as List) '$e'].join('\n')) return const JournalUndoOutcome(UndoStatus.conflict);
     await host.saveDraft(
       p.id,
       cur,
-      cur.copyWith(barcode: codeChanged ? '${d['barcode_from']}' : null, minQty: minChanged ? (d['min_from'] as num).toDouble() : null),
+      cur.copyWith(
+        barcode: codeChanged ? '${d['barcode_from']}' : null,
+        minQty: minChanged ? (d['min_from'] as num).toDouble() : null,
+        name: nameCh ? '${d['name_from']}' : null,
+        category: catCh ? '${d['category_from']}' : null,
+        unit: unitCh ? '${d['unit_from']}' : null,
+        alt: altCh ? [for (final e in d['alt_from'] as List) '$e'] : null,
+      ),
     );
     Audit.log('product', 'ИИ: отмена правки карточки · ${p.name}');
     return const JournalUndoOutcome(UndoStatus.ok);

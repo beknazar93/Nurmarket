@@ -907,7 +907,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get advisorTitle => 'Нур Советник';
 
   @override
-  String get advisorOnline => 'Данные магазина подключены';
+  String get advisorOnline => 'Отвечает по данным вашего магазина';
 
   @override
   String get advisorAsk => 'Спросите о своём магазине…';
@@ -932,7 +932,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get advisorNoKey =>
-      'Добавьте ключ ИИ в программе владельца: Нур Советник → ⚙ → Модели ИИ и ключи';
+      'Ключа ИИ нет. Добавьте его в «Настройка ИИ» → «Ключи Gemini» на этом телефоне (или в программе владельца: Нур Советник → ⚙ → Модели ИИ и ключи)';
 
   @override
   String get advisorStageData => 'Собираю данные магазина…';
@@ -1800,7 +1800,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String unknownBarcodeHint(String code) {
-    return '$code · администратор получит его и заведёт товар';
+    return '$code · не найден ни в каталоге, ни в справочнике NurCRM. Заведите товар — код никуда не отправляется';
   }
 
   @override
@@ -3885,6 +3885,56 @@ class AppLocalizationsRu extends AppLocalizations {
   String get vcPriceTag => 'Ценник';
 
   @override
+  String get wizAddProduct => 'Добавить товар';
+
+  @override
+  String get wizTitle => 'Добавление товара';
+
+  @override
+  String get wizSlotFront => 'Спереди';
+
+  @override
+  String get wizSlotBack => 'Сзади';
+
+  @override
+  String get wizSlotSide => 'Сбоку';
+
+  @override
+  String get wizSlotCode => 'Штрихкод';
+
+  @override
+  String wizShootSide(String side) {
+    return 'Снять: $side';
+  }
+
+  @override
+  String get wizCreate => 'Создать товар';
+
+  @override
+  String wizDraft(String name, String price) {
+    return '«$name» · $price сом';
+  }
+
+  @override
+  String get wizHint => 'Скажите «готово» или нажмите «Снять»';
+
+  @override
+  String wizDuplicate(String name) {
+    return 'Уже есть: «$name»';
+  }
+
+  @override
+  String wizPhotoAlt(String side) {
+    return 'Снимок: $side';
+  }
+
+  @override
+  String get wizEnterCode => 'Ввести штрихкод';
+
+  @override
+  String get wizEnterCodeHint => 'Отсканируйте сканером или введите цифры';
+
+  @override
   String get vcCardProduct => 'Товар';
 
   @override
@@ -4083,7 +4133,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aiAccMineOpen => 'ИИ доступен всем сотрудникам (лимит не задан)';
 
   @override
-  String get aiAccNotSet => 'Не задано — ИИ доступен всем';
+  String get aiAccNotSet =>
+      'Не задано — ИИ у всех сотрудников (владельцу и администратору — всегда)';
 
   @override
   String get assistantTitle => 'Помощник';
@@ -4712,4 +4763,1096 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get aiKeysSavedPhoneOnly =>
       'Сохранено на телефоне, но в облако не ушло — касса и программа владельца пока не увидят. Повторите позже.';
+
+  @override
+  String get klTitle => 'Связь с кассой';
+
+  @override
+  String get klProfileOff => 'Не подключена';
+
+  @override
+  String klKassaName(String name) {
+    return 'Касса «$name»';
+  }
+
+  @override
+  String get klScanQr => 'Сканировать QR на кассе';
+
+  @override
+  String get klScanQrHint =>
+      'На компьютере с кассой откройте окно «Подключить телефон» и наведите камеру на QR-код. Телефон и касса должны быть в одной Wi-Fi сети, касса — запущена.';
+
+  @override
+  String get klScanQrTitle => 'Наведите камеру на QR-код на экране кассы';
+
+  @override
+  String get klNotKassaQr => 'Это не QR-код кассы NurMarket';
+
+  @override
+  String get klBadQr =>
+      'Не удалось прочитать QR-код. Откройте на кассе окно «Подключить телефон» и сканируйте заново.';
+
+  @override
+  String get klQrVersion =>
+      'Эта касса новее приложения. Обновите NurMarket на телефоне.';
+
+  @override
+  String get klManual => 'Ввести ссылку вручную';
+
+  @override
+  String get klManualHint => 'Вставьте текст QR-кода (nurmarket-link:…)';
+
+  @override
+  String get klConnect => 'Подключить';
+
+  @override
+  String klConnected(String name) {
+    return 'Касса «$name» подключена';
+  }
+
+  @override
+  String get klConnectedPlain => 'Касса подключена';
+
+  @override
+  String get klStUnpaired => 'Касса не подключена';
+
+  @override
+  String get klStUnknown => 'Связь не проверена';
+
+  @override
+  String get klStOnline => 'На связи';
+
+  @override
+  String get klStNotFound => 'Касса не найдена в этой сети';
+
+  @override
+  String get klStRevoked => 'Телефон отключён на кассе';
+
+  @override
+  String get klStBadTime => 'Проверьте время на телефоне';
+
+  @override
+  String get klStDisabled => 'Приём с телефонов выключен на кассе';
+
+  @override
+  String get klStRePair => 'Связь устарела — сканируйте QR на кассе заново';
+
+  @override
+  String get klChecking => 'Проверка связи…';
+
+  @override
+  String get klShiftOpen => 'Смена на кассе: открыта';
+
+  @override
+  String get klShiftClosed => 'Смена на кассе: закрыта';
+
+  @override
+  String get klCheckNow => 'Проверить связь';
+
+  @override
+  String get klDisconnect => 'Отключить';
+
+  @override
+  String klDisconnectAsk(String name) {
+    return 'Отключить телефон от кассы «$name»? Подключить снова можно по QR-коду. На самой кассе телефон останется в списке — удалите его и там.';
+  }
+
+  @override
+  String get klDisconnected => 'Телефон отключён от кассы';
+
+  @override
+  String get klScannerMode => 'Сканер для кассы';
+
+  @override
+  String get klScannerHint =>
+      'Наведите на штрихкод — товар сразу попадёт в чек на кассе';
+
+  @override
+  String get klSetupAsk => 'Связь с кассой не настроена';
+
+  @override
+  String get klSetup => 'Настроить';
+
+  @override
+  String get klScSending => 'Отправка…';
+
+  @override
+  String get klScAdded => 'Добавлен';
+
+  @override
+  String get klScNotFound => 'Не найден';
+
+  @override
+  String get klScTillInactive => 'Окно кассы не открыто';
+
+  @override
+  String get klScQueued => 'Нет связи — в очереди';
+
+  @override
+  String get klScQueueFull => 'Очередь заполнена — код не принят';
+
+  @override
+  String get klScExpired => 'Не отправлен: касса не ответила';
+
+  @override
+  String get klScFailed => 'Касса не приняла код';
+
+  @override
+  String get klLastCode => 'Последний код';
+
+  @override
+  String klCounter(int n) {
+    return 'Добавлено в чек: $n';
+  }
+
+  @override
+  String klQueueLeft(int n) {
+    return 'В очереди: $n';
+  }
+
+  @override
+  String get globalSource => 'из справочника NurCRM';
+
+  @override
+  String globalFoundAsk(String name) {
+    return 'В справочнике NurCRM есть: $name';
+  }
+
+  @override
+  String get globalCatalogTitle => 'Справочник товаров';
+
+  @override
+  String globalCatalogStatus(String count, String date, String added) {
+    return 'Справочник: $count товаров, обновлён $date, добавлено: $added';
+  }
+
+  @override
+  String get globalCatalogOff => 'Справочник недоступен';
+
+  @override
+  String globalBulkFilled(int n) {
+    return 'Названий подставлено из справочника NurCRM: $n';
+  }
+
+  @override
+  String advisorQuota(String time) {
+    return 'Лимит ИИ исчерпан до $time (общий с кассой и ботом). Можно добавить второй ключ из другого аккаунта Google.';
+  }
+
+  @override
+  String get advisorQuotaLater =>
+      'Лимит ИИ исчерпан (общий с кассой и ботом). Попробуйте позже или добавьте второй ключ из другого аккаунта Google.';
+
+  @override
+  String advisorKeyRejected(String time) {
+    return 'Google отклонил ключ, повтор после $time. Проверьте ключ в «Настройка ИИ» → «Ключи Gemini».';
+  }
+
+  @override
+  String get advisorTimeout =>
+      'ИИ долго не отвечает. Проверьте интернет и нажмите «Повторить».';
+
+  @override
+  String gkLastError(String text) {
+    return 'Последняя ошибка: $text';
+  }
+
+  @override
+  String get aiAccOwnerNote =>
+      'Вас нет в списке, но владельцу и администратору ИИ доступен всегда.';
+
+  @override
+  String get pePriceCheckTitle => 'Проверьте цену';
+
+  @override
+  String pePriceUpAsk(String now, String was, String times) {
+    return 'Цена $now вместо $was — сохранить?\nЭто в $times раз больше прежней.';
+  }
+
+  @override
+  String pePriceDownAsk(String now, String was, String times) {
+    return 'Цена $now вместо $was — сохранить?\nЭто в $times раз меньше прежней.';
+  }
+
+  @override
+  String peBelowCostAsk(String now, String cost) {
+    return 'Цена $now ниже закупки $cost — продажа в убыток. Сохранить?';
+  }
+
+  @override
+  String peMarkupAsk(String now, String cost, String pct) {
+    return 'Цена $now при закупке $cost: наценка $pct %. Нет ли ошибки в цифрах? Сохранить?';
+  }
+
+  @override
+  String get peFixPrice => 'Исправить';
+
+  @override
+  String get peSaveAsIs => 'Сохранить как есть';
+
+  @override
+  String get klSearching => 'Ищу кассу в сети Wi-Fi…';
+
+  @override
+  String get klHelpNotFound =>
+      'Касса не отвечает. Проверьте: 1) касса запущена; 2) в настройках кассы включено «Принимать сканы с телефонов» (по умолчанию оно выключено); 3) телефон в той же Wi-Fi сети, что и компьютер с кассой, а не на мобильном интернете.';
+
+  @override
+  String get klHelpDisabled =>
+      'На кассе выключен приём с телефонов. Включите «Принимать сканы с телефонов» в настройках кассы и нажмите «Проверить связь».';
+
+  @override
+  String get klHelpRePair =>
+      'Касса не узнаёт этот телефон (его отключили или QR устарел). Нажмите «Сканировать QR заново» и наведите камеру на QR в окне «Подключить телефон» на кассе.';
+
+  @override
+  String get klHelpBadTime =>
+      'Время на телефоне и на кассе расходится больше чем на 10 минут. Включите автоматическую дату и время на телефоне (и проверьте время на кассе), затем нажмите «Проверить связь».';
+
+  @override
+  String get klRescanQr => 'Сканировать QR заново';
+
+  @override
+  String get klScRefused =>
+      'Код не отправлен — сначала восстановите связь с кассой';
+
+  @override
+  String get aiAccDraftNote =>
+      'Список ещё не сохранён: сейчас ИИ доступен всем сотрудникам. Отметьте до 2 человек и нажмите «Сохранить» — у остальных ИИ выключится. Владельцу и администратору ИИ доступен всегда.';
+
+  @override
+  String get aiAccAlways =>
+      'Владельцу и администратору ИИ доступен всегда, независимо от списка.';
+
+  @override
+  String get invTitle => 'Загрузить накладную';
+
+  @override
+  String get invSub => 'Excel, CSV или XML от поставщика';
+
+  @override
+  String get invHint =>
+      'Выберите файл накладной от поставщика: Excel (.xlsx), CSV или XML (электронная накладная, счёт-фактура). Строки попадут в приход — вы проверите количество и цены и проведёте его как обычно.';
+
+  @override
+  String get invPick => 'Выбрать файл накладной';
+
+  @override
+  String get invPhotoHint =>
+      'PDF и фото накладной читает «Умная камера» (нужен ключ ИИ)';
+
+  @override
+  String get invPhotoBtn => 'Накладная по фото';
+
+  @override
+  String get invReading => 'Читаем накладную…';
+
+  @override
+  String invFileName(String name) {
+    return 'Файл: $name';
+  }
+
+  @override
+  String get invOtherFile => 'Другой файл';
+
+  @override
+  String invDocLine(String num, String date) {
+    return 'Накладная № $num от $date';
+  }
+
+  @override
+  String invDocNum(String num) {
+    return 'Накладная № $num';
+  }
+
+  @override
+  String invDocDate(String date) {
+    return 'Накладная от $date';
+  }
+
+  @override
+  String get invDocNone => 'Номер и дата в файле не найдены';
+
+  @override
+  String invSupplierFile(String name) {
+    return 'В файле: $name';
+  }
+
+  @override
+  String invSupplierFileInn(String name, String inn) {
+    return 'В файле: $name, ИНН $inn';
+  }
+
+  @override
+  String invSupplierInnOnly(String inn) {
+    return 'В файле ИНН: $inn';
+  }
+
+  @override
+  String get invSupplierNoneInFile => 'В файле поставщик не указан';
+
+  @override
+  String get invSupByInn => 'Найден по ИНН';
+
+  @override
+  String get invSupByName => 'Найден по названию';
+
+  @override
+  String get invSupNotFound =>
+      'Такого поставщика нет — выберите из списка или создайте';
+
+  @override
+  String get invSupCreate => 'Создать поставщика';
+
+  @override
+  String invSupCreated(String name) {
+    return 'Поставщик «$name» создан';
+  }
+
+  @override
+  String invSupFail(String text) {
+    return 'Не удалось создать поставщика: $text';
+  }
+
+  @override
+  String get invSupOffline => 'Нет связи: список поставщиков не загружен';
+
+  @override
+  String get invSupKept => 'Приход остался на прежнем поставщике';
+
+  @override
+  String get invDupPosted => 'Эта накладная уже загружалась и проведена';
+
+  @override
+  String get invDupPending =>
+      'Эта накладная уже добавлена в приход, который ещё не проведён';
+
+  @override
+  String get invDupAnyway => 'Всё равно добавить';
+
+  @override
+  String invTotalLines(String sum) {
+    return 'По строкам: $sum';
+  }
+
+  @override
+  String invTotalFile(String sum) {
+    return 'В файле: $sum';
+  }
+
+  @override
+  String get invTotalOk => 'Итоги сходятся';
+
+  @override
+  String invTotalBad(String diff) {
+    return 'Итоги не сходятся: разница $diff. Проверьте количество и цены.';
+  }
+
+  @override
+  String get invTotalNone => 'Итог в файле не найден';
+
+  @override
+  String get invTotalVatHint =>
+      'С НДС итоги сходятся — включите «Закупка с НДС»';
+
+  @override
+  String get invVat => 'Закупка с НДС';
+
+  @override
+  String get invVatSub => 'По умолчанию закупка берётся без НДС';
+
+  @override
+  String invCurrency(String cur) {
+    return 'Валюта накладной: $cur. Вы работаете в сомах — проверьте цены: программа их не пересчитывает.';
+  }
+
+  @override
+  String get invGenCodes => 'Новым товарам без штрихкода дать свой код';
+
+  @override
+  String get invGenCodesSub => 'Иначе они будут без штрихкода';
+
+  @override
+  String invSummary(int n, String stock, String fresh, String bad) {
+    return 'Строк: $n · на складе: $stock · новых: $fresh · не распознано: $bad';
+  }
+
+  @override
+  String get invStBarcode => 'На складе · по штрихкоду';
+
+  @override
+  String get invStArticle => 'На складе · по артикулу';
+
+  @override
+  String get invStName => 'На складе · по названию';
+
+  @override
+  String invStFuzzy(String name) {
+    return 'Похоже на: $name';
+  }
+
+  @override
+  String get invStCatalog => 'Новый · есть в справочнике NurCRM';
+
+  @override
+  String get invStManual => 'Новый · заполните вручную';
+
+  @override
+  String get invStBad => 'Не распознана';
+
+  @override
+  String get invBadNoName => 'Нет названия, штрихкода и артикула';
+
+  @override
+  String get invBadNoQty => 'Нет количества';
+
+  @override
+  String invUseCandidate(String name) {
+    return 'Это «$name»';
+  }
+
+  @override
+  String get invAsNew => 'Новый товар';
+
+  @override
+  String invSrcRow(int n) {
+    return 'Строка файла: $n';
+  }
+
+  @override
+  String invArticle(String code) {
+    return 'Артикул: $code';
+  }
+
+  @override
+  String get invCostMissing => 'Укажите закупку';
+
+  @override
+  String get invPriceMissing => 'Укажите цену продажи';
+
+  @override
+  String get invRemoveRow => 'Убрать строку';
+
+  @override
+  String invAdd(int n) {
+    return 'Добавить в приход · $n';
+  }
+
+  @override
+  String get invAddFix => 'Исправьте отмеченные строки';
+
+  @override
+  String get invAdding => 'Готовим строки…';
+
+  @override
+  String invMerged(int n) {
+    return 'Повторы товара в накладной объединены: $n';
+  }
+
+  @override
+  String get invErrTooBig => 'Файл больше 10 МБ — такую накладную не открыть';
+
+  @override
+  String get invErrEmpty => 'Файл пустой';
+
+  @override
+  String get invErrPdf =>
+      'Это PDF или фото. Их читает «Умная камера» (кнопка ниже)';
+
+  @override
+  String get invErrXls =>
+      'Старый формат Excel (.xls) не читается — сохраните файл как .xlsx или .csv';
+
+  @override
+  String get invErrBroken => 'Файл повреждён или это не накладная';
+
+  @override
+  String get invErrNoTable =>
+      'В файле не нашли таблицу товаров: нужны столбцы «Наименование», «Количество» и «Цена»';
+
+  @override
+  String get invErrUnsafe =>
+      'XML содержит DTD или внешние сущности — такой файл не открывается из соображений безопасности';
+
+  @override
+  String get invErrTooMany => 'Слишком много строк (больше 5000)';
+
+  @override
+  String get invErrFormat =>
+      'Неподдерживаемый файл: нужен .xlsx, .csv или .xml';
+
+  @override
+  String get tsTitle => 'Режим тестировщика';
+
+  @override
+  String tsBuildLine(String version, String build) {
+    return 'Версия $version (сборка $build)';
+  }
+
+  @override
+  String get tsTestBuild => 'тестовая сборка';
+
+  @override
+  String get tsDevice => 'Устройство';
+
+  @override
+  String tsDeviceId(String id) {
+    return 'ID устройства: $id';
+  }
+
+  @override
+  String get tsDeviceNameTitle => 'Название устройства';
+
+  @override
+  String get tsDeviceNameHint => 'Например: телефон кассира';
+
+  @override
+  String get tsRename => 'Назвать устройство';
+
+  @override
+  String tsScreenLine(String w, String h, String scale, String lang) {
+    return 'Экран $w×$h dp, шрифт ×$scale, язык $lang';
+  }
+
+  @override
+  String tsSummary(String done, String total, String issues) {
+    return 'Проверено $done из $total, проблем: $issues';
+  }
+
+  @override
+  String get tsVersionFilter => 'Версия';
+
+  @override
+  String tsVersionCurrent(String v) {
+    return '$v (текущая)';
+  }
+
+  @override
+  String tsAreaProgress(String done, String total) {
+    return '$done из $total';
+  }
+
+  @override
+  String get tsChanged => 'Что изменилось';
+
+  @override
+  String get tsHowTo => 'Как проверить';
+
+  @override
+  String get tsSevMoney => 'Деньги';
+
+  @override
+  String get tsSevImportant => 'Важное';
+
+  @override
+  String get tsSevNormal => 'Обычное';
+
+  @override
+  String get tsMarkOk => 'Проверено';
+
+  @override
+  String get tsMarkIssue => 'Есть проблема';
+
+  @override
+  String get tsNotChecked => 'Не проверено';
+
+  @override
+  String tsCheckedAt(String when) {
+    return 'Проверено $when';
+  }
+
+  @override
+  String tsIssueAt(String when) {
+    return 'Проблема $when';
+  }
+
+  @override
+  String get tsNoComment => 'Без комментария';
+
+  @override
+  String get tsUndoHint => 'Нажмите ещё раз, чтобы снять отметку';
+
+  @override
+  String get tsCountNone => 'Пока не проверено ни на одном устройстве';
+
+  @override
+  String get tsCountLocalOk => 'Проверено: 1 устройство (это)';
+
+  @override
+  String get tsCountLocalIssue => 'Проблема: 1 устройство (это)';
+
+  @override
+  String tsCountShared(String ok, String issue) {
+    return 'Проверено на устройствах: $ok · проблема на устройствах: $issue';
+  }
+
+  @override
+  String get tsSyncOff => 'Общий счётчик недоступен (нужны права или сервер)';
+
+  @override
+  String get tsRefresh => 'Обновить счётчики';
+
+  @override
+  String get tsCopyReport => 'Скопировать отчёт';
+
+  @override
+  String get tsShareReport => 'Отправить отчёт';
+
+  @override
+  String get tsCopied => 'Отчёт скопирован — вставьте его в сообщение';
+
+  @override
+  String get tsIssueTitle => 'Что не так?';
+
+  @override
+  String get tsIssueHint => 'Опишите проблему';
+
+  @override
+  String get tsAttachShot => 'Прикрепить скриншот';
+
+  @override
+  String get tsShotAttached => 'Скриншот прикреплён';
+
+  @override
+  String get tsShotRemove => 'Убрать скриншот';
+
+  @override
+  String get tsEditComment => 'Изменить комментарий';
+
+  @override
+  String get tsEmpty => 'Для этой версии нет пунктов';
+
+  @override
+  String get tsCodeTitle => 'Код тестировщика';
+
+  @override
+  String get tsCodeHint => 'Введите код';
+
+  @override
+  String get tsCodeOn => 'Режим тестировщика включён: нажмите на логотип 5 раз';
+
+  @override
+  String get tsCodeBad => 'Код не подходит';
+
+  @override
+  String tsTapMore(int n) {
+    return 'Режим тестировщика: осталось нажатий — $n';
+  }
+
+  @override
+  String get pdNoRights =>
+      'Удалять товары может сотрудник с правом «Склад» или администратор.';
+
+  @override
+  String get pdGone => 'Товара уже нет на сервере — убрал его и с телефона.';
+
+  @override
+  String pdRefused(String msg) {
+    return 'Сервер не разрешил удалить товар: $msg. Если он уже в продажах или документах, спишите остаток вместо удаления.';
+  }
+
+  @override
+  String get pdOffline =>
+      'Нет связи с сервером — товар НЕ удалён. Повторите, когда сеть появится.';
+
+  @override
+  String pdFailed(String msg) {
+    return 'Товар не удалён: $msg';
+  }
+
+  @override
+  String pdQueueBlock(int n) {
+    return 'С этим товаром есть неотправленные операции: $n. Дождитесь отправки и повторите.';
+  }
+
+  @override
+  String get pdAuditFail => 'Не удалён';
+
+  @override
+  String pdAsk(String name) {
+    return 'Удалить «$name»? Товар исчезнет из каталога NurCRM, с кассы и из мобилки. Отменить это нельзя.';
+  }
+
+  @override
+  String pdStockWarn(String qty, String unit) {
+    return 'На складе $qty $unit. Остаток пропадёт вместе с товаром. Если товар не нужен, лучше сначала списать остаток.';
+  }
+
+  @override
+  String get pdTypeName => 'Для подтверждения введите название товара:';
+
+  @override
+  String get pdTypeHint => 'Регистр не важен';
+
+  @override
+  String get ctTitle => 'Умная камера';
+
+  @override
+  String get ctAngleFront => 'спереди';
+
+  @override
+  String get ctAngleBack => 'сзади';
+
+  @override
+  String get ctAngleSide => 'сбоку';
+
+  @override
+  String ctCount(int n, int a) {
+    return 'Эталонов: $n из $a';
+  }
+
+  @override
+  String get ctNone => 'Не обучена: по фото товар пока не узнаётся точно';
+
+  @override
+  String get ctTrained => 'Обучена: при продаже товар узнаётся по этим снимкам';
+
+  @override
+  String get ctTrain => 'Обучить камеру';
+
+  @override
+  String get ctReset => 'Сбросить эталоны';
+
+  @override
+  String get ctResetAsk =>
+      'Убрать все эталонные снимки этого товара с телефона? Фото в NurCRM останутся.';
+
+  @override
+  String get ctSaved => 'Эталон сохранён';
+
+  @override
+  String get ctRemoved => 'Эталон убран';
+
+  @override
+  String ctShotHint(String angle) {
+    return 'Товар целиком в рамке, $angle';
+  }
+
+  @override
+  String get ctBarcodeNone => 'Штрихкода нет — отсканируйте его';
+
+  @override
+  String ctBarcodeOk(String code) {
+    return 'Штрихкод: $code';
+  }
+
+  @override
+  String get ctNote =>
+      'Снимки хранятся на этом телефоне. «Обучить камеру» — полный курс до 5 снимков и штрихкод; он ещё добавляет фото товара в NurCRM.';
+
+  @override
+  String ctSlot(int n) {
+    return 'Фото $n';
+  }
+
+  @override
+  String ctSlotAdd(int n, String angle) {
+    return 'Фото $n: снять $angle';
+  }
+
+  @override
+  String ctSlotRetake(int n) {
+    return 'Фото $n: переснять';
+  }
+
+  @override
+  String get ctRemove => 'Убрать';
+
+  @override
+  String get camPickTitle => 'Похоже на — выберите, если это он';
+
+  @override
+  String get camFromGallery => 'Из галереи';
+
+  @override
+  String get camFromFile => 'Из файла';
+
+  @override
+  String get camInvoiceSrcHint =>
+      'Накладную можно сфотографировать, выбрать из галереи или из файла: фото, PDF, Excel, CSV, XML.';
+
+  @override
+  String camPageOf(int n, int a) {
+    return 'Фото $n из $a';
+  }
+
+  @override
+  String get camFileNoProcure =>
+      'Загрузка файла накладной — с правом «Закупки». Сфотографируйте накладную — строки появятся здесь.';
+
+  @override
+  String get camFileTooBig =>
+      'Файл больше 8 МБ — выберите меньше или сфотографируйте накладную.';
+
+  @override
+  String get camFileBadType =>
+      'Такой файл не подходит. Нужны Excel (xlsx), CSV, XML, TXT, PDF или фото.';
+
+  @override
+  String get camFileReadFail => 'Не удалось прочитать файл.';
+
+  @override
+  String recvFoundGlobal(String name) {
+    return 'Найдено в справочнике NurCRM: «$name»';
+  }
+
+  @override
+  String get recvAddProduct => 'Завести товар';
+
+  @override
+  String recvLooksLike(String name) {
+    return 'Похоже на ваш «$name»';
+  }
+
+  @override
+  String get recvBindCode => 'Привязать штрихкод';
+
+  @override
+  String recvTypo(String name, String stored, String code) {
+    return 'Опечатка в штрихкоде карточки «$name»: записано $stored, верный $code';
+  }
+
+  @override
+  String get recvFixCode => 'Исправить';
+
+  @override
+  String recvBound(String name) {
+    return 'Штрихкод привязан к «$name»';
+  }
+
+  @override
+  String get recvFixed => 'Штрихкод исправлен';
+
+  @override
+  String get recvNoRight =>
+      'Завести, привязать или исправить может сотрудник с правом «Склад».';
+
+  @override
+  String recvSearching(String code) {
+    return 'Ищу $code на сервере и в справочнике…';
+  }
+
+  @override
+  String get pkTitle => 'Упаковки / поштучная продажа';
+
+  @override
+  String get pkSwitch => 'Продавать поштучно из упаковки';
+
+  @override
+  String get pkSwitchHint =>
+      'Например, пачка сигарет или упаковка воды 6 шт: можно продать и упаковкой, и штукой. Остаток ведётся в упаковках.';
+
+  @override
+  String get pkName => 'Название упаковки';
+
+  @override
+  String get pkNameHint => 'Пачка, блок, коробка';
+
+  @override
+  String get pkQty => 'Штук в упаковке';
+
+  @override
+  String pkPackPrice(String price) {
+    return 'Цена упаковки: $price сом (это цена продажи выше)';
+  }
+
+  @override
+  String get pkPiecePrice => 'Цена штуки';
+
+  @override
+  String get pkAuto => 'Авто';
+
+  @override
+  String get pkAutoTip => 'Посчитать цену штуки заново: цена упаковки ÷ штук';
+
+  @override
+  String pkMarkup(int n) {
+    return 'Наценка штуки: $n %';
+  }
+
+  @override
+  String pkBelowCost(String cost) {
+    return 'Штука дешевле закупки ($cost сом)';
+  }
+
+  @override
+  String get pkQtyBad => 'Штук в упаковке — целое число, не меньше 2';
+
+  @override
+  String get pkPieceBad => 'Укажите цену штуки';
+
+  @override
+  String pkMismatch(String qty, String piece, String sum, String pack) {
+    return '$qty шт × $piece сом = $sum сом, а упаковка стоит $pack сом — расхождение больше 5 %. Сохранить так?';
+  }
+
+  @override
+  String get pkMismatchTitle => 'Цены штуки и упаковки расходятся';
+
+  @override
+  String get pkWeightBlocked =>
+      'Весовой товар (кг) нельзя продавать поштучно из упаковки.';
+
+  @override
+  String get pkMulti =>
+      'У товара несколько упаковок — их правят на сайте или кассе.';
+
+  @override
+  String get pkQuick => 'Быстро';
+
+  @override
+  String get pkWordPack => 'Пачка';
+
+  @override
+  String get pkWordPackage => 'Упаковка';
+
+  @override
+  String get pkWordCrate => 'Ящик';
+
+  @override
+  String get pkWordBlock => 'Блок';
+
+  @override
+  String get pkWordBox => 'Коробка';
+
+  @override
+  String get pkPcs => 'шт';
+
+  @override
+  String get pkChoiceTitle => 'Как продать?';
+
+  @override
+  String get pkChoicePiece => 'Штука';
+
+  @override
+  String pkChoiceStock(String stock) {
+    return 'Остаток: $stock';
+  }
+
+  @override
+  String pkLinePiece(String name) {
+    return 'шт. из «$name»';
+  }
+
+  @override
+  String get pkQtyInPacks =>
+      'Количество вводится в упаковках: 12 — это 12 пачек, штуки продаются из них долями.';
+
+  @override
+  String get pkPackShort => 'уп.';
+
+  @override
+  String get pkNoPackId =>
+      'Упаковка ещё не сохранена на сервере — сначала обновите каталог.';
+
+  @override
+  String get camNotThis => 'Не тот товар';
+
+  @override
+  String get camNotThisDone =>
+      'Запомненное название забыто — выберите товар заново.';
+
+  @override
+  String get camAliasesTitle => 'Запомненные названия:';
+
+  @override
+  String get camAliasForget => 'Забыть название';
+
+  @override
+  String get invDupPostedNow =>
+      'Эта накладная уже проведена раньше (на этом телефоне или на кассе). Если провести приход ещё раз, остаток и долг поставщику удвоятся.';
+
+  @override
+  String get invSupOtherDoc =>
+      'В этом приходе уже есть накладная другого поставщика. Сначала проведите её, потом загрузите эту.';
+
+  @override
+  String get invSupConflictTitle => 'Чей это приход?';
+
+  @override
+  String invSupConflictBody(String doc, String keep) {
+    return 'Накладная: $doc. В приходе выбран: $keep. Приход и долг запишутся на одного поставщика — выберите.';
+  }
+
+  @override
+  String invSupConflictKeep(String name) {
+    return 'Оставить: $name';
+  }
+
+  @override
+  String invSupConflictDoc(String name) {
+    return 'Из накладной: $name';
+  }
+
+  @override
+  String recvCostAvg(int n) {
+    return 'Закупка пересчитана как средняя по количеству у позиций: $n';
+  }
+
+  @override
+  String invPackWarn(String unit, String name, String pu) {
+    return 'В накладной «$unit» — это упаковка, а товар «$name» считается в «$pu». Выберите, как принять: иначе упаковки попадут в остаток как штуки по цене упаковки.';
+  }
+
+  @override
+  String get invPackSize => 'Штук в упаковке';
+
+  @override
+  String get invPackToPieces => 'Пересчитать в штуки';
+
+  @override
+  String get invPackAsIs => 'Принять как есть';
+
+  @override
+  String get invPackBad =>
+      'Укажите, сколько штук в упаковке: целое число от 2.';
+
+  @override
+  String invPackDonePieces(int n, String qty, String cost) {
+    return '1 упак. = $n шт → $qty шт по $cost сом';
+  }
+
+  @override
+  String invPackDoneAsIs(String qty, String unit, String cost) {
+    return 'Принято как есть: остаток вырастет на $qty $unit, закупка $cost сом за $unit';
+  }
+
+  @override
+  String get invPackChange => 'Изменить';
+
+  @override
+  String get pieceSaleMode => 'Продавать поштучно из упаковки';
+
+  @override
+  String get pieceSaleModeSub =>
+      'Выключите, если сервер списывает целые пачки вместо штук. Тогда такой товар продаётся только упаковкой.';
+
+  @override
+  String get pieceSaleTesterWarn =>
+      'Тест: поштучная продажа из упаковки ещё не подтверждена сервером. После оплаты проверьте остаток товара.';
+
+  @override
+  String pieceStockMismatch(String list) {
+    return 'Остаток на сервере после продажи штуки не сошёлся: $list. Проверьте остаток товара и сообщите администратору.';
+  }
+
+  @override
+  String get klScStale => 'Код устарел — отсканируйте снова';
+
+  @override
+  String get klScBusy => 'Идёт оплата — сканируйте после неё';
+
+  @override
+  String invCurrencyOk(String cur) {
+    return 'Цены в $cur, а приход ведётся в сомах. Добавить как есть (1 $cur = 1 сом) — я проверил суммы';
+  }
+
+  @override
+  String get invGrossOnly =>
+      'В файле только цены с НДС. Закупка пересчитана без НДС по ставке строки (нет ставки — взята цена с НДС). Проверьте закупку.';
+
+  @override
+  String invUnitCheck(String inv, String item) {
+    return 'Проверьте · единица: в накладной «$inv», у товара «$item»';
+  }
 }

@@ -284,9 +284,24 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen> {
               child: _rows!.isEmpty
                   ? ListView(
                       children: [
+                        // 2026-10-27 (аудит мобилки, Н-11): пустой прокат — не тупик: сразу кнопка «Новый прокат»
                         Padding(
                           padding: const EdgeInsets.all(32),
-                          child: Center(child: Text(l.empty)),
+                          child: Column(
+                            children: [
+                              Text(l.empty),
+                              const SizedBox(height: 16),
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
+                                onPressed: () async {
+                                  await context.push('/rentals/new');
+                                  await _load();
+                                },
+                                icon: const Icon(Icons.add_rounded),
+                                label: Text(l.rentalNew),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     )

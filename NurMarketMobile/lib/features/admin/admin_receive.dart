@@ -3,13 +3,16 @@ import 'dart:convert';
 import 'package:dio/dio.dart' show DioMediaType, FormData, MultipartFile;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/ai/assistant/ai_handles.dart';
 import '../../core/ai/assistant/tool_registry.dart' show ToolStatus;
 import '../../core/api/api_client.dart';
+import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
+import '../../core/invoice/invoice_match.dart' show InvoiceGuard;
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/product_picker.dart';
@@ -64,6 +67,20 @@ class ReceiveLine {
   double get markup => cost > 0 ? (price - cost) / cost * 100 : 0;
 }
 
+/// 2026-10-27: строки и поставщик из «Загрузить накладную» — передаются в обычный экран прихода (проведение — прежним путём).
+/// [onPosted] вызывается, когда приход проведён целиком (накладная записывается как «загружена»).
+class ReceiveHandoff {
+  final List<ReceiveLine> lines;
+  final String? supplierId;
+
+  /// 2026-10-27 (ревью Ск-5): название поставщика накладной (для вопроса, если в приходе выбран другой) и ключи защиты от
+  /// повторной накладной (проверяются ещё раз перед проведением, Ск-2).
+  final String supplierName;
+  final List<String> invoiceKeys;
+  final VoidCallback? onPosted;
+  const ReceiveHandoff(this.lines, {this.supplierId, this.supplierName = '', this.invoiceKeys = const [], this.onPosted});
+}
+
 /// Количество — до 3 знаков (граммы).
 double roundQty(double v) => (v * 1000).round() / 1000;
 
@@ -80,7 +97,10 @@ double aiReceivePrice(double cost, double oldPrice) {
 class AdminReceiveRepository {
   final ApiClient api;
   final AppDatabase db;
-  AdminReceiveRepository(this.api, this.db);
+
+  /// 2026-10-27: справочник готовых наименований NurCRM (встроенная копия + сервер по штрихкоду); null — старый путь, только сервер.
+  final GlobalProducts? catalog;
+  AdminReceiveRepository(this.api, this.db, [this.catalog]);
 
   Future<List<(String id, String name)>> suppliers() async {
     final data = await api.get('api/main/clients/', query: {'type': 'suppliers', 'page_size': 500});
@@ -127,6 +147,7 @@ class AdminReceiveRepository {
 
   /// Название из общей базы NurCRM по штрихкоду (как «новый товар» на кассе); null — не нашли.
   Future<String?> globalName(String barcode) async {
+    if (catalog != null) return (await catalog!.find(barcode))?.name;
     try {
       final data = await api.get('api/main/products/global-barcode/${Uri.encodeComponent(barcode)}/');
       if (data is Map) {
@@ -141,6 +162,10 @@ class AdminReceiveRepository {
 
   /// 13.10, макет Н4: из общей базы NurCRM — название, категория, бренд (как карточка товара кассы); null — не нашли.
   Future<({String name, String? category, String? brand})?> globalInfo(String barcode) async {
+    // 2026-10-27: сначала встроенный справочник (работает без связи), потом сервер — это делает GlobalProducts.find
+    final g = await catalog?.find(barcode);
+    if (g != null) return (name: g.name, category: g.category.isEmpty ? null : g.category, brand: g.brand.isEmpty ? null : g.brand);
+    if (catalog != null) return null;
     try {
       final data = await api.get('api/main/products/global-barcode/${Uri.encodeComponent(barcode)}/');
       if (data is Map) {
@@ -171,6 +196,7 @@ class AdminReceiveRepository {
     String? description,
     bool isWeight = false,
     int? plu,
+    List<Map<String, Object?>>? packages,
   }) async {
     final body = {
       'name': l.name.trim(),
@@ -185,6 +211,8 @@ class AdminReceiveRepository {
       if (wholesale != null && wholesale > 0) 'wholesale_price': wholesale.toStringAsFixed(2),
       if (altBarcodes != null && altBarcodes.isNotEmpty) 'alternate_barcodes': altBarcodes,
       if (description != null && description.trim().isNotEmpty) 'description': description.trim(),
+      // 2026-10-27 (М4): поштучная продажа из упаковки — packages_input, как BuildProductBody кассы
+      if (packages != null && packages.isNotEmpty) 'packages_input': packages,
       'barcode': l.barcode.isEmpty ? null : l.barcode,
       'purchase_price': l.cost.toStringAsFixed(2),
       'price': l.price.toStringAsFixed(2),
@@ -424,12 +452,19 @@ class AdminReceiveRepository {
   }
 }
 
-final adminReceiveRepoProvider = Provider((ref) => AdminReceiveRepository(ref.watch(apiProvider), ref.watch(databaseProvider)));
+final adminReceiveRepoProvider = Provider((ref) => AdminReceiveRepository(ref.watch(apiProvider), ref.watch(databaseProvider), ref.watch(globalProductsProvider)));
 
 class AdminReceiveScreen extends ConsumerStatefulWidget {
   /// 13.10, Т10: строки из умной камеры (полка, накладная, этикетки) — приёмка открывается уже заполненной.
   final List<ReceiveLine>? initialLines;
-  const AdminReceiveScreen({super.key, this.initialLines});
+
+  /// 2026-10-27: поставщик и отметка «проведено» из «Загрузить накладную» ([ReceiveHandoff]).
+  final String? initialSupplierId;
+  final VoidCallback? onPosted;
+
+  /// 2026-10-27 (ревью Ск-2): ключи накладной, с которой открыт приход (см. [ReceiveHandoff.invoiceKeys]).
+  final List<String> initialInvoiceKeys;
+  const AdminReceiveScreen({super.key, this.initialLines, this.initialSupplierId, this.onPosted, this.initialInvoiceKeys = const []});
   @override
   ConsumerState<AdminReceiveScreen> createState() => _AdminReceiveScreenState();
 }
@@ -437,7 +472,16 @@ class AdminReceiveScreen extends ConsumerStatefulWidget {
 class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
   late final List<ReceiveLine> _lines = [...?widget.initialLines];
   List<(String, String)> _suppliers = [];
-  String? _supplierId;
+  late String? _supplierId = widget.initialSupplierId;
+
+  /// 2026-10-27: что вызвать, когда приход проведён целиком (накладные, добавленные в этот приход).
+  late final List<VoidCallback> _postedHooks = [?widget.onPosted];
+
+  /// 2026-10-27 (ревью Ск-2/Ск-5): ключи накладных этого прихода, ещё не отмеченных проведёнными; поставщик накладной(ых)
+  /// в приходе (null — «без поставщика»); есть ли в приходе накладная вообще.
+  late final List<String> _invoiceKeys = [...widget.initialInvoiceKeys];
+  late bool _hasInvoice = widget.onPosted != null || widget.initialInvoiceKeys.isNotEmpty;
+  late String? _invoiceSupplier = widget.initialSupplierId;
   bool _paidNow = false;
   bool _scanning = false;
   bool _busy = false;
@@ -698,11 +742,14 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
               children: [
                 Text(l.newProduct, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                 Text(l.barcodeNotInStock(code), style: TextStyle(color: c.pal.textSoft, fontSize: 12.5)),
-                if (found != null)
+                if (found != null) ...[
                   Text(
                     l.foundInBase,
                     style: const TextStyle(color: T.success, fontSize: 12.5, fontWeight: FontWeight.w700),
                   ),
+                  // 2026-10-27: откуда подставлено — встроенный справочник NurCRM (работает и без связи)
+                  Text(l.globalSource, style: TextStyle(color: c.pal.textSoft, fontSize: 12)),
+                ],
                 const SizedBox(height: 10),
                 TextField(
                   controller: name,
@@ -898,6 +945,28 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
             ),
           );
     if (confirm != true || !mounted) return;
+    // 2026-10-27 (ревью Ск-2): накладную могли провести с другого входа (касса, другой телефон, прошлый приход) уже после того,
+    // как её добавили — перед проведением проверяем ещё раз. От ИИ (без диалога) такой приход не проводится.
+    if (_invoiceKeys.isNotEmpty && await InvoiceGuard.isPosted(ref.read(databaseProvider), _invoiceKeys)) {
+      if (!mounted) return;
+      if (!ask) {
+        toast(context, l.invDupPostedNow, error: true);
+        _aiSink.report(HandleOutcome.error(l.invDupPostedNow));
+        return;
+      }
+      final again = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: Text(l.postReceipt),
+          content: Text(l.invDupPostedNow),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.invDupAnyway)),
+          ],
+        ),
+      );
+      if (again != true || !mounted) return;
+    }
     setState(() => _busy = true);
     try {
       final total = _total;
@@ -929,8 +998,20 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
             : '${l.receiptPosted(n)} ${errors.isEmpty ? '' : l.partlyFailed(errors.take(3).join('; '))}${left > 0 ? ' ${l.pALinesLeft(left)}' : ''}',
         error: errors.isNotEmpty || left > 0,
       );
+      // 2026-10-27 (ревью Ск-2): накладная отмечается «загружена» уже при ПЕРВОМ проведённом пункте (не только при полном
+      // проведении), иначе после частичного проведения её можно было загрузить второй раз
+      if (n > 0 && _postedHooks.isNotEmpty) {
+        final hooks = [..._postedHooks];
+        _postedHooks.clear();
+        _invoiceKeys.clear();
+        for (final h in hooks) {
+          h();
+        }
+      }
       // 13.10, владелец: «после приёмки остаётся на этом экране» — приход проведён целиком: закрываем
-      if (n > 0 && left == 0) Navigator.of(context).pop(true);
+      if (n > 0 && left == 0) {
+        Navigator.of(context).pop(true);
+      }
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
       // ответ не дошёл — приход мог пройти; повтор пойдёт тем же ключом (receiptKey по составу) и второй раз не проведётся
@@ -938,6 +1019,72 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// 2026-10-27: «Загрузить накладную» — файл поставщика разбирается на своём экране, сюда возвращаются готовые строки.
+  /// Строка того же товара прибавляет количество; поставщик подставляется, если он ещё не выбран и приход пуст.
+  Future<void> _importInvoice() async {
+    final l = context.l;
+    final h = await context.push<ReceiveHandoff>('/admin/invoice', extra: true);
+    if (h == null || !mounted) return;
+    // 2026-10-27 (ревью Ск-5): два поставщика в одном документе прихода — это перепутанный долг. Если в приходе уже есть накладная
+    // другого поставщика (или «без поставщика»), эту не добавляем: сначала провести прежнюю.
+    if (_hasInvoice && _invoiceSupplier != h.supplierId) {
+      InvoiceGuard.unmarkPending(h.invoiceKeys);
+      toast(context, l.invSupOtherDoc, error: true);
+      return;
+    }
+    // 2026-10-27 (ревью Ск-5): поставщик прихода берётся из ЯВНОГО выбора. Раньше при выбранном «A» и накладной «B» (или без
+    // поставщика) приход и долг молча уходили на «A». Теперь спрашиваем.
+    var chosen = _supplierId;
+    if (_supplierId == null) {
+      chosen = h.supplierId;
+    } else if (h.supplierId != _supplierId) {
+      String nameOf(String? id) => _suppliers.where((s) => s.$1 == id).map((s) => s.$2).firstOrNull ?? '';
+      final keepName = nameOf(_supplierId);
+      final docName = h.supplierId == null ? l.noSupplier : (h.supplierName.isNotEmpty ? h.supplierName : nameOf(h.supplierId));
+      final pickDoc = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => AlertDialog(
+          title: Text(l.invSupConflictTitle),
+          content: Text(l.invSupConflictBody(docName, keepName)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.invSupConflictKeep(keepName))),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.invSupConflictDoc(docName))),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      chosen = pickDoc == false ? _supplierId : h.supplierId;
+    }
+    var recalced = 0;
+    setState(() {
+      final fresh = <ReceiveLine>[];
+      for (final x in h.lines) {
+        final same = _lines.where((o) => !o.posted && (x.productId.isNotEmpty ? o.productId == x.productId : o.isNew && o.name == x.name && o.barcode == x.barcode)).firstOrNull;
+        if (same != null) {
+          // 2026-10-27 (ревью Ск-6): закупка уже введённых штук не затирается ценой накладной — при разной цене берётся
+          // средневзвешенная (10 × 50 + 5 × 60 = 15 × 53,33, а не 15 × 60), и это видно в поле закупки и в сообщении
+          final q0 = same.qty, c0 = same.cost;
+          same.qty += x.qty;
+          if ((c0 - x.cost).abs() > 0.004 && same.qty > 0) {
+            same.cost = ((q0 * c0 + x.qty * x.cost) / same.qty * 100).round() / 100;
+            recalced++;
+          }
+          _costCtl[same]?.text = _numText(same.cost);
+        } else {
+          fresh.add(x);
+        }
+      }
+      _lines.insertAll(0, fresh);
+      if (h.onPosted != null) _postedHooks.add(h.onPosted!);
+      _invoiceKeys.addAll(h.invoiceKeys);
+      _hasInvoice = true;
+      _invoiceSupplier = h.supplierId;
+      _supplierId = chosen;
+    });
+    if (recalced > 0) toast(context, l.recvCostAvg(recalced));
   }
 
   Future<void> _searchAdd() async {
@@ -980,7 +1127,9 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
               child: DropdownButtonFormField<String?>(
-                initialValue: _supplierId,
+                // 2026-10-27: поставщик может прийти из накладной ещё до загрузки списка — значение берётся, когда он в списке
+                key: ValueKey('sup-${_suppliers.length}-$_supplierId'),
+                initialValue: _suppliers.any((s) => s.$1 == _supplierId) ? _supplierId : null,
                 isExpanded: true,
                 decoration: InputDecoration(labelText: l.supplierName),
                 items: [
@@ -992,6 +1141,18 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                     ),
                 ],
                 onChanged: (v) => setState(() => _supplierId = v),
+              ),
+            ),
+            // 2026-10-27: электронная накладная поставщика (Excel / CSV / XML) → строки прихода
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: TextButton.icon(
+                  onPressed: _busy || _posting ? null : _importInvoice,
+                  icon: const Icon(Icons.upload_file_rounded),
+                  label: Text(l.invTitle),
+                ),
               ),
             ),
             if (_scanning)

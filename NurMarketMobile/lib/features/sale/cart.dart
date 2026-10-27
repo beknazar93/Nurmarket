@@ -99,6 +99,16 @@ class CartLine {
   /// 13.10, макет С5: вариант товара (размер/цвет) — uuid варианта NurCRM; сервер списывает и товар, и размер.
   final String? variantId;
 
+  /// 2026-10-27 (М4): штука из упаковки — id упаковки (в чек уходит как sale_package_id, цена строки — цена штуки, количество — штуки).
+  /// null — обычная строка (целая упаковка / штучный товар).
+  final String? salePackageId;
+
+  /// Штук в упаковке у строки-штуки: остаток товара хранится в упаковках, продажа списывает qty / perPack. У обычной строки 1.
+  final double perPack;
+
+  /// Название упаковки (Пачка) у товара с поштучной опцией: подпись строки «Пачка» / «шт. из «Пачка»».
+  final String? packName;
+
   CartLine({
     required this.productId,
     required this.name,
@@ -112,11 +122,19 @@ class CartLine {
     this.wholesalePrice = 0,
     this.wholesale = false,
     this.variantId,
+    this.salePackageId,
+    this.perPack = 1,
+    this.packName,
     this.promo = const [],
   }) : retailPrice = retailPrice ?? price,
        _manualDiscount = discount;
 
   bool get hasPromo => promo.isNotEmpty;
+
+  bool get isPiece => salePackageId != null;
+
+  /// Сколько списать с остатка товара (в его единицах): для штуки из упаковки — доля упаковки, для остальных — qty.
+  double get stockQty => perPack > 1 ? qty / perPack : qty;
 
   /// Действующая скидка строки: по акции (как посчитает сервер) или ручная скидка кассира.
   double get discount => hasPromo ? promoDiscount(promo, qty, price) : _manualDiscount;
@@ -179,7 +197,13 @@ class Cart {
   Cart add(CartLine line) {
     final list = [...lines];
     final i = list.indexWhere(
-      (l) => !l.isWeight && !l.custom && l.productId == line.productId && l.wholesale == line.wholesale && l.variantId == line.variantId,
+      (l) =>
+          !l.isWeight &&
+          !l.custom &&
+          l.productId == line.productId &&
+          l.wholesale == line.wholesale &&
+          l.variantId == line.variantId &&
+          l.salePackageId == line.salePackageId, // 2026-10-27 (М4): штуки и целые упаковки — разные строки
     );
     if (i >= 0 && !line.isWeight) {
       list[i].qty += line.qty;

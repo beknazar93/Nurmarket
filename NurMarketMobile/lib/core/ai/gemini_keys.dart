@@ -170,6 +170,25 @@ class GeminiKeyPool {
     return u != null && u.isAfter(clock());
   }
 
+  /// Когда ключ снова будет пробоваться после «недействителен» (null — не помечен).
+  static DateTime? invalidUntil(String key) {
+    final u = _invalid[key];
+    return u != null && u.isAfter(clock()) ? u.toLocal() : null;
+  }
+
+  /// До какого времени ключ исчерпан для модели (null — не исчерпан).
+  static DateTime? blockedUntil(String key, String model) {
+    final now = clock();
+    DateTime? best;
+    for (final m in [model, '*']) {
+      final u = _blocked[_bk(key, m)];
+      if (u != null && u.isAfter(now) && (best == null || u.isAfter(best))) {
+        best = u;
+      }
+    }
+    return best?.toLocal();
+  }
+
   static bool isBlocked(String key, String model) {
     final now = clock();
     final u = _blocked[_bk(key, model)];
@@ -255,21 +274,29 @@ class GeminiKeyPool {
         (status == 403 && b.contains('quota'));
   }
 
+  /// 2026-10-27 (расследование «ИИ не отвечает»): ключ считается недействительным ТОЛЬКО при явной причине от Google — 401 или
+  /// 400/403 с текстом «API key not valid / expired / not found», API_KEY_INVALID, leaked, suspended, либо PERMISSION_DENIED
+  /// именно по ключу. Любой другой 403 («The caller does not have permission» и т. п.) раньше выключал ключ на 30 минут, и чат
+  /// отвечал «добавьте ключ», хотя ключ рабочий; теперь такая ошибка ключ не помечает — пробуется следующая пара ключ + модель.
   static bool isInvalidKey(int status, String body) {
     if (status == 401) return true;
     if (status != 400 && status != 403) return false;
-    final b = body.toLowerCase();
-    if (b.contains('api_key_invalid') ||
+    return isInvalidKeyText(body);
+  }
+
+  /// Текст (тело ответа Google или причина закрытия звонка) явно говорит, что виноват ключ.
+  static bool isInvalidKeyText(String text) {
+    final b = text.toLowerCase();
+    return b.contains('api_key_invalid') ||
         b.contains('api key not valid') ||
         b.contains('api key expired') ||
         b.contains('leaked') ||
         b.contains('consumer_suspended') ||
+        b.contains('consumer_invalid') ||
         b.contains('has been suspended') ||
-        b.contains('api key not found')) {
-      return true;
-    }
-    // 403 без слова «model» — отказ ключу; про модель («нет доступа к модели») — не вина ключа
-    return status == 403 && !b.contains('model');
+        b.contains('api key not found') ||
+        (b.contains('permission_denied') &&
+            (b.contains('api key') || b.contains('api_key')));
   }
 
   /// До какого момента ключ исчерпан. Суточный лимит (в ответе PerDay) — до полуночи по тихоокеанскому времени (так Google сбрасывает

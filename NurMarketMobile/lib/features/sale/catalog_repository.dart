@@ -4,6 +4,8 @@ import 'package:drift/drift.dart' show Value;
 
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
+import '../../core/sync/outbox_meta.dart';
+import '../stock/product_packages.dart';
 import 'cart.dart' show PromoRule;
 
 /// Каталог: страницы api/main/products/list/ по 300 → локальная база (ТЗ, раздел 8: обновление раз в 5 минут).
@@ -18,6 +20,9 @@ class CatalogRepository {
     final rows = <ProductsCompanion>[];
     final seen = <String>{};
     final noMin = <String>{};
+    // 2026-10-27 (М4): поштучная продажа из упаковки (packages) по товарам; listHasPackages — список вообще отдаёт это поле
+    final packs = <String, PiecePack>{};
+    var listHasPackages = false;
     for (var page = 1; page <= 100; page++) {
       final data = await api.get('api/main/products/list/', query: {'page': page, 'page_size': _pageSize}, timeout: const Duration(seconds: 40));
       final items = asList(data);
@@ -25,6 +30,12 @@ class CatalogRepository {
         final row = _map(p);
         if (row != null && seen.add(row.id.value)) {
           rows.add(row);
+          if (p.containsKey('packages')) {
+            listHasPackages = true;
+            // комплект (bundle): packages — его состав, а не штуки из упаковки
+            final pk = str(p, 'kind') == 'bundle' ? null : PiecePack.first(p['packages']);
+            if (pk != null) packs[row.id.value] = pk;
+          }
           // 2026-10-22 (мобилка, админ): список каталога может не отдавать minimum_quantity — тогда прежний минимум
           // товара не сбрасываем (ниже подставляем из базы телефона).
           if (!p.containsKey('minimum_quantity') && !p.containsKey('min_quantity')) noMin.add(row.id.value);
@@ -43,6 +54,7 @@ class CatalogRepository {
         }
       }
       await db.replaceProducts(rows);
+      if (listHasPackages) await PackageStore.replaceAll(db, packs);
       await _reapplyPending();
       await db.setSetting('catalog.syncedAt', DateTime.now().toIso8601String());
     }
@@ -59,9 +71,10 @@ class CatalogRepository {
       try {
         final body = (jsonDecode(row.body) as Map).cast<String, dynamic>();
         if (row.kind == 'sale') {
+          final meta = OutboxMeta.read(row.body);
           for (final it in asList(body['items'])) {
             final id = str(it, 'product');
-            final q = num0(it, 'qty');
+            final q = OutboxMeta.stockQty(it, meta); // 2026-10-27 (М4): штуки из упаковки — доля упаковки
             if (id != null && q > 0) await db.adjustStock(id, -q);
           }
         } else if (row.kind == 'receive') {

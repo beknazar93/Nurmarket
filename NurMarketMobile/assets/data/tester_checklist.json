@@ -1,0 +1,1783 @@
+{
+  "schema": 1,
+  "areas": [
+    {
+      "id": "sale",
+      "title": {
+        "ru": "Продажа",
+        "ky": "Сатуу",
+        "uz": "Sotuv",
+        "en": "Sale",
+        "tr": "Satış"
+      }
+    },
+    {
+      "id": "stock",
+      "title": {
+        "ru": "Склад",
+        "ky": "Кампа",
+        "uz": "Ombor",
+        "en": "Stock",
+        "tr": "Depo"
+      }
+    },
+    {
+      "id": "invoices",
+      "title": {
+        "ru": "Накладные",
+        "ky": "Накладнойлор",
+        "uz": "Nakladnoylar",
+        "en": "Invoices",
+        "tr": "Faturalar"
+      }
+    },
+    {
+      "id": "smartcam",
+      "title": {
+        "ru": "Умная камера",
+        "ky": "Акылдуу камера",
+        "uz": "Aqlli kamera",
+        "en": "Smart camera",
+        "tr": "Akıllı kamera"
+      }
+    },
+    {
+      "id": "videocall",
+      "title": {
+        "ru": "Видеозвонок ИИ",
+        "ky": "ИИ видеоконгуроо",
+        "uz": "AI video qo'ng'iroq",
+        "en": "AI video call",
+        "tr": "Yapay zekâ görüntülü arama"
+      }
+    },
+    {
+      "id": "kassa",
+      "title": {
+        "ru": "Связь с кассой",
+        "ky": "Кассага туташуу",
+        "uz": "Kassa bilan aloqa",
+        "en": "Till link",
+        "tr": "Kasa bağlantısı"
+      }
+    },
+    {
+      "id": "scanner",
+      "title": {
+        "ru": "Сканер",
+        "ky": "Сканер",
+        "uz": "Skaner",
+        "en": "Scanner",
+        "tr": "Tarayıcı"
+      }
+    },
+    {
+      "id": "profile",
+      "title": {
+        "ru": "Профиль",
+        "ky": "Профиль",
+        "uz": "Profil",
+        "en": "Profile",
+        "tr": "Profil"
+      }
+    },
+    {
+      "id": "aikeys",
+      "title": {
+        "ru": "Чат и ключи ИИ",
+        "ky": "ИИ чаты жана ачкычтары",
+        "uz": "AI chat va kalitlari",
+        "en": "AI chat and keys",
+        "tr": "YZ sohbeti ve anahtarları"
+      }
+    },
+    {
+      "id": "other",
+      "title": {
+        "ru": "Прочее",
+        "ky": "Башка",
+        "uz": "Boshqa",
+        "en": "Other",
+        "tr": "Diğer"
+      }
+    }
+  ],
+  "items": [
+    {
+      "id": "1.18.7/tile-stock-after-sale",
+      "version": "1.18.7",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Остаток на плитке после продажи",
+        "ky": "Сатуудан кийин плиткадагы калдык",
+        "uz": "Sotuvdan keyin plitkadagi qoldiq",
+        "en": "Stock on the tile after a sale",
+        "tr": "Satıştan sonra karodaki stok"
+      },
+      "changed": {
+        "ru": "После продажи (в том числе без интернета) остаток на плитке товара сразу уменьшается — не нужно ждать обновления каталога.",
+        "ky": "Сатуудан кийин (интернетсиз да) товардын плиткасындагы калдык дароо азаят — каталогдун жаңыланышын күтүүнүн кереги жок.",
+        "uz": "Sotuvdan keyin (internetsiz ham) tovar plitkasidagi qoldiq darrov kamayadi — katalog yangilanishini kutish shart emas.",
+        "en": "After a sale (offline too) the stock on the product tile drops at once — no waiting for the catalog refresh.",
+        "tr": "Satıştan sonra (internetsiz de) ürün karosundaki stok hemen azalır; katalog yenilemesini beklemek gerekmez."
+      },
+      "steps": {
+        "ru": [
+          "Откройте «Продажа» и запомните остаток товара на плитке.",
+          "Добавьте товар в чек в количестве 2 и проведите оплату.",
+          "Нажмите «Новый чек» — на плитке остаток должен стать меньше на 2.",
+          "Повторите в режиме полёта: остаток тоже уменьшается."
+        ],
+        "ky": [
+          "«Сатуу» бөлүмүн ачып, плиткадагы товардын калдыгын эстеп алыңыз.",
+          "Товарды чекке 2 даана кошуп, төлөмдү өткөрүңүз.",
+          "«Жаңы чек» баскычын басыңыз — плиткадагы калдык 2ге азайышы керек.",
+          "Учак режиминде кайталаңыз: калдык ошондо да азаят."
+        ],
+        "uz": [
+          "«Sotuv» bo'limini oching va plitkadagi tovar qoldig'ini eslab qoling.",
+          "Tovarni chekka 2 dona qo'shib, to'lovni o'tkazing.",
+          "«Yangi chek» tugmasini bosing — plitkadagi qoldiq 2 taga kamayishi kerak.",
+          "Parvoz rejimida takrorlang: qoldiq shunda ham kamayadi."
+        ],
+        "en": [
+          "Open Sale and note the stock on a product tile.",
+          "Add 2 pcs to the receipt and take payment.",
+          "Tap New receipt — the tile stock must be 2 lower.",
+          "Repeat in airplane mode: the stock drops as well."
+        ],
+        "tr": [
+          "Satış'ı açın ve bir ürün karosundaki stoku not edin.",
+          "Fişe 2 adet ekleyip ödemeyi alın.",
+          "Yeni fiş'e dokunun: karodaki stok 2 azalmış olmalı.",
+          "Uçak modunda tekrarlayın: stok yine azalır."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/global-catalog",
+      "version": "1.18.7",
+      "area": "stock",
+      "severity": "important",
+      "title": {
+        "ru": "Справочник товаров NurCRM",
+        "ky": "NurCRM товарлар маалымдамасы",
+        "uz": "NurCRM tovarlar ma'lumotnomasi",
+        "en": "NurCRM product catalog",
+        "tr": "NurCRM ürün kataloğu"
+      },
+      "changed": {
+        "ru": "В приложение встроен справочник готовых наименований: по неизвестному штрихкоду подсказывается название (сканер, «Новый товар», продажа, массовое добавление).",
+        "ky": "Колдонмого даяр аталыштар маалымдамасы кошулду: белгисиз штрихкод боюнча аталыш сунушталат (сканер, «Жаңы товар», сатуу, жапырт кошуу).",
+        "uz": "Ilovaga tayyor nomlar ma'lumotnomasi o'rnatilgan: noma'lum shtrix-kod bo'yicha nom taklif qilinadi (skaner, «Yangi tovar», sotuv, ommaviy qo'shish).",
+        "en": "The app now ships a catalog of ready-made product names: an unknown barcode gets a suggested name (scanner, New product, sale, bulk add).",
+        "tr": "Uygulamaya hazır ürün adları kataloğu eklendi: bilinmeyen barkod için ad önerilir (tarayıcı, Yeni ürün, satış, toplu ekleme)."
+      },
+      "steps": {
+        "ru": [
+          "Откройте «Профиль» — в строке «Справочник товаров» должно быть число товаров и дата.",
+          "Отсканируйте штрихкод товара, которого нет на складе, например с упаковки из магазина.",
+          "В окне «Штрихкод не найден» должна быть строка «В справочнике NurCRM есть: …».",
+          "Создайте товар — название подставляется само."
+        ],
+        "ky": [
+          "«Профиль» бөлүмүн ачыңыз — «Товарлар маалымдамасы» сабында товарлардын саны жана күнү болушу керек.",
+          "Кампада жок товардын штрихкодун сканерлеңиз, мисалы дүкөндөгү таңгактан.",
+          "«Штрихкод табылган жок» терезесинде «NurCRM маалымдамасында бар: …» сабы болушу керек.",
+          "Товарды түзүңүз — аталышы өзү коюлат."
+        ],
+        "uz": [
+          "«Profil» bo'limini oching — «Tovarlar ma'lumotnomasi» qatorida tovarlar soni va sana bo'lishi kerak.",
+          "Omborda yo'q tovarning shtrix-kodini skanerlang, masalan do'kondagi qadoqdan.",
+          "«Shtrix-kod topilmadi» oynasida «NurCRM ma'lumotnomasida bor: …» qatori bo'lishi kerak.",
+          "Tovarni yarating — nom o'zi qo'yiladi."
+        ],
+        "en": [
+          "Open Profile — the Product catalog row shows a count and a date.",
+          "Scan the barcode of a product that is not in stock, e.g. from a pack from a shop.",
+          "The Barcode not found window must show the line The NurCRM catalog has: …",
+          "Create the product — the name is filled in."
+        ],
+        "tr": [
+          "Profil'i açın: Ürün kataloğu satırında ürün sayısı ve tarih görünmeli.",
+          "Depoda olmayan bir ürünün barkodunu okutun, örneğin mağazadan bir ambalajdan.",
+          "Barkod bulunamadı penceresinde NurCRM kataloğunda var: … satırı olmalı.",
+          "Ürünü oluşturun: ad kendiliğinden gelir."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/price-check",
+      "version": "1.18.7",
+      "area": "stock",
+      "severity": "money",
+      "title": {
+        "ru": "Окно «Проверьте цену» в карточке товара",
+        "ky": "Товардын карточкасындагы «Бааны текшериңиз» терезеси",
+        "uz": "Tovar kartochkasidagi «Narxni tekshiring» oynasi",
+        "en": "Check the price window in the product card",
+        "tr": "Ürün kartında «Fiyatı kontrol edin» penceresi"
+      },
+      "changed": {
+        "ru": "Если цена продажи сильно отличается от прежней, ниже закупки или наценка огромная, перед сохранением спрашивается подтверждение (защита от лишнего нуля).",
+        "ky": "Сатуу баасы мурункудан кескин айырмалуу, сатып алуудан төмөн же үстөк өтө чоң болсо, сактоодон мурун ырастоо суралат (ашыкча нөлдөн коргойт).",
+        "uz": "Sotuv narxi avvalgisidan keskin farq qilsa, xariddan past bo'lsa yoki ustama juda katta bo'lsa, saqlashdan oldin tasdiq so'raladi (ortiqcha nol xatosidan himoya).",
+        "en": "If the selling price differs a lot from the old one, is below cost or the markup is huge, saving asks for confirmation (protection from an extra zero).",
+        "tr": "Satış fiyatı eskisinden çok farklıysa, alışın altındaysa veya kâr payı aşırıysa kaydetmeden önce onay istenir (fazladan sıfıra karşı koruma)."
+      },
+      "steps": {
+        "ru": [
+          "Склад → любой товар → «Продажная цена»: 85 заменить на 8588 → «Сохранить».",
+          "Должно появиться окно «Проверьте цену» с кнопками «Исправить» и «Сохранить как есть».",
+          "Нажмите «Исправить» — вы остались в карточке, цена не ушла на сервер.",
+          "Введите цену ниже закупки — окно про продажу в убыток.",
+          "Обычное изменение цены (на пару сомов) сохраняется без вопросов."
+        ],
+        "ky": [
+          "Кампа → каалаган товар → «Сатуу баасы»: 85 ордуна 8588 жазыңыз → «Сактоо».",
+          "«Бааны текшериңиз» терезеси «Оңдоо» жана «Ушундай сактоо» баскычтары менен чыгышы керек.",
+          "«Оңдоо» баскычын басыңыз — карточкада калдыңыз, баа серверге кеткен жок.",
+          "Сатып алуудан төмөн баа жазыңыз — зыянга сатуу жөнүндө терезе чыгат.",
+          "Баанын кадимки өзгөрүүсү (бир нече сом) суроосуз сакталат."
+        ],
+        "uz": [
+          "Ombor → istalgan tovar → «Sotuv narxi»: 85 ni 8588 ga almashtiring → «Saqlash».",
+          "«Narxni tekshiring» oynasi «Tuzatish» va «Shunday saqlash» tugmalari bilan chiqishi kerak.",
+          "«Tuzatish» ni bosing — kartochkada qoldingiz, narx serverga ketmadi.",
+          "Xariddan past narx kiriting — zarar bilan sotish haqida oyna chiqadi.",
+          "Narxning oddiy o'zgarishi (bir necha so'm) savolsiz saqlanadi."
+        ],
+        "en": [
+          "Stock → any product → Selling price: change 85 to 8588 → Save.",
+          "The Check the price window must appear with Fix it and Save as is.",
+          "Tap Fix it — you stay in the card and the price is not sent to the server.",
+          "Enter a price below cost — a below-cost window appears.",
+          "A normal price change (a few som) is saved without questions."
+        ],
+        "tr": [
+          "Depo → herhangi bir ürün → Satış fiyatı: 85'i 8588 yapın → Kaydet.",
+          "Düzelt ve Olduğu gibi kaydet düğmeli Fiyatı kontrol edin penceresi çıkmalı.",
+          "Düzelt'e dokunun: kartta kalırsınız, fiyat sunucuya gitmez.",
+          "Alışın altında bir fiyat girin: zararına satış penceresi çıkar.",
+          "Fiyatta olağan bir değişiklik (birkaç som) sorusuz kaydedilir."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/product-delete",
+      "version": "1.18.7",
+      "area": "stock",
+      "severity": "money",
+      "title": {
+        "ru": "Удаление товара",
+        "ky": "Товарды өчүрүү",
+        "uz": "Tovarni o'chirish",
+        "en": "Deleting a product",
+        "tr": "Ürün silme"
+      },
+      "changed": {
+        "ru": "В карточке товара можно удалить товар: перед удалением спрашивается подтверждение, после удаления товар исчезает из склада и продажи.",
+        "ky": "Товардын карточкасынан товарды өчүрүүгө болот: өчүрүүдөн мурун ырастоо суралат, өчүргөндөн кийин товар кампадан жана сатуудан жок болот.",
+        "uz": "Tovar kartochkasidan tovarni o'chirish mumkin: o'chirishdan oldin tasdiq so'raladi, o'chirilgach tovar ombor va sotuvdan yo'qoladi.",
+        "en": "A product can be deleted from its card: a confirmation is asked first, and afterwards the product disappears from stock and sale.",
+        "tr": "Ürün, kartından silinebilir: önce onay istenir, sonra ürün depodan ve satıştan kaybolur."
+      },
+      "steps": {
+        "ru": [
+          "Создайте тестовый товар, например «ТЕСТ удаление».",
+          "Склад → этот товар → удалить. Должен появиться вопрос с названием товара.",
+          "Отмените — товар остался.",
+          "Подтвердите — товар исчез из «Склада» и из «Продажи».",
+          "Попробуйте удалить товар с остатком или с продажами: приложение объясняет, что можно сделать."
+        ],
+        "ky": [
+          "Сыноо товарын түзүңүз, мисалы «ТЕСТ өчүрүү».",
+          "Кампа → ошол товар → өчүрүү. Товардын аты менен суроо чыгышы керек.",
+          "Жокко чыгарыңыз — товар калды.",
+          "Ырастаңыз — товар «Кампадан» жана «Сатуудан» жок болду.",
+          "Калдыгы же сатуулары бар товарды өчүрүп көрүңүз: колдонмо эмне кылууга болорун түшүндүрөт."
+        ],
+        "uz": [
+          "Sinov tovarini yarating, masalan «TEST o'chirish».",
+          "Ombor → shu tovar → o'chirish. Tovar nomi bilan savol chiqishi kerak.",
+          "Bekor qiling — tovar qoldi.",
+          "Tasdiqlang — tovar «Ombor» va «Sotuv»dan yo'qoldi.",
+          "Qoldig'i yoki sotuvlari bor tovarni o'chirib ko'ring: ilova nima qilish mumkinligini tushuntiradi."
+        ],
+        "en": [
+          "Create a test product, e.g. TEST delete.",
+          "Stock → that product → delete. A question with the product name must appear.",
+          "Cancel — the product stays.",
+          "Confirm — the product is gone from Stock and Sale.",
+          "Try deleting a product with stock or sales: the app explains what you can do."
+        ],
+        "tr": [
+          "Bir test ürünü oluşturun, örn. TEST silme.",
+          "Depo → bu ürün → sil. Ürün adıyla bir soru çıkmalı.",
+          "İptal edin: ürün kalır.",
+          "Onaylayın: ürün Depo'dan ve Satış'tan kaybolur.",
+          "Stoku veya satışı olan bir ürünü silmeyi deneyin: uygulama ne yapabileceğinizi açıklar."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/bulk-catalog-names",
+      "version": "1.18.7",
+      "area": "stock",
+      "severity": "normal",
+      "title": {
+        "ru": "Массовое добавление: названия из справочника",
+        "ky": "Жапырт кошуу: маалымдамадан аталыштар",
+        "uz": "Ommaviy qo'shish: ma'lumotnomadan nomlar",
+        "en": "Bulk add: names from the catalog",
+        "tr": "Toplu ekleme: katalogdan adlar"
+      },
+      "changed": {
+        "ru": "При массовом добавлении по штрихкодам названия подставляются из справочника NurCRM, внизу пишется, сколько названий подставлено.",
+        "ky": "Штрихкоддор боюнча жапырт кошууда аталыштар NurCRM маалымдамасынан коюлат, төмөндө канча аталыш коюлганы жазылат.",
+        "uz": "Shtrix-kodlar bo'yicha ommaviy qo'shishda nomlar NurCRM ma'lumotnomasidan qo'yiladi, pastda nechta nom qo'yilgani yoziladi.",
+        "en": "Bulk adding by barcodes fills names from the NurCRM catalog and tells how many names were filled.",
+        "tr": "Barkodlarla toplu eklemede adlar NurCRM kataloğundan doldurulur ve kaç adın doldurulduğu yazılır."
+      },
+      "steps": {
+        "ru": [
+          "Склад → массовое добавление.",
+          "Вставьте 3–5 штрихкодов реальных товаров, без названий.",
+          "Нажмите проверить — названия подставлены, написано «Названий подставлено из справочника NurCRM: N».",
+          "Лишние или чужие названия можно поправить руками."
+        ],
+        "ky": [
+          "Кампа → жапырт кошуу.",
+          "Аталышсыз 3–5 чыныгы товардын штрихкодун чаптаңыз.",
+          "Текшерүүнү басыңыз — аталыштар коюлду, «NurCRM маалымдамасынан аталыштар коюлду: N» деп жазылат.",
+          "Ашыкча же туура эмес аталыштарды кол менен оңдоого болот."
+        ],
+        "uz": [
+          "Ombor → ommaviy qo'shish.",
+          "Nomsiz 3–5 ta haqiqiy tovar shtrix-kodini qo'ying.",
+          "Tekshirishni bosing — nomlar qo'yildi, «NurCRM ma'lumotnomasidan nomlar qo'yildi: N» deb yoziladi.",
+          "Ortiqcha yoki noto'g'ri nomlarni qo'lda tuzatish mumkin."
+        ],
+        "en": [
+          "Stock → bulk add.",
+          "Paste 3–5 barcodes of real products without names.",
+          "Tap check — names are filled and Names filled from the NurCRM catalog: N is shown.",
+          "Wrong names can be edited by hand."
+        ],
+        "tr": [
+          "Depo → toplu ekleme.",
+          "Adsız 3–5 gerçek ürün barkodu yapıştırın.",
+          "Kontrol'e dokunun: adlar dolar ve NurCRM kataloğundan doldurulan ad: N yazılır.",
+          "Yanlış adlar elle düzeltilebilir."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/invoice-import",
+      "version": "1.18.7",
+      "area": "invoices",
+      "severity": "money",
+      "title": {
+        "ru": "Загрузка электронной накладной",
+        "ky": "Электрондук накладнойду жүктөө",
+        "uz": "Elektron nakladnoyni yuklash",
+        "en": "Uploading an electronic invoice",
+        "tr": "Elektronik fatura yükleme"
+      },
+      "changed": {
+        "ru": "Новая кнопка «Загрузить накладную» в приёмке: Excel (.xlsx), CSV и XML (в том числе CommerceML) от поставщика превращаются в строки прихода. Образец — nakladnaya_bez_nds.xlsx.",
+        "ky": "Кабыл алууда жаңы «Накладнойду жүктөө» баскычы: жеткирүүчүнүн Excel (.xlsx), CSV жана XML (CommerceML да) файлдары кирешенин саптарына айланат. Үлгү — nakladnaya_bez_nds.xlsx.",
+        "uz": "Qabul qilishda yangi «Nakladnoyni yuklash» tugmasi: yetkazib beruvchining Excel (.xlsx), CSV va XML (CommerceML ham) fayllari kirim satrlariga aylanadi. Namuna — nakladnaya_bez_nds.xlsx.",
+        "en": "A new Upload an invoice button in receiving: the supplier's Excel (.xlsx), CSV and XML (incl. CommerceML) files become receipt lines. Sample: nakladnaya_bez_nds.xlsx.",
+        "tr": "Mal kabulde yeni Fatura yükle düğmesi: tedarikçinin Excel (.xlsx), CSV ve XML (CommerceML dahil) dosyaları giriş satırlarına dönüşür. Örnek: nakladnaya_bez_nds.xlsx."
+      },
+      "steps": {
+        "ru": [
+          "Управление → Приёмка → «Загрузить накладную» → выберите файл nakladnaya_bez_nds.xlsx.",
+          "Проверьте таблицу: у каждой строки статус («На складе · по штрихкоду», «Новый · есть в справочнике», «Не распознана»), количество и цены.",
+          "Исправьте помеченные строки (закупка, цена продажи) и нажмите «Добавить в приход».",
+          "В приёмке должны оказаться те же строки, номер и дата накладной, поставщик.",
+          "Проверьте итоги: количество × закупка совпадает с накладной."
+        ],
+        "ky": [
+          "Башкаруу → Кабыл алуу → «Накладнойду жүктөө» → nakladnaya_bez_nds.xlsx файлын тандаңыз.",
+          "Таблицаны текшериңиз: ар бир сапта статус («Кампада · штрихкод боюнча», «Жаңы · маалымдамада бар», «Таанылган жок»), саны жана баасы бар.",
+          "Белгиленген саптарды (сатып алуу, сатуу баасы) оңдоп, «Кирешеге кошуу» баскычын басыңыз.",
+          "Кабыл алууда ошол саптар, накладнойдун номери жана датасы, жеткирүүчү болушу керек.",
+          "Жыйынтыкты текшериңиз: саны × сатып алуу баасы накладной менен дал келет."
+        ],
+        "uz": [
+          "Boshqaruv → Qabul qilish → «Nakladnoyni yuklash» → nakladnaya_bez_nds.xlsx faylini tanlang.",
+          "Jadvalni tekshiring: har qatorda holat («Omborda · shtrix-kod bo'yicha», «Yangi · ma'lumotnomada bor», «Taniylmadi»), miqdor va narxlar bor.",
+          "Belgilangan qatorlarni (xarid, sotuv narxi) tuzatib, «Kirimga qo'shish» ni bosing.",
+          "Qabul qilishda xuddi shu qatorlar, nakladnoy raqami va sanasi, yetkazib beruvchi bo'lishi kerak.",
+          "Jami summalarni tekshiring: miqdor × xarid nakladnoyga mos keladi."
+        ],
+        "en": [
+          "Manage → Receiving → Upload an invoice → pick nakladnaya_bez_nds.xlsx.",
+          "Check the table: every row has a status (In stock · by barcode, New · in the catalog, Not recognized), quantity and prices.",
+          "Fix the marked rows (cost, selling price) and tap Add to receipt.",
+          "Receiving must show the same rows, the invoice number and date, the supplier.",
+          "Check totals: quantity × cost matches the invoice."
+        ],
+        "tr": [
+          "Yönetim → Mal kabul → Fatura yükle → nakladnaya_bez_nds.xlsx dosyasını seçin.",
+          "Tabloyu kontrol edin: her satırda durum (Depoda · barkodla, Yeni · katalogda var, Tanınmadı), miktar ve fiyatlar var.",
+          "İşaretli satırları (alış, satış fiyatı) düzeltip Girişe ekle'ye dokunun.",
+          "Mal kabulde aynı satırlar, fatura numarası ve tarihi, tedarikçi görünmeli.",
+          "Toplamları kontrol edin: miktar × alış faturayla eşleşir."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/invoice-supplier",
+      "version": "1.18.7",
+      "area": "invoices",
+      "severity": "important",
+      "title": {
+        "ru": "Поставщик из накладной",
+        "ky": "Накладнойдогу жеткирүүчү",
+        "uz": "Nakladnoydagi yetkazib beruvchi",
+        "en": "Supplier from the invoice",
+        "tr": "Faturadaki tedarikçi"
+      },
+      "changed": {
+        "ru": "Поставщик из файла ищется среди ваших по ИНН, затем по названию; если его нет — можно создать одной кнопкой.",
+        "ky": "Файлдагы жеткирүүчү өзүңүздүн жеткирүүчүлөрдүн арасынан ИНН боюнча, андан кийин аталышы боюнча изделет; жок болсо — бир баскыч менен түзсө болот.",
+        "uz": "Fayldagi yetkazib beruvchi sizniki orasidan avval STIR, keyin nomi bo'yicha qidiriladi; yo'q bo'lsa — bitta tugma bilan yaratish mumkin.",
+        "en": "The supplier from the file is looked up among yours by TIN, then by name; if missing, one button creates it.",
+        "tr": "Dosyadaki tedarikçi önce VKN'ye, sonra ada göre sizinkiler arasında aranır; yoksa tek düğmeyle oluşturulur."
+      },
+      "steps": {
+        "ru": [
+          "Загрузите накладную, где указан поставщик.",
+          "Над таблицей должна быть строка «В файле: …» и пометка «Найден по ИНН» или «Найден по названию».",
+          "Если поставщика у вас нет — нажмите «Создать поставщика»: появится сообщение, что он создан.",
+          "В приёмке этот поставщик уже выбран."
+        ],
+        "ky": [
+          "Жеткирүүчүсү көрсөтүлгөн накладнойду жүктөңүз.",
+          "Таблицанын үстүндө «Файлда: …» сабы жана «ИНН боюнча табылды» же «Аталышы боюнча табылды» белгиси болушу керек.",
+          "Жеткирүүчү жок болсо — «Жеткирүүчү түзүү» баскычын басыңыз: түзүлгөнү жөнүндө билдирүү чыгат.",
+          "Кабыл алууда ошол жеткирүүчү тандалып калат."
+        ],
+        "uz": [
+          "Yetkazib beruvchisi ko'rsatilgan nakladnoyni yuklang.",
+          "Jadval ustida «Faylda: …» qatori va «STIR bo'yicha topildi» yoki «Nomi bo'yicha topildi» belgisi bo'lishi kerak.",
+          "Yetkazib beruvchi sizda bo'lmasa — «Yetkazib beruvchi yaratish» ni bosing: yaratilgani haqida xabar chiqadi.",
+          "Qabul qilishda shu yetkazib beruvchi tanlangan bo'ladi."
+        ],
+        "en": [
+          "Upload an invoice that names a supplier.",
+          "Above the table there must be In the file: … and Found by TIN or Found by name.",
+          "If you do not have the supplier tap Create supplier: a message says it was created.",
+          "Receiving already has this supplier selected."
+        ],
+        "tr": [
+          "Tedarikçisi belirtilmiş bir fatura yükleyin.",
+          "Tablonun üstünde Dosyada: … satırı ve VKN ile bulundu ya da Ada göre bulundu notu olmalı.",
+          "Tedarikçi sizde yoksa Tedarikçi oluştur'a dokunun: oluşturuldu mesajı çıkar.",
+          "Mal kabulde bu tedarikçi zaten seçili olur."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/invoice-file-errors",
+      "version": "1.18.7",
+      "area": "invoices",
+      "severity": "normal",
+      "title": {
+        "ru": "Понятные ошибки файла накладной",
+        "ky": "Накладной файлынын түшүнүктүү каталары",
+        "uz": "Nakladnoy faylidagi tushunarli xatolar",
+        "en": "Clear invoice file errors",
+        "tr": "Anlaşılır fatura dosyası hataları"
+      },
+      "changed": {
+        "ru": "PDF и фото, старый .xls, пустой файл, файл больше 10 МБ и не-накладная объясняются понятным текстом с подсказкой, что делать.",
+        "ky": "PDF жана сүрөт, эски .xls, бош файл, 10 МБдан чоң файл жана накладной эмес файл эмне кылуу керектиги менен түшүнүктүү текстте түшүндүрүлөт.",
+        "uz": "PDF va rasm, eski .xls, bo'sh fayl, 10 MB dan katta fayl va nakladnoy bo'lmagan fayl nima qilish kerakligi bilan tushunarli matnda tushuntiriladi.",
+        "en": "PDF and photos, old .xls, an empty file, a file over 10 MB and a non-invoice file are explained in plain words with a hint.",
+        "tr": "PDF ve fotoğraf, eski .xls, boş dosya, 10 MB'tan büyük dosya ve fatura olmayan dosya, ne yapılacağı belirtilerek anlaşılır biçimde açıklanır."
+      },
+      "steps": {
+        "ru": [
+          "«Загрузить накладную» → выберите PDF: должна появиться подсказка про «Умную камеру» и кнопка «Накладная по фото».",
+          "Выберите старый файл .xls: подсказка «сохраните как .xlsx или .csv».",
+          "Выберите любой не-накладной файл (например, фото или текст): ошибка без технических слов.",
+          "После каждой ошибки можно сразу выбрать другой файл."
+        ],
+        "ky": [
+          "«Накладнойду жүктөө» → PDF тандаңыз: «Акылдуу камера» жөнүндө кеңеш жана «Сүрөт боюнча накладной» баскычы чыгышы керек.",
+          "Эски .xls файлын тандаңыз: «.xlsx же .csv катары сактаңыз» деген кеңеш.",
+          "Накладной эмес каалаган файлды (мисалы, сүрөт же текст) тандаңыз: техникалык сөздөрсүз ката.",
+          "Ар бир катадан кийин дароо башка файлды тандоого болот."
+        ],
+        "uz": [
+          "«Nakladnoyni yuklash» → PDF tanlang: «Aqlli kamera» haqida maslahat va «Surat bo'yicha nakladnoy» tugmasi chiqishi kerak.",
+          "Eski .xls faylni tanlang: «.xlsx yoki .csv sifatida saqlang» maslahati.",
+          "Nakladnoy bo'lmagan istalgan faylni (masalan, rasm yoki matn) tanlang: texnik so'zlarsiz xato.",
+          "Har bir xatodan keyin darrov boshqa faylni tanlash mumkin."
+        ],
+        "en": [
+          "Upload an invoice → pick a PDF: a hint about Smart camera and an Invoice from a photo button must appear.",
+          "Pick an old .xls file: the hint says to save as .xlsx or .csv.",
+          "Pick any non-invoice file (a photo or text): an error without technical words.",
+          "After every error you can choose another file at once."
+        ],
+        "tr": [
+          "Fatura yükle → bir PDF seçin: Akıllı kamera ipucu ve Fotoğraftan fatura düğmesi çıkmalı.",
+          "Eski bir .xls dosyası seçin: .xlsx veya .csv olarak kaydedin ipucu çıkar.",
+          "Fatura olmayan bir dosya (fotoğraf veya metin) seçin: teknik sözcüksüz hata.",
+          "Her hatadan sonra hemen başka dosya seçilebilir."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/smartcam-invoice-pick",
+      "version": "1.18.7",
+      "area": "smartcam",
+      "severity": "important",
+      "title": {
+        "ru": "Умная камера: накладная из галереи или файла",
+        "ky": "Акылдуу камера: галереядан же файлдан накладной",
+        "uz": "Aqlli kamera: galereya yoki fayldan nakladnoy",
+        "en": "Smart camera: invoice from the gallery or a file",
+        "tr": "Akıllı kamera: galeri veya dosyadan fatura"
+      },
+      "changed": {
+        "ru": "В режиме накладной умная камера может взять снимок накладной не только с камеры, но и из галереи или файла (PDF/фото).",
+        "ky": "Накладной режиминде акылдуу камера накладнойдун сүрөтүн камерадан гана эмес, галереядан же файлдан (PDF/сүрөт) да ала алат.",
+        "uz": "Nakladnoy rejimida aqlli kamera nakladnoy suratini kameradan emas, galereya yoki fayldan (PDF/rasm) ham olishi mumkin.",
+        "en": "In invoice mode the smart camera can take the invoice not only from the camera but also from the gallery or a file (PDF/photo).",
+        "tr": "Fatura modunda akıllı kamera faturayı yalnızca kameradan değil, galeriden veya dosyadan (PDF/fotoğraf) da alabilir."
+      },
+      "steps": {
+        "ru": [
+          "Управление → Умная камера → режим «Накладная». Нужен ключ ИИ.",
+          "Выберите накладную из галереи (фото) — строки должны распознаться и появиться в приёмке.",
+          "То же с файлом (PDF).",
+          "Проверьте, что количества не задвоились."
+        ],
+        "ky": [
+          "Башкаруу → Акылдуу камера → «Накладной» режими. ИИ ачкычы керек.",
+          "Галереядан накладнойду (сүрөт) тандаңыз — саптар таанылып, кабыл алууда пайда болушу керек.",
+          "Файл (PDF) менен да ошондой.",
+          "Саны эки эсе болуп кетпегенин текшериңиз."
+        ],
+        "uz": [
+          "Boshqaruv → Aqlli kamera → «Nakladnoy» rejimi. AI kaliti kerak.",
+          "Galereyadan nakladnoyni (rasm) tanlang — qatorlar taniladi va qabul qilishda paydo bo'ladi.",
+          "Fayl (PDF) bilan ham shunday.",
+          "Miqdorlar ikki barobar bo'lib qolmaganini tekshiring."
+        ],
+        "en": [
+          "Manage → Smart camera → Invoice mode. An AI key is needed.",
+          "Pick an invoice from the gallery (photo): rows must be recognised and appear in receiving.",
+          "The same with a file (PDF).",
+          "Check that quantities are not doubled."
+        ],
+        "tr": [
+          "Yönetim → Akıllı kamera → Fatura modu. YZ anahtarı gerekir.",
+          "Galeriden bir fatura (fotoğraf) seçin: satırlar tanınıp mal kabulde görünmeli.",
+          "Dosya (PDF) ile de aynısı.",
+          "Miktarların ikiye katlanmadığını kontrol edin."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/smartcam-existing-product",
+      "version": "1.18.7",
+      "area": "smartcam",
+      "severity": "important",
+      "title": {
+        "ru": "Умная камера находит существующий товар по фото",
+        "ky": "Акылдуу камера бар товарды сүрөт боюнча табат",
+        "uz": "Aqlli kamera mavjud tovarni rasm bo'yicha topadi",
+        "en": "Smart camera finds an existing product by photo",
+        "tr": "Akıllı kamera mevcut ürünü fotoğraftan bulur"
+      },
+      "changed": {
+        "ru": "Снимок товара сначала сравнивается с товарами на складе: если такой уже есть, камера предлагает его, а не создаёт дубль.",
+        "ky": "Товардын сүрөтү адегенде кампадагы товарлар менен салыштырылат: андай товар бар болсо, камера дубль түзбөй, ошону сунуштайт.",
+        "uz": "Tovar surati avval ombordagi tovarlar bilan solishtiriladi: bunday tovar bor bo'lsa, kamera dublikat yaratmay, o'shani taklif qiladi.",
+        "en": "A product photo is first compared with products in stock: if it already exists the camera offers it instead of creating a duplicate.",
+        "tr": "Ürün fotoğrafı önce depodaki ürünlerle karşılaştırılır: zaten varsa kamera kopya oluşturmak yerine onu önerir."
+      },
+      "steps": {
+        "ru": [
+          "Возьмите товар, который уже есть на складе, и сфотографируйте его умной камерой.",
+          "Приложение должно предложить существующий товар с названием и остатком.",
+          "Выберите его — открывается карточка, дубль не создан.",
+          "Сфотографируйте новый товар: предлагается создать позицию."
+        ],
+        "ky": [
+          "Кампада бар товарды алып, акылдуу камера менен сүрөткө тартыңыз.",
+          "Колдонмо аты жана калдыгы менен бар товарды сунуштоосу керек.",
+          "Аны тандаңыз — карточка ачылат, дубль түзүлгөн жок.",
+          "Жаңы товарды сүрөткө тартыңыз: жаңы позиция түзүү сунушталат."
+        ],
+        "uz": [
+          "Omborda bor tovarni olib, aqlli kamera bilan suratga oling.",
+          "Ilova mavjud tovarni nomi va qoldig'i bilan taklif qilishi kerak.",
+          "Uni tanlang — kartochka ochiladi, dublikat yaratilmadi.",
+          "Yangi tovarni suratga oling: yangi pozitsiya yaratish taklif qilinadi."
+        ],
+        "en": [
+          "Take a product that is already in stock and photograph it with the smart camera.",
+          "The app must offer the existing product with its name and stock.",
+          "Pick it — the card opens, no duplicate is made.",
+          "Photograph a new product: creating a new item is offered."
+        ],
+        "tr": [
+          "Depoda zaten olan bir ürünü alın ve akıllı kamerayla fotoğraflayın.",
+          "Uygulama mevcut ürünü adı ve stokuyla önermeli.",
+          "Seçin: kart açılır, kopya oluşmaz.",
+          "Yeni bir ürünü fotoğraflayın: yeni kalem oluşturma önerilir."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/smartcam-training",
+      "version": "1.18.7",
+      "area": "smartcam",
+      "severity": "normal",
+      "title": {
+        "ru": "Обучение умной камеры в редактировании товара",
+        "ky": "Товарды оңдоодо акылдуу камераны үйрөтүү",
+        "uz": "Tovarni tahrirlashda aqlli kamerani o'rgatish",
+        "en": "Teaching the smart camera in product editing",
+        "tr": "Ürün düzenlemede akıllı kamerayı eğitme"
+      },
+      "changed": {
+        "ru": "В карточке товара можно добавить снимки товара для обучения камеры — она будет узнавать его точнее.",
+        "ky": "Товардын карточкасына камераны үйрөтүү үчүн товардын сүрөттөрүн кошсо болот — ал аны тагыраак тааныйт.",
+        "uz": "Tovar kartochkasiga kamerani o'rgatish uchun tovar suratlarini qo'shish mumkin — u uni aniqroq taniydi.",
+        "en": "In the product card you can add photos to teach the camera so that it recognises the product better.",
+        "tr": "Ürün kartına kamerayı eğitmek için ürün fotoğrafları eklenebilir; kamera ürünü daha doğru tanır."
+      },
+      "steps": {
+        "ru": [
+          "Склад → товар → редактирование → блок обучения камеры.",
+          "Добавьте 2–3 снимка товара с разных сторон.",
+          "Сохраните и снова сфотографируйте товар умной камерой — он узнаётся.",
+          "Удалите один снимок обучения — удаляется только он."
+        ],
+        "ky": [
+          "Кампа → товар → оңдоо → камераны үйрөтүү блогу.",
+          "Товардын 2–3 сүрөтүн ар кайсы тараптан кошуңуз.",
+          "Сактап, товарды акылдуу камера менен кайра сүрөткө тартыңыз — ал таанылат.",
+          "Үйрөтүү сүрөттөрүнүн бирин өчүрүңүз — ошол гана өчөт."
+        ],
+        "uz": [
+          "Ombor → tovar → tahrirlash → kamerani o'rgatish bloki.",
+          "Tovarning 2–3 ta suratini turli tomonlardan qo'shing.",
+          "Saqlang va tovarni aqlli kamera bilan yana suratga oling — u taniladi.",
+          "O'rgatish suratlaridan birini o'chiring — faqat o'sha o'chadi."
+        ],
+        "en": [
+          "Stock → product → edit → camera teaching block.",
+          "Add 2–3 photos of the product from different sides.",
+          "Save and photograph the product with the smart camera again — it is recognised.",
+          "Delete one teaching photo — only that one is removed."
+        ],
+        "tr": [
+          "Depo → ürün → düzenle → kamera eğitimi bölümü.",
+          "Ürünün farklı yönlerden 2–3 fotoğrafını ekleyin.",
+          "Kaydedin ve ürünü akıllı kamerayla tekrar fotoğraflayın: tanınır.",
+          "Eğitim fotoğraflarından birini silin: yalnızca o silinir."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/call-stock-search",
+      "version": "1.18.7",
+      "area": "videocall",
+      "severity": "important",
+      "title": {
+        "ru": "Видеозвонок: поиск товара на складе",
+        "ky": "Видеоконгуроо: кампадан товар издөө",
+        "uz": "Video qo'ng'iroq: ombordan tovar qidirish",
+        "en": "Video call: finding a product in stock",
+        "tr": "Görüntülü arama: depoda ürün arama"
+      },
+      "changed": {
+        "ru": "Во время видеозвонка ИИ ищет товар на складе по названию, показанному на камеру или названному голосом, и называет цену и остаток.",
+        "ky": "Видеоконгуроо учурунда ИИ товарды камерага көрсөтүлгөн же үн менен айтылган аталыш боюнча кампадан издеп, баасын жана калдыгын айтат.",
+        "uz": "Video qo'ng'iroq paytida AI tovarni kameraga ko'rsatilgan yoki ovozda aytilgan nomi bo'yicha ombordan qidiradi, narxi va qoldig'ini aytadi.",
+        "en": "During a video call the AI looks up a product in stock by the name shown to the camera or spoken, and reads out the price and stock.",
+        "tr": "Görüntülü aramada YZ, kameraya gösterilen ya da sesle söylenen ada göre depoda ürünü arar, fiyat ve stoku söyler."
+      },
+      "steps": {
+        "ru": [
+          "Управление → Нур Советник → «Позвонить ИИ» → включите камеру (нужен ключ ИИ).",
+          "Покажите товар со склада и спросите «Сколько стоит и сколько осталось?».",
+          "ИИ должен назвать цену и остаток как в «Складе».",
+          "Спросите про товар, которого нет: ИИ честно говорит, что не нашёл."
+        ],
+        "ky": [
+          "Башкаруу → Нур Кеңешчи → «ИИ'ге чалуу» → камераны күйгүзүңүз (ИИ ачкычы керек).",
+          "Кампадагы товарды көрсөтүп «Канча турат жана канча калды?» деп сураңыз.",
+          "ИИ «Кампадагыдай» баасын жана калдыгын айтышы керек.",
+          "Жок товар жөнүндө сураңыз: ИИ таба албаганын ачык айтат."
+        ],
+        "uz": [
+          "Boshqaruv → Nur Maslahatchi → «AI'ga qo'ng'iroq» → kamerani yoqing (AI kaliti kerak).",
+          "Ombordagi tovarni ko'rsating va «Narxi qancha va qancha qoldi?» deb so'rang.",
+          "AI narx va qoldiqni «Ombor»dagidek aytishi kerak.",
+          "Yo'q tovar haqida so'rang: AI topa olmaganini ochiq aytadi."
+        ],
+        "en": [
+          "Manage → Nur Advisor → Call the AI → turn the camera on (an AI key is needed).",
+          "Show a product from stock and ask How much is it and how many are left?",
+          "The AI must name the price and stock as in Stock.",
+          "Ask about a product that does not exist: the AI honestly says it found nothing."
+        ],
+        "tr": [
+          "Yönetim → Nur Danışman → YZ'yi ara → kamerayı açın (YZ anahtarı gerekir).",
+          "Depodan bir ürün gösterip Fiyatı ne, kaç tane kaldı? diye sorun.",
+          "YZ fiyatı ve stoku Depo'daki gibi söylemeli.",
+          "Olmayan bir ürünü sorun: YZ bulamadığını dürüstçe söyler."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/call-edit-product",
+      "version": "1.18.7",
+      "area": "videocall",
+      "severity": "money",
+      "title": {
+        "ru": "Видеозвонок: редактирование товара",
+        "ky": "Видеоконгуроо: товарды оңдоо",
+        "uz": "Video qo'ng'iroq: tovarni tahrirlash",
+        "en": "Video call: editing a product",
+        "tr": "Görüntülü arama: ürün düzenleme"
+      },
+      "changed": {
+        "ru": "ИИ в звонке может изменить название, цену или остаток товара по просьбе, но только после вашего подтверждения; действие записывается в «Действия ИИ» и отменяется.",
+        "ky": "Чалуудагы ИИ өтүнүчүңүз боюнча товардын атын, баасын же калдыгын өзгөртө алат, бирок ырастоодон кийин гана; иш-аракет «ИИ аракеттерине» жазылат жана жокко чыгарылат.",
+        "uz": "Qo'ng'iroqdagi AI so'rovingiz bo'yicha tovar nomi, narxi yoki qoldig'ini o'zgartirishi mumkin, lekin faqat tasdiqlaganingizdan keyin; amal «AI amallari»ga yoziladi va bekor qilinadi.",
+        "en": "In a call the AI can change a product's name, price or stock on request, but only after you confirm; the action is logged in AI actions and can be undone.",
+        "tr": "Aramada YZ, isteğiniz üzerine ürünün adını, fiyatını veya stokunu değiştirebilir, ancak yalnızca onayınızdan sonra; eylem YZ eylemlerine kaydedilir ve geri alınabilir."
+      },
+      "steps": {
+        "ru": [
+          "Позвоните ИИ и скажите: «Поставь цену тестового товара 120 сом».",
+          "ИИ должен спросить подтверждение с названием и новой ценой.",
+          "Подтвердите — цена изменилась в «Складе». Откажите — цена не меняется.",
+          "Профиль → «Действия ИИ»: запись есть, «Отменить» возвращает старую цену."
+        ],
+        "ky": [
+          "ИИ'ге чалып айтыңыз: «Сыноо товарынын баасын 120 сом кылгыла».",
+          "ИИ товардын аты жана жаңы баасы менен ырастоо сурашы керек.",
+          "Ырастаңыз — баа «Кампада» өзгөрдү. Баш тартсаңыз — баа өзгөрбөйт.",
+          "Профиль → «ИИ аракеттери»: жазуу бар, «Жокко чыгаруу» эски баасын кайтарат."
+        ],
+        "uz": [
+          "AI'ga qo'ng'iroq qilib ayting: «Sinov tovarining narxini 120 so'm qil».",
+          "AI tovar nomi va yangi narx bilan tasdiq so'rashi kerak.",
+          "Tasdiqlang — narx «Ombor»da o'zgardi. Rad etsangiz — narx o'zgarmaydi.",
+          "Profil → «AI amallari»: yozuv bor, «Bekor qilish» eski narxni qaytaradi."
+        ],
+        "en": [
+          "Call the AI and say Set the test product price to 120 som.",
+          "The AI must ask for confirmation with the name and the new price.",
+          "Confirm — the price changes in Stock. Decline — it does not change.",
+          "Profile → AI actions: the entry exists and Undo returns the old price."
+        ],
+        "tr": [
+          "YZ'yi arayıp deyin: Test ürününün fiyatını 120 som yap.",
+          "YZ ürün adı ve yeni fiyatla onay istemeli.",
+          "Onaylayın: fiyat Depo'da değişir. Reddederseniz değişmez.",
+          "Profil → YZ eylemleri: kayıt vardır, Geri al eski fiyatı döndürür."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/call-add-product",
+      "version": "1.18.7",
+      "area": "videocall",
+      "severity": "important",
+      "title": {
+        "ru": "Видеозвонок: добавление товара голосом",
+        "ky": "Видеоконгуроо: товарды үн менен кошуу",
+        "uz": "Video qo'ng'iroq: tovarni ovoz bilan qo'shish",
+        "en": "Video call: adding a product by voice",
+        "tr": "Görüntülü arama: sesle ürün ekleme"
+      },
+      "changed": {
+        "ru": "Новый товар можно добавить в звонке: показать ИИ 3–4 стороны товара и штрихкод сканером, назвать цену — ИИ заполнит карточку и попросит подтверждения.",
+        "ky": "Жаңы товарды чалууда кошсо болот: ИИ'ге товардын 3–4 тарабын көрсөтүп, штрихкодун сканер менен окутуп, баасын айтыңыз — ИИ карточканы толтуруп, ырастоо сурайт.",
+        "uz": "Yangi tovarni qo'ng'iroqda qo'shish mumkin: AI'ga tovarning 3–4 tomonini ko'rsating, shtrix-kodini skaner bilan o'qiting, narxini ayting — AI kartochkani to'ldirib, tasdiq so'raydi.",
+        "en": "A new product can be added in a call: show the AI 3–4 sides of the product, scan the barcode, say the price — the AI fills the card and asks for confirmation.",
+        "tr": "Aramada yeni ürün eklenebilir: YZ'ye ürünün 3–4 yüzünü gösterin, barkodu tarayıcıyla okutun, fiyatı söyleyin; YZ kartı doldurur ve onay ister."
+      },
+      "steps": {
+        "ru": [
+          "Позвоните ИИ с включённой камерой и скажите «Добавь новый товар».",
+          "Покажите товар с разных сторон (3–4 раза), по просьбе отсканируйте штрихкод.",
+          "Назовите закупку и цену продажи.",
+          "ИИ показывает карточку на подтверждение — подтвердите; товар появляется в «Складе» с нужным штрихкодом.",
+          "Штрихкод, который уже есть у другого товара, ИИ не должен принимать."
+        ],
+        "ky": [
+          "Камера күйгүзүлгөн ИИ'ге чалып «Жаңы товар кош» деп айтыңыз.",
+          "Товарды ар кайсы тараптан көрсөтүңүз (3–4 жолу), суранганда штрихкодун сканерлеңиз.",
+          "Сатып алуу жана сатуу баасын айтыңыз.",
+          "ИИ карточканы ырастоого көрсөтөт — ырастаңыз; товар керектүү штрихкод менен «Кампада» пайда болот.",
+          "Башка товарда бар штрихкодду ИИ кабыл албашы керек."
+        ],
+        "uz": [
+          "Kamera yoqilgan holda AI'ga qo'ng'iroq qilib «Yangi tovar qo'sh» deng.",
+          "Tovarni turli tomondan ko'rsating (3–4 marta), so'ralganda shtrix-kodni skanerlang.",
+          "Xarid va sotuv narxini ayting.",
+          "AI kartochkani tasdiqlash uchun ko'rsatadi — tasdiqlang; tovar kerakli shtrix-kod bilan «Ombor»da paydo bo'ladi.",
+          "Boshqa tovarda bor shtrix-kodni AI qabul qilmasligi kerak."
+        ],
+        "en": [
+          "Call the AI with the camera on and say Add a new product.",
+          "Show the product from 3–4 sides and scan the barcode when asked.",
+          "Say the cost and the selling price.",
+          "The AI shows the card for confirmation — confirm; the product appears in Stock with the right barcode.",
+          "A barcode already used by another product must not be accepted."
+        ],
+        "tr": [
+          "Kamera açıkken YZ'yi arayıp Yeni ürün ekle deyin.",
+          "Ürünü 3–4 yönden gösterin, istenince barkodu okutun.",
+          "Alış ve satış fiyatını söyleyin.",
+          "YZ kartı onay için gösterir: onaylayın; ürün doğru barkodla Depo'da görünür.",
+          "Başka üründe olan barkod kabul edilmemeli."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/kassa-link",
+      "version": "1.18.7",
+      "area": "kassa",
+      "severity": "important",
+      "title": {
+        "ru": "Связь с кассой по QR",
+        "ky": "QR аркылуу кассага туташуу",
+        "uz": "QR orqali kassaga ulanish",
+        "en": "Linking to the till by QR",
+        "tr": "QR ile kasaya bağlanma"
+      },
+      "changed": {
+        "ru": "Профиль → «Связь с кассой»: телефон подключается к кассе на компьютере по QR-коду и Wi-Fi; видно состояние связи и смену на кассе.",
+        "ky": "Профиль → «Кассага туташуу»: телефон компьютердеги кассага QR код жана Wi-Fi аркылуу туташат; байланыштын абалы жана кассадагы смена көрүнөт.",
+        "uz": "Profil → «Kassa bilan aloqa»: telefon kompyuterdagi kassaga QR-kod va Wi-Fi orqali ulanadi; aloqa holati va kassadagi smena ko'rinadi.",
+        "en": "Profile → Till link: the phone connects to the till on the computer by QR code and Wi-Fi; the link state and the till shift are shown.",
+        "tr": "Profil → Kasa bağlantısı: telefon, bilgisayardaki kasaya QR kod ve Wi-Fi ile bağlanır; bağlantı durumu ve kasadaki vardiya görünür."
+      },
+      "steps": {
+        "ru": [
+          "На кассе (ПК) откройте окно «Подключить телефон» (в настройках должен быть включён приём сканов с телефонов).",
+          "В телефоне: Профиль → «Связь с кассой» → «Сканировать QR на кассе».",
+          "После подключения: «На связи», название кассы и «Смена на кассе: открыта/закрыта».",
+          "«Проверить связь» работает; «Отключить» отключает после вопроса."
+        ],
+        "ky": [
+          "Кассада (ПК) «Телефонду туташтыруу» терезесин ачыңыз (жөндөөлөрдө телефондордон скан кабыл алуу күйгүзүлгөн болушу керек).",
+          "Телефондо: Профиль → «Кассага туташуу» → «Кассадагы QR кодду скандоо».",
+          "Туташкандан кийин: «Байланышта», кассанын аты жана «Кассадагы смена: ачык/жабык».",
+          "«Байланышты текшерүү» иштейт; «Ажыратуу» суроодон кийин ажыратат."
+        ],
+        "uz": [
+          "Kassada (kompyuter) «Telefonni ulash» oynasini oching (sozlamalarda telefonlardan skan qabul qilish yoqilgan bo'lishi kerak).",
+          "Telefonda: Profil → «Kassa bilan aloqa» → «Kassadagi QR-kodni skanerlash».",
+          "Ulangandan keyin: «Aloqada», kassa nomi va «Kassadagi smena: ochiq/yopiq».",
+          "«Aloqani tekshirish» ishlaydi; «Uzish» savoldan keyin uzadi."
+        ],
+        "en": [
+          "On the till (PC) open the Connect phone window (receiving scans from phones must be on in settings).",
+          "On the phone: Profile → Till link → Scan the QR on the till.",
+          "After connecting: Connected, the till name and Shift on the till: open/closed.",
+          "Check the link works; Disconnect disconnects after a question."
+        ],
+        "tr": [
+          "Kasada (PC) Telefonu bağla penceresini açın (ayarlarda telefonlardan tarama kabulü açık olmalı).",
+          "Telefonda: Profil → Kasa bağlantısı → Kasadaki QR'ı tara.",
+          "Bağlandıktan sonra: Bağlı, kasa adı ve Kasadaki vardiya: açık/kapalı.",
+          "Bağlantıyı kontrol et çalışır; Bağlantıyı kes bir sorudan sonra keser."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/kassa-help-hints",
+      "version": "1.18.7",
+      "area": "kassa",
+      "severity": "normal",
+      "title": {
+        "ru": "Подсказки при «касса не найдена» и отказе кассы",
+        "ky": "«Касса табылган жок» жана касса баш тартканда кеңештер",
+        "uz": "«Kassa topilmadi» va kassa rad etganda maslahatlar",
+        "en": "Hints for till not found and refusal",
+        "tr": "Kasa bulunamadı ve ret durumunda ipuçları"
+      },
+      "changed": {
+        "ru": "Если касса не отвечает, приложение пишет, что проверить (касса запущена, приём включён, одна Wi-Fi), и даёт кнопку «Сканировать QR заново».",
+        "ky": "Касса жооп бербесе, колдонмо эмнени текшерүү керектигин жазат (касса иштеп жатабы, кабыл алуу күйгүзүлгөнбү, бир Wi-Fi) жана «QR кодду кайра скандоо» баскычын берет.",
+        "uz": "Kassa javob bermasa, ilova nimani tekshirish kerakligini yozadi (kassa ishlayaptimi, qabul yoqilganmi, bitta Wi-Fi) va «QR-kodni qayta skanerlash» tugmasini beradi.",
+        "en": "If the till does not answer the app tells what to check (till running, receiving on, same Wi-Fi) and offers Scan the QR again.",
+        "tr": "Kasa yanıt vermezse uygulama neyi kontrol edeceğinizi yazar (kasa çalışıyor, kabul açık, aynı Wi-Fi) ve QR'ı yeniden tara düğmesini sunar."
+      },
+      "steps": {
+        "ru": [
+          "Выключите программу кассы (или отключите Wi-Fi на ПК) и откройте «Связь с кассой».",
+          "Во время поиска написано «Ищу кассу в сети Wi-Fi…».",
+          "После — красное «Касса не найдена» и три подсказки.",
+          "На кассе выключите приём с телефонов: появится подсказка включить «Принимать сканы с телефонов»."
+        ],
+        "ky": [
+          "Касса программасын өчүрүңүз (же ПКдагы Wi-Fi'ды өчүрүңүз) да «Кассага туташуу» бөлүмүн ачыңыз.",
+          "Издөө учурунда «Кассаны Wi-Fi тармагында издеп жатам…» деп жазылат.",
+          "Андан кийин — кызыл «Касса табылган жок» жана үч кеңеш.",
+          "Кассада телефондордон кабыл алууну өчүрүңүз: «Телефондордон скан кабыл алуу» күйгүзүү кеңеши чыгат."
+        ],
+        "uz": [
+          "Kassa dasturini o'chiring (yoki kompyuterda Wi-Fi'ni o'chiring) va «Kassa bilan aloqa»ni oching.",
+          "Qidiruv paytida «Kassani Wi-Fi tarmog'ida qidiryapman…» deb yoziladi.",
+          "Keyin — qizil «Kassa topilmadi» va uchta maslahat.",
+          "Kassada telefonlardan qabul qilishni o'chiring: «Telefonlardan skan qabul qilish» ni yoqish maslahati chiqadi."
+        ],
+        "en": [
+          "Close the till program (or turn off Wi-Fi on the PC) and open Till link.",
+          "While searching it says Looking for the till on Wi-Fi…",
+          "Then a red Till not found and three hints.",
+          "On the till turn receiving from phones off: a hint to turn on Receive scans from phones appears."
+        ],
+        "tr": [
+          "Kasa programını kapatın (veya PC'de Wi-Fi'ı kapatın) ve Kasa bağlantısı'nı açın.",
+          "Arama sırasında Kasa Wi-Fi ağında aranıyor… yazar.",
+          "Ardından kırmızı Kasa bulunamadı ve üç ipucu.",
+          "Kasada telefonlardan kabulü kapatın: Telefonlardan tarama kabul et'i açma ipucu çıkar."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/kassa-scanner",
+      "version": "1.18.7",
+      "area": "scanner",
+      "severity": "money",
+      "title": {
+        "ru": "Сканер для кассы",
+        "ky": "Касса үчүн сканер",
+        "uz": "Kassa uchun skaner",
+        "en": "Scanner for the till",
+        "tr": "Kasa için tarayıcı"
+      },
+      "changed": {
+        "ru": "В сканере есть режим «Сканер для кассы»: отсканированный штрихкод попадает прямо в открытый чек на кассе на ПК. Без связи коды ждут в очереди.",
+        "ky": "Сканерде «Касса үчүн сканер» режими бар: сканерленген штрихкод компьютердеги кассанын ачык чегине түз кошулат. Байланыш жоксо кодлор кезекте күтөт.",
+        "uz": "Skanerda «Kassa uchun skaner» rejimi bor: skanerlangan shtrix-kod kompyuterdagi kassaning ochiq chekiga to'g'ridan-to'g'ri tushadi. Aloqa bo'lmasa kodlar navbatda kutadi.",
+        "en": "The scanner has a Scanner for the till mode: a scanned barcode goes straight into the open receipt on the till PC. Without a link codes wait in a queue.",
+        "tr": "Tarayıcıda Kasa için tarayıcı modu var: okutulan barkod doğrudan PC'deki kasanın açık fişine düşer. Bağlantı yoksa kodlar sırada bekler."
+      },
+      "steps": {
+        "ru": [
+          "Подключите кассу (см. «Связь с кассой»), на кассе откройте пустой чек.",
+          "Сканер → чип «Сканер для кассы» под полосой режимов.",
+          "Отсканируйте товар: на кассе в чеке появилась строка, на телефоне — «Добавлен» и счётчик.",
+          "Отсканируйте несуществующий код: «Не найден».",
+          "Выключите Wi-Fi на кассе, отсканируйте 2 кода («В очереди»), включите — коды добавляются по порядку."
+        ],
+        "ky": [
+          "Кассаны туташтырыңыз («Кассага туташуу» бөлүмүн караңыз), кассада бош чек ачыңыз.",
+          "Сканер → режимдер тилкесинин астындагы «Касса үчүн сканер» чипи.",
+          "Товарды сканерлеңиз: кассада чекке сап кошулду, телефондо — «Кошулду» жана эсептегич.",
+          "Жок кодду сканерлеңиз: «Табылган жок».",
+          "Кассада Wi-Fi'ды өчүрүп, 2 код сканерлеңиз («Кезекте»), күйгүзүңүз — кодлор тартиби менен кошулат."
+        ],
+        "uz": [
+          "Kassani ulang («Kassa bilan aloqa»ga qarang), kassada bo'sh chek oching.",
+          "Skaner → rejimlar tasmasi ostidagi «Kassa uchun skaner» chipi.",
+          "Tovarni skanerlang: kassada chekda qator paydo bo'ldi, telefonda — «Qo'shildi» va hisoblagich.",
+          "Mavjud bo'lmagan kodni skanerlang: «Topilmadi».",
+          "Kassada Wi-Fi'ni o'chiring, 2 kod skanerlang («Navbatda»), yoqing — kodlar tartib bilan qo'shiladi."
+        ],
+        "en": [
+          "Connect the till (see Till link) and open an empty receipt on it.",
+          "Scanner → the Scanner for the till chip under the mode strip.",
+          "Scan a product: a line appears in the till receipt, the phone shows Added and a counter.",
+          "Scan a non-existent code: Not found.",
+          "Turn Wi-Fi off on the till, scan 2 codes (Queued), turn it on — the codes are added in order."
+        ],
+        "tr": [
+          "Kasayı bağlayın (bkz. Kasa bağlantısı) ve kasada boş bir fiş açın.",
+          "Tarayıcı → mod şeridinin altındaki Kasa için tarayıcı çipi.",
+          "Bir ürün okutun: kasa fişinde satır görünür, telefonda Eklendi ve sayaç çıkar.",
+          "Olmayan bir kod okutun: Bulunamadı.",
+          "Kasada Wi-Fi'ı kapatıp 2 kod okutun (Sırada), açın: kodlar sırayla eklenir."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/scanner-mode-strip",
+      "version": "1.18.7",
+      "area": "scanner",
+      "severity": "normal",
+      "title": {
+        "ru": "Полоса режимов сканера",
+        "ky": "Сканер режимдеринин тилкеси",
+        "uz": "Skaner rejimlari tasmasi",
+        "en": "Scanner mode strip",
+        "tr": "Tarayıcı mod şeridi"
+      },
+      "changed": {
+        "ru": "Переключатель «Сканер для кассы» вынесен отдельной строкой под полосу режимов: все режимы («В чек», «Цена», «Приёмка», «Весы») снова видны целиком.",
+        "ky": "«Касса үчүн сканер» которгучу режимдер тилкесинин астындагы өзүнчө сапка чыгарылды: бардык режимдер («Чекке», «Баа», «Кабыл алуу», «Таразы») кайра толук көрүнөт.",
+        "uz": "«Kassa uchun skaner» almashtirgichi rejimlar tasmasi ostidagi alohida qatorga chiqarildi: barcha rejimlar («Chekka», «Narx», «Qabul», «Tarozi») yana to'liq ko'rinadi.",
+        "en": "The Scanner for the till switch moved to its own row below the mode strip: all modes (To receipt, Price, Receiving, Weigh) are visible in full again.",
+        "tr": "Kasa için tarayıcı anahtarı mod şeridinin altında ayrı bir satıra alındı: tüm modlar (Fişe, Fiyat, Mal kabul, Tartı) yine tam görünür."
+      },
+      "steps": {
+        "ru": [
+          "Откройте «Сканер» на телефоне с узким экраном.",
+          "Названия режимов («Весы» и другие) не обрезаются, полоса листается пальцем без «прыжков».",
+          "Чип «Сканер для кассы» стоит отдельной строкой под полосой.",
+          "Включите шрифт 1,3 в настройках телефона и повторите."
+        ],
+        "ky": [
+          "Тар экраны бар телефондо «Сканер» бөлүмүн ачыңыз.",
+          "Режимдердин аттары («Таразы» жана башкалар) кесилбейт, тилке манжа менен «секирбей» жылат.",
+          "«Касса үчүн сканер» чипи тилкенин астында өзүнчө сапта турат.",
+          "Телефондун жөндөөлөрүндө 1,3 шрифтти күйгүзүп кайталаңыз."
+        ],
+        "uz": [
+          "Tor ekranli telefonda «Skaner»ni oching.",
+          "Rejimlar nomlari («Tarozi» va boshqalar) kesilmaydi, tasma barmoq bilan «sakramasdan» suriladi.",
+          "«Kassa uchun skaner» chipi tasma ostida alohida qatorda turadi.",
+          "Telefon sozlamalarida 1,3 shriftni yoqib takrorlang."
+        ],
+        "en": [
+          "Open Scanner on a phone with a narrow screen.",
+          "Mode names (Weigh and others) are not cut off and the strip scrolls with a finger without jumps.",
+          "The Scanner for the till chip is on its own row under the strip.",
+          "Turn on font size 1.3 in phone settings and repeat."
+        ],
+        "tr": [
+          "Dar ekranlı bir telefonda Tarayıcı'yı açın.",
+          "Mod adları (Tartı vb.) kesilmez, şerit parmakla sıçramadan kayar.",
+          "Kasa için tarayıcı çipi şeridin altında ayrı bir satırdadır.",
+          "Telefon ayarlarında yazı tipi 1,3'ü açıp tekrarlayın."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/ai-access-owner",
+      "version": "1.18.7",
+      "area": "profile",
+      "severity": "important",
+      "title": {
+        "ru": "Доступ к ИИ: владелец и администратор",
+        "ky": "ИИ'ге жетүү: ээси жана администратор",
+        "uz": "AI'ga kirish: egasi va administrator",
+        "en": "AI access: owner and administrator",
+        "tr": "YZ erişimi: sahip ve yönetici"
+      },
+      "changed": {
+        "ru": "Владельцу и администратору ИИ доступен всегда, независимо от списка «до 2 сотрудников»; текст в профиле не путает: «Не задано — ИИ у всех сотрудников».",
+        "ky": "Ээсине жана администраторго ИИ ар дайым жеткиликтүү, «2 кызматкерге чейин» тизмесине карабай; профилдеги текст чаташтырбайт: «Коюлган эмес — ИИ бардык кызматкерлерде».",
+        "uz": "Egasi va administratorga AI har doim ochiq, «2 xodimgacha» ro'yxatidan qat'i nazar; profildagi matn chalkashtirmaydi: «Belgilanmagan — AI barcha xodimlarda».",
+        "en": "The owner and administrator always have AI regardless of the up to 2 employees list; the text in Profile is clear: Not set — AI for all employees.",
+        "tr": "Sahip ve yöneticide, 2 çalışana kadar listesinden bağımsız olarak YZ her zaman açıktır; Profil'deki metin nettir: Ayarlanmadı: YZ tüm çalışanlarda."
+      },
+      "steps": {
+        "ru": [
+          "Войдите владельцем или администратором, которого нет в списке «Кому разрешён ИИ».",
+          "Нур Советник открывается и отвечает.",
+          "Профиль → «Настройка ИИ» → «Доступ к ИИ»: написано, что владельцу и администратору ИИ доступен всегда.",
+          "Выберите 2 сотрудников и не сохраняйте: видно примечание, что список ещё не сохранён.",
+          "Войдите кассиром не из списка: ИИ закрыт с пояснением."
+        ],
+        "ky": [
+          "«ИИ'ге ким уруксат» тизмесинде жок ээси же администратор менен кириңиз.",
+          "Нур Кеңешчи ачылат жана жооп берет.",
+          "Профиль → «ИИ жөндөөсү» → «ИИ'ге жетүү»: ээсине жана администраторго ИИ ар дайым жеткиликтүү деп жазылган.",
+          "2 кызматкерди тандап, сактабаңыз: тизме али сакталганы жок деген эскертүү көрүнөт.",
+          "Тизмеде жок кассир менен кириңиз: ИИ түшүндүрмө менен жабык."
+        ],
+        "uz": [
+          "«AI'ga kimga ruxsat» ro'yxatida yo'q egasi yoki administrator bilan kiring.",
+          "Nur Maslahatchi ochiladi va javob beradi.",
+          "Profil → «AI sozlamasi» → «AI'ga kirish»: egasi va administratorga AI har doim ochiq deb yozilgan.",
+          "2 xodimni tanlab, saqlamang: ro'yxat hali saqlanmagani haqida izoh ko'rinadi.",
+          "Ro'yxatda yo'q kassir bilan kiring: AI tushuntirish bilan yopiq."
+        ],
+        "en": [
+          "Sign in as an owner or administrator who is not in the Who may use AI list.",
+          "Nur Advisor opens and answers.",
+          "Profile → AI setup → AI access: it says the owner and administrator always have AI.",
+          "Pick 2 employees and do not save: a note says the list is not saved yet.",
+          "Sign in as a cashier who is not in the list: AI is closed with an explanation."
+        ],
+        "tr": [
+          "YZ'yi kimin kullanabileceği listesinde olmayan bir sahip veya yönetici olarak girin.",
+          "Nur Danışman açılır ve yanıt verir.",
+          "Profil → YZ ayarı → YZ erişimi: sahip ve yöneticide YZ'nin her zaman açık olduğu yazar.",
+          "2 çalışan seçip kaydetmeyin: listenin henüz kaydedilmediği notu görünür.",
+          "Listede olmayan bir kasiyer olarak girin: YZ açıklamayla kapalıdır."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/chat-error-texts",
+      "version": "1.18.7",
+      "area": "aikeys",
+      "severity": "important",
+      "title": {
+        "ru": "Чат ИИ: понятные причины ошибок",
+        "ky": "ИИ чаты: каталардын түшүнүктүү себептери",
+        "uz": "AI chat: xatolarning tushunarli sabablari",
+        "en": "AI chat: clear error reasons",
+        "tr": "YZ sohbeti: anlaşılır hata nedenleri"
+      },
+      "changed": {
+        "ru": "Вместо одного «ИИ не ответил» чат пишет причину: нет связи, нет ключа, лимит исчерпан до HH:mm, Google отклонил ключ, долгое ожидание — и кнопку «Повторить» или «Ключи Gemini».",
+        "ky": "Бир «ИИ жооп берген жок» ордуна чат себебин жазат: байланыш жок, ачкыч жок, лимит HH:mm чейин бүттү, Google ачкычты четке какты, узак күтүү — жана «Кайталоо» же «Gemini ачкычтары» баскычы.",
+        "uz": "Bitta «AI javob bermadi» o'rniga chat sababni yozadi: aloqa yo'q, kalit yo'q, limit HH:mm gacha tugadi, Google kalitni rad etdi, uzoq kutish — va «Qayta urinish» yoki «Gemini kalitlari» tugmasi.",
+        "en": "Instead of one AI did not answer the chat shows the reason: no connection, no key, limit used up until HH:mm, Google rejected the key, a long wait — with a Retry or Gemini keys button.",
+        "tr": "Tek bir YZ yanıt vermedi yerine sohbet nedeni yazar: bağlantı yok, anahtar yok, limit HH:mm'e kadar doldu, Google anahtarı reddetti, uzun bekleme; ayrıca Tekrar dene veya Gemini anahtarları düğmesi."
+      },
+      "steps": {
+        "ru": [
+          "Нур Советник без ключа ИИ: «Ключа ИИ нет. Добавьте его в «Настройка ИИ» → «Ключи Gemini»…» и в шапке нет «Данные магазина подключены».",
+          "Включите режим полёта и задайте вопрос: сообщение про связь, а не про ключ; после включения интернета «Повторить» работает.",
+          "С рабочим ключом: вопрос «Кто должен?» — приходит ответ по данным магазина.",
+          "Если ключ отклонён или лимит исчерпан — текст с временем и путь в «Ключи Gemini»."
+        ],
+        "ky": [
+          "ИИ ачкычы жок Нур Кеңешчи: «ИИ ачкычы жок. Аны «ИИ жөндөөсү» → «Gemini ачкычтары» бөлүмүнө кошуңуз…», ал эми башкы сапта «Дүкөн маалыматтары туташкан» жок.",
+          "Учак режимин күйгүзүп суроо бериңиз: ачкыч жөнүндө эмес, байланыш жөнүндө билдирүү; интернет күйгөндөн кийин «Кайталоо» иштейт.",
+          "Иштеген ачкыч менен: «Ким карыздар?» суроосу — дүкөн маалыматтары боюнча жооп келет.",
+          "Ачкыч четке кагылса же лимит бүтсө — убактысы менен текст жана «Gemini ачкычтарына» жол."
+        ],
+        "uz": [
+          "AI kaliti yo'q Nur Maslahatchi: «AI kaliti yo'q. Uni «AI sozlamasi» → «Gemini kalitlari» ga qo'shing…», sarlavhada esa «Do'kon ma'lumotlari ulangan» yo'q.",
+          "Parvoz rejimini yoqib savol bering: kalit haqida emas, aloqa haqida xabar; internet yoqilgach «Qayta urinish» ishlaydi.",
+          "Ishlaydigan kalit bilan: «Kim qarzdor?» savoli — do'kon ma'lumotlari bo'yicha javob keladi.",
+          "Kalit rad etilsa yoki limit tugasa — vaqti bilan matn va «Gemini kalitlari»ga yo'l."
+        ],
+        "en": [
+          "Nur Advisor with no AI key: Add the key in AI setup → Gemini keys… and the header no longer says Shop data connected.",
+          "Turn on airplane mode and ask: the message is about the connection, not the key; Retry works once online.",
+          "With a working key: ask Who owes? — an answer from shop data arrives.",
+          "If the key is rejected or the limit is used up: text with the time and the way to Gemini keys."
+        ],
+        "tr": [
+          "YZ anahtarı olmayan Nur Danışman: Anahtarı YZ ayarı → Gemini anahtarları'na ekleyin… ve başlıkta Mağaza verileri bağlı yazmaz.",
+          "Uçak modunu açıp soru sorun: mesaj anahtarı değil bağlantıyı anlatır; internet gelince Tekrar dene çalışır.",
+          "Çalışan anahtarla: Kim borçlu? sorusu mağaza verilerinden yanıt getirir.",
+          "Anahtar reddedilir veya limit dolarsa: saatli metin ve Gemini anahtarlarına yol."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/gemini-last-error",
+      "version": "1.18.7",
+      "area": "aikeys",
+      "severity": "normal",
+      "title": {
+        "ru": "«Последняя ошибка» в «Ключи Gemini»",
+        "ky": "«Ключи Gemini» ичиндеги «Акыркы ката»",
+        "uz": "«Gemini kalitlari»dagi «Oxirgi xato»",
+        "en": "Last error in Gemini keys",
+        "tr": "Gemini anahtarlarında «Son hata»"
+      },
+      "changed": {
+        "ru": "У каждого ключа Gemini видна его последняя ошибка (лимит, отклонён, нет связи), чтобы было понятно, какой из ключей не работает.",
+        "ky": "Ар бир Gemini ачкычынын акыркы катасы (лимит, четке кагылды, байланыш жок) көрүнөт — кайсы ачкыч иштебей жатканы түшүнүктүү болот.",
+        "uz": "Har bir Gemini kalitining oxirgi xatosi (limit, rad etilgan, aloqa yo'q) ko'rinadi — qaysi kalit ishlamayotgani tushunarli bo'ladi.",
+        "en": "Each Gemini key shows its last error (limit, rejected, no connection) so you can see which key does not work.",
+        "tr": "Her Gemini anahtarının son hatası (limit, reddedildi, bağlantı yok) görünür; hangi anahtarın çalışmadığı anlaşılır."
+      },
+      "steps": {
+        "ru": [
+          "Профиль → «Настройка ИИ» → «Ключи Gemini».",
+          "Добавьте ключ и задайте вопрос ИИ; для неработающего ключа под ним строка «Последняя ошибка: …».",
+          "У исправного ключа строки ошибки нет.",
+          "Порядок ключей и «Сохранить» работают как раньше."
+        ],
+        "ky": [
+          "Профиль → «ИИ жөндөөсү» → «Gemini ачкычтары».",
+          "Ачкыч кошуп, ИИ'ге суроо бериңиз; иштебеген ачкычтын астында «Акыркы ката: …» сабы болот.",
+          "Иштеген ачкычта ката сабы жок.",
+          "Ачкычтардын тартиби жана «Сактоо» мурдагыдай иштейт."
+        ],
+        "uz": [
+          "Profil → «AI sozlamasi» → «Gemini kalitlari».",
+          "Kalit qo'shib, AI'ga savol bering; ishlamaydigan kalit ostida «Oxirgi xato: …» qatori bo'ladi.",
+          "Ishlaydigan kalitda xato qatori yo'q.",
+          "Kalitlar tartibi va «Saqlash» avvalgidek ishlaydi."
+        ],
+        "en": [
+          "Profile → AI setup → Gemini keys.",
+          "Add a key and ask the AI something; a non-working key shows Last error: … under it.",
+          "A healthy key has no error line.",
+          "Key order and Save work as before."
+        ],
+        "tr": [
+          "Profil → YZ ayarı → Gemini anahtarları.",
+          "Bir anahtar ekleyip YZ'ye soru sorun; çalışmayan anahtarın altında Son hata: … satırı olur.",
+          "Sağlam anahtarda hata satırı yoktur.",
+          "Anahtar sırası ve Kaydet eskisi gibi çalışır."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/tester-mode",
+      "version": "1.18.7",
+      "area": "other",
+      "severity": "normal",
+      "title": {
+        "ru": "Режим тестировщика",
+        "ky": "Тестирлөөчү режими",
+        "uz": "Sinovchi rejimi",
+        "en": "Tester mode",
+        "tr": "Test kullanıcısı modu"
+      },
+      "changed": {
+        "ru": "Пять быстрых нажатий на логотип открывают этот список: можно отмечать, что проверено, и сообщать о проблемах.",
+        "ky": "Логотипти бат 5 жолу басуу ушул тизмени ачат: эмне текшерилгенин белгилеп, көйгөйлөр жөнүндө билдирсе болот.",
+        "uz": "Logotipni 5 marta tez bosish shu ro'yxatni ochadi: nima tekshirilganini belgilash va muammolar haqida xabar berish mumkin.",
+        "en": "Five quick taps on the logo open this list: you can mark what you checked and report problems.",
+        "tr": "Logoya beş hızlı dokunuş bu listeyi açar: neyi kontrol ettiğinizi işaretleyebilir ve sorunları bildirebilirsiniz."
+      },
+      "steps": {
+        "ru": [
+          "На экране входа или в Профиле нажмите на логотип NUR CRM 5 раз за 2 секунды.",
+          "Должна быть лёгкая вибрация и открыться «Режим тестировщика».",
+          "Отметьте этот пункт «Проверено» — вверху изменится «Проверено X из Y».",
+          "«Скопировать отчёт» кладёт текст отчёта в буфер обмена."
+        ],
+        "ky": [
+          "Кирүү экранында же Профилде NUR CRM логотипин 2 секундада 5 жолу басыңыз.",
+          "Жеңил титиреме болуп, «Тестирлөөчү режими» ачылышы керек.",
+          "Бул пунктту «Текшерилди» деп белгилеңиз — жогоруда «X/Y текшерилди» өзгөрөт.",
+          "«Отчётту көчүрүү» отчёт текстин алмашуу буферине салат."
+        ],
+        "uz": [
+          "Kirish ekranida yoki Profilda NUR CRM logotipini 2 soniyada 5 marta bosing.",
+          "Yengil tebranish bo'lib, «Sinovchi rejimi» ochilishi kerak.",
+          "Shu bandni «Tekshirildi» deb belgilang — tepada «Tekshirildi X / Y» o'zgaradi.",
+          "«Hisobotni nusxalash» hisobot matnini buferga qo'yadi."
+        ],
+        "en": [
+          "On the sign-in screen or in Profile tap the NUR CRM logo 5 times within 2 seconds.",
+          "A light vibration should happen and Tester mode opens.",
+          "Mark this item Checked — the Checked X of Y line at the top changes.",
+          "Copy report puts the report text on the clipboard."
+        ],
+        "tr": [
+          "Giriş ekranında veya Profil'de NUR CRM logosuna 2 saniyede 5 kez dokunun.",
+          "Hafif bir titreşim olmalı ve Test modu açılmalı.",
+          "Bu maddeyi Kontrol edildi diye işaretleyin: üstteki Kontrol edilen X / Y değişir.",
+          "Raporu kopyala, rapor metnini panoya koyar."
+        ]
+      }
+    },
+    {
+      "id": "1.18.6/ai-voice-control",
+      "version": "1.18.6",
+      "area": "videocall",
+      "severity": "important",
+      "title": {
+        "ru": "ИИ управляет программой голосом",
+        "ky": "ИИ программаны үн менен башкарат",
+        "uz": "AI dasturni ovoz bilan boshqaradi",
+        "en": "The AI controls the app by voice",
+        "tr": "YZ uygulamayı sesle yönetir"
+      },
+      "changed": {
+        "ru": "Во время звонка ИИ открывает разделы, читает данные магазина, показывает таблицы и выполняет действия с подтверждением; все действия — в «Действиях ИИ» с отменой.",
+        "ky": "Чалуу учурунда ИИ бөлүмдөрдү ачат, дүкөн маалыматтарын окуйт, таблицаларды көрсөтөт жана ырастоо менен аракеттерди аткарат; бардык аракеттер «ИИ аракеттеринде» жокко чыгаруу менен.",
+        "uz": "Qo'ng'iroq paytida AI bo'limlarni ochadi, do'kon ma'lumotlarini o'qiydi, jadvallarni ko'rsatadi va tasdiq bilan amallarni bajaradi; barcha amallar «AI amallari»da bekor qilish bilan.",
+        "en": "During a call the AI opens sections, reads shop data, shows tables and performs actions with confirmation; all actions are in AI actions with undo.",
+        "tr": "Aramada YZ bölümleri açar, mağaza verilerini okur, tabloları gösterir ve onayla eylemler yapar; tüm eylemler geri alma ile YZ eylemleri'ndedir."
+      },
+      "steps": {
+        "ru": [
+          "Позвоните ИИ и скажите «Открой склад».",
+          "Попросите «Покажи продажи за сегодня таблицей».",
+          "Попросите действие (например, закрыть задачу) — ИИ спрашивает подтверждение.",
+          "Профиль → «Действия ИИ»: записи есть, «Отменить» работает."
+        ],
+        "ky": [
+          "ИИ'ге чалып «Кампаны ач» деп айтыңыз.",
+          "«Бүгүнкү сатууларды таблица менен көрсөт» деп сураңыз.",
+          "Аракетти (мисалы, тапшырманы жабуу) сураңыз — ИИ ырастоо сурайт.",
+          "Профиль → «ИИ аракеттери»: жазуулар бар, «Жокко чыгаруу» иштейт."
+        ],
+        "uz": [
+          "AI'ga qo'ng'iroq qilib «Omborni och» deng.",
+          "«Bugungi sotuvlarni jadval bilan ko'rsat» deb so'rang.",
+          "Amalni (masalan, vazifani yopish) so'rang — AI tasdiq so'raydi.",
+          "Profil → «AI amallari»: yozuvlar bor, «Bekor qilish» ishlaydi."
+        ],
+        "en": [
+          "Call the AI and say Open stock.",
+          "Ask Show today's sales as a table.",
+          "Ask for an action (e.g. close a task) — the AI asks for confirmation.",
+          "Profile → AI actions: entries exist and Undo works."
+        ],
+        "tr": [
+          "YZ'yi arayıp Depoyu aç deyin.",
+          "Bugünkü satışları tablo olarak göster deyin.",
+          "Bir eylem isteyin (örn. görevi kapat): YZ onay ister.",
+          "Profil → YZ eylemleri: kayıtlar vardır, Geri al çalışır."
+        ]
+      }
+    },
+    {
+      "id": "1.18.6/z-report-done",
+      "version": "1.18.6",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Закрытие смены: Z-итог и «Готово»",
+        "ky": "Сменаны жабуу: Z-жыйынтык жана «Даяр»",
+        "uz": "Smenani yopish: Z-hisobot va «Tayyor»",
+        "en": "Closing the shift: Z-report and Done",
+        "tr": "Vardiya kapatma: Z raporu ve Tamam"
+      },
+      "changed": {
+        "ru": "Закрытие смены: «Пересчитано в кассе» вверху экрана, Z-итог показывается, а «Готово» возвращает на «Главную»; чек не теряется.",
+        "ky": "Сменаны жабуу: «Кассада кайра саналды» экрандын жогору жагында, Z-жыйынтык көрсөтүлөт, ал эми «Даяр» «Башкыга» кайтарат; чек жоголбойт.",
+        "uz": "Smenani yopish: «Kassada qayta sanaldi» ekran tepasida, Z-hisobot ko'rsatiladi, «Tayyor» esa «Bosh sahifa»ga qaytaradi; chek yo'qolmaydi.",
+        "en": "Closing the shift: the Counted in the till field is at the top, the Z-report is shown and Done returns to Home; no receipt is lost.",
+        "tr": "Vardiya kapatma: Kasada sayıldı alanı üstte, Z raporu gösterilir ve Tamam Ana sayfa'ya döndürür; fiş kaybolmaz."
+      },
+      "steps": {
+        "ru": [
+          "Главная → «Закрыть смену».",
+          "Введите пересчитанную сумму вверху экрана — «Должно быть в кассе» сходится.",
+          "Закройте смену: показывается Z-итог.",
+          "«Готово» возвращает на «Главную», приложение не «запирается»."
+        ],
+        "ky": [
+          "Башкы → «Сменаны жабуу».",
+          "Экрандын жогору жагына кайра саналган сумманы киргизиңиз — «Кассада болушу керек» дал келет.",
+          "Сменаны жабыңыз: Z-жыйынтык көрсөтүлөт.",
+          "«Даяр» «Башкыга» кайтарат, колдонмо «кулпуланбайт»."
+        ],
+        "uz": [
+          "Bosh sahifa → «Smenani yopish».",
+          "Ekran tepasiga qayta sanalgan summani kiriting — «Kassada bo'lishi kerak» mos keladi.",
+          "Smenani yoping: Z-hisobot ko'rsatiladi.",
+          "«Tayyor» «Bosh sahifa»ga qaytaradi, ilova «qulflanib» qolmaydi."
+        ],
+        "en": [
+          "Home → Close shift.",
+          "Enter the counted amount at the top — Should be in the till matches.",
+          "Close the shift: the Z-report is shown.",
+          "Done returns to Home and the app does not get stuck."
+        ],
+        "tr": [
+          "Ana sayfa → Vardiyayı kapat.",
+          "Sayılan tutarı üstte girin: Kasada olması gereken eşleşir.",
+          "Vardiyayı kapatın: Z raporu gösterilir.",
+          "Tamam, Ana sayfa'ya döndürür; uygulama takılmaz."
+        ]
+      }
+    },
+    {
+      "id": "1.18.6/tasks-timesheet-salary",
+      "version": "1.18.6",
+      "area": "other",
+      "severity": "important",
+      "title": {
+        "ru": "Задачи, табель и зарплата",
+        "ky": "Тапшырмалар, табель жана эмгек акы",
+        "uz": "Vazifalar, tabel va ish haqi",
+        "en": "Tasks, timesheet and salary",
+        "tr": "Görevler, puantaj ve maaş"
+      },
+      "changed": {
+        "ru": "Появились разделы «Задачи», «Табель» и «Зарплата»: начисления, выплата с подтверждением и защита от повторной выплаты.",
+        "ky": "«Тапшырмалар», «Табель» жана «Эмгек акы» бөлүмдөрү пайда болду: эсептөөлөр, ырастоо менен төлөө жана кайра төлөөдөн коргоо.",
+        "uz": "«Vazifalar», «Tabel» va «Ish haqi» bo'limlari paydo bo'ldi: hisoblashlar, tasdiq bilan to'lash va qayta to'lashdan himoya.",
+        "en": "New sections Tasks, Timesheet and Salary: accruals, payout with confirmation and protection from a double payout.",
+        "tr": "Görevler, Puantaj ve Maaş bölümleri eklendi: hak edişler, onaylı ödeme ve mükerrer ödemeye karşı koruma."
+      },
+      "steps": {
+        "ru": [
+          "Управление → «Задачи»: создайте задачу сотруднику, он видит её в «Мои задачи».",
+          "«Табель»: отметки сотрудников за период.",
+          "«Зарплата»: начисление за период, выплата с вопросом; повторная выплата того же периода предупреждает."
+        ],
+        "ky": [
+          "Башкаруу → «Тапшырмалар»: кызматкерге тапшырма түзүңүз, ал аны «Менин тапшырмаларымда» көрөт.",
+          "«Табель»: мөөнөт боюнча кызматкерлердин белгилери.",
+          "«Эмгек акы»: мөөнөт боюнча эсептөө, суроо менен төлөө; ошол эле мөөнөттү кайра төлөө эскертет."
+        ],
+        "uz": [
+          "Boshqaruv → «Vazifalar»: xodimga vazifa yarating, u uni «Mening vazifalarim»da ko'radi.",
+          "«Tabel»: davr bo'yicha xodimlar belgilari.",
+          "«Ish haqi»: davr bo'yicha hisoblash, savol bilan to'lash; shu davrni qayta to'lash ogohlantiradi."
+        ],
+        "en": [
+          "Manage → Tasks: create a task for an employee, they see it in My tasks.",
+          "Timesheet: employee marks for a period.",
+          "Salary: accrual for a period, payout with a question; paying the same period again warns."
+        ],
+        "tr": [
+          "Yönetim → Görevler: bir çalışana görev oluşturun, Görevlerim'de görür.",
+          "Puantaj: dönem için çalışan işaretleri.",
+          "Maaş: dönem hak edişi, soruyla ödeme; aynı dönemi tekrar ödemek uyarır."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/pack-product-form",
+      "version": "1.18.7",
+      "area": "stock",
+      "severity": "important",
+      "title": {
+        "ru": "Новый товар: поштучная продажа из упаковки",
+        "ky": "Жаңы товар: таңгактан даана сатуу",
+        "uz": "Yangi tovar: qadoqdan donalab sotish",
+        "en": "New item: selling singles from a pack",
+        "tr": "Yeni ürün: paketten adet satışı"
+      },
+      "changed": {
+        "ru": "В «Новом товаре» и в карточке товара появился блок «Упаковки / поштучная продажа»: пачка, блок, упаковка 6 или 12 — продаётся и упаковкой, и штукой. Цена штуки считается сама и правится вручную, шаблоны «Пачка 20», «Упаковка 6», «Упаковка 12», «Ящик 24».",
+        "ky": "«Жаңы товар» жана товар карточкасында «Таңгактар / даана сатуу» блогу пайда болду: пачка, блок, 6 же 12 таңгак — таңгак менен да, даана менен да сатылат. Даананын баасы өзү эсептелет жана колго оңдолот, «Пачка 20», «Таңгак 6», «Таңгак 12», «Ящик 24» шаблондору бар.",
+        "uz": "«Yangi tovar» va tovar kartasida «Qadoqlar / donalab sotish» bloki paydo bo'ldi: pachka, blok, 6 yoki 12 talik qadoq — qadoq bilan ham, dona bilan ham sotiladi. Dona narxi o'zi hisoblanadi va qo'lda tuzatiladi, «Pachka 20», «Qadoq 6», «Qadoq 12», «Yashik 24» shablonlari bor.",
+        "en": "New item and the item card now have a Packs / single-piece sale block: pack, block, 6 or 12 pack — sold as a pack or by the piece. The piece price is calculated automatically and can be edited; templates Pack 20, Package 6, Package 12, Crate 24.",
+        "tr": "Yeni ürün ve ürün kartında Paketler / adet satışı bloğu eklendi: paket, blok, 6'lı veya 12'li paket — paket olarak da adet olarak da satılır. Adet fiyatı otomatik hesaplanır ve elle düzeltilebilir; Paket 20, Ambalaj 6, Ambalaj 12, Kasa 24 şablonları var."
+      },
+      "steps": {
+        "ru": [
+          "Склад → «Новый товар»: название «ТЕСТ сигареты», закупка 150, цена 200, количество 10 (в упаковках).",
+          "Включите «Продавать поштучно из упаковки» → «Пачка 20»: цена штуки сама становится 10, видна наценка штуки.",
+          "Впишите штук 1 или 2,5 — красная подсказка, «Сохранить» не отправляет. Цена штуки 14 при цене пачки 300 — вопрос о расхождении больше 5 %.",
+          "Выберите единицу «кг» — переключатель выключается и недоступен. Сохраните товар с упаковкой «Пачка 20».",
+          "Откройте карточку товара: упаковка подставлена; выключите переключатель и сохраните — упаковка снимается."
+        ],
+        "ky": [
+          "Кампа → «Жаңы товар»: аталышы «ТЕСТ сигареты», сатып алуу 150, баасы 200, саны 10 (таңгакта).",
+          "«Таңгактан даана сатуу» күйгүзүңүз → «Пачка 20»: даананын баасы өзү 10 болот, даананын үстөмөгү көрүнөт.",
+          "Даана санына 1 же 2,5 жазыңыз — кызыл эскертүү, «Сактоо» жөнөтпөйт. Пачка баасы 300 болгондо даана баасы 14 — 5 %тен ашык айырма жөнүндө суроо.",
+          "«кг» бирдигин тандаңыз — өчүргүч өчөт жана жеткиликсиз болот. Товарды «Пачка 20» таңгагы менен сактаңыз.",
+          "Товар карточкасын ачыңыз: таңгак көрүнөт; өчүргүчтү өчүрүп сактаңыз — таңгак алынат."
+        ],
+        "uz": [
+          "Ombor → «Yangi tovar»: nomi «TEST sigaret», xarid 150, narxi 200, miqdor 10 (qadoqlarda).",
+          "«Qadoqdan donalab sotish»ni yoqing → «Pachka 20»: dona narxi o'zi 10 bo'ladi, dona ustamasi ko'rinadi.",
+          "Donalar soniga 1 yoki 2,5 yozing — qizil ogohlantirish, «Saqlash» yubormaydi. Pachka narxi 300 bo'lganda dona narxi 14 — 5 %dan katta farq haqida savol.",
+          "«kg» birligini tanlang — o'chirgich o'chadi va bosib bo'lmaydi. Tovarni «Pachka 20» qadog'i bilan saqlang.",
+          "Tovar kartasini oching: qadoq qo'yilgan; o'chirgichni o'chirib saqlang — qadoq olib tashlanadi."
+        ],
+        "en": [
+          "Stock → New item: name TEST cigarettes, purchase 150, price 200, quantity 10 (in packs).",
+          "Turn on Sell singles from a pack → Pack 20: the piece price becomes 10 on its own and the piece markup is shown.",
+          "Enter pieces 1 or 2.5 — a red hint appears and Save sends nothing. Piece price 14 with pack price 300 asks about a difference over 5 %.",
+          "Choose the unit kg — the switch turns off and is unavailable. Save the item with the Pack 20 pack.",
+          "Open the item card: the pack is filled in; turn the switch off and save — the pack is removed."
+        ],
+        "tr": [
+          "Depo → Yeni ürün: ad TEST sigara, alış 150, fiyat 200, miktar 10 (paket olarak).",
+          "Paketten adet adet sat seçeneğini açın → Paket 20: adet fiyatı kendiliğinden 10 olur, adet kârı görünür.",
+          "Adet sayısına 1 veya 2,5 yazın — kırmızı uyarı çıkar, Kaydet göndermez. Paket fiyatı 300 iken adet fiyatı 14 — %5'ten büyük fark sorulur.",
+          "kg birimini seçin — düğme kapanır ve kullanılamaz. Ürünü Paket 20 ile kaydedin.",
+          "Ürün kartını açın: paket doldurulmuş; düğmeyi kapatıp kaydedin — paket kaldırılır."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/pack-sale",
+      "version": "1.18.7",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Продажа пачкой и поштучно",
+        "ky": "Пачка менен жана даана сатуу",
+        "uz": "Pachka bilan va donalab sotish",
+        "en": "Selling a pack and by the piece",
+        "tr": "Paket ve adet satışı"
+      },
+      "changed": {
+        "ru": "У товара с упаковкой при добавлении в чек спрашивается «Пачка» или «Штука» (две крупные кнопки с ценами). Штука идёт в чек по цене штуки, в продажу уходит sale_package_id, остаток списывается долей пачки. Строка чека подписана «Пачка» или «шт. из «Пачка»».",
+        "ky": "Таңгагы бар товарды чекке кошкондо «Пачка» же «Даана» деп сурайт (баасы менен эки чоң баскыч). Даана даананын баасы менен чекке түшөт, сатууга sale_package_id кетет, калдык пачканын үлүшү менен кемийт. Чек сабы «Пачка» же «Пачка» ичинен даана деп белгиленет.",
+        "uz": "Qadoqli tovar chekka qo'shilganda «Pachka» yoki «Dona» deb so'raydi (narxlari bilan ikkita katta tugma). Dona dona narxida chekka tushadi, sotuvga sale_package_id ketadi, qoldiq pachkaning ulushi bilan kamayadi. Chek qatori «Pachka» yoki «Pachka»dan dona deb belgilanadi.",
+        "en": "For an item with a pack, adding it to the receipt asks Pack or Piece (two big buttons with prices). A piece goes in at the piece price, sale_package_id is sent with the sale and stock drops by a fraction of a pack. The receipt line is tagged Pack or pcs from “Pack”.",
+        "tr": "Paketli üründe fişe eklerken Paket mi Adet mi diye sorulur (fiyatlı iki büyük düğme). Adet, adet fiyatıyla fişe girer, satışla sale_package_id gönderilir, stok bir paketin kesri kadar düşer. Fiş satırı Paket veya «Paket» içinden adet olarak etiketlenir."
+      },
+      "steps": {
+        "ru": [
+          "Откройте смену. Продажа → нажмите на товар «ТЕСТ сигареты» (с упаковкой «Пачка 20»): появляются «Пачка 200 сом» и «Штука 10 сом».",
+          "Выберите «Штука» — в чеке строка «ТЕСТ сигареты», цена 10 сом / шт, подпись «шт. из «Пачка»». «+» прибавляет по 1 шт, ввод 2,6 даёт 3.",
+          "Нажмите на товар ещё раз и выберите «Пачка» — вторая строка с подписью «Пачка»; штуки и пачка не сливаются.",
+          "Оплатите наличными: чек проведён, на сайте/кассе та же сумма и в строке видно штуки.",
+          "Без связи: продайте 5 штук — чек в очереди; при связи уходит и остаток на сайте уменьшается на 0,25 пачки (5 из 20)."
+        ],
+        "ky": [
+          "Сменаны ачыңыз. Сатуу → «ТЕСТ сигареты» (таңгагы «Пачка 20») басыңыз: «Пачка 200 сом» жана «Даана 10 сом» чыгат.",
+          "«Даана» тандаңыз — чекте «ТЕСТ сигареты» сабы, баасы 10 сом / даана, белгиси «Пачка» ичинен даана. «+» 1 даанадан кошот, 2,6 киргизсеңиз 3 болот.",
+          "Товарды дагы бир жолу басып «Пачка» тандаңыз — «Пачка» белгиси менен экинчи сап; даана менен пачка кошулбайт.",
+          "Накталай төлөңүз: чек өттү, сайтта/кассада сумма бирдей жана сапта даана көрүнөт.",
+          "Байланышсыз: 5 даана сатыңыз — чек кезекте; байланыш келгенде кетет жана сайттагы калдык 0,25 пачкага азаят (20дан 5)."
+        ],
+        "uz": [
+          "Smenani oching. Sotuv → «TEST sigaret» (qadog'i «Pachka 20») ni bosing: «Pachka 200 so'm» va «Dona 10 so'm» chiqadi.",
+          "«Dona»ni tanlang — chekda «TEST sigaret» qatori, narxi 10 so'm / dona, belgisi «Pachka»dan dona. «+» 1 donadan qo'shadi, 2,6 kiritsangiz 3 bo'ladi.",
+          "Tovarni yana bosib «Pachka»ni tanlang — «Pachka» belgisi bilan ikkinchi qator; dona va pachka qo'shilmaydi.",
+          "Naqd to'lang: chek o'tdi, saytda/kassada summa bir xil va qatorda donalar ko'rinadi.",
+          "Aloqasiz: 5 dona soting — chek navbatda; aloqa kelganda ketadi va saytdagi qoldiq 0,25 pachkaga kamayadi (20dan 5)."
+        ],
+        "en": [
+          "Open a shift. Sale → tap the item TEST cigarettes (with the Pack 20 pack): Pack 200 som and Piece 10 som appear.",
+          "Choose Piece — the receipt has a TEST cigarettes line at 10 som / pc tagged pcs from “Pack”. The plus adds 1 pc, typing 2.6 gives 3.",
+          "Tap the item again and choose Pack — a second line tagged Pack; pieces and the pack are never merged.",
+          "Pay in cash: the receipt goes through, the website/till shows the same amount and the pieces on the line.",
+          "Offline: sell 5 pieces — the receipt is queued; when the connection returns it is sent and stock on the website drops by 0.25 pack (5 of 20)."
+        ],
+        "tr": [
+          "Vardiyayı açın. Satış → TEST sigara (Paket 20 ile) ürününe dokunun: Paket 200 som ve Adet 10 som çıkar.",
+          "Adet'i seçin — fişte TEST sigara satırı, 10 som / adet, «Paket» içinden adet etiketiyle. Artı 1 adet ekler, 2,6 yazmak 3 yapar.",
+          "Ürüne tekrar dokunup Paket'i seçin — Paket etiketli ikinci satır; adetler ve paket birleşmez.",
+          "Nakit ödeyin: fiş geçer, web sitesi/kasada tutar aynıdır ve satırda adetler görünür.",
+          "Bağlantısız: 5 adet satın — fiş kuyrukta; bağlantı gelince gönderilir ve sitedeki stok 0,25 paket azalır (20'de 5)."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/pack-stock-text",
+      "version": "1.18.7",
+      "area": "stock",
+      "severity": "normal",
+      "title": {
+        "ru": "Остаток в пачках и штуках",
+        "ky": "Калдык пачка жана даана менен",
+        "uz": "Qoldiq pachka va donalarda",
+        "en": "Stock in packs and pieces",
+        "tr": "Stok paket ve adet olarak"
+      },
+      "changed": {
+        "ru": "У товара с упаковкой остаток показывается как «12 уп. + 5 шт» (а не «12,25») — на плитке продажи, в списке склада, в действиях с товаром и в карточке.",
+        "ky": "Таңгагы бар товардын калдыгы «12,25» эмес, «12 таңгак + 5 даана» болуп көрүнөт — сатуу плиткасында, кампа тизмесинде, товар аракеттеринде жана карточкада.",
+        "uz": "Qadoqli tovarning qoldig'i «12,25» emas, «12 qadoq + 5 dona» ko'rinishida chiqadi — sotuv plitkasida, ombor ro'yxatida, tovar amallarida va kartada.",
+        "en": "For an item with a pack the stock is shown as 12 packs + 5 pcs (not 12.25) — on the sale tile, in the stock list, in item actions and on the card.",
+        "tr": "Paketli üründe stok 12,25 yerine 12 paket + 5 adet olarak gösterilir — satış kartında, stok listesinde, ürün işlemlerinde ve kartta."
+      },
+      "steps": {
+        "ru": [
+          "Склад: у «ТЕСТ сигареты» (пачка 20, остаток 12,25 в упаковках) написано «12 уп. + 5 шт»; у обычного товара — «30 шт» как раньше.",
+          "Продажа → плитка того же товара показывает то же; в окне «Пачка / Штука» вверху «Остаток: 12 уп. + 5 шт».",
+          "Карточка товара → «Остаток»: «12 уп. + 5 шт»; «Приход» на 1 прибавляет упаковку (13 уп. + 5 шт)."
+        ],
+        "ky": [
+          "Кампа: «ТЕСТ сигареты» (пачка 20, калдык 12,25 таңгакта) — «12 таңгак + 5 даана»; кадимки товарда мурдагыдай «30 шт».",
+          "Сатуу → ошол эле товардын плиткасы да ошону көрсөтөт; «Пачка / Даана» терезесинин башында «Калдык: 12 таңгак + 5 даана».",
+          "Товар карточкасы → «Калдык»: «12 таңгак + 5 даана»; 1 «Киреше» таңгакты кошот (13 таңгак + 5 даана)."
+        ],
+        "uz": [
+          "Ombor: «TEST sigaret» (pachka 20, qoldiq 12,25 qadoqda) — «12 qadoq + 5 dona»; oddiy tovarda avvalgidek «30 шт».",
+          "Sotuv → shu tovar plitkasi ham shuni ko'rsatadi; «Pachka / Dona» oynasi tepasida «Qoldiq: 12 qadoq + 5 dona».",
+          "Tovar kartasi → «Qoldiq»: «12 qadoq + 5 dona»; 1 «Kirim» qadoqni qo'shadi (13 qadoq + 5 dona)."
+        ],
+        "en": [
+          "Stock: TEST cigarettes (pack 20, stock 12.25 packs) reads 12 packs + 5 pcs; a regular item still reads 30 pcs.",
+          "Sale → the tile of the same item shows the same; the Pack / Piece window shows In stock: 12 packs + 5 pcs at the top.",
+          "Item card → Stock: 12 packs + 5 pcs; an Income of 1 adds a pack (13 packs + 5 pcs)."
+        ],
+        "tr": [
+          "Stok: TEST sigara (paket 20, stok 12,25 paket) 12 paket + 5 adet yazar; normal üründe yine 30 adet.",
+          "Satış → aynı ürünün kartı da aynısını gösterir; Paket / Adet penceresinin üstünde Stok: 12 paket + 5 adet yazar.",
+          "Ürün kartı → Stok: 12 paket + 5 adet; 1 Giriş bir paket ekler (13 paket + 5 adet)."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/r5-pack-switch",
+      "version": "1.18.7",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Штука из пачки: переключатель и сверка остатка",
+        "ky": "Пачкадан даана: которгуч жана калдыкты текшерүү",
+        "uz": "Pachkadan dona: almashtirgich va qoldiqni tekshirish",
+        "en": "Single from a pack: switch and stock check",
+        "tr": "Paketten adet: anahtar ve stok kontrolü"
+      },
+      "changed": {
+        "ru": "Профиль → «Продавать поштучно из упаковки» выключает выбор «Пачка / Штука» (товар идёт упаковкой). После продажи штуки остаток на сервере сверяется: не сошёлся — жёлтая плашка на экране «Оплачено» и запись в журнале. Не подтверждено, что боевой сервер понимает sale_package_id.",
+        "ky": "Профиль → «Таңгактан даана сатуу» «Пачка / Даана» тандоосун өчүрөт. Даана сатылгандан кийин сервердеги калдык текшерилет: дал келбесе — «Төлөндү» экранында сары билдирүү.",
+        "uz": "Profil → «Qadoqdan donalab sotish» «Pachka / Dona» tanlovini o'chiradi. Dona sotilgach serverdagi qoldiq tekshiriladi: mos kelmasa — «To'landi» ekranida sariq izoh.",
+        "en": "Profile → \"Sell singles from a pack\" turns off the Pack / Piece choice. After selling a piece the server stock is compared: a mismatch shows a yellow note on the Paid screen and a log entry. The live server is not yet confirmed to understand sale_package_id.",
+        "tr": "Profil → «Paketten adet sat» Paket / Adet seçimini kapatır. Adet satışından sonra sunucu stoğu karşılaştırılır: tutmazsa Ödendi ekranında sarı not çıkar."
+      },
+      "steps": {
+        "ru": [
+          "Склад: возьмите «ТЕСТ сигареты» (пачка 20, остаток 12 уп.). Продажа → «Штука» × 3 → оплатите наличными.",
+          "Откройте карточку товара на сервере/кассе: остаток должен стать 11 уп. + 17 шт (а не 9 уп.). Если нет — жёлтая плашка должна была показаться на «Оплачено». Профиль → выключите «Продавать поштучно из упаковки»: у этого товара больше нет окна «Пачка / Штука»."
+        ],
+        "ky": [
+          "«ТЕСТ сигареты» (пачка 20) → Сатуу → «Даана» × 3 → накт төлөңүз. Сервердеги калдык 11 таңгак + 17 даана болушу керек; болбосо «Төлөндү» экранында сары билдирүү.",
+          "Профиль → которгучту өчүрүңүз: «Пачка / Даана» терезеси чыкпайт."
+        ],
+        "uz": [
+          "«ТЕСТ сигареты» (pachka 20) → Sotuv → «Dona» × 3 → naqd to'lang. Serverda qoldiq 11 qadoq + 17 dona bo'lishi kerak; aks holda «To'landi» ekranida sariq izoh.",
+          "Profil → almashtirgichni o'chiring: «Pachka / Dona» oynasi chiqmaydi."
+        ],
+        "en": [
+          "Take \"ТЕСТ сигареты\" (pack of 20). Sale → Piece × 3 → pay cash. Server stock must become 11 packs + 17 pcs; otherwise the Paid screen shows a yellow note.",
+          "Profile → turn the switch off: the Pack / Piece window no longer appears."
+        ],
+        "tr": [
+          "\"ТЕСТ сигареты\" (20'lik paket) → Satış → Adet × 3 → nakit ödeyin. Sunucu stoğu 11 paket + 17 adet olmalı; değilse Ödendi ekranında sarı not çıkar.",
+          "Profil → anahtarı kapatın: Paket / Adet penceresi çıkmaz."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/r5-camera-volume",
+      "version": "1.18.7",
+      "area": "smartcam",
+      "severity": "money",
+      "title": {
+        "ru": "Камера: объём обязателен, неверное название можно отменить",
+        "ky": "Камера: көлөм милдеттүү, туура эмес атты жокко чыгаруу",
+        "uz": "Kamera: hajm majburiy, noto'g'ri nomni bekor qilish",
+        "en": "Camera: volume is required, a wrong name can be undone",
+        "tr": "Kamera: hacim zorunlu, yanlış ad geri alınır"
+      },
+      "changed": {
+        "ru": "Если ИИ не назвал объём, товар с объёмом в названии не выбирается сам — только варианты. Запомненное «coca-cola» больше не уводит к «1 л», когда камера видит «0.5 L». В карточке товара — кнопка «Не тот товар» и список запомненных названий (можно удалить).",
+        "ky": "ИИ көлөмдү айтпаса, аталышында көлөмү бар товар өзү тандалбайт — варианттар гана. Карточкада «Бул башка товар» баскычы жана эсте калган аттардын тизмеси бар (өчүрсө болот).",
+        "uz": "AI hajmni aytmasa, nomida hajmi bor tovar o'zi tanlanmaydi — faqat variantlar. Kartada «Bu boshqa tovar» tugmasi va eslab qolingan nomlar ro'yxati bor (o'chirsa bo'ladi).",
+        "en": "If the AI gives no volume, an item whose name has a volume is not picked automatically — variants only. A remembered \"coca-cola\" no longer leads to the 1 L item when the camera sees 0.5 L. The item card has \"Not this product\" and a list of remembered names you can delete.",
+        "tr": "Yapay zekâ hacmi söylemezse adında hacim olan ürün kendiliğinden seçilmez — yalnızca seçenekler. Hatırlanan «coca-cola» kamera 0.5 L görünce 1 L ürüne götürmez. Kartta «Bu ürün değil» düğmesi ve silinebilir adlar listesi var."
+      },
+      "steps": {
+        "ru": [
+          "Умная камера → снимите бутылку 0,5 л, когда в каталоге есть «Кола 1 л» и «Кола 0,5 л»: должна выбраться 0,5 л. Выберите вариант вручную → на карточке нажмите «Не тот товар»: позиция снова с вариантами, название забыто (через 10 минут не возвращается). Под карточкой «Запомненные названия» — удалите одно крестиком."
+        ],
+        "ky": [
+          "Акылдуу камера → 0,5 л бөтөлкөнү тартыңыз: «Кола 0,5 л» тандалышы керек. «Бул башка товар» баскычы позицияны кайра варианттарга кайтарат."
+        ],
+        "uz": [
+          "Aqlli kamera → 0,5 l shishani suratga oling: «Kola 0,5 l» tanlanishi kerak. «Bu boshqa tovar» tugmasi pozitsiyani qayta variantlarga qaytaradi."
+        ],
+        "en": [
+          "Smart camera → photograph a 0.5 L bottle: the 0.5 L item must be chosen. \"Not this product\" returns the row to the variants."
+        ],
+        "tr": [
+          "Akıllı kamera → 0,5 L şişeyi çekin: 0,5 L ürün seçilmeli. «Bu ürün değil» satırı seçeneklere döndürür."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/r5-invoice-box",
+      "version": "1.18.7",
+      "area": "invoices",
+      "severity": "money",
+      "title": {
+        "ru": "Накладная в коробках и повтор накладной",
+        "ky": "Кутудагы накладной жана накладнойдун кайталанышы",
+        "uz": "Qutidagi nakladnoy va nakladnoyning takrori",
+        "en": "Invoice in boxes and a repeated invoice",
+        "tr": "Kolili fatura ve faturanın tekrarı"
+      },
+      "changed": {
+        "ru": "Если в накладной «кор / упак / блок / ящик», а товар ведётся в штуках, приход не добавляется, пока вы не выберете: «Пересчитать в штуки» (введите штук в упаковке) или «Принять как есть». Накладную уже проведённую (даже с другим поставщиком в окне, даже на кассе) приложение узнаёт и предупреждает ещё раз перед проведением. В открытом приходе закупка уже введённых штук не затирается — берётся средняя. Накладная от другого поставщика, чем выбранный в приходе, — вопрос «чей приход».",
+        "ky": "Накладнойда «кор / упак / блок / ящик», ал товар даана менен жүрсө, тандабайынча киреше кошулбайт: «Даанага кайра эсептөө» же «Өзүндөй кабыл алуу». Өткөрүлгөн накладной (башка жеткирүүчү менен да, кассада да) таанылат жана өткөрүүдөн мурун дагы эскертилет. Ачык кирешеде киргизилген даананын закупкасы өчпөйт — орточо алынат. Башка жеткирүүчүнүн накладнойунда «бул кимдин кирешеси» деп сурайт.",
+        "uz": "Nakladnoyda «кор / упак / блок / ящик», tovar esa dona bilan yuritilsa, tanlamaguningizcha kirim qo'shilmaydi: «Donaga aylantirish» yoki «Shundayligicha qabul qilish». O'tkazilgan nakladnoy (boshqa yetkazib beruvchi bilan ham, kassada ham) taniladi va o'tkazishdan oldin yana ogohlantiriladi. Ochiq kirimda kiritilgan donalarning xaridi o'chmaydi — o'rtacha olinadi. Boshqa yetkazib beruvchining nakladnoyida «bu kimning kirimi» deb so'raydi.",
+        "en": "If the invoice says box / pack / block / crate and the item is kept in pieces, the receipt cannot be added until you choose: \"Convert to pieces\" (enter pieces per pack) or \"Receive as is\". An already posted invoice (even with another supplier selected, even on the till) is recognised and you are warned again before posting. In an open receipt the cost of already entered pieces is not overwritten — a weighted average is used. An invoice from a different supplier than the one selected asks \"whose receipt\".",
+        "tr": "Faturada kutu / paket / blok / kasa yazıyor ve ürün adetle tutuluyorsa, seçmeden giriş eklenmez: «Adede çevir» veya «Olduğu gibi kabul et». İşlenmiş fatura (başka tedarikçiyle bile, kasada bile) tanınır ve işlemeden önce yine uyarılır. Açık girişte girilmiş adetlerin alış fiyatı ezilmez — ağırlıklı ortalama alınır. Seçili olandan farklı tedarikçinin faturası «bu giriş kimin» diye sorar."
+      },
+      "steps": {
+        "ru": [
+          "Приёмка → «Загрузить накладную»: файл со строкой «Кола 0,5; кор; 2; 600». Появится жёлтый блок: введите 24 → «Пересчитать в штуки»: 48 шт по 25. Проведите приход, затем загрузите тот же файл снова (выберите другого поставщика): «Накладная уже загружалась». Откройте приход, выберите поставщика A, загрузите накладную поставщика B: должен появиться вопрос «Чей это приход?»."
+        ],
+        "ky": [
+          "«Кола 0,5; кор; 2; 600» бар файлды жүктөңүз: сары блокто 24 → «Даанага кайра эсептөө» (48 даана, 25 сом). Ошол эле файлды экинчи жолу жүктөсөңүз — «Накладной мурда жүктөлгөн»."
+        ],
+        "uz": [
+          "«Кола 0,5; кор; 2; 600» qatorli faylni yuklang: sariq blokda 24 → «Donaga aylantirish» (48 dona, 25 so'm). Xuddi shu faylni qayta yuklasangiz — «Nakladnoy avval yuklangan»."
+        ],
+        "en": [
+          "Upload a file with the row \"Cola 0.5; box; 2; 600\": in the yellow block enter 24 → \"Convert to pieces\" (48 pcs at 25 som). Load the same file again after posting: \"invoice already loaded\"."
+        ],
+        "tr": [
+          "«Kola 0,5; kutu; 2; 600» satırlı dosyayı yükleyin: sarı blokta 24 → «Adede çevir» (48 adet, 25 som). Aynı dosyayı tekrar yüklerseniz «Fatura daha önce yüklendi»."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/r5-voice-delete",
+      "version": "1.18.7",
+      "area": "videocall",
+      "severity": "important",
+      "title": {
+        "ru": "Голосовое удаление товара и «этот товар»",
+        "ky": "Үн менен товарды өчүрүү жана «бул товар»",
+        "uz": "Ovoz bilan tovarni o'chirish va «shu tovar»",
+        "en": "Voice delete and \"this product\"",
+        "tr": "Sesle ürün silme ve «bu ürün»"
+      },
+      "changed": {
+        "ru": "Товар с неотправленными чеками/приходами голосом не удаляется — ассистент называет причину. «Нет» снимает ожидание «да». «Этот товар» после нового кадра, где товар не узнан, больше не указывает на прошлый (переспрашивает), а через 2 минуты ссылка на камеру протухает.",
+        "ky": "Жөнөтүлбөгөн чектери/кирешелери бар товар үн менен өчүрүлбөйт — ассистент себебин айтат. «Жок» «ооба» күтүүнү алып салат. Жаңы кадрда товар таанылбаса, «бул товар» мурдакыга көрсөтпөйт (кайра сурайт), 2 мүнөттөн кийин камеранын шилтемеси эскирет.",
+        "uz": "Yuborilmagan cheklari/kirimlari bor tovar ovoz bilan o'chirilmaydi — yordamchi sababini aytadi. «Yo'q» «ha» kutishini bekor qiladi. Yangi kadrda tovar tanilmasa, «shu tovar» oldingisini ko'rsatmaydi (qayta so'raydi), 2 daqiqadan keyin kamera havolasi eskiradi.",
+        "en": "A product with unsent receipts/stock documents cannot be deleted by voice — the assistant says why. \"No\" cancels the pending \"yes\". \"This product\" after a new frame where the product is not recognised no longer points to the previous one (it asks again), and after 2 minutes the camera reference expires.",
+        "tr": "Gönderilmemiş fişi/girişi olan ürün sesle silinmez — asistan nedenini söyler. «Hayır» bekleyen «evet»i iptal eder. Ürün tanınmayan yeni karede «bu ürün» eskisini göstermez (yeniden sorar), 2 dakika sonra kamera bağlantısı geçersiz olur."
+      },
+      "steps": {
+        "ru": [
+          "Отключите интернет, продайте «Вода» (чек в очереди). В звонке: «удали товар Вода» → ассистент отказывает с причиной. Включите интернет, дождитесь отправки. «Удали товар Вода» → карточка → «нет» → затем «да» ничего не удаляет. Покажите камерой товар, затем товар, которого нет в каталоге, и скажите «поставь этому цену 90»: ассистент спрашивает, какой товар."
+        ],
+        "ky": [
+          "Интернетсиз «Вода» сатыңыз; чалууда «Вода товарын өчүр» → себеби менен четке кагат."
+        ],
+        "uz": [
+          "Internetsiz «Вода» soting; qo'ng'iroqda «Вода tovarini o'chir» → sababi bilan rad etadi."
+        ],
+        "en": [
+          "Go offline, sell \"Вода\" (receipt queued). In the call: \"delete the product Вода\" → refused with a reason."
+        ],
+        "tr": [
+          "İnterneti kapatın, «Вода» satın; aramada «Вода ürününü sil» → nedenle reddedilir."
+        ]
+      }
+    },
+    {
+      "id": "1.18.7/r5-scan-signature",
+      "version": "1.18.7",
+      "area": "kassa",
+      "severity": "important",
+      "title": {
+        "ru": "Сканер для кассы: подпись ответа, устаревший код, оплата",
+        "ky": "Касса сканери: жооптун кол тамгасы, эскирген код, төлөм",
+        "uz": "Kassa skaneri: javob imzosi, eskirgan kod, to'lov",
+        "en": "Till scanner: reply signature, stale code, payment",
+        "tr": "Kasa tarayıcısı: yanıt imzası, eski kod, ödeme"
+      },
+      "changed": {
+        "ru": "Телефон проверяет подпись ответа кассы (касса 1.17.63+): чужой узел в Wi-Fi с ответом «ok» не считается кассой. Скан живёт в очереди 30 секунд; старше — «Код устарел — отсканируйте снова». Пока на кассе идёт оплата — «Идёт оплата — сканируйте после неё», код повторится сам.",
+        "ky": "Телефон касса жообунун кол тамгасын текшерет (касса 1.17.63+): Wi-Fi'дагы бөтөнчө түйүн «ok» десе да касса эсептелбейт. Скан кезекте 30 секунд жашайт; эскирсе — «Код эскирди — кайра сканерлеңиз». Кассада төлөм жүрүп жатса — «Төлөм жүрүп жатат — андан кийин сканерлеңиз», код өзү кайталанат.",
+        "uz": "Telefon kassa javobining imzosini tekshiradi (kassa 1.17.63+): Wi-Fi'dagi begona uzel «ok» desa ham kassa hisoblanmaydi. Skan navbatda 30 soniya yashaydi; eskirsa — «Kod eskirdi — qayta skanerlang». Kassada to'lov davom etsa — «To'lov davom etmoqda — undan keyin skanerlang», kod o'zi takrorlanadi.",
+        "en": "The phone checks the till reply signature (till 1.17.63+): a foreign node on Wi-Fi answering \"ok\" is not treated as the till. A scan lives in the queue for 30 seconds; older — \"Code expired — scan again\". While a payment is in progress on the till — \"Payment in progress — scan after it\", the code retries by itself.",
+        "tr": "Telefon kasa yanıtının imzasını doğrular (kasa 1.17.63+): Wi-Fi'daki yabancı bir düğüm «ok» dese de kasa sayılmaz. Tarama kuyrukta 30 saniye yaşar; eskiyse — «Kodun süresi doldu — tekrar tarayın». Kasada ödeme sürerken — «Ödeme sürüyor — bittikten sonra tarayın», kod kendiliğinden tekrarlanır."
+      },
+      "steps": {
+        "ru": [
+          "Сканер для кассы подключён. На кассе начните оплату чека и отсканируйте код телефоном: «Идёт оплата — сканируйте после неё». Завершите оплату — код сам попадёт в новый чек (в течение 30 с) или покажется «Код устарел». Выключите Wi-Fi на 40 секунд, отсканируйте код, включите: «Код устарел — отсканируйте снова»."
+        ],
+        "ky": [
+          "Кассада төлөм жүрүп жатканда код сканерлеңиз: «Төлөм жүрүп жатат — андан кийин сканерлеңиз». 30 секунддан кийин — «Код эскирди»."
+        ],
+        "uz": [
+          "Kassada to'lov davomida kodni skanerlang: «To'lov davom etmoqda — undan keyin skanerlang». 30 soniyadan keyin — «Kod eskirdi»."
+        ],
+        "en": [
+          "Scan a code while a payment is in progress on the till: \"Payment in progress — scan after it\". After 30 seconds — \"Code expired\"."
+        ],
+        "tr": [
+          "Kasada ödeme sürerken bir kod tarayın: «Ödeme sürüyor — bittikten sonra tarayın». 30 saniye sonra — «Kodun süresi doldu»."
+        ]
+      }
+    }
+  ]
+}

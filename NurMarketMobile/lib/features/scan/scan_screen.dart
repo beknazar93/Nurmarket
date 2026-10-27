@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
+import '../../core/link/kassa_link.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
@@ -18,6 +20,8 @@ import 'shot_flow.dart';
 import '../../core/util/beep.dart';
 import 'scan_animations.dart';
 import 'cam_label.dart';
+import 'kassa_scanner_mode.dart';
+import '../profile/kassa_link_screen.dart';
 import 'smart_camera.dart';
 import 'weigh_camera.dart';
 
@@ -67,6 +71,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   bool _handedOver = false;
   double? _foundQty;
 
+  /// 2026-10-27: режим «Сканер для кассы» — штрихкоды уходят на кассу по Wi-Fi, а не в чек телефона.
+  bool _kassa = false;
+  KassaScannerController? _kassaCtl;
+
   @override
   void initState() {
     super.initState();
@@ -80,6 +88,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _kassaCtl?.dispose();
     _camera.dispose();
     super.dispose();
   }
@@ -125,6 +134,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   Future<void> _onDetect(BarcodeCapture capture) async {
     final code = _nearestCode(capture);
     if (code == null) return;
+    if (_kassa) {
+      _kassaCtl?.onCode(code); // 2026-10-27: режим «Сканер для кассы» — код сразу на кассу, свой антидребезг
+      return;
+    }
     final now = DateTime.now();
     _repeat.receiving = widget.returnCodes || _mode != ScanMode.sale;
     if (!_repeat.isNew(code, now) || _processing || _asking) return;
@@ -138,6 +151,31 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       _repeat.seen(code, DateTime.now());
     }
   }
+
+  /// 2026-10-27: включить/выключить режим «Сканер для кассы». Связь не настроена — панель предлагает настроить.
+  void _toggleKassa() {
+    if (_kassa) {
+      _kassaCtl?.dispose();
+      setState(() {
+        _kassa = false;
+        _kassaCtl = null;
+      });
+      return;
+    }
+    final ctl = KassaScannerController(
+      userName: () => ref.read(sessionProvider)?.userName ?? '',
+      onFlash: (ok) => ok ? _frame.currentState?.success() : _frame.currentState?.fail(),
+    );
+    setState(() {
+      _kassa = true;
+      _found = null; // карточка товара телефона в этом режиме не нужна
+      _kassaCtl = ctl;
+    });
+    unawaited(ctl.start());
+  }
+
+  /// Из панели «не настроено»: экран «Связь с кассой»; камера на это время отдана экрану QR.
+  Future<void> _setupKassa() => _handOver(() => Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => const KassaLinkScreen())));
 
   Future<void> _handleCode(String code) async {
     HapticFeedback.mediumImpact();
@@ -203,11 +241,25 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     _handedOver = true;
     await _camera.stop();
     if (!mounted) return;
+    // 2026-10-27: код есть в справочнике готовых наименований NurCRM — подсказка (ждём сервер не больше 2 с)
+    final known = await ref.read(globalProductsProvider).find(code).timeout(const Duration(seconds: 2), onTimeout: () => null);
+    if (!mounted) return;
     final add = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: Text(l.notFoundTitle),
-        content: Text(l.notFoundAsk(code)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.notFoundAsk(code)),
+            if (known != null) ...[
+              const SizedBox(height: 10),
+              Text(l.globalFoundAsk(known.name), style: const TextStyle(color: T.success, fontWeight: FontWeight.w700)),
+              Text(l.globalSource, style: TextStyle(color: c.pal.textSoft, fontSize: 12)),
+            ],
+          ],
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
           FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.addNewProduct)),
@@ -363,6 +415,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
               alignment: const Alignment(0, -.42),
               child: ScanPopups(key: _popups),
             ),
+            if (!_kassa)
             Align(
               alignment: const Alignment(0, .28),
               // 2026-10-22: сканер кодов (доп. штрихкод, приёмка) — пока ничего не отсканировано, сказать, что делать и что дальше
@@ -384,11 +437,20 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
               child: SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(14),
-                  child: Row(
+                  // 2026-10-27 (аудит мобилки, С-1, Н-1): «Сканер для кассы» вынесен отдельной строкой под полосу режимов —
+                  // в верхнем ряду он сжимал полосу («Весы» → «Вес», на 360 dp / ky видны два режима), а подпись режима обрезалась.
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                  Row(
                     children: [
                       _Round(icon: Icons.close_rounded, label: l.a11yBack, onTap: _back),
                       const SizedBox(width: 10),
-                      if (!widget.returnCodes)
+                      if (!widget.returnCodes && _kassa)
+                        // 2026-10-27: в режиме кассы полоса режимов продажи скрыта; название режима — на кнопке строкой ниже
+                        const Spacer()
+                      else if (!widget.returnCodes)
                         Expanded(
                           child: ScanModeBar(
                             mode: _mode,
@@ -435,6 +497,13 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                       ),
                     ],
                   ),
+                      // 2026-10-27: переключатель «Сканер для кассы» — только в мобилке (Android/iOS), не в сканере приёмки
+                      if (KassaLink.supported && !widget.returnCodes) ...[
+                        const SizedBox(height: 8),
+                        Align(alignment: AlignmentDirectional.centerStart, child: KassaModeChip(label: l.klScannerMode, active: _kassa, onTap: _toggleKassa)),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -448,7 +517,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                   ),
                 ),
               ),
-            if (!widget.returnCodes)
+            if (_kassa && _kassaCtl != null)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: KassaScannerPanel(controller: _kassaCtl!, onSetup: _setupKassa),
+              ),
+            if (!widget.returnCodes && !_kassa)
               Align(
                 alignment: Alignment.bottomCenter,
                 child: AnimatedSwitcher(
@@ -581,19 +655,67 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
 /// 2026-10-26 (живой аудит, П8, Н-2): полоса режимов сканера. Один размер шрифта у всех подписей (раньше FittedBox сжимал
 /// каждую по-своему), касание не меньше 48 × 48 dp; на узком экране (360 dp) полоса прокручивается по горизонтали, выбранный
 /// режим подводится в видимую часть.
-class ScanModeBar extends StatelessWidget {
+class ScanModeBar extends StatefulWidget {
   final ScanMode mode;
   final void Function(ScanMode mode) onSelect;
   final void Function(ScanMode mode)? onLongPress;
   const ScanModeBar({super.key, required this.mode, required this.onSelect, this.onLongPress});
 
   @override
+  State<ScanModeBar> createState() => _ScanModeBarState();
+}
+
+class _ScanModeBarState extends State<ScanModeBar> {
+  // 2026-10-27 (аудит мобилки, С-1): на узком экране часть режимов за краем — край затемняется («тень»), видно, что полосу можно листать
+  final _ctl = ScrollController();
+  bool _more = false;
+  bool _less = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctl.addListener(_measure);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+  }
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  void _measure() {
+    if (!mounted || !_ctl.hasClients) return;
+    final p = _ctl.position;
+    final more = p.extentAfter > 1, less = p.extentBefore > 1;
+    if (more != _more || less != _less) {
+      setState(() {
+        _more = more;
+        _less = less;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = context.l;
+    final mode = widget.mode, onSelect = widget.onSelect, onLongPress = widget.onLongPress;
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(color: camShade, borderRadius: BorderRadius.circular(14)),
-      child: SingleChildScrollView(
+      child: NotificationListener<ScrollMetricsNotification>(
+        onNotification: (_) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+          return false;
+        },
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (r) => LinearGradient(
+            colors: [Color(_less ? 0x00FFFFFF : 0xFFFFFFFF), Colors.white, Colors.white, Color(_more ? 0x00FFFFFF : 0xFFFFFFFF)],
+            stops: const [0, .12, .88, 1],
+          ).createShader(r),
+          child: SingleChildScrollView(
+        controller: _ctl,
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
@@ -612,7 +734,7 @@ class ScanModeBar extends StatelessWidget {
                   excludeSemantics: true,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onLongPress: onLongPress == null ? null : () => onLongPress!(m),
+                    onLongPress: onLongPress == null ? null : () => onLongPress(m),
                     onTap: () {
                       onSelect(m);
                       if (itemContext.mounted) Scrollable.ensureVisible(itemContext, alignment: .5, duration: const Duration(milliseconds: 180));
@@ -639,9 +761,56 @@ class ScanModeBar extends StatelessWidget {
               ),
           ],
         ),
+          ),
+        ),
       ),
     );
   }
+}
+
+/// 2026-10-27 (аудит мобилки, С-1): кнопка режима «Сканер для кассы» — широкая, с подписью (в TalkBack и на экране), не меньше
+/// 48 dp по высоте; длинная подпись (ky/uz, шрифт 1,3) переносится на 2 строки, а не обрезается.
+class KassaModeChip extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  const KassaModeChip({super.key, required this.label, required this.active, required this.onTap});
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    toggled: active,
+    label: label,
+    excludeSemantics: true,
+    child: Material(
+      color: active ? T.accent : camShade,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.point_of_sale_rounded, size: 20, color: active ? T.navy : Colors.white),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: active ? T.navy : Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _Round extends StatelessWidget {

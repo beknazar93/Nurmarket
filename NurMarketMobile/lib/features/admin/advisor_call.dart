@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../assistant/call_consent.dart';
 import '../assistant/call_controller.dart';
 import '../assistant/call_video_view.dart';
+import '../assistant/call_wizard_panel.dart';
 
 export '../assistant/call_turn.dart';
 
@@ -332,7 +333,8 @@ class _AdvisorCallScreenState extends ConsumerState<AdvisorCallScreen> with Tick
             c: c,
             lang: _lang,
             orb: orb(56, mini: true),
-            height: landscape ? null : math.min(size.width * 4 / 3 - 32 * 4 / 3, size.height * (size.height <= 760 ? .42 : .44)) / (MediaQuery.textScalerOf(context).scale(1) >= 1.25 ? 1.3 : 1),
+            // 2026-10-27 (М2): пока идёт мастер «добавить товар», кадр ниже — освобождает место панели со слотами
+            height: landscape ? null : math.min(size.width * 4 / 3 - 32 * 4 / 3, size.height * (size.height <= 760 ? .42 : .44)) / (MediaQuery.textScalerOf(context).scale(1) >= 1.25 ? 1.3 : 1) * (c.wizardActive ? .62 : 1),
           )
         : null;
     final card = live ? c.videoCard : null;
@@ -358,6 +360,7 @@ class _AdvisorCallScreenState extends ConsumerState<AdvisorCallScreen> with Tick
                   if (card != null) VideoResultCardView(c: c, card: card) else SizedBox(height: 84, child: ClipRect(child: subs)),
                   const SizedBox(height: 6),
                   ...plates.map((p) => Padding(padding: const EdgeInsets.only(bottom: 6), child: p)),
+                  if (c.wizardActive) ...[WizardPanel(c: c), const SizedBox(height: 6)], // 2026-10-27 (М2): мастер «добавить товар»
                   QuickAskButtons(c: c, grid: true),
                   const SizedBox(height: 6),
                   ctrl,
@@ -388,10 +391,10 @@ class _AdvisorCallScreenState extends ConsumerState<AdvisorCallScreen> with Tick
                 ],
                 if (camOn) ...[
                   camTop!,
-                  if (!compact) Padding(padding: const EdgeInsets.only(top: 4), child: cost),
+                  if (!compact && !c.wizardActive) Padding(padding: const EdgeInsets.only(top: 4), child: cost),
                   const SizedBox(height: 8),
-                  QuickAskButtons(c: c),
-                  const SizedBox(height: 6),
+                  // 2026-10-27 (М2): пока идёт мастер «добавить товар» — его панель вместо быстрых кнопок
+                  if (c.wizardActive) ...[WizardPanel(c: c), const SizedBox(height: 6)] else ...[QuickAskButtons(c: c), const SizedBox(height: 6)],
                 ] else
                   orbBlock,
                 const SizedBox(height: 6),

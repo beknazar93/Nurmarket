@@ -19,11 +19,80 @@ import '../sale/catalog_repository.dart';
 import '../scan/scan_screen.dart';
 import '../scan/smart_camera.dart';
 import 'barcode_label.dart';
+import 'product_camera_tile.dart';
+import 'product_delete.dart';
 import 'product_edit_repository.dart';
+import 'product_packages.dart';
 
 // 2026-10-22 (мобилка, админ): владелец — «в мобилке нельзя редактировать товары на складе». Нажатие на товар склада
 // открывает карточку: название, цены, единица, категория, штрихкоды (основной + доп., скан камерой), минимальный
 // остаток, фото. Остаток — только документом «Приход / Списание / Ревизия» с причиной (product_edit_repository.dart).
+
+// 2026-10-27 (аудит мобилки, В-2): цена 85 → 8588 (лишние цифры) уходила на сервер и на кассу без вопроса. Явная аномалия —
+// прежняя цена изменилась больше чем в 3 раза, цена ниже закупки или наценка выше 500 % — перед сохранением спрашиваем.
+enum PriceIssue { jumpUp, jumpDown, belowCost, highMarkup }
+
+class PriceAnomaly {
+  final PriceIssue issue;
+  final double was;
+  final double now;
+  final double purchase;
+  const PriceAnomaly(this.issue, {required this.was, required this.now, required this.purchase});
+
+  /// Во сколько раз цена изменилась (для текста «в 101 раз больше»).
+  double get times => was <= 0 || now <= 0 ? 0 : (now > was ? now / was : was / now);
+}
+
+/// Порог скачка цены (раз) и наценки (%), выше которых спрашиваем подтверждение.
+const priceJumpTimes = 3.0;
+const priceMarkupMaxPercent = 500.0;
+
+/// null — цена в порядке или не менялась (старый товар с «странной» ценой не спрашивает при каждом сохранении).
+PriceAnomaly? detectPriceAnomaly(ProductDraft before, ProductDraft now) {
+  final price = now.price, cost = now.purchase;
+  if (price <= 0) return null;
+  final priceChanged = (price - before.price).abs() > 0.004;
+  final costChanged = (cost - before.purchase).abs() > 0.004;
+  if (!priceChanged && !costChanged) return null;
+  PriceAnomaly make(PriceIssue i) => PriceAnomaly(i, was: before.price, now: price, purchase: cost);
+  if (priceChanged && before.price > 0) {
+    if (price > before.price * priceJumpTimes) return make(PriceIssue.jumpUp);
+    if (price * priceJumpTimes < before.price) return make(PriceIssue.jumpDown);
+  }
+  if (cost > 0 && price < cost) return make(PriceIssue.belowCost);
+  if (cost > 0 && (price - cost) / cost * 100 > priceMarkupMaxPercent) return make(PriceIssue.highMarkup);
+  return null;
+}
+
+/// Окно «Цена 8 588 вместо 85 — сохранить?». true — «Сохранить как есть»; false — «Исправить» (или окно закрыто).
+Future<bool> confirmPriceAnomaly(BuildContext context, PriceAnomaly a) async {
+  final l = context.l;
+  String times() {
+    final t = a.times;
+    return t >= 10 ? t.round().toString() : t.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
+  }
+
+  final text = switch (a.issue) {
+    PriceIssue.jumpUp => l.pePriceUpAsk(money(a.now), money(a.was), times()),
+    PriceIssue.jumpDown => l.pePriceDownAsk(money(a.now), money(a.was), times()),
+    PriceIssue.belowCost => l.peBelowCostAsk(money(a.now), money(a.purchase)),
+    PriceIssue.highMarkup => l.peMarkupAsk(money(a.now), money(a.purchase), (((a.now - a.purchase) / a.purchase) * 100).toStringAsFixed(0)),
+  };
+  const btn = Size(64, 48); // касание не меньше 48 dp
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      key: const Key('priceAnomalyDialog'),
+      title: Text(l.pePriceCheckTitle),
+      content: Text(text),
+      actions: [
+        TextButton(key: const Key('priceAnomalyFix'), style: TextButton.styleFrom(minimumSize: btn), onPressed: () => Navigator.pop(c, false), child: Text(l.peFixPrice)),
+        FilledButton(key: const Key('priceAnomalyKeep'), style: FilledButton.styleFrom(minimumSize: btn), onPressed: () => Navigator.pop(c, true), child: Text(l.peSaveAsIs)),
+      ],
+    ),
+  );
+  return ok == true;
+}
 
 final productEditRepoProvider = Provider(
   (ref) => ProductEditRepository(ref.watch(apiProvider), ref.watch(databaseProvider), ref.watch(stockRepoProvider)),
@@ -59,12 +128,16 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
 
   final _name = TextEditingController();
   final _price = TextEditingController();
+  final _priceFocus = FocusNode(); // 2026-10-27: «Исправить» в окне аномальной цены возвращает курсор сюда
+  final _scroll = ScrollController(); // поле цены вверху: список листается к нему, иначе строка не построена и фокус не встанет
   final _purchase = TextEditingController();
   final _wholesale = TextEditingController();
   final _category = TextEditingController();
   final _barcode = TextEditingController();
   final _min = TextEditingController();
   final _altInput = TextEditingController();
+  // 2026-10-27 (М4): блок «Упаковки / поштучная продажа» (packages сервера) — цена упаковки и закупка берутся из полей цены
+  late final PackFormController _pack = PackFormController(price: _price, cost: _purchase);
   String _unit = 'шт';
   List<String> _alt = [];
   final _photos = <Uint8List>[];
@@ -75,6 +148,8 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
 
   Product get p => widget.product;
 
+  bool get isServiceCard => _full?['kind'] == 'service';
+
   @override
   void initState() {
     super.initState();
@@ -84,9 +159,12 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
 
   @override
   void dispose() {
+    _pack.dispose(); // раньше полей цены: снимает с них слушатели
     for (final c in [_name, _price, _purchase, _wholesale, _category, _barcode, _min, _altInput]) {
       c.dispose();
     }
+    _priceFocus.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -100,7 +178,12 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
     });
     try {
       final full = await ref.read(productEditRepoProvider).load(p.id);
-      final d = ProductDraft.fromServer(full, p);
+      var d = ProductDraft.fromServer(full, p);
+      // 2026-10-27 (М4): карточка сервера без поля packages — упаковку берём из каталога телефона (иначе у товара с упаковкой переключатель был бы выключен)
+      if (!full.containsKey('packages')) {
+        final known = (await PackageStore.read(ref.read(databaseProvider)))[p.id];
+        if (known != null) d = d.copyWith(pack: known);
+      }
       if (!mounted) return;
       setState(() {
         _full = full;
@@ -115,6 +198,7 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
         _min.text = d.minQty == null ? '' : _q(d.minQty!);
         _unit = d.unit.isEmpty ? 'шт' : d.unit;
         _alt = [...d.alt];
+        _pack.load(d.pack, lock: d.packLocked);
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -140,6 +224,8 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
       purchase: parseNum(_purchase.text) ?? 0,
       wholesale: parseNum(_wholesale.text) ?? 0,
       minQty: _min.text.trim().isEmpty ? b.minQty : parseNum(_min.text),
+      pack: b.packLocked ? b.pack : _pack.toPack(),
+      packLocked: b.packLocked,
     );
   }
 
@@ -226,6 +312,33 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
     if (d.name.isEmpty) {
       toast(context, l.peNameNeed, error: true);
       return;
+    }
+    // 2026-10-27 (аудит мобилки, В-2): явная аномалия цены — спросить до отправки на сервер (там её сразу увидит касса)
+    final anomaly = _canPrices ? detectPriceAnomaly(b, d) : null;
+    if (anomaly != null) {
+      final keep = await confirmPriceAnomaly(context, anomaly);
+      if (!mounted) return;
+      if (!keep) {
+        if (_scroll.hasClients) await _scroll.animateTo(0, duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+        if (mounted) _priceFocus.requestFocus();
+        return;
+      }
+    }
+    // 2026-10-27 (М4): поштучная продажа — штук целое ≥ 2, цена штуки задана; цена штуки × штук далеко от цены упаковки — спросить
+    if (!d.packLocked && _pack.enabled && !isServiceCard) {
+      if (isWeightUnit(_unit)) {
+        toast(context, l.pkWeightBlocked, error: true);
+        return;
+      }
+      final pr = _pack.problem;
+      if (pr == PackProblem.qtyBad || pr == PackProblem.pieceBad) {
+        toast(context, packErrorText(context, pr)!, error: true);
+        return;
+      }
+      if (pr == PackProblem.mismatch) {
+        final keep = await confirmPackMismatch(context, _pack);
+        if (!mounted || !keep) return;
+      }
     }
     setState(() => _saving = true);
     try {
@@ -368,6 +481,12 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
     setState(() => _stock = result.applied ? result.to : _stock);
   }
 
+  /// 2026-10-27 (М3): удалить товар — остаток берём свежий, с сервера; после удаления карточка закрывается.
+  Future<void> _delete() async {
+    if (_saving) return;
+    if (await confirmDeleteProduct(context, ref, p, stock: _stock) && mounted) Navigator.of(context).pop(true);
+  }
+
   Future<void> _addPhoto(Future<Uint8List?> Function() pick) async {
     final bytes = await pick();
     if (bytes != null && mounted) setState(() => _photos.add(bytes));
@@ -402,6 +521,7 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
       final co = parseNum(_purchase.text) ?? 0;
       final isService = _full?['kind'] == 'service';
       body = ListView(
+        controller: _scroll,
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
           FieldLabel(l.peName),
@@ -409,6 +529,7 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
           FieldLabel(l.sellingPrice),
           TextField(
             controller: _price,
+            focusNode: _priceFocus,
             enabled: canPrices,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => setState(() {}),
@@ -441,9 +562,19 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
             spacing: 6,
             runSpacing: 6,
             children: [
-              for (final u in {..._units, _unit}) ChoiceChip(label: Text(u), selected: _unit == u, onSelected: (_) => setState(() => _unit = u)),
+              for (final u in {..._units, _unit})
+                ChoiceChip(
+                  label: Text(u),
+                  selected: _unit == u,
+                  onSelected: (_) => setState(() {
+                    _unit = u;
+                    if (isWeightUnit(u)) _pack.setEnabled(false); // весовой товар нельзя продавать поштучно из упаковки
+                  }),
+                ),
             ],
           ),
+          // 2026-10-27 (М4): поштучная продажа из упаковки — для любого штучного товара (не услуги)
+          if (!isService) PackSection(ctrl: _pack, blocked: isWeightUnit(_unit)),
           FieldLabel(l.categoryLabel),
           TextField(controller: _category, textCapitalization: TextCapitalization.sentences, onChanged: (_) => setState(() {})),
           FieldLabel(l.barcodeLabel),
@@ -533,7 +664,8 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    '${qtyText(_stock)} $_unit',
+                    // 2026-10-27 (М4): товар с упаковкой — «12 пачек + 5 шт»; остаток на сервере хранится в упаковках
+                    stockWithPack(qtyText, _stock, _before?.pack, packWord: l.pkPackShort, pcs: l.pkPcs, unit: _unit),
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _stock <= 0 ? T.danger : null),
                   ),
                   const SizedBox(height: 4),
@@ -607,12 +739,29 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
               ),
             ],
           ),
+          // 2026-10-27 (М3): «Умная камера» видна в карточке, а не только в «⋮» (эталоны: счётчик, превью, убрать, обучить)
+          if (!isService) ...[
+            const SizedBox(height: 16),
+            ProductCameraTile(
+              product: p,
+              barcode: _barcode.text,
+              onScanBarcode: () => _scanInto((codes) => _barcode.text = codes.first.trim()),
+              onTrained: () {
+                if (mounted && !_dirty()) _load(); // курс мог записать штрихкод и фото; несохранённые правки не затираем
+              },
+            ),
+          ],
           const SizedBox(height: 20),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
             onPressed: _saving ? null : _save,
             child: _saving ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)) : Text(l.save),
           ),
+          // 2026-10-27 (М3): владелец — «в мобилке нет возможности удаления!». Кнопка видна внизу карточки (раньше только «⋮»).
+          if (canDeleteProducts(ref.read(sessionProvider))) ...[
+            const SizedBox(height: 12),
+            DeleteProductButton(onPressed: _delete),
+          ],
         ],
       );
     }
@@ -627,13 +776,13 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
               onSelected: (v) async {
                 if (v == 'teach') {
                   await teachExistingProduct(context, ref, p);
-                } else if (v == 'delete' && await confirmDeleteProduct(context, ref, p)) {
-                  if (context.mounted) Navigator.of(context).pop(true);
+                } else if (v == 'delete') {
+                  await _delete();
                 }
               },
               itemBuilder: (c) => [
                 PopupMenuItem(value: 'teach', child: Text(l.teachCamera)),
-                PopupMenuItem(value: 'delete', child: Text(l.deleteProduct, style: const TextStyle(color: T.danger))),
+                if (canDeleteProducts(ref.read(sessionProvider))) PopupMenuItem(value: 'delete', child: Text(l.deleteProduct, style: const TextStyle(color: T.danger))),
               ],
             ),
           ],

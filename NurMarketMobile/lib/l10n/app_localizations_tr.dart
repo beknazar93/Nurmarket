@@ -875,7 +875,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get advisorTitle => 'Nur Danışman';
 
   @override
-  String get advisorOnline => 'Mağaza verileri bağlı';
+  String get advisorOnline => 'Mağazanızın verilerine göre yanıtlar';
 
   @override
   String get advisorAsk => 'Mağazanız hakkında sorun…';
@@ -900,7 +900,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get advisorNoKey =>
-      'Sahip programında bir YZ anahtarı ekleyin: Nur Danışman → ⚙ → YZ modelleri ve anahtarlar';
+      'YZ anahtarı yok. Bu telefonda “Yapay zekâ ayarları” → “Gemini anahtarları” bölümünden ekleyin (veya sahip programında: Nur Danışman → ⚙ → YZ modelleri ve anahtarlar)';
 
   @override
   String get advisorStageData => 'Mağaza verileri toplanıyor…';
@@ -1741,7 +1741,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String unknownBarcodeHint(String code) {
-    return '$code · yönetici alıp ürünü ekleyecek';
+    return '$code · katalogda ve NurCRM rehberinde yok. Ürünü ekleyin — kod hiçbir yere gönderilmez';
   }
 
   @override
@@ -3748,6 +3748,56 @@ class AppLocalizationsTr extends AppLocalizations {
   String get vcPriceTag => 'Fiyat etiketi';
 
   @override
+  String get wizAddProduct => 'Ürün ekle';
+
+  @override
+  String get wizTitle => 'Ürün ekleniyor';
+
+  @override
+  String get wizSlotFront => 'Ön';
+
+  @override
+  String get wizSlotBack => 'Arka';
+
+  @override
+  String get wizSlotSide => 'Yan';
+
+  @override
+  String get wizSlotCode => 'Barkod';
+
+  @override
+  String wizShootSide(String side) {
+    return 'Çek: $side';
+  }
+
+  @override
+  String get wizCreate => 'Ürün oluştur';
+
+  @override
+  String wizDraft(String name, String price) {
+    return '\"$name\" · $price som';
+  }
+
+  @override
+  String get wizHint => '\"Hazır\" deyin veya Çek\'e basın';
+
+  @override
+  String wizDuplicate(String name) {
+    return 'Zaten var: \"$name\"';
+  }
+
+  @override
+  String wizPhotoAlt(String side) {
+    return 'Çekim: $side';
+  }
+
+  @override
+  String get wizEnterCode => 'Barkod gir';
+
+  @override
+  String get wizEnterCodeHint => 'Tarayıcıyla okutun veya rakamları girin';
+
+  @override
   String get vcCardProduct => 'Ürün';
 
   @override
@@ -3948,7 +3998,8 @@ class AppLocalizationsTr extends AppLocalizations {
   String get aiAccMineOpen => 'YZ tüm çalışanlara açık (limit belirlenmedi)';
 
   @override
-  String get aiAccNotSet => 'Belirlenmedi — YZ herkese açık';
+  String get aiAccNotSet =>
+      'Belirlenmedi — YZ tüm çalışanlara açık (sahip ve yönetici için her zaman)';
 
   @override
   String get assistantTitle => 'Yardımcı';
@@ -4578,4 +4629,1095 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get aiKeysSavedPhoneOnly =>
       'Telefonda kaydedildi, ancak buluta gitmedi — kasa ve sahip uygulaması henüz görmez. Sonra tekrar deneyin.';
+
+  @override
+  String get klTitle => 'Kasa bağlantısı';
+
+  @override
+  String get klProfileOff => 'Bağlı değil';
+
+  @override
+  String klKassaName(String name) {
+    return '“$name” kasası';
+  }
+
+  @override
+  String get klScanQr => 'Kasadaki QR\'ı tara';
+
+  @override
+  String get klScanQrHint =>
+      'Kasa bilgisayarında «Telefonu bağla» penceresini açın ve kamerayı QR koduna doğrultun. Telefon ve kasa aynı Wi-Fi ağında olmalı, kasa çalışıyor olmalı.';
+
+  @override
+  String get klScanQrTitle => 'Kamerayı kasa ekranındaki QR koduna doğrultun';
+
+  @override
+  String get klNotKassaQr => 'Bu bir NurMarket kasa QR kodu değil';
+
+  @override
+  String get klBadQr =>
+      'QR kodu okunamadı. Kasada «Telefonu bağla» penceresini açıp yeniden tarayın.';
+
+  @override
+  String get klQrVersion =>
+      'Bu kasa uygulamadan daha yeni. Telefonda NurMarket\'i güncelleyin.';
+
+  @override
+  String get klManual => 'Bağlantıyı elle gir';
+
+  @override
+  String get klManualHint => 'QR kodunun metnini yapıştırın (nurmarket-link:…)';
+
+  @override
+  String get klConnect => 'Bağla';
+
+  @override
+  String klConnected(String name) {
+    return '“$name” kasası bağlandı';
+  }
+
+  @override
+  String get klConnectedPlain => 'Kasa bağlandı';
+
+  @override
+  String get klStUnpaired => 'Kasa bağlı değil';
+
+  @override
+  String get klStUnknown => 'Bağlantı kontrol edilmedi';
+
+  @override
+  String get klStOnline => 'Bağlı';
+
+  @override
+  String get klStNotFound => 'Kasa bu ağda bulunamadı';
+
+  @override
+  String get klStRevoked => 'Telefon kasada devre dışı bırakıldı';
+
+  @override
+  String get klStBadTime => 'Telefondaki saati kontrol edin';
+
+  @override
+  String get klStDisabled => 'Kasada telefonlardan kabul kapalı';
+
+  @override
+  String get klStRePair => 'Bağlantı eskidi — kasadaki QR\'ı yeniden tarayın';
+
+  @override
+  String get klChecking => 'Bağlantı kontrol ediliyor…';
+
+  @override
+  String get klShiftOpen => 'Kasadaki vardiya: açık';
+
+  @override
+  String get klShiftClosed => 'Kasadaki vardiya: kapalı';
+
+  @override
+  String get klCheckNow => 'Bağlantıyı kontrol et';
+
+  @override
+  String get klDisconnect => 'Bağlantıyı kes';
+
+  @override
+  String klDisconnectAsk(String name) {
+    return 'Telefon “$name” kasasından ayrılsın mı? QR kodla yeniden bağlanabilirsiniz. Kasanın kendisinde telefon listede kalır — onu orada da kaldırın.';
+  }
+
+  @override
+  String get klDisconnected => 'Telefon kasadan ayrıldı';
+
+  @override
+  String get klScannerMode => 'Kasa için tarayıcı';
+
+  @override
+  String get klScannerHint =>
+      'Barkoda doğrultun — ürün doğrudan kasadaki fişe eklenir';
+
+  @override
+  String get klSetupAsk => 'Kasa bağlantısı ayarlanmamış';
+
+  @override
+  String get klSetup => 'Ayarla';
+
+  @override
+  String get klScSending => 'Gönderiliyor…';
+
+  @override
+  String get klScAdded => 'Eklendi';
+
+  @override
+  String get klScNotFound => 'Bulunamadı';
+
+  @override
+  String get klScTillInactive => 'Kasa penceresi açık değil';
+
+  @override
+  String get klScQueued => 'Bağlantı yok — sırada';
+
+  @override
+  String get klScQueueFull => 'Sıra dolu — kod kabul edilmedi';
+
+  @override
+  String get klScExpired => 'Gönderilmedi: kasa yanıt vermedi';
+
+  @override
+  String get klScFailed => 'Kasa kodu kabul etmedi';
+
+  @override
+  String get klLastCode => 'Son kod';
+
+  @override
+  String klCounter(int n) {
+    return 'Fişe eklenen: $n';
+  }
+
+  @override
+  String klQueueLeft(int n) {
+    return 'Sırada: $n';
+  }
+
+  @override
+  String get globalSource => 'NurCRM kataloğundan';
+
+  @override
+  String globalFoundAsk(String name) {
+    return 'NurCRM kataloğunda var: $name';
+  }
+
+  @override
+  String get globalCatalogTitle => 'Ürün kataloğu';
+
+  @override
+  String globalCatalogStatus(String count, String date, String added) {
+    return 'Katalog: $count ürün, güncelleme $date, eklenen: $added';
+  }
+
+  @override
+  String get globalCatalogOff => 'Katalog kullanılamıyor';
+
+  @override
+  String globalBulkFilled(int n) {
+    return 'NurCRM kataloğundan doldurulan adlar: $n';
+  }
+
+  @override
+  String advisorQuota(String time) {
+    return 'YZ limiti $time saatine kadar doldu (kasa ve botla ortak). Başka bir Google hesabından ikinci bir anahtar ekleyebilirsiniz.';
+  }
+
+  @override
+  String get advisorQuotaLater =>
+      'YZ limiti doldu (kasa ve botla ortak). Daha sonra deneyin veya başka bir Google hesabından ikinci bir anahtar ekleyin.';
+
+  @override
+  String advisorKeyRejected(String time) {
+    return 'Google anahtarı reddetti, $time sonrasında tekrar denenecek. Anahtarı “Yapay zekâ ayarları” → “Gemini anahtarları” bölümünde kontrol edin.';
+  }
+
+  @override
+  String get advisorTimeout =>
+      'YZ uzun süredir yanıt vermiyor. İnterneti kontrol edip “Tekrar dene”ye dokunun.';
+
+  @override
+  String gkLastError(String text) {
+    return 'Son hata: $text';
+  }
+
+  @override
+  String get aiAccOwnerNote =>
+      'Listede değilsiniz, ancak sahibi ve yönetici YZ\'yi her zaman kullanabilir.';
+
+  @override
+  String get pePriceCheckTitle => 'Fiyatı kontrol edin';
+
+  @override
+  String pePriceUpAsk(String now, String was, String times) {
+    return 'Fiyat $was yerine $now — kaydedilsin mi?\nEski fiyatın $times katı.';
+  }
+
+  @override
+  String pePriceDownAsk(String now, String was, String times) {
+    return 'Fiyat $was yerine $now — kaydedilsin mi?\nEski fiyatın $times kat altında.';
+  }
+
+  @override
+  String peBelowCostAsk(String now, String cost) {
+    return 'Fiyat $now, alış fiyatı $cost altında — zararına satış. Kaydedilsin mi?';
+  }
+
+  @override
+  String peMarkupAsk(String now, String cost, String pct) {
+    return 'Fiyat $now, alış $cost: kâr $pct %. Rakamlarda hata var mı? Kaydedilsin mi?';
+  }
+
+  @override
+  String get peFixPrice => 'Düzelt';
+
+  @override
+  String get peSaveAsIs => 'Olduğu gibi kaydet';
+
+  @override
+  String get klSearching => 'Kasa Wi-Fi ağında aranıyor…';
+
+  @override
+  String get klHelpNotFound =>
+      'Kasa yanıt vermiyor. Kontrol edin: 1) kasa çalışıyor mu; 2) kasa ayarlarında “Telefonlardan taramaları kabul et” açık mı (varsayılan olarak kapalıdır); 3) telefon, kasa bilgisayarıyla aynı Wi-Fi ağında mı, mobil veride değil.';
+
+  @override
+  String get klHelpDisabled =>
+      'Kasada telefonlardan kabul kapalı. Kasa ayarlarında “Telefonlardan taramaları kabul et”i açıp “Bağlantıyı kontrol et”e dokunun.';
+
+  @override
+  String get klHelpRePair =>
+      'Kasa bu telefonu tanımıyor (bağlantısı kesildi veya QR eskidi). “QR\'ı yeniden tara”ya dokunup kamerayı kasadaki “Telefonu bağla” penceresindeki QR\'a doğrultun.';
+
+  @override
+  String get klHelpBadTime =>
+      'Telefon ile kasa saati arasında 10 dakikadan fazla fark var. Telefonda otomatik tarih ve saati açın (kasadaki saati de kontrol edin), sonra “Bağlantıyı kontrol et”e dokunun.';
+
+  @override
+  String get klRescanQr => 'QR\'ı yeniden tara';
+
+  @override
+  String get klScRefused =>
+      'Kod gönderilmedi — önce kasayla bağlantıyı düzeltin';
+
+  @override
+  String get aiAccDraftNote =>
+      'Liste henüz kaydedilmedi: şu anda YZ tüm çalışanlara açık. En fazla 2 kişiyi işaretleyip “Kaydet”e dokunun — diğerleri için YZ kapanır. Sahibi ve yönetici YZ\'yi her zaman kullanabilir.';
+
+  @override
+  String get aiAccAlways =>
+      'Sahibi ve yönetici, listeden bağımsız olarak YZ\'yi her zaman kullanabilir.';
+
+  @override
+  String get invTitle => 'Fatura yükle';
+
+  @override
+  String get invSub => 'Tedarikçiden Excel, CSV veya XML';
+
+  @override
+  String get invHint =>
+      'Tedarikçinin fatura dosyasını seçin: Excel (.xlsx), CSV veya XML (e-fatura). Satırlar girişe eklenir; miktar ve fiyatları kontrol edip her zamanki gibi işlersiniz.';
+
+  @override
+  String get invPick => 'Fatura dosyası seç';
+
+  @override
+  String get invPhotoHint =>
+      'PDF ve fatura fotoğraflarını «Akıllı kamera» okur (yapay zekâ anahtarı gerekir)';
+
+  @override
+  String get invPhotoBtn => 'Fotoğraftan fatura';
+
+  @override
+  String get invReading => 'Fatura okunuyor…';
+
+  @override
+  String invFileName(String name) {
+    return 'Dosya: $name';
+  }
+
+  @override
+  String get invOtherFile => 'Başka dosya';
+
+  @override
+  String invDocLine(String num, String date) {
+    return '$date tarihli fatura no. $num';
+  }
+
+  @override
+  String invDocNum(String num) {
+    return 'Fatura no. $num';
+  }
+
+  @override
+  String invDocDate(String date) {
+    return '$date tarihli fatura';
+  }
+
+  @override
+  String get invDocNone => 'Dosyada numara ve tarih bulunamadı';
+
+  @override
+  String invSupplierFile(String name) {
+    return 'Dosyada: $name';
+  }
+
+  @override
+  String invSupplierFileInn(String name, String inn) {
+    return 'Dosyada: $name, VKN $inn';
+  }
+
+  @override
+  String invSupplierInnOnly(String inn) {
+    return 'Dosyadaki VKN: $inn';
+  }
+
+  @override
+  String get invSupplierNoneInFile => 'Dosyada tedarikçi belirtilmemiş';
+
+  @override
+  String get invSupByInn => 'VKN ile bulundu';
+
+  @override
+  String get invSupByName => 'Ada göre bulundu';
+
+  @override
+  String get invSupNotFound =>
+      'Böyle bir tedarikçi yok — listeden seçin veya oluşturun';
+
+  @override
+  String get invSupCreate => 'Tedarikçi oluştur';
+
+  @override
+  String invSupCreated(String name) {
+    return '«$name» tedarikçisi oluşturuldu';
+  }
+
+  @override
+  String invSupFail(String text) {
+    return 'Tedarikçi oluşturulamadı: $text';
+  }
+
+  @override
+  String get invSupOffline => 'Bağlantı yok: tedarikçi listesi yüklenmedi';
+
+  @override
+  String get invSupKept => 'Giriş önceki tedarikçide kaldı';
+
+  @override
+  String get invDupPosted => 'Bu fatura daha önce yüklendi ve işlendi';
+
+  @override
+  String get invDupPending => 'Bu fatura henüz işlenmemiş bir girişe eklendi';
+
+  @override
+  String get invDupAnyway => 'Yine de ekle';
+
+  @override
+  String invTotalLines(String sum) {
+    return 'Satırlara göre: $sum';
+  }
+
+  @override
+  String invTotalFile(String sum) {
+    return 'Dosyada: $sum';
+  }
+
+  @override
+  String get invTotalOk => 'Toplamlar uyuşuyor';
+
+  @override
+  String invTotalBad(String diff) {
+    return 'Toplamlar $diff farklı. Miktar ve fiyatları kontrol edin.';
+  }
+
+  @override
+  String get invTotalNone => 'Dosyada toplam bulunamadı';
+
+  @override
+  String get invTotalVatHint =>
+      'KDV dahil toplamlar uyuşuyor — «KDV dahil alış»ı açın';
+
+  @override
+  String get invVat => 'KDV dahil alış';
+
+  @override
+  String get invVatSub => 'Varsayılan olarak alış KDV\'siz alınır';
+
+  @override
+  String invCurrency(String cur) {
+    return 'Fatura para birimi: $cur. Som ile çalışıyorsunuz — fiyatları kontrol edin: uygulama çevirmez.';
+  }
+
+  @override
+  String get invGenCodes => 'Barkodsuz yeni ürünlere kendi kodumuzu ver';
+
+  @override
+  String get invGenCodesSub => 'Aksi halde barkodsuz kalırlar';
+
+  @override
+  String invSummary(int n, String stock, String fresh, String bad) {
+    return 'Satır: $n · depoda: $stock · yeni: $fresh · tanınmayan: $bad';
+  }
+
+  @override
+  String get invStBarcode => 'Depoda · barkodla';
+
+  @override
+  String get invStArticle => 'Depoda · ürün koduyla';
+
+  @override
+  String get invStName => 'Depoda · adla';
+
+  @override
+  String invStFuzzy(String name) {
+    return 'Benziyor: $name';
+  }
+
+  @override
+  String get invStCatalog => 'Yeni · NurCRM kataloğunda var';
+
+  @override
+  String get invStManual => 'Yeni · elle doldurun';
+
+  @override
+  String get invStBad => 'Tanınmadı';
+
+  @override
+  String get invBadNoName => 'Ad, barkod ve ürün kodu yok';
+
+  @override
+  String get invBadNoQty => 'Miktar yok';
+
+  @override
+  String invUseCandidate(String name) {
+    return 'Bu «$name»';
+  }
+
+  @override
+  String get invAsNew => 'Yeni ürün';
+
+  @override
+  String invSrcRow(int n) {
+    return 'Dosya satırı: $n';
+  }
+
+  @override
+  String invArticle(String code) {
+    return 'Ürün kodu: $code';
+  }
+
+  @override
+  String get invCostMissing => 'Alış fiyatını girin';
+
+  @override
+  String get invPriceMissing => 'Satış fiyatını girin';
+
+  @override
+  String get invRemoveRow => 'Satırı kaldır';
+
+  @override
+  String invAdd(int n) {
+    return 'Girişe ekle · $n';
+  }
+
+  @override
+  String get invAddFix => 'İşaretli satırları düzeltin';
+
+  @override
+  String get invAdding => 'Satırlar hazırlanıyor…';
+
+  @override
+  String invMerged(int n) {
+    return 'Faturadaki tekrarlanan ürünler birleştirildi: $n';
+  }
+
+  @override
+  String get invErrTooBig => 'Dosya 10 MB\'tan büyük — açılamaz';
+
+  @override
+  String get invErrEmpty => 'Dosya boş';
+
+  @override
+  String get invErrPdf =>
+      'Bu bir PDF veya fotoğraf. Bunları «Akıllı kamera» okur (aşağıdaki düğme)';
+
+  @override
+  String get invErrXls =>
+      'Eski Excel biçimi (.xls) okunamaz — dosyayı .xlsx veya .csv olarak kaydedin';
+
+  @override
+  String get invErrBroken => 'Dosya bozuk veya fatura değil';
+
+  @override
+  String get invErrNoTable =>
+      'Ürün tablosu bulunamadı: «Ad», «Miktar» ve «Fiyat» sütunları gerekir';
+
+  @override
+  String get invErrUnsafe =>
+      'XML bir DTD veya harici varlık içeriyor — güvenlik nedeniyle açılmaz';
+
+  @override
+  String get invErrTooMany => 'Çok fazla satır (5000\'den fazla)';
+
+  @override
+  String get invErrFormat =>
+      'Desteklenmeyen dosya: .xlsx, .csv veya .xml gerekir';
+
+  @override
+  String get tsTitle => 'Test modu';
+
+  @override
+  String tsBuildLine(String version, String build) {
+    return 'Sürüm $version (derleme $build)';
+  }
+
+  @override
+  String get tsTestBuild => 'test sürümü';
+
+  @override
+  String get tsDevice => 'Cihaz';
+
+  @override
+  String tsDeviceId(String id) {
+    return 'Cihaz kimliği: $id';
+  }
+
+  @override
+  String get tsDeviceNameTitle => 'Cihaz adı';
+
+  @override
+  String get tsDeviceNameHint => 'örn. kasiyerin telefonu';
+
+  @override
+  String get tsRename => 'Cihaza ad ver';
+
+  @override
+  String tsScreenLine(String w, String h, String scale, String lang) {
+    return 'Ekran $w×$h dp, yazı ×$scale, dil $lang';
+  }
+
+  @override
+  String tsSummary(String done, String total, String issues) {
+    return 'Kontrol edilen $done / $total, sorun: $issues';
+  }
+
+  @override
+  String get tsVersionFilter => 'Sürüm';
+
+  @override
+  String tsVersionCurrent(String v) {
+    return '$v (mevcut)';
+  }
+
+  @override
+  String tsAreaProgress(String done, String total) {
+    return '$done / $total';
+  }
+
+  @override
+  String get tsChanged => 'Ne değişti';
+
+  @override
+  String get tsHowTo => 'Nasıl kontrol edilir';
+
+  @override
+  String get tsSevMoney => 'Para';
+
+  @override
+  String get tsSevImportant => 'Önemli';
+
+  @override
+  String get tsSevNormal => 'Normal';
+
+  @override
+  String get tsMarkOk => 'Kontrol edildi';
+
+  @override
+  String get tsMarkIssue => 'Sorun var';
+
+  @override
+  String get tsNotChecked => 'Kontrol edilmedi';
+
+  @override
+  String tsCheckedAt(String when) {
+    return 'Kontrol edildi $when';
+  }
+
+  @override
+  String tsIssueAt(String when) {
+    return 'Sorun $when';
+  }
+
+  @override
+  String get tsNoComment => 'Yorumsuz';
+
+  @override
+  String get tsUndoHint => 'İşareti kaldırmak için tekrar dokunun';
+
+  @override
+  String get tsCountNone => 'Henüz hiçbir cihazda kontrol edilmedi';
+
+  @override
+  String get tsCountLocalOk => 'Kontrol edildi: 1 cihaz (bu)';
+
+  @override
+  String get tsCountLocalIssue => 'Sorun: 1 cihaz (bu)';
+
+  @override
+  String tsCountShared(String ok, String issue) {
+    return 'Kontrol edilen cihaz: $ok · sorunlu cihaz: $issue';
+  }
+
+  @override
+  String get tsSyncOff =>
+      'Ortak sayaç kullanılamıyor (yetki veya sunucu gerekli)';
+
+  @override
+  String get tsRefresh => 'Sayaçları yenile';
+
+  @override
+  String get tsCopyReport => 'Raporu kopyala';
+
+  @override
+  String get tsShareReport => 'Raporu gönder';
+
+  @override
+  String get tsCopied => 'Rapor kopyalandı; mesaja yapıştırın';
+
+  @override
+  String get tsIssueTitle => 'Sorun nedir?';
+
+  @override
+  String get tsIssueHint => 'Sorunu anlatın';
+
+  @override
+  String get tsAttachShot => 'Ekran görüntüsü ekle';
+
+  @override
+  String get tsShotAttached => 'Ekran görüntüsü eklendi';
+
+  @override
+  String get tsShotRemove => 'Ekran görüntüsünü kaldır';
+
+  @override
+  String get tsEditComment => 'Yorumu düzenle';
+
+  @override
+  String get tsEmpty => 'Bu sürüm için madde yok';
+
+  @override
+  String get tsCodeTitle => 'Test kullanıcı kodu';
+
+  @override
+  String get tsCodeHint => 'Kodu girin';
+
+  @override
+  String get tsCodeOn => 'Test modu açıldı: logoya 5 kez dokunun';
+
+  @override
+  String get tsCodeBad => 'Kod geçerli değil';
+
+  @override
+  String tsTapMore(int n) {
+    return 'Test modu: kalan dokunuş — $n';
+  }
+
+  @override
+  String get pdNoRights =>
+      'Ürünleri yalnızca «Depo» yetkisi olan çalışan veya yönetici silebilir.';
+
+  @override
+  String get pdGone => 'Ürün sunucuda zaten yok; telefondan da kaldırdım.';
+
+  @override
+  String pdRefused(String msg) {
+    return 'Sunucu ürünün silinmesine izin vermedi: $msg. Ürün satışlarda veya belgelerde varsa silmek yerine stoğu düşün.';
+  }
+
+  @override
+  String get pdOffline =>
+      'Sunucuyla bağlantı yok; ürün SİLİNMEDİ. Ağ gelince tekrar deneyin.';
+
+  @override
+  String pdFailed(String msg) {
+    return 'Ürün silinmedi: $msg';
+  }
+
+  @override
+  String pdQueueBlock(int n) {
+    return 'Bu ürünle ilgili gönderilmemiş işlem var: $n. Gönderilmesini bekleyip tekrar deneyin.';
+  }
+
+  @override
+  String get pdAuditFail => 'Silinmedi';
+
+  @override
+  String pdAsk(String name) {
+    return '«$name» silinsin mi? Ürün NurCRM kataloğundan, kasadan ve uygulamadan kaybolur. Bu işlem geri alınamaz.';
+  }
+
+  @override
+  String pdStockWarn(String qty, String unit) {
+    return 'Depoda $qty $unit var. Stok ürünle birlikte silinir. Ürün gerekmiyorsa önce stoğu düşün.';
+  }
+
+  @override
+  String get pdTypeName => 'Onaylamak için ürün adını yazın:';
+
+  @override
+  String get pdTypeHint => 'Büyük/küçük harf fark etmez';
+
+  @override
+  String get ctTitle => 'Akıllı kamera';
+
+  @override
+  String get ctAngleFront => 'önden';
+
+  @override
+  String get ctAngleBack => 'arkadan';
+
+  @override
+  String get ctAngleSide => 'yandan';
+
+  @override
+  String ctCount(int n, int a) {
+    return 'Örnek: $n / $a';
+  }
+
+  @override
+  String get ctNone => 'Eğitilmedi: ürün fotoğraftan henüz kesin tanınmıyor';
+
+  @override
+  String get ctTrained => 'Eğitildi: satışta ürün bu fotoğraflardan tanınır';
+
+  @override
+  String get ctTrain => 'Kamerayı eğit';
+
+  @override
+  String get ctReset => 'Örnekleri temizle';
+
+  @override
+  String get ctResetAsk =>
+      'Bu ürünün tüm örnek fotoğrafları telefondan kaldırılsın mı? NurCRM\'deki fotoğraflar kalır.';
+
+  @override
+  String get ctSaved => 'Örnek kaydedildi';
+
+  @override
+  String get ctRemoved => 'Örnek kaldırıldı';
+
+  @override
+  String ctShotHint(String angle) {
+    return 'Ürün çerçevede tam görünsün, $angle';
+  }
+
+  @override
+  String get ctBarcodeNone => 'Barkod yok; tarayın';
+
+  @override
+  String ctBarcodeOk(String code) {
+    return 'Barkod: $code';
+  }
+
+  @override
+  String get ctNote =>
+      'Fotoğraflar bu telefonda saklanır. «Kamerayı eğit» 5 fotoğrafa kadar ve barkoddan oluşan tam kurstur; ayrıca ürün fotoğrafını NurCRM\'e ekler.';
+
+  @override
+  String ctSlot(int n) {
+    return 'Fotoğraf $n';
+  }
+
+  @override
+  String ctSlotAdd(int n, String angle) {
+    return 'Fotoğraf $n: $angle çek';
+  }
+
+  @override
+  String ctSlotRetake(int n) {
+    return 'Fotoğraf $n: yeniden çek';
+  }
+
+  @override
+  String get ctRemove => 'Kaldır';
+
+  @override
+  String get camPickTitle => 'Şuna benziyor — buysa seçin';
+
+  @override
+  String get camFromGallery => 'Galeriden';
+
+  @override
+  String get camFromFile => 'Dosyadan';
+
+  @override
+  String get camInvoiceSrcHint =>
+      'Faturayı fotoğraflayabilir veya galeriden ya da dosyadan seçebilirsiniz: fotoğraf, PDF, Excel, CSV, XML.';
+
+  @override
+  String camPageOf(int n, int a) {
+    return 'Fotoğraf $n / $a';
+  }
+
+  @override
+  String get camFileNoProcure =>
+      'Fatura dosyası yüklemek için «Satın alma» yetkisi gerekir. Faturayı fotoğraflayın — satırlar burada görünür.';
+
+  @override
+  String get camFileTooBig =>
+      'Dosya 8 MB\'tan büyük — daha küçüğünü seçin veya faturayı fotoğraflayın.';
+
+  @override
+  String get camFileBadType =>
+      'Bu dosya türü desteklenmiyor. Excel (xlsx), CSV, XML, TXT, PDF veya fotoğraf kullanın.';
+
+  @override
+  String get camFileReadFail => 'Dosya okunamadı.';
+
+  @override
+  String recvFoundGlobal(String name) {
+    return 'NurCRM rehberinde bulundu: «$name»';
+  }
+
+  @override
+  String get recvAddProduct => 'Ürün ekle';
+
+  @override
+  String recvLooksLike(String name) {
+    return '«$name» ürününüze benziyor';
+  }
+
+  @override
+  String get recvBindCode => 'Barkodu bağla';
+
+  @override
+  String recvTypo(String name, String stored, String code) {
+    return '«$name» kartındaki barkodda yazım hatası: kayıtlı $stored, doğrusu $code';
+  }
+
+  @override
+  String get recvFixCode => 'Düzelt';
+
+  @override
+  String recvBound(String name) {
+    return 'Barkod «$name» ile bağlandı';
+  }
+
+  @override
+  String get recvFixed => 'Barkod düzeltildi';
+
+  @override
+  String get recvNoRight =>
+      'Eklemek, bağlamak veya düzeltmek için «Depo» yetkisi gerekir.';
+
+  @override
+  String recvSearching(String code) {
+    return '$code sunucuda ve rehberde aranıyor…';
+  }
+
+  @override
+  String get pkTitle => 'Paketler / adet satışı';
+
+  @override
+  String get pkSwitch => 'Paketten adet adet sat';
+
+  @override
+  String get pkSwitchHint =>
+      'Örneğin sigara paketi veya 6\'lı su paketi: paket olarak da adet olarak da satılabilir. Stok paket olarak tutulur.';
+
+  @override
+  String get pkName => 'Paket adı';
+
+  @override
+  String get pkNameHint => 'Paket, blok, kutu';
+
+  @override
+  String get pkQty => 'Paketteki adet';
+
+  @override
+  String pkPackPrice(String price) {
+    return 'Paket fiyatı: $price som (yukarıdaki satış fiyatı)';
+  }
+
+  @override
+  String get pkPiecePrice => 'Adet fiyatı';
+
+  @override
+  String get pkAuto => 'Oto';
+
+  @override
+  String get pkAutoTip => 'Yeniden hesapla: paket fiyatı ÷ adet';
+
+  @override
+  String pkMarkup(int n) {
+    return 'Adet kârı: $n %';
+  }
+
+  @override
+  String pkBelowCost(String cost) {
+    return 'Adet alış fiyatından ucuz ($cost som)';
+  }
+
+  @override
+  String get pkQtyBad => 'Paketteki adet en az 2 olan tam sayı olmalı';
+
+  @override
+  String get pkPieceBad => 'Adet fiyatını girin';
+
+  @override
+  String pkMismatch(String qty, String piece, String sum, String pack) {
+    return '$qty adet × $piece som = $sum som, ama paket $pack som — fark %5\'ten fazla. Böyle kaydedilsin mi?';
+  }
+
+  @override
+  String get pkMismatchTitle => 'Adet ve paket fiyatları uyuşmuyor';
+
+  @override
+  String get pkWeightBlocked =>
+      'Tartılan ürün (kg) paketten adet olarak satılamaz.';
+
+  @override
+  String get pkMulti =>
+      'Ürünün birden çok paketi var — web sitesinden veya kasadan düzenleyin.';
+
+  @override
+  String get pkQuick => 'Hızlı';
+
+  @override
+  String get pkWordPack => 'Paket';
+
+  @override
+  String get pkWordPackage => 'Ambalaj';
+
+  @override
+  String get pkWordCrate => 'Kasa';
+
+  @override
+  String get pkWordBlock => 'Blok';
+
+  @override
+  String get pkWordBox => 'Kutu';
+
+  @override
+  String get pkPcs => 'adet';
+
+  @override
+  String get pkChoiceTitle => 'Nasıl satılsın?';
+
+  @override
+  String get pkChoicePiece => 'Adet';
+
+  @override
+  String pkChoiceStock(String stock) {
+    return 'Stok: $stock';
+  }
+
+  @override
+  String pkLinePiece(String name) {
+    return '«$name» içinden adet';
+  }
+
+  @override
+  String get pkQtyInPacks =>
+      'Miktar paket olarak girilir: 12, 12 paket demektir; adetler bunlardan satılır.';
+
+  @override
+  String get pkPackShort => 'paket';
+
+  @override
+  String get pkNoPackId =>
+      'Paket henüz sunucuda kayıtlı değil — önce kataloğu yenileyin.';
+
+  @override
+  String get camNotThis => 'Bu ürün değil';
+
+  @override
+  String get camNotThisDone => 'Hatırlanan ad silindi — ürünü yeniden seçin.';
+
+  @override
+  String get camAliasesTitle => 'Hatırlanan adlar:';
+
+  @override
+  String get camAliasForget => 'Adı unut';
+
+  @override
+  String get invDupPostedNow =>
+      'Bu fatura daha önce işlendi (bu telefonda veya kasada). Girişi tekrar işlerseniz stok ve tedarikçi borcu iki katına çıkar.';
+
+  @override
+  String get invSupOtherDoc =>
+      'Bu girişte zaten başka bir tedarikçinin faturası var. Önce onu işleyin, sonra bunu yükleyin.';
+
+  @override
+  String get invSupConflictTitle => 'Bu giriş kimin?';
+
+  @override
+  String invSupConflictBody(String doc, String keep) {
+    return 'Fatura: $doc. Girişte seçili: $keep. Giriş ve borç tek tedarikçiye yazılır — seçin.';
+  }
+
+  @override
+  String invSupConflictKeep(String name) {
+    return 'Kalsın: $name';
+  }
+
+  @override
+  String invSupConflictDoc(String name) {
+    return 'Faturadan: $name';
+  }
+
+  @override
+  String recvCostAvg(int n) {
+    return 'Alış fiyatı miktara göre ortalama olarak yeniden hesaplandı, kalem: $n';
+  }
+
+  @override
+  String invPackWarn(String unit, String name, String pu) {
+    return 'Faturada «$unit» bir pakettir, ürün «$name» ise «$pu» ile sayılır. Nasıl kabul edileceğini seçin: aksi halde paketler stoğa paket fiyatıyla adet olarak girer.';
+  }
+
+  @override
+  String get invPackSize => 'Paketteki adet';
+
+  @override
+  String get invPackToPieces => 'Adede çevir';
+
+  @override
+  String get invPackAsIs => 'Olduğu gibi kabul et';
+
+  @override
+  String get invPackBad =>
+      'Pakette kaç adet olduğunu yazın: 2 veya daha büyük tam sayı.';
+
+  @override
+  String invPackDonePieces(int n, String qty, String cost) {
+    return '1 paket = $n adet → $qty adet, $cost som';
+  }
+
+  @override
+  String invPackDoneAsIs(String qty, String unit, String cost) {
+    return 'Olduğu gibi kabul edildi: stok $qty $unit artar, alış $cost som / $unit';
+  }
+
+  @override
+  String get invPackChange => 'Değiştir';
+
+  @override
+  String get pieceSaleMode => 'Paketten adet sat';
+
+  @override
+  String get pieceSaleModeSub =>
+      'Sunucu adet yerine tüm paketleri düşüyorsa kapatın. O zaman bu ürün yalnızca paket olarak satılır.';
+
+  @override
+  String get pieceSaleTesterWarn =>
+      'Test: paketten adet satışı henüz sunucu tarafından doğrulanmadı. Ödemeden sonra ürün stoğunu kontrol edin.';
+
+  @override
+  String pieceStockMismatch(String list) {
+    return 'Adet satışından sonra sunucudaki stok tutmadı: $list. Ürün stoğunu kontrol edip yöneticiye bildirin.';
+  }
+
+  @override
+  String get klScStale => 'Kodun süresi doldu — tekrar tarayın';
+
+  @override
+  String get klScBusy => 'Ödeme sürüyor — bittikten sonra tarayın';
+
+  @override
+  String invCurrencyOk(String cur) {
+    return 'Fiyatlar $cur cinsinden, giriş ise som ile tutulur. Olduğu gibi ekle (1 $cur = 1 som) — tutarları kontrol ettim';
+  }
+
+  @override
+  String get invGrossOnly =>
+      'Dosyada yalnızca KDV\'li fiyatlar var. Alış fiyatı satırın oranına göre KDV\'siz hesaplandı (oran yoksa KDV\'li fiyat alındı). Kontrol edin.';
+
+  @override
+  String invUnitCheck(String inv, String item) {
+    return 'Kontrol edin · birim: faturada «$inv», üründe «$item»';
+  }
 }

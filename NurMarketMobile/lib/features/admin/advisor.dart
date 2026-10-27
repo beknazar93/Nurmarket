@@ -14,7 +14,14 @@ import '../../core/api/api_client.dart';
 import '../../core/api/session_store.dart';
 import '../../core/util/ui.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/ai/assistant/ai_perf.dart';
 import '../../core/ai/assistant/assistant_prompt.dart';
+import '../../core/ai/assistant/lang.dart' show detectLang;
+import '../../core/ai/assistant/nav_router.dart';
+import '../../core/ai/assistant/nav_tools.dart' show LocalNav, NavHost, navMsg;
+import '../../core/ai/assistant/screen_registry.dart' show ScreenRegistry, foldTokens;
+import '../../core/ai/assistant/tool_registry.dart' show ToolResult, ToolStatus;
+import '../../core/ai/live_call.dart' show looksLikeDataQuestion;
 import '../assistant/call_controller.dart';
 import '../../core/ai/gemini_keys.dart';
 import 'ai_access_ui.dart';
@@ -42,12 +49,49 @@ class _Msg {
   final String raw;
   final bool error;
   final bool noKey;
-  const _Msg(this.user, this.text, {String? raw, this.error = false, this.noKey = false}) : raw = raw ?? text;
+
+  /// 2026-10-27: реплика локальной навигации («открой склад» -> «Открыла: Склад»). В историю для ИИ не идёт: иначе ИИ решит,
+  /// что умеет открывать разделы из чата, и начнёт говорить «открыла», ничего не открыв.
+  final bool local;
+
+  /// Варианты кнопками при ничьей («Какой раздел открыть?», «Какой товар?»).
+  final List<_NavChoice> options;
+  const _Msg(this.user, this.text, {String? raw, this.error = false, this.noKey = false, this.local = false, this.options = const []}) : raw = raw ?? text;
 }
+
+class _NavChoice {
+  final String label;
+  final NavDecision decision;
+  final int? pick;
+  const _NavChoice(this.label, this.decision, this.pick);
+}
+
+/// 2026-10-27 (расследование «ИИ долго думает»): вопрос не про цифры магазина (приветствие, «спасибо», «что ты умеешь») —
+/// сводку магазина не собираем (она тянет 7 запросов на сервер) и отвечаем быстрой моделью. Любое сомнение — данные нужны.
+bool advisorNeedsStoreData(String text) {
+  if (looksLikeDataQuestion(text)) return true;
+  final w = foldTokens(text);
+  if (w.isEmpty || w.length > 4) return true;
+  const stems = [
+    'привет', 'здравств', 'добр', 'спасиб', 'благодар', 'пока', 'умеешь', 'можешь', 'помощ', 'помоги', 'салам', 'рахмат', 'эмне',
+    'salom', 'rahmat', 'yordam', 'nima', 'hello', 'hi', 'hey', 'thank', 'thanks', 'help', 'who', 'what', 'merhaba', 'selam', 'tesekkur', 'sagol', 'yardim',
+  ];
+  return !w.any((x) => stems.any((s) => s.length <= 3 ? x == s : x.startsWith(s)));
+}
+
+/// 2026-10-27 (расследование «ИИ не отвечает в переписке»): общий срок ответа чата — со сбором сводки, подключением и запасными ИИ.
+/// Раньше «Спрашиваю ИИ…» мог крутиться 1,5–3 минуты; теперь по истечении — «ИИ долго не отвечает» и кнопка «Повторить».
+const advisorAnswerBudget = Duration(seconds: 45);
 
 /// 2026-10-22 (советник мобилки): понятный текст ошибки вместо тишины — нет ключа → куда его добавить, иначе причина.
 String advisorErrorText(AppLocalizations l, Object e) => switch (e) {
   AiAccessDenied(:final message) => message,
+  // 2026-10-27: причина, а не общее «не ответил»: лимит (до какого часа), Google отклонил ключ, ИИ долго не отвечает
+  VisionException(issue: VisionIssue.quota, :final until) =>
+    until == null ? l.advisorQuotaLater : l.advisorQuota(VisionService.hm(until)),
+  VisionException(issue: VisionIssue.keyRejected, :final until) =>
+    l.advisorKeyRejected(VisionService.hm(until ?? DateTime.now().add(GeminiKeyPool.invalidRetry))),
+  VisionException(issue: VisionIssue.timeout) => l.advisorTimeout,
   VisionException(noKey: true) => l.advisorNoKey,
   VisionException(:final message) => l.advisorError(message),
   ApiException(:final message) => l.advisorError(message),
@@ -212,7 +256,91 @@ class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
       _messages.add(_Msg(true, text));
       _input.clear();
     });
+    // 2026-10-27: короткая команда «открой …» разбирается на телефоне за миллисекунды — без сводки магазина и без ИИ
+    if (await _tryLocalNav(text)) return;
     await _answer();
+  }
+
+  /// Язык ответа программы: по языку фразы; кириллица без ң/ө/ү при кыргызском интерфейсе — кыргызский, латиница при uz/tr — язык интерфейса.
+  String _replyLang(String text) {
+    final ui = ref.read(prefsProvider).locale.languageCode;
+    final d = detectLang(text, fallback: ui);
+    if (d == 'ru' && ui == 'ky') return 'ky';
+    if (d == 'en' && (ui == 'uz' || ui == 'tr')) return ui;
+    return d;
+  }
+
+  /// 2026-10-27 (расследование «ИИ неправильно открывает разделы»): в чате раньше НЕ было навигации — «открой приёмку» уходило ИИ,
+  /// который отвечал текстом и мог написать «открыла», ничего не открыв. Теперь первый путь — локальный маршрутизатор: ответ
+  /// строится из факта (раздел открылся — «Открыла: Склад -> Приёмка»; не открылся — «Не получилось открыть…»; ничья — кнопки).
+  /// false — это не команда навигации, пусть отвечает ИИ.
+  Future<bool> _tryLocalNav(String text) async {
+    final session = ref.read(sessionProvider);
+    final host = _call.nav;
+    if (session == null || host == null) return false;
+    final sw = Stopwatch()..start();
+    final d = parseNavCommand(text, session: session);
+    if (d.kind == NavKind.none) return false;
+    final parseMs = sw.elapsedMilliseconds;
+    final i = _messages.lastIndexWhere((m) => m.user);
+    if (i >= 0) {
+      final m = _messages[i];
+      setState(() => _messages[i] = _Msg(true, m.text, raw: m.raw, local: true));
+    }
+    await _runNav(d, session, host, lang: _replyLang(text), parseMs: parseMs);
+    return true;
+  }
+
+  Future<void> _runNav(NavDecision d, Session session, NavHost host, {required String lang, int pick = 0, int parseMs = 0}) async {
+    final sw = Stopwatch()..start();
+    setState(() {
+      _busy = true;
+      _stage = null;
+    });
+    ToolResult res;
+    try {
+      res = await LocalNav(host).run(d, session, lang: lang, pick: pick > 0 ? pick : null);
+    } catch (_) {
+      res = ToolResult(ToolStatus.error, navMsg('failed', lang, {'title': d.def?.fullTitle(lang) ?? ''}));
+    }
+    (AiPerfTrace('chat.nav')
+          ..tag('kind', d.kind.name)
+          ..tag('screen', d.def?.key ?? '-')
+          ..tag('status', res.status.wire)
+          ..tag('path', 'local')
+          ..ms('parse', parseMs)
+          ..ms('open', sw.elapsedMilliseconds))
+        .finish();
+    if (!mounted) return;
+    final opts = <_NavChoice>[];
+    if (res.status == ToolStatus.ambiguous) {
+      for (final o in res.options ?? const <Map<String, dynamic>>[]) {
+        final key = o['key'];
+        if (d.kind == NavKind.product) {
+          opts.add(_NavChoice('${o['title']}', d, o['n'] is int ? o['n'] as int : null));
+        } else if (key is String) {
+          final def = const ScreenRegistry().byKey(key);
+          if (def != null) opts.add(_NavChoice('${o['title']}', NavDecision(NavKind.open, def: def, args: d.args), null));
+        }
+      }
+    }
+    setState(() {
+      _messages.add(_Msg(false, res.say, local: true, options: opts));
+      _busy = false;
+    });
+    _toEnd();
+  }
+
+  Future<void> _pickNav(_Msg m, _NavChoice o) async {
+    final session = ref.read(sessionProvider);
+    final host = _call.nav;
+    if (session == null || host == null || _busy) return;
+    final i = _messages.indexOf(m);
+    setState(() {
+      if (i >= 0) _messages[i] = _Msg(false, m.text, local: true);
+      _messages.add(_Msg(true, o.label, local: true));
+    });
+    await _runNav(o.decision, session, host, lang: _replyLang(m.text), pick: o.pick ?? 0);
   }
 
   /// 2026-10-22 (советник мобилки): ответ на последний вопрос; «Повторить» у ошибки зовёт его снова. Любая ошибка — текстом
@@ -225,22 +353,53 @@ class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
       _stage = l.advisorStageData;
     });
     _toEnd();
+    // 2026-10-27 (расследование «ИИ долго думает»): замер по этапам в ai_perf.log — ключ, сводка, ответ ИИ; через 12 с ожидания —
+    // понятный промежуточный текст вместо молчаливого индикатора
+    final trace = AiPerfTrace('chat.llm');
+    final slow = Timer(const Duration(seconds: 12), () {
+      if (mounted && _busy) setState(() => _stage = navMsg('stageSlow', ref.read(prefsProvider).locale.languageCode));
+    });
     try {
       final vision = ref.read(visionProvider);
-      // 14.10: ключ Groq или OpenRouter тоже подходит. 2026-10-22: нет ни одного — понятное сообщение, где добавить ключ.
-      if (!await vision.hasChatKey()) throw const VisionException('no key', noKey: true);
-      final shop = ref.read(sessionProvider)?.companyName ?? '';
-      final data = await _storeContext();
-      if (mounted) setState(() => _stage = l.advisorStageAsk);
-      final system = _system(shop, data);
-      final history = [for (final m in _messages) if (!m.error) (user: m.user, text: m.raw)];
-      final answer = await vision.chat(system, history);
+      final started = Stopwatch()..start();
+      // 2026-10-27: весь ответ — не дольше ~45 с (+2 с: чат сам укладывается в свой остаток и сообщает причину первым)
+      final answer = await (() async {
+        // 14.10: ключ Groq или OpenRouter тоже подходит. 2026-10-22: нет ни одного — понятное сообщение, где добавить ключ.
+        // 2026-10-27: если ключи есть, но Google их временно отклонил — «Google отклонил ключ, повтор после HH:mm».
+        if (!await vision.hasChatKey()) throw vision.noKeyFailure();
+        trace.mark('key');
+        final shop = ref.read(sessionProvider)?.companyName ?? '';
+        // 2026-10-27: сводку магазина собираем лениво — только если вопрос про цифры (или она уже собрана за последние 5 минут)
+        final cached = _context != null && DateTime.now().difference(_contextAt) < const Duration(minutes: 5);
+        final lastAsk = _messages.lastWhere((m) => m.user && !m.local, orElse: () => const _Msg(true, '')).raw;
+        final needData = cached || advisorNeedsStoreData(lastAsk);
+        final data = needData ? await _storeContext() : '';
+        trace
+          ..mark('ctx')
+          ..tag('ctx', needData ? (cached ? 'cache' : 'fresh') : 'skip');
+        if (mounted) setState(() => _stage = l.advisorStageAsk);
+        final system = _system(shop, data);
+        final history = [for (final m in _messages) if (!m.error && !m.local) (user: m.user, text: m.raw)];
+        final left = advisorAnswerBudget - started.elapsed;
+        vision.fastChat = !needData;
+        final reply = await vision.chat(system, history, budget: left < const Duration(seconds: 6) ? const Duration(seconds: 6) : left);
+        trace
+          ..mark('ask')
+          ..tag('model', VisionService.lastChatModel ?? '-');
+        return reply;
+      })().timeout(
+        advisorAnswerBudget + const Duration(seconds: 2),
+        onTimeout: () => throw const VisionException('timeout', issue: VisionIssue.timeout),
+      );
+      trace.finish('ok');
       if (mounted) setState(() => _messages.add(_Msg(false, revealDebtorCodes(answer, _debtorNames), raw: answer)));
     } catch (e) {
+      trace.finish(e is VisionException && e.issue != null ? e.issue!.name : 'error');
       if (mounted) {
-        setState(() => _messages.add(_Msg(false, advisorErrorText(l, e), error: true, noKey: e is VisionException && e.noKey)));
+        setState(() => _messages.add(_Msg(false, advisorErrorText(l, e), error: true, noKey: e is VisionException && e.showSettings)));
       }
     } finally {
+      slow.cancel();
       if (mounted) {
         setState(() {
           _busy = false;
@@ -255,7 +414,12 @@ class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
       'Ты — Нур Советник, помощник владельца магазина «$shop» в Кыргызстане. Отвечай на языке вопроса, коротко и по делу, '
       'с цифрами из данных магазина ниже — называй их как есть, не пересчитывай. Таблицы делай Markdown-таблицей (| колонка | колонка | и строка |---|---|), не больше 4 колонок; выделяй главное **жирным**. '
       'Если данных нет — так и скажи, не выдумывай. Суммы — в сомах. Советуй конкретно: что заказать, кому напомнить о долге, что продаётся лучше. '
-      'Должников называй только кодами в квадратных скобках, например [Д1].\n\nДАННЫЕ МАГАЗИНА на ${_d(DateTime.now())}:\n$data';
+      'Должников называй только кодами в квадратных скобках, например [Д1]. '
+      // 2026-10-27 (расследование «ИИ говорил „открыла“, ничего не открыв»): в чате у ИИ нет инструментов
+      'В ЭТОМ ЧАТЕ у тебя нет инструментов: ты не открываешь разделы, не нажимаешь кнопки и не меняешь данные. Никогда не пиши «открыла», «открываю», «сделала», '
+      '«добавила», «изменила» — действия выполняет только программа и сообщает о них сама. Если просят открыть раздел, а программа его не открыла, скажи: '
+      '«Не поняла, какой раздел открыть. Напишите коротко: „открой склад“, „открой приёмку“, „открой ревизию“» — и ничего не обещай.'
+      '${data.isEmpty ? '\n\nДанных магазина в этом сообщении нет (вопрос не про цифры). Если для ответа нужны цифры магазина — попроси задать вопрос с цифрами.' : '\n\nДАННЫЕ МАГАЗИНА на ${_d(DateTime.now())}:\n$data'}';
 
   /// 2026-10-22 (звонок ИИ мобилки): инструкция голосового звонка — как OwnerVoicePrompt на ПК (BuildOwnerVoiceInstruction):
   /// коротко и разговорно, язык последней фразы, цифры только из данных, коды [Д1] вслух не произносить; плюс последние реплики чата.
@@ -287,7 +451,7 @@ class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
       storeData: data,
       today: _d(DateTime.now()),
       lacks: lacks,
-      recentChat: [for (final m in _messages) if (!m.error) (user: m.user, text: m.raw)],
+      recentChat: [for (final m in _messages) if (!m.error && !m.local) (user: m.user, text: m.raw)],
       video: prep.video,
     );
   }
@@ -451,6 +615,16 @@ class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
                               )
                             else
                               SelectionArea(child: MdView(m.text, color: pal.text)),
+                            // 2026-10-27: ничья локальной навигации — варианты кнопками (не больше 4)
+                            if (m.options.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [for (final o in m.options) ActionChip(label: Text(o.label), onPressed: _busy ? null : () => _pickNav(m, o))],
+                                ),
+                              ),
                             // 2026-10-22 (советник мобилки): у ошибки — «Повторить» (и «Настройка ИИ», если ключа нет).
                             if (m.error)
                               Padding(

@@ -18,6 +18,7 @@ import '../../core/util/ui.dart';
 import 'admin_repository.dart';
 import 'admin_receive.dart';
 import '../../core/util/audit.dart';
+import '../stock/product_delete.dart';
 import '../stock/product_edit.dart';
 
 final adminRepoProvider = Provider((ref) => AdminRepository(ref.watch(apiProvider), ref.watch(databaseProvider)));
@@ -99,6 +100,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
         l.grpStock,
         [
           (Icons.move_to_inbox_outlined, l.receiveWithPrices, '/admin/receive'),
+          (Icons.upload_file_rounded, l.invTitle, '/admin/invoice'),
           (Icons.add_box_outlined, l.newProduct, '/admin/new-product'),
           (Icons.sell_outlined, l.productPrice, '/admin/product'),
           (Icons.photo_camera_rounded, l.smartCam, '/admin/smartcam'),
@@ -1548,34 +1550,10 @@ Future<String?> askDeleteReason(BuildContext context) {
 }
 
 /// 13.10, владелец: «кнопку удалить товар добавь». Подтверждение и удаление; true — удалён.
-Future<bool> confirmDeleteProduct(BuildContext context, WidgetRef ref, Product p) async {
-  final l = context.l;
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (c) => AlertDialog(
-      title: Text(l.deleteProduct),
-      content: Text(l.deleteProductAsk(p.name)),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: T.danger, foregroundColor: Colors.white),
-          onPressed: () => Navigator.pop(c, true),
-          child: Text(l.deleteProduct),
-        ),
-      ],
-    ),
-  );
-  if (ok != true || !context.mounted) return false;
-  try {
-    await ref.read(adminRepoProvider).deleteProduct(p.id);
-    Audit.log('product', '${l.deleteProduct}: ${p.name}');
-    if (context.mounted) toast(context, l.productDeleted);
-    return true;
-  } on ApiException catch (e) {
-    if (context.mounted) toast(context, e.message, error: true);
-    return false;
-  }
-}
+/// 2026-10-27 (М3): право, проверка очереди и остатка, ввод названия, ответы сервера и журнал — в product_delete.dart;
+/// [stock] — остаток из карточки (свежий с сервера).
+Future<bool> confirmDeleteProduct(BuildContext context, WidgetRef ref, Product p, {double? stock}) =>
+    confirmAndDeleteProduct(context, ref, p, stock: stock);
 
 /// 14.10, владелец: удаление строки «как чат в Telegram» — смахнуть влево, открывается красная кнопка «Убрать»;
 /// смахнуть обратно или нажать на строку — закрыть. Строка удаляется только по нажатию на кнопку.

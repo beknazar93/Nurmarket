@@ -10,6 +10,7 @@ import 'dart:async';
 
 import '../../api/session_store.dart';
 import '../live_tools.dart';
+import 'nav_router.dart';
 import 'screen_registry.dart';
 import 'tool_registry.dart';
 
@@ -49,12 +50,57 @@ abstract class NavHost {
   Future<bool> openCheck({String? number, bool last = false});
 }
 
+/// 2026-10-27 (расследование «ИИ говорил „открыла“, ничего не открыв»): хост, который умеет ПОДТВЕРДИТЬ, что экран реально открылся
+/// (в приложении — RouterNavHost: адрес роутера совпал с целью / страница вне маршрутов поставлена). Хосты без подтверждения
+/// (фейки в тестах) работают по-старому — переход считается начатым.
+abstract interface class NavVerifier {
+  /// [where] — адрес из [NavHost.openRoute] или ключ экрана вне маршрутов; ждёт не дольше [wait].
+  Future<bool> confirmed(String where, {Duration wait});
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Сообщения (ru, ky, uz, en, tr) — как toolMsg в tool_registry.dart; свои, чтобы не править общий файл.
 // ---------------------------------------------------------------------------------------------------------------------
 
 const _m = <String, List<String>>{
   'opened': ['Открыла: {title}{detail}.', 'Ачтым: {title}{detail}.', 'Ochdim: {title}{detail}.', 'Opened: {title}{detail}.', 'Açtım: {title}{detail}.'],
+  // 2026-10-27: итог строится из факта. «Не получилось» — экран не открылся за ~1,5 с (ИИ не должен говорить «открыла»)
+  'failed': [
+    'Не получилось открыть «{title}». Попробуйте ещё раз или откройте раздел вручную.',
+    '«{title}» бөлүмүн ачуу мүмкүн болбоду. Кайра аракет кылыңыз же өзүңүз ачыңыз.',
+    '«{title}» bo\'limini ochib bo\'lmadi. Qayta urinib ko\'ring yoki o\'zingiz oching.',
+    'Could not open "{title}". Try again or open the section by hand.',
+    '"{title}" açılamadı. Tekrar deneyin veya bölümü elle açın.',
+  ],
+  'chooseScreen': [
+    'Какой раздел открыть? Выберите кнопкой или скажите номер.',
+    'Кайсы бөлүмдү ачайын? Баскычты басыңыз же номерин айтыңыз.',
+    'Qaysi bo\'limni ochay? Tugmani bosing yoki raqamini ayting.',
+    'Which section should I open? Tap a button or say the number.',
+    'Hangi bölümü açayım? Düğmeye dokunun veya numarasını söyleyin.',
+  ],
+  'chooseOne': [
+    'Вы имели в виду «{title}»?',
+    '«{title}» дегенди айттыңызбы?',
+    '«{title}» nazarda tutdingizmi?',
+    'Did you mean "{title}"?',
+    '"{title}" mi demek istediniz?',
+  ],
+  'hintWriteoff': [
+    'Отдельного раздела «Списание» нет: списывают в карточке товара. Скажите «открой товар …» и выберите «Списание».',
+    '«Списание» деген өзүнчө бөлүм жок: товардын картасында списание кылынат. «… товарын ач» деп айтыңыз.',
+    '«Spisanie» alohida bo\'limi yo\'q: tovar kartasida hisobdan chiqariladi. «… tovarini och» deb ayting.',
+    'There is no separate "Write-off" section: write-offs are done in the product card. Say "open product …" and choose "Write-off".',
+    'Ayrı bir "Zayiat" bölümü yok: ürün kartında yapılır. "… ürününü aç" deyin.',
+  ],
+  // 2026-10-27: промежуточный текст ожидания чата (вместо молчаливого индикатора дольше ~10 с)
+  'stageSlow': [
+    'ИИ отвечает дольше обычного — подождите ещё немного…',
+    'ИИ адаттагыдан узагыраак жооп берүүдө — дагы бир аз күтүңүз…',
+    'AI odatdagidan sekinroq javob bermoqda — yana biroz kuting…',
+    'The AI is slower than usual — one more moment…',
+    'Yapay zeka her zamankinden yavaş yanıt veriyor — biraz daha bekleyin…',
+  ],
   'here': ['Уже открыт раздел «{title}».', '«{title}» бөлүмү мурунтан эле ачык.', '«{title}» bo\'limi allaqachon ochiq.', '"{title}" is already open.', '"{title}" zaten açık.'],
   'noParam': [
     ' Запрос на этом экране пока не подставляется — введите его на экране.',
@@ -144,6 +190,17 @@ void registerNavTools(ToolRegistry reg, NavHost host, {ScreenRegistry screens = 
   }
 }
 
+final _recentByHost = Expando<Map<String, DateTime>>('navRecent');
+
+ToolResult _chooseResult(List<ScreenDef> opts, String lang) => ToolResult(
+  ToolStatus.ambiguous,
+  navMsg('chooseScreen', lang),
+  options: [
+    for (var i = 0; i < opts.length; i++) {'n': i + 1, 'title': opts[i].fullTitle(lang), 'key': opts[i].key},
+  ],
+  data: {'total': opts.length},
+);
+
 List<AssistantTool> navTools(NavHost host, {ScreenRegistry screens = const ScreenRegistry(), Duration hostTimeout = const Duration(seconds: 2)}) =>
     _NavTools(host, screens, hostTimeout).build();
 
@@ -151,7 +208,12 @@ class _NavTools {
   final NavHost host;
   final ScreenRegistry screens;
   final Duration hostTimeout;
-  _NavTools(this.host, this.screens, this.hostTimeout);
+  final Duration verifyWait;
+  _NavTools(this.host, this.screens, this.hostTimeout, {this.verifyWait = const Duration(milliseconds: 1500)});
+
+  /// Куда и когда эта программа только что перешла (адрес → время): повторный вызов ИИ того же перехода не врёт «уже открыт».
+  /// Одна запись на хост — её делят инструменты звонка и локальный путь ([LocalNav]).
+  Map<String, DateTime> get _recent => _recentByHost[host] ??= <String, DateTime>{};
 
   static bool _canClients(Session s) => s.canRoute('/admin/clients');
   static bool _canOrders(Session s) => s.canRoute('/admin/orders');
@@ -163,6 +225,12 @@ class _NavTools {
       for (final d in screens.all)
         if (d.exists && d.voiceOpen) d.key,
     ];
+    // 2026-10-27: раньше в схеме были только ключи («stock_receive», «receive», «invoice»…) — модель выбирала вслепую и путала
+    // соседние разделы. Теперь у каждого ключа есть название: модель выбирает то, что назвал пользователь.
+    final names = [
+      for (final d in screens.all)
+        if (d.exists && d.voiceOpen) '${d.key}=${d.fullTitle('ru')}',
+    ].join('; ');
     return [
       AssistantTool(
         group: ToolGroup.nav,
@@ -171,10 +239,12 @@ class _NavTools {
           'Navigation only, changes nothing. Open an app screen by key when the user asks to open/show a section '
           '(ru: открой склад, ky: кампаны ач, uz: ombor och, en: open stock, tr: depoyu aç). '
           'filter: stock list low|out|in|all. query: search text for search/clients/orders/receipts. '
-          'period: summary today|week|month. tab: scan sale|price; new_product product|clothes|service. '
-          'Never use it to pay or to change data.',
+          'period: summary today|week|month. tab: scan sale|price; new_product product|clothes|service; smartcam shelf|invoice|labels. '
+          'Open exactly the section the user NAMED; never guess a neighbouring one. If the answer is "ambiguous", ask which and call again with pick. '
+          'Say "opened" only if the result says status ok. Keys: $names. Never use it to pay or to change data.',
           parameters: sObj({
             'screen': sStr(desc: 'Screen key', values: keys),
+            'pick': sInt(desc: 'Number of the option the user chose after an "ambiguous" answer (1-based)'),
             'filter': sStr(desc: 'Stock filter: low, out, in or all'),
             'query': sStr(desc: 'Text to search for'),
             'period': sStr(desc: 'today, week or month', values: ['today', 'week', 'month']),
@@ -273,16 +343,47 @@ class _NavTools {
   Future<ToolResult> _openScreen(ToolRequest r) async {
     final lang = r.env.lang;
     final raw = '${r.args['screen'] ?? ''}'.trim();
-    final def = raw.isEmpty ? null : screens.resolve(raw);
-    if (def == null) return ToolResult(ToolStatus.notFound, navMsg('unknownScreen', lang));
-    return _openDef(def, {for (final k in const ['filter', 'query', 'period', 'tab']) k: r.args[k]}, r);
+    var def = raw.isEmpty ? null : screens.resolve(raw);
+    final args = <String, Object?>{for (final k in const ['filter', 'query', 'period', 'tab']) k: r.args[k]};
+    // 2026-10-27: слова пользователя главнее выбора модели. Если пользователь ОДНОЗНАЧНО назвал экран, а модель открыла другой
+    // (как на ПК: «приёмка» → «Прибыль и деньги»), берём то, что сказал пользователь. Выбор модели не трогаем, если слова
+    // пользователя его допускают или разбор неуверенный.
+    final said = r.env.speech.last;
+    if (said != null && !said.echoSuspect && said.text.isNotEmpty) {
+      final nd = parseNavCommand(said.text, session: r.env.session, screens: screens);
+      if (nd.kind == NavKind.open && nd.confident && nd.def != null && (def == null || !nd.supports(def.key))) {
+        def = nd.def;
+        nd.args.forEach((k, v) => args[k] = v);
+      }
+    }
+    if (def == null) {
+      // два экрана подходят одинаково — не «не нашла», а варианты (до 4); с pick — выбранный
+      final tie = raw.isEmpty ? const <ScreenDef>[] : _tieOptions(raw, r.env.session);
+      final pick = _pickOf(r.args['pick']);
+      if (tie.length > 1 && pick != null && pick >= 1 && pick <= tie.length) return _openDef(tie[pick - 1], args, r);
+      if (tie.length > 1) return _chooseResult(tie, lang);
+      if (tie.length == 1) return _openDef(tie.first, args, r);
+      return ToolResult(ToolStatus.notFound, navMsg('unknownScreen', lang));
+    }
+    return _openDef(def, args, r);
+  }
+
+  /// Экраны, одинаково подходящие под слова [raw] (не больше 4; недоступные роли отброшены, если есть доступные).
+  List<ScreenDef> _tieOptions(String raw, Session s) {
+    final m = screens.find(raw);
+    if (m.isEmpty) return const [];
+    final top = m.first.score;
+    var group = [for (final e in m) if (e.score * 10 >= top * 9) e.def];
+    final allowed = [for (final d in group) if (d.allowedFor(s)) d];
+    if (allowed.isNotEmpty) group = allowed;
+    return group.length > 4 ? group.sublist(0, 4) : group;
   }
 
   /// Общий путь открытия экрана: право → параметры → адрес → переход через хост.
   Future<ToolResult> _openDef(ScreenDef def, Map<String, Object?> rawArgs, ToolRequest r) async {
     final lang = r.env.lang;
     final s = r.env.session;
-    final title = def.title(lang);
+    final title = def.fullTitle(lang); // 2026-10-27: «Склад → Приёмка с поставщиком» — называем то, что реально открыто
     if (!def.exists || !def.voiceOpen) {
       return ToolResult(ToolStatus.denied, navMsg('noVoice', lang, {'title': title}));
     }
@@ -313,13 +414,45 @@ class _NavTools {
     if (def.route != null) {
       where = Uri(path: def.route, queryParameters: query.isEmpty ? null : query).toString();
       if (host.location == where) {
-        return ToolResult(ToolStatus.ok, navMsg('here', lang, {'title': title}), screen: where, data: {'screen': def.key, 'already': true});
+        // 2026-10-27: экран только что открыла сама программа по словам пользователя (локальный разбор) — ИИ повторяет тот же вызов:
+        // отвечаем «открыла», а не «уже открыт» (иначе голос противоречит тому, что пользователь видит и слышал)
+        final at = _recent[where];
+        if (at != null && DateTime.now().difference(at) < const Duration(seconds: 10)) {
+          return ToolResult(ToolStatus.ok, navMsg('opened', lang, {'title': title, 'detail': ''}), screen: where, data: {'screen': def.key, 'route': where, 'opened': true});
+        }
+        return ToolResult(ToolStatus.ok, navMsg('here', lang, {'title': title}), screen: where, data: {'screen': def.key, 'already': true, 'opened': true});
       }
+      // Тот же переход уже начат параллельным вызовом (локальный путь и ИИ сказали одно и то же): второй раз не открываем, ждём итог.
+      final started = _recent[where];
+      final h0 = host;
+      if (h0 is NavVerifier && started != null && DateTime.now().difference(started) < const Duration(seconds: 3)) {
+        final ok = await (h0 as NavVerifier).confirmed(where, wait: verifyWait);
+        return ok
+            ? ToolResult(ToolStatus.ok, navMsg('opened', lang, {'title': title, 'detail': ''}), screen: where, data: {'screen': def.key, 'route': where, 'opened': true})
+            : ToolResult(ToolStatus.error, navMsg('failed', lang, {'title': title}), screen: h0.location, data: {'screen': def.key, 'opened': false});
+      }
+      _recent[where] = DateTime.now();
       await _callHost(() => host.openRoute(where));
     } else {
       where = def.aux!;
       await _callHost(() => host.openAux(def.aux!));
     }
+    // 2026-10-27: результат проверяется РЕАЛЬНЫМ открытием экрана (callback роутера), а не тем, что вызов не упал.
+    final h = host;
+    if (h is NavVerifier) {
+      final ok = await (h as NavVerifier).confirmed(where, wait: verifyWait);
+      if (!ok) {
+        _recent.remove(where);
+        final denied = h.location.startsWith('/denied');
+        return ToolResult(
+          denied ? ToolStatus.denied : ToolStatus.error,
+          navMsg(denied ? 'denied' : 'failed', lang, {'title': title}),
+          screen: h.location,
+          data: {'screen': def.key, 'opened': false},
+        );
+      }
+    }
+    _recent[where] = DateTime.now();
 
     final details = <String>[
       if (applied['filter'] != null) navMsg('f.${applied['filter']}', lang),
@@ -331,7 +464,7 @@ class _NavTools {
       ToolStatus.ok,
       say,
       screen: where,
-      data: {'screen': def.key, 'route': where, if (applied.isNotEmpty) 'applied': applied},
+      data: {'screen': def.key, 'route': where, 'opened': true, if (applied.isNotEmpty) 'applied': applied},
     );
   }
 
@@ -451,5 +584,56 @@ class _NavTools {
         'screens': [for (final d in list) '${d.key}:${d.title(lang)}'],
       },
     );
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Локальный путь без ИИ
+// ---------------------------------------------------------------------------------------------------------------------
+
+/// 2026-10-27: исполнитель решения локального маршрутизатора ([parseNavCommand]) — для чата Советника и для звонка. Те же правила,
+/// что у инструментов (право роли, проверка открытия экрана хостом, итог по факту), только без ИИ: ответ готов за миллисекунды.
+class LocalNav {
+  final NavHost host;
+  final ScreenRegistry screens;
+  final Duration hostTimeout;
+  final Duration verifyWait;
+  late final _NavTools _t = _NavTools(host, screens, hostTimeout, verifyWait: verifyWait);
+  LocalNav(this.host, {this.screens = const ScreenRegistry(), this.hostTimeout = const Duration(seconds: 2), this.verifyWait = const Duration(milliseconds: 1500)});
+
+  ToolRequest _req(String tool, Map<String, dynamic> args, Session s, String lang) =>
+      ToolRequest(LiveToolCall('local${DateTime.now().microsecondsSinceEpoch}', tool, args), ToolEnv(session: s, speech: UserSpeechLog(), lang: lang, screen: host.location));
+
+  /// Выполнить решение. [pick] — номер товара из прошлого ответа «ambiguous». Итог — по факту: «Открыла …» только после
+  /// подтверждённого открытия (status ok и data.opened = true), иначе причина.
+  Future<ToolResult> run(NavDecision d, Session s, {String lang = 'ru', int? pick}) async {
+    switch (d.kind) {
+      case NavKind.open:
+        return _t._openDef(d.def!, {...d.args}, _req('open_screen', {'screen': d.def!.key}, s, lang));
+      case NavKind.check:
+        return _t._openCheck(_req('open_check', {'number': d.checkNumber, 'last': d.checkLast}, s, lang));
+      case NavKind.product:
+        if (!s.canRoute('/admin/product')) return ToolResult(ToolStatus.denied, navMsg('denied', lang, {'title': screens.byKey('stock')!.title(lang)}));
+        return _t._openProduct(_req('open_product', {'query': d.query, 'pick': ?pick}, s, lang));
+      case NavKind.choose:
+        if (d.options.length == 1) {
+          final o = d.options.first;
+          return ToolResult(
+            ToolStatus.ambiguous,
+            navMsg('chooseOne', lang, {'title': o.fullTitle(lang)}),
+            options: [
+              {'n': 1, 'title': o.fullTitle(lang), 'key': o.key},
+            ],
+            data: {'total': 1},
+          );
+        }
+        return _chooseResult(d.options, lang);
+      case NavKind.hint:
+        return ToolResult(ToolStatus.notFound, navMsg('hintWriteoff', lang));
+      case NavKind.unknown:
+        return ToolResult(ToolStatus.notFound, navMsg('unknownScreen', lang));
+      case NavKind.none:
+        return ToolResult(ToolStatus.error, navMsg('unknownScreen', lang));
+    }
   }
 }

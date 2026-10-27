@@ -97,7 +97,7 @@ class Session {
   bool get manageTasks => isAdmin || can(viewEmployees);
 
   /// Разделы, которым кроме [routePermission] нужны закупки (см. [canProcure]).
-  static const _procureRoutes = {'/admin/receive', '/admin/purchase'};
+  static const _procureRoutes = {'/admin/receive', '/admin/purchase', '/admin/invoice'};
 
   /// Какой доступ нужен для раздела (как разделы десктопа: AdminWindow, меню кассы). null — открыт всем.
   static String? routePermission(String loc) {
@@ -105,6 +105,7 @@ class Session {
     switch (loc) {
       case '/admin/product':
       case '/admin/receive':
+      case '/admin/invoice': // 2026-10-27: загрузка накладной — те же права, что у «Приход»
       case '/admin/smartcam':
       case '/admin/new-product':
       case '/admin/purchase':
