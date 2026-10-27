@@ -74,6 +74,7 @@ public static class CartJsonHelper
         try
         {
             EnsureItemsArray(root);
+            StampCheckToken(root); // 2026-10-27 (ревью денег, К-1/К-2): жетон текущего чека
             doc = JsonDocument.Parse(root.ToJsonString());
 
             // CartService.SetCart(JsonElement) would re-parse root.GetRawText() a
@@ -117,6 +118,41 @@ public static class CartJsonHelper
         var root = CreateStagingCart(cartJson);
         if (!TryApplyObjectToCart(cart, root))
             StagingCartService.StartEmpty(cart);
+    }
+
+    /// <summary>2026-10-27 (ревью денег, К-1/К-2): поле чека — «жетон» текущего чека. Появляется с первой строкой и пропадает, когда чек опустел
+    /// (очистили, оплатили, новый чек). Нужен сверке неясной оплаты: тот же чек (к восстановленному добавили товар) или уже другой покупатель
+    /// с тем же хлебом. Живёт в JSON чека — переживает восстановление после неудачной оплаты, отложенный чек и перезапуск кассы.</summary>
+    public const string CheckTokenField = "check_token";
+
+    private static void StampCheckToken(JsonObject root)
+    {
+        var hasItems = root["items"] is JsonArray { Count: > 0 };
+        if (!hasItems)
+            root.Remove(CheckTokenField);
+        else if (root[CheckTokenField] is not JsonValue token || !token.TryGetValue<string>(out var value) || string.IsNullOrWhiteSpace(value))
+            root[CheckTokenField] = Guid.NewGuid().ToString("N");
+    }
+
+    /// <summary>Жетон чека из его JSON; null — нет (серверная корзина, чек до этой правки).</summary>
+    public static string? ReadCheckToken(string? cartJson)
+    {
+        if (string.IsNullOrWhiteSpace(cartJson))
+            return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(cartJson);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                   && doc.RootElement.TryGetProperty(CheckTokenField, out var el)
+                   && el.ValueKind == JsonValueKind.String
+                   && !string.IsNullOrWhiteSpace(el.GetString())
+                ? el.GetString()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static void EnsureItemsArray(JsonObject root)

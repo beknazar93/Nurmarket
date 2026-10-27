@@ -17,6 +17,7 @@ public sealed class CashShiftService : ICashShiftService
     private readonly IReceiptPrinterService _receiptPrinter;
     private readonly IOfflinePosStateStore _offlinePosStateStore;
     private readonly ISalesApiService _salesApi;
+    private readonly SyncService? _syncService;
 
     public CashShiftService(
         IShiftApiService shiftApi,
@@ -24,7 +25,8 @@ public sealed class CashShiftService : ICashShiftService
         MySqlAuditService auditDb,
         IReceiptPrinterService receiptPrinter,
         IOfflinePosStateStore offlinePosStateStore,
-        ISalesApiService salesApi)
+        ISalesApiService salesApi,
+        SyncService? syncService = null) // 2026-10-27 (ревью, См-1): досылка очереди чеков прошлой смены перед её закрытием; null (стенд) — без досылки
     {
         _shiftApi = shiftApi;
         _shiftStateService = shiftStateService;
@@ -32,13 +34,54 @@ public sealed class CashShiftService : ICashShiftService
         _receiptPrinter = receiptPrinter;
         _offlinePosStateStore = offlinePosStateStore;
         _salesApi = salesApi;
+        _syncService = syncService;
     }
 
-    /// <summary>
-    /// Итог локальных внесений минус изъятия по смене. Заполняется UI-слоем
-    /// (Infrastructure не видит хранилище кассовых операций хоста).
-    /// </summary>
-    public static Func<string?, decimal>? ShiftCashOperationsNetProvider { get; set; }
+    /// <summary>2026-10-27 (ревью, См-1): сколько чеков смены ещё в офлайн-очереди (та же выборка, что у фоновой очереди закрытий
+    /// SyncService и у MainWindow.FlushBeforeShiftCloseAsync). Подменяется только стендом (чтобы не трогать настоящую базу).</summary>
+    internal static Func<string, int> QueuedSalesOfShift = shiftId =>
+        OfflinePendingSalesStore.LoadPendingForSync().Count(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Стенд: вместо SyncService досылает чеки сам.</summary>
+    internal static Func<CancellationToken, Task>? FlushQueuedSalesOverride;
+
+    /// <summary>2026-10-27 (ревью, См-2): сколько раз «Открыть смену» отказывает, если сервер не закрыл прошлую смену из очереди, —
+    /// дальше касса продолжает прошлую смену (кассира нельзя запирать насовсем), но с предупреждением о потерянном пересчёте.</summary>
+    internal const int OpenRetriesBeforeResume = 3;
+
+    /// <summary>2026-10-27 (ревью, См-1): ждём, пока уйдут чеки смены, до ~10 с (проба связи + проход очереди). Возвращает, сколько осталось.</summary>
+    private async Task<int> FlushQueuedSalesAsync(string shiftId, CancellationToken cancellationToken)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(TimeSpan.FromSeconds(10));
+        try
+        {
+            for (var attempt = 0; attempt < 4 && QueuedSalesOfShift(shiftId) > 0 && !cts.IsCancellationRequested; attempt++)
+            {
+                if (FlushQueuedSalesOverride is { } custom)
+                    await custom(cts.Token).ConfigureAwait(false);
+                else if (_syncService is not null)
+                {
+                    await _syncService.ProbeNowAsync(cts.Token).ConfigureAwait(false);
+                    await _syncService.TriggerSyncNowAsync(cts.Token).ConfigureAwait(false);
+                }
+                else
+                    break;
+
+                if (QueuedSalesOfShift(shiftId) > 0)
+                    await Task.Delay(1000, cts.Token).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Открытие смены: досылка чеков прошлой смены не завершена: {ex.Message}", "SHIFT");
+        }
+
+        return QueuedSalesOfShift(shiftId);
+    }
 
     public async Task<CashShiftOperationResult> OpenShiftAsync(decimal openingCash, CancellationToken cancellationToken = default)
     {
@@ -80,6 +123,108 @@ public sealed class CashShiftService : ICashShiftService
             watch.Stop();
 
             var shiftId = CartDisplayHelper.TryShiftIdFromOpenResponse(response);
+
+            // 2026-10-27 (аудит кассы, В-7): смена закрыта на кассе «в очередь» (сервер не принял закрытие), а «открыть смену» у
+            // сервера идемпотентна — он отдаёт ту же старую смену, и SyncService через ≤ 45 с закрывал её, то есть уже текущую
+            // («Смена не открыта» посреди работы). Сначала пробуем закрыть старую на сервере и открыть новую; не вышло — касса
+            // честно продолжает эту смену (запись очереди снимается, иначе фон её закроет).
+            var queuedRevival = false;
+            string? carryOverHint = null;
+            if (!string.IsNullOrWhiteSpace(shiftId) && PendingShiftCloseStore.TryGet(shiftId) is { } queuedClose)
+            {
+                // 2026-10-27 (ревью, См-1): чеки старой смены ещё в офлайн-очереди — закрывать её на сервере рано: чеки уйдут в НОВУЮ смену (или
+                // будут отклонены), Z вчерашней смены занижен, сегодняшней завышен. Фоновая очередь так же ждёт (SyncService, shiftsWithQueuedSales).
+                // Сначала досылаем; не ушли — смену не закрываем и новую не открываем, запись очереди остаётся (фон закроет её сам, когда чеки уйдут).
+                var queuedSales = QueuedSalesOfShift(shiftId);
+                if (queuedSales > 0)
+                {
+                    PosLogger.Log($"Открытие смены: у смены {shiftId} из очереди закрытий в офлайн-очереди {queuedSales} чек(ов) — досылаю до её закрытия.", "SHIFT");
+                    queuedSales = await FlushQueuedSalesAsync(shiftId, cancellationToken).ConfigureAwait(false);
+                }
+
+                if (queuedSales > 0)
+                {
+                    PosLogger.Log($"Открытие смены: чеки прошлой смены {shiftId} не ушли ({queuedSales}) — смену не закрываю, новую не открываю.", "SHIFT");
+                    return CashShiftOperationResult.Failed(Tr.T(
+                        $"Прошлая смена ещё не закрыта на сервере: не отправлено чеков — {queuedSales}. Дождитесь отправки (минута-две, нужна связь) и откройте смену ещё раз — иначе её чеки попадут в новую смену.",
+                        $"Мурунку смена серверде дагы жабыла элек: жөнөтүлбөгөн чектер — {queuedSales}. Жөнөтүлгүчө күтүңүз (бир-эки мүнөт, байланыш керек) жана сменаны кайра ачыңыз — болбосо анын чектери жаңы сменага түшөт.",
+                        $"The previous shift is not closed on the server yet: {queuedSales} receipt(s) not sent. Wait until they are sent (a minute or two, a connection is needed) and open the shift again — otherwise its receipts would land in the new shift.",
+                        $"Önceki vardiya sunucuda henüz kapatılmadı: gönderilmemiş fiş sayısı — {queuedSales}. Gönderilmesini bekleyin (bir iki dakika, bağlantı gerekir) ve vardiyayı tekrar açın — aksi halde fişleri yeni vardiyaya düşer.",
+                        $"Oldingi smena serverda hali yopilmagan: yuborilmagan cheklar — {queuedSales}. Yuborilishini kuting (bir-ikki daqiqa, aloqa kerak) va smenani qaytadan oching — aks holda uning cheklari yangi smenaga tushadi."));
+                }
+
+                PosLogger.Log($"Открытие смены: сервер вернул смену {shiftId}, закрытую на кассе и стоящую в очереди закрытий — закрываю её на сервере сначала.", "SHIFT");
+                using var closeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                closeCts.CancelAfter(TimeSpan.FromSeconds(15));
+                (ShiftCloseOutcome Outcome, string? Error) closed;
+                try
+                {
+                    closed = await ShiftCloseRetry.CloseAsync(_shiftApi, shiftId, queuedClose.ClosingCash, closeCts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    closed = (ShiftCloseOutcome.Failed, "таймаут");
+                }
+
+                if (closed.Outcome != ShiftCloseOutcome.Failed)
+                {
+                    PendingShiftCloseStore.Remove(shiftId);
+                    try
+                    {
+                        response = await _shiftApi.ConstructionShiftOpenAsync(cashboxId, opening, closeCts.Token).ConfigureAwait(false);
+                        shiftId = CartDisplayHelper.TryShiftIdFromOpenResponse(response);
+                    }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        return CashShiftOperationResult.Failed(Tr.T("Прошлая смена закрыта, но новая не открылась: сервер не ответил. Откройте смену ещё раз.",
+                            "Мурунку смена жабылды, бирок жаңысы ачылган жок: сервер жооп берген жок. Сменаны кайра ачыңыз.",
+                            "The previous shift is closed, but the new one did not open: the server did not answer. Open the shift again.",
+                            "Önceki vardiya kapatıldı ama yenisi açılmadı: sunucu yanıt vermedi. Vardiyayı tekrar açın.",
+                            "Oldingi smena yopildi, lekin yangisi ochilmadi: server javob bermadi. Smenani qaytadan oching."));
+                    }
+                }
+
+                if (string.Equals(shiftId, queuedClose.ShiftId, StringComparison.OrdinalIgnoreCase))
+                {
+                    // 2026-10-27 (ревью, См-2): продолжить старую смену молча нельзя — вчерашний пересчёт кассира (closing cash) теряется, и
+                    // сегодняшний Z покажет ложную недостачу (ожидание вчерашнее, в ящике только новое начало). Первые разы отказываем:
+                    // запись очереди остаётся, кассир повторяет открытие. Не помогло (сервер упорно не принимает) — продолжаем, но кассир
+                    // получает сумму, которую надо записать изъятием/внесением, чтобы ящик сошёлся.
+                    var retries = PendingShiftCloseStore.RecordOpenRetry(shiftId!, closed.Error);
+                    if (retries < OpenRetriesBeforeResume)
+                    {
+                        PosLogger.Log($"Открытие смены: сервер не закрыл прошлую смену {shiftId} ({closed.Error}) — новую не открываю (попытка {retries} из {OpenRetriesBeforeResume - 1}), запись очереди остаётся.", "SHIFT");
+                        return CashShiftOperationResult.Failed(Tr.T(
+                            "Прошлая смена ещё не закрыта на сервере, поэтому новая не открыта: иначе пересчёт ящика при её закрытии потеряется. Подождите минуту и откройте смену ещё раз.",
+                            "Мурунку смена серверде дагы жабыла элек, ошондуктан жаңысы ачылган жок: болбосо аны жабууда кассаны кайра санаган сумма жоголот. Бир мүнөт күтүп, сменаны кайра ачыңыз.",
+                            "The previous shift is not closed on the server yet, so the new one was not opened: otherwise the drawer count made at its closing would be lost. Wait a minute and open the shift again.",
+                            "Önceki vardiya sunucuda henüz kapatılmadı, bu yüzden yenisi açılmadı: aksi halde kapanışta yapılan çekmece sayımı kaybolur. Bir dakika bekleyin ve vardiyayı tekrar açın.",
+                            "Oldingi smena serverda hali yopilmagan, shuning uchun yangisi ochilmadi: aks holda uni yopishda qilingan kassa hisobi yo'qoladi. Bir daqiqa kuting va smenani qaytadan oching."));
+                    }
+
+                    PendingShiftCloseStore.Remove(shiftId!);
+                    queuedRevival = true;
+                    PosLogger.Log($"Открытие смены: сервер не закрыл прошлую смену {shiftId} ({closed.Error}) — касса продолжает её, запись очереди снята.", "SHIFT");
+                    if (decimal.TryParse(queuedClose.ClosingCash, NumberStyles.Number, CultureInfo.InvariantCulture, out var countedBefore)
+                        && Math.Abs(countedBefore - openingCash) >= 0.01m)
+                    {
+                        var diff = Math.Abs(countedBefore - openingCash).ToString("0.00", CultureInfo.InvariantCulture);
+                        var counted = countedBefore.ToString("0.00", CultureInfo.InvariantCulture);
+                        var entered = openingCash.ToString("0.00", CultureInfo.InvariantCulture);
+                        carryOverHint = countedBefore > openingCash
+                            ? Tr.T($"Внимание: при закрытии этой смены в ящике насчитали {counted}, а вы положили {entered}. Запишите изъятие {diff} (меню ☰), иначе в Z будет ложная недостача.",
+                                $"Көңүл буруңуз: бул сменаны жабууда кассада {counted} саналган, сиз {entered} койдуңуз. {diff} алууну жазыңыз (☰ меню), болбосо Z-де жалган жетишпестик болот.",
+                                $"Attention: when this shift was closed the drawer was counted at {counted}, and you put in {entered}. Record a withdrawal of {diff} (☰ menu), otherwise Z will show a false shortage.",
+                                $"Dikkat: bu vardiya kapatılırken çekmece {counted} sayıldı, siz {entered} koydunuz. {diff} tutarında para çıkışı kaydedin (☰ menü), aksi halde Z'de sahte eksik görünür.",
+                                $"Diqqat: bu smena yopilganda qutida {counted} sanalgan, siz {entered} qo'ydingiz. {diff} olishni yozing (☰ menyu), aks holda Z da soxta kamomad bo'ladi.")
+                            : Tr.T($"Внимание: при закрытии этой смены в ящике насчитали {counted}, а вы положили {entered}. Запишите внесение {diff} (меню ☰), иначе в Z будет ложный излишек.",
+                                $"Көңүл буруңуз: бул сменаны жабууда кассада {counted} саналган, сиз {entered} койдуңуз. {diff} киргизүүнү жазыңыз (☰ меню), болбосо Z-де жалган ашыкча болот.",
+                                $"Attention: when this shift was closed the drawer was counted at {counted}, and you put in {entered}. Record a deposit of {diff} (☰ menu), otherwise Z will show a false surplus.",
+                                $"Dikkat: bu vardiya kapatılırken çekmece {counted} sayıldı, siz {entered} koydunuz. {diff} tutarında para girişi kaydedin (☰ menü), aksi halde Z'de sahte fazla görünür.",
+                                $"Diqqat: bu smena yopilganda qutida {counted} sanalgan, siz {entered} qo'ydingiz. {diff} kiritishni yozing (☰ menyu), aks holda Z da soxta ortiqcha bo'ladi.");
+                    }
+                }
+            }
 
             // 2026-09-26: «открыть смену» у сервера — это «дай мою открытую смену»: если у кассира
             // смена уже открыта на ДРУГОЙ кассе, сервер новую не открывает, а возвращает ту
@@ -131,6 +276,28 @@ public sealed class CashShiftService : ICashShiftService
                 "SHIFT");
 
             ShiftService.IsShiftOpen = true;
+            // 2026-10-27 (аудит кассы, С-11): сервер мог вернуть уже открытую смену — тогда её начальная сумма и время открытия
+            // не те, что ввёл кассир. Остаток в шапке и текст берём у сервера, кассир видит «смена продолжена».
+            var (resumed, serverOpening, serverOpenedAt) = ShiftOpenResponse.Classify(response, openingCash, DateTimeOffset.Now);
+            resumed |= queuedRevival;
+            if (resumed)
+            {
+                var shownOpening = serverOpening ?? openingCash;
+                var since = serverOpenedAt?.ToString("HH:mm", CultureInfo.InvariantCulture) ?? "—";
+                var sum = shownOpening.ToString("0.00", CultureInfo.InvariantCulture);
+                PosLogger.Log($"Открытие смены: продолжена открытая смена {PosApp.ActiveShiftId} (с {since}, начальная сумма у сервера {sum}, введено {openingCash:0.00}).", "SHIFT");
+                _offlinePosStateStore.SaveFromApp(shownOpening);
+                _auditDb.LogShift("open_resumed", shownOpening, PosApp.ActiveShiftId);
+                return CashShiftOperationResult.Success(shownOpening,
+                    infoMessage: Tr.T($"Смена продолжена с {since}: она уже была открыта, начальная сумма {sum}. Введённая сумма не применена.",
+                        $"Смена {since} баштап улантылды: ал мурунтан эле ачык болчу, баштапкы сумма {sum}. Киргизилген сумма колдонулган жок.",
+                        $"Shift continued since {since}: it was already open, opening amount {sum}. The amount you entered was not applied.",
+                        $"Vardiya {since} itibarıyla devam ediyor: zaten açıktı, başlangıç tutarı {sum}. Girdiğiniz tutar uygulanmadı.",
+                        $"Smena {since} dan davom etdi: u allaqachon ochiq edi, boshlang'ich summa {sum}. Kiritilgan summa qo'llanmadi.")
+                        + (carryOverHint is null ? "" : "\n\n" + carryOverHint))
+                    with { Resumed = true, ResumedOpenedAt = serverOpenedAt, InfoIsWarning = carryOverHint is not null };
+            }
+
             _offlinePosStateStore.SaveFromApp(openingCash);
             _auditDb.LogShift("open", openingCash, PosApp.ActiveShiftId);
             return CashShiftOperationResult.Success(openingCash);
@@ -314,7 +481,7 @@ public sealed class CashShiftService : ICashShiftService
                     "Закрытие смены отклонено из-за лишних знаков в суммах сервера — повтор с округлением.",
                     "SHIFT");
 
-                var rounded = await BuildRoundedTotalsAsync(shiftId!, serverCts.Token).ConfigureAwait(false);
+                var rounded = await BuildRoundedTotalsAsync(_shiftApi, shiftId!, serverCts.Token).ConfigureAwait(false);
                 if (rounded.Count == 0)
                     throw;
 
@@ -326,6 +493,8 @@ public sealed class CashShiftService : ICashShiftService
             watch.Stop();
             PosApp.ActiveShiftId = null;
             ShiftService.IsShiftOpen = false;
+            // 2026-10-27 (В-7): смена закрыта на сервере — запись очереди закрытий (если была) больше не нужна.
+            PendingShiftCloseStore.Remove(shiftId!);
             // A successful close is authoritative. An immediate list refresh may
             // still return the closed shift or restore it from the offline cache.
             _offlinePosStateStore.SaveFromApp(0m);
@@ -383,6 +552,7 @@ public sealed class CashShiftService : ICashShiftService
             // оплаты), а не пугать кассира сырым текстом ошибки.
             PosApp.ActiveShiftId = null;
             ShiftService.IsShiftOpen = false;
+            PendingShiftCloseStore.Remove(shiftId!); // 2026-10-27 (В-7)
             _offlinePosStateStore.SaveFromApp(0m);
             _auditDb.LogShift("close_already_closed", closingCash, shiftId);
             return CashShiftOperationResult.Success(
@@ -419,6 +589,7 @@ public sealed class CashShiftService : ICashShiftService
                 var retryResponse = await _shiftApi.ConstructionShiftCloseAsync(freshId, closing, null, cancellationToken).ConfigureAwait(false);
                 PosApp.ActiveShiftId = null;
                 ShiftService.IsShiftOpen = false;
+                PendingShiftCloseStore.Remove(freshId); // 2026-10-27 (В-7)
                 _offlinePosStateStore.SaveFromApp(0m);
                 _auditDb.LogShift("close", closingCash, freshId);
                 return CashShiftOperationResult.Success(closingCash, totals: ReadClosingTotals(retryResponse, freshId, cancellationToken));
@@ -529,20 +700,21 @@ public sealed class CashShiftService : ICashShiftService
 
     /// <summary>Отличает именно ошибку «слишком много знаков после запятой» от прочих отказов
     /// сервера: повторять с округлением имеет смысл только в этом случае.</summary>
-    private static bool LooksLikeDecimalPlacesError(string? message) =>
+    internal static bool LooksLikeDecimalPlacesError(string? message) =>
         !string.IsNullOrWhiteSpace(message)
         && (message.Contains("после запятой", StringComparison.OrdinalIgnoreCase)
             || message.Contains("decimal places", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Читает суммы смены с сервера и возвращает их округлёнными до копеек.
-    /// Пустой словарь — значит прочитать не удалось и повторять нечем.</summary>
-    private async Task<Dictionary<string, string>> BuildRoundedTotalsAsync(
-        string shiftId, CancellationToken cancellationToken)
+    /// Пустой словарь — значит прочитать не удалось и повторять нечем.
+    /// 2026-10-27 (Н-14): статический, чтобы тот же повтор с округлением был у очереди закрытий (ShiftCloseRetry).</summary>
+    internal static async Task<Dictionary<string, string>> BuildRoundedTotalsAsync(
+        IShiftApiService shiftApi, string shiftId, CancellationToken cancellationToken)
     {
         var result = new Dictionary<string, string>();
         try
         {
-            var list = await _shiftApi.ConstructionShiftsListAsync(true, cancellationToken).ConfigureAwait(false);
+            var list = await shiftApi.ConstructionShiftsListAsync(true, cancellationToken).ConfigureAwait(false);
             var shift = FindShiftById(list, shiftId);
             if (shift is not { } element)
                 return result;
@@ -565,7 +737,7 @@ public sealed class CashShiftService : ICashShiftService
         return result;
     }
 
-    private static JsonElement? FindShiftById(JsonElement list, string shiftId)
+    internal static JsonElement? FindShiftById(JsonElement list, string shiftId)
     {
         var items = list.ValueKind == JsonValueKind.Array
             ? list
@@ -858,18 +1030,6 @@ public sealed class CashShiftService : ICashShiftService
         }
     }
 
-    public async Task<CashShiftReportResult> GenerateXReportAsync(decimal? currentBalance, CancellationToken cancellationToken = default)
-    {
-        var report = BuildReportText("X", PosApp.ActiveShiftId, currentBalance);
-        return new CashShiftReportResult(report, await PrintReportAsync(report, cancellationToken).ConfigureAwait(false));
-    }
-
-    public async Task<CashShiftReportResult> GenerateZReportAsync(decimal? closingCash, CancellationToken cancellationToken = default)
-    {
-        var report = BuildReportText("Z", PosApp.ActiveShiftId, closingCash);
-        return new CashShiftReportResult(report, await PrintReportAsync(report, cancellationToken).ConfigureAwait(false));
-    }
-
     public Task<bool> PrintReportAsync(string reportText, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(reportText))
@@ -929,53 +1089,5 @@ public sealed class CashShiftService : ICashShiftService
         PosApp.PosCashboxId = next.Id;
         PosApp.PosCashboxDisplayName = next.DisplayName;
         return next.Id;
-    }
-
-    private static string BuildReportText(string reportType, string? shiftId, decimal? cash)
-    {
-        // Внесения/изъятия смены хранятся локально и не входят в баланс с сервера/офлайн-состояния.
-        var operationsNet = ShiftCashOperationsNetProvider?.Invoke(shiftId) ?? 0m;
-
-        var sb = new StringBuilder();
-        sb.AppendLine($"*** {reportType}-ОТЧЕТ ***");
-        sb.AppendLine($"Дата: {DateTime.Now:dd.MM.yyyy HH:mm:ss}");
-        sb.AppendLine($"Кассир: {PosApp.CurrentUserId ?? "—"}");
-        sb.AppendLine($"Смена: {shiftId ?? "—"}");
-        if (operationsNet != 0m)
-            sb.AppendLine($"Внесения/изъятия: {operationsNet.ToString("+0.00;-0.00", CultureInfo.InvariantCulture)} сом");
-
-        // Скидки и оплата бонусами (2026-09-22, по просьбе владельца). Считаются локально: у
-        // сервера скидка одна на чек, и бонусы в ней неотличимы от обычной скидки — касса
-        // записывает обе величины при оплате (ClientLoyaltyStore.RecordSaleAdjustment).
-        var adjustments = ClientLoyaltyStore.AdjustmentsForShift(shiftId);
-        if (adjustments.Discounts > 0.005 || adjustments.PointsRedeemed > 0.005)
-        {
-            sb.AppendLine($"Скидки за смену: {adjustments.Discounts.ToString("0.00", CultureInfo.InvariantCulture)} сом ({adjustments.Receipts} чек.)");
-            if (adjustments.PointsRedeemed > 0.005)
-                sb.AppendLine($"  из них бонусами: {adjustments.PointsRedeemed.ToString("0.00", CultureInfo.InvariantCulture)} сом");
-        }
-
-        // Возвраты, списания, расход и оплата долгов (2026-09-22). Считает их касса: в итогах
-        // смены на сервере таких полей нет — см. ShiftEventsStore.
-        var events = TariffGate.CanUseShiftAnalytics
-            ? ShiftEventsStore.TotalsForShift(shiftId)
-            : new Dictionary<string, double>();
-        void AppendEvent(string title, string kind)
-        {
-            if (events.TryGetValue(kind, out var value) && value > 0.005)
-                sb.AppendLine($"{title}: {value.ToString("0.00", CultureInfo.InvariantCulture)} сом");
-        }
-
-        AppendEvent("Возвраты", ShiftEventsStore.KindReturn);
-        AppendEvent("Списания", ShiftEventsStore.KindWriteOff);
-        AppendEvent("Расход", ShiftEventsStore.KindExpense);
-        // 2026-10-18, ревью: наличные и безнал — отдельными строками (безнал в ящик не попадает); второй круг — на 5 языках.
-        AppendEvent(Tr.T("Оплата долгов наличными", "Карыздарды накталай төлөө", "Debt payments in cash", "Nakit borç ödemeleri", "Qarz to'lovlari naqd"), ShiftEventsStore.KindDebtPayment);
-        AppendEvent(Tr.T("Оплата долгов безналом", "Карыздарды накталай эмес төлөө", "Debt payments non-cash", "Nakitsiz borç ödemeleri", "Qarz to'lovlari naqd emas"), ShiftEventsStore.KindDebtPaymentNonCash);
-
-        sb.AppendLine($"Остаток: {((cash ?? 0m) + operationsNet).ToString("0.00", CultureInfo.InvariantCulture)} сом");
-        sb.AppendLine("------------------------------");
-        sb.AppendLine("NurMarket Kassa");
-        return sb.ToString();
     }
 }

@@ -36,14 +36,14 @@ public partial class WarehouseWindow
             "Write-off acts from this till will appear here: what, how many, why and who.",
             "Bu kasadaki düşüm belgeleri burada görünecek: ne, ne kadar, neden ve kim.",
             "Bu kassadagi hisobdan chiqarish aktlari shu yerda chiqadi: nima, qancha, nega va kim.");
-        // 2026-10-20, аудит программы владельца: история списаний хранится на этом компьютере (WriteOffHistoryStore) —
-        // у владельца «с этой кассы» путало. Только подпись, откуда список; логика не менялась.
+        // 2026-10-27, аудит владельца В-2: у владельца история списаний — акты всех касс компании (сервер, GET inventory/sessions/)
+        // плюс записи этого компьютера; раньше был только этот ПК, и подсказка так и говорила.
         if (AppMode.IsOwner)
-            WriteOffEmptyHint.Text = T("Здесь появятся акты списания, проведённые в программе владельца на этом компьютере: что, сколько, почему и кто списал. Списания на кассах видны в самих кассах.",
-                "Бул жерде ээсинин программасында ушул компьютерде жүргүзүлгөн эсептен чыгаруу актылары чыгат: эмне, канча, эмне үчүн жана ким. Кассалардагы эсептен чыгаруулар кассалардын өзүндө көрүнөт.",
-                "Write-off acts made in the owner app on this computer will appear here: what, how many, why and who. Write-offs made at the tills are shown in the tills themselves.",
-                "Sahip programında bu bilgisayarda yapılan düşüm belgeleri burada görünecek: ne, ne kadar, neden ve kim. Kasalardaki düşümler kasaların kendisinde görünür.",
-                "Egasining dasturida shu kompyuterda o'tkazilgan hisobdan chiqarish aktlari shu yerda chiqadi: nima, qancha, nega va kim. Kassalardagi hisobdan chiqarishlar kassalarning o'zida ko'rinadi.");
+            WriteOffEmptyHint.Text = T("Здесь появятся списания со всех касс магазина и из программы владельца: что, сколько, почему и кто списал. Если сервер недоступен, показаны только списания этого компьютера.",
+                "Бул жерде дүкөндүн бардык кассаларынан жана ээсинин программасынан эсептен чыгаруулар чыгат: эмне, канча, эмне үчүн жана ким. Сервер жеткиликсиз болсо, ушул компьютердин эсептен чыгаруулары гана көрсөтүлөт.",
+                "Write-offs from all tills of the shop and from the owner app will appear here: what, how many, why and who. If the server is unavailable, only this computer's write-offs are shown.",
+                "Mağazanın tüm kasalarından ve sahip programından yapılan düşümler burada görünür: ne, ne kadar, neden ve kim. Sunucuya ulaşılamazsa yalnızca bu bilgisayardaki düşümler gösterilir.",
+                "Do'konning barcha kassalaridan va egasining dasturidan hisobdan chiqarishlar shu yerda chiqadi: nima, qancha, nega va kim. Server mavjud bo'lmasa, faqat shu kompyuterdagi hisobdan chiqarishlar ko'rsatiladi.");
 
         void Sync()
         {

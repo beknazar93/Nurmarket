@@ -217,7 +217,16 @@ public partial class OperationsSettingsView : UserControl
             "Smenani yopishda kassir avval tortmani sanab, summani kiritadi va tizim bo'yicha summa hamda farqni faqat «Sanadim» tugmasidan keyin ko'radi. Shunday qilib, kamomadni ko'rsatmaga «moslab» bo'lmaydi.");
         // Обработчик сравнивает значение перед записью — эта установка лишнего сохранения не делает.
         BlindCashCountCheck.IsChecked = UserPreferences.Instance.BlindCashCount;
+        BlindCashCountDesc.Text += " " + SharedForAllTillsNote();
     }
+
+    /// <summary>2026-10-27, аудит владельца Б-1: правила закрытия смены и контроля удалений — общие настройки компании (SettingsCloudSync, CompanyKeys):
+    /// меняет владелец или администратор, действуют на всех кассах; у кассира поле только для чтения (сервер не даст сохранить).</summary>
+    private static string SharedForAllTillsNote() => Tr.T("Настройка общая для всех касс магазина: меняет владелец или администратор.",
+        "Бул жөндөө дүкөндүн бардык кассалары үчүн жалпы: ээси же администратор өзгөртөт.",
+        "This setting is shared by all tills of the shop: the owner or an administrator changes it.",
+        "Bu ayar mağazanın tüm kasaları için ortaktır: sahibi veya yönetici değiştirir.",
+        "Bu sozlama do'konning barcha kassalari uchun umumiy: egasi yoki administrator o'zgartiradi.");
 
     private void BlindCashCount_Changed(object? sender, RoutedEventArgs e)
     {
@@ -250,6 +259,7 @@ public partial class OperationsSettingsView : UserControl
         var prefs = UserPreferences.Instance;
         AskRemovalReasonCheck.IsChecked = prefs.AskCartRemovalReason;
         RemovalThresholdBox.Text = prefs.CartRemovalReasonThreshold.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        CartRemovalDesc.Text += " " + SharedForAllTillsNote();
     }
 
     private void AskRemovalReason_Changed(object? sender, RoutedEventArgs e)

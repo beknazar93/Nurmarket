@@ -204,6 +204,10 @@ public sealed partial class AiAdvisorWindow
     private static string FriendlyErrorText(string? error)
     {
         var e = (error ?? "").ToLowerInvariant();
+        // 2026-10-27: общий предел 12 с на ответ (AdvisorTurn.WithBudget) — не ждём 30 секунд молча, а предлагаем повторить.
+        if (e == "slow")
+            return T("ИИ долго отвечает — повторить?", "ИИ узак жооп берип жатат — кайталайлыбы?", "The AI is taking too long — try again?",
+                "Yapay zekâ çok uzun yanıt veriyor — tekrar denensin mi?", "SI juda uzoq javob beryapti — qayta urinilsinmi?");
         if (e.Contains("timeout") || e.Contains("вовремя") || e.Contains("cancel") || e.Contains("отмен"))
             return T("Ответ не пришёл за 30 секунд — ИИ сейчас медленный. Повторить?", "Жооп 30 секундда келген жок — ИИ азыр жай. Кайталайлыбы?",
                 "No answer within 30 seconds — the AI is slow right now. Try again?", "30 saniyede yanıt gelmedi — yapay zekâ şu an yavaş. Tekrar denensin mi?",

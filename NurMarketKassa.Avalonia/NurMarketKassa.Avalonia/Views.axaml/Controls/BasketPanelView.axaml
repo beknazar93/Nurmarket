@@ -37,17 +37,19 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
 
+        <!-- 2026-10-27: прозрачность выключенной 0.45 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
         <Style Selector="Button.cart-action:disabled">
-            <Setter Property="Opacity" Value="0.45"/>
+            <Setter Property="Opacity" Value="0.7"/>
         </Style>
 
         <!-- 2026-10-22 (модалки, пакет 1): «Удалить чек» — опасное действие красным текстом и значком (стандарт модалок:
              опасное — красным); при одном чеке она очищает его (BasketPanelViewModel.DeleteActiveReceiptAsync). -->
+        <!-- 2026-10-27: красный текст BrushDanger на тёмной панели — 4,0–4,45:1, на мягко-красной при наведении 3,5:1; BrushDangerOnSoft — 5–6,4:1 (в светлой теме тот же #B91C1C). -->
         <Style Selector="Button.cart-action.danger">
-            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
         </Style>
         <Style Selector="Button.cart-action.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
         </Style>
         <!-- 2026-10-22 (модалки, пакет 1, живой аудит): плитки во всплывающем «Ещё» под указателем — мягким акцентом, а не
              серой заливкой (плитка «Печать последнего чека» после наведения выглядела неактивной). -->
@@ -190,8 +192,9 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
+        <!-- 2026-10-27: у темы «Контрастная» BrushBorder/BrushBorderStrong — белые: белый текст на белой заливке при наведении/нажатии (1:1). BrushPanelPressed — тёмный шаг от панели во всех темах. -->
         <Style Selector="Button.cart-action:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
         </Style>
         <!-- 2026-10-20 (живой аудит кассы, К10): «Ещё» открыто — кнопка подсвечена. -->
         <Style Selector="Button.cart-action.more-open /template/ ContentPresenter#PART_ContentPresenter">
@@ -221,15 +224,17 @@
         <Style Selector="Button.cart-accent:disabled">
             <Setter Property="Opacity" Value="1"/>
         </Style>
+        <!-- 2026-10-27: у темы «Контрастная» BrushBorder/BrushBorderStrong — белые: белый текст на белой заливке при наведении/нажатии (1:1). BrushPanelPressed — тёмный шаг от панели во всех темах. -->
         <Style Selector="Button.cart-qty:pointerover /template/ ContentPresenter#PART_ContentPresenter, RepeatButton.cart-qty:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="Button.cart-qty:pressed /template/ ContentPresenter#PART_ContentPresenter, RepeatButton.cart-qty:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
         </Style>
+        <!-- 2026-10-27: прозрачность выключенной 0.4 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
         <Style Selector="Button.cart-qty:disabled, RepeatButton.cart-qty:disabled">
-            <Setter Property="Opacity" Value="0.4"/>
+            <Setter Property="Opacity" Value="0.7"/>
         </Style>
         <Style Selector="Button.cart-qty PathIcon, RepeatButton.cart-qty PathIcon">
             <Setter Property="Width" Value="15"/>
@@ -298,6 +303,22 @@
         </Style>
         <Style Selector="TextBlock.line-priceqty-compact">
             <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <!-- 2026-10-27, аудит Н-5: длинное название (Border.longtitle) — кнопки вторым рядом, название на всю ширину и в две строки. -->
+        <Style Selector="Border.cart-line.longtitle Grid.line-controls">
+            <Setter Property="Grid.Row" Value="2"/>
+            <Setter Property="Grid.Column" Value="0"/>
+            <Setter Property="Grid.ColumnSpan" Value="3"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        <Style Selector="Border.cart-line.longtitle StackPanel.line-amount">
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style Selector="Border.cart-line.longtitle TextBlock.line-priceqty-wide">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="Border.cart-line.longtitle TextBlock.line-priceqty-compact">
+            <Setter Property="IsVisible" Value="True"/>
         </Style>
         <Style Selector="Grid.cart-entry-row">
             <Setter Property="Margin" Value="0,0,0,8"/>
@@ -567,6 +588,7 @@
                                      кнопки (Grid.line-controls) уходят вторым рядом на всю ширину, слева от них —
                                      «цена × количество» (line-priceqty-compact), название получает всю ширину. -->
                                 <Border Classes="cart-line"
+                                        Classes.longtitle="{Binding HasLongTitle}"
                                         Background="{DynamicResource BrushCatalogTileBg}"
                                         BorderBrush="{DynamicResource BrushCatalogTileBorder}"
                                         BorderThickness="1"
@@ -597,11 +619,13 @@
                                                     Spacing="2"
                                                     Margin="0,0,8,0"
                                                     VerticalAlignment="Center">
+                                            <!-- 2026-10-27, аудит Н-5: название в строке чека обрезалось уже на 1296 px («ТЕСТ АУДИТ кас…») — две строки. -->
                                             <TextBlock Text="{Binding NumberedTitle}"
                                                        FontWeight="Bold"
                                                        FontSize="15"
                                                        Foreground="{DynamicResource BrushText}"
-                                                       TextWrapping="NoWrap"
+                                                       TextWrapping="Wrap"
+                                                       MaxLines="2"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTip.Tip="{Binding Title}"/>
                                             <TextBlock Classes="line-priceqty-wide"

@@ -494,6 +494,39 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
 
         try
         {
+            // 2026-10-27, встроенный справочник готовых наименований: локальная копия отвечает сразу — без сервера и интернета.
+            // Поля заполняем не дожидаясь запросов к складу и общей базе (они бывают медленными); то, что кассир уже ввёл, не трогаем.
+            var quick = await Task.Run(() => NurMarketKassa.Services.GlobalProducts.GlobalProductCatalog.Instance.Find(code)).ConfigureAwait(true);
+            if (quick is not null && string.Equals(Barcode?.Trim(), code, StringComparison.Ordinal))
+            {
+                var quickCategory = string.IsNullOrWhiteSpace(quick.Category) ? null : quick.Category;
+                var quickBrand = string.IsNullOrWhiteSpace(quick.Brand) ? null : quick.Brand;
+                if (string.IsNullOrWhiteSpace(ProductName))
+                    ProductName = quick.Name;
+                if (string.IsNullOrWhiteSpace(Category) && quickCategory != null)
+                    Category = quickCategory;
+                if (string.IsNullOrWhiteSpace(Brand) && quickBrand != null)
+                    Brand = quickBrand;
+                GlobalFound = true;
+                // 2026-10-27 (приёмка 1.17.63, Д-11): у части кодов справочника есть только название (бренд есть примерно у 5 % записей, категория — у 16 %) —
+                // говорим об этом, а не молчим: поле остаётся пустым, его заполняют вручную.
+                var noBrandCategory = quickBrand is null && quickCategory is null
+                    ? Tr.T("бренда и категории", "бренд жана категория", "brand and category", "marka ve kategori", "brend va kategoriya")
+                    : quickBrand is null ? Tr.T("бренда", "бренд", "brand", "marka", "brend")
+                    : quickCategory is null ? Tr.T("категории", "категория", "category", "kategori", "kategoriya") : null;
+                var missingNote = noBrandCategory is null ? "" : Tr.T(
+                    $"; {noBrandCategory} в справочнике нет — заполните вручную",
+                    $"; маалымдамада {noBrandCategory} жок — кол менен толтуруңуз",
+                    $"; the catalog has no {noBrandCategory} — fill in by hand",
+                    $"; katalogda {noBrandCategory} yok — elle doldurun",
+                    $"; ma'lumotnomada {noBrandCategory} yo'q — qo'lda to'ldiring");
+                GlobalStatus = "✓ " + Tr.T("Из справочника NurCRM: ", "NurCRM маалымдамасынан: ", "From the NurCRM catalog: ", "NurCRM kataloğundan: ", "NurCRM ma'lumotnomasidan: ")
+                               + string.Join(" · ", new[] { quick.Name, quickCategory, quickBrand }.Where(x => !string.IsNullOrWhiteSpace(x)))
+                               + missingNote
+                               + Tr.T(". Можно поправить; укажите цены и количество.", ". Оңдосоңуз болот; бааларды жана санын көрсөтүңүз.", ". You can edit it; enter the prices and quantity.", ". Düzenleyebilirsiniz; fiyatları ve miktarı girin.", ". Tahrirlash mumkin; narx va miqdorni kiriting.");
+                PosLogger.Log($"Карточка товара: по штрихкоду {code} из справочника NurCRM (локальная копия) подставлены название, категория и бренд.", "CATALOG");
+            }
+
             // 2026-10-03: тот же код в другой записи (UPC-A 12 цифр ↔ EAN-13 с нулём) — см. BarcodeForms.
             // 2026-10-03, владелец: «он не находит» — находил, но через 2,5 минуты: сервер NurCRM отвечал ~40 с на
             // запрос, а склад и общая база спрашивались по очереди (до 4 запросов). Теперь все запросы — сразу.
@@ -509,7 +542,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             var globalTask = Safe(() => api.FindGlobalProductByBarcodeAsync(code));
             var globalAltTask = alternate != null ? Safe(() => api.FindGlobalProductByBarcodeAsync(alternate)) : Task.FromResult<System.Text.Json.JsonElement?>(null);
             var all = Task.WhenAll(ownTask, ownAltTask, globalTask, globalAltTask);
-            if (await Task.WhenAny(all, Task.Delay(TimeSpan.FromSeconds(4))).ConfigureAwait(true) != all)
+            if (await Task.WhenAny(all, Task.Delay(TimeSpan.FromSeconds(4))).ConfigureAwait(true) != all && GlobalFound != true)
                 GlobalStatus = Tr.T("Сервер NurCRM отвечает медленно, жду…", "NurCRM сервери жай жооп берип жатат, күтүп жатам…", "The NurCRM server is slow, waiting…",
                     "NurCRM sunucusu yavaş yanıt veriyor, bekleniyor…", "NurCRM serveri sekin javob bermoqda, kutilmoqda…");
             await all.ConfigureAwait(true);

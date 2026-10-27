@@ -29,6 +29,15 @@ public sealed class PendingIdempotencyKey
         return _key!;
     }
 
+    /// <summary>2026-10-27 (аудит кассы, С-3): ключ прошлой попытки, пережившей перезапуск кассы (PendingDebtPrepaymentStore): та же подпись
+    /// — тот же ключ, и сервер вернёт прежний итог вместо второй оплаты.</summary>
+    public void Restore(string key, string signature)
+    {
+        _key = key;
+        _signature = signature;
+        _createdUtc = DateTime.UtcNow;
+    }
+
     /// <summary>Сервер провёл операцию (или касса убедилась, что она уже проведена) — следующая будет новой.</summary>
     public void OnSuccess() => _key = null;
 

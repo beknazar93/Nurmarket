@@ -135,11 +135,12 @@ public partial class OwnerShellWindow
                 Tr.T($"Ещё товаров на исходе: {_attnStockMore}", $"Дагы түгөнүп бараткан товарлар: {_attnStockMore}", $"{_attnStockMore} more items running low",
                     $"Azalan {_attnStockMore} ürün daha", $"Yana {_attnStockMore} ta mahsulot tugayapti"),
                 // 2026-10-20, аудит программы владельца: «на исходе 81» ≠ «Заканчивается 154» на Складе — правила разные, пишем какое.
-                Tr.T("Здесь — остаток 5 и меньше; на Складе «Заканчивается» — меньше 10",
-                    "Бул жерде — калдык 5 жана андан аз; Кампада «Түгөнүп баратат» — 10дон аз",
-                    "Here: 5 or fewer left; in Warehouse “Running low” means fewer than 10",
-                    "Burada: 5 veya daha az kaldı; Depoda «Azalan» — 10'dan az",
-                    "Bu yerda — qoldiq 5 va undan kam; Omborda «Tugayapti» — 10 dan kam"),
+                // 2026-10-27, С-7: порог теперь один (меньше 10) — подпись говорит, откуда число, и что оно совпадает со Складом.
+                Tr.T("Остаток меньше 10 — то же правило, что «Заканчивается» на Складе",
+                    "Калдык 10дон аз — Кампадагы «Түгөнүп баратат» менен бирдей эреже",
+                    "Fewer than 10 left — the same rule as “Running low” in Warehouse",
+                    "10'dan az kaldı — Depodaki «Azalan» ile aynı kural",
+                    "Qoldiq 10 dan kam — Ombordagi «Tugayapti» bilan bir xil qoida"),
                 restock, "restock"));
 
         foreach (var row in urgent.Concat(waiting))

@@ -323,7 +323,10 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 1000×560 и уходило за край экрана — «Выйти», поиск раздела, кнопки окна и «Все продажи» были недостижимы пальцем.
         // Минимум опускается до рабочей области (только вниз, на обычных мониторах не меняется) — до разворачивания.
         FitMinSizeToScreen();
+        // 2026-10-27, жалоба владельца «программа владельца запускается в окне»: настройка «Полный экран» здесь не учитывалась —
+        // окно всегда просто разворачивалось (с панелью задач). Теперь при включённой настройке — как у кассы (FullscreenHelper).
         WindowState = WindowState.Maximized;
+        FullscreenHelper.ApplyToMainWindow(this);
     }
 
     /// <summary>2026-10-21 (сенсорный моноблок): MinWidth/MinHeight не больше рабочей области экрана окна (в точках).</summary>
@@ -427,6 +430,11 @@ public partial class OwnerShellWindow : Window, IMainShell
         Avalonia.Automation.AutomationProperties.SetName(RefreshButton, Tr.T("Обновить сейчас", "Азыр жаңыртуу", "Refresh now", "Şimdi yenile", "Hozir yangilash"));
         Avalonia.Automation.AutomationProperties.SetName(NavSearchText, Tr.T("Найти раздел (Ctrl+K)", "Бөлүмдү табуу (Ctrl+K)", "Find a section (Ctrl+K)", "Bölüm bul (Ctrl+K)", "Bo'limni topish (Ctrl+K)"));
         Avalonia.Automation.AutomationProperties.SetName(RentalAlertClose, Tr.T("Скрыть", "Жашыруу", "Hide", "Gizle", "Yashirish"));
+        // 2026-10-27, аудит владельца С-12: кнопки окна читались как «Avalonia.Controls.Shapes.Path».
+        Avalonia.Automation.AutomationProperties.SetName(MinimizeCaptionButton, Tr.T("Свернуть окно", "Терезени жыйыштыруу", "Minimize the window", "Pencereyi küçült", "Oynani yig'ish"));
+        Avalonia.Automation.AutomationProperties.SetName(MaximizeCaptionButton, Tr.T("Развернуть окно", "Терезени чоңойтуу", "Maximize the window", "Pencereyi büyüt", "Oynani kengaytirish"));
+        Avalonia.Automation.AutomationProperties.SetName(CloseCaptionButton, Tr.T("Закрыть программу", "Программаны жабуу", "Close the program", "Programı kapat", "Dasturni yopish"));
+        AutomationNaming.Install();
         // 2026-10-18: кнопка «Вид» и подписи старого вида меню.
         ApplyMenuStyleTexts();
         UpdateThemeIcon();
@@ -828,6 +836,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// нарисованной шапкой прячем: окно сворачивается и разворачивается целиком, кнопками сверху.</summary>
     private void PrepareEmbeddedWindow(Window window)
     {
+        FullscreenHelper.MarkEmbedded(window); // 2026-10-27: встроенный раздел не разворачивается сам (FullscreenHelper.TryApplySectionWindowMode)
         window.SystemDecorations = SystemDecorations.None;
         window.ExtendClientAreaToDecorationsHint = false;
         window.WindowStartupLocation = WindowStartupLocation.Manual;
@@ -2154,7 +2163,9 @@ public partial class OwnerShellWindow : Window, IMainShell
         try
         {
             low = CatalogCacheService.Products
-                .Where(p => !p.IsService && !string.IsNullOrWhiteSpace(p.Title) && p.Quantity <= 5)
+                // 2026-10-27, аудит владельца С-7: порог «мало» один на программу — тот же, что у «Склада» и аналитики склада
+                // (меньше 10, нулевые — «Нет в наличии»). Было «5 и меньше»: на Сводке 81 товар, на Складе 158.
+                .Where(p => !p.IsService && !string.IsNullOrWhiteSpace(p.Title) && p.Quantity < NurMarketKassa.Services.StockSyncService.LowStockThreshold)
                 .OrderBy(p => p.Quantity)
                 .ThenBy(p => p.Title)
                 .ToList();

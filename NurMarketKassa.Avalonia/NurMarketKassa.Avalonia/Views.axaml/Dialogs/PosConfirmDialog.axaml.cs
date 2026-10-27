@@ -21,9 +21,15 @@ public partial class PosConfirmDialog : Window
     /// <summary>2026-10-22 (модалки, пакет 0): отказ по умолчанию — «Отмена» (Esc и ✕ нажимают её).</summary>
     public static string DefaultCancelText => Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish");
 
+    // 2026-10-27, аудит В-9/С-18: подтверждение, открытое посреди сканирования («сумма или вес?» по весовой этикетке,
+    // «Удалить чек», «Закрыть смену и потерять чек?»), принимало Enter сканера как главную кнопку (и «сумма/вес» запоминалось
+    // навсегда). Enter сканера окно теперь не получает; Enter кассира, клик и касание работают как раньше.
+    private readonly ScannerEnterGuard _scanGuard;
+
     public PosConfirmDialog()
     {
         InitializeComponent();
+        _scanGuard = ScannerEnterGuard.Attach(this);
         // 2026-10-22 (модалки, пакет 0): и у окна из DI (без параметров) — «Продолжить» / «Отмена», а не «Да» / «Нет».
         CancelButton.Content = DefaultCancelText;
         ConfirmButton.Content = DefaultConfirmText;
@@ -37,6 +43,7 @@ public partial class PosConfirmDialog : Window
         PosConfirmAccent accent = PosConfirmAccent.Primary)
     {
         InitializeComponent();
+        _scanGuard = ScannerEnterGuard.Attach(this);
         Title = title;
         Shell.Title = title; // 2026-10-16: заголовок — в шапке оболочки ModalShell
         MessageText.Text = message;
@@ -77,6 +84,7 @@ public partial class PosConfirmDialog : Window
     /// склад» мышью/касанием и Esc работают как раньше.</summary>
     public void PassScannerThrough(IBarcodeInputService scanner, Action<string> onScan)
     {
+        _scanGuard.Enabled = false; // 2026-10-27: сканер здесь не отбрасывается, а закрывает окно и идёт дальше
         ConfirmButton.IsDefault = false;
         CancelButton.IsDefault = true;
         AddHandler(KeyDownEvent, (_, e) =>

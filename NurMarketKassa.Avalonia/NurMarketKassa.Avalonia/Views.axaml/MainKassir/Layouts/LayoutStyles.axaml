@@ -108,8 +108,9 @@
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
     </Style>
+    <!-- 2026-10-27: прозрачность выключенной 0.45 → 0,75: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
     <Style Selector="Button.lx-btn:disabled, Button.lx-accent:disabled, Button.lx-success:disabled, Button.lx-ghost:disabled, Button.lx-chip:disabled, Button.lx-step:disabled, Button.lx-soft-success:disabled, Button.lx-soft-warning:disabled, Button.lx-soft-danger:disabled, Button.lx-soft-accent:disabled">
-        <Setter Property="Opacity" Value="0.45"/>
+        <Setter Property="Opacity" Value="0.75"/>
     </Style>
 
     <!-- Обычная кнопка: панель с рамкой. -->
@@ -139,8 +140,9 @@
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
         <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
+    <!-- 2026-10-27: у темы «Контрастная» BrushBorder/BrushBorderStrong — белые: белый текст на белой заливке при наведении/нажатии (1:1). BrushPanelPressed — тёмный шаг от панели во всех темах. -->
     <Style Selector="Button.lx-btn:pressed /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
     </Style>
     <Style Selector="Button.lx-btn:disabled /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
@@ -188,9 +190,14 @@
         <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
         <Setter Property="Opacity" Value="0.9"/>
     </Style>
+    <!-- 2026-10-27: выключенное главное действие («Оплатить», «Сохранить») — как у main-primary/cart-accent: нейтральный мягкий фон и приглушённый текст без
+         прозрачности. Раньше жёлтая кнопка гасилась прозрачностью 0,6 вместе с тёмным текстом: 1,3–2,6:1 (в тёмной теме). -->
+    <Style Selector="Button.lx-accent:disabled, Button.lx-success:disabled">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
     <Style Selector="Button.lx-accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
     </Style>
 
     <!-- 2026-10-22 (аудит новой сборки, П3): «Оплатить» в видах «Табличная», «Карточки», «Профи» была зелёной (#047857) —
@@ -215,8 +222,8 @@
         <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
     </Style>
     <Style Selector="Button.lx-success:disabled /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
     </Style>
 
     <!-- Мягкие цветные кнопки: светлая заливка + цветной текст и рамка. -->
@@ -323,12 +330,15 @@
         <Setter Property="FontSize" Value="16"/>
         <Setter Property="FontWeight" Value="Bold"/>
     </Style>
+    <!-- 2026-10-27: у темы «Контрастная» BrushBorder/BrushBorderStrong — белые: белый текст на белой заливке при наведении/нажатии (1:1). BrushPanelPressed — тёмный шаг от панели во всех темах. -->
     <Style Selector="Button.lx-step:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
         <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
+    <!-- 2026-10-27: у нажатой «−/+» текст оставался серым (#AAA на #666 — 2,5:1 в тёмной теме); теперь цвет текста темы. -->
     <Style Selector="Button.lx-step:pressed /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
+        <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
     <Style Selector="Button.lx-step:disabled /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
@@ -337,6 +347,10 @@
     <Style Selector="Button.lx-step PathIcon">
         <Setter Property="Width" Value="12"/>
         <Setter Property="Height" Value="12"/>
+    </Style>
+    <!-- 2026-10-27: значок «−/+» внутри поля (Border.lx-field PathIcon красит его в серый) при нажатии — цветом текста темы (серый #AAA на #666 — 2,5:1). -->
+    <Style Selector="Button.lx-step:pressed PathIcon">
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
 
     <!-- Плитка товара: вся отрисовка — внутри шаблона данных, кнопка только ловит нажатие. -->

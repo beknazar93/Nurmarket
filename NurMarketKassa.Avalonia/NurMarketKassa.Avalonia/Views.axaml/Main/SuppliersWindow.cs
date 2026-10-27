@@ -86,7 +86,7 @@ public sealed class SuppliersWindow : Window, IOwnerSection
 
         // Поиск и фильтр «Все / С долгом / Просрочено» (сегменты, выбранный тёмно-синий).
         var tools = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 12) };
-        _search = UiKit.Input(this, T("Поиск: название, телефон, ИНН…", "Издөө: аталышы, телефон, ИНН…", "Search: name, phone, tax ID…", "Ara: ad, telefon, vergi no…", "Qidirish: nomi, telefon, STIR…"), 42);
+        _search = UiKit.Input(this, T("Поиск: название, телефон, ИНН…", "Издөө: аталышы, телефон, ИНН…", "Search: name, phone, tax ID…", "Ara: ad, telefon, vergi no…", "Qidirish: nomi, telefon, STIR…"), 44); // 2026-10-27, аудит владельца С-5: было 42 (цель нажатия)
         Avalonia.Automation.AutomationProperties.SetName(_search, _search.Watermark);
         _search.TextChanged += (_, _) => Render();
         tools.Children.Add(_search);
@@ -522,7 +522,16 @@ public sealed class SuppliersWindow : Window, IOwnerSection
         else
             debt = Cell("—", "BrushTextSoft", 13.5);
         debt.TextAlignment = TextAlignment.Right;
-        Put(g, 2, debt);
+        // 2026-10-27, аудит владельца С-1: у поставщика есть и долг, и аванс — аванс в строке не был виден, и плитка «Аванс у поставщиков»
+        // (15 208) не сходилась с суммой авансов в строках (15 156). Теперь под долгом вторая строка «аванс …» — плитка = сумме строк.
+        Control debtCell = debt;
+        if (sum is { Loaded: true } && sum.Debt > 0.005 && sum.Prepayment > 0.005)
+        {
+            var advance = Cell(T("+ аванс ", "+ аванс ", "+ advance ", "+ avans ", "+ avans ") + MoneyText.Som(sum.Prepayment), "BrushTextSoft", 12);
+            advance.TextAlignment = TextAlignment.Right;
+            debtCell = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { debt, advance } };
+        }
+        Put(g, 2, debtCell);
 
         // Ближайший срок — двумя строками: дата и сумма взноса; просроченный — красным «просрочено» и «с …».
         var nextText = "—";

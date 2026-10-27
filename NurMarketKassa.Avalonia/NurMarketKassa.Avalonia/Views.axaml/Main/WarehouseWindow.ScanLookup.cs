@@ -142,7 +142,7 @@ public partial class WarehouseWindow
         if (!await dialog.ShowDialog<bool>(this).ConfigureAwait(true))
             return null;
 
-        prompts?.ShowToast(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
+        SuccessToast.Show(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
         await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
         await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         RefreshWarehouseTotals();

@@ -113,7 +113,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             if (UserPreferences.Instance.Fullscreen)
                 CanResize = false;
-            FullscreenHelper.Apply(this);
+            FullscreenHelper.ApplyToMainWindow(this); // 2026-10-27: + повторная проверка режима после показа
 
             UpdateEmailValidIcon();
             UpdateThemeButtons(UserPreferences.Instance.DarkTheme);

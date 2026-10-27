@@ -3,6 +3,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
+using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Settings;
 
@@ -146,7 +147,27 @@ public partial class ScreenSettingsView : UserControl
         CompactAutoRadio.IsChecked = compactMode is not ("on" or "off");
         _suppressUiScaleChange = false;
         QuickProductsCheck.IsChecked = UserPreferences.Instance.ShowQuickProducts;
+        // 2026-10-27, аудит владельца Б-1: «Быстрые товары в пустом чеке» — личная привычка кассира, она хранится у каждого пользователя в
+        // его программе и в программу владельца не доходит. В программе владельца чека нет — переключатель только вводил в заблуждение, скрыт.
+        if (AppMode.IsOwner && QuickProductsCheck.Parent is Control quickRow)
+            quickRow.IsVisible = false;
         UpsellCheck.IsChecked = UserPreferences.Instance.UpsellEnabled;
+        // 2026-10-27: «Окно оплаты прижимать к низу» — свой файл payment_dialog_position.json; на Android и в программе владельца окна оплаты-панели нет.
+        PayDockText.Text = Tr.T("Окно оплаты прижимать к низу", "Төлөм терезесин ылдыйга жакындатуу", "Snap the payment window to the bottom",
+            "Ödeme penceresini alta yapıştır", "To'lov oynasini pastga yopishtirish");
+        PayDockDesc.Text = Tr.T("Выключено — окно оплаты стоит по центру кассы, слева от чека.",
+            "Өчүк — төлөм терезеси кассанын ортосунда, чектин сол жагында турат.",
+            "Off — the payment window is centered over the register, left of the receipt.",
+            "Kapalı — ödeme penceresi kasanın ortasında, fişin solunda durur.",
+            "O'chiq — to'lov oynasi kassaning o'rtasida, chekning chap tomonida turadi.");
+        if (OperatingSystem.IsAndroid() || AppMode.IsOwner)
+            PayDockRow.IsVisible = false;
+        else
+        {
+            _suppressPayDock = true;
+            PayDockBottomCheck.IsChecked = PaymentDockPlacement.ReadBottomMode();
+            _suppressPayDock = false;
+        }
 
         // Выбор вида кассы (карточки с миниатюрами) — общий элемент KassaLayoutPicker
         // (2026-09-28, он же в Маркетплейсе → «Виды кассы»); язык и тему он отслеживает сам.
@@ -164,6 +185,15 @@ public partial class ScreenSettingsView : UserControl
     /// <summary>2026-10-01: подсказки допродажи — сразу, без «Сохранить».</summary>
     private void UpsellCheck_Changed(object? sender, RoutedEventArgs e) =>
         UserPreferences.SetUpsellEnabled(UpsellCheck.IsChecked == true);
+
+    private bool _suppressPayDock;
+
+    /// <summary>2026-10-27: положение окна оплаты — сразу, без «Сохранить»; действует с ближайшего открытия окна оплаты.</summary>
+    private void PayDockBottomCheck_Changed(object? sender, RoutedEventArgs e)
+    {
+        if (!_suppressPayDock)
+            PaymentDockPlacement.WriteBottomMode(PayDockBottomCheck.IsChecked == true);
+    }
 
     private void Save_Click(object? sender, RoutedEventArgs e) =>
         SaveRequested?.Invoke(this, EventArgs.Empty);

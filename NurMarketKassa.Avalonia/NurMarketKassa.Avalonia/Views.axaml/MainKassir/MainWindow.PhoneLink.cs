@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Services;
@@ -33,6 +34,80 @@ public partial class MainWindow
         {
             // Печать чеков телефона не должна мешать запуску кассы.
             PosLogger.Log($"Чеки с телефона: наблюдатель не запущен: {ex.Message}", "WARNING");
+        }
+
+        StartPhoneLink(); // 2026-10-27, К-П2/К-П5: приём сканов с телефонов (по умолчанию выключено, порт закрыт)
+    }
+
+    /// <summary>2026-10-27, пакеты К-П2/К-П5: связь с телефонами. Сервер и список телефонов живут в <see cref="PhoneLinkHost"/>; окно
+    /// отдаёт ему только две вещи — «окно кассы активно и готово принимать» и «поставить штрихкод в очередь сканов чека» (тот же
+    /// Basket.EnqueueBarcode, что у сканера). Приём включается в Настройки → Печать → «Телефоны» (владелец/администратор).</summary>
+    private void StartPhoneLink()
+    {
+        if (!PhoneLinkHost.Supported)
+            return;
+        try
+        {
+            // 2026-10-27, ревью Ф-1: окно привязывается к приёму при каждом открытии (после выхода/смены кассира — новое окно) и
+            // отвязывается при закрытии; Shutdown() раньше останавливал порт навсегда — новое окно к серверу не подключалось.
+            PhoneLinkHost.Attach(this, IsPhoneTillReadyAsync, TryEnqueuePhoneScanAsync);
+            Closed += (_, _) => PhoneLinkHost.Detach(this);
+        }
+        catch (Exception ex)
+        {
+            // Связь с телефонами не должна мешать запуску кассы.
+            PosLogger.Log($"PHONELINK: приём с телефонов не подготовлен: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>Окно кассы открыто, активно (не свёрнуто, поверх нет диалога) — как у обычного сканера (OnBarcodeScanned).</summary>
+    private async Task<bool> IsPhoneTillReadyAsync(CancellationToken ct)
+    {
+        try
+        {
+            return await Dispatcher.UIThread.InvokeAsync(() => IsVisible && IsActive && WindowState != WindowState.Minimized,
+                DispatcherPriority.Normal, ct).GetTask().WaitAsync(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>2026-10-27, ревью Ф-2/Ф-3: окно и оплата проверяются на UI-потоке в момент постановки скана в очередь чека (поиск товара
+    /// мог идти секунды — кассир мог свернуть окно или начать оплату). Идёт оплата — скан не принимается (busy), чтобы не уйти в чек
+    /// следующего покупателя. Если UI-поток не успел за 2 с — скан отменяется и в чек не попадёт (ответ till_inactive).</summary>
+    private async Task<PhoneScanHandler.EnqueueResult> TryEnqueuePhoneScanAsync(string code, CancellationToken ct)
+    {
+        var state = 0; // 0 — ждёт UI-поток, 1 — UI-поток взял, 2 — вызывающий отказался ждать
+        var work = Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (Interlocked.CompareExchange(ref state, 1, 0) != 0)
+                return PhoneScanHandler.EnqueueResult.TillInactive;
+            if (!(IsVisible && IsActive && WindowState != WindowState.Minimized))
+                return PhoneScanHandler.EnqueueResult.TillInactive;
+            if (_viewModel.Basket.IsScanQueueHeld)
+                return PhoneScanHandler.EnqueueResult.Busy;
+            _viewModel.Basket.EnqueueBarcode(code);
+            return PhoneScanHandler.EnqueueResult.Added;
+        }, DispatcherPriority.Normal);
+        try
+        {
+            return await work.GetTask().WaitAsync(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // Не дождались: если UI-поток ещё не начал — он ничего не добавит; если уже начал — дожидаемся результата.
+            if (Interlocked.CompareExchange(ref state, 2, 0) == 0)
+                return PhoneScanHandler.EnqueueResult.TillInactive;
+            try
+            {
+                return await work.GetTask().ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                return PhoneScanHandler.EnqueueResult.TillInactive;
+            }
         }
     }
 

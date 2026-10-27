@@ -67,6 +67,10 @@ public sealed class DatabaseService
 
     public string DatabasePath => DbPath;
 
+    /// <summary>2026-10-27 (С-25): номер «переоткрытия» базы после смены аккаунта — по нему LocalProductRepository.EnsureSchema
+    /// понимает, что схему надо накатить заново.</summary>
+    public int SchemaGeneration { get; private set; }
+
     /// <summary>Переоткрыть базу после того, как AccountDataIsolation подменил набор данных:
     /// путь тот же, но файл под ним стал другим (или его ещё нет). Без сброса признака
     /// инициализации схема на новой базе не накатилась бы — EnsureSchema просто вышел бы.
@@ -77,7 +81,10 @@ public sealed class DatabaseService
         _legacyImportDone = true;
         SqliteConnection.ClearAllPools();
         lock (_initLock)
+        {
             _initialized = false;
+            SchemaGeneration++;
+        }
         EnsureSchema();
     }
 

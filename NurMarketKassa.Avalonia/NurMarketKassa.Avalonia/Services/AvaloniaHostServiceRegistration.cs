@@ -181,6 +181,9 @@ internal static class AvaloniaHostServiceRegistration
 
     public static void InitializePosInfrastructure(IServiceProvider services)
     {
+        // 2026-10-27: встроенный справочник готовых наименований — источник для GlobalProductCatalog (сама копия создаётся при первом поиске).
+        GlobalProductsAsset.Register();
+
         try
         {
             services.GetRequiredService<IStockService>().Initialize();

@@ -150,7 +150,13 @@ internal static class Program
                 return;
 
             if (window.WindowState == Avalonia.Controls.WindowState.Minimized)
-                window.WindowState = Avalonia.Controls.WindowState.Normal;
+            {
+                // 2026-10-27: второй запуск (ярлык) при свёрнутой кассе возвращал её окном (Normal) — «Полный экран» терялся.
+                if (NurMarketKassa.Services.UserPreferences.Instance.Fullscreen && window.GetType().Name != "SplashWindow")
+                    NurMarketKassa.AvaloniaHost.Services.FullscreenHelper.ApplyToMainWindow(window);
+                else
+                    window.WindowState = Avalonia.Controls.WindowState.Normal;
+            }
 
             window.Show();
             window.Activate();

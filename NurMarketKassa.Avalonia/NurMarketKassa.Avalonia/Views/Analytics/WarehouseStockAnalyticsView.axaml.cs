@@ -21,6 +21,9 @@ public partial class WarehouseStockAnalyticsView : UserControl
     public WarehouseStockAnalyticsView()
     {
         InitializeComponent();
+        // 2026-10-27, аудит владельца Н-3: столбец назывался «Сумма», а в нём цена одной единицы (72,00 при 99 998 шт); сумма — в соседнем «Стоимость».
+        if (AnalyticsTopValueGrid.Columns.Count > 2)
+            AnalyticsTopValueGrid.Columns[2].Header = Tr.T("Цена за единицу", "Бирдиктин баасы", "Unit price", "Birim fiyat", "Birlik narxi");
     }
 
     private sealed class KpiCardVm

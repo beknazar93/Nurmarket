@@ -46,6 +46,9 @@ public sealed class CustomerDisplayLine
     public double Quantity { get; init; }
     public string Unit { get; init; } = "шт";
     public double LineTotal { get; init; }
+    /// <summary>2026-10-27, аудит Н-1: скидка на эту строку (сом). LineTotal — уже со скидкой; экран покупателя показывает сумму до
+    /// скидки (LineTotal + LineDiscount), чтобы строки складывались в «Промежуточный итог», а скидка шла отдельной строкой.</summary>
+    public double LineDiscount { get; init; }
 }
 
 /// <summary>Статус оплаты на экране покупателя.</summary>

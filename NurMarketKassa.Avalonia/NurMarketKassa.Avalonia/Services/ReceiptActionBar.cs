@@ -277,7 +277,10 @@ internal static class ReceiptShare
     {
         try
         {
+            // 2026-10-27 (аудит кассы, С-12): имя «Чек-{номер}.pdf» не уникально — офлайн-чеки (номера нет) писались в один «Чек-—.pdf», номера
+            // повторяются, файлы молча перезаписывались. Теперь: номер, дата-время чека и короткий id (тот же чек — то же имя, другой — другое).
             var name = (d.IsReturnDoc ? Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish") : Tr.T("Чек", "Чек", "Receipt", "Fiş", "Chek")) + "-" + d.NumberText;
+            name = SaleReceiptCardData.UniqueFileStem(name, d.DateTimeText, d.SaleId, d.Cashier + "|" + d.TotalText + "|" + d.Lines.Count);
             foreach (var c in Path.GetInvalidFileNameChars())
                 name = name.Replace(c, '_');
             var path = Path.Combine(PdfFolder(), name + ".pdf");

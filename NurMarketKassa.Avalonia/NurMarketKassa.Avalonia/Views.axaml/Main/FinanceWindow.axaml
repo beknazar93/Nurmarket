@@ -333,13 +333,13 @@
                             <Border Classes="sec-segment">
                             <StackPanel Orientation="Horizontal" Spacing="2">
                                 <Button x:Name="SummaryPeriodDayButton" Content="{DynamicResource common.day}"
-                                        Classes="sec-seg active" MinHeight="28" Padding="12,4" FontSize="12"
+                                        Classes="sec-seg active" MinHeight="44" Padding="12,4" FontSize="12"
                                         Tag="0" Click="SummaryPeriod_Click"/>
                                 <Button x:Name="SummaryPeriodWeekButton" Content="{DynamicResource common.week}"
-                                        Classes="sec-seg" MinHeight="28" Padding="12,4" FontSize="12"
+                                        Classes="sec-seg" MinHeight="44" Padding="12,4" FontSize="12"
                                         Tag="1" Click="SummaryPeriod_Click"/>
                                 <Button x:Name="SummaryPeriodMonthButton" Content="{DynamicResource common.month}"
-                                        Classes="sec-seg" MinHeight="28" Padding="12,4" FontSize="12"
+                                        Classes="sec-seg" MinHeight="44" Padding="12,4" FontSize="12"
                                         Tag="2" Click="SummaryPeriod_Click"/>
                             </StackPanel>
                             </Border>

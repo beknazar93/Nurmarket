@@ -27,7 +27,6 @@ public partial class MainWindow
         _hostBridge.AddWeighedProductWithKnownWeight = AddWeighedProductWithKnownWeightAsync;
         _hostBridge.OpenDeferredCarts = OpenDeferredCartsAsync;
         _hostBridge.OpenNextDeferredCart = OpenNextDeferredCartAsync;
-        _hostBridge.OpenCashOperations = OpenCashOperationsAsync;
         _hostBridge.ApplyOrderDiscount = ApplyOrderDiscountAsync;
         _hostBridge.AddCustomItem = AddCustomItemAsync;
         _hostBridge.OfferAddUnknownProduct = OfferAddUnknownProductAsync;
@@ -40,7 +39,7 @@ public partial class MainWindow
 
     /// <summary>
     /// Базовый остаток кассы с сервера/офлайн-состояния, БЕЗ локальных внесений/изъятий:
-    /// X/Z-отчёт (CashShiftService.BuildReportText) прибавляет их сам, чтобы не задвоить.
+    /// 2026-10-27: старый X/Z-отчёт CashShiftService.BuildReportText удалён (Н-16); EffectiveShiftCashBalance прибавляет локальные операции сам.
     /// Для отображения используется EffectiveShiftCashBalance.
     /// </summary>
     internal decimal? GetCurrentBalance() => _shiftCashBalance;
@@ -70,17 +69,6 @@ public partial class MainWindow
     {
         var dlg = new CartRemovalReasonDialog(request);
         return await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true) == true ? dlg.Answer : null;
-    }
-
-    internal async Task OpenCashOperationsAsync()
-    {
-        // 2026-10-22 (аудит новой сборки, П1): перед окном внесения/изъятия — сверка смены с сервером (он мог закрыть её сам).
-        if (_session.IsShiftOpen)
-            await CheckShiftOnServerAsync(TimeSpan.FromSeconds(4)).ConfigureAwait(true);
-        var dlg = App.GetRequiredService<CashOperationsDialog>();
-        dlg.OpenShiftAction = async cash => await ApplyShiftOpenedAsync(cash).ConfigureAwait(true);
-        dlg.CloseShiftAction = async cash => await ApplyShiftClosedAsync(cash).ConfigureAwait(true);
-        await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true);
     }
 
     /// <summary>2026-10-01: варианты товара (размер/цвет) с сервера. null — сервер недоступен: товар
@@ -1012,7 +1000,7 @@ public partial class MainWindow
 
         var price = CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(line));
         var mustWeigh = CartDisplayHelper.LineMustWeigh(line);
-        return new CatalogProductTileVm(productId, title, price + " сом", mustWeigh);
+        return new CatalogProductTileVm(productId, title, price + " " + Tr.T("сом", "сом", "som", "som", "so'm") /* 2026-10-27 (Н-19): валюта на языке кассы; цену разбирает регулярка по цифрам */, mustWeigh);
     }
 
     /// <summary>

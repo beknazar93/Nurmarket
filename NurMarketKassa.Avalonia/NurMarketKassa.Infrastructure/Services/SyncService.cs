@@ -83,32 +83,31 @@ public sealed partial class SyncService : IDisposable
             if (shiftsWithQueuedSales.Contains(entry.ShiftId))
                 continue;
 
-            try
+            // 2026-10-27 (аудит кассы, В-7): смена из очереди сейчас — ТЕКУЩАЯ (сервер отдал её при «открыть смену» или касса
+            // подхватила открытую смену при входе). Закрыть её фоном значило закрыть смену кассира посреди работы
+            // («Смена не открыта»). Запись остаётся: обычное закрытие смены снимет её (CashShiftService.CloseShiftAsync).
+            if (string.Equals(entry.ShiftId, PosApp.ActiveShiftId, StringComparison.OrdinalIgnoreCase))
             {
-                await _shiftApi
-                    .ConstructionShiftCloseAsync(entry.ShiftId, entry.ClosingCash, null, ct)
-                    .ConfigureAwait(false);
+                PosLogger.Log($"Очередь закрытий: смена {entry.ShiftId} сейчас активна на кассе — фоном не закрываю.", "SHIFT");
+                continue;
+            }
+
+            // 2026-10-27 (Н-14): тот же POST, что у живого закрытия, — с повтором и округлением сумм («не более 2 цифр после запятой»).
+            // Раньше очередь повторяла голый POST и получала тот же отказ при каждой попытке.
+            var (outcome, error) = await ShiftCloseRetry.CloseAsync(_shiftApi, entry.ShiftId, entry.ClosingCash, ct).ConfigureAwait(false);
+            if (outcome is ShiftCloseOutcome.Closed or ShiftCloseOutcome.AlreadyClosed)
+            {
+                // AlreadyClosed: смену закрыли где-то ещё (например, в веб-панели) — очередь об этом не знает.
                 PendingShiftCloseStore.Remove(entry.ShiftId);
             }
-            catch (ApiException ex) when (ex.StatusCode is 404 or 400 && IsAlreadyClosed(ex.Message))
-            {
-                // Смену закрыли где-то ещё (например, в веб-панели) — очередь об этом не знает.
-                PendingShiftCloseStore.Remove(entry.ShiftId);
-            }
-            catch (Exception ex)
+            else
             {
                 // Сервер всё ещё не принимает — пробуем в следующий раз, в журнал пишем
                 // только смену попыток, чтобы не засорять его одной и той же строкой.
-                PendingShiftCloseStore.RecordFailure(entry.ShiftId, ex.Message);
+                PendingShiftCloseStore.RecordFailure(entry.ShiftId, error);
             }
         }
     }
-
-    private static bool IsAlreadyClosed(string? message) =>
-        !string.IsNullOrWhiteSpace(message)
-        && (message.Contains("закрыт", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("already", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("не найден", StringComparison.OrdinalIgnoreCase));
 
     public event EventHandler? StateChanged;
 
@@ -319,6 +318,10 @@ public sealed partial class SyncService : IDisposable
             // раньше — досылка чеков этой смены получила бы отказ «смена закрыта».
             if (IsOnline && !ServerOutageMonitor.IsOutage)
                 await FlushPendingShiftClosesAsync(ct).ConfigureAwait(false);
+
+            // 2026-10-27 (аудит кассы, С-3): предоплаты долга, не доехавшие до сервера (касса закрыта сразу после продажи) — довносим.
+            if (IsOnline && !ServerOutageMonitor.IsOutage)
+                await PosCheckoutService.ResumePendingDebtPrepaymentsAsync(_sales, ct).ConfigureAwait(false);
 
             // История продаж других касс этого же аккаунта. Раньше её добирал раздел ABC при
             // открытии — и на кассе с пустой историей окно висело минутами. Здесь это фоновая
@@ -631,6 +634,8 @@ public sealed partial class SyncService : IDisposable
             ["cash_received"] = entry.CashReceived ?? "",
         };
         PosCheckoutService.AddConsultant(body, entry.ConsultantId, entry.ConsultantCommissionEnabled, entry.ConsultantCommissionPercent);
+        if (!string.IsNullOrWhiteSpace(entry.ClientId))
+            body["client_id"] = entry.ClientId!.Trim(); // 2026-10-27 (Н-6): как у интерактивной оплаты (BuildCheckoutRequestBody)
 
         // Смена, в которую чек был пробит на самом деле. Без этого поля сервер относил продажу к
         // смене, открытой на момент ВЫГРУЗКИ: чек, пробитый вечером в смене А и выгруженный утром,

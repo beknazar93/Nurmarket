@@ -36,8 +36,9 @@
         </Style>
         <!-- «Расход» выбран — красным, как и было: кассир сразу видит, что строка уменьшит чек. -->
         <Style Selector="RadioButton.modal-seg.expense:checked">
-            <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+            <!-- 2026-10-27: белый на BrushDanger (#F14C4C) в тёмной теме — 3,6:1; BrushDangerFill — 4,8:1 (светлая тема без изменений). -->
+            <Setter Property="Background" Value="{DynamicResource BrushDangerFill}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushDangerFill}"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
         </Style>
     </Window.Styles>

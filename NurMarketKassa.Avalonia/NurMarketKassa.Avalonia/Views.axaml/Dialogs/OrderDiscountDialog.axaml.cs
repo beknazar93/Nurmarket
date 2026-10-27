@@ -63,14 +63,22 @@ public partial class OrderDiscountDialog : Window
 
     private void UpdatePreview()
     {
-        var raw = (ValueBox.Text ?? "").Trim().Replace(',', '.');
+        // 2026-10-27 (приёмка 1.17.63, Д-1): предпросмотр и кнопка «Применить» разбирают ввод ОДНОЙ функцией (OrderDiscountHelper.TryParseValue).
+        var value = 0m;
         // Галочка «к выбранному товару» в окне скидки на чек — база другая (строка), предпросмотр не показываем.
-        if (_previewBase <= 0m || (ScopePanel.IsVisible && ScopeCheckBox.IsChecked == true) || !decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var value) || value <= 0m)
+        if (_previewBase <= 0m || (ScopePanel.IsVisible && ScopeCheckBox.IsChecked == true)
+            || OrderDiscountHelper.TryParseValue(ValueBox.Text, DiscountTypeToggle.IsChecked == true, out value) != OrderDiscountHelper.DiscountParse.Ok || value <= 0m)
         {
             PreviewText.IsVisible = false;
             return;
         }
 
+        // 2026-10-27, аудит Н-2: 150 % показывало «станет 0,00 (скидка 4,00)» рядом с ошибкой «от 0 до 100» — расчёт при неверном проценте прячем.
+        if (DiscountTypeToggle.IsChecked == true && value > 100m)
+        {
+            PreviewText.IsVisible = false;
+            return;
+        }
         var discount = DiscountTypeToggle.IsChecked == true
             ? Math.Round(_previewBase * Math.Min(value, 100m) / 100m, 2, MidpointRounding.AwayFromZero)
             : value;
@@ -169,31 +177,35 @@ public partial class OrderDiscountDialog : Window
         ErrorText.Text = "";
         SyncModeUi();
 
-        var raw = (ValueBox.Text ?? "").Trim();
         string? error = null;
 
-        if (decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var val)
-            || decimal.TryParse(raw.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out val))
+        // 2026-10-27 (приёмка 1.17.63, Д-1): раньше первым шёл TryParse(Any, Invariant), где «,» — разделитель тысяч:
+        // «0,50» → 50, «2,5» → 25. Теперь тот же разбор, что в предпросмотре.
+        var parse = OrderDiscountHelper.TryParseValue(ValueBox.Text, DiscountMode == "percent", out var val);
+        switch (parse)
         {
-            if (DiscountMode == "percent")
-            {
-                if (val < 0 || val > 100)
+            case OrderDiscountHelper.DiscountParse.Ok:
+                if (DiscountMode == "percent" && val > 100)
                     error = Tr.T("Процент должен быть от 0 до 100", "Пайыз 0дөн 100гө чейин болушу керек", "Percentage must be between 0 and 100", "Yüzde 0 ile 100 arasında olmalıdır", "Foiz 0 dan 100 gacha bo'lishi kerak");
-            }
-            else if (val < 0)
-            {
-                error = Tr.T("Сумма не может быть отрицательной", "Сумма терс болбошу керек", "Amount cannot be negative", "Tutar negatif olamaz", "Summa manfiy bo'lishi mumkin emas");
-            }
-        }
-        else
-        {
-            error = Tr.T("Введите корректное число", "Туура сан киргизиңиз", "Enter a valid number", "Geçerli bir sayı girin", "To'g'ri son kiriting");
+                break;
+            case OrderDiscountHelper.DiscountParse.Negative:
+                error = DiscountMode == "percent"
+                    ? Tr.T("Процент должен быть от 0 до 100", "Пайыз 0дөн 100гө чейин болушу керек", "Percentage must be between 0 and 100", "Yüzde 0 ile 100 arasında olmalıdır", "Foiz 0 dan 100 gacha bo'lishi kerak")
+                    : Tr.T("Сумма не может быть отрицательной", "Сумма терс болбошу керек", "Amount cannot be negative", "Tutar negatif olamaz", "Summa manfiy bo'lishi mumkin emas");
+                break;
+            case OrderDiscountHelper.DiscountParse.TooManyDecimals:
+                error = CheckoutValidation.AmountProblemText(CheckoutValidation.AmountParse.TooManyDecimals);
+                break;
+            default:
+                error = Tr.T("Введите корректное число", "Туура сан киргизиңиз", "Enter a valid number", "Geçerli bir sayı girin", "To'g'ri son kiriting");
+                break;
         }
 
         if (error != null)
         {
             ErrorText.Text = error;
             ErrorText.IsVisible = true;
+            PreviewText.IsVisible = false; // 2026-10-27 (Н-2): при ошибке расчёт не показываем
             // 2026-10-22 (модалки, пакет 1): ошибка под полем — фокус в поле, значение выделено.
             ValueBox.Focus();
             ValueBox.SelectAll();

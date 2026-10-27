@@ -66,6 +66,13 @@ public sealed class GeminiLiveVoice
     /// <summary>Разговор закончен: null — завершил владелец, иначе — понятная причина (из фонового потока).</summary>
     public event Action<string?>? Ended;
 
+    /// <summary>2026-10-27, жалоба «ИИ неправильно открывает разделы и врёт „открыла“»: инструменты (function calling) для живого разговора.
+    /// Обработчик получает имя инструмента и аргументы (JSON-текст) и возвращает ФАКТ для советника — он говорит владельцу только это.
+    /// null — инструментов нет (разговор без них, переходы делает программа по распознанной фразе).</summary>
+    public Func<string, string, Task<string>>? ToolHandler { get; set; }
+
+    private bool _toolsOff;
+
     public string? Model { get; private set; }
 
     /// <summary>Громкость микрофона 0…1 — для анимации круга «слушаю».</summary>
@@ -246,6 +253,14 @@ public sealed class GeminiLiveVoice
                 await SendJsonAsync(Setup(model), ct).ConfigureAwait(false);
                 var (opened, reason) = await ReceiveAsync(ws, model, watch, ct).ConfigureAwait(false);
                 _ws = null;
+                // 2026-10-27: модель не приняла инструменты — один повтор без них (переходы тогда делает программа по распознанной фразе).
+                if (!opened && !ct.IsCancellationRequested && ToolHandler is not null && !_toolsOff && reason != QuotaReason && reason != KeyReason)
+                {
+                    _toolsOff = true;
+                    PosLogger.Log($"Живой разговор ИИ: {model} не открылась с инструментами ({reason}) — повторяю без них.", "WARNING");
+                    swap--;
+                    continue;
+                }
                 if (opened && !ct.IsCancellationRequested)
                     GeminiKeyPool.ReportSuccess(usedKey);
                 if (opened || ct.IsCancellationRequested)
@@ -283,7 +298,74 @@ public sealed class GeminiLiveVoice
             ["contextWindowCompression"] = new JsonObject { ["slidingWindow"] = new JsonObject() },
             ["sessionResumption"] = _resumeHandle is null ? new JsonObject() : new JsonObject { ["handle"] = _resumeHandle },
         };
+        if (ToolHandler is not null && !_toolsOff)
+            setup["tools"] = new JsonArray(new JsonObject { ["functionDeclarations"] = new JsonArray(OpenSectionDeclaration()) });
         return new JsonObject { ["setup"] = setup };
+    }
+
+    /// <summary>Инструмент open_section: id пункта из словаря программы (AdvisorNavRouter) — модель не придумывает названия.</summary>
+    private static JsonObject OpenSectionDeclaration()
+    {
+        var ids = new JsonArray();
+        foreach (var t in AdvisorNavRouter.Targets)
+            ids.Add(t.Id);
+        ids.Add("unknown");
+        return new JsonObject
+        {
+            ["name"] = "open_section",
+            ["description"] = "Открыть раздел или вкладку программы на экране владельца. Вызывай ТОЛЬКО когда владелец просит открыть, перейти или зайти. "
+                              + "Выбери target СТРОГО из списка (например warehouse.receiving — Склад, вкладка Приёмка; purchases.receive — Закупки, Приём товара; restock — Пополнение и сроки; profitcash — Прибыль и деньги). "
+                              + "Не нашёл подходящего — target «unknown» и слова владельца в words. Инструмент возвращает ФАКТ (открыто / не получилось / варианты): "
+                              + "скажи владельцу только то, что он вернул, и не придумывай названий. Пока не получен результат, не говори «открыл».",
+            ["parameters"] = new JsonObject
+            {
+                ["type"] = "OBJECT",
+                ["properties"] = new JsonObject
+                {
+                    ["target"] = new JsonObject { ["type"] = "STRING", ["description"] = "id пункта программы", ["enum"] = ids },
+                    ["words"] = new JsonObject { ["type"] = "STRING", ["description"] = "слова владельца про раздел (как сказал), если нужного id нет" },
+                },
+                ["required"] = new JsonArray("target"),
+            },
+        };
+    }
+
+    /// <summary>Вызов инструмента моделью → факт обратно (toolResponse). Разбор аргументов — синхронно (документ JSON освобождается после сообщения).</summary>
+    private void OnToolCall(JsonElement toolCall)
+    {
+        if (!toolCall.TryGetProperty("functionCalls", out var calls) || calls.ValueKind != JsonValueKind.Array)
+            return;
+        var list = new List<(string Id, string Name, string Args)>();
+        foreach (var fc in calls.EnumerateArray())
+            list.Add((fc.TryGetProperty("id", out var id) ? id.GetString() ?? "" : "", fc.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                fc.TryGetProperty("args", out var a) ? a.GetRawText() : "{}"));
+        LastActivityUtc = DateTime.UtcNow;
+        _ = Task.Run(async () =>
+        {
+            var responses = new JsonArray();
+            foreach (var (id, name, args) in list)
+            {
+                string result;
+                try
+                {
+                    result = ToolHandler is { } handler ? await handler(name, args).ConfigureAwait(false) : "инструмент недоступен";
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    PosLogger.Log($"Живой разговор ИИ: инструмент {name} упал ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+                    result = "НЕ ВЫПОЛНЕНО: ошибка программы. Скажи владельцу, что не получилось.";
+                }
+                responses.Add(new JsonObject { ["id"] = id, ["name"] = name, ["response"] = new JsonObject { ["result"] = result } });
+            }
+            try
+            {
+                await SendJsonAsync(new JsonObject { ["toolResponse"] = new JsonObject { ["functionResponses"] = responses } }, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // соединение закрылось — результат всё равно виден владельцу в чате
+            }
+        });
     }
 
     private async Task<(bool Opened, string? Reason)> ReceiveAsync(ClientWebSocket ws, string model, System.Diagnostics.Stopwatch watch, CancellationToken ct)
@@ -321,6 +403,8 @@ public sealed class GeminiLiveVoice
                 }
                 if (root.TryGetProperty("serverContent", out var content))
                     OnServerContent(content);
+                if (root.TryGetProperty("toolCall", out var toolCall))
+                    OnToolCall(toolCall);
                 if (root.TryGetProperty("sessionResumptionUpdate", out var resume)
                     && resume.TryGetProperty("resumable", out var resumable) && resumable.ValueKind == JsonValueKind.True
                     && resume.TryGetProperty("newHandle", out var handle) && handle.GetString() is { Length: > 0 } newHandle)

@@ -110,6 +110,8 @@ public static class ReceiptPrintService
         {
             "cash" => true,
             "mixed" => double.TryParse(cashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var part) && part > 0,
+            // 2026-10-27 (аудит кассы, Н-11): продажа в долг с наличной предоплатой — деньги в ящик положили.
+            "debt-cash" => double.TryParse(cashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var prepaid) && prepaid > 0.005,
             _ => false,
         };
         if (!takesCash)

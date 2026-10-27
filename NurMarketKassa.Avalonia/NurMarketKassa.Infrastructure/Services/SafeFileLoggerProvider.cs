@@ -34,6 +34,8 @@ public sealed class SafeFileLoggerProvider : ILoggerProvider
         _worker.Start();
         // Процесс завершается без Dispose — дописать очередь (не дольше 2 с).
         AppDomain.CurrentDomain.ProcessExit += (_, _) => Flush(2000);
+        // 2026-10-27 (Н-20): ошибки больше не ждут записи на UI-потоке; при необработанном падении очередь дописываем здесь.
+        AppDomain.CurrentDomain.UnhandledException += (_, _) => Flush(2000);
     }
 
     public ILogger CreateLogger(string categoryName) =>
@@ -54,7 +56,10 @@ public sealed class SafeFileLoggerProvider : ILoggerProvider
             return;
         }
 
-        if (level >= LogLevel.Error)
+        // 2026-10-27, аудит Н-20: запись ошибки ждала Flush до 1 с прямо на UI-потоке (окно «замирало» на каждой ошибке).
+        // У UI-потока (Avalonia) есть SynchronizationContext — там не ждём (строка уже в очереди, пишет фоновый поток);
+        // фоновые потоки ждут, как раньше.
+        if (level >= LogLevel.Error && SynchronizationContext.Current is null)
             Flush(1000);
     }
 

@@ -105,9 +105,9 @@
               <!-- 2026-10-06, владелец: штраф за просрочку — в чеке долга и проката. Надписи — в коде (5 языков). -->
               <StackPanel Spacing="4" Margin="0,8,0,0">
                 <TextBlock x:Name="DebtPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
-                <TextBox x:Name="DebtPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36" MaxLength="120"/>
+                <TextBox x:Name="DebtPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" MaxLength="120"/>
                 <TextBlock x:Name="RentalPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                <TextBox x:Name="RentalPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36" Width="160" HorizontalAlignment="Left" Watermark="0"/>
+                <TextBox x:Name="RentalPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" Width="160" HorizontalAlignment="Left" Watermark="0"/>
               </StackPanel>
           </StackPanel>
         </Border>
@@ -368,7 +368,7 @@
                          Text="{DynamicResource posSettings.operations.loyaltyEarnPercent}"
                          Classes="FieldLabel" VerticalAlignment="Center"/>
               <TextBox Grid.Column="2" x:Name="LoyaltyEarnPercentBox" x:FieldModifier="public"
-                       Classes="ModernTextBox" Height="36"/>
+                       Classes="ModernTextBox" Height="44"/>
             </Grid>
             <TextBlock Text="{DynamicResource posSettings.operations.loyaltyHint}"
                        FontSize="11" TextWrapping="Wrap"

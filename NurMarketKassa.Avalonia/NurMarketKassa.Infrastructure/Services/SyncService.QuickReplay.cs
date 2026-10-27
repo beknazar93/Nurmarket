@@ -113,7 +113,7 @@ public sealed partial class SyncService
             entry.PaymentMethod,
             entry.CashReceived,
             nonCashReceived: null,
-            clientId: null,
+            clientId: entry.ClientId, // 2026-10-27 (Н-6): клиент офлайн-чека не теряется при досылке
             shiftId,
             entry.ConsultantId,
             entry.ConsultantCommissionEnabled,

@@ -59,6 +59,17 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Padding" Value="0"/>
         </Style>
+        <!-- 2026-10-27: у «−/+/корзины» не было своего наведения/нажатия — Fluent красил кнопку серым #474747/#7A7A7A, и красная корзина в тёмной теме была 2,6:1; теперь мягкий фон темы. -->
+        <Style Selector="Button.onec-step:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.onec-step:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
         <Style Selector="Button.onec-action">
             <!-- 2026-09-30: без фокуса — иначе Enter, которым сканер заканчивает код, нажимал кнопку ещё раз (товар/чек добавлялся сам) -->
             <Setter Property="Focusable" Value="False"/>

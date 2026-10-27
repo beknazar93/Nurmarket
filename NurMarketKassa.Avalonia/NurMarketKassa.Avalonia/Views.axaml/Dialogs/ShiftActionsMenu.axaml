@@ -39,7 +39,8 @@
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="FontSize" Value="14"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+      <!-- 2026-10-27: красный текст BrushDanger на тёмной панели — 4,0–4,45:1, на мягко-красной при наведении 3,5:1; BrushDangerOnSoft — 5–6,4:1 (в светлой теме тот же #B91C1C). -->
+      <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
     </Style>
     <Style Selector="Button.menu-danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
@@ -73,7 +74,7 @@
 
       <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Withdraw}">
         <StackPanel Orientation="Horizontal" Spacing="10">
-          <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
+          <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushDangerOnSoft}"/>
           <TextBlock Text="{DynamicResource shiftActions.withdraw}" VerticalAlignment="Center"/>
         </StackPanel>
       </Button>
@@ -96,8 +97,8 @@
 
       <Button Classes="menu-danger" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Delete}">
         <StackPanel Orientation="Horizontal" Spacing="10">
-          <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
-          <TextBlock Text="{DynamicResource common.delete}" VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
+          <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushDangerOnSoft}"/>
+          <TextBlock Text="{DynamicResource common.delete}" VerticalAlignment="Center" Foreground="{DynamicResource BrushDangerOnSoft}"/>
         </StackPanel>
       </Button>
 

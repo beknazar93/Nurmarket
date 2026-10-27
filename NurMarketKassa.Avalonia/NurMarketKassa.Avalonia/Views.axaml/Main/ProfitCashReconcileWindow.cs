@@ -172,6 +172,9 @@ public sealed class ProfitCashReconcileWindow : Window
             // способ оплаты — разбивка; оплата долга — приход денег, а не выручка. Проверено 06.10: доход = выручке сводки.
             query["operations"] = "0";
             var financeTask = Get("api/main/analytics/finance/");
+            // 2026-10-27, аудит владельца В-3: тот же период по отчёту «Продажи» (analytics/market) — для сверки способов оплаты с вкладкой
+            // «Продажи и финансы»; сбой не мешает окну (null — сверка просто не показывается).
+            var salesTask = ServerSalesSummary.FetchAsync(from, to, ct);
             // 2026-10-22 (статьи изъятия): изъятия из кассы смен по статьям — отчёт pnl делит расходы только на зарплату,
             // аренду, налоги, коммунальные и «прочие»; остальные статьи (транспорт, хознужды, инкассация…) группируем сами.
             var articlesTask = CashArticles.WithdrawalsByArticleAsync(api, from, to, ct);
@@ -187,6 +190,18 @@ public sealed class ProfitCashReconcileWindow : Window
             RenderArticles(await articlesTask.ConfigureAwait(true));
             RenderCash(cash);
             RenderFinance(finance);
+            try
+            {
+                RenderPaymentCompare(finance, await salesTask.ConfigureAwait(true));
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Прибыль и деньги: сверка способов оплаты не получена: {ex.Message}", "WARNING");
+            }
             RenderChecks(check);
             _status.Text = Tr.T($"Период: {from:dd.MM.yyyy} — {to:dd.MM.yyyy}. Цифры — с сервера NurCRM, те же, что на сайте.",
                 $"Мезгил: {from:dd.MM.yyyy} — {to:dd.MM.yyyy}. Сандар — NurCRM серверинен, сайттагыдай.",
@@ -363,6 +378,54 @@ public sealed class ProfitCashReconcileWindow : Window
             "Bitta sotuv — bitta daromad: aralash to'lov usullarga bo'linadi, ikki marta hisoblanmaydi.")));
     }
 
+    /// <summary>2026-10-27, аудит владельца В-3: «Продажи и финансы» берут способы оплаты из отчёта «Продажи» (analytics/market), а этот раздел —
+    /// из отчёта «Финансы» (analytics/finance): два отчёта сервера, и смешанную оплату они делят по-разному (за месяц: наличные 1 873 352,44 против
+    /// 1 872 963,98, безнал 159 884,04 против 156 296,50, смешанная 85 против 3 291). Подгонять цифры нельзя — под «Доходом по способам»
+    /// показываем обе раскладки рядом и разницу с пометкой, чья она (передано серверу — «ТЗ Умару», п. «способы оплаты»).</summary>
+    private void RenderPaymentCompare(JsonElement? finance, ServerSalesSummary? sales)
+    {
+        if (finance is not { ValueKind: JsonValueKind.Object } d || Num(d, "income_total") is not { } incomeTotal
+            || sales?.Revenue is not { } salesRevenue
+            || !d.TryGetProperty("income_by_method", out var byMethod) || byMethod.ValueKind != JsonValueKind.Object)
+            return;
+        double cash = 0, mixed = 0, other = 0;
+        foreach (var m in byMethod.EnumerateObject())
+        {
+            var v = Num(byMethod, m.Name) ?? 0;
+            var key = m.Name.ToLowerInvariant();
+            if (key == "cash" || key.Contains("нал", StringComparison.Ordinal))
+                cash += v;
+            else if (key is "mixed" or "split")
+                mixed += v;
+            else
+                other += v;
+        }
+        var (sCash, sMixed, sDebt, sNonCash) = sales.Split();
+        var diffCash = cash - (double)sCash;
+        var diffOther = other - (double)(sNonCash + sDebt);
+        var diffMixed = mixed - (double)sMixed;
+        var diffTotal = incomeTotal - (double)salesRevenue;
+        if (Math.Abs(diffCash) < 0.5 && Math.Abs(diffOther) < 0.5 && Math.Abs(diffMixed) < 0.5 && Math.Abs(diffTotal) < 0.5)
+            return;
+        string Som(double v) => v.ToString("N2", Ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm");
+        _cash.Children.Add(Head(Tr.T("Сверка с вкладкой «Продажи»", "«Сатуулар» кошумча барагы менен салыштыруу", "Check against the Sales tab",
+            "«Satışlar» sekmesiyle karşılaştırma", "«Sotuvlar» bo'limi bilan solishtirish")));
+        _cash.Children.Add(Row("   " + Tr.T("Наличные: здесь / в «Продажах»", "Накталай: бул жерде / «Сатууларда»", "Cash: here / in Sales", "Nakit: burada / «Satışlar»da", "Naqd: bu yerda / «Sotuvlar»da"),
+            Som(cash) + " / " + Som((double)sCash), false, stacked: true));
+        _cash.Children.Add(Row("   " + Tr.T("Безнал и прочее: здесь / в «Продажах»", "Накталай эмес: бул жерде / «Сатууларда»", "Cashless and other: here / in Sales",
+            "Nakitsiz ve diğer: burada / «Satışlar»da", "Naqdsiz va boshqa: bu yerda / «Sotuvlar»da"), Som(other) + " / " + Som((double)(sNonCash + sDebt)), false, stacked: true));
+        _cash.Children.Add(Row("   " + Tr.T("Смешанная: здесь / в «Продажах»", "Аралаш: бул жерде / «Сатууларда»", "Mixed: here / in Sales", "Karışık: burada / «Satışlar»da", "Aralash: bu yerda / «Sotuvlar»da"),
+            Som(mixed) + " / " + Som((double)sMixed), false, stacked: true));
+        _cash.Children.Add(Row(Tr.T("Итого: здесь / в «Продажах»", "Жалпы: бул жерде / «Сатууларда»", "Total: here / in Sales", "Toplam: burada / «Satışlar»da", "Jami: bu yerda / «Sotuvlar»da"),
+            Som(incomeTotal) + " / " + Som((double)salesRevenue), true, stacked: true, check: CheckState.Warn));
+        _cash.Children.Add(Soft(Tr.T(
+            "Это два разных отчёта сервера NurCRM: оба считают выручку, но смешанную оплату (часть наличными, часть безналом) раскладывают по-своему. Мы цифры не подгоняем — разница передана разработчикам сервера.",
+            "Бул NurCRM серверинин эки башка отчёту: экөө тең түшүмдү эсептейт, бирок аралаш төлөмдү (бир бөлүгү накталай, бир бөлүгү накталай эмес) ар кандай бөлөт. Сандарды ылайыктабайбыз — айырма сервер иштеп чыгуучуларына жөнөтүлдү.",
+            "These are two different NurCRM server reports: both count revenue, but they split a mixed payment (part cash, part cashless) differently. We do not adjust the figures — the difference has been passed to the server developers.",
+            "Bunlar NurCRM sunucusunun iki farklı raporudur: ikisi de ciroyu hesaplar ama karışık ödemeyi (bir kısmı nakit, bir kısmı nakitsiz) farklı böler. Rakamları uydurmuyoruz — fark sunucu geliştiricilerine iletildi.",
+            "Bular NurCRM serverining ikki xil hisoboti: ikkalasi ham tushumni hisoblaydi, lekin aralash to'lovni (bir qismi naqd, bir qismi naqdsiz) turlicha bo'ladi. Raqamlarni moslashtirmaymiz — farq server ishlab chiquvchilariga yuborildi.")));
+    }
+
     private void RenderChecks(JsonElement? data)
     {
         _checks.Children.Clear();
@@ -483,11 +546,29 @@ public sealed class ProfitCashReconcileWindow : Window
         }
         else
         {
-            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto") };
             Grid.SetColumn(b, 1);
             b.Margin = new Thickness(12, 0, 0, 0);
             grid.Children.Add(a);
             grid.Children.Add(b);
+            // 2026-10-27, аудит владельца С-4 (1024×600): сумма (Auto, без переноса) съедала всю ширину узкой колонки, и подпись
+            // получала несколько точек — «Валова / я прибыл / ь». Подписи оставляем не уже ~120 точек: не помещается рядом — сумма уходит под подпись.
+            // Ширину суммы оцениваем по длине текста (0,62 em на знак с цифрами) — замер самого блока здесь вызвал бы повторную раскладку.
+            var stackedNow = false;
+            void Relayout(double width)
+            {
+                var amount = (b.Text?.Length ?? 0) * b.FontSize * 0.62 + 12;
+                var stack = width > 0 && width - amount < 120;
+                if (stack == stackedNow)
+                    return;
+                stackedNow = stack;
+                Grid.SetRow(b, stack ? 1 : 0);
+                Grid.SetColumn(b, stack ? 0 : 1);
+                Grid.SetColumnSpan(b, stack ? 2 : 1);
+                b.Margin = stack ? new Thickness(0, 2, 0, 0) : new Thickness(12, 0, 0, 0);
+                b.HorizontalAlignment = stack ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+            }
+            grid.SizeChanged += (_, e) => Relayout(e.NewSize.Width);
             content = grid;
         }
 

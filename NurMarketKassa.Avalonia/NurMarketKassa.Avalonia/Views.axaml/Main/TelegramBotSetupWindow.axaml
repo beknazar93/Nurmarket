@@ -10,6 +10,27 @@
         Background="{DynamicResource BrushWindowBackdrop}"
         Loaded="Window_Loaded">
 
+  <!-- 2026-10-27, жалоба «в тёмной теме у кнопок не видно надписей»: голубой текст #229ED9 на тёмной панели — 4,0:1, при наведении #1E8CC4 — 2,7:1
+       (надпись темнела и пропадала); белый на #2AABEE у главных кнопок — 2,6:1 в обеих темах; выключенные — серый 50 % (≈2,5:1).
+       Теперь: вторичные — светло-голубой текст в тёмной теме (#7FD0F8, 5,0–8,8:1) и тёмно-голубой в светлой (#0A5F8E / #085684, ≥4,8:1);
+       главные — белый на более глубоком голубом #1A74A8 (5,1:1; наведение #166A96, нажатие #135A80); выключенные — #9A9A9A / #6B6B6B (≥4,5:1). -->
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="TgGhostText" Color="#0A5F8E"/>
+          <SolidColorBrush x:Key="TgGhostTextHover" Color="#085684"/>
+          <SolidColorBrush x:Key="TgDisabledText" Color="#6B6B6B"/>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="TgGhostText" Color="#7FD0F8"/>
+          <SolidColorBrush x:Key="TgGhostTextHover" Color="#7FD0F8"/>
+          <SolidColorBrush x:Key="TgDisabledText" Color="#9A9A9A"/>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Window.Resources>
+
   <Window.Styles>
     <Style Selector="Border.StepCard">
       <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
@@ -40,30 +61,31 @@
       <Setter Property="FontSize" Value="13.5"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Background" Value="#1A2AABEE"/>
-      <Setter Property="Foreground" Value="#229ED9"/>
+      <Setter Property="Foreground" Value="{DynamicResource TgGhostText}"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="#332AABEE"/>
-      <Setter Property="Foreground" Value="#1E8CC4"/>
+      <Setter Property="Foreground" Value="{DynamicResource TgGhostTextHover}"/>
     </Style>
     <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="#4D2AABEE"/>
     </Style>
     <Style Selector="Button.Primary">
-      <Setter Property="Background" Value="#2AABEE"/>
+      <Setter Property="Background" Value="#1A74A8"/>
       <Setter Property="Foreground" Value="White"/>
     </Style>
     <Style Selector="Button.Primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="#229ED9"/>
+      <Setter Property="Background" Value="#166A96"/>
       <Setter Property="Foreground" Value="White"/>
     </Style>
     <Style Selector="Button.Primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="#1E8CC4"/>
+      <Setter Property="Background" Value="#135A80"/>
+      <Setter Property="Foreground" Value="White"/>
     </Style>
     <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="#14808080"/>
-      <Setter Property="Foreground" Value="#80808080"/>
+      <Setter Property="Foreground" Value="{DynamicResource TgDisabledText}"/>
     </Style>
     <Style Selector="ProgressBar.tg">
       <Setter Property="Foreground" Value="#2AABEE"/>

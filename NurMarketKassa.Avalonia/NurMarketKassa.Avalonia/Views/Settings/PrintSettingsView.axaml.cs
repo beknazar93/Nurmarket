@@ -10,6 +10,9 @@ public partial class PrintSettingsView : UserControl
     public PrintSettingsView()
     {
         InitializeComponent();
+        // 2026-10-27, К-П3: карточка «Телефон как сканер» (только касса Windows/Linux, не программа владельца).
+        if (NurMarketKassa.AvaloniaHost.Services.PhoneLinkHost.Supported)
+            PhoneLinkHost.Content = new PhoneLinkSettingsView();
         // 2026-10-20 (живой аудит кассы, К7): «Печатать чек после оплаты» включён, а в окне оплаты «Напечатать чек»
         // выключен — два переключателя путали. Подпись: этот — главный; окно оплаты помнит последний выбор кассира.
         PrintSwitchHint.Text = NurMarketKassa.Services.Tr.T(

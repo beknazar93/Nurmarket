@@ -68,6 +68,8 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     private bool _loaded;
     private Dictionary<string, PurchaseReceiptNote> _notes = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlySet<string> _debtKeys = new HashSet<string>();
+    /// <summary>2026-10-27, С-2: суммы долгов, записанных журналом по меткам приходов (для плитки «В долг»).</summary>
+    private IReadOnlyDictionary<string, double> _debtAmounts = new Dictionary<string, double>();
     private List<SupplierReturnInfo>? _returns;
     private const int PageSize = 50;
 
@@ -306,6 +308,28 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     /// <summary>Касса: окно «Закупки» из меню (MainWindow.NavigatePurchases).</summary>
     public static void ShowFor(Window owner) => Open(owner);
 
+    /// <summary>2026-10-27, жалоба «Нур Советник открывает не ту вкладку»: вкладка «Закупок» по ключу словаря (history, orders, returns, receive —
+    /// «Приём товара»); true — вкладка действительно показана.</summary>
+    public bool SelectNavTab(string tab)
+    {
+        if (tab == "receive")
+        {
+            OpenReceive(null);
+            return _receive is not null;
+        }
+        if (tab is not ("history" or "orders" or "returns"))
+            return false;
+        if (_receive is not null || _recommend is not null)
+            CloseSub();
+        if (_tab != tab)
+        {
+            _tab = tab;
+            BuildTabs();
+            _ = ReloadAsync();
+        }
+        return _tab == tab;
+    }
+
     private void ConsumePending()
     {
         if (!_pendingReceive)
@@ -420,6 +444,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         var gen = ++_gen;
         _notes = PurchasesStore.ReceiptNotes();
         _debtKeys = SupplierDebtRecorder.DoneKeys();
+        _debtAmounts = SupplierDebtRecorder.DoneAmounts();
         _rows.Children.Clear();
         _more.IsVisible = false;
         ApplyHead();
@@ -557,8 +582,16 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         }
         _kpi.Children.Add(UiKit.Kpi(T("Всего закупок", "Бардык сатып алуулар", "Total purchases", "Toplam satın alma", "Jami xaridlar"), _receiptCount.ToString("N0", Ru)));
         _kpi.Children.Add(UiKit.Kpi(T("Общая сумма", "Жалпы сумма", "Total amount", "Toplam tutar", "Umumiy summa"), MoneyText.Som(_receiptTotal)));
-        var debt = _receipts.Sum(r => _notes.TryGetValue(r.Id, out var n) ? n.Debt : 0);
-        _kpi.Children.Add(UiKit.Kpi(T("В долг (по этому ПК)", "Карызга (ушул ПК)", "On credit (this PC)", "Veresiye (bu PC)", "Qarzga (shu kompyuter)"), MoneyText.Som(debt), danger: debt > 0.005));
+        // 2026-10-27, аудит владельца С-2: плитка «В долг (по этому ПК)» показывала 0,00 при строке «В долг» в списке — она считала только
+        // заметки закупок, а строка берёт ещё и записанные долги по приходам. Теперь та же двойная проверка, что у значка оплаты строки (PayPill).
+        var debt = _receipts.Sum(r => _notes.TryGetValue(r.Id, out var n) ? n.Debt : _debtAmounts.GetValueOrDefault(SupplierDebtRecorder.MarkerForReceipt(r.Id)));
+        var debtTile = UiKit.Kpi(T("В долг", "Карызга", "On credit", "Veresiye", "Qarzga"), MoneyText.Som(debt), danger: debt > 0.005);
+        ToolTip.SetTip(debtTile, T("Приходы, оплаченные в долг и записанные в программе. Способ оплаты прихода сервер NurCRM не хранит, поэтому закупки, проведённые не здесь, в плитке не видны.",
+            "Карызга төлөнүп, программада жазылган кирешелер. NurCRM сервери кириштин төлөм ыкмасын сактабайт, ошондуктан бул жерде өткөрүлбөгөн сатып алуулар плиткада көрүнбөйт.",
+            "Deliveries paid on credit and recorded in the program. The NurCRM server does not store the payment method of a delivery, so purchases made elsewhere are not shown in the tile.",
+            "Veresiye ödenen ve programda kaydedilen girişler. NurCRM sunucusu girişin ödeme yöntemini saklamaz, bu yüzden başka yerde yapılan alımlar kutuda görünmez.",
+            "Qarzga to'langan va dasturda yozilgan kirimlar. NurCRM serveri kirimning to'lov usulini saqlamaydi, shu sababli boshqa joyda o'tkazilgan xaridlar kartada ko'rinmaydi."));
+        _kpi.Children.Add(debtTile);
         _kpi.Children.Add(UiKit.Kpi(T("Возвращено", "Кайтарылды", "Returned", "İade edilen", "Qaytarildi"), MoneyText.Som(_receipts.Sum(r => r.ReturnedAmount))));
     }
 

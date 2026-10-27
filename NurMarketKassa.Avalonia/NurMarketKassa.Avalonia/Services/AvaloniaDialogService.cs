@@ -10,6 +10,7 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// </summary>
 public sealed class AvaloniaDialogService : IDialogService
 {
+    // 2026-10-27, аудит С-26: заголовки «Сообщение» / «Ошибка» были жёстко по-русски — теперь на языке кассы (5 языков).
 #if NURANDROID
     // 2026-10-04, Android-касса: окна оплаты (подтверждение, «принтер не подключён», сообщения)
     // ждём по-настоящему асинхронно — без вложенного цикла сообщений, которого у Avalonia на
@@ -20,14 +21,14 @@ public sealed class AvaloniaDialogService : IDialogService
     public Task ShowInfoAsync(string message) =>
         RunOnUiTaskAsync(async () =>
         {
-            await PosAlertDialog.ShowAsync(GetOwner(), "Сообщение", message, PosAlertKind.Info).ConfigureAwait(true);
+            await PosAlertDialog.ShowAsync(GetOwner(), Tr.T("Сообщение", "Билдирүү", "Message", "Mesaj", "Xabar"), message, PosAlertKind.Info).ConfigureAwait(true);
             return true;
         });
 
     public Task ShowErrorAsync(string message) =>
         RunOnUiTaskAsync(async () =>
         {
-            await PosAlertDialog.ShowAsync(GetOwner(), "Ошибка", message, PosAlertKind.Error).ConfigureAwait(true);
+            await PosAlertDialog.ShowAsync(GetOwner(), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"), message, PosAlertKind.Error).ConfigureAwait(true);
             return true;
         });
 
@@ -50,11 +51,11 @@ public sealed class AvaloniaDialogService : IDialogService
 
     public Task ShowInfoAsync(string message) =>
         RunOnUiAsync(() =>
-            PosAlertDialog.Show(GetOwner(), "Сообщение", message, PosAlertKind.Info));
+            PosAlertDialog.Show(GetOwner(), Tr.T("Сообщение", "Билдирүү", "Message", "Mesaj", "Xabar"), message, PosAlertKind.Info));
 
     public Task ShowErrorAsync(string message) =>
         RunOnUiAsync(() =>
-            PosAlertDialog.Show(GetOwner(), "Ошибка", message, PosAlertKind.Error));
+            PosAlertDialog.Show(GetOwner(), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"), message, PosAlertKind.Error));
 
     public Task<PrinterNotConnectedResult> ShowPrinterNotConnectedAsync() =>
         RunOnUiAsync(() => PrinterNotConnectedDialog.ShowCheckout(GetOwner()));

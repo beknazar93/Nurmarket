@@ -116,10 +116,16 @@ public static class TelegramAiChat
     /// <summary>Модель Gemini, ответившая последней (для журнала).</summary>
     public static string? LastModel => _workingModel;
 
+    /// <summary>2026-10-27: общий срок ответа на вопрос (без фото). Задан — первая модель получает не больше 7 с, дальше остаток; не задан — прежние 40 с.
+    /// Окно советника ставит 12 с и при превышении показывает «ИИ долго отвечает — повторить?».</summary>
+    private static readonly AsyncLocal<TimeSpan?> QuestionBudget = new();
+
     public static async Task<OwnerAskResult> AskOwnerAppAsync(string question, IReadOnlyList<AiSection> shop, AiAccess access, CancellationToken ct,
-        IReadOnlyList<(byte[] Data, string Mime)>? attachments = null, Action<int>? stage = null, bool useHistory = true, ISet<string>? forceFull = null)
+        IReadOnlyList<(byte[] Data, string Mime)>? attachments = null, Action<int>? stage = null, bool useHistory = true, ISet<string>? forceFull = null,
+        TimeSpan? budget = null)
     {
         var total = System.Diagnostics.Stopwatch.StartNew();
+        QuestionBudget.Value = attachments is { Count: > 0 } ? null : budget;
         var timings = new StringBuilder();
         stage?.Invoke(StageCollect);
         QuestionImage.Value = attachments is { Count: > 0 } ? (attachments[0].Data, attachments[0].Mime) : null;
@@ -176,12 +182,15 @@ public static class TelegramAiChat
             }
             stage?.Invoke(StageCompose);
             timings.Append($"всего {total.ElapsedMilliseconds} мс");
+            // 2026-10-27: замер этапов в журнал. Потоковой выдачи нет (generateContent целиком), поэтому «первый токен» = конец ответа модели.
+            AdvisorTurn.Perf("ответ", total.ElapsedMilliseconds, $"модель {(fallback ? "запасной ИИ" : _workingModel ?? "—")}, ИИ {ai.ElapsedMilliseconds} мс, {(budget is { } b ? "предел " + b.TotalSeconds.ToString("0") + " с" : "без предела")}");
             return new OwnerAskResult(answer, error, sources, included, timings.ToString(), fallback ? "запасной ИИ" : _workingModel, fallback);
         }
         finally
         {
             QuestionImage.Value = null;
             QuestionExtraImages.Value = null;
+            QuestionBudget.Value = null;
         }
     }
 
@@ -330,6 +339,11 @@ public static class TelegramAiChat
             rules.Append("\n").Append(ProductActionPlan.PhotoPromptText).Append(' ').Append(InvoiceException);
         if (groqSearch)
             rules.Append('\n').Append(GroqSearchHint);
+        // 2026-10-27, жалоба владельца («ИИ открывает не те разделы и врёт „открыла“»): переходы выполняет программа сама и сообщает результат;
+        // нейросеть ничего не открывает и не обещает. Список id — только когда во фразе есть «открой/перейди/…» (иначе лишние токены).
+        rules.Append(' ').Append(NavNoPretendRule);
+        if (AdvisorNavRouter.LooksLikeNav(question))
+            rules.Append(" РАЗДЕЛЫ ПРОГРАММЫ (id — название): ").Append(AdvisorNavRouter.PromptList()).Append('.');
         var head = rules + "\n\nДАННЫЕ МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + " (части по важности):\n";
         // 2026-10-21 (стенд): раздел, присланный целиком по «НУЖНО:», — сверх бюджета (раньше склад целиком вытеснял всё остальное).
         var extra = Math.Min(40000, sections.Where(x => forceFull?.Contains(x.Key) == true).Sum(x => x.Full.Length));
@@ -339,6 +353,11 @@ public static class TelegramAiChat
         PosLogger.Log($"ИИ-советник: в ИИ — инструкции {head.Length} симв., {report}.", "INFO");
         return (head + data, included, head + safeData + "\n(Персональные данные сотрудников и должников запасному ИИ не передаются — на такие вопросы скажи, что основной ИИ недоступен, пусть владелец повторит позже.)");
     }
+
+    /// <summary>2026-10-27: правило против «притворства» — модель не открывает разделы и не говорит, что открыла.</summary>
+    internal const string NavNoPretendRule =
+        "РАЗДЕЛЫ ОТКРЫВАЕТ ТОЛЬКО ПРОГРАММА, не ты: никогда не пиши «открываю», «открыла», «открылось», «вот раздел» и не выдумывай названия разделов и вкладок. "
+        + "Нужно открыть раздел — выведи ТОВАР: {\"op\": \"open_section\", \"section\": \"id\"} (id строго из списка), а в тексте скажи только «Сейчас открою — проверьте результат от программы».";
 
     private const string OwnerCorePrompt =
         "Тебя зовут Нур Советник (по-кыргызски — Нур Кеңешчи; называй себя одним именем на языке ответа): ИИ-советник владельца магазина в Кыргызстане в программе NurMarket. "
@@ -362,7 +381,7 @@ public static class TelegramAiChat
         + "op: stock_in / stock_out / stock_set (\"qty\"; у stock_out \"reason\": \"Просрочка\"/\"Брак\"/\"Порча\"/\"Кража\"/\"Другое\"), set_price / set_purchase (\"price\"), "
         + "set_expiry (\"date\": \"ГГГГ-ММ-ДД\"), set_shelf_life (\"days\"), set_min (\"qty\"), set_description (\"text\": 2–5 предложений без выдуманных цифр), "
         + "set_country / set_name / set_brand / set_category / set_barcode / set_article (\"text\"), receive (\"qty\", \"purchase\", \"price\"), "
-        + "create (\"name\", \"qty\", \"purchase\", \"price\", \"barcode\"?, \"unit\"?, \"category\"?), open_section (\"section\": warehouse, sales, finance, analytics, salary, clients, debts, restock), "
+        + "create (\"name\", \"qty\", \"purchase\", \"price\", \"barcode\"?, \"unit\"?, \"category\"?), open_section (\"section\": id из списка РАЗДЕЛЫ ПРОГРАММЫ ниже, например warehouse.receiving), "
         + "open (открыть товар на складе), photo (только по прямой просьбе искать фото в интернете). «добавь/пришло» — stock_in, «спиши/убери» — stock_out, «ровно N» — stock_set; "
         + "просрочку — stock_out с reason «Просрочка». Название — точно как в данных; товар не найден или неясен — спроси, не угадывай; название и штрихкод без просьбы не меняй. "
         + "Блок «НАЙДЕНО В ИНТЕРНЕТЕ О ТОВАРАХ» — источник описания, страны, бренда; сведений нет — не придумывай. Обрабатывай все перечисленные позиции.";
@@ -489,14 +508,16 @@ public static class TelegramAiChat
         + "Функции Телеграм-бота и сценарии бота голосом не меняются — для этого предложи написать в чат советника. "
         // 2026-10-06, владелец сказал «поставь четвёртое фото» — советник обещал, а программа не умела. Теперь умеет.
         // 2026-10-06, владелец: «дай ИИ звонку полный доступ к программе — открывать вкладки и разделы и искать товары».
-        + "На «открой …» программа САМА сразу открывает на экране любой раздел меню (склад, продажи, финансы, аналитика, ABC, прибыль, "
-        + "зарплата, клиенты, долги, пополнение и сроки, заказы с сайта, филиалы, возвраты поставщику, Телеграм-бот, настройки, поддержка) "
-        + "или товар на складе по названию, и пришлёт «[Программа] Открыт …» — скажи коротко «Открываю», НЕ говори, что не можешь открыть. "
+        // 2026-10-27, жалоба «ИИ неправильно открывает разделы и врёт „открыла“»: раздел открывает ИНСТРУМЕНТ open_section, ответ — из его результата.
+        + "Разделы и вкладки программы открывает инструмент open_section (склад и его вкладки: приёмка, ревизия, списание, перемещение; закупки, "
+        + "пополнение и сроки, прибыль и деньги, продажи и финансы, долги, клиенты, зарплата, настройки и др.): когда владелец просит открыть, перейти или зайти — "
+        + "вызови его и скажи владельцу ТОЛЬКО то, что инструмент вернул («Открыл …» / «Не получилось …» / варианты на выбор). Пока результата нет — не говори, что открыл; "
+        + "не называй разделов, которых нет в инструменте, и не придумывай, где что находится. Товар на складе по названию открывает программа и пришлёт «[Программа] Открыт …» — скажи коротко. "
         // 2026-10-07, владелец: «ИИ должен сам собирать информацию и выводить в чате таблицей, и на звонок добавь».
         + "На вопросы с цифрами (продажи, чеки за день или период, остатки, долги, сотрудники, товары) программа САМА собирает данные "
         + "с сервера и показывает в чате таблицу, а тебе присылает «[Программа] На экране таблица…». Если в сводке ответа нет — скажи коротко "
         + "«Сейчас покажу таблицей» и дождись данных; НИКОГДА не говори, что сервер не передаёт чеки или что надо зайти в другую программу. "
-        + "Разделы программы открывай только когда владелец сам сказал «открой». "
+        + "Разделы программы открывай только когда владелец сам попросил открыть. "
         // 2026-10-06, владелец: «добавь редактор к нашему ИИ звонку».
         + "Сайт магазина тоже меняет ПРОГРАММА: «поставь тему …» (темы: Солнечный, Ночной, Свежий рынок, Бутик, Ала-Тоо, Чистый), «тёмный стиль сайта», "
         + "«опубликуй сайт» — программа сама открывает «Редактор сайта», делает и пришлёт результат «[Программа]»; скажи коротко «Сейчас поставлю». "
@@ -1177,7 +1198,8 @@ public static class TelegramAiChat
         // 2026-10-21 (О3, ответ 25 с): у каждой попытки свой срок (первая — 20 с, следующие — 12 с) и общий — 40 с (с фото накладной —
         // как раньше, до 45 с на модель); модель не ответила вовремя — сразу следующая, а не ожидание до конца общего таймаута.
         var started = System.Diagnostics.Stopwatch.StartNew();
-        var overall = image is not null ? TimeSpan.FromSeconds(90) : TimeSpan.FromSeconds(40);
+        var budgetSet = image is null && QuestionBudget.Value is not null;
+        var overall = image is not null ? TimeSpan.FromSeconds(90) : QuestionBudget.Value ?? TimeSpan.FromSeconds(40);
         var keySwitches = 0;
         for (var mi = 0; mi < models.Count; mi++)
         {
@@ -1196,12 +1218,15 @@ public static class TelegramAiChat
                 usedKey = picked;
             }
             var left = overall - started.Elapsed;
-            if (left < TimeSpan.FromSeconds(5))
+            if (left < TimeSpan.FromSeconds(budgetSet ? 1.5 : 5))
             {
                 lastError ??= "Google не ответил вовремя";
                 break;
             }
-            var attemptLimit = image is not null ? TimeSpan.FromSeconds(45) : mi == 0 ? TimeSpan.FromSeconds(20) : TimeSpan.FromSeconds(12);
+            // 2026-10-27: с общим пределом первая модель — не дольше 7 с (лёгкие модели отвечают за 1,5–2,5 с), остальное время — следующим.
+            var attemptLimit = image is not null ? TimeSpan.FromSeconds(45)
+                : budgetSet ? (mi == 0 ? TimeSpan.FromSeconds(Math.Min(7, overall.TotalSeconds * 0.6)) : left)
+                : mi == 0 ? TimeSpan.FromSeconds(20) : TimeSpan.FromSeconds(12);
             using var attempt = CancellationTokenSource.CreateLinkedTokenSource(ct);
             attempt.CancelAfter(attemptLimit < left ? attemptLimit : left);
             var attemptWatch = System.Diagnostics.Stopwatch.StartNew();
@@ -1251,6 +1276,7 @@ public static class TelegramAiChat
                     if (!string.IsNullOrWhiteSpace(text))
                     {
                         _workingModel = model;
+                        AdvisorTurn.Perf("выбор модели", started.ElapsedMilliseconds, $"{model}, попытка {mi + 1}, ответ модели {attemptWatch.ElapsedMilliseconds} мс");
                         if (rotate)
                             GeminiKeyPool.ReportSuccess(usedKey);
                         return (text, null, webSearch ? ReadSources(json) : none);

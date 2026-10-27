@@ -78,8 +78,76 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         }
 
         _products = [];
+        // 2026-10-27 (CATALOG_FEED): курсор ленты изменений принадлежал прежнему аккаунту.
+        _feed?.Reset();
         SyncInMemoryCatalog();
         CatalogCacheService.NotifyCatalogChanged();
+    }
+
+    // ---------------------------------------------------------------- 2026-10-27 (Б-46 сервера, CATALOG_FEED): лента изменений каталога
+    // Жалоба «на складе 195, а касса продаёт 205»: «версия» каталога смену цены не видит, другие кассы до 15–30 мин продают по старой цене.
+    // Раз в ~8 секунд касса читает ленту products/changes/ (ETag/304), применяет изменённые товары к базе и сразу обновляет плитки.
+    // Нет ленты на сервере / ошибка — тихо прежняя логика: проверка «версии» и полная загрузка по таймеру (страховка раз в 15–30 мин).
+    private CatalogFeedSync? _feed;
+    private int _feedStarted;
+    private long _lastFeedFullSyncTicks;
+
+    private void EnsureFeedLoop()
+    {
+        if (_catalogApi is not ICatalogFeedApi feedApi || !ServerPriceContract.CatalogFeedEnabled)
+            return;
+        if (Interlocked.Exchange(ref _feedStarted, 1) != 0)
+            return;
+
+        _feed = new CatalogFeedSync(
+            feedApi,
+            () => _settings.ApiBaseUrl,
+            () => UserPreferences.Instance.LastCatalogUserKey ?? "",
+            // Остаток из ленты — только когда нет локальной сети касс и неотправленных офлайн-чеков (иначе остаток «откатится»).
+            () => !UserPreferences.Instance.LanSyncEnabled && OfflinePendingSalesStore.PendingCount == 0);
+        _ = Task.Run(FeedLoopAsync);
+    }
+
+    private bool IsFullSyncRunning()
+    {
+        lock (_syncGate)
+            return _inFlightSync is { IsCompleted: false };
+    }
+
+    private async Task FeedLoopAsync()
+    {
+        while (true)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(ServerPriceContract.FeedIntervalSeconds)).ConfigureAwait(false);
+                var feed = _feed;
+                if (feed is null || !ServerPriceContract.CatalogFeedEnabled
+                    || OfflineModeHelper.SellLocally || ServerOutageMonitor.IsOutage || IsFullSyncRunning())
+                    continue;
+
+                var generation = Volatile.Read(ref _accountGeneration);
+                var result = await feed.TickAsync(() => generation == Volatile.Read(ref _accountGeneration) && !IsFullSyncRunning()).ConfigureAwait(false);
+                if (result.Applied && generation == Volatile.Read(ref _accountGeneration))
+                {
+                    // Плитки, поиск и «Склад» берут товары из базы: перечитать и сказать экранам.
+                    TryLoadFromDatabase();
+                    CatalogCacheService.NotifyCatalogChanged();
+                }
+
+                if (result.NeedFullSync && DateTime.UtcNow.Ticks - Interlocked.Read(ref _lastFeedFullSyncTicks) > TimeSpan.FromMinutes(1).Ticks)
+                {
+                    Interlocked.Exchange(ref _lastFeedFullSyncTicks, DateTime.UtcNow.Ticks);
+                    PosLogger.Log("CATALOG_FEED: лента принесла товар, которого нет в базе кассы, — полная загрузка.", "CATALOG_FEED");
+                    _ = StartFullSync(CancellationToken.None, knownVersion: null);
+                }
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // Лента — помощь каталогу: цикл не должен умереть.
+                PosLogger.Log($"CATALOG_FEED: сбой цикла: {ex.GetType().Name}: {ex.Message}", "CATALOG_FEED");
+            }
+        }
     }
 
     public Task<CatalogSyncResult> SyncCatalogFullAsync(CancellationToken cancellationToken = default) =>
@@ -127,6 +195,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         if (OfflineModeHelper.SellLocally)
             return CatalogSyncResult.Failed("Нет подключения — каталог из локальной базы.");
 
+        EnsureFeedLoop(); // 2026-10-27: лента изменений стартует вместе с первой фоновой синхронизацией
         Task<CatalogSyncResult>? running;
         DateTime lastFull;
         lock (_syncGate)

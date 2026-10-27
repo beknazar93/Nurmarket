@@ -207,4 +207,14 @@ public static class SiteThemeCatalog
 
     /// <summary>Для какого раздела галереи тема: clothing → «Одежда и обувь», иначе «Для любого».</summary>
     public static bool IsClothing(SiteThemeInfo theme) => theme.IsFor(MarketSpheres.Clothing);
+
+    /// <summary>2026-10-27 (расследование витрины NBS, Н-1/Н-2): тема подходит сфере магазина — она «для любого магазина» (spheres пусто)
+    /// или её spheres содержит сферу магазина. Продуктовому магазину тема одежды НЕ подходит (баннер с вешалкой, заглушка-платье).</summary>
+    public static bool Fits(SiteThemeInfo theme, string? sphere) => theme.Spheres.Count == 0 || theme.IsFor(sphere ?? "");
+
+    /// <summary>2026-10-27: названия сфер для предупреждения «тема не для вашей сферы»: сфера темы (первая из spheres) и сфера магазина.</summary>
+    public static string ThemeSphereTitle(SiteThemeInfo theme) => SphereCatalog.Get(theme.Spheres.Count > 0 ? theme.Spheres[0] : null).ShortTitle.Get();
+
+    /// <summary>Какая тема из каталога сейчас стоит в черновике (по цветам и шрифту, как <see cref="Matches"/>); null — своя настройка.</summary>
+    public static SiteThemeInfo? CurrentTheme(Func<string, string> current) => All.FirstOrDefault(t => Matches(t, current));
 }

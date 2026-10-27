@@ -120,12 +120,14 @@
     <Style Selector="Button.main-outline:pressed /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
     </Style>
+    <!-- 2026-10-27: прозрачность выключенной 0.5 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
     <Style Selector="Button.main-secondary:disabled, Button.main-primary:disabled, Button.main-ghost:disabled">
-        <Setter Property="Opacity" Value="0.5"/>
+        <Setter Property="Opacity" Value="0.7"/>
     </Style>
     <!-- 2026-10-19, К1: «Закрыть смену» теперь обводкой — выключенная обводка бледная, а не серая заливка Fluent. -->
+    <!-- 2026-10-27: прозрачность выключенной 0.5 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
     <Style Selector="Button.main-outline:disabled">
-        <Setter Property="Opacity" Value="0.5"/>
+        <Setter Property="Opacity" Value="0.7"/>
     </Style>
     <Style Selector="Button.main-outline:disabled /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource BrushWindowAlt}"/>
@@ -158,15 +160,17 @@
     </Style>
 
     <!-- Shift buttons have an explicit disabled appearance independent of theme. -->
+    <!-- 2026-10-27: выключенная «Открыть/Закрыть смену»: текст #6C757D с прозрачностью 0,5 на кнопке И на её ContentPresenter (двойное затемнение, итог ≈0,25) —
+         1,8:1 в обеих темах. Теперь текст #C3CAD2, прозрачность 0,75 только у кнопки: 5,2:1 в тёмной, 4,1:1 в светлой. -->
     <Style Selector="Button.shift-action:disabled">
         <Setter Property="Background" Value="#2B3240"/>
-        <Setter Property="Foreground" Value="#6C757D"/>
-        <Setter Property="Opacity" Value="0.5"/>
+        <Setter Property="Foreground" Value="#C3CAD2"/>
+        <Setter Property="Opacity" Value="0.75"/>
     </Style>
     <Style Selector="Button.shift-action:disabled /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="#2B3240"/>
-        <Setter Property="Foreground" Value="#6C757D"/>
-        <Setter Property="Opacity" Value="0.5"/>
+        <Setter Property="Foreground" Value="#C3CAD2"/>
+        <Setter Property="Opacity" Value="1"/>
     </Style>
 
     <Style Selector="TextBlock.mdl2">

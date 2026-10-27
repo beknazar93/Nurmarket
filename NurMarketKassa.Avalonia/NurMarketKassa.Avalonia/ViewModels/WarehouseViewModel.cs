@@ -158,8 +158,72 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
                 DateText = row.CreatedAt == DateTime.MinValue
                     ? ""
                     : row.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
+                SortUtc = row.CreatedAt.ToUniversalTime(),
+                Quantity = row.Quantity,
             });
         }
+
+        // 2026-10-27, аудит владельца В-2: у владельца к местному журналу добавляются списания всех касс компании (акты сервера).
+        if (AppMode.IsOwner && _inventoryApi is not null)
+            _ = MergeServerWriteOffsAsync();
+    }
+
+    private int _writeOffMergeGen;
+
+    /// <summary>2026-10-27, В-2: «История списаний» владельца показывала только этот ПК, хотя сервер отдаёт акты всех касс
+    /// (GET inventory/sessions/). Акты с пометкой «Списание…» и отрицательной разницей по строке становятся строками журнала;
+    /// местная запись, у которой есть такая же строка на сервере (тот же товар и количество, разница во времени до 15 мин), не дублируется.
+    /// Сервер не ответил — остаётся местный журнал.</summary>
+    private async Task MergeServerWriteOffsAsync()
+    {
+        var gen = ++_writeOffMergeGen;
+        IReadOnlyList<InventoryAct>? acts;
+        try
+        {
+            acts = await _inventoryApi!.ListActsAsync(CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История списаний: акты сервера не получены ({ex.Message}).", "WARNING");
+            return;
+        }
+
+        if (acts is null || gen != _writeOffMergeGen)
+            return;
+        var fromServer = new List<WriteOffHistoryRowVm>();
+        foreach (var act in acts)
+        {
+            if (!act.IsApplied || !act.Note.TrimStart().StartsWith("Списание", StringComparison.OrdinalIgnoreCase))
+                continue;
+            var reason = act.Note;
+            var colon = reason.IndexOf(':');
+            if (colon >= 0)
+                reason = reason[(colon + 1)..].Trim();
+            reason = System.Text.RegularExpressions.Regex.Replace(reason, @"\s*\([\d.,\s]+\)\s*$", "");
+            foreach (var line in act.Lines)
+            {
+                if (line.Delta >= 0)
+                    continue;
+                fromServer.Add(new WriteOffHistoryRowVm
+                {
+                    ProductName = line.Name,
+                    Quantity = -line.Delta,
+                    QuantityText = (-line.Delta).ToString("0.###"),
+                    Reason = reason,
+                    CashierName = act.CreatedByName,
+                    DateText = act.CreatedUtc == DateTime.MinValue ? "" : act.CreatedUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
+                    SortUtc = act.CreatedUtc,
+                });
+            }
+        }
+
+        var local = WriteOffHistory.Where(r => !fromServer.Any(s =>
+            string.Equals(s.ProductName, r.ProductName, StringComparison.OrdinalIgnoreCase)
+            && Math.Abs(s.Quantity - r.Quantity) < 0.001 && Math.Abs((s.SortUtc - r.SortUtc).TotalMinutes) <= 15)).ToList();
+        var all = fromServer.Concat(local).OrderByDescending(r => r.SortUtc).Take(500).ToList();
+        WriteOffHistory.Clear();
+        foreach (var r in all)
+            WriteOffHistory.Add(r);
     }
 
     private string _revisionSearchText = "";
@@ -637,6 +701,28 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
     public event Action<ReceivingLineVm>? ReceivingLineAdded;
 
+    // 2026-10-27 (ревью Ск-2): накладные, строки которых сейчас лежат в приёмке. Перед «Оприходовать» их снова сверяют с журналом (не оприходована ли
+    // уже эта накладная, нет ли её в списке дважды), после постановки прихода в очередь — помечают проведёнными. Опустел список — забываем.
+    private readonly List<NurMarketKassa.Services.InvoiceImport.InvoiceImportEntry> _invoicesInReceiving = new();
+    private bool _invoiceWatchHooked;
+
+    /// <summary>Накладная перенесена в приёмку (см. InvoiceImportFlow).</summary>
+    public void NoteInvoiceInReceiving(NurMarketKassa.Services.InvoiceImport.InvoiceImportEntry entry)
+    {
+        _invoicesInReceiving.Add(entry);
+        if (_invoiceWatchHooked)
+            return;
+        _invoiceWatchHooked = true;
+        ReceivingLines.CollectionChanged += (_, _) =>
+        {
+            if (ReceivingLines.Count == 0)
+                _invoicesInReceiving.Clear();
+        };
+    }
+
+    /// <summary>Повтор накладной перед «Оприходовать»: окно спрашивает «Оприходовать всё равно?». false — приёмка не проводится.</summary>
+    public Func<IReadOnlyList<NurMarketKassa.Services.InvoiceImport.InvoiceImportEntry>, Task<bool>>? ConfirmInvoiceRepeats { get; set; }
+
     /// <summary>2026-10-24, ТЗ «Склад» (Б1): подтверждение перед «Оприходовать», если у товаров со склада меняются цены продажи («Цена продажи изменится у K товаров»).
     /// Без обработчика (другие окна) — как раньше, без вопроса. false — приёмка не проводится.</summary>
     public Func<IReadOnlyList<ReceivingLineVm>, Task<bool>>? ConfirmSalePriceChanges { get; set; }
@@ -893,6 +979,12 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             && !await confirm(changed).ConfigureAwait(true))
             return;
 
+        // 2026-10-27 (ревью Ск-2): накладная из приёмки уже оприходована раньше (или лежит в списке дважды) — приход и долг поставщику удвоились бы.
+        if (_invoicesInReceiving.Count > 0
+            && NurMarketKassa.Services.InvoiceImport.InvoiceImportRegistry.FindRepeats(_invoicesInReceiving) is { Count: > 0 } repeats
+            && (ConfirmInvoiceRepeats is not { } askRepeat || !await askRepeat(repeats).ConfigureAwait(true)))
+            return;
+
         // 2026-10-25: 0,5 с считаем от постановки в очередь (запись на диск входит в них), а не после неё.
         var sinceQueued = System.Diagnostics.Stopwatch.StartNew();
         string jobId;
@@ -923,8 +1015,12 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         // Задача принята и записана на диск — список готов к следующему приходу сразу (убираем ровно отправленные строки).
         if (!duplicate)
             _myReceivingJobs.Add(jobId);
+        // 2026-10-27 (ревью Ск-2): накладные этой приёмки считаются проведёнными (повторная загрузка того же файла предупредит). Ids берём до опустошения списка.
+        var postedInvoiceIds = _invoicesInReceiving.Select(e => e.Id).ToList();
         foreach (var line in lines)
             ReceivingLines.Remove(line);
+        NurMarketKassa.Services.InvoiceImport.InvoiceImportRegistry.MarkPosted(postedInvoiceIds);
+        _invoicesInReceiving.Clear();
         if (duplicate)
             return;
 
@@ -1192,6 +1288,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
                 // считаться по той, что была.
                 WriteOffHistoryStore.Append(_writeOffProductId, WriteOffProductName, WriteOffQuantity, WriteOffReason,
                     PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId, unitCost > 0 ? unitCost : null);
+                InventoryApiService.InvalidateActsCache(); // 2026-10-27, В-2: свой акт сразу виден в списке сервера
                 LoadWriteOffHistory();
 
                 if (unitCost > 0)
@@ -1213,7 +1310,8 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             WriteOffBarcode = "";
             WriteOffProductName = "";
             WriteOffQuantity = 1;
-            _prompts?.ShowToast(Tr.T("Списание проведено.", "Эсептен чыгаруу аткарылды.", "Write-off posted.", "Düşüm tamamlandı.", "Hisobdan chiqarish o'tkazildi."));
+            // 2026-10-27, аудит владельца С-11: успех — плашкой, без окна с кнопкой «Понятно».
+            NurMarketKassa.AvaloniaHost.Views.SuccessToast.Show(Tr.T("Списание проведено.", "Эсептен чыгаруу аткарылды.", "Write-off posted.", "Düşüm tamamlandı.", "Hisobdan chiqarish o'tkazildi."));
             return true;
         }
         catch (ApiException ex)
@@ -1256,4 +1354,7 @@ public sealed class WriteOffHistoryRowVm
     public string Reason { get; set; } = "";
     public string CashierName { get; set; } = "";
     public string DateText { get; set; } = "";
+    /// <summary>2026-10-27, В-2: время (UTC) и число — для слияния с актами сервера и сортировки; на экран не выводятся.</summary>
+    public DateTime SortUtc { get; set; }
+    public double Quantity { get; set; }
 }

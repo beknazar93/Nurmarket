@@ -27,6 +27,9 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
     // поломки печати.
     private const int MinFastRunToIntercept = 2;
 
+    /// <summary>2026-10-27 (С-20): символ GS (0x1D) — разделитель полей GS1/DataMatrix (маркировка).</summary>
+    private const string GroupSeparator = "\u001D";
+
     private string _barcodeBuf = "";
     private long _barcodeLastTick;
     private ulong? _barcodeLastRawTs;
@@ -34,10 +37,28 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
 
     public event Action<string>? BarcodeScanned;
 
-    public bool HasBufferedInput => _barcodeBuf.Length > 0;
+    // 2026-10-27, аудит В-8: буфер жил, пока не придёт Enter или следующая клавиша. Кассир быстро набрал в поиске «молоко»,
+    // ткнул плитку и через секунды нажал Enter для оплаты — буфер «полон», и Enter уходил как скан («Товар не найден»)
+    // вместо оплаты. Теперь буфер, последняя клавиша которого старше этого срока, считается пустым.
+    private const int StaleBufferMs = 300;
 
-    /// <summary>2026-10-20: в буфере готовый код сканера — следующий Enter его завершит (см. MainWindow.OnScanEnterTunnel).</summary>
-    public bool HasCompleteScan => _barcodeBuf.Length >= MinBarcodeLen && _fastRunLength >= MinFastRunToIntercept;
+    /// <summary>2026-10-27: возраст буфера в мс — по метке текущего сообщения (Windows; клавиши в очереди не «стареют»),
+    /// иначе по часам. Внутри обработчика KeyDown метка — время самой этой клавиши.</summary>
+    private long BufferAgeMs()
+    {
+        var raw = KeyPressTimestamp();
+        if (raw is { } r && _barcodeLastRawTs is { } lr)
+            return r >= lr ? (long)Math.Min(r - lr, long.MaxValue) : 0; // обнулился 32-битный счётчик ОС — не считаем устаревшим
+        return Environment.TickCount64 - _barcodeLastTick;
+    }
+
+    private bool BufferIsFresh => BufferAgeMs() is >= 0 and <= StaleBufferMs;
+
+    public bool HasBufferedInput => _barcodeBuf.Length > 0 && BufferIsFresh;
+
+    /// <summary>2026-10-20: в буфере готовый код сканера — следующий Enter его завершит (см. MainWindow.OnScanEnterTunnel).
+    /// 2026-10-27 (В-8): и последняя клавиша кода не старше 300 мс — старый недобранный буфер скан не завершает.</summary>
+    public bool HasCompleteScan => _barcodeBuf.Length >= MinBarcodeLen && _fastRunLength >= MinFastRunToIntercept && BufferIsFresh;
 
     /// <summary>2026-10-20 (П1-0): готовый код сканера, последняя клавиша которого пришла только что (до 300 мс) —
     /// окно оплаты по такому Enter не платит (CheckoutDialog).</summary>
@@ -53,6 +74,17 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
     {
         _barcodeBuf = "";
         _fastRunLength = 0;
+    }
+
+    /// <summary>2026-10-27 (приёмка 1.17.63, Д-7): забрать готовый код сканера из буфера (null — буфер не похож на скан) и очистить буфер.
+    /// Окно оплаты кладёт его в очередь сканов чека вместо того, чтобы выбросить.</summary>
+    public string? TakeBufferedCode()
+    {
+        if (!HasCompleteScan)
+            return null;
+        var code = _barcodeBuf;
+        DiscardBuffer();
+        return code;
     }
 
     // 2026-10-20: метка времени нажатия. KeyEventArgs в Avalonia 11 её не несёт, а «сырые» события ввода в
@@ -134,12 +166,19 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
     public void ProcessKeyDown(KeyEventArgs e)
     {
         var mods = e.KeyModifiers;
+        // 2026-10-27, аудит С-20: маркировка (DataMatrix/GS1) разделяет поля символом GS (0x1D) — сканер шлёт его как Ctrl+].
+        // Принимаем только внутри уже идущей быстрой серии (буфер свежий), чтобы обычное Ctrl+] кассира ничего не значило.
+        if (mods == KeyModifiers.Control && e.Key == Key.OemCloseBrackets && _barcodeBuf.Length > 0 && BufferIsFresh)
+        {
+            AppendChar(GroupSeparator, e);
+            return;
+        }
         if (mods.HasFlag(KeyModifiers.Control) || mods.HasFlag(KeyModifiers.Alt) || mods.HasFlag(KeyModifiers.Meta))
             return;
 
         if (e.Key == Key.Enter)
         {
-            if (_barcodeBuf.Length >= MinBarcodeLen && _fastRunLength >= MinFastRunToIntercept)
+            if (_barcodeBuf.Length >= MinBarcodeLen && _fastRunLength >= MinFastRunToIntercept && BufferIsFresh)
             {
                 e.Handled = true;
                 var code = _barcodeBuf;
@@ -162,7 +201,11 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
         var shift = mods.HasFlag(KeyModifiers.Shift);
         var ch = KeyToBarcodeChar(e.Key, shift);
         if (ch == null) return;
+        AppendChar(ch, e);
+    }
 
+    private void AppendChar(string ch, KeyEventArgs e)
+    {
         // 2026-10-20, живая проверка (200 сканов подряд: принято 59, у части кодов отрезано начало —
         // «7644469162» вместо «7807644469162»): паузу мерили по времени ОБРАБОТКИ клавиши. Пока касса
         // добавляла предыдущий товар (большой чек — до секунды), клавиши следующего кода ждали в очереди,
@@ -202,7 +245,7 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
     private static string? KeyToBarcodeChar(Key key, bool shift)
     {
         if (key is >= Key.D0 and <= Key.D9)
-            return ((char)('0' + (key - Key.D0))).ToString();
+            return shift ? ")!@#$%^&*("[key - Key.D0].ToString() : ((char)('0' + (key - Key.D0))).ToString();
         if (key is >= Key.NumPad0 and <= Key.NumPad9)
             return ((char)('0' + (key - Key.NumPad0))).ToString();
         if (key is >= Key.A and <= Key.Z)
@@ -211,8 +254,24 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
             return shift ? char.ToUpperInvariant(c).ToString() : c.ToString();
         }
         if (key == Key.Space) return " ";
+        // 2026-10-27, аудит С-20: Code128 / GS1 содержат и знаки — раньше / + * _ % $ молча терялись или (Shift+цифра)
+        // превращались в цифру. Сканер шлёт клавиши по раскладке US (как и буквы выше — по положению клавиши).
+        if (shift)
+        {
+            switch (key)
+            {
+                case Key.OemMinus: return "_";
+                case Key.OemPlus: return "+";
+                case Key.OemQuestion: return "?";
+                case Key.OemPeriod: return ">";
+            }
+        }
         if (key == Key.OemMinus || key == Key.Subtract) return "-";
         if (key == Key.OemPeriod || key == Key.Decimal) return ".";
+        if (key == Key.OemQuestion || key == Key.Divide) return "/";
+        if (key == Key.OemPlus) return "=";
+        if (key == Key.Add) return "+";
+        if (key == Key.Multiply) return "*";
         return null;
     }
 }

@@ -109,6 +109,21 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 FinanceTabs.SelectedItem = target;
         }
 
+        /// <summary>2026-10-27: то же, но с проверкой — true, если вкладка действительно выбрана (Нур Советник сообщает по факту).</summary>
+        internal bool TrySelectSalesFinanceTab(string tab)
+        {
+            SelectSalesFinanceTab(tab);
+            return tab switch
+            {
+                "checks" => ReferenceEquals(FinanceTabs.SelectedItem, SalesTab),
+                "returns" => ReferenceEquals(FinanceTabs.SelectedItem, ReturnsTab),
+                "history" => ReferenceEquals(FinanceTabs.SelectedItem, HistoryTab),
+                "shifts" => _ownerShiftsTab != null && ReferenceEquals(FinanceTabs.SelectedItem, _ownerShiftsTab),
+                "abc" => ReferenceEquals(FinanceTabs.SelectedItem, AbcTab),
+                _ => false,
+            };
+        }
+
         /// <summary>2026-10-18, ревью объединения: список чеков периода уже загружен «Финансами» — «Чеки», «Скидки» и «Оплачено
         /// бонусами» считаются по нему (поля — те же поля ответа сервера, что читает список «Продаж»). Второго списка, сводки,
         /// топа товаров и запросов на каждый чек у встроенных «Продаж» нет; в фоне — только состав новых чеков в строках

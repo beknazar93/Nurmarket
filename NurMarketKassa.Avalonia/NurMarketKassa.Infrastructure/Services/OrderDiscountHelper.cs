@@ -6,6 +6,41 @@ public static class OrderDiscountHelper
 {
     public static string NormalizeDecimal(string raw) => (raw ?? "").Trim().Replace(',', '.');
 
+    /// <summary>2026-10-27 (приёмка 1.17.63, Д-1): результат разбора скидки, введённой кассиром руками.</summary>
+    public enum DiscountParse { Ok, Empty, Invalid, TooManyDecimals, Negative }
+
+    /// <summary>2026-10-27 (приёмка 1.17.63, Д-1): ЕДИНЫЙ разбор скидки для предпросмотра и для применяемого значения.
+    /// Раньше окно скидки разбирало через NumberStyles.Any + InvariantCulture, где «,» — разделитель тысяч:
+    /// «0,50 сом» применялось как 50, «2,5 %» — как 25 %, а предпросмотр показывал верно. Теперь: запятая и точка — десятичный
+    /// разделитель (правила денежного ввода CheckoutValidation.TryParseAmount: без «1.000», «1e3», «(10)»), у процента
+    /// допускается знак «%» в конце («12,5 %»). Не больше двух знаков после запятой.</summary>
+    public static DiscountParse TryParseValue(string? text, bool percent, out decimal value)
+    {
+        value = 0m;
+        var raw = (text ?? "").Trim();
+        if (percent)
+        {
+            if (raw.EndsWith('%') || raw.EndsWith('％'))
+                raw = raw[..^1].TrimEnd();
+        }
+        if (raw.Length == 0)
+            return DiscountParse.Empty;
+        if (raw.StartsWith('-') || raw.StartsWith('−'))
+            return DiscountParse.Negative;
+        switch (CheckoutValidation.TryParseAmount(raw, out var parsed))
+        {
+            case CheckoutValidation.AmountParse.Empty:
+                return DiscountParse.Empty;
+            case CheckoutValidation.AmountParse.TooManyDecimals:
+                return DiscountParse.TooManyDecimals;
+            case CheckoutValidation.AmountParse.Ok when parsed >= 0 && parsed <= 1e12:
+                value = (decimal)Math.Round(parsed, 2);
+                return DiscountParse.Ok;
+            default:
+                return DiscountParse.Invalid;
+        }
+    }
+
     /// <summary>Пустая строка или число ≈0 — поле считается «не задано».</summary>
     public static bool IsEmptyOrZeroLike(string? raw)
     {
@@ -97,7 +132,8 @@ public static class OrderDiscountHelper
         s = NormalizeDecimal(s);
         if (s.Length == 0)
             return false;
-        return double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out v) && v >= 0 && !double.IsNaN(v) &&
+        // 2026-10-27 (Д-1): без AllowThousands/Any — «1e3», «(5)», «1,000» больше не принимаются.
+        return double.TryParse(s, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out v) && v >= 0 && !double.IsNaN(v) &&
                !double.IsInfinity(v);
     }
 }

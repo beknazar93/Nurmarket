@@ -345,7 +345,8 @@ public sealed class SideMenuViewModel : ViewModelBase
         CanViewClients = (_permissions?.HasPermission(PosPermissions.ViewClients) ?? true) && NurMarketKassa.Services.TariffGate.CanViewClients && owner;
         CanViewPayDebt = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && NurMarketKassa.Services.TariffGate.CanUseDebts;
         CanViewCrm = NurMarketKassa.Services.TariffGate.CanUseService && owner;
-        CanViewErrorLogs = NurMarketKassa.Services.TariffGate.CanUseService;
+        // 2026-10-27, аудит С-17: «Логи и ошибки» — только с правом «Настройки» (владелец/админ).
+        CanViewErrorLogs = NurMarketKassa.Services.TariffGate.CanUseService && (_permissions?.HasPermission(PosPermissions.ViewSettings) ?? true);
         CanViewRemoteSupport = NurMarketKassa.Services.TariffGate.CanUseService;
         CanViewKnowledgeBase = NurMarketKassa.Services.TariffGate.CanUseService;
         CanViewMarketplace = _permissions?.HasPermission(PosPermissions.ViewSettings) ?? true;

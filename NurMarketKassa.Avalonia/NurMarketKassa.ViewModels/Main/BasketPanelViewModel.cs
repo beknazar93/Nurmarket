@@ -19,7 +19,7 @@ namespace NurMarketKassa.ViewModels.Main;
 /// Этот файл отвечает за панель чека на главном экране кассира:
 /// строки корзины, пересчёт итогов, добавление по штрихкоду и управление текущим чеком.
 /// </summary>
-public sealed partial class BasketPanelViewModel : ViewModelBase
+public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 {
     public const int MaxOpenReceipts = 10;
 
@@ -183,12 +183,16 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             product => product != null && !IsBusy);
         RefreshQuickProducts();
         // Каталог мог обновиться (синхронизация, отметка звёздочкой) — перечитываем.
-        CatalogCacheService.CatalogChanged += () => _dispatcher.InvokeAsync(RefreshQuickProducts);
+        // 2026-10-27, аудит С-24: подписки на статические события — именованные, снимаются в Dispose (иначе при каждой смене
+        // кассира прежняя модель чека оставалась жить и обрабатывала события).
+        _catalogChanged = () => _dispatcher.InvokeAsync(RefreshQuickProducts);
+        CatalogCacheService.CatalogChanged += _catalogChanged;
         // Быстрые товары можно отключить в Настройки → Экран (2026-09-28).
-        UserPreferences.ShowQuickProductsChanged += () => _dispatcher.InvokeAsync(() => OnPropertyChanged(nameof(HasQuickProducts)));
+        _showQuickChanged = () => _dispatcher.InvokeAsync(() => OnPropertyChanged(nameof(HasQuickProducts)));
+        UserPreferences.ShowQuickProductsChanged += _showQuickChanged;
 
         // Смена языка интерфейса: кнопка «Оплатить» и подписи строк чека собираются в коде (2026-09-07).
-        Tr.LanguageChanged += () => _dispatcher.InvokeAsync(() =>
+        _languageChanged = () => _dispatcher.InvokeAsync(() =>
         {
             OnPropertyChanged(nameof(PayButtonText));
             OnPropertyChanged(nameof(SubtotalDisplay));
@@ -198,6 +202,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             RenameReceiptSessions();
             SyncLinesFromCart();
         });
+        Tr.LanguageChanged += _languageChanged;
         ReturnPreviousReceiptCommand = new AsyncRelayCommand(RestoreLastHeldReceiptAsync, () => !IsBusy && HasHeldReceipts);
         RestoreLastHeldReceiptCommand = ReturnPreviousReceiptCommand;
 
@@ -208,9 +213,27 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         Lines.CollectionChanged += (_, _) => ScheduleUpsell();
         AcceptUpsellCommand = new AsyncRelayCommand(AcceptUpsellAsync, () => _upsell != null && !IsBusy);
         SkipUpsellCommand = new RelayCommand(SkipUpsell, () => _upsell != null);
-        UserPreferences.UpsellEnabledChanged += () => _dispatcher.InvokeAsync(ScheduleUpsell);
+        _upsellChanged = () => _dispatcher.InvokeAsync(ScheduleUpsell);
+        UserPreferences.UpsellEnabledChanged += _upsellChanged;
         UpdateCartTotals();
         RebuildReceiptTabs();
+    }
+
+    private readonly Action _catalogChanged;
+    private readonly Action _showQuickChanged;
+    private readonly Action _languageChanged;
+    private readonly Action _upsellChanged;
+    private int _disposed;
+
+    /// <summary>2026-10-27 (С-24): отписка от статических событий — модель чека больше не нужна (смена кассира, выход на вход).</summary>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
+        CatalogCacheService.CatalogChanged -= _catalogChanged;
+        UserPreferences.ShowQuickProductsChanged -= _showQuickChanged;
+        Tr.LanguageChanged -= _languageChanged;
+        UserPreferences.UpsellEnabledChanged -= _upsellChanged;
     }
 
     public event EventHandler? StateChanged;
@@ -414,9 +437,29 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         }, TaskScheduler.Default);
     }
 
+    // 2026-10-27 (аудит кассы, С-10): пока идёт закрытие смены, касса «занята» — оплата, добавление товара и остальные команды
+    // не работают (чек, набранный за эти секунды, закрытие смены стирало бы молча). Снимает MainWindow.ApplyShiftClosedAsync.
+    private bool _shiftClosing;
+
+    public void SetShiftClosing(bool closing)
+    {
+        if (_shiftClosing == closing)
+            return;
+        _shiftClosing = closing;
+        // 2026-10-27 (ревью, См-3): IsBusy сканы не останавливал — сканер и телефон клали товар в чек, который закрытие смены стирает
+        // (покупатель у кассы, чек пропадает молча). Теперь, как на время оплаты, сканы копятся (PaymentScanGate.Hold) и после закрытия
+        // идут в чек по порядку — в новый, пустой (смена закрыта) или в тот же (закрытие отменено/не вышло). Не теряются и не дублируются.
+        if (closing)
+            _scanGate.Hold();
+        else if (!_paymentInProgress && _scanGate.Release())
+            _ = ProcessScanQueueAsync();
+        OnPropertyChanged(nameof(IsBusy));
+        RaiseCartCommands();
+    }
+
     public bool IsBusy
     {
-        get => _isBusy;
+        get => _isBusy || _shiftClosing;
         private set
         {
             if (!SetProperty(ref _isBusy, value))
@@ -1215,9 +1258,13 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     /// же самое: сервис сканера кладёт код в это же поле и зовёт эту же команду. Теперь код
     /// забирается из поля сразу и встаёт в очередь — сканы обрабатываются по порядку, ни один
     /// не теряется, и поле свободно для следующего скана.</summary>
-    private readonly Queue<string> _pendingScans = new();
-    private readonly object _scanLock = new();
-    private bool _scanLoopRunning;
+    // 2026-10-27 (аудит кассы, С-4): очередь сканов вынесена в PaymentScanGate — на время оплаты (Hold) сканы копятся и не попадают
+    // в оплачиваемый чек; после оплаты (Release) уходят в чек по порядку.
+    private readonly PaymentScanGate _scanGate = new();
+
+    /// <summary>2026-10-27 (ревью Ф-3): идёт оплата — сканы только копятся. Телефон-сканер в это время получает «busy», а не «added»,
+    /// чтобы товар не ушёл в чек следующего покупателя.</summary>
+    public bool IsScanQueueHeld => _scanGate.IsHeld;
 
     private bool CanAddByBarcode() => !string.IsNullOrWhiteSpace(BarcodeInput);
 
@@ -1234,34 +1281,18 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(barcode))
             return;
 
-        lock (_scanLock)
-        {
-            _pendingScans.Enqueue(barcode.Trim());
-            if (_scanLoopRunning)
-                return;
-            _scanLoopRunning = true;
-        }
-
-        _ = ProcessScanQueueAsync();
+        if (_scanGate.Enqueue(barcode.Trim()))
+            _ = ProcessScanQueueAsync();
+        else if (_shiftClosing)
+            CartMessage = Tr.T("Идёт закрытие смены — товар добавится сразу после него.", "Смена жабылып жатат — товар андан кийин эле кошулат.",
+                "The shift is closing — the item will be added right after.", "Vardiya kapanıyor — ürün hemen ardından eklenecek.",
+                "Smena yopilmoqda — mahsulot undan keyin qo'shiladi.");
     }
 
     private async Task ProcessScanQueueAsync()
     {
-        while (true)
-        {
-            string next;
-            lock (_scanLock)
-            {
-                if (_pendingScans.Count == 0)
-                {
-                    _scanLoopRunning = false;
-                    return;
-                }
-                next = _pendingScans.Dequeue();
-            }
-
+        while (_scanGate.TryTakeNext(out var next))
             await AddByBarcodeAsync(next).ConfigureAwait(true);
-        }
     }
 
     /// <summary>2026-09-28, срочно (живая проверка владельца): весы TM-30F печатают этикетку с
@@ -1410,7 +1441,13 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 weighted = await ConfirmWeightBarcodeKindAsync(barcode, weighted, weighedProduct).ConfigureAwait(true);
                 var weightKg = weighted.ResolveWeightKg(LocalCartService.ParsePrice(weighedProduct.PriceLine));
                 if (_addWeighedProductWithKnownWeight != null)
+                {
                     await _addWeighedProductWithKnownWeight(weighedProduct, weightKg).ConfigureAwait(true);
+                    // 2026-10-27 (ревью денег, К-4): на этикетке напечатана СУММА — строку помечаем: сверка цен перед оплатой не должна превратить
+                    // 91 сом с этикетки в 101 (меняется цена, а вес восстановлен по прежней).
+                    if (weighted.Kind == WeightBarcodeValueKind.Amount && weighted.Value > 0)
+                        ReceiptSnapshotCartEditor.MarkLabelAmountLine(_cart, weighedProduct.Id, weighted.Value);
+                }
                 return;
             }
 
@@ -1605,6 +1642,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         }
 
         _paymentInProgress = true;
+        // 2026-10-27 (аудит кассы, С-4): на время оплаты сканы копятся в очереди и в оплачиваемый чек не попадают.
+        _scanGate.Hold();
         try
         {
             await PayCoreAsync().ConfigureAwait(false);
@@ -1612,11 +1651,154 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         finally
         {
             _paymentInProgress = false;
+            // Оплата закончилась (проведена, отменена или упала): накопленные сканы — в чек по порядку (после успеха это уже новый чек).
+            // 2026-10-27 (ревью, См-3): идёт закрытие смены — сканы держит оно, их отпустит SetShiftClosing(false).
+            if (!_shiftClosing && _scanGate.Release())
+            {
+                try
+                {
+                    await RunOnUiThreadAsync(() => { _ = ProcessScanQueueAsync(); }).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"PAY: накопленные во время оплаты сканы запущены без UI-потока: {ex.Message}", "WARNING");
+                    _ = ProcessScanQueueAsync();
+                }
+            }
         }
     }
 
-    private async Task PayCoreAsync()
+    /// <summary>2026-10-27: сверка цен строк чека с сервером перед оплатой (кассир не должен пробить устаревшую цену).
+    /// Не бросает: любая ошибка = оплата как раньше. Плашка — лёгкая, под шапкой, без окна и без отъёма фокуса у сканера.</summary>
+    private async Task SyncPricesBeforePaymentAsync()
     {
+        try
+        {
+            var api = PosApp.CatalogApi;
+            var outcome = await CartPriceSync.RefreshAsync(
+                _cart,
+                api is null ? null : api.ProductsDetailAsync,
+                OfflineModeHelper.SellLocally,
+                applyOnCartThread: PriceApplyOnUi(GetActiveSession()?.Id)).ConfigureAwait(true);
+            // 2026-10-27 (ревью денег, К-6): плашка и пересчёт экрана — на UI-потоке (в повторе после 409 метод идёт с потока пула).
+            await RunOnUiThreadAsync(() => AnnouncePriceChanges(outcome.Changes)).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"PRICE_SYNC skipped: {ex.GetType().Name}: {ex.Message}", "PAYMENT");
+        }
+    }
+
+    /// <summary>2026-10-27 (К-6): выполняет действие при Dispose — снять «занято», если оплата вышла рано.</summary>
+    private sealed class BusyReset : IDisposable
+    {
+        private Action? _action;
+
+        public BusyReset(Action action) => _action = action;
+
+        public void Dispose() => Interlocked.Exchange(ref _action, null)?.Invoke();
+    }
+
+    /// <summary>2026-10-27 (ревью денег, К-6): цены от сверки ложатся в чек на UI-потоке (там же правит чек кассир) и только если вкладка чека та же,
+    /// что была в начале сверки. Раньше запись шла с фонового потока: удалённая кассиром строка «воскресала», а окно оплаты могло открыться для другого чека.</summary>
+    private CartPriceSync.ApplyOnCartThread PriceApplyOnUi(string? sessionId) =>
+        async apply =>
+        {
+            var applied = new List<ReceiptSnapshotCartEditor.LinePriceChange>();
+            await RunOnUiThreadAsync(() =>
+            {
+                if (!string.Equals(GetActiveSession()?.Id, sessionId, StringComparison.Ordinal))
+                {
+                    PosLogger.Log("PRICE_SYNC: вкладка чека сменилась, пока сверялись цены — цены в чек не записаны.", "PAYMENT");
+                    return;
+                }
+
+                applied = apply();
+            }).ConfigureAwait(false);
+            return applied;
+        };
+
+    /// <summary>Строки чека уже получили актуальную цену: пересчитать экран, показать плашку, положить цену в каталог кассы.
+    /// 2026-10-27: вынесено из SyncPricesBeforePaymentAsync — тот же путь нужен после отказа сервера 409 price_changed.</summary>
+    private void AnnouncePriceChanges(IReadOnlyList<ReceiptSnapshotCartEditor.LinePriceChange> priceChanges)
+    {
+        if (priceChanges.Count == 0)
+            return;
+
+        SyncLinesAndTotals();
+        var text = CartPriceSync.ToastText(priceChanges);
+        // 2026-10-27 (приёмка 1.17.63, Д-6): текст ещё и ждёт открытия окна оплаты — там он стоит, пока кассир не закроет окно
+        // (плашка гасла через 4 с, одновременно с открытием окна оплаты, и прочитать её не успевали).
+        _priceChangeNotice = text;
+        if (!MainStatusViewModel.TryShowInfoToast(text))
+            CartMessage = text;
+
+        // Каталог кассы тоже устарел для этих товаров — кладём в него свежую цену (иначе следующий скан снова даст старую).
+        var changes = priceChanges.ToList();
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                LocalProductRepository.Instance.UpdatePrices(changes.Select(c => (c.ProductId, c.NewPrice)));
+                CatalogCacheService.NotifyCatalogChanged();
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"PRICE_SYNC: цена в каталоге кассы не обновлена: {ex.Message}", "WARNING");
+            }
+        });
+    }
+
+    /// <summary>2026-10-27 (Б-03 сервера, PRICE_SYNC): сервер отказал в продаже — 409 price_changed (цена строки устарела). Цены строк берём из
+    /// ответа сервера (price_mismatch → current); если их нет или ни одна строка не поменялась — запрашиваем у сервера карточки товаров
+    /// (CartPriceSync). Возвращает изменённые строки (пусто — чек не изменился). Чек уже обновлён и показан: SyncLinesAndTotals + плашка.</summary>
+    private async Task<IReadOnlyList<ReceiptSnapshotCartEditor.LinePriceChange>> ApplyServerRejectedPricesAsync(
+        IReadOnlyList<ServerPriceMismatch>? mismatches)
+    {
+        var changes = new List<ReceiptSnapshotCartEditor.LinePriceChange>();
+        try
+        {
+            var current = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            foreach (var m in mismatches ?? Array.Empty<ServerPriceMismatch>())
+                if (!string.IsNullOrWhiteSpace(m.ProductId) && double.IsFinite(m.Current) && m.Current > 0)
+                    current[m.ProductId.Trim()] = m.Current;
+            if (current.Count > 0)
+            {
+                List<ReceiptSnapshotCartEditor.LinePriceChange>? fromReply = null;
+                await RunOnUiThreadAsync(() => fromReply = ReceiptSnapshotCartEditor.ApplyCatalogPrices(_cart, current)).ConfigureAwait(false);
+                if (fromReply is not null)
+                    changes.AddRange(fromReply);
+            }
+            if (changes.Count == 0)
+            {
+                var api = PosApp.CatalogApi;
+                CartPriceSync.Outcome? outcome = null;
+                await _dispatcher.InvokeAsync(async () =>
+                    outcome = await CartPriceSync.RefreshAsync(_cart, api is null ? null : api.ProductsDetailAsync, OfflineModeHelper.SellLocally,
+                        applyOnCartThread: PriceApplyOnUi(GetActiveSession()?.Id)).ConfigureAwait(true)).ConfigureAwait(false);
+                if (outcome is not null)
+                    changes.AddRange(outcome.Changes);
+            }
+
+            if (changes.Count > 0)
+                await RunOnUiThreadAsync(() => AnnouncePriceChanges(changes)).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"PRICE_SYNC: цены после отказа сервера не обновлены: {ex.GetType().Name}: {ex.Message}", "PAYMENT");
+        }
+
+        return changes;
+    }
+
+    /// <param name="priceRetry">2026-10-27: сколько раз подряд сервер отклонил чек (409 price_changed) и мы вернули кассира в окно оплаты.</param>
+    /// <summary>2026-10-27 (Д-6): последнее сообщение «Цена изменилась…» — окно оплаты показывает его у себя (CheckoutViewModel.PriceChangeNotice).</summary>
+    private string? _priceChangeNotice;
+
+    private async Task PayCoreAsync(int priceRetry = 0)
+    {
+        if (priceRetry == 0)
+            _priceChangeNotice = null;
         // Способ оплаты от кнопок «Наличные»/«Безнал» раскладки (2026-09-28) — одноразовый:
         // забираем сразу, чтобы следующее обычное «Оплатить» открылось как всегда.
         var preferredMethod = PreferredPaymentMethod;
@@ -1625,14 +1807,29 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         if (Lines.Count == 0)
             return;
 
+        // 2026-10-27 (ревью денег, К-6): «занято» ДО сверки цен (она идёт до 2 с): за это время кассир не должен нажать «+», удалить строку или
+        // переключить вкладку — чек под ногами у оплаты не меняется. Снимается в finally основной оплаты ниже, а при раннем выходе (или сбое
+        // до неё) — этим защитником, чтобы касса не осталась «занятой» навсегда.
+        await RunOnUiThreadAsync(() => IsBusy = true).ConfigureAwait(true);
+        using var busyGuard = new BusyReset(() => _dispatcher.Post(() => IsBusy = false));
+
+        // 2026-10-27, жалоба «на складе 195, а касса продаёт за 205»: цены обычных строк — с сервера, до акций и итога окна оплаты.
+        // Нет связи / сервер молчит больше 2 с — оплата идёт как раньше (см. CartPriceSync).
+        await SyncPricesBeforePaymentAsync().ConfigureAwait(true);
+
         // 2026-09-28, денежный баг продажи №1136: акции товаров NurCRM — по последнему каталогу,
         // ДО того как посчитан итог окна оплаты (строка могла попасть в чек раньше, чем касса
         // узнала об акции). Иначе окно показало бы полную цену, а сервер провёл бы со скидкой.
-        if (ReceiptSnapshotCartEditor.RefreshPromotionRules(_cart))
+        var promotionsRefreshed = false;
+        await RunOnUiThreadAsync(() =>
         {
-            PosLogger.Log("PAY: акции товаров в чеке обновлены по каталогу перед оплатой.", "PAYMENT");
+            if (!ReceiptSnapshotCartEditor.RefreshPromotionRules(_cart))
+                return;
+            promotionsRefreshed = true;
             SyncLinesAndTotals();
-        }
+        }).ConfigureAwait(true);
+        if (promotionsRefreshed)
+            PosLogger.Log("PAY: акции товаров в чеке обновлены по каталогу перед оплатой.", "PAYMENT");
 
         // 2026-09-21, живой баг владельца: чек из одной «Доп. услуги» типа «Расход» (без единого
         // товара) реально уходит в минус, но экран показывал «Итог: 0.00» как бесплатную продажу —
@@ -1709,10 +1906,13 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             var checkoutVm = new CheckoutViewModel(totals, _orderDiscountPercent, _orderDiscountSum, _clientsApi, _customerDisplay);
             if (preferredMethod == "transfer")
                 checkoutVm.IsTransfer = true;
+            checkoutVm.PriceChangeNotice = _priceChangeNotice ?? ""; // 2026-10-27 (Д-6)
+            checkoutVm.ScanSink = EnqueueBarcode; // 2026-10-27 (Д-7): скан во время оплаты — в очередь, оплата удержана (_scanGate.Hold)
             if (receiptClient != null)
                 checkoutVm.PreselectClient(receiptClient);
             // 2026-10-02: после «Оформить как прокат» в чеке только строка проката — кнопку больше не показываем.
             checkoutVm.HasRentableItems = CartDisplayHelper.EnumerateItems(_cart.Root).Any(it => !CartDisplayHelper.IsCustomLine(it));
+            await RunOnUiThreadAsync(() => AttachCheckoutDisplay(checkoutVm)).ConfigureAwait(false); // 2026-10-27 (В-2)
             var confirmed = await _windowService
                 .ShowDialogAsync<CheckoutViewModel, bool?>(checkoutVm)
                 .ConfigureAwait(false);
@@ -1721,7 +1921,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             {
                 PosLogger.Log("PAY: кассир выбрал «Оформить как прокат».", "PAYMENT");
                 await RunOnUiThreadAsync(() =>
-                    _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle)).ConfigureAwait(false);
+                {
+                    ClearCheckoutDisplay(push: true); // 2026-10-27 (В-2)
+                    _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle);
+                }).ConfigureAwait(false);
                 var clientId = checkoutVm.ClientId;
                 var clientName = checkoutVm.HasSelectedClient ? checkoutVm.SelectedClientName : null;
                 _ = Task.Run(async () =>
@@ -1736,7 +1939,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             {
                 PosLogger.Log("PAY canceled by cashier", "PAYMENT");
                 await RunOnUiThreadAsync(() =>
-                    _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle)).ConfigureAwait(false);
+                {
+                    ClearCheckoutDisplay(push: true); // 2026-10-27 (В-2)
+                    _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle);
+                }).ConfigureAwait(false);
                 return;
             }
 
@@ -1786,11 +1992,40 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 var error = string.IsNullOrWhiteSpace(result.ErrorMessage)
                     ? PaymentErrorMessages.GenericFailure
                     : result.ErrorMessage;
+                // 2026-10-27 (Б-03 сервера, PRICE_SYNC): сервер не провёл чек — цена строки устарела (409 price_changed). Берём актуальные цены
+                // (из ответа сервера или карточек товаров), обновляем чек и после сообщения возвращаем кассира в окно оплаты с новым итогом.
+                // Новая оплата — новое тело, значит новый ключ идемпотентности (PosCheckoutService.Quick), второго списания нет: сервер ничего не создал.
+                IReadOnlyList<ReceiptSnapshotCartEditor.LinePriceChange>? rejectedChanges = null;
+                if (result.PriceChanged)
+                {
+                    rejectedChanges = await ApplyServerRejectedPricesAsync(result.PriceChanges).ConfigureAwait(false);
+                    if (rejectedChanges.Count > 0)
+                    {
+                        error = CartPriceSync.ToastText(rejectedChanges) + " " + Tr.T(
+                            "Продажа НЕ проведена — проверьте новый итог и оплатите ещё раз.",
+                            "Сатуу ӨТКӨРҮЛГӨН ЖОК — жаңы жыйынтыкты текшерип, кайра төлөңүз.",
+                            "The sale was NOT recorded — check the new total and pay again.",
+                            "Satış KAYDEDİLMEDİ — yeni toplamı kontrol edip tekrar ödeyin.",
+                            "Sotuv O'TKAZILMADI — yangi jami summani tekshirib, yana to'lang.");
+                    }
+                    else
+                    {
+                        var names = result.PriceChanges is { Count: > 0 } pc ? string.Join(", ", pc.Take(3).Select(m => m.Name)) : "—";
+                        error = Tr.T(
+                            $"Сервер не принял цены в чеке ({names}). Продажа НЕ проведена. Нажмите «Обновить» в каталоге, удалите эти позиции из чека и добавьте заново.",
+                            $"Сервер чектеги баалар кабыл алган жок ({names}). Сатуу ӨТКӨРҮЛГӨН ЖОК. Каталогдо «Жаңыртуу» баскычын басып, бул позицияларды чектен өчүрүп, кайра кошуңуз.",
+                            $"The server did not accept the prices in the receipt ({names}). The sale was NOT recorded. Press “Refresh” in the catalog, remove these lines from the receipt and add them again.",
+                            $"Sunucu fişteki fiyatları kabul etmedi ({names}). Satış KAYDEDİLMEDİ. Katalogda «Yenile»ye basın, bu satırları fişten silip yeniden ekleyin.",
+                            $"Server chekdagi narxlarni qabul qilmadi ({names}). Sotuv O'TKAZILMADI. Katalogda «Yangilash»ni bosing, bu qatorlarni chekdan o'chirib, qayta qo'shing.");
+                    }
+                }
+
                 PosLogger.Log($"PAY failed result: {error}", "PAYMENT");
                 // 2026-09-28: после отказа (в том числе сверки суммы с сервером) чек мог
                 // обновиться данными серверной корзины — экран показывает то, что реально в чеке.
                 await RunOnUiThreadAsync(() =>
                 {
+                    ClearCheckoutDisplay(push: false); // 2026-10-27 (В-2): ниже SyncLinesAndTotals сам обновит экран покупателя
                     SyncLinesAndTotals();
                 }).ConfigureAwait(false);
                 if (LooksLikeShiftNotOpenError(error))
@@ -1806,12 +2041,26 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                     if (_checkoutUiFlow == null)
                         _prompts.ShowError(error);
                 }).ConfigureAwait(false);
+                // 2026-10-27: цены обновлены — назад в окно оплаты (не больше двух раз подряд: дальше ошибка, чтобы не крутиться вхолостую).
+                if (rejectedChanges is { Count: > 0 } && priceRetry < 2)
+                {
+                    PosLogger.Log($"PRICE_SYNC: цены чека обновлены после отказа сервера — окно оплаты открыто снова (повтор {priceRetry + 1}).", "PRICE_SYNC");
+                    PreferredPaymentMethod = preferredMethod;
+                    await PayCoreAsync(priceRetry + 1).ConfigureAwait(false);
+                }
+
                 return;
             }
 
             PosLogger.Log(
                 $"PAY success: offline={result.SavedOffline}, total={result.TotalAmount:0.00}",
                 "PAYMENT");
+            // 2026-10-27 (Б-03): сервер провёл чек и заметил расхождение цены — только журнал (PRICE_SYNC уже написан) и тост.
+            if (!string.IsNullOrWhiteSpace(result.PriceMismatchNote))
+            {
+                var mismatchNote = result.PriceMismatchNote;
+                await RunOnUiThreadAsync(() => MainStatusViewModel.TryShowInfoToast(mismatchNote)).ConfigureAwait(false);
+            }
 
             LogPendingInsufficientStockOverrideIfAny(result);
             RecordSoldLineItemsForHistory(TryReadSaleId(result));
@@ -1870,6 +2119,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                     thanks += "\n" + Tr.T($"В долг {debtSum} — до {dueText}", $"Карызга {debtSum} — {dueText} чейин", $"On credit {debtSum} — until {dueText}",
                         $"Veresiye {debtSum} — {dueText} tarihine kadar", $"Qarzga {debtSum} — {dueText} gacha");
                 }
+                ClearCheckoutDisplay(push: false); // 2026-10-27 (В-2): чек оплачен — дальше экран строится по новому чеку
                 // 2026-10-26: внесено / сдача / оплачено и «Оплата принята» — одним вызовом (раньше здесь стояли суммы для наличных и статус).
                 ShowPaymentResultOnCustomerDisplay(checkoutVm.PaymentMethod, cashReceived,
                     result.TotalMismatchWarning != null ? result.TotalAmount : checkoutVm.EffectiveTotalDue, thanks);
@@ -1964,7 +2214,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         }
         finally
         {
-            await RunOnUiThreadAsync(() => IsBusy = false).ConfigureAwait(false);
+            await RunOnUiThreadAsync(() =>
+            {
+                IsBusy = false;
+                ClearCheckoutDisplay(push: true); // 2026-10-27 (В-2): ошибка до результата — экран покупателя снова по чеку
+            }).ConfigureAwait(false);
             _ = ResetCustomerDisplayStatusAfterDelayAsync();
         }
     }
@@ -2710,6 +2964,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     private static bool CanDecreaseLineQuantity(CartLineItemVm? line) =>
         CanChangeLineQuantity(line) && line!.Quantity > (line.IsWeight ? 0.1 : 1) + 1e-6;
 
+    /// <summary>2026-10-27 (аудит кассы, Н-10): знаков после запятой при шаге «+»/«−». Строка с дробным количеством (0,5) не весовая по
+    /// признаку товара — раньше «+» округлял её до целого (0,5 → 2). Теперь дробь сохраняется: 0,5 → 1,5.</summary>
+    private static int StepDecimals(CartLineItemVm line) =>
+        line.IsWeight || Math.Abs(line.Quantity - Math.Round(line.Quantity)) > 1e-6 ? 3 : 0;
+
     private void IncreaseQuantity(CartLineItemVm? line)
     {
         if (!CanChangeLineQuantity(line))
@@ -2720,7 +2979,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
         var rule = FractionalRule(line); // 2026-10-26 (ХМ2): метры/м²/литры — шаг единицы, не 1
         var step = line.IsWeight ? 0.1 : rule != null ? (double)rule.Step : 1;
-        var next = rule != null ? QuantityRules.Normalize(line.Quantity + step, rule) : Math.Round(line.Quantity + step, line.IsWeight ? 3 : 0);
+        var next = rule != null ? QuantityRules.Normalize(line.Quantity + step, rule) : Math.Round(line.Quantity + step, StepDecimals(line));
         if (line.MaxStockQuantity is { } limit && next > limit + 1e-6)
         {
             // Не тупик: предлагаем пополнить склад — ровно так же, как при добавлении товара
@@ -2846,7 +3105,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         }
 
         var step = line.IsWeight ? 0.1 : rule != null ? (double)rule.Step : 1;
-        var next = rule != null ? QuantityRules.Normalize(line.Quantity - step, rule) : Math.Round(line.Quantity - step, line.IsWeight ? 3 : 0);
+        var next = rule != null ? QuantityRules.Normalize(line.Quantity - step, rule) : Math.Round(line.Quantity - step, StepDecimals(line));
         if (next < minimum)
             next = minimum;
 
@@ -2864,11 +3123,25 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
         var rule = FractionalRule(line!); // 2026-10-26 (ХМ2)
         var minimum = line!.IsWeight ? 0.1 : rule != null ? (double)rule.Min : 1;
-        if (!double.TryParse(line.QuantityInput.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var typed)
+        // 2026-10-27 (приёмка 1.17.63, Д-8): разбор без «1e3»/тысяч (NumberStyles.Any принимал «1e3» как 1000 шт).
+        if (!double.TryParse(line.QuantityInput.Trim().Replace(',', '.'), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var typed)
             || typed <= 0)
         {
             // Не удалось разобрать ввод — возвращаем поле к актуальному количеству.
             line.QuantityInput = line.QuantityDisplay;
+            return;
+        }
+
+        // 2026-10-27 (приёмка 1.17.63, Д-8): «1,5» у штучного товара молча округлялось (до 2 шт.) и, упираясь в остаток, открывало сразу два
+        // модальных окна. Теперь — одно понятное сообщение в чеке (без окна), поле возвращается к прежнему количеству.
+        if (!line.IsWeight && rule == null && Math.Abs(typed - Math.Round(typed)) > 1e-9 && Math.Abs(line.Quantity - Math.Round(line.Quantity)) < 1e-6)
+        {
+            line.QuantityInput = line.QuantityDisplay;
+            CartMessage = Tr.T("У штучного товара количество целое: 1, 2, 3… Дробное — только у весовых.",
+                "Даана товардын саны бүтүн: 1, 2, 3… Бөлчөк сан — салмак менен сатылуучуларда гана.",
+                "Whole pieces only: 1, 2, 3… Fractions are for weighed items.",
+                "Adetli üründe miktar tam sayı olmalı: 1, 2, 3… Kesirli miktar yalnızca tartılan ürünlerde.",
+                "Donalab sotiladigan mahsulotda miqdor butun: 1, 2, 3… Kasr faqat tarozida o'lchanadiganlarda.");
             return;
         }
 
@@ -3483,10 +3756,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 Quantity = line.Quantity,
                 Unit = line.Unit,
                 LineTotal = line.LineTotal,
+                LineDiscount = Math.Max(0, line.UnitPrice * line.Quantity - line.LineTotal), // 2026-10-27 (Н-1)
             }).ToList(),
             Subtotal = Subtotal,
-            Discount = Discount,
-            Total = Total,
+            // 2026-10-27 (аудит кассы, В-2): пока открыто окно оплаты — скидка и «к оплате» из окна (скидка на чек, бонусы, безнал смешанной).
+            Discount = _checkoutDisplayDiscount ?? Discount,
+            Total = _checkoutDisplayDue ?? Total,
             CashReceived = _lastCashReceivedForDisplay,
             ChangeDue = _lastChangeDueForDisplay,
             PaidAmount = _lastPaidAmountForDisplay,
@@ -3494,7 +3769,38 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
         // Отдельный дисплей цены на COM-порту (2026-09-04, не второй монитор) — тот же хук,
         // что обновляет второй монитор покупателя, чтобы оба всегда показывали одну сумму.
-        PoleDisplayService.Instance.ShowTotal(Total, Lines.Count);
+        PoleDisplayService.Instance.ShowTotal(_checkoutDisplayDue ?? Total, Lines.Count);
+    }
+
+    // 2026-10-27 (аудит кассы, В-2): сумма и скидка из открытого окна оплаты для экрана покупателя / QR / дисплея цены.
+    // Живёт от открытия окна до результата оплаты; всё — на UI-потоке. Деньги и запрос оплаты не затрагивает (только показ).
+    private CheckoutViewModel? _checkoutDisplayVm;
+    private double? _checkoutDisplayDue;
+    private double? _checkoutDisplayDiscount;
+
+    private void AttachCheckoutDisplay(CheckoutViewModel vm)
+    {
+        _checkoutDisplayVm = vm;
+        vm.CustomerDisplayAmountChanged += () => _dispatcher.Post(() =>
+        {
+            if (!ReferenceEquals(_checkoutDisplayVm, vm))
+                return;
+            _checkoutDisplayDue = vm.CustomerDisplayAmountDue;
+            _checkoutDisplayDiscount = vm.CustomerDisplayDiscount;
+            PushCustomerDisplay();
+        });
+    }
+
+    /// <summary>Окно оплаты закончилось (оплата, отмена, ошибка): экран покупателя снова показывает чек. Вызывать на UI-потоке.</summary>
+    private void ClearCheckoutDisplay(bool push)
+    {
+        _checkoutDisplayVm = null;
+        if (_checkoutDisplayDue is null && _checkoutDisplayDiscount is null)
+            return;
+        _checkoutDisplayDue = null;
+        _checkoutDisplayDiscount = null;
+        if (push)
+            PushCustomerDisplay();
     }
 
     /// <summary>Фото позиции для экрана покупателя (2026-09-28, виды «Карточки» и «Профи» показывают

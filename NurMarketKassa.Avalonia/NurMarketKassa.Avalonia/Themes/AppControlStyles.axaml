@@ -52,6 +52,16 @@
     <Setter Property="RenderTransform" Value="scale(0.98)"/>
   </Style>
 
+  <!-- 2026-10-27, жалоба «в тёмной теме у кнопок не видно надписей»: значок PathIcon внутри кнопки НЕ наследует цвет кнопки —
+       Fluent красит его в цвет темы (в тёмной белый). Белый значок «карточки» на жёлтой «Оплатить» (#FFB208) — 1,8:1, то же у кнопок
+       «Распечатать», «Сохранить», «Добавить», красные значки на красных/светлых плашках. Теперь значок берёт цвет надписи кнопки
+       (Foreground её ContentPresenter — он же меняется при наведении/нажатии/отключении). Явный Foreground значка и стили ниже по
+       дереву (стили окон, Button.cart-qty PathIcon и т. п.) по-прежнему главнее. В светлой теме цвет значков тот же, что был
+       (тёмная надпись), меняются только значки на цветных кнопках. -->
+  <Style Selector="Button PathIcon, ToggleButton PathIcon, RadioButton PathIcon" x:CompileBindings="False">
+    <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ContentPresenter, Tree=Visual}}"/>
+  </Style>
+
   <!-- CheckBox/ToggleSwitch/ComboBox — та же плавная смена фона/рамки. -->
   <Style Selector="ComboBox /template/ Border#PART_Border">
     <Setter Property="Transitions">

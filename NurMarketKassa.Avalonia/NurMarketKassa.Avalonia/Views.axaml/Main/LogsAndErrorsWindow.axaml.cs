@@ -80,6 +80,16 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
             _ => Tr.T("Связь с сервером восстановлена.", "Сервер менен байланыш калыбына келди.", "Connection to the server restored.", "Sunucu bağlantısı yeniden kuruldu.", "Server bilan aloqa tiklandi.")),
     };
 
+    // 2026-10-27, аудит владельца Н-7: владельцу показывались названия .NET-исключений («TaskCanceledException», «HttpRequestException») —
+    // заменяем их понятными словами; сам журнал на диске не меняется.
+    private static readonly Regex TechnicalNameRegex = new(@"\b(TaskCanceledException|OperationCanceledException|HttpRequestException)\b", RegexOptions.Compiled);
+
+    private static string PlainWords(string text) => TechnicalNameRegex.Replace(text, m => m.Value switch
+    {
+        "HttpRequestException" => Tr.T("нет связи с сервером", "сервер менен байланыш жок", "no connection to the server", "sunucuyla bağlantı yok", "server bilan aloqa yo'q"),
+        _ => Tr.T("сервер не ответил вовремя", "сервер убагында жооп берген жок", "the server did not respond in time", "sunucu zamanında yanıt vermedi", "server o'z vaqtida javob bermadi"),
+    });
+
     private static string TranslateMessage(string message)
     {
         var stripped = LeadingCategoryBracketRegex.Replace(message, "");
@@ -87,10 +97,10 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
         {
             var match = pattern.Match(stripped);
             if (match.Success)
-                return translate(match);
+                return PlainWords(translate(match));
         }
 
-        return stripped;
+        return PlainWords(stripped);
     }
 
     public LogsAndErrorsWindow()

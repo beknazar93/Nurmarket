@@ -101,6 +101,12 @@
       <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
     </Style>
+    <!-- 2026-10-27, оценка «Д/У» 6 у Настроек: на низком окне (1024×600) вкладки в два ряда + карточка-заголовок страницы + подвкладки
+         съедали ~240 из 520 px — на сами настройки оставалось меньше половины. Низкое окно (класс short): карточка-заголовок страницы
+         скрыта (название и так подсвечено во вкладках сверху). -->
+    <Style Selector="Window.short Border.SettingsHeaderCard">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
   </Window.Styles>
 
   <!-- Масштаб интерфейса (Настройки → Экран → "Масштаб") применяется и к самому окну настроек,

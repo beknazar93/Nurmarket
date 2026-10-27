@@ -518,7 +518,7 @@ public static class AccentThemeService
         "BrushWindow", "BrushWindowAlt", "BrushPanel", "BrushDialogPanel", "BrushPanelElevated", "BrushPanelSoft",
         "BrushInput", "BrushInputAlt", "BrushBorder", "BrushBorderStrong",
         "BrushText", "BrushTextMuted", "BrushTextSoft",
-        "BrushAccent", "BrushPrimary", "BrushAccentStrong", "BrushAccentSoft", "BrushAccentForeground",
+        "BrushAccent", "BrushPrimary", "BrushAccentStrong", "BrushAccentSoft", "BrushAccentForeground", "BrushAccentText",
         "BrushCatalogTileBg", "BrushCatalogTileBorder", "BrushCatalogPrice", "BrushCatalogMeta", "BrushCatalogStock",
         "BrushCatalogTabBg", "BrushCatalogTabBgHover", "BrushCatalogTabBgSelected", "BrushCatalogTabBorderSelected",
         "BrushFocus", "BrushFocusRing", "BrushMoney", "BrushSurfaceSubtle",
@@ -698,7 +698,10 @@ public static class AccentThemeService
         // наведения (AccentStrong), нажатая кнопка с обводкой — на шаг темнее мягкого фона наведения
         // (в тёмной теме — светлее). Оттенки вычисляются из палитры темы, своих цветов нет.
         app.Resources["BrushAccentPressed"] = Brush(PressedAccent(p));
-        app.Resources["BrushPanelPressed"] = Brush(Mix(p.PanelSoft, p.Text, 0.08));
+        // 2026-10-27: акцент как ТЕКСТ/значок на панели (BrushAccentStrong в тёмной «Классической» — тёмно-синий #1D4ED8, 1,9:1): доведён до 4,5:1 на мягкой панели.
+        app.Resources["BrushAccentText"] = Brush(Readable(p.Accent, p.PanelSoft, p.Text, 4.5));
+        // 2026-10-27: в тёмной теме шаг 0,08 давал нажатую плашку #434343, под серым текстом #AAA — 4,3:1 (нужно 4,5); 0,05 → #3E3E3E, 4,6:1. Светлая — прежний шаг.
+        app.Resources["BrushPanelPressed"] = Brush(Mix(p.PanelSoft, p.Text, dark ? 0.05 : 0.08));
 
         // Шапка кассы: у большинства тем — своя панель, у «Витрины» — заливка акцентом.
         app.Resources["BrushHeader"] = Brush(p.Header ?? p.WindowAlt);

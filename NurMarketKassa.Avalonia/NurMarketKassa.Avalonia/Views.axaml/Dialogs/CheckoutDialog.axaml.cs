@@ -134,6 +134,17 @@ public partial class CheckoutDialog : Window
     private static bool IsScanChar(Key key) =>
         key is >= Key.D0 and <= Key.D9 or >= Key.NumPad0 and <= Key.NumPad9 or >= Key.A and <= Key.Z;
 
+    // 2026-10-27 (приёмка 1.17.63, Д-7): символы кода, набранного сканером в окне оплаты, — чтобы положить код в очередь сканов чека.
+    private string _burstCode = "";
+
+    private static string ScanCharOf(Key key, bool shift) => key switch
+    {
+        >= Key.D0 and <= Key.D9 => ((char)('0' + (key - Key.D0))).ToString(),
+        >= Key.NumPad0 and <= Key.NumPad9 => ((char)('0' + (key - Key.NumPad0))).ToString(),
+        >= Key.A and <= Key.Z => ((char)((shift ? 'A' : 'a') + (key - Key.A))).ToString(),
+        _ => "",
+    };
+
     private void OnScannerGuardTunnel(object? sender, KeyEventArgs e)
     {
         if ((e.KeyModifiers & ~KeyModifiers.Shift) != KeyModifiers.None)
@@ -146,10 +157,12 @@ public partial class CheckoutDialog : Window
             if (!fast)
             {
                 _burstChars = 0;
+                _burstCode = "";
                 _burstBox = FocusManager?.GetFocusedElement() as TextBox;
                 _burstText = _burstBox?.Text;
             }
             _burstChars++;
+            _burstCode += ScanCharOf(e.Key, (e.KeyModifiers & KeyModifiers.Shift) != 0);
             _lastBurstCharAt = now;
             return;
         }
@@ -167,11 +180,27 @@ public partial class CheckoutDialog : Window
             return;
 
         e.Handled = true;
+        // 2026-10-27 (приёмка 1.17.63, Д-7): скан не выбрасываем — кладём в очередь сканов чека (оплата её удерживает): после оплаты товар
+        // встанет в новый чек, при отмене оплаты — в этот же. Оплату скан по-прежнему не проводит и в «Получено» не попадает.
+        var queuedCode = burst && _burstCode.Length >= ScanMinChars ? _burstCode : _scanner?.TakeBufferedCode();
+        _burstCode = "";
         _scanner?.DiscardBuffer();
         if (burst && _burstBox is not null)
         {
             _burstBox.Text = _burstText;
             _burstBox.SelectAll();
+        }
+        if (!string.IsNullOrEmpty(queuedCode) && _viewModel.ScanSink is { } sink)
+        {
+            sink(queuedCode);
+            _viewModel.ErrorMessage = Tr.T(
+                $"Скан «{queuedCode}» ждёт в очереди: после оплаты товар встанет в новый чек (при отмене оплаты — в этот). Оплата не проведена.",
+                $"«{queuedCode}» скану кезекте: төлөмдөн кийин товар жаңы чекке түшөт (төлөм жокко чыкса — ушул чекке). Төлөм өткөрүлгөн жок.",
+                $"Scan “{queuedCode}” is waiting in the queue: after payment the item goes into the new receipt (if payment is canceled — into this one). Nothing was paid.",
+                $"“{queuedCode}” okutması sırada bekliyor: ödemeden sonra ürün yeni fişe eklenir (ödeme iptal edilirse — bu fişe). Ödeme yapılmadı.",
+                $"«{queuedCode}» skaneri navbatda: to'lovdan keyin mahsulot yangi chekka tushadi (to'lov bekor qilinsa — shu chekka). To'lov o'tkazilmadi.");
+            PosLogger.Log($"[PAYMENT] Скан {queuedCode} во время оплаты поставлен в очередь сканов чека — оплата не проведена.", "PAYMENT");
+            return;
         }
         _viewModel.ErrorMessage = Tr.T(
             "Скан штрихкода во время оплаты не принят, оплата не проведена. Чтобы добавить товар, закройте окно оплаты (Esc).",
@@ -333,7 +362,10 @@ public partial class CheckoutDialog : Window
     private void UpdateErrorVisibility()
     {
         var hintShown = _viewModel.HasPayBlockedHint && _viewModel.IsDebtMode && !_viewModel.HasSelectedClient;
-        ErrorText.IsVisible = _viewModel.HasError && !(hintShown && IsDebtNeedsClientError(_viewModel.ErrorMessage));
+        // 2026-10-27 (приёмка 1.17.63, Д-9): «Введите сумму, полученную наличными.» показывалось дважды — подсказкой и красной ошибкой после Enter.
+        // Красная ошибка с тем же текстом, что подсказка над ней, не показывается.
+        var sameAsHint = _viewModel.HasPayBlockedHint && string.Equals(_viewModel.ErrorMessage, _viewModel.PayBlockedHint, StringComparison.Ordinal);
+        ErrorText.IsVisible = _viewModel.HasError && !(hintShown && IsDebtNeedsClientError(_viewModel.ErrorMessage)) && !sameAsHint;
     }
 
     /// <summary>2026-10-21 (пакет 6, п. 27): «Консультант: Айгерим» / «Консультант: не выбран — выбрать» над кнопками.</summary>
@@ -449,6 +481,8 @@ public partial class CheckoutDialog : Window
 
     private Window? _dockOwner;
     private bool _redockQueued;
+    /// <summary>2026-10-27: режим «прижимать к низу» из payment_dialog_position.json (читается при открытии окна).</summary>
+    private bool _bottomDock;
 
     /// <summary>Ширина окна в одну колонку: треть главного окна, но 400…480 точек (на 1024 — 400, на 1366 — 451,
     /// с 1455 — 480) и не шире самого окна.</summary>
@@ -467,6 +501,7 @@ public partial class CheckoutDialog : Window
     {
         if (OperatingSystem.IsAndroid())
             return false;
+        _bottomDock = PaymentDockPlacement.ReadBottomMode();
         var target = IsDockable(owner) ? owner : MainKassaWindow(owner);
         if (target is null || !ApplyDock(target))
             return false;
@@ -500,8 +535,8 @@ public partial class CheckoutDialog : Window
         && window.ClientSize.Height >= MinDockOwnerHeight;
 
     /// <summary>Считает и ставит место и размер окна по клиентской области окна target (в пределах рабочей области его экрана):
-    /// ширина и число колонок — по ширине главного окна; потолок высоты (MaxHeight) — его высота минус 2×8; низ окна — у низа
-    /// клиентской области минус 8; по горизонтали — слева от чека, если он справа и слева от него хватает места, иначе — у правого края минус 8.</summary>
+    /// ширина и число колонок — по ширине главного окна; потолок высоты (MaxHeight) — его высота минус 2×8; по вертикали — по центру
+    /// клиентской области (2026-10-27; при области ниже 700 или в режиме «bottom» — низ окна у низа области минус 8); по горизонтали — слева от чека, если он справа и слева от него хватает места, иначе — у правого края минус 8.</summary>
     private bool ApplyDock(Window target)
     {
         try
@@ -538,8 +573,9 @@ public partial class CheckoutDialog : Window
 
             var x = origin.X + (int)Math.Round(left * scaling);
             x = Math.Clamp(x, area.X, Math.Max(area.X, area.Right - (int)Math.Round(width * scaling)));
-            var y = area.Bottom - (int)Math.Round((height + DockMargin) * scaling);
-            y = Math.Max(area.Y, y);
+            // 2026-10-27, жалоба владельца «почему окно оплаты вниз ушло??»: по умолчанию окно по центру области по вертикали
+            // (на низкой области < 700 и в режиме «прижимать к низу» — низ окна у низа области, как раньше).
+            var y = PaymentDockPlacement.ComputeY(area.Y, area.Bottom, height, scaling, client.Height, DockMargin, _bottomDock);
 
             SizeToContent = SizeToContent.Height;
             WindowStartupLocation = WindowStartupLocation.Manual;

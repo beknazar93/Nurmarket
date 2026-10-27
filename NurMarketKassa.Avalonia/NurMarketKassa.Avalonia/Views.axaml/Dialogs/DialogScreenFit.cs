@@ -182,6 +182,9 @@ internal static class DialogScreenFit
                     as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
                 if (ReferenceEquals(main, window))
                     return;
+                // 2026-10-27: «Полный экран» — окна разделов (Склад, Закупки, Клиенты…) открываются развёрнутыми, а не окном 1200×780.
+                if (NurMarketKassa.AvaloniaHost.Services.FullscreenHelper.TryApplySectionWindowMode(window))
+                    return;
                 window.FitToKassaScreen();
                 // 2026-10-23: окно с SizeToContent растёт вниз, когда внутри появляется ошибка/подсказка, а позиция остаётся —
                 // подвал с кнопками уходил под панель задач (жалоба владельца). Каждый рост возвращает окно в рабочую область.

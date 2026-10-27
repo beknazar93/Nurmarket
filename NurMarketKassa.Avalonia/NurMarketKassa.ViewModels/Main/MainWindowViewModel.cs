@@ -141,5 +141,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
         Toolbar.Status.Dispose();
+        // 2026-10-27, аудит С-24: модели каталога и чека подписаны на статические события — снимаем подписки.
+        Catalog.Dispose();
+        Basket.Dispose();
     }
 }

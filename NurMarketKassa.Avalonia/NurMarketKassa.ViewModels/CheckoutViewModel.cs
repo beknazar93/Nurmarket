@@ -385,12 +385,29 @@ namespace NurMarketKassa.ViewModels
         /// как на сайте (например при чеке на 120 сом снизу предлагаются 200/500/1000), чтобы не
         /// набирать сумму, которую дал покупатель, вручную. Ближайшие 3 круглые суммы не меньше
         /// итога чека, по возрастанию.</summary>
-        private static readonly double[] CashSuggestionSteps = { 50, 100, 200, 500, 1000, 2000, 5000, 10000 };
+        // 2026-10-27 (аудит кассы, Н-9): добавлены 10 и 20 (чек 5 сом раньше начинался с 50), а при чеке больше 10 000 кнопок не было вовсе —
+        // теперь ближайшие круглые суммы выше итога (тысячи, пятёрки тысяч, десятки тысяч). Сумма чека и расчёт сдачи не менялись.
+        private static readonly double[] CashSuggestionSteps = { 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000 };
 
-        private double[] CashSuggestionValues =>
-            _effectiveTotalDue > 0
-                ? CashSuggestionSteps.Where(s => s >= _effectiveTotalDue).Distinct().OrderBy(s => s).Take(3).ToArray()
-                : Array.Empty<double>();
+        public static double[] CashSuggestionsFor(double total)
+        {
+            if (!(total > 0))
+                return Array.Empty<double>();
+            var values = CashSuggestionSteps.Where(s => s >= total).Distinct().OrderBy(s => s).Take(3).ToList();
+            if (total > CashSuggestionSteps[^1])
+            {
+                foreach (var unit in new[] { 1000d, 5000d, 10000d, 50000d, 100000d })
+                {
+                    var up = Math.Ceiling(total / unit) * unit;
+                    if (up >= total && !values.Contains(up))
+                        values.Add(up);
+                }
+                values = values.OrderBy(v => v).Take(3).ToList();
+            }
+            return values.ToArray();
+        }
+
+        private double[] CashSuggestionValues => CashSuggestionsFor(_effectiveTotalDue);
 
         public double CashSuggestion1 => CashSuggestionValues.Length > 0 ? CashSuggestionValues[0] : 0;
         public double CashSuggestion2 => CashSuggestionValues.Length > 1 ? CashSuggestionValues[1] : 0;
@@ -593,6 +610,25 @@ namespace NurMarketKassa.ViewModels
             {
                 if (CanPay)
                     return "";
+                // 2026-10-27 (Н-8/Н-7): сумма активного способа введена неверно — говорим, что не так (пример, не больше двух знаков).
+                var amountProblem = PaymentMethod switch
+                {
+                    "cash" => AmountFieldProblem(CashReceived),
+                    "debt" => AmountFieldProblem(_debtCashReceived),
+                    "mixed" => AmountFieldProblem(_mixedCashAmount) ?? AmountFieldProblem(_mixedNonCashAmount),
+                    _ => null,
+                };
+                if (amountProblem != null)
+                    return amountProblem;
+                if (PaymentMethod == "cash" && string.IsNullOrWhiteSpace(CashReceived))
+                    return Tr.T("Введите сумму, полученную наличными.", "Накталай алынган сумманы киргизиңиз.", "Enter the amount received in cash.",
+                        "Nakit alınan tutarı girin.", "Naqd olingan summani kiriting.");
+                if (PaymentMethod == "mixed" && MixedAmountsMatch && !MixedPartsPositive)
+                    return Tr.T("В смешанной оплате обе суммы должны быть больше нуля. Для одного способа выберите «Наличные» или «Безнал».",
+                        "Аралаш төлөмдө эки сумма тең нөлдөн чоң болушу керек. Бир ыкма үчүн «Накталай» же «Накталай эмес» тандаңыз.",
+                        "In a mixed payment both amounts must be above zero. For a single method choose “Cash” or “Cashless”.",
+                        "Karışık ödemede iki tutar da sıfırdan büyük olmalıdır. Tek yöntem için «Nakit» veya «Nakitsiz» seçin.",
+                        "Aralash to'lovda ikkala summa ham noldan katta bo'lishi kerak. Bitta usul uchun «Naqd» yoki «Naqdsiz»ni tanlang.");
                 if (PaymentMethod == "debt")
                 {
                     if (SelectedClient == null)
@@ -616,6 +652,18 @@ namespace NurMarketKassa.ViewModels
         }
 
         public bool HasPayBlockedHint => PayBlockedHint.Length > 0;
+
+        /// <summary>2026-10-27 (приёмка 1.17.63, Д-6): «Цена изменилась: … Чек обновлён.» — перед оплатой цены строк сверились с сервером. Раньше
+        /// это была плашка на 4 секунды, которая гасла одновременно с открытием окна оплаты и кассир видел только новый итог. Теперь текст стоит
+        /// в окне оплаты над кнопками, пока оно открыто (без модального окна). Пусто — цены не менялись.</summary>
+        public string PriceChangeNotice { get; set; } = "";
+
+        public bool HasPriceChangeNotice => !string.IsNullOrWhiteSpace(PriceChangeNotice);
+
+        /// <summary>2026-10-27 (приёмка 1.17.63, Д-7): куда окно оплаты передаёт код, отсканированный клавиатурным сканером, пока оно открыто, —
+        /// очередь сканов чека кассы (<c>PaymentScanGate</c>, на время оплаты удержана). После оплаты код попадёт в новый чек, при отмене — в тот же.
+        /// null — очереди нет (код не принимается).</summary>
+        public Action<string>? ScanSink { get; set; }
 
         /// <summary>Сколько кассир получил сейчас при продаже «в долг» — остальное уходит в долг клиента.
         /// "0.00" по умолчанию (весь долг целиком), но можно указать частичную оплату.</summary>
@@ -934,6 +982,38 @@ namespace NurMarketKassa.ViewModels
 
         public event Action<bool>? RequestClose;
 
+        // 2026-10-27 (аудит кассы, В-2): скидка на чек и списание бонусов делаются уже в этом окне — экран покупателя и динамический QR
+        // брали сумму из корзины (до скидки) и просили перевести больше. Окно сообщает «к оплате» и общую скидку при любом изменении;
+        // BasketPanelViewModel подставляет их в снимок экрана покупателя, пока окно открыто. Смешанная: QR — на безналичную часть.
+        // Расчёт сумм оплаты не затронут — это только показ.
+        public event Action? CustomerDisplayAmountChanged;
+
+        /// <summary>Сколько просить у покупателя сейчас: безналичная часть смешанной (если задана), иначе то, что берётся сейчас.</summary>
+        public double CustomerDisplayAmountDue
+        {
+            get
+            {
+                if (_paymentMethod == "mixed" && ParseNonNegative(_mixedNonCashAmount) is { } nonCash && nonCash > 0.004)
+                    return Math.Round(Math.Min(nonCash, _effectiveTotalDue), 2, MidpointRounding.AwayFromZero);
+                return Math.Round(EffectivePayableNow, 2, MidpointRounding.AwayFromZero);
+            }
+        }
+
+        /// <summary>Вся скидка чека для экрана покупателя: на строки + на чек + бонусы.</summary>
+        public double CustomerDisplayDiscount =>
+            Math.Round(_lineDiscounts + _orderDiscountAmount + _pointsRedeemed, 2, MidpointRounding.AwayFromZero);
+
+        private (double Due, double Discount)? _lastDisplayAmount;
+
+        private void RaiseCustomerDisplayAmount()
+        {
+            var now = (CustomerDisplayAmountDue, CustomerDisplayDiscount);
+            if (_lastDisplayAmount is { } last && last.Due == now.Item1 && last.Discount == now.Item2)
+                return;
+            _lastDisplayAmount = now;
+            CustomerDisplayAmountChanged?.Invoke();
+        }
+
         /// <summary>2026-10-02: кассир нажал «Оформить как прокат» — касса откроет «Новый прокат» с вещами
         /// из чека, заменит их строкой «Прокат №N…» и снова откроет оплату.</summary>
         public bool RentalRequested { get; private set; }
@@ -952,8 +1032,9 @@ namespace NurMarketKassa.ViewModels
         /// выбранного способа оплаты (для "долга" это частичная оплата, для "смешанной" — наличная часть).</summary>
         public string CashReceivedForApi => PaymentMethod switch
         {
-            "cash" => CheckoutValidation.NormalizeDecimal(CashReceived) is { Length: > 0 } n
-                ? n
+            // 2026-10-27 (Н-8): в запрос уходит разобранная сумма «0.00», а не сырой текст поля.
+            "cash" => CheckoutValidation.TryParseAmount(CashReceived, out var cashValue) == CheckoutValidation.AmountParse.Ok
+                ? cashValue.ToString("0.00", CultureInfo.InvariantCulture)
                 : _effectiveTotalDue.ToString("0.00", CultureInfo.InvariantCulture),
             "debt" => (ParseNonNegative(_debtCashReceived) ?? 0).ToString("0.00", CultureInfo.InvariantCulture),
             "mixed" => (ParseNonNegative(_mixedCashAmount) ?? 0).ToString("0.00", CultureInfo.InvariantCulture),
@@ -1071,7 +1152,7 @@ namespace NurMarketKassa.ViewModels
             if (string.IsNullOrWhiteSpace(normalized) || OrderDiscountHelper.IsEmptyOrZeroLike(normalized))
                 return 0;
 
-            if (!double.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var val) || val <= 0)
+            if (!double.TryParse(normalized, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var val) || val <= 0)
                 return 0;
 
             if (_isDiscountPercent)
@@ -1095,7 +1176,7 @@ namespace NurMarketKassa.ViewModels
 
             var normalized = OrderDiscountHelper.NormalizeDecimal(_pointsToRedeemInput);
             if (string.IsNullOrWhiteSpace(normalized)
-                || !double.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var requested)
+                || !double.TryParse(normalized, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var requested)
                 || requested <= 0)
                 return 0;
 
@@ -1171,32 +1252,24 @@ namespace NurMarketKassa.ViewModels
             (ApplyCashSuggestion3Command as RelayCommand)?.RaiseCanExecuteChanged();
             (ExactCashCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ClearCashCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            RaiseCustomerDisplayAmount();
         }
 
-        private double? ParseCash()
-        {
-            var normalized = CheckoutValidation.NormalizeDecimal(CashReceived);
-            if (string.IsNullOrEmpty(normalized))
-                return null;
-            return double.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var cash)
-                ? cash
-                : null;
-        }
+        // 2026-10-27 (аудит кассы, Н-8/Н-7): суммы окна оплаты разбираются общими правилами CheckoutValidation.TryParseAmount
+        // (как CashAmountInput в смене): «1.000» — ошибка, а не 1; «(100)» и «1e3» — ошибка; больше двух знаков после запятой — ошибка.
+        private double? ParseCash() =>
+            CheckoutValidation.TryParseAmount(CashReceived, out var cash) == CheckoutValidation.AmountParse.Ok ? cash : null;
 
-        private static double? ParseNonNegative(string? raw)
-        {
-            var normalized = CheckoutValidation.NormalizeDecimal(raw ?? "");
-            if (string.IsNullOrEmpty(normalized))
-                return null;
-            return double.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var value) && value >= 0
-                ? value
-                : null;
-        }
+        private static double? ParseNonNegative(string? raw) =>
+            CheckoutValidation.TryParseAmount(raw, out var value) == CheckoutValidation.AmountParse.Ok && value >= 0 ? value : null;
+
+        /// <summary>2026-10-27: текст «сумма введена неверно» для непустого поля, которое не разобралось; null — поле пустое или верное.</summary>
+        private static string? AmountFieldProblem(string? raw) =>
+            CheckoutValidation.AmountProblemText(CheckoutValidation.TryParseAmount(raw, out _));
 
         private void RestoreCashAmount()
         {
-            var normalized = CheckoutValidation.NormalizeDecimal(_lastCashReceived);
-            var restored = double.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var cash)
+            var restored = CheckoutValidation.TryParseAmount(_lastCashReceived, out var cash) == CheckoutValidation.AmountParse.Ok
                 && cash + 1e-9 >= _effectiveTotalDue
                     ? cash
                     : _effectiveTotalDue;
@@ -1229,10 +1302,15 @@ namespace NurMarketKassa.ViewModels
             // QR остаётся опциональным удобством (показывается, если есть — см. QrCodePath), но
             // больше не обязателен для завершения продажи.
             if (PaymentMethod == "mixed")
-                return MixedAmountsMatch && SelectedBank != null;
+                return MixedAmountsMatch && MixedPartsPositive && SelectedBank != null;
 
             return SelectedBank != null;
         }
+
+        /// <summary>2026-10-27 (аудит кассы, Н-7): в смешанной оплате обе части больше нуля — иначе это обычная наличная или
+        /// безналичная оплата, записанная как «смешанная» (в отчётах смены и сайте она попадала бы не туда).</summary>
+        public bool MixedPartsPositive =>
+            ParseNonNegative(_mixedCashAmount) is > 0.004 && ParseNonNegative(_mixedNonCashAmount) is > 0.004;
 
         private void ExecutePay()
         {
@@ -1245,6 +1323,20 @@ namespace NurMarketKassa.ViewModels
 
             if (PaymentMethod == "cash")
             {
+                // 2026-10-27 (аудит кассы, В-1): пустое поле «Получено» раньше проходило проверку («ошибки нет»), и Enter проводил
+                // оплату в обход серой кнопки «Оплатить» с суммой, подставленной кассой. Теперь пустое или неверное поле — отказ.
+                var cashParse = CheckoutValidation.TryParseAmount(CashReceived, out _);
+                if (cashParse != CheckoutValidation.AmountParse.Ok)
+                {
+                    ErrorMessage = CheckoutValidation.AmountProblemText(cashParse) ?? Tr.T(
+                        "Введите сумму, полученную наличными.",
+                        "Накталай алынган сумманы киргизиңиз.",
+                        "Enter the amount received in cash.",
+                        "Nakit alınan tutarı girin.",
+                        "Naqd olingan summani kiriting.");
+                    return;
+                }
+
                 var error = CheckoutValidation.ValidateCashReceived(CashReceived, _effectiveTotalDue);
                 if (error != null)
                 {
@@ -1267,7 +1359,7 @@ namespace NurMarketKassa.ViewModels
                 var paid = ParseNonNegative(_debtCashReceived);
                 if (paid == null)
                 {
-                    ErrorMessage = Tr.T("Укажите сумму, полученную сейчас (может быть 0).",
+                    ErrorMessage = AmountFieldProblem(_debtCashReceived) ?? Tr.T("Укажите сумму, полученную сейчас (может быть 0).",
                         "Азыр алынган сумманы көрсөтүңүз (0 болушу мүмкүн).",
                         "Enter the amount received now (can be 0).",
                         "Şimdi alınan tutarı girin (0 olabilir).",
@@ -1284,9 +1376,23 @@ namespace NurMarketKassa.ViewModels
                         "Olingan summa chek summasidan oshmasligi kerak.");
                     return;
                 }
+
+                // 2026-10-27 (аудит кассы, В-1): «в долг» без срока возврата (или графика рассрочки) раньше проходил по Enter — кнопка при этом была серой.
+                if (!IsDebtScheduleValid)
+                {
+                    ErrorMessage = PayBlockedHint;
+                    return;
+                }
             }
             else if (PaymentMethod == "mixed")
             {
+                var mixedProblem = AmountFieldProblem(_mixedCashAmount) ?? AmountFieldProblem(_mixedNonCashAmount);
+                if (mixedProblem != null)
+                {
+                    ErrorMessage = mixedProblem;
+                    return;
+                }
+
                 if (!MixedAmountsMatch)
                 {
                     ErrorMessage = Tr.T("Сумма наличными и безналичными должна совпадать с итогом чека.",
@@ -1304,6 +1410,13 @@ namespace NurMarketKassa.ViewModels
                         "Select a bank for the cashless part.",
                         "Nakitsiz kısım için banka seçin.",
                         "Naqdsiz qism uchun bankni tanlang.");
+                    return;
+                }
+
+                // 2026-10-27 (Н-7): обе части больше нуля (нулевая часть — не «смешанная» оплата).
+                if (!MixedPartsPositive)
+                {
+                    ErrorMessage = PayBlockedHint;
                     return;
                 }
             }
@@ -1327,6 +1440,19 @@ namespace NurMarketKassa.ViewModels
                 return;
             }
 
+            // 2026-10-27 (аудит кассы, В-1): последний рубеж — Enter и любой вызов команды обязаны пройти те же условия, что и серая
+            // кнопка «Оплатить» (CanPay). Команда PayCommand без CanExecute больше не обходит их.
+            if (!CanExecutePay(null))
+            {
+                ErrorMessage = HasPayBlockedHint ? PayBlockedHint : Tr.T(
+                    "Оплата сейчас недоступна: проверьте сумму и способ оплаты.",
+                    "Төлөм азыр жеткиликсиз: сумманы жана төлөм ыкмасын текшериңиз.",
+                    "Payment is not available right now: check the amount and the payment method.",
+                    "Ödeme şu anda kullanılamıyor: tutarı ve ödeme yöntemini kontrol edin.",
+                    "To'lov hozir mavjud emas: summa va to'lov usulini tekshiring.");
+                return;
+            }
+
             RequestClose?.Invoke(true);
         }
 
@@ -1343,7 +1469,7 @@ namespace NurMarketKassa.ViewModels
                 return error;
 
             if (!_isDiscountPercent
-                && double.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
+                && double.TryParse(normalized, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var value))
             {
                 var maximum = Math.Max(0, _subtotal - _lineDiscounts);
                 if (value > maximum + 1e-9)
@@ -1358,7 +1484,7 @@ namespace NurMarketKassa.ViewModels
             // корзине. Окно оплаты о нём не знало, и кассир ставил здесь любую скидку в обход
             // ограничения владельца. Сумма приводится к процентам, иначе ограничение обходилось
             // бы переключением «процент → сумма».
-            if (double.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var entered)
+            if (double.TryParse(normalized, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var entered)
                 && MaxDiscountGate.Exceeds(entered, _isDiscountPercent, Math.Max(0, _subtotal - _lineDiscounts))
                 && MaxDiscountGate.Limit is { } limit)
             {

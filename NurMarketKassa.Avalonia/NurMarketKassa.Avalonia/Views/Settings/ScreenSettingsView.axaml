@@ -151,6 +151,17 @@
                           IsCheckedChanged="UpsellCheck_Changed"/>
               </Grid>
 
+              <!-- 2026-10-27: окно оплаты по умолчанию по центру; переключатель возвращает прижатие к низу (payment_dialog_position.json). Подписи — в коде (Tr.T). -->
+              <Grid ColumnDefinitions="*,Auto" x:Name="PayDockRow">
+                <StackPanel Grid.Column="0">
+                  <TextBlock x:Name="PayDockText" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                  <TextBlock x:Name="PayDockDesc"
+                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                </StackPanel>
+                <CheckBox Grid.Column="1" x:Name="PayDockBottomCheck" Classes="ToggleSwitch" VerticalAlignment="Top"
+                          IsCheckedChanged="PayDockBottomCheck_Changed"/>
+              </Grid>
+
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{DynamicResource posSettings.screen.autostart}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                 <CheckBox Grid.Column="1" x:Name="AutostartCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
@@ -346,7 +357,7 @@
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.screen.storeName}" Classes="FieldLabel"/>
                 <TextBox x:Name="StoreNameBox" x:FieldModifier="public"
-                         Classes="ModernTextBox" Height="36"
+                         Classes="ModernTextBox" Height="44"
                          Watermark="{DynamicResource posSettings.screen.storeNameWatermark}"
                          ToolTip.Tip="{DynamicResource posSettings.screen.storeNameTooltip}"/>
               </StackPanel>
@@ -355,7 +366,7 @@
               <StackPanel Grid.Column="2" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.screen.storeAddress}" Classes="FieldLabel"/>
                 <TextBox x:Name="StoreAddressBox" x:FieldModifier="public"
-                         Classes="ModernTextBox" Height="36"
+                         Classes="ModernTextBox" Height="44"
                          Watermark="{DynamicResource posSettings.screen.storeAddressWatermark}"
                          ToolTip.Tip="{DynamicResource posSettings.screen.storeAddressTooltip}"/>
               </StackPanel>

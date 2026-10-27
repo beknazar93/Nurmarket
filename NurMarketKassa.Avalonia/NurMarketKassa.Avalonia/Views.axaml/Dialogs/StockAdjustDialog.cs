@@ -204,7 +204,8 @@ public sealed class StockAdjustDialog : Window
                 _error.IsVisible = true;
                 return;
             }
-            (App.AppHost?.Services.GetService(typeof(NurMarketKassa.Core.Contracts.IUserPrompts)) as NurMarketKassa.Core.Contracts.IUserPrompts)?.ShowToast(result.Message);
+            // 2026-10-27, аудит владельца С-11: «было 10, стало 15» — плашкой на 3 с, а не окном с кнопкой «Понятно».
+            NurMarketKassa.AvaloniaHost.Views.SuccessToast.Show(result.Message);
             Close(true);
         }
         finally

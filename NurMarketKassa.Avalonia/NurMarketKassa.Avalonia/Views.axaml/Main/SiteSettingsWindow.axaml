@@ -40,11 +40,12 @@
             <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
         </Style>
+        <!-- 2026-10-27: прозрачность выключенной 0.5 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
         <Style Selector="Button.period:disabled /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-            <Setter Property="Opacity" Value="0.5"/>
+            <Setter Property="Opacity" Value="0.7"/>
         </Style>
         <Style Selector="Button.period.accent">
             <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
@@ -60,10 +61,12 @@
             <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         </Style>
+        <!-- 2026-10-27: выключенная главная («Сохранить») — нейтральный мягкий фон и приглушённый текст без прозрачности, как у main-primary/cart-accent:
+             жёлтая под прозрачностью 0,5 с тёмным текстом была 2,0–2,6:1 в тёмной теме. -->
         <Style Selector="Button.period.accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="Opacity" Value="0.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="Opacity" Value="1"/>
         </Style>
         <Style Selector="Border.card">
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>

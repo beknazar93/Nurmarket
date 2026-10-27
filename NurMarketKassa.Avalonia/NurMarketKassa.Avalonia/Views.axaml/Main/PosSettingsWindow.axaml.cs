@@ -171,7 +171,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// <summary>Масштаб интерфейса (Настройки → Экран → "Масштаб") применяется и к самому
         /// окну настроек, не только к MainWindow — чтобы изменение было видно сразу, не закрывая
         /// это окно (см. ScreenSettingsView.UiScaleChanged, подписка в WireChildEvents).</summary>
-        internal void RefreshUiScale() => UiScaleHelper.Apply(UiScaleTransform, 1000, 820);
+        // 2026-10-27, аудит В-10: страницы настроек прокручиваются, поэтому подгонка — по ширине (высота 560 вместо 820): на 1024×600
+        // окно настроек сжималось дважды (0,65) и текст становился нечитаемым.
+        internal void RefreshUiScale() => UiScaleHelper.Apply(UiScaleTransform, 1000, 560);
 
         public PosSettingsWindow(SettingsViewModel settingsVm)
         {
@@ -223,6 +225,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             };
             Tr.LanguageChanged += OnNavLanguageChanged;
             Closed += (_, _) => Tr.LanguageChanged -= OnNavLanguageChanged;
+            // 2026-10-27, аудит С-22: правки на вкладках «Весы / Печать / Экран» при закрытии окна без «Сохранить» терялись молча.
+            // Состояние полей запоминается перед первым действием пользователя; при закрытии, если оно изменилось, — вопрос.
+            AddHandler(PointerPressedEvent, (_, _) => _dirtyBaseline ??= SnapshotEditable(), Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+            AddHandler(KeyDownEvent, (_, _) => _dirtyBaseline ??= SnapshotEditable(), Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+            Closing += OnSettingsClosing;
+            // 2026-10-27 (Д/У Настроек): низкое окно — класс short (см. PosSettingsWindow.axaml, стиль SettingsHeaderCard)
+            SizeChanged += (_, e) => { var low = e.NewSize.Height < 640; if (Classes.Contains("short") != low) Classes.Set("short", low); };
             // 2026-10-20 (живой аудит кассы, К17): подсказка обещала «Применяется сразу, без перезапуска кассы», а язык
             // менялся только после «Сохранить». Теперь — сразу по нажатию (и запоминается); «Сохранить» ничего не ломает.
             foreach (var (radio, language) in LanguageRadios())
@@ -587,7 +596,66 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): «Закрыть» внизу
         /// списка вкладок закрывала бы раздел — переход в другой раздел и так делается меню слева.</summary>
-        public void AsOwnerSection() => SidebarCloseButton.IsVisible = false;
+        public void AsOwnerSection()
+        {
+            SidebarCloseButton.IsVisible = false;
+            _embeddedSection = true; // 2026-10-27 (С-22): закрывает оболочка владельца — вопрос о несохранённом не задаём
+        }
+
+        private string? _dirtyBaseline;
+        private bool _closeConfirmed;
+        private bool _embeddedSection;
+
+        /// <summary>2026-10-27 (С-22): значения редактируемых полей страниц с кнопкой «Сохранить» (Весы, Печать, Экран).
+        /// Язык (применяется сразу) не входит.</summary>
+        private string SnapshotEditable()
+        {
+            var languageRadios = LanguageRadios().Select(r => r.Radio).ToList();
+            var sb = new System.Text.StringBuilder();
+            foreach (var page in new Control[] { _scaleView, _printView, _screenView })
+                foreach (var c in page.GetLogicalDescendants())
+                {
+                    switch (c)
+                    {
+                        case TextBox { IsReadOnly: false } tb: sb.Append(tb.Text); break;
+                        case Avalonia.Controls.Primitives.ToggleButton tg when !languageRadios.Contains(tg): sb.Append(tg.IsChecked); break;
+                        case ComboBox cb: sb.Append(cb.SelectedIndex); break;
+                        case Slider sl: sb.Append(sl.Value); break;
+                        default: continue;
+                    }
+                    sb.Append((char)1);
+                }
+            return sb.ToString();
+        }
+
+        private void OnSettingsClosing(object? sender, WindowClosingEventArgs e)
+        {
+            if (_closeConfirmed || _embeddedSection || e.CloseReason != WindowCloseReason.WindowClosing)
+                return;
+            if (_dirtyBaseline is null || SnapshotEditable() == _dirtyBaseline)
+                return;
+            e.Cancel = true;
+            // вопрос — после выхода из обработчика закрытия (диалог с вложенным циклом внутри Closing не показываем)
+            Dispatcher.UIThread.Post(() => _ = AskCloseWithUnsavedAsync(), DispatcherPriority.Background);
+        }
+
+        private async Task AskCloseWithUnsavedAsync()
+        {
+            var leave = await PosDialogs.ConfirmYesNoModalAsync(this,
+                Tr.T("Есть несохранённые изменения. Закрыть окно без сохранения?",
+                    "Сакталбаган өзгөртүүлөр бар. Терезени сактабай жабасызбы?",
+                    "There are unsaved changes. Close the window without saving?",
+                    "Kaydedilmemiş değişiklikler var. Pencere kaydetmeden kapatılsın mı?",
+                    "Saqlanmagan o'zgarishlar bor. Oynani saqlamasdan yopasizmi?"),
+                Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar"),
+                confirmText: Tr.T("Закрыть без сохранения", "Сактабай жабуу", "Close without saving", "Kaydetmeden kapat", "Saqlamasdan yopish"),
+                cancelText: Tr.T("Вернуться", "Кайтуу", "Go back", "Geri dön", "Qaytish"),
+                danger: true).ConfigureAwait(true);
+            if (!leave)
+                return;
+            _closeConfirmed = true;
+            Close();
+        }
 
         /// <summary>Открывает окно настроек сразу на странице "Монитор" (этап 7 бэклога
         /// "Доработки" — кнопка "Открыть настройки" на упрощённом окне проверки второго
@@ -612,6 +680,27 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// <summary>Открыть окно сразу на вкладке "Обновления" — используется значком
         /// "доступно обновление" в шапке кассы (см. MainWindow.NavigateSettingsUpdates).</summary>
         public void SelectUpdatesTab() => NavigateTo(4);
+
+        /// <summary>2026-10-27, жалоба «Нур Советник открывает не ту вкладку»: страница настроек по ключу словаря (screen, updates, operations,
+        /// customization, account, employees, keys); false — страницы нет (в программе владельца железо кассы скрыто).</summary>
+        public bool SelectNavTab(string tab)
+        {
+            var (index, button) = tab switch
+            {
+                "screen" => (2, NavScreen),
+                "updates" => (4, NavUpdates),
+                "operations" => (5, (Button?)_navButtons[5]),
+                "customization" => (6, (Button?)_navButtons[6]),
+                "account" => (7, (Button?)_navButtons[7]),
+                "employees" => (8, (Button?)_navButtons[8]),
+                "keys" => (9, (Button?)_navButtons[9]),
+                _ => (-1, (Button?)null),
+            };
+            if (index < 0 || button is null || !button.IsVisible)
+                return false;
+            NavigateTo(index);
+            return button.Classes.Contains("nav-active");
+        }
 
         private Button? _pageSave;
 
@@ -1364,10 +1453,17 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             var prefs = UserPreferences.Instance;
 
+            // 2026-10-27, аудит С-22: мусор в «скорости» весов/табло молча превращался в 9600/2400 — теперь поле подсвечивается
+            // красным, настройки не сохраняются (проверка до любых присваиваний).
+            if (!TryReadBaud(ScaleBaudBox, 9600, out var baud)
+                || !TryReadBaud(PoleDisplayBaudBox, 2400, out var poleDisplayBaud)
+                || !TryReadBaud(_scaleView.Scale2BaudBox, 9600, out _)
+                || !TryReadBaud(_scaleView.Scale3BaudBox, 9600, out _))
+                return false;
+
             prefs.ScaleEnabled = ScaleEnabledCheck.IsChecked == true;
             prefs.ScaleComPort = GetSelectedScaleComPort();
-            int.TryParse(ScaleBaudBox.Text?.Trim(), out int baud);
-            prefs.ScaleBaudRate = baud > 0 ? baud : 9600;
+            prefs.ScaleBaudRate = baud;
             prefs.ScaleRequestHex = string.IsNullOrWhiteSpace(ScaleHexBox.Text) ? null : ScaleHexBox.Text.Trim();
             int.TryParse(ScalePollBox.Text?.Trim(), out int poll);
             prefs.ScalePollMs = poll >= 0 ? poll : 0;
@@ -1420,8 +1516,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             prefs.PoleDisplayEnabled = PoleDisplayEnabledCheck.IsChecked == true;
             prefs.PoleDisplayComPort = GetSelectedPoleDisplayComPort();
-            int.TryParse(PoleDisplayBaudBox.Text?.Trim(), out int poleDisplayBaud);
-            prefs.PoleDisplayBaudRate = poleDisplayBaud > 0 ? poleDisplayBaud : 2400;
+            prefs.PoleDisplayBaudRate = poleDisplayBaud;
             prefs.PoleDisplayProtocol = PoleDisplayService.NormalizeProtocol(
                 (PoleDisplayProtocolCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString());
 
@@ -1432,6 +1527,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             NurMarketKassa.Services.Hardware.PoleDisplayService.Instance.Start();
             _scaleView.SaveStatusText.Text = Tr.T("Настройки весов сохранены.", "Тараза жөндөөлөрү сакталды.", "Scale settings saved.", "Tartı ayarları kaydedildi.", "Tarozi sozlamalari saqlandi.");
             RefreshScalePortStatus();
+            _dirtyBaseline = null; // 2026-10-27 (С-22): сохранено — следующая правка снова считается несохранённой
             return true;
         }
 
@@ -1518,6 +1614,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.SaveToDisk();
             _printView.SaveStatusText.Text = Tr.T("Настройки печати сохранены.", "Басып чыгаруу жөндөөлөрү сакталды.", "Print settings saved.", "Yazdırma ayarları kaydedildi.", "Chop etish sozlamalari saqlandi.");
             RefreshPrinterPortStatus();
+            _dirtyBaseline = null; // 2026-10-27 (С-22)
             return true;
         }
 
@@ -1528,6 +1625,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var lowPerfChanged = prefs.LowPerformanceMode != (LowPerformanceModeCheck.IsChecked == true);
             prefs.LowPerformanceMode = LowPerformanceModeCheck.IsChecked == true;
 
+            // 2026-10-27, аудит С-21: режим окна применяется при запуске кассы — запоминаем, менялся ли он, и говорим об этом.
+            var fullscreenChanged = prefs.Fullscreen != (FullscreenCheck.IsChecked == true)
+                || prefs.TrueFullscreen != (TrueFullscreenCheck.IsChecked == true);
             prefs.Fullscreen = FullscreenCheck.IsChecked == true;
             prefs.TrueFullscreen = TrueFullscreenCheck.IsChecked == true;
             prefs.Autostart = AutostartCheck.IsChecked == true;
@@ -1589,6 +1689,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     "Ekran ayarları kaydedildi. Zayıf cihaz modunu uygulamak için kasayı yeniden başlatın.",
                     "Ekran sozlamalari saqlandi. Zaif qurilma rejimini qo'llash uchun kassani qayta ishga tushiring.")
                 : Tr.T("Настройки экрана сохранены.", "Экран жөндөөлөрү сакталды.", "Screen settings saved.", "Ekran ayarları kaydedildi.", "Ekran sozlamalari saqlandi.");
+            _dirtyBaseline = null; // 2026-10-27 (С-22)
+            if (fullscreenChanged)
+                _screenView.SaveStatusText.Text += " " + Tr.T(
+                    "Полноэкранный режим применится после перезапуска кассы.",
+                    "Толук экран режими кассаны кайра иштеткенден кийин колдонулат.",
+                    "Full-screen mode will apply after the till is restarted.",
+                    "Tam ekran modu kasa yeniden başlatıldıktan sonra uygulanır.",
+                    "To'liq ekran rejimi kassa qayta ishga tushirilgandan keyin qo'llanadi.");
             return true;
         }
 
@@ -1795,6 +1903,33 @@ namespace NurMarketKassa.AvaloniaHost.Views
             combo.SelectedItem = ports.FirstOrDefault(p => string.Equals(p, port, StringComparison.OrdinalIgnoreCase));
             enabled.IsChecked = isEnabled;
             baudBox.Text = (baud > 0 ? baud : 9600).ToString(CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>2026-10-27 (С-22): скорость порта — положительное целое. Пусто — значение по умолчанию (подставляется в поле);
+        /// мусор — красная рамка, подсказка в строке состояния, false.</summary>
+        private bool TryReadBaud(TextBox box, int defaultBaud, out int baud)
+        {
+            box.ClearValue(TextBox.BorderBrushProperty);
+            var text = box.Text?.Trim() ?? "";
+            if (text.Length == 0)
+            {
+                baud = defaultBaud;
+                box.Text = defaultBaud.ToString(CultureInfo.InvariantCulture);
+                return true;
+            }
+            if (int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out baud) && baud is > 0 and <= 4_000_000)
+                return true;
+
+            box.BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#DC2626"));
+            void Reset(object? s, TextChangedEventArgs e) { box.ClearValue(TextBox.BorderBrushProperty); box.TextChanged -= Reset; }
+            box.TextChanged += Reset;
+            _scaleView.SaveStatusText.Text = Tr.T("Настройки не сохранены: скорость порта — целое число, например 9600.",
+                "Жөндөөлөр сакталган жок: порттун ылдамдыгы — бүтүн сан, мисалы 9600.",
+                "Settings not saved: the port speed must be a whole number, for example 9600.",
+                "Ayarlar kaydedilmedi: port hızı tam sayı olmalı, örneğin 9600.",
+                "Sozlamalar saqlanmadi: port tezligi butun son bo'lishi kerak, masalan 9600.");
+            box.Focus();
+            return false;
         }
 
         private static (bool Enabled, string Port, int Baud) ReadExtraScale(ComboBox combo, CheckBox enabled, TextBox baudBox)

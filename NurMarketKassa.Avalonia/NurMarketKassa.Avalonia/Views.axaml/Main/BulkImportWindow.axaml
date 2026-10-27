@@ -20,8 +20,9 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Padding" Value="16,8"/>
         </Style>
+        <!-- 2026-10-27: прозрачность выключенной 0.5 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
         <Style Selector="Button.PrimaryButton:disabled">
-            <Setter Property="Opacity" Value="0.5"/>
+            <Setter Property="Opacity" Value="0.7"/>
         </Style>
         <Style Selector="Button.SecondaryButton">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>

@@ -154,7 +154,9 @@ public partial class App : Application
     {
         // 2026-10-23: закрытое окно с бегущей полосой загрузки оставалось в памяти (утечка владельца, круг 5) — см. WindowLeakGuard.
         NurMarketKassa.AvaloniaHost.Services.WindowLeakGuard.Install();
-        AppHost = Host.CreateDefaultBuilder()
+        // 2026-10-27 (приёмка 1.17.63, Д-10): имена для диктора (ячейки таблиц, кнопки прокрутки, поля без имени) — и в кассе, не только в программе владельца.
+        NurMarketKassa.AvaloniaHost.Views.AutomationNaming.Install();
+        AppHost =Host.CreateDefaultBuilder()
             .ConfigureServices(ConfigureServices)
             .Build();
 
@@ -414,8 +416,7 @@ public partial class App : Application
             NurMarketKassa.App.InitializeFromHost(
                 settings, AuthApi, CatalogApi, SalesApi, ShiftApi, AuditDb, session);
             NurMarketKassa.App.SyncFromSession(session);
-            // X/Z-отчёт должен учитывать локальные внесения/изъятия текущей смены.
-            CashShiftService.ShiftCashOperationsNetProvider = ShiftCashOperationsStore.NetForShift;
+            // 2026-10-27 (Н-16): строка с ShiftCashOperationsNetProvider убрана вместе с мёртвым старым X/Z-отчётом CashShiftService.
             PosCashboxId = NurMarketKassa.App.PosCashboxId;
             CurrentUserId = NurMarketKassa.App.CurrentUserId;
             ApplyTheme(UserPreferences.Instance.DarkTheme);
@@ -756,7 +757,6 @@ public partial class App : Application
         services.AddTransient<FilterWindow>();
         services.AddTransient<OpenShiftDialog>();
         services.AddTransient<CloseShiftDialog>();
-        services.AddTransient<CashOperationsDialog>();
         services.AddTransient<CashHistoryDialog>();
         services.AddTransient<ReturnSaleDialog>();
         services.AddTransient<ReturnLineReasonDialog>();

@@ -229,11 +229,12 @@ public partial class ShtrikhScaleSettingsWindow
         _wzTarget.SelectionChanged += (_, _) => UpdateWizardPreview();
         body.Children.Add(Row(L("Сохранить как", "Катары сактоо", "Save as", "Farklı kaydet", "Sifatida saqlash"), _wzTarget));
 
-        _wzPriceText = new TextBox { Text = "ЦЕНА, СОМ/КГ", MaxLength = P.UserTextFieldLength };
+        // 2026-10-27 (Н-19): текст по умолчанию на языке кассы; только символы cp1251 (весы), поэтому tr — без İ/ş.
+        _wzPriceText = new TextBox { Text = L("ЦЕНА, СОМ/КГ", "БААСЫ, СОМ/КГ", "PRICE, KGS/KG", "FIYAT, SOM/KG", "NARXI, SOM/KG"), MaxLength = P.UserTextFieldLength };
         _wzPriceText.TextChanged += (_, _) => UpdateWizardPreview();
         body.Children.Add(Row(L("Текст вместо «ЦЕНА, РУБ/КГ»", "«ЦЕНА, РУБ/КГ» ордуна текст", "Text instead of «ЦЕНА, РУБ/КГ»", "«ЦЕНА, РУБ/КГ» yerine metin", "«ЦЕНА, РУБ/КГ» o‘rniga matn"), _wzPriceText));
         var presets = new WrapPanel { Orientation = Orientation.Horizontal };
-        foreach (var preset in new[] { "ЦЕНА, СОМ/КГ", "Цена, сом/кг", "ЦЕНА ЗА 1 КГ, СОМ", "PRICE, KGS/KG" })
+        foreach (var preset in new[] { "ЦЕНА, СОМ/КГ", "Цена, сом/кг", "ЦЕНА ЗА 1 КГ, СОМ", "БААСЫ, СОМ/КГ", "PRICE, KGS/KG", "NARXI, SOM/KG", "FIYAT, SOM/KG" })
         {
             var b = MakeButton(preset, false, (_, _) => _wzPriceText.Text = preset);
             b.Margin = new Thickness(0, 0, 6, 4);

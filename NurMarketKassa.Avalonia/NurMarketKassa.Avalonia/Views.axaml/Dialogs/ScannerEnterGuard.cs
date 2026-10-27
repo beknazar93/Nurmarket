@@ -22,6 +22,9 @@ internal sealed class ScannerEnterGuard
         App.AppHost?.Services.GetService<IBarcodeInputService>() as AvaloniaKeyboardWedgeBarcodeService;
 
     private readonly Action? _onBlocked;
+    /// <summary>2026-10-27: окно, которое само принимает сканер (PosConfirmDialog.PassScannerThrough), охранника выключает.</summary>
+    public bool Enabled { get; set; } = true;
+
     private int _burstChars;
     private long _lastBurstCharAt;
 
@@ -45,6 +48,8 @@ internal sealed class ScannerEnterGuard
 
     private void OnKeyDownTunnel(object? sender, KeyEventArgs e)
     {
+        if (!Enabled)
+            return;
         if ((e.KeyModifiers & ~KeyModifiers.Shift) != KeyModifiers.None)
             return;
         var now = KeyTime();

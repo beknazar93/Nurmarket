@@ -157,6 +157,7 @@ public partial class OwnerShellWindow
             }
         });
         ProductActionPlan.NavigateByWords = NavigateByWords;
+        ProductActionPlan.OpenNavTarget = OpenNavTargetAsync; // 2026-10-27: переходы Нур Советника — по словарю, с проверкой результата
         // 2026-10-07, владелец: «открывай вкладки только после команды открыть» — после «Выполнить» склад сам не открывается:
         // итог — в чате советника, а отметка «Изменено ИИ» ставится на складе, если он уже открыт (увидите, когда перейдёте).
         ProductActionPlan.ShowChangedProducts = (keys, summary) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -197,6 +198,63 @@ public partial class OwnerShellWindow
             OpenSalesFinance(SalesFinanceTabFromWords(phrase));
         PosLogger.Log($"Owner app: ИИ-советник открыл раздел «{best.Title}» по фразе владельца.", "UI");
         return best.Title;
+    }
+
+    /// <summary>2026-10-27, жалоба владельца («Нур Советник открывает не те разделы и пишет „открыла“»): открыть пункт словаря
+    /// (<see cref="AdvisorNavRouter"/>: раздел меню + вкладка/фильтр) и ВЕРНУТЬ ФАКТ — что стало активным. Ответ советника строится
+    /// только из этого результата: нет права, раздел скрыт или вкладки нет — честное «не получилось», а не «открыл».</summary>
+    private async Task<NavOutcome> OpenNavTargetAsync(string id) =>
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => OpenNavTarget(id));
+
+    private NavOutcome OpenNavTarget(string id)
+    {
+        if (AdvisorNavRouter.ById(id) is not { } target)
+            return new NavOutcome(false, "", Tr.T("такого раздела нет в программе", "программада мындай бөлүм жок", "there is no such section", "böyle bir bölüm yok", "dasturda bunday bo'lim yo'q"));
+        if (_navEntries.FirstOrDefault(x => string.Equals(x.Key, target.Section, StringComparison.OrdinalIgnoreCase)) is not { } entry)
+            return new NavOutcome(false, "", Tr.T("раздел скрыт в меню или недоступен на вашем тарифе", "бөлүм менюдан жашырылган же тарифиңизде жок", "the section is hidden in the menu or not on your plan",
+                "bölüm menüde gizli veya tarifenizde yok", "bo'lim menyuda yashirilgan yoki tarifingizda yo'q"));
+        try
+        {
+            entry.Button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Owner app: переход Нур Советника «{target.TitleRu}» упал ({ex.Message}).", "WARNING");
+            return new NavOutcome(false, "", Tr.T("ошибка при открытии", "ачууда ката кетти", "error while opening", "açılırken hata", "ochishda xato"));
+        }
+        // Факт: раздел действительно стал активным («Сводка» — когда активного раздела нет).
+        var active = _activeSection?.Key ?? "overview";
+        if (!string.Equals(active, target.Section, StringComparison.OrdinalIgnoreCase))
+            return new NavOutcome(false, "", Tr.T("раздел не открылся (возможно, нет прав доступа)", "бөлүм ачылган жок (мүмкүн, укук жок)", "the section did not open (probably no access rights)",
+                "bölüm açılmadı (muhtemelen erişim yetkisi yok)", "bo'lim ochilmadi (ehtimol, ruxsat yo'q)"));
+        // Корень раздела — вкладку не трогаем (остаётся прежней); вкладка или фильтр — выбираем и проверяем.
+        if (target.Parent is null)
+        {
+            PosLogger.Log($"Owner app: Нур Советник открыл раздел «{entry.Title}» (проверено).", "UI");
+            return new NavOutcome(true, entry.Title);
+        }
+        var window = _activeSection?.Window;
+        var tabOk = false;
+        switch (target.Section)
+        {
+            case "warehouse" when window is WarehouseWindow warehouse:
+                tabOk = target.Filter is not null ? warehouse.ApplyNavFilter(target.Filter) : warehouse.SelectNavTab(target.Tab!);
+                break;
+            case SalesFinanceKey when window is FinanceWindow finance:
+                tabOk = finance.TrySelectSalesFinanceTab(target.Tab!);
+                break;
+            case "purchases" when window is PurchasesWindow purchases:
+                tabOk = purchases.SelectNavTab(target.Tab!);
+                break;
+            case "settings" when window is PosSettingsWindow settings:
+                tabOk = settings.SelectNavTab(target.Tab!);
+                break;
+        }
+        PosLogger.Log($"Owner app: Нур Советник открыл «{target.TitleRu}»: раздел открыт, вкладка/фильтр {(tabOk ? "выбраны (проверено)" : "НЕ выбраны")}.", "UI");
+        return tabOk
+            ? new NavOutcome(true, target.Title)
+            : new NavOutcome(true, entry.Title, Tr.T("вкладка скрыта правами или тарифом", "өтмөк укук же тариф менен жашырылган", "the tab is hidden by permissions or plan",
+                "sekme yetki veya tarife nedeniyle gizli", "varaq huquq yoki tarif tufayli yashirilgan"));
     }
 
     private void UpdateNavSearchLook()

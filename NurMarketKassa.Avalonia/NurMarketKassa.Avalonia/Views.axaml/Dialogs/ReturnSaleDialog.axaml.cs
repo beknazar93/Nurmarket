@@ -31,6 +31,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// прошлых возвратов) — запасная сумма полного возврата, если сервер не отдал документ возврата.</summary>
     private decimal? _currentSaleTotal;
 
+    /// <summary>2026-10-27 (ревью, См-5): <c>refundable_total</c> продажи — сколько ещё можно вернуть, если сервер уже отдаёт это поле (Б-09); null — нет.</summary>
+    private decimal? _currentSaleRefundable;
+
     /// <summary>2026-10-06 (О-31, магазин одежды): дата выбранного чека — от неё считается срок обмена и возврата.</summary>
     private DateTime? _currentSaleDate;
     private int _salesPage;
@@ -742,6 +745,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// чек до возвратов не видела: суммы — по серверу, как раньше).</summary>
     private SaleLedgerEntry? _ledger;
 
+    /// <summary>2026-10-27 (аудит кассы, В-3): у чека нет записи кассы, но часть позиций уже возвращали (на сайте/другой кассе) — сумма
+    /// возврата считается по данным сервера, кассиру показываем оценку «возвращено ранее».</summary>
+    private bool _noLedgerTouched;
+    private decimal _noLedgerPriorReturned;
+
     /// <summary>2026-10-20 (К2, К3): payment_method продажи с сервера — если касса чек до возвратов не видела.</summary>
     private string? _currentSaleMethod;
 
@@ -869,6 +877,13 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                                 NumberStyles.Number, CultureInfo.InvariantCulture, out var saleTotalValue)
             ? saleTotalValue
             : null;
+        _currentSaleRefundable = sale.ValueKind == JsonValueKind.Object
+                                 && sale.TryGetProperty("refundable_total", out var refundableEl)
+                                 && refundableEl.ValueKind is JsonValueKind.String or JsonValueKind.Number
+                                 && decimal.TryParse(refundableEl.ValueKind == JsonValueKind.String ? refundableEl.GetString() : refundableEl.GetRawText(),
+                                     NumberStyles.Number, CultureInfo.InvariantCulture, out var refundableValue)
+            ? refundableValue
+            : null;
         // 2026-10-06 (О-31): дата чека — для срока обмена и возврата.
         _currentSaleDate = sale.ValueKind == JsonValueKind.Object
                            && (TryGetDateTime(sale, "created_at", out var soldAt) || TryGetDateTime(sale, "paid_at", out soldAt))
@@ -890,7 +905,23 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             .Where(l => !string.IsNullOrEmpty(l.LineId))
             .GroupBy(l => l.LineId!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        // 2026-10-27 (аудит кассы, В-3): своей записи о чеке нет (первый частичный возврат сделан на сайте/другой кассе) — раньше доля
+        // скидки на чек была 1, и возврат шёл по полной цене строки: сумма возвратов могла превысить заплаченное. Теперь доля — из итога
+        // и суммы строк, как их отдаёт сервер (итог = строки − скидка на чек), а ранее возвращённое оценивается для подсказки.
+        _noLedgerPriorReturned = 0m;
+        _noLedgerTouched = false;
         var factor = _ledger?.Factor ?? 1m;
+        if (_ledger is null)
+        {
+            var linesSum = 0m;
+            foreach (var each in CartDisplayHelper.EnumerateSaleLineItems(sale))
+            {
+                if (decimal.TryParse(CartDisplayHelper.LineTotal(each), NumberStyles.Any, CultureInfo.InvariantCulture, out var eachTotal))
+                    linesSum += eachTotal;
+            }
+
+            factor = ReturnShareEstimator.Factor(_currentSaleTotal, linesSum);
+        }
         foreach (var lineItem in CartDisplayHelper.EnumerateSaleLineItems(sale))
         {
             var lineId = CartDisplayHelper.TryRefundLineId(lineItem);
@@ -908,6 +939,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // из 5×100 при уже возвращённых 2 к возврату идут 300, а не 500.
             var refundSum = lineTotal;
             decimal.TryParse(lineTotal, NumberStyles.Any, CultureInfo.InvariantCulture, out var refundSumValue);
+            var refundPerUnit = 0m; // 2026-10-27 (Д-5): сумма возврата за единицу строки без округления — для частичного возврата по количеству
             // 2026-10-20 (К1): строка — как в продаже до возвратов (снимок), и её доля скидки на весь чек.
             if (ledgerLines is not null && ledgerLines.TryGetValue(lineId, out var was) && was.Quantity > 0)
             {
@@ -918,7 +950,13 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 decimal.TryParse(lineTotal, NumberStyles.Any, CultureInfo.InvariantCulture, out var lineTotalValue))
             {
                 refundSumValue = Math.Round(lineTotalValue * (decimal)qty / (decimal)originalQty * factor, 2, MidpointRounding.AwayFromZero);
+                refundPerUnit = lineTotalValue / (decimal)originalQty * factor;
                 refundSum = CartDisplayHelper.FormatMoney((double)refundSumValue);
+                if (_ledger is null && qty < originalQty - 1e-6)
+                {
+                    _noLedgerTouched = true;
+                    _noLedgerPriorReturned += ReturnShareEstimator.PriorReturned(lineTotalValue, originalQty, qty, factor);
+                }
             }
 
             string? refundReason = null;
@@ -939,6 +977,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 ProductId = CartDisplayHelper.TryProductId(lineItem),
                 Quantity = qty,
                 OriginalQuantity = originalQty,
+                RefundPerUnit = refundPerUnit,
+                // 2026-10-27 (Д-5): весовой/дробный товар — количество к возврату дробное; штучный — целое.
+                AllowFractionalQuantity = tile is { IsWeighted: true } || tile is { MustWeigh: true }
+                    || Math.Abs(qty - Math.Round(qty)) > 1e-6 || Math.Abs(originalQty - Math.Round(originalQty)) > 1e-6,
                 Title = title,
                 SubLine = subLine,
                 // 2026-10-19, К1: сумма к возврату — «1 234,50 сом» (MoneyText), крупно справа в строке; сама сумма прежняя.
@@ -956,6 +998,60 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     {
         foreach (var line in Lines.Where(x => x.CanReturn))
             line.IsSelected = true;
+    }
+
+    // 2026-10-27 (приёмка 1.17.63, Д-5): сколько вернуть из строки — кнопки −/+ и ввод числа. Изменение количества отмечает строку.
+    private void ReturnQtyLess_Click(object? sender, RoutedEventArgs e) => StepReturnQuantity(sender, -1);
+
+    private void ReturnQtyMore_Click(object? sender, RoutedEventArgs e) => StepReturnQuantity(sender, +1);
+
+    private void StepReturnQuantity(object? sender, int direction)
+    {
+        if (IsBusy || _operationInProgress || (sender as Control)?.DataContext is not ReturnSaleLineVm line || !line.CanEditQuantity)
+            return;
+        line.ChangeReturnQuantity(direction);
+        line.IsSelected = true;
+        HideQtyError();
+    }
+
+    private void HideQtyError()
+    {
+        if (_inputError is not null && ErrorText.Text == _inputError)
+            ErrorText.IsVisible = false;
+    }
+
+    private void ReturnQtyBox_KeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (e.Key != Avalonia.Input.Key.Enter)
+            return;
+        e.Handled = true;
+        CommitReturnQuantity(sender);
+    }
+
+    private void ReturnQtyBox_LostFocus(object? sender, RoutedEventArgs e) => CommitReturnQuantity(sender);
+
+    private void CommitReturnQuantity(object? sender)
+    {
+        if (sender is not TextBox { DataContext: ReturnSaleLineVm line } box || IsBusy || _operationInProgress)
+            return;
+        var typed = box.Text;
+        // Текст не менялся (то же число) — ничего не делаем, строку не отмечаем.
+        if (string.Equals((typed ?? "").Trim(), line.ReturnQuantityText, StringComparison.Ordinal))
+            return;
+        if (line.TrySetReturnQuantity(typed))
+        {
+            line.IsSelected = true;
+            HideQtyError();
+        }
+        else
+        {
+            var max = line.Quantity.ToString("0.###", CultureInfo.InvariantCulture).Replace('.', ',');
+            ShowInputErr(line.AllowFractionalQuantity
+                ? Tr.T($"Количество к возврату — число больше 0 и не больше {max}.", $"Кайтаруу саны — 0дөн чоң жана {max}дан ашпаган сан.", $"The return quantity must be more than 0 and not more than {max}.", $"İade miktarı 0'dan büyük ve en fazla {max} olmalı.", $"Qaytarish miqdori 0 dan katta va {max} dan oshmasligi kerak.")
+                : Tr.T($"У штучного товара количество целое: от 1 до {max}.", $"Даана товардын саны бүтүн: 1ден {max}ге чейин.", $"Whole pieces only: from 1 to {max}.", $"Adetli üründe miktar tam sayı: 1 ile {max} arası.", $"Donalab sotiladigan mahsulotda miqdor butun: 1 dan {max} gacha."));
+        }
+        // Всегда показываем принятое значение (при ошибке — прежнее), а не набранный мусор.
+        box.Text = line.ReturnQuantityText;
     }
 
     private void ClearReturnSelection_Click(object? sender, RoutedEventArgs e)
@@ -983,38 +1079,95 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         }
     }
 
+    /// <summary>2026-10-27 (приёмка 1.17.63, Д-5): копии отмеченных строк для оформления возврата: Quantity и RefundSum — то, что
+    /// кассир выбрал вернуть (вся строка или часть по количеству). Дальше возврат, журнал, остаток, чек и обмен работают как раньше.</summary>
+    private static List<ReturnSaleLineVm> EffectiveReturnLines(IEnumerable<ReturnSaleLineVm> picked) =>
+        picked.Select(l => new ReturnSaleLineVm
+        {
+            LineId = l.LineId,
+            Title = l.Title,
+            SubLine = l.SubLine,
+            LineSumText = l.ReturnSumText,
+            RefundSum = l.ReturnRefundSum,
+            ProductId = l.ProductId,
+            Quantity = l.ReturnQuantity,
+            OriginalQuantity = l.OriginalQuantity,
+            RemainingQuantity = l.Quantity,
+            AllowFractionalQuantity = l.AllowFractionalQuantity,
+            RefundPerUnit = l.RefundPerUnit,
+            CanReturn = l.CanReturn,
+            RefundReason = l.RefundReason,
+        }).ToList();
+
+    /// <summary>2026-10-27 (Д-5): в подтверждении возврата — какие строки возвращаются частично: «клей: 1 / 2».</summary>
+    private static string PartialReturnNote(IEnumerable<ReturnSaleLineVm> selected)
+    {
+        var parts = selected.Where(l => l.Quantity < l.MaxReturnQuantity - 1e-6)
+            .Select(l => $"{l.Title}: {l.Quantity.ToString("0.###", CultureInfo.InvariantCulture).Replace('.', ',')} / {l.MaxReturnQuantity.ToString("0.###", CultureInfo.InvariantCulture).Replace('.', ',')}")
+            .ToList();
+        return parts.Count == 0
+            ? ""
+            : "\n" + Tr.T("Частично: ", "Жарым-жартылай: ", "Partially: ", "Kısmen: ", "Qisman: ") + string.Join("; ", parts);
+    }
+
+    /// <summary>2026-10-20 (К1), 2026-10-27 (Д-5): сумма возврата отмеченных строк. Все возвраты чека вместе — не больше оплаченного;
+    /// последний возврат (отмечены все строки целиком) — ровно остаток чека без копеек округления. Частичный по количеству — только
+    /// доля строки, остаток чека не «дочищается». Чистая функция — проверяется на стенде.</summary>
+    internal static decimal ComputeSelectedTotal(IReadOnlyList<ReturnSaleLineVm> selected, int returnableLines, SaleLedgerEntry? ledgerEntry,
+        decimal? saleTotal, decimal? refundableTotal)
+    {
+        var total = selected.Sum(line => line.RefundSum);
+        // 2026-10-20 (К1): все возвраты чека вместе — не больше оплаченного; последние строки чека — ровно остаток
+        // (без копеек округления). Касса чек до возвратов не видела (_ledger null) — как раньше, по строкам.
+        if (ledgerEntry is { Total: > 0m } ledger)
+        {
+            // Каждая отмеченная строка возвращается целиком (весь её остаток) — отмечены все: это весь остаток чека.
+            // Копейки округления — в последний возврат; возвраты мимо этой кассы (сайт) остаток не увеличат.
+            var returnsAllLeft = selected.Count == returnableLines
+                && selected.All(l => l.Quantity >= l.MaxReturnQuantity - 1e-6);
+            total = returnsAllLeft && ledger.Remaining <= total + 0.01m * selected.Count
+                ? ledger.Remaining
+                : Math.Min(total, ledger.Remaining);
+        }
+        else
+        {
+            // 2026-10-27 (В-3): записи кассы о чеке нет — сумма не больше итога чека, как его сейчас отдаёт сервер.
+            total = ReturnShareEstimator.Cap(total, saleTotal);
+        }
+        // 2026-10-27 (ревью, См-5): сервер сам сказал, сколько ещё можно вернуть (refundable_total) — это точнее и записи кассы, и оценки по итогу чека.
+        return ReturnShareEstimator.CapRefundable(total, refundableTotal);
+    }
+
     private async Task ReturnSelectedCoreAsync(string saleId)
     {
-        var selected = Lines.Where(x => x.CanReturn && x.IsSelected).ToList();
+        // 2026-10-27 (приёмка 1.17.63, Д-5): дальше везде — строки с тем количеством, которое кассир выбрал (по умолчанию всё).
+        var selected = EffectiveReturnLines(Lines.Where(x => x.CanReturn && x.IsSelected));
         if (selected.Count == 0)
         {
             ShowInputErr(Tr.T("Отметьте галочками хотя бы одну позицию для возврата.", "Кайтаруу үчүн жок дегенде бир позицияны белгилеңиз.", "Check at least one item to return.", "İade için en az bir kalemi işaretleyin.", "Qaytarish uchun kamida bitta pozitsiyani belgilang."));
             return;
         }
 
-        var total = selected.Sum(line => line.RefundSum);
-        // 2026-10-20 (К1): все возвраты чека вместе — не больше оплаченного; последние строки чека — ровно остаток
-        // (без копеек округления). Касса чек до возвратов не видела (_ledger null) — как раньше, по строкам.
-        if (_ledger is { Total: > 0m } ledger)
-        {
-            // Каждая отмеченная строка возвращается целиком (весь её остаток) — отмечены все: это весь остаток чека.
-            // Копейки округления — в последний возврат; возвраты мимо этой кассы (сайт) остаток не увеличат.
-            var returnsAllLeft = selected.Count == Lines.Count(x => x.CanReturn);
-            total = returnsAllLeft && ledger.Remaining <= total + 0.01m * selected.Count
-                ? ledger.Remaining
-                : Math.Min(total, ledger.Remaining);
-        }
+        var total = ComputeSelectedTotal(selected, Lines.Count(x => x.CanReturn), _ledger, _currentSaleTotal, _currentSaleRefundable);
         var linesSum = selected.Sum(line => line.RefundSum);
 
         // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
         // 2026-10-20 (К1): сумма — с долей скидки на чек, без «~» и в виде «1 234,50 сом».
         var totalShown = MoneyText.Som(total);
+        // 2026-10-27 (В-3): чек уже частично возвращали не на этой кассе — сумму подтверждает кассир с цифрами перед глазами.
+        var elsewhere = _ledger is null && _noLedgerTouched
+            ? "\n\n" + Tr.T($"Чек уже возвращали не на этой кассе (сайт или другая касса). Сумма рассчитана по данным сервера: по чеку оплачено {MoneyText.Som(_currentSaleTotal ?? 0m)}, ранее возвращено примерно {MoneyText.Som(_noLedgerPriorReturned)}. Сверьте сумму.",
+                $"Чек бул кассада эмес (сайт же башка касса) мурун кайтарылган. Сумма сервер маалыматы боюнча эсептелди: чек боюнча төлөнгөн {MoneyText.Som(_currentSaleTotal ?? 0m)}, мурун болжол менен {MoneyText.Som(_noLedgerPriorReturned)} кайтарылган. Сумманы текшериңиз.",
+                $"This receipt was already returned elsewhere (website or another till). The amount is calculated from server data: paid {MoneyText.Som(_currentSaleTotal ?? 0m)}, returned earlier about {MoneyText.Som(_noLedgerPriorReturned)}. Please check the amount.",
+                $"Bu fiş daha önce bu kasada değil (web sitesi veya başka kasa) iade edilmiş. Tutar sunucu verisinden hesaplandı: ödenen {MoneyText.Som(_currentSaleTotal ?? 0m)}, daha önce yaklaşık {MoneyText.Som(_noLedgerPriorReturned)} iade edilmiş. Tutarı kontrol edin.",
+                $"Bu chek avval bu kassada emas (sayt yoki boshqa kassa) qaytarilgan. Summa server ma'lumoti bo'yicha hisoblandi: to'langan {MoneyText.Som(_currentSaleTotal ?? 0m)}, avval taxminan {MoneyText.Som(_noLedgerPriorReturned)} qaytarilgan. Summani tekshiring.")
+            : "";
         if (await PosMessageBox.ShowModalAsync(this,
                 Tr.T($"Выбрано позиций: {selected.Count}\nСумма возврата: {totalShown}",
                     $"Тандалган позиция: {selected.Count}\nКайтаруу суммасы: {totalShown}",
                     $"Items selected: {selected.Count}\nRefund amount: {totalShown}",
                     $"Seçilen kalem: {selected.Count}\nİade tutarı: {totalShown}",
-                    $"Tanlangan pozitsiyalar: {selected.Count}\nQaytarish summasi: {totalShown}"),
+                    $"Tanlangan pozitsiyalar: {selected.Count}\nQaytarish summasi: {totalShown}") + PartialReturnNote(selected) + elsewhere,
                 Tr.T("Подтверждение возврата", "Кайтарууну ырастоо", "Confirm return", "İadeyi onayla", "Qaytarishni tasdiqlash"),
                 MessageBoxButton.YesNo, MessageBoxImage.Question,
                 // 2026-10-22 (модалки, пакет 1): кнопки — глагол с суммой («Вернуть 1 620,00 сом» / «Отмена») вместо «Продолжить?».
@@ -1790,7 +1943,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     {
         if (string.IsNullOrEmpty(_currentSaleId))
             return;
-        var selected = Lines.Where(x => x.CanReturn && x.IsSelected).ToList();
+        // 2026-10-27 (Д-5): обмен тоже берёт выбранное количество (часть строки), а не всю строку.
+        var selected = EffectiveReturnLines(Lines.Where(x => x.CanReturn && x.IsSelected));
         var exchangeTitle = Tr.T("Обмен", "Алмаштыруу", "Exchange", "Değişim", "Almashtirish");
         if (selected.Count == 0)
         {
@@ -1895,7 +2049,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         // возврата убирает скидку на чек из продажи, его total больше остатка); иначе — как раньше.
         var estimatedWhole = _ledger is { Total: > 0m } wholeLedger
             ? Math.Min(wholeLedger.Remaining, _currentSaleTotal ?? wholeLedger.Remaining)
+            // 2026-10-27 (В-3): чек уже частично возвращали не здесь — остаток по строкам (с долей скидки), не больше итога чека.
+            : _noLedgerTouched ? ReturnShareEstimator.Cap(Lines.Where(l => l.CanReturn).Sum(line => line.RefundSum), _currentSaleTotal)
             : _currentSaleTotal ?? Lines.Where(l => l.CanReturn).Sum(line => line.RefundSum);
+        estimatedWhole = ReturnShareEstimator.CapRefundable(estimatedWhole, _currentSaleRefundable); // 2026-10-27 (ревью, См-5)
 
         // 2026-10-21 (пакет 6, п. 35): порядок как у частичного возврата — сначала подтверждение с суммой, потом причина
         // (было наоборот: у частичного «подтверждение → причина», у полного «причина → подтверждение»).

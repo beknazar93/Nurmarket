@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using NurMarketKassa.Models;
 using NurMarketKassa.Models.Pos;
+using NurMarketKassa.Services.GlobalProducts;
 
 namespace NurMarketKassa.Services;
 
@@ -162,6 +163,7 @@ public sealed class BulkImportPlan
         var cWeight = mapping.ColumnOf(ProductImportField.Weight);
 
         var done = 0;
+        var fromDirectoryCount = 0;
         foreach (var src in table.DataRows)
         {
             if ((done & 255) == 0)
@@ -269,6 +271,14 @@ public sealed class BulkImportPlan
                     : purchase is > 0 && markup is { } mk ? ReceivingPricing.SaleFromMarkup(purchase.Value, mk)
                     : purchase is > 0 && settings.DefaultMarkupPercent is { } dm ? ReceivingPricing.SaleFromMarkup(purchase.Value, dm)
                     : 0;
+                // 2026-10-27: в файле есть штрихкод, а названия нет — берём из встроенного справочника готовых наименований NurCRM
+                // (только локальная копия: на тысячи строк сервер не опрашиваем). Название из файла всегда главнее.
+                if (name.Length == 0 && GlobalProductCatalog.Instance.Find(barcode) is { Name.Length: > 0 and <= 255 } fromDirectory)
+                {
+                    name = fromDirectory.Name;
+                    row.Name = name;
+                    fromDirectoryCount++;
+                }
                 string? unitWarning = null;
                 var unit = cUnit >= 0 ? NormalizeUnit(src[cUnit], out unitWarning) : "шт";
                 if (unitWarning is not null)
@@ -312,6 +322,8 @@ public sealed class BulkImportPlan
         }
 
         progress?.Report(done);
+        if (fromDirectoryCount > 0)
+            PosLogger.Log($"Массовое добавление: названий взято из справочника NurCRM (в файле их не было): {fromDirectoryCount}.", "GLOBAL_PRODUCTS");
         var plan = new BulkImportPlan
         {
             Rows = rows,

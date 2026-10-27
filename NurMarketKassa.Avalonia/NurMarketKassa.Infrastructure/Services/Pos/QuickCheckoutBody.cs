@@ -78,7 +78,9 @@ public static class QuickCheckoutBody
                 {
                     // 2026-10-04: разные размеры/цвета одного товара по одной цене — разные позиции.
                     var variant = line["variant"] is JsonValue variantValue && variantValue.TryGetValue<string>(out var v) ? v : "";
-                    var key = product + "|" + price + "|" + variant;
+                    // 2026-10-27 (Б-03 сервера): строка с намеренно изменённой ценой (price_override) не сливается с обычной строкой той же цены —
+                    // иначе обычная строка потеряла бы строгую проверку устаревшей цены.
+                    var key = product + "|" + price + "|" + variant + "|" + (line["price_override"] is not null ? "o" : "");
                     if (byProductAndPrice.TryGetValue(key, out var first))
                     {
                         first["qty"] = SumDecimalText(first["qty"], line["qty"]);
@@ -234,7 +236,28 @@ public static class QuickCheckoutBody
             line["variant"] = variantId.Trim();
         if (CartDisplayHelper.OptionalDiscountTotalParam(it) is { } lineDiscount)
             line["discount"] = lineDiscount;
+        // 2026-10-27 (Б-03 сервера, PRICE_SYNC): цена строки изменена кассиром намеренно — серверу не считать её устаревшей.
+        // Скидка строки и чека сюда НЕ входят: цена товара прежняя, скидка уходит отдельно (discount / order_discount_*).
+        if (IsIntentionalPrice(it))
+            line["price_override"] = true;
         return line;
+    }
+
+    /// <summary>2026-10-27: строка, цена которой по замыслу отличается от цены товара в каталоге: оптовая (переключатель «опт» на строке),
+    /// размер/цвет одежды (у варианта своя цена), поштучно из пачки (цена пачки; в быстрый путь не попадает, но признак тот же).
+    /// Обычная строка — в том числе весовая, с доп. штрихкодом и со скидкой — НЕ «намеренная»: её устаревшую цену сервер должен отклонить.
+    /// «Доп. услуга» (нет товара) сервер с каталогом не сверяет.</summary>
+    internal static bool IsIntentionalPrice(JsonElement it)
+    {
+        if (it.TryGetProperty("is_wholesale", out var w) && w.ValueKind == JsonValueKind.True)
+            return true;
+        // 2026-10-27 (ревью денег, К-4/К-5): штука из пачки без id упаковки и весовая строка с этикетки «по сумме» — цена выбрана не по карточке товара.
+        if (it.TryGetProperty(ReceiptSnapshotCartEditor.PieceSaleField, out var piece) && piece.ValueKind == JsonValueKind.True)
+            return true;
+        if (it.TryGetProperty(ReceiptSnapshotCartEditor.LabelAmountField, out var labelAmount) && labelAmount.ValueKind != JsonValueKind.Null)
+            return true;
+        return !string.IsNullOrWhiteSpace(CartDisplayHelper.ServerVariantId(it))
+               || !string.IsNullOrWhiteSpace(CartDisplayHelper.SalePackageId(it));
     }
 
     /// <summary>2026-09-28, продажа №1136: итог продажи, который получится у сервера из ЭТОГО тела

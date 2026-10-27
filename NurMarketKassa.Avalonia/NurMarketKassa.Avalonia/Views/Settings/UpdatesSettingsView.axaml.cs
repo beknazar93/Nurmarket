@@ -18,6 +18,35 @@ public partial class UpdatesSettingsView : UserControl
             if (e.Property == TextBlock.TextProperty && ShortVersion(AppVersionText.Text) is { } shorter && shorter != AppVersionText.Text)
                 AppVersionText.Text = shorter;
         };
+        AddGlobalCatalogStatus();
+    }
+
+    /// <summary>2026-10-27: строка «Справочник: N товаров, обновлён …, добавлено с сервера: M» под номером версии
+    /// (встроенный справочник готовых наименований NurCRM — GlobalProductCatalog). XAML не менялся: строка добавляется в ту же колонку.</summary>
+    private void AddGlobalCatalogStatus()
+    {
+        if (AppVersionText.Parent is not StackPanel host)
+            return;
+        var line = new TextBlock { FontSize = 12, Foreground = this.TryFindResource("BrushTextSoft", ActualThemeVariant, out var b) ? b as IBrush : null, IsVisible = false };
+        host.Children.Add(line);
+        System.Threading.Tasks.Task.Run(() => NurMarketKassa.Services.GlobalProducts.GlobalProductCatalog.Instance.GetStatus()).ContinueWith(t =>
+        {
+            if (t.IsFaulted || !t.Result.Available)
+                return;
+            var s = t.Result;
+            var n = s.Count.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+            var added = s.AddedFromServer.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+            var date = string.IsNullOrWhiteSpace(s.ExportedAt) ? "—" : s.ExportedAt;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                line.Text = Tr.T($"Справочник: {n} товаров, обновлён {date}, добавлено с сервера: {added}",
+                    $"Маалымдама: {n} товар, жаңыртылган {date}, серверден кошулду: {added}",
+                    $"Catalog: {n} products, updated {date}, added from the server: {added}",
+                    $"Katalog: {n} ürün, güncelleme {date}, sunucudan eklenen: {added}",
+                    $"Ma'lumotnoma: {n} mahsulot, yangilangan {date}, serverdan qo'shilgan: {added}");
+                line.IsVisible = true;
+            });
+        });
     }
 
     /// <summary>2026-10-21: «1.17.58.0» → «1.17.58»; не версия — null (пакет 3, п. 141).</summary>

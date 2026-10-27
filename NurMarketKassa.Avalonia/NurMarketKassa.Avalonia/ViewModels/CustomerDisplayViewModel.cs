@@ -757,15 +757,17 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
 public sealed class CustomerDisplayItemViewModel
 {
     public CustomerDisplayItemViewModel(CustomerDisplayLine line, IReadOnlyList<string> columns)
-        : this(line.Title, line.Barcode, line.Quantity, line.Unit, line.LineTotal, columns)
+        : this(line.Title, line.Barcode, line.Quantity, line.Unit, line.LineTotal + Math.Max(0, line.LineDiscount), columns, Math.Max(0, line.LineDiscount))
     {
         ImagePath = ResolveImagePath(line.ImageUrl);
     }
 
     public CustomerDisplayItemViewModel(
         string title, string? barcode, double quantity, string unit, double lineTotal,
-        IReadOnlyList<string> columns)
+        IReadOnlyList<string> columns, double lineDiscount = 0)
     {
+        // 2026-10-27, аудит Н-1: lineTotal здесь — сумма строки ДО скидки (со скидкой в строке цена была 3,00, а «Промежуточный итог» 4,00 и
+        // «Скидка −1,00» — строки не складывались). Скидка строки — в колонке «Скидка» таблицы и общей строкой «Скидка».
         Title = title;
         Barcode = barcode?.Trim() ?? "";
         QuantityText = $"×{quantity.ToString("0.###", CultureInfo.InvariantCulture)} {unit}";
@@ -781,7 +783,7 @@ public sealed class CustomerDisplayItemViewModel
             var value = column switch
             {
                 "Product" => Title, "Quantity" => QuantityText, "Price" => UnitPriceText,
-                "Discount" => "—", "Total" => TotalText, "Barcode" => Barcode, _ => "",
+                "Discount" => lineDiscount > 0.004 ? "−" + MoneyText.Som(lineDiscount) : "—", "Total" => TotalText, "Barcode" => Barcode, _ => "",
             };
             TableCells.Add(new CustomerDisplayTableCellViewModel(value, ColumnWidth(column)));
         }

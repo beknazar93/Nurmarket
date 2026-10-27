@@ -35,6 +35,11 @@ public static class UiScaleHelper
     /// остаток доступен прокруткой, а не микроскопическим шрифтом.</summary>
     public const double MinScale = 0.5;
 
+    /// <summary>2026-10-27, аудит В-10: на окне 1024×600 всё, кроме «Классики», сжималось до 64 % (при 125 % Windows — до 50 %): кнопки ± 17–28 px,
+    /// текст ~8 px. Подгонка «под экран» теперь не уменьшает ниже 80 % — выбор кассира (ползунок) может быть и ниже, это его решение.
+    /// Если макет и так не влезает, окно уже имеет прокрутку внутри списков/страниц, а не нечитаемый шрифт.</summary>
+    public const double FitFloor = 0.8;
+
     /// <summary>Потолок ползунка (200%).</summary>
     public const double MaxScale = 2.0;
 
@@ -222,7 +227,7 @@ public static class UiScaleHelper
         if (fit is null)
             return Math.Min(preferred, 1.0);
 
-        return Math.Clamp(Math.Min(preferred, fit.Value), MinScale, MaxScale);
+        return Math.Clamp(Math.Min(preferred, Math.Max(fit.Value, FitFloor)), MinScale, MaxScale);
     }
 
     /// <summary>Во сколько раз родной макет можно увеличить (&gt;1) или нужно уменьшить (&lt;1),

@@ -451,8 +451,9 @@
         <!-- 2026-10-21 (сенсорный моноблок): кнопки-значки сводки 36×36 → 40×40, период 34 → 40 по высоте, «Все продажи» не ниже 36,
              «»» в тёмной колонке 36×28 → 44×36 — пальцем на экране 100 % не попадали; рисунок и отступы прежние. -->
         <Style Selector="Button.iconBtn">
-            <Setter Property="Width" Value="40"/>
-            <Setter Property="Height" Value="40"/>
+            <!-- 2026-10-27, аудит владельца С-5: 40 → 44 (цель нажатия не меньше 44). -->
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -483,8 +484,9 @@
             <Setter Property="Stroke" Value="{DynamicResource BrushDanger}"/>
         </Style>
         <Style Selector="Button.caption">
-            <Setter Property="Width" Value="44"/>
-            <Setter Property="Height" Value="32"/>
+            <!-- 2026-10-27, аудит владельца С-5: высота кнопок окна 32 → 44 (цель нажатия не меньше 44). -->
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="44"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -1013,13 +1015,13 @@
                 </Border>
 
                 <StackPanel Grid.Column="2" x:Name="CaptionButtons" Orientation="Horizontal" VerticalAlignment="Top" Spacing="2">
-                    <Button Classes="caption" Click="Minimize_Click">
+                    <Button x:Name="MinimizeCaptionButton" Classes="caption" Click="Minimize_Click">
                         <Path Classes="capIcon" Data="M0,5 H10"/>
                     </Button>
-                    <Button Classes="caption" Click="Maximize_Click">
+                    <Button x:Name="MaximizeCaptionButton" Classes="caption" Click="Maximize_Click">
                         <Path x:Name="MaximizeIconPath" Classes="capIcon" Data="M0.5,0.5 H9.5 V9.5 H0.5 Z"/>
                     </Button>
-                    <Button Classes="caption close" Click="Close_Click">
+                    <Button x:Name="CloseCaptionButton" Classes="caption close" Click="Close_Click">
                         <Path Classes="capIcon" Data="M0,0 L10,10 M10,0 L0,10"/>
                     </Button>
                 </StackPanel>

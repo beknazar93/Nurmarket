@@ -388,7 +388,14 @@ public sealed partial class BackgroundReceivingQueue
         }
 
         await ApplyPendingStockAsync(job).ConfigureAwait(false);
-        if (result is { Created: > 0 })
+        // 2026-10-27 (цена склад-касса): после прихода каталог кассы читаем заново не только при новых товарах, но и когда у принятых
+        // товаров менялась закупка/цена продажи (сервер мог пересчитать цену; версия каталога от этого не меняется — без этого
+        // касса продавала бы по старой цене до полной загрузки раз в 15–30 мин).
+        if (result is { Created: > 0 }
+            || result is not null && result.PostedLines.Any(l => !l.IsNew
+                && (l.Source == ReceivingSource.GlobalBase
+                    || Math.Abs(l.SalePrice - l.OriginalSalePrice) > 0.004
+                    || Math.Abs(l.PurchasePrice - l.OriginalPurchasePrice) > 0.004)))
             RequestCatalogRefresh();
 
         DecideNext(job, st, failure);

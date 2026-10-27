@@ -350,6 +350,9 @@ public partial class ShiftDetailsDialog : Window
         StatusText.Text = rawStatus.Length == 0 ? "—"
             : rawStatus.Contains("Закрыт", StringComparison.OrdinalIgnoreCase) || rawStatus.Contains("closed", StringComparison.OrdinalIgnoreCase)
                 ? Tr.T("Закрыта", "Жабык", "Closed", "Kapalı", "Yopiq")
+            // 2026-10-27 (Н-12): «Активна» (так ShiftHistoryService помечает открытую смену) в X-отчёте оставалось по-русски на всех языках.
+            : rawStatus.Contains("Активн", StringComparison.OrdinalIgnoreCase) || rawStatus.Contains("active", StringComparison.OrdinalIgnoreCase)
+                ? Tr.T("Активна", "Активдүү", "Active", "Aktif", "Faol")
             : rawStatus.Contains("Открыт", StringComparison.OrdinalIgnoreCase) || rawStatus.Contains("open", StringComparison.OrdinalIgnoreCase)
                 ? Tr.T("Открыта", "Ачык", "Open", "Açık", "Ochiq")
             : rawStatus;
@@ -393,16 +396,20 @@ public partial class ShiftDetailsDialog : Window
         // Фактическая сумма известна только у закрытой смены; у открытой (X-отчёт) показываем ожидаемую и «ещё не пересчитано».
         if (shift.OpeningCash is { } drawerOpening)
         {
+            // 2026-10-27 (аудит кассы, С-7): запасная формула (нет ожидаемой суммы сервера) раньше не знала внесений, оплат долгов
+            // и наличных возвратов — Z и X расходились с окном закрытия. Теперь одна формула (ShiftDrawerMath).
+            var cashReturnsForExpected = ReturnsForExpected(shift, _report, _serverShiftReturns);
             var drawerExpected = shift.ExpectedCash
-                ?? (shift.ExpenseTotal is not null
-                    ? drawerOpening + (shift.CashSales ?? 0m) - withdrawals
-                    : drawerOpening + (shift.CashSales ?? 0m) + deposits - withdrawals);
+                ?? FallbackExpected(shift, _report, drawerOpening, deposits, withdrawals, cashReturnsForExpected);
             DrawerExpectedLabel.Text = Tr.T("В ящике должно быть", "Кассада болушу керек", "Should be in the drawer", "Çekmecede olması gereken", "Qutida bo'lishi kerak");
             DrawerActualLabel.Text = Tr.T("Факт", "Чындыгында", "Actual", "Gerçek", "Haqiqatda");
             DrawerDiffLabel.Text = Tr.T("Расхождение", "Айырма", "Difference", "Fark", "Farq");
             DrawerExpectedText.Text = $"{drawerExpected:N2} {Som}";
+            // 2026-10-27 (ревью, См-4): запасная формула вычитает только НАЛИЧНЫЕ возвраты; раскладка получала все (ReturnsTotal), и при безналичном
+            // возврате строки не давали итог (лишняя «Корректировка»). Без суммы сервера в раскладку идёт та же наличная часть, что и в итог.
             DrawerBreakdownBuilder.Fill(this, DrawerBreakdown, drawerOpening, shift.CashSales ?? 0m, _report?.DebtPaymentsCash ?? 0m, deposits, withdrawals,
-                _report?.ReturnsTotal ?? 0m, drawerExpected);
+                shift.ExpectedCash is null ? cashReturnsForExpected : _report?.ReturnsTotal ?? 0m, drawerExpected);
+            AppendNotOnServerRow(shift, drawerExpected);
             if (shift.ClosingCash is { } drawerActual)
             {
                 var drawerDiff = drawerActual - drawerExpected;
@@ -433,6 +440,55 @@ public partial class ShiftDetailsDialog : Window
             StatusDot.Fill = ThemeBrush("BrushTextMuted", Brushes.Gray);
             StatusText.Foreground = ThemeBrush("BrushTextSoft", Brushes.DimGray);
         }
+    }
+
+    /// <summary>2026-10-27 (аудит кассы, С-7): наличная часть возвратов смены для «в ящике должно быть» без ответа сервера.
+    /// Журнал кассы знает, чем вернули (cash=… в примечании); нет записей — возвраты сервера целиком.</summary>
+    private static decimal ReturnsForExpected(ShiftModel shift, ServerShiftReport? server, (int Count, decimal Sum)? serverReturns)
+    {
+        var local = ShiftEventsStore.ListForShift(shift.Id, ShiftEventsStore.KindReturn);
+        if (local.Count > 0)
+            return local.Sum(e => (decimal)(CloseShiftDialog.ParseNote(e.Note, "cash") ?? e.Amount));
+        if (server is { ReturnsTotal: > 0m } fromServer)
+            return fromServer.ReturnsTotal;
+        return serverReturns?.Sum ?? 0m;
+    }
+
+    /// <summary>2026-10-27 (С-7): запасная ожидаемая сумма в ящике — общая формула ShiftDrawerMath с оплатами долгов наличными из
+    /// отчёта сервера или журнала кассы.</summary>
+    private static decimal FallbackExpected(ShiftModel shift, ServerShiftReport? server, decimal opening, decimal deposits, decimal withdrawals, decimal cashReturns)
+    {
+        var debtPaid = server?.DebtPaymentsCash
+                       ?? (decimal)ShiftEventsStore.TotalsForShift(shift.Id).GetValueOrDefault(ShiftEventsStore.KindDebtPayment);
+        return ShiftDrawerMath.Expected(opening, shift.CashSales ?? 0m, debtPaid, deposits, withdrawals, cashReturns);
+    }
+
+    /// <summary>2026-10-27 (аудит кассы, С-9): «Касса: N» в шапке и окно закрытия считают и то, что ещё не дошло до сервера
+    /// (внесения/изъятия без связи, чеки офлайн-очереди), а X-отчёт — по ответу сервера и расходился с шапкой без объяснений.
+    /// Строка под раскладкой: сколько «ещё не на сервере» и сколько будет в ящике с этим.</summary>
+    private void AppendNotOnServerRow(ShiftModel shift, decimal expected)
+    {
+        if (!shift.IsActive || !IsServerShift(shift.Id))
+            return;
+        var (pendingDeposits, pendingWithdrawals) = ShiftCashOperationsStore.PendingSumsForShift(shift.Id);
+        var queuedCash = OfflineQueueCash.Snapshot(shift.Id).Cash.Values.Sum();
+        var notOnServer = ShiftDrawerMath.NotOnServer(pendingDeposits, pendingWithdrawals, queuedCash);
+        if (notOnServer == 0m)
+            return;
+        var sign = notOnServer > 0m ? "+" : "−";
+        var note = new TextBlock
+        {
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 6, 0, 0),
+            Text = Tr.T($"Ещё не на сервере: {sign}{Math.Abs(notOnServer):N2} {Som} (внесения/изъятия без связи, чеки в очереди). С ними в ящике: {expected + notOnServer:N2} {Som} — столько показывает «Касса» в шапке.",
+                $"Серверде дагы жок: {sign}{Math.Abs(notOnServer):N2} {Som} (байланышсыз киргизүү/алуулар, кезектеги чектер). Алар менен кассада: {expected + notOnServer:N2} {Som} — башкы тилкедеги «Касса» ушуну көрсөтөт.",
+                $"Not on the server yet: {sign}{Math.Abs(notOnServer):N2} {Som} (offline deposits/withdrawals, queued receipts). With them the drawer should hold {expected + notOnServer:N2} {Som} — this is what “Cash” in the header shows.",
+                $"Henüz sunucuda değil: {sign}{Math.Abs(notOnServer):N2} {Som} (bağlantısız para giriş/çıkışları, kuyruktaki fişler). Bunlarla çekmecede {expected + notOnServer:N2} {Som} olmalı — üstteki «Kasa» bunu gösterir.",
+                $"Hali serverda yo'q: {sign}{Math.Abs(notOnServer):N2} {Som} (aloqasiz kiritish/olishlar, navbatdagi cheklar). Ular bilan qutida {expected + notOnServer:N2} {Som} bo'lishi kerak — tepadagi «Kassa» shuni ko'rsatadi.")
+        };
+        note.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        DrawerBreakdown.Children.Add(note);
     }
 
     /// <summary>Возвраты, списания, расход, оплата долгов и скидки за смену.
@@ -774,44 +830,52 @@ public partial class ShiftDetailsDialog : Window
             ? "—"
             : (shift.ShiftNumber.Length > 8 ? shift.ShiftNumber[..8].ToUpperInvariant() : shift.ShiftNumber.ToUpperInvariant());
 
+        // 2026-10-27 (аудит кассы, С-8, Н-19): раньше и X, и Z печатались одним заголовком «ОТЧЁТ ПО СМЕНЕ» и только по-русски;
+        // X (смена открыта) вообще не печатал «в ящике должно быть». Теперь заголовок — X или Z, подписи на 5 языках (Tr.T),
+        // ожидаемая сумма в ящике печатается всегда, фактическая и расхождение — когда смена закрыта (пересчёт сделан).
+        var closed = shift.ClosedAt is not null
+                     || (shift.Status ?? "").Contains("Закрыт", StringComparison.OrdinalIgnoreCase)
+                     || (shift.Status ?? "").Contains("closed", StringComparison.OrdinalIgnoreCase);
         var sb = new StringBuilder();
-        sb.AppendLine("*** ОТЧЁТ ПО СМЕНЕ ***");
-        sb.AppendLine($"Смена: {shortNumber}");
-        sb.AppendLine($"Кассир: {(string.IsNullOrWhiteSpace(shift.Cashier) ? "—" : shift.Cashier)}");
-        sb.AppendLine($"Открыта: {shift.OpenedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—"}");
-        sb.AppendLine($"Закрыта: {shift.ClosedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—"}");
+        sb.AppendLine(closed
+            ? Tr.T("*** Z-ОТЧЁТ (смена закрыта) ***", "*** Z-ОТЧЁТ (смена жабылды) ***", "*** Z-REPORT (shift closed) ***", "*** Z RAPORU (vardiya kapandı) ***", "*** Z-HISOBOT (smena yopildi) ***")
+            : Tr.T("*** X-ОТЧЁТ (смена открыта) ***", "*** X-ОТЧЁТ (смена ачык) ***", "*** X-REPORT (shift open) ***", "*** X RAPORU (vardiya açık) ***", "*** X-HISOBOT (smena ochiq) ***"));
+        sb.AppendLine($"{Tr.T("Смена", "Смена", "Shift", "Vardiya", "Smena")}: {shortNumber}");
+        sb.AppendLine($"{Tr.T("Кассир", "Кассир", "Cashier", "Kasiyer", "Kassir")}: {(string.IsNullOrWhiteSpace(shift.Cashier) ? "—" : shift.Cashier)}");
+        sb.AppendLine($"{Tr.T("Открыта", "Ачылган", "Opened", "Açılış", "Ochilgan")}: {shift.OpenedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—"}");
+        sb.AppendLine($"{Tr.T("Закрыта", "Жабылган", "Closed", "Kapanış", "Yopilgan")}: {shift.ClosedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—"}");
         sb.AppendLine("------------------------------");
-        sb.AppendLine($"Чеков: {shift.SalesCount?.ToString(CultureInfo.InvariantCulture) ?? "—"}");
-        // 2026-10-23 (аудит К5, п. 3): выручка без долга + продажи в долг отдельной строкой (печать — по-русски, как весь чек).
-        sb.AppendLine($"Выручка (без долга): {shift.RevenueNoDebt.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+        sb.AppendLine($"{Tr.T("Чеков", "Чектер", "Receipts", "Fiş sayısı", "Cheklar")}: {shift.SalesCount?.ToString(CultureInfo.InvariantCulture) ?? "—"}");
+        // 2026-10-23 (аудит К5, п. 3): выручка без долга + продажи в долг отдельной строкой.
+        sb.AppendLine($"{Tr.T("Выручка (без долга)", "Түшүм (карызсыз)", "Revenue (excl. debt)", "Ciro (borçsuz)", "Tushum (qarzsiz)")}: {shift.RevenueNoDebt.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         if (shift.CreditSales > 0m)
-            sb.AppendLine($"  продажи в долг: {shift.CreditSales.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"  {Tr.T("продажи в долг", "карызга сатуулар", "credit sales", "veresiye satışlar", "qarzga sotuvlar")}: {shift.CreditSales.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         if (shift.CashSales is { } cash)
-            sb.AppendLine($"  наличные: {cash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"  {Tr.T("наличные", "накталай", "cash", "nakit", "naqd")}: {cash.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         if (server is { MixedCash: > 0m })
-            sb.AppendLine($"    в т.ч. смешанная: {server.MixedCash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"    {Tr.T("в т.ч. смешанная", "анын ичинде аралаш", "incl. mixed", "karışık dahil", "shu jumladan aralash")}: {server.MixedCash.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         // 2026-10-04, стресс-тест (К4): наличные — с предоплатой долга (как в окне закрытия и у сервера),
         // сама предоплата — строкой «в т.ч.», а не отдельным приходом ниже (было: «Внесено при продаже в долг»).
         if (server is { DebtPrepaymentsCash: > 0m })
-            sb.AppendLine($"    в т.ч. предоплата долга: {server.DebtPrepaymentsCash!.Value.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"    {Tr.T("в т.ч. предоплата долга", "анын ичинде карыздын алдын ала төлөмү", "incl. debt prepayment", "borç ön ödemesi dahil", "shu jumladan qarz oldindan to'lovi")}: {server.DebtPrepaymentsCash!.Value.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         if (shift.NonCashSales is { } card)
-            sb.AppendLine($"  безналичные: {card.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"  {Tr.T("безналичные", "накталай эмес", "non-cash", "nakitsiz", "naqd emas")}: {card.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         if (server is { MixedCard: > 0m })
-            sb.AppendLine($"    в т.ч. смешанная: {server.MixedCard.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"    {Tr.T("в т.ч. смешанная", "анын ичинде аралаш", "incl. mixed", "karışık dahil", "shu jumladan aralash")}: {server.MixedCard.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         if (server is { DebtPrepaymentsNonCash: > 0m })
-            sb.AppendLine($"    в т.ч. предоплата долга: {server.DebtPrepaymentsNonCash!.Value.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"    {Tr.T("в т.ч. предоплата долга", "анын ичинде карыздын алдын ала төлөмү", "incl. debt prepayment", "borç ön ödemesi dahil", "shu jumladan qarz oldindan to'lovi")}: {server.DebtPrepaymentsNonCash!.Value.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         if (shift.DebtSales is { } debt)
-            sb.AppendLine($"  долг (остаток): {debt.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"  {Tr.T("долг (остаток)", "карыз (калдык)", "debt (balance)", "borç (bakiye)", "qarz (qoldiq)")}: {debt.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         // Скидки и возвраты — строками отчёта сервера (2026-09-28); без него их печатал только
         // X/Z-отчёт по счётчикам кассы.
         if (server is { Discounts: > 0m })
         {
-            sb.AppendLine($"Скидки: {server.Discounts.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"{Tr.T("Скидки", "Арзандатуулар", "Discounts", "İndirimler", "Chegirmalar")}: {server.Discounts.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
             if (server.BonusRedeemed > 0m)
-                sb.AppendLine($"  из них бонусами: {server.BonusRedeemed.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+                sb.AppendLine($"  {Tr.T("из них бонусами", "анын ичинде бонус менен", "of which points", "puanla ödenen", "shundan bonus bilan")}: {server.BonusRedeemed.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         }
         if (returns is { Sum: > 0m } ret)
-            sb.AppendLine($"Возвраты: {ret.Count} на {ret.Sum.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"{Tr.T("Возвраты", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar")}: {ret.Count} / {ret.Sum.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         sb.AppendLine("------------------------------");
 
         // Внесения и изъятия из денежного ящика. Раньше отчёт их не знал вовсе: «ожидаемый
@@ -838,7 +902,7 @@ public partial class ShiftDetailsDialog : Window
             withdrawals = server.Withdrawals;
             // 2026-10-04, стресс-тест: income_total сервера включает и наличные, внесённые при продаже в
             // долг (смена 7e33b63b: 150 = внесение 100 + оплата долгов 30 + предоплата 20). Без вычета
-            // предоплаты она печаталась дважды — своей строкой и ещё раз в «Прочие приходы».
+            // предоплаты она печаталась дважды — своей строкой и ещё раз в «Прочих приходах».
             otherIncome = Math.Max(0m, server.IncomeTotal - server.Deposits - debtPaidCash - debtPrepaidCash);
         }
         // 2026-10-04 (К4): предоплата долга наличными уже в «наличных» выше (строкой «в т.ч.») — здесь её
@@ -847,43 +911,48 @@ public partial class ShiftDetailsDialog : Window
         if (deposits > 0m || withdrawals > 0m || otherIncome > 0m || debtPaidCash > 0m)
         {
             if (deposits > 0m)
-                sb.AppendLine($"Внесения: +{deposits.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+                sb.AppendLine($"{Tr.T("Внесения", "Киргизүүлөр", "Deposits", "Para girişleri", "Kiritishlar")}: +{deposits.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
             if (debtPaidCash > 0m)
-                sb.AppendLine($"Оплата долгов наличными: +{debtPaidCash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+                sb.AppendLine($"{Tr.T("Оплата долгов наличными", "Карыздарды накталай төлөө", "Debt payments in cash", "Nakit borç ödemeleri", "Qarz to'lovlari naqd")}: +{debtPaidCash.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
             if (otherIncome > 0m)
                 // Погашения долгов сервер сам пишет в смену (debt_repayment) — они здесь, одной строкой
                 // сервера; локальный счётчик «Оплата долгов» к ней не прибавляется.
-                sb.AppendLine($"Прочие приходы (оплата долгов и др.): +{otherIncome.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+                sb.AppendLine($"{Tr.T("Прочие приходы (оплата долгов и др.)", "Башка түшүүлөр (карыз төлөө ж.б.)", "Other income (debt payments etc.)", "Diğer gelirler (borç ödemeleri vb.)", "Boshqa tushumlar (qarz to'lovlari va b.)")}: +{otherIncome.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
             if (withdrawals > 0m)
-                sb.AppendLine($"Изъятия (расход): -{withdrawals.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+                sb.AppendLine($"{Tr.T("Изъятия (расход)", "Алуулар (чыгым)", "Withdrawals (expense)", "Para çıkışları (gider)", "Olishlar (xarajat)")}: -{withdrawals.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
             sb.AppendLine("------------------------------");
         }
 
         if (shift.OpeningCash is { } opening)
         {
-            sb.AppendLine($"Начальная сумма: {opening.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"{Tr.T("Начальная сумма", "Баштапкы сумма", "Opening amount", "Başlangıç tutarı", "Boshlang'ich summa")}: {opening.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
+            // Ожидаемый остаток тоже с сервера (или из окна закрытия — MainWindow кладёт его в ExpectedCash), если он есть: свой расчёт
+            // повторял бы серверный и расходился с ним ровно на те операции, о которых касса не знает.
+            // 2026-10-27 (С-7): запасная формула — общая (ShiftDrawerMath): начало + наличные + оплаты долгов + внесения − изъятия − наличные возвраты.
+            // Раньше она не знала внесений, оплат долгов и возвратов, и Z без ответа сервера расходился с окном закрытия.
+            var fallbackDeposits = server?.Deposits ?? localDeposits;
+            var expected = shift.ExpectedCash
+                ?? FallbackExpected(shift, server, opening, fallbackDeposits, withdrawals, ReturnsForExpected(shift, server, returns));
+            sb.AppendLine($"{Tr.T("В ящике должно быть", "Кассада болушу керек", "Should be in the drawer", "Çekmecede olması gereken", "Qutida bo'lishi kerak")}: {expected.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
             if (shift.ClosingCash is { } actual)
             {
-                // Ожидаемый остаток тоже с сервера, если он его прислал: свой расчёт
-                // повторял бы серверный и расходился с ним ровно на те операции, о которых
-                // касса не знает.
-                // Формула ровно та, по которой считает сервер (проверено на живых сменах
-                // 2026-09-23): начальная сумма плюс наличная выручка минус расход. Прочие
-                // приходы в ожидаемый остаток сервер НЕ включает и показывает отдельной
-                // строкой — повторяем это, иначе касса опять разойдётся с сайтом.
-                var expected = shift.ExpectedCash
-                    ?? (shift.ExpenseTotal is not null
-                        ? opening + (shift.CashSales ?? 0m) - withdrawals
-                        : opening + (shift.CashSales ?? 0m) + deposits - withdrawals);
                 var diff = actual - expected;
-                sb.AppendLine($"Ожидаемый остаток: {expected.ToString("0.00", CultureInfo.InvariantCulture)} сом");
-                sb.AppendLine($"Фактический остаток: {actual.ToString("0.00", CultureInfo.InvariantCulture)} сом");
-                sb.AppendLine($"Расхождение: {diff.ToString("+0.00;-0.00", CultureInfo.InvariantCulture)} сом");
+                sb.AppendLine($"{Tr.T("Фактический остаток", "Чыныгы калдык", "Actual balance", "Fiili bakiye", "Haqiqiy qoldiq")}: {actual.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
+                sb.AppendLine($"{Tr.T("Расхождение", "Айырма", "Difference", "Fark", "Farq")}: {diff.ToString("+0.00;-0.00", CultureInfo.InvariantCulture)} {Som}");
+            }
+            else if (!closed && IsServerShift(shift.Id))
+            {
+                // 2026-10-27 (С-9): X-отчёт — по ответу сервера; «Касса» в шапке считает ещё и то, что до сервера не дошло.
+                var (pendingDeposits, pendingWithdrawals) = ShiftCashOperationsStore.PendingSumsForShift(shift.Id);
+                var notOnServer = ShiftDrawerMath.NotOnServer(pendingDeposits, pendingWithdrawals, OfflineQueueCash.Snapshot(shift.Id).Cash.Values.Sum());
+                if (notOnServer != 0m)
+                    sb.AppendLine($"{Tr.T("Ещё не на сервере", "Серверде дагы жок", "Not on the server yet", "Henüz sunucuda değil", "Hali serverda yo'q")}: {notOnServer.ToString("+0.00;-0.00", CultureInfo.InvariantCulture)} {Som}; "
+                                  + $"{Tr.T("с ними в ящике", "алар менен кассада", "with them in the drawer", "bunlarla çekmecede", "ular bilan qutida")}: {(expected + notOnServer).ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
             }
         }
         else if (shift.ClosingCash is { } actualOnly)
         {
-            sb.AppendLine($"Фактический остаток: {actualOnly.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            sb.AppendLine($"{Tr.T("Фактический остаток", "Чыныгы калдык", "Actual balance", "Fiili bakiye", "Haqiqiy qoldiq")}: {actualOnly.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         }
         // 2026-10-04, клиент: прокат в Z-отчёте.
         if (rentals is { IsEmpty: false })

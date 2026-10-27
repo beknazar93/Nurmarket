@@ -67,7 +67,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="MinHeight" Value="44"/> <!-- 2026-10-27, аудит владельца С-5: пилюля «Единица продажи» 34 → 44 -->
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Template">
@@ -157,7 +157,7 @@
         <!-- Единый стиль полей ввода TextBox / ComboBox -->
         <Style Selector="TextBox">
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="MinHeight" Value="44"/> <!-- 2026-10-27, аудит владельца С-5: было 42 -->
             <Setter Property="Padding" Value="10,8"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
@@ -214,7 +214,7 @@
              выключенная — нейтральная, не серая Fluent), остальные — обводкой (SecondaryButton — как sec-outline, была серая
              заливка). Фокус по-прежнему не берут: Enter сканера не должен нажимать кнопку. -->
         <Style Selector="Button.PrimaryButton">
-            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="MinHeight" Value="44"/> <!-- 2026-10-27, С-5: было 40 -->
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
         <Style Selector="Button.PrimaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -231,6 +231,7 @@
         </Style>
 
         <Style Selector="Button.SecondaryButton">
+            <Setter Property="MinHeight" Value="44"/> <!-- 2026-10-27, аудит владельца С-5: «Назад / Вперёд / Обновить / Массовая загрузка» 30–36 → 44 -->
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
@@ -253,9 +254,10 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
         </Style>
+        <!-- 2026-10-27: прозрачность выключенной 0.45 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
         <Style Selector="Button.SecondaryButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Opacity" Value="0.45"/>
+            <Setter Property="Opacity" Value="0.7"/>
         </Style>
         <!-- 2026-10-19, О9: пункт раскрывающегося списка (причина списания, подсказки приёмки) — без рамки, наведение мягким фоном. -->
         <Style Selector="Button.list-item">
@@ -415,10 +417,11 @@
         <!-- 2026-10-18, решение владельца (аудит, правило 5): действия строки товара — «± Остаток» и «✎ Изменить» с
              подписью, остальное в «⋯» (WarehouseWindow.RowActions.cs). Вид и отклик — общий sec-outline (наведение, нажатие,
              выключенная); здесь только размер под строку 52 px. Без фокуса, как прежние значки (Enter сканера). -->
+        <!-- 2026-10-27, аудит владельца С-5: кнопки строки 36 → 44 (цель нажатия; строка 52 это вмещает). -->
         <Style Selector="Button.row-act">
-            <Setter Property="MinHeight" Value="36"/>
-            <Setter Property="Height" Value="36"/>
-            <Setter Property="MinWidth" Value="36"/>
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="MinWidth" Value="44"/>
             <Setter Property="Padding" Value="10,0"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Focusable" Value="False"/>
@@ -428,12 +431,12 @@
             <Setter Property="Height" Value="16"/>
         </Style>
         <Style Selector="Button.row-more">
-            <Setter Property="Width" Value="36"/>
+            <Setter Property="Width" Value="44"/>
             <Setter Property="Padding" Value="0"/>
         </Style>
         <!-- Узкая таблица (класс ставит ProductsGrid_SizeChanged) — только значки, подпись в подсказке. -->
         <Style Selector="DataGrid.row-compact Button.row-act">
-            <Setter Property="Width" Value="36"/>
+            <Setter Property="Width" Value="44"/>
             <Setter Property="Padding" Value="0"/>
         </Style>
         <Style Selector="DataGrid.row-compact TextBlock.row-act-text">
@@ -1045,7 +1048,9 @@
                                 </WrapPanel.Styles>
                                 <TextBlock Text="{DynamicResource warehouse.receivingSupplier}" VerticalAlignment="Center"
                                            FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                                <!-- 2026-10-27 (приёмка 1.17.63, Д-10): имя для диктора — выбранный поставщик (читалось «Без поставщика» и после выбора). -->
                                 <Button x:Name="ReceivingSupplierButton" Classes="SecondaryButton" Width="190"
+                                        AutomationProperties.Name="{Binding ReceivingSupplier.Name}"
                                         HorizontalContentAlignment="Stretch" Click="ReceivingSupplierButton_Click">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Grid.Column="0" Text="{Binding ReceivingSupplier.Name}" TextTrimming="CharacterEllipsis"/>
@@ -1068,6 +1073,9 @@
                                 <!-- 2026-10-24, ТЗ «Склад» (Б1): вместо 60 кнопок — «Товары поставщика (N)»: панель с поиском и списком. -->
                                 <Button x:Name="ReceivingSupplierProductsButton" Classes="SecondaryButton" IsVisible="False"
                                         Click="ReceivingSupplierProducts_Click"/>
+                                <!-- 2026-10-27: «Загрузить накладную» — электронная накладная Excel/CSV/XML (WarehouseWindow.InvoiceImport.cs). -->
+                                <Button x:Name="ReceivingInvoiceImportButton" Classes="SecondaryButton" Height="44"
+                                        Click="ReceivingInvoiceImport_Click"/>
                             </WrapPanel>
                             <Border x:Name="ReceivingSupplierPanel" IsVisible="False" Width="400" HorizontalAlignment="Left"
                                     Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
@@ -1406,7 +1414,8 @@
                                   GridLinesVisibility="Horizontal"
                                   RowHeight="44">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Width="104" Binding="{ReflectionBinding DateText}">
+                                <!-- 2026-10-27, В-2: дата с временем «27.10.2026 11:05» не влезала в 104 (обрезалась до «27.10.2026 1») — ширина 152. -->
+                                <DataGridTextColumn Width="152" Binding="{ReflectionBinding DateText}">
                                     <DataGridTextColumn.Header><TextBlock Text="{DynamicResource common.date}"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
                                 <DataGridTextColumn Width="*" MinWidth="140" Binding="{ReflectionBinding ProductName}">

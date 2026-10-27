@@ -1326,7 +1326,7 @@ public partial class WarehouseWindow
             RevisionDetach();
             _viewModel.ReapplyProductFilter();
             RefreshWarehouseTotals();
-            App.AppHost?.Services.GetService<IUserPrompts>()?.ShowToast(RevT(
+            SuccessToast.Show(RevT(
                 $"Ревизия проведена: позиций {done.SentRows}, актов {done.SessionIds.Count}.", $"Ревизия өткөрүлдү: позиция {done.SentRows}, акт {done.SessionIds.Count}.",
                 $"Stocktake posted: {done.SentRows} items, {done.SessionIds.Count} documents.", $"Sayım tamamlandı: {done.SentRows} kalem, {done.SessionIds.Count} tutanak.", $"Inventarizatsiya o'tkazildi: {done.SentRows} pozitsiya, {done.SessionIds.Count} akt."));
             return;
@@ -1425,9 +1425,22 @@ public partial class WarehouseWindow
     {
         _revPastButton.IsEnabled = false;
         List<RevisionActSummary> acts;
+        // 2026-10-27, аудит владельца В-2: у владельца к местным ревизиям добавляются ревизии с других касс и ПК (акты сервера).
+        List<(string Key, DateTime WhenUtc, string By, List<InventoryAct> Parts)> remote = new();
         try
         {
             acts = await Task.Run(RevisionActStore.List).ConfigureAwait(true);
+            if (AppMode.IsOwner && App.AppHost?.Services.GetService<IInventoryApiService>() is { } invApi)
+            {
+                var known = new HashSet<string>(acts.SelectMany(a => a.SessionIds ?? Array.Empty<string>()), StringComparer.OrdinalIgnoreCase);
+                var all = await invApi.ListActsAsync(CancellationToken.None).ConfigureAwait(true);
+                // Части одной ревизии («… (1/3)», «… (2/3)») — один пункт списка.
+                foreach (var g in (all ?? Array.Empty<InventoryAct>())
+                             .Where(a => a.IsApplied && a.Note.TrimStart().StartsWith("Ревизия", StringComparison.OrdinalIgnoreCase) && !known.Contains(a.Id))
+                             .GroupBy(a => System.Text.RegularExpressions.Regex.Replace(a.Note.Trim(), @"\s*\(\d+/\d+\)\s*$", "")))
+                    remote.Add((g.Key, g.Max(a => a.CreatedUtc), g.First().CreatedByName, g.ToList()));
+                remote = remote.OrderByDescending(r => r.WhenUtc).Take(30).ToList();
+            }
         }
         finally
         {
@@ -1435,7 +1448,7 @@ public partial class WarehouseWindow
         }
 
         var menu = new ContextMenu();
-        if (acts.Count == 0)
+        if (acts.Count == 0 && remote.Count == 0)
         {
             menu.Items.Add(new MenuItem { Header = RevT("Проведённых ревизий пока нет", "Өткөрүлгөн ревизиялар азырынча жок", "No completed stocktakes yet", "Henüz tamamlanmış sayım yok", "Hali o'tkazilgan inventarizatsiyalar yo'q"), IsEnabled = false });
         }
@@ -1448,7 +1461,49 @@ public partial class WarehouseWindow
             menu.Items.Add(item);
         }
 
+        foreach (var r in remote)
+        {
+            var parts = r.Parts;
+            var lineCount = parts.Sum(a => a.Lines.Count);
+            var by = string.IsNullOrWhiteSpace(r.By) ? "" : "  ·  " + r.By;
+            var item = new MenuItem
+            {
+                Header = $"{r.WhenUtc.ToLocalTime():dd.MM.yyyy HH:mm}  ·  " + RevT($"на другой кассе: изменено {lineCount}", $"башка кассада: өзгөргөн {lineCount}", $"on another till: {lineCount} changed",
+                    $"başka kasada: {lineCount} değişti", $"boshqa kassada: {lineCount} ta o'zgardi") + by,
+            };
+            RevisionFillFormatItems(item.Items, (format, scope) => _ = RevisionExportRemoteAsync(parts, r.WhenUtc, format, scope));
+            menu.Items.Add(item);
+        }
+
         menu.Open(_revPastButton);
+    }
+
+    /// <summary>2026-10-27, В-2: выгрузка ревизии, проведённой на другой кассе, по актам сервера (было / стало; цены и штрихкод — из каталога, если товар найден).</summary>
+    private async Task RevisionExportRemoteAsync(List<InventoryAct> parts, DateTime whenUtc, RevisionExportFormat format, RevisionExportScope scope)
+    {
+        var buy = RevisionShowPurchase;
+        var rows = new List<RevisionExportRow>();
+        foreach (var line in parts.SelectMany(a => a.Lines))
+        {
+            var card = CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, line.ProductId, StringComparison.OrdinalIgnoreCase));
+            rows.Add(new RevisionExportRow(line.Name, card?.Barcode, line.Before, line.Fact,
+                card is null ? 0 : LocalCartService.ParsePrice(card.PriceLine), buy ? card?.PurchasePrice : null, whenUtc.ToLocalTime(), line.Fact));
+        }
+
+        var meta = new RevisionExportMeta
+        {
+            ShopName = UserPreferences.Instance.StoreName,
+            IsDraft = false,
+            StartedAt = whenUtc.ToLocalTime(),
+            FinishedAt = whenUtc.ToLocalTime(),
+            ConductedBy = parts.FirstOrDefault()?.CreatedByName,
+            ActNumbers = parts.Select(a => a.Id).ToList(),
+        };
+        var success = false;
+        await RevisionExportUi.RunAsync(this, format, rows, meta, new RevisionExportOptions { Scope = scope, IncludePurchasePrices = buy },
+            text => _revStartStatus.Text = text ?? "", () => success = true).ConfigureAwait(true);
+        if (success)
+            _revStartStatus.Bind(TextBlock.ForegroundProperty, _revStartStatus.GetResourceObservable("BrushSuccess"));
     }
 
     private async Task RevisionExportActAsync(string fileName, RevisionExportFormat format, RevisionExportScope scope)

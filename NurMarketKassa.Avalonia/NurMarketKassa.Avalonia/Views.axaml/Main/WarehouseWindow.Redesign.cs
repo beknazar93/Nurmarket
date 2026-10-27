@@ -48,6 +48,11 @@ public partial class WarehouseWindow
         // Отписка при закрытии окна: в кассе окно склада создаётся заново при каждом открытии.
         _catalogUpdatedHandler = () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
+            // 2026-10-27, аудит владельца С-3: плитки («Товаров 341») пересчитывались только при пустом списке и после действий в окне,
+            // поэтому после смены каталога (синхронизация, приход с кассы) расходились с «Всего: 343» под поиском. Теперь итоги —
+            // на каждое обновление каталога (один источник цифр — CatalogCacheService.Products).
+            if (CatalogCacheService.Products.Count > 0)
+                RefreshWarehouseTotals();
             if (_viewModel.FilteredProducts.Count > 0 || CatalogCacheService.Products.Count == 0)
                 return;
             _ = _viewModel.EnsureCatalogLoadedAsync();
@@ -153,6 +158,39 @@ public partial class WarehouseWindow
         ResetSaleUnitFilter();
         ProductSearchBox.Text = product.Title;
         Activate();
+    }
+
+    /// <summary>2026-10-27, жалоба «Нур Советник открывает не ту вкладку»: выбрать вкладку склада по ключу словаря (AdvisorNavRouter) и ПРОВЕРИТЬ,
+    /// что она выбрана. false — вкладки нет (скрыта правами или тарифом) или выбрать не удалось.</summary>
+    public bool SelectNavTab(string tab)
+    {
+        TabItem? target = tab switch
+        {
+            "products" => ProductsTabItem,
+            "receiving" => ReceivingTabItem,
+            "revision" => RevisionTabItem,
+            "writeoff" => WriteOffTabItem,
+            "movements" => MovementsTabItem,
+            "labels" => LabelEditorTabItem,
+            "bulk" => _bulkTab,
+            _ => null,
+        };
+        if (target is null || !target.IsVisible || !WarehouseTabs.Items.Contains(target))
+            return false;
+        WarehouseTabs.SelectedItem = target;
+        return ReferenceEquals(WarehouseTabs.SelectedItem, target);
+    }
+
+    /// <summary>2026-10-27: фильтр наличия на вкладке «Товары» (low — заканчивается, out — нет в наличии, expiry — срок годности); true — фильтр применён.</summary>
+    public bool ApplyNavFilter(string filter)
+    {
+        if (!SelectNavTab("products") || !_stockFilterButtons.ContainsKey(filter))
+            return false;
+        ResetSaleUnitFilter();
+        ProductSearchBox.Text = "";
+        if (_viewModel.StockFilter != filter)
+            SetStockFilter(filter);
+        return _viewModel.StockFilter == filter;
     }
 
     private Border? _changedBanner;

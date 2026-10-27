@@ -482,6 +482,24 @@ public static class SupplierDebtRecorder
         }
     }
 
+    /// <summary>2026-10-27, аудит владельца С-2: сумма записанного журналом долга по метке прихода (плитка «В долг» в «Закупках» считала только
+    /// местные заметки и показывала 0,00 при строке «В долг»).</summary>
+    public static IReadOnlyDictionary<string, double> DoneAmounts()
+    {
+        lock (FileSync)
+        {
+            try
+            {
+                return (ReadLocked() ?? new()).Where(e => e.Status == "done" && SameCompany(e.CompanyId, CurrentCompany))
+                    .GroupBy(e => e.Key, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Last().Amount, StringComparer.Ordinal);
+            }
+            catch
+            {
+                return new Dictionary<string, double>();
+            }
+        }
+    }
+
     /// <summary>Записанный журналом долг по метке (для сверки «старых» закупок: уже записан — не предлагать снова).</summary>
     public static IReadOnlySet<string> DoneKeys()
     {

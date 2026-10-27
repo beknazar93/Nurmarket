@@ -69,6 +69,18 @@ public partial class WeighedProductDialog : Window
     {
         InitializeComponent();
         this.ClampToScreenHeight();
+        // 2026-10-27, аудит С-19: сканер следующего товара печатал штрихкод прямо в поле веса («1234 кг»), а его Enter мог
+        // подтвердить такой вес. Enter сканера окно не получает (серия быстрых символов + Enter), набранное сканером поле очищаем.
+        ScannerEnterGuard.Attach(this, () =>
+        {
+            WeightBox.Text = "";
+            // TextChanged у TextBox приходит позже и снимает красную строку — показываем её после него.
+            Dispatcher.UIThread.Post(() => ShowWeightError(Tr.T("Похоже, это штрихкод, а не вес. Введите вес заново.",
+                "Бул вес эмес, штрихкод окшойт. Салмакты кайра киргизиңиз.",
+                "That looks like a barcode, not a weight. Enter the weight again.",
+                "Bu ağırlık değil, barkod gibi görünüyor. Ağırlığı yeniden girin.",
+                "Bu og'irlik emas, shtrix-kodga o'xshaydi. Og'irlikni qayta kiriting.")), DispatcherPriority.Background);
+        });
         // 2026-10-05, владелец на телефоне: «проблема весовых товаров» — правая колонка (быстрые веса и
         // цифры) шириной 310, и в окне 414 точек поле веса и кнопки «Отмена» / «В чек» сжимались почти
         // в ноль (автоподгонка Android колонки постоянной ширины не перестраивает). Узкое окно — колонки

@@ -80,6 +80,10 @@ public static class ProductActionPlan
     /// Открыть раздел программы владельца по ключу (warehouse, sales, finance, salary…).</summary>
     public static Action<string>? OpenSection { get; set; }
 
+    /// <summary>2026-10-27, жалоба «ИИ неправильно открывает разделы»: открыть пункт словаря <see cref="AdvisorNavRouter"/> (раздел + вкладка +
+    /// фильтр) и ВЕРНУТЬ ФАКТ — что реально стало активным (задаёт программа владельца). null — это не программа владельца.</summary>
+    public static Func<string, Task<NavOutcome>>? OpenNavTarget { get; set; }
+
     /// <summary>Показать на складе изменённые товары (id) с пометкой — после «Выполнить».</summary>
     public static Action<IReadOnlyList<string>, string>? ShowChangedProducts { get; set; }
 
@@ -182,8 +186,8 @@ public static class ProductActionPlan
         + "set_barcode (штрихкод, \"text\": только цифры), set_article (артикул, \"text\"), "
         + "receive (приход по накладной: \"qty\", \"purchase\" — закупка, \"price\" — новая цена продажи), "
         + "create (новый товар: \"name\", \"qty\", \"purchase\", \"price\", \"barcode\"?, \"unit\"?, \"category\"?), "
-        + "open_section (открыть раздел программы, \"section\": warehouse — склад, sales — продажи, finance — финансы, analytics — аналитика, "
-        + "salary — зарплата, clients — клиенты, debts — долги, restock — пополнение и сроки; выполняется сразу; используй, когда просят открыть или показать раздел), "
+        + "open_section (открыть раздел или вкладку программы, \"section\": ТОЛЬКО id из списка РАЗДЕЛЫ ПРОГРАММЫ в конце инструкции, например warehouse.receiving — «Склад → Приёмка»; "
+        + "выполняется сразу; используй, когда просят открыть раздел; не придумывай id и не называй раздел, которого нет в списке), "
         + "photo (найти и поставить фото только если пользователь прямо попросил поискать его в интернете / сети), open (открыть товар на складе программы — выполняется сразу, без подтверждения; "
         + "только когда просят открыть или показать товар). Количество для «добавь/прибавь/пришло» — stock_in, для «спиши/убери/уменьши» — stock_out, "
         + "для «на складе ровно N» — stock_set. Просроченный товар (раздел «Сроки годности») — предлагай stock_out с reason «Просрочка». "
@@ -542,7 +546,7 @@ public static class ProductActionPlan
         "clients" => T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar"),
         "debts" => T("Долги клиентов", "Кардарлардын карыздары", "Customer debts", "Müşteri borçları", "Mijozlar qarzlari"),
         "restock" => T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar"),
-        _ => key ?? "",
+        _ => AdvisorNavRouter.ById(key)?.Title ?? key ?? "", // 2026-10-27: id словаря («warehouse.receiving») → «Склад → Приёмка»
     };
 
     private static string Pretty(string? isoDate) =>
@@ -578,6 +582,8 @@ public static class ProductActionPlan
             // 2026-10-19: приход по накладной — только закупкой у поставщика (IsPurchaseStep), не ревизией прямо на склад.
             "receive" => new ProductActions.Result(false, "«" + s.Product.Title + "»: " + PurchaseOnlyText()),
             "create" => await CreateAsync(s, who, ct).ConfigureAwait(false),
+            // 2026-10-27: раздел из подсказки нейросети (id словаря или слова) — через маршрутизатор; «Открыт» только по факту открытия.
+            "open_section" when OpenNavTarget is { } openTarget => await OpenedTargetAsync(openTarget, s.Text ?? "").ConfigureAwait(false),
             "open_section" => OpenSection is { } openSection
                 ? OpenedSection(openSection, s.Text ?? "")
                 : new ProductActions.Result(false, T("Разделы открываются в программе владельца.", "Бөлүмдөр ээсинин программасында ачылат.", "Sections open in the owner app.",
@@ -592,6 +598,22 @@ public static class ProductActionPlan
                     "Fotoğraf arama sahip programında kullanılabilir.", "Surat qidirish egasi dasturida mavjud.")),
             _ => new ProductActions.Result(false, "?"),
         };
+    }
+
+    private static async Task<ProductActions.Result> OpenedTargetAsync(Func<string, Task<NavOutcome>> open, string keyOrWords)
+    {
+        var route = AdvisorNavRouter.Resolve(keyOrWords);
+        if (route.Target is not { } target)
+            return new ProductActions.Result(false, route.Kind == AdvisorNavRouter.RouteKind.Ambiguous
+                ? T($"Не уверен, какой раздел имеется в виду: {string.Join(" / ", route.Targets.Select(t => t.Title))}. Скажите точнее.",
+                    $"Кайсы бөлүм керек экенин так билбейм: {string.Join(" / ", route.Targets.Select(t => t.Title))}. Тагыраак айтыңыз.",
+                    $"Not sure which section you mean: {string.Join(" / ", route.Targets.Select(t => t.Title))}. Please be more specific.",
+                    $"Hangi bölüm olduğundan emin değilim: {string.Join(" / ", route.Targets.Select(t => t.Title))}. Daha açık söyleyin.",
+                    $"Qaysi bo'lim ekanligiga ishonchim komil emas: {string.Join(" / ", route.Targets.Select(t => t.Title))}. Aniqroq ayting.")
+                : T($"Такого раздела в программе нет («{keyOrWords}»).", $"Программада мындай бөлүм жок («{keyOrWords}»).", $"There is no such section in the program (“{keyOrWords}”).",
+                    $"Programda böyle bir bölüm yok («{keyOrWords}»).", $"Dasturda bunday bo'lim yo'q («{keyOrWords}»)."));
+        var reply = await AdvisorTurn.OpenAsync(target, open).ConfigureAwait(false);
+        return new ProductActions.Result(reply.Outcome?.Ok == true, reply.Text);
     }
 
     private static ProductActions.Result OpenedSection(Action<string> open, string key)

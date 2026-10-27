@@ -339,7 +339,8 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="4"/>
             <Setter Property="Padding" Value="5,1"/>
-            <Setter Property="Opacity" Value="0.7"/>
+            <!-- 2026-10-27: Opacity 0,7 → 1: белый «Enter» на синей «Оплатить» («Классическая» тёмная) был 2,8:1; значок клавиши отличает рамка. -->
+            <Setter Property="Opacity" Value="1"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
@@ -928,7 +929,7 @@
                         <Button Classes="pay-quick last" IsVisible="{Binding ShowRentalButton}" Command="{Binding RentalCommand}"
                                 HorizontalAlignment="Stretch" Height="44">
                             <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Center">
-                                <Path Width="20" Height="20" Stretch="Uniform" Fill="{DynamicResource BrushAccentStrong}" VerticalAlignment="Center" Margin="0,0,10,0"
+                                <Path Width="20" Height="20" Stretch="Uniform" Fill="{DynamicResource BrushAccentText}" VerticalAlignment="Center" Margin="0,0,10,0"
                                       Data="M12,4A3,3 0 0,1 15,7C15,8.27 14.21,9.36 13.1,9.79C12.91,9.9 12.71,10 12.5,10.1V11.3L21,17.5C21.88,18.13 21.43,19.5 20.35,19.5H3.65C2.57,19.5 2.12,18.13 3,17.5L11.5,11.3V9.14C11.5,8.76 11.73,8.43 12.07,8.28C12.67,8 13,7.54 13,7A1,1 0 0,0 12,6A1,1 0 0,0 11,7H9A3,3 0 0,1 12,4M12,13.04L6.37,17.5H17.63L12,13.04Z"/>
                                 <TextBlock Grid.Column="1" Text="{DynamicResource csh.checkout.rental}" VerticalAlignment="Center" FontWeight="SemiBold"
                                            TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
@@ -944,6 +945,12 @@
                  оставляло строку видимой и занимало 18 px всегда). -->
             <Border Grid.Row="2" Padding="16,0">
                 <StackPanel>
+                    <!-- 2026-10-27 (приёмка 1.17.63, Д-6): «Цена изменилась: …» — сверка цен перед оплатой изменила строки; текст стоит, пока окно открыто. -->
+                    <Border IsVisible="{Binding HasPriceChangeNotice}" Margin="0,6,0,0" Padding="10,8" CornerRadius="8"
+                            Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorderStrong}" BorderThickness="1">
+                        <TextBlock Text="{Binding PriceChangeNotice}" Foreground="{DynamicResource BrushText}"
+                                   FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    </Border>
                     <!-- Почему «Оплатить» неактивна (в долг — нужен клиент и срок). -->
                     <TextBlock Text="{Binding PayBlockedHint}"
                                IsVisible="{Binding HasPayBlockedHint}"
@@ -1015,8 +1022,8 @@
                             FontSize="16">
                         <DockPanel>
                             <Border DockPanel.Dock="Right" Classes="key-badge" Margin="10,0,0,0">
-                                <TextBlock Text="Enter" FontSize="11" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource BrushAccentForeground}"/>
+                                <!-- 2026-10-27: цвет «Enter» — от кнопки (был BrushAccentForeground всегда: на выключенной «Оплатить» тёмный на тёмном — 1,3:1). -->
+                                <TextBlock Text="Enter" FontSize="11" FontWeight="SemiBold"/>
                             </Border>
                             <TextBlock Text="{Binding PayButtonText}" VerticalAlignment="Center" TextAlignment="Center"
                                        TextWrapping="Wrap" FontWeight="Bold"/>

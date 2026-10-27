@@ -23,13 +23,57 @@ namespace NurMarketKassa.Services;
 /// expected_cash смены, и NetForShift перестаёт прибавлять его после записи на сервер.
 ///
 /// Не ушло (нет сети, сервер недоступен) — операция остаётся в очереди и уходит при следующей
-/// операции или при обновлении остатка смены. Только в открытую смену: в закрытую смену сервер
-/// уже посчитал итоги.</summary>
+/// операции или при обновлении остатка смены. Основной путь — в открытую смену: в закрытую смену сервер
+/// уже посчитал итоги. 2026-10-27 (В-5): хвосты ЗАКРЫТЫХ смен всё же досылаются (PushPendingForOtherShiftsAsync, до трёх
+/// попыток за запуск), а перед закрытием смены касса сначала досылает хвосты и, если не вышло, спрашивает кассира (MainWindow.ApplyShiftClosedAsync).</summary>
 public static class ShiftCashFlowSync
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
     /// <summary>2026-10-22 (статьи изъятия): сервер отказал (400) в category вместе со сменой — до перезапуска не шлём.</summary>
     private static volatile bool _categoryRejected;
+
+    /// <summary>2026-10-27 (аудит кассы, В-5): сколько раз подряд не удалось дослать хвосты закрытой смены (смена → попытки). Закрытую
+    /// смену сервер мог не принять — после трёх неудач за запуск тихо ждём следующего запуска кассы, чтобы не молотить сервер.</summary>
+    private static readonly Dictionary<string, int> ClosedShiftFailures = new(StringComparer.OrdinalIgnoreCase);
+    private const int ClosedShiftMaxAttempts = 3;
+
+    /// <summary>2026-10-27 (аудит кассы, В-5): внесения/изъятия, не дошедшие до сервера, раньше уходили только в ТЕКУЩУЮ смену. Если
+    /// смену закрыли (кассир без связи, сервер сам в 01:00), хвосты оставались в cash_history.json навсегда, а Z на сайте показывал
+    /// недостачу, которой нет. Теперь досылаем и для остальных смен с хвостами. Возвращает число смен, по которым ещё остались хвосты.</summary>
+    public static async Task<int> PushPendingForOtherShiftsAsync(string? activeShiftId)
+    {
+        if (ServerOutageMonitor.IsOutage)
+            return 0;
+        var left = 0;
+        foreach (var other in ShiftCashOperationsStore.PendingShiftIds())
+        {
+            if (string.Equals(other, activeShiftId, StringComparison.OrdinalIgnoreCase)
+                || other.StartsWith("offline-", StringComparison.OrdinalIgnoreCase)
+                || !Guid.TryParse(other, out _))
+                continue;
+            lock (ClosedShiftFailures)
+            {
+                if (ClosedShiftFailures.GetValueOrDefault(other) >= ClosedShiftMaxAttempts)
+                    continue;
+            }
+
+            await PushPendingAsync(other).ConfigureAwait(false);
+            if (ShiftCashOperationsStore.PendingForShift(other).Count == 0)
+            {
+                lock (ClosedShiftFailures) ClosedShiftFailures.Remove(other);
+                PosLogger.Log($"Хвосты внесений/изъятий закрытой смены {other[..8]} досланы на сервер.", "SHIFT");
+                continue;
+            }
+
+            left++;
+            int attempts;
+            lock (ClosedShiftFailures)
+                attempts = ClosedShiftFailures[other] = ClosedShiftFailures.GetValueOrDefault(other) + 1;
+            PosLogger.Log($"Хвосты внесений/изъятий закрытой смены {other[..8]} не ушли на сервер (попытка {attempts} из {ClosedShiftMaxAttempts}).", "WARNING");
+        }
+
+        return left;
+    }
 
     public static async Task PushPendingAsync(string? shiftId)
     {

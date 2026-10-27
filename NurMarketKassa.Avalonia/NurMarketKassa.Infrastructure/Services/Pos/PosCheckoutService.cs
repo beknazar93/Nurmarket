@@ -333,6 +333,23 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         // отправки — досылка сперва спросит сервер о её статусе и второй продажи не создаст.
         _legacyCheckoutPostedCartId = null;
         _quickKeyAbandonedOn500 = null;
+        // 2026-10-27 (ревью денег, К-1/К-2): жетон этого чека — по нему сверка отличает «тот же чек» от другого покупателя с тем же составом.
+        _checkoutToken = CartJsonHelper.ReadCheckToken(fallbackCartJson);
+        // 2026-10-27 (ревью денег, К-3): неясная оплата прошлого запуска кассы — с диска (один раз на запуск).
+        if (!_unknownLoaded)
+        {
+            _unknownLoaded = true;
+            _unknownCheckout ??= UnknownFromEntry(PendingUnknownCheckoutStore.Load());
+        }
+
+        // 2026-10-27 (аудит кассы, В-4): прошлая попытка «в долг»/смешанной на старом пути осталась без ответа — перед повтором
+        // сверяем её корзину с сервером, иначе второе нажатие создаёт вторую продажу (у долга — двойной долг клиента).
+        if (_unknownCheckout is { } unknownBefore)
+        {
+            var settled = await ResolveUnknownCheckoutAsync(unknownBefore, request, fallbackCartJson, fallbackTotal, cancellationToken).ConfigureAwait(false);
+            if (settled != null)
+                return settled;
+        }
 
         // 2026-09-29, требование владельца: «если сеть есть (галочка "онлайн"), а продажа в базу не
         // уходит — анимация максимум 2 секунды, дальше в фон и обслуживать следующего». Наличные и
@@ -409,6 +426,23 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             var quickResult = await TryQuickCheckoutAsync(request, cancellationToken, net).ConfigureAwait(false);
             if (quickResult != null)
                 return quickResult;
+
+            // 2026-10-27 (аудит кассы, С-1): старый путь не умеет передать, что предоплата долга внесена безналом (transfer_received для долга
+            // не отправляется, довнесение идёт как оплата долга наличными) — «в ящике должно быть» завысилось бы на эту сумму. Лучше отказ
+            // с понятным текстом, чем деньги не в той графе: повтор пойдёт быстрым путём, либо предоплата — наличными.
+            if (string.Equals(request.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase)
+                && !OfflineModeHelper.SellLocally && !_cart.IsLocalOffline
+                && double.TryParse(request.NonCashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var nonCashPrepay) && nonCashPrepay > 0.005)
+            {
+                PosLogger.Log($"PAY: предоплата долга безналом {nonCashPrepay:0.00} не проведена — быстрый путь не сработал, старый путь записал бы её наличными.", "PAYMENT");
+                RestoreCartAfterFailedCheckout(fallbackCartJson);
+                return PosCheckoutResult.Failed(Tr.T(
+                    "Предоплата долга безналом сейчас не может быть проведена: быстрая оплата не сработала, а запасной способ записал бы её как наличные. Продажа НЕ проведена. Повторите оплату или внесите предоплату наличными.",
+                    "Карыздын алдын ала төлөмүн накталай эмес өткөрүү азыр мүмкүн эмес: ылдам төлөм иштеген жок, ал эми камдык жол аны накталай катары жазат. Сатуу ӨТКӨРҮЛГӨН ЖОК. Төлөмдү кайталаңыз же алдын ала төлөмдү накталай киргизиңиз.",
+                    "A cashless debt prepayment can't be recorded right now: the fast payment did not work, and the fallback would record it as cash. The sale was NOT recorded. Retry the payment or take the prepayment in cash.",
+                    "Borç ön ödemesi şu anda nakitsiz olarak işlenemiyor: hızlı ödeme çalışmadı, yedek yol bunu nakit olarak kaydederdi. Satış KAYDEDİLMEDİ. Ödemeyi tekrarlayın veya ön ödemeyi nakit alın.",
+                    "Qarz oldindan to'lovini naqdsiz o'tkazib bo'lmaydi: tezkor to'lov ishlamadi, zaxira yo'l uni naqd deb yozardi. Sotuv O'TKAZILMADI. To'lovni takrorlang yoki oldindan to'lovni naqd oling."));
+            }
 
             using var prepareCts = CancellationTokenSource.CreateLinkedTokenSource(net);
             // Перенос позиций на сервер идёт по одной, ~0,2 с на позицию. 2026-09-26, стресс-тест:
@@ -552,7 +586,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                 && await WasCheckoutAlreadyAppliedAsync(_legacyCheckoutPostedCartId
                                                         ?? (_cart.IsLocalOffline ? fallbackCartId : _cart.CartId ?? fallbackCartId),
                                                         serverWait.Token).ConfigureAwait(false))
-                return CompleteAlreadyAppliedCheckout(fallbackCartJson, fallbackTotal);
+                return CompleteAlreadyAppliedCheckout(request, fallbackCartJson, fallbackTotal);
 
             // 2026-09-29: сбой сервера (5xx, 408, 429, повреждённый ответ) — не ошибка для кассира:
             // сервер объявлен недоступным, чек уходит в офлайн-очередь, как при обрыве сети.
@@ -596,7 +630,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         {
             PosLogger.Log($"Checkout network error, saving offline: {ex}", "PAYMENT");
             if (await WasCheckoutAlreadyAppliedAsync(_legacyCheckoutPostedCartId ?? fallbackCartId, serverWait.Token).ConfigureAwait(false))
-                return CompleteAlreadyAppliedCheckout(fallbackCartJson, fallbackTotal);
+                return CompleteAlreadyAppliedCheckout(request, fallbackCartJson, fallbackTotal);
             // 2026-09-29: общий путь с 5xx — авария объявляется, чек с отметкой отправленной корзины.
             return await SaveOfflineAfterServerFailureAsync(request, fallbackCartJson, fallbackTotal, ex).ConfigureAwait(false);
         }
@@ -630,7 +664,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             // ЭТОЙ ЖЕ продажи по её ID (WasCheckoutAlreadyAppliedAsync) — если он уже не "new",
             // checkout прошёл, и втоое списание/реплей делать нельзя.
             if (await WasCheckoutAlreadyAppliedAsync(_legacyCheckoutPostedCartId ?? fallbackCartId, serverWait.Token).ConfigureAwait(false))
-                return CompleteAlreadyAppliedCheckout(fallbackCartJson, fallbackTotal);
+                return CompleteAlreadyAppliedCheckout(request, fallbackCartJson, fallbackTotal);
             // 2026-09-29: общий путь с 5xx — авария объявляется, чек с отметкой отправленной корзины.
             return await SaveOfflineAfterServerFailureAsync(request, fallbackCartJson, fallbackTotal, ex).ConfigureAwait(false);
         }
@@ -714,6 +748,21 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
 
         if (OutageUnavailablePaymentMessage(request.PaymentMethod) is { } unavailable)
         {
+            // 2026-10-27 (аудит кассы, В-4): checkout этой корзины на старом пути МОГ дойти до сервера (ответ потерян). Чек возвращается
+            // в кассу, а следующая оплата сначала сверит эту корзину (CheckoutAsync → ResolveUnknownCheckoutAsync), а не создаст вторую продажу.
+            if (!string.IsNullOrWhiteSpace(_legacyCheckoutPostedCartId))
+            {
+                _unknownCheckout = new UnknownCheckout(
+                    _legacyCheckoutPostedCartId!, CartSignature(fallbackCartJson, fallbackTotal), CartLineParts(fallbackCartJson), _checkoutToken,
+                    DateTimeOffset.Now,
+                    request.PaymentMethod ?? "",
+                    double.TryParse(request.CashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var cashPart) && cashPart > 0.005,
+                    request.ClientId, request.CashReceived, request.NonCashReceived, request.ExpectedTotal);
+                // 2026-10-27 (ревью денег, К-3): на диск — перезапуск кассы между попытками не должен стирать защиту от второй продажи.
+                PendingUnknownCheckoutStore.Save(UnknownToEntry(_unknownCheckout));
+                PosLogger.Log($"PAY: исход оплаты ({request.PaymentMethod}) неизвестен, корзина {_legacyCheckoutPostedCartId} — повтор будет сверен с сервером.", "PAYMENT");
+            }
+
             RestoreCartAfterFailedCheckout(fallbackCartJson);
             PosLogger.Log($"Checkout: сервер не отвечает, способ оплаты {request.PaymentMethod} в очередь не ставится — чек оставлен в кассе.", "PAYMENT");
             return PosCheckoutResult.Failed(unavailable);
@@ -840,7 +889,16 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
     /// дублирующую продажу): просто открываем кассиру новый чек локально, т.к. в этот момент
     /// связь всё ещё под вопросом (мы здесь именно потому, что предыдущий запрос не дождались) —
     /// обычный серверный RestartSaleSessionAsync рискует так же зависнуть.</summary>
-    private PosCheckoutResult CompleteAlreadyAppliedCheckout(string cartJsonSnapshot, double total)
+    /// <summary>2026-10-27 (аудит кассы, С-5): снимок для «оплата уже прошла на сервере» раньше брался до того, как скидка и бонусы окна
+    /// оплаты легли в чек, — плашка «Продажа прошла», копия чека и сумма в LAN-журнале показывали сумму без скидки. Теперь скидка окна
+    /// оплаты накладывается на снимок так же, как для офлайн-очереди (BuildOfflineFallback): сумма = сколько кассир реально взял.</summary>
+    private PosCheckoutResult CompleteAlreadyAppliedCheckout(PosCheckoutRequest request, string cartJsonSnapshot, double total, string? extraInfo = null)
+    {
+        var applied = BuildOfflineFallback(cartJsonSnapshot, total, request.OrderDiscountBody);
+        return CompleteAlreadyAppliedCheckout(applied.CartJson, applied.Total, extraInfo);
+    }
+
+    private PosCheckoutResult CompleteAlreadyAppliedCheckout(string cartJsonSnapshot, double total, string? extraInfo = null)
     {
         var appliedCartId = _cart.CartId;
         if (!string.IsNullOrWhiteSpace(appliedCartId))
@@ -849,7 +907,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         return PosCheckoutResult.Succeeded(
             total,
             cartJsonSnapshot,
-            info: Tr.T("Оплата уже прошла на сервере (ответ не успел дойти вовремя) — повторно не проводим. " +
+            info: JoinInfo(Tr.T("Оплата уже прошла на сервере (ответ не успел дойти вовремя) — повторно не проводим. " +
                   "Чек можно распечатать ещё раз из раздела «Продажи».",
                 "Төлөм серверде мурунтан эле өткөн (жооп убагында келген жок) — кайра өткөрбөйбүз. " +
                 "Чекти «Сатуулар» бөлүмүнөн кайра басып чыгарса болот.",
@@ -858,7 +916,258 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                 "Ödeme sunucuda zaten gerçekleşti (yanıt zamanında gelmedi) — tekrar işlenmeyecek. " +
                 "Fişi «Satışlar» bölümünden yeniden yazdırabilirsiniz.",
                 "To'lov serverda allaqachon o'tgan (javob o'z vaqtida kelmadi) — qayta o'tkazilmaydi. " +
-                "Chekni «Sotuvlar» bo'limidan qayta chop etish mumkin."));
+                "Chekni «Sotuvlar» bo'limidan qayta chop etish mumkin."), extraInfo));
+    }
+
+    private static string JoinInfo(string info, string? extra) => string.IsNullOrWhiteSpace(extra) ? info : info + "\n" + extra;
+
+    /// <summary>2026-10-27 (аудит кассы, В-4): прошлая попытка оплаты «в долг» / смешанной на старом пути осталась без ответа.
+    /// Корзина, которую касса отправила тогда, и «отпечаток» чека — по ним повтор решает, что делать.
+    /// 2026-10-27 (ревью денег, К-1/К-2/К-3): в отпечаток добавлены жетон чека, клиент, суммы и итог окна оплаты; запись хранится на диске.</summary>
+    private sealed record UnknownCheckout(
+        string CartId, string Signature, IReadOnlyList<string> Lines, string? CheckToken, DateTimeOffset At, string Method, bool HadCashPart,
+        string? ClientId, string? CashReceived, string? NonCashReceived, double? ExpectedTotal, bool Warned = false);
+
+    private UnknownCheckout? _unknownCheckout;
+    private bool _unknownLoaded;
+
+    /// <summary>Жетон чека, который сейчас оплачивается (CartJsonHelper.CheckTokenField); null — у чека жетона нет.</summary>
+    private string? _checkoutToken;
+
+    private void ClearUnknown()
+    {
+        _unknownCheckout = null;
+        PendingUnknownCheckoutStore.Clear();
+    }
+
+    private static UnknownCheckout? UnknownFromEntry(PendingUnknownCheckoutStore.Entry? e) =>
+        e == null
+            ? null
+            : new UnknownCheckout(e.CartId, e.Signature, e.Lines, e.CheckToken, new DateTimeOffset(DateTime.SpecifyKind(e.AtUtc, DateTimeKind.Utc)).ToLocalTime(),
+                e.Method, e.HadCashPart, e.ClientId, e.CashReceived, e.NonCashReceived, e.ExpectedTotal, e.Warned);
+
+    private static PendingUnknownCheckoutStore.Entry UnknownToEntry(UnknownCheckout u) =>
+        new()
+        {
+            CartId = u.CartId, Signature = u.Signature, Lines = u.Lines.ToList(), CheckToken = u.CheckToken, AtUtc = u.At.UtcDateTime,
+            Method = u.Method, HadCashPart = u.HadCashPart, ClientId = u.ClientId, CashReceived = u.CashReceived, NonCashReceived = u.NonCashReceived,
+            ExpectedTotal = u.ExpectedTotal, Warned = u.Warned,
+        };
+
+    /// <summary>Сколько после неудачи сервер ещё может «дорабатывать» запрос: пока не прошло, статус «открыта» — не доказательство.
+    /// 2026-10-27 (ревью денег, К-3): было 30 с, а HTTP-таймаут запроса checkout 55 с и сервер за Cloudflare отвечает до ~100 с — на 31-й секунде
+    /// повтор уходил, пока первый ещё проводился (две продажи). Теперь таймаут запроса 55 с + 15 с.</summary>
+    internal static readonly TimeSpan UnknownCheckoutSettle = TimeSpan.FromSeconds(70);
+
+    /// <summary>Сколько держим повтор, пока статус прошлой попытки вообще не удаётся узнать (нет связи со сверкой).</summary>
+    internal static readonly TimeSpan UnknownCheckoutGiveUp = TimeSpan.FromMinutes(5);
+
+    /// <summary>2026-10-27 (ревью денег, К-1): у чека без жетона «тот же чек» подтверждается только в течение этого срока и только при полном
+    /// совпадении состава, способа оплаты, клиента и сумм; позже — «похожая продажа», решает кассир.</summary>
+    internal static readonly TimeSpan UnknownCheckoutSameWindow = TimeSpan.FromMinutes(10);
+
+    /// <summary>«Отпечаток» чека для сравнения «тот же чек»: товары, количества, цены и итог. Пусто — не удалось разобрать.</summary>
+    internal static string CartSignature(string cartJson, double total)
+    {
+        var parts = CartLineParts(cartJson);
+        return parts.Count == 0 ? "" : string.Join(";", parts) + "#" + total.ToString("0.00", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Строки чека «товар|количество|цена», по порядку символов. Пусто — не удалось разобрать.</summary>
+    internal static IReadOnlyList<string> CartLineParts(string cartJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(cartJson) ? "{}" : cartJson);
+            return CartDisplayHelper.EnumerateItems(doc.RootElement)
+                .Select(it => (CartDisplayHelper.TryProductId(it) is { Length: > 0 } id ? id : CartDisplayHelper.ItemName(it))
+                              + "|" + CartDisplayHelper.LineQuantity(it).ToString("0.###", CultureInfo.InvariantCulture)
+                              + "|" + CartDisplayHelper.UnitPrice(it).ToString("0.00", CultureInfo.InvariantCulture))
+                .OrderBy(x => x, StringComparer.Ordinal)
+                .ToList();
+        }
+        catch (Exception)
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    private static string LinePartProduct(string part)
+    {
+        var last = part.LastIndexOf('|');
+        var prev = last > 0 ? part.LastIndexOf('|', last - 1) : -1;
+        return prev > 0 ? part[..prev] : part;
+    }
+
+    private static bool SameMoneyText(string? a, string? b)
+    {
+        static double Parse(string? s) =>
+            double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0;
+        return Math.Abs(Parse(a) - Parse(b)) < 0.005;
+    }
+
+    /// <summary>null — можно продолжать обычную оплату; иначе результат, которым оплата заканчивается (повторно не проводим / подождите).
+    /// Никогда не бросает: сверка — защита от дубля, а не новая причина сломать оплату.
+    ///
+    /// 2026-10-27 (ревью денег, К-1/К-2): раньше «тот же чек» = только состав и итог, поэтому ЧУЖОЙ чек того же состава (следующий покупатель
+    /// с таким же хлебом за наличные) объявлялся «уже проведённым» и не записывался; а к восстановленному чеку, где часть позиций уже проведена,
+    /// можно было добавить товар и провести ВЕСЬ чек второй раз. Теперь «тот же чек» = жетон чека + способ оплаты + клиент + суммы + состав.
+    /// Любая неоднозначность — не «оплата уже прошла», а понятное сообщение кассиру (и запись в журнал); проводить повторно старые позиции нельзя.</summary>
+    private async Task<PosCheckoutResult?> ResolveUnknownCheckoutAsync(
+        UnknownCheckout unknown, PosCheckoutRequest request, string cartJson, double total, CancellationToken cancellationToken)
+    {
+        CartSaleSessionHelper.CartCheckoutState state;
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(5));
+            state = await CartSaleSessionHelper.GetCheckoutStateAsync(_salesApi, unknown.CartId, cts.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"PAY: сверка прошлой оплаты не удалась: {ex.Message}", "PAYMENT");
+            state = CartSaleSessionHelper.CartCheckoutState.Unknown;
+        }
+
+        var age = DateTimeOffset.Now - unknown.At;
+        var sameComposition = unknown.Signature.Length > 0 && string.Equals(unknown.Signature, CartSignature(cartJson, total), StringComparison.Ordinal);
+        var ageText = Math.Max(1, (int)age.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        var ageMinutes = Math.Max(1, (int)Math.Round(age.TotalMinutes)).ToString(CultureInfo.InvariantCulture);
+        // Тот же ли это чек: у обоих есть жетон — сравниваем жетоны (точно); иначе null — решает состав и срок.
+        bool? sameToken = !string.IsNullOrEmpty(unknown.CheckToken) && !string.IsNullOrEmpty(_checkoutToken)
+            ? string.Equals(unknown.CheckToken, _checkoutToken, StringComparison.Ordinal)
+            : null;
+        var sameCheck = sameToken ?? (sameComposition && age <= UnknownCheckoutSameWindow);
+        var oldProducts = unknown.Lines.Select(LinePartProduct).ToHashSet(StringComparer.Ordinal);
+        var overlap = CartLineParts(cartJson).Any(p => oldProducts.Contains(LinePartProduct(p)));
+        var samePayment = string.Equals(unknown.Method, request.PaymentMethod ?? "", StringComparison.OrdinalIgnoreCase)
+                          && string.Equals((unknown.ClientId ?? "").Trim(), (request.ClientId ?? "").Trim(), StringComparison.OrdinalIgnoreCase)
+                          && SameMoneyText(unknown.CashReceived, request.CashReceived)
+                          && SameMoneyText(unknown.NonCashReceived, request.NonCashReceived)
+                          && (unknown.ExpectedTotal is not { } was || request.ExpectedTotal is not { } now || Math.Abs(was - now) < 0.01);
+        var tokenText = sameToken switch { true => "тот же", false => "другой", _ => "нет жетона" };
+        switch (state)
+        {
+            case CartSaleSessionHelper.CartCheckoutState.Paid:
+                PosLogger.Log(
+                    $"PAY: прошлая попытка ({unknown.Method}, корзина {unknown.CartId}) оказалась проведённой на сервере; чек: {tokenText}, состав совпал: {sameComposition}, " +
+                    $"способ/клиент/суммы совпали: {samePayment}, общие товары: {overlap}, прошло {ageText} с.",
+                    "PAYMENT");
+                if (sameComposition && samePayment && sameCheck)
+                {
+                    // Только полное совпадение (тот же чек, тот же способ, клиент и суммы): оплата уже прошла, вторую не проводим.
+                    ClearUnknown();
+                    return CompleteAlreadyAppliedCheckout(request, cartJson, total,
+                        unknown.HadCashPart && string.Equals(unknown.Method, "debt", StringComparison.OrdinalIgnoreCase)
+                            ? Tr.T("Предоплата долга здесь не внесена автоматически — проверьте долг клиента и при необходимости внесите её через «Оплата долга».",
+                                "Карыздын алдын ала төлөмү бул жерде автоматтык түрдө киргизилген жок — кардардын карызын текшерип, керек болсо «Карыз төлөө» аркылуу киргизиңиз.",
+                                "The debt prepayment was not entered automatically — check the client's debt and, if needed, enter it via “Pay debt”.",
+                                "Borç ön ödemesi otomatik girilmedi — müşterinin borcunu kontrol edin, gerekirse «Borç ödeme» ile girin.",
+                                "Qarz oldindan to'lovi avtomatik kiritilmadi — mijoz qarzini tekshiring, kerak bo'lsa «Qarzni to'lash» orqali kiriting.")
+                            : null);
+                }
+
+                if (sameToken == true && !overlap)
+                {
+                    // Тот же чек, но проведённых позиций в нём уже нет (кассир убрал их и пробил другое): запись больше ничего не защищает.
+                    ClearUnknown();
+                    PosLogger.Log("PAY: проведённые позиции убраны из чека — оплата нового состава продолжается.", "PAYMENT");
+                    return null;
+                }
+
+                if (sameToken == true)
+                {
+                    // К-2: тот же чек (жетон совпал), но он не совпал полностью (добавили товар, поменяли способ оплаты, клиента или сумму). Часть позиций уже
+                    // проведена на сервере — провести чек целиком значит провести их второй раз. Блокируем, пока проведённые позиции в чеке.
+                    PosLogger.Log(
+                        $"PAY: чек со своими уже проведёнными позициями ({unknown.Method}, корзина {unknown.CartId}) повторно не проводим — кассиру показано, что делать.",
+                        "WARNING");
+                    var warned = unknown with { Warned = true };
+                    _unknownCheckout = warned;
+                    PendingUnknownCheckoutStore.Save(UnknownToEntry(warned));
+                    return PosCheckoutResult.Failed(Tr.T(
+                        "Прошлая попытка оплаты этого чека уже проведена на сервере (ответ тогда потерялся). Повторно НЕ проводим, чтобы не продать и не записать в долг те же товары дважды. Проверьте раздел «Продажи». Если нужны другие товары — откройте новый чек и пробейте только их.",
+                        "Бул чектин мурунку төлөмү серверде өткөрүлгөн (жооп жоголгон). Бирдей товарларды эки жолу сатпаш же карызга жазбаш үчүн кайра өткөрбөйбүз. «Сатуулар» бөлүмүн текшериңиз. Башка товарлар керек болсо — жаңы чек ачып, ошолорду гана кошуңуз.",
+                        "The earlier payment attempt for this receipt has already gone through on the server (its reply was lost). We do NOT record it again, so the same goods are not sold or put on credit twice. Check the “Sales” section. If you need other goods, open a new receipt and ring up only them.",
+                        "Bu fişin önceki ödeme denemesi sunucuda zaten gerçekleşti (yanıtı kayboldu). Aynı ürünler iki kez satılmasın veya veresiyeye yazılmasın diye tekrar İŞLENMEYECEK. «Satışlar» bölümünü kontrol edin. Başka ürünler gerekiyorsa yeni fiş açıp yalnızca onları okutun.",
+                        "Bu chekning oldingi to'lov urinishi serverda allaqachon o'tgan (javobi yo'qolgan). Bir xil mahsulotlar ikki marta sotilmasligi yoki qarzga yozilmasligi uchun qayta o'tkazilmaydi. «Sotuvlar» bo'limini tekshiring. Boshqa mahsulotlar kerak bo'lsa — yangi chek ochib, faqat ularni kiriting."));
+                }
+
+                // Другой чек (кассир ушёл дальше). Сообщение показывается один раз: запись снимается, следующее «Оплатить» проводит этот чек.
+                ClearUnknown();
+                if (unknown.Warned && !(sameComposition && samePayment))
+                {
+                    // Кассиру уже объяснили (блокировка выше) и он открыл другой чек — второй раз тем же не пугаем.
+                    PosLogger.Log("PAY: проведённые позиции прошлой попытки остались в старом чеке — новый чек оплачивается.", "PAYMENT");
+                    return null;
+                }
+
+                if (sameComposition && samePayment)
+                {
+                    // К-1: состав, способ, клиент и суммы те же, но чек другой (или давний) — это может быть и повтор той же покупки, и новый покупатель
+                    // с тем же товаром. Не объявляем «оплата уже прошла» — выбор за кассиром.
+                    PosLogger.Log("PAY: похожая продажа уже проведена на сервере, но чек другой — кассиру показан выбор, оплата этого чека не проводилась.", "WARNING");
+                    return PosCheckoutResult.Failed(Tr.T(
+                        $"Похожая продажа (тот же состав, способ оплаты и клиент) уже проведена на сервере {ageMinutes} мин назад — ответ тогда потерялся. Проверьте раздел «Продажи». Если это та же покупка — оплачивать повторно НЕ нужно. Если это новая покупка другого человека — нажмите «Оплатить» ещё раз: этот чек пока не проведён.",
+                        $"Окшош сатуу (бирдей курам, төлөм ыкмасы жана кардар) серверде {ageMinutes} мүн мурун өткөрүлгөн — жооп жоголгон. «Сатуулар» бөлүмүн текшериңиз. Бул ошол эле сатып алуу болсо — кайра төлөөнүн кереги жок. Бул башка адамдын жаңы сатып алуусу болсо — «Төлөө» баскычын дагы бир жолу басыңыз: бул чек азырынча өткөрүлгөн жок.",
+                        $"A similar sale (same goods, payment method and client) already went through on the server {ageMinutes} min ago — its reply was lost. Check the “Sales” section. If it is the same purchase, do NOT pay again. If this is a new purchase by another person, click “Pay” again: this receipt has not been recorded yet.",
+                        $"Benzer bir satış (aynı ürünler, ödeme yöntemi ve müşteri) sunucuda {ageMinutes} dk önce gerçekleşti — yanıtı kayboldu. «Satışlar» bölümünü kontrol edin. Aynı alışverişse tekrar ödeme almayın. Başka birinin yeni alışverişiyse «Öde» düğmesine tekrar tıklayın: bu fiş henüz kaydedilmedi.",
+                        $"O'xshash sotuv (bir xil tarkib, to'lov usuli va mijoz) serverda {ageMinutes} daqiqa oldin o'tgan — javobi yo'qolgan. «Sotuvlar» bo'limini tekshiring. Agar bu o'sha xarid bo'lsa — qayta to'lash KERAK EMAS. Agar bu boshqa odamning yangi xaridi bo'lsa — «To'lash» tugmasini yana bosing: bu chek hali o'tkazilmagan."));
+                }
+
+                return PosCheckoutResult.Failed(Tr.T(
+                    "Прошлая попытка оплаты на старом чеке уже проведена на сервере (ответ тогда потерялся). Проверьте раздел «Продажи». Этот чек не проведён — если он нужен, нажмите «Оплатить» ещё раз.",
+                    "Мурунку чектин төлөмү серверде өткөрүлгөн (жооп жоголгон). «Сатуулар» бөлүмүн текшериңиз. Бул чек өткөрүлгөн жок — керек болсо «Төлөө» баскычын дагы бир жолу басыңыз.",
+                    "The earlier payment attempt on the previous receipt already went through on the server (its reply was lost). Check the “Sales” section. This receipt was not recorded — if you need it, click “Pay” again.",
+                    "Önceki fişteki ödeme denemesi sunucuda zaten gerçekleşti (yanıtı kayboldu). «Satışlar» bölümünü kontrol edin. Bu fiş kaydedilmedi — gerekirse «Öde» düğmesine tekrar tıklayın.",
+                    "Oldingi chekdagi to'lov urinishi serverda allaqachon o'tgan (javobi yo'qolgan). «Sotuvlar» bo'limini tekshiring. Bu chek o'tkazilmadi — kerak bo'lsa «To'lash» tugmasini yana bosing."));
+
+            case CartSaleSessionHelper.CartCheckoutState.Open or CartSaleSessionHelper.CartCheckoutState.Missing:
+                // Держим повтор только для ТОГО ЖЕ чека: другой чек (кассир ушёл дальше) не должен ждать из-за старой неясности.
+                if (sameCheck && age < UnknownCheckoutSettle)
+                {
+                    PosLogger.Log($"PAY: прошлая попытка ({unknown.Method}, корзина {unknown.CartId}) {ageText} с назад, статус {state} — ждём, повтор не пускаем.", "PAYMENT");
+                    return PosCheckoutResult.Failed(Tr.T(
+                        $"Прошлая попытка оплаты этого чека ещё проверяется (прошло {ageText} с). Подождите немного и нажмите «Оплатить» снова — так чек не будет проведён дважды.",
+                        $"Бул чектин мурунку төлөм аракети дагы текшерилүүдө ({ageText} с өттү). Бир аз күтүп, «Төлөө» баскычын кайра басыңыз — чек эки жолу өткөрүлбөйт.",
+                        $"The earlier payment attempt for this receipt is still being checked ({ageText} s ago). Wait a little and click “Pay” again — the receipt will not be recorded twice.",
+                        $"Bu fişin önceki ödeme denemesi hâlâ kontrol ediliyor ({ageText} sn önce). Biraz bekleyip «Öde» düğmesine tekrar tıklayın — fiş iki kez kaydedilmez.",
+                        $"Bu chekning oldingi to'lov urinishi hali tekshirilmoqda ({ageText} s oldin). Biroz kutib «To'lash» tugmasini yana bosing — chek ikki marta o'tkazilmaydi."));
+                }
+
+                if (!sameCheck && age < UnknownCheckoutSettle)
+                {
+                    // Другой чек: не ждёт, а запись остаётся — если прошлая попытка ещё дойдёт, следующая оплата скажет кассиру.
+                    PosLogger.Log($"PAY: прошлая попытка ({unknown.Method}, корзина {unknown.CartId}) ещё может дойти ({ageText} с), но чек другой — оплата продолжается, запись оставлена.", "PAYMENT");
+                    return null;
+                }
+
+                ClearUnknown();
+                PosLogger.Log($"PAY: прошлая попытка ({unknown.Method}, корзина {unknown.CartId}) не проведена (статус {state}, {ageText} с) — оплата продолжается.", "PAYMENT");
+                return null;
+
+            default:
+                if (sameCheck && age < UnknownCheckoutGiveUp)
+                {
+                    PosLogger.Log($"PAY: статус прошлой попытки ({unknown.Method}, корзина {unknown.CartId}) узнать не удалось ({ageText} с) — повтор не пускаем.", "PAYMENT");
+                    return PosCheckoutResult.Failed(Tr.T(
+                        "Не удалось проверить, прошла ли прошлая оплата этого чека. Проверьте связь и раздел «Продажи», затем повторите — иначе возможна двойная продажа.",
+                        "Бул чектин мурунку төлөмү өткөнүн текшерүү мүмкүн болбоду. Байланышты жана «Сатуулар» бөлүмүн текшерип, кайталаңыз — болбосо эки жолу сатылышы мүмкүн.",
+                        "Could not check whether the earlier payment of this receipt went through. Check the connection and the “Sales” section, then retry — otherwise the sale may be recorded twice.",
+                        "Bu fişin önceki ödemesinin gerçekleşip gerçekleşmediği kontrol edilemedi. Bağlantıyı ve «Satışlar» bölümünü kontrol edip tekrarlayın — aksi halde çift satış olabilir.",
+                        "Bu chekning oldingi to'lovi o'tgan-o'tmaganini tekshirib bo'lmadi. Aloqani va «Sotuvlar» bo'limini tekshirib, takrorlang — aks holda ikki marta sotilishi mumkin."));
+                }
+
+                if (!sameCheck && age < UnknownCheckoutGiveUp)
+                {
+                    PosLogger.Log($"PAY: статус прошлой попытки ({unknown.Method}, корзина {unknown.CartId}) узнать не удалось ({ageText} с), чек другой — оплата продолжается, запись оставлена.", "PAYMENT");
+                    return null;
+                }
+
+                ClearUnknown();
+                PosLogger.Log($"PAY: статус прошлой попытки ({unknown.Method}, корзина {unknown.CartId}) не удалось узнать за {ageText} с — повтор разрешён, возможен дубль.", "WARNING");
+                return null;
+        }
     }
 
     /// <summary>Узнаёт именно ту ошибку сервера ("cashbox_id: Касса не найдена или не
@@ -964,6 +1273,8 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             ConsultantId = request.ConsultantId,
             ConsultantCommissionEnabled = request.ConsultantCommissionEnabled,
             ConsultantCommissionPercent = request.ConsultantCommissionPercent,
+            // 2026-10-27 (аудит кассы, Н-6): клиент окна оплаты едет с чеком в очередь и на сервер при досылке.
+            ClientId = request.ClientId,
             QuickCheckoutAttempted = quickAttempted,
         };
         // 2026-09-28, BE-11: после неудачной быстрой оплаты id записи = её Idempotency-Key, и
@@ -1168,8 +1479,17 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         {
             var saleIdForDebtPayment = saleId;
             var cashReceivedForDebtPayment = request.CashReceived;
-            _ = Task.Run(() => TryApplyInitialDebtPaymentAsync(
-                saleIdForDebtPayment, cashReceivedForDebtPayment, CancellationToken.None));
+            var salesApiForDebtPayment = _salesApi;
+            // 2026-10-27 (аудит кассы, С-3): запись на диск ДО фоновой попытки — закрыли кассу, не дождавшись довнесения, предоплата
+            // досылается при следующем проходе синхронизации (ResumePendingDebtPrepaymentsAsync), а не пропадает.
+            PendingDebtPrepaymentStore.Add(saleIdForDebtPayment, cashReceivedForDebtPayment);
+            _ = Task.Run(async () =>
+            {
+                var applied = await TryApplyInitialDebtPaymentAsync(
+                    salesApiForDebtPayment, saleIdForDebtPayment, cashReceivedForDebtPayment, CancellationToken.None).ConfigureAwait(false);
+                if (applied != false)
+                    PendingDebtPrepaymentStore.Remove(saleIdForDebtPayment);
+            });
         }
 
         // Сервер возвращает номер продажи только в отдельном поле ответа checkout, а не внутри
@@ -1276,7 +1596,10 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             : null;
         // 2026-10-11, владелец: «кассовый ящик открывает один раз и больше не открывает». Импульс уходил в фоне одновременно
         // с печатью чека на тот же принтер — посреди печати многие термопринтеры команду ящика пропускают. Теперь — после чека.
-        ReceiptPrintService.TryOpenCashDrawerAfterSale(request.PaymentMethod, request.CashReceived, printTask);
+        // 2026-10-27 (аудит кассы, Н-11): ключ с разбивкой («debt-cash» — предоплата долга наличными), а не голый «debt»: ящик открывается
+        // и при продаже в долг с наличной предоплатой; безналичная предоплата («debt-noncash») и долг без предоплаты — по-прежнему нет.
+        // 2026-10-27 (ревью денег, К-10): долг с наличной И безналичной предоплатой — для чека ключ «debt-noncash», а ящик открывается: наличные взяты.
+        ReceiptPrintService.TryOpenCashDrawerAfterSale(DrawerPaymentMethodKey(request), request.CashReceived, printTask);
         // 2026-10-04, п. 8: остаток смены после продажи шапка кассы возьмёт из ответа этой же проверки смены
         // (ShiftApiService.OpenShiftsListAfterSaleAsync), а не отдельным вторым запросом.
         _shiftApi.NoteSaleRecorded();
@@ -1357,8 +1680,8 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
     /// не из-за чего, поэтому только логируем.
     /// Возвращает null, если частичная оплата не запрашивалась (получено сейчас = 0 — обычная
     /// продажа в долг целиком); true/false — была ли она реально применена.</summary>
-    private async Task<bool?> TryApplyInitialDebtPaymentAsync(
-        string saleId, string? cashReceived, CancellationToken cancellationToken)
+    private static async Task<bool?> ApplyInitialDebtPaymentCoreAsync(
+        ISalesApiService salesApi, string saleId, string? cashReceived, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(saleId))
             return null;
@@ -1369,7 +1692,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
 
         try
         {
-            var sale = await _salesApi.PosSaleGetAsync(saleId, cancellationToken).ConfigureAwait(false);
+            var sale = await salesApi.PosSaleGetAsync(saleId, cancellationToken).ConfigureAwait(false);
             var dealId = sale.ValueKind == JsonValueKind.Object
                 && sale.TryGetProperty("deal_id", out var dealIdEl)
                 && dealIdEl.ValueKind == JsonValueKind.String
@@ -1411,11 +1734,46 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             // ключ на изменившееся тело не должен провести вторую оплату, если первая дошла (взнос после неё уже
             // погашен — тело и меняется): перед следующей попыткой сверяем сделку (DebtPaymentLooksApplied).
             (string? InstallmentId, decimal? DebtBefore)? unknownPayment = null;
+            // 2026-10-27 (К-8): попытка без ответа старше 10 минут — остатку долга не верим, повторяем ТОЛЬКО с тем же ключом и тем же телом.
+            string? sameBodyOnly = null;
+            // 2026-10-27 (аудит кассы, С-3): попытка оплаты взноса, начатая до перезапуска кассы и оставшаяся без известного исхода, —
+            // тот же ключ идемпотентности (сервер вернёт прежний итог) и сверка сделки по остатку долга «до» (DebtPaymentLooksApplied).
+            if (PendingDebtPrepaymentStore.Get(saleId) is { PayKey: { Length: > 0 } savedKey, PaySignature: { Length: > 0 } savedSignature } saved)
+            {
+                // 2026-10-27 (ревью денег, К-8): сверка «остаток долга уменьшился — значит прошла» верна только вскоре после попытки. Через часы
+                // и дни остаток меняют другие платежи клиента (оплатил долг сам) — предоплата ложно считалась внесённой, а наличные лежали без операции.
+                // До 10 минут — как раньше (тот же ключ + сверка остатка). До суток — ТОЛЬКО тот же ключ (сервер вернёт прежний итог или проведёт) и только
+                // с тем же телом; тело изменилось (взнос уже погашен) — не угадываем. Старше суток ключ мог устареть на сервере — ручная проверка
+                // (запись остаётся, в журнал и тост кассиру).
+                var attemptAge = saved.AttemptUtc is { } attemptAt ? DateTime.UtcNow - attemptAt : TimeSpan.MaxValue;
+                if (attemptAge > PendingDebtPrepaymentStore.UnknownAttemptKeyLifetime)
+                {
+                    PendingDebtPrepaymentStore.MarkManualCheck(saleId);
+                    var manualText = Tr.T(
+                        $"Предоплата долга {amount:0.00} сом по продаже не внесена автоматически: прошлая попытка осталась без ответа, а исход через время установить нельзя. Проверьте долг клиента и при необходимости внесите оплату через «Оплата долга».",
+                        $"Сатуу боюнча карыздын алдын ала төлөмү {amount:0.00} сом автоматтык түрдө киргизилген жок: мурунку аракеттин жообу келген жок, убакыт өткөндөн кийин натыйжаны аныктоо мүмкүн эмес. Кардардын карызын текшерип, керек болсо «Карыз төлөө» аркылуу киргизиңиз.",
+                        $"The debt prepayment of {amount:0.00} som for the sale was not entered automatically: the earlier attempt got no reply and its outcome cannot be established after this much time. Check the client's debt and, if needed, enter the payment via “Pay debt”.",
+                        $"Satışın {amount:0.00} som borç ön ödemesi otomatik girilmedi: önceki denemeden yanıt gelmedi ve aradan geçen sürede sonucu belirlemek mümkün değil. Müşterinin borcunu kontrol edin, gerekirse «Borç ödeme» ile girin.",
+                        $"Sotuvning {amount:0.00} so'm qarz oldindan to'lovi avtomatik kiritilmadi: oldingi urinishga javob kelmadi, oradan vaqt o'tgach natijani aniqlab bo'lmaydi. Mijoz qarzini tekshiring, kerak bo'lsa «Qarzni to'lash» orqali kiriting.");
+                    PosLogger.Log(
+                        $"Initial debt payment NOT repeated: sale={saleId}, amount={amount:0.00}, прошлая попытка старше {PendingDebtPrepaymentStore.UnknownAttemptKeyLifetime.TotalHours:0} ч и без ответа — нужна ручная проверка долга клиента.",
+                        "WARNING");
+                    CatalogCacheService.RaiseToast(manualText, true);
+                    return false;
+                }
+
+                payKey.Restore(savedKey, savedSignature);
+                if (attemptAge <= PendingDebtPrepaymentStore.UnknownAttemptWindow)
+                    unknownPayment = (saved.InstallmentId, saved.DebtBefore);
+                else
+                    sameBodyOnly = savedSignature;
+            }
+
             for (var attempt = 1; attempt <= delays.Length + 1; attempt++)
             {
                 try
                 {
-                    var deal = await _salesApi.ClientDealGetAsync(clientId, dealId, cancellationToken).ConfigureAwait(false);
+                    var deal = await salesApi.ClientDealGetAsync(clientId, dealId, cancellationToken).ConfigureAwait(false);
 
                     if (unknownPayment is { } unknown
                         && DebtPaymentLooksApplied(deal, unknown.InstallmentId, unknown.DebtBefore, amount))
@@ -1443,10 +1801,31 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                     }
 
                     var installmentId = TryFindPayableInstallmentId(deal);
-                    var payIdempotencyKey = payKey.Get(installmentId + "|" + amount.ToString("0.00", CultureInfo.InvariantCulture));
+                    var paySignature = installmentId + "|" + amount.ToString("0.00", CultureInfo.InvariantCulture);
+                    if (sameBodyOnly != null && !string.Equals(sameBodyOnly, paySignature, StringComparison.Ordinal))
+                    {
+                        // 2026-10-27 (К-8): взнос той попытки уже погашен (или тело иное) — дошла ли она, спустя время не определить. Новый ключ
+                        // провёл бы вторую оплату, поэтому запись ждёт ручной проверки.
+                        PendingDebtPrepaymentStore.MarkManualCheck(saleId);
+                        PosLogger.Log(
+                            $"Initial debt payment NOT repeated: sale={saleId}, amount={amount:0.00}, взнос прошлой попытки изменился ({sameBodyOnly} → {paySignature}) — нужна ручная проверка долга клиента.",
+                            "WARNING");
+                        CatalogCacheService.RaiseToast(Tr.T(
+                            $"Предоплата долга {amount:0.00} сом не внесена автоматически: прошлая попытка осталась без ответа, взнос уже изменился. Проверьте долг клиента и при необходимости внесите оплату через «Оплата долга».",
+                            $"Карыздын алдын ала төлөмү {amount:0.00} сом автоматтык түрдө киргизилген жок: мурунку аракеттин жообу келген жок, төлөм өзгөргөн. Кардардын карызын текшерип, керек болсо «Карыз төлөө» аркылуу киргизиңиз.",
+                            $"The debt prepayment of {amount:0.00} som was not entered automatically: the earlier attempt got no reply and the instalment has changed since. Check the client's debt and, if needed, enter the payment via “Pay debt”.",
+                            $"{amount:0.00} som borç ön ödemesi otomatik girilmedi: önceki denemeden yanıt gelmedi ve taksit değişti. Müşterinin borcunu kontrol edin, gerekirse «Borç ödeme» ile girin.",
+                            $"{amount:0.00} so'm qarz oldindan to'lovi avtomatik kiritilmadi: oldingi urinishga javob kelmadi, bo'lak o'zgargan. Mijoz qarzini tekshiring, kerak bo'lsa «Qarzni to'lash» orqali kiriting."), true);
+                        return false;
+                    }
+
+                    var payIdempotencyKey = payKey.Get(paySignature);
+                    // 2026-10-27 (С-3): ключ, взнос и остаток долга «до» — на диск ДО запроса (переживут перезапуск кассы).
+                    PendingDebtPrepaymentStore.NoteAttempt(saleId, payIdempotencyKey, paySignature, installmentId,
+                        deal.ValueKind == JsonValueKind.Object && TryReadDecimal(deal, "remaining_debt", out var debtNow) ? debtNow : (decimal?)null);
                     try
                     {
-                        await _salesApi.PosPayDebtAsync(clientId, dealId, installmentId, amount, cancellationToken, payIdempotencyKey).ConfigureAwait(false);
+                        await salesApi.PosPayDebtAsync(clientId, dealId, installmentId, amount, cancellationToken, payIdempotencyKey).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -1457,6 +1836,8 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                                 deal.ValueKind == JsonValueKind.Object && TryReadDecimal(deal, "remaining_debt", out var debtBefore)
                                     ? debtBefore
                                     : (decimal?)null);
+                        else
+                            PendingDebtPrepaymentStore.ClearAttempt(saleId); // 2026-10-27 (С-3): отказ по существу — прежний ключ не переносим
                         throw;
                     }
                     PosLogger.Log(
@@ -1481,6 +1862,73 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             // Продажа уже проведена на сервере — только логируем, не проваливаем checkout.
             PosLogger.Log($"Initial debt payment failed for sale {saleId}: {ex}", "PAYMENT");
             return false;
+        }
+    }
+
+    /// <summary>Продажи, предоплату которых сейчас довносит фоновая задача или досылка: вторую параллельную попытку не запускаем.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> ActiveDebtPrepayments = new(StringComparer.OrdinalIgnoreCase);
+
+    internal static async Task<bool?> TryApplyInitialDebtPaymentAsync(
+        ISalesApiService salesApi, string saleId, string? cashReceived, CancellationToken cancellationToken)
+    {
+        // 2026-10-27 (аудит кассы, С-3): одна продажа — одна попытка за раз (фон продажи и досылка очереди не пересекаются).
+        if (string.IsNullOrWhiteSpace(saleId) || !ActiveDebtPrepayments.TryAdd(saleId, 0))
+            return string.IsNullOrWhiteSpace(saleId) ? null : false;
+        try
+        {
+            return await ApplyInitialDebtPaymentCoreAsync(salesApi, saleId, cashReceived, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            ActiveDebtPrepayments.TryRemove(saleId, out _);
+        }
+    }
+
+    private static int _debtPrepaymentResumeRunning;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> DebtPrepaymentLastTry = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>2026-10-27 (аудит кассы, С-3): довносит предоплаты долга, не дошедшие до сервера (касса закрыта, связи не было). Вызывается
+    /// при каждом проходе SyncService при живой связи; не бросает.</summary>
+    internal static async Task ResumePendingDebtPrepaymentsAsync(ISalesApiService salesApi, CancellationToken cancellationToken)
+    {
+        if (Interlocked.Exchange(ref _debtPrepaymentResumeRunning, 1) == 1)
+            return;
+        try
+        {
+            PendingDebtPrepaymentStore.DropExpired();
+            foreach (var entry in PendingDebtPrepaymentStore.LoadAll())
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+                // 2026-10-27 (ревью денег, К-8): исход прошлой попытки не установить — запись ждёт ручной проверки, касса её не трогает.
+                if (entry.ManualCheck)
+                    continue;
+                // 2026-10-27 (К-9): запись другой компании (кассу переключили на другой аккаунт) — не трогаем: чужая продажа даёт только 404 и шум в журнале.
+                if (!string.IsNullOrWhiteSpace(entry.CompanyId) && CompanyInfoService.LastCompany?.Id is { Length: > 0 } currentCompany
+                    && !string.Equals(entry.CompanyId, currentCompany, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                // Свежую запись (до 2 мин) ещё ведёт фоновая задача самой продажи.
+                if (DateTime.UtcNow - entry.CreatedUtc < TimeSpan.FromMinutes(2))
+                    continue;
+                // Не чаще раза в 5 минут на продажу: безнадёжная запись не должна спамить журнал и сервер каждые 45 с.
+                if (DebtPrepaymentLastTry.TryGetValue(entry.SaleId, out var lastTry) && DateTime.UtcNow - lastTry < TimeSpan.FromMinutes(5))
+                    continue;
+                DebtPrepaymentLastTry[entry.SaleId] = DateTime.UtcNow;
+                var applied = await TryApplyInitialDebtPaymentAsync(salesApi, entry.SaleId, entry.CashReceived, cancellationToken).ConfigureAwait(false);
+                if (applied != false)
+                {
+                    PendingDebtPrepaymentStore.Remove(entry.SaleId);
+                    PosLogger.Log($"Предоплата долга по продаже {entry.SaleId} довнесена из очереди ({entry.CashReceived}).", "PAYMENT");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Довнесение предоплат долга из очереди прервано: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _debtPrepaymentResumeRunning, 0);
         }
     }
 
@@ -1795,6 +2243,13 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             return "debt-noncash";
         return Amount(request.CashReceived) > 0.005 ? "debt-cash" : request.PaymentMethod;
     }
+
+    /// <summary>2026-10-27 (К-10): ключ для денежного ящика — «debt-cash», если в долг взята хоть какая-то наличная предоплата (даже вместе с безналичной).</summary>
+    private static string? DrawerPaymentMethodKey(PosCheckoutRequest request) =>
+        string.Equals(request.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase)
+        && double.TryParse(request.CashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var cash) && cash > 0.005
+            ? "debt-cash"
+            : ReceiptPaymentMethodKey(request);
 
     private async Task<bool> TryPrintReceiptAsync(
         string cartJson,

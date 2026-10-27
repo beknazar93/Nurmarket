@@ -57,7 +57,7 @@
                                                Foreground="{DynamicResource BrushTextSoft}"/>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}, ConverterParameter=som}" FontWeight="SemiBold" Margin="12,0,0,0"
-                                           Foreground="{DynamicResource BrushAccentStrong}" VerticalAlignment="Center"/>
+                                           Foreground="{DynamicResource BrushAccentText}" VerticalAlignment="Center"/> <!-- 2026-10-27: BrushAccentStrong в тёмной «Классической» — #1D4ED8 на #3A3A3B (1,9:1); BrushAccentText читаем (≥4,5:1) -->
                             </Grid>
                         </Button>
                     </DataTemplate>

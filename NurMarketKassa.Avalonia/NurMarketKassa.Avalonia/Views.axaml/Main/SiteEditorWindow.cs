@@ -589,13 +589,37 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
         _banner.IsVisible = true;
     }
 
-    private async Task PublishAsync()
+    /// <summary>2026-10-27 (расследование витрины NBS, Н-4): в черновике стоит тема для другой сферы (например, одежды у продуктового магазина),
+    /// и владелец не отвечал на предупреждение об этом в этом сеансе — тогда перед публикацией одна строка в подтверждении. Иначе пусто.</summary>
+    private string MisfitPublishNote()
+    {
+        var sphere = UserPreferences.Instance.MarketSphere;
+        if (SiteThemeCatalog.CurrentTheme(Str) is not { } theme || SiteThemeCatalog.Fits(theme, sphere) || string.Equals(_misfitAnswered, theme.Code, StringComparison.OrdinalIgnoreCase))
+            return "";
+        var forWhom = SiteThemeCatalog.ThemeSphereTitle(theme);
+        var shop = MarketSpheres.Profile.ShortTitle.Get();
+        return T($"На сайт уйдёт тема «{theme.Name}» для сферы «{forWhom}», а у вас — «{shop}»: баннер и картинки могут не подойти.",
+            $"Сайтка «{forWhom}» тармагы үчүн «{theme.Name}» темасы чыгат, ал эми сизде — «{shop}»: баннер жана сүрөттөр ылайыксыз болушу мүмкүн.",
+            $"The “{theme.Name}” theme made for the “{forWhom}” type will go live, and yours is “{shop}”: the banner and pictures may not fit.",
+            $"Siteye «{forWhom}» türü için «{theme.Name}» teması çıkacak, sizin mağazanız ise «{shop}»: banner ve resimler uymayabilir.",
+            $"Saytga «{forWhom}» turi uchun «{theme.Name}» mavzusi chiqadi, sizda esa — «{shop}»: banner va rasmlar mos kelmasligi mumkin.");
+    }
+
+    // 2026-10-27 (Н-4): код темы не для сферы, на предупреждение о которой владелец уже ответил в этом сеансе (публикация не переспрашивает).
+    private string? _misfitAnswered;
+
+    private async Task PublishAsync(bool askMisfit = true)
     {
         if (_locked)
             return;
         _saveTimer.Stop();
         await SaveDraftAsync().ConfigureAwait(true);
         if (_patch.Count > 0)
+            return;
+        // Публикацию не блокируем — только предупреждаем; «Отмена» оставляет черновик как есть.
+        if (askMisfit && MisfitPublishNote() is { Length: > 0 } misfitNote
+            && !await ConfirmAsync(misfitNote + " " + T("Опубликовать всё равно?", "Баары бир жарыялайсызбы?", "Publish anyway?", "Yine de yayınlansın mı?", "Baribir e'lon qilinsinmi?"),
+                T("Опубликовать", "Жарыялоо", "Publish", "Yayınla", "E'lon qilish"), T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true))
             return;
         _publish!.IsEnabled = false;
         try
@@ -1103,7 +1127,7 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
             var okPublish = await ConfirmAsync(
                 T("Опубликовать сайт? Покупатели сразу увидят текущий черновик.", "Сайтты жарыялайсызбы? Кардарлар азыркы долбоорду дароо көрөт.",
                     "Publish the website? Customers will see the current draft right away.", "Site yayınlansın mı? Müşteriler mevcut taslağı hemen görür.",
-                    "Sayt e'lon qilinsinmi? Xaridorlar joriy qoralamani darhol ko'radi."),
+                    "Sayt e'lon qilinsinmi? Xaridorlar joriy qoralamani darhol ko'radi.") + (MisfitPublishNote() is { Length: > 0 } voiceNote ? " " + voiceNote : ""),
                 T("Опубликовать", "Жарыялоо", "Publish", "Yayınla", "E'lon qilish"), T("Не публиковать", "Жарыялабоо", "Don't publish", "Yayınlama", "E'lon qilmaslik")).ConfigureAwait(true);
             if (!okPublish)
             {
@@ -1111,7 +1135,7 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
                     "Yayın iptal edildi — site değişmedi.", "E'lon qilish bekor qilindi — sayt o'zgarmadi."));
                 return string.Join(" ", done);
             }
-            await PublishAsync().ConfigureAwait(true);
+            await PublishAsync(askMisfit: false).ConfigureAwait(true); // предупреждение о теме не той сферы — уже в тексте подтверждения выше
             done.Add(_hasUnpublished
                 ? T("Опубликовать не получилось — сообщение в редакторе.", "Жарыялоо болбой калды — билдирүү редактордо.", "Publishing failed — see the editor message.",
                     "Yayınlanamadı — düzenleyicideki mesaja bakın.", "E'lon qilib bo'lmadi — muharrirdagi xabarga qarang.")

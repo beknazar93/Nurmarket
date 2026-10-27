@@ -96,8 +96,9 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="Cursor" Value="Arrow"/>
         </Style>
+        <!-- 2026-10-27: прозрачность выключенной 0.5 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
         <Style Selector="Button.catalog-pager:disabled">
-            <Setter Property="Opacity" Value="0.5"/>
+            <Setter Property="Opacity" Value="0.7"/>
             <Setter Property="Cursor" Value="Arrow"/>
         </Style>
 
@@ -207,6 +208,9 @@
         <Style Selector=".compact ScrollViewer.catalog-tabs-scroll">
             <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
+        <Style Selector="TabControl.catalog-tabs.searching TabItem">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
         <!-- Шесть вкладок в одну строку и на кыргызском (длиннее русского) при ширине каталога ~500. -->
         <Style Selector=".compact TabControl.catalog-tabs TabItem">
             <Setter Property="FontSize" Value="13"/>
@@ -241,7 +245,9 @@
                           Classes="catalog-tabs-scroll"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Disabled">
+            <!-- 2026-10-27, аудит Н-4: пока идёт поиск, он ищет по всему каталогу — вкладка (например «Услуги») не должна выглядеть действующей. -->
             <TabControl Classes="catalog-tabs"
+                        Classes.searching="{Binding IsSearchActive}"
                         SelectedIndex="{Binding SelectedTabIndex}">
                 <TabControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -669,9 +675,10 @@
                                             </Button.IsVisible>
                                             </Button>
 
-                                        <Button Width="36" Height="36"
+                                        <!-- 2026-10-27, аудит Н-17: «избранное» 44×44 (было 36×36 — промах добавлял товар в чек). -->
+                                        <Button Width="44" Height="44"
                                                 Padding="0"
-                                                Margin="0,2,2,0"
+                                                Margin="0"
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Top"
                                                 ZIndex="1"

@@ -100,7 +100,7 @@ public sealed class DebtsView : UserControl
         Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
 
         var tools = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"), Margin = new Thickness(0, 0, 0, 12) };
-        _search = UiKit.Input(this, T("Поиск по имени или телефону…", "Аты же телефону боюнча издөө…", "Search by name or phone…", "Ad veya telefona göre ara…", "Ism yoki telefon bo'yicha qidirish…"), 40);
+        _search = UiKit.Input(this, T("Поиск по имени или телефону…", "Аты же телефону боюнча издөө…", "Search by name or phone…", "Ad veya telefona göre ara…", "Ism yoki telefon bo'yicha qidirish…"), 44); // 2026-10-27, аудит владельца С-5: было 40 (цель нажатия)
         _search.TextChanged += (_, _) => Render();
         tools.Children.Add(_search);
         var byAmount = UiKit.Chip(this, T("По сумме", "Сумма боюнча", "By amount", "Tutara göre", "Summa bo'yicha"), true);
@@ -458,7 +458,14 @@ public sealed class DebtsView : UserControl
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
             // 2026-10-18, десятый круг (п.4) / 2026-10-18: общий точный загрузчик (тот же — у «Сводки»).
-            var (debtors, progressive, byClient) = await LoadExactDebtorsAsync(withPhones: true, cts.Token).ConfigureAwait(true);
+            var (debtors, progressive, byClient) = await LoadExactDebtorsAsync(withPhones: true, cts.Token, first =>
+            {
+                // 2026-10-27, С-6: быстрый первый экран — только если раздел ещё пуст и загрузка не устарела.
+                if (gen != _loadGen || _debtors.Count > 0)
+                    return;
+                _debtors = first;
+                Render();
+            }).ConfigureAwait(true);
             if (gen != _loadGen)
                 return;
             // 2026-10-18, восьмой круг (п.5): карточки, перечитанные позже старта этой загрузки, свежее её. Список применяется
@@ -669,9 +676,23 @@ public sealed class DebtsView : UserControl
     /// <summary>2026-10-18: общий точный загрузчик для раздела «Долги клиентов». До 60 чеков — точные
     /// остатки сразу; больше — Progressive: все «уточняется» (раздел догружает точные постепенно, «Сводка» показывает «≈»).</summary>
     internal static async Task<(List<Debtor> Debtors, bool Progressive, Dictionary<string, IReadOnlyList<JsonElement>> ByClient)> LoadExactDebtorsAsync(
-        bool withPhones, CancellationToken ct)
+        bool withPhones, CancellationToken ct, Action<List<Debtor>>? onFirstPaint = null)
     {
         var (rawSales, debtors) = await LoadSalesAndDebtorsAsync(withPhones, ct).ConfigureAwait(true);
+        // 2026-10-27, аудит владельца С-6 («Долги клиентов» до 9 с): список по продажам готов после ОДНОГО запроса, а точные остатки
+        // (запрос на каждого клиента) и поиск «долга без продажи» (до 60 запросов) занимали остальное время при пустом экране.
+        // Раздел показывает этот список сразу (чеки с пометкой «уточняется»), точные суммы подставляются, как только придут.
+        if (onFirstPaint is not null && debtors.Count > 0)
+        {
+            try
+            {
+                onFirstPaint(debtors.Select(d => ApplyExact(d, null)!).ToList());
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Долги клиентов: первый показ списка не удался ({ex.Message}).", "WARNING");
+            }
+        }
         var byClient = rawSales.GroupBy(s => Str(s, "client") ?? "", StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<JsonElement>)g.ToList(), StringComparer.OrdinalIgnoreCase);
         // 2026-10-22 (аудит 1.17.59, П-Е): клиенты только с «Долгом без продажи» — в общий расчёт («Сводка», «Клиенты», «Долги клиентов», Советник).

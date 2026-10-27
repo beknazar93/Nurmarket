@@ -54,7 +54,8 @@
                         <TextBlock Text="{DynamicResource services.cashierInterfaceDesc}"
                                    TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" FontSize="13" TextAlignment="Center" Height="60"/>
                         <Button Content="{DynamicResource services.goButton}" HorizontalAlignment="Center" Margin="0,16,0,0" Height="36"
-                                Background="{DynamicResource BrushWarning}" Click="CashierInterface_Click"/>
+                                Background="{DynamicResource BrushWarning}" Foreground="{DynamicResource BrushOnWarning}" Click="CashierInterface_Click"/>
+                        <!-- 2026-10-27: белый текст на золотом BrushWarning (#D7BA7D) в тёмной теме — 1,9:1; теперь BrushOnWarning (тёмный на золотом, белый на коричневом светлой). -->
                     </StackPanel>
                 </Border>
             </UniformGrid>

@@ -216,7 +216,7 @@
                                 </StackPanel>
                             </Button>
                             <Button x:Name="DeleteButton" Classes="lx-btn" MinHeight="44" Margin="0,0,8,8" Click="Delete_Click"
-                                    Foreground="{DynamicResource BrushDanger}">
+                                    Foreground="{DynamicResource BrushDangerOnSoft}"> <!-- 2026-10-27: красный текст BrushDanger на тёмной панели — 4,0–4,45:1, на мягко-красной при наведении 3,5:1; BrushDangerOnSoft — 5–6,4:1 (в светлой теме тот же #B91C1C). -->
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14"/>
                                     <TextBlock x:Name="DeleteText" VerticalAlignment="Center"/>

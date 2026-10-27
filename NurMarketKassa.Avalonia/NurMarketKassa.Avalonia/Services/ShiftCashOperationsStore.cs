@@ -126,6 +126,37 @@ public static class ShiftCashOperationsStore
             .ToList();
     }
 
+    /// <summary>2026-10-27 (аудит кассы, В-5): смены, по которым есть внесения/изъятия, ещё не записанные на сервер. Нужны, чтобы
+    /// после закрытия смены (кассиром или сервером в 01:00) хвосты не оставались неотправленными навсегда.</summary>
+    public static IReadOnlyList<string> PendingShiftIds()
+    {
+        return LoadStored()
+            .Where(x => !string.IsNullOrWhiteSpace(x.ShiftId)
+                        && string.IsNullOrEmpty(x.ServerFlowId)
+                        && !string.IsNullOrEmpty(x.Id)
+                        && CashOperationModel.ResolveKind(x.Type) is CashOperationKind.Deposit or CashOperationKind.Withdrawal)
+            .Select(x => x.ShiftId!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>2026-10-27 (аудит кассы, С-9): суммы внесений и изъятий смены, ещё не записанных на сервер (отчёт сервера
+    /// их не знает, «Касса: N» в шапке — знает).</summary>
+    public static (decimal Deposits, decimal Withdrawals) PendingSumsForShift(string? shiftId)
+    {
+        var deposits = 0m;
+        var withdrawals = 0m;
+        foreach (var op in PendingForShift(shiftId))
+        {
+            if (CashOperationModel.ResolveKind(op.Type) == CashOperationKind.Deposit)
+                deposits += op.Amount;
+            else
+                withdrawals += op.Amount;
+        }
+
+        return (deposits, withdrawals);
+    }
+
     /// <summary>2026-10-22 (статьи изъятия): суммы смены по статьям (окно закрытия смены): «Аренда 5 000 · Инкассация 20 000».
     /// Операции без статьи — одной строкой «без статьи».</summary>
     public static IReadOnlyList<(string Title, decimal Amount, bool IsCollection)> ArticleSumsForShift(string? shiftId, bool withdrawal)

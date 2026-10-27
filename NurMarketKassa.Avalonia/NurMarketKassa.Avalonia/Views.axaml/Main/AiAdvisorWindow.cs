@@ -429,7 +429,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 _ = ProductExpiryIndex.RefreshAsync(false, CancellationToken.None);
                 await SalesHistoryBackfill.RunAsync().ConfigureAwait(false);
                 // 2026-10-05: сводку для ИИ — заранее, чтобы первый вопрос (особенно голосом) не ждал её сборки.
-                await Dispatcher.UIThread.InvokeAsync(() => _ = GetSummaryAsync());
+                await Dispatcher.UIThread.InvokeAsync(() => _ = GetSummaryAsync(SummaryParts.Periods | SummaryParts.Debts)); // 2026-10-27: прогреваем только частые части
             }
             catch (Exception ex)
             {
@@ -661,6 +661,38 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             }
             return;
         }
+        // 2026-10-27, жалоба владельца («неправильно открывает разделы/вкладки, врёт „открыла“, долго думает»): «открой / перейди / зайди …»
+        // разбирает локальный маршрутизатор БЕЗ нейросети (за миллисекунды): раздел или вкладка («Склад → Приёмка»), при ничьей — кнопки
+        // вариантов, а ответ строится ИЗ ФАКТА открытия. Остаток фразы с вопросом по данным («…и скажи выручку») продолжит нейросеть.
+        string? navNote = null;
+        if (image is null && ProductActionPlan.OpenNavTarget is not null && AdvisorNavRouter.Parse(question) is { Kind: not AdvisorNavRouter.RouteKind.NotNav } navRoute
+            && RouterOwnsPhrase(navRoute, question))
+        {
+            try
+            {
+                var reply = await RunNavRouteAsync(navRoute).ConfigureAwait(true);
+                if (reply.Kind == AdvisorTurn.ReplyKind.Opened && navRoute.Strong && navRoute.Residual.Count >= 2)
+                    navNote = "\n(Программа уже сделала: " + reply.Text + " Не говори, что открываешь или открыл что-либо; ответь только на остальную часть вопроса.)";
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PosLogger.Log($"ИИ-советник: переход по фразе не выполнен ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+                AddBubble(T("Не получилось открыть раздел — программа сообщила об ошибке.", "Бөлүмдү ачуу болгон жок — программа ката кабарлады.", "Couldn't open the section — the program reported an error.",
+                    "Bölüm açılamadı — program hata bildirdi.", "Bo'limni ochib bo'lmadi — dastur xato haqida xabar berdi."), fromOwner: false);
+            }
+            if (navNote is null)
+            {
+                if (gen == _gen)
+                {
+                    _busy = false;
+                    RefreshKeyCard();
+                    SaveCurrentChat();
+                    ScrollToEnd();
+                    _input.Focus();
+                }
+                return;
+            }
+        }
         var quickOpen = image is null && PhotoChoiceNumber(question) is null && !HasActionBesidesOpen(question)
                         && question.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length <= 6 ? TryQuickOpen(question) : null;
         if (image is null && (PhotoChoiceNumber(question) is not null || quickOpen is not null))
@@ -749,8 +781,11 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 return;
             }
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            var (sections, debtorNames) = await GetSummaryAsync().ConfigureAwait(true);
+            // 2026-10-27: части сводки — по смыслу вопроса (с фото накладной — все, как раньше).
+            var summaryParts = image is null ? AdvisorIntent.PartsFor(question) : SummaryParts.All;
+            var (sections, debtorNames) = await GetSummaryAsync(summaryParts).ConfigureAwait(true);
             var summaryMs = watch.ElapsedMilliseconds;
+            AdvisorTurn.Perf("сводка", summaryMs, $"части: {summaryParts}");
             var shop = sections.ToList();
             if (access.Products && image is null && await OwnerAiContext.QuestionProductsSectionAsync(question, token).ConfigureAwait(true) is { } qp)
                 shop.Add(qp);
@@ -765,13 +800,34 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                     // 2026-10-21 (О6): «выведи список» — таблица, а не карточка действий.
                     ? question + "\n(Владелец просит ПОКАЗАТЬ список: выведи таблицей все подходящие строки из данных; строки «ТОВАР:» не пиши, ничего не меняй.)"
                     : question) + pagesNote;
-            var result = await TelegramAiChat.AskOwnerAppAsync(askText, shop, access, token, attachments.Select(a => (a.Data, a.Mime)).ToList(),
-                stage => Dispatcher.UIThread.Post(() => setStage(stage)), forceFull: ForceSections(question)).ConfigureAwait(true);
+            askText += navNote;
+            var attachList = attachments.Select(a => (a.Data, a.Mime)).ToList();
+            TelegramAiChat.OwnerAskResult result;
+            if (attachments.Count == 0)
+            {
+                // 2026-10-27: общий предел ≈12 с на вопрос (сводка тоже в нём): не успели — «ИИ долго отвечает — повторить?» с кнопкой.
+                var limit = TimeSpan.FromSeconds(Math.Max(6, 12 - watch.Elapsed.TotalSeconds));
+                var (timed, slow) = await AdvisorTurn.WithBudget(c => TelegramAiChat.AskOwnerAppAsync(askText, shop, access, c, attachList,
+                    stage => Dispatcher.UIThread.Post(() => setStage(stage)), forceFull: ForceSections(question), budget: limit), limit + TimeSpan.FromSeconds(1), token).ConfigureAwait(true);
+                if (gen != _gen)
+                    return;
+                if (slow || timed is null)
+                {
+                    AdvisorTurn.Perf("предел ожидания", watch.ElapsedMilliseconds, "ответ не пришёл вовремя");
+                    ShowFriendlyError(thinking, "slow", question);
+                    SaveCurrentChat();
+                    return;
+                }
+                result = timed;
+            }
+            else
+                result = await TelegramAiChat.AskOwnerAppAsync(askText, shop, access, token, attachList,
+                    stage => Dispatcher.UIThread.Post(() => setStage(stage)), forceFull: ForceSections(question)).ConfigureAwait(true);
             var answer = result.Answer;
             var error = result.Error;
             if (gen != _gen)
                 return;
-            PosLogger.Log($"ИИ-советник: этапы — сводка {summaryMs} мс (кэш {(summaryMs < 50 ? "да" : "нет")}), товары из вопроса {questionMs} мс, {result.Timings}{(speak ? " (голосом)" : "")}.", "INFO");
+            PosLogger.Log($"ADVISOR_PERF этапы — сводка {summaryMs} мс (кэш {(summaryMs < 50 ? "да" : "нет")}), товары из вопроса {questionMs} мс, {result.Timings}{(speak ? " (голосом)" : "")}.", "INFO");
             Dictionary<string, bool>? botChange = null;
             Dictionary<string, object?>? scenario = null;
             // 2026-10-06, владелец: «к ИИ дай полный доступ к товарам» — строки «ТОВАР: {…}» → карточка «Выполнить».
@@ -1786,48 +1842,60 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         return q.Contains('?') || starts.Any(q.StartsWith);
     }
 
-    private Task<(IReadOnlyList<AiSection> Sections, IReadOnlyDictionary<int, string> Names)>? _summaryTask;
-    private DateTime _summaryAtUtc = DateTime.MinValue;
-    private AiAccess? _summaryAccess;
+    /// <summary>2026-10-27, жалоба «очень долго думает» (журнал: «сводка по частям (11) за 6042 мс» на КАЖДЫЙ вопрос): части сводки собираются
+    /// лениво — только те, что нужны вопросу (<see cref="AdvisorIntent.PartsFor"/>; переход по разделам и болтовня — ни одной из сети),
+    /// параллельно, и каждая часть живёт в кэше 60 с (повторный вопрос не ходит на сервер). Часть не ответила за 6 с — идём без неё
+    /// (она доберётся в кэш сама и будет в следующем вопросе).</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTime At, Task Task)> PartCache = new();
 
-    /// <summary>2026-10-05, владелец: «голос очень сильно тормозит». Сводка магазина для ИИ — одна задача на минуту:
-    /// запускается заранее (при открытии раздела и как только нажали микрофон — пока владелец говорит), части
-    /// собираются одновременно, а не по очереди.
-    /// 2026-10-21 (О1): сводка — частями по важности (AiSection), а не одной строкой; без прав — без этих частей (О4).</summary>
-    private Task<(IReadOnlyList<AiSection> Sections, IReadOnlyDictionary<int, string> Names)> GetSummaryAsync()
+    private static readonly TimeSpan PartTtl = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan PartWait = TimeSpan.FromSeconds(6);
+
+    private static Task<T> CachedPart<T>(string name, AiAccess access, Func<Task<T>> factory)
     {
-        var access = CurrentAccess();
-        if (_summaryTask is { IsFaulted: false, IsCanceled: false } && DateTime.UtcNow - _summaryAtUtc < TimeSpan.FromMinutes(1) && Equals(_summaryAccess, access))
-            return _summaryTask;
-        _summaryAtUtc = DateTime.UtcNow;
-        _summaryAccess = access;
-        return _summaryTask = BuildSummaryAsync(access);
+        var key = name + "|" + access.GetHashCode();
+        if (PartCache.TryGetValue(key, out var hit) && hit.Task is Task<T> cached && !cached.IsFaulted && !cached.IsCanceled && DateTime.UtcNow - hit.At < PartTtl)
+            return cached;
+        var task = factory();
+        PartCache[key] = (DateTime.UtcNow, task);
+        return task;
     }
 
-    private static async Task<(IReadOnlyList<AiSection> Sections, IReadOnlyDictionary<int, string> Names)> BuildSummaryAsync(AiAccess access)
+    /// <summary>Сводка магазина для ИИ. <paramref name="parts"/> — какие сетевые части нужны (по умолчанию все: разговор голосом и прогрев при открытии).</summary>
+    private Task<(IReadOnlyList<AiSection> Sections, IReadOnlyDictionary<int, string> Names)> GetSummaryAsync(SummaryParts parts = SummaryParts.All) =>
+        BuildSummaryAsync(CurrentAccess(), parts);
+
+    private static async Task<(IReadOnlyList<AiSection> Sections, IReadOnlyDictionary<int, string> Names)> BuildSummaryAsync(AiAccess access, SummaryParts parts)
     {
         var ct = CancellationToken.None;
         var watch = System.Diagnostics.Stopwatch.StartNew();
         // 2026-10-21 (И5): сравнение периодов считает программа (тот же отчёт сервера, что «Сводка»).
-        var periods = OwnerPeriodStats.GetAsync(ct);
+        var periods = parts.HasFlag(SummaryParts.Periods) ? CachedPart("periods", access, () => OwnerPeriodStats.GetAsync(ct)) : null;
         // «Я должен кому-то или мне должны?» — итоги долгов клиентов (точно, как «Сводка», О2) и поставщиков.
-        var debts = OwnerAiContext.DebtTotalsSectionAsync(ct);
+        var debts = parts.HasFlag(SummaryParts.Debts) ? CachedPart("debts", access, () => OwnerAiContext.DebtTotalsSectionAsync(ct)) : null;
         // «Дай список клиентов-должников»: должники под кодами [Д1]… — только с правом «Клиенты» (О4).
-        var debtors = access.Clients ? OwnerAiContext.DebtorsSectionAsync(ct) : Task.FromResult<(AiSection?, IReadOnlyDictionary<int, string>)>((null, new Dictionary<int, string>()));
+        var debtors = access.Clients && parts.HasFlag(SummaryParts.Debtors) ? CachedPart("debtors", access, () => OwnerAiContext.DebtorsSectionAsync(ct)) : null;
         // 2026-10-05, владелец: «дай доступ к ABC-анализу ИИ».
-        var abc = OwnerAiContext.AbcSectionAsync(ct);
+        var abc = parts.HasFlag(SummaryParts.Abc) ? CachedPart("abc", access, () => OwnerAiContext.AbcSectionAsync(ct)) : null;
         // 2026-10-05, владелец: «анализ продаж, склада, клиентов, заказов — чтобы предлагать акции на проблемные товары».
-        var analysis = access.Products ? OwnerAiContext.AnalysisSectionsAsync(ct) : Task.FromResult(new List<AiSection>());
+        var analysis = access.Products && parts.HasFlag(SummaryParts.Analysis) ? CachedPart("analysis", access, () => OwnerAiContext.AnalysisSectionsAsync(ct)) : null;
         // 2026-10-05, владелец: «добавь возможность ИИ управлять ботом» — состояние функций бота на сервере.
-        var bot = access.Settings ? BuildBotStateAsync(ct) : Task.FromResult("");
+        var bot = access.Settings && parts.HasFlag(SummaryParts.Bot) ? CachedPart("bot", access, () => BuildBotStateAsync(ct)) : null;
         // 2026-10-05, ТЗ часть 7: итоги допродажи по всем кассам компании (сервер выложил 05.10).
-        var upsell = BuildUpsellAsync(ct);
+        var upsell = parts.HasFlag(SummaryParts.Upsell) ? CachedPart("upsell", access, () => BuildUpsellAsync(ct)) : null;
         // 2026-10-06, лог владельца (23:10, сервер не отвечал после запуска): одна упавшая часть роняла всю сводку — ИИ
         // оставался без данных магазина. Теперь упавшая часть пропускается, остальные идут в сводку.
-        static async Task<T?> Part<T>(Task<T> task, string name) where T : class
+        static async Task<T?> Part<T>(Task<T>? task, string name) where T : class
         {
+            if (task is null)
+                return null;
             try
             {
+                if (await Task.WhenAny(task, Task.Delay(PartWait)).ConfigureAwait(false) != task)
+                {
+                    PosLogger.Log($"ИИ-советник: часть сводки «{name}» не успела за {PartWait.TotalSeconds:0} с — отвечаю без неё.", "WARNING");
+                    return null;
+                }
                 return await task.ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -1857,10 +1925,22 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         IReadOnlyDictionary<int, string> names = new Dictionary<int, string>();
         try
         {
-            var (section, n) = await debtors.ConfigureAwait(false);
-            if (section is not null)
-                list.Add(section);
-            names = n;
+            if (debtors is not null)
+            {
+                if (await Task.WhenAny(debtors, Task.Delay(PartWait)).ConfigureAwait(false) == debtors)
+                {
+                    var (section, n) = await debtors.ConfigureAwait(false);
+                    if (section is not null)
+                        list.Add(section);
+                    names = n;
+                }
+                else
+                    PosLogger.Log($"ИИ-советник: часть сводки «должники» не успела за {PartWait.TotalSeconds:0} с — отвечаю без неё.", "WARNING");
+            }
+            // Коды должников [Д1] в прежних ответах раскрываются именами — берём из кэша, даже если этот вопрос должников не просил.
+            else if (access.Clients && PartCache.TryGetValue("debtors|" + access.GetHashCode(), out var old)
+                     && old.Task is Task<(AiSection? Section, IReadOnlyDictionary<int, string> Names)> { IsCompletedSuccessfully: true } done)
+                names = done.Result.Names;
         }
         catch (Exception ex)
         {
@@ -1870,7 +1950,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             list.Add(new AiSection("bot", "Телеграм-бот", 9, b, SourceSection: "telegrambot", SourceLabel: "Телеграм-бот"));
         if (await Part(upsell, "допродажа").ConfigureAwait(false) is { Length: > 0 } u)
             list.Add(new AiSection("upsell", "Допродажа", 9, u));
-        PosLogger.Log($"ИИ-советник: сводка по частям ({list.Count}) за {watch.ElapsedMilliseconds} мс.", "INFO");
+        PosLogger.Log($"ИИ-советник: сводка по частям ({list.Count}; запрошено: {parts}) за {watch.ElapsedMilliseconds} мс.", "INFO");
         return (list, names);
     }
 
@@ -2247,8 +2327,9 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     private void ShowProductSteps(List<ProductActionPlan.Step> steps, string request)
     {
         // Открыть раздел или товар — только если владелец сам сказал «открой» (ИИ по своей воле вкладки не переключает).
+        // 2026-10-27: раздел от нейросети открывается по словарю с проверкой, а в чат идёт факт («Открыл …» / «Не получилось …»), а не слова модели.
         foreach (var open in steps.Where(st => st.Op is "open" or "open_section" && HasOpenCommand(request)).Take(1))
-            _ = ProductActionPlan.ExecuteAsync(open, T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"));
+            _ = ShowOpenResultAsync(open);
         // 2026-10-06: «найди фото» от ИИ — не ставим первое найденное, а показываем варианты на выбор.
         var photos = steps.Where(st => st.Op == "photo").Select(st => st.Product).DistinctBy(p => p.Id).Take(3).ToList();
         if (photos.Count > 0)
@@ -3481,6 +3562,9 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             return;
         _liveDebtors = names;
         var live = new GeminiLiveVoice(instruction);
+        // 2026-10-27: инструмент open_section — переход по словарю программы с проверкой; модель говорит только результат.
+        if (ProductActionPlan.OpenNavTarget is not null)
+            live.ToolHandler = (toolName, toolArgs) => LiveToolAsync(live, toolName, toolArgs);
         live.UserText += text => Dispatcher.UIThread.Post(() =>
         {
             if (_live != live)
@@ -3619,6 +3703,24 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                     if (result is not null && _live == liveNow)
                         await liveNow.SendTextAsync("[Программа] " + result + " Коротко скажи владельцу результат.").ConfigureAwait(true);
                 });
+            // 2026-10-27: раздел уже открыл инструмент open_section (ответ модели — из его результата); товарное действие рядом («и спиши Марс») — как раньше.
+            else if (_liveToolNav)
+            {
+                _liveToolNav = false;
+                if (HasActionBesidesOpen(spoken))
+                    _ = LiveProductPassAsync(spoken, liveNow);
+            }
+            // Запасной путь (инструменты выключены или модель не вызвала): тот же маршрутизатор по распознанной фразе, ответ — из факта.
+            else if (ProductActionPlan.OpenNavTarget is not null && AdvisorNavRouter.Parse(spoken) is { Kind: not AdvisorNavRouter.RouteKind.NotNav } voiceRoute
+                     && RouterOwnsPhrase(voiceRoute, spoken))
+                _ = Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    var reply = await RunNavRouteAsync(voiceRoute).ConfigureAwait(true);
+                    if (_live == liveNow)
+                        await liveNow.SendTextAsync("[Программа] " + reply.Text + " Скажи владельцу ровно это одной короткой фразой, ничего не добавляя.").ConfigureAwait(true);
+                    if (HasActionBesidesOpen(spoken))
+                        _ = LiveProductPassAsync(spoken, liveNow);
+                });
             else if (TryQuickOpen(spoken) is { } opened)
             {
                 _ = liveNow.SendTextAsync("[Программа] " + opened + " Скажи об этом одной короткой фразой; владелец видит раздел на экране.");
@@ -3646,13 +3748,9 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             // 2026-10-07, владелец: «всю информацию выводи в чат красивой таблицей» — вопрос с цифрами в звонке: таблица в чате.
             else if (LooksLikeDataQuestion(spoken))
                 _ = LiveTablePassAsync(spoken, liveNow, speak: true);
-            // 2026-10-07: речь владельца распознана плохо (кыргызская фраза пришла корейскими буквами), а советник сам сказал
-            // «Открываю склад» / «ачып жатам» — выполняем по его словам (его речь программа знает точно).
-            else if (_liveAiText.ToString() is { Length: > 0 } aiSaid
-                     && new[] { "открыва", "открою", "ачып жатам", "ачам", "opening", "açıyorum", "ochyapman" }.Any(aiSaid.ToLowerInvariant().Contains)
-                     && TryQuickOpen(aiSaid.Length > 160 ? aiSaid[..160] : aiSaid) is { } openedByAi)
-                _ = liveNow.SendTextAsync("[Программа] " + openedByAi + " Владелец видит это на экране.", respond: false);
+            // 2026-10-27: ветка «открыть по словам самого советника» убрана — так открывался раздел из его выдумки («Прибыль и деньги, приёмка там»).
         }
+        _liveToolNav = false;
         if (_liveAi is not null)
         {
             var text = _liveAiText.ToString().Trim();
@@ -3752,7 +3850,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             }
             _recorder = recorder;
             // Пока владелец говорит — собираем сводку магазина, к концу распознавания она уже готова.
-            _ = GetSummaryAsync();
+            _ = GetSummaryAsync(SummaryParts.Periods | SummaryParts.Debts);
             _mic.Content = MicGlyph(recording: true);
             Use(_mic, Button.BackgroundProperty, "BrushDanger");
             _input.Watermark = T("Говорите… нажмите ■, когда закончите", "Сүйлөңүз… бүткөндө ■ басыңыз", "Speak… press ■ when you finish",
@@ -4112,10 +4210,160 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             return T($"Открыт склад, товар «{product.Title}».", $"Кампа ачылды, товар «{product.Title}».", $"Warehouse opened at “{product.Title}”.",
                 $"Depo açıldı, ürün «{product.Title}».", $"Ombor ochildi, mahsulot «{product.Title}».");
         }
-        return section is not null && ProductActionPlan.NavigateByWords?.Invoke(text, true) is { } opened
-            ? T($"Открыт раздел «{opened}».", $"«{opened}» бөлүмү ачылды.", $"Opened “{opened}”.", $"«{opened}» açıldı.", $"«{opened}» ochildi.")
-            : null;
+        // 2026-10-27: разделы открывает маршрутизатор (RunNavRouteAsync) с проверкой результата; старое открытие по первым 5 буквам убрано.
+        return null;
     }
+
+    /// <summary>2026-10-27: фраза — для маршрутизатора, а не про товар: «открой склад Марс» / «открой Mars» (остаток фразы совпал с названием товара каталога)
+    /// открывает товар (TryQuickOpen), а не раздел.</summary>
+    private bool RouterOwnsPhrase(AdvisorNavRouter.Route route, string text)
+    {
+        if (route.Kind == AdvisorNavRouter.RouteKind.NotNav)
+            return false;
+        if (route.Strong && route.Residual.Count is >= 1 and <= 3)
+        {
+            var words = System.Text.RegularExpressions.Regex.Split(text.ToLowerInvariant(), @"[^\p{L}\p{N}']+")
+                .Where(w => w.Length > 0 && route.Residual.Contains(AdvisorNavRouter.Fold(w))).ToList();
+            if (words.Count > 0 && QuickOpenProduct(words).Product is not null)
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>Открыть по маршруту и показать в чате ФАКТ: один пункт — «Открыл «Склад → Приёмка»» (после проверки); ничья — кнопки вариантов;
+    /// неизвестный раздел — честно и кнопки основных разделов. Составная просьба («…и найди закончившиеся») — ещё и список закончившихся.</summary>
+    private async Task<AdvisorTurn.NavReply> RunNavRouteAsync(AdvisorNavRouter.Route route)
+    {
+        var open = ProductActionPlan.OpenNavTarget!;
+        if (route.Kind == AdvisorNavRouter.RouteKind.Single)
+        {
+            var reply = await AdvisorTurn.OpenAsync(route.Targets[0], open, route.Companion, route.Residual).ConfigureAwait(true);
+            AddBubble(reply.Text, fromOwner: false);
+            if (reply.Kind == AdvisorTurn.ReplyKind.Opened && route.Companion is { } companion)
+                AddCompanion(companion);
+            return reply;
+        }
+        if (route.Kind == AdvisorNavRouter.RouteKind.Ambiguous)
+        {
+            var text = AdvisorTurn.ChooseText(route.Targets);
+            AddNavButtons(AddBubble(text, fromOwner: false), route.Targets);
+            return new AdvisorTurn.NavReply(AdvisorTurn.ReplyKind.Choose, text, route.Targets, null, route.Companion, route.Residual, null, 0);
+        }
+        var unknown = AdvisorTurn.UnknownText(route.Residual);
+        var popular = AdvisorTurn.Popular();
+        AddNavButtons(AddBubble(unknown, fromOwner: false), popular);
+        return new AdvisorTurn.NavReply(AdvisorTurn.ReplyKind.Unknown, unknown, popular, null, null, route.Residual, null, 0);
+    }
+
+    /// <summary>Кнопки вариантов под пузырём: нажатие открывает пункт и пишет факт в чат.</summary>
+    private void AddNavButtons(SelectableTextBlock body, IReadOnlyList<AdvisorNavRouter.NavTarget> targets)
+    {
+        if (body.Parent is not StackPanel content)
+            return;
+        var row = new WrapPanel { Orientation = Orientation.Horizontal };
+        foreach (var target in targets.Take(4))
+        {
+            var button = MorningReportCard.SmallButton(target.Title, T("Открыть", "Ачуу", "Open", "Aç", "Ochish") + ": " + target.Title);
+            button.Margin = new Thickness(0, 4, 6, 0);
+            button.MinHeight = 44; // 2026-10-27: цель касания не меньше 44
+            button.Click += async (_, _) =>
+            {
+                foreach (var b in row.Children.OfType<Button>())
+                    b.IsEnabled = false;
+                var reply = await AdvisorTurn.OpenAsync(target, ProductActionPlan.OpenNavTarget!).ConfigureAwait(true);
+                AddBubble(reply.Text, fromOwner: false);
+                SaveCurrentChat();
+            };
+            row.Children.Add(button);
+        }
+        content.Children.Insert(content.Children.IndexOf(body) + 1, row);
+    }
+
+    /// <summary>Закончившиеся / заканчивающиеся товары из локального каталога (мгновенно, без нейросети) — вторая часть просьбы
+    /// «открой приёмку и найди товары, которые закончились»: приёмка уже открыта, список здесь, а «Склад → Нет в наличии» — кнопкой.</summary>
+    private void AddCompanion(AdvisorNavRouter.NavTarget companion)
+    {
+        var (count, names) = StockNames(companion.Filter);
+        var what = companion.Filter == "low"
+            ? T("заканчиваются", "түгөнүп баратат", "running low", "tükenmek üzere", "tugab bormoqda")
+            : T("закончились", "түгөндү", "out of stock", "stokta yok", "tugagan");
+        string text;
+        if (companion.Filter is "low" or "out")
+            text = count == 0
+                ? T($"По локальному каталогу товаров, которые {what}, нет.", $"Жергиликтүү каталог боюнча «{what}» товарлар жок.", $"No products are {what} in the local catalog.",
+                    $"Yerel katalogda «{what}» ürün yok.", $"Mahalliy katalogda «{what}» mahsulot yo'q.")
+                : T($"Товаров, которые {what}: {count}. Первые: ", $"«{what}» товарлар: {count}. Алгачкылары: ", $"Products {what}: {count}. First ones: ",
+                    $"«{what}» ürün: {count}. İlk olanlar: ", $"«{what}» mahsulotlar: {count}. Birinchilari: ") + string.Join(", ", names) + (count > names.Count ? "…" : ".");
+        else
+            text = T("Срок годности смотрите здесь:", "Жарактуулук мөөнөтүн бул жерден караңыз:", "See the expiry here:", "Son kullanma için buraya bakın:", "Yaroqlilik muddatini shu yerdan ko'ring:");
+        AddNavButtons(AddBubble(text, fromOwner: false), new[] { companion, AdvisorNavRouter.ById("restock")! });
+    }
+
+    private static (int Count, List<string> Names) StockNames(string? filter)
+    {
+        try
+        {
+            var tiles = CatalogCacheService.Products.Where(p => !p.IsService).ToList();
+            var selected = filter == "out" ? tiles.Where(p => p.Quantity <= 0)
+                : filter == "low" ? tiles.Where(p => p.IsLowStock && p.Quantity > 0)
+                : Enumerable.Empty<NurMarketKassa.Models.Pos.CatalogProductTileVm>();
+            var list = selected.OrderBy(p => p.Quantity).ThenBy(p => p.Title).ToList();
+            return (list.Count, list.Take(12).Select(p => p.Title).ToList());
+        }
+        catch (InvalidOperationException)
+        {
+            return (0, new List<string>());
+        }
+    }
+
+    /// <summary>Нейросеть предложила открыть раздел (open_section): выполняем по словарю с проверкой и пишем в чат факт.</summary>
+    private async Task ShowOpenResultAsync(ProductActionPlan.Step open)
+    {
+        var result = await ProductActionPlan.ExecuteAsync(open, T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi")).ConfigureAwait(true);
+        if (open.Op == "open_section" && result.Message.Length > 0)
+            AddBubble(result.Message, fromOwner: false);
+    }
+
+    /// <summary>Инструмент open_section живого разговора: модель выбирает id из словаря программы, программа открывает и возвращает ФАКТ —
+    /// модель говорит только его. Вызывается из фонового потока.</summary>
+    private async Task<string> LiveToolAsync(GeminiLiveVoice live, string name, string argsJson)
+    {
+        if (name != "open_section")
+            return "НЕ ВЫПОЛНЕНО: такого инструмента нет.";
+        string target = "", words = "";
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(argsJson);
+            target = doc.RootElement.TryGetProperty("target", out var t) ? t.GetString() ?? "" : "";
+            words = doc.RootElement.TryGetProperty("words", out var w) ? w.GetString() ?? "" : "";
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+        var route = target.Length > 0 && target != "unknown" ? AdvisorNavRouter.Resolve(target) : AdvisorNavRouter.Parse("открой " + words);
+        if (route.Kind == AdvisorNavRouter.RouteKind.NotNav)
+            route = new AdvisorNavRouter.Route(AdvisorNavRouter.RouteKind.Unknown, Array.Empty<AdvisorNavRouter.NavTarget>(), null, Array.Empty<string>(), true);
+        var reply = await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            if (_live != live)
+                return null;
+            _liveToolNav = true;
+            return await RunNavRouteAsync(route).ConfigureAwait(true);
+        }).ConfigureAwait(false);
+        if (reply is null)
+            return "НЕ ВЫПОЛНЕНО: разговор уже завершён.";
+        PosLogger.Log($"ADVISOR_PERF голос: инструмент open_section({target}{(words.Length > 0 ? ", «" + words + "»" : "")}) → {reply.Kind}.", "INFO");
+        return reply.Kind switch
+        {
+            AdvisorTurn.ReplyKind.Opened => "ОТКРЫТО (проверено программой): " + reply.Text + " Скажи владельцу ровно это, коротко.",
+            AdvisorTurn.ReplyKind.Failed => "НЕ ОТКРЫТО: " + reply.Text + " Скажи владельцу, что не получилось, и причину.",
+            AdvisorTurn.ReplyKind.Choose => "НЕ ОТКРЫТО, нужен выбор. Владельцу показаны кнопки: " + string.Join("; ", reply.Options.Select(o => o.Title)) + ". Спроси, какой из них открыть.",
+            _ => "НЕ ОТКРЫТО: " + reply.Text + " Скажи, что такого раздела не нашёл, и ничего не придумывай.",
+        };
+    }
+
+    /// <summary>Инструмент живого разговора уже открыл раздел в этом ответе — запасной разбор распознанной фразы не нужен.</summary>
+    private volatile bool _liveToolNav;
 
     /// <summary>Товар для «открой …»: слова фразы (кроме команд) совпадают с началом слов названия; лучший по числу совпадений.</summary>
     private static (NurMarketKassa.Models.Pos.CatalogProductTileVm? Product, int Score) QuickOpenProduct(List<string> words)

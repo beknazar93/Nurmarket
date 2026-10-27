@@ -4,13 +4,14 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using NurMarketKassa.Models;
+using NurMarketKassa.Services.GlobalProducts;
 
 namespace NurMarketKassa.Services.Api;
 
 /// <summary>
 /// Реализация каталожных запросов поверх настроенного транспорта <see cref="NurMarketApiClient"/>.
 /// </summary>
-public sealed class CatalogApiService : ICatalogApiService
+public sealed partial class CatalogApiService : ICatalogApiService
 {
     private readonly NurMarketApiClient _client;
 
@@ -670,6 +671,15 @@ public sealed class CatalogApiService : ICatalogApiService
         var key = barcode.Trim();
         if (GlobalBarcodeCache.TryGet(key) is { } cached)
             return cached;
+        // 2026-10-27, владелец: «встрой справочник готовых наименований и обновляй из сервера». Сначала локальная копия справочника
+        // (128 тыс. товаров, мгновенно и без интернета), сервер — только если кода там нет и о нём не отвечали «нет» за 24 часа;
+        // найденное на сервере дописывается в копию. Все места, где ищут название по штрихкоду (карточка товара, приёмка,
+        // массовое добавление), ходят сюда.
+        return await GlobalProductCatalog.Instance.FindOrFetchAsync(key, FetchGlobalFromServerAsync, ct).ConfigureAwait(false);
+    }
+
+    private async Task<JsonElement?> FetchGlobalFromServerAsync(string key, CancellationToken ct)
+    {
         try
         {
             var data = await _client.RequestAsync(

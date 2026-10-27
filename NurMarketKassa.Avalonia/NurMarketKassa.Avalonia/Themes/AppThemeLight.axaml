@@ -40,6 +40,12 @@
   <SolidColorBrush x:Key="BrushSuccessSoft" Color="#D1FAE5" />
   <SolidColorBrush x:Key="BrushWarning" Color="#B45309" />
   <SolidColorBrush x:Key="BrushWarningSoft" Color="#FEF3C7" />
+  <!-- 2026-10-27: текст на кнопке с фоном BrushWarning (светлая тема — коричневый #B45309): белый, 5,0:1 (в тёмной — тёмный на золотом). -->
+  <SolidColorBrush x:Key="BrushOnWarning" Color="#FFFFFF" />
+  <!-- 2026-10-27: красная заливка под белым текстом — в светлой теме тот же #B91C1C, что BrushDanger (тёмная — #DC2626). -->
+  <SolidColorBrush x:Key="BrushDangerFill" Color="#B91C1C" />
+  <!-- 2026-10-27: акцент как текст/значок на панели (до применения темы; дальше считает AccentThemeService): тёмный янтарь, ≥5:1 на белом. -->
+  <SolidColorBrush x:Key="BrushAccentText" Color="#8A5A00" />
   <!-- 2026-10-26 (М4): колонка «Неизвестный штрихкод» — #B54708 на #FEF3E2 (5,0:1); тёмный вариант — в AppTheme.axaml. -->
   <SolidColorBrush x:Key="BrushUnknown" Color="#B54708" />
   <SolidColorBrush x:Key="BrushUnknownSoft" Color="#FEF3E2" />

@@ -84,6 +84,15 @@ public sealed class PosCheckoutResult
     /// кассиру показывается это сообщение с разницей, чтобы вернуть или добрать деньги.</summary>
     public string? TotalMismatchWarning { get; set; }
 
+    /// <summary>2026-10-27 (Б-03 сервера, PRICE_SYNC): сервер ответил 409 price_changed — продажа НЕ проведена, цена строки в чеке устарела.
+    /// Здесь — актуальные цены из ответа сервера (может быть пусто, если сервер их не прислал: тогда цены берутся запросом товара).</summary>
+    public bool PriceChanged { get; init; }
+    public IReadOnlyList<ServerPriceMismatch>? PriceChanges { get; init; }
+
+    /// <summary>2026-10-27: продажа проведена, но сервер сообщил price_mismatch (цена в чеке отличалась от текущей) — короткий текст для тоста
+    /// (журнал PRICE_SYNC пишется в сервисе оплаты). null — расхождений нет или сервер поле не прислал.</summary>
+    public string? PriceMismatchNote { get; set; }
+
     public static PosCheckoutResult Succeeded(
         double total,
         string? cartJson,
@@ -125,4 +134,11 @@ public sealed class PosCheckoutResult
 
     public static PosCheckoutResult Failed(string error) =>
         new() { IsSuccess = false, ErrorMessage = error };
+
+    /// <summary>2026-10-27: отказ сервера 409 price_changed (заголовок X-NurMarket-Strict-Price).</summary>
+    public static PosCheckoutResult PriceChangedFailure(string error, IReadOnlyList<ServerPriceMismatch> changes) =>
+        new() { IsSuccess = false, ErrorMessage = error, PriceChanged = true, PriceChanges = changes };
 }
+
+/// <summary>2026-10-27: строка price_mismatch сервера — позиция чека, цена которой отличается от текущей цены товара.</summary>
+public sealed record ServerPriceMismatch(int Index, string ProductId, string Name, double Sent, double Current);

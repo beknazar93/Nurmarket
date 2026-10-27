@@ -325,6 +325,13 @@ public partial class ReceiptHistoryWindow : Window
                 "The shift is not open — showing this till's receipts for today.",
                 "Vardiya açık değil — bu kasanın bugünkü fişleri gösteriliyor.",
                 "Smena ochilmagan — shu kassaning bugungi cheklari ko'rsatildi."));
+        // 2026-10-27 (аудит кассы, С-13): список обрезан по числу страниц — кассир должен это знать (искать старый чек — через «Вчера»/«Продажи»).
+        if (result.Truncated)
+            parts.Add(Tr.T("Показаны не все чеки: за период их очень много, загружены самые новые. Старый чек ищите по номеру в «Продажах» или выберите другой период.",
+                "Бардык чектер көрсөтүлгөн жок: мезгил ичинде алар өтө көп, эң жаңылары жүктөлдү. Эски чекти «Сатуулардан» номери боюнча издеңиз же башка мезгилди тандаңыз.",
+                "Not all receipts are shown: there are very many for the period, the newest ones are loaded. Look for an older receipt by number in “Sales” or pick another period.",
+                "Tüm fişler gösterilmiyor: dönemde çok fazla var, en yeniler yüklendi. Eski bir fişi «Satışlar»da numarayla arayın veya başka bir dönem seçin.",
+                "Hamma cheklar ko'rsatilmadi: davr ichida ular juda ko'p, eng yangilari yuklandi. Eski chekni «Sotuvlar»da raqami bo'yicha qidiring yoki boshqa davrni tanlang."));
         if (result.ServerUnavailable)
             parts.Add(Tr.T("Нет связи с сервером — история чеков с сервера недоступна. Показаны только чеки, сохранённые на этой кассе и ещё не отправленные.",
                 "Сервер менен байланыш жок — сервердеги чектердин тарыхы жеткиликсиз. Ушул кассада сакталган жана али жөнөтүлө элек чектер гана көрсөтүлдү.",
@@ -691,6 +698,7 @@ public partial class ReceiptHistoryWindow : Window
         card.Inn = prefs.ShowInn && !string.IsNullOrWhiteSpace(prefs.StoreInn) ? prefs.StoreInn.Trim() : "";
         card.Title = SaleReceiptCardData.TitleText(false);
         card.Number = entry.ReceiptNumber ?? "";
+        card.SaleId = entry.Id ?? ""; // 2026-10-27 (С-12)
         card.DateTimeText = entry.CreatedAt.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
         card.Cashier = (entry.Cashier ?? CartDisplayHelper.TryCashierName(detail) ?? "").Trim();
         card.Cashbox = Str(detail, "cashbox_name") ?? Str(detail, "cashbox_display") ?? "";
@@ -738,7 +746,15 @@ public partial class ReceiptHistoryWindow : Window
         switch (method)
         {
             case "mixed" or "split":
-                if (received is > 0)
+                // 2026-10-27 (аудит кассы, С-15): сервер смешанную не разбивает (cash_received = 0), а касса знает доли из окна оплаты
+                // (журнал SaleReturnLedger) — для смешанной берём их всегда, а не «Смешанная <итог>» одной строкой.
+                if (!entry.IsLocal && SaleReturnLedger.Get(entry.Id) is { Total: > 0m } mixedLedger
+                    && mixedLedger.PaidCash + mixedLedger.PaidNonCash > 0.005m)
+                {
+                    pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel("cash"), SaleReceiptCardData.Fmt(mixedLedger.PaidCash)));
+                    pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel("cashless"), SaleReceiptCardData.Fmt(mixedLedger.PaidNonCash)));
+                }
+                else if (received is > 0)
                 {
                     pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel("cash"), SaleReceiptCardData.Fmt(received.Value)));
                     pay.Add(new SummaryVm(ReceiptHistoryService.PaymentLabel("cashless"), SaleReceiptCardData.Fmt(Math.Max(0, total - received.Value))));

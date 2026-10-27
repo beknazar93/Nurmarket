@@ -168,14 +168,45 @@ public static class SaleReceiptTextBuilder
         var method = (Str(sale, "payment_method") ?? "").ToLowerInvariant();
         if (CartReceiptTextBuilder.FormatPaymentMethodLine(method) is { } methodLine)
             Line(methodLine);
+        // 2026-10-27 (аудит кассы, С-6, С-15): копия чека после возврата печаталась с «Внесено/Сдача», которые сервер уже пересчитал
+        // (70,59 / 20,19 вместо 100 / 28,60), и без пометки «возврат»; смешанная — без долей нал/безнал. Берём то, что касса записала
+        // при оплате (SaleReturnLedger); записи нет — «Внесено/Сдача» после возврата не печатаем, лучше пусто, чем выдуманные цифры.
+        var saleLedger = SaleReturnLedger.Get(Str(sale, "id"));
+        var saleStatus = (Str(sale, "status") ?? "").ToLowerInvariant();
+        var fullyReturned = saleStatus is "canceled" or "cancelled" or "returned" or "refunded";
+        var anyReturn = fullyReturned || saleStatus == "partially_returned" || saleLedger is { Refunds.Count: > 0 };
         var received = Money(sale, "cash_received");
+        decimal? serverChange = Money(sale, "change");
+        var paidTotal = due;
+        if (anyReturn)
+        {
+            if (saleLedger is { Total: > 0m } known && known.Received is > 0m)
+            {
+                received = known.Received;
+                serverChange = known.Change;
+                paidTotal = known.Total;
+            }
+            else
+            {
+                received = null;
+                serverChange = null;
+            }
+        }
+
         if (method == "cash" && received is > 0)
         {
             Line(ReceiptLineLayout.FormatLabelAmount(
                 "Внесено", ReceiptLineLayout.WithSom(received.Value.ToString("N2", CultureInfo.CurrentCulture)), w));
-            var change = Money(sale, "change") ?? Math.Max(0, received.Value - due);
+            var change = serverChange ?? Math.Max(0, received.Value - paidTotal);
             Line(ReceiptLineLayout.FormatLabelAmount(
                 "Сдача", ReceiptLineLayout.WithSom(change.ToString("N2", CultureInfo.CurrentCulture)), w));
+        }
+        if (method is "mixed" or "split" && saleLedger is { Total: > 0m } mixedLedger && mixedLedger.PaidCash + mixedLedger.PaidNonCash > 0.005m)
+        {
+            Line(ReceiptLineLayout.FormatLabelAmount(
+                "Наличными", ReceiptLineLayout.WithSom(mixedLedger.PaidCash.ToString("N2", CultureInfo.CurrentCulture)), w));
+            Line(ReceiptLineLayout.FormatLabelAmount(
+                "Безналичными", ReceiptLineLayout.WithSom(mixedLedger.PaidNonCash.ToString("N2", CultureInfo.CurrentCulture)), w));
         }
         if (method == "debt")
         {
@@ -213,6 +244,21 @@ public static class SaleReceiptTextBuilder
 
         Line(ReceiptLineLayout.FormatLabelAmount(
             "ИТОГО", ReceiptLineLayout.WithSom(due.ToString("N2", CultureInfo.CurrentCulture)), w));
+
+        if (anyReturn)
+        {
+            // 2026-10-27 (С-6): чек с возвратом на бумаге помечен; сколько вернули — по журналу кассы (если он есть).
+            Line();
+            Line(ReceiptLineLayout.Center(fullyReturned ? "ЧЕК ВОЗВРАЩЁН ПОЛНОСТЬЮ" : "ЧАСТИЧНЫЙ ВОЗВРАТ", w));
+            if (saleLedger is { Refunds.Count: > 0 } withRefunds)
+            {
+                Line(ReceiptLineLayout.FormatLabelAmount(
+                    "Возвращено", ReceiptLineLayout.WithSom(withRefunds.Refunded.ToString("N2", CultureInfo.CurrentCulture)), w));
+                if (!fullyReturned)
+                    Line(ReceiptLineLayout.FormatLabelAmount(
+                        "Итого после возврата", ReceiptLineLayout.WithSom(Math.Max(0m, withRefunds.Total - withRefunds.Refunded).ToString("N2", CultureInfo.CurrentCulture)), w));
+            }
+        }
 
         if (isReprint)
         {

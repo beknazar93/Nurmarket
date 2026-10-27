@@ -35,6 +35,11 @@ public sealed class OfflineSaleEntry
 
     public string? ConsultantCommissionPercent { get; set; }
 
+    /// <summary>2026-10-27 (аудит кассы, Н-6): клиент, выбранный в окне оплаты, — чтобы чек, пробитый без связи, не потерял его
+    /// при досылке (бонусы клиенту касса начисляет сразу, а на сервере продажа раньше уходила «без клиента»). Поле лежит в JSON
+    /// записи (схема таблицы не меняется); у старых записей null — досылка как раньше.</summary>
+    public string? ClientId { get; set; }
+
     public string CartJson { get; set; } = "{}";
 
     public DateTimeOffset? LastAttemptAt { get; set; }

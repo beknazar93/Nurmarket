@@ -20,6 +20,17 @@ public interface IPosQuickCheckoutApi
         TimeSpan timeout,
         CancellationToken ct = default);
 
+    /// <summary>2026-10-27 (Б-03 сервера, PRICE_SYNC): то же, но с заголовком X-NurMarket-Strict-Price: 1 — чек с устаревшей ценой строки
+    /// сервер не проводит (409, code "price_changed"). Реализация по умолчанию заголовок не шлёт (заглушки и старый сервер).
+    /// Только для интерактивной оплаты: досылка очереди (SyncService) идёт без него — продажа уже состоялась по той цене.</summary>
+    Task<JsonElement> PosQuickCheckoutAsync(
+        JsonObject body,
+        string idempotencyKey,
+        TimeSpan timeout,
+        bool strictPrice,
+        CancellationToken ct = default) =>
+        PosQuickCheckoutAsync(body, idempotencyKey, timeout, ct);
+
     /// <summary>2026-10-06, ТЗ ч.12, п. 3.6: POST api/main/pos/checkout/batch/ — до 50 продаж одним запросом,
     /// {"items": [{"idempotency_key", "body"}]} → {"results": [{"idempotency_key", "status", "sale" | "detail"}]}.
     /// Каждая продажа проводится отдельно (своя транзакция); повтор с тем же ключом — status 200 и прежняя продажа.</summary>
@@ -28,20 +39,32 @@ public interface IPosQuickCheckoutApi
 
 public sealed partial class SalesApiService : IPosQuickCheckoutApi
 {
+    public Task<JsonElement> PosQuickCheckoutAsync(
+        JsonObject body,
+        string idempotencyKey,
+        TimeSpan timeout,
+        CancellationToken ct = default) =>
+        PosQuickCheckoutAsync(body, idempotencyKey, timeout, strictPrice: false, ct);
+
     public async Task<JsonElement> PosQuickCheckoutAsync(
         JsonObject body,
         string idempotencyKey,
         TimeSpan timeout,
+        bool strictPrice,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(idempotencyKey))
             throw new ArgumentException("Idempotency-Key обязателен.", nameof(idempotencyKey));
 
+        var headers = new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey.Trim() };
+        // 2026-10-27: строгая проверка цены (сервер без Б-03 заголовок просто не знает).
+        if (strictPrice)
+            headers[ServerPriceContract.StrictPriceHeader] = "1";
         var (response, _) = await _client.RequestWithHeadersAsync(
                 HttpMethod.Post,
                 "api/main/pos/checkout/",
                 body,
-                new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey.Trim() },
+                headers,
                 ct,
                 timeout)
             .ConfigureAwait(false);

@@ -78,6 +78,10 @@ public sealed class ReceiptHistoryResult
 
     /// <summary>Выбрана «Эта смена», но смена не открыта — показаны чеки этой кассы за сегодня.</summary>
     public bool NoOpenShift { get; set; }
+
+    /// <summary>2026-10-27 (аудит кассы, С-13): сервер отдал все 25 страниц подряд и это не конец списка — чеки старше обрезаны.
+    /// Раньше список молча обрывался, кассир не знал, что видит не всё.</summary>
+    public bool Truncated { get; set; }
 }
 
 /// <summary>«История чеков» и повторная печать для кассира (2026-09-27, просьба владельца:
@@ -121,11 +125,17 @@ public static class ReceiptHistoryService
 
         // Смена может начаться вчера (сервер закрывает смены сам только в 01:00), поэтому для
         // «этой смены» берём два дня и отбираем по номеру смены.
+        // 2026-10-27 (аудит кассы, С-13): время открытия смены касса уже знает (ShiftAgeWarning) — тогда берём только дни смены, а не
+        // всегда два: сервер отдаёт продажи ВСЕЙ компании, и два дня магазина — десятки страниц, лишнее обрезалось молча.
+        var shiftFrom = today.AddDays(-1);
+        if (period == ReceiptHistoryPeriod.CurrentShift && ShiftAgeWarning.Get(shiftId) is { } shiftOpened
+            && shiftOpened.Date >= today.AddDays(-1) && shiftOpened.Date <= today)
+            shiftFrom = shiftOpened.Date;
         var (from, toExclusive) = period switch
         {
             ReceiptHistoryPeriod.Yesterday => (today.AddDays(-1), today),
             ReceiptHistoryPeriod.Today => (today, today.AddDays(1)),
-            _ => (today.AddDays(-1), today.AddDays(1)),
+            _ => (shiftFrom, today.AddDays(1)),
         };
 
         bool InPeriod(DateTime at) => period switch
@@ -144,7 +154,7 @@ public static class ReceiptHistoryService
         {
             try
             {
-                serverEntries = await LoadServerAsync(period, shiftId, from, toExclusive, InPeriod, ct).ConfigureAwait(false);
+                serverEntries = await LoadServerAsync(period, shiftId, from, toExclusive, InPeriod, result, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -192,6 +202,7 @@ public static class ReceiptHistoryService
         DateTime from,
         DateTime toExclusive,
         Func<DateTime, bool> inPeriod,
+        ReceiptHistoryResult sink,
         CancellationToken ct)
     {
         var rows = new List<JsonElement>();
@@ -218,6 +229,9 @@ public static class ReceiptHistoryService
 
             if (added == 0 || items.Count < PageSize)
                 break;
+            // 2026-10-27 (С-13): последняя разрешённая страница полная — дальше есть чеки, которых мы не загрузили.
+            if (page == MaxPages)
+                sink.Truncated = true;
         }
 
         // 2026-09-28, сверка с сайтом: номер чека — как в «Продажах» сайта и в окне «Возврат»:
@@ -546,9 +560,11 @@ public static class ReceiptHistoryService
                 ReceiptText = receiptText,
             }).ConfigureAwait(false);
 
+            // 2026-10-27 (С-14): причина от принтера (тайм-аут «чек мог выйти позже», ошибка порта, предыдущая печать ещё идёт).
             return printed
                 ? null
-                : Tr.T("Принтер не ответил — проверьте, что он включён и подключён.",
+                : (printer is LptReceiptPrinterService ? LptReceiptPrinterService.LastFailureReason : null)
+                  ?? Tr.T("Принтер не ответил — проверьте, что он включён и подключён.",
                     "Принтер жооп берген жок — күйгүзүлгөнүн жана туташканын текшериңиз.",
                     "The printer did not respond — check that it is on and connected.",
                     "Yazıcı yanıt vermedi — açık ve bağlı olduğunu kontrol edin.",

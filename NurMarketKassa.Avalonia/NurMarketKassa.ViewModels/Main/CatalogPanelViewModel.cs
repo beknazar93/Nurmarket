@@ -15,7 +15,7 @@ namespace NurMarketKassa.ViewModels.Main;
 /// <summary>
 /// Каталог кассира: Offline-First (SQLite → UI), затем фоновая синхронизация с API.
 /// </summary>
-public sealed class CatalogPanelViewModel : ViewModelBase
+public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
 {
     /// <summary>2026-10-05, владелец (Android): «при смене страницы каталога жёстко тормозит» — на телефоне
     /// видно ~6 плиток, а при смене страницы создавались все 50. Телефон ставит меньше (PageSizeOverride).</summary>
@@ -86,23 +86,41 @@ public sealed class CatalogPanelViewModel : ViewModelBase
 
         // 2026-10-01, владелец: «в режиме магазина одежды и другое в каталоге должна быть кнопка
         // "Подробнее" с описанием товара от продавца». Видна в сферах «Одежда» и «Услуги».
-        MarketSpheres.Changed += () => _dispatcher.Post(() => OnPropertyChanged(nameof(ShowProductDetails)));
+        // 2026-10-27, аудит С-24: подписки на статические события — именованные, снимаются в Dispose (иначе при каждой смене кассира
+        // или выходе на экран входа прежняя модель каталога оставалась жить и реагировала на события).
+        _marketSpheresChanged = () => _dispatcher.Post(() => OnPropertyChanged(nameof(ShowProductDetails)));
+        MarketSpheres.Changed += _marketSpheresChanged;
 
         // Смена языка (2026-09-07): плашки «Штучный/Весовой» и подписи считаются конвертером/кодом,
         // перерисовываем текущую страницу и статус, иначе они остаются на прежнем языке.
-        Tr.LanguageChanged += () => _dispatcher.InvokeAsync(() =>
+        _languageChanged = () => _dispatcher.InvokeAsync(() =>
         {
             ApplyFilter();
             StatusText = Tr.T($"Товаров: {_allProducts.Count}", $"Товарлар: {_allProducts.Count}", $"Products: {_allProducts.Count}", $"Ürün: {_allProducts.Count}", $"Mahsulotlar: {_allProducts.Count}");
             OnPropertyChanged(nameof(PageStatusText));
             OnPropertyChanged(nameof(HotkeyGroupFilterLabel));
         });
+        Tr.LanguageChanged += _languageChanged;
 
         Products.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasProducts));
             OnPropertyChanged(nameof(IsCatalogEmpty));
         };
+    }
+
+    private readonly Action _marketSpheresChanged;
+    private readonly Action _languageChanged;
+    private int _disposed;
+
+    /// <summary>2026-10-27 (С-24): отписка от статических событий — модель каталога больше не нужна (смена кассира, выход на вход).</summary>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
+        CatalogCacheService.CatalogChanged -= OnCatalogChangedExternally;
+        MarketSpheres.Changed -= _marketSpheresChanged;
+        Tr.LanguageChanged -= _languageChanged;
     }
 
     public ObservableCollection<CatalogTabVm> Tabs { get; } =
@@ -144,10 +162,14 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         {
             if (!SetProperty(ref _searchText, value ?? ""))
                 return;
+            OnPropertyChanged(nameof(IsSearchActive));
             (ClearSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
             ScheduleFilterAfterSearchDebounce();
         }
     }
+
+    /// <summary>2026-10-27, аудит Н-4: идёт поиск (2+ символа) — он ищет по всему каталогу, вкладка не действует; вкладки тускнеют.</summary>
+    public bool IsSearchActive => _searchText.Trim().Length >= 2;
 
     private CancellationTokenSource? _searchDebounceCts;
 
@@ -803,8 +825,13 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         _republishing = true;
         try
         {
-            _catalogCache.TryLoadFromDatabase();
-            var products = _catalogCache.GetProducts().ToList();
+            // 2026-10-27, аудит С-25: чтение каталога из SQLite (после каждой продажи и фоновой синхронизации) шло на UI-потоке —
+            // кассир видел подвисание после оплаты. Читаем в фоне, на UI-поток отдаём готовый список.
+            var products = await Task.Run(() =>
+            {
+                _catalogCache.TryLoadFromDatabase();
+                return _catalogCache.GetProducts().ToList();
+            }).ConfigureAwait(false);
             await _dispatcher.InvokeAsync(() => PublishProducts(products, keepPage)).ConfigureAwait(false);
         }
         catch (Exception ex)

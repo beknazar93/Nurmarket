@@ -8,11 +8,11 @@
   "uz": "Yorqin bozor"
  },
  "description": {
-  "ru": "Оранжевый, 5 колонок, остаток всегда виден. Для рынков и оптовых магазинов (Дордой, Ош-базар).",
-  "ky": "Кызгылт сары, 5 мамыча, калдык дайыма көрүнөт. Базарлар жана көтөрмө дүкөндөр үчүн (Дордой, Ош базары).",
-  "en": "Orange, 5 columns, stock always visible. For markets and wholesale shops (Dordoi, Osh Bazaar).",
-  "tr": "Turuncu, 5 sütun, stok her zaman görünür. Pazarlar ve toptan mağazalar için (Dordoi, Osh Pazarı).",
-  "uz": "To'q sariq, 5 ustun, qoldiq doim ko'rinadi. Bozorlar va ulgurji do'konlar uchun (Dordoy, Osh bozori)."
+  "ru": "Оранжевый, 5 колонок, остаток всегда виден. Для рынков одежды и текстиля, оптовых магазинов одежды (Дордой, Ош-базар).",
+  "ky": "Кызгылт сары, 5 мамыча, калдык дайыма көрүнөт. Кийим жана текстиль базарлары, кийим көтөрмө дүкөндөрү үчүн (Дордой, Ош базары).",
+  "en": "Orange, 5 columns, stock always visible. For clothing and textile markets and wholesale clothing shops (Dordoi, Osh Bazaar).",
+  "tr": "Turuncu, 5 sütun, stok her zaman görünür. Giyim ve tekstil pazarları ile toptan giyim mağazaları için (Dordoi, Osh Pazarı).",
+  "uz": "To'q sariq, 5 ustun, qoldiq doim ko'rinadi. Kiyim va tekstil bozorlari hamda ulgurji kiyim do'konlari uchun (Dordoy, Osh bozori)."
  },
  "spheres": [
   "clothing"

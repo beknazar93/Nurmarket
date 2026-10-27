@@ -8,8 +8,6 @@ public interface ICashShiftService
 {
     Task<CashShiftOperationResult> OpenShiftAsync(decimal openingCash, CancellationToken cancellationToken = default);
     Task<CashShiftOperationResult> CloseShiftAsync(decimal? closingCash, CancellationToken cancellationToken = default);
-    Task<CashShiftReportResult> GenerateXReportAsync(decimal? currentBalance, CancellationToken cancellationToken = default);
-    Task<CashShiftReportResult> GenerateZReportAsync(decimal? closingCash, CancellationToken cancellationToken = default);
     Task<bool> PrintReportAsync(string reportText, CancellationToken cancellationToken = default);
 
     /// <summary>2026-09-15, живой баг ("Долг для уже закрытых смен в Истории смен показывает
@@ -31,6 +29,16 @@ public sealed record CashShiftOperationResult(
     string? InfoMessage,
     CashShiftClosingTotals? Totals = null)
 {
+    /// <summary>2026-10-27 (аудит кассы, С-11): сервер при «открыть смену» вернул уже открытую смену — Balance — её начальная
+    /// сумма у сервера, не введённая кассиром; ResumedOpenedAt — когда она открыта (местное время).</summary>
+    public bool Resumed { get; init; }
+
+    public DateTime? ResumedOpenedAt { get; init; }
+
+    /// <summary>2026-10-27 (ревью, См-2): InfoMessage — не просто «сообщение», а предупреждение (например, о потерянном пересчёте ящика
+    /// прошлой смены): его надо показать так, чтобы кассир не пропустил, а не тостом.</summary>
+    public bool InfoIsWarning { get; init; }
+
     public static CashShiftOperationResult Success(
         decimal? balance, bool isOffline = false, string? infoMessage = null, CashShiftClosingTotals? totals = null) =>
         new(true, balance, isOffline, null, infoMessage, totals);

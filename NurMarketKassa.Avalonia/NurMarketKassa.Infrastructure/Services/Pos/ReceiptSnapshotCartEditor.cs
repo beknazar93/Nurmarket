@@ -88,6 +88,10 @@ public static class ReceiptSnapshotCartEditor
         {
             var line = BuildLine(productId, title, product.Barcode, unitPrice, qty, product.MustWeigh, salePackageId);
             QuantityRules.StampLine(line, product, salePackageId); // 2026-10-26 (ХМ2): метка дробной строки (только «Хозтовары»)
+            // 2026-10-27 (ревью денег, К-5): строка с явной ценой (поштучно из пачки) помечается ВСЕГДА, а не только по id упаковки: id бывает пустым
+            // (пачка из офлайн-карточки, id не строкой), и тогда сверка цен подставила бы цене штуки цену целой пачки.
+            if (unitPriceOverride != null)
+                line[PieceSaleField] = true;
             // 2026-09-29: метка варианта — по ней следующий скан того же варианта сливается в эту
             // строку, а скан основного штрихкода или другого варианта — нет.
             if (variantName != null)
@@ -401,6 +405,35 @@ public static class ReceiptSnapshotCartEditor
     /// пробили. Только для кассы: на сервер не уходит, сервер вариантов не хранит.</summary>
     public const string VariantNameField = "variant_name";
 
+    /// <summary>2026-10-27 (ревью денег, К-5): строка продана поштучно из пачки по явной цене штуки (с id упаковки или без него). Цену такой строки
+    /// не сверяем с ценой товара (это цена пачки) и на сервер шлём как намеренную (price_override).</summary>
+    public const string PieceSaleField = "piece_sale";
+
+    /// <summary>2026-10-27 (ревью денег, К-4): строка с весовой этикетки «по сумме» — на этикетке напечатана сумма (91 сом), вес восстановлен из неё
+    /// по местной цене. Значение — напечатанная сумма. Цену такой строки не сверяем, на сервер шлём как намеренную.</summary>
+    public const string LabelAmountField = "label_amount";
+
+    /// <summary>2026-10-27 (К-4): помечает последнюю строку товара как добавленную по этикетке «по сумме» (amount — сумма с этикетки, сом).</summary>
+    public static void MarkLabelAmountLine(ICartService cart, string productId, double amount)
+    {
+        if (!cart.HasCart || string.IsNullOrWhiteSpace(productId) || !double.IsFinite(amount) || amount <= 0)
+            return;
+        var root = ParseRoot(cart);
+        if (root["items"] is not JsonArray items)
+            return;
+        for (var i = items.Count - 1; i >= 0; i--)
+        {
+            if (items[i] is not JsonObject line)
+                continue;
+            var pid = ExtractId(line["product_id"]) ?? (line["product"] is JsonObject productObj ? ExtractId(productObj["id"]) : null);
+            if (!string.Equals(pid?.Trim(), productId.Trim(), StringComparison.OrdinalIgnoreCase))
+                continue;
+            line[LabelAmountField] = amount;
+            ApplyRoot(cart, root);
+            return;
+        }
+    }
+
     /// <summary>2026-10-01, владелец: «магазин одежды — при выборе нужно выбрать размер, цвет, возможно
     /// изменение цены, если на какой-то размер или цвет есть скидка». Вариант NurCRM — своя строка
     /// чека: сливается только с тем же вариантом (никогда — с основным товаром или другим размером,
@@ -531,6 +564,118 @@ public static class ReceiptSnapshotCartEditor
         RecalcCartTotals(root);
         ApplyRoot(cart, root);
         return true;
+    }
+
+    /// <summary>2026-10-27, жалоба «на складе 195, а касса продаёт за 205»: строка чека держит цену с момента добавления,
+    /// а каталог кассы отстаёт от склада. Строка, цену которой можно сверять с актуальной ценой товара. Не сверяем то, где
+    /// цену выбрал кассир или сервер ставит свою: «Доп. услуга» (нет товара), поштучно из пачки (цена пачки), размер/цвет
+    /// (цена варианта), оптовая строка (опт). Обычная строка, в том числе с доп. штрихкодом и весовая, — сверяем.</summary>
+    private static bool IsPriceSyncLine(JsonObject line, out string productId)
+    {
+        productId = "";
+        if (line["is_custom"] is JsonValue c && c.TryGetValue<bool>(out var custom) && custom)
+            return false;
+        if (line["is_wholesale"] is JsonValue w && w.TryGetValue<bool>(out var wholesale) && wholesale)
+            return false;
+        if (!string.IsNullOrWhiteSpace(ExtractId(line["sale_package_id"])) || !string.IsNullOrWhiteSpace(ExtractId(line["server_variant_id"])))
+            return false;
+        // 2026-10-27 (ревью денег, К-4/К-5): штука из пачки без id упаковки и весовая строка с этикетки «по сумме» — цену не сверяем:
+        // первой цена пачки не годится, у второй сумма напечатана на этикетке (сверка 91 сом превратила бы в 101).
+        if (line[PieceSaleField] is JsonValue ps && ps.TryGetValue<bool>(out var pieceSale) && pieceSale)
+            return false;
+        if (line[LabelAmountField] != null)
+            return false;
+        if (!(JsonNumericReader.ToDouble(line["unit_price"]) > 0))
+            return false;
+        var pid = ExtractId(line["product_id"]) ?? (line["product"] is JsonObject productObj ? ExtractId(productObj["id"]) : null);
+        if (string.IsNullOrWhiteSpace(pid))
+            return false;
+        productId = pid.Trim();
+        return true;
+    }
+
+    /// <summary>2026-10-27: id товаров обычных строк чека, цену которых перед оплатой стоит сверить с сервером (без повторов).
+    /// Серверную корзину (не staging) и локальную офлайн-корзину не трогаем: у первой цены поставил сервер, вторая — без сервера.</summary>
+    public static List<string> PriceSyncProductIds(ICartService cart)
+    {
+        var ids = new List<string>();
+        if (!cart.HasCart || cart.IsLocalOffline || !cart.IsStaging)
+            return ids;
+        if (ParseRoot(cart)["items"] is not JsonArray items)
+            return ids;
+        foreach (var node in items)
+        {
+            if (node is JsonObject line && IsPriceSyncLine(line, out var pid)
+                && !ids.Contains(pid, StringComparer.OrdinalIgnoreCase))
+                ids.Add(pid);
+        }
+
+        return ids;
+    }
+
+    /// <summary>Строка чека, у которой цена заменена на актуальную (для плашки и журнала).</summary>
+    public sealed record LinePriceChange(string ProductId, string Name, double OldPrice, double NewPrice, bool DiscountRecalculated = false);
+
+    /// <summary>2026-10-27: ставит обычным строкам чека актуальную цену товара (id → цена с сервера). Цена не больше нуля и не число —
+    /// игнорируется (плохой ответ сервера не должен обнулить чек). Скидка строки суммой переклампливается под новую сумму,
+    /// акции товара (promotion_rules) считаются от новой цены (RecalcLine → CartDisplayHelper.EffectiveLineDiscount).
+    /// Возвращает изменённые строки; пусто — чек не менялся.</summary>
+    public static List<LinePriceChange> ApplyCatalogPrices(ICartService cart, IReadOnlyDictionary<string, double> prices)
+    {
+        var changes = new List<LinePriceChange>();
+        if (prices.Count == 0 || !cart.HasCart || cart.IsLocalOffline || !cart.IsStaging)
+            return changes;
+
+        var root = ParseRoot(cart);
+        if (root["items"] is not JsonArray items)
+            return changes;
+
+        foreach (var node in items)
+        {
+            if (node is not JsonObject line || !IsPriceSyncLine(line, out var pid))
+                continue;
+            if (!prices.TryGetValue(pid, out var newPrice) || !double.IsFinite(newPrice) || !(newPrice > 0))
+                continue;
+            var oldPrice = JsonNumericReader.ToDouble(line["unit_price"]);
+            if (Math.Abs(oldPrice - newPrice) < 0.005)
+                continue;
+            // 2026-10-27 (ревью денег, К-5): страховка — цена изменилась больше чем втрое (пачка вместо штуки и наоборот, опечатка в карточке):
+            // молча не меняем, сервер при нужде сам откажет (409), а касса покажет кассиру. Строка остаётся по цене, которую видел кассир.
+            if (oldPrice > 0 && (newPrice / oldPrice > 3 || oldPrice / newPrice > 3))
+            {
+                PosLogger.Log($"PRICE_SYNC: «{pid}» {oldPrice:0.##} → {newPrice:0.##} — разница больше чем втрое, строка не изменена.", "WARNING");
+                continue;
+            }
+
+            // 2026-10-27, денежный риск: скидка кассира СУММОЙ при падении цены не должна сделать строку бесплатной — пересчитываем её в тот же
+            // процент от новой суммы строки (скидка / старая сумма × новая сумма, до копейки). Процентная скидка остаётся процентной.
+            var discountRecalculated = false;
+            if (line["discount_total"] is { } dtNode && JsonNumericReader.ToDouble(dtNode) > 0)
+            {
+                var qty = JsonNumericReader.ToDouble(line["quantity"]);
+                var oldGross = QuantityRules.Gross(qty, oldPrice);
+                var newGross = QuantityRules.Gross(qty, newPrice);
+                if (oldGross > 0 && newGross > 0)
+                {
+                    var oldDiscount = Math.Min(JsonNumericReader.ToDouble(dtNode), oldGross);
+                    line["discount_total"] = Math.Round(oldDiscount / oldGross * newGross, 2, MidpointRounding.AwayFromZero);
+                    discountRecalculated = true;
+                }
+            }
+            line["unit_price"] = newPrice;
+            ClampLineDiscountToGross(line);
+            PromotionRules.ApplyToLine(line, pid);
+            RecalcLine(line);
+            var name = line["product_name"] is JsonValue n && n.TryGetValue<string>(out var s) && !string.IsNullOrWhiteSpace(s) ? s.Trim() : pid;
+            changes.Add(new LinePriceChange(pid, name, oldPrice, newPrice, discountRecalculated));
+        }
+
+        if (changes.Count == 0)
+            return changes;
+
+        RecalcCartTotals(root);
+        ApplyRoot(cart, root);
+        return changes;
     }
 
     /// <summary>Есть ли у строки чека акция товара NurCRM — тогда скидку строки назначает сервер

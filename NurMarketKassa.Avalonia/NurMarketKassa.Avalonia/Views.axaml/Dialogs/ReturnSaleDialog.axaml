@@ -7,7 +7,7 @@
         x:CompileBindings="True"
         Title="{DynamicResource returnSale.title}"
         WindowState="Maximized"
-        MinWidth="800" MinHeight="600"
+        MinWidth="800" MinHeight="480"
         WindowStartupLocation="CenterScreen"
         FontFamily="Segoe UI"
         SystemDecorations="None"
@@ -81,8 +81,9 @@
       <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
     </Style>
+    <!-- 2026-10-27: прозрачность выключенной 0.5 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
     <Style Selector="Button.btn-secondary:disabled">
-      <Setter Property="Opacity" Value="0.5"/>
+      <Setter Property="Opacity" Value="0.7"/>
     </Style>
     <Style Selector="Button.btn-secondary:disabled /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
@@ -268,10 +269,21 @@
                         <TextBlock FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Text="{Binding Title}"/>
                         <TextBlock Margin="0,4,0,0" FontSize="13" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"
                                    Text="{Binding SubLine}"/>
+                        <!-- 2026-10-27 (приёмка 1.17.63, Д-5): сколько вернуть из строки «клей × 2»: −/+ (штучный шаг 1, весовой 0,1) или число руками. -->
+                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,8,0,0" IsVisible="{Binding CanEditQuantity}">
+                          <TextBlock VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushTextSoft}" Text="{Binding ReturnQtyLabel}"/>
+                          <Button Classes="btn-secondary" Width="44" Height="44" Padding="0" Content="−"
+                                  AutomationProperties.Name="{Binding ReturnQtyLessName}" Click="ReturnQtyLess_Click"/>
+                          <TextBox Classes="ModernInput" Width="84" TextAlignment="Center" Text="{Binding ReturnQuantityText, Mode=OneWay}"
+                                   AutomationProperties.Name="{Binding ReturnQtyBoxName}"
+                                   LostFocus="ReturnQtyBox_LostFocus" KeyDown="ReturnQtyBox_KeyDown"/>
+                          <Button Classes="btn-secondary" Width="44" Height="44" Padding="0" Content="+"
+                                  AutomationProperties.Name="{Binding ReturnQtyMoreName}" Click="ReturnQtyMore_Click"/>
+                        </StackPanel>
                       </StackPanel>
                       <TextBlock Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Classes="num"
                                  FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"
-                                 Text="{Binding LineSumText}"/>
+                                 Text="{Binding ReturnSumText}"/>
                     </Grid>
                   </Border>
                 </DataTemplate>

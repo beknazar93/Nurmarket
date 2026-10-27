@@ -21,8 +21,6 @@ public sealed class MainWindowHostBridge
 
     public Func<Task>? OpenNextDeferredCart { get; set; }
 
-    public Func<Task>? OpenCashOperations { get; set; }
-
     public Func<Task>? ApplyOrderDiscount { get; set; }
 
     /// <summary>«Доп. услуга» — диалог названия/суммы/количества и типа доход/расход (2026-09-07).</summary>

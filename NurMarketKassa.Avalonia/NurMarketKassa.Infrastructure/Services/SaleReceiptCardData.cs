@@ -30,6 +30,8 @@ public sealed class SaleReceiptCardData
     public string Address { get; set; } = "";
     /// <summary>Номер чека как показан в списке; <see cref="NumberText"/> — с нулями, как в мобилке (1601 → 001601).</summary>
     public string Number { get; set; } = "";
+    /// <summary>2026-10-27 (аудит кассы, С-12): id продажи — для уникального имени PDF (номера чеков повторяются, у офлайн-чека номера нет).</summary>
+    public string SaleId { get; set; } = "";
     public string Shift { get; set; } = "";
     public string DateTimeText { get; set; } = "";
     public string Cashier { get; set; } = "";
@@ -74,6 +76,21 @@ public sealed class SaleReceiptCardData
 
     public static string Som(decimal v) => Fmt(v) + " " + Tr.T("сом", "сом", "som", "som", "so'm");
 
+    /// <summary>2026-10-27 (аудит кассы, С-12): «база-ггггммдд-ччмм-id6» для имени PDF. Нет даты — без этой части; нет id продажи —
+    /// 6 знаков хэша от запасной строки (тот же чек — то же имя, другой — другое).</summary>
+    public static string UniqueFileStem(string baseName, string? dateTimeText, string? saleId, string fallbackKey)
+    {
+        var parts = new List<string> { baseName };
+        if (DateTime.TryParseExact((dateTimeText ?? "").Trim(), "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var at))
+            parts.Add(at.ToString("yyyyMMdd-HHmm", CultureInfo.InvariantCulture));
+        var id = new string((saleId ?? "").Where(char.IsLetterOrDigit).ToArray());
+        id = id.Length >= 6
+            ? id[..6]
+            : Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(System.Text.Encoding.UTF8.GetBytes(fallbackKey + "|" + dateTimeText)))[..6];
+        parts.Add(id.ToLowerInvariant());
+        return string.Join("-", parts);
+    }
+
     /// <summary>Номер с нулями, как в мобилке (ReceiptNumber.numberText): «№1601» → «001601»; не число — как есть; пусто — «—».</summary>
     public static string PadNumber(string? number)
     {
@@ -102,6 +119,7 @@ public sealed class SaleReceiptCardData
             Inn = prefs.ShowInn && !string.IsNullOrWhiteSpace(prefs.StoreInn) ? prefs.StoreInn.Trim() : "",
             Address = prefs.ShowAddress && !string.IsNullOrWhiteSpace(prefs.StoreAddress) ? prefs.StoreAddress.Trim() : "",
             Number = (receiptNumber ?? "").Trim(),
+            SaleId = Str(sale, "id") ?? "",
             Cashier = (CartDisplayHelper.TryCashierName(sale) ?? PosApp.CurrentUserDisplayName ?? "").Trim(),
             Cashbox = Str(sale, "cashbox_name") ?? Str(sale, "cashbox_display") ?? "",
             Shift = ShiftNo(sale),

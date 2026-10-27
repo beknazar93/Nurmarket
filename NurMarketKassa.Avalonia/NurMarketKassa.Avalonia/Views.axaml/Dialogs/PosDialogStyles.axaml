@@ -472,7 +472,8 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
   <Style Selector="RadioButton.sec-seg, ToggleButton.sec-seg">
-    <Setter Property="MinHeight" Value="36" />
+    <!-- 2026-10-27, аудит владельца С-5: сегменты периода и фильтры — цель нажатия не меньше 44 (было 36). -->
+    <Setter Property="MinHeight" Value="44" />
     <Setter Property="Padding" Value="14,0" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
@@ -519,7 +520,7 @@
     <Setter Property="BorderThickness" Value="2" />
   </Style>
   <Style Selector="Button.sec-seg">
-    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="MinHeight" Value="44" />
     <Setter Property="Padding" Value="14,0" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
@@ -675,8 +676,9 @@
   <Style Selector="Button.modal-primary:pressed, Button.modal-cancel:pressed, Button.modal-secondary:pressed, Button.modal-close:pressed, Button.modal-chip:pressed, Button.sec-primary:pressed, Button.sec-outline:pressed, Button.sec-seg:pressed, Button.sec-chip:pressed, Button.btn-primary:pressed, Button.main-primary:pressed, Button.main-secondary:pressed, Button.main-outline:pressed, Button.cart-action:pressed, Button.cart-accent:pressed">
     <Setter Property="RenderTransform" Value="scale(0.97)" />
   </Style>
+  <!-- 2026-10-27: прозрачность выключенной 0.45 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
   <Style Selector="Button.modal-primary:disabled, Button.modal-cancel:disabled, Button.modal-secondary:disabled, Button.modal-close:disabled, Button.modal-chip:disabled, Button.sec-primary:disabled, Button.sec-outline:disabled, Button.sec-seg:disabled, Button.sec-chip:disabled, Button.btn-primary:disabled, Button.main-primary:disabled, Button.main-secondary:disabled, Button.main-outline:disabled, Button.cart-action:disabled, Button.cart-accent:disabled">
-    <Setter Property="Opacity" Value="0.45" />
+    <Setter Property="Opacity" Value="0.7" />
   </Style>
 
   <!-- Выключенная — свои обычные цвета (бледность даёт Opacity выше), а не серая заливка Fluent.
@@ -737,8 +739,9 @@
   <Style Selector="RadioButton.modal-seg:pressed, RadioButton.sec-seg:pressed, ToggleButton.sec-seg:pressed">
     <Setter Property="RenderTransform" Value="scale(0.97)" />
   </Style>
+  <!-- 2026-10-27: прозрачность выключенной 0.45 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
   <Style Selector="RadioButton.modal-seg:disabled, RadioButton.sec-seg:disabled, ToggleButton.sec-seg:disabled">
-    <Setter Property="Opacity" Value="0.45" />
+    <Setter Property="Opacity" Value="0.7" />
   </Style>
 
   <!-- 2026-10-18: меню «⋯» действий строки склада (WarehouseWindow.RowActions.cs, MenuFlyout с классом row-menu):

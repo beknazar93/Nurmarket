@@ -327,13 +327,14 @@
                     <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
                 </Style>
                 <Style Selector="Border.shift-age-bar.shiftAgeRed Button.shift-age-btn">
-                    <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+                    <!-- 2026-10-27: белый на BrushDanger (#F14C4C) в тёмной теме — 3,6:1; BrushDangerFill — 4,8:1 (светлая без изменений). -->
+                    <Setter Property="Background" Value="{DynamicResource BrushDangerFill}"/>
                     <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushDangerFill}"/>
                     <Setter Property="FontWeight" Value="Bold"/>
                 </Style>
                 <Style Selector="Border.shift-age-bar.shiftAgeRed Button.shift-age-btn:pointerover /template/ ContentPresenter">
-                    <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+                    <Setter Property="Background" Value="{DynamicResource BrushDangerFill}"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Style>
                 <Style Selector="TextBlock.shift-age-text">

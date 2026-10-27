@@ -184,6 +184,9 @@ public sealed class CartLineItemVm : ViewModelBase
         }
     }
 
+    /// <summary>2026-10-27, аудит Н-5: длинное название — кнопки строки уходят вторым рядом (стиль longtitle в BasketPanelView), название получает всю ширину.</summary>
+    public bool HasLongTitle => Title.Length > 10;
+
     public string NumberedTitle => $"#{ItemNumber}. {Title}";
 
     public string QuantityDisplay => IsWeight

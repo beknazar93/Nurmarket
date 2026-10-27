@@ -126,7 +126,7 @@
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="Padding" Value="14,0"/>
             <Setter Property="FontSize" Value="13.5"/>
-            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="MinHeight" Value="44"/> <!-- 2026-10-27, аудит владельца С-5: было 36 -->
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
@@ -230,7 +230,7 @@
                                 </Border>
                             </StackPanel>
                         </WrapPanel>
-                        <TextBox Grid.Column="1" x:Name="ReorderSearchBox" Width="260" VerticalAlignment="Top" Margin="12,0,0,6"
+                        <TextBox Grid.Column="1" x:Name="ReorderSearchBox" Width="260" MinHeight="44" VerticalAlignment="Top" Margin="12,0,0,6"
                                  TextChanged="ReorderSearch_TextChanged"/>
                     </Grid>
                     <TextBlock Grid.Row="1" x:Name="ReorderSubtitle" Text="{DynamicResource restock.reorderSubtitle}"

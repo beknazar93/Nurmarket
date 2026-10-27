@@ -132,7 +132,9 @@ public static class SalesExportService
         {
             "" => Tr.T("Не указано", "Көрсөтүлгөн эмес", "Not specified", "Belirtilmemiş", "Ko'rsatilmagan"),
             "cash" => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
-            "transfer" or "card" => Tr.T("Перевод", "Которуу", "Transfer", "Nakitsiz", "Naqdsiz"),
+            // 2026-10-27, аудит владельца Н-1: «Безналичные», как в «Истории» (FinanceWindow) и в окне оплаты; было «Перевод» — один и тот же
+            // чек 001899 назывался по-разному на вкладках «Чеки» и «История».
+            "transfer" or "card" => Tr.T("Безналичные", "Накталай эмес", "Cashless", "Nakitsiz", "Naqdsiz"),
             "mbank" => "MBank",
             "mixed" => Tr.T("Смешанный", "Аралаш", "Mixed", "Karışık", "Aralash"),
             "debt" => Tr.T("Долг", "Карыз", "Debt", "Borç", "Qarz"),

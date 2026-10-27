@@ -72,7 +72,15 @@ public static class SettingsCloudSync
         // 2026-10-26 (ТЗ хозмаг ХМ1): точная сфера магазина (hardware…). На сервер в market_sphere уходит только базовая —
         // точное значение другие кассы и мобилка берут отсюда. null не отправляется (см. фильтр _lastCompany).
         "MarketSphereDetail",
+        // 2026-10-27, аудит владельца Б-1: «контроль удалений» и «слепой пересчёт» — правила магазина, а не привычка кассира:
+        // владелец меняет их один раз, и они действуют на всех кассах (раньше жили только в профиле того ПК, где поменяли).
+        "AskCartRemovalReason", "CartRemovalReasonThreshold", "BlindCashCount",
     };
+
+    /// <summary>2026-10-27, Б-1: новые общие ключи правил (удаления, слепой пересчёт) не «заполняют пустое облако» значением по умолчанию
+    /// с этого ПК — на кассах они были местными, и первый вход не должен затереть чужое включённое значение. Уходят, только когда
+    /// владелец их изменил.</summary>
+    private static readonly HashSet<string> NoAutoFillKeys = new() { "AskCartRemovalReason", "CartRemovalReasonThreshold", "BlindCashCount" };
 
     private static readonly string[] AllKeys = PersonalKeys.Concat(SecretKeys).Concat(CompanyKeys).ToArray();
 
@@ -108,7 +116,20 @@ public static class SettingsCloudSync
     private static bool _codesKeptLocalOnly;
     private static readonly TimeSpan RetryPause = TimeSpan.FromSeconds(60);
 
+    /// <summary>Личные настройки пользователя (язык, тема, вид меню, ключи ИИ): у кассы и у программы владельца свои.</summary>
     private static string AppName => AppMode.IsOwner ? "nurmarket-owner" : "nurmarket-kassa";
+
+    /// <summary>2026-10-27, аудит владельца Б-1: ОБЩИЕ настройки компании (реквизиты чека, телефон владельца, штраф проката, коды
+    /// сотрудников, правила удалений…) — один документ nurmarket-kassa для кассы, программы владельца и старых версий кассы.
+    /// Раньше программа владельца писала и читала свой nurmarket-owner, и касса её настроек не видела (а старые кассы читают только
+    /// nurmarket-kassa — поэтому общий документ именно этот, а не новый). Менять может только владелец/администратор (403 у кассира).</summary>
+    private const string CompanyApp = "nurmarket-kassa";
+
+    /// <summary>Старый документ общих настроек программы владельца — читается один раз для переноса (см. MergeLegacyOwnerCompany).</summary>
+    private const string LegacyOwnerApp = "nurmarket-owner";
+
+    /// <summary>Метка в общем документе: перенос из nurmarket-owner уже выполнен (не повторять на других ПК владельца).</summary>
+    private const string OwnerMergedMarkerKey = "OwnerSettingsMergedAt";
 
     private static NurMarketApiClient? Api => ApiProvider?.Invoke() is { } api && !string.IsNullOrEmpty(api.AccessToken) ? api : null;
 
@@ -265,6 +286,12 @@ public static class SettingsCloudSync
         JsonObject? company = null;
         var personalOk = false;
         var companyOk = false;
+        // 2026-10-27, Б-1: перенос общих настроек владельца из старого документа nurmarket-owner в общий nurmarket-kassa.
+        var migratedKeys = new HashSet<string>();
+        var migrationPending = false;
+        // 2026-10-27, ревью А-2: первый запуск владельца с общим документом — его старый локальный список кодов (зеркало старого документа)
+        // не должен целиком перезаписать список, который кассы вели в общем документе (см. ApplyEmployeeCodesAsync).
+        var ownerFirstRun = false;
         try
         {
             personal = await GetAsync(api, $"api/users/app-settings/{AppName}/").ConfigureAwait(false);
@@ -276,8 +303,54 @@ public static class SettingsCloudSync
         }
         try
         {
-            company = await GetAsync(api, $"api/main/app-settings/{AppName}/").ConfigureAwait(false);
+            var (companyDoc, companyAt) = await GetDocAsync(api, $"api/main/app-settings/{CompanyApp}/").ConfigureAwait(false);
+            company = companyDoc;
             companyOk = true;
+            if (AppMode.IsOwner && !company.ContainsKey(OwnerMergedMarkerKey))
+            {
+                ownerFirstRun = true;
+                migrationPending = true;
+                try
+                {
+                    var (legacyDoc, legacyAt) = await GetDocAsync(api, $"api/main/app-settings/{LegacyOwnerApp}/").ConfigureAwait(false);
+                    // 2026-10-27, ревью А-1/А-2: сначала резервная копия ОБОИХ документов в локальный JSON; не записалась — ничего не
+                    // переносим и на сервер ничего не пишем (метки нет, перенос повторится при следующем запуске).
+                    var backupPath = TryBackupDocuments(companyId, company, companyAt, legacyDoc, legacyAt);
+                    if (backupPath is null)
+                    {
+                        migrationPending = false;
+                        PosLogger.Log("Настройки владельца: резервная копия документов не записана — перенос отложен, на сервер ничего не пишется.", "WARNING");
+                    }
+                    else
+                    {
+                        // Сотрудники сайта нужны, чтобы не воскрешать удалённых (см. MergeLegacyEmployeeCodes); не получены — коды не переносятся.
+                        List<(string? Id, string? Email)>? siteEmployees = null;
+                        try
+                        {
+                            siteEmployees = (await api.GetEmployeesAsync().ConfigureAwait(false))?.Select(e => (e.Id, e.Email)).ToList();
+                        }
+                        catch (Exception ex)
+                        {
+                            PosLogger.Log($"Настройки владельца: список сотрудников сайта не получен ({ex.Message}).", "WARNING");
+                        }
+                        // Слияние идёт на копии: сбой посреди слияния не оставляет наполовину перенесённый документ.
+                        var work = (JsonObject)company.DeepClone();
+                        var merged = MergeLegacyOwnerCompany(work, legacyDoc, siteEmployees);
+                        company = work;
+                        migratedKeys = merged.Keys;
+                        // Коды не удалось сверить с сайтом — остальное перенесено, но метку не ставим: коды разберём при следующем запуске.
+                        if (merged.CodesInconclusive)
+                            migrationPending = false;
+                        PosLogger.Log($"Настройки владельца: резервная копия — {Path.GetFileName(backupPath)}.", "INFO");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Старый документ не прочитан — метку не ставим: перенос повторится при следующем запуске.
+                    migrationPending = false;
+                    PosLogger.Log($"Настройки с сервера: старые общие настройки владельца не получены ({ex.Message}) — перенос позже.", "WARNING");
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -328,7 +401,7 @@ public static class SettingsCloudSync
                 _codesMergeInProgress = true;
                 try
                 {
-                    if (await ApplyEmployeeCodesAsync(api, company, companyId, generation).ConfigureAwait(false))
+                    if (await ApplyEmployeeCodesAsync(api, company, companyId, generation, ownerFirstRun).ConfigureAwait(false))
                         appliedKeys.Add(LegacyCodesKey);
                 }
                 finally
@@ -362,7 +435,12 @@ public static class SettingsCloudSync
                     // «удалить ключ» — и при каждом запуске владелец снова писал на сервер «main — NonExchangeableCategories», хотя
                     // никто ничего не менял. Изменённый здесь ключ (грязный) по-прежнему уходит (пакет 3, п. 79).
                     _lastCompany = Snapshot(CompanyKeys)
-                        .Where(kv => company is not null && (company.ContainsKey(kv.Key) || kv.Value == "null") && !dirty.Contains(kv.Key))
+                        .Where(kv => company is not null && (company.ContainsKey(kv.Key) || kv.Value == "null" || NoAutoFillKeys.Contains(kv.Key)
+                                                              // 2026-10-27, ревью А-3: программа владельца не «заполняет пустое облако» своими значениями по умолчанию
+                                                              // (кроме кодов сотрудников — у них свои правила): уходит только то, что владелец изменил.
+                                                              || (AppMode.IsOwner && kv.Key is not (SecureCodesKey or CodesVersionKey or LegacyCodesKey)))
+                                     && !dirty.Contains(kv.Key)
+                                     && !migratedKeys.Contains(kv.Key)) // Б-1: перенесённое из старого документа ещё не отправлено в общий
                         .ToDictionary(kv => kv.Key, kv => kv.Value);
                     if (_forcePushCodes)
                     {
@@ -410,6 +488,8 @@ public static class SettingsCloudSync
             PosLogger.Log($"Настройки с сервера ({AppName}): личные {(personalOk ? "получены" : "НЕТ")}, общие {(companyOk ? "получены" : "НЕТ")}, " +
                           $"применено {appliedKeys.Count}{(appliedKeys.Count > 0 ? " (" + string.Join(", ", appliedKeys) + ")" : "")}, грязных {dirtyCount}.", "INFO");
             await PushAsync().ConfigureAwait(false);
+            if (migrationPending && generation == _generation && !_companyForbidden)
+                await WriteOwnerMergedMarkerAsync(api, migratedKeys).ConfigureAwait(false);
             if (appliedKeys.Count > 0)
             {
                 // Меню (скрытые разделы) и купленные функции — пересобрать сразу, остальное — при следующем открытии окон.
@@ -437,19 +517,318 @@ public static class SettingsCloudSync
     /// <summary>2026-10-18, 6-й/7-й круг (К-3): «записи нет» (200 с settings: null или {}) — пустое облако, его можно
     /// заполнять; сбой (сеть, 404, 5xx, таймаут, ответ без поля settings) — исключение. 1.17.58 не отличала: любая ошибка общих
     /// настроек считалась пустым облаком, и касса заливала туда свои значения.</summary>
-    private static async Task<JsonObject> GetAsync(NurMarketApiClient api, string path)
+    private static async Task<JsonObject> GetAsync(NurMarketApiClient api, string path) => (await GetDocAsync(api, path).ConfigureAwait(false)).Settings;
+
+    /// <summary>2026-10-27, Б-1: то же, что GetAsync, но с меткой времени документа (updated_at) — нужна для переноса настроек владельца.</summary>
+    private static async Task<(JsonObject Settings, DateTimeOffset? UpdatedAt)> GetDocAsync(NurMarketApiClient api, string path)
     {
         JsonElement data;
         // 2026-10-18, 7-й круг: 404 — тоже сбой (возможно, не тот адрес/сервер), пустое облако — только 200 с settings: null или {}.
         data = await api.RequestAsync(HttpMethod.Get, path, null, null, CancellationToken.None, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
         if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("settings", out var s))
         {
+            DateTimeOffset? at = null;
+            if (data.TryGetProperty("updated_at", out var u) && u.ValueKind == JsonValueKind.String
+                && DateTimeOffset.TryParse(u.GetString(), System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeUniversal, out var parsed))
+                at = parsed;
             if (s.ValueKind == JsonValueKind.Object)
-                return JsonNode.Parse(s.GetRawText()) as JsonObject ?? new JsonObject();
+                return (JsonNode.Parse(s.GetRawText()) as JsonObject ?? new JsonObject(), at);
             if (s.ValueKind == JsonValueKind.Null)
-                return new JsonObject();
+                return (new JsonObject(), at);
         }
         throw new InvalidDataException("ответ без поля settings");
+    }
+
+    /// <summary>2026-10-27, Б-1; переделано по ревью А-1/А-2: разовый перенос общих настроек из старого документа программы владельца
+    /// (nurmarket-owner) в общий (nurmarket-kassa) — слияние ПО КЛЮЧАМ, а не «чей документ новее». Общего снимка «как было при
+    /// последней синхронизации» у двух документов нет (владелец и кассы писали в разные документы), поэтому базой служат значения
+    /// по умолчанию программы: «изменённым» считается значение, которое отличается от умолчания. Для каждого ключа старого документа:
+    /// (1) в общем ключа нет — дописываем; (2) значения равны — ничего; (3) отличаются, а в общем стоит умолчание (касса ключ не
+    /// меняла) — берём значение владельца; (4) отличаются, и в общем значение изменено — остаётся значение кассы (имя ключа — в журнал),
+    /// старое значение лежит в резервной копии; (5) списки купленного (UnlockedPacks, UnlockedThemeIds) — объединение. Ничего не удаляется,
+    /// ключи, которых нет в старом документе, не трогаются. Коды сотрудников — <see cref="MergeLegacyEmployeeCodes"/>. Изменяет переданный
+    /// company, возвращает ключи, которые нужно отправить в общий документ. Значения в журнал не пишутся (там коды).</summary>
+    private static MigrationResult MergeLegacyOwnerCompany(JsonObject company, JsonObject legacy, List<(string? Id, string? Email)>? siteEmployees)
+    {
+        var migrated = new HashSet<string>();
+        var kept = new List<string>();
+        var codeKeys = new[] { SecureCodesKey, CodesVersionKey, LegacyCodesKey };
+        var defaults = new UserPreferences();
+        foreach (var key in CompanyKeys)
+        {
+            if (codeKeys.Contains(key) || !legacy.TryGetPropertyValue(key, out var legacyValue) || legacyValue is null)
+                continue;
+            if (!company.TryGetPropertyValue(key, out var current) || current is null)
+            {
+                company[key] = legacyValue.DeepClone();
+                migrated.Add(key);
+                continue;
+            }
+            if (JsonNode.DeepEquals(current, legacyValue))
+                continue;
+            if (key is "UnlockedPacks" or "UnlockedThemeIds" && current is JsonArray currentList && legacyValue is JsonArray legacyList)
+            {
+                var union = new JsonArray();
+                foreach (var item in currentList.Concat(legacyList))
+                    if (item is not null && !union.Any(u => JsonNode.DeepEquals(u, item)))
+                        union.Add(item.DeepClone());
+                if (!JsonNode.DeepEquals(union, current))
+                {
+                    company[key] = union;
+                    migrated.Add(key);
+                }
+                continue;
+            }
+            if (IsDefault(defaults, key, current))
+            {
+                company[key] = legacyValue.DeepClone();
+                migrated.Add(key);
+            }
+            else
+            {
+                kept.Add(key);
+            }
+        }
+
+        var codesInconclusive = MergeLegacyEmployeeCodes(company, legacy, siteEmployees, migrated);
+        PosLogger.Log($"Настройки владельца: перенос из {LegacyOwnerApp} в {CompanyApp} — по ключам, перенесено {migrated.Count}" +
+                      $"{(migrated.Count > 0 ? " (" + string.Join(", ", migrated) + ")" : "")}" +
+                      $"{(kept.Count > 0 ? "; оставлено значение кассы (разные значения) — " + string.Join(", ", kept) : "")}.", "INFO");
+        return new MigrationResult(migrated, codesInconclusive);
+    }
+
+    /// <summary>Результат слияния: ключи для отправки в общий документ; CodesInconclusive — коды не удалось сверить с сайтом (метку не ставить).</summary>
+    private sealed record MigrationResult(HashSet<string> Keys, bool CodesInconclusive);
+
+    /// <summary>Значение ключа в общем документе равно умолчанию программы (касса его не меняла).</summary>
+    private static bool IsDefault(UserPreferences defaults, string key, JsonNode current)
+    {
+        try
+        {
+            if (Prop(key) is not { CanRead: true } p)
+                return false;
+            var def = JsonNode.Parse(JsonSerializer.Serialize(p.GetValue(defaults), p.PropertyType));
+            return JsonNode.DeepEquals(def, current);
+        }
+        catch
+        {
+            return false; // не смогли сравнить — считаем «изменено»: значение кассы остаётся
+        }
+    }
+
+    /// <summary>2026-10-27, ревью А-2: слияние списка кодов сотрудников ПО СОТРУДНИКУ (раньше список владельца заменял общий целиком по номеру
+    /// версии: кассиры, заведённые на кассах, пропадали, удалённые получали доступ обратно). Правила:
+    /// — в общем документе нет списка с хэшами (пусто, или только старое поле кассы 1.17.58, где могут быть открытые коды) — ничего не
+    ///   переносим (список владельца остаётся на его ПК и в резервной копии; раздать его можно правкой в «Сотрудниках»);
+    /// — версия списка владельца не новее общей — общий список кассы не трогаем (отсутствие сотрудника в нём — либо удаление на кассе,
+    ///   либо он кассе не известен: воскрешать нельзя);
+    /// — владелец новее: общий список остаётся целиком (сотрудники кассы не пропадают); у совпавшего по ServerId/Email/единственному
+    ///   имени сотрудника пустые места хэшей заполняются из списка владельца (хэши кассы не перезаписываются); сотрудник, которого
+    ///   нет в общем списке, добавляется только если он подтверждён сайтом (есть в списке сотрудников компании) — удалённые на
+    ///   сайте не воскресают; карточки без id и email (введены вручную, проверить нельзя) не добавляются; сайт не ответил — такие не
+    ///   добавляются и метка переноса не ставится;
+    /// — после изменений версия списка = максимум(время, обе версии + 1). Возвращает true — «часть не удалось сверить с сайтом».</summary>
+    private static bool MergeLegacyEmployeeCodes(JsonObject company, JsonObject legacy, List<(string? Id, string? Email)>? siteEmployees, HashSet<string> migrated)
+    {
+        long VersionOf(JsonObject doc) =>
+            doc.TryGetPropertyValue(CodesVersionKey, out var v) && v is JsonValue jv && jv.TryGetValue<long>(out var n) ? n : 0;
+        List<EmployeeAccessCode>? ReadList(JsonObject doc, string key)
+        {
+            if (!doc.TryGetPropertyValue(key, out var node) || node is null)
+                return null;
+            try
+            {
+                return JsonSerializer.Deserialize<List<EmployeeAccessCode>>(node.ToJsonString());
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        var legacyList = ReadList(legacy, SecureCodesKey);
+        if (legacyList is null || legacyList.Count == 0)
+            return false;
+        var companyList = ReadList(company, SecureCodesKey);
+        if (companyList is null)
+        {
+            PosLogger.Log("Коды сотрудников: в общем документе нет списка с хэшами — перенос из старого документа владельца не выполняется.", "INFO");
+            return false;
+        }
+        var companyVersion = VersionOf(company);
+        var legacyVersion = VersionOf(legacy);
+        if (legacyVersion <= companyVersion)
+        {
+            PosLogger.Log("Коды сотрудников: список в общем документе не старее списка владельца — общий список не меняется.", "INFO");
+            return false;
+        }
+
+        var added = 0;
+        var filled = 0;
+        var skippedUnknown = 0;
+        var inconclusive = false;
+        foreach (var l in legacyList)
+        {
+            var match = FindEmployee(companyList, l, legacyList);
+            if (match is not null)
+            {
+                foreach (var action in EmployeeActions)
+                {
+                    if (!string.IsNullOrWhiteSpace(GetHash(match, action)) || string.IsNullOrWhiteSpace(GetHash(l, action)))
+                        continue;
+                    SetHash(match, action, GetHash(l, action));
+                    if (l.ShortCodes?.Contains(action) == true)
+                        (match.ShortCodes ??= new List<string>()).Add(action);
+                    filled++;
+                }
+                continue;
+            }
+            // Карточка без id и email (введена вручную) проверить нельзя — её удаление на кассе не отличить от «кассе не известна»: не добавляем.
+            if (string.IsNullOrWhiteSpace(l.ServerId) && string.IsNullOrWhiteSpace(l.Email))
+            {
+                skippedUnknown++;
+                continue;
+            }
+            if (siteEmployees is null)
+            {
+                inconclusive = true; // сайт не ответил — не добавляем и повторим при следующем запуске
+                continue;
+            }
+            var alive = siteEmployees.Any(e =>
+                (!string.IsNullOrWhiteSpace(l.ServerId) && string.Equals(e.Id, l.ServerId, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(l.Email) && string.Equals(e.Email?.Trim(), l.Email.Trim(), StringComparison.OrdinalIgnoreCase)));
+            if (!alive)
+            {
+                skippedUnknown++;
+                continue;
+            }
+            companyList.Add(new EmployeeAccessCode
+            {
+                Name = l.Name, ServerId = l.ServerId, Email = l.Email,
+                CartDeleteCodeHash = l.CartDeleteCodeHash, WarehouseDeleteCodeHash = l.WarehouseDeleteCodeHash,
+                ProductEditCodeHash = l.ProductEditCodeHash, ProductAddCodeHash = l.ProductAddCodeHash,
+                DebtPaymentCodeHash = l.DebtPaymentCodeHash, ShortCodes = l.ShortCodes?.ToList(),
+            });
+            added++;
+        }
+
+        if (added > 0 || filled > 0)
+        {
+            company[SecureCodesKey] = JsonSerializer.SerializeToNode(EmployeeAccessGate.ToCloudSecure(companyList));
+            company[LegacyCodesKey] = JsonSerializer.SerializeToNode(EmployeeAccessGate.ToCloudPublic(companyList));
+            company[CodesVersionKey] = JsonValue.Create(Math.Max(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Math.Max(companyVersion, legacyVersion) + 1));
+            migrated.Add(SecureCodesKey);
+            migrated.Add(LegacyCodesKey);
+            migrated.Add(CodesVersionKey);
+        }
+        PosLogger.Log($"Коды сотрудников: перенос по сотруднику — добавлено {added}, заполнено кодов {filled}, не добавлено (нет на сайте или не проверить) {skippedUnknown}" +
+                      $"{(inconclusive ? ", часть не сверена с сайтом (повтор при следующем запуске)" : "")}.", "INFO");
+        return inconclusive;
+    }
+
+    private static readonly string[] EmployeeActions =
+        { EmployeeAccessGate.CartDelete, EmployeeAccessGate.WarehouseDelete, EmployeeAccessGate.ProductEdit, EmployeeAccessGate.ProductAdd, EmployeeAccessGate.DebtPayment };
+
+    private static string? GetHash(EmployeeAccessCode e, string action) => action switch
+    {
+        EmployeeAccessGate.CartDelete => e.CartDeleteCodeHash,
+        EmployeeAccessGate.WarehouseDelete => e.WarehouseDeleteCodeHash,
+        EmployeeAccessGate.ProductEdit => e.ProductEditCodeHash,
+        EmployeeAccessGate.ProductAdd => e.ProductAddCodeHash,
+        EmployeeAccessGate.DebtPayment => e.DebtPaymentCodeHash,
+        _ => null,
+    };
+
+    private static void SetHash(EmployeeAccessCode e, string action, string? hash)
+    {
+        switch (action)
+        {
+            case EmployeeAccessGate.CartDelete: e.CartDeleteCodeHash = hash; break;
+            case EmployeeAccessGate.WarehouseDelete: e.WarehouseDeleteCodeHash = hash; break;
+            case EmployeeAccessGate.ProductEdit: e.ProductEditCodeHash = hash; break;
+            case EmployeeAccessGate.ProductAdd: e.ProductAddCodeHash = hash; break;
+            case EmployeeAccessGate.DebtPayment: e.DebtPaymentCodeHash = hash; break;
+        }
+    }
+
+    /// <summary>Тот же сотрудник в другом списке: по ServerId, по email, по имени — только если имя единственное с обеих сторон
+    /// и карточки не привязаны к разным сотрудникам сайта.</summary>
+    private static EmployeeAccessCode? FindEmployee(List<EmployeeAccessCode> list, EmployeeAccessCode target, List<EmployeeAccessCode> targetSide)
+    {
+        if (!string.IsNullOrWhiteSpace(target.ServerId)
+            && list.FirstOrDefault(x => string.Equals(x.ServerId, target.ServerId, StringComparison.OrdinalIgnoreCase)) is { } byId)
+            return byId;
+        if (!string.IsNullOrWhiteSpace(target.Email)
+            && list.FirstOrDefault(x => string.Equals(x.Email, target.Email, StringComparison.OrdinalIgnoreCase)) is { } byEmail)
+            return byEmail;
+        var name = (target.Name ?? "").Trim();
+        if (name.Length == 0)
+            return null;
+        bool Same(EmployeeAccessCode x) => string.Equals((x.Name ?? "").Trim(), name, StringComparison.OrdinalIgnoreCase);
+        var same = list.Where(Same).ToList();
+        if (same.Count != 1 || targetSide.Count(Same) != 1)
+            return null;
+        var candidate = same[0];
+        return string.IsNullOrWhiteSpace(candidate.ServerId) || string.IsNullOrWhiteSpace(target.ServerId)
+               || string.Equals(candidate.ServerId, target.ServerId, StringComparison.OrdinalIgnoreCase)
+            ? candidate
+            : null;
+    }
+
+    /// <summary>2026-10-27, ревью А-1/А-2: папка резервных копий документов перед переносом (для стенда можно подменить, чтобы не писать
+    /// в настоящий профиль). По умолчанию — папка данных программы, backups/settings-migration.</summary>
+    public static string? BackupDirectoryOverride { get; set; }
+
+    /// <summary>2026-10-27, ревью А-1/А-2: полная копия общего и старого документа (как пришли с сервера) в локальный JSON ДО любого слияния.
+    /// Возвращает путь файла; null — записать не удалось (тогда перенос не выполняется). Хранятся последние 10 копий.</summary>
+    private static string? TryBackupDocuments(string companyId, JsonObject company, DateTimeOffset? companyAt, JsonObject legacy, DateTimeOffset? legacyAt)
+    {
+        try
+        {
+            var dir = BackupDirectoryOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "backups", "settings-migration");
+            Directory.CreateDirectory(dir);
+            var safeCompany = new string(companyId.Where(char.IsLetterOrDigit).ToArray());
+            var path = Path.Combine(dir, $"{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}-{(safeCompany.Length > 0 ? safeCompany : "company")}.json");
+            var root = new JsonObject
+            {
+                ["created_utc"] = DateTime.UtcNow.ToString("o"),
+                ["company_id"] = companyId,
+                ["shared_nurmarket_kassa"] = new JsonObject { ["updated_at"] = companyAt?.ToString("o"), ["settings"] = company.DeepClone() },
+                ["legacy_nurmarket_owner"] = new JsonObject { ["updated_at"] = legacyAt?.ToString("o"), ["settings"] = legacy.DeepClone() },
+            };
+            var text = root.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+            var tmp = path + ".tmp";
+            File.WriteAllText(tmp, text, new System.Text.UTF8Encoding(false));
+            File.Move(tmp, path);
+            // Читаем обратно: копия должна быть целой, иначе переносить нельзя.
+            if (JsonNode.Parse(File.ReadAllText(path)) is not JsonObject check || check["legacy_nurmarket_owner"] is null || check["shared_nurmarket_kassa"] is null)
+                return null;
+            foreach (var old in Directory.GetFiles(dir, "*.json").OrderByDescending(f => f, StringComparer.Ordinal).Skip(10))
+            {
+                try { File.Delete(old); } catch { /* не удалилась — не страшно */ }
+            }
+            return path;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Настройки владельца: резервная копия не записана ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+            return null;
+        }
+    }
+
+    /// <summary>2026-10-27, Б-1: после успешной отправки перенесённых ключей в общем документе ставится метка — перенос не повторяется
+    /// (в т. ч. на других ПК владельца). Не отправились — метки нет, при следующем запуске перенос повторится.</summary>
+    private static async Task WriteOwnerMergedMarkerAsync(NurMarketApiClient api, HashSet<string> migrated)
+    {
+        // Код сотрудников другой компании в облако не уходит (см. PushCoreAsync) — такие ключи метку не задерживают.
+        bool allSent;
+        lock (Sync)
+            allSent = migrated.All(k => _lastCompany.ContainsKey(k) || k is SecureCodesKey or CodesVersionKey or LegacyCodesKey);
+        if (!allSent)
+            return;
+        await PatchAsync(api, $"api/main/app-settings/{CompanyApp}/",
+            new List<KeyValuePair<string, string>> { new(OwnerMergedMarkerKey, JsonSerializer.Serialize(DateTime.UtcNow.ToString("o"))) }).ConfigureAwait(false);
     }
 
     private static List<string> Apply(JsonObject? server, string[] keys, ISet<string> dirty)
@@ -488,7 +867,7 @@ public static class SettingsCloudSync
 
     /// <summary>2026-10-18: коды сотрудников из облака — новое поле по версии списка, затем старое (открытые коды старых
     /// касс сразу в хэш). Выполняется на UI-потоке. true — список этой кассы изменился.</summary>
-    private static async Task<bool> ApplyEmployeeCodesAsync(NurMarketApiClient api, JsonObject company, string companyId, int generation)
+    private static async Task<bool> ApplyEmployeeCodesAsync(NurMarketApiClient api, JsonObject company, string companyId, int generation, bool ownerFirstRun = false)
     {
         List<EmployeeAccessCode>? Read(string key)
         {
@@ -539,6 +918,15 @@ public static class SettingsCloudSync
             // 2026-10-18, 5-й круг (К1): список на ПК от другой компании — чужой: очищается и никогда не отправляется в
             // облако этой компании. 6-й круг (К-1): список без отметки при пустом облаке остаётся (отмечается компанией).
             changed |= EmployeeAccessGate.AdoptCompany(companyId, cloudHasCodes, companyEmployees, out keptLocalOnly);
+            // 2026-10-27, ревью А-2: первый запуск владельца с общим документом — локальный список кодов был зеркалом старого документа
+            // владельца, его «большая версия» ничего не говорит о том, что он новее списка касс. Берём версию облака: список общего
+            // документа (в нём уже слиты коды владельца, см. MergeLegacyEmployeeCodes) применяется, а список владельца целиком в облако
+            // не уходит и кассиров касс не затирает.
+            if (ownerFirstRun && secure is not null && UserPreferences.Instance.EmployeeAccessCodesVersion > remoteVersion)
+            {
+                UserPreferences.Instance.EmployeeAccessCodesVersion = remoteVersion;
+                PosLogger.Log("Коды сотрудников: первый запуск программы владельца с общим документом — берётся список общего документа.", "INFO");
+            }
             changed |= EmployeeAccessGate.ApplyCloudSecure(secure, remoteVersion, out localNewer);
             changed |= EmployeeAccessGate.MergeCloudLegacy(legacy, secure is null, out hadSecrets);
             if (changed)
@@ -672,7 +1060,7 @@ public static class SettingsCloudSync
                 company.Remove(LegacyCodesKey);
             }
             var companyChanged = company.Where(kv => !_lastCompany.TryGetValue(kv.Key, out var v) || v != kv.Value).ToList();
-            if (companyChanged.Count > 0 && await PatchAsync(api, $"api/main/app-settings/{AppName}/", companyChanged).ConfigureAwait(false) && Current())
+            if (companyChanged.Count > 0 && await PatchAsync(api, $"api/main/app-settings/{CompanyApp}/", companyChanged).ConfigureAwait(false) && Current())
                 foreach (var (k, v) in companyChanged)
                     _lastCompany[k] = v;
         }

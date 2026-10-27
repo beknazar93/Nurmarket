@@ -80,7 +80,8 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
         </Style>
         <Style Selector="Button.sidebar-section-header">
-            <Setter Property="Height" Value="32"/>
+            <!-- 2026-10-27, аудит Н-17: цель касания заголовка раздела меню — не меньше 44 (было 32). -->
+            <Setter Property="Height" Value="44"/>
             <Setter Property="Padding" Value="16,0"/>
             <Setter Property="Margin" Value="8,4,8,2"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -670,7 +671,7 @@
                     </Button>
                     <Button Classes="sidebar-menu-item"
                             IsVisible="{Binding CanViewDeferredReceipts}"
-                            Command="{Binding NavigateDeferredReceiptsCommand}">
+                            Tag="new:deferred" Command="{Binding NavigateDeferredReceiptsCommand}">
                         <Grid ColumnDefinitions="24,12,*,Auto" HorizontalAlignment="Stretch">
                             <Path Grid.Column="0"
                                   Width="20" Height="20"
@@ -693,7 +694,7 @@
                     </Button>
                     <Button Classes="sidebar-menu-item"
                             IsVisible="{Binding CanViewRestock}"
-                            Command="{Binding NavigateRestockCommand}">
+                            Tag="new:restock" Command="{Binding NavigateRestockCommand}">
                         <Grid ColumnDefinitions="24,12,*,Auto" HorizontalAlignment="Stretch">
                             <Path Grid.Column="0"
                                   Width="20" Height="20"
@@ -896,7 +897,7 @@
                     </Button>
                     <Button Classes="sidebar-menu-item"
                             IsVisible="{Binding CanViewErrorLogs}"
-                            Command="{Binding NavigateErrorLogsCommand}">
+                            Tag="new:logs" Command="{Binding NavigateErrorLogsCommand}">
                         <Grid ColumnDefinitions="24,12,*,Auto" HorizontalAlignment="Stretch">
                             <Path Grid.Column="0"
                                   Width="20" Height="20"
@@ -940,7 +941,7 @@
                     </Button>
                     <Button Classes="sidebar-menu-item"
                             IsVisible="{Binding CanViewRemoteSupport}"
-                            Command="{Binding NavigateRemoteSupportCommand}">
+                            Tag="new:support" Command="{Binding NavigateRemoteSupportCommand}">
                         <Grid ColumnDefinitions="24,12,*,Auto" HorizontalAlignment="Stretch">
                             <Path Grid.Column="0"
                                   Width="20" Height="20"
@@ -963,7 +964,7 @@
                     </Button>
                     <Button Classes="sidebar-menu-item"
                             IsVisible="{Binding CanViewKnowledgeBase}"
-                            Command="{Binding NavigateKnowledgeBaseCommand}">
+                            Tag="new:kb" Command="{Binding NavigateKnowledgeBaseCommand}">
                         <Grid ColumnDefinitions="24,12,*,Auto" HorizontalAlignment="Stretch">
                             <Path Grid.Column="0"
                                   Width="20" Height="20"

@@ -25,7 +25,8 @@
 
     <Style Selector="Button.btn-danger">
       <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+      <!-- 2026-10-27: красный BrushDanger на BrushDangerSoft в тёмной теме — 3,5:1 («Выйти»); BrushDangerOnSoft — 5,1:1 (в светлой тот же #B91C1C). -->
+      <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
@@ -35,7 +36,7 @@
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Button.btn-danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushDangerFill}"/>
       <Setter Property="Foreground" Value="White"/>
     </Style>
   </UserControl.Styles>

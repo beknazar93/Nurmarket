@@ -142,9 +142,27 @@ public sealed class LocalProductRepository
         await WarmUpCacheAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    // 2026-10-27, аудит С-25: схема накатывалась при каждом вызове (после каждой продажи, при каждом перечитывании каталога) —
+    // десяток ALTER TABLE, из которых почти все падали исключением «колонка уже есть», на UI-потоке. Теперь один раз на базу
+    // (путь + номер переоткрытия после смены аккаунта).
+    private readonly object _schemaGate = new();
+    private string? _schemaKey;
+
     public void EnsureSchema()
     {
         DatabaseService.Instance.EnsureSchema();
+        var key = DatabaseService.Instance.DatabasePath + "|" + DatabaseService.Instance.SchemaGeneration;
+        lock (_schemaGate)
+        {
+            if (_schemaKey == key && File.Exists(DatabaseService.Instance.DatabasePath))
+                return;
+            EnsureSchemaCore();
+            _schemaKey = key;
+        }
+    }
+
+    private void EnsureSchemaCore()
+    {
         Directory.CreateDirectory(DataDirectory);
 
         using var connection = OpenConnection();
@@ -657,6 +675,135 @@ public sealed class LocalProductRepository
         ResetCache();
     }
 
+    /// <summary>2026-10-27 (Б-46 сервера, CATALOG_FEED): свежая копия плитки товара из базы (не общий объект кэша) — чтобы сохранить
+    /// остаток, если по ленте его применять нельзя. null — товара в базе нет.</summary>
+    public CatalogProductTileVm? LoadTileCopy(string id) =>
+        string.IsNullOrWhiteSpace(id) ? null : LoadSingleTile("id", id.Trim());
+
+    /// <summary>Поля, которые лента изменений прислала БЕЗ карточки товара (только изменившиеся значения). null — поля нет в ответе.</summary>
+    public sealed record FeedFieldPatch(string Id, double? Price, double? PurchasePrice, double? WholesalePrice, double? Stock);
+
+    public sealed record FeedApplyResult(int Added, int Changed, int Deleted, IReadOnlyList<string> MissingIds);
+
+    /// <summary>2026-10-27 (Б-46, CATALOG_FEED): применить изменения из ленты сервера — upserts (уже готовые плитки) и удалённые товары.
+    /// Пишутся только действительно изменившиеся записи (отпечаток, как в SyncReplaceAllWithDiff), кэш правится точечно, как после
+    /// полной загрузки. Схема базы не меняется, версия каталога (catalog_version) не трогается — её двигает только полная загрузка.</summary>
+    public FeedApplyResult ApplyFeedChanges(
+        IReadOnlyList<CatalogProductTileVm> upserts, IReadOnlyList<FeedFieldPatch> patches, IReadOnlyCollection<string> deletedIds)
+    {
+        var favoriteIds = GetFavoriteIds();
+        var incoming = new Dictionary<string, LocalProductRecord>(StringComparer.OrdinalIgnoreCase);
+        foreach (var vm in upserts)
+        {
+            ProductUnitNormalizer.ApplyToTile(vm);
+            var record = FromTileVm(vm);
+            if (favoriteIds.Contains(record.Id))
+            {
+                record.IsFavorite = true;
+                vm.IsFavorite = true;
+            }
+
+            incoming[record.Id] = record;
+        }
+
+        var added = 0;
+        var changed = 0;
+        var toUpsert = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var toDelete = new List<string>();
+        var missing = new List<string>();
+        using var connection = OpenConnection();
+        // Поля без карточки: берём запись из базы и меняем только присланное. Товара в базе нет — ленте нечем его создать (нужна полная загрузка).
+        foreach (var patch in patches)
+        {
+            if (incoming.ContainsKey(patch.Id))
+                continue;
+            if (QuerySingleRecord(connection, patch.Id) is not { } baseRecord)
+            {
+                missing.Add(patch.Id);
+                continue;
+            }
+
+            if (patch.Price is { } price)
+                baseRecord.Price = price;
+            if (patch.PurchasePrice is { } purchase)
+                baseRecord.PurchasePrice = purchase;
+            if (patch.WholesalePrice is { } wholesale)
+                baseRecord.WholesalePrice = wholesale;
+            if (patch.Stock is { } stock)
+                baseRecord.Stock = stock;
+            incoming[baseRecord.Id] = baseRecord;
+        }
+
+        foreach (var (id, record) in incoming)
+        {
+            var current = QuerySingleRecord(connection, id);
+            if (current is null)
+            {
+                added++;
+                toUpsert.Add(id);
+            }
+            else if (!string.Equals(Fingerprint(current), Fingerprint(record), StringComparison.Ordinal))
+            {
+                changed++;
+                toUpsert.Add(id);
+            }
+        }
+
+        foreach (var id in deletedIds.Distinct(StringComparer.OrdinalIgnoreCase))
+            if (QuerySingleRecord(connection, id) is { } existing)
+                toDelete.Add(existing.Id);
+
+        if (toUpsert.Count == 0 && toDelete.Count == 0)
+            return new FeedApplyResult(0, 0, 0, missing);
+
+        using var transaction = connection.BeginTransaction();
+        if (toDelete.Count > 0)
+        {
+            using var deleteCmd = connection.CreateCommand();
+            deleteCmd.Transaction = transaction;
+            deleteCmd.CommandText = "DELETE FROM Products WHERE id = @id;";
+            var idParam = deleteCmd.CreateParameter();
+            idParam.ParameterName = "@id";
+            deleteCmd.Parameters.Add(idParam);
+            foreach (var id in toDelete)
+            {
+                idParam.Value = id;
+                deleteCmd.ExecuteNonQuery();
+            }
+        }
+
+        if (toUpsert.Count > 0)
+        {
+            using var upsertCommand = CreateUpsertCommand(connection, transaction);
+            foreach (var record in incoming.Values)
+                if (toUpsert.Contains(record.Id))
+                    ExecuteUpsert(upsertCommand, record);
+        }
+
+        transaction.Commit();
+        if (!TryPatchCacheAfterSync(incoming, toUpsert, added, toDelete))
+            ResetCache();
+        return new FeedApplyResult(added, changed, toDelete.Count, missing);
+    }
+
+    private static LocalProductRecord? QuerySingleRecord(SqliteConnection connection, string id)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
+                   image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
+                   is_bundle, article, bundle_items_json, alternate_barcodes,
+                   alternate_barcode_variants, product_code, kind, description, wholesale_price
+            FROM Products WHERE id = $value LIMIT 1;
+            """;
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "$value";
+        parameter.Value = id.Trim();
+        command.Parameters.Add(parameter);
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? ReadRecord(reader) : null;
+    }
+
     private void RebuildCacheFromDatabase()
     {
         var records = LoadAllRecords();
@@ -1006,6 +1153,31 @@ public sealed class LocalProductRepository
         command.Parameters.AddWithValue("@id", id);
         command.ExecuteNonQuery();
         PatchStockInCache(id, stock, mustWeigh);
+    }
+
+    /// <summary>2026-10-27 (цена склад-касса): свежая цена товара с сервера — в локальный каталог сразу, не ждать полной загрузки.
+    /// Только колонка price (схема не менялась); наценка и скидка товара в SQLite не хранятся и не затрагиваются.
+    /// Пересобирает память репозитория, чтобы скан по штрихкоду сразу дал новую цену.</summary>
+    public void UpdatePrices(IEnumerable<(string Id, double Price)> prices)
+    {
+        var any = false;
+        using (var connection = OpenConnection())
+        {
+            foreach (var (id, price) in prices)
+            {
+                if (string.IsNullOrWhiteSpace(id) || !double.IsFinite(price) || !(price > 0))
+                    continue;
+                using var command = connection.CreateCommand();
+                command.CommandText = "UPDATE Products SET price = @price WHERE id = @id;";
+                command.Parameters.AddWithValue("@price", price);
+                command.Parameters.AddWithValue("@id", id.Trim());
+                command.ExecuteNonQuery();
+                any = true;
+            }
+        }
+
+        if (any)
+            ResetCache();
     }
 
     /// <summary>id → дата, когда у товара впервые появился остаток > 0 (см. UpdateStock/

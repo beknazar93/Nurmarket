@@ -38,10 +38,15 @@ public sealed partial class PosCheckoutService
     /// <summary>Ключ, на который сервер дважды ответил 500 в этой оплате (см. TryQuickCheckoutAsync).</summary>
     private string? _quickKeyAbandonedOn500;
 
+    /// <summary>2026-10-27: ключ, с которым запрос уже уходил на сервер (исход мог остаться неизвестным). 409 price_changed на такой ключ
+    /// не доказывает «ничего не создано» (повтор мог прийти после проведённой продажи), поэтому ему не верим — см. TryQuickCheckoutAsync.</summary>
+    private string? _quickKeyMaybeSent;
+
     private void ForgetQuickKey()
     {
         _quickKey = null;
         _quickKeyFingerprint = null;
+        _quickKeyMaybeSent = null;
     }
 
     /// <summary>null — быстрый путь не применим или сервер отказал по существу: вызывающий идёт
@@ -127,17 +132,44 @@ public sealed partial class PosCheckoutService
         Exception? transient = null;
         var server500 = 0;
         var budgetExpired = false;
+        // 2026-10-27 (Б-03 сервера, PRICE_SYNC): строгая проверка цены — сервер не проведёт чек с устаревшей ценой строки (409 price_changed).
+        // Сервер без Б-03 заголовок не знает и ведёт себя как раньше.
+        var strictPrice = ServerPriceContract.StrictPriceEnabled;
+        var keyMaybeSentBefore = string.Equals(_quickKeyMaybeSent, key, StringComparison.Ordinal);
         for (var attempt = 1; attempt <= 3 && !done; attempt++)
         {
+            // 409 price_changed верим только на самую первую отправку этого ключа: на повтор после обрыва/таймаута продажа с ним уже могла пройти.
+            var priceRefusalIsFinal = !keyMaybeSentBefore && attempt == 1;
+            _quickKeyMaybeSent = key;
             try
             {
                 var attemptTimeout = attempt == 1 ? timeout : TimeSpan.FromSeconds(Math.Min(15, timeout.TotalSeconds));
-                response = await quickApi.PosQuickCheckoutAsync(body, key, attemptTimeout, serverWait).ConfigureAwait(false);
+                response = await quickApi.PosQuickCheckoutAsync(body, key, attemptTimeout, strictPrice, serverWait).ConfigureAwait(false);
                 done = true;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
+            }
+            catch (ApiException ex) when (priceRefusalIsFinal && ServerPriceContract.IsPriceChanged(ex))
+            {
+                // 2026-10-27: 409 price_changed — продажа НЕ проведена (сервер ничего не создал). Это не «запрос с этим ключом ещё выполняется»
+                // (409 ниже повторяет тем же ключом) и не отказ «в старый путь»: старый путь отправил бы те же устаревшие цены без строгой
+                // проверки. Ключ забываем — после обновления цен тело изменится, и это уже другая продажа с новым ключом. Кассир возвращается
+                // в окно оплаты (BasketPanelViewModel) с актуальными ценами.
+                ForgetQuickKey();
+                var changes = ServerPriceContract.ParseMismatch(ex.Payload);
+                PosLogger.Log(
+                    $"PRICE_SYNC: сервер отклонил чек (409 price_changed) за {sw.ElapsedMilliseconds} мс — продажа не проведена. "
+                    + (changes.Count > 0 ? ServerPriceContract.Describe(changes) : "список price_mismatch не пришёл — цены будут запрошены."),
+                    "PRICE_SYNC");
+                return PosCheckoutResult.PriceChangedFailure(
+                    Tr.T("Цена товара изменилась с момента добавления в чек. Продажа НЕ проведена — чек обновляется по актуальным ценам.",
+                        "Товардын баасы чекке кошулгандан бери өзгөрдү. Сатуу ӨТКӨРҮЛГӨН ЖОК — чек азыркы баалар боюнча жаңыртылууда.",
+                        "The product price has changed since it was added to the receipt. The sale was NOT recorded — the receipt is being updated with the current prices.",
+                        "Ürün fiyatı fişe eklendiğinden beri değişti. Satış KAYDEDİLMEDİ — fiş güncel fiyatlarla yenileniyor.",
+                        "Mahsulot narxi chekka qo'shilganidan beri o'zgardi. Sotuv O'TKAZILMADI — chek joriy narxlar bo'yicha yangilanmoqda."),
+                    changes);
             }
             catch (ApiException ex) when (ex.StatusCode == 500)
             {
@@ -239,6 +271,10 @@ public sealed partial class PosCheckoutService
         // Сервер провёл продажу — окно ожидания больше не нужно (см. CheckoutAsync).
         DisarmServerWait();
         ForgetQuickKey();
+        // 2026-10-27 (Б-03): сервер мог провести чек и сообщить price_mismatch (цена строки отличалась от текущей). Нет поля — ничего не делаем.
+        var priceMismatch = ServerPriceContract.ParseMismatch(response);
+        if (priceMismatch.Count > 0)
+            PosLogger.Log($"PRICE_SYNC: продажа проведена, но сервер сообщил price_mismatch: {ServerPriceContract.Describe(priceMismatch)}.", "PRICE_SYNC");
         var replayed = response.ValueKind == JsonValueKind.Object
             && response.TryGetProperty("replayed", out var rp) && rp.ValueKind == JsonValueKind.True;
         var serverTotal = TryReadQuickDecimal(response, "total");
@@ -284,6 +320,8 @@ public sealed partial class PosCheckoutService
                 cancellationToken)
             .ConfigureAwait(false);
         finished.TotalMismatchWarning = mismatchWarning;
+        if (priceMismatch.Count > 0)
+            finished.PriceMismatchNote = ServerPriceContract.MismatchToast(priceMismatch);
         return finished;
     }
 

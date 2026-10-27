@@ -602,7 +602,8 @@ internal static class UiKit
     {
         var b = new Button
         {
-            Content = text, MinHeight = 40, Padding = new Thickness(16, 6), CornerRadius = new CornerRadius(20), FontSize = 14,
+            // 2026-10-27, аудит владельца С-5: чип 40 → 44 (цель нажатия не меньше 44).
+            Content = text, MinHeight = 44, Padding = new Thickness(16, 6), CornerRadius = new CornerRadius(20), FontSize = 14,
             BorderThickness = new Thickness(1), Focusable = false,
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
         };

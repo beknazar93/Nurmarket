@@ -71,6 +71,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         InitBulkScan();
         // 2026-10-24, ТЗ «Склад», пакеты Б1 и В: приёмка «скан → строка», панель товаров поставщика, «＋ поставщик» (WarehouseWindow.ReceivingScan.cs).
         InitReceivingScan();
+        // 2026-10-27: «Загрузить накладную» (Excel/CSV/XML) в приёмке (WarehouseWindow.InvoiceImport.cs).
+        InitInvoiceImport();
         // 2026-10-24, ТЗ «Склад», пакет Р2: вкладка «Ревизия» — «скан → факт» на движке RevisionSession (WarehouseWindow.Revision.cs).
         InitRevision();
         WarehouseTabs.SelectionChanged += WarehouseTabs_SelectionChanged;
@@ -1299,7 +1301,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         var saved = await dialog.ShowDialog<bool>(this).ConfigureAwait(true);
         if (saved)
         {
-            prompts?.ShowToast(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
+            SuccessToast.Show(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
             await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         }
@@ -1342,7 +1344,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         var saved = await dialog.ShowDialog<bool>(this).ConfigureAwait(true);
         if (saved)
         {
-            prompts?.ShowToast(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
+            SuccessToast.Show(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
             await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         }
@@ -1399,7 +1401,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             if (OfflineModeHelper.UseLocalOperations)
             {
                 LocalProductEditor.DeleteLocally(product.Id);
-                prompts?.ShowToast(Tr.T("Товар удалён.", "Товар өчүрүлдү.", "Product deleted.", "Ürün silindi.", "Mahsulot o'chirildi."));
+                SuccessToast.Show(Tr.T("Товар удалён.", "Товар өчүрүлдү.", "Product deleted.", "Ürün silindi.", "Mahsulot o'chirildi."));
                 await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
                 return;
             }
@@ -1411,7 +1413,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
                 return;
             }
 
-            prompts?.ShowToast(Tr.T("Товар удалён.", "Товар өчүрүлдү.", "Product deleted.", "Ürün silindi.", "Mahsulot o'chirildi."));
+            SuccessToast.Show(Tr.T("Товар удалён.", "Товар өчүрүлдү.", "Product deleted.", "Ürün silindi.", "Mahsulot o'chirildi."));
             await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         }
@@ -1439,10 +1441,17 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         if (string.IsNullOrWhiteSpace(filePath))
             return;
 
+        // 2026-10-27 (расследование витрины NBS): перед загрузкой — предпросмотр и явный ответ «Сделать главным / Добавить в галерею»
+        // (раньше фото сразу уходило главным, и плохой кадр нельзя было отменить).
+        var choice = await ConfirmProductPhotoAsync(product, filePath).ConfigureAwait(true);
+        if (choice == ProductPhotoChoice.Cancel)
+            return;
+        var asPrimary = choice == ProductPhotoChoice.Primary;
+
         try
         {
             var uploadedUrl = await catalogApi
-                .UploadProductImageAsync(product.Id, filePath, isPrimary: true)
+                .UploadProductImageAsync(product.Id, filePath, isPrimary: asPrimary)
                 .ConfigureAwait(true);
 
             if (string.IsNullOrWhiteSpace(uploadedUrl))
@@ -1453,10 +1462,13 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
 
             // Show the picked file immediately — same bytes just landed on the server,
             // no need to round-trip a redownload through the thumbnail cache.
-            product.ProductImagePath = filePath;
+            if (asPrimary)
+                product.ProductImagePath = filePath;
             App.AppHost?.Services.GetService<MySqlAuditService>()?
                 .LogEvent("catalog", "product_photo_upload", new { productId = product.Id });
-            prompts?.ShowToast(Tr.T("Фото товара загружено.", "Товардын сүрөтү жүктөлдү.", "Product photo uploaded.", "Ürün fotoğrafı yüklendi.", "Mahsulot rasmi yuklandi."));
+            SuccessToast.Show(asPrimary
+                ? Tr.T("Фото товара загружено.", "Товардын сүрөтү жүктөлдү.", "Product photo uploaded.", "Ürün fotoğrafı yüklendi.", "Mahsulot rasmi yuklandi.")
+                : Tr.T("Фото добавлено в галерею товара.", "Сүрөт товардын галереясына кошулду.", "Photo added to the product gallery.", "Fotoğraf ürün galerisine eklendi.", "Rasm mahsulot galereyasiga qo'shildi."));
         }
         catch (ApiException ex)
         {
@@ -1466,6 +1478,65 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         {
             prompts?.ShowToast(Tr.T("Не удалось загрузить фото — нет сети.", "Сүрөттү жүктөө мүмкүн болгон жок — тармак жок.", "Could not upload the photo — no network.", "Fotoğraf yüklenemedi — ağ bağlantısı yok.", "Rasmni yuklab bo'lmadi — tarmoq yo'q."), isWarning: true);
         }
+    }
+
+    private enum ProductPhotoChoice { Cancel, Primary, Gallery }
+
+    /// <summary>2026-10-27: окно «Фото товара» перед загрузкой — крупный предпросмотр выбранного файла. У товара ещё нет фото — «Загрузить фото»
+    /// (станет главным); есть — «Сделать главным» (по умолчанию, как было) или «Добавить в галерею» (главное остаётся прежним). Esc и ✕ — отмена.</summary>
+    private async System.Threading.Tasks.Task<ProductPhotoChoice> ConfirmProductPhotoAsync(CatalogProductTileVm product, string filePath)
+    {
+        var tcs = new System.Threading.Tasks.TaskCompletionSource<ProductPhotoChoice>();
+        var dialog = new Window { Title = Title };
+        SectionCards.AsModal(dialog, 640);
+        var hasPhoto = !string.IsNullOrWhiteSpace(product.ProductImagePath);
+        var preview = new Avalonia.Controls.Image { Height = 280, Stretch = Avalonia.Media.Stretch.Uniform };
+        try
+        {
+            preview.Source = new Avalonia.Media.Imaging.Bitmap(filePath);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Склад: предпросмотр фото не показан ({ex.Message}).", "DEBUG");
+        }
+        var note = new TextBlock
+        {
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 13,
+            Text = hasPhoto
+                ? Tr.T("У товара уже есть фото. «Сделать главным» — новое заменит его на плитке товара и на сайте. «Добавить в галерею» — главным останется прежнее.",
+                    "Товарда сүрөт бар. «Негизги кылуу» — жаңысы аны товар плиткасында жана сайтта алмаштырат. «Галереяга кошуу» — негизгиси мурункусу бойдон калат.",
+                    "The product already has a photo. “Make main” — the new one replaces it on the tile and on the website. “Add to gallery” — the old one stays main.",
+                    "Ürünün zaten bir fotoğrafı var. «Ana yap» — yenisi kartta ve sitede onun yerine geçer. «Galeriye ekle» — ana fotoğraf eskisi kalır.",
+                    "Mahsulotda rasm bor. «Asosiy qilish» — yangisi uni kartochkada va saytda almashtiradi. «Galereyaga qo'shish» — asosiysi eskisi qoladi.")
+                : Tr.T("Это фото станет главным: его увидят в кассе и на сайте. Проверьте, что на нём сам товар, а не штрихкод.",
+                    "Бул сүрөт негизги болот: аны кассада жана сайтта көрүшөт. Анда товардын өзү экенин, штрихкод эмес экенин текшериңиз.",
+                    "This photo becomes the main one: it shows in the till and on the website. Check it shows the product itself, not a barcode.",
+                    "Bu fotoğraf ana fotoğraf olacak: kasada ve sitede görünür. Fotoğrafta barkodun değil ürünün kendisinin göründüğünden emin olun.",
+                    "Bu rasm asosiy bo'ladi: kassada va saytda ko'rinadi. Unda shtrixkod emas, mahsulotning o'zi borligini tekshiring."),
+        };
+        note.Bind(TextBlock.ForegroundProperty, note.GetResourceObservable("BrushTextSoft"));
+        var content = new StackPanel { Spacing = 10, Children = { preview, note } };
+        var cancel = SectionCards.Cancel(Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        cancel.Click += (_, _) => { tcs.TrySetResult(ProductPhotoChoice.Cancel); dialog.Close(); };
+        var buttons = new List<Button> { cancel };
+        Button primary;
+        if (hasPhoto)
+        {
+            var gallery = SectionCards.Secondary(Tr.T("Добавить в галерею", "Галереяга кошуу", "Add to gallery", "Galeriye ekle", "Galereyaga qo'shish"));
+            gallery.Click += (_, _) => { tcs.TrySetResult(ProductPhotoChoice.Gallery); dialog.Close(); };
+            buttons.Add(gallery);
+            primary = SectionCards.Primary(Tr.T("Сделать главным", "Негизги кылуу", "Make main", "Ana yap", "Asosiy qilish"), isDefault: true);
+        }
+        else
+            primary = SectionCards.Primary(Tr.T("Загрузить фото", "Сүрөттү жүктөө", "Upload photo", "Fotoğrafı yükle", "Rasmni yuklash"), isDefault: true);
+        primary.Click += (_, _) => { tcs.TrySetResult(ProductPhotoChoice.Primary); dialog.Close(); };
+        buttons.Add(primary);
+        dialog.Closed += (_, _) => tcs.TrySetResult(ProductPhotoChoice.Cancel);
+        var shell = SectionCards.Shell(Tr.T("Фото товара", "Товардын сүрөтү", "Product photo", "Ürün fotoğrafı", "Mahsulot rasmi"), product.Title, content, SectionCards.Buttons(buttons.ToArray()));
+        shell.InitialFocus = primary;
+        dialog.Content = shell;
+        await dialog.ShowDialog(this).ConfigureAwait(true);
+        return await tcs.Task.ConfigureAwait(true);
     }
 
     #region Аналитика склада/товаров

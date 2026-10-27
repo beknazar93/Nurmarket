@@ -44,6 +44,9 @@ public static class PendingShiftCloseStore
         public int Attempts { get; set; }
 
         public string? LastError { get; set; }
+
+        /// <summary>2026-10-27 (ревью, См-2): сколько раз кассир нажимал «Открыть смену», а сервер не принял закрытие этой смены.</summary>
+        public int OpenRetries { get; set; }
     }
 
     public static List<Entry> LoadAll()
@@ -130,6 +133,33 @@ public static class PendingShiftCloseStore
             entry.LastError = error;
             SaveNoLock(all);
         }
+    }
+
+    /// <summary>2026-10-27 (ревью, См-2): ещё одно нажатие «Открыть смену» не закрыло эту смену на сервере. Возвращает, сколько их уже
+    /// было (0 — записи нет).</summary>
+    public static int RecordOpenRetry(string shiftId, string? error)
+    {
+        lock (Gate)
+        {
+            var all = LoadAllNoLock();
+            var entry = all.FirstOrDefault(e =>
+                string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase));
+            if (entry == null)
+                return 0;
+
+            entry.OpenRetries++;
+            entry.LastError = error;
+            SaveNoLock(all);
+            return entry.OpenRetries;
+        }
+    }
+
+    /// <summary>2026-10-27 (аудит кассы, В-7): запись очереди по смене; null — этой смены в очереди нет.</summary>
+    public static Entry? TryGet(string? shiftId)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId))
+            return null;
+        return LoadAll().FirstOrDefault(e => string.Equals(e.ShiftId, shiftId.Trim(), StringComparison.OrdinalIgnoreCase));
     }
 
     public static int Count => LoadAll().Count;

@@ -64,6 +64,7 @@ public partial class SideMenuView : UserControl
     {
         InitializeComponent();
         CollectCells();
+        InitNewBadges();
         // 2026-10-22 (меню, сворачиваемые разделы): заголовки групп нового вида — кнопки сворачивания (SideMenuView.Groups.cs).
         InitGroups();
         _pendingTimer.Tick += OnPendingTimer;
@@ -125,6 +126,30 @@ public partial class SideMenuView : UserControl
             UpdateTitle();
             QueueRefresh();
         };
+    }
+
+    /// <summary>2026-10-27, аудит Н-18: значок «Новое» (Border.NewBadge) у пункта старого вида меню гаснет после первого открытия этого
+    /// пункта и больше не появляется (ключ пункта — Tag="new:…" у кнопки, запоминание — MenuNewBadgeStore).</summary>
+    private void InitNewBadges()
+    {
+        foreach (var badge in this.GetLogicalDescendants().OfType<Border>().Where(b => b.Classes.Contains("NewBadge")).ToList())
+        {
+            var button = badge.GetLogicalAncestors().OfType<Button>().FirstOrDefault();
+            if (button?.Tag is not string { Length: > 0 } key || !key.StartsWith("new:", StringComparison.Ordinal))
+                continue;
+            if (MenuNewBadgeStore.IsSeen(key))
+            {
+                badge.IsVisible = false;
+                continue;
+            }
+            button.Click += (_, _) =>
+            {
+                if (!badge.IsVisible)
+                    return;
+                badge.IsVisible = false;
+                MenuNewBadgeStore.MarkSeen(key);
+            };
+        }
     }
 
     private MainWindowViewModel? MainVm => _top?.DataContext as MainWindowViewModel;
@@ -975,6 +1000,9 @@ public partial class SideMenuView : UserControl
         try
         {
             CloseMenu();
+            // 2026-10-27, аудит С-17: окно «Горячие клавиши» — только с правом «Настройки» (как и кнопка «Горячие» в шапке).
+            if (TopLevel.GetTopLevel(this) is MainKassir.MainWindow mainWindow && !mainWindow.AuthorizeSettings())
+                return;
             if (TopLevel.GetTopLevel(this) is Window owner)
             {
                 await new HotkeySettingsWindow(new PosHotkeyService()).ShowDialog<bool>(owner).ConfigureAwait(true);

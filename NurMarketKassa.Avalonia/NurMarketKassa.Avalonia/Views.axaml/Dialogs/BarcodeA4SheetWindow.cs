@@ -122,8 +122,9 @@ public sealed class BarcodeA4SheetWindow : Window
         _description = Check(T("Описание", "Сүрөттөмө", "Description", "Açıklama", "Tavsif"), _o.ShowDescription);
         _nameSize = Num(6, 40, (decimal)_o.Name.SizePt, 84);
         _priceSize = Num(6, 60, (decimal)_o.Price.SizePt, 84);
-        (_nameB, _nameI, _nameU) = (Tog("Ж", FontWeight.Bold, FontStyle.Normal, false, _o.Name.Bold), Tog("К", FontWeight.Normal, FontStyle.Italic, false, _o.Name.Italic), Tog("П", FontWeight.Normal, FontStyle.Normal, true, _o.Name.Underline));
-        (_priceB, _priceI, _priceU) = (Tog("Ж", FontWeight.Bold, FontStyle.Normal, false, _o.Price.Bold), Tog("К", FontWeight.Normal, FontStyle.Italic, false, _o.Price.Italic), Tog("П", FontWeight.Normal, FontStyle.Normal, true, _o.Price.Underline));
+        // 2026-10-27, аудит Н-19: подписи кнопок «жирный / курсив / подчёркнутый» были жёстко по-русски (Ж К П) — теперь на языке кассы.
+        (_nameB, _nameI, _nameU) = (Tog(T("Ж", "Ж", "B", "K", "B"), FontWeight.Bold, FontStyle.Normal, false, _o.Name.Bold), Tog(T("К", "К", "I", "İ", "I"), FontWeight.Normal, FontStyle.Italic, false, _o.Name.Italic), Tog(T("П", "П", "U", "A", "U"), FontWeight.Normal, FontStyle.Normal, true, _o.Name.Underline));
+        (_priceB, _priceI, _priceU) = (Tog(T("Ж", "Ж", "B", "K", "B"), FontWeight.Bold, FontStyle.Normal, false, _o.Price.Bold), Tog(T("К", "К", "I", "İ", "I"), FontWeight.Normal, FontStyle.Italic, false, _o.Price.Italic), Tog(T("П", "П", "U", "A", "U"), FontWeight.Normal, FontStyle.Normal, true, _o.Price.Underline));
 
         _summary = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
         Use(_summary, TextBlock.ForegroundProperty, "BrushTextSoft");
@@ -419,7 +420,7 @@ public sealed class BarcodeA4SheetWindow : Window
     {
         var tb = new TextBlock { Text = text, FontWeight = weight, FontStyle = style, TextDecorations = underline ? TextDecorations.Underline : null, HorizontalAlignment = HorizontalAlignment.Center };
         var t = new ToggleButton { Content = tb, IsChecked = isChecked, Width = 44, Height = 44, CornerRadius = new CornerRadius(8), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Focusable = false };
-        Avalonia.Automation.AutomationProperties.SetName(t, text == "Ж" ? T("Жирный", "Калың", "Bold", "Kalın", "Qalin") : text == "К" ? T("Курсив", "Курсив", "Italic", "İtalik", "Kursiv") : T("Подчёркнутый", "Асты сызылган", "Underline", "Altı çizili", "Tagi chizilgan"));
+        Avalonia.Automation.AutomationProperties.SetName(t, text == T("Ж", "Ж", "B", "K", "B") ? T("Жирный", "Калың", "Bold", "Kalın", "Qalin") : text == T("К", "К", "I", "İ", "I") ? T("Курсив", "Курсив", "Italic", "İtalik", "Kursiv") : T("Подчёркнутый", "Асты сызылган", "Underline", "Altı çizili", "Tagi chizilgan")); // 2026-10-27: сравнение с текстом кнопки на языке кассы (было "Ж"/"К" — в en/tr/uz имя читалось неверно)
         return t;
     }
 

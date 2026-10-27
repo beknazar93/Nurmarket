@@ -12,7 +12,8 @@
         <!-- Кнопка создания операции -->
         <Style Selector="Button.PrimaryActionButton">
             <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <!-- 2026-10-27: белый на акценте «NUR CRM» (жёлтый #FFB208) — 1,8:1 («+ Новая операция» не читалась); цвет текста на акценте — BrushAccentForeground. -->
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="Height" Value="40"/>
@@ -21,8 +22,14 @@
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
-        <Style Selector="Button.PrimaryActionButton:pointerover">
+        <!-- 2026-10-27: наведение/нажатие — на ContentPresenter (стиль на самой кнопке перекрывался Fluent, и при наведении кнопка серела под цветным текстом). -->
+        <Style Selector="Button.PrimaryActionButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.PrimaryActionButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentPressed}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         </Style>
 
         <!-- Кнопка действия в DataGrid (три точки) -->
