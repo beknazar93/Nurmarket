@@ -56,7 +56,7 @@ public partial class ReturnLineReasonDialog : Window
         AddHandler(KeyDownEvent, (_, e) =>
         {
             if (e.Key == Avalonia.Input.Key.Enter
-                && e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
+                && NurMarketKassa.AvaloniaHost.Services.PlatformKeys.HasCommand(e.KeyModifiers))
             {
                 e.Handled = true;
                 Ok_Click(this, new RoutedEventArgs());

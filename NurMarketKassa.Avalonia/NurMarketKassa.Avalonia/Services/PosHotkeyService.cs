@@ -280,6 +280,8 @@ public sealed class PosHotkeyService
             return gesture;
 
         var text = Format(key, modifiers);
+        if (OperatingSystem.IsMacOS())
+            text = text.Replace("Ctrl", "Cmd"); // 2026-10-29: на Mac главная клавиша — Cmd
         var keyName = key switch
         {
             Key.Enter => "Enter",
@@ -333,6 +335,7 @@ public sealed class PosHotkeyService
         return key != Key.None;
     }
 
+    // 2026-10-29: на macOS Cmd (Meta) = «Ctrl» кассы — и при сопоставлении нажатия, и при записи нового сочетания.
     private static KeyModifiers NormalizeModifiers(KeyModifiers modifiers) =>
-        modifiers & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Shift | KeyModifiers.Meta);
+        PlatformKeys.NormalizeCommand(modifiers) & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Shift | KeyModifiers.Meta);
 }

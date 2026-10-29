@@ -158,6 +158,7 @@ internal static class DialogScreenFit
     }
 
     private static bool _registered;
+    private static WindowIcon? _linuxWindowIcon;
 
     /// <summary>2026-09-30, просьба владельца «на некоторых экранах окна модалки выходят за рамки
     /// экрана»: подгонка вызывалась только в 7 окнах из 104. Теперь — один раз на запуск: КАЖДОЕ
@@ -169,6 +170,27 @@ internal static class DialogScreenFit
         if (_registered)
             return;
         _registered = true;
+        // 2026-10-29: на Linux (X11) у окон не было значка (в Windows его берёт сам exe, на Mac — пакет .app) — окна кассы
+        // в панели задач и в Alt+Tab были с безликим значком.
+        if (OperatingSystem.IsLinux() && !OperatingSystem.IsAndroid())
+        {
+            Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) =>
+            {
+                try
+                {
+                    if (window.Icon is null)
+                    {
+                        _linuxWindowIcon ??= new WindowIcon(new Avalonia.Media.Imaging.Bitmap(
+                            Avalonia.Platform.AssetLoader.Open(new Uri("avares://NurMarketKassa.Avalonia/Assets/app-logo.png"))));
+                        window.Icon = _linuxWindowIcon;
+                    }
+                }
+                catch
+                {
+                    // значок — украшение, окно без него работает
+                }
+            });
+        }
         Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) =>
         {
             try

@@ -20,6 +20,10 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // 2026-10-29: macOS — данные кассы в ~/Library/Application Support/NurMarketKassa (а не ~/.config и ~/.local/share).
+        // Должно быть выполнено до первого обращения к путям данных.
+        UseMacApplicationSupportFolder();
+
         // Must run first, before any other startup logic: on install/update/uninstall,
         // Velopack relaunches the exe with special flags to create/remove shortcuts etc.,
         // and this handles + exits on those without ever reaching the Avalonia UI.
@@ -65,6 +69,30 @@ internal static class Program
         finally
         {
             _singleInstanceMutex.ReleaseMutex();
+        }
+    }
+
+    /// <summary>2026-10-29: .NET на macOS даёт ApplicationData=~/.config и LocalApplicationData=~/.local/share (правила XDG).
+    /// Подменяем XDG-переменные процесса на ~/Library/Application Support — так весь код кассы, берущий
+    /// SpecialFolder.ApplicationData / LocalApplicationData, пишет в привычную для Mac папку без правок в сотне мест.</summary>
+    private static void UseMacApplicationSupportFolder()
+    {
+        if (!OperatingSystem.IsMacOS())
+            return;
+        try
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (string.IsNullOrEmpty(home))
+                return;
+            var support = Path.Combine(home, "Library", "Application Support");
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("XDG_CONFIG_HOME")))
+                Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", support);
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("XDG_DATA_HOME")))
+                Environment.SetEnvironmentVariable("XDG_DATA_HOME", support);
+        }
+        catch
+        {
+            // останутся стандартные папки .NET
         }
     }
 
@@ -164,7 +192,7 @@ internal static class Program
             // Avalonia.Activate() не всегда перетаскивает окно поверх чужих — Windows
             // ограничивает смену активного окна для процесса, который сейчас не на переднем
             // плане. Подстраховываемся прямым вызовом Win32.
-            if (window.TryGetPlatformHandle()?.Handle is { } handle && handle != IntPtr.Zero)
+            if (OperatingSystem.IsWindows() && window.TryGetPlatformHandle()?.Handle is { } handle && handle != IntPtr.Zero)
             {
                 ShowWindow(handle, SW_RESTORE);
                 SetForegroundWindow(handle);
@@ -185,12 +213,40 @@ internal static class Program
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
     /// <summary>Прямой Win32 MessageBox — Avalonia на этом этапе ещё не инициализирована.</summary>
-    private static void ShowAlreadyRunningMessage() =>
-        MessageBox(
-            IntPtr.Zero,
-            "Касса уже запущена. Проверьте панель задач или системный трей.",
-            "NurMarket Kassa",
-            0x00000030 /* MB_ICONWARNING */);
+    private static void ShowAlreadyRunningMessage()
+    {
+        const string text = "Касса уже запущена. Проверьте панель задач или системный трей.";
+        if (OperatingSystem.IsWindows())
+        {
+            MessageBox(IntPtr.Zero, text, "NurMarket Kassa", 0x00000030 /* MB_ICONWARNING */);
+            return;
+        }
+
+        // 2026-10-29: user32.dll на Linux/macOS нет — вызов MessageBox ронял второй запуск (DllNotFoundException).
+        // Там именованных сигналов «покажись» нет, поэтому второй запуск сообщает системным способом и выходит.
+        try
+        {
+            var psi = OperatingSystem.IsMacOS()
+                ? new System.Diagnostics.ProcessStartInfo("osascript")
+                : new System.Diagnostics.ProcessStartInfo("notify-send");
+            if (OperatingSystem.IsMacOS())
+            {
+                psi.ArgumentList.Add("-e");
+                psi.ArgumentList.Add("display notification \"" + text + "\" with title \"NurMarket Kassa\"");
+            }
+            else
+            {
+                psi.ArgumentList.Add("NurMarket Kassa");
+                psi.ArgumentList.Add(text);
+            }
+            psi.UseShellExecute = false;
+            System.Diagnostics.Process.Start(psi);
+        }
+        catch
+        {
+            Console.Error.WriteLine(text);
+        }
+    }
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "MessageBoxW")]
     private static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);
@@ -213,6 +269,11 @@ internal static class Program
             {
                 RenderingMode = new[] { Win32RenderingMode.Software },
             });
+            // 2026-10-29: то же для Linux (X11) и macOS — раньше «слабое устройство» работало только в Windows.
+            if (OperatingSystem.IsLinux())
+                builder = builder.With(new X11PlatformOptions { RenderingMode = new[] { X11RenderingMode.Software } });
+            else if (OperatingSystem.IsMacOS())
+                builder = builder.With(new AvaloniaNativePlatformOptions { RenderingMode = new[] { AvaloniaNativeRenderingMode.Software } });
         }
 
         return builder;

@@ -303,7 +303,7 @@ public partial class OwnerShellWindow
 
     private void NavHotkey_KeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.K && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        if (e.Key == Key.K && NurMarketKassa.AvaloniaHost.Services.PlatformKeys.HasCommand(e.KeyModifiers))
         {
             e.Handled = true;
             FocusNavSearch();
@@ -314,7 +314,7 @@ public partial class OwnerShellWindow
     private void AttachNavHotkey(Window section) =>
         section.AddHandler(KeyDownEvent, (_, e) =>
         {
-            if (e.Key == Key.K && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+            if (e.Key == Key.K && NurMarketKassa.AvaloniaHost.Services.PlatformKeys.HasCommand(e.KeyModifiers))
             {
                 e.Handled = true;
                 FocusNavSearch();

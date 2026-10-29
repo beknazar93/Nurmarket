@@ -725,7 +725,7 @@ public partial class SideMenuView : UserControl
             _vm?.CloseMenuCommand.Execute(null);
             return;
         }
-        if (e.Key == Key.K && mods == KeyModifiers.Control)
+        if (e.Key == Key.K && NurMarketKassa.AvaloniaHost.Services.PlatformKeys.IsCommandOnly(mods))
         {
             e.Handled = true;
             FocusSearch("");

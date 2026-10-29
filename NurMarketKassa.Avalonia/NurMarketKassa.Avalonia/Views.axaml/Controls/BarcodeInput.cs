@@ -58,7 +58,7 @@ public static class BarcodeInput
         {
             if (e.Source is not TextBox box || !isBarcodeBox(box))
                 return;
-            var paste = (e.Key == Key.V && e.KeyModifiers.HasFlag(KeyModifiers.Control)) || (e.Key == Key.Insert && e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+            var paste = (e.Key == Key.V && NurMarketKassa.AvaloniaHost.Services.PlatformKeys.HasCommand(e.KeyModifiers)) || (e.Key == Key.Insert && e.KeyModifiers.HasFlag(KeyModifiers.Shift));
             if (!paste)
                 return;
             e.Handled = true; // сами вставим только цифры

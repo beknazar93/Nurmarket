@@ -48,7 +48,7 @@ public partial class NewOperationDialog : Window
         // 2026-10-22 (модалки, пакет 2): Enter в многострочном комментарии переносит строку, Ctrl+Enter — «Сохранить».
         CommentBox.AddHandler(KeyDownEvent, (_, e) =>
         {
-            if (e.Key == Avalonia.Input.Key.Enter && e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
+            if (e.Key == Avalonia.Input.Key.Enter && NurMarketKassa.AvaloniaHost.Services.PlatformKeys.HasCommand(e.KeyModifiers))
             {
                 e.Handled = true;
                 Save_Click(null, new RoutedEventArgs());

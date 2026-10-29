@@ -1935,6 +1935,15 @@ public sealed class ClientDocEditorWindow : Window
         {
             if (OperatingSystem.IsWindows())
                 Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = false });
+            else if (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux())
+            {
+                // 2026-10-29: macOS — Finder (open -R), Linux — папка с файлом (xdg-open).
+                var psi = new ProcessStartInfo(OperatingSystem.IsMacOS() ? "open" : "xdg-open") { UseShellExecute = false };
+                if (OperatingSystem.IsMacOS())
+                    psi.ArgumentList.Add("-R");
+                psi.ArgumentList.Add(OperatingSystem.IsMacOS() ? path : (Path.GetDirectoryName(path) ?? "."));
+                Process.Start(psi);
+            }
         }
         catch (Exception ex)
         {

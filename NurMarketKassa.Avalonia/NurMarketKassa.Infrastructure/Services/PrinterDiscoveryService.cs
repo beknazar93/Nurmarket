@@ -54,6 +54,21 @@ public static class PrinterDiscoveryService
             PosLogger.Log($"Printer enumeration (platform) failed: {ex.GetType().Name}", "WARNING");
         }
 
+        // 2026-10-29: Linux/macOS — очередь Windows, WinUSB и LPT там нет (только устройства, CUPS и COM-переходники).
+        if ((OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()) && !OperatingSystem.IsAndroid())
+        {
+            try
+            {
+                foreach (var com in SerialPort.GetPortNames().OrderBy(x => x, StringComparer.Ordinal))
+                    result.Add(new DiscoveredPrinter($"🔌 {com} (serial)", com));
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"COM port enumeration failed: {ex.GetType().Name}", "WARNING");
+            }
+            return result;
+        }
+
         try
         {
             foreach (var name in RawPrinterHelper.GetInstalledPrinterNames())

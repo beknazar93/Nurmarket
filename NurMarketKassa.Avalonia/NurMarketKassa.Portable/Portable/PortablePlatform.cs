@@ -19,7 +19,7 @@ public static class PortablePlatform
             return;
         }
 
-        if (!OperatingSystem.IsLinux())
+        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
             return;
 
         var path = Path.Combine(Path.GetTempPath(), $"nurmarket-sound-{Guid.NewGuid():N}.wav");
@@ -27,7 +27,8 @@ public static class PortablePlatform
         try
         {
             // paplay — PulseAudio/PipeWire (обычный рабочий стол), aplay — ALSA (минимальные системы).
-            foreach (var exe in new[] { "paplay", "aplay" })
+            // 2026-10-29: macOS — afplay (есть в системе).
+            foreach (var exe in OperatingSystem.IsMacOS() ? new[] { "afplay" } : new[] { "paplay", "aplay" })
             {
                 try
                 {
@@ -48,7 +49,7 @@ public static class PortablePlatform
                     // программы нет — пробуем следующую
                 }
             }
-            PosLogger.Log("Звук: нет paplay/aplay — сигнал не воспроизведён.", "WARNING");
+            PosLogger.Log("Звук: нет paplay/aplay/afplay — сигнал не воспроизведён.", "WARNING");
         }
         finally
         {

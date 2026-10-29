@@ -301,6 +301,14 @@ internal static class ReceiptShare
         {
             if (OperatingSystem.IsWindows())
                 Process.Start(new ProcessStartInfo("explorer.exe", "/select,\"" + path + "\"") { UseShellExecute = true });
+            else if (OperatingSystem.IsMacOS())
+            {
+                // 2026-10-29: macOS — «open -R» показывает файл в Finder.
+                var psi = new ProcessStartInfo("open") { UseShellExecute = false };
+                psi.ArgumentList.Add("-R");
+                psi.ArgumentList.Add(path);
+                Process.Start(psi);
+            }
             else if (OperatingSystem.IsLinux())
                 Process.Start(new ProcessStartInfo("xdg-open", "\"" + (Path.GetDirectoryName(path) ?? ".") + "\"") { UseShellExecute = false });
         }
