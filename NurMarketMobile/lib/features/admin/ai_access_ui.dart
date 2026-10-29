@@ -48,6 +48,7 @@ class _AiAccessPanelState extends ConsumerState<AiAccessPanel> {
   bool _busy = false;
   bool _dirty = false;
   String _warn = '';
+  String _q = ''; // 2026-10-28: поиск, когда сотрудников много
 
   @override
   void initState() {
@@ -80,6 +81,8 @@ class _AiAccessPanelState extends ConsumerState<AiAccessPanel> {
     if (session != null && session.isOwner) add(_Person(AiAccessUser(session.userId, session.userName), session.role, owner: true));
     final sorted = [...staff]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     for (final e in sorted) {
+      // 2026-10-28 (сотрудники): уволенных не предлагаем (уже выбранный остаётся — его снимают вручную)
+      if (e.dismissed && !(policy.users ?? const <AiAccessUser>[]).any((u) => u.sameId(e.id))) continue;
       add(_Person(AiAccessUser(e.id, e.name.isEmpty ? e.role : e.name), e.role, owner: _looksOwner(e.role)));
     }
     // выбранные раньше, которых сейчас нет в списке (уволены / список не получен) — не теряем
@@ -216,7 +219,16 @@ class _AiAccessPanelState extends ConsumerState<AiAccessPanel> {
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(l.aiAccNobody, style: TextStyle(color: pal.warn, fontSize: 12.5, fontWeight: FontWeight.w700)),
           ),
-        for (final p in _people)
+        if (_people.length > 8)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: TextField(
+              key: const Key('aiAccSearch'),
+              onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
+              decoration: InputDecoration(hintText: l.empSearch, prefixIcon: const Icon(Icons.search_rounded)),
+            ),
+          ),
+        for (final p in _people.where((p) => _q.isEmpty || p.user.name.toLowerCase().contains(_q) || p.role.toLowerCase().contains(_q) || _picker.has(p.user)))
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Panel(

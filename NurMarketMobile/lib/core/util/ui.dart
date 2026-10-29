@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show SystemUiOverlayStyle;
+import 'package:flutter/services.dart' show FilteringTextInputFormatter, LengthLimitingTextInputFormatter, SystemUiOverlayStyle, TextInputFormatter;
 import 'package:intl/intl.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -17,7 +17,28 @@ String money(double v) => _money.format(v);
 String qtyText(double v) => _qty.format(v);
 
 // 2026-10-22 (аудит П5): и неразрывные пробелы (так форматирует intl: «1 250,50») — раньше число не читалось
-double? parseNum(String? s) => double.tryParse((s ?? '').replaceAll(RegExp('[ \u00A0\u202F]'), '').replaceAll(',', '.'));
+// 2026-10-29: \u00AB1.250,50\u00BB \u0438 \u00AB1,250.50\u00BB (Excel \u0438 \u043A\u0430\u043B\u044C\u043A\u0443\u043B\u044F\u0442\u043E\u0440 \u043F\u0438\u0448\u0443\u0442 \u043F\u043E-\u0440\u0430\u0437\u043D\u043E\u043C\u0443) \u2014 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u0437\u043D\u0430\u043A \u0438\u0437 \u00AB.\u00BB \u0438 \u00AB,\u00BB \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F
+// \u0434\u0435\u0441\u044F\u0442\u0438\u0447\u043D\u044B\u043C, \u0432\u0442\u043E\u0440\u043E\u0439 \u2014 \u0440\u0430\u0437\u0434\u0435\u043B\u0438\u0442\u0435\u043B\u0435\u043C \u0442\u044B\u0441\u044F\u0447. \u0420\u0430\u043D\u044C\u0448\u0435 \u0442\u0430\u043A\u0438\u0435 \u0447\u0438\u0441\u043B\u0430 \u043D\u0435 \u0447\u0438\u0442\u0430\u043B\u0438\u0441\u044C \u0441\u043E\u0432\u0441\u0435\u043C. \u00AB12,75\u00BB \u0438 \u00AB12.75\u00BB \u2014 \u043A\u0430\u043A \u043F\u0440\u0435\u0436\u0434\u0435.
+double? parseNum(String? s) {
+  final t = (s ?? '').replaceAll(RegExp('[ \u00A0\u202F]'), '');
+  final dot = t.lastIndexOf('.'), comma = t.lastIndexOf(',');
+  if (dot >= 0 && comma >= 0) {
+    final decimal = dot > comma ? '.' : ',';
+    final thousands = decimal == '.' ? ',' : '.';
+    return double.tryParse(t.replaceAll(thousands, '').replaceAll(decimal, '.'));
+  }
+  return double.tryParse(t.replaceAll(',', '.'));
+}
+
+// 2026-10-29 (владелец: штрихкод — только цифры): поля «Штрихкод» и «Доп. штрихкод» отбрасывают всё, кроме цифр (буквы, пробелы,
+// дефисы — и при наборе, и при вставке: «487 000-115 9955» → 4870001159955), длина 4–14. Поля поиска «название/код» не ограничиваются.
+final barcodeFormatters = <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(14)];
+
+/// Штрихкод пустой (не обязателен) или 4–14 цифр.
+bool barcodeFieldOk(String s) {
+  final t = s.trim();
+  return t.isEmpty || (t.length >= 4 && t.length <= 14 && RegExp(r'^\d+$').hasMatch(t));
+}
 
 /// Подпись над полем — заглавными, мелко (доска 5).
 /// 2026-10-21: [upper] = false — обычными буквами (правило редизайна «без ЗАГЛАВНЫХ», экраны КП и счетов).

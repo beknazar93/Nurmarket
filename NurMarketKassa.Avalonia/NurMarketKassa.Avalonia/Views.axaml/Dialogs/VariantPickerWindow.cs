@@ -249,7 +249,7 @@ public sealed class VariantPickerWindow : Window
         var i = Array.FindIndex(SizeOrder, x => string.Equals(x, s, StringComparison.OrdinalIgnoreCase));
         if (i >= 0)
             return i;
-        return double.TryParse(s.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var n) ? 100 + n : 10_000;
+        return double.TryParse(s.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out var n) ? 100 + n : 10_000;
     }
 
     private List<string> ColorsFor(string? size) =>

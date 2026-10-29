@@ -5756,4 +5756,567 @@ class AppLocalizationsUz extends AppLocalizations {
   String invUnitCheck(String inv, String item) {
     return 'Tekshiring · birlik: nakladnoyda «$inv», tovarda «$item»';
   }
+
+  @override
+  String get empAdd => 'Yangi xodim';
+
+  @override
+  String get empCard => 'Xodim kartasi';
+
+  @override
+  String get empSectionData => 'Xodim ma\'lumotlari';
+
+  @override
+  String get empSectionRights => 'Ruxsatlar';
+
+  @override
+  String get empFirstName => 'Ism';
+
+  @override
+  String get empLastName => 'Familiya';
+
+  @override
+  String get empMiddleName => 'Otasining ismi';
+
+  @override
+  String get empEmail => 'Pochta (kirish logini)';
+
+  @override
+  String get empPhone => 'Telefon';
+
+  @override
+  String get empTrack => 'Xodim raqami';
+
+  @override
+  String get empRole => 'Lavozim';
+
+  @override
+  String get empBirth => 'Tug\'ilgan sana';
+
+  @override
+  String get empHire => 'Ishga olingan sana';
+
+  @override
+  String get empAddress => 'Manzil';
+
+  @override
+  String get empComment => 'Izoh';
+
+  @override
+  String get empClearDate => 'Sanani tozalash';
+
+  @override
+  String get empRequired => 'Maydonni to\'ldiring';
+
+  @override
+  String get empEmailBad => 'Pochtani to\'liq kiriting, masalan aibek@mail.kg';
+
+  @override
+  String get empPhoneBad =>
+      'Telefon: 9 dan 15 gacha raqam, «+» bilan boshlanishi mumkin';
+
+  @override
+  String get empSaved => 'Xodim saqlandi.';
+
+  @override
+  String get empCreated => 'Xodim qo\'shildi.';
+
+  @override
+  String get empNothingChanged => 'Hech narsa o\'zgarmadi.';
+
+  @override
+  String get empSearch => 'Qidiruv: ism, pochta, telefon';
+
+  @override
+  String get empFilterActive => 'Ishlaydi';
+
+  @override
+  String get empFilterDismissed => 'Bo\'shatilgan';
+
+  @override
+  String get empDismissedTag => 'bo\'shatilgan';
+
+  @override
+  String empCount(int n) {
+    return 'Xodimlar: $n';
+  }
+
+  @override
+  String get empNothingFound => 'Hech kim topilmadi.';
+
+  @override
+  String get empDismiss => 'Bo\'shatish';
+
+  @override
+  String get empRestore => 'Tiklash';
+
+  @override
+  String empDismissAsk(String name) {
+    return '$name bo\'shatilsinmi? U dasturga kira olmaydi. Sotuvlar va smenalar saqlanadi.';
+  }
+
+  @override
+  String empRestoreAsk(String name) {
+    return '$name tiklansinmi? U yana dasturga kira oladi.';
+  }
+
+  @override
+  String get empDismissedDone => 'Xodim bo\'shatildi.';
+
+  @override
+  String get empRestoredDone => 'Xodim tiklandi.';
+
+  @override
+  String get empDismissStill =>
+      'Server so\'rovni qabul qildi, lekin xodim ro\'yxatda qoldi. Uni app.nurcrm.kg saytida o\'chiring.';
+
+  @override
+  String get empResetPwd => 'Parolni tiklash';
+
+  @override
+  String empResetAsk(String name) {
+    return '$name paroli tiklansinmi? Eski parol ishlamaydi, yangisi bir marta ko\'rsatiladi.';
+  }
+
+  @override
+  String get empPasswordTitle => 'Xodim paroli';
+
+  @override
+  String empPasswordNote(String email) {
+    return 'Login: $email. Parol bir marta ko\'rsatiladi — hozir xodimga bering.';
+  }
+
+  @override
+  String get empCopy => 'Parolni nusxalash';
+
+  @override
+  String get empCopied => 'Nusxalandi.';
+
+  @override
+  String get empFeatureMissing =>
+      'Server bu amalni hali qo\'llab-quvvatlamaydi.';
+
+  @override
+  String get empListDenied =>
+      '«Xodimlar» huquqi yo\'q — ro\'yxat mavjud emas. Egasiga murojaat qiling.';
+
+  @override
+  String get empErrBad =>
+      'Server ma\'lumotni qabul qilmadi. Maydonlarni tekshiring.';
+
+  @override
+  String get empErrEmail => 'Bu pochta band yoki noto\'g\'ri yozilgan.';
+
+  @override
+  String get empErr403 => 'Bu amal uchun huquq yo\'q. Egasiga murojaat qiling.';
+
+  @override
+  String get empErr404 => 'Xodim serverda topilmadi — ro\'yxatni yangilang.';
+
+  @override
+  String get empErr409 =>
+      'Bunday xodim bor yoki ma\'lumot o\'zgargan. Ro\'yxatni yangilang.';
+
+  @override
+  String get empErr429 =>
+      'So\'rovlar juda ko\'p. Bir daqiqa kutib, qayta urinib ko\'ring.';
+
+  @override
+  String get empErr5xx =>
+      'Server xatosi. Ma\'lumot o\'zgarmadi — keyinroq qayta urining.';
+
+  @override
+  String get rightUsePos => 'Kassada ishlash';
+
+  @override
+  String get rightSalaryView => 'Maosh: ko\'rish';
+
+  @override
+  String get rightSalaryEdit => 'Maosh: to\'lash';
+
+  @override
+  String get rightEmployeesView => 'Xodimlar: ko\'rish';
+
+  @override
+  String get rightEmployeesEdit => 'Xodimlar: tahrirlash';
+
+  @override
+  String get rightsReadOnly =>
+      'Ruxsatlarni faqat ko\'rish mumkin: ularni egasi yoki «Sozlamalar» ochiq xodim tahrirlaydi.';
+
+  @override
+  String get unitNamePcs => 'Dona';
+
+  @override
+  String get unitNameKg => 'Kilogramm';
+
+  @override
+  String get unitNameG => 'Gramm';
+
+  @override
+  String get unitNameL => 'Litr';
+
+  @override
+  String get unitNameMl => 'Millilitr';
+
+  @override
+  String get unitNameM => 'Metr';
+
+  @override
+  String get unitNamePack => 'Qadoq';
+
+  @override
+  String get unitNamePair => 'Juft';
+
+  @override
+  String get unitNameSet => 'To\'plam';
+
+  @override
+  String get unitCustom => 'Boshqa';
+
+  @override
+  String get unitCustomTitle => 'O\'z birligingiz';
+
+  @override
+  String get unitCustomHint => 'masalan: rulon, shisha';
+
+  @override
+  String unitHintFrac(String name) {
+    return '$name: kasr miqdor mumkin, masalan 0,5';
+  }
+
+  @override
+  String unitHintWhole(String name) {
+    return '$name: faqat butun miqdor';
+  }
+
+  @override
+  String get unitHintCustom => 'O\'z birligi: miqdor kasr bo\'lishi mumkin';
+
+  @override
+  String nuQtyWhole(String unit, String qty) {
+    return '«$unit» uchun miqdor butun bo\'lishi kerak (hozir $qty). kg, l, m… ni tanlang yoki butun son kiriting.';
+  }
+
+  @override
+  String get nuQtyNegative => 'Miqdor noldan kichik bo\'lmasligi kerak.';
+
+  @override
+  String get nuPriceNeed => 'Sotuv narxini kiriting';
+
+  @override
+  String get bkHintUnits =>
+      'Birlik: шт, кг, г, л, мл, м, упак, пара, компл (dona, litr, pcs, kg, l… ham tushuniladi). Narx va miqdor kasr bo\'lishi mumkin: 12,75; 0,5.';
+
+  @override
+  String get bkErrName => 'nomi yo\'q';
+
+  @override
+  String get bkErrPrice => 'sotuv narxini kiriting';
+
+  @override
+  String bkErrUnit(String unit) {
+    return '«$unit» birligi tanilmadi — шт, кг, л… ni tanlang';
+  }
+
+  @override
+  String bkErrQtyWhole(String qty, String unit) {
+    return '«$unit» uchun $qty miqdori butun bo\'lishi kerak';
+  }
+
+  @override
+  String get bkErrQtyNeg => 'miqdor noldan kichik';
+
+  @override
+  String get bkWarnQty => 'miqdor yo\'q — qoldiq 0 bo\'ladi';
+
+  @override
+  String get bkSetUnit => 'Birlikni o\'rnatish';
+
+  @override
+  String get bkSetPrice => 'Narxni o\'rnatish';
+
+  @override
+  String get bkSetQty => 'Miqdorni o\'rnatish';
+
+  @override
+  String get bkSelectAll => 'Hammasini tanlash';
+
+  @override
+  String get bkSelectBad => 'Xatolilar';
+
+  @override
+  String get bkSelectNone => 'Tanlovni bekor qilish';
+
+  @override
+  String bkSelectedN(int n) {
+    return 'Tanlangan qator: $n';
+  }
+
+  @override
+  String get bkSelectFirst =>
+      'Bir nechta qatorga birdan qo\'llash uchun qatorlarni belgilang.';
+
+  @override
+  String bkApplyTo(int n) {
+    return '$n ta qatorga qo\'llash';
+  }
+
+  @override
+  String get bkEditRow => 'Mahsulot qatori';
+
+  @override
+  String bkResult(int a, int b) {
+    return 'Tayyor $a, xatolar bilan $b';
+  }
+
+  @override
+  String get barcodeDigitsHint => 'Faqat raqamlar, 4 dan 14 gacha';
+
+  @override
+  String get barcodeBadLen => 'Shtrix-kod — 4 dan 14 gacha raqam, harfsiz';
+
+  @override
+  String get infK => 'ming';
+
+  @override
+  String get infM => 'mln';
+
+  @override
+  String get infB => 'mlrd';
+
+  @override
+  String get infNoData => 'Davr uchun ma\'lumot yo\'q';
+
+  @override
+  String get infNoDataHint => 'Boshqa davrni tanlang yoki sotuv qiling';
+
+  @override
+  String infUpdatedAt(String time) {
+    return 'Yangilandi $time';
+  }
+
+  @override
+  String get infCompare => 'Oldingi davr bilan solishtirish';
+
+  @override
+  String get infPeriodCustom => 'O\'z davri';
+
+  @override
+  String get infVsYesterday => 'kechaga nisbatan';
+
+  @override
+  String get infVsPrevWeek => 'o\'tgan haftaga nisbatan';
+
+  @override
+  String get infVsPrevMonth => 'o\'tgan oyga nisbatan';
+
+  @override
+  String get infVsPrevPeriod => 'oldingi davrga nisbatan';
+
+  @override
+  String infDeltaUpSem(String pct, String vs) {
+    return '$pct % yuqori, $vs';
+  }
+
+  @override
+  String infDeltaDownSem(String pct, String vs) {
+    return '$pct % past, $vs';
+  }
+
+  @override
+  String infDeltaSameSem(String vs) {
+    return 'O\'zgarish yo\'q, $vs';
+  }
+
+  @override
+  String get infDeltaNew => 'yangi';
+
+  @override
+  String get infOther => 'Boshqa';
+
+  @override
+  String get infShare => 'Ulushi';
+
+  @override
+  String infDescEmpty(String name) {
+    return '$name: ma\'lumot yo\'q';
+  }
+
+  @override
+  String infDescOne(String name, String label, String value, String unit) {
+    return '$name: $label — $value $unit';
+  }
+
+  @override
+  String infDescBars(
+    String name,
+    String max,
+    String unit,
+    String maxLabel,
+    String min,
+    String minLabel,
+    String total,
+  ) {
+    return '$name: eng ko\'p $max $unit ($maxLabel), eng kam $min $unit ($minLabel), jami $total $unit';
+  }
+
+  @override
+  String get infHowCalc => 'Qanday hisoblangan';
+
+  @override
+  String get infHowRevenue =>
+      'Tushum — davrdagi «to\'langan» va «qisman qaytarilgan» holatidagi cheklar yig\'indisi, kompyuterdagi dastur va saytdagidek. Qarzga va bekor qilingan cheklar kirmaydi.';
+
+  @override
+  String get infHowChecks =>
+      'Cheklar — davrdagi to\'langan cheklar soni (qisman qaytarilganlar ham).';
+
+  @override
+  String get infHowAvg => 'O\'rtacha chek = tushum ÷ davrdagi cheklar soni.';
+
+  @override
+  String get infHowProfit =>
+      'Foyda = tushum − sotilgan mahsulotlarning xarid narxi (serverning yalpi foydasi). Do\'kon xarajatlari kirmaydi.';
+
+  @override
+  String get infHowShiftCash =>
+      'Kassada bo\'lishi kerak = boshlang\'ich naqd + naqd sotuvlar + qarzni naqd to\'lash + kiritishlar − naqd qaytarishlar − olishlar. Sonni server beradi.';
+
+  @override
+  String get infHowDebts =>
+      'Qarzlar — mijozlar do\'konga hozir qarzdor bo\'lgan summa (serverdagi qarzdorlar ro\'yxati).';
+
+  @override
+  String get infHowLow =>
+      'Tugayapti — qoldig\'i 10 dan kam yoki mahsulot uchun belgilangan minimal qoldiqdan oshmaydigan tovarlar (xizmatlar emas).';
+
+  @override
+  String get infHowPayments =>
+      'To\'lov usullari — tushumning qanchasi naqd, karta, o\'tkazma va qarz orqali keldi; foizlar barcha usullar yig\'indisidan hisoblanadi.';
+
+  @override
+  String get infHowTop =>
+      'Top mahsulotlar — davrda eng ko\'p tushum bergan mahsulotlar; chiziq — eng yaxshi mahsulotga nisbatan ulushi.';
+
+  @override
+  String get scanModeLabel => 'Rejim';
+
+  @override
+  String get scanModeTitle => 'Skaner rejimi';
+
+  @override
+  String scanModeA11y(String mode) {
+    return 'Skaner rejimi: $mode. O\'zgartirish uchun bosing';
+  }
+
+  @override
+  String get scanModeSaleSub =>
+      'Skanerlang — mahsulot to\'g\'ridan-to\'g\'ri chekka tushadi';
+
+  @override
+  String get scanModeLookSub =>
+      'Shtrix-kodsiz, rasm bo\'yicha mahsulotni aniqlash';
+
+  @override
+  String get scanModeWeighSub =>
+      'Tarozi mahsuloti: og\'irligi tarozi ekranidan';
+
+  @override
+  String get scanModeReceiveSub => 'Tovarni omborga qabul qilish';
+
+  @override
+  String get scanModeKassaSub => 'Shtrix-kodlar Wi-Fi orqali kassaga ketadi';
+
+  @override
+  String get infNoDelta => '— y/q';
+
+  @override
+  String get infNoCompare => '— solishtirish yo\'q';
+
+  @override
+  String get infCompareShort => 'Solishtirish';
+
+  @override
+  String get infLoadFailedTitle => 'Yuklab bo\'lmadi';
+
+  @override
+  String infLoadFailedAt(String time) {
+    return 'Server bilan aloqa yo\'q. $time holatidagi ma\'lumot ko\'rsatildi.';
+  }
+
+  @override
+  String get infLoadFailedNoData => 'Server bilan aloqa yo\'q.';
+
+  @override
+  String get infTapHint => 'Tafsilot uchun ustunga bosing';
+
+  @override
+  String get infTapRingHint => 'Tafsilot uchun sektorga bosing';
+
+  @override
+  String get infPrevBar => 'Oldingi davr';
+
+  @override
+  String infOfPeriod(String pct) {
+    return 'davrning $pct %';
+  }
+
+  @override
+  String get infHoursNote =>
+      'Soatlar bo\'yicha tushum: server hozircha soatlar bo\'yicha bo\'linmani bermaydi — bo\'lim keyin chiqadi.';
+
+  @override
+  String get infExpensesNote =>
+      'Do\'kon xarajatlari server hisobotiga kirmaydi — tushum, tannarx va foyda ko\'rsatildi.';
+
+  @override
+  String get infCost => 'Tannarx';
+
+  @override
+  String infMargin(String pct) {
+    return 'Rentabellik $pct %';
+  }
+
+  @override
+  String get infRevenueCostProfit => 'Tushum, tannarx va foyda';
+
+  @override
+  String get infDebtConcTitle => 'Eng ko\'p qarzdorlar';
+
+  @override
+  String infDebtConcLine(String pct) {
+    return 'Eng katta uchta qarzdor jami qarzning $pct % ini tashkil qiladi';
+  }
+
+  @override
+  String get infDebtAgeNote =>
+      'Qarz muddati: server qarz sanalarini yubormaydi — qarzdorlar bo\'yicha jamlanish ko\'rsatildi.';
+
+  @override
+  String get infStockTitle => 'Ombor qoldiqlari';
+
+  @override
+  String get infStockOut => 'Mavjud emas';
+
+  @override
+  String get infStockLow => 'Tugayapti';
+
+  @override
+  String get infStockOk => 'Yetarli';
+
+  @override
+  String get infPaidWith => 'Nima bilan to\'landi';
+
+  @override
+  String get infTotalWord => 'Jami';
+
+  @override
+  String get infShiftNoSales => 'Smenada hali sotuv yo\'q';
+
+  @override
+  String get infHowTitle => 'Bu qanday hisoblangan';
+
+  @override
+  String get infRangePick => 'Sanalarni tanlash';
 }

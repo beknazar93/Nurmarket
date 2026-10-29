@@ -144,6 +144,14 @@ public partial class MainWindow : Window
         // 2026-10-04: скан QR клиента NurCRM, а клиента нет в базе — окно «Новый клиент» с телефоном.
         _viewModel.Basket.OfferNewClientFromQr = OfferNewClientFromQrAsync;
         _viewModel.Basket.CheckoutSucceeded += OnCheckoutSucceeded;
+        // 2026-10-28: «Обновить» (⟳ / F5) заодно сверяет смену с сервером и обновляет «Касса: N» (корзину не трогает).
+        _viewModel.RefreshShiftAsync = async () =>
+        {
+            await CheckShiftOnServerAsync(force: true).ConfigureAwait(true);
+            await RefreshShiftBalanceQuietAsync().ConfigureAwait(true);
+        };
+        // 2026-10-29: та же сверка смены — шаг SyncCenter.ForceSyncAllAsync (общая «Обновить»).
+        SyncCenter.ShiftRefresher = _ => Dispatcher.UIThread.InvokeAsync(() => _viewModel.RefreshShiftAsync?.Invoke() ?? Task.CompletedTask);
         // 2026-10-20 (живой аудит кассы, К1–К3, К6): как заплатили — для суммы возврата и «Истории чеков» после возврата.
         _viewModel.Basket.CheckoutSucceeded += RememberSaleForReturns;
         // 2026-10-20 (К12): оплата долга (в этой кассе, в программе владельца или на соседней кассе) — «Касса» в шапке сразу.
@@ -766,6 +774,15 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
             ExecuteHotkey(action);
+            return;
+        }
+
+        // 2026-10-28: F5 — «Обновить» (как кнопка ⟳ во всех видах кассы). Если на F5 назначена группа быстрых товаров — она важнее.
+        if (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.None && !_viewModel.Catalog.HasProductsInHotkeyGroup("F5"))
+        {
+            e.Handled = true;
+            if (_viewModel.RefreshAllCommand.CanExecute(null))
+                _viewModel.RefreshAllCommand.Execute(null);
             return;
         }
 
@@ -2065,11 +2082,17 @@ public partial class MainWindow : Window
         // 2026-10-22 (аудит новой сборки, П1): раз в 90 с сверяем смену с сервером (он мог закрыть её сам в 23:00).
         if (_shiftWatchTimer is null)
         {
-            _shiftWatchTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(90) };
+            // 2026-10-29: раз в 30 с (было 90) — смена закрыта/«Касса: N» изменена на другом устройстве (внесение/изъятие у владельца) видны быстрее.
+            _shiftWatchTimer = new DispatcherTimer { Interval = SyncCenter.ShiftWatchInterval };
             _shiftWatchTimer.Tick += (_, _) =>
             {
+                if (SyncCenter.ShouldPause())
+                    return;
                 _ = CheckShiftOnServerAsync();
                 _ = RefreshShiftAgeAsync(); // 2026-10-22 (смена 23 ч): тот же таймер, без второго
+                // 2026-10-29: «Касса: N» с сервера — через такт (раз в минуту): запрос тихий, без окон, оплате не мешает.
+                if (_session.IsShiftOpen && (++_shiftWatchTicks & 1) == 0)
+                    _ = RefreshShiftBalanceQuietAsync();
             };
             _ = RefreshShiftAgeAsync();
             _shiftWatchTimer.Start();
@@ -2442,6 +2465,7 @@ public partial class MainWindow : Window
     private DispatcherTimer? _shiftWatchTimer;
     private DateTime _lastShiftWatchUtc = DateTime.MinValue;
     private int _shiftWatchBusy;
+    private int _shiftWatchTicks;
 
     internal async Task<bool> CheckShiftOnServerAsync(TimeSpan? timeout = null, bool force = false)
     {

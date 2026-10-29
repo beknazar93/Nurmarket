@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using NurMarketKassa.Core.Application;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -1061,8 +1062,8 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         _historyList.Children.Clear();
         // 2026-10-21 («удобство 10»): поиск по разговорам — по названию и тексту реплик.
         var query = (_historySearch?.Text ?? "").Trim();
-        var chats = LoadChats().Where(c => query.Length == 0 || c.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-                                           || c.Lines.Any(l => l.Text.Contains(query, StringComparison.CurrentCultureIgnoreCase))).ToList();
+        var chats = LoadChats().Where(c => query.Length == 0 || SearchMatch.Matches(query, c.Title)
+                                           || c.Lines.Any(l => SearchMatch.Matches(query, l.Text))).ToList();
         if (chats.Count == 0)
         {
             var empty = new TextBlock
@@ -1166,7 +1167,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         var list = new ScrollViewer { Content = _historyList, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         _historyList.Spacing = 2;
         // 2026-10-21 («удобство 10»): поиск по прошлым разговорам.
-        _historySearch = UiKit.Input(this, T("Найти разговор…", "Маекти табуу…", "Find a chat…", "Sohbet bul…", "Suhbatni topish…"), 36);
+        _historySearch = UiKit.Search(this, T("Найти разговор…", "Маекти табуу…", "Find a chat…", "Sohbet bul…", "Suhbatni topish…"), 36);
         _historySearch.Margin = new Thickness(2, 0, 2, 8);
         Avalonia.Automation.AutomationProperties.SetName(_historySearch, T("Поиск по разговорам", "Маектерден издөө", "Search chats", "Sohbetlerde ara", "Suhbatlardan qidirish"));
         _historySearch.TextChanged += (_, _) => RefreshHistoryList();

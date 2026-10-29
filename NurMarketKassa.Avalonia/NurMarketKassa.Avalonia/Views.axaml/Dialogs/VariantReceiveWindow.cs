@@ -117,7 +117,7 @@ public sealed class VariantReceiveWindow : Window
     }
 
     private static double Parse(string? text) =>
-        double.TryParse((text ?? "").Replace(',', '.').Trim(), NumberStyles.Any, Inv, out var v) && v > 0 ? Math.Round(v, 3) : 0;
+        double.TryParse((text ?? "").Replace(',', '.').Trim(), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var v) && v > 0 ? Math.Round(v, 3) : 0;
 
     private void UpdateTotal()
     {

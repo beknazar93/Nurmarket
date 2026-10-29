@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -405,8 +406,7 @@ public partial class CalculatorWindow : Window, IOwnerSection
         }
 
         var matches = _products
-            .Where(p => p.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
-                        || (!string.IsNullOrEmpty(p.Barcode) && p.Barcode.Contains(q, StringComparison.OrdinalIgnoreCase)))
+            .Where(p => SearchMatch.Matches(q, p.Title, p.Barcode, p.Article)) // 2026-10-29: единый поиск (слова в любом порядке, раскладка)
             .Take(8)
             .ToList();
         ProductMatches.ItemsSource = matches.Select(p => new ProductChoice(p)).ToList();
@@ -684,7 +684,7 @@ public partial class CalculatorWindow : Window, IOwnerSection
             _ => rows,
         };
         if (q.Length > 0)
-            rows = rows.Where(r => r.Name.Contains(q, StringComparison.OrdinalIgnoreCase));
+            rows = rows.Where(r => SearchMatch.Matches(q, r.Name)); // 2026-10-29: единый поиск
 
         AuditGrid.ItemsSource = rows.OrderBy(r => r.SortKey).ThenBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
     }

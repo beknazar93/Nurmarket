@@ -257,7 +257,7 @@ void main() {
       expect(() => TesterChecklist.parse('[]'), returnsNormally);
     });
 
-    test('настоящий assets/data/tester_checklist.json: пункты 1.18.7, все 5 языков, шаги, стабильные id, области известны', () async {
+    test('настоящий assets/data/tester_checklist.json: пункты 1.18.8, все 5 языков, шаги, стабильные id, области известны', () async {
       final raw = await rootBundle.loadString(TesterChecklist.assetPath);
       final l = TesterChecklist.parse(raw);
       final cur = l.forVersion(AppBuild.version);
@@ -783,7 +783,7 @@ void main() {
       await close(t);
     });
 
-    // --- вёрстка на настоящем списке 1.18.7 ---
+    // --- вёрстка на настоящем списке 1.18.8 ---
     for (final cfg in [
       ('ky', const Size(360, 800), 1.3, false),
       ('uz', const Size(360, 800), 1.3, true),

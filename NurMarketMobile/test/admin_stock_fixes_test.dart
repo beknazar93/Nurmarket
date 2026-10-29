@@ -271,17 +271,17 @@ void main() {
     List<ImportRow> file() => BulkParser.parse(
       BulkParser.readText(
         'Название;Штрихкод;Цена продажи;Закупка;Количество\n'
-        'Вода;111;50;30;10\n'
-        'Сок;222;90;60;5\n'
-        'Плохой;333;70;40;3\n'
-        'Сок дубль;222;95;60;7\n',
+        'Вода;1111;50;30;10\n'
+        'Сок;2222;90;60;5\n'
+        'Плохой;3333;70;40;3\n'
+        'Сок дубль;2222;95;60;7\n',
       ),
     );
 
     test('ошибка в одной строке → повтор загружает только её; остатки и товары не задвоены', () async {
       final s = StockServer()..rejectName = 'Плохой';
-      final existingId = s.add('Вода', barcode: '111', qty: 4);
-      await putLocal(db, existingId, 'Вода', barcode: '111', qty: 4);
+      final existingId = s.add('Вода', barcode: '1111', qty: 4);
+      await putLocal(db, existingId, 'Вода', barcode: '1111', qty: 4);
       final up = BulkUploader(AdminReceiveRepository(FakeApi(s.handle), db), FakeApi(s.handle));
       final rows = file();
       await up.prepare(db, rows);
@@ -308,7 +308,7 @@ void main() {
     test('потерянный ответ при создании внутри загрузки — повтор не создаёт второй товар', () async {
       final s = StockServer()..loseCreate = 1;
       final up = BulkUploader(AdminReceiveRepository(FakeApi(s.handle), db), FakeApi(s.handle));
-      final rows = BulkParser.parse(BulkParser.readText('Название;Штрихкод;Цена продажи;Количество\nХлеб;444;30;8\n'));
+      final rows = BulkParser.parse(BulkParser.readText('Название;Штрихкод;Цена продажи;Количество\nХлеб;4444;30;8\n'));
       await up.prepare(db, rows);
       await up.upload(rows);
       await up.upload(rows);
@@ -318,10 +318,10 @@ void main() {
 
     test('«Задать остаток» заменяет, а не прибавляет', () async {
       final s = StockServer();
-      final id = s.add('Вода', barcode: '111', qty: 40);
-      await putLocal(db, id, 'Вода', barcode: '111', qty: 40);
+      final id = s.add('Вода', barcode: '1111', qty: 40);
+      await putLocal(db, id, 'Вода', barcode: '1111', qty: 40);
       final up = BulkUploader(AdminReceiveRepository(FakeApi(s.handle), db), FakeApi(s.handle))..setStock = true;
-      final rows = BulkParser.parse(BulkParser.readText('Название;Штрихкод;Цена продажи;Количество\nВода;111;50;60\n'));
+      final rows = BulkParser.parse(BulkParser.readText('Название;Штрихкод;Цена продажи;Количество\nВода;1111;50;60\n'));
       await up.prepare(db, rows);
       expect(await up.upload(rows), isEmpty);
       expect(stockOf(s, id), 60);

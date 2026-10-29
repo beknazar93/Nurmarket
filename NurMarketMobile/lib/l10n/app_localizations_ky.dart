@@ -5737,4 +5737,562 @@ class AppLocalizationsKy extends AppLocalizations {
   String invUnitCheck(String inv, String item) {
     return 'Текшериңиз · бирдик: накладнойда «$inv», товарда «$item»';
   }
+
+  @override
+  String get empAdd => 'Жаңы кызматкер';
+
+  @override
+  String get empCard => 'Кызматкердин картасы';
+
+  @override
+  String get empSectionData => 'Кызматкердин маалыматы';
+
+  @override
+  String get empSectionRights => 'Жеткиликтүүлүк';
+
+  @override
+  String get empFirstName => 'Аты';
+
+  @override
+  String get empLastName => 'Фамилиясы';
+
+  @override
+  String get empMiddleName => 'Атасынын аты';
+
+  @override
+  String get empEmail => 'Почта (кирүү логини)';
+
+  @override
+  String get empPhone => 'Телефон';
+
+  @override
+  String get empTrack => 'Кызматкердин номери';
+
+  @override
+  String get empRole => 'Кызматы';
+
+  @override
+  String get empBirth => 'Туулган күнү';
+
+  @override
+  String get empHire => 'Жумушка алынган күнү';
+
+  @override
+  String get empAddress => 'Дареги';
+
+  @override
+  String get empComment => 'Комментарий';
+
+  @override
+  String get empClearDate => 'Датаны тазалоо';
+
+  @override
+  String get empRequired => 'Талааны толтуруңуз';
+
+  @override
+  String get empEmailBad => 'Почтаны толук жазыңыз, мисалы aibek@mail.kg';
+
+  @override
+  String get empPhoneBad => 'Телефон: 9дан 15ке чейин сан, «+» болушу мүмкүн';
+
+  @override
+  String get empSaved => 'Кызматкер сакталды.';
+
+  @override
+  String get empCreated => 'Кызматкер кошулду.';
+
+  @override
+  String get empNothingChanged => 'Эч нерсе өзгөргөн жок.';
+
+  @override
+  String get empSearch => 'Издөө: аты, почта, телефон';
+
+  @override
+  String get empFilterActive => 'Иштейт';
+
+  @override
+  String get empFilterDismissed => 'Бошотулган';
+
+  @override
+  String get empDismissedTag => 'бошотулган';
+
+  @override
+  String empCount(int n) {
+    return 'Кызматкерлер: $n';
+  }
+
+  @override
+  String get empNothingFound => 'Эч ким табылган жок.';
+
+  @override
+  String get empDismiss => 'Бошотуу';
+
+  @override
+  String get empRestore => 'Калыбына келтирүү';
+
+  @override
+  String empDismissAsk(String name) {
+    return '$name бошотулсунбу? Ал программага кире албайт. Сатуулар жана сменалар сакталат.';
+  }
+
+  @override
+  String empRestoreAsk(String name) {
+    return '$name калыбына келтирилсинби? Ал кайра программага кире алат.';
+  }
+
+  @override
+  String get empDismissedDone => 'Кызматкер бошотулду.';
+
+  @override
+  String get empRestoredDone => 'Кызматкер калыбына келтирилди.';
+
+  @override
+  String get empDismissStill =>
+      'Сервер өтүнүчтү кабыл алды, бирок кызматкер тизмеде калды. Аны app.nurcrm.kg сайтынан өчүрүңүз.';
+
+  @override
+  String get empResetPwd => 'Сырсөздү калыбына келтирүү';
+
+  @override
+  String empResetAsk(String name) {
+    return '$name сырсөзү калыбына келтирилсинби? Эски сырсөз иштебей калат, жаңысын бир жолу көрсөтөбүз.';
+  }
+
+  @override
+  String get empPasswordTitle => 'Кызматкердин сырсөзү';
+
+  @override
+  String empPasswordNote(String email) {
+    return 'Логин: $email. Сырсөз бир гана жолу көрсөтүлөт — азыр кызматкерге бериңиз.';
+  }
+
+  @override
+  String get empCopy => 'Сырсөздү көчүрүү';
+
+  @override
+  String get empCopied => 'Көчүрүлдү.';
+
+  @override
+  String get empFeatureMissing => 'Сервер бул аракетти азырынча колдобойт.';
+
+  @override
+  String get empListDenied =>
+      '«Кызматкерлер» укугу жок — тизме жеткиликсиз. Ээсине кайрылыңыз.';
+
+  @override
+  String get empErrBad =>
+      'Сервер маалыматты кабыл албады. Талааларды текшериңиз.';
+
+  @override
+  String get empErrEmail => 'Бул почта бош эмес же туура эмес жазылган.';
+
+  @override
+  String get empErr403 => 'Бул аракетке укук жок. Ээсине кайрылыңыз.';
+
+  @override
+  String get empErr404 =>
+      'Кызматкер серверде табылган жок — тизмени жаңыртыңыз.';
+
+  @override
+  String get empErr409 =>
+      'Мындай кызматкер бар же маалымат өзгөрүп калды. Тизмени жаңыртыңыз.';
+
+  @override
+  String get empErr429 => 'Өтүнүч өтө көп. Бир мүнөт күтүп, кайталаңыз.';
+
+  @override
+  String get empErr5xx =>
+      'Сервер катасы. Маалымат өзгөргөн жок — кийинчерээк кайталаңыз.';
+
+  @override
+  String get rightUsePos => 'Кассада иштөө';
+
+  @override
+  String get rightSalaryView => 'Эмгек акы: көрүү';
+
+  @override
+  String get rightSalaryEdit => 'Эмгек акы: төлөө';
+
+  @override
+  String get rightEmployeesView => 'Кызматкерлер: көрүү';
+
+  @override
+  String get rightEmployeesEdit => 'Кызматкерлер: оңдоо';
+
+  @override
+  String get rightsReadOnly =>
+      'Жеткиликтүүлүктү көрүүгө гана болот: аны ээси же «Жөндөөлөр» ачык адам оңдойт.';
+
+  @override
+  String get unitNamePcs => 'Даана';
+
+  @override
+  String get unitNameKg => 'Килограмм';
+
+  @override
+  String get unitNameG => 'Грамм';
+
+  @override
+  String get unitNameL => 'Литр';
+
+  @override
+  String get unitNameMl => 'Миллилитр';
+
+  @override
+  String get unitNameM => 'Метр';
+
+  @override
+  String get unitNamePack => 'Таңгак';
+
+  @override
+  String get unitNamePair => 'Жуп';
+
+  @override
+  String get unitNameSet => 'Комплект';
+
+  @override
+  String get unitCustom => 'Башка';
+
+  @override
+  String get unitCustomTitle => 'Өз бирдигиңиз';
+
+  @override
+  String get unitCustomHint => 'Мисалы: рулон, бөтөлкө';
+
+  @override
+  String unitHintFrac(String name) {
+    return '$name: бөлчөк сан болот, мисалы 0,5';
+  }
+
+  @override
+  String unitHintWhole(String name) {
+    return '$name: бүтүн сан гана';
+  }
+
+  @override
+  String get unitHintCustom => 'Өз бирдик: сан бөлчөк болушу мүмкүн';
+
+  @override
+  String nuQtyWhole(String unit, String qty) {
+    return '«$unit» үчүн сан бүтүн болушу керек (азыр $qty). кг, л, м… тандаңыз же бүтүн сан жазыңыз.';
+  }
+
+  @override
+  String get nuQtyNegative => 'Саны нөлдөн кичине болбошу керек.';
+
+  @override
+  String get nuPriceNeed => 'Сатуу баасын жазыңыз';
+
+  @override
+  String get bkHintUnits =>
+      'Бирдик: шт, кг, г, л, мл, м, упак, пара, компл («штука», «литр», pcs, kg, l, дана, dona… да түшүнүлөт). Баа жана саны бөлчөк болушу мүмкүн: 12,75; 0,5.';
+
+  @override
+  String get bkErrName => 'аталышы жок';
+
+  @override
+  String get bkErrPrice => 'сатуу баасын жазыңыз';
+
+  @override
+  String bkErrUnit(String unit) {
+    return '«$unit» бирдиги таанылган жок — шт, кг, л… тандаңыз';
+  }
+
+  @override
+  String bkErrQtyWhole(String qty, String unit) {
+    return '«$unit» үчүн $qty саны бүтүн болушу керек';
+  }
+
+  @override
+  String get bkErrQtyNeg => 'саны нөлдөн кичине';
+
+  @override
+  String get bkWarnQty => 'саны жазылган эмес — калдык 0';
+
+  @override
+  String get bkSetUnit => 'Бирдикти коюу';
+
+  @override
+  String get bkSetPrice => 'Баа коюу';
+
+  @override
+  String get bkSetQty => 'Санды коюу';
+
+  @override
+  String get bkSelectAll => 'Баарын тандоо';
+
+  @override
+  String get bkSelectBad => 'Каталуулар';
+
+  @override
+  String get bkSelectNone => 'Тандоону алуу';
+
+  @override
+  String bkSelectedN(int n) {
+    return 'Тандалган сап: $n';
+  }
+
+  @override
+  String get bkSelectFirst =>
+      'Бир нече сапка бирден колдонуу үчүн саптарды белгилеңиз.';
+
+  @override
+  String bkApplyTo(int n) {
+    return '$n сапка колдонуу';
+  }
+
+  @override
+  String get bkEditRow => 'Товар сабы';
+
+  @override
+  String bkResult(int a, int b) {
+    return 'Даяр $a, каталар менен $b';
+  }
+
+  @override
+  String get barcodeDigitsHint => 'Цифралар гана, 4төн 14кө чейин';
+
+  @override
+  String get barcodeBadLen => 'Штрихкод — 4төн 14кө чейин сан, тамгасыз';
+
+  @override
+  String get infK => 'миң';
+
+  @override
+  String get infM => 'млн';
+
+  @override
+  String get infB => 'млрд';
+
+  @override
+  String get infNoData => 'Мөөнөттө маалымат жок';
+
+  @override
+  String get infNoDataHint => 'Башка мөөнөттү тандаңыз же сатуу жүргүзүңүз';
+
+  @override
+  String infUpdatedAt(String time) {
+    return 'Жаңыртылды $time';
+  }
+
+  @override
+  String get infCompare => 'Мурунку мөөнөт менен салыштыруу';
+
+  @override
+  String get infPeriodCustom => 'Өз мөөнөтү';
+
+  @override
+  String get infVsYesterday => 'кечээге салыштырмалуу';
+
+  @override
+  String get infVsPrevWeek => 'өткөн жумага салыштырмалуу';
+
+  @override
+  String get infVsPrevMonth => 'өткөн айга салыштырмалуу';
+
+  @override
+  String get infVsPrevPeriod => 'мурунку мөөнөткө салыштырмалуу';
+
+  @override
+  String infDeltaUpSem(String pct, String vs) {
+    return '$pct % жогору, $vs';
+  }
+
+  @override
+  String infDeltaDownSem(String pct, String vs) {
+    return '$pct % төмөн, $vs';
+  }
+
+  @override
+  String infDeltaSameSem(String vs) {
+    return 'Өзгөрүү жок, $vs';
+  }
+
+  @override
+  String get infDeltaNew => 'жаңы';
+
+  @override
+  String get infOther => 'Башка';
+
+  @override
+  String get infShare => 'Үлүшү';
+
+  @override
+  String infDescEmpty(String name) {
+    return '$name: маалымат жок';
+  }
+
+  @override
+  String infDescOne(String name, String label, String value, String unit) {
+    return '$name: $label — $value $unit';
+  }
+
+  @override
+  String infDescBars(
+    String name,
+    String max,
+    String unit,
+    String maxLabel,
+    String min,
+    String minLabel,
+    String total,
+  ) {
+    return '$name: эң көп $max $unit ($maxLabel), эң аз $min $unit ($minLabel), бардыгы $total $unit';
+  }
+
+  @override
+  String get infHowCalc => 'Кантип эсептелген';
+
+  @override
+  String get infHowRevenue =>
+      'Түшүм — мөөнөттөгү «төлөндү» жана «жарым-жартылай кайтарылды» статусундагы чектердин суммасы, компьютердеги программадагыдай. Карызга жана жокко чыгарылган чектер кирбейт.';
+
+  @override
+  String get infHowChecks =>
+      'Чектер — мөөнөттөгү төлөнгөн чектердин саны (жарым-жартылай кайтарылгандар да).';
+
+  @override
+  String get infHowAvg => 'Орточо чек = түшүм ÷ мөөнөттөгү чектер саны.';
+
+  @override
+  String get infHowProfit =>
+      'Пайда = түшүм − сатылган товарлардын сатып алуу баасы (сервердин жалпы пайдасы). Дүкөндүн чыгымдары кирбейт.';
+
+  @override
+  String get infHowShiftCash =>
+      'Кассада болушу керек = башталышындагы нак акча + нак сатуулар + карызды нак төлөө + киргизүүлөр − нак кайтаруулар − алуулар. Санды сервер берет.';
+
+  @override
+  String get infHowDebts =>
+      'Карыздар — кардарлар дүкөнгө азыр милдеттүү болгон сумма (серверден карыздарлардын тизмеси).';
+
+  @override
+  String get infHowLow =>
+      'Түгөнүп жатат — калдыгы 10дон аз же товар үчүн коюлган минималдуу калдыктан көп эмес товарлар (кызматтар эмес).';
+
+  @override
+  String get infHowPayments =>
+      'Төлөм ыкмалары — түшүмдүн канчасы накта, картага, которуу жана карызга келди; пайыздар бардык ыкмалардын суммасынан эсептелет.';
+
+  @override
+  String get infHowTop =>
+      'Топ товарлар — мөөнөттө эң көп түшүм берген товарлар; тилке — эң мыкты товардын үлүшү.';
+
+  @override
+  String get scanModeLabel => 'Режим';
+
+  @override
+  String get scanModeTitle => 'Сканер режими';
+
+  @override
+  String scanModeA11y(String mode) {
+    return 'Сканер режими: $mode. Тандоо үчүн басыңыз';
+  }
+
+  @override
+  String get scanModeSaleSub => 'Скандаңыз — товар түз чекке түшөт';
+
+  @override
+  String get scanModeLookSub => 'Штрихкодсуз, сүрөт боюнча товарды таануу';
+
+  @override
+  String get scanModeWeighSub => 'Тараза товары: салмагы таразанын экранынан';
+
+  @override
+  String get scanModeReceiveSub => 'Товарды кампага кабыл алуу';
+
+  @override
+  String get scanModeKassaSub => 'Штрихкоддор Wi-Fi аркылуу кассага кетет';
+
+  @override
+  String get infNoDelta => '— жок';
+
+  @override
+  String get infNoCompare => '— салыштыруу жок';
+
+  @override
+  String get infCompareShort => 'Салыштыруу';
+
+  @override
+  String get infLoadFailedTitle => 'Жүктөлгөн жок';
+
+  @override
+  String infLoadFailedAt(String time) {
+    return 'Сервер менен байланыш жок. $time боюнча маалымат көрсөтүлдү.';
+  }
+
+  @override
+  String get infLoadFailedNoData => 'Сервер менен байланыш жок.';
+
+  @override
+  String get infTapHint => 'Тилкени басыңыз — майда-чүйдөсү';
+
+  @override
+  String get infTapRingHint => 'Секторду басыңыз — майда-чүйдөсү';
+
+  @override
+  String get infPrevBar => 'Мурунку мөөнөт';
+
+  @override
+  String infOfPeriod(String pct) {
+    return 'мөөнөттүн $pct %';
+  }
+
+  @override
+  String get infHoursNote =>
+      'Саат боюнча түшүм: сервер саат боюнча бөлүштүрүүнү азырынча бербейт — бөлүм кийин чыгат.';
+
+  @override
+  String get infExpensesNote =>
+      'Дүкөндүн чыгымдары сервер отчетуна кирбейт — түшүм, өздүк нарк жана пайда көрсөтүлдү.';
+
+  @override
+  String get infCost => 'Өздүк нарк';
+
+  @override
+  String infMargin(String pct) {
+    return 'Рентабельдүүлүк $pct %';
+  }
+
+  @override
+  String get infRevenueCostProfit => 'Түшүм, өздүк нарк жана пайда';
+
+  @override
+  String get infDebtConcTitle => 'Эң көп карыздар';
+
+  @override
+  String infDebtConcLine(String pct) {
+    return 'Эң чоң үч карызкор — карыздын $pct %';
+  }
+
+  @override
+  String get infDebtAgeNote =>
+      'Карыздын мөөнөтү: сервер карыз күндөрүн жөнөтпөйт — карызкорлор боюнча топтолуу көрсөтүлдү.';
+
+  @override
+  String get infStockTitle => 'Кампадагы калдыктар';
+
+  @override
+  String get infStockOut => 'Жок';
+
+  @override
+  String get infStockLow => 'Түгөнүп баратат';
+
+  @override
+  String get infStockOk => 'Жетиштүү';
+
+  @override
+  String get infPaidWith => 'Эмне менен төлөндү';
+
+  @override
+  String get infTotalWord => 'Бардыгы';
+
+  @override
+  String get infShiftNoSales => 'Сменада азырынча сатуу жок';
+
+  @override
+  String get infHowTitle => 'Бул кантип эсептелген';
+
+  @override
+  String get infRangePick => 'Күндөрдү тандоо';
 }

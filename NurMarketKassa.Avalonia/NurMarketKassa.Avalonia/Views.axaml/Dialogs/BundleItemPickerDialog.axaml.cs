@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Controls;
@@ -50,9 +51,7 @@ public partial class BundleItemPickerDialog : Window
     private IEnumerable<PickerItem> VisibleItems() =>
         string.IsNullOrWhiteSpace(_searchText)
             ? _allItems
-            : _allItems.Where(i =>
-                i.Product.Title.Contains(_searchText, System.StringComparison.CurrentCultureIgnoreCase)
-                || (i.Product.Barcode ?? "").Contains(_searchText, System.StringComparison.OrdinalIgnoreCase));
+            : _allItems.Where(i => SearchMatch.Matches(_searchText, i.Product.Title, i.Product.Barcode, i.Product.Article)); // 2026-10-29: единый поиск
 
     private void Rebuild()
     {

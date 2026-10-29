@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -113,6 +114,21 @@ public sealed class BulkScanRow : INotifyPropertyChanged
     /// <summary>Код, как его отсканировали. Сопоставление повторного скана идёт и по нему: неизвестная строка, принятая как приход
     /// к другому товару (AcceptAsExisting), получает штрихкод того товара, а повтор исходного кода должен снова дать +1 к ней.</summary>
     public string ScannedCode { get; internal set; }
+
+    /// <summary>2026-10-29: строка отмечена галочкой слева — к отмеченным применяются «Установить единицу / наценку / цену / количество».</summary>
+    public bool IsSelected
+    {
+        get => _selected;
+        set
+        {
+            if (_selected == value)
+                return;
+            _selected = value;
+            Raise(nameof(IsSelected));
+        }
+    }
+
+    private bool _selected;
 
     /// <summary>2026-10-26 (М2): идёт проверка кода на сервере («проверяю в базе…»).</summary>
     public bool IsChecking
@@ -764,8 +780,9 @@ public sealed class BulkScanSession : INotifyPropertyChanged, IDisposable
             return Array.Empty<CatalogProductTileVm>();
         try
         {
-            return CatalogCacheService.Products.ToArray()
-                .Where(p => !string.IsNullOrEmpty(p.Title) && p.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+            // 2026-10-29: единый поиск (слова в любом порядке, ё=е, раскладка/транслит).
+            return SearchMatch.Products(CatalogCacheService.Products.ToArray(), query)
+                .Where(p => !string.IsNullOrEmpty(p.Title))
                 .OrderByDescending(p => p.Title.StartsWith(query, StringComparison.CurrentCultureIgnoreCase))
                 .ThenBy(p => p.Title.Length)
                 .Take(max)
@@ -888,6 +905,12 @@ public sealed class BulkScanSession : INotifyPropertyChanged, IDisposable
         {
             row.ClearError();
             var problems = PurchaseReceivingService.Validate(new[] { row.Line });
+            // 2026-10-29: дробное количество у штучной единицы («0,5 шт») — ошибка строки, как в карточке товара (UnitCatalog).
+            if (problems.Count == 0 && row.Line.Quantity > 0 && UnitCatalog.QuantityProblem(row.Line.Quantity, row.Line.Unit, row.Line.IsWeight) is { } fractional)
+            {
+                var label = string.IsNullOrWhiteSpace(row.Line.ProductName) ? row.Line.Barcode : row.Line.ProductName;
+                problems.Add($"{label}: {fractional}");
+            }
             // Два новых товара с одним штрихкодом в одной пачке создались бы дважды — второй остаётся в списке.
             if (problems.Count == 0 && row.Line.IsNew && row.Line.Barcode.Length > 0 && !newBarcodes.Add(row.Line.Barcode))
             {

@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
@@ -128,7 +129,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         // Фильтры: поставщик (поиск и «＋»), период, поиск по поставщику и товару, «Обновить».
         _filterSupplier = new PurchasesSupplierPicker(_svc) { AllowAll = true };
         _filterSupplier.Changed += async _ => await ReloadAsync().ConfigureAwait(true);
-        _search = UiKit.Input(this, T("Поиск: поставщик или товар", "Издөө: жеткирүүчү же товар", "Search: supplier or product", "Ara: tedarikçi veya ürün", "Qidirish: yetkazib beruvchi yoki mahsulot"), 44);
+        _search = UiKit.Search(this, T("Поиск: поставщик или товар", "Издөө: жеткирүүчү же товар", "Search: supplier or product", "Ara: tedarikçi veya ürün", "Qidirish: yetkazib beruvchi yoki mahsulot"), 44);
         Avalonia.Automation.AutomationProperties.SetName(_search, _search.Watermark);
         _search.TextChanged += (_, _) => Render();
         var refresh = UiKit.Ghost(this, T("Обновить", "Жаңыртуу", "Refresh", "Yenile", "Yangilash"));
@@ -601,10 +602,8 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
 
     private IEnumerable<SupplierReceipt> ShownReceipts()
     {
-        var q = Query;
-        return _receipts.Where(r => q.Length == 0 || r.SupplierName.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                                    || r.CreatedBy.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                                    || r.Lines.Any(l => l.ProductName.Contains(q, StringComparison.CurrentCultureIgnoreCase) || l.Code.Contains(q, StringComparison.OrdinalIgnoreCase)));
+        // 2026-10-29: единый поиск — слова в любом порядке, ё=е, «Asu»↔«Асу»↔«фыг»; ищет по поставщику, кассиру, названиям и кодам товаров.
+        return SearchMatch.Filter(_receipts, Query, r => SearchMatch.Key(r.SupplierName, r.CreatedBy, string.Join(" ", r.Lines.Select(l => l.ProductName + " " + l.Code))));
     }
 
     private IEnumerable<PurchaseOrder> ShownOrders()
@@ -612,11 +611,10 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         var q = Query;
         var supplier = _filterSupplier.Selected?.Id;
         var (from, to) = PeriodBounds();
-        return PurchasesStore.Orders().Where(o => (supplier is null || o.SupplierId == supplier)
-                                                  && (from is null || o.CreatedAt.Date >= from.Value.Date) && (to is null || o.CreatedAt.Date <= to.Value.Date)
-                                                  && (q.Length == 0 || o.SupplierName.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                                                      || o.Number.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                                                      || o.Lines.Any(l => l.Name.Contains(q, StringComparison.CurrentCultureIgnoreCase))))
+        var byFilters = PurchasesStore.Orders().Where(o => (supplier is null || o.SupplierId == supplier)
+                                                           && (from is null || o.CreatedAt.Date >= from.Value.Date) && (to is null || o.CreatedAt.Date <= to.Value.Date));
+        // 2026-10-29: единый поиск — поставщик, номер, названия товаров заказа (слова в любом порядке, раскладка/транслит).
+        return SearchMatch.Filter(byFilters, q, o => SearchMatch.Key(o.SupplierName, o.Number, string.Join(" ", o.Lines.Select(l => l.Name))))
             .OrderBy(o => o.IsOpen ? 0 : 1).ThenByDescending(o => o.UpdatedAt);
     }
 
@@ -624,9 +622,8 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     {
         var q = Query;
         var (from, to) = PeriodBounds();
-        return (_returns ?? new List<SupplierReturnInfo>()).Where(r => (from is null || r.CreatedAt?.Date >= from.Value.Date) && (to is null || r.CreatedAt?.Date <= to.Value.Date)
-            && (q.Length == 0 || r.SupplierName.Contains(q, StringComparison.CurrentCultureIgnoreCase) || r.Comment.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                || r.Lines.Any(l => l.ProductName.Contains(q, StringComparison.CurrentCultureIgnoreCase))));
+        var byPeriod = (_returns ?? new List<SupplierReturnInfo>()).Where(r => (from is null || r.CreatedAt?.Date >= from.Value.Date) && (to is null || r.CreatedAt?.Date <= to.Value.Date));
+        return SearchMatch.Filter(byPeriod, q, r => SearchMatch.Key(r.SupplierName, r.Comment, string.Join(" ", r.Lines.Select(l => l.ProductName)))); // 2026-10-29: единый поиск
     }
 
     /// <summary>Колонки шапки и строк по вкладке и ширине.</summary>
@@ -678,7 +675,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             var orders = ShownOrders().ToList();
             if (orders.Count == 0)
             {
-                _rows.Children.Add(SectionCards.Empty(this, PurchasesStore.Orders().Count == 0
+                _rows.Children.Add(EmptyState(PurchasesStore.Orders().Count == 0
                     ? T("Заказов поставщикам пока нет. Откройте «Рекомендуемый заказ»: выберите поставщика, «Заполнить рекомендуемый заказ» и «Сохранить заказ» — заказ появится здесь, его можно отправить в WhatsApp и потом принять по нему товар.",
                         "Жеткирүүчүлөргө буйрутмалар азырынча жок. «Сунушталган буйрутманы» ачыңыз: жеткирүүчүнү тандап, «Сунушталган буйрутманы толтуруу» жана «Буйрутманы сактоо» — буйрутма бул жерде пайда болот, аны WhatsApp'ка жөнөтүп, кийин ал боюнча товар кабыл алсаңыз болот.",
                         "No supplier orders yet. Open “Recommended order”: choose a supplier, “Fill recommended order” and “Save order” — the order appears here; send it via WhatsApp and receive goods against it later.",
@@ -699,7 +696,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             var list = ShownReturns().ToList();
             if (list.Count == 0)
             {
-                _rows.Children.Add(SectionCards.Empty(this, T("Возвратов поставщикам за этот период нет. «Возврат поставщику» наверху — брак, излишек, ошибка поставки: товар уйдёт со склада, деньги — в кассу или в счёт долга.",
+                _rows.Children.Add(EmptyState(T("Возвратов поставщикам за этот период нет. «Возврат поставщику» наверху — брак, излишек, ошибка поставки: товар уйдёт со склада, деньги — в кассу или в счёт долга.",
                     "Бул мезгилде жеткирүүчүлөргө кайтаруулар жок. Жогорудагы «Жеткирүүчүгө кайтаруу» — бузук, ашыкча, ката: товар кампадан кетет, акча — кассага же карыздын эсебине.",
                     "No returns to suppliers in this period. “Return to supplier” at the top — defects, surplus, wrong delivery: goods leave the stock, money goes to the till or against the debt.",
                     "Bu dönemde tedarikçiye iade yok. Üstteki «Tedarikçiye iade» — kusur, fazlalık, yanlış teslimat: ürün stoktan çıkar, para kasaya ya da borca sayılır.",
@@ -716,7 +713,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         var shown = ShownReceipts().ToList();
         if (shown.Count == 0)
         {
-            _rows.Children.Add(SectionCards.Empty(this, _receipts.Count == 0
+            _rows.Children.Add(EmptyState(_receipts.Count == 0
                 ? T("Закупок за этот период нет. Нажмите «＋ Приём товара»: выберите поставщика, отсканируйте товары, укажите количество и цену закупки — остаток на складе прибавится.",
                     "Бул мезгилде сатып алуулар жок. «＋ Товар кабыл алууну» басыңыз: жеткирүүчүнү тандап, товарларды сканерлеп, санын жана сатып алуу баасын жазыңыз — кампадагы калдык кошулат.",
                     "No purchases in this period. Press “＋ Receive goods”: choose a supplier, scan products, enter quantity and purchase price — the stock goes up.",
@@ -733,6 +730,58 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         foreach (var r in shown)
             _rows.Children.Add(ReceiptRow(r));
         _more.IsVisible = _hasNext;
+    }
+
+    /// <summary>2026-10-29 (жалоба «Asu — не работает поиск!»): пустой список при непустом поиске — честно «ничего не найдено по «…»» и что делать:
+    /// сбросить поиск, искать за всё время у всех поставщиков (поиск работает вместе с периодом и поставщиком слева), в заказах — искать в истории закупок.
+    /// Без поискового запроса — прежняя подсказка вкладки.</summary>
+    private Control EmptyState(string noDataText)
+    {
+        var q = Query;
+        if (q.Length == 0)
+            return SectionCards.Empty(this, noDataText);
+        var ordersEmpty = _tab == "orders" && PurchasesStore.Orders().Count == 0;
+        var text = T($"Ничего не найдено по «{q}».", $"«{q}» боюнча эч нерсе табылган жок.", $"Nothing found for “{q}”.", $"«{q}» için sonuç bulunamadı.", $"«{q}» bo'yicha hech narsa topilmadi.");
+        if (ordersEmpty)
+            text += "\n" + T("Заказов поставщикам пока нет — искать нечего. Заказы создаются в «Рекомендуемом заказе»; приходы — на вкладке «История закупок».",
+                "Жеткирүүчүлөргө буйрутмалар азырынча жок — издей турган нерсе жок. Буйрутмалар «Сунушталган буйрутмада» түзүлөт; кирешелер «Сатып алуулар тарыхы» өтмөгүндө.",
+                "There are no supplier orders yet — nothing to search. Orders are created in “Recommended order”; deliveries are in the “Purchase history” tab.",
+                "Henüz tedarikçi siparişi yok — aranacak bir şey yok. Siparişler «Önerilen sipariş»te oluşturulur; girişler «Satın alma geçmişi» sekmesindedir.",
+                "Hozircha buyurtmalar yo'q — qidirish uchun hech narsa yo'q. Buyurtmalar «Tavsiya etilgan buyurtma»da yaratiladi; kirimlar «Xaridlar tarixi» bo'limida.");
+        else if (_period != "all" || _filterSupplier.Selected is not null)
+            text += "\n" + T("Поиск работает вместе с выбранным периодом и поставщиком.", "Издөө тандалган мезгил жана жеткирүүчү менен бирге иштейт.",
+                "The search works together with the selected period and supplier.", "Arama seçili dönem ve tedarikçiyle birlikte çalışır.",
+                "Qidiruv tanlangan davr va yetkazib beruvchi bilan birga ishlaydi.");
+        var panel = new StackPanel { Spacing = 10, HorizontalAlignment = HorizontalAlignment.Center };
+        panel.Children.Add(SectionCards.Empty(this, text));
+        var buttons = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0) };
+        var clear = UiKit.Ghost(this, T("Сбросить поиск", "Издөөнү тазалоо", "Clear search", "Aramayı temizle", "Qidiruvni tozalash"));
+        clear.Margin = new Thickness(4);
+        clear.Click += (_, _) => { _search.Text = ""; _search.Focus(); };
+        buttons.Children.Add(clear);
+        if (ordersEmpty)
+        {
+            var toHistory = UiKit.Ghost(this, T("Искать в истории закупок", "Сатып алуулар тарыхынан издөө", "Search purchase history", "Satın alma geçmişinde ara", "Xaridlar tarixidan qidirish"));
+            toHistory.Margin = new Thickness(4);
+            toHistory.Click += async (_, _) => { _tab = "history"; BuildTabs(); await ReloadAsync().ConfigureAwait(true); };
+            buttons.Children.Add(toHistory);
+        }
+        else if (_period != "all" || _filterSupplier.Selected is not null)
+        {
+            var widen = UiKit.Ghost(this, T("Искать за всё время и у всех поставщиков", "Бардык убакытта жана бардык жеткирүүчүлөрдөн издөө", "Search all time and all suppliers",
+                "Tüm zamanlarda ve tüm tedarikçilerde ara", "Butun davr va barcha yetkazib beruvchilardan qidirish"));
+            widen.Margin = new Thickness(4);
+            widen.Click += async (_, _) =>
+            {
+                _period = "all";
+                _filterSupplier.Select((SupplierInfo?)null, raise: false);
+                BuildPeriods();
+                await ReloadAsync().ConfigureAwait(true);
+            };
+            buttons.Children.Add(widen);
+        }
+        panel.Children.Add(buttons);
+        return panel;
     }
 
     // ------------------------------------------------------------------ строки

@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мобилка — инфографика</title>
+<style>
+/* NurMarket Mobile — система инфографики (главная, аналитика, смена, долги). Дизайн-спека 29.10.2026 (Specs-1029/03).
+   Цвета — только токены NurMarketMobile/lib/core/theme/tokens.dart (T.*, Palette.*, T.chartColors). */
+body{ margin:0; background:#2B2B2B; color:#F5F5F5; font-family:Montserrat,Onest,"Segoe UI",system-ui,sans-serif; }
+.tb{ position:sticky; top:0; z-index:50; display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:8px 14px; background:#191919; border-bottom:1px solid #3D3D3D; font-size:12px; }
+.tb b{ font-size:13px; margin-right:6px; }
+.tb .grp{ display:flex; align-items:center; gap:4px; padding:3px; border:1px solid #3D3D3D; border-radius:9px; }
+.tb .grp span{ color:#AAA; padding:0 6px; }
+.tb button{ height:28px; padding:0 10px; border:0; border-radius:7px; background:transparent; color:#CCC; font:600 12px Montserrat,system-ui,sans-serif; cursor:pointer; }
+.tb button.on{ background:#FFB208; color:#191919; }
+.stage{ padding:18px; display:flex; flex-wrap:wrap; align-items:flex-start; gap:18px; }
+.note{ width:100%; max-width:1100px; font-size:12px; line-height:1.55; color:#CCC; }
+.note code{ background:#333; padding:1px 5px; border-radius:4px; color:#FFD27A; }
+h2.sec{ width:100%; margin:10px 0 -6px; font-size:14px; color:#FFB208; }
+
+/* ---------- телефон ---------- */
+.ph{
+  --window:#F4F4F4; --panel:#FFFFFF; --soft:#F9FAFB; --border:#E2E2E2; --border-strong:#CCCCCC; --text:#191919; --text-soft:#666666;
+  --accent:#FFB208; --accent-soft:#FFF1DB; --on-accent:#191919; --success:#0E7A3A; --success-soft:#E7F6EC; --danger:#C0362C; --danger-soft:#FDECEA;
+  --warn:#B54708; --warn-soft:#FEF3E2; --hero:#191919; --hero-border:transparent; --on-hero:#FFFFFF; --price:#191919; --action:#191919; --on-action:#FFFFFF;
+  --c1:#B8860B; --c2:#5470E1; --c3:#EE3083; --c4:#3E9157; --c5:#9F81DA; --c6:#D16B60; --c7:#C740B1; --c8:#78859A; --c9:#6B8137; --c10:#C95523; --c11:#0DA38A; --c12:#1F80B1;
+  --r-card:16px; --r-btn:12px; --gut:16px; --gap:12px; --w:360px; --h:800px;
+  width:var(--w); height:var(--h); box-sizing:border-box; flex:0 0 auto; position:relative; overflow:hidden; border-radius:28px; border:6px solid #111; box-shadow:0 20px 50px rgba(0,0,0,.5);
+  background:var(--window); color:var(--text); font-family:Montserrat,Onest,"Segoe UI",system-ui,sans-serif; font-size:14px; line-height:20px;
+  display:flex; flex-direction:column;
+}
+.ph[data-theme="dark"]{
+  --window:#191919; --panel:#2A2A2A; --soft:#333333; --border:#4A4A4A; --border-strong:#5A5A5A; --text:#F5F5F5; --text-soft:#AAAAAA;
+  --accent:#FFB208; --accent-soft:rgba(255,178,8,.2); --on-accent:#191919; --success:#4ADE80; --success-soft:rgba(18,183,106,.25); --danger:#FF8A80; --danger-soft:rgba(240,68,56,.25);
+  --warn:#FFB74D; --warn-soft:rgba(247,144,9,.25); --hero:#333333; --hero-border:#5A5A5A; --on-hero:#F5F5F5; --price:#FFB208; --action:#FFB208; --on-action:#191919;
+}
+.ph.big{ --w:412px; --h:915px; font-size:15px; }
+.ph *{ box-sizing:border-box; font-family:inherit; }
+.num{ font-variant-numeric:tabular-nums; }
+.sb{ flex:0 0 28px; display:flex; align-items:center; justify-content:space-between; padding:0 18px; font-size:12px; font-weight:600; color:var(--text-soft); }
+.hd{ flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:6px var(--gut) 10px; }
+.hd .av{ width:40px; height:40px; border-radius:50%; background:var(--hero); border:2px solid var(--hero-border); color:#FFF; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; }
+.hd .tt{ flex:1; min-width:0; } .hd .tt b{ display:block; font-size:18px; line-height:24px; font-weight:700; } .hd .tt small{ display:block; font-size:12px; line-height:16px; color:var(--text-soft); }
+.hd .ic{ width:44px; height:44px; border-radius:var(--r-btn); background:var(--panel); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; color:var(--text); }
+.hd .back{ width:44px; height:44px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+.scroll{ flex:1; min-height:0; overflow:auto; padding:0 var(--gut) 12px; display:flex; flex-direction:column; gap:var(--gap); }
+.nav{ flex:0 0 64px; display:flex; background:var(--panel); border-top:1px solid var(--border); }
+.nav div{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:11px; line-height:14px; font-weight:600; color:var(--text-soft); }
+.nav div.on{ color:var(--text); } .nav div.on .d{ background:var(--accent); } .nav .d{ width:22px; height:22px; border-radius:7px; background:var(--border); }
+
+/* период + сравнить */
+.per{ display:flex; gap:8px; align-items:center; }
+.seg{ flex:1; display:flex; padding:3px; background:var(--panel); border:1px solid var(--border); border-radius:var(--r-btn); }
+.seg div{ flex:1; height:38px; display:flex; align-items:center; justify-content:center; border-radius:9px; font-size:13px; font-weight:600; color:var(--text-soft); }
+.seg div.on{ background:var(--action); color:var(--on-action); font-weight:700; }
+.cmp{ height:44px; padding:0 12px; display:inline-flex; align-items:center; gap:6px; border-radius:var(--r-btn); border:1px solid var(--border); background:var(--panel); font-size:12px; font-weight:600; white-space:nowrap; }
+.cmp.on{ background:var(--accent-soft); border-color:var(--accent); color:var(--text); }
+.cmp .sw{ width:30px; height:18px; border-radius:9px; background:var(--border-strong); position:relative; } .cmp.on .sw{ background:var(--accent); }
+.cmp .sw::after{ content:""; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:#FFF; } .cmp.on .sw::after{ left:14px; }
+
+/* KPI-плитка */
+.kpis{ display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
+.kpi{ background:var(--panel); border:1px solid var(--border); border-radius:var(--r-card); padding:12px 14px; min-height:104px; display:flex; flex-direction:column; gap:2px; position:relative; }
+.kpi small{ font-size:12px; line-height:16px; font-weight:500; color:var(--text-soft); }
+.kpi b{ font-size:22px; line-height:28px; font-weight:800; color:var(--price); letter-spacing:-.01em; white-space:nowrap; }
+.kpi b i{ font-style:normal; font-size:13px; font-weight:600; color:var(--text-soft); margin-left:3px; letter-spacing:0; }
+.kpi .dl{ display:flex; align-items:center; gap:6px; font-size:12px; line-height:16px; font-weight:600; white-space:nowrap; overflow:hidden; }
+.kpi .dl span{ overflow:hidden; text-overflow:ellipsis; }
+.kpi .dl.up{ color:var(--success); } .kpi .dl.down{ color:var(--danger); } .kpi .dl.flat{ color:var(--text-soft); }
+.kpi .dl span{ color:var(--text-soft); font-weight:500; }
+.kpi svg{ position:absolute; right:12px; top:14px; width:64px; height:28px; }
+.kpi.hero{ grid-column:1/-1; background:var(--hero); border-color:var(--hero-border); color:var(--on-hero); min-height:120px; }
+.kpi.hero small{ color:rgba(255,255,255,.72); } .kpi.hero b{ color:#FFF; font-size:32px; line-height:38px; } .kpi.hero b i{ color:rgba(255,255,255,.72); }
+.kpi.hero .dl.up{ color:#4ADE80; } .kpi.hero .dl span{ color:rgba(255,255,255,.72); } .kpi.hero svg{ width:110px; height:44px; top:18px; }
+.kpi.danger b{ color:var(--danger); }
+
+/* карточка-секция */
+.card{ background:var(--panel); border:1px solid var(--border); border-radius:var(--r-card); padding:14px; display:flex; flex-direction:column; gap:10px; }
+.card .h{ display:flex; align-items:baseline; gap:8px; }
+.card .h b{ font-size:16px; line-height:22px; font-weight:600; flex:1; } .card .h small{ font-size:12px; color:var(--text-soft); font-weight:500; }
+.card .h a{ font-size:13px; font-weight:600; color:var(--text); text-decoration:underline; text-underline-offset:2px; }
+
+/* столбчатая диаграмма с подписью значения над столбцом */
+.bars{ display:flex; align-items:flex-end; gap:6px; height:150px; padding-top:18px; }
+.bars .b{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:4px; position:relative; }
+.bars .b .v{ font-size:11px; line-height:14px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.bars .b .r{ width:100%; max-width:30px; border-radius:6px 6px 3px 3px; background:var(--c1); }
+.bars .b .r.prev{ background:var(--border-strong); max-width:10px; position:absolute; right:calc(50% - 20px); bottom:20px; border-radius:3px; opacity:.9; }
+.bars .b .l{ font-size:11px; line-height:14px; color:var(--text-soft); font-weight:500; }
+.bars .b.sel .r{ background:var(--accent); box-shadow:0 0 0 2px var(--panel), 0 0 0 3px var(--accent); } .bars .b.sel .v{ color:var(--text); }
+.bars .b.best .r{ background:var(--accent); }
+.tip{ display:flex; gap:10px; align-items:center; padding:10px 12px; border-radius:12px; background:var(--soft); border:1px solid var(--border); font-size:12px; line-height:16px; }
+.tip .sw{ width:10px; height:10px; border-radius:3px; background:var(--accent); flex:0 0 auto; }
+.tip b{ font-weight:700; } .tip .sp{ flex:1; } .tip .dl{ color:var(--success); font-weight:700; }
+
+/* кольцо «Способы оплаты» */
+.ring{ display:flex; gap:14px; align-items:center; }
+.ring svg{ width:120px; height:120px; flex:0 0 auto; }
+.ring .lg{ flex:1; display:flex; flex-direction:column; gap:6px; }
+.ring .lg div{ display:flex; align-items:center; gap:8px; font-size:13px; line-height:18px; min-height:24px; }
+.ring .lg .sw{ width:12px; height:12px; border-radius:4px; flex:0 0 auto; } .ring .lg b{ margin-left:auto; font-weight:700; font-variant-numeric:tabular-nums; } .ring .lg small{ color:var(--text-soft); font-size:11px; }
+.ring .c{ font-size:16px; font-weight:800; fill:var(--text); } .ring .cs{ font-size:9px; font-weight:600; fill:var(--text-soft); }
+
+/* топ-5 горизонтальные */
+.top div.r{ display:grid; grid-template-columns:20px 1fr 72px; align-items:center; gap:8px; min-height:30px; font-size:13px; }
+.top .n{ color:var(--text-soft); font-weight:700; font-size:12px; }
+.top .nm{ display:flex; flex-direction:column; gap:3px; min-width:0; } .top .nm span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+.top .bar{ height:8px; border-radius:4px; background:var(--c2); } .top .v{ text-align:right; font-weight:700; font-variant-numeric:tabular-nums; }
+
+/* индикатор «ящик / план» */
+.plan .ln{ display:flex; justify-content:space-between; font-size:13px; }
+.plan .ln b{ font-weight:800; font-variant-numeric:tabular-nums; } .plan .ln small{ color:var(--text-soft); }
+.plan .tr{ height:10px; border-radius:5px; background:var(--soft); border:1px solid var(--border); overflow:hidden; position:relative; }
+.plan .tr i{ display:block; height:100%; background:var(--accent); border-radius:5px; } .plan .tr.ok i{ background:var(--success); }
+.plan .tr .m{ position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--text); }
+
+/* строки списка (смена, долги) */
+.ls div.r{ display:flex; align-items:center; gap:10px; min-height:44px; border-top:1px solid var(--border); font-size:14px; }
+.ls div.r:first-child{ border-top:0; }
+.ls .sw{ width:10px; height:10px; border-radius:3px; flex:0 0 auto; } .ls .sp{ flex:1; min-width:0; } .ls .sp small{ display:block; font-size:11px; line-height:14px; color:var(--text-soft); }
+.ls b{ font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; } .ls .neg{ color:var(--danger); } .ls .pos{ color:var(--success); }
+.ls .av{ width:36px; height:36px; border-radius:50%; background:var(--hero); border:2px solid var(--hero-border); color:#FFF; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex:0 0 auto; }
+.chip{ display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:6px; font-size:11px; font-weight:700; white-space:nowrap; }
+.chip.d{ background:var(--danger-soft); color:var(--danger); } .chip.w{ background:var(--warn-soft); color:var(--warn); } .chip.s{ background:var(--success-soft); color:var(--success); } .chip.n{ background:var(--soft); color:var(--text-soft); border:1px solid var(--border); }
+.cta{ height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; background:var(--accent); color:var(--on-accent); }
+.cta.sec{ background:var(--panel); border:1px solid var(--border-strong); color:var(--text); }
+.btns{ display:flex; gap:10px; } .btns .cta{ flex:1; }
+.hero-shift{ background:var(--hero); border:1px solid var(--hero-border); border-radius:var(--r-card); padding:16px; color:var(--on-hero); display:flex; flex-direction:column; gap:4px; }
+.hero-shift small{ color:rgba(255,255,255,.72); font-size:12px; } .hero-shift b{ font-size:32px; line-height:38px; font-weight:800; } .hero-shift b i{ font-style:normal; font-size:14px; font-weight:600; color:rgba(255,255,255,.72); }
+.hero-shift .rowk{ display:flex; gap:14px; margin-top:6px; } .hero-shift .rowk div{ display:flex; flex-direction:column; } .hero-shift .rowk b{ font-size:15px; line-height:20px; }
+
+/* состояния: пусто / загрузка / ошибка */
+.state{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:6px; padding:20px 12px; color:var(--text-soft); font-size:13px; line-height:18px; min-height:150px; }
+.state b{ color:var(--text); font-size:14px; } .state .ico{ width:44px; height:44px; border-radius:14px; background:var(--soft); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:20px; }
+.state .btn{ margin-top:4px; height:40px; padding:0 16px; border-radius:var(--r-btn); border:1px solid var(--border-strong); display:inline-flex; align-items:center; font-weight:600; color:var(--text); }
+.sk{ background:linear-gradient(90deg,var(--soft),var(--border),var(--soft)); background-size:200% 100%; animation:sh 1.4s infinite; border-radius:8px; }
+@keyframes sh{ to{ background-position:-200% 0; } }
+.state.err .ico{ background:var(--danger-soft); border-color:transparent; }
+
+/* палитра */
+.pal{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+.pal div{ height:56px; border-radius:10px; display:flex; flex-direction:column; justify-content:flex-end; padding:6px 8px; font-size:10.5px; line-height:13px; font-weight:700; }
+.pal div small{ font-weight:500; opacity:.85; }
+.comp{ width:360px; display:flex; flex-direction:column; gap:12px; padding:14px; border-radius:16px; }
+.comp h4{ margin:0; font-size:13px; color:var(--text-soft); font-weight:600; }
+</style>
+</head>
+<body>
+<div class="tb">
+  <b>Мобилка — инфографика: 4 экрана + система компонентов</b>
+  <div class="grp"><span>Тема</span><button class="on" data-theme="light">Светлая</button><button data-theme="dark">Тёмная</button></div>
+  <div class="grp"><span>Экран</span><button class="on" data-size="small">360×800</button><button data-size="big">412×915</button></div>
+  <span style="color:#AAA">Спека: docs/Дизайн/Спеки 2026-10-29.md</span>
+</div>
+
+<div class="stage">
+
+<!-- ================= 1. ГЛАВНАЯ / СВОДКА ================= -->
+<div class="ph" data-theme="light">
+  <div class="sb"><span>9:41</span><span>▮▮▮ ◔</span></div>
+  <div class="hd"><div class="av">НБ</div><div class="tt"><b>NBS · Главная</b><small>Смена №214 открыта в 08:05 · Айгерим</small></div><div class="ic">🔔</div></div>
+  <div class="scroll">
+    <div class="per"><div class="seg"><div class="on">Сегодня</div><div>Неделя</div><div>Месяц</div></div><div class="cmp on"><span class="sw"></span>Сравнить</div></div>
+    <div class="kpis">
+      <div class="kpi hero"><small>Выручка сегодня</small><b class="num">48 300<i>сом</i></b><div class="dl up">▲ +12 % <span>к прошлой среде · 43 100</span></div>
+        <svg viewBox="0 0 110 44" fill="none"><polyline points="2,34 16,30 30,32 44,22 58,24 72,14 86,16 100,6 108,8" stroke="#FFB208" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="108" cy="8" r="3" fill="#FFB208"/></svg></div>
+      <div class="kpi"><small>Чеков</small><b class="num">134</b><div class="dl up">▲ +5 % <span>к прошлой</span></div><svg viewBox="0 0 64 28" fill="none"><polyline points="2,22 14,18 26,20 38,12 50,14 62,6" stroke="var(--c2)" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div class="kpi"><small>Средний чек</small><b class="num">360<i>сом</i></b><div class="dl down">▼ −3 % <span>к прошлой</span></div><svg viewBox="0 0 64 28" fill="none"><polyline points="2,8 14,12 26,10 38,16 50,14 62,20" stroke="var(--c6)" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div class="kpi"><small>Прибыль</small><b class="num">9 120<i>сом</i></b><div class="dl up">▲ +8 % <span>к прошлой</span></div><svg viewBox="0 0 64 28" fill="none"><polyline points="2,20 14,18 26,22 38,14 50,10 62,8" stroke="var(--c4)" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div class="kpi"><small>Долги покупателей</small><b class="num">38 400<i>сом</i></b><div class="dl flat">— 0 % <span>· просрочено 12,3 тыс.</span></div></div>
+    </div>
+    <div class="card plan">
+      <div class="h"><b>Ящик и план дня</b><small>обновлено 14:02</small></div>
+      <div class="ln"><span>В ящике <b class="num">26 950 сом</b></span><small>план 60 000</small></div>
+      <div class="tr"><i style="width:45%"></i><span class="m" style="left:80%"></span></div>
+      <div class="ln"><small>Выполнено <b>45 %</b> плана · ещё 11 700 до среднего дня (80 %)</small></div>
+    </div>
+    <div class="card">
+      <div class="h"><b>Выручка по часам</b><a>Аналитика →</a></div>
+      <div class="bars">
+        <div class="b"><span class="v">2,1</span><i class="r" style="height:18%"></i><span class="l">8</span></div>
+        <div class="b"><span class="v">4,8</span><i class="r" style="height:38%"></i><span class="l">10</span></div>
+        <div class="b best"><span class="v">9,6</span><i class="r" style="height:78%"></i><span class="l">12</span></div>
+        <div class="b"><span class="v">7,2</span><i class="r" style="height:58%"></i><span class="l">14</span></div>
+        <div class="b"><span class="v">5,3</span><i class="r" style="height:42%"></i><span class="l">16</span></div>
+        <div class="b"><span class="v">8,1</span><i class="r" style="height:66%"></i><span class="l">18</span></div>
+        <div class="b"><span class="v">11,2</span><i class="r" style="height:92%"></i><span class="l">20</span></div>
+      </div>
+      <small style="font-size:11px;color:var(--text-soft)">тыс. сом · жёлтый — лучший час</small>
+    </div>
+    <div class="card top">
+      <div class="h"><b>Топ-3 товара сегодня</b><small>по выручке</small></div>
+      <div class="r"><span class="n">1</span><div class="nm"><span>Winston Blue</span><i class="bar" style="width:100%"></i></div><span class="v num">12 400</span></div>
+      <div class="r"><span class="n">2</span><div class="nm"><span>Вода Адыгене 1,5 л</span><i class="bar" style="width:72%;background:var(--c4)"></i></div><span class="v num">8 900</span></div>
+      <div class="r"><span class="n">3</span><div class="nm"><span>Вода ASU 0,5 л</span><i class="bar" style="width:51%;background:var(--c5)"></i></div><span class="v num">6 300</span></div>
+    </div>
+  </div>
+  <div class="nav"><div class="on"><span class="d"></span>Главная</div><div><span class="d"></span>Продажа</div><div><span class="d"></span>Склад</div><div><span class="d"></span>Долги</div><div><span class="d"></span>Ещё</div></div>
+</div>
+
+<!-- ================= 2. АНАЛИТИКА ================= -->
+<div class="ph" data-theme="light">
+  <div class="sb"><span>9:41</span><span>▮▮▮ ◔</span></div>
+  <div class="hd"><div class="back">‹</div><div class="tt"><b>Аналитика</b><small>23–29 окт · неделя</small></div><div class="ic">⤓</div></div>
+  <div class="scroll">
+    <div class="per"><div class="seg"><div>День</div><div class="on">Неделя</div><div>Месяц</div></div><div class="cmp on"><span class="sw"></span>Сравнить</div></div>
+    <div class="kpis">
+      <div class="kpi"><small>Выручка за неделю</small><b class="num">312<i>тыс.</i></b><div class="dl up">▲ +9 % <span>к прошлой</span></div><svg viewBox="0 0 64 28" fill="none"><polyline points="2,20 14,16 26,18 38,10 50,12 62,6" stroke="var(--c1)" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div class="kpi"><small>Прибыль</small><b class="num">58,4<i>тыс.</i></b><div class="dl up">▲ +4 % <span>к прошлой</span></div><svg viewBox="0 0 64 28" fill="none"><polyline points="2,18 14,20 26,14 38,16 50,10 62,9" stroke="var(--c4)" stroke-width="2" stroke-linecap="round"/></svg></div>
+    </div>
+    <div class="card">
+      <div class="h"><b>Выручка по дням</b><small>тыс. сом</small></div>
+      <div class="bars">
+        <div class="b"><span class="v">41</span><i class="r prev" style="height:36%"></i><i class="r" style="height:40%"></i><span class="l">пн</span></div>
+        <div class="b"><span class="v">38</span><i class="r prev" style="height:40%"></i><i class="r" style="height:37%"></i><span class="l">вт</span></div>
+        <div class="b sel"><span class="v">48</span><i class="r prev" style="height:42%"></i><i class="r" style="height:47%"></i><span class="l">ср</span></div>
+        <div class="b"><span class="v">44</span><i class="r prev" style="height:39%"></i><i class="r" style="height:43%"></i><span class="l">чт</span></div>
+        <div class="b"><span class="v">52</span><i class="r prev" style="height:46%"></i><i class="r" style="height:51%"></i><span class="l">пт</span></div>
+        <div class="b best"><span class="v">61</span><i class="r prev" style="height:50%"></i><i class="r" style="height:60%"></i><span class="l">сб</span></div>
+        <div class="b"><span class="v">28</span><i class="r prev" style="height:33%"></i><i class="r" style="height:27%"></i><span class="l">вс</span></div>
+      </div>
+      <div class="tip"><span class="sw"></span><div><b>Среда, 29 окт</b> · 48 300 сом · 134 чека</div><span class="sp"></span><span class="dl">▲ +12 %</span></div>
+      <small style="font-size:11px;color:var(--text-soft)">серый тонкий столбец — та же неделя раньше (вкл. «Сравнить»)</small>
+    </div>
+    <div class="card">
+      <div class="h"><b>Способы оплаты</b><small>за неделю</small></div>
+      <div class="ring">
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="46" fill="none" stroke="var(--soft)" stroke-width="16"/>
+          <circle cx="60" cy="60" r="46" fill="none" stroke="var(--c1)" stroke-width="16" stroke-dasharray="179 289" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="46" fill="none" stroke="var(--c2)" stroke-width="16" stroke-dasharray="69 289" stroke-dashoffset="-179" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="46" fill="none" stroke="var(--c5)" stroke-width="16" stroke-dasharray="32 289" stroke-dashoffset="-248" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="46" fill="none" stroke="var(--c8)" stroke-width="16" stroke-dasharray="9 289" stroke-dashoffset="-280" transform="rotate(-90 60 60)"/>
+          <text x="60" y="58" text-anchor="middle" class="c">312</text><text x="60" y="72" text-anchor="middle" class="cs">тыс. сом</text>
+        </svg>
+        <div class="lg">
+          <div><span class="sw" style="background:var(--c1)"></span>Наличные<b>62 %</b></div>
+          <div><span class="sw" style="background:var(--c2)"></span>Карта<b>24 %</b></div>
+          <div><span class="sw" style="background:var(--c5)"></span>QR<b>11 %</b></div>
+          <div><span class="sw" style="background:var(--c8)"></span>В долг<b>3 %</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="card top">
+      <div class="h"><b>Топ-5 товаров</b><small>сом за неделю</small></div>
+      <div class="r"><span class="n">1</span><div class="nm"><span>Winston Blue</span><i class="bar" style="width:100%;background:var(--c1)"></i></div><span class="v num">64 200</span></div>
+      <div class="r"><span class="n">2</span><div class="nm"><span>Вода Адыгене 1,5 л</span><i class="bar" style="width:66%;background:var(--c4)"></i></div><span class="v num">42 100</span></div>
+      <div class="r"><span class="n">3</span><div class="nm"><span>Вода ASU 0,5 л</span><i class="bar" style="width:48%;background:var(--c5)"></i></div><span class="v num">31 000</span></div>
+      <div class="r"><span class="n">4</span><div class="nm"><span>Orbit мята</span><i class="bar" style="width:29%;background:var(--c3)"></i></div><span class="v num">18 600</span></div>
+      <div class="r"><span class="n">5</span><div class="nm"><span>Хлеб Нан 400 г</span><i class="bar" style="width:22%;background:var(--c9)"></i></div><span class="v num">14 200</span></div>
+    </div>
+  </div>
+  <div class="nav"><div><span class="d"></span>Главная</div><div><span class="d"></span>Продажа</div><div><span class="d"></span>Склад</div><div><span class="d"></span>Долги</div><div class="on"><span class="d"></span>Ещё</div></div>
+</div>
+
+<!-- ================= 3. СМЕНА / Z-ИТОГ ================= -->
+<div class="ph" data-theme="light">
+  <div class="sb"><span>20:12</span><span>▮▮▮ ◔</span></div>
+  <div class="hd"><div class="back">‹</div><div class="tt"><b>Смена №214</b><small>29 окт · 08:05 → 20:12 · Айгерим</small></div><div class="ic">🖶</div></div>
+  <div class="scroll">
+    <div class="hero-shift">
+      <small>Выручка за смену</small><b class="num">48 300 <i>сом</i></b>
+      <div class="rowk"><div><small>Чеков</small><b class="num">134</b></div><div><small>Средний чек</small><b class="num">360</b></div><div><small>Возвраты</small><b class="num">2 · −620</b></div><div><small>Прибыль</small><b class="num" style="color:#4ADE80">+9 120</b></div></div>
+    </div>
+    <div class="card">
+      <div class="h"><b>Чем платили</b><small>сом</small></div>
+      <div class="ls">
+        <div class="r"><span class="sw" style="background:var(--c1)"></span><span class="sp">Наличные<small>62 % · 86 чеков</small></span><b class="num">29 950</b></div>
+        <div class="r"><span class="sw" style="background:var(--c2)"></span><span class="sp">Карта<small>24 % · 31 чек</small></span><b class="num">11 600</b></div>
+        <div class="r"><span class="sw" style="background:var(--c5)"></span><span class="sp">QR<small>11 % · 14 чеков</small></span><b class="num">5 300</b></div>
+        <div class="r"><span class="sw" style="background:var(--c8)"></span><span class="sp">В долг<small>3 % · 3 чека</small></span><b class="num">1 450</b></div>
+      </div>
+    </div>
+    <div class="card plan">
+      <div class="h"><b>Наличные в ящике</b></div>
+      <div class="ln"><span>Должно быть <b class="num">26 950 сом</b></span><small>план на смену 30 000</small></div>
+      <div class="tr ok"><i style="width:90%"></i><span class="m" style="left:100%"></span></div>
+      <div class="ls" style="margin-top:4px">
+        <div class="r"><span class="sp">Начало смены (разменные)</span><b class="num">2 000</b></div>
+        <div class="r"><span class="sp">+ Наличные продажи</span><b class="num pos">+29 950</b></div>
+        <div class="r"><span class="sp">+ Внесения<small>1 · 14:10</small></span><b class="num pos">+2 000</b></div>
+        <div class="r"><span class="sp">− Изъятия<small>1 · инкассация 17:30</small></span><b class="num neg">−5 000</b></div>
+        <div class="r"><span class="sp">− Возвраты наличными</span><b class="num neg">−620</b></div>
+        <div class="r"><span class="sp">− Долги выданы наличными</span><b class="num neg">−1 380</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="h"><b>Выручка по часам</b><small>тыс. сом</small></div>
+      <div class="bars" style="height:120px">
+        <div class="b"><span class="v">2,1</span><i class="r" style="height:18%"></i><span class="l">8</span></div>
+        <div class="b"><span class="v">4,8</span><i class="r" style="height:38%"></i><span class="l">10</span></div>
+        <div class="b"><span class="v">9,6</span><i class="r" style="height:78%"></i><span class="l">12</span></div>
+        <div class="b"><span class="v">7,2</span><i class="r" style="height:58%"></i><span class="l">14</span></div>
+        <div class="b"><span class="v">5,3</span><i class="r" style="height:42%"></i><span class="l">16</span></div>
+        <div class="b"><span class="v">8,1</span><i class="r" style="height:66%"></i><span class="l">18</span></div>
+        <div class="b best"><span class="v">11,2</span><i class="r" style="height:92%"></i><span class="l">20</span></div>
+      </div>
+    </div>
+    <div class="btns"><div class="cta sec">X-отчёт</div><div class="cta">Закрыть смену</div></div>
+  </div>
+  <div class="nav"><div><span class="d"></span>Главная</div><div><span class="d"></span>Продажа</div><div><span class="d"></span>Склад</div><div><span class="d"></span>Долги</div><div class="on"><span class="d"></span>Ещё</div></div>
+</div>
+
+<!-- ================= 4. ДОЛГИ ================= -->
+<div class="ph" data-theme="light">
+  <div class="sb"><span>9:41</span><span>▮▮▮ ◔</span></div>
+  <div class="hd"><div class="back">‹</div><div class="tt"><b>Долги покупателей</b><small>24 должника</small></div><div class="ic">＋</div></div>
+  <div class="scroll">
+    <div class="kpis">
+      <div class="kpi hero"><small>Всего должны</small><b class="num">38 400<i>сом</i></b><div class="dl" style="color:var(--danger)">▲ +2 100 <span>за неделю · выдано 6 400, вернули 4 300</span></div>
+        <svg viewBox="0 0 110 44" fill="none"><polyline points="2,30 16,28 30,30 44,24 58,26 72,20 86,22 100,14 108,12" stroke="#FFB208" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="kpi danger"><small>Просрочено</small><b class="num">12 300<i>сом</i></b><div class="dl flat"><span>7 должников · старше 30 дн.</span></div></div>
+      <div class="kpi"><small>Ждём на неделе</small><b class="num">9 800<i>сом</i></b><div class="dl flat"><span>5 должников</span></div></div>
+    </div>
+    <div class="card">
+      <div class="h"><b>По срокам</b><small>тыс. сом</small></div>
+      <div class="bars" style="height:120px">
+        <div class="b"><span class="v">9,8</span><i class="r" style="height:52%;background:var(--c4)"></i><span class="l">до 7 дн.</span></div>
+        <div class="b"><span class="v">16,3</span><i class="r" style="height:88%;background:var(--c1)"></i><span class="l">8–30</span></div>
+        <div class="b"><span class="v">7,1</span><i class="r" style="height:38%;background:var(--c10)"></i><span class="l">31–60</span></div>
+        <div class="b sel"><span class="v">5,2</span><i class="r" style="height:28%;background:var(--c6)"></i><span class="l">60+</span></div>
+      </div>
+      <div class="tip"><span class="sw" style="background:var(--c6)"></span><div><b>Старше 60 дней</b> · 5 200 сом · 3 должника</div><span class="sp"></span><span style="font-weight:700;text-decoration:underline">Показать</span></div>
+    </div>
+    <div class="card">
+      <div class="h"><b>Должники</b><a>Все 24 →</a></div>
+      <div class="ls">
+        <div class="r"><span class="av">АС</span><span class="sp">Асан Сыдыков<small>обещал 25 окт · 4 дня назад</small></span><span class="chip d">просрочено</span><b class="num">5 200</b></div>
+        <div class="r"><span class="av">ГК</span><span class="sp">Гульнара К.<small>обещала 30 окт · завтра</small></span><span class="chip w">завтра</span><b class="num">3 400</b></div>
+        <div class="r"><span class="av">ТМ</span><span class="sp">Талант М.<small>обещал 4 ноя</small></span><span class="chip n">через 6 дн.</span><b class="num">2 150</b></div>
+        <div class="r"><span class="av">НА</span><span class="sp">Нурлан А.<small>вернул 1 000 сегодня</small></span><span class="chip s">частично</span><b class="num">1 800</b></div>
+      </div>
+    </div>
+    <div class="cta">Напомнить всем просроченным · 7</div>
+  </div>
+  <div class="nav"><div><span class="d"></span>Главная</div><div><span class="d"></span>Продажа</div><div><span class="d"></span>Склад</div><div class="on"><span class="d"></span>Долги</div><div><span class="d"></span>Ещё</div></div>
+</div>
+
+<h2 class="sec">Система компонентов: состояния, палитра, числа</h2>
+
+<!-- состояния -->
+<div class="ph comp" data-theme="light" style="height:auto;border-radius:16px;border-width:1px;border-color:#444;box-shadow:none">
+  <h4>Пусто / загрузка / ошибка</h4>
+  <div class="card"><div class="h"><b>Выручка по дням</b></div>
+    <div class="state"><span class="ico">📊</span><b>Пока нет продаж</b>Данные появятся после первого чека. Откройте смену и продайте что-нибудь.</div></div>
+  <div class="card"><div class="h"><b>Способы оплаты</b></div>
+    <div style="display:flex;gap:14px;align-items:center"><span class="sk" style="width:120px;height:120px;border-radius:50%"></span><div style="flex:1;display:flex;flex-direction:column;gap:10px"><span class="sk" style="height:14px;width:80%"></span><span class="sk" style="height:14px;width:60%"></span><span class="sk" style="height:14px;width:70%"></span></div></div>
+    <small style="font-size:11px;color:var(--text-soft)">скелет 1,4 с, без спиннера; числа не «прыгают» — плитка той же высоты</small></div>
+  <div class="card"><div class="h"><b>Аналитика</b></div>
+    <div class="state err"><span class="ico">⚠</span><b>Не удалось загрузить</b>Нет связи с сервером. Показаны данные на 13:40.<span class="btn">Повторить</span></div></div>
+  <div class="card"><div class="h"><b>Выручка сегодня</b><small>офлайн</small></div>
+    <div class="kpi" style="border-style:dashed;padding:0;border:0;min-height:0"><b class="num">48 300<i>сом</i></b><div class="dl flat">— сравнения нет <span>· прошлой недели ещё не было</span></div></div></div>
+</div>
+
+<!-- палитра -->
+<div class="ph comp" data-theme="light" style="height:auto;border-radius:16px;border-width:1px;border-color:#444;box-shadow:none">
+  <h4>Палитра категорий — T.chartColors (первые 10 + 2 запасных)</h4>
+  <div class="pal">
+    <div style="background:var(--c1);color:#000">1<small> золотой</small></div>
+    <div style="background:var(--c2);color:#fff">2<small> синий</small></div>
+    <div style="background:var(--c3);color:#000">3<small> розовый</small></div>
+    <div style="background:var(--c4);color:#fff">4<small> зелёный</small></div>
+    <div style="background:var(--c5);color:#000">5<small> фиолет.</small></div>
+    <div style="background:var(--c6);color:#000">6<small> коралл</small></div>
+    <div style="background:var(--c7);color:#fff">7<small> пурпур</small></div>
+    <div style="background:var(--c8);color:#000">8<small> серый</small></div>
+    <div style="background:var(--c9);color:#fff">9<small> олива</small></div>
+    <div style="background:var(--c10);color:#fff">10<small> оранж.</small></div>
+    <div style="background:var(--c11);color:#000">11<small> бирюза</small></div>
+    <div style="background:var(--c12);color:#fff">12<small> голубой</small></div>
+    <div style="background:var(--accent);color:#191919">★<small> акцент: лучший день / выбранный</small></div>
+    <div style="background:var(--border-strong);color:#000">▭<small> «прошлый период»</small></div>
+  </div>
+  <div class="card">
+    <div class="h"><b>Числа</b></div>
+    <div class="ls" style="font-size:13px">
+      <div class="r"><span class="sp">до 99 999 — полностью, пробел между разрядами</span><b class="num">12 300 сом</b></div>
+      <div class="r"><span class="sp">100 тыс. – 999 тыс. — одна цифра после запятой</span><b class="num">312,4 тыс.</b></div>
+      <div class="r"><span class="sp">от 1 млн — «млн»</span><b class="num">1,2 млн</b></div>
+      <div class="r"><span class="sp">дельта: знак + стрелка + % + «к чему»</span><b class="num" style="color:var(--success)">▲ +12 %</b></div>
+      <div class="r"><span class="sp">минус — настоящий «−», не дефис</span><b class="num" style="color:var(--danger)">▼ −3 %</b></div>
+      <div class="r"><span class="sp">нет сравнения</span><b class="num" style="color:var(--text-soft)">— н/д</b></div>
+      <div class="r"><span class="sp">в диаграмме над столбцом — без «сом», единица в подписи карточки</span><b class="num">48</b></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="h"><b>Сетка</b></div>
+    <div class="ls" style="font-size:13px">
+      <div class="r"><span class="sp">Поле экрана</span><b>16 px</b></div><div class="r"><span class="sp">Между карточками</span><b>12 px</b></div>
+      <div class="r"><span class="sp">Внутри карточки</span><b>14 px</b></div><div class="r"><span class="sp">Радиус карточки / кнопки / CTA</span><b>16 / 12 / 16</b></div>
+      <div class="r"><span class="sp">KPI-плитка мин. высота · CTA · строка списка</span><b>104 · 56 · 44</b></div>
+      <div class="r"><span class="sp">Столбец: ширина ≤ 30, зазор 6, касание — вся колонка</span><b>≥ 44 × 150</b></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+<b>Правила.</b> Сравнение («▲ +12 % к прошлой неделе») показывается только при включённом «Сравнить» и только если прошлый период есть; иначе «— н/д». Зелёный/красный у дельты — <code>Palette.success / danger</code> (в тёмной — светлые варианты); у долгов рост — красный. Цвет категории — по хэшу названия (<code>ChartColors.forKey</code>), поэтому Winston Blue везде золотой, Адыгене — зелёный; акцент #FFB208 зарезервирован под «лучший / выбранный столбец» и не входит в палитру категорий. На тёмной теме палитра та же (12 цветов держат ≥ 3:1 на #2A2A2A), подписи значений — <code>darkText</code>, «прошлый период» — <code>darkBorder</code>-столбик. Касание столбца — карточка-подсказка под диаграммой (не всплывашка поверх), чтобы её можно было прочитать и на 360 px.
+</div>
+</div>
+
+<script>
+document.querySelectorAll('.tb button').forEach(b=>b.addEventListener('click',()=>{
+  const g=b.parentElement; g.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  if(b.dataset.theme) document.querySelectorAll('.ph').forEach(p=>p.dataset.theme=b.dataset.theme);
+  if(b.dataset.size) document.querySelectorAll('.ph:not(.comp)').forEach(p=>p.classList.toggle('big', b.dataset.size==='big'));
+}));
+// Состояние из адреса: #dark,big — для снимков без кликов.
+(location.hash||'').slice(1).split(',').filter(Boolean).forEach(k=>{ const b=document.querySelector('.tb button[data-theme="'+k+'"],.tb button[data-size="'+k+'"]'); if(b) b.click(); });
+</script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -112,8 +113,7 @@ public partial class BulkPriceTagPrintDialog : Window
         ProductsGrid.ItemsSource = query.Length == 0
             ? _allRows
             : _allRows.Where(r =>
-                r.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                r.Barcode.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                SearchMatch.Matches(query, r.Title, r.Barcode) || // 2026-10-29: единый поиск — слова в любом порядке, ё=е, раскладка
                 (exactId != null && string.Equals(r.Product.Id, exactId, StringComparison.OrdinalIgnoreCase))).ToList();
         UpdateEmptyText();
     }

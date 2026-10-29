@@ -326,6 +326,190 @@
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
             <Setter Property="LineHeight" Value="17"/>
         </Style>
+        <!-- 2026-10-29, спека Fable (Specs-1029/01-receiving-table): числа вправо (классы rcv-num/rcv-soft/rcv-edit/rcv-sale/rcv-profit ставит O9.cs), 4 редактируемые ячейки —
+             с подчёркиванием (InputAlt + низ 2 px BorderStrong), заливки «маржа < 10 %» (WarningSoft) и «ниже закупки» (DangerSoft) видны И под выделением (кисть
+             Rectangle#BackgroundRectangle), фокус-строка — AccentSoft. Классы rcv-low / rcv-below у строки ставит WarehouseWindow.ReceivingScan.cs (LoadingRow). Только токены тем. -->
+        <Style Selector="DataGrid#ReceivingGrid DataGridCell">
+            <Setter Property="Padding" Value="8,0"/>
+        </Style>
+        <Style Selector="DataGridCell.rcv-num TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="DataGridCell.rcv-num TextBox">
+            <Setter Property="HorizontalContentAlignment" Value="Right"/>
+        </Style>
+        <Style Selector="DataGridCell.rcv-soft TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+        </Style>
+        <Style Selector="DataGridCell.rcv-bar TextBlock">
+            <Setter Property="FontSize" Value="11.5"/>
+        </Style>
+        <Style Selector="DataGridCell.rcv-edit">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+        </Style>
+        <Style Selector="DataGridCell.rcv-edit TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="DataGridCell.rcv-profit TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="DataGrid#ReceivingGrid DataGridRow:selected DataGridCell.rcv-edit">
+            <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushFocus}"/>
+        </Style>
+        <Style Selector="DataGrid#ReceivingGrid DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="DataGrid#ReceivingGrid DataGridRow.rcv-low /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="{DynamicResource BrushWarningSoft}"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="DataGrid#ReceivingGrid DataGridRow.rcv-below /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="{DynamicResource BrushDangerSoft}"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="DataGrid#ReceivingGrid DataGridRow.rcv-low:selected /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="{DynamicResource BrushWarningSoft}"/>
+        </Style>
+        <Style Selector="DataGrid#ReceivingGrid DataGridRow.rcv-below:selected /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="{DynamicResource BrushDangerSoft}"/>
+        </Style>
+        <Style Selector="DataGrid#ReceivingGrid DataGridRow.rcv-low DataGridCell.rcv-edit, DataGrid#ReceivingGrid DataGridRow.rcv-below DataGridCell.rcv-edit">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="DataGridRow.rcv-low DataGridCell.rcv-sale TextBlock, DataGridRow.rcv-low DataGridCell.rcv-profit TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style Selector="DataGridRow.rcv-below DataGridCell.rcv-sale TextBlock, DataGridRow.rcv-below DataGridCell.rcv-profit TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style Selector="TextBlock.rcv-sub">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="TextBlock.hdr-sub">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+            <Setter Property="LineHeight" Value="12"/>
+        </Style>
+        <Style Selector="TextBlock.chg">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+            <Setter Property="LineHeight" Value="15"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="TextBlock.chg.up">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TextBlock.chg.down">
+            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TextBlock.chg-short">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="DataGrid.rcv-compact TextBlock.chg-short">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="DataGrid.rcv-compact TextBlock.chg-long, DataGrid.rcv-compact TextBlock.rcv-sub">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="TextBlock.mode">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="TextBlock.mode-auto">
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="TextBlock.mode-manual">
+            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Border.rcv-tag">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="Border.rcv-tag TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="Border.rcv-tag.low">
+            <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+        </Style>
+        <Style Selector="Border.rcv-tag.low TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+        </Style>
+        <Style Selector="Border.rcv-tag.below">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        </Style>
+        <Style Selector="Border.rcv-tag.below TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
+        </Style>
+        <Style Selector="Border.rcv-newbadge">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="7,1"/>
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.sum-cap">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="TextBlock.sum-val">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="ExtraBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="TextBlock.sum-val.ok">
+            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+        </Style>
+        <Style Selector="TextBlock.sum-val.neg">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
+        </Style>
+        <Style Selector="Border.sum-flag">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.sum-flag.low">
+            <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+        </Style>
+        <Style Selector="Border.sum-flag.low TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+        </Style>
+        <Style Selector="Border.sum-flag.below">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        </Style>
+        <Style Selector="Border.sum-flag.below TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
+        </Style>
+        <Style Selector="TextBlock.sum-flagtext">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
 
         <Style Selector="DataGridColumnHeader">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
@@ -344,6 +528,17 @@
             <Setter Property="MaxLines" Value="2"/>
             <Setter Property="LineHeight" Value="15"/>
             <Setter Property="Margin" Value="0,0,-24,0"/>
+        </Style>
+        <!-- 2026-10-29: заголовки приёмки. Стили ниже общего «DataGridColumnHeader» (в Avalonia побеждает более поздний стиль, а не более точный селектор). -->
+        <Style Selector="DataGrid#ReceivingGrid DataGridColumnHeader">
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <!-- Резерв под значок сортировки (DataGridSortIconMinWidth = 0, см. ReceivingGrid.Resources); общий отрицательный отступ справа (−24) здесь не нужен. -->
+        <Style Selector="DataGrid#ReceivingGrid DataGridColumnHeader TextBlock">
+            <Setter Property="Margin" Value="0"/>
         </Style>
         <Style Selector="DataGridRow">
             <Setter Property="CornerRadius" Value="6"/>
@@ -954,12 +1149,22 @@
                     <!-- 2026-10-24, ТЗ «Склад» (Б1): наверху поле скана, ниже поставщик (необязателен, выбирается в любой момент до «Оприходовать»).
                          Подсказка вкладки — в коде (WarehouseWindow.ReceivingScan.cs). -->
                     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto">
-                        <TextBlock Grid.Row="0" x:Name="ReceivingHintText" Margin="2,0,0,10"
-                                   Text="{DynamicResource warehouse.receivingHint}"
-                                   FontSize="12.5" TextWrapping="Wrap"
-                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                        <!-- 2026-10-29, спека Fable (Specs-1029/01): над таблицей одна панель — «Наценка для всех, %» (поле 88×44, число жирное 16) · «Сразу к скану» · подсказка в одну строку. -->
+                        <Border Grid.Row="0" x:Name="ReceivingCtlPanel" Margin="0,0,0,10" Padding="12,8" CornerRadius="12" BorderThickness="1" MinHeight="60"
+                                Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}">
+                            <Grid x:Name="ReceivingCtlGrid" ColumnDefinitions="Auto,Auto,*">
+                                <StackPanel x:Name="ReceivingMarkupGroup" Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock x:Name="ReceivingMarkupLabel" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="ReceivingMarkupBox" Width="88" Height="44" FontSize="16" FontWeight="Bold" HorizontalContentAlignment="Right"/>
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" x:Name="ReceivingFastNextCheck" Margin="14,0,0,0" MinHeight="44" VerticalAlignment="Center" Focusable="False"/>
+                                <TextBlock Grid.Column="2" x:Name="ReceivingHintText" Margin="14,0,0,0" VerticalAlignment="Center"
+                                           FontSize="12.5" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                            </Grid>
+                        </Border>
 
-                        <WrapPanel Grid.Row="1" Margin="0,0,0,2">
+                        <WrapPanel Grid.Row="1" x:Name="ReceivingToolsWrap" Margin="0,0,0,2">
                             <WrapPanel.Styles>
                                 <Style Selector="WrapPanel > :is(Control)"><Setter Property="Margin" Value="0,0,8,8"/></Style>
                             </WrapPanel.Styles>
@@ -990,9 +1195,9 @@
                             <Button Classes="SecondaryButton"
                                     Content="{DynamicResource warehouse.receivingAddNew}"
                                     Click="ReceivingAddNew_Click"/>
-                            <!-- 2026-10-24, ТЗ «Склад» (Б1): по умолчанию после скана курсор встаёт в «Принято» новой строки (Enter — по ценам, потом снова скан);
-                                 с флажком курсор остаётся в поле скана, каждый скан = + количество из поля. -->
-                            <CheckBox x:Name="ReceivingFastNextCheck" VerticalAlignment="Center" Focusable="False"/>
+                            <!-- 2026-10-29: «Наценка…» (правила автонаценки) и «Очистить список» — в верхнем ряду; внизу остаётся итоговая панель (спека Fable). -->
+                            <Button Classes="SecondaryButton" x:Name="ReceivingMarkupButton" Click="ReceivingMarkup_Click"/>
+                            <Button Classes="SecondaryButton" x:Name="ReceivingClearButton" Click="ReceivingClear_Click"/>
                         </WrapPanel>
 
                         <Border Grid.Row="2" x:Name="ReceivingSuggestionsBox" IsVisible="False"
@@ -1143,76 +1348,110 @@
                                   BeginningEdit="ReceivingGrid_BeginningEdit"
                                   CellEditEnded="ReceivingGrid_CellEditEnded"
                                   CellPointerPressed="ReceivingGrid_CellPointerPressed"
-                                  RowHeight="44">
+                                  RowHeight="52" ColumnHeaderHeight="44">
+                            <DataGrid.Resources>
+                                <x:Double x:Key="DataGridSortIconMinWidth">0</x:Double>
+                            </DataGrid.Resources>
                             <DataGrid.Columns>
-                                <!-- 2026-10-24, ТЗ «Склад» (Б1): порядок колонок (0–12) — Источник · Название · Штрихкод · Ед. · Остаток · Принято · Закупка · Наценка % · Продажа ·
-                                     Изменение · Сумма · Размеры · ✕. Код обращается к ним по именам-свойствам RcvCol* (WarehouseWindow.ReceivingScan.cs) — при смене
-                                     порядка править только их. -->
-                                <!-- 2026-10-19, О9: ширины уже, заголовки переносятся — на 1366 без прокрутки вбок; на узкой таблице
-                                     (1024) «Источник» и «Было» прячутся (WarehouseWindow.O9.cs). -->
-                                <DataGridTextColumn Width="104"
-                                                    Binding="{ReflectionBinding SourceText}" IsReadOnly="True">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingSource}"/></DataGridTextColumn.Header>
-                                </DataGridTextColumn>
-                                <!-- 2026-10-11, тестировщик (склад.md, 2.2.3): название сжималось в «щель в 10 пикселей» — остальные колонки
-                                     фиксированной ширины. Теперь не уже 240 точек; таблица при нехватке места прокручивается вбок. -->
-                                <DataGridTextColumn Width="*" MinWidth="200"
-                                                    Binding="{ReflectionBinding ProductName}">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource common.name}"/></DataGridTextColumn.Header>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Width="136"
+                                <!-- 2026-10-29, спека Fable (Specs-1029/01): порядок (0–13) — Название (+подстрока «источник · категория») · Штрихкод · Ед. · На складе · Принимаем · Закупка ·
+                                     Наценка % · Цена продажи · Закупка изменилась · Как посчитана цена · Прибыль с шт. · Сумма закупки · Размеры · ✕. Код обращается к колонкам по именам
+                                     RcvCol* (WarehouseWindow.ReceivingScan.cs) — при смене порядка править только их. Редактируются 4 ячейки (класс rcv-edit — подчёркивание). -->
+                                <DataGridTemplateColumn Width="*" MinWidth="170" SortMemberPath="ProductName">
+                                    <DataGridTemplateColumn.Header><TextBlock x:Name="RcvNameHeader"/></DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Margin="2,0" Spacing="1">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="{ReflectionBinding ProductName}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                    <Border Classes="rcv-newbadge" IsVisible="{ReflectionBinding IsNew}">
+                                                        <TextBlock Text="{ReflectionBinding NewBadgeText}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                                                    </Border>
+                                                </StackPanel>
+                                                <TextBlock Classes="rcv-sub" Text="{ReflectionBinding NameSubText}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <TextBox Text="{ReflectionBinding ProductName, Mode=TwoWay}" VerticalContentAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Width="108"
                                                     Binding="{ReflectionBinding Barcode}">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource csh.catalog.colBarcode}"/></DataGridTextColumn.Header>
+                                    <DataGridTextColumn.Header><TextBlock x:Name="RcvBarHeader"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Width="56"
+                                <DataGridTextColumn Width="48"
                                                     Binding="{ReflectionBinding Unit}">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingUnit}"/></DataGridTextColumn.Header>
+                                    <DataGridTextColumn.Header><TextBlock x:Name="RcvUnitHeader"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
-                                <!-- 2026-10-19: 72 → 84 — кыргызское «Болгон» переносилось посреди слова («Болго / н»); на 1024 столбец скрыт -->
-                                <DataGridTextColumn Width="84"
+                                <DataGridTextColumn Width="68"
                                                     Binding="{ReflectionBinding StockBefore, StringFormat=\{0:0.###\}}" IsReadOnly="True">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingWas}"/></DataGridTextColumn.Header>
+                                    <DataGridTextColumn.Header><TextBlock x:Name="RcvWasHeader"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
                                 <DataGridTextColumn Width="92"
                                                     Binding="{ReflectionBinding QuantityText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingTaken}"/></DataGridTextColumn.Header>
+                                    <DataGridTextColumn.Header><TextBlock x:Name="RcvTakenHeader"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Width="96"
+                                <DataGridTextColumn Width="88"
                                                     Binding="{ReflectionBinding PurchasePriceText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingPurchasePrice}"/></DataGridTextColumn.Header>
+                                    <DataGridTextColumn.Header>
+                                        <StackPanel><TextBlock x:Name="RcvPurchaseHeader"/><TextBlock x:Name="RcvPurchaseSub" Classes="hdr-sub"/></StackPanel>
+                                    </DataGridTextColumn.Header>
                                 </DataGridTextColumn>
-                                <!-- 2026-10-24, ТЗ «Склад» (Б0/Б1): «Наценка %» правится — меняет цену продажи (ReceivingLineVm.MarkupText). Заголовок — в коде. -->
-                                <DataGridTextColumn Width="92"
+                                <DataGridTextColumn Width="84"
                                                     Binding="{ReflectionBinding MarkupText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
                                     <DataGridTextColumn.Header><TextBlock x:Name="RcvMarkupHeader"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Width="96"
+                                <DataGridTextColumn Width="92"
                                                     Binding="{ReflectionBinding SalePriceText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingSalePrice}"/></DataGridTextColumn.Header>
+                                    <DataGridTextColumn.Header><TextBlock x:Name="RcvSaleHeader"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
-                                <!-- 2026-10-24, ТЗ «Склад» (Б0/Б1): что изменилось против прежнего прихода — «▲ +12 %» (оранжевым), «было 45,00», «маржа 4 %» (красным). -->
-                                <DataGridTemplateColumn Width="100" IsReadOnly="True">
-                                    <DataGridTemplateColumn.Header><TextBlock x:Name="RcvChangeHeader"/></DataGridTemplateColumn.Header>
+                                <!-- «Закупка изменилась»: «↑ дороже на 5 сом (+3 %)» красным · «↓ дешевле…» зелёным · «без изменений», «новый товар» серым; ниже «было 145,00».
+                                     На 1024 (класс rcv-compact у таблицы): только «↑ +3 %», подстрока скрыта. -->
+                                <DataGridTemplateColumn Width="132" IsReadOnly="True">
+                                    <DataGridTemplateColumn.Header>
+                                        <StackPanel><TextBlock x:Name="RcvChangeHeader"/><TextBlock x:Name="RcvChangeSub" Classes="hdr-sub"/></StackPanel>
+                                    </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <StackPanel VerticalAlignment="Center" Margin="4,0" Spacing="0">
-                                                <TextBlock Text="{ReflectionBinding PurchaseRaiseText}" FontSize="12" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource BrushWarning}"
-                                                           IsVisible="{ReflectionBinding PurchaseRaiseText, Converter={x:Static dc:StringConverters.IsNotNullOrEmpty}}"/>
-                                                <TextBlock Text="{ReflectionBinding PreviousPurchaseText}" FontSize="11"
-                                                           Foreground="{DynamicResource BrushTextSoft}"
-                                                           IsVisible="{ReflectionBinding PreviousPurchaseText, Converter={x:Static dc:StringConverters.IsNotNullOrEmpty}}"/>
-                                                <TextBlock Text="{ReflectionBinding LowMarginText}" FontSize="11" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource BrushDanger}"
-                                                           IsVisible="{ReflectionBinding LowMarginText, Converter={x:Static dc:StringConverters.IsNotNullOrEmpty}}"/>
+                                            <StackPanel VerticalAlignment="Center" Margin="2,0" Spacing="1" ToolTip.Tip="{ReflectionBinding PurchaseChangeHint}">
+                                                <TextBlock Classes="chg chg-long" Classes.up="{ReflectionBinding IsChangeUp}" Classes.down="{ReflectionBinding IsChangeDown}"
+                                                           Text="{ReflectionBinding PurchaseChangeText}"/>
+                                                <TextBlock Classes="chg chg-short" Classes.up="{ReflectionBinding IsChangeUp}" Classes.down="{ReflectionBinding IsChangeDown}"
+                                                           Text="{ReflectionBinding PurchaseChangeShort}"/>
+                                                <TextBlock Classes="rcv-sub" Text="{ReflectionBinding PurchaseWasText}"/>
                                             </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
+                                <!-- «Как посчитана цена»: «авто · общая 30 %» серым · «вручную · +10 %» (warning) · «⚠ маржа 8 % — мало» · «⛔ ниже закупки»; кнопка «Как у всех» у трёх последних. -->
+                                <DataGridTemplateColumn Width="132" IsReadOnly="True">
+                                    <DataGridTemplateColumn.Header><TextBlock x:Name="RcvAutoHeader"/></DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Margin="2,0" Spacing="2" ToolTip.Tip="{ReflectionBinding ModeHint}">
+                                                <TextBlock Classes="mode mode-auto" Text="{ReflectionBinding ModeText}" IsVisible="{ReflectionBinding IsModeAuto}"/>
+                                                <TextBlock Classes="mode mode-manual" Text="{ReflectionBinding ModeText}" IsVisible="{ReflectionBinding IsModeManual}"/>
+                                                <Border Classes="rcv-tag low" IsVisible="{ReflectionBinding IsModeLow}"><TextBlock Text="{ReflectionBinding ModeText}"/></Border>
+                                                <Border Classes="rcv-tag below" IsVisible="{ReflectionBinding IsModeBelow}"><TextBlock Text="{ReflectionBinding ModeText}"/></Border>
+                                                <Button Content="{ReflectionBinding ReturnToAutoText}" Tag="{Binding}" Click="ReceivingAutoSale_Click"
+                                                        Classes="SecondaryButton row-x" Padding="8,0" Height="24" MinHeight="24" MinWidth="0" FontSize="11.5"
+                                                        HorizontalAlignment="Left" HorizontalContentAlignment="Center"
+                                                        IsVisible="{ReflectionBinding ShowReturnButton}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Width="84"
+                                                    Binding="{ReflectionBinding ProfitNumberText}" IsReadOnly="True">
+                                    <DataGridTextColumn.Header><TextBlock x:Name="RcvProfitHeader"/></DataGridTextColumn.Header>
+                                </DataGridTextColumn>
                                 <!-- 2026-10-19, О9: сумма с разрядами («1 155,00», было «1155»). -->
-                                <DataGridTextColumn Width="104"
+                                <DataGridTextColumn Width="96"
                                                     Binding="{ReflectionBinding LineTotal, StringFormat=\{0:N2\}}" IsReadOnly="True">
-                                    <DataGridTextColumn.Header><TextBlock Text="{DynamicResource warehouse.receivingLineTotal}"/></DataGridTextColumn.Header>
+                                    <DataGridTextColumn.Header><TextBlock x:Name="RcvTotalHeader"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
                                 <!-- 2026-10-06 (О-70, магазин одежды): «Размеры» — сколько каких принимается; нажатие открывает сетку.
                                      Заголовок и видимость — в коде. -->
@@ -1241,35 +1480,58 @@
                             </DataGrid.Columns>
                         </DataGrid>
                         <!-- 2026-10-19, О9: пустая накладная — что делать (тексты — WarehouseWindow.O9.cs). -->
-                        <StackPanel Grid.Row="4" x:Name="ReceivingEmptyState" Classes="empty-state">
-                            <TextBlock x:Name="ReceivingEmptyTitle" Classes="empty-title"/>
-                            <TextBlock x:Name="ReceivingEmptyHint" Classes="empty-hint"/>
+                        <!-- 2026-10-29, спека Fable: пустое состояние — иконка 72, заголовок 18, порядок клавиш (тексты — WarehouseWindow.O9.cs). -->
+                        <StackPanel Grid.Row="4" x:Name="ReceivingEmptyState" Classes="empty-state" MaxWidth="540">
+                            <Border Width="72" Height="72" CornerRadius="20" HorizontalAlignment="Center" Margin="0,0,0,6"
+                                    Background="{DynamicResource BrushPanelSoft}">
+                                <TextBlock Classes="mdl2" Text="&#xE722;" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                            </Border>
+                            <TextBlock x:Name="ReceivingEmptyTitle" Classes="empty-title" FontSize="18"/>
+                            <TextBlock x:Name="ReceivingEmptyHint" Classes="empty-hint" FontSize="13.5"/>
                         </StackPanel>
 
-                        <Grid Grid.Row="5" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,12,0,0">
-                            <TextBlock Grid.Column="0" x:Name="ReceivingSummaryText"
-                                       VerticalAlignment="Center" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,10,0"
-                                       Foreground="{DynamicResource BrushTextSoft}"/>
-                            <!-- 2026-10-24, ТЗ «Склад» (Б0/Б1): «Обновить цены продажи (N)» — видна, если есть строки с подорожанием и непоправленной продажей. -->
-                            <Button Grid.Column="1" Classes="SecondaryButton" Margin="0,0,10,0" x:Name="ReceivingRaiseButton" IsVisible="False"
-                                    Click="ReceivingRaise_Click"/>
-                            <Button Grid.Column="2" Classes="SecondaryButton" Margin="0,0,10,0" x:Name="ReceivingClearButton"
-                                    Click="ReceivingClear_Click"/>
-                            <!-- 2026-10-25, ТЗ «оприходование в фоне» (Q2): ≤ 0,5 с на кнопке «Оприходую…» с полоской, дальше — плашка ниже. -->
-                            <Button Grid.Column="3" Classes="PrimaryButton" x:Name="ReceivingCommitButton"
-                                    Click="ReceivingCommit_Click"
-                                    Command="{Binding CommitReceivingCommand}">
-                                <Grid>
-                                    <TextBlock Text="{DynamicResource warehouse.receivingCommit}" HorizontalAlignment="Center"
-                                               IsVisible="{Binding !IsReceivingPosting}"/>
-                                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
-                                                IsVisible="{Binding IsReceivingPosting}">
-                                        <TextBlock x:Name="ReceivingCommitBusyText" VerticalAlignment="Center"/>
-                                        <ProgressBar IsIndeterminate="True" Width="34" MinWidth="34" MaxWidth="34" Height="4" MinHeight="4" VerticalAlignment="Center"/>
+                        <!-- 2026-10-29, спека Fable: итоговая панель — Позиций · Штук · Сумма закупки · Выручка · Прибыль · Средняя наценка · флаги · «Провести» (Accent, 48).
+                             На 1024 «Выручка» и «Средняя наценка» прячутся (WarehouseWindow.O9.cs). Подписи — в коде (WarehouseWindow.ReceivingScan.cs). -->
+                        <Border Grid.Row="5" Margin="0,12,0,0" Padding="14,10" CornerRadius="12" BorderThickness="1"
+                                Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}">
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
+                                    <StackPanel Spacing="2"><TextBlock x:Name="SumPosCap" Classes="sum-cap"/><TextBlock x:Name="SumPos" Classes="sum-val"/></StackPanel>
+                                    <StackPanel Spacing="2"><TextBlock x:Name="SumQtyCap" Classes="sum-cap"/><TextBlock x:Name="SumQty" Classes="sum-val"/></StackPanel>
+                                    <Border Width="1" Height="36" Background="{DynamicResource BrushBorder}"/>
+                                    <StackPanel Spacing="2"><TextBlock x:Name="SumPurchaseCap" Classes="sum-cap"/><TextBlock x:Name="SumPurchase" Classes="sum-val"/></StackPanel>
+                                    <StackPanel x:Name="SumSaleBox" Spacing="2"><TextBlock x:Name="SumSaleCap" Classes="sum-cap"/><TextBlock x:Name="SumSale" Classes="sum-val"/></StackPanel>
+                                    <StackPanel Spacing="2"><TextBlock x:Name="SumProfitCap" Classes="sum-cap"/><TextBlock x:Name="SumProfit" Classes="sum-val"/></StackPanel>
+                                    <StackPanel x:Name="SumMarkupBox" Spacing="2"><TextBlock x:Name="SumMarkupCap" Classes="sum-cap"/><TextBlock x:Name="SumMarkup" Classes="sum-val"/></StackPanel>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="14,0,10,0" VerticalAlignment="Center" HorizontalAlignment="Right" Spacing="2">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Border x:Name="SumFlagLowBox" Classes="sum-flag low" IsVisible="False"><TextBlock x:Name="SumFlagLow" Classes="sum-flagtext"/></Border>
+                                        <Border x:Name="SumFlagBelowBox" Classes="sum-flag below" IsVisible="False"><TextBlock x:Name="SumFlagBelow" Classes="sum-flagtext"/></Border>
                                     </StackPanel>
-                                </Grid>
-                            </Button>
-                        </Grid>
+                                    <TextBlock x:Name="ReceivingSummaryText" FontSize="11.5" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource BrushTextSoft}"/>
+                                </StackPanel>
+                                <!-- 2026-10-24, ТЗ «Склад» (Б0/Б1): «Обновить цены продажи (N)» — видна, если есть строки с подорожанием и непоправленной продажей. -->
+                                <Button Grid.Column="2" Classes="SecondaryButton" Margin="0,0,10,0" x:Name="ReceivingRaiseButton" IsVisible="False"
+                                        Click="ReceivingRaise_Click"/>
+                                <!-- 2026-10-25, ТЗ «оприходование в фоне» (Q2): ≤ 0,5 с на кнопке «Оприходую…» с полоской, дальше — плашка ниже. -->
+                                <Button Grid.Column="3" Classes="PrimaryButton" x:Name="ReceivingCommitButton"
+                                        Click="ReceivingCommit_Click"
+                                        Command="{Binding CommitReceivingCommand}">
+                                    <Grid>
+                                        <TextBlock Text="{DynamicResource warehouse.receivingCommit}" HorizontalAlignment="Center"
+                                                   IsVisible="{Binding !IsReceivingPosting}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
+                                                    IsVisible="{Binding IsReceivingPosting}">
+                                            <TextBlock x:Name="ReceivingCommitBusyText" VerticalAlignment="Center"/>
+                                            <ProgressBar IsIndeterminate="True" Width="34" MinWidth="34" MaxWidth="34" Height="4" MinHeight="4" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Button>
+                            </Grid>
+                        </Border>
                         <!-- 2026-10-25: плашка под кнопкой — «Операция выполняется в фоне — можно продолжать работу» (нейтрально-жёлтая), итог или ошибка (не модальная). -->
                         <Border Grid.Row="6" x:Name="ReceivingBackgroundNoticeBorder" Margin="0,10,0,0" Padding="12,8" CornerRadius="8"
                                 BorderThickness="1" IsVisible="{Binding HasReceivingBackgroundNotice}"

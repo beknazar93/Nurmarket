@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NurMarketKassa.Core.Application;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -16,6 +17,7 @@ using Avalonia.Interactivity;
 using AvKey = Avalonia.Input.Key; // 2026-10-24: System.Windows.Input.Key тоже виден
 using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.Core.Contracts;
+using NurMarketKassa.AvaloniaHost.Views.Controls;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
@@ -189,6 +191,13 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                     ? piece.PieceUnitPrice.ToString("0.##", CultureInfo.InvariantCulture) : "";
             }
 
+            // Поштучная опция уже есть: цену штуки считаем «ручной», если она не равна цене упаковки ÷ штук.
+            if (existing.PieceOption is { QuantityInPackage: > 0, PieceUnitPrice: > 0 } po)
+            {
+                var autoPiece = Math.Round(LocalCartService.ParsePrice(existing.PriceLine) / po.QuantityInPackage, 2);
+                _packManual = Math.Abs(autoPiece - po.PieceUnitPrice) > 0.004;
+            }
+
             if (existing.IsBundle)
             {
                 _kind = "bundle";
@@ -225,6 +234,36 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         // 2026-10-11 (склад.md, 2.1): подписи вкладки «Доп. штрих-коды» и поля «Минимальный остаток»; значение — с сервера.
         AltBarcodesTab.Header = Tr.T("Доп. штрих-коды", "Кошумча штрихкоддор", "Extra barcodes", "Ek barkodlar", "Qo'shimcha shtrix-kodlar");
         MinimumQuantityLabel.Text = Tr.T("Минимальный остаток", "Минималдуу калдык", "Minimum stock", "Asgari stok", "Minimal qoldiq");
+        // 2026-10-29, жалоба владельца «нет цены, количества и единицы»: обязательные поля помечены «*», у нового товара количество названо
+        // «начальный остаток» (в подсказке под полем) — понятно, что это сколько штук (кг, литров) лежит сейчас.
+        PackQtyLabel.Text = Tr.T("Штук в упаковке", "Таңгактагы штук саны", "Pieces in a pack", "Paketteki adet", "Qadoqdagi dona soni");
+        PackPieceLabel.Text = Tr.T("Цена за штуку", "Штуканын баасы", "Price per piece", "Adet fiyatı", "Dona narxi");
+        PackAutoButton.Content = Tr.T("Авто", "Авто", "Auto", "Oto", "Avto");
+        PackWholePriceLabel.Text = Tr.T("Цена упаковки (целой)", "Таңгактын баасы (бүтүн)", "Whole pack price", "Tüm paket fiyatı", "Butun qadoq narxi");
+        PackWholeBuyLabel.Text = Tr.T("Закупка упаковки", "Таңгактын сатып алуу баасы", "Pack cost", "Paket alış fiyatı", "Qadoq xarid narxi");
+        PackGoMainButton.Content = Tr.T("из «Основное» →", "«Негизгиден» →", "from “Main” →", "«Ana»'dan →", "«Asosiy»dan →");
+        PackQtyHint.Text = Tr.T("Целое число, не меньше 2", "Бүтүн сан, 2ден кем эмес", "A whole number, 2 or more", "Tam sayı, en az 2", "Butun son, kamida 2");
+        PackExample.Text = Tr.T("Пример: пачка 200 сом / 20 шт → штука 10 сом", "Мисал: пачка 200 сом / 20 шт → штука 10 сом", "Example: a pack of 200 som / 20 pcs → a piece is 10 som",
+            "Örnek: paket 200 som / 20 adet → adet 10 som", "Misol: pachka 200 so'm / 20 dona → dona 10 so'm");
+        foreach (var (title, qty) in new[]
+                 {
+                     (Tr.T("Пачка 20", "Пачка 20", "Pack of 20", "20'li paket", "20 talik pachka"), "20"),
+                     (Tr.T("Упаковка 6", "Таңгак 6", "Pack of 6", "6'lı paket", "6 talik qadoq"), "6"),
+                     (Tr.T("Упаковка 12", "Таңгак 12", "Pack of 12", "12'li paket", "12 talik qadoq"), "12"),
+                     (Tr.T("Ящик 24", "Ящик 24", "Case of 24", "24'lü koli", "24 talik quti"), "24"),
+                     (Tr.T("Блок 10", "Блок 10", "Block of 10", "10'lu blok", "10 talik blok"), "10"),
+                 })
+        {
+            var chip = new Button { Content = title, Tag = qty, Height = 40, MinHeight = 40, Margin = new Thickness(0, 0, 8, 6) };
+            chip.Classes.Add("packChip");
+            chip.Click += PackTemplate_Click;
+            PackTemplates.Children.Add(chip);
+        }
+        UnitFieldLabel.Text = Tr.T("Единица измерения *", "Өлчөө бирдиги *", "Unit *", "Birim *", "O'lchov birligi *");
+        QuantityFieldLabel.Text = existing is null
+            ? Tr.T("Количество *", "Саны *", "Quantity *", "Miktar *", "Miqdor *")
+            : Tr.T("Остаток *", "Калдык *", "Stock *", "Stok *", "Qoldiq *");
+        SalePriceFieldLabel.Text = Tr.T("Цена продажи *", "Сатуу баасы *", "Sale price *", "Satış fiyatı *", "Sotuv narxi *");
         Opened += (_, _) => _ = LoadMinimumQuantityAsync();
         // 2026-10-07, владелец: «если наименование есть — поставь штрихкод из barcode-list.ru, но дай проверить и сверить».
         NameBox.LostFocus += (_, _) => _ = BarcodeSuggestAsync();
@@ -272,6 +311,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         if (_existing is null)
             Shell.InitialFocus = NameBox;
         // 2026-10-03: скан прямо в поле штрихкода заканчивается Enter — сразу ищем в базе NurCRM.
+        // 2026-10-29, владелец «в штрихкод сделай только number»: «Штрихкод» и «Доп. штрихкод» принимают только цифры (ввод, скан, вставка).
+        BarcodeInput.Attach(this, tb => ReferenceEquals(tb, BarcodeBox) || tb.Classes.Contains("scan-direct"));
         BarcodeBox.KeyDown += (_, e) =>
         {
             if (e.Key == Avalonia.Input.Key.Enter)
@@ -319,7 +360,9 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         if (_barcodeInputService is null)
             return;
         var focused = FocusManager?.GetFocusedElement();
-        if (ReferenceEquals(focused, BarcodeBox))
+        // 2026-10-29: «Доп. штрихкод» (scan-direct) — как и основной «Штрихкод»: код сканера печатается прямо в поле. Раньше скан здесь
+        // «возвращал» поле к прежнему тексту и уходил в основной «Штрихкод», а в «Доп. штрихкод» не попадало ничего.
+        if (ReferenceEquals(focused, BarcodeBox) || focused is TextBox { Classes: var cls } && cls.Contains("scan-direct"))
             return;
 
         // 2026-10-24, владелец: «в полях (наименование, штрихкод, цена) вводится только 2 символа и перестаёт» —
@@ -409,6 +452,11 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     {
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
+            // 2026-10-29: в поле «Штрихкод» — только цифры. Скан не из цифр (чужая раскладка, «реакр») не принимается; пробелы и дефисы убираются.
+            var clean = (barcode ?? "").Replace(" ", "").Replace("-", "");
+            if (clean.Length == 0 || !clean.All(char.IsAsciiDigit))
+                return;
+            barcode = clean;
             Barcode = barcode;
             BarcodeBox.Focus();
             BarcodeBox.CaretIndex = BarcodeBox.Text?.Length ?? 0;
@@ -1087,7 +1135,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             return _suppliers;
         var digits = new string(q.Where(char.IsDigit).ToArray());
         return _suppliers.Where(s =>
-            s.Name.Contains(q, StringComparison.CurrentCultureIgnoreCase)
+            SearchMatch.Matches(q, s.Name) // 2026-10-29: единый поиск
             || (digits.Length >= 3 && new string((s.Phone ?? "").Where(char.IsDigit).ToArray()).Contains(digits, StringComparison.Ordinal)));
     }
 
@@ -1277,7 +1325,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     }
 
     public string Code { get => _code; set { _code = value; OnPropertyChanged(); } }
-    public string Barcode { get => _barcode; set { _barcode = value; OnPropertyChanged(); } }
+    public string Barcode { get => _barcode; set { _barcode = value; OnPropertyChanged(); OnPropertyChanged(nameof(BarcodeHint)); OnPropertyChanged(nameof(HasBarcodeHint)); } }
     public string VariantBarcode { get => _variantBarcode; set { _variantBarcode = value; OnPropertyChanged(); } }
 
     public string VariantNameSuffix
@@ -1313,8 +1361,97 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     public bool HasVariants => _variants.Count > 0;
     public string Category { get => _category; set { _category = value; OnPropertyChanged(); } }
     public string Brand { get => _brand; set { _brand = value; OnPropertyChanged(); } }
-    public string Unit { get => _unit; set { _unit = value; OnPropertyChanged(); } }
-    public bool IsWeight { get => _isWeight; set { _isWeight = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowWeightToggle)); } }
+    // 2026-10-29: выбрали кг/г у НОВОГО товара — «Весовой» включается сам (как у весового товара на сайте), пока человек сам не тронул переключатель.
+    private bool _weightTouched;
+    private bool _autoWeightChange;
+
+    public string Unit
+    {
+        get => _unit;
+        set
+        {
+            _unit = value;
+            OnPropertyChanged();
+            RaiseQuantityHint();
+            if (_existing is null && !_weightTouched && ShowWeightToggle)
+            {
+                _autoWeightChange = true;
+                IsWeight = UnitCatalog.IsWeightUnit(_unit);
+                _autoWeightChange = false;
+            }
+        }
+    }
+
+    public bool IsWeight
+    {
+        get => _isWeight;
+        set
+        {
+            if (!_autoWeightChange)
+                _weightTouched = true;
+            _isWeight = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowWeightToggle));
+            RaiseQuantityHint();
+        }
+    }
+
+    /// <summary>2026-10-29: подсказка под единицей — когда количество дробное (0,5 кг, 2,25 л), а когда только целое (шт, уп, пара).</summary>
+    public string QuantityHint
+    {
+        get
+        {
+            var unit = UnitCatalog.Display(_unit);
+            var start = _existing is null
+                ? Tr.T("Начальный остаток. ", "Баштапкы калдык. ", "Opening stock. ", "Başlangıç stoku. ", "Boshlang'ich qoldiq. ")
+                : "";
+            return start + UnitCatalog.QuantityDecimals(_unit, _isWeight) switch
+            {
+                0 => Tr.T($"«{unit}» — количество целое: 1, 2, 24.", $"«{unit}» — сан бүтүн: 1, 2, 24.", $"“{unit}” — whole quantity: 1, 2, 24.",
+                    $"«{unit}» — tam sayı miktar: 1, 2, 24.", $"«{unit}» — butun miqdor: 1, 2, 24."),
+                3 => Tr.T($"«{unit}» — можно дробное количество, например 0,5 или 2,25.", $"«{unit}» — бөлчөк сан мүмкүн, мисалы 0,5 же 2,25.",
+                    $"“{unit}” — fractional quantity allowed, e.g. 0.5 or 2.25.", $"«{unit}» — ondalık miktar olabilir, örn. 0,5 veya 2,25.",
+                    $"«{unit}» — kasr miqdor mumkin, masalan 0,5 yoki 2,25."),
+                _ => start.Length > 0 ? start.TrimEnd() : "",
+            };
+        }
+    }
+
+    public bool HasQuantityHint => QuantityHint.Length > 0;
+
+    private void RaiseQuantityHint()
+    {
+        OnPropertyChanged(nameof(QuantityHint));
+        OnPropertyChanged(nameof(HasQuantityHint));
+        OnPropertyChanged(nameof(ProfitText));
+        OnPropertyChanged(nameof(HasProfitText));
+    }
+
+    /// <summary>2026-10-29: «Наценка 25 % · прибыль с единицы 20 сом · с остатка 480 сом» — показывается, когда введены закупка и цена продажи.</summary>
+    public string ProfitText
+    {
+        get
+        {
+            var purchase = TryParseNumber(_purchasePrice);
+            var sale = TryParseNumber(_price);
+            if (purchase is not > 0 || sale is not > 0)
+                return "";
+            var profit = sale.Value - purchase.Value;
+            var markup = (sale.Value / purchase.Value - 1) * 100;
+            var ru = System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+            string F(double v) => v.ToString("0.##", ru);
+            var text = Tr.T($"Наценка {F(markup)} % · прибыль с единицы {F(profit)} сом", $"Үстөк {F(markup)} % · бирдигинен пайда {F(profit)} сом",
+                $"Markup {F(markup)}% · profit per unit {F(profit)} som", $"Kâr oranı {F(markup)} % · birim başına kâr {F(profit)} som",
+                $"Ustama {F(markup)} % · birlikdan foyda {F(profit)} so'm");
+            var qty = TryParseNumber(_quantity);
+            if (qty is > 0)
+                text += Tr.T($" · с остатка {F(profit * qty.Value)} сом", $" · калдыктан {F(profit * qty.Value)} сом", $" · on stock {F(profit * qty.Value)} som",
+                    $" · stoktan {F(profit * qty.Value)} som", $" · qoldiqdan {F(profit * qty.Value)} so'm");
+            return text;
+        }
+    }
+
+    public bool HasProfitText => ProfitText.Length > 0;
 
     /// <summary>2026-10-06, исследование «Кассы для одежды» (О-13): в сфере «Одежда» переключатель «Весовой» (и PLU) не нужен —
     /// одежду не взвешивают, а случайно включённый «Весовой» ломал продажу. Если товар уже весовой — переключатель остаётся,
@@ -1322,7 +1459,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     // 2026-10-07, владелец (снимок окна товара в режиме «Одежда»): «где при добавлении тумблер «Весовой», как на вебе?» —
     // переключатель снова виден во всех режимах магазина, как на сайте NurCRM.
     public bool ShowWeightToggle => !IsQuickAddMode;
-    public string Quantity { get => _quantity; set { _quantity = value; OnPropertyChanged(); } }
+    public string Quantity { get => _quantity; set { _quantity = value; OnPropertyChanged(); OnPropertyChanged(nameof(ProfitText)); OnPropertyChanged(nameof(HasProfitText)); } }
     public string PurchasePrice { get => _purchasePrice; set { _purchasePrice = value; OnPropertyChanged(); RaisePriceWarning(); } }
 
     /// <summary>2026-10-05, владелец: «если во время редактирования или создания товара закупочная цена превышает
@@ -1350,8 +1487,13 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
 
     private void RaisePriceWarning()
     {
+        if (_enablePieceSale && !_packManual && !_packSuppress)
+            PackAutoPiece(); // цена или закупка упаковки изменились — цена штуки (если её не правили руками) пересчитывается
+        RaisePack();
         OnPropertyChanged(nameof(PriceWarning));
         OnPropertyChanged(nameof(HasPriceWarning));
+        OnPropertyChanged(nameof(ProfitText));
+        OnPropertyChanged(nameof(HasProfitText));
     }
 
     /// <summary>2026-09-07, по просьбе пользователя: цена продажи и наценка держатся в
@@ -1418,9 +1560,228 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     public string HotkeyGroup { get => _hotkeyGroup; set { _hotkeyGroup = value; OnPropertyChanged(); } }
     public string Description { get => _description; set { _description = value; OnPropertyChanged(); } }
     public string Plu { get => _plu; set { _plu = value; OnPropertyChanged(); } }
-    public bool EnablePieceSale { get => _enablePieceSale; set { _enablePieceSale = value; OnPropertyChanged(); } }
-    public string PackageQuantity { get => _packageQuantity; set { _packageQuantity = value; OnPropertyChanged(); } }
-    public string PackagePiecePrice { get => _packagePiecePrice; set { _packagePiecePrice = value; OnPropertyChanged(); } }
+    // ------------------------------------------------------------------ 2026-10-29: «Упаковка» (поштучная продажа), как в мобилке (product_packages.dart)
+    // Сам товар — упаковка: его цена продажи (вкладка «Основное») — цена целой упаковки, закупка — закупка упаковки. Здесь — сколько штук в упаковке
+    // и цена штуки: «сама» = цена упаковки ÷ штук (до копейки), пока её не правили руками; «Авто» возвращает расчёт.
+    private bool _packManual;
+    private bool _packSuppress;
+    private const double PackMismatchLimit = 0.05;
+
+    public bool EnablePieceSale
+    {
+        get => _enablePieceSale;
+        set
+        {
+            _enablePieceSale = value;
+            OnPropertyChanged();
+            // Включили галочку — поля сразу заполнены: штук по умолчанию 10, цена штуки считается сама.
+            if (value && string.IsNullOrWhiteSpace(_packageQuantity))
+            {
+                _packManual = false;
+                PackageQuantity = "10";
+            }
+            else if (value && !_packManual)
+                PackAutoPiece();
+            RaisePack();
+        }
+    }
+
+    public string PackageQuantity
+    {
+        get => _packageQuantity;
+        set
+        {
+            _packageQuantity = value;
+            OnPropertyChanged();
+            if (!_packManual)
+                PackAutoPiece();
+            RaisePack();
+        }
+    }
+
+    public string PackagePiecePrice
+    {
+        get => _packagePiecePrice;
+        set
+        {
+            _packagePiecePrice = value;
+            OnPropertyChanged();
+            if (!_packSuppress)
+                _packManual = true; // цену штуки вписали руками — «сама» больше не пересчитывается
+            RaisePack();
+        }
+    }
+
+    public bool PackIsManual => _packManual;
+
+    private void PackAutoPiece()
+    {
+        var pack = TryParseNumber(_price) ?? 0;
+        var qty = TryParseNumber(_packageQuantity) ?? 0;
+        var auto = qty >= 2 && pack > 0 ? Math.Round(pack / qty, 2) : 0;
+        _packSuppress = true;
+        PackagePiecePrice = auto > 0 ? auto.ToString("0.##", CultureInfo.GetCultureInfo("ru-RU")) : "";
+        _packSuppress = false;
+    }
+
+    private void PackAuto_Click(object? sender, RoutedEventArgs e)
+    {
+        _packManual = false;
+        PackAutoPiece();
+        RaisePack();
+    }
+
+    private void PackTemplate_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string qty })
+            PackageQuantity = qty;
+    }
+
+    private void RaisePack()
+    {
+        foreach (var name in new[] { nameof(PackIsManual), nameof(PackBaseText), nameof(PackPieceInfo), nameof(HasPackPieceInfo), nameof(PackWarning), nameof(HasPackWarning),
+                     nameof(PackWholePrice), nameof(PackWholeBuy), nameof(PackCalcOk), nameof(PackCalcWarn), nameof(PackAutoHint), nameof(PackReturnAutoText), nameof(PackOffText) })
+            OnPropertyChanged(name);
+        // выбранный шаблон подсвечен
+        var current = (TryParseNumber(_packageQuantity) ?? 0).ToString("0.##", CultureInfo.InvariantCulture);
+        foreach (var chip in PackTemplates.Children.OfType<Button>())
+            chip.Classes.Set("on", string.Equals(chip.Tag as string, current, StringComparison.Ordinal));
+    }
+
+    private static string Money(double v) => v.ToString("0.##", CultureInfo.GetCultureInfo("ru-RU"));
+
+    /// <summary>Вверху вкладки: цена и закупка ЦЕЛОЙ упаковки — это поля вкладки «Основное».</summary>
+    public string PackBaseText
+    {
+        get
+        {
+            var pack = TryParseNumber(_price) ?? 0;
+            var buy = TryParseNumber(_purchasePrice) ?? 0;
+            if (pack <= 0)
+                return Tr.T("Цена упаковки (целой) не указана — впишите «Цена продажи» на вкладке «Основное»: от неё считается цена штуки.",
+                    "Таңгактын (бүтүндүн) баасы көрсөтүлгөн эмес — «Негизги» өтмөгүндө «Сатуу баасын» жазыңыз: штуканын баасы ошондон эсептелет.",
+                    "The price of the whole pack is not set — enter the “Sale price” on the “Main” tab: the piece price is calculated from it.",
+                    "Tüm paketin fiyatı girilmedi — «Ana» sekmesinde «Satış fiyatı»nı girin: adet fiyatı ondan hesaplanır.",
+                    "Butun qadoq narxi kiritilmagan — «Asosiy» yorlig'ida «Sotuv narxi»ni kiriting: dona narxi undan hisoblanadi.");
+            var buyText = buy > 0
+                ? Tr.T($" · закупка упаковки: {Money(buy)} сом", $" · таңгактын сатып алуу баасы: {Money(buy)} сом", $" · pack cost: {Money(buy)} som", $" · paket alış fiyatı: {Money(buy)} som", $" · qadoq xarid narxi: {Money(buy)} so'm")
+                : "";
+            return Tr.T($"Цена упаковки (целой): {Money(pack)} сом{buyText} — берётся с вкладки «Основное».",
+                $"Таңгактын (бүтүндүн) баасы: {Money(pack)} сом{buyText} — «Негизги» өтмөгүнөн алынат.",
+                $"Price of the whole pack: {Money(pack)} som{buyText} — taken from the “Main” tab.",
+                $"Tüm paketin fiyatı: {Money(pack)} som{buyText} — «Ana» sekmesinden alınır.",
+                $"Butun qadoq narxi: {Money(pack)} so'm{buyText} — «Asosiy» yorlig'idan olinadi.");
+        }
+    }
+
+    /// <summary>«Наценка за штуку 33,3 % · прибыль со штуки 2,5 сом · закупка штуки 7,5».</summary>
+    public string PackPieceInfo
+    {
+        get
+        {
+            var qty = TryParseNumber(_packageQuantity) ?? 0;
+            var piece = TryParseNumber(_packagePiecePrice) ?? 0;
+            var buy = TryParseNumber(_purchasePrice) ?? 0;
+            if (qty < 2 || piece <= 0)
+                return "";
+            if (buy <= 0)
+                return Tr.T("Закупка штуки неизвестна — укажите закупку упаковки на вкладке «Основное».", "Штуканын сатып алуу баасы белгисиз — «Негизги» өтмөгүндө таңгактын сатып алуу баасын жазыңыз.",
+                    "The piece cost is unknown — enter the pack cost on the “Main” tab.", "Adet alış fiyatı bilinmiyor — «Ana» sekmesinde paket alış fiyatını girin.", "Dona xarid narxi noma'lum — «Asosiy» yorlig'ida qadoq xarid narxini kiriting.");
+            var cost = buy / qty;
+            var profit = piece - cost;
+            var markup = (piece / cost - 1) * 100;
+            return Tr.T($"Наценка за штуку {Money(markup)} % · прибыль со штуки {Money(profit)} сом · закупка штуки {Money(cost)}",
+                $"Штуканын үстөгү {Money(markup)} % · штуканын пайдасы {Money(profit)} сом · штуканын сатып алуу баасы {Money(cost)}",
+                $"Markup per piece {Money(markup)}% · profit per piece {Money(profit)} som · piece cost {Money(cost)}",
+                $"Adet başına kâr oranı {Money(markup)} % · adet başına kâr {Money(profit)} som · adet alışı {Money(cost)}",
+                $"Dona ustamasi {Money(markup)} % · donadan foyda {Money(profit)} so'm · dona xarid narxi {Money(cost)}");
+        }
+    }
+
+    public bool HasPackPieceInfo => PackPieceInfo.Length > 0;
+
+    /// <summary>Цена штуки × штук расходится с ценой упаковки больше чем на 5 %.</summary>
+    public string PackWarning
+    {
+        get
+        {
+            var pack = TryParseNumber(_price) ?? 0;
+            var qty = TryParseNumber(_packageQuantity) ?? 0;
+            var piece = TryParseNumber(_packagePiecePrice) ?? 0;
+            if (pack <= 0 || qty < 2 || piece <= 0)
+                return "";
+            var diff = Math.Abs(piece * qty - pack) / pack;
+            if (diff <= PackMismatchLimit)
+                return "";
+            var total = Money(piece * qty);
+            var packText = Money(pack);
+            var percent = Money(Math.Round(diff * 100, 1));
+            return Tr.T($"⚠ Цена штуки × штук = {total} сом, а цена упаковки {packText} сом — расхождение {percent} %. Проверьте цифры или нажмите «Авто».",
+                $"⚠ Штуканын баасы × штук саны = {total} сом, ал таңгактын баасы {packText} сом — айырма {percent} %. Сандарды текшериңиз же «Авто» басыңыз.",
+                $"⚠ Piece price × pieces = {total} som, but the pack price is {packText} som — a {percent}% difference. Check the numbers or press “Auto”.",
+                $"⚠ Adet fiyatı × adet = {total} som, paket fiyatı ise {packText} som — %{percent} fark. Rakamları kontrol edin veya «Oto»ya basın.",
+                $"⚠ Dona narxi × dona = {total} so'm, qadoq narxi esa {packText} so'm — {percent} % farq. Raqamlarni tekshiring yoki «Avto»ni bosing.");
+        }
+    }
+
+    public bool HasPackWarning => PackWarning.Length > 0;
+
+    // ---- только вид (спека Fable): карточка «Целая упаковка», подписи под полем, цвет строки расчёта, кнопка «Вернуть авто»
+    public string PackWholePrice => (TryParseNumber(_price) ?? 0) > 0 ? Money(TryParseNumber(_price)!.Value) : "—";
+    public string PackWholeBuy => (TryParseNumber(_purchasePrice) ?? 0) > 0 ? Money(TryParseNumber(_purchasePrice)!.Value) : "—";
+    public string PackSom => Tr.T("сом", "сом", "som", "som", "so'm");
+    public bool PackCalcOk => HasPackPieceInfo && !HasPackWarning;
+    public bool PackCalcWarn => HasPackPieceInfo && HasPackWarning;
+
+    private double PackAutoValue()
+    {
+        var pack = TryParseNumber(_price) ?? 0;
+        var qty = TryParseNumber(_packageQuantity) ?? 0;
+        return qty >= 2 && pack > 0 ? Math.Round(pack / qty, 2) : 0;
+    }
+
+    private static string Money2(double v) => v.ToString("0.00", CultureInfo.GetCultureInfo("ru-RU"));
+
+    /// <summary>Под полем «Цена за штуку»: «авто = 200 ÷ 20» или «вручную · авто было 10,00».</summary>
+    public string PackAutoHint
+    {
+        get
+        {
+            var pack = TryParseNumber(_price) ?? 0;
+            var qty = TryParseNumber(_packageQuantity) ?? 0;
+            if (_packManual)
+                return Tr.T($"вручную · авто было {Money2(PackAutoValue())}", $"кол менен · авто {Money2(PackAutoValue())} болчу", $"manual · auto was {Money2(PackAutoValue())}",
+                    $"elle · oto {Money2(PackAutoValue())} idi", $"qo'lda · avto {Money2(PackAutoValue())} edi");
+            if (pack <= 0 || qty < 2)
+                return Tr.T("авто = цена упаковки ÷ штук", "авто = таңгактын баасы ÷ штук", "auto = pack price ÷ pieces", "oto = paket fiyatı ÷ adet", "avto = qadoq narxi ÷ dona");
+            return Tr.T($"авто = {Money(pack)} ÷ {Money(qty)}", $"авто = {Money(pack)} ÷ {Money(qty)}", $"auto = {Money(pack)} ÷ {Money(qty)}", $"oto = {Money(pack)} ÷ {Money(qty)}", $"avto = {Money(pack)} ÷ {Money(qty)}");
+        }
+    }
+
+    public string PackReturnAutoText => Tr.T($"Вернуть авто · {Money2(PackAutoValue())}", $"Автого кайтуу · {Money2(PackAutoValue())}", $"Back to auto · {Money2(PackAutoValue())}",
+        $"Otoya dön · {Money2(PackAutoValue())}", $"Avtoga qaytish · {Money2(PackAutoValue())}");
+
+    /// <summary>Галочка выключена: одна фраза с ценой упаковки.</summary>
+    public string PackOffText
+    {
+        get
+        {
+            var pack = TryParseNumber(_price) ?? 0;
+            var price = pack > 0 ? Money(pack) : "—";
+            return Tr.T($"Сейчас товар продаётся только целой упаковкой за {price} сом. Включите — и его можно будет продавать ещё и поштучно.",
+                $"Азыр товар бүтүн таңгак катары {price} сомго гана сатылат. Күйгүзүңүз — анан дарасын да сатууга болот.",
+                $"Right now the product is sold only as a whole pack for {price} som. Turn it on to sell single pieces too.",
+                $"Şu anda ürün yalnızca tüm paket olarak {price} som'a satılıyor. Açın — adet olarak da satılabilsin.",
+                $"Hozir mahsulot faqat butun qadoq sifatida {price} so'mga sotiladi. Yoqing — donalab ham sotish mumkin bo'ladi.");
+        }
+    }
+
+    private void PackGoMain_Click(object? sender, RoutedEventArgs e) => ProductTabs.SelectedIndex = 0;
+
+    /// <summary>2026-10-29: подсказка под штрихкодом — только цифры, 4–14 знаков (у существующего неизменённого кода её нет).</summary>
+    public string BarcodeHint => _existing is not null && string.Equals(_barcode, _existing.Barcode, StringComparison.Ordinal) ? "" : BarcodeInput.Hint(_barcode);
+
+    public bool HasBarcodeHint => BarcodeHint.Length > 0;
     public string WholesalePrice { get => _wholesalePrice; set { _wholesalePrice = value; OnPropertyChanged(); } }
 
     // 2026-10-11, тестировщик (склад.md, 2.1.3): «Минимальный остаток» на вкладке «Упаковка». У существующего товара значение
@@ -1517,7 +1878,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
 
     private void AddVariant_Click(object? sender, RoutedEventArgs e)
     {
-        var barcode = _variantBarcode.Trim();
+        var barcode = BarcodeInput.DigitsOnly(_variantBarcode);
         var suffix = _variantNameSuffix.Trim();
         if (barcode.Length == 0 || suffix.Length == 0)
         {
@@ -1527,6 +1888,12 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 "Enter the variant's barcode and name.",
                 "Varyant için barkod ve ad girin.",
                 "Variantning shtrix-kodi va nomini kiriting.");
+            return;
+        }
+
+        if (!BarcodeInput.IsValid(barcode))
+        {
+            ErrorMessage = BarcodeInput.Hint(barcode) is { Length: > 0 } variantHint ? variantHint : BarcodeInput.Hint("0");
             return;
         }
 
@@ -1625,6 +1992,79 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             return;
         }
 
+        // 2026-10-29: штрихкод нового товара (или изменённый) — только цифры, 4–14 знаков.
+        var barcodeChanged = _existing is null || !string.Equals(_barcode.Trim(), _existing.Barcode ?? "", StringComparison.Ordinal);
+        if (barcodeChanged && !BarcodeInput.IsValid(_barcode.Trim()))
+        {
+            ErrorMessage = BarcodeInput.Hint(_barcode.Trim()) is { Length: > 0 } hint ? hint : BarcodeInput.Hint("0");
+            return;
+        }
+
+        // 2026-10-29, жалоба владельца «нет цены, количества и единицы»: числа проверяются единым разбором CheckoutValidation.TryParseAmount
+        // (запятая и точка, пробелы разрядов; «abc», «1e3», «-5», «1.000» — ошибка с понятным текстом, а не молчаливый ноль), как в приёмке и оплате.
+        // Количество — не меньше нуля; у штучной единицы («шт», «уп», «пара») — целое; у весового/«кг»/«л»/«м» — дробное (0,5; 2,25).
+        // Остаток существующего товара, который не трогали, не проверяется: у товара продано «в минус» остаток бывает отрицательным, и правка названия не должна из-за него блокироваться.
+        double? quantityValue = null;
+        var quantityUntouched = _existing is not null && string.Equals(_quantity, _existing.Quantity.ToString("0.###", CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        if (quantityUntouched)
+            quantityValue = _existing!.Quantity;
+        if ((!quantityUntouched && !CheckAmount(_quantity, ("Количество", "Саны", "Quantity", "Miktar", "Miqdor"), 3, out quantityValue))
+            || !CheckAmount(_purchasePrice, ("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), 2, out var purchaseValue)
+            || !CheckAmount(_price, ("Цена продажи", "Сатуу баасы", "Sale price", "Satış fiyatı", "Sotuv narxi"), 2, out var saleValue)
+            || !CheckAmount(_wholesalePrice, ("Оптовая цена", "Оптом баасы", "Wholesale price", "Toptan fiyat", "Ulgurji narx"), 2, out _)
+            || !CheckAmount(_minimumQuantity, ("Минимальный остаток", "Минималдуу калдык", "Minimum stock", "Asgari stok", "Minimal qoldiq"), 3, out _)
+            || !CheckMarkup(_markupPercent))
+            return;
+        var quantityChanged = _existing is null || Math.Abs((quantityValue ?? 0) - _existing.Quantity) > 0.0005;
+        if (_kind == "product" && quantityChanged && UnitCatalog.QuantityProblem(quantityValue ?? 0, _unit, _isWeight) is { } fractionalProblem)
+        {
+            ErrorMessage = fractionalProblem;
+            return;
+        }
+        // Поштучная продажа: штук — целое от 2, цена штуки больше нуля; цена штуки × штук далеко от цены упаковки — спрашиваем (как в мобилке).
+        if (_enablePieceSale && _kind == "product")
+        {
+            var packQty = TryParseNumber(_packageQuantity) ?? 0;
+            var pieceValue = TryParseNumber(_packagePiecePrice) ?? 0;
+            if (packQty < 2 || Math.Abs(packQty - Math.Round(packQty)) > 1e-9)
+            {
+                ErrorMessage = Tr.T("Упаковка: «Штук в упаковке» — целое число от 2.", "Таңгак: «Таңгактагы штук саны» — 2ден баштап бүтүн сан.", "Pack: “Pieces in a pack” must be a whole number, 2 or more.",
+                    "Paket: «Paketteki adet» 2 veya daha büyük bir tam sayı olmalı.", "Qadoq: «Qadoqdagi dona soni» 2 dan boshlab butun son bo'lishi kerak.");
+                return;
+            }
+            if (pieceValue <= 0)
+            {
+                ErrorMessage = Tr.T("Упаковка: укажите «Цена за штуку» (или нажмите «Авто»).", "Таңгак: «Штуканын баасын» жазыңыз (же «Авто» басыңыз).", "Pack: enter the “Price per piece” (or press “Auto”).",
+                    "Paket: «Adet fiyatı»nı girin (veya «Oto»ya basın).", "Qadoq: «Dona narxi»ni kiriting (yoki «Avto»ni bosing).");
+                return;
+            }
+            if (HasPackWarning)
+            {
+                var goOn = await PosConfirmDialog.ShowModalAsync(this,
+                    Tr.T("Цена штуки не сходится с упаковкой", "Штуканын баасы таңгакка дал келбейт", "Piece price does not match the pack", "Adet fiyatı paketle uyuşmuyor", "Dona narxi qadoqqa mos kelmaydi"),
+                    PackWarning.TrimStart('⚠', ' ') + " " + Tr.T("Сохранить как есть?", "Ушундайча сактайбызбы?", "Save as it is?", "Olduğu gibi kaydedilsin mi?", "Shundayligicha saqlansinmi?"),
+                    Tr.T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"), Tr.T("Вернуться", "Артка", "Go back", "Geri dön", "Orqaga")).ConfigureAwait(true);
+                if (!goOn)
+                    return;
+            }
+        }
+        // Цена продажи не указана — спрашиваем явно (было: товар молча сохранялся с ценой 0 и пробивался на кассе бесплатно).
+        var oldPrice = _existing is null ? 0 : LocalCartService.ParsePrice(_existing.PriceLine);
+        if ((saleValue ?? 0) <= 0 && (_existing is null || oldPrice > 0))
+        {
+            var withoutPrice = await PosConfirmDialog.ShowModalAsync(this,
+                Tr.T("Цена продажи не указана", "Сатуу баасы көрсөтүлгөн эмес", "No sale price", "Satış fiyatı girilmedi", "Sotuv narxi kiritilmagan"),
+                Tr.T($"Товар «{_name.Trim()}» сохранится без цены продажи — пока вы её не впишете, его нельзя продать по нормальной цене. Сохранить без цены?",
+                    $"«{_name.Trim()}» товары сатуу баасыз сакталат — баасын жазмайынча кадимки баада сатууга болбойт. Баасыз сактайбызбы?",
+                    $"“{_name.Trim()}” will be saved without a sale price — it cannot be sold at a normal price until you enter one. Save without a price?",
+                    $"«{_name.Trim()}» satış fiyatı olmadan kaydedilecek — girene kadar normal fiyattan satılamaz. Fiyatsız kaydedilsin mi?",
+                    $"«{_name.Trim()}» sotuv narxisiz saqlanadi — narx kiritilmaguncha oddiy narxda sotib bo'lmaydi. Narxsiz saqlansinmi?"),
+                Tr.T("Сохранить без цены", "Баасыз сактоо", "Save without price", "Fiyatsız kaydet", "Narxsiz saqlash"),
+                Tr.T("Вернуться", "Артка", "Go back", "Geri dön", "Orqaga")).ConfigureAwait(true);
+            if (!withoutPrice)
+                return;
+        }
+
         _isSaving = true;
         OnPropertyChanged(nameof(CanSaveNow));
         UpdateSaveButtonState();
@@ -1688,10 +2128,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 BrandName = _brand,
                 Unit = string.IsNullOrWhiteSpace(_unit) ? "шт" : _unit,
                 IsWeight = _isWeight,
-                Quantity = ParseNumber(_quantity),
-                PurchasePrice = TryParseNumber(_purchasePrice),
+                Quantity = quantityValue ?? 0,
+                PurchasePrice = purchaseValue,
                 MarkupPercent = TryParseNumber(_markupPercent),
-                Price = TryParseNumber(_price),
+                Price = saleValue,
                 Description = _description,
                 HotkeyGroup = _hotkeyGroup == "Без горячей клавиши" ? null : _hotkeyGroup,
                 Plu = pluValue,
@@ -1804,8 +2244,40 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         }
     }
 
+    /// <summary>2026-10-29: разбор числа поля карточки единым CheckoutValidation.TryParseAmount. Пусто — null (поле не заполнено, это не ошибка);
+    /// непонятное число — понятный текст в ErrorMessage и false. Название поля — на 5 языках.</summary>
+    private bool CheckAmount(string? text, (string Ru, string Ky, string En, string Tr, string Uz) label, int maxDecimals, out double? value)
+    {
+        value = null;
+        var parse = CheckoutValidation.TryParseAmount(text, out var parsed, maxDecimals);
+        if (parse == CheckoutValidation.AmountParse.Empty)
+            return true;
+        if (parse == CheckoutValidation.AmountParse.Ok)
+        {
+            value = parsed;
+            return true;
+        }
+        var name = Tr.T(label.Ru, label.Ky, label.En, label.Tr, label.Uz);
+        ErrorMessage = parse == CheckoutValidation.AmountParse.TooManyDecimals
+            ? Tr.T($"{name}: не больше {maxDecimals} знаков после запятой.", $"{name}: үтүрдөн кийин {maxDecimals} цифрадан ашык болбойт.",
+                $"{name}: no more than {maxDecimals} decimal places.", $"{name}: virgülden sonra en fazla {maxDecimals} basamak.", $"{name}: verguldan keyin {maxDecimals} tadan ko'p raqam bo'lmaydi.")
+            : Tr.T($"{name}: введите число не меньше нуля, например 12,75.", $"{name}: нөлдөн кем эмес сан киргизиңиз, мисалы 12,75.",
+                $"{name}: enter a number, zero or more, for example 12.75.", $"{name}: sıfır veya daha büyük bir sayı girin, örn. 12,75.", $"{name}: noldan kam bo'lmagan son kiriting, masalan 12,75.");
+        return false;
+    }
+
+    /// <summary>Наценка может быть отрицательной (продажа ниже закупки считается автоматически и показывает красное предупреждение) —
+    /// знак «−» впереди допускается, остальное разбирается как число.</summary>
+    private bool CheckMarkup(string? text)
+    {
+        var trimmed = (text ?? "").Trim();
+        if (trimmed.StartsWith('-') || trimmed.StartsWith('−'))
+            trimmed = trimmed[1..];
+        return CheckAmount(trimmed, ("Наценка", "Үстөк", "Markup", "Kâr oranı", "Ustama"), 2, out _);
+    }
+
     private static double ParseNumber(string? s) =>
-        double.TryParse((s ?? "").Trim().Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0;
+        double.TryParse((s ?? "").Trim().Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out var v) ? v : 0;
 
     private static double? TryParseNumber(string? s) =>
         string.IsNullOrWhiteSpace(s) ? null : ParseNumber(s);

@@ -80,11 +80,11 @@
     <Grid RowDefinitions="Auto,*" Margin="16,12,16,16">
 
         <!-- ======================= строка ввода: штрихкод и поиск ======================= -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,8,Auto,16,0.75*" Margin="0,0,0,12">
+        <Grid Grid.Row="0" ColumnDefinitions="*,8,Auto,16,0.75*,8,Auto" Margin="0,0,0,12">
             <Border Grid.Column="0" Classes="lx-field">
                 <Grid ColumnDefinitions="Auto,*,Auto">
                     <PathIcon Data="{StaticResource IconBarcode}" Margin="0,0,10,0"/>
-                    <TextBox Grid.Column="1" Text="{Binding Basket.BarcodeInput}"
+                    <TextBox x:Name="LayoutBarcodeInput" Grid.Column="1" Text="{Binding Basket.BarcodeInput}"
                              Watermark="{DynamicResource lx.scanWatermark}" FontSize="15">
                         <TextBox.KeyBindings>
                             <KeyBinding Gesture="Enter" Command="{Binding Basket.AddByBarcodeCommand}"/>
@@ -115,7 +115,7 @@
             <Border Grid.Column="4" Classes="lx-field">
                 <Grid ColumnDefinitions="Auto,*,Auto">
                     <PathIcon Data="{StaticResource IconSearch}" Margin="0,0,10,0"/>
-                    <TextBox x:Name="ProductSearchBox" Grid.Column="1" Text="{Binding Catalog.SearchText}"
+                    <TextBox x:Name="ProductSearchBox" Classes="clearButton" MaxLength="120" Grid.Column="1" Text="{Binding Catalog.SearchText}"
                              Watermark="{DynamicResource lx.searchWatermark}"/>
                     <!-- 2026-10-20, проверка фильтров: «Фильтр» в раскладке (было только в «Классике») — число включённых условий,
                          в подсказке что включено; «✕» сбрасывает. Кнопки не берут фокус (скан — окну кассы). -->
@@ -138,6 +138,8 @@
                     </StackPanel>
                 </Grid>
             </Border>
+            <!-- 2026-10-28: кнопка «Обновить» (каталог + смена, F5) — справа от поиска, как во всех видах кассы. -->
+            <ctl:RefreshButton Grid.Column="6"/>
         </Grid>
 
         <!-- ======================= чек | быстрые товары и оплата ======================= -->

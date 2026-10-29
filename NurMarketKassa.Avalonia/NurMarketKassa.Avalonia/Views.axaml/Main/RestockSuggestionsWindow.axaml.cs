@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NurMarketKassa.Core.Application;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
@@ -219,8 +220,7 @@ public partial class RestockSuggestionsWindow : Window, IOwnerSection
         var q = (ReorderSearchBox.Text ?? "").Trim();
         var shown = q.Length == 0
             ? _reorderAll
-            : _reorderAll.Where(r => r.ProductName.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                                     || r.SupplierName.Contains(q, StringComparison.CurrentCultureIgnoreCase)).ToList();
+            : _reorderAll.Where(r => SearchMatch.Matches(q, r.ProductName, r.SupplierName)).ToList(); // 2026-10-29: единый поиск
         ReorderGrid.ItemsSource = shown;
         ReorderEmptyText.IsVisible = shown.Count == 0;
         if (_reorderAll.Count == 0)

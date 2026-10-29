@@ -165,6 +165,10 @@ public partial class App : Application
         ServerLoyalty.ApiProvider = () => AppHost?.Services.GetService<NurMarketApiClient>();
         // 2026-10-05: настройки аккаунта — на сервере, подтягиваются на любом устройстве (SettingsCloudSync).
         SettingsCloudSync.ApiProvider = () => AppHost?.Services.GetService<NurMarketApiClient>();
+        // 2026-10-29: окно настроек с несохранёнными правками — настройки компании с сервера ждут (SettingsCloudSync.RefreshCompanyAsync).
+        SettingsCloudSync.EditingProbe = () => Avalonia.Threading.Dispatcher.UIThread.CheckAccess()
+            ? PosSettingsWindow.HasUnsavedEdits()
+            : Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(PosSettingsWindow.HasUnsavedEdits).GetAwaiter().GetResult();
         // 2026-10-18, аудит: личный код сотрудника подходит только вошедшему кассиру (EmployeeAccessGate).
         EmployeeAccessGate.CurrentUserProvider = () => AppHost?.Services.GetService<NurMarketApiClient>()?.UserPayload ?? default;
         // 2026-10-06: срок долга, названный клиентом, — на сервер после продажи «В долг».
@@ -333,6 +337,7 @@ public partial class App : Application
         TouchGuard.Register();
         // 2026-10-06, моноблоки клиентов: касание поля ввода пальцем — клавиатура Windows (TouchKeyboardAuto).
         TouchKeyboardAuto.Register();
+        SearchBoxEscape.Register(); // 2026-10-29: Esc очищает поле поиска (аудит поисков)
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

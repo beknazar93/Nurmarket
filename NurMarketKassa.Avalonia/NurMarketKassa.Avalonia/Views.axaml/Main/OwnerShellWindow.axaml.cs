@@ -43,7 +43,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     // 2026-10-04, отчёт о производительности (п. 7): 60 с вместо 20 с и только пока «Сводка» на экране и
     // окно активно (RefreshWhenShownAsync). Было 12 запросов в минуту с каждой программы владельца (27 —
     // утром до первой продажи), даже свёрнутой или под открытым разделом.
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(60);
+    // 2026-10-29, «продажа появляется в Сводке через 60–100 с»: 30 с вместо 60 (SyncCenter.OverviewInterval) + обновление по сигналу SalesChanged
+    // (своё действие или чужая продажа — RemoteSalesPulse, раз в ~20 с, один лёгкий запрос). Отчёты сервера кэшируются на 15 с (ReportCache).
+    private static readonly TimeSpan RefreshInterval = SyncCenter.OverviewInterval;
 
     /// <summary>2026-10-04, п. 7: график «Выручка за 7 дней» — отдельный отчёт сервера; обновлять его чаще
     /// раза в 5 минут незачем (кнопка «Обновить» и смена периода — сразу).</summary>
@@ -666,10 +668,16 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-01, ТЗ-BE-2026-04 (AN-11, AN-12 сделаны сервером): прибыль (P&L), движение денег и сверка отчётов.
         Add("profitcash", "ProfitIcon", Tr.T("Прибыль и деньги", "Пайда жана акча", "Profit & cash", "Kâr ve nakit", "Foyda va pul"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("profitcash", () => new ProfitCashReconcileWindow()); });
+        // 2026-10-29, владелец: «Для аналитики как расход на начало бизнеса» + макет Investments: окупаемость вложений, инвесторы, выплаты. Деньги владельца — право как у «Зарплаты».
+        Add("investments", "InvestIcon", Tr.T("Инвестиции и окупаемость", "Инвестициялар жана кайтарым", "Investments and payback", "Yatırımlar ve geri dönüş", "Investitsiyalar va o'zini oqlash"), TariffGate.CanUseSalesAnalytics,
+            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("investments", () => new InvestmentsWindow()); });
         // 2026-10-03, владелец: «если в убыток продаёт со скидкой — фиксировать в админке».
         // 2026-10-05: аналитика — как «Аналитика» и «ABC», не на «Старте».
         Add("losssales", "LossIcon", Tr.T("Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("losssales", () => new LossSalesWindow()); });
+        // 2026-10-28, запрос владельца «Общая аналитика по бонусам»: раздел «Бонусы» (BonusAnalyticsWindow) — права и тариф как у «Аналитики».
+        Add("bonusanalytics", "ClientsIcon", Tr.T("Бонусы", "Бонустар", "Bonuses", "Bonuslar", "Bonuslar"), TariffGate.CanUseSalesAnalytics,
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("bonusanalytics", () => new BonusAnalyticsWindow()); });
         // 2026-10-06, исследование «Кассы для одежды» (О-80): продажи по размерам и цветам — только в сфере «Одежда».
         Add("sizesreport", "SizesIcon", Tr.T("Размеры и цвета", "Өлчөмдөр жана түстөр", "Sizes and colours", "Bedenler ve renkler", "O'lchamlar va ranglar"),
             MarketSpheres.IsClothing && TariffGate.CanUseSalesAnalytics,
@@ -2529,6 +2537,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         NurMarketKassa.Services.Api.SalesApiService.InvalidateReportCache();
         _ = RefreshAsync(forceChart: true);
         _ = RefreshAbcAsync();
+        // 2026-10-29: заодно общие настройки компании, права, каталог и остатки — SyncCenter.ForceSyncAllAsync (то же делает «Обновить» кассы).
+        _ = NurMarketKassa.Services.SyncCenter.ForceSyncAllAsync();
     }
 
     private void AbcOpen_Click(object? sender, RoutedEventArgs e)
@@ -2793,6 +2803,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         _abcDebounce.Stop();
         _abcDebounce.Start();
+        // 2026-10-29: «Сводка» — по событию, а не только по таймеру (не чаще раза в 8 с; скрытую/неактивную по тем же правилам, что таймер).
+        if (DateTime.UtcNow - _lastRefreshStartedUtc >= TimeSpan.FromSeconds(8))
+            _ = RefreshWhenShownAsync();
     });
 
     private void RefreshAbcWhenVisible()

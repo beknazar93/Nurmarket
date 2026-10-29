@@ -79,7 +79,7 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         // 2026-10-20, этап О9б (правило 2): период — сегменты в рамке (выбранный тёмно-синий), как в «Продажах» и «Прокате».
         var periodsSegment = UiKit.WithPeriodLabel(UiKit.Segment(_periods), _periodLabel);
         tools.Children.Add(periodsSegment);
-        _search = UiKit.Input(this, T("Поиск: поставщик, товар, комментарий…", "Издөө: жеткирүүчү, товар, комментарий…", "Search: supplier, product, comment…", "Ara: tedarikçi, ürün, yorum…", "Qidirish: yetkazib beruvchi, mahsulot, izoh…"), 40);
+        _search = UiKit.Search(this, T("Поиск: поставщик, товар, комментарий…", "Издөө: жеткирүүчү, товар, комментарий…", "Search: supplier, product, comment…", "Ara: tedarikçi, ürün, yorum…", "Qidirish: yetkazib beruvchi, mahsulot, izoh…"), 40);
         _search.Margin = new Thickness(12, 0, 0, 0);
         var searchTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         searchTimer.Tick += async (_, _) =>

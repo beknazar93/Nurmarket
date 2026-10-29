@@ -73,6 +73,10 @@ class Palette {
   Color get textSoft => dark ? T.darkTextSoft : T.textSoft;
   Color get price => dark ? T.accent : T.navy;
 
+  /// 2026-10-29 (инфографика, спека Fable): подложка «soft» и сильная рамка — по спеке 03-mobile-infographics.
+  Color get soft => dark ? const Color(0xFF333333) : T.soft;
+  Color get borderStrong => dark ? const Color(0xFF5A5A5A) : T.borderStrong;
+
   /// 13.10, владелец: «кнопка плюс сливается с фоном» — главные кнопки (+, сканер) в тёмной теме жёлтые с тёмным значком.
   Color get action => dark ? T.accent : T.navy;
   Color get onAction => dark ? T.navy : Colors.white;

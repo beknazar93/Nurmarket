@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Приёмка — таблица</title>
+<style>
+/* NurMarket Kassa — Склад → Приёмка. Дизайн-спека 29.10.2026 (Specs-1029/01).
+   Цвета — только кисти кассы (имя переменной = имя кисти без «Brush»), см. design/NurMarket-design/screens/BulkAdd-shared.css. */
+body{ margin:0; background:#2B2B2B; color:#F5F5F5; font-family:Montserrat,Onest,"Segoe UI",system-ui,sans-serif; }
+.tb{ position:sticky; top:0; z-index:50; display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:8px 14px; background:#191919; border-bottom:1px solid #3D3D3D; font-size:12px; }
+.tb b{ font-size:13px; margin-right:6px; }
+.tb .grp{ display:flex; align-items:center; gap:4px; padding:3px; border:1px solid #3D3D3D; border-radius:9px; }
+.tb .grp span{ color:#AAA; padding:0 6px; }
+.tb button{ height:28px; padding:0 10px; border:0; border-radius:7px; background:transparent; color:#CCC; font:600 12px Montserrat,system-ui,sans-serif; cursor:pointer; }
+.tb button.on{ background:#FFB208; color:#191919; }
+.stage{ padding:18px; display:flex; flex-direction:column; align-items:flex-start; gap:14px; }
+.note{ max-width:1296px; font-size:12px; line-height:1.55; color:#CCC; }
+.note code{ background:#333; padding:1px 5px; border-radius:4px; color:#FFD27A; }
+h2.sec{ margin:14px 0 0; font-size:14px; color:#FFB208; }
+
+.frame{
+  --window:#F4F4F4; --panel:#FFFFFF; --panel-soft:#EEEEEE; --panel-pressed:#DDDDDD; --input:#FFFFFF; --input-alt:#F7F7F7;
+  --border:#DDDDDD; --border-strong:#AAAAAA; --text:#191919; --text-muted:#3D3D3D; --text-soft:#666666;
+  --accent:#FFB208; --accent-strong:#E69F00; --accent-pressed:#CC8800; --accent-soft:#FFF1DB; --accent-fg:#191919;
+  --success:#047857; --success-soft:#D1FAE5; --warning:#B45309; --warning-soft:#FEF3C7;
+  --danger:#B91C1C; --danger-soft:#FEE2E2; --danger-on-soft:#B91C1C; --unknown:#B54708; --unknown-soft:#FEF3E2;
+  --focus:#191919; --shadow:0 12px 32px rgba(25,25,25,.18);
+  --r-btn:10px; --r-card:12px; --pad:16px; --gap:12px;
+  position:relative; overflow:hidden; box-sizing:border-box; width:1296px; height:879px;
+  background:var(--window); color:var(--text); font-family:Montserrat,Onest,"Segoe UI",system-ui,sans-serif; font-size:14px; line-height:1.3;
+  display:flex; flex-direction:column; border-radius:8px; box-shadow:0 0 0 1px rgba(0,0,0,.08);
+}
+.frame[data-theme="dark"]{
+  --window:#191919; --panel:#222222; --panel-soft:#333333; --panel-pressed:#3D3D3D; --input:#222222; --input-alt:#2A2A2A;
+  --border:#3D3D3D; --border-strong:#666666; --text:#F5F5F5; --text-muted:#CCCCCC; --text-soft:#AAAAAA;
+  --accent:#FFB208; --accent-strong:#FFC84D; --accent-pressed:#E69F00; --accent-soft:#3A2D10; --accent-fg:#191919;
+  --success:#34D399; --success-soft:#14352A; --warning:#D7BA7D; --warning-soft:#3A3122;
+  --danger:#F14C4C; --danger-soft:#522626; --danger-on-soft:#F58282; --unknown:#FDBA74; --unknown-soft:#3A2A14;
+  --focus:#FFB208; --shadow:0 12px 32px rgba(0,0,0,.55);
+}
+.frame.s1024{ width:1024px; height:600px; --pad:12px; --gap:8px; font-size:13px; }
+.frame *{ box-sizing:border-box; font-family:inherit; }
+.num{ font-variant-numeric:tabular-nums; text-align:right; }
+
+/* шапка окна «Склад» */
+.chrome{ flex:0 0 40px; display:flex; align-items:stretch; gap:2px; padding:0 8px; background:var(--panel); border-bottom:1px solid var(--border); }
+.chrome .wt{ align-self:center; font-weight:800; font-size:15px; padding:0 10px 0 4px; margin-right:6px; }
+.chrome .t{ display:flex; align-items:center; padding:0 12px; font-size:13px; font-weight:600; color:var(--text-soft); border-bottom:3px solid transparent; white-space:nowrap; }
+.chrome .t.on{ color:var(--text); border-bottom-color:var(--accent); font-weight:700; }
+.chrome .sp{ flex:1; }
+.s1024 .chrome .t{ padding:0 9px; font-size:12.5px; }
+
+.tab{ flex:1; min-height:0; display:flex; flex-direction:column; gap:var(--gap); padding:var(--pad); }
+.row{ display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+.row .sp{ flex:1; }
+
+/* поле скана (контекст) */
+.scan{ height:48px; flex:1; display:flex; align-items:center; gap:10px; padding:0 14px; background:var(--input); border:2px solid var(--focus); border-radius:var(--r-btn); color:var(--text-soft); }
+.scan b{ color:var(--text); font-weight:600; }
+.qty{ width:96px; height:48px; display:flex; align-items:center; justify-content:flex-end; padding:0 12px; background:var(--input); border:1px solid var(--border-strong); border-radius:var(--r-btn); font-weight:700; }
+.btn{ height:44px; min-width:44px; padding:0 16px; display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--border-strong); border-radius:var(--r-btn); background:var(--panel); color:var(--text); font-weight:600; font-size:14px; white-space:nowrap; cursor:pointer; }
+.btn.primary{ background:var(--accent); border-color:transparent; color:var(--accent-fg); font-weight:700; height:48px; padding:0 24px; }
+.btn.sm{ height:28px; min-width:0; padding:0 10px; font-size:12px; border-radius:8px; }
+.btn.ghost{ background:transparent; border-color:transparent; color:var(--text-soft); }
+
+/* панель над таблицей: наценка для всех + «Сразу к скану» + подсказка */
+.ctl{ display:flex; align-items:center; gap:14px; flex:0 0 auto; padding:8px 12px; background:var(--panel); border:1px solid var(--border); border-radius:var(--r-card); min-height:60px; }
+.ctl .lbl{ font-weight:600; white-space:nowrap; }
+.ctl .inp{ width:88px; height:44px; display:flex; align-items:center; justify-content:flex-end; padding:0 12px; background:var(--input); border:1px solid var(--border-strong); border-radius:var(--r-btn); font-weight:700; font-size:16px; }
+.ctl .inp i{ font-style:normal; color:var(--text-soft); margin-left:4px; font-weight:500; }
+.chk{ display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 6px; font-weight:500; white-space:nowrap; }
+.chk .box{ width:22px; height:22px; border:2px solid var(--border-strong); border-radius:6px; background:var(--input); display:inline-flex; align-items:center; justify-content:center; }
+.chk.on .box{ background:var(--accent); border-color:var(--accent); color:var(--accent-fg); font-weight:800; font-size:14px; }
+.ctl .hint{ color:var(--text-soft); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1; }
+.ctl .hint b{ color:var(--text-muted); font-weight:600; }
+.s1024 .ctl{ min-height:52px; padding:4px 10px; gap:10px; }
+.s1024 .ctl .hint{ display:none; }
+
+/* таблица */
+.grid{ flex:1; min-height:0; display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--border); border-radius:var(--r-card); overflow:hidden; }
+table{ border-collapse:separate; border-spacing:0; width:100%; table-layout:fixed; }
+thead th{ position:sticky; top:0; height:44px; padding:0 10px; background:var(--panel-soft); color:var(--text-muted); font-size:12.5px; font-weight:700; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+thead th.num{ text-align:right; }
+thead th small{ display:block; font-weight:500; font-size:11px; color:var(--text-soft); line-height:12px; }
+tbody td{ height:52px; padding:0 10px; border-bottom:1px solid var(--border); vertical-align:middle; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+tbody tr:last-child td{ border-bottom:0; }
+tbody td.edit{ background:var(--input-alt); box-shadow:inset 0 -2px 0 var(--border-strong); font-weight:600; }
+tbody td.name{ font-weight:600; }
+tbody td.name small{ display:block; font-weight:400; font-size:11.5px; color:var(--text-soft); line-height:13px; }
+tbody td.soft{ color:var(--text-soft); }
+tr.focus td{ background:var(--accent-soft); }
+tr.focus td.edit{ background:var(--input); box-shadow:inset 0 0 0 2px var(--focus); }
+tr.low td{ background:var(--warning-soft); }
+tr.below td{ background:var(--danger-soft); }
+tr.below td.sale{ color:var(--danger-on-soft); font-weight:700; }
+tr.low td.sale, tr.low td.profit{ color:var(--warning); font-weight:700; }
+.tag{ display:inline-flex; align-items:center; gap:4px; height:22px; padding:0 8px; border-radius:6px; font-size:11.5px; font-weight:700; white-space:nowrap; }
+.tag.new{ background:var(--accent-soft); color:var(--text); }
+.tag.auto{ color:var(--text-soft); font-weight:500; padding:0; }
+.tag.manual{ color:var(--warning); }
+.tag.low{ background:var(--warning-soft); color:var(--warning); }
+.tag.below{ background:var(--danger-soft); color:var(--danger-on-soft); }
+.chg{ display:block; line-height:15px; font-size:12.5px; font-weight:600; }
+.chg small{ display:block; font-weight:400; font-size:11px; color:var(--text-soft); }
+.chg.up{ color:var(--danger); } .chg.down{ color:var(--success); } .chg.same, .chg.new{ color:var(--text-soft); font-weight:500; }
+.mode{ display:flex; flex-direction:column; gap:3px; line-height:14px; font-size:12px; }
+.mode .btn.sm{ align-self:flex-start; }
+.profit{ font-weight:600; }
+.profit small{ display:block; font-weight:400; font-size:11px; color:var(--text-soft); line-height:12px; }
+td.x{ text-align:center; padding:0; }
+td.x .btn{ width:44px; height:44px; padding:0; border-radius:10px; color:var(--text-soft); font-size:18px; }
+.s1024 thead th{ height:40px; font-size:12px; padding:0 8px; }
+.s1024 tbody td{ height:48px; font-size:13px; padding:0 8px; }
+.s1024 .c-src, .s1024 .c-bar, .s1024 .c-was, .s1024 .c-profit, .s1024 .chg small, .s1024 .chg .long, .s1024 .mode .sub{ display:none; }
+/* Ширины: сумма фиксированных ≤ 1080, «Название» получает остаток (≥ 180 на 1296, ≥ 220 на 1024). «Откуда» — подстрокой в названии. */
+.c-bar{ width:104px } .c-unit{ width:44px } .c-was{ width:72px } .c-take{ width:92px } .c-buy{ width:88px } .c-mk{ width:88px } .c-sale{ width:92px } .c-chg{ width:140px } .c-mode{ width:136px } .c-profit{ width:84px } .c-sum{ width:96px } .c-x{ width:44px }
+tbody td.c-bar{ font-size:11.5px; padding:0 6px; }
+.tag.low, .tag.below{ font-size:11px; padding:0 6px; }
+.s1024 .chg .long{ display:none; }
+.s1024 .c-chg{ width:112px } .s1024 .c-mode{ width:130px } .s1024 .c-sale{ width:96px } .s1024 .c-sum{ width:100px }
+thead th.two{ white-space:normal; line-height:14px; }
+tbody td.c-chg{ white-space:normal; }
+tbody td.name .src{ color:var(--text-muted); font-weight:600; }
+
+/* итоговая панель */
+.sum{ flex:0 0 auto; display:flex; align-items:center; gap:18px; padding:10px 14px; background:var(--panel); border:1px solid var(--border); border-radius:var(--r-card); }
+.sum .k{ display:flex; flex-direction:column; gap:2px; min-width:96px; }
+.sum .k small{ font-size:11.5px; color:var(--text-soft); font-weight:500; }
+.sum .k b{ font-size:18px; font-weight:800; font-variant-numeric:tabular-nums; }
+.sum .k b.ok{ color:var(--success); } .sum .k b.warn{ color:var(--warning); }
+.sum .sep{ width:1px; height:36px; background:var(--border); }
+.sum .sp{ flex:1; }
+.sum .flag{ display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px; border-radius:8px; font-size:12.5px; font-weight:600; }
+.sum .flag.w{ background:var(--warning-soft); color:var(--warning); } .sum .flag.d{ background:var(--danger-soft); color:var(--danger-on-soft); }
+.s1024 .sum{ padding:6px 10px; gap:12px; } .s1024 .sum .k b{ font-size:16px; } .s1024 .sum .k.hide{ display:none; }
+
+/* пустое состояние */
+.empty{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--text-soft); text-align:center; }
+.empty .ico{ width:72px; height:72px; border-radius:20px; background:var(--panel-soft); display:flex; align-items:center; justify-content:center; }
+.empty h3{ margin:0; font-size:18px; color:var(--text); }
+.empty p{ margin:0; max-width:520px; font-size:13.5px; line-height:1.5; }
+.empty kbd{ display:inline-block; padding:1px 6px; border:1px solid var(--border-strong); border-radius:5px; font:600 12px Montserrat,system-ui,sans-serif; color:var(--text); background:var(--panel); }
+.legend{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; max-width:1296px; }
+.legend .l{ padding:10px 12px; border-radius:10px; background:#333; font-size:12px; line-height:1.45; }
+.legend .l b{ display:block; color:#FFD27A; margin-bottom:2px; }
+</style>
+</head>
+<body>
+<div class="tb">
+  <b>Приёмка — таблица для сканирования</b>
+  <div class="grp"><span>Тема</span><button class="on" data-theme="light">Светлая</button><button data-theme="dark">Тёмная</button></div>
+  <div class="grp"><span>Экран</span><button class="on" data-size="full">1296×879</button><button data-size="s1024">1024×600</button></div>
+  <div class="grp"><span>Вид</span><button class="on" data-view="rows">6 строк (все состояния)</button><button data-view="empty">Пустая</button></div>
+  <span style="color:#AAA">Спека: docs/Дизайн/Спеки 2026-10-29.md</span>
+</div>
+
+<div class="stage">
+<div class="frame" id="f" data-theme="light">
+  <div class="chrome">
+    <div class="wt">Склад</div>
+    <div class="t">Остатки</div><div class="t on">Приёмка</div><div class="t">Ревизия</div><div class="t">Списание</div><div class="t">Перемещение</div><div class="t">ABC</div><div class="t">Редактор этикетки</div>
+    <div class="sp"></div>
+  </div>
+  <div class="tab">
+    <div class="row">
+      <div class="scan">▮ <b>Сканируйте товар</b> <span>или введите штрихкод / название</span></div>
+      <div class="qty num">1</div>
+      <button class="btn">+ Новый товар</button>
+      <button class="btn">Накладная…</button>
+    </div>
+
+    <div class="ctl">
+      <span class="lbl">Наценка для всех, %</span>
+      <div class="inp num">30<i>%</i></div>
+      <label class="chk on"><span class="box">✓</span>Сразу к скану</label>
+      <div class="hint"><b>Как работает:</b> скан → «Принимаем» → Enter → «Закупка» → Enter → снова скан. Цена продажи считается сама: закупка + наценка.</div>
+    </div>
+
+    <div class="grid" id="grid">
+      <table>
+        <colgroup>
+          <col><col class="c-bar"><col class="c-unit"><col class="c-was"><col class="c-take"><col class="c-buy"><col class="c-mk"><col class="c-sale"><col class="c-chg"><col class="c-mode"><col class="c-profit"><col class="c-sum"><col class="c-x">
+        </colgroup>
+        <thead><tr>
+          <th>Название</th>
+          <th class="c-bar">Штрихкод</th>
+          <th class="c-unit">Ед.</th>
+          <th class="c-was num two">На<br>складе</th>
+          <th class="c-take num two">Прини&shy;маем</th>
+          <th class="c-buy num">Закупка<small>сом за шт.</small></th>
+          <th class="c-mk num">Наценка %</th>
+          <th class="c-sale num two">Цена<br>продажи</th>
+          <th class="c-chg">Закупка изменилась<small>против прошлой</small></th>
+          <th class="c-mode two">Как посчитана<br>цена</th>
+          <th class="c-profit num two">Прибыль<br>с шт.</th>
+          <th class="c-sum num two">Сумма<br>закупки</th>
+          <th class="c-x"></th>
+        </tr></thead>
+        <tbody>
+          <!-- 1. Авто, закупка подорожала -->
+          <tr class="focus">
+            <td class="name">Winston Blue<small><span class="src">Скан</span> · сигареты · блок 10 пачек</small></td>
+            <td class="c-bar soft num">4607016523347</td>
+            <td class="c-unit soft">шт</td>
+            <td class="c-was num soft">17</td>
+            <td class="c-take num edit">10</td>
+            <td class="c-buy num edit">150,00</td>
+            <td class="c-mk num edit">30</td>
+            <td class="c-sale num edit sale">195,00</td>
+            <td class="c-chg"><div class="chg up">↑ <span class="long">дороже на 5 сом (</span>+3 %<span class="long">)</span><small>было 145,00</small></div></td>
+            <td class="c-mode"><div class="mode"><span class="tag auto">авто · общая 30 %</span></div></td>
+            <td class="c-profit num profit">45,00</td>
+            <td class="c-sum num">1 500,00</td>
+            <td class="x"><button class="btn ghost" title="Убрать строку">✕</button></td>
+          </tr>
+          <!-- 2. Вручную, подешевело, кнопка «Как у всех» -->
+          <tr>
+            <td class="name">Вода Адыгене 1,5 л<small><span class="src">Скан</span> · без газа · ящик 6</small></td>
+            <td class="c-bar soft num">4870001234567</td>
+            <td class="c-unit soft">шт</td>
+            <td class="c-was num soft">24</td>
+            <td class="c-take num edit">24</td>
+            <td class="c-buy num edit">25,00</td>
+            <td class="c-mk num edit">40</td>
+            <td class="c-sale num edit sale">35,00</td>
+            <td class="c-chg"><div class="chg down">↓ <span class="long">дешевле на 2 сом (</span>−7 %<span class="long">)</span><small>было 27,00</small></div></td>
+            <td class="c-mode"><div class="mode"><span class="tag manual">вручную · +10 %</span><button class="btn sm">Как у всех</button></div></td>
+            <td class="c-profit num profit">10,00</td>
+            <td class="c-sum num">600,00</td>
+            <td class="x"><button class="btn ghost">✕</button></td>
+          </tr>
+          <!-- 3. Новый товар -->
+          <tr>
+            <td class="name">Вода ASU 0,5 л <span class="tag new">новый</span><small><span class="src">Скан</span> · газ. · впервые на складе</small></td>
+            <td class="c-bar soft num">4870009876543</td>
+            <td class="c-unit soft">шт</td>
+            <td class="c-was num soft">—</td>
+            <td class="c-take num edit">24</td>
+            <td class="c-buy num edit">18,00</td>
+            <td class="c-mk num edit">30</td>
+            <td class="c-sale num edit sale">23,40</td>
+            <td class="c-chg"><div class="chg new">новый товар<small>прошлой закупки нет</small></div></td>
+            <td class="c-mode"><div class="mode"><span class="tag auto">авто · общая 30 %</span></div></td>
+            <td class="c-profit num profit">5,40</td>
+            <td class="c-sum num">432,00</td>
+            <td class="x"><button class="btn ghost">✕</button></td>
+          </tr>
+          <!-- 4. Низкая маржа < 10 % -->
+          <tr class="low">
+            <td class="name">Orbit мята<small><span class="src">Накладная</span> · жев. резинка</small></td>
+            <td class="c-bar soft num">4009900484138</td>
+            <td class="c-unit soft">шт</td>
+            <td class="c-was num soft">30</td>
+            <td class="c-take num edit">50</td>
+            <td class="c-buy num edit">50,00</td>
+            <td class="c-mk num edit">8</td>
+            <td class="c-sale num edit sale">54,00</td>
+            <td class="c-chg"><div class="chg same">без изменений<small>было 50,00</small></div></td>
+            <td class="c-mode"><div class="mode"><span class="tag low">⚠ маржа 8 % — мало</span><button class="btn sm">Как у всех</button></div></td>
+            <td class="c-profit num profit">4,00</td>
+            <td class="c-sum num">2 500,00</td>
+            <td class="x"><button class="btn ghost">✕</button></td>
+          </tr>
+          <!-- 5. Цена ниже закупки -->
+          <tr class="below">
+            <td class="name">Red Bull 0,25 л<small><span class="src">Скан</span> · энергетик</small></td>
+            <td class="c-bar soft num">9002490100070</td>
+            <td class="c-unit soft">шт</td>
+            <td class="c-was num soft">6</td>
+            <td class="c-take num edit">12</td>
+            <td class="c-buy num edit">110,00</td>
+            <td class="c-mk num edit">−9</td>
+            <td class="c-sale num edit sale">100,00</td>
+            <td class="c-chg"><div class="chg up">↑ <span class="long">дороже на 10 сом (</span>+10 %<span class="long">)</span><small>было 100,00</small></div></td>
+            <td class="c-mode"><div class="mode"><span class="tag below">⛔ ниже закупки</span><button class="btn sm">Как у всех</button></div></td>
+            <td class="c-profit num profit" style="color:var(--danger-on-soft)">−10,00</td>
+            <td class="c-sum num">1 320,00</td>
+            <td class="x"><button class="btn ghost">✕</button></td>
+          </tr>
+          <!-- 6. Без изменений, авто -->
+          <tr>
+            <td class="name">Хлеб Нан 400 г<small><span class="src">Скан</span> · хлеб</small></td>
+            <td class="c-bar soft num">4870000011223</td>
+            <td class="c-unit soft">шт</td>
+            <td class="c-was num soft">3</td>
+            <td class="c-take num edit">20</td>
+            <td class="c-buy num edit">28,00</td>
+            <td class="c-mk num edit">30</td>
+            <td class="c-sale num edit sale">36,40</td>
+            <td class="c-chg"><div class="chg same">без изменений<small>было 28,00</small></div></td>
+            <td class="c-mode"><div class="mode"><span class="tag auto">авто · общая 30 %</span></div></td>
+            <td class="c-profit num profit">8,40</td>
+            <td class="c-sum num">560,00</td>
+            <td class="x"><button class="btn ghost">✕</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid empty" id="empty" style="display:none">
+      <div class="ico"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M11 8v8M15 8v8M18 8v8"/></svg></div>
+      <h3>Отсканируйте первый товар</h3>
+      <p>Строка появится здесь. После скана курсор встанет в «Принимаем»: число → <kbd>Enter</kbd> → закупка → <kbd>Enter</kbd> → снова скан. Незнакомый штрихкод откроет «Новый товар».</p>
+      <p style="font-size:12.5px">Накладную от поставщика можно загрузить целиком — кнопка «Накладная…» (Excel, CSV, XML).</p>
+    </div>
+
+    <div class="sum">
+      <div class="k"><small>Позиций</small><b>6</b></div>
+      <div class="k"><small>Штук</small><b>140</b></div>
+      <div class="sep"></div>
+      <div class="k"><small>Сумма закупки</small><b>6 912,00 сом</b></div>
+      <div class="k hide"><small>Выручка по ценам продажи</small><b>8 745,60 сом</b></div>
+      <div class="k"><small>Прибыль</small><b class="ok">+1 833,60 сом</b></div>
+      <div class="k hide"><small>Средняя наценка</small><b>26,5 %</b></div>
+      <div class="sp"></div>
+      <span class="flag w">⚠ 1 строка с маржой меньше 10 %</span>
+      <span class="flag d">⛔ 1 цена ниже закупки</span>
+      <button class="btn ghost">Очистить</button>
+      <button class="btn">Отложить</button>
+      <button class="btn primary">Провести приёмку</button>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+<b>Что показано.</b> Шесть состояний строки сверху вниз: <code>фокус/авто + подорожало</code>, <code>вручную + подешевело + «Как у всех»</code>, <code>новый товар</code>, <code>низкая маржа &lt; 10 % (жёлтая строка)</code>, <code>цена ниже закупки (красная строка)</code>, <code>без изменений</code>. Редактируемые ячейки — с подчёркиванием (<code>input-alt</code> + нижняя линия 2 px); читаемые — без. Все числа и их заголовки — справа, <code>tabular-nums</code>, два знака у денег, целые у штук.
+В 1024×600 прячутся «Откуда», «Штрихкод», «На складе», «Прибыль с шт.» и вторые строки подписей; «Закупка изменилась» сворачивается до «↑ +3 %». Подсказка над таблицей скрыта — она остаётся всплывающей у поля скана.
+</div>
+<div class="legend">
+  <div class="l"><b>Авто</b> серая подпись «авто · общая 30 %», кнопки нет. Меняется общая наценка — цена пересчитывается.</div>
+  <div class="l"><b>Вручную</b> тёплая подпись (warning) «вручную · +10 %» + кнопка «Как у всех» 28 px — возвращает общую наценку. Строка не перекрашивается.</div>
+  <div class="l"><b>Низкая маржа &lt; 10 %</b> вся строка warning-soft, бейдж «⚠ маржа 8 % — мало», цена и прибыль — warning жирным. Не мешает провести.</div>
+  <div class="l"><b>Ниже закупки</b> вся строка danger-soft, бейдж «⛔ ниже закупки на 10 сом», цена и прибыль — danger. Кнопка «Провести» спрашивает подтверждение.</div>
+</div>
+</div>
+
+<script>
+const f=document.getElementById('f');
+document.querySelectorAll('.tb button').forEach(b=>b.addEventListener('click',()=>{
+  const g=b.parentElement; g.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  if(b.dataset.theme) f.dataset.theme=b.dataset.theme;
+  if(b.dataset.size) f.classList.toggle('s1024', b.dataset.size==='s1024');
+  if(b.dataset.view){ const e=b.dataset.view==='empty'; document.getElementById('grid').style.display=e?'none':''; document.getElementById('empty').style.display=e?'':'none';
+    document.querySelectorAll('.sum .k b').forEach((x,i)=>{ x.dataset.v=x.dataset.v||x.textContent; x.textContent=e?(i<2?'0':'0 сом'):x.dataset.v; });
+    document.querySelectorAll('.sum .flag').forEach(x=>x.style.display=e?'none':''); }
+}));
+// Состояние из адреса: #dark,s1024,empty — для снимков без кликов.
+(location.hash||'').slice(1).split(',').filter(Boolean).forEach(k=>{ const b=document.querySelector('.tb button[data-theme="'+k+'"],.tb button[data-size="'+k+'"],.tb button[data-view="'+k+'"]'); if(b) b.click(); });
+</script>
+</body>
+</html>

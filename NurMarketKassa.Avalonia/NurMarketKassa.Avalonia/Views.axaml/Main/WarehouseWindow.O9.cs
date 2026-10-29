@@ -19,15 +19,50 @@ public partial class WarehouseWindow
     private const double ReceivingNarrowWidth = 1250; // 2026-10-27: было 1000 — между 1000 и 1206 широкий вид уже не помещался (прокрутка вбок, срезанные ячейки)
     private const double WriteOffHistoryNarrowWidth = 600;
 
+    private bool? _rcvCompactLayout;
+
+    /// <summary>2026-10-29 (спека Fable, 1024×600): верхняя панель «Наценка для всех + Сразу к скану + подсказка» на низком окне отнимала у таблицы весь рост — поле и флажок
+    /// переезжают в ряд кнопок (второй ряд), панель прячется; кнопка «Наценка…» — значком «⚙». На широком окне всё возвращается.</summary>
+    private void ApplyReceivingCompactLayout(bool compact)
+    {
+        if (_rcvCompactLayout == compact)
+            return;
+        _rcvCompactLayout = compact;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            static void MoveTo(Control control, Avalonia.Controls.Panel target)
+            {
+                if (control.Parent is Avalonia.Controls.Panel parent && !ReferenceEquals(parent, target))
+                    parent.Children.Remove(control);
+                if (!target.Children.Contains(control))
+                    target.Children.Add(control);
+            }
+            ReceivingCtlPanel.IsVisible = !compact;
+            if (compact)
+            {
+                MoveTo(ReceivingMarkupGroup, ReceivingToolsWrap);
+                MoveTo(ReceivingFastNextCheck, ReceivingToolsWrap);
+            }
+            else
+            {
+                MoveTo(ReceivingMarkupGroup, ReceivingCtlGrid);
+                MoveTo(ReceivingFastNextCheck, ReceivingCtlGrid);
+                Avalonia.Controls.Grid.SetColumn(ReceivingMarkupGroup, 0);
+                Avalonia.Controls.Grid.SetColumn(ReceivingFastNextCheck, 1);
+            }
+            ReceivingMarkupButton.Content = compact ? "⚙" : T("Наценка…", "Кошумча %…", "Markup…", "Kâr oranı…", "Ustama…");
+        });
+    }
+
     private void InitO9Look()
     {
-        ReceivingEmptyTitle.Text = T("Накладная пока пустая", "Накладной азырынча бош", "The delivery note is empty", "İrsaliye henüz boş",
-            "Nakladnoy hozircha bo'sh");
-        ReceivingEmptyHint.Text = T("Отсканируйте первый товар накладной или нажмите «Выбрать из списка». Нового товара нет в базе — «+ Новый товар».",
-            "Накладнойдун биринчи товарын сканерлеңиз же «Тизмеден тандоо» баскычын басыңыз. Жаңы товар базада жок болсо — «+ Жаңы товар».",
-            "Scan the first item of the delivery note or press «Pick from list». Not in the base yet — «+ New product».",
-            "İrsaliyenin ilk ürününü okutun veya «Listeden seç»e basın. Ürün yeni ise — «+ Yeni ürün».",
-            "Nakladnoyning birinchi mahsulotini skanerlang yoki «Ro'yxatdan tanlash»ni bosing. Yangi mahsulot bo'lsa — «+ Yangi mahsulot».");
+        // 2026-10-29, спека Fable: пустое состояние — «Отсканируйте первый товар» + порядок клавиш + про накладную.
+        ReceivingEmptyTitle.Text = T("Отсканируйте первый товар", "Биринчи товарды сканерлеңиз", "Scan the first product", "İlk ürünü okutun", "Birinchi mahsulotni skanerlang");
+        ReceivingEmptyHint.Text = T("Строка появится здесь. После скана курсор встанет в «Принимаем»: число → Enter → закупка → Enter → снова скан. Незнакомый штрихкод — новая строка: впишите название.\n\nНакладную поставщика можно загрузить целиком — кнопка «Загрузить накладную» (Excel, CSV, XML).",
+            "Сап ушул жерде пайда болот. Сканерден кийин курсор «Кабыл алабыз» уячасына турат: сан → Enter → сатып алуу баасы → Enter → кайра скан. Белгисиз штрихкод — жаңы сап: атын жазыңыз.\n\nЖеткирүүчүнүн накладнойун толугу менен жүктөсө болот — «Накладнойду жүктөө» баскычы (Excel, CSV, XML).",
+            "The line will appear here. After a scan the cursor lands in “Receiving”: number → Enter → purchase price → Enter → scan again. An unknown barcode is a new line: type its name.\n\nYou can load the whole supplier invoice — the “Load invoice” button (Excel, CSV, XML).",
+            "Satır burada görünecek. Okutmadan sonra imleç «Alınıyor» hücresine gelir: sayı → Enter → alış fiyatı → Enter → yine okutma. Bilinmeyen barkod — yeni satır: adını yazın.\n\nTedarikçi faturasını bütün olarak yükleyebilirsiniz — «Faturayı yükle» düğmesi (Excel, CSV, XML).",
+            "Qator shu yerda paydo bo'ladi. Skanerdan keyin kursor «Qabul qilinadi» katakchasiga tushadi: son → Enter → xarid narxi → Enter → yana skaner. Notanish shtrix-kod — yangi qator: nomini yozing.\n\nYetkazib beruvchi nakladnoyini to'liq yuklash mumkin — «Nakladnoyni yuklash» tugmasi (Excel, CSV, XML).");
         // 2026-10-24, пакет Р2: пустое состояние ревизии убрано — вкладка собрана кодом (WarehouseWindow.Revision.cs).
         WriteOffEmptyTitle.Text = T("Списаний пока нет", "Эсептен чыгаруулар азырынча жок", "No write-offs yet", "Henüz düşüm yok",
             "Hozircha hisobdan chiqarishlar yo'q");
@@ -54,29 +89,33 @@ public partial class WarehouseWindow
         _viewModel.WriteOffHistory.CollectionChanged += (_, _) => Sync();
         Sync();
 
-        // Узкая таблица — второстепенная колонка прячется (по ширине самой таблицы, а не окна: в программе владельца
-        // таблица уже окна на ширину меню).
+        // 2026-10-29, спека Fable (Specs-1029/01): колонки и ширины по спеке. Полный вид (таблица от 1210 точек) — 12 колонок, фиксированные = 1040, «Название» — остаток (≥ 170);
+        // узкий вид (1024×600, таблица ~960) прячет «Штрихкод», «На складе», «Прибыль с шт.», вторые строки подписей (класс rcv-compact у таблицы), «Закупка изменилась» —
+        // только «↑ +3 %»; в итоговой панели прячутся «Выручка» и «Средняя наценка». Ширина — по самой таблице, а не окна (в программе владельца таблица уже окна на ширину меню).
         ReceivingGrid.SizeChanged += (_, e) =>
         {
             if (e.NewSize.Width <= 0)
                 return;
-            var wide = e.NewSize.Width >= ReceivingNarrowWidth;
-            // Узкая таблица: прячутся «Источник», «Ед.» и «Было» (остаток до приёмки виден в карточке товара), числа плотнее,
-            // штрихкод целиком (13 цифр), название не уже 170.
-            // 2026-10-24, ТЗ «Склад» (Б1): колонки — по именам (RcvCol*), не по номерам; добавились «Наценка %» и «Изменение» — на 1024 прячется и «Ед.».
-            RcvColSource.IsVisible = wide;
-            RcvColWas.IsVisible = wide;
-            RcvColUnit.IsVisible = wide;
-            RcvColName.MinWidth = wide ? 200 : 170;
-            // 2026-10-19: «Было» 72 → 84 — кыргызское «Болгон» переносилось посреди слова.
-            // 2026-10-21 (пакет 1, п. 71): узкая таблица — числа чуть плотнее, название на 2 строки (стиль rcv-name), строка выше.
-            var widths = wide
-                ? new (DataGridColumn Column, double Width)[] { (RcvColBarcode, 160), (RcvColUnit, 56), (RcvColWas, 84), (RcvColQty, 92), (RcvColPurchase, 96), (RcvColMarkup, 100), (RcvColSale, 96), (RcvColChange, 120), (RcvColTotal, 104) }
-                : new (DataGridColumn Column, double Width)[] { (RcvColBarcode, 158), (RcvColUnit, 56), (RcvColWas, 72), (RcvColQty, 88), (RcvColPurchase, 92), (RcvColMarkup, 100), (RcvColSale, 92), (RcvColChange, 120), (RcvColTotal, 84) };
-            // 2026-10-27 (приёмка 26.10, Д-6): на окне ~1080 заголовки рвались по слогам («Принят о», «Нацен ка %»), «Динамика» обрезалась, штрихкод — до 12 цифр:
-            // колонки узкого вида не уже, чем нужно слову заголовка, «Динамика» 120 (чтобы «маржа −97 %» не резалась), штрихкод 158 (13 цифр), «Наценка %» 100 (кыргызское «Кошумча» не рвётся). Узкий вид занимает 950 точек (с названием 170); уже 950 — «Сумма» прячется (итог виден внизу).
-            RcvColTotal.IsVisible = wide || e.NewSize.Width >= 950;
-            ReceivingGrid.RowHeight = wide ? 44 : 52;
+            var compact = e.NewSize.Width < 1210;
+            ApplyReceivingCompactLayout(compact);
+            RcvColBarcode.IsVisible = !compact;
+            RcvColWas.IsVisible = !compact;
+            RcvColProfit.IsVisible = !compact;
+            SumSaleBox.IsVisible = !compact;
+            SumMarkupBox.IsVisible = !compact;
+            if (compact != ReceivingGrid.Classes.Contains("rcv-compact"))
+            {
+                if (compact)
+                    ReceivingGrid.Classes.Add("rcv-compact");
+                else
+                    ReceivingGrid.Classes.Remove("rcv-compact");
+            }
+            RcvColName.MinWidth = 170;
+            ReceivingGrid.RowHeight = compact ? 48 : 52;
+            ReceivingGrid.ColumnHeaderHeight = compact ? 40 : 44;
+            var widths = compact
+                ? new (DataGridColumn Column, double Width)[] { (RcvColUnit, 44), (RcvColQty, 92), (RcvColPurchase, 84), (RcvColMarkup, 76), (RcvColSale, 88), (RcvColChange, 108), (RcvColAuto, 136), (RcvColTotal, 92), (RcvColRemove, 44) }
+                : new (DataGridColumn Column, double Width)[] { (RcvColBarcode, 120), (RcvColUnit, 44), (RcvColWas, 64), (RcvColQty, 96), (RcvColPurchase, 88), (RcvColMarkup, 76), (RcvColSale, 88), (RcvColChange, 128), (RcvColAuto, 144), (RcvColProfit, 76), (RcvColTotal, 88), (RcvColRemove, 44) };
             foreach (var (column, width) in widths)
                 if (column.Width.Value != width)
                     column.Width = new DataGridLength(width);
@@ -138,9 +177,17 @@ public partial class WarehouseWindow
 
     private void InitPackage1()
     {
-        // П. 71: название в приёмке переносится на 2-ю строку (стиль DataGridCell.rcv-name в разметке) — на 1024 и
-        // по-кыргызски было «Печенье «Юбилейное» трад».
-        RcvColName.CellStyleClasses.Add("rcv-name"); // 2026-10-24: по имени колонки, не по номеру
+        // 2026-10-29, спека Fable: классы ячеек — числа вправо (rcv-num), серые (rcv-soft: штрихкод, ед., на складе), 4 редактируемые с подчёркиванием (rcv-edit),
+        // цена и прибыль подсвечиваются в строках «мало» / «ниже закупки» (rcv-sale / rcv-profit). Старый rcv-name (название на 2 строки) заменён подстрокой.
+        foreach (var numeric in new[] { RcvColBarcode, RcvColWas, RcvColQty, RcvColPurchase, RcvColMarkup, RcvColSale, RcvColProfit, RcvColTotal })
+            numeric.CellStyleClasses.Add("rcv-num");
+        foreach (var soft in new[] { RcvColBarcode, RcvColUnit, RcvColWas })
+            soft.CellStyleClasses.Add("rcv-soft");
+        RcvColBarcode.CellStyleClasses.Add("rcv-bar");
+        foreach (var edit in new[] { RcvColQty, RcvColPurchase, RcvColMarkup, RcvColSale })
+            edit.CellStyleClasses.Add("rcv-edit");
+        RcvColSale.CellStyleClasses.Add("rcv-sale");
+        RcvColProfit.CellStyleClasses.Add("rcv-profit");
 
         // П. 109: «Штучные» и «Поштучно» рядом не различались — второе «Поштучно из упаковки», у обоих подсказка.
         SaleUnitPiecePackageRadio.Content = T("Поштучно из упаковки", "Таңгактан даана менен", "Single pieces from a pack",

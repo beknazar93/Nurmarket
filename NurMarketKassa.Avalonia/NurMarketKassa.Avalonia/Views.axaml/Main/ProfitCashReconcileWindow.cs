@@ -35,21 +35,10 @@ public sealed class ProfitCashReconcileWindow : Window
     /// <summary>2026-10-22 (зарплата: источник, статьи): расходы периода по названию статьи (salaries/rent/taxes/utilities); null — не получены.</summary>
     private Dictionary<string, double>? _named;
 
-    /// <summary>Строка расхода «по названию статьи»: сумма из расходов (cashflow), если она больше серверной (сервер не опознал статью —
-    /// у выплат и изъятий без системного slug там 0,00). Разница вычитается из «Прочих расходов» (итог сервера не меняется).</summary>
-    private double Named(JsonElement block, string key, ref double moved, List<string> notes, string title)
-    {
-        var server = Num(block, key) ?? 0;
-        if (_named is null || !_named.TryGetValue(key, out var byName) || byName <= server + 0.005)
-            return server;
-        moved += byName - server;
-        notes.Add($"{title}: " + Tr.T($"по статьям расходов {byName.ToString("N2", Ru)}, сервер даёт {server.ToString("N2", Ru)}",
-            $"чыгым беренелери боюнча {byName.ToString("N2", Ru)}, сервер {server.ToString("N2", Ru)} берет",
-            $"by expense categories {byName.ToString("N2", Ru)}, the server gives {server.ToString("N2", Ru)}",
-            $"gider kalemlerine göre {byName.ToString("N2", Ru)}, sunucu {server.ToString("N2", Ru)} veriyor",
-            $"xarajat moddalari bo'yicha {byName.ToString("N2", Ru)}, server {server.ToString("N2", Ru)} beradi"));
-        return byName;
-    }
+    /// <summary>Строка расхода «по названию статьи». 2026-10-28: правило перенесено в общий <see cref="ProfitReport.Named"/> — его же
+    /// берёт зарплата от прибыли, чтобы цифры совпадали с этим окном.</summary>
+    private double Named(JsonElement block, string key, ref double moved, List<string> notes, string title) =>
+        ProfitReport.Named(block, key, _named, ref moved, notes, title);
 
     private TextBlock NamedNote(List<string> notes) => Soft(
         Tr.T("Строки взяты по названию статьи расхода (зарплата, аренда, налоги — как в разделе «Зарплата» и при изъятии из кассы). ",
@@ -230,21 +219,12 @@ public sealed class ProfitCashReconcileWindow : Window
             Money(d, "gross_profit") + (Num(d, "margin_percent") is { } m ? $"  ·  {m.ToString("0.#", Ru)} %" : ""), true));
         if (d.TryGetProperty("opex", out var opex) && opex.ValueKind == JsonValueKind.Object)
         {
-            double moved = 0;
+            // 2026-10-28: строки расходов — общая функция ProfitReport.ExpenseLines (та же, что считает зарплату от прибыли).
             var notes = new List<string>();
-            foreach (var (key, title) in new[]
-                     {
-                         ("salaries", Tr.T("Зарплата", "Эмгек акы", "Salaries", "Maaşlar", "Ish haqi")),
-                         ("rent", Tr.T("Аренда", "Ижара", "Rent", "Kira", "Ijara")),
-                         ("taxes", Tr.T("Налоги", "Салыктар", "Taxes", "Vergiler", "Soliqlar")),
-                         ("utilities", Tr.T("Коммунальные", "Коммуналдык", "Utilities", "Faturalar", "Kommunal")),
-                         ("other", Tr.T("Прочие расходы", "Башка чыгымдар", "Other expenses", "Diğer giderler", "Boshqa xarajatlar")),
-                     })
+            foreach (var line in ProfitReport.ExpenseLines(opex, _named, notes))
             {
-                // 2026-10-22 (зарплата: источник, статьи): «Прочие» считаются последними — из них вычтено перенесённое в именованные строки.
-                var value = key == "other" ? Math.Max(0, (Num(opex, key) ?? 0) - moved) : Named(opex, key, ref moved, notes, title);
-                if (value > 0.004)
-                    _pnl.Children.Add(Row("   " + title, "− " + value.ToString("N2", Ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm"), false));
+                if (line.Amount > 0.004)
+                    _pnl.Children.Add(Row("   " + line.Title, "− " + line.Amount.ToString("N2", Ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm"), false));
             }
             if (notes.Count > 0)
                 _pnl.Children.Add(NamedNote(notes));

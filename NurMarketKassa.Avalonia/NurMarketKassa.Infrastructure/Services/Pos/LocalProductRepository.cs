@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
+using NurMarketKassa.Core.Application;
 using NurMarketKassa.Models;
 using NurMarketKassa.Models.Pos;
 
@@ -595,15 +596,20 @@ public sealed class LocalProductRepository
                 && MatchesRowFilters(CachedProductRow.From(exactSku), mustWeigh, criteria))
                 return [exactSku];
 
-            foreach (var row in _searchRows)
+            // 2026-10-29: единый поиск SearchMatch — слова в любом порядке, ё=е; нет совпадений как набрано — пробуем раскладку/транслит (Asu↔Асу↔фыг).
+            var sq = SearchMatch.Prepare(query);
+            for (var pass = 0; pass < 2 && matches.Count == 0; pass++)
             {
-                if (!MatchesRowFilters(row, mustWeigh, criteria))
-                    continue;
+                foreach (var row in _searchRows)
+                {
+                    if (!MatchesRowFilters(row, mustWeigh, criteria))
+                        continue;
 
-                if (!row.MatchesText(normalized))
-                    continue;
+                    if (!row.MatchesText(normalized, sq, pass == 1))
+                        continue;
 
-                matches.Add(row.Tile);
+                    matches.Add(row.Tile);
+                }
             }
         }
         finally
@@ -999,15 +1005,19 @@ public sealed class LocalProductRepository
 
             var matches = new List<CatalogProductTileVm>();
 
-            foreach (var row in _searchRows)
+            var sq = SearchMatch.Prepare(searchText ?? criteria?.SearchQuery);
+            for (var pass = 0; pass < (normalized != null ? 2 : 1) && matches.Count == 0; pass++)
             {
-                if (!MatchesRowFilters(row, mustWeigh, criteria))
-                    continue;
+                foreach (var row in _searchRows)
+                {
+                    if (!MatchesRowFilters(row, mustWeigh, criteria))
+                        continue;
 
-                if (normalized != null && !row.MatchesText(normalized))
-                    continue;
+                    if (normalized != null && !row.MatchesText(normalized, sq, pass == 1))
+                        continue;
 
-                matches.Add(row.Tile);
+                    matches.Add(row.Tile);
+                }
             }
 
             var page = matches.Skip(offset).Take(limit).ToArray();
@@ -1061,7 +1071,7 @@ public sealed class LocalProductRepository
     }
 
     private static string? NormalizeSearchTerm(string? text) =>
-        string.IsNullOrWhiteSpace(text) ? null : text.Trim().ToLowerInvariant();
+        string.IsNullOrWhiteSpace(text) ? null : SearchMatch.Normalize(text); // 2026-10-29: ё=е, пробелы схлопнуты
 
     private sealed class CachedProductRow
     {
@@ -1093,8 +1103,12 @@ public sealed class LocalProductRepository
                 Brand = tile.Brand,
             };
 
-        public bool MatchesText(string normalizedQuery)
+        public bool MatchesText(string normalizedQuery, SearchQuery sq, bool fuzzy)
         {
+            // 2026-10-29: слова в любом порядке по ключу товара (название, код, артикул, категория, бренд) + раскладка/транслит на втором проходе.
+            if (fuzzy ? sq.MatchesFuzzy(Tile.SearchKey) : sq.Matches(Tile.SearchKey))
+                return true;
+
             if (NormalizedBarcode.Length > 0
                 && (NormalizedBarcode == normalizedQuery
                     || NormalizedBarcode.StartsWith(normalizedQuery, StringComparison.Ordinal)

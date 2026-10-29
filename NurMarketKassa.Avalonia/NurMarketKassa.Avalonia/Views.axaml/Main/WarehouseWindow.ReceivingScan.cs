@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -40,21 +41,22 @@ public partial class WarehouseWindow
 
     // ------------------------------------------------------------------ колонки таблицы приёмки
 
-    // 2026-10-24: x:Name у колонок DataGrid поля не создаёт, поэтому колонки — свойствами в одном месте. Порядок — как в разметке ReceivingGrid;
-    // «Наценка %» и «Изменение» сдвинули прежние номера (Columns[1], [2], [9] в коде приёмки заменены на эти имена).
-    private DataGridColumn RcvColSource => ReceivingGrid.Columns[0];
-    private DataGridColumn RcvColName => ReceivingGrid.Columns[1];
-    private DataGridColumn RcvColBarcode => ReceivingGrid.Columns[2];
-    private DataGridColumn RcvColUnit => ReceivingGrid.Columns[3];
-    private DataGridColumn RcvColWas => ReceivingGrid.Columns[4];
-    private DataGridColumn RcvColQty => ReceivingGrid.Columns[5];
-    private DataGridColumn RcvColPurchase => ReceivingGrid.Columns[6];
-    private DataGridColumn RcvColMarkup => ReceivingGrid.Columns[7];
-    private DataGridColumn RcvColSale => ReceivingGrid.Columns[8];
-    private DataGridColumn RcvColChange => ReceivingGrid.Columns[9];
-    private DataGridColumn RcvColTotal => ReceivingGrid.Columns[10];
-    private DataGridColumn RcvColSizes => ReceivingGrid.Columns[11];
-    private DataGridColumn RcvColRemove => ReceivingGrid.Columns[12];
+    // 2026-10-29, спека Fable: порядок — Название · Штрихкод · Ед. · На складе · Принимаем · Закупка · Наценка % · Цена продажи · Закупка изменилась · Как посчитана цена ·
+    // Прибыль с шт. · Сумма закупки · Размеры · ✕ (колонки «Источник» нет: источник — подстрока под названием).
+    private DataGridColumn RcvColName => ReceivingGrid.Columns[0];
+    private DataGridColumn RcvColBarcode => ReceivingGrid.Columns[1];
+    private DataGridColumn RcvColUnit => ReceivingGrid.Columns[2];
+    private DataGridColumn RcvColWas => ReceivingGrid.Columns[3];
+    private DataGridColumn RcvColQty => ReceivingGrid.Columns[4];
+    private DataGridColumn RcvColPurchase => ReceivingGrid.Columns[5];
+    private DataGridColumn RcvColMarkup => ReceivingGrid.Columns[6];
+    private DataGridColumn RcvColSale => ReceivingGrid.Columns[7];
+    private DataGridColumn RcvColChange => ReceivingGrid.Columns[8];
+    private DataGridColumn RcvColAuto => ReceivingGrid.Columns[9];
+    private DataGridColumn RcvColProfit => ReceivingGrid.Columns[10];
+    private DataGridColumn RcvColTotal => ReceivingGrid.Columns[11];
+    private DataGridColumn RcvColSizes => ReceivingGrid.Columns[12];
+    private DataGridColumn RcvColRemove => ReceivingGrid.Columns[13];
 
     // ------------------------------------------------------------------ запуск
 
@@ -67,15 +69,118 @@ public partial class WarehouseWindow
             "İrsaliyedeki ürünleri okutun. Tedarikçiyi «Stoğa al»dan önce istediğiniz an seçebilirsiniz. Okutmadan sonra imleç «Kabul edilen» hücresinde olur: sayı → Enter → alış fiyatı → Enter → satış fiyatı → Enter — ve yine okutma. Bilinmeyen barkod — yeni satır: adını yazın.",
             "Nakladnoy bo'yicha mahsulotlarni skanerlang. Yetkazib beruvchini «Kirim qilish»dan oldin istalgan paytda tanlash mumkin. Skanerdan keyin kursor «Qabul qilindi» katakchasida turadi: son → Enter → xarid narxi → Enter → sotuv narxi → Enter — va yana skaner. Notanish shtrix-kod — yangi qator: nomini yozing.");
         ReceivingFastNextCheck.Content = TR("Сразу к скану", "Дароо сканерге", "Straight to scan", "Doğrudan okutmaya", "Darhol skanerga");
-        // Подсказка вкладки (на низком окне она скрыта) — всплывающей подсказкой поля скана.
+        // Подсказка вкладки (на низком окне она скрыта) — всплывающей подсказкой поля скана (полный текст); над таблицей — одна короткая строка.
         ToolTip.SetTip(ReceivingScanBox, ReceivingHintText.Text);
+        ReceivingHintText.Text = TR("Как работает: скан → «Принимаем» → Enter → «Закупка» → Enter → снова скан. Цена продажи считается сама: закупка + наценка.",
+            "Кандай иштейт: скан → «Кабыл алабыз» → Enter → «Сатып алуу» → Enter → кайра скан. Сатуу баасы өзү эсептелет: сатып алуу + кошумча.",
+            "How it works: scan → “Receiving” → Enter → “Purchase” → Enter → scan again. The sale price is calculated for you: purchase + markup.",
+            "Nasıl çalışır: okutma → «Alınıyor» → Enter → «Alış» → Enter → yine okutma. Satış fiyatı kendiliğinden hesaplanır: alış + kâr.",
+            "Qanday ishlaydi: skan → «Qabul qilinadi» → Enter → «Xarid» → Enter → yana skan. Sotuv narxi o'zi hisoblanadi: xarid + ustama.");
+        ReceivingHintText.TextWrapping = Avalonia.Media.TextWrapping.NoWrap;
+        ReceivingHintText.TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis;
         ToolTip.SetTip(ReceivingFastNextCheck, TR("Курсор остаётся в поле скана, каждый скан прибавляет количество из поля рядом.",
             "Курсор сканер талаасында калат, ар бир скан жанындагы талаадагы санды кошот.",
             "The cursor stays in the scan field; every scan adds the quantity from the field next to it.",
             "İmleç okutma alanında kalır, her okutma yanındaki alandaki miktarı ekler.",
             "Kursor skaner maydonida qoladi, har bir skan yonidagi maydondagi sonni qo'shadi."));
+        // 2026-10-29, спека Fable (Specs-1029/01) + жалоба «что означает Динамика»: заголовки простыми словами, подзаголовки, тултипы; числа и их заголовки — вправо.
+        RcvNameHeader.Text = TR("Название", "Аталышы", "Name", "Ad", "Nomi");
+        RcvBarHeader.Text = TR("Штрихкод", "Штрихкод", "Barcode", "Barkod", "Shtrix-kod");
+        RcvUnitHeader.Text = TR("Ед.", "Бир.", "Unit", "Birim", "Birlik");
+        RcvWasHeader.Text = TR("На складе", "Кампада", "In stock", "Depoda", "Omborda");
+        RcvTakenHeader.Text = TR("Прини­маем", "Кабыл ала­быз", "Receiving", "Alınıyor", "Qabul qili­nadi");
+        RcvPurchaseHeader.Text = TR("Закупка", "Сатып алуу", "Purchase", "Alış", "Xarid");
+        RcvPurchaseSub.Text = TR("сом за шт.", "бирдик үчүн сом", "som per unit", "birim başına som", "dona uchun so'm");
         RcvMarkupHeader.Text = TR("Наценка %", "Кошумча %", "Markup %", "Kâr %", "Ustama %");
-        RcvChangeHeader.Text = TR("Динамика", "Динамика", "Trend", "Trend", "Dinamika");
+        RcvSaleHeader.Text = TR("Цена продажи", "Сатуу баасы", "Sale price", "Satış fiyatı", "Sotuv narxi");
+        RcvChangeHeader.Text = TR("Закупка изменилась", "Сатып алуу өзгөрдү", "Purchase changed", "Alış değişti", "Xarid o'zgardi");
+        RcvChangeSub.IsVisible = false; // «против прошлой» — в тултипе заголовка и в подстроке «было …»
+        RcvAutoHeader.Text = TR("Как посчитана цена", "Баа кантип эсептелген", "How the price is set", "Fiyat nasıl hesaplandı", "Narx qanday hisoblangan");
+        RcvProfitHeader.Text = TR("Прибыль с шт.", "Бирдиктен пайда", "Profit per unit", "Birim kârı", "Dona foydasi");
+        RcvTotalHeader.Text = TR("Сумма закупки", "Сатып алуу суммасы", "Purchase total", "Alış tutarı", "Xarid summasi");
+        ToolTip.SetTip(RcvWasHeader, TR("Сколько этого товара сейчас на складе (до приёмки).", "Бул товардан азыр кампада канча бар (кабыл алганга чейин).", "How much of this product is in stock now (before receiving).", "Bu üründen şu an depoda ne kadar var (kabulden önce).", "Bu mahsulotdan hozir omborda qancha bor (qabuldan oldin)."));
+        ToolTip.SetTip(RcvTakenHeader, TR("Сколько привезли — впишите число.", "Канча алып келишти — санды жазыңыз.", "How many arrived — enter the number.", "Kaç adet geldi — sayıyı yazın.", "Nechta keldi — sonni yozing."));
+        ToolTip.SetTip(RcvChangeHeader, TR("Сравнение с прошлой закупкой этого товара: дороже, дешевле или без изменений.", "Бул товардын мурунку сатып алуу баасы менен салыштыруу: кымбат, арзан же өзгөрүүсүз.",
+            "Comparison with the previous purchase price of this product: higher, lower or unchanged.", "Bu ürünün önceki alış fiyatıyla karşılaştırma: pahalı, ucuz veya değişmemiş.", "Shu mahsulotning oldingi xarid narxi bilan taqqoslash: qimmat, arzon yoki o'zgarmagan."));
+        ToolTip.SetTip(RcvAutoHeader, TR("Как посчитана цена продажи: «авто» — по общей наценке, «вручную» — вы поменяли сами; предупреждения о малой марже и цене ниже закупки. «Как у всех» возвращает общую наценку.",
+            "Сатуу баасы кантип эсептелген: «авто» — жалпы кошумча боюнча, «кол менен» — өзүңүз өзгөрттүңүз; аз маржа жана сатып алуудан төмөн баа эскертүүлөрү. «Баарындай» жалпы кошумчаны кайтарат.",
+            "How the sale price was set: “auto” — by the common markup, “manual” — you changed it; warnings for low margin and price below cost. “Like all” brings the common markup back.",
+            "Satış fiyatı nasıl hesaplandı: «oto» — ortak kâr oranıyla, «elle» — siz değiştirdiniz; düşük marj ve alışın altı uyarıları. «Hepsi gibi» ortak oranı geri getirir.",
+            "Sotuv narxi qanday hisoblangan: «avto» — umumiy ustama bo'yicha, «qo'lda» — o'zingiz o'zgartirgansiz; kam marja va xariddan past narx ogohlantirishlari. «Hammasi kabi» umumiy ustamani qaytaradi."));
+        foreach (var h in new[] { RcvWasHeader, RcvTakenHeader, RcvPurchaseHeader, RcvPurchaseSub, RcvMarkupHeader, RcvSaleHeader, RcvProfitHeader, RcvTotalHeader })
+        {
+            h.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
+            h.TextAlignment = Avalonia.Media.TextAlignment.Right;
+        }
+        // Строка «цена ниже закупки» — красная, «маржа мало» — жёлтая (стили DataGridRow.rcv-below / rcv-low в разметке).
+        var rowHooks = new Dictionary<DataGridRow, (ReceivingLineVm Line, System.ComponentModel.PropertyChangedEventHandler Handler)>();
+        static void SetRowClass(DataGridRow row, string name, bool on)
+        {
+            if (on && !row.Classes.Contains(name))
+                row.Classes.Add(name);
+            else if (!on)
+                row.Classes.Remove(name);
+        }
+        static void ApplyRowClasses(DataGridRow row, ReceivingLineVm l)
+        {
+            SetRowClass(row, "rcv-below", l.IsBelowCost);
+            SetRowClass(row, "rcv-low", !l.IsBelowCost && l.IsLowMargin);
+        }
+        void UnhookRow(DataGridRow row)
+        {
+            if (rowHooks.Remove(row, out var old))
+                old.Line.PropertyChanged -= old.Handler;
+        }
+        ReceivingGrid.LoadingRow += (_, e) =>
+        {
+            UnhookRow(e.Row);
+            if (e.Row.DataContext is not ReceivingLineVm line)
+                return;
+            System.ComponentModel.PropertyChangedEventHandler handler = (_, _) => ApplyRowClasses(e.Row, line);
+            line.PropertyChanged += handler;
+            rowHooks[e.Row] = (line, handler);
+            ApplyRowClasses(e.Row, line);
+        };
+        ReceivingGrid.UnloadingRow += (_, e) => UnhookRow(e.Row);
+        ReceivingMarkupButton.Content = TR("Наценка…", "Кошумча %…", "Markup…", "Kâr oranı…", "Ustama…");
+        ToolTip.SetTip(ReceivingMarkupButton, TR("Автоматическая наценка: цена продажи считается по закупке; наценка по умолчанию, по категориям, округление.",
+            "Автоматтык кошумча: сатуу баасы сатып алуу баасы боюнча эсептелет; демейки жана категория боюнча кошумча, тегеректөө.",
+            "Automatic markup: the sale price is calculated from the purchase price; default and per-category markup, rounding.",
+            "Otomatik kâr oranı: satış fiyatı alış fiyatından hesaplanır; varsayılan ve kategori kârı, yuvarlama.",
+            "Avtomatik ustama: sotuv narxi xarid narxidan hisoblanadi; standart va kategoriya ustamasi, yaxlitlash."));
+        // 2026-10-28: «Наценка для всех, %» над списком: ввод пересчитывает все строки в режиме «авто» на лету, запоминается при выходе из поля (Enter/уход).
+        ReceivingMarkupLabel.Text = TR("Наценка для всех, %", "Баарына кошумча, %", "Markup for all, %", "Tümü için kâr, %", "Hammasi uchun ustama, %");
+        ReceivingMarkupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));
+        Avalonia.Automation.AutomationProperties.SetName(ReceivingMarkupBox, ReceivingMarkupLabel.Text);
+        var markupTyping = false;
+        void MarkupFieldCommit(bool persist)
+        {
+            if (CheckoutValidation.TryParseAmount(ReceivingMarkupBox.Text, out var percent) == CheckoutValidation.AmountParse.Ok && percent <= 1000)
+            {
+                markupTyping = true;
+                try { ReceivingMarkupSettingsStore.SetDefaultPercent(percent, persist); }
+                finally { markupTyping = false; }
+            }
+            else if (persist)
+                ReceivingMarkupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));
+        }
+        ReceivingMarkupBox.TextChanged += (_, _) => { if (!markupTyping && ReceivingMarkupBox.IsFocused) MarkupFieldCommit(false); };
+        ReceivingMarkupBox.LostFocus += (_, _) => MarkupFieldCommit(true);
+        ReceivingMarkupBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; MarkupFieldCommit(true); ReceivingScanBox.Focus(); } };
+        Action markupChanged = () => Dispatcher.UIThread.Post(() =>
+        {
+            var auto = ReceivingMarkupSettingsStore.Current.AutoEnabled;
+            ReceivingMarkupBox.IsEnabled = auto;
+            ToolTip.SetTip(ReceivingMarkupBox, auto ? null : TR("Автонаценка выключена в окне «Наценка…».", "Автоматтык кошумча «Кошумча %…» терезесинде өчүрүлгөн.",
+                "Automatic markup is turned off in the “Markup…” window.", "Otomatik kâr oranı «Kâr oranı…» penceresinde kapalı.", "Avtomatik ustama «Ustama…» oynasida o'chirilgan."));
+            if (!ReceivingMarkupBox.IsFocused)
+                ReceivingMarkupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));
+            if (auto)
+                ReceivingPricing.ApplyAutoToAll(_viewModel.ReceivingLines);
+            RefreshReceivingSummary();
+        });
+        ReceivingMarkupSettingsStore.Changed += markupChanged;
+        Closed += (_, _) => ReceivingMarkupSettingsStore.Changed -= markupChanged;
         ToolTip.SetTip(ReceivingNewSupplierButton, TR("Новый поставщик", "Жаңы жеткирүүчү", "New supplier", "Yeni tedarikçi", "Yangi yetkazib beruvchi"));
         if (OfflineModeHelper.UseLocalOperations)
         {
@@ -247,7 +352,7 @@ public partial class WarehouseWindow
         object source = query.Length == 0
             ? _viewModel.ReceivingSuppliers
             : _viewModel.ReceivingSuppliers.Where(s => string.IsNullOrEmpty(s.Id)
-                || s.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                || SearchMatch.Matches(query, s.Name) // 2026-10-29: единый поиск
                 || (digits.Length >= 3 && DigitsOnly(s.Phone).Contains(digits, StringComparison.Ordinal))).ToList();
         _supplierListSync = true;
         try
@@ -389,7 +494,7 @@ public partial class WarehouseWindow
         var query = (ReceivingSupplierProductsSearch.Text ?? "").Trim();
         IEnumerable<SupplierProductRow> rows = _supplierProductRows;
         if (query.Length > 0)
-            rows = rows.Where(r => r.SearchKey.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+            rows = rows.Where(r => SearchMatch.Matches(query, r.SearchKey)); // 2026-10-29: единый поиск
         ReceivingSupplierProductsList.ItemsSource = rows.ToList();
     }
 
@@ -429,16 +534,37 @@ public partial class WarehouseWindow
     /// (если в строке цены закупки ещё нет); курсор — в «Принято».</summary>
     private void AddSupplierProductRow(SupplierProductRow row)
     {
-        if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'), System.Globalization.NumberStyles.Any,
+        if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'), System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowLeadingWhite | System.Globalization.NumberStyles.AllowTrailingWhite,
                 System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
             quantity = 1;
         ReceivingGrid.CommitEdit();
         var line = _viewModel.AddReceivingProduct(row.Tile, quantity);
         if (row.Item.LastPurchasePrice > 0 && line.PurchasePrice <= 0)
+        {
             line.PurchasePrice = row.Item.LastPurchasePrice;
+            line.ApplyAutoSale(); // 2026-10-28: последняя закупка у поставщика подставлена — цена по наценке (если строка в режиме «авто»)
+        }
         ReceivingQuantityBox.Text = "1";
         ReceivingSupplierProductsSearch.Text = "";
         OnReceivingLineAdded(line);
+    }
+
+    // ------------------------------------------------------------------ 2026-10-28: автонаценка — «Авто» в строке и окно «Наценка…»
+
+    private void ReceivingAutoSale_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: ReceivingLineVm line })
+        {
+            ReceivingGrid.CommitEdit();
+            line.ReturnToAuto();
+            RefreshReceivingSummary();
+        }
+    }
+
+    private async void ReceivingMarkup_Click(object? sender, RoutedEventArgs e)
+    {
+        ReceivingGrid.CommitEdit();
+        await new ReceivingMarkupDialog().ShowDialog(this).ConfigureAwait(true);
     }
 
     // ------------------------------------------------------------------ подорожание: «Обновить цены продажи (N)» и подтверждение перед «Оприходовать»
@@ -464,6 +590,23 @@ public partial class WarehouseWindow
     }
 
     /// <summary>Перед «Оприходовать»: «Цена продажи изменится у K товаров» со списком (прежняя → новая). false — кассир передумал.</summary>
+    /// <summary>2026-10-29 (спека Fable): «Цена ниже закупки у N товаров» со списком (закупка → продажа, убыток с единицы). false — кассир передумал.</summary>
+    private Task<bool> ConfirmBelowCostAsync(IReadOnlyList<ReceivingLineVm> below)
+    {
+        var shown = below.Take(12).Select(l =>
+            $"• {(string.IsNullOrWhiteSpace(l.ProductName) ? l.Barcode : l.ProductName)}: {ReceivingLineVm.FormatPrice(l.PurchasePrice).Replace('.', ',')} → {ReceivingLineVm.FormatPrice(l.SalePrice).Replace('.', ',')}").ToList();
+        if (below.Count > shown.Count)
+            shown.Add(TR($"…и ещё {below.Count - shown.Count}", $"…жана дагы {below.Count - shown.Count}", $"…and {below.Count - shown.Count} more", $"…ve {below.Count - shown.Count} tane daha", $"…va yana {below.Count - shown.Count}"));
+        var message = TR($"Цена продажи ниже закупки у {below.Count} {Tr.Plural(below.Count, "товара", "товаров", "товаров")} — каждая продажа будет в убыток:", $"{below.Count} товардын сатуу баасы сатып алуудан төмөн — ар бир сатуу чыгым менен болот:",
+                $"The sale price is below the purchase price for {below.Count} {Tr.PluralEn(below.Count, "product", "products")} — every sale will lose money:", $"{below.Count} ürünün satış fiyatı alışın altında — her satış zararla olur:",
+                $"{below.Count} ta mahsulotning sotuv narxi xariddan past — har bir sotuv zarar bilan bo'ladi:")
+            + "\n\n" + string.Join("\n", shown);
+        return PosConfirmDialog.ShowModalAsync(this,
+            TR("Цена ниже закупки", "Баа сатып алуудан төмөн", "Price below cost", "Fiyat alışın altında", "Narx xariddan past"), message,
+            TR("Всё равно провести", "Баары бир өткөрүү", "Post anyway", "Yine de kaydet", "Baribir o'tkazish"),
+            TR("Вернуться", "Артка", "Go back", "Geri dön", "Orqaga"), PosConfirmAccent.Danger);
+    }
+
     private Task<bool> ConfirmSalePriceChangesAsync(IReadOnlyList<ReceivingLineVm> changed)
     {
         var shown = changed.Take(12).Select(l =>

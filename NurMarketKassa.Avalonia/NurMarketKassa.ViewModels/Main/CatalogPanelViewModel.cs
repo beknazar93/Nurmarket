@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
+using NurMarketKassa.Core.Application;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Interfaces;
 using NurMarketKassa.Models.Pos;
@@ -163,6 +164,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             if (!SetProperty(ref _searchText, value ?? ""))
                 return;
             OnPropertyChanged(nameof(IsSearchActive));
+            OnPropertyChanged(nameof(HasSearchText));
             (ClearSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
             ScheduleFilterAfterSearchDebounce();
         }
@@ -170,6 +172,9 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
 
     /// <summary>2026-10-27, аудит Н-4: идёт поиск (2+ символа) — он ищет по всему каталогу, вкладка не действует; вкладки тускнеют.</summary>
     public bool IsSearchActive => _searchText.Trim().Length >= 2;
+
+    /// <summary>2026-10-29 (аудит поисков): в поле поиска есть текст — показываем крестик «очистить».</summary>
+    public bool HasSearchText => _searchText.Length > 0;
 
     private CancellationTokenSource? _searchDebounceCts;
 
@@ -413,6 +418,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
     {
         _searchText = criteria.SearchText;
         OnPropertyChanged(nameof(SearchText));
+        OnPropertyChanged(nameof(HasSearchText));
         (ClearSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
         _advancedFilter = criteria with { SearchText = "" };
         ResetCurrentPage();
@@ -530,6 +536,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         _currentPage = GetTabPage(_selectedTabIndex);
         OnPropertyChanged(nameof(SelectedTabIndex));
         OnPropertyChanged(nameof(SearchText));
+        OnPropertyChanged(nameof(HasSearchText));
         (ClearSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
         ApplyFilter();
     }
@@ -625,6 +632,43 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         }
     }
 
+    // 2026-10-28: итог последней синхронизации (true — данные свежие с сервера или аккаунт автономный) — читает ForceRefreshAsync.
+    private volatile bool _lastSyncOk;
+
+    /// <summary>Итог кнопки «Обновить»: Online — сервер ответил (данные свежие), Total — товаров в каталоге, Changed — у скольких
+    /// изменилась цена/остаток или товар появился/исчез.</summary>
+    public readonly record struct RefreshResult(bool Online, int Total, int Changed);
+
+    /// <summary>2026-10-28, просьба владельца «кнопка "Обновить" во всех видах кассы»: та же полная синхронизация каталога, что у
+    /// <see cref="RefreshCatalogCommand"/>, но с итогом (сколько товаров, что изменилось). Корзина и цены строк чека не трогаются —
+    /// обновляются только плитки каталога.</summary>
+    public async Task<RefreshResult> ForceRefreshAsync()
+    {
+        var before = new Dictionary<string, (string Price, double Qty)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in _allProducts)
+            before.TryAdd(p.Id ?? "", (p.PriceLine ?? "", p.Quantity));
+
+        _lastSyncOk = false;
+        await RefreshCatalogAsync(); // без ConfigureAwait(false): продолжение — снова в UI-потоке
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var changed = 0;
+        foreach (var p in _allProducts)
+        {
+            var id = p.Id ?? "";
+            if (!seen.Add(id))
+                continue;
+            if (!before.TryGetValue(id, out var old) || old.Price != (p.PriceLine ?? "") || Math.Abs(old.Qty - p.Quantity) > 0.0005)
+                changed++;
+        }
+        changed += before.Keys.Count(k => !seen.Contains(k));
+        return new RefreshResult(_lastSyncOk, _allProducts.Count, changed);
+    }
+
+    /// <summary>2026-10-28: есть ли товар с горячей клавишей группы (F1–F12) — F5 «Обновить» не должна отнимать клавишу у группы товаров.</summary>
+    public bool HasProductsInHotkeyGroup(string group) =>
+        _allProducts.Any(p => string.Equals(p.HotkeyGroup ?? "", group, StringComparison.OrdinalIgnoreCase));
+
     private async Task RefreshCatalogAsync()
     {
         await _dispatcher.InvokeAsync(() => IsLoading = true).ConfigureAwait(false);
@@ -660,6 +704,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
                 // авария, а штатный, единственно возможный режим работы — кассир прямо попросил
                 // не показывать предупреждение вовсе, каталог должен выглядеть как обычно.
                 var isTrueAutonomous = _autonomous?.IsCurrentSessionAutonomous == true;
+                _lastSyncOk = isTrueAutonomous; // 2026-10-28: для кнопки «Обновить» — автономный аккаунт штатно без сети, это не «нет связи»
                 await _dispatcher.InvokeAsync(() =>
                 {
                     PublishProducts(localProducts);
@@ -727,6 +772,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
                         "Katalog serverdan yuklanmoqda…")).ConfigureAwait(false);
 
             var syncResult = await _catalogCache.SyncCatalogFullAsync().ConfigureAwait(false);
+            _lastSyncOk = syncResult.Success; // 2026-10-28: итог для кнопки «Обновить» (ForceRefreshAsync)
             _catalogCache.TryLoadFromDatabase();
             var products = _catalogCache.GetProducts().ToList();
 
@@ -880,15 +926,22 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         // (окно добавления сразу возьмёт этот размер, см. MainWindow.AddProductFromCatalogAsync).
         // В «Продуктах» не ищем (владелец: «не трогай продуктовый»).
         var variantProductId = query.Length >= 4 && MarketSpheres.IsClothing ? VariantBarcodeIndex.ProductIdFor(query) : null;
-        var filtered = _allProducts
+        // 2026-10-29: единый поиск SearchMatch — слова в любом порядке, ё=е; если как набрано ничего нет — «Asu»↔«Асу»↔«фыг» (раскладка/транслит).
+        var sq = SearchMatch.Prepare(query);
+        List<CatalogProductTileVm> Build(bool fuzzy) => _allProducts
             .Where(p => isActiveSearch || MatchesTab(p))
-            .Where(p => MatchesSearch(p, query)
+            .Where(p => MatchesSearch(p, query, sq, fuzzy)
                         || (variantProductId != null && string.Equals(p.Id, variantProductId, StringComparison.OrdinalIgnoreCase)))
             .Where(MatchesAdvancedFilter)
             .Where(MatchesHotkeyGroup)
-            .OrderByDescending(p => p.IsFavorite)
+            // 2026-10-29 (приёмка 1.17.64, В-4): при поиске сначала названия, где слово запроса — начало слова («Asu» → «Асу…»), потом где внутри, потом остальные.
+            .OrderBy(p => isActiveSearch && !sq.IsEmpty ? sq.TitleRank(p.Title) : 0)
+            .ThenByDescending(p => p.IsFavorite)
             .ThenBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
+        var filtered = Build(false);
+        if (filtered.Count == 0 && isActiveSearch && !sq.IsEmpty)
+            filtered = Build(true);
 
         _filteredProductCount = filtered.Count;
         OnPropertyChanged(nameof(ShowPager));
@@ -1029,21 +1082,23 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
     {
         var match = Regex.Match(value ?? "", @"\d+(?:[\.,]\d+)?");
         return match.Success && double.TryParse(
-            match.Value.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var price)
+            match.Value.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out var price)
             ? price
             : 0;
     }
 
     private static bool IsGrocerySphere => !MarketSpheres.IsClothing && !MarketSpheres.IsServices;
 
-    private static bool MatchesSearch(CatalogProductTileVm product, string query)
+    private static bool MatchesSearch(CatalogProductTileVm product, string query) =>
+        MatchesSearch(product, query, SearchMatch.Prepare(query), false);
+
+    private static bool MatchesSearch(CatalogProductTileVm product, string query, SearchQuery sq, bool fuzzy)
     {
         if (query.Length < 2)
             return true;
 
         var q = query.ToLowerInvariant();
-        return product.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
-               || (product.Barcode?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+        return (fuzzy ? sq.MatchesFuzzy(product.SearchKey) : sq.Matches(product.SearchKey))
                // 2026-10-06: и доп. штрихкоды товара — скан упаковки с другим штрихкодом в поле поиска тоже находит товар.
                // (не в «Продуктах» — владелец: «главное не трогай продуктовый»)
                || (q.Length >= 4 && !IsGrocerySphere && (product.AlternateBarcodesRaw?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false))

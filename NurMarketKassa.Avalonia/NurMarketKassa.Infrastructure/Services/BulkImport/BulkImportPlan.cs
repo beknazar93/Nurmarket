@@ -26,6 +26,14 @@ public sealed class BulkImportSettings
     public double? DefaultMarkupPercent { get; set; }
 
     public BulkImportDuplicateMode Duplicates { get; set; } = BulkImportDuplicateMode.SumQuantity;
+
+    /// <summary>2026-10-29: единица для строк, где ячейка «Единица» пуста (или столбца нет). null — столбец единицы есть, а ячейка пуста →
+    /// ошибка строки «укажите единицу»; столбца нет вовсе → «шт» (как всегда).</summary>
+    public string? DefaultUnit { get; set; }
+
+    /// <summary>2026-10-29: строка без цены продажи и без наценки в файле получает цену по настройке автонаценки приёмки
+    /// (<see cref="ReceivingMarkupSettingsStore"/>: наценка категории → общая) — та же функция, что в ручной приёмке. Выключено — «укажите цену».</summary>
+    public bool UseReceivingMarkup { get; set; } = true;
 }
 
 public enum BulkImportRowKind
@@ -54,6 +62,30 @@ public sealed class BulkImportRow
     public ReceivingLineVm? Line { get; internal set; }
 
     public string? Error { get; internal set; }
+
+    /// <summary>2026-10-29: чем строка была бы без ошибок проверки (приход / новый). Строки с ошибкой проверки (нет цены, количества, единицы) сохраняют
+    /// <see cref="Line"/>, и окно позволяет поправить их прямо в таблице (<see cref="BulkImportPlan.Recompute"/>); ошибки разбора числа — только в файле.</summary>
+    internal BulkImportRowKind BaseKind { get; set; }
+
+    /// <summary>2026-10-29: единица в файле пуста или не узнана — пока человек не выбрал единицу, строка с ошибкой «укажите единицу».</summary>
+    internal string? UnitProblem { get; set; }
+
+    /// <summary>2026-10-29: у существующего товара весовой признак (дробное количество разрешено).</summary>
+    internal bool Weighed { get; set; }
+
+    /// <summary>Единица строки (для таблицы).</summary>
+    public string Unit => Line?.Unit ?? "";
+
+    /// <summary>Поставить единицу строке (вручную или «Установить единицу» над выбранными): нормализуется по справочнику, своя — как введена.
+    /// У существующего товара единица карточки приходом не меняется — только у новых.</summary>
+    public bool SetUnit(string? unit)
+    {
+        if (Line is null || BaseKind != BulkImportRowKind.New)
+            return false;
+        Line.Unit = UnitCatalog.NormalizeOrKeep(unit);
+        UnitProblem = null;
+        return true;
+    }
 
     /// <summary>Поле, чья ячейка виновата (для подсветки ячейки в таблице), и её столбец в файле.</summary>
     public ProductImportField? ErrorField { get; internal set; }
@@ -161,6 +193,7 @@ public sealed class BulkImportPlan
         var cCategory = mapping.ColumnOf(ProductImportField.Category);
         var cUnit = mapping.ColumnOf(ProductImportField.Unit);
         var cWeight = mapping.ColumnOf(ProductImportField.Weight);
+        var cols = new Cols(cQty, cName, cPurchase, cSale, cUnit);
 
         var done = 0;
         var fromDirectoryCount = 0;
@@ -252,10 +285,13 @@ public sealed class BulkImportPlan
 
             // ---- существующий товар или новый
             ReceivingLineVm line;
+            var weighed = false;
+            string? unitProblem = null;
             if (index.Find(barcode) is { } tile)
             {
                 line = PurchaseReceivingService.FromTile(tile, quantity ?? 0);
                 row.Kind = BulkImportRowKind.Receipt;
+                weighed = tile.MustWeigh;
                 if (purchase is > 0)
                     line.PurchasePrice = purchase.Value;
                 if (sale is > 0)
@@ -264,6 +300,19 @@ public sealed class BulkImportPlan
                     line.SalePrice = ReceivingPricing.SaleFromMarkup(line.PurchasePrice, mk);
                 else if (line.SalePrice <= 0 && line.PurchasePrice > 0 && settings.DefaultMarkupPercent is { } dm)
                     line.SalePrice = ReceivingPricing.SaleFromMarkup(line.PurchasePrice, dm);
+                // 2026-10-29: у товара склада цены продажи нет, в файле её тоже нет — считаем по автонаценке приёмки (та же функция, что в ручной приёмке).
+                else if (line.SalePrice <= 0 && line.PurchasePrice > 0 && settings.UseReceivingMarkup
+                         && ReceivingPricing.AutoSalePrice(line, ReceivingMarkupSettingsStore.Current) is { } autoSale)
+                    line.SalePrice = autoSale;
+
+                // 2026-10-29: единица в файле отличается от единицы товара склада — приходом единица не меняется, предупреждаем.
+                if (cUnit >= 0 && UnitCatalog.Find(src[cUnit]) is { } fileUnit
+                    && !string.Equals(UnitCatalog.NormalizeOrKeep(line.Unit), fileUnit.Storage, StringComparison.Ordinal))
+                    row.Warning = AppendWarning(row.Warning, Tr.T($"единица в файле «{fileUnit.Display}», у товара «{UnitCatalog.Display(line.Unit)}» — остаётся «{UnitCatalog.Display(line.Unit)}»",
+                        $"файлдагы бирдик «{fileUnit.Display}», товарда «{UnitCatalog.Display(line.Unit)}» — «{UnitCatalog.Display(line.Unit)}» калат",
+                        $"unit in the file is “{fileUnit.Display}”, the product has “{UnitCatalog.Display(line.Unit)}” — it stays “{UnitCatalog.Display(line.Unit)}”",
+                        $"dosyadaki birim «{fileUnit.Display}», üründe «{UnitCatalog.Display(line.Unit)}» — «{UnitCatalog.Display(line.Unit)}» kalır",
+                        $"fayldagi birlik «{fileUnit.Display}», mahsulotda «{UnitCatalog.Display(line.Unit)}» — «{UnitCatalog.Display(line.Unit)}» qoladi"));
             }
             else
             {
@@ -279,10 +328,29 @@ public sealed class BulkImportPlan
                     row.Name = name;
                     fromDirectoryCount++;
                 }
-                string? unitWarning = null;
-                var unit = cUnit >= 0 ? NormalizeUnit(src[cUnit], out unitWarning) : "шт";
-                if (unitWarning is not null)
-                    row.Warning = string.IsNullOrEmpty(row.Warning) ? unitWarning : row.Warning + "; " + unitWarning;
+
+                // 2026-10-29: единица — по справочнику UnitCatalog (шт, кг, г, л, мл, м, уп…; ru/ky/uz/en/tr). Столбец есть, а ячейка пуста или
+                // единица не узнана — ошибка «укажите единицу» (раньше молча «шт»), если не задана единица для пустых (BulkImportSettings.DefaultUnit).
+                var unit = UnitCatalog.DefaultUnit;
+                var unitRaw = cUnit >= 0 ? src[cUnit].Trim() : "";
+                if (unitRaw.Length > 0)
+                {
+                    if (UnitCatalog.Normalize(unitRaw) is { } known)
+                        unit = known;
+                    else if (settings.DefaultUnit is { Length: > 0 } fallbackUnit)
+                    {
+                        unit = UnitCatalog.NormalizeOrKeep(fallbackUnit);
+                        row.Warning = AppendWarning(row.Warning, UnknownUnitText(unitRaw) + Tr.T($" — поставлено «{UnitCatalog.Display(unit)}»", $" — «{UnitCatalog.Display(unit)}» коюлду",
+                            $" — set to “{UnitCatalog.Display(unit)}”", $" — «{UnitCatalog.Display(unit)}» yapıldı", $" — «{UnitCatalog.Display(unit)}» qo'yildi"));
+                    }
+                    else
+                        unitProblem = UnknownUnitText(unitRaw);
+                }
+                else if (settings.DefaultUnit is { Length: > 0 } defaultUnit)
+                    unit = UnitCatalog.NormalizeOrKeep(defaultUnit);
+                else if (cUnit >= 0)
+                    unitProblem = MissingUnitText();
+
                 line = new ReceivingLineVm
                 {
                     Barcode = barcode,
@@ -297,28 +365,24 @@ public sealed class BulkImportPlan
                     CategoryName = cCategory >= 0 && src[cCategory].Length > 0 ? src[cCategory] : null,
                     IsWeight = cWeight >= 0 && ParseBool(src[cWeight]),
                 };
+                // 2026-10-29: цены продажи нет ни в файле, ни как наценки — автонаценка приёмки (наценка категории → общая): та же функция, что в ручной приёмке.
+                if (line.SalePrice <= 0 && line.PurchasePrice > 0 && settings.UseReceivingMarkup
+                    && ReceivingPricing.AutoSalePrice(line, ReceivingMarkupSettingsStore.Current) is { } autoNew)
+                    line.SalePrice = autoNew;
                 row.Kind = BulkImportRowKind.New;
             }
 
-            // ---- проверка теми же правилами, что в приёмке
-            var problems = PurchaseReceivingService.Validate([line]);
-            if (row.Kind == BulkImportRowKind.New)
-                line.Source = ReceivingSource.Unknown;
-            if (problems.Count > 0)
-            {
-                var (field, column) = line.Quantity <= 0 ? (ProductImportField.Quantity, cQty)
-                    : string.IsNullOrWhiteSpace(line.ProductName) ? (ProductImportField.Name, cName)
-                    : line.PurchasePrice <= 0 ? (ProductImportField.Purchase, cPurchase)
-                    : (ProductImportField.Sale, cSale);
-                row.Line = null;
-                Fail(row, string.Join("; ", problems), field, column);
-                continue;
-            }
-
+            // ---- проверка теми же правилами, что в приёмке (+ единица и дробное количество)
+            row.BaseKind = row.Kind;
+            row.Weighed = weighed;
+            row.UnitProblem = unitProblem;
             row.Line = line;
-            seen[canon] = row;
-            lines.Add(line);
-            fileRows.Add(row.FileRow);
+            seen[canon] = row; // 2026-10-29: и строка с ошибкой проверки: повтор её штрихкода складывается в неё, а не заводит второй товар
+            if (Check(row, cols))
+            {
+                lines.Add(line);
+                fileRows.Add(row.FileRow);
+            }
         }
 
         progress?.Report(done);
@@ -330,6 +394,7 @@ public sealed class BulkImportPlan
             Headers = headers,
             Lines = lines,
             FileRows = fileRows,
+            _cols = cols,
         };
         foreach (var r in rows)
         {
@@ -427,37 +492,131 @@ public sealed class BulkImportPlan
         return v is "да" or "true" or "1" or "yes" or "y" or "+" or "ооба" or "evet" or "ha" or "истина";
     }
 
-    private static readonly Dictionary<string, string> UnitAliases = BuildUnitAliases();
-
-    private static Dictionary<string, string> BuildUnitAliases()
-    {
-        var map = new Dictionary<string, string>(StringComparer.Ordinal);
-        void Add(string unit, params string[] names)
-        {
-            foreach (var n in names)
-                map[n] = unit;
-        }
-        Add("шт", "шт", "штука", "штуки", "штук", "pcs", "pc", "piece", "pieces", "adet", "дана", "dona", "ea");
-        Add("кг", "кг", "килограмм", "килограмм", "килограмма", "kg", "kilogram", "kilo", "килограм");
-        Add("л", "л", "литр", "литра", "литров", "l", "lt", "ltr", "litre", "liter", "литр");
-        Add("м", "м", "метр", "метра", "метров", "m", "mt", "meter", "metre", "metr");
-        Add("уп", "уп", "упак", "упаковка", "упаковки", "pack", "paket", "qadoq", "пачка", "pk");
-        return map;
-    }
-
-    /// <summary>Единица из файла → одна из пяти, которые знает форма товара (шт, кг, л, м, уп). Пусто — «шт»; не узнали — «шт» с замечанием.</summary>
+    /// <summary>Единица из файла → единица справочника (<see cref="UnitCatalog"/>: шт, кг, г, л, мл, м, уп, пара…). Пусто — «шт»; не узнали — «шт» с замечанием.
+    /// 2026-10-29: словарь единиц теперь один (UnitCatalog), здесь осталась оболочка для накладных (InvoicePlan).</summary>
     internal static string NormalizeUnit(string raw, out string? warning)
     {
         warning = null;
-        var key = ProductImportMapping.Key(raw);
-        if (key.Length == 0)
-            return "шт";
-        if (UnitAliases.TryGetValue(key, out var unit))
+        if (string.IsNullOrWhiteSpace(raw))
+            return UnitCatalog.DefaultUnit;
+        if (UnitCatalog.Normalize(raw) is { } unit)
             return unit;
         warning = Tr.T($"единица «{raw}» не распознана — поставлено «шт»", $"бирдик «{raw}» таанылган жок — «шт» коюлду", $"unit “{raw}” not recognized — set to “шт”",
             $"birim «{raw}» tanınmadı — «шт» yapıldı", $"birlik «{raw}» tanilmadi — «шт» qo'yildi");
-        return "шт";
+        return UnitCatalog.DefaultUnit;
     }
+
+    private static string AppendWarning(string? current, string add) => string.IsNullOrEmpty(current) ? add : current + "; " + add;
+
+    private static string MissingUnitText() => Tr.T("укажите единицу (шт, кг, г, л, мл, м…)", "өлчөм бирдигин көрсөтүңүз (шт, кг, г, л, мл, м…)",
+        "enter the unit (pcs, kg, g, l, ml, m…)", "birimi girin (adet, kg, g, l, ml, m…)", "birlikni kiriting (dona, kg, g, l, ml, m…)");
+
+    private static string UnknownUnitText(string raw) => Tr.T($"единица «{raw}» не распознана — укажите шт, кг, г, л, мл, м…",
+        $"бирдик «{raw}» таанылган жок — шт, кг, г, л, мл, м… көрсөтүңүз",
+        $"unit “{raw}” is not recognized — use pcs, kg, g, l, ml, m…",
+        $"birim «{raw}» tanınmadı — adet, kg, g, l, ml, m… yazın",
+        $"birlik «{raw}» tanilmadi — dona, kg, g, l, ml, m… yozing");
+
+    // ------------------------------------------------------------------ проверка строки и пересчёт после правок в таблице
+
+    /// <summary>Столбцы файла, нужные проверке (для подсветки ячейки с ошибкой).</summary>
+    private readonly record struct Cols(int Quantity, int Name, int Purchase, int Sale, int Unit);
+
+    private Cols _cols;
+
+    /// <summary>Проверка строки теми же правилами, что в приёмке (<see cref="PurchaseReceivingService.Validate"/>), плюс «единица» и «дробное
+    /// количество у штучной единицы». Тексты — «укажите цену/количество/единицу». true — строка годна; иначе Kind = Error, Error заполнен, а
+    /// <see cref="BulkImportRow.Line"/> остаётся — человек может поправить число в таблице (<see cref="Recompute"/>).</summary>
+    private static bool Check(BulkImportRow row, Cols cols)
+    {
+        var line = row.Line!;
+        var isNew = row.BaseKind == BulkImportRowKind.New;
+        var problems = new List<string>();
+        ProductImportField? field = null;
+        var column = -1;
+        void Add(string text, ProductImportField f, int c)
+        {
+            problems.Add(text);
+            if (field is null)
+            {
+                field = f;
+                column = c;
+            }
+        }
+
+        if (isNew && row.UnitProblem is { Length: > 0 } unitProblem)
+            Add(unitProblem, ProductImportField.Unit, cols.Unit);
+        if (line.Quantity <= 0)
+            Add(Tr.T("укажите количество", "санын көрсөтүңүз", "enter the quantity", "miktarı girin", "miqdorni kiriting"), ProductImportField.Quantity, cols.Quantity);
+        else if (UnitCatalog.QuantityProblem(line.Quantity, line.Unit, line.IsWeight || row.Weighed) is { } fractional)
+            Add(fractional, ProductImportField.Quantity, cols.Quantity);
+        if (isNew && string.IsNullOrWhiteSpace(line.ProductName))
+            Add(Tr.T("укажите название", "атын көрсөтүңүз", "enter the name", "adı girin", "nomini kiriting"), ProductImportField.Name, cols.Name);
+        if (line.PurchasePrice <= 0)
+            Add(Tr.T("укажите закупку", "сатып алуу баасын көрсөтүңүз", "enter the purchase price", "alış fiyatını girin", "xarid narxini kiriting"), ProductImportField.Purchase, cols.Purchase);
+        if (line.SalePrice <= 0)
+            Add(Tr.T("укажите цену продажи (или наценку)", "сатуу баасын (же үстөктү) көрсөтүңүз", "enter the sale price (or markup)",
+                "satış fiyatını (veya kâr oranını) girin", "sotuv narxini (yoki ustamani) kiriting"), ProductImportField.Sale, cols.Sale);
+
+        // Остальные правила приёмки (размеры, дубль нового штрихкода…) — без изменений.
+        if (problems.Count == 0)
+        {
+            var saved = line.Source;
+            if (isNew)
+                line.Source = ReceivingSource.GlobalBase; // O(N)-поиск штрихкода в каталоге на 15 000 строк — минуты; словарь уже сказал, что кода нет
+            var others = PurchaseReceivingService.Validate([line]);
+            if (isNew)
+                line.Source = ReceivingSource.Unknown;
+            else
+                line.Source = saved;
+            if (others.Count > 0)
+                Add(string.Join("; ", others), ProductImportField.Quantity, cols.Quantity);
+        }
+        else if (isNew)
+            line.Source = ReceivingSource.Unknown;
+
+        row.Error = problems.Count == 0 ? null : string.Join("; ", problems);
+        row.ErrorField = field;
+        row.ErrorColumn = column;
+        row.Kind = problems.Count == 0 ? row.BaseKind : BulkImportRowKind.Error;
+        return problems.Count == 0;
+    }
+
+    /// <summary>Пересчёт после правок строк в таблице (количество, закупка, продажа, наценка, единица): заново проверяет строки, у которых есть
+    /// строка прихода, собирает <see cref="Lines"/>/<see cref="FileRows"/> и счётчики. Ошибки разбора числа (строки без прихода) не трогает.</summary>
+    public void Recompute()
+    {
+        var lines = new List<ReceivingLineVm>();
+        var fileRows = new List<int>();
+        int receipt = 0, created = 0, errors = 0, merged = 0;
+        foreach (var row in Rows)
+        {
+            if (row.Line is not null && row.Kind != BulkImportRowKind.Merged)
+            {
+                if (Check(row, _cols))
+                {
+                    lines.Add(row.Line);
+                    fileRows.Add(row.FileRow);
+                }
+            }
+            switch (row.Kind)
+            {
+                case BulkImportRowKind.Receipt: receipt++; break;
+                case BulkImportRowKind.New: created++; break;
+                case BulkImportRowKind.Merged: merged++; break;
+                default: errors++; break;
+            }
+        }
+        Lines = lines;
+        FileRows = fileRows;
+        ReceiptCount = receipt;
+        NewCount = created;
+        MergedCount = merged;
+        ErrorCount = errors;
+    }
+
+    /// <summary>Строк, которые уйдут в приход (приход к товарам склада + новые).</summary>
+    public int ReadyCount => ReceiptCount + NewCount;
 
     // ------------------------------------------------------------------ словарь каталога
 

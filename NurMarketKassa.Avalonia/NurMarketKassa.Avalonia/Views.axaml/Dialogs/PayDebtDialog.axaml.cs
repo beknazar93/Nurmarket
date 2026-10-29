@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NurMarketKassa.Core.Application;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -1115,7 +1116,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         var query = _clientSearchText?.Trim() ?? "";
         IEnumerable<ClientOption> source = _allClients;
         if (query.Length > 0)
-            source = source.Where(c => c.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+            source = source.Where(c => SearchMatch.Matches(query, c.DisplayName)); // 2026-10-29: единый поиск
         // 2026-10-21 (пакет 6, п. 13 аудита кассы): должники — первыми (больший долг выше), остальные — по алфавиту.
         if (_debtByClient.Count > 0)
             source = source.OrderByDescending(c => _debtByClient.TryGetValue(c.Id, out var d) ? d : 0);

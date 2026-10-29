@@ -46,9 +46,110 @@ public static class ReceivingPricing
     public static double? MarkupPercent(double purchase, double sale) =>
         purchase > 0 && sale > 0 ? Math.Round((sale / purchase - 1) * 100, 2) : null;
 
-    /// <summary>Цена продажи от закупки и наценки: P × (1 + M/100), округление вверх до <see cref="SalePriceRoundStep"/>.</summary>
+    /// <summary>2026-10-28 (дробные цены закупки): сколько знаков после запятой принимает поле «Закупка» в приёмке. Сейчас 2: все ответы
+    /// сервера по ценам — с двумя знаками («45.50», «1.00», «15.00» в ТЗ бэкенду), а клиент пишет закупку в товар тоже с двумя
+    /// («0.##» в CatalogApiService). 2026-10-29, проверено живьём на NBS: товар POST принимает 3–4 знака, но хранит закупку с 2 (12,333 → 12,33; 0,125 → 0,13; 100,6049 → 100,61), а наценку считает от точного числа; 
+    /// PATCH товара больше 2 знаков отклоняет («не более 2 цифры после запятой»); приход (receipts) принимает до 3 знаков (в строке прихода хранит 3, в товаре 2), 4 знака отклоняет 
+    /// целиком. Поэтому 2 — единственное безопасное значение.</summary>
+    public const int PurchaseDecimals = 2;
+
+    /// <summary>Цена продажи от закупки и наценки: P × (1 + M/100), округление по настройке магазина
+    /// (<see cref="ReceivingMarkupSettings.Rounding"/>; по умолчанию вверх до целого сома, как было всегда).</summary>
     public static double SaleFromMarkup(double purchase, double markupPercent) =>
-        RoundSaleUp(purchase * (1 + markupPercent / 100));
+        SaleFromMarkup(purchase, markupPercent, ReceivingMarkupSettingsStore.Current.Rounding);
+
+    public static double SaleFromMarkup(double purchase, double markupPercent, SaleRounding rounding)
+    {
+        if (rounding == SaleRounding.WholeUp)
+            return RoundSaleUp(purchase * (1 + markupPercent / 100));
+        if (purchase <= 0 || Math.Abs(purchase) > 1e12 || Math.Abs(markupPercent) > 1e6)
+            return 0;
+        return RoundSale((double)((decimal)purchase * (1 + (decimal)markupPercent / 100m)), rounding);
+    }
+
+    /// <summary>2026-10-28: округление цены продажи по режиму. «Вверх до целого» — прежнее; «до 0,5», «до 0,1», «до 0,01» — к ближайшему
+    /// (15,9375 → 16 / 15,9 / 15,94; середина — вверх, AwayFromZero). Считается в decimal — без шума double.</summary>
+    public static double RoundSale(double price, SaleRounding rounding)
+    {
+        if (price <= 0 || double.IsNaN(price) || double.IsInfinity(price) || price > 1e12)
+            return 0;
+        if (rounding == SaleRounding.WholeUp)
+            return RoundSaleUp(price);
+        var perUnit = rounding switch { SaleRounding.Half => 2m, SaleRounding.Tenth => 10m, _ => 100m };
+        var rounded = Math.Round((decimal)price * perUnit, 0, MidpointRounding.AwayFromZero) / perUnit;
+        return (double)Math.Max(rounded, 1m / perUnit); // копеечная цена не должна обнулиться
+    }
+
+    /// <summary>2026-10-28: сумма строки приёмки = количество × закупка с округлением ДО 2 ЗНАКОВ ПО ИТОГУ (AwayFromZero), а не по цене:
+    /// 3 × 12,333 = 36,999 → 37,00. Итог документа — сумма таких строк (копейки не теряются на каждой цене отдельно).</summary>
+    public static double LineTotal(double quantity, double price)
+    {
+        if (double.IsNaN(quantity) || double.IsNaN(price) || Math.Abs(quantity) > 1e9 || Math.Abs(price) > 1e9)
+            return quantity * price;
+        return (double)Math.Round((decimal)quantity * (decimal)price, 2, MidpointRounding.AwayFromZero);
+    }
+
+    // ------------------------------------------------------------------ 2026-10-28: автонаценка в ручном режиме приёмки
+
+    /// <summary>Откуда взята наценка автоматической цены продажи.</summary>
+    public enum MarkupSource { None, Product, Category, Default }
+
+    /// <summary>Наценка для автоцены строки: наценка её категории (если задана в таблице категорий), иначе общая «Наценка для всех, %».
+    /// null — автонаценка выключена.</summary>
+    public static double? AutoMarkup(ReceivingLineVm line, ReceivingMarkupSettings settings, out MarkupSource source)
+    {
+        source = MarkupSource.None;
+        if (!settings.AutoEnabled)
+            return null;
+        // 2026-10-28 (уточнение владельца): главное — ОДНО общее поле «Наценка для всех, %» для всех строк приёмки; наценка товара из карточки
+        // больше не берётся (мешала бы общему полю). Необязательное исключение — наценка категории, если её задал владелец в окне «Наценка…».
+        var category = CategoryOf(line);
+        if (category is not null && settings.CategoryPercents.TryGetValue(category, out var byCategory))
+        {
+            source = MarkupSource.Category;
+            return byCategory;
+        }
+        source = MarkupSource.Default;
+        return settings.DefaultPercent;
+    }
+
+    /// <summary>Категория строки: заданная (импорт, новая строка) или категория товара в каталоге кассы.</summary>
+    public static string? CategoryOf(ReceivingLineVm line)
+    {
+        if (!string.IsNullOrWhiteSpace(line.CategoryName))
+            return line.CategoryName.Trim();
+        if (string.IsNullOrEmpty(line.ProductId))
+            return null;
+        try
+        {
+            var tile = CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, line.ProductId, StringComparison.OrdinalIgnoreCase));
+            return string.IsNullOrWhiteSpace(tile?.Category) ? null : tile!.Category!.Trim();
+        }
+        catch (InvalidOperationException)
+        {
+            return null; // каталог обновлялся в этот момент
+        }
+    }
+
+    /// <summary>Общий процент или округление изменились: пересчитать цену продажи у всех строк в режиме «авто» (ручные не трогаются).
+    /// Возвращает, у скольких строк цена изменилась.</summary>
+    public static int ApplyAutoToAll(IEnumerable<ReceivingLineVm> lines)
+    {
+        var n = 0;
+        foreach (var l in lines.ToList())
+            if (l.ApplyAutoSale())
+                n++;
+        return n;
+    }
+
+    /// <summary>Автоматическая цена продажи строки по её закупке; null — закупки нет или считать нечем.</summary>
+    public static double? AutoSalePrice(ReceivingLineVm line, ReceivingMarkupSettings settings)
+    {
+        if (line.PurchasePrice <= 0 || AutoMarkup(line, settings, out _) is not { } markup)
+            return null;
+        var sale = SaleFromMarkup(line.PurchasePrice, markup, settings.Rounding);
+        return sale > 0 ? sale : null;
+    }
 
     /// <summary>Округление цены продажи вверх до шага (1e-9 — против шума double: 54,00000000000001 не должно стать 55).</summary>
     public static double RoundSaleUp(double price) =>
@@ -77,6 +178,23 @@ public static class ReceivingPricing
 
     /// <summary>«Подорожало: N» в итоге под таблицей — строк, где закупка выше прежней.</summary>
     public static int CountRaised(IEnumerable<ReceivingLineVm> lines) => lines.Count(l => l.IsPurchaseRaised);
+
+    /// <summary>2026-10-29 (спека Fable, итоговая панель): позиции, штуки, сумма закупки, выручка по ценам продажи, прибыль, средняя наценка,
+    /// сколько строк с маржой &lt; 10 % и с ценой ниже закупки.</summary>
+    public sealed record ReceivingTotals(int Positions, double Quantity, double Purchase, double Sale, double Profit, double? AvgMarkup, int LowCount, int BelowCount, int RaisedCount, int NewCount);
+
+    public static ReceivingTotals Totals(IEnumerable<ReceivingLineVm> lines)
+    {
+        var list = lines.ToList();
+        var purchase = list.Sum(l => l.LineTotal);
+        var sale = list.Sum(l => LineTotal(l.Quantity, l.SalePrice));
+        // Средняя наценка — по строкам, где есть обе цены (взвешенно по количеству).
+        var both = list.Where(l => l.PurchasePrice > 0 && l.SalePrice > 0).ToList();
+        var bothPurchase = both.Sum(l => LineTotal(l.Quantity, l.PurchasePrice));
+        var avg = bothPurchase > 0 ? (both.Sum(l => LineTotal(l.Quantity, l.SalePrice)) / bothPurchase - 1) * 100 : (double?)null;
+        return new ReceivingTotals(list.Count, list.Sum(l => l.Quantity), purchase, sale, both.Sum(l => LineTotal(l.Quantity, l.SalePrice)) - bothPurchase, avg,
+            list.Count(l => l.IsLowOnly), list.Count(l => l.IsBelowCost), CountRaised(list), list.Count(l => l.IsNew));
+    }
 
     /// <summary>Какой станет цена продажи строки (null — посчитать не из чего: нет прежних цен/наценки).</summary>
     public static double? RaisedSalePrice(ReceivingLineVm line, SalePriceRaiseMode mode)

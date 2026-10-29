@@ -21,6 +21,8 @@ import '../../core/util/audit.dart';
 import '../../l10n/app_localizations.dart';
 import '../scan/barcode_lookup.dart';
 import '../scan/code_lookup.dart';
+import '../stock/product_edit_repository.dart' show isWeightUnit;
+import '../stock/unit_picker.dart';
 
 /// Строка приёмки администратора: количество, закупка и продажа.
 class ReceiveLine {
@@ -38,6 +40,13 @@ class ReceiveLine {
 
   /// 13.10: категория нового товара (массовая загрузка).
   final String category;
+
+  /// 2026-10-29: бренд нового товара (из справочника NurCRM при массовой загрузке); пусто — не отправляется.
+  final String brand;
+
+  /// 2026-10-29: новый товар весовой (кг/г) — создаётся с is_weight и PLU, как «Новый товар». По умолчанию false: накладные
+  /// и обычная приёмка работают как раньше.
+  final bool weight;
 
   // 2026-10-22 (мобилка, админ, П8/П12): исход прошлой попытки — как PendingStockPatch и проверка «товар уже создан»
   // кассы (PurchaseReceivingService, BulkImportWindow). Строка живёт до успеха, повтор не задваивает.
@@ -63,6 +72,8 @@ class ReceiveLine {
     this.price = 0,
     this.isNew = false,
     this.category = '',
+    this.brand = '',
+    this.weight = false,
   });
   double get markup => cost > 0 ? (price - cost) / cost * 100 : 0;
 }
@@ -348,7 +359,8 @@ class AdminReceiveRepository {
         }
       }
       try {
-        l.productId = await createProduct(l, category: l.category);
+        // 2026-10-29: весовой товар массовой загрузки/приёмки — с is_weight и PLU (раньше «кг» создавалось штучным)
+        l.productId = await createProduct(l, category: l.category, brand: l.brand, isWeight: l.weight, plu: l.weight ? await nextPlu() : null);
         l.createUnknown = false;
       } on ApiException catch (e) {
         if (outcomeUnknown(e)) l.createUnknown = true;
@@ -788,16 +800,20 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                 // 13.10: наценка процентом и суммой.
                 MarginFields(cost: cost, price: price),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  children: [
-                    for (final u in ['шт', 'кг', 'л', 'упак']) ChoiceChip(label: Text(u), selected: unit == u, onSelected: (_) => set(() => unit = u)),
-                  ],
-                ),
+                // 2026-10-29: единицы — общий каталог (шт, кг, г, л, мл, м, упак, пара, компл + своя)
+                UnitPicker(value: unit, onChanged: (u) => set(() => unit = u)),
                 const SizedBox(height: 12),
                 FilledButton(
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-                  onPressed: () => Navigator.pop(c, name.text.trim().isNotEmpty && (parseNum(cost.text) ?? 0) > 0),
+                  onPressed: () {
+                    // 2026-10-29: «шт» — целое количество, «кг/л/м» — можно 0,5
+                    final qErr = qtyErrorText(l, unit, parseNum(qty.text) ?? 1);
+                    if (qErr != null) {
+                      toast(c, qErr, error: true);
+                      return;
+                    }
+                    Navigator.pop(c, name.text.trim().isNotEmpty && (parseNum(cost.text) ?? 0) > 0);
+                  },
                   child: Text(l.createAndAdd),
                 ),
               ],
@@ -820,6 +836,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
           price: parseNum(price.text) ?? ((c0 * 1.3 / 5).ceil() * 5).toDouble(),
           qty: parseNum(qty.text) ?? 1,
           isNew: true,
+          weight: isWeightUnit(unit),
         ),
       ),
     );

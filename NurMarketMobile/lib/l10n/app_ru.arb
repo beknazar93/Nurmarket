@@ -4004,5 +4004,382 @@
         "type": "String"
       }
     }
-  }
+  },
+  "empAdd": "Новый сотрудник",
+  "empCard": "Карточка сотрудника",
+  "empSectionData": "Данные сотрудника",
+  "empSectionRights": "Доступы",
+  "empFirstName": "Имя",
+  "empLastName": "Фамилия",
+  "empMiddleName": "Отчество",
+  "empEmail": "Почта (логин для входа)",
+  "empPhone": "Телефон",
+  "empTrack": "Номер сотрудника",
+  "empRole": "Должность",
+  "empBirth": "Дата рождения",
+  "empHire": "Дата найма",
+  "empAddress": "Адрес",
+  "empComment": "Комментарий",
+  "empClearDate": "Очистить дату",
+  "empRequired": "Заполните поле",
+  "empEmailBad": "Введите почту полностью, например aibek@mail.kg",
+  "empPhoneBad": "Телефон: от 9 до 15 цифр, можно с «+»",
+  "empSaved": "Сотрудник сохранён.",
+  "empCreated": "Сотрудник добавлен.",
+  "empNothingChanged": "Ничего не изменено.",
+  "empSearch": "Поиск: имя, почта, телефон",
+  "empFilterActive": "Работают",
+  "empFilterDismissed": "Уволены",
+  "empDismissedTag": "уволен",
+  "empCount": "Сотрудников: {n}",
+  "@empCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "empNothingFound": "Никого не найдено.",
+  "empDismiss": "Уволить",
+  "empRestore": "Восстановить",
+  "empDismissAsk": "Уволить {name}? Он больше не сможет войти в программу. Продажи и смены сохранятся.",
+  "@empDismissAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "empRestoreAsk": "Восстановить {name}? Он снова сможет войти в программу.",
+  "@empRestoreAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "empDismissedDone": "Сотрудник уволен.",
+  "empRestoredDone": "Сотрудник восстановлен.",
+  "empDismissStill": "Сервер принял запрос, но сотрудник остался в списке. Удалите его на сайте app.nurcrm.kg.",
+  "empResetPwd": "Сбросить пароль",
+  "empResetAsk": "Сбросить пароль {name}? Старый пароль перестанет работать, новый покажем один раз.",
+  "@empResetAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "empPasswordTitle": "Пароль сотрудника",
+  "empPasswordNote": "Логин: {email}. Пароль показывается один раз — передайте его сотруднику сейчас.",
+  "@empPasswordNote": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "empCopy": "Копировать пароль",
+  "empCopied": "Скопировано.",
+  "empFeatureMissing": "Сервер пока не поддерживает это действие.",
+  "empListDenied": "Нет права «Сотрудники» — список недоступен. Обратитесь к владельцу.",
+  "empErrBad": "Сервер не принял данные. Проверьте поля.",
+  "empErrEmail": "Эта почта уже занята или записана неверно.",
+  "empErr403": "Нет права на это действие. Обратитесь к владельцу.",
+  "empErr404": "Сотрудник не найден на сервере — обновите список.",
+  "empErr409": "Такой сотрудник уже есть или данные успели измениться. Обновите список.",
+  "empErr429": "Слишком много запросов. Подождите минуту и повторите.",
+  "empErr5xx": "Ошибка сервера. Данные не изменены — повторите позже.",
+  "rightUsePos": "Работа на кассе",
+  "rightSalaryView": "Зарплата: смотреть",
+  "rightSalaryEdit": "Зарплата: выплачивать",
+  "rightEmployeesView": "Сотрудники: смотреть",
+  "rightEmployeesEdit": "Сотрудники: править",
+  "rightsReadOnly": "Доступы можно только смотреть: правит их владелец или тот, у кого открыты «Настройки».",
+  "unitNamePcs": "Штука",
+  "unitNameKg": "Килограмм",
+  "unitNameG": "Грамм",
+  "unitNameL": "Литр",
+  "unitNameMl": "Миллилитр",
+  "unitNameM": "Метр",
+  "unitNamePack": "Упаковка",
+  "unitNamePair": "Пара",
+  "unitNameSet": "Комплект",
+  "unitCustom": "Своя",
+  "unitCustomTitle": "Своя единица",
+  "unitCustomHint": "Например: рулон, бутылка",
+  "unitHintFrac": "{name}: можно дробное количество, например 0,5",
+  "@unitHintFrac": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "unitHintWhole": "{name}: только целое количество",
+  "@unitHintWhole": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "unitHintCustom": "Своя единица: количество можно дробное",
+  "nuQtyWhole": "Для «{unit}» количество должно быть целым (сейчас {qty}). Выберите кг, л, м… или впишите целое число.",
+  "@nuQtyWhole": {
+    "placeholders": {
+      "unit": {
+        "type": "String"
+      },
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "nuQtyNegative": "Количество не может быть меньше нуля.",
+  "nuPriceNeed": "Укажите цену продажи",
+  "bkHintUnits": "Единица: шт, кг, г, л, мл, м, упак, пара, компл (понимаются и «штука», «литр», pcs, kg, l, дана, dona…). Цена и количество — можно дробные: 12,75; 0,5.",
+  "bkErrName": "нет названия",
+  "bkErrPrice": "укажите цену продажи",
+  "bkErrUnit": "единица «{unit}» не распознана — выберите шт, кг, л…",
+  "@bkErrUnit": {
+    "placeholders": {
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "bkErrQtyWhole": "количество {qty} должно быть целым для «{unit}»",
+  "@bkErrQtyWhole": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "bkErrQtyNeg": "количество меньше нуля",
+  "bkWarnQty": "количество не указано — остаток 0",
+  "bkSetUnit": "Установить единицу",
+  "bkSetPrice": "Установить цену",
+  "bkSetQty": "Установить количество",
+  "bkSelectAll": "Выбрать все",
+  "bkSelectBad": "С ошибками",
+  "bkSelectNone": "Снять выбор",
+  "bkSelectedN": "Выбрано строк: {n}",
+  "@bkSelectedN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "bkSelectFirst": "Отметьте строки галочками, чтобы применить ко многим сразу.",
+  "bkApplyTo": "Применить к {n}",
+  "@bkApplyTo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "bkEditRow": "Строка товара",
+  "bkResult": "Готово {a}, с ошибками {b}",
+  "@bkResult": {
+    "placeholders": {
+      "a": {
+        "type": "int"
+      },
+      "b": {
+        "type": "int"
+      }
+    }
+  },
+  "barcodeDigitsHint": "Только цифры, от 4 до 14",
+  "barcodeBadLen": "Штрихкод — от 4 до 14 цифр, без букв",
+  "infK": "тыс",
+  "infM": "млн",
+  "infB": "млрд",
+  "infNoData": "Нет данных за период",
+  "infNoDataHint": "Выберите другой период или проведите продажи",
+  "infUpdatedAt": "Обновлено {time}",
+  "@infUpdatedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "infCompare": "Сравнить с прошлым периодом",
+  "infPeriodCustom": "Свой период",
+  "infVsYesterday": "к вчера",
+  "infVsPrevWeek": "к прошлой неделе",
+  "infVsPrevMonth": "к прошлому месяцу",
+  "infVsPrevPeriod": "к прошлому периоду",
+  "infDeltaUpSem": "Выше на {pct} % {vs}",
+  "@infDeltaUpSem": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      },
+      "vs": {
+        "type": "String"
+      }
+    }
+  },
+  "infDeltaDownSem": "Ниже на {pct} % {vs}",
+  "@infDeltaDownSem": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      },
+      "vs": {
+        "type": "String"
+      }
+    }
+  },
+  "infDeltaSameSem": "Без изменений {vs}",
+  "@infDeltaSameSem": {
+    "placeholders": {
+      "vs": {
+        "type": "String"
+      }
+    }
+  },
+  "infDeltaNew": "новое",
+  "infOther": "Прочее",
+  "infShare": "Доля",
+  "infDescEmpty": "{name}: нет данных",
+  "@infDescEmpty": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "infDescOne": "{name}: {label} — {value} {unit}",
+  "@infDescOne": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "label": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "infDescBars": "{name}: максимум {max} {unit} ({maxLabel}), минимум {min} {unit} ({minLabel}), всего {total} {unit}",
+  "@infDescBars": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      },
+      "maxLabel": {
+        "type": "String"
+      },
+      "min": {
+        "type": "String"
+      },
+      "minLabel": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "infHowCalc": "Как посчитано",
+  "infHowRevenue": "Выручка — сумма чеков со статусом «оплачен» и «частичный возврат» за период, как в программе на компьютере и на сайте. Чеки в долг и отменённые сюда не входят.",
+  "infHowChecks": "Чеки — число оплаченных чеков за период (с частичным возвратом тоже).",
+  "infHowAvg": "Средний чек = выручка ÷ число чеков за период.",
+  "infHowProfit": "Прибыль = выручка − закупочная стоимость проданных товаров (валовая прибыль сервера). Расходы магазина сюда не входят.",
+  "infHowShiftCash": "Должно быть в кассе = наличные на начало + наличные продажи + оплата долгов наличными + внесения − возвраты наличными − изъятия. Число даёт сервер.",
+  "infHowDebts": "Долги — сумма, которую клиенты должны магазину сейчас (список должников сервера).",
+  "infHowLow": "Заканчивается — товары (не услуги), у которых остаток меньше 10 или не больше минимального остатка, заданного для товара.",
+  "infHowPayments": "Способы оплаты — сколько выручки пришло наличными, картой, переводом и в долг; проценты считаются от суммы всех способов.",
+  "infHowTop": "Топ товаров — товары с наибольшей выручкой за период; полоса — доля от лучшего товара.",
+  "scanModeLabel": "Режим",
+  "scanModeTitle": "Режим сканера",
+  "scanModeA11y": "Режим сканера: {mode}. Нажмите, чтобы выбрать",
+  "@scanModeA11y": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "scanModeSaleSub": "Сканируйте — товар сразу в чек",
+  "scanModeLookSub": "Узнать товар по фото, без штрихкода",
+  "scanModeWeighSub": "Весовой товар: вес с табло весов",
+  "scanModeReceiveSub": "Принять товар на склад",
+  "scanModeKassaSub": "Штрихкоды уходят на кассу по Wi-Fi",
+  "infNoDelta": "— н/д",
+  "infNoCompare": "— сравнения нет",
+  "infCompareShort": "Сравнить",
+  "infLoadFailedTitle": "Не удалось загрузить",
+  "infLoadFailedAt": "Нет связи с сервером. Показаны данные на {time}.",
+  "@infLoadFailedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "infLoadFailedNoData": "Нет связи с сервером.",
+  "infTapHint": "Нажмите на столбец — подробности",
+  "infTapRingHint": "Нажмите на сектор — подробности",
+  "infPrevBar": "Прошлый период",
+  "infOfPeriod": "{pct} % периода",
+  "@infOfPeriod": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "infHoursNote": "Выручка по часам: сервер пока не отдаёт разбивку по часам — раздел появится позже.",
+  "infExpensesNote": "Расходы магазина в отчёт сервера не входят — показаны выручка, себестоимость и прибыль.",
+  "infCost": "Себестоимость",
+  "infMargin": "Рентабельность {pct} %",
+  "@infMargin": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "infRevenueCostProfit": "Выручка, себестоимость и прибыль",
+  "infDebtConcTitle": "Кто должен больше всех",
+  "infDebtConcLine": "Три крупнейших должника — {pct} % долга",
+  "@infDebtConcLine": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "infDebtAgeNote": "Давность долга: сервер не присылает даты долгов — показана концентрация по должникам.",
+  "infStockTitle": "Остатки на складе",
+  "infStockOut": "Нет в наличии",
+  "infStockLow": "Заканчивается",
+  "infStockOk": "Хватает",
+  "infPaidWith": "Чем платили",
+  "infTotalWord": "Всего",
+  "infShiftNoSales": "В смене пока нет продаж",
+  "infHowTitle": "Как это посчитано",
+  "infRangePick": "Выбрать даты"
 }

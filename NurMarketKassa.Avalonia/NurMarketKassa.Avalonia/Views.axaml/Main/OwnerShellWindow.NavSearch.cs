@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using NurMarketKassa.Core.Application;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Path = Avalonia.Controls.Shapes.Path;
@@ -46,8 +47,10 @@ public partial class OwnerShellWindow
         ["analytics"] = "отчёт сезонность график аналитика талдоо",
         ["abc"] = "abc авс",
         ["profitcash"] = "прибыль доход расход деньги пайда киреше акча",
+        ["investments"] = "инвестор инвестиции вложения окупаемость стартовые расходы выплаты инвестициялар салым кайтарым investor payback",
         ["losssales"] = "убыток скидка минус",
         ["sizesreport"] = "размер цвет одежда",
+        ["bonusanalytics"] = "бонус бонусы баллы лояльность накопление бонустар упай",
         ["siteorders"] = "заказ интернет магазин",
         ["clients"] = "покупатель бонус баллы кардар кардарлар клиент",
         ["telegrambot"] = "бот телеграм телеграм",
@@ -60,9 +63,9 @@ public partial class OwnerShellWindow
 
     private static bool NavMatches(NavEntry entry, string groupTitle, string query)
     {
-        var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var haystack = entry.Title + " " + groupTitle + " " + (NavKeywords.TryGetValue(entry.Key, out var extra) ? extra : "");
-        return words.All(w => haystack.Contains(w, StringComparison.CurrentCultureIgnoreCase));
+        // 2026-10-29: единый поиск — ё=е, кыргызские буквы, не та раскладка («crkfl» → «склад») и транслит («sklad»).
+        return SearchMatch.Matches(query, haystack);
     }
 
     /// <summary>Что видно в колонке пунктов: без поиска — пункты выбранной группы; при поиске (Ctrl+K) — найденное во ВСЕХ

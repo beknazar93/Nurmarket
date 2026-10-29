@@ -49,6 +49,7 @@ public static class SectionVisibility
         ("analytics", Tr.T("Аналитика", "Талдоо", "Analytics", "Analiz", "Analitika")),
         ("abc", Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil")),
         ("profitcash", Tr.T("Прибыль и деньги", "Пайда жана акча", "Profit & cash", "Kâr ve nakit", "Foyda va pul")),
+        ("investments", Tr.T("Инвестиции и окупаемость", "Инвестициялар жана кайтарым", "Investments and payback", "Yatırımlar ve geri dönüş", "Investitsiyalar va o'zini oqlash")),
         // 2026-10-22 (закупки как в вебе): раздел «Закупки».
         ("purchases", Tr.T("Закупки", "Сатып алуулар", "Purchases", "Satın alma", "Xaridlar")),
         // 2026-10-20, этап П1: раздел «Поставщики» (список с долгом и карточка).

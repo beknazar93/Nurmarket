@@ -1,4 +1,5 @@
-﻿using NurMarketKassa.Core.Contracts;
+﻿using NurMarketKassa.Core.Application;
+using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
 using System;
@@ -1744,7 +1745,7 @@ namespace NurMarketKassa.ViewModels
             var query = _clientSearchText?.Trim() ?? "";
             IEnumerable<ClientOption> source = _allClients;
             if (query.Length > 0)
-                source = source.Where(c => c.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+                source = source.Where(c => SearchMatch.Matches(query, c.DisplayName)); // 2026-10-29: единый поиск
 
             foreach (var client in source.Take(30))
                 ClientSearchResults.Add(client);

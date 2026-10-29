@@ -88,7 +88,7 @@ GoRouter buildRouter(Reader read, {required bool signedIn, Listenable? refresh})
     ),
     GoRoute(
       path: '/scan',
-      builder: (_, s) => ScanScreen(initial: s.uri.queryParameters['mode'] == 'price' ? ScanMode.price : ScanMode.sale),
+      builder: (_, s) => ScanScreen(initial: s.uri.queryParameters['mode'] == 'price' ? ScanMode.price : null),
     ),
     GoRoute(path: '/pay', builder: (_, _) => const PaymentScreen()),
     GoRoute(

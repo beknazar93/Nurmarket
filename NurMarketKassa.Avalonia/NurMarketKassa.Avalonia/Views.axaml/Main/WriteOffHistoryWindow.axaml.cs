@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NurMarketKassa.Core.Application;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -71,9 +72,7 @@ public partial class WriteOffHistoryWindow : Window
         var filtered = string.IsNullOrEmpty(query)
             ? _allRows
             : _allRows.Where(r =>
-                r.ProductName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                r.Reason.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                r.CashierName.Contains(query, StringComparison.OrdinalIgnoreCase))
+                SearchMatch.Matches(query, r.ProductName, r.Reason, r.CashierName)) // 2026-10-29: единый поиск
               .ToList();
 
         HistoryGrid.ItemsSource = filtered;

@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Collections.ObjectModel;
 
 using System.Globalization;
@@ -708,13 +709,8 @@ public sealed class CatalogViewModel : ViewModelBase, IDisposable
 
     {
 
-        var title = vm.Title.ToLowerInvariant();
-
-        var barcode = vm.Barcode?.ToLowerInvariant() ?? string.Empty;
-
-        var id = vm.Id.ToLowerInvariant();
-
-        return title.Contains(query) || barcode.Contains(query) || id.Contains(query);
+        // 2026-10-29: единый поиск (слова в любом порядке, ё=е, раскладка/транслит).
+        return SearchMatch.Matches(query, vm.Title, vm.Barcode, vm.Id);
 
     }
 

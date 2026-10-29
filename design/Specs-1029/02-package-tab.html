@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Товар — Упаковка</title>
+<style>
+/* NurMarket Kassa — окно «Новый товар / Редактировать товар», вкладка «Упаковка». Дизайн-спека 29.10.2026 (Specs-1029/02).
+   Цвета — только кисти кассы (BulkAdd-shared.css). Размер диалога как в кассе: 640×820 (ModalShell, радиус 16). */
+body{ margin:0; background:#2B2B2B; color:#F5F5F5; font-family:Montserrat,Onest,"Segoe UI",system-ui,sans-serif; }
+.tb{ position:sticky; top:0; z-index:50; display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:8px 14px; background:#191919; border-bottom:1px solid #3D3D3D; font-size:12px; }
+.tb b{ font-size:13px; margin-right:6px; }
+.tb .grp{ display:flex; align-items:center; gap:4px; padding:3px; border:1px solid #3D3D3D; border-radius:9px; }
+.tb .grp span{ color:#AAA; padding:0 6px; }
+.tb button{ height:28px; padding:0 10px; border:0; border-radius:7px; background:transparent; color:#CCC; font:600 12px Montserrat,system-ui,sans-serif; cursor:pointer; }
+.tb button.on{ background:#FFB208; color:#191919; }
+.stage{ padding:18px; display:flex; flex-wrap:wrap; align-items:flex-start; gap:18px; }
+.note{ max-width:640px; font-size:12px; line-height:1.55; color:#CCC; }
+.note code{ background:#333; padding:1px 5px; border-radius:4px; color:#FFD27A; }
+
+.frame{
+  --window:#F4F4F4; --panel:#FFFFFF; --panel-soft:#EEEEEE; --input:#FFFFFF; --input-alt:#F7F7F7; --border:#DDDDDD; --border-strong:#AAAAAA;
+  --text:#191919; --text-muted:#3D3D3D; --text-soft:#666666; --accent:#FFB208; --accent-strong:#E69F00; --accent-soft:#FFF1DB; --accent-fg:#191919;
+  --success:#047857; --success-soft:#D1FAE5; --warning:#B45309; --warning-soft:#FEF3C7; --danger:#B91C1C; --danger-soft:#FEE2E2; --danger-on-soft:#B91C1C;
+  --focus:#191919; --overlay:rgba(248,250,252,.85); --shadow:0 12px 32px rgba(25,25,25,.18); --r-btn:10px; --r-card:12px; --r-modal:16px;
+  position:relative; width:760px; height:880px; box-sizing:border-box; background:var(--window); color:var(--text); border-radius:8px; box-shadow:0 0 0 1px rgba(0,0,0,.08);
+  font-family:Montserrat,Onest,"Segoe UI",system-ui,sans-serif; font-size:14px; line-height:1.3; display:flex; align-items:center; justify-content:center;
+}
+.frame[data-theme="dark"]{
+  --window:#191919; --panel:#222222; --panel-soft:#333333; --input:#222222; --input-alt:#2A2A2A; --border:#3D3D3D; --border-strong:#666666;
+  --text:#F5F5F5; --text-muted:#CCCCCC; --text-soft:#AAAAAA; --accent:#FFB208; --accent-strong:#FFC84D; --accent-soft:#3A2D10; --accent-fg:#191919;
+  --success:#34D399; --success-soft:#14352A; --warning:#D7BA7D; --warning-soft:#3A3122; --danger:#F14C4C; --danger-soft:#522626; --danger-on-soft:#F58282;
+  --focus:#FFB208; --overlay:rgba(10,15,24,.85); --shadow:0 12px 32px rgba(0,0,0,.55);
+}
+.frame *{ box-sizing:border-box; font-family:inherit; }
+.frame::before{ content:""; position:absolute; inset:0; background:var(--overlay); border-radius:8px; }
+.num{ font-variant-numeric:tabular-nums; }
+
+.dlg{ position:relative; width:640px; height:820px; background:var(--panel); border-radius:var(--r-modal); box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; }
+.dlg .hd{ display:flex; align-items:center; padding:20px 24px 14px; border-bottom:1px solid var(--border); }
+.dlg .hd h1{ margin:0; font-size:20px; font-weight:700; flex:1; }
+.dlg .x{ width:44px; height:44px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:12px; color:var(--text-soft); font-size:18px; }
+.seg{ display:flex; gap:8px; padding:16px 24px 0; }
+.seg div{ flex:1; height:44px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border-strong); border-radius:var(--r-btn); font-weight:600; }
+.seg div.on{ background:var(--text); color:var(--panel); border-color:transparent; font-weight:700; }
+.tabs{ display:flex; gap:4px; padding:12px 24px 0; }
+.tabs div{ height:40px; display:flex; align-items:center; padding:0 12px; border-radius:var(--r-btn); font-size:13px; color:var(--text-soft); font-weight:500; }
+.tabs div.on{ background:var(--text); color:var(--panel); font-weight:700; }
+.body{ flex:1; min-height:0; overflow:auto; padding:18px 24px; display:flex; flex-direction:column; gap:16px; }
+
+.chk{ display:inline-flex; align-items:center; gap:10px; min-height:44px; font-weight:600; font-size:15px; }
+.chk .box{ width:24px; height:24px; border:2px solid var(--accent); border-radius:6px; background:var(--accent); color:var(--accent-fg); display:flex; align-items:center; justify-content:center; font-weight:800; }
+.sub{ margin:-10px 0 0 34px; color:var(--text-soft); font-size:12.5px; }
+
+/* карточка «Целая упаковка» — из «Основное», только чтение */
+.card{ border:1px solid var(--border); border-radius:var(--r-card); background:var(--input-alt); padding:12px 14px; }
+.card .t{ font-size:12px; font-weight:700; color:var(--text-soft); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; display:flex; align-items:center; }
+.card .t a{ margin-left:auto; text-transform:none; letter-spacing:0; font-weight:600; color:var(--text); text-decoration:underline; text-underline-offset:2px; font-size:12.5px; }
+.card .kv{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.card .kv div{ display:flex; flex-direction:column; gap:2px; }
+.card .kv small{ font-size:12px; color:var(--text-soft); font-weight:500; }
+.card .kv b{ font-size:18px; font-weight:800; }
+.card .kv b i{ font-style:normal; font-weight:500; font-size:13px; color:var(--text-soft); }
+
+.fields{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.f label{ display:block; font-size:13px; font-weight:500; color:var(--text-muted); margin-bottom:6px; }
+.f .in{ position:relative; height:48px; display:flex; align-items:center; border:1px solid var(--border-strong); border-radius:var(--r-btn); background:var(--input); padding:0 14px; font-size:18px; font-weight:700; }
+.f .in.focus{ border:2px solid var(--focus); }
+.f .in .unit{ margin-left:auto; font-size:13px; font-weight:500; color:var(--text-soft); }
+.f .in .auto{ position:absolute; right:6px; top:6px; height:36px; padding:0 12px; display:flex; align-items:center; border-radius:8px; background:var(--panel-soft); color:var(--text); font-size:12.5px; font-weight:700; border:1px solid var(--border); }
+.f .in .auto.on{ background:var(--accent); color:var(--accent-fg); border-color:transparent; }
+.f .in.manual{ border-color:var(--warning); }
+.f .st{ margin-top:6px; font-size:12px; color:var(--text-soft); }
+.f .st.manual{ color:var(--warning); font-weight:600; }
+
+.chips{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.chips small{ width:100%; font-size:12px; color:var(--text-soft); font-weight:500; }
+.chip{ height:40px; padding:0 14px; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border-strong); border-radius:20px; background:var(--panel); font-weight:600; font-size:13.5px; }
+.chip.on{ background:var(--accent-soft); border-color:var(--accent); }
+.chip b{ font-weight:800; }
+
+.calc{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; padding:12px 14px; border-radius:var(--r-card); background:var(--success-soft); color:var(--text); font-size:14px; }
+.calc b{ font-weight:800; }
+.calc .dot{ color:var(--text-soft); }
+.calc .ok{ color:var(--success); font-weight:700; }
+.warn{ display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:var(--r-card); background:var(--warning-soft); color:var(--warning); font-size:13px; line-height:1.45; }
+.warn b{ font-weight:700; }
+.warn .act{ margin-left:auto; flex:0 0 auto; height:36px; padding:0 12px; display:inline-flex; align-items:center; border-radius:8px; border:1px solid var(--warning); color:var(--warning); font-weight:700; font-size:12.5px; white-space:nowrap; }
+.ex{ display:flex; gap:10px; align-items:center; padding:10px 14px; border-radius:var(--r-card); border:1px dashed var(--border-strong); color:var(--text-soft); font-size:13px; }
+.ex .n{ width:28px; height:28px; border-radius:50%; background:var(--panel-soft); display:flex; align-items:center; justify-content:center; font-weight:800; color:var(--text); flex:0 0 auto; }
+.ex b{ color:var(--text); }
+
+.ft{ display:flex; align-items:center; gap:10px; padding:14px 24px; border-top:1px solid var(--border); }
+.ft .ico{ width:44px; height:44px; border:1px solid var(--border); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--text-soft); }
+.ft .sp{ flex:1; }
+.btn{ height:48px; padding:0 24px; display:inline-flex; align-items:center; justify-content:center; border-radius:var(--r-btn); border:1px solid var(--border-strong); background:var(--panel); font-weight:600; font-size:15px; }
+.btn.primary{ background:var(--accent); color:var(--accent-fg); border-color:transparent; font-weight:700; }
+.btn.off{ background:var(--panel-soft); color:var(--text-soft); border-color:transparent; }
+
+/* состояние «Поштучная продажа выключена» */
+.frame.off .on-only{ display:none; }
+.frame.off .chk .box{ background:var(--input); border-color:var(--border-strong); color:transparent; }
+.frame.off .off-only{ display:flex; }
+.off-only{ display:none; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:var(--text-soft); text-align:center; padding:40px 20px; }
+.off-only h3{ margin:0; font-size:16px; color:var(--text); }
+.off-only p{ margin:0; max-width:420px; font-size:13px; line-height:1.5; }
+/* состояние «расхождение > 5 %» */
+.frame:not(.warned) .warn{ display:none; }
+.frame.warned .f .in.piece{ border-color:var(--warning); }
+.frame.warned .calc{ background:var(--warning-soft); }
+.frame.warned .calc .ok{ color:var(--warning); }
+</style>
+</head>
+<body>
+<div class="tb">
+  <b>Товар → вкладка «Упаковка»</b>
+  <div class="grp"><span>Тема</span><button class="on" data-theme="light">Светлая</button><button data-theme="dark">Тёмная</button></div>
+  <div class="grp"><span>Состояние</span><button class="on" data-state="auto">Авто (норма)</button><button data-state="warned">Вручную, расхождение 23 %</button><button data-state="off">Поштучно выключено</button></div>
+  <span style="color:#AAA">Спека: docs/Дизайн/Спеки 2026-10-29.md</span>
+</div>
+
+<div class="stage">
+<div class="frame" id="f" data-theme="light">
+  <div class="dlg">
+    <div class="hd"><h1>Редактировать товар</h1><div class="x">✕</div></div>
+    <div class="seg"><div class="on">Товар</div><div>Услуга</div><div>Комплект</div></div>
+    <div class="tabs"><div>Основное</div><div>Доп. штрих-коды</div><div class="on">Упаковка</div><div>Размеры и цвета</div><div>Описание</div></div>
+
+    <div class="body">
+      <label class="chk"><span class="box">✓</span>Поштучная продажа из упаковки</label>
+      <div class="sub">Кассир сможет продать и целую пачку, и одну штуку из неё. Остаток ведётся в штуках.</div>
+
+      <div class="off-only">
+        <h3>Поштучная продажа выключена</h3>
+        <p>Товар продаётся только целой упаковкой по цене из «Основное» — 200 сом. Включите галочку выше, чтобы задать цену за штуку.</p>
+      </div>
+
+      <div class="card on-only">
+        <div class="t">Целая упаковка <a>из «Основное» →</a></div>
+        <div class="kv">
+          <div><small>Товар</small><b style="font-size:15px">Winston Blue</b></div>
+          <div><small>Цена продажи</small><b class="num">200 <i>сом</i></b></div>
+          <div><small>Закупка</small><b class="num">150 <i>сом</i></b></div>
+        </div>
+      </div>
+
+      <div class="fields on-only">
+        <div class="f">
+          <label>Штук в упаковке</label>
+          <div class="in focus num">20<span class="unit">шт</span></div>
+          <div class="st">Целое число, не меньше 2</div>
+        </div>
+        <div class="f">
+          <label>Цена за штуку</label>
+          <div class="in piece num" id="piece">10,00<span class="unit" style="margin-right:62px">сом</span><span class="auto on" id="autoBtn">Авто</span></div>
+          <div class="st" id="pieceSt">авто = 200 ÷ 20. Можно вписать свою — тогда «Авто» вернёт расчёт</div>
+        </div>
+      </div>
+
+      <div class="chips on-only">
+        <small>Быстрые шаблоны — подставляют «Штук в упаковке»:</small>
+        <span class="chip on">Пачка <b>20</b></span>
+        <span class="chip">Упаковка <b>6</b></span>
+        <span class="chip">Упаковка <b>12</b></span>
+        <span class="chip">Ящик <b>24</b></span>
+        <span class="chip">Блок <b>10</b></span>
+      </div>
+
+      <div class="calc on-only" id="calc">
+        <span>Наценка за штуку <b id="cMk">33 %</b></span><span class="dot">·</span>
+        <span>прибыль со штуки <b class="ok" id="cPr">+2,50 сом</b></span><span class="dot">·</span>
+        <span>закупка штуки <b id="cBuy">7,50 сом</b></span>
+      </div>
+
+      <div class="warn on-only">
+        <span style="font-size:16px">⚠</span>
+        <div><b>Цена за штуку выше расчётной на 23 %.</b> 20 штук по 12,30 — это 246 сом, а целая упаковка стоит 200. Покупателю выгоднее брать пачкой — это нормально, если так и задумано.</div>
+        <span class="act">Вернуть авто · 10,00</span>
+      </div>
+
+      <div class="ex on-only">
+        <span class="n">?</span>
+        <div>Пример: пачка <b>200 сом</b> / <b>20 шт</b> → штука <b>10 сом</b>. Если указать своё — например 12 сом, — наценка за штуку станет выше, чем у пачки.</div>
+      </div>
+    </div>
+
+    <div class="ft">
+      <div class="ico">🖶</div>
+      <div class="sp"></div>
+      <div class="btn">Отмена</div>
+      <div class="btn primary">Сохранить</div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+<b>Ответ на «где цена в поштучной продаже?»</b> — цена за штуку всегда видна и заполнена: по умолчанию <code>авто = цена упаковки ÷ штук</code>, под полем прямо написано, откуда число. Карточка «Целая упаковка» повторяет цену и закупку из «Основное», чтобы не переключать вкладки.<br><br>
+<b>Три состояния (переключатель сверху):</b> <code>Авто</code> — поле с кнопкой «Авто» жёлтой (включено), строка расчёта зелёная. <code>Вручную</code> — рамка поля и кнопка «Авто» тёплые (warning), под полем «вручную · авто было 10,00»; если расхождение с авто больше 5 % — жёлтый блок с объяснением и кнопкой «Вернуть авто». <code>Поштучно выключено</code> — поля спрятаны, одно объяснение. Строка расчёта: наценка за штуку = (цена штуки − закупка штуки) / закупка штуки; закупка штуки = закупка упаковки ÷ штук.<br><br>
+<b>Размеры:</b> поля 48 px, кнопка «Авто» внутри поля 36 px, чипы 40 px, галочка 24 px в строке 44 px, кнопки низа 48 px. Все числа — <code>tabular-nums</code>, запятая, «сом» мелким рядом.
+</div>
+</div>
+
+<script>
+const f=document.getElementById('f');
+const piece=document.getElementById('piece'), st=document.getElementById('pieceSt'), ab=document.getElementById('autoBtn');
+function setState(s){
+  f.classList.toggle('warned', s==='warned'); f.classList.toggle('off', s==='off');
+  if(s==='warned'){ piece.firstChild.textContent='12,30'; ab.classList.remove('on'); ab.textContent='Авто'; st.textContent='вручную · авто было 10,00'; st.className='st manual';
+    document.getElementById('cMk').textContent='64 %'; document.getElementById('cPr').textContent='+4,80 сом'; }
+  else { piece.firstChild.textContent='10,00'; ab.classList.add('on'); st.textContent='авто = 200 ÷ 20. Можно вписать свою — тогда «Авто» вернёт расчёт'; st.className='st';
+    document.getElementById('cMk').textContent='33 %'; document.getElementById('cPr').textContent='+2,50 сом'; }
+}
+document.querySelectorAll('.tb button').forEach(b=>b.addEventListener('click',()=>{
+  const g=b.parentElement; g.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  if(b.dataset.theme) f.dataset.theme=b.dataset.theme;
+  if(b.dataset.state) setState(b.dataset.state);
+}));
+// Состояние из адреса: #dark,warned / #off — для снимков без кликов.
+(location.hash||'').slice(1).split(',').filter(Boolean).forEach(k=>{ const b=document.querySelector('.tb button[data-theme="'+k+'"],.tb button[data-state="'+k+'"]'); if(b) b.click(); });
+</script>
+</body>
+</html>

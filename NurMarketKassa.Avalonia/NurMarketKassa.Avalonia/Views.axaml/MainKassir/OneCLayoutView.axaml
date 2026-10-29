@@ -148,7 +148,7 @@
         <!-- Строка сканера -->
         <Border Grid.Row="0" Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1"
                 CornerRadius="10" Padding="10" Margin="0,0,0,10">
-            <Grid ColumnDefinitions="*,Auto,64,Auto">
+            <Grid ColumnDefinitions="*,Auto,64,Auto,Auto">
                 <TextBox x:Name="ScannerBox" Grid.Column="0" Text="{Binding Basket.BarcodeInput, Mode=TwoWay}"
                          Watermark="{DynamicResource csh.cart.barcodeWatermark}" FontSize="15" Height="40">
                     <TextBox.KeyBindings>
@@ -165,6 +165,8 @@
                 </Border>
                 <Button Grid.Column="3" Content="+" Classes="onec-step"
                         AutomationProperties.Name="{DynamicResource csh.cart.increaseTooltip}" Command="{Binding Basket.IncreaseManualQuantityCommand}"/>
+                <!-- 2026-10-28: кнопка «Обновить» (каталог + смена, F5) — как во всех видах кассы. -->
+                <ctl:RefreshButton Grid.Column="4" Margin="8,0,0,0"/>
             </Grid>
         </Border>
 

@@ -29,6 +29,9 @@ public sealed class AnalyticsReportData
     /// <summary>Топ товаров по сумме продаж.</summary>
     public IReadOnlyList<(string Name, double Quantity, double Sum)> TopProducts { get; init; } = [];
 
+    /// <summary>2026-10-28: сколько всего товаров с продажами за период (в <see cref="TopProducts"/> — не больше 1000 лучших) — для подписи «первые 20 из N».</summary>
+    public int TopProductsTotal { get; init; }
+
     /// <summary>ABC-анализ товаров по выручке. Группа A — товары, дающие первые 80 % выручки,
     /// B — следующие 15 %, C — оставшиеся 5 %. Это классическое правило Парето: обычно небольшая
     /// часть ассортимента приносит основную выручку, и именно её нельзя допускать до нуля на
@@ -394,11 +397,12 @@ public sealed class AnalyticsReportData
             .OrderBy(x => x.Day)
             .ToList();
 
-        var top = server != null
+        // 2026-10-28: раньше здесь был Take(20) — «Топ товаров» обрезался молча. Теперь хранятся до 1000 лучших и общее число (TopProductsTotal);
+        // сколько показать, решает выгрузка / экран (по умолчанию 20, «первые 20 из N»).
+        var topAll = server != null
             ? server.Products
                 .Select(p => (Name: p.Name, Quantity: p.Quantity, Sum: p.Revenue))
                 .OrderByDescending(x => x.Sum)
-                .Take(20)
                 .ToList()
             : lines
                 .GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
@@ -407,8 +411,8 @@ public sealed class AnalyticsReportData
                     Quantity: g.Sum(x => x.Quantity),
                     Sum: g.Sum(x => x.Quantity * x.UnitPrice)))
                 .OrderByDescending(x => x.Sum)
-                .Take(20)
                 .ToList();
+        var top = topAll.Take(1000).ToList();
 
         var slices = server != null ? BuildServerAbcSlices(server) : BuildAbcSlices(lines);
         // Срез склада считается и без продаж за период, поэтому первым в списке может оказаться
@@ -437,6 +441,7 @@ public sealed class AnalyticsReportData
             ReceiptCount = server?.ReceiptCount ?? lines.Select(l => l.SoldAt).Distinct().Count(),
             ByDay = server?.ByDay ?? byDay,
             TopProducts = top,
+            TopProductsTotal = topAll.Count,
             Abc = abc,
             AbcSummary = revenueSlice?.Summary ?? [],
             AbcSlices = slices,

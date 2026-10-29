@@ -63,6 +63,8 @@
                            Foreground="{DynamicResource BrushTextSoft}"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                <!-- 2026-10-28: зарплата от чистой маржи / чистой прибыли — отдельное окно (надбавка к схеме сервера). -->
+                <Button x:Name="ProfitPayButton" Classes="sec-outline" Click="ProfitPay_Click"/>
                 <Button x:Name="GuideButton" Classes="sec-outline" Click="Guide_Click"/>
                 <Button x:Name="RefreshButton" Classes="sec-outline" Click="Refresh_Click"/>
                 <Button IsCancel="True" x:Name="CloseButton" Classes="sec-outline" Click="Close_Click"/>

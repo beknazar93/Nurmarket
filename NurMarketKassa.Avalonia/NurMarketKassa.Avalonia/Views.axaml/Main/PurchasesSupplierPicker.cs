@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -176,7 +177,7 @@ public sealed class PurchasesSupplierPicker : Grid
         var digits = new string(q.Where(char.IsDigit).ToArray());
         if (AllowAll && q.Length == 0)
             _list.Children.Add(Row(null, T("Все поставщики", "Бардык жеткирүүчүлөр", "All suppliers", "Tüm tedarikçiler", "Barcha yetkazib beruvchilar"), ""));
-        var shown = _all.Where(s => q.Length == 0 || s.Name.Contains(q, StringComparison.CurrentCultureIgnoreCase) || s.Llc.Contains(q, StringComparison.CurrentCultureIgnoreCase)
+        var shown = _all.Where(s => q.Length == 0 || SearchMatch.Matches(q, s.Name, s.Llc) // 2026-10-29: единый поиск
                                     || (digits.Length >= 3 && new string(s.Phone.Where(char.IsDigit).ToArray()).Contains(digits, StringComparison.Ordinal))).Take(200).ToList();
         foreach (var s in shown)
             _list.Children.Add(Row(s, s.Name, s.Phone));

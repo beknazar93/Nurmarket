@@ -3276,7 +3276,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
     private void IncreaseManualQuantity()
     {
-        if (!double.TryParse(ManualQuantity.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var qty)
+        if (!double.TryParse(ManualQuantity.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out var qty)
             || qty < 1)
             qty = 1;
         // Округляем до 3 знаков (как вес), а не до целого — иначе введённый вручную дробный вес
@@ -3286,7 +3286,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
     private void DecreaseManualQuantity()
     {
-        if (!double.TryParse(ManualQuantity.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var qty)
+        if (!double.TryParse(ManualQuantity.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out var qty)
             || qty <= 1)
         {
             ManualQuantity = "1";
@@ -3824,7 +3824,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     /// <param name="rule">2026-10-26 (ХМ2): правило дробной единицы «Хозтоваров» (м, м², л) — шаг и минимум вместо целого; null — как раньше.</param>
     private static double ParseQuantity(string? raw, bool mustWeigh, QuantityRule? rule = null)
     {
-        if (!double.TryParse(raw?.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var qty)
+        if (!double.TryParse(raw?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out var qty)
             || qty <= 0)
             qty = 1;
 

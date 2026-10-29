@@ -24,12 +24,17 @@ public sealed class AddEmployeeDialog : Window
     public string FirstName { get; private set; } = "";
     public string LastName { get; private set; } = "";
     public string RoleId { get; private set; } = "";
+    /// <summary>2026-10-28: телефон и номер (track_number) — необязательные поля схемы сервера.</summary>
+    public string Phone { get; private set; } = "";
+    public string TrackNumber { get; private set; } = "";
     public EmployeeAccessFlags AccessFlags { get; private set; } = new();
 
     private readonly TextBox _emailBox;
     private readonly TextBox _firstNameBox;
     private readonly TextBox _lastNameBox;
     private readonly ComboBox _roleBox;
+    private readonly TextBox _phoneBox;
+    private readonly TextBox _trackBox;
     private readonly TextBlock _errorText;
     private readonly EmployeeAccessChecklist.Boxes _accessBoxes;
 
@@ -62,6 +67,8 @@ public sealed class AddEmployeeDialog : Window
         _roleBox.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<RoleInfoDto>(
             (role, _) => new TextBlock { Text = role?.Name ?? "" });
 
+        _phoneBox = SectionCards.Field(new TextBox { Watermark = "+996 700 123 456", MaxLength = 32 });
+        _trackBox = SectionCards.Field(new TextBox { MaxLength = 64 });
         _errorText = SectionCards.ErrorText(this);
 
         topFields.Children.Add(Label("Email *"));
@@ -72,6 +79,10 @@ public sealed class AddEmployeeDialog : Window
         topFields.Children.Add(_lastNameBox);
         topFields.Children.Add(Label(Tr.T("Роль *", "Ролу *", "Role *", "Rol *", "Roli *")));
         topFields.Children.Add(_roleBox);
+        topFields.Children.Add(Label(Tr.T("Телефон", "Телефон", "Phone", "Telefon", "Telefon")));
+        topFields.Children.Add(_phoneBox);
+        topFields.Children.Add(Label(Tr.T("Номер сотрудника (необязательно)", "Кызматкердин номери (милдеттүү эмес)", "Employee number (optional)", "Personel numarası (isteğe bağlı)", "Xodim raqami (majburiy emas)")));
+        topFields.Children.Add(_trackBox);
         topFields.Children.Add(_errorText);
 
         var (accessView, accessBoxes) = EmployeeAccessChecklist.Build();
@@ -115,7 +126,22 @@ public sealed class AddEmployeeDialog : Window
             return;
         }
 
+        // 2026-10-28: проверка формата до отправки — почта и телефон (раньше сервер отвечал сырым текстом ошибки).
+        if (!EmployeeFieldValidation.IsEmail(email))
+        {
+            SectionCards.ShowError(_errorText, EmployeeFieldValidation.EmailError, _emailBox);
+            return;
+        }
+        var phone = (_phoneBox.Text ?? "").Trim();
+        if (phone.Length > 0 && !EmployeeFieldValidation.IsPhone(phone))
+        {
+            SectionCards.ShowError(_errorText, EmployeeFieldValidation.PhoneError, _phoneBox);
+            return;
+        }
+
         Email = email;
+        Phone = phone;
+        TrackNumber = (_trackBox.Text ?? "").Trim();
         FirstName = first;
         LastName = last;
         RoleId = role.Id;

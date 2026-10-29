@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.RefreshButton"
+             Width="44" Height="44"
+             HorizontalAlignment="Center" VerticalAlignment="Center"
+             Focusable="False" IsTabStop="False">
+
+    <!-- 2026-10-28, просьба владельца «кнопка "Обновить" во всех видах кассы»: одна общая кнопка ⟳ 44×44 для всех шести видов.
+         Вставляется одной строкой <ctl:RefreshButton/>; сама находит MainWindowViewModel и берёт его RefreshAllCommand
+         (каталог + смена, плашка с итогом, антидребезг 3 с). Без фокуса — Enter сканера её не нажимает. -->
+    <UserControl.Styles>
+        <Style Selector="Button.refresh-btn.busy PathIcon">
+            <Style.Animations>
+                <Animation Duration="0:0:1" IterationCount="INFINITE">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0"/>
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360"/>
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
+
+    <Button x:Name="Btn"
+            Classes="main-outline refresh-btn"
+            Width="44" Height="44"
+            Padding="0"
+            Focusable="False"
+            HorizontalContentAlignment="Center"
+            VerticalContentAlignment="Center">
+        <PathIcon Data="{StaticResource IconRefresh}" Width="20" Height="20">
+            <PathIcon.RenderTransform>
+                <RotateTransform/>
+            </PathIcon.RenderTransform>
+        </PathIcon>
+    </Button>
+</UserControl>

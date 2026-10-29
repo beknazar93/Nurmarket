@@ -4,6 +4,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
+        xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Controls"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ProductEditDialog"
         Title="{Binding HeaderText}"
         Width="672" SizeToContent="Height"
@@ -322,14 +323,19 @@
                                 </StackPanel>
                             </Grid>
                             <!-- 2026-10-07, владелец: штрихкод по названию из barcode-list.ru — варианты для сверки (ProductEditDialog.BarcodeSuggest). -->
+                            <!-- 2026-10-29: штрихкод — только цифры, 4–14 знаков (BarcodeInput); подсказка видна, пока код не подходит. -->
+                            <TextBlock Text="{Binding BarcodeHint}" IsVisible="{Binding HasBarcodeHint}" TextWrapping="Wrap" FontSize="12"
+                                       Foreground="{DynamicResource BrushDanger}"/>
                             <StackPanel x:Name="BarcodeSuggestPanel" Spacing="6" IsVisible="False"/>
 
                             <!-- 2026-10-04, клиент: «включил весовой — поле PLU выталкивает цену вниз, полстроки не видно».
                                  PLU теперь в той же строке, что и тумблер «Весовой»: высота вкладки не меняется. -->
                             <Grid x:Name="NarrowRowStock" ColumnDefinitions="*,14,Auto,Auto,14,*">
-                                <StackPanel Grid.Column="0" Spacing="6" IsVisible="{Binding !IsQuickAddMode}">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.unitLabel}"/>
-                                    <TextBox Text="{Binding Unit}"/>
+                                <!-- 2026-10-29, жалоба владельца «нет цены, количества и единицы»: единица видна и при быстром добавлении (скан незнакомого кода),
+                                     выбор — полем с поиском и списком (шт, кг, г, л, мл, м, уп, пара…) и «своя» (ctl:UnitPickerBox, справочник UnitCatalog). -->
+                                <StackPanel Grid.Column="0" Spacing="6">
+                                    <TextBlock x:Name="UnitFieldLabel" Classes="FieldLabel" Text="{DynamicResource product.unitLabel}"/>
+                                    <ctl:UnitPickerBox x:Name="UnitPicker" Value="{Binding Unit, Mode=TwoWay}"/>
                                 </StackPanel>
                                 <!-- 2026-10-06 (О-13): в сфере «Одежда» «Весовой» скрыт (ShowWeightToggle). -->
                                 <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Bottom" IsVisible="{Binding ShowWeightToggle}">
@@ -342,10 +348,13 @@
                                              ToolTip.Tip="{DynamicResource product.pluWatermark}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="5" Spacing="6">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource csh.catalog.colStock}"/>
+                                    <TextBlock x:Name="QuantityFieldLabel" Classes="FieldLabel" Text="{DynamicResource csh.catalog.colStock}"/>
                                     <TextBox Text="{Binding Quantity}"/>
                                 </StackPanel>
                             </Grid>
+                            <!-- 2026-10-29: подсказка под единицей и количеством — когда можно дробное (0,5 кг, 2,25 л), а когда только целое (шт). -->
+                            <TextBlock Text="{Binding QuantityHint}" IsVisible="{Binding HasQuantityHint}" TextWrapping="Wrap" FontSize="12"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
 
                             <!-- 2026-10-18, этап 5: на невысоком окне (< 700) заголовок «Цены» прячется (PricesHeader, как ScanHintHost) —
                                  у полей и так подписи «Цена закупки / Наценка / Цена продажи», а цены видны без прокрутки. -->
@@ -360,10 +369,13 @@
                                     <TextBox Text="{Binding MarkupPercent}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="4" Spacing="8">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.salePriceLabel}"/>
+                                    <TextBlock x:Name="SalePriceFieldLabel" Classes="FieldLabel" Text="{DynamicResource product.salePriceLabel}"/>
                                     <TextBox Text="{Binding Price}"/>
                                 </StackPanel>
                             </Grid>
+                            <!-- 2026-10-29: «Наценка 25 % · прибыль с единицы 20 сом, с остатка 480 сом» — сразу видно, сколько магазин зарабатывает. -->
+                            <TextBlock Text="{Binding ProfitText}" IsVisible="{Binding HasProfitText}" TextWrapping="Wrap" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
                             <!-- 2026-10-11, тестировщик (склад.md, 2.1.1): оптовая цена (и скидка) — на «Основном», рядом с ценами. -->
                             <StackPanel IsVisible="{Binding !IsQuickAddMode}">
                                 <Grid ColumnDefinitions="*,18,*">
@@ -441,7 +453,8 @@
                                                TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
 
                                     <Grid ColumnDefinitions="*,12,*,12,Auto" Margin="0,6,0,0">
-                                        <TextBox Grid.Column="0" Text="{Binding VariantBarcode}"
+                                        <!-- 2026-10-29: scan-direct — скан со сканера печатается прямо в это поле (раньше уходил в основной «Штрихкод», а поле очищалось). -->
+                                        <TextBox Grid.Column="0" Classes="scan-direct" Text="{Binding VariantBarcode}"
                                                  Watermark="{DynamicResource product.variantBarcodeWatermark}"/>
                                         <TextBox Grid.Column="2" Text="{Binding VariantNameSuffix}"
                                                  Watermark="{DynamicResource product.variantNameWatermark}"/>
@@ -476,7 +489,7 @@
                                                                            Foreground="{DynamicResource BrushTextSoft}"/>
                                                             </StackPanel>
                                                             <Grid Grid.Column="0" ColumnDefinitions="*,8,*,8,80" IsVisible="{Binding IsEditing}">
-                                                                <TextBox Grid.Column="0" Text="{Binding EditBarcode}" Watermark="{DynamicResource product.variantBarcodeWatermark}"/>
+                                                                <TextBox Grid.Column="0" Classes="scan-direct" Text="{Binding EditBarcode}" Watermark="{DynamicResource product.variantBarcodeWatermark}"/>
                                                                 <TextBox Grid.Column="2" Text="{Binding EditName}" Watermark="{DynamicResource product.variantNameWatermark}"/>
                                                                 <TextBox Grid.Column="4" Text="{Binding EditQuantity}"/>
                                                             </Grid>
@@ -503,16 +516,108 @@
                         <StackPanel Spacing="20" Margin="0,0,0,240">
                             <StackPanel Spacing="14" IsVisible="{Binding !IsQuickAddMode}">
                                 <CheckBox Content="{DynamicResource product.enablePieceSale}" IsChecked="{Binding EnablePieceSale}"/>
-                                <Grid x:Name="NarrowRowPackage" ColumnDefinitions="*,18,*" IsVisible="{Binding EnablePieceSale}">
-                                    <StackPanel Grid.Column="0" Spacing="8">
-                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.packageQtyLabel}"/>
-                                        <TextBox Text="{Binding PackageQuantity}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2" Spacing="8">
-                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.packagePriceLabel}"/>
-                                        <TextBox Text="{Binding PackagePiecePrice}"/>
-                                    </StackPanel>
-                                </Grid>
+                                <!-- 2026-10-29, спека Fable (docs/Дизайн/Спеки 2026-10-29.md, раздел 2): карточка «Целая упаковка» (из «Основное», только чтение), «Цена за штуку»
+                                     всегда заполнена авто с кнопкой «Авто» внутри поля (жёлтая — авто, Warning — правили руками), чипы шаблонов, строка расчёта,
+                                     предупреждение > 5 % с кнопкой «Вернуть авто», пример-подсказка. Логика расчёта — в коде окна (PackAutoPiece и др.), здесь только вид. -->
+                                <TextBlock Text="{Binding PackOffText}" IsVisible="{Binding !EnablePieceSale}" TextWrapping="Wrap" FontSize="13"
+                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                                <StackPanel Spacing="12" IsVisible="{Binding EnablePieceSale}">
+                                    <StackPanel.Styles>
+                                        <Style Selector="Button.packAuto">
+                                            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+                                            <Setter Property="BorderThickness" Value="0"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                            <Setter Property="FontSize" Value="12.5"/>
+                                            <Setter Property="CornerRadius" Value="8"/>
+                                            <Setter Property="Padding" Value="12,0"/>
+                                        </Style>
+                                        <Style Selector="Button.packAuto.manual">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+                                        </Style>
+                                        <Style Selector="TextBox.packPiece.manual">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+                                        </Style>
+                                        <Style Selector="Button.packChip">
+                                            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Setter Property="CornerRadius" Value="20"/>
+                                            <Setter Property="Padding" Value="14,0"/>
+                                            <Setter Property="FontSize" Value="13.5"/>
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                        </Style>
+                                        <Style Selector="Button.packChip.on">
+                                            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+                                        </Style>
+                                    </StackPanel.Styles>
+
+                                    <!-- Целая упаковка: цена и закупка — с вкладки «Основное», только чтение -->
+                                    <Border CornerRadius="12" Padding="14,12" BorderThickness="1" Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}">
+                                        <Grid ColumnDefinitions="*,*,Auto" RowDefinitions="Auto,Auto">
+                                            <TextBlock Grid.Row="0" Grid.Column="0" x:Name="PackWholePriceLabel" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="PackWholeBuyLabel" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                            <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Text="{Binding PackWholePrice}" FontSize="18" FontWeight="ExtraBold"/>
+                                                <TextBlock Text="{Binding PackSom}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Text="{Binding PackWholeBuy}" FontSize="18" FontWeight="ExtraBold"/>
+                                                <TextBlock Text="{Binding PackSom}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                                            </StackPanel>
+                                            <Button Grid.RowSpan="2" Grid.Column="2" x:Name="PackGoMainButton" Classes="SecondaryButton" MinHeight="36" Padding="10,0"
+                                                    VerticalAlignment="Center" Click="PackGoMain_Click"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <Grid x:Name="NarrowRowPackage" ColumnDefinitions="*,16,*">
+                                        <StackPanel Grid.Column="0" Spacing="6">
+                                            <TextBlock x:Name="PackQtyLabel" Classes="FieldLabel" Text="{DynamicResource product.packageQtyLabel}"/>
+                                            <TextBox Text="{Binding PackageQuantity}" MinHeight="48" FontSize="18" FontWeight="Bold"/>
+                                            <TextBlock x:Name="PackQtyHint" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Spacing="6">
+                                            <TextBlock x:Name="PackPieceLabel" Classes="FieldLabel" Text="{DynamicResource product.packagePriceLabel}"/>
+                                            <Panel>
+                                                <TextBox x:Name="PackPieceBox" Classes="packPiece" Classes.manual="{Binding PackIsManual}" Text="{Binding PackagePiecePrice}"
+                                                         MinHeight="48" FontSize="18" FontWeight="Bold" Padding="12,0,84,0" VerticalContentAlignment="Center"/>
+                                                <Button x:Name="PackAutoButton" Classes="packAuto" Classes.manual="{Binding PackIsManual}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                        Height="36" MinHeight="36" Margin="0,0,6,0" Click="PackAuto_Click"/>
+                                            </Panel>
+                                            <TextBlock Text="{Binding PackAutoHint}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" IsVisible="{Binding !PackIsManual}"/>
+                                            <TextBlock Text="{Binding PackAutoHint}" FontSize="12.5" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource BrushWarning}" IsVisible="{Binding PackIsManual}"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <WrapPanel x:Name="PackTemplates"/>
+
+                                    <!-- строка расчёта: зелёная, при расхождении — жёлтая -->
+                                    <Border CornerRadius="12" Padding="14,12" Background="{DynamicResource BrushSuccessSoft}" IsVisible="{Binding PackCalcOk}">
+                                        <TextBlock Text="{Binding PackPieceInfo}" TextWrapping="Wrap" FontSize="14" FontWeight="SemiBold"/>
+                                    </Border>
+                                    <Border CornerRadius="12" Padding="14,12" Background="{DynamicResource BrushWarningSoft}" IsVisible="{Binding PackCalcWarn}">
+                                        <TextBlock Text="{Binding PackPieceInfo}" TextWrapping="Wrap" FontSize="14" FontWeight="SemiBold"/>
+                                    </Border>
+
+                                    <!-- предупреждение > 5 % с кнопкой «Вернуть авто» -->
+                                    <Border IsVisible="{Binding HasPackWarning}" CornerRadius="12" Padding="14,12" BorderThickness="1"
+                                            Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="{Binding PackWarning}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                            <Button Content="{Binding PackReturnAutoText}" Classes="SecondaryButton" HorizontalAlignment="Left" Height="36" MinHeight="36" Padding="14,0"
+                                                    BorderBrush="{DynamicResource BrushWarning}" Click="PackAuto_Click"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- пример-подсказка -->
+                                    <Border CornerRadius="10" Padding="12,10" BorderThickness="1" BorderBrush="{DynamicResource BrushBorderStrong}">
+                                        <TextBlock x:Name="PackExample" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                                    </Border>
+                                </StackPanel>
                             </StackPanel>
 
                             <StackPanel Spacing="10" IsVisible="{Binding IsBundleKind}">

@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using NurMarketKassa.Core.Application;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -334,7 +335,7 @@ public sealed class InvoiceEditorWindow : Window
     private static string Num(double? v, string format) => v is { } x ? x.ToString(format, CultureInfo.InvariantCulture) : "";
 
     private static bool TryNum(string? text, out double value) =>
-        double.TryParse((text ?? "").Trim().Replace(" ", "").Replace("\u00A0", "").Replace("\u202F", "").Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out value)
+        double.TryParse((text ?? "").Trim().Replace(" ", "").Replace("\u00A0", "").Replace("\u202F", "").Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out value)
         && double.IsFinite(value);
 
     private static double ParseOr(string? text) => TryNum(text, out var v) ? v : 0;
@@ -394,7 +395,7 @@ public sealed class InvoiceEditorWindow : Window
         supplierHead.Children.Add(supplierLabel);
         supplierHead.Children.Add(_supplierSelected);
 
-        _supplierSearch = UiKit.Input(this, T("Найти поставщика по названию", "Жеткирүүчүнү аты боюнча табуу", "Find a supplier by name", "Tedarikçiyi ada göre bul", "Yetkazib beruvchini nomi bo'yicha topish"), 38);
+        _supplierSearch = UiKit.Search(this, T("Найти поставщика по названию", "Жеткирүүчүнү аты боюнча табуу", "Find a supplier by name", "Tedarikçiyi ada göre bul", "Yetkazib beruvchini nomi bo'yicha topish"), 38);
         _supplierSearch.TextChanged += (_, _) => FillSupplierList();
         _supplierSearch.KeyDown += (_, e) =>
         {
@@ -623,7 +624,7 @@ public sealed class InvoiceEditorWindow : Window
         var all = _draft.Suppliers ?? new List<PurchaseReceivingService.Supplier>();
         var found = query.Length == 0
             ? all
-            : all.Where(s => s.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase) || (s.Inn ?? "").Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+            : all.Where(s => SearchMatch.Matches(query, s.Name, s.Inn)).ToList(); // 2026-10-29: единый поиск
         _supplierList.Items.Clear();
         foreach (var s in found.Take(200))
         {

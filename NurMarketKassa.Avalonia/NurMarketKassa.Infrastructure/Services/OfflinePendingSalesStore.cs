@@ -7,10 +7,15 @@ public static class OfflinePendingSalesStore
 
     public static void SaveAll(List<OfflineSaleEntry> items) => OfflineDatabase.SaveAll(items);
 
+    /// <summary>2026-10-29: чек поставлен в очередь — SyncService досылает его почти сразу (если есть связь), а не ждёт очередного такта.</summary>
+    public static event Action? Appended;
+
     public static void Append(OfflineSaleEntry entry)
     {
         OfflineDatabase.Append(entry);
         PosLogger.Log($"OFFLINE queue append: id={entry.Id}, receipt={entry.CreatedAt:yyyyMMdd-HHmmss}", "OFFLINE");
+        try { Appended?.Invoke(); }
+        catch (Exception ex) { PosLogger.Log($"OFFLINE: обработчик постановки в очередь не отработал: {ex.Message}", "WARNING"); }
     }
 
     /// <summary>Статусы, которые вообще могут оказаться "ждущими" — ими же фильтруется выборка в

@@ -17,6 +17,7 @@ import 'package:nurmarket/core/api/api_client.dart';
 import 'package:nurmarket/core/api/session_store.dart';
 import 'package:nurmarket/core/theme/theme.dart';
 import 'package:nurmarket/core/theme/tokens.dart';
+import 'package:nurmarket/core/ui/infographic/infographics.dart';
 import 'package:nurmarket/features/admin/analytics.dart';
 import 'package:nurmarket/l10n/app_localizations.dart';
 
@@ -287,45 +288,26 @@ void main() {
       expect(two.$2, <int>{}, reason: 'слабый день — только от трёх дней с продажами');
     });
 
+    // 2026-10-29 (инфографика, спека Fable): столбцы — на общем BarChartCard; касание столбца даёт карточку под диаграммой.
     for (final dark in [false, true]) {
       for (final scale in [1.0, 1.3]) {
-        testWidgets('столбцы: лучший жёлтый, слабый приглушён, сегодня с контуром, легенда — тёмная=$dark, шрифт $scale', (t) async {
+        testWidgets('столбцы: заголовок, подсказка, легенда «Лучший день», без переполнения — тёмная=$dark, шрифт $scale', (t) async {
           _phone(t, scale: scale);
           final days = week([100, 500, 300, 40, 200, 80, 150]);
-          await t.pumpWidget(
-            _app(
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: RevenueDayBars(days, today: d0.add(const Duration(days: 6))),
-                ),
-              ),
-              dark: dark,
-            ),
-          );
+          await t.pumpWidget(_app(Padding(padding: const EdgeInsets.all(16), child: RevenueDayBars(days, today: d0.add(const Duration(days: 6)))), dark: dark));
           await t.pumpAndSettle();
           expect(t.takeException(), isNull);
           expect(_clipped(t), isEmpty);
-          final decos = [
-            for (final c in t.widgetList<Container>(find.byType(Container)))
-              if (c.decoration is BoxDecoration && (c.decoration as BoxDecoration).borderRadius == BorderRadius.circular(4)) c.decoration as BoxDecoration,
-          ];
-          expect(decos.length, 7);
-          expect(decos[1].color, T.accent, reason: 'лучший день — жёлтый акцент');
-          final base = RevenueDayBars.baseColor(dark);
-          expect(decos[3].color, base.withValues(alpha: .4), reason: 'самый слабый — приглушён');
-          expect(decos[0].color, base);
-          final rings = [
-            for (final c in t.widgetList<Container>(find.byType(Container)))
-              if (c.decoration is BoxDecoration &&
-                  (c.decoration as BoxDecoration).borderRadius == BorderRadius.circular(6) &&
-                  (c.decoration as BoxDecoration).border != null)
-                c,
-          ];
-          expect(rings.length, 1, reason: 'сегодня — кольцо вокруг столбца');
+          expect(find.textContaining('Выручка по дням'), findsOneWidget);
           expect(find.text('Лучший день'), findsOneWidget);
-          expect(find.text('Самый слабый день'), findsOneWidget);
-          expect(find.text('Сегодня'), findsOneWidget);
+          expect(find.text('Нажмите на столбец — подробности'), findsOneWidget);
+          // касание второго столбца (самый высокий) — карточка с датой и суммой
+          final box = t.getRect(find.descendant(of: find.byType(BarChartCard), matching: find.byType(GestureDetector)).first);
+          await t.tapAt(Offset(box.left + box.width / 7 * 1.5, box.top + 60));
+          await t.pumpAndSettle();
+          expect(find.text('21.10'), findsOneWidget);
+          expect(find.text('500 сом'), findsOneWidget);
+          expect(find.text('Нажмите на столбец — подробности'), findsNothing);
         });
       }
     }
@@ -333,18 +315,16 @@ void main() {
     testWidgets('легенда на 5 языках', (t) async {
       _phone(t);
       const expected = {
-        'ru': ['Лучший день', 'Самый слабый день'],
-        'ky': ['Эң мыкты күн', 'Эң начар күн'],
-        'en': ['Best day', 'Weakest day'],
-        'tr': ['En iyi gün', 'En zayıf gün'],
-        'uz': ['Eng yaxshi kun', 'Eng sust kun'],
+        'ru': 'Лучший день',
+        'ky': 'Эң мыкты күн',
+        'en': 'Best day',
+        'tr': 'En iyi gün',
+        'uz': 'Eng yaxshi kun',
       };
       for (final e in expected.entries) {
         await t.pumpWidget(_app(RevenueDayBars(week([100, 500, 300, 40, 200]), today: d0.add(const Duration(days: 9))), lang: e.key));
         await t.pumpAndSettle();
-        for (final s in e.value) {
-          expect(find.text(s), findsOneWidget, reason: '${e.key}: $s');
-        }
+        expect(find.text(e.value), findsOneWidget, reason: e.key);
         expect(t.takeException(), isNull);
       }
     });
@@ -368,45 +348,85 @@ void main() {
       const ProductSales('Молоко', 20, 1800, 60),
       const ProductSales('Сыр «Российский» весовой', 3, 1500, 400),
       const ProductSales('Сок яблочный 1 л', 12, 900, 70),
+      const ProductSales('Чай чёрный', 9, 700, 50),
+    ];
+
+    /// Цвета квадратиков 12×12 (легенда кольца) и полос топ-5 (высота 8) по порядку в дереве.
+    List<Color> swatches(WidgetTester t, double size) => [
+      for (final c in t.widgetList<Container>(find.byType(Container)))
+        if (c.decoration is BoxDecoration && (c.decoration as BoxDecoration).color != null && c.constraints != null)
+          if (c.constraints!.maxWidth == size && c.constraints!.maxHeight == size) (c.decoration as BoxDecoration).color!,
+    ];
+    List<Color> topBars(WidgetTester t) => [
+      for (final c in t.widgetList<Container>(find.byType(Container)))
+        if (c.decoration is BoxDecoration && c.constraints != null && c.constraints!.maxHeight == 8 && (c.decoration as BoxDecoration).color != null) (c.decoration as BoxDecoration).color!,
     ];
 
     for (final dark in [false, true]) {
       for (final scale in [1.0, 1.3]) {
-        testWidgets('способы оплаты и топ товаров — у каждого свой цвет; без переполнения — тёмная=$dark, шрифт $scale', (t) async {
+        testWidgets('кольцо способов оплаты и топ-5 — у каждого свой цвет; без переполнения — тёмная=$dark, шрифт $scale', (t) async {
           _phone(t, scale: scale);
+          t.view.physicalSize = const Size(720, 7200); // при шрифте 1,3 вся сводка длиннее 1800 dp
           await t.pumpWidget(_app(const SummaryScreen(), overrides: [analyticsRepoProvider.overrideWithValue(_Repo(summary, items))], dark: dark));
           await t.pumpAndSettle();
           expect(t.takeException(), isNull);
           expect(_clipped(t).where((s) => s.contains('Сыр') == false), isEmpty);
-          final bars = t.widgetList<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).toList();
-          // 4 способа оплаты + 5 товаров
-          expect(bars.length, 9);
-          final pay = bars.take(4).map((b) => b.color).toSet();
-          final prod = bars.skip(4).map((b) => b.color).toSet();
-          expect(pay.length, 4, reason: 'способы оплаты — 4 разных цвета');
-          expect(prod.length, 5, reason: 'товары — 5 разных цветов');
+          // кольцо: 4 способа — 4 разных цвета палитры, по ключу
+          final pay = swatches(t, 12).take(4).toList(); // дальше — квадраты карточки прибыли
+          expect(pay.length, 4);
+          expect(pay.toSet().length, 4, reason: 'способы оплаты — 4 разных цвета');
           expect(pay.every(T.chartColors.contains), isTrue);
+          final keys = ['cash', 'card', 'transfer', 'debt'];
+          expect(pay, ChartColors.assign(keys), reason: 'порядок по убыванию суммы: cash 6000, card 4000, transfer 1500, debt 500');
+          // топ-5 (из 6 товаров показаны пять), цвета по названию
+          final prod = topBars(t);
+          expect(prod.length, 5);
+          expect(prod.toSet().length, 5, reason: 'товары — 5 разных цветов');
           expect(prod.every(T.chartColors.contains), isTrue);
-          // Вода и Молоко — свои цвета по ключу (когда нет коллизий), одинаковые между экранами и обновлениями
-          expect(bars[4].color, ChartColors.forKey('Вода'));
-          expect(bars[6].color, ChartColors.forKey('Молоко'));
+          expect(prod[0], ChartColors.assign(['Вода', 'Хлеб белый', 'Молоко', 'Сыр «Российский» весовой', 'Сок яблочный 1 л'])[0]);
+          expect(find.text('Чай чёрный'), findsNothing);
+          // без «Сравнить» дельты нет: четыре плитки — «— н/д»
+          expect(find.text('— н/д'), findsNWidgets(4));
+          // честная заметка про часы
+          expect(find.textContaining('Выручка по часам', skipOffstage: false), findsOneWidget);
         });
       }
     }
+
+    testWidgets('«Сравнить» включает дельты: «— н/д» пропадает', (t) async {
+      _phone(t);
+      await t.pumpWidget(_app(const SummaryScreen(), overrides: [analyticsRepoProvider.overrideWithValue(_Repo(summary, items))]));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Сравнить с прошлым периодом'));
+      await t.pumpAndSettle();
+      expect(find.text('— н/д'), findsNothing);
+      expect(find.text('● 0 %'), findsNWidgets(4), reason: 'прошлый период в фейке такой же — без изменений');
+      expect(find.text('к вчера'), findsNWidgets(4));
+      expect(t.takeException(), isNull);
+    });
 
     testWidgets('цвет товара не меняется при другой сортировке', (t) async {
       _phone(t);
       Future<Color?> waterColor(List<ProductSales> list) async {
         await t.pumpWidget(_app(SummaryScreen(key: UniqueKey()), overrides: [analyticsRepoProvider.overrideWithValue(_Repo(summary, list))]));
         await t.pumpAndSettle();
-        final bars = t.widgetList<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).toList();
-        final order = (list.toList()..sort((a, b) => b.revenue.compareTo(a.revenue))).map((p) => p.name).toList();
-        return bars[4 + order.indexOf('Вода')].color;
+        final order = (list.toList()..sort((a, b) => b.revenue.compareTo(a.revenue))).where((p) => p.revenue > 0).take(5).map((p) => p.name).toList();
+        return topBars(t)[order.indexOf('Вода')];
       }
 
       final first = await waterColor(items);
-      final other = await waterColor([const ProductSales('Вода', 1, 100, 40), ...items.skip(1)]);
+      final other = await waterColor([const ProductSales('Вода', 1, 3300, 40), ...items.skip(1)]);
       expect(first, other);
+    });
+
+    testWidgets('нет продаж: пустые состояния вместо диаграмм, без ошибок', (t) async {
+      _phone(t);
+      const empty = SalesSummary(0, 0, 0, 0, [], {});
+      await t.pumpWidget(_app(const SummaryScreen(), overrides: [analyticsRepoProvider.overrideWithValue(_Repo(empty, const []))]));
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull);
+      expect(find.text('Нет данных за период'), findsNWidgets(2), reason: 'выручка по дням и кольцо');
+      expect(find.text('За этот период продаж нет'), findsOneWidget, reason: 'топ-5');
     });
   });
 

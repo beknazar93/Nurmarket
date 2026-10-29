@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Инвестиции и окупаемость</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F5F2}
+a{color:#1D6B4F}a:hover{color:#14503B}
+input,select,button{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #F4F5F2; color: #15171C; font-family: 'Manrope', system-ui, sans-serif; font-variant-numeric: tabular-nums;">
+
+<header style="background: #FFFFFF; border-bottom: 1px solid #E3E5E0;">
+<div style="max-width: 1320px; margin: 0 auto; padding: 14px 32px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<div style="width: 40px; height: 40px; border-radius: 11px; background: #1D6B4F; display: flex; align-items: center; justify-content: center;">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"></path><path d="M14 7h7v7"></path></svg>
+</div>
+<div>
+<div style="font-weight: 800; font-size: 17px; letter-spacing: -0.01em;">Инвестиции и окупаемость</div>
+<div style="font-size: 12px; color: #5B6068; font-weight: 500;">{{sphereLine}}</div>
+</div>
+</div>
+<div role="group" aria-label="Сфера бизнеса" style="display: flex; flex-wrap: wrap; gap: 6px;">
+<sc-for list="{{products}}" as="p" hint-placeholder-count="5">
+<button type="button" onClick="{{p.pick}}" style="{{p.style}}">
+<span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15;">
+<span style="font-size: 13px; font-weight: 800;">{{p.sphere}}</span>
+<span style="{{p.subStyle}}">{{p.label}}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</div>
+<div style="max-width: 1320px; margin: 0 auto; padding: 0 32px; display: flex; flex-wrap: wrap; gap: 4px;">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+<button type="button" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button>
+</sc-for>
+</div>
+</header>
+
+<main style="max-width: 1320px; margin: 0 auto; padding: 28px 32px 64px; box-sizing: border-box;">
+
+<sc-if value="{{isDash}}" hint-placeholder-val="{{true}}">
+<section style="display: flex; flex-direction: column; gap: 20px;">
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between;">
+<div>
+<p style="margin: 0; font-size: 13px; color: #5B6068; font-weight: 600;">{{productName}} · {{bizName}}</p>
+<h1 style="margin: 4px 0 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em;">{{dashTitle}}</h1>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center;">
+<div role="group" aria-label="Прогноз по средней прибыли" style="display: flex; align-items: center; gap: 8px;">
+<span style="font-size: 13px; color: #5B6068; font-weight: 600;">Прогноз по средней за</span>
+<div style="display: flex; background: #E9EAE6; border-radius: 12px; padding: 3px;">
+<sc-for list="{{fcOpts}}" as="o" hint-placeholder-count="3">
+<button type="button" onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button>
+</sc-for>
+</div>
+</div>
+<label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5B6068; font-weight: 600;">План окупаемости
+<input type="number" min="1" value="{{plan}}" onChange="{{setPlan}}" style="width: 72px; height: 44px; padding: 0 10px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 15px; font-weight: 700; color: #15171C; background: #FFFFFF; box-sizing: border-box;">
+мес</label>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 14px;">
+<sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+<div style="flex: 1 1 230px; background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 13px; color: #5B6068; font-weight: 600;">{{k.label}}</span>
+<span style="font-size: 26px; font-weight: 800; letter-spacing: -0.02em;">{{k.value}}</span>
+<span style="{{k.subStyle}}">{{k.sub}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-end;">
+<div>
+<p style="margin: 0; font-size: 14px; color: #5B6068; font-weight: 600;">{{bizPctLabel}}</p>
+<p style="margin: 2px 0 0; font-size: 48px; font-weight: 800; letter-spacing: -0.03em; color: #1D6B4F; line-height: 1;">{{bizPct}}</p>
+</div>
+<p style="margin: 0; font-size: 15px; color: #15171C; font-weight: 600;">{{bizGotTxt}} из {{totalTxt}}</p>
+</div>
+<div style="height: 16px; background: #EDEEEA; border-radius: 99px; overflow: hidden;">
+<div style="{{bizBarStyle}}"></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; font-size: 13px; color: #5B6068; font-weight: 600;">
+<span>Старт: {{startLabel}}</span>
+<span>{{bizFcLine}}</span>
+</div>
+<sc-if value="{{hasBizNote}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; padding: 10px 12px; border-radius: 10px; background: #F4F5F2; font-size: 13px; color: #3F444B; font-weight: 600;">{{bizNote}}</p>
+</sc-if>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: baseline;">
+<h2 style="margin: 0; font-size: 18px; font-weight: 800;">Показатели сферы · {{sphereName}}</h2>
+<span style="font-size: 12px; color: #5B6068; font-weight: 600;">за октябрь 2026</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px;">
+<sc-for list="{{sphMetrics}}" as="m" hint-placeholder-count="4">
+<div style="flex: 1 1 200px; padding: 14px 16px; border-radius: 12px; background: #F4F5F2; display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 12px; font-weight: 700; color: #5B6068;">{{m.label}}</span>
+<span style="font-size: 20px; font-weight: 800;">{{m.value}}</span>
+<span style="font-size: 12px; color: #5B6068; line-height: 1.4;">{{m.hint}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div>
+<h2 style="margin: 4px 0 12px; font-size: 18px; font-weight: 800;">Окупаемость по участникам</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 14px;">
+<sc-for list="{{levels}}" as="l" hint-placeholder-count="3">
+<div style="flex: 1 1 300px; background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; align-items: center; gap: 10px;">
+<span aria-hidden="true" style="{{l.dotStyle}}"></span>
+<div>
+<div style="font-size: 16px; font-weight: 800;">{{l.title}}</div>
+<div style="font-size: 12px; color: #5B6068; font-weight: 600;">{{l.who}}</div>
+</div>
+<span style="margin-left: auto; font-size: 22px; font-weight: 800;">{{l.pctTxt}}</span>
+</div>
+<div style="height: 10px; background: #EDEEEA; border-radius: 99px; overflow: hidden;"><div style="{{l.barStyle}}"></div></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; font-size: 13px;">
+<div><div style="color: #5B6068; font-weight: 600;">Вложено</div><div style="font-weight: 700; font-size: 15px;">{{l.investedTxt}}</div></div>
+<div><div style="color: #5B6068; font-weight: 600;">Вернулось</div><div style="font-weight: 700; font-size: 15px;">{{l.gotTxt}}</div></div>
+<div><div style="color: #5B6068; font-weight: 600;">{{l.monthlyLbl}}</div><div style="font-weight: 700; font-size: 15px;">{{l.monthlyTxt}}</div></div>
+<div><div style="color: #5B6068; font-weight: 600;">Окупаемость</div><div style="font-weight: 700; font-size: 15px;">{{l.fcTxt}}</div></div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 14px;">
+<div style="flex: 999 1 560px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+<div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center;">
+<h2 style="margin: 0; font-size: 18px; font-weight: 800;">{{chartTitle}}</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; font-weight: 600; color: #5B6068;">
+<span style="display: flex; align-items: center; gap: 6px;"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 3px; background: #2F5DA8;"></span>Инвестору</span>
+<span style="display: flex; align-items: center; gap: 6px;"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 3px; background: #E39A4F;"></span>Владельцу</span>
+<span style="display: flex; align-items: center; gap: 6px;"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 3px; background: #E7B4AE;"></span>Убыток</span>
+</div>
+</div>
+<div style="overflow-x: auto;">
+<div style="display: flex; gap: 10px; align-items: flex-end; min-width: 520px; height: 220px; border-bottom: 1px solid #E3E5E0;">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="8">
+<div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; gap: 2px; height: 100%;">
+<span style="{{b.valStyle}}">{{b.val}}</span>
+<div style="{{b.ownStyle}}"></div>
+<div style="{{b.invStyle}}"></div>
+<div style="{{b.lossStyle}}"></div>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; gap: 10px; min-width: 520px; padding-top: 8px;">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="8">
+<span style="flex: 1 1 0; text-align: center; font-size: 12px; font-weight: 600; color: #5B6068;">{{b.label}}</span>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="flex: 1 1 340px; background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 style="margin: 0; font-size: 18px; font-weight: 800;">Структура вложений</h2>
+<div style="display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: #EDEEEA;">
+<sc-for list="{{invItems}}" as="v" hint-placeholder-count="2">
+<div style="{{v.segStyle}}"></div>
+</sc-for>
+</div>
+<sc-for list="{{invItems}}" as="v" hint-placeholder-count="2">
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer;">
+<input type="checkbox" checked="{{v.checked}}" onChange="{{v.toggle}}" style="width: 20px; height: 20px; accent-color: #1D6B4F;">
+<span aria-hidden="true" style="{{v.dotStyle}}"></span>
+<span style="display: flex; flex-direction: column;">
+<span style="font-size: 14px; font-weight: 700;">{{v.name}}</span>
+<span style="font-size: 12px; color: #5B6068; font-weight: 600;">{{v.who}}</span>
+</span>
+<span style="margin-left: auto; text-align: right; display: flex; flex-direction: column;">
+<span style="font-size: 14px; font-weight: 700;">{{v.amountTxt}}</span>
+<span style="font-size: 12px; color: #5B6068; font-weight: 600;">{{v.shareTxt}}</span>
+</span>
+</label>
+</sc-for>
+<div style="padding-top: 12px; border-top: 1px solid #E3E5E0; display: flex; flex-direction: column; gap: 8px;">
+<span style="font-size: 13px; font-weight: 800;">На что вложено</span>
+<sc-for list="{{purposes}}" as="u" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px;">
+<span style="font-weight: 600;">{{u.name}}</span>
+<span style="font-weight: 700;">{{u.amount}}</span>
+</div>
+<div style="height: 6px; background: #EDEEEA; border-radius: 99px; overflow: hidden;"><div style="{{u.barStyle}}"></div></div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{isPay}}" hint-placeholder-val="{{false}}">
+<section style="display: flex; flex-direction: column; gap: 20px;">
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between;">
+<div>
+<p style="margin: 0; font-size: 13px; color: #5B6068; font-weight: 600;">{{productName}} · {{bizName}} · инвестор {{invName}}</p>
+<h1 style="margin: 4px 0 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em;">Распределение прибыли</h1>
+</div>
+<button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid #D4D7D0; background: #FFFFFF; color: #15171C; font-size: 14px; font-weight: 700; cursor: pointer;">Скачать акт за октябрь (PDF)</button>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; overflow-x: auto;">
+<table style="width: 100%; min-width: 900px; border-collapse: collapse; font-size: 14px;">
+<thead>
+<tr style="text-align: left; color: #5B6068; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
+<th style="padding: 14px 18px; border-bottom: 1px solid #E3E5E0;">Период</th>
+<th style="padding: 14px 18px; border-bottom: 1px solid #E3E5E0; text-align: right;">{{netColLabel}}</th>
+<th style="padding: 14px 18px; border-bottom: 1px solid #E3E5E0; text-align: right;">База расчёта</th>
+<th style="padding: 14px 18px; border-bottom: 1px solid #E3E5E0; text-align: right;">Перенос убытка</th>
+<th style="padding: 14px 18px; border-bottom: 1px solid #E3E5E0;">Этап</th>
+<th style="padding: 14px 18px; border-bottom: 1px solid #E3E5E0; text-align: right;">Инвестору</th>
+<th style="padding: 14px 18px; border-bottom: 1px solid #E3E5E0; text-align: right;">Владельцу</th>
+<th style="padding: 14px 18px; border-bottom: 1px solid #E3E5E0;">Статус</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{payRows}}" as="r" hint-placeholder-count="8">
+<tr>
+<td style="padding: 14px 18px; border-bottom: 1px solid #EEEFEB; font-weight: 700;">{{r.month}}</td>
+<td style="{{r.netStyle}}">{{r.net}}</td>
+<td style="padding: 14px 18px; border-bottom: 1px solid #EEEFEB; text-align: right;">{{r.base}}</td>
+<td style="padding: 14px 18px; border-bottom: 1px solid #EEEFEB; text-align: right; color: #5B6068;">{{r.carried}}</td>
+<td style="padding: 14px 18px; border-bottom: 1px solid #EEEFEB; color: #5B6068; font-weight: 600;">{{r.stage}}</td>
+<td style="padding: 14px 18px; border-bottom: 1px solid #EEEFEB; text-align: right; font-weight: 700; color: #2F5DA8;">{{r.pay}}</td>
+<td style="padding: 14px 18px; border-bottom: 1px solid #EEEFEB; text-align: right; font-weight: 700;">{{r.owner}}</td>
+<td style="padding: 14px 18px; border-bottom: 1px solid #EEEFEB;"><span style="{{r.statusStyle}}">{{r.status}}</span></td>
+</tr>
+</sc-for>
+<tr style="font-weight: 800;">
+<td style="padding: 16px 18px;">Итого</td>
+<td style="padding: 16px 18px; text-align: right;">{{totNet}}</td>
+<td style="padding: 16px 18px; text-align: right;">{{totBase}}</td>
+<td style="padding: 16px 18px;"></td>
+<td style="padding: 16px 18px;"></td>
+<td style="padding: 16px 18px; text-align: right; color: #2F5DA8;">{{totPay}}</td>
+<td style="padding: 16px 18px; text-align: right;">{{totOwn}}</td>
+<td style="padding: 16px 18px;"></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p style="margin: 0; font-size: 13px; color: #5B6068; line-height: 1.5;">{{payNote}}</p>
+</section>
+</sc-if>
+
+<sc-if value="{{isBuild}}" hint-placeholder-val="{{false}}">
+<section style="display: flex; flex-direction: column; gap: 20px;">
+<div>
+<p style="margin: 0; font-size: 13px; color: #5B6068; font-weight: 600;">{{productName}} · {{bizName}}</p>
+<h1 style="margin: 4px 0 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em;">Условия инвестора · {{sphereName}}</h1>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start;">
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px;">
+
+<div style="background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 style="margin: 0; font-size: 16px; font-weight: 800;">Шаблоны для сферы «{{sphereName}}»</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{tplOpts}}" as="o" hint-placeholder-count="4">
+<button type="button" onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button>
+</sc-for>
+</div>
+<p style="margin: 0; font-size: 12px; color: #5B6068;">Шаблон заполняет этапы ниже — дальше всё можно поменять вручную.</p>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<h2 style="margin: 0; font-size: 16px; font-weight: 800;">1. Инвестор и вложение</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 12px;">
+<label style="flex: 2 1 220px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #5B6068;">Имя инвестора
+<input type="text" value="{{invName}}" onChange="{{setName}}" style="height: 44px; padding: 0 12px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 15px; color: #15171C; background: #FFFFFF; box-sizing: border-box;">
+</label>
+<label style="flex: 2 1 180px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #5B6068;">Сумма вложения
+<input type="number" min="0" step="50000" value="{{inv}}" onChange="{{setInv}}" style="height: 44px; padding: 0 12px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 15px; font-weight: 700; color: #15171C; background: #FFFFFF; box-sizing: border-box;">
+</label>
+<label style="flex: 1 1 110px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #5B6068;">Валюта
+<select value="{{cur}}" onChange="{{setCur}}" style="height: 44px; padding: 0 10px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 15px; color: #15171C; background: #FFFFFF;">
+<option value="KGS">сом</option>
+<option value="USD">USD</option>
+</select>
+</label>
+<label style="flex: 2 1 180px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #5B6068;">Свои вложения владельца
+<input type="number" min="0" step="50000" value="{{own}}" onChange="{{setOwn}}" style="height: 44px; padding: 0 12px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 15px; font-weight: 700; color: #15171C; background: #FFFFFF; box-sizing: border-box;">
+</label>
+</div>
+<sc-if value="{{isUsd}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 12px; color: #5B6068;">Сумма в долларах: курс фиксируется на дату вложения, выплаты пересчитываются по курсу на дату выплаты.</p>
+</sc-if>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: baseline;">
+<h2 style="margin: 0; font-size: 16px; font-weight: 800;">2. От чего считается доля</h2>
+<span style="font-size: 13px; color: #5B6068; font-weight: 600;">{{baseNowTxt}}</span>
+</div>
+<div style="display: flex; background: #E9EAE6; border-radius: 12px; padding: 3px; flex-wrap: wrap;">
+<sc-for list="{{baseOpts}}" as="o" hint-placeholder-count="3">
+<button type="button" onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button>
+</sc-for>
+</div>
+<sc-if value="{{isNet}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 13px; font-weight: 700;">Какие расходы вычитать</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px;">
+<sc-for list="{{dedList}}" as="d" hint-placeholder-count="8">
+<label style="display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; border-bottom: 1px solid #F0F1ED;">
+<input type="checkbox" checked="{{d.checked}}" onChange="{{d.toggle}}" style="width: 20px; height: 20px; accent-color: #1D6B4F; flex: none;">
+<span style="font-size: 14px; font-weight: 600;">{{d.name}}</span>
+<span style="margin-left: auto; font-size: 12px; color: #5B6068; white-space: nowrap;">{{d.amount}}</span>
+</label>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 style="margin: 0; font-size: 16px; font-weight: 800;">3. Этапы выплат</h2>
+<sc-for list="{{stagesV}}" as="s" hint-placeholder-count="2">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px; border: 1px solid #E3E5E0; border-radius: 12px; background: #FAFAF8;">
+<span style="{{s.badgeStyle}}">Этап {{s.num}}</span>
+<label style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #5B6068;">Доля
+<input type="number" min="0" max="100" value="{{s.pct}}" onChange="{{s.setPct}}" aria-label="Доля, процентов" style="width: 72px; height: 44px; padding: 0 10px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 15px; font-weight: 700; color: #15171C; background: #FFFFFF; box-sizing: border-box;">
+%</label>
+<label style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #5B6068;">действует
+<select value="{{s.cond}}" onChange="{{s.setCond}}" style="height: 44px; padding: 0 10px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 14px; color: #15171C; background: #FFFFFF;">
+<option value="return">пока не вернётся</option>
+<option value="months">в течение</option>
+<option value="forever">бессрочно</option>
+</select>
+</label>
+<sc-if value="{{s.showVal}}" hint-placeholder-val="{{true}}">
+<label style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #5B6068;">
+<input type="number" min="1" value="{{s.val}}" onChange="{{s.setVal}}" aria-label="{{s.unit}}" style="width: 80px; height: 44px; padding: 0 10px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 15px; font-weight: 700; color: #15171C; background: #FFFFFF; box-sizing: border-box;">
+{{s.unit}}</label>
+</sc-if>
+<span style="font-size: 12px; color: #5B6068; font-weight: 600;">{{s.hint}}</span>
+<sc-if value="{{s.canRemove}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{s.remove}}" aria-label="Удалить этап" style="margin-left: auto; width: 44px; height: 44px; border-radius: 10px; border: 1px solid #E3E5E0; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B6068" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 13h10l1-13"></path><path d="M9 7V4h6v3"></path></svg>
+</button>
+</sc-if>
+</div>
+</sc-for>
+<button type="button" onClick="{{addStage}}" style="align-self: flex-start; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px dashed #A9AEA5; background: #FFFFFF; color: #15171C; font-size: 14px; font-weight: 700; cursor: pointer;">+ Добавить этап</button>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 style="margin: 0; font-size: 16px; font-weight: 800;">4. Если месяц убыточный</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+<sc-for list="{{lossOpts}}" as="o" hint-placeholder-count="3">
+<button type="button" onClick="{{o.pick}}" style="{{o.style}}">
+<span style="{{o.radioStyle}}"></span>
+<span style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
+<span style="font-size: 14px; font-weight: 800; color: #15171C;">{{o.title}}</span>
+<span style="font-size: 12px; font-weight: 500; color: #5B6068; line-height: 1.4;">{{o.desc}}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<h2 style="margin: 0; font-size: 16px; font-weight: 800;">5. Период и ограничения</h2>
+<sc-if value="{{showPeriod}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 13px; font-weight: 600; color: #5B6068;">Как часто считать и выплачивать</span>
+<div style="display: flex; background: #E9EAE6; border-radius: 12px; padding: 3px; flex-wrap: wrap; align-self: flex-start;">
+<sc-for list="{{periodOpts}}" as="o" hint-placeholder-count="4">
+<button type="button" onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 12px;">
+<label style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #5B6068;">Минимальная выплата в месяц, сом
+<input type="number" min="0" step="10000" value="{{minPay}}" onChange="{{setMin}}" style="height: 44px; padding: 0 12px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 15px; font-weight: 700; color: #15171C; background: #FFFFFF; box-sizing: border-box;">
+</label>
+<label style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #5B6068;">Удержание налога с выплат, %
+<input type="number" min="0" max="100" value="{{tax}}" onChange="{{setTax}}" style="height: 44px; padding: 0 12px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 15px; font-weight: 700; color: #15171C; background: #FFFFFF; box-sizing: border-box;">
+</label>
+</div>
+</div>
+
+<div style="background: #FFFFFF; border: 2px solid #1D6B4F; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; align-items: center; gap: 10px;">
+<span style="min-height: 28px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 8px; background: #E6F0EB; color: #14503B; font-size: 12px; font-weight: 800;">Только для сферы</span>
+<h2 style="margin: 0; font-size: 16px; font-weight: 800;">6. Особенности: {{sphereName}}</h2>
+</div>
+<sc-for list="{{sphOpts}}" as="o" hint-placeholder-count="2">
+<div style="padding: 14px; border: 1px solid #E3E5E0; border-radius: 12px; display: flex; flex-direction: column; gap: 10px;">
+<sc-if value="{{o.isToggle}}" hint-placeholder-val="{{true}}">
+<label style="display: flex; gap: 12px; align-items: flex-start; cursor: pointer; min-height: 44px;">
+<input type="checkbox" checked="{{o.checked}}" onChange="{{o.toggle}}" style="width: 20px; height: 20px; margin-top: 2px; accent-color: #1D6B4F; flex: none;">
+<span style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 14px; font-weight: 800;">{{o.title}}</span>
+<span style="font-size: 12px; color: #5B6068; line-height: 1.45;">{{o.desc}}</span>
+</span>
+</label>
+</sc-if>
+<sc-if value="{{o.notToggle}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 14px; font-weight: 800;">{{o.title}}</span>
+<span style="font-size: 12px; color: #5B6068; line-height: 1.45;">{{o.desc}}</span>
+</div>
+</sc-if>
+<sc-if value="{{o.isChoice}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; background: #E9EAE6; border-radius: 12px; padding: 3px; flex-wrap: wrap; align-self: flex-start;">
+<sc-for list="{{o.choices}}" as="ch" hint-placeholder-count="3">
+<button type="button" onClick="{{ch.pick}}" style="{{ch.style}}">{{ch.label}}</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{o.isNumber}}" hint-placeholder-val="{{false}}">
+<label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #5B6068;">
+<input type="number" min="0" value="{{o.value}}" onChange="{{o.setValue}}" aria-label="{{o.title}}" style="width: 120px; height: 44px; padding: 0 12px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 15px; font-weight: 700; color: #15171C; background: #FFFFFF; box-sizing: border-box;">
+{{o.unit}}</label>
+</sc-if>
+<sc-if value="{{o.hasEffect}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 12px; font-weight: 700; color: #1D6B4F;">{{o.effect}}</span>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px;">
+<div style="background: #15171C; color: #FFFFFF; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+<span style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #B9BEC6;">Как это читается</span>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; font-weight: 500;">{{summary}}</p>
+<sc-for list="{{warnings}}" as="w" hint-placeholder-count="1">
+<p style="{{w.style}}">{{w.text}}</p>
+</sc-for>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E5E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<h2 style="margin: 0; font-size: 16px; font-weight: 800;">Симулятор</h2>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #5B6068;">{{testLabel}}
+<input type="number" min="0" step="10000" value="{{test}}" onChange="{{setTest}}" style="height: 44px; padding: 0 12px; border: 1px solid #D4D7D0; border-radius: 10px; font-size: 16px; font-weight: 800; color: #15171C; background: #FFFFFF; box-sizing: border-box;">
+</label>
+<div style="display: flex; flex-wrap: wrap; gap: 6px;">
+<sc-for list="{{testChips}}" as="c" hint-placeholder-count="4">
+<button type="button" onClick="{{c.pick}}" style="{{c.style}}">{{c.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{simKpis}}" as="k" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #F4F5F2;">
+<span aria-hidden="true" style="{{k.dotStyle}}"></span>
+<span style="font-size: 13px; font-weight: 600; color: #3F444B;">{{k.label}}</span>
+<span style="margin-left: auto; font-size: 16px; font-weight: 800; text-align: right;">{{k.value}}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 12px; font-weight: 700; color: #5B6068;">Этапы на шкале 4 лет</span>
+<div style="display: flex; height: 28px; border-radius: 8px; overflow: hidden; background: #EDEEEA;">
+<sc-for list="{{timeline}}" as="t" hint-placeholder-count="2">
+<div style="{{t.style}}">{{t.short}}</div>
+</sc-for>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #5B6068;"><span>1 мес</span><span>12</span><span>24</span><span>36</span><span>48</span></div>
+</div>
+<div style="display: flex; flex-direction: column;">
+<sc-for list="{{simStages}}" as="g" hint-placeholder-count="2">
+<div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid #EEEFEB;">
+<span style="font-size: 14px; font-weight: 800;">{{g.label}}</span>
+<span style="font-size: 12px; font-weight: 600; color: #5B6068;">{{g.range}}</span>
+<span style="margin-left: auto; font-size: 13px; font-weight: 700; color: #2F5DA8;">{{g.inv}}</span>
+<span style="width: 100%; font-size: 12px; color: #5B6068;">{{g.rest}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<button type="button" onClick="{{save}}" style="min-height: 48px; border-radius: 12px; border: 0; background: #1D6B4F; color: #FFFFFF; font-size: 15px; font-weight: 800; cursor: pointer;">Сохранить условия</button>
+<sc-if value="{{saved}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; padding: 10px 12px; border-radius: 10px; background: #E6F0EB; color: #14503B; font-size: 13px; font-weight: 600; line-height: 1.45;">Сохранено как версия 2 договора. Действует с 1 ноября 2026 — прошлые периоды не пересчитываются.</p>
+</sc-if>
+</div>
+</div>
+</div>
+</section>
+</sc-if>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const mk = (o) => Object.assign({
+      cur: 'KGS', base: 'net', ded: {}, loss: 'carry', period: 'month', minPay: 0, tax: 0,
+      incOwn: true, incInv: true, fc: 3, tpl: ''
+    }, o);
+    this.state = {
+      tab: 'dash', product: 'coca', saved: false,
+      cfg: {
+        coca: mk({ invName: 'Азамат Б.', inv: 2000000, own: 1000000, plan: 18, test: 250000, tpl: 'stepdown',
+          stages: [{ pct: 60, cond: 'return', val: 100 }, { pct: 30, cond: 'forever', val: 0 }],
+          sp: { reserve: 5, points: true } }),
+        kezek: mk({ invName: 'Айпери К.', inv: 900000, own: 600000, plan: 14, test: 140000, tpl: 'stepdown',
+          stages: [{ pct: 50, cond: 'return', val: 100 }, { pct: 25, cond: 'forever', val: 0 }],
+          sp: { dir: 'all', reserve: 0 } }),
+        nur: mk({ invName: 'Бакыт Т.', inv: 1500000, own: 800000, plan: 24, test: 120000, tpl: 'stepdown',
+          stages: [{ pct: 60, cond: 'return', val: 100 }, { pct: 30, cond: 'forever', val: 0 }],
+          sp: { stock: true, liq: 70 } }),
+        opt: mk({ invName: 'Эрлан М.', inv: 5000000, own: 3000000, plan: 20, test: 170000, tpl: 'retplus',
+          stages: [{ pct: 50, cond: 'return', val: 120 }],
+          sp: { cash: true, batch: true } }),
+        build: mk({ invName: 'Нурбек А.', inv: 40000000, own: 20000000, plan: 30, test: 6000000, tpl: 'yield', period: 'month',
+          stages: [{ pct: 70, cond: 'return', val: 140 }],
+          sp: { dist: 'sales', sqm: false, price: 85000 } })
+      }
+    };
+  }
+
+  sphere(k) {
+    const S = {
+      coca: {
+        label: 'Coca', sphere: 'Кафе', biz: 'Кафе №1', grossLabel: 'Выручка − фудкост',
+        rev: [620000, 780000, 900000, 980000, 1020000, 1060000, 1090000, 1080000],
+        cats: [
+          { k: 'food', n: 'Фудкост (продукты)', v: 0.33, g: 1 },
+          { k: 'deliv', n: 'Комиссия доставки', v: 0.03 },
+          { k: 'rent', n: 'Аренда', f: 120000 },
+          { k: 'staff', n: 'Повара и официанты', f: 170000 },
+          { k: 'util', n: 'Коммунальные услуги', f: 30000 },
+          { k: 'tax', n: 'Налоги с выручки', v: 0.04 },
+          { k: 'ownSal', n: 'Зарплата владельца', f: 50000 },
+          { k: 'depr', n: 'Амортизация техники', f: 25000 }
+        ],
+        purposes: [['Ремонт помещения', 1200000], ['Кухонное оборудование', 1100000], ['Мебель и посуда', 400000], ['Первый закуп продуктов', 300000]],
+        templates: [
+          { k: 'share', label: 'Доля от прибыли', stages: [{ pct: 40, cond: 'forever', val: 0 }] },
+          { k: 'stepdown', label: 'До окупаемости, потом меньше', stages: [{ pct: 60, cond: 'return', val: 100 }, { pct: 30, cond: 'forever', val: 0 }] },
+          { k: 'cap', label: 'С потолком 1,5×', stages: [{ pct: 50, cond: 'return', val: 150 }] },
+          { k: 'ladder', label: 'Ступенчатая', stages: [{ pct: 70, cond: 'return', val: 100 }, { pct: 40, cond: 'return', val: 150 }, { pct: 20, cond: 'forever', val: 0 }] }
+        ]
+      },
+      kezek: {
+        label: 'Kezek', sphere: 'Салон', biz: 'Салон №1', grossLabel: 'Выручка − доля мастеров',
+        rev: [380000, 470000, 560000, 610000, 650000, 690000, 700000, 720000],
+        cats: [
+          { k: 'masters', n: 'Доля мастеров', v: 0.40, g: 1 },
+          { k: 'cons', n: 'Расходные материалы', v: 0.08 },
+          { k: 'rent', n: 'Аренда', f: 90000 },
+          { k: 'admin', n: 'Администратор', f: 45000 },
+          { k: 'util', n: 'Коммунальные услуги', f: 15000 },
+          { k: 'tax', n: 'Налоги с выручки', v: 0.04 },
+          { k: 'ownSal', n: 'Зарплата владельца', f: 40000 },
+          { k: 'depr', n: 'Амортизация оборудования', f: 12000 }
+        ],
+        purposes: [['Ремонт', 600000], ['Кресла и оборудование', 550000], ['Мебель', 200000], ['Стартовые расходники', 150000]],
+        templates: [
+          { k: 'share', label: 'Доля от прибыли', stages: [{ pct: 40, cond: 'forever', val: 0 }] },
+          { k: 'stepdown', label: 'До окупаемости, потом меньше', stages: [{ pct: 50, cond: 'return', val: 100 }, { pct: 25, cond: 'forever', val: 0 }] },
+          { k: 'chair', label: 'Доля с кресла на 24 мес', stages: [{ pct: 60, cond: 'months', val: 24 }] },
+          { k: 'cap', label: 'С потолком 1,5×', stages: [{ pct: 50, cond: 'return', val: 150 }] }
+        ]
+      },
+      nur: {
+        label: 'NUR CRM', sphere: 'Магазин', biz: 'Магазин №1', grossLabel: 'Валовая прибыль (наценка)',
+        rev: [700000, 820000, 900000, 950000, 1000000, 980000, 1050000, 1100000],
+        cats: [
+          { k: 'cogs', n: 'Себестоимость товара', v: 0.58, g: 1 },
+          { k: 'acq', n: 'Эквайринг', v: 0.015 },
+          { k: 'rent', n: 'Аренда', f: 110000 },
+          { k: 'sellers', n: 'Продавцы', f: 90000 },
+          { k: 'mkt', n: 'Маркетинг', f: 30000 },
+          { k: 'tax', n: 'Налоги с выручки', v: 0.04 },
+          { k: 'ownSal', n: 'Зарплата владельца', f: 40000 },
+          { k: 'depr', n: 'Амортизация', f: 10000 }
+        ],
+        purposes: [['Товарный запас', 1400000], ['Ремонт и витрины', 500000], ['Вывеска и реклама', 250000], ['Кассовое оборудование', 150000]],
+        stockValue: 1150000,
+        templates: [
+          { k: 'share', label: 'Доля от прибыли', stages: [{ pct: 40, cond: 'forever', val: 0 }] },
+          { k: 'stepdown', label: 'До окупаемости, потом меньше', stages: [{ pct: 60, cond: 'return', val: 100 }, { pct: 30, cond: 'forever', val: 0 }] },
+          { k: 'margin', label: 'Доля с наценки', stages: [{ pct: 25, cond: 'forever', val: 0 }], base: 'gross' },
+          { k: 'cap', label: 'С потолком 1,5×', stages: [{ pct: 50, cond: 'return', val: 150 }] }
+        ]
+      },
+      opt: {
+        label: 'Опт', sphere: 'Оптовая торговля', biz: 'Склад №1', grossLabel: 'Маржа (продажи − закуп)',
+        rev: [2100000, 2800000, 3200000, 3500000, 3600000, 3800000, 3900000, 4100000],
+        cats: [
+          { k: 'buy', n: 'Закупочная стоимость', v: 0.80, g: 1 },
+          { k: 'log', n: 'Логистика и доставка', v: 0.03 },
+          { k: 'rent', n: 'Аренда склада', f: 150000 },
+          { k: 'staff', n: 'Кладовщики и менеджеры', f: 220000 },
+          { k: 'tax', n: 'Налоги', v: 0.02 },
+          { k: 'ownSal', n: 'Зарплата владельца', f: 60000 },
+          { k: 'depr', n: 'Амортизация транспорта', f: 20000 }
+        ],
+        purposes: [['Закуп товара (оборотка)', 6500000], ['Склад и стеллажи', 900000], ['Грузовой транспорт', 600000]],
+        templates: [
+          { k: 'retplus', label: 'Возврат + 20% с маржи', stages: [{ pct: 50, cond: 'return', val: 120 }] },
+          { k: 'margin', label: 'Фикс. доля маржи', stages: [{ pct: 30, cond: 'forever', val: 0 }], base: 'gross' },
+          { k: 'stepdown', label: 'До окупаемости, потом меньше', stages: [{ pct: 60, cond: 'return', val: 100 }, { pct: 25, cond: 'forever', val: 0 }] },
+          { k: 'term', label: 'На срок 18 мес', stages: [{ pct: 45, cond: 'months', val: 18 }] }
+        ]
+      },
+      build: {
+        label: 'BuildOS', sphere: 'Строительство', biz: 'Объект «Блок А»', grossLabel: 'Продажи − стройка',
+        sold: [0, 0, 120, 180, 220, 260, 240, 300], area: 4200, priceM2: 85000,
+        cats: [
+          { k: 'constr', n: 'Строительные работы и материалы', s: [8000000, 12000000, 14000000, 15000000, 15000000, 15000000, 14000000, 14000000], g: 1 },
+          { k: 'mkt', n: 'Маркетинг и отдел продаж', v: 0.03 },
+          { k: 'tax', n: 'Налоги', v: 0.04 },
+          { k: 'mgmt', n: 'Управление проектом', f: 600000 }
+        ],
+        purposes: [['Строительство (старт)', 45000000], ['Земельный участок', 12000000], ['Проект и разрешения', 3000000]],
+        templates: [
+          { k: 'yield', label: 'Возврат + 40% доходности', stages: [{ pct: 70, cond: 'return', val: 140 }] },
+          { k: 'share', label: 'Доля в прибыли объекта', stages: [{ pct: 50, cond: 'forever', val: 0 }] },
+          { k: 'ladder', label: 'Ступенчатая', stages: [{ pct: 80, cond: 'return', val: 100 }, { pct: 40, cond: 'return', val: 150 }] }
+        ]
+      }
+    };
+    const s = S[k];
+    if (k === 'build') s.rev = s.sold.map((m) => m * s.priceM2);
+    return s;
+  }
+
+  fmt(n) { return Math.round(n).toLocaleString('ru-RU'); }
+  som(n) { return this.fmt(n) + ' сом'; }
+  fmtK(n) {
+    const a = Math.abs(n);
+    const s = a >= 1000000 ? (a / 1000000).toFixed(1).replace('.', ',') + ' млн' : Math.round(a / 1000) + 'к';
+    return (n < 0 ? '−' : '') + s;
+  }
+  mlabel(k) {
+    const M = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+    const a = 2026 * 12 + 2 + k;
+    return M[a % 12] + ' ' + Math.floor(a / 12);
+  }
+  mshort(k) {
+    const M = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+    return M[(2 + k) % 12];
+  }
+  firstIdx(arr, target) {
+    if (target <= 0) return -1;
+    for (let i = 0; i < arr.length; i++) if (arr[i] >= target - 0.5) return i;
+    return -1;
+  }
+
+  run(bases, stages, inv, loss, minPay) {
+    let cum = 0, si = 0, stageMonths = 0, carried = 0;
+    const rows = [];
+    for (let m = 0; m < bases.length; m++) {
+      const b = bases[m];
+      let base;
+      if (loss === 'carry') { base = b - carried; if (base < 0) { carried = -base; base = 0; } else { carried = 0; } }
+      else if (loss === 'none') { base = Math.max(b, 0); }
+      else { base = b; }
+      let pay = 0;
+      const startSi = si;
+      if (base < 0) {
+        const st = stages[si];
+        if (st) { pay = base * st.pct / 100; cum += pay; }
+      } else {
+        let rem = base, guard = 0;
+        while (rem > 0.01 && si < stages.length && guard < 20) {
+          guard++;
+          const st = stages[si];
+          const pct = Math.max(0, st.pct) / 100;
+          if (st.cond === 'return') {
+            const cap = inv * st.val / 100 - cum;
+            if (cap <= 0.5) { si++; stageMonths = 0; continue; }
+            if (pct <= 0) break;
+            const p = rem * pct;
+            if (p >= cap) { pay += cap; cum += cap; rem -= cap / pct; si++; stageMonths = 0; continue; }
+            pay += p; cum += p; rem = 0;
+          } else {
+            const p = rem * pct;
+            pay += p; cum += p; rem = 0;
+          }
+        }
+        if (minPay > 0 && base > 0 && startSi < stages.length && pay < minPay) {
+          const extra = Math.min(minPay, base) - pay;
+          if (extra > 0) { pay += extra; cum += extra; }
+        }
+      }
+      if (si < stages.length && stages[si].cond === 'months') {
+        stageMonths++;
+        if (stageMonths >= Math.max(1, stages[si].val)) { si++; stageMonths = 0; }
+      }
+      rows.push({ base: b, pay, cum, stage: startSi, carried });
+    }
+    return rows;
+  }
+
+  renderVals() {
+    const S = this.state;
+    const K = S.product;
+    const C = S.cfg[K];
+    const Z = this.sphere(K);
+    const isB = K === 'build';
+    const set = (o) => this.setState({ saved: false, cfg: Object.assign({}, S.cfg, { [K]: Object.assign({}, C, o) }) });
+    const setSp = (o) => set({ sp: Object.assign({}, C.sp, o) });
+    const N = 8;
+
+    const segBtn = (on) => 'min-height: 44px; padding: 0 14px; border: 0; border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; ' +
+      (on ? 'background: #FFFFFF; color: #15171C; box-shadow: 0 1px 2px rgba(0,0,0,0.1);' : 'background: transparent; color: #4E535B;');
+    const chip = (on) => 'min-height: 44px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; ' +
+      (on ? 'background: #15171C; color: #FFFFFF; border: 1px solid #15171C;' : 'background: #FFFFFF; color: #15171C; border: 1px solid #D4D7D0;');
+
+    const prodKeys = ['coca', 'kezek', 'nur', 'opt', 'build'];
+    const products = prodKeys.map((k) => {
+      const z = this.sphere(k), on = k === K;
+      return {
+        sphere: z.sphere, label: z.label, pick: () => this.setState({ product: k, saved: false }),
+        style: 'min-height: 48px; padding: 6px 14px; border-radius: 12px; cursor: pointer; text-align: left; ' +
+          (on ? 'background: #15171C; color: #FFFFFF; border: 1px solid #15171C;' : 'background: #FFFFFF; color: #15171C; border: 1px solid #D4D7D0;'),
+        subStyle: 'font-size: 11px; font-weight: 600; color: ' + (on ? '#C9CDD3' : '#5B6068') + ';'
+      };
+    });
+    const tabDefs = [{ k: 'dash', label: 'Окупаемость' }, { k: 'build', label: 'Условия инвестора' }, { k: 'pay', label: 'Выплаты' }];
+    const tabs = tabDefs.map((t) => ({
+      label: t.label, pick: () => this.setState({ tab: t.k }),
+      style: 'min-height: 48px; padding: 0 16px; border: 0; background: transparent; font-size: 14px; font-weight: 700; cursor: pointer; border-bottom: 3px solid ' +
+        (t.k === S.tab ? '#1D6B4F; color: #15171C;' : 'transparent; color: #5B6068;')
+    }));
+
+    // ---- P&L by sphere
+    const rev = Z.rev;
+    const cats = Z.cats;
+    const cv = (c, r, i) => c.v != null ? r * c.v : c.s ? c.s[i] : c.f;
+    const cash = K === 'opt' && C.sp.cash;
+    const revEff = rev.map((r, i) => cash ? r * 0.88 + (i > 0 ? rev[i - 1] * 0.12 : 0) : r);
+    const net = rev.map((r, i) => revEff[i] - cats.reduce((s, c) => s + cv(c, r, i), 0));
+    const dirShare = K === 'kezek' ? ({ all: 1, nails: 0.35, hair: 0.45, cosm: 0.20 }[C.sp.dir] || 1) : 1;
+    const reserve = (K === 'coca' || K === 'kezek') ? Math.max(0, Math.min(100, Number(C.sp.reserve) || 0)) : 0;
+    const base = rev.map((r, i) => {
+      let b;
+      if (C.base === 'revenue') b = revEff[i];
+      else if (C.base === 'gross') b = revEff[i] - cats.reduce((s, c) => s + (c.g ? cv(c, r, i) : 0), 0);
+      else b = revEff[i] - cats.reduce((s, c) => s + (C.ded[c.k] !== false ? cv(c, r, i) : 0), 0);
+      b = b * dirShare;
+      if (b > 0 && reserve) b = b * (1 - reserve / 100);
+      return b;
+    });
+    const avg = (a) => { const t = a.slice(-C.fc); return t.reduce((s, x) => s + x, 0) / t.length; };
+
+    const H = 180;
+    const baseX = base.concat(Array(H).fill(avg(base)));
+    const netX = net.concat(Array(H).fill(avg(net)));
+    const rows = this.run(baseX, C.stages, C.inv, C.loss, C.minPay);
+    const invCum = rows.map((r) => r.cum);
+    let c1 = 0; const ownCum = netX.map((x, i) => (c1 += x - rows[i].pay));
+    const stockAdj = K === 'nur' && C.sp.stock ? Z.stockValue * (Math.max(0, Math.min(100, Number(C.sp.liq) || 0)) / 100) : 0;
+    let c2 = stockAdj; const bizCum = netX.map((x) => (c2 += x));
+    const total = (C.incOwn ? C.own : 0) + (C.incInv ? C.inv : 0);
+    const invIdx = this.firstIdx(invCum, C.inv), ownIdx = this.firstIdx(ownCum, C.own), bizIdx = this.firstIdx(bizCum, total);
+    const invGot = invCum[N - 1], ownGot = ownCum[N - 1], bizGot = bizCum[N - 1];
+    const pct = (g, t) => t > 0 ? Math.max(0, Math.min(100, g / t * 100)) : 0;
+    const stageName = (si) => si >= C.stages.length ? 'Выплаты завершены' : 'Этап ' + (si + 1) + ' · ' + C.stages[si].pct + '%';
+    const price = Math.max(1, Number(C.sp.price) || Z.priceM2 || 1);
+    const sqm = isB && C.sp.sqm;
+    const payFmt = (p) => sqm ? this.som(p) + ' ≈ ' + (p / price).toFixed(1).replace('.', ',') + ' м²' : this.som(p);
+
+    const diff = bizIdx >= 0 ? C.plan - (bizIdx + 1) : null;
+    const diffTxt = diff === null ? 'при текущей прибыли не окупится' : diff > 0 ? 'на ' + diff + ' мес раньше плана' : diff < 0 ? 'на ' + (-diff) + ' мес позже плана' : 'точно по плану';
+    const diffColor = diff === null || diff < 0 ? '#B42318' : '#1D6B4F';
+    const sub = 'font-size: 13px; color: #5B6068; font-weight: 600;';
+    const netWord = isB ? 'результат по объекту' : 'чистая прибыль';
+
+    const kpis = [
+      { label: 'Вложено всего', value: this.som(total), sub: 'свои ' + this.fmtK(C.own) + ' · инвестиции ' + this.fmtK(C.inv), subStyle: sub },
+      { label: 'Вернулось', value: this.som(bizGot), sub: (isB ? 'накопленный результат объекта' : 'накопленная ЧП за ' + N + ' мес') + (stockAdj ? ' + товар' : ''), subStyle: sub },
+      { label: 'Осталось вернуть', value: this.som(Math.max(0, total - bizGot)), sub: 'в среднем ' + this.fmtK(avg(net)) + ' сом/мес', subStyle: sub },
+      { label: 'Окупится', value: bizIdx >= 0 ? this.mlabel(bizIdx) : '—', sub: 'план: ' + this.mlabel(C.plan - 1) + ' · ' + diffTxt, subStyle: 'font-size: 13px; font-weight: 700; color: ' + diffColor + ';' }
+    ];
+
+    const bp = pct(bizGot, total);
+    const level = (o) => {
+      const p = pct(o.got, o.invested);
+      return {
+        title: o.title, who: o.who, pctTxt: Math.round(p) + '%',
+        barStyle: 'height: 100%; border-radius: 99px; width: ' + p + '%; background: ' + o.color + ';',
+        dotStyle: 'width: 12px; height: 12px; border-radius: 4px; background: ' + o.color + ';',
+        investedTxt: this.som(o.invested), gotTxt: o.gotTxt || this.som(o.got),
+        monthlyLbl: o.monthlyLbl, monthlyTxt: o.monthlyTxt || this.som(o.monthly),
+        fcTxt: o.idx < 0 ? 'не окупится' : (o.idx < N ? 'за ' + (o.idx + 1) + ' мес' : this.mlabel(o.idx) + ' (' + (o.idx + 1) + ' мес)')
+      };
+    };
+    const levels = [
+      level({ title: isB ? 'Объект в целом' : 'Бизнес в целом', who: 'все учтённые вложения', color: '#1D6B4F', invested: total, got: bizGot, idx: bizIdx, monthly: net[N - 1], monthlyLbl: isB ? 'Результат за октябрь' : 'ЧП за октябрь' }),
+      level({ title: C.invName || 'Инвестор', who: 'инвестор · сейчас ' + stageName(rows[N].stage).toLowerCase(), color: '#2F5DA8', invested: C.inv, got: invGot, gotTxt: payFmt(invGot), idx: invIdx, monthly: rows[N - 1].pay, monthlyTxt: payFmt(rows[N - 1].pay), monthlyLbl: 'Выплата за октябрь' }),
+      level({ title: 'Владелец', who: 'собственные средства', color: '#E39A4F', invested: C.own, got: ownGot, idx: ownIdx, monthly: net[N - 1] - rows[N - 1].pay, monthlyLbl: 'Осталось за октябрь' })
+    ];
+
+    const maxAbs = Math.max(...net.map((x) => Math.abs(x)), 1);
+    const sc = 170 / maxAbs;
+    const bars = net.map((x, i) => {
+      const p = rows[i].pay, loss = x < 0;
+      return {
+        label: this.mshort(i), val: this.fmtK(x),
+        valStyle: 'text-align: center; font-size: 11px; font-weight: 700; padding-bottom: 2px; color: ' + (loss ? '#B42318' : '#15171C') + ';',
+        ownStyle: 'border-radius: 6px 6px 0 0; background: #E39A4F; height: ' + (loss ? 0 : Math.max(0, x - Math.max(p, 0)) * sc) + 'px;',
+        invStyle: 'background: #2F5DA8; height: ' + (loss ? 0 : Math.max(0, Math.min(p, x)) * sc) + 'px;',
+        lossStyle: 'border-radius: 6px 6px 0 0; background: #E7B4AE; height: ' + (loss ? -x * sc : 0) + 'px;'
+      };
+    });
+
+    const allInv = C.own + C.inv || 1;
+    const invItems = [
+      { name: 'Собственные средства', who: 'Владелец', amount: C.own, checked: C.incOwn, color: '#E39A4F', toggle: () => set({ incOwn: !C.incOwn }) },
+      { name: 'Инвестиция', who: C.invName || 'Инвестор', amount: C.inv, checked: C.incInv, color: '#2F5DA8', toggle: () => set({ incInv: !C.incInv }) }
+    ].map((v) => Object.assign(v, {
+      amountTxt: this.som(v.amount), shareTxt: Math.round(v.amount / allInv * 100) + '% вложений',
+      dotStyle: 'width: 12px; height: 12px; border-radius: 4px; flex: none; background: ' + v.color + ';',
+      segStyle: 'height: 100%; width: ' + (v.amount / allInv * 100) + '%; background: ' + v.color + '; opacity: ' + (v.checked ? 1 : 0.3) + ';'
+    }));
+    const pMax = Math.max(...Z.purposes.map((p) => p[1]));
+    const purposes = Z.purposes.map((p) => ({ name: p[0], amount: this.som(p[1]), barStyle: 'height: 100%; border-radius: 99px; background: #9AA0A6; width: ' + (p[1] / pMax * 100) + '%;' }));
+
+    // ---- sphere metrics
+    const varRate = cats.reduce((s, c) => s + (c.v != null ? c.v : 0), 0);
+    const fixed = cats.reduce((s, c) => s + (c.f != null ? c.f : 0), 0);
+    const be = fixed / Math.max(0.01, 1 - varRate);
+    const lastRev = rev[N - 1];
+    const safety = Math.round((lastRev - be) / lastRev * 100);
+    const beM = { label: 'Точка безубыточности', value: this.som(be), hint: 'столько выручки в месяц нужно, чтобы выйти в ноль' };
+    const safM = { label: 'Запас прочности', value: safety + '%', hint: 'насколько выручка может упасть, пока бизнес в плюсе' };
+    let sphMetrics, bizNote = '';
+    if (K === 'coca') {
+      sphMetrics = [{ label: 'Фудкост', value: '33%', hint: 'доля продуктов в выручке' }, beM, safM, { label: 'Резервный фонд', value: reserve + '%', hint: 'откладывается из прибыли до распределения' }];
+    } else if (K === 'kezek') {
+      const dl = { all: 'весь салон', nails: 'ногтевой сервис', hair: 'парикмахерский зал', cosm: 'косметология' }[C.sp.dir];
+      sphMetrics = [{ label: 'Доля мастеров', value: '40%', hint: 'выплачивается мастерам с каждой услуги' }, beM, safM, { label: 'Инвестиция в', value: dl, hint: 'доля инвестора считается только с этого направления' }];
+    } else if (K === 'nur') {
+      sphMetrics = [{ label: 'Товарный остаток', value: this.som(Z.stockValue), hint: 'по себестоимости на складе и в зале' }, { label: 'Наценка', value: Math.round((1 / 0.58 - 1) * 100) + '%', hint: 'средняя по магазину' }, beM, safM];
+      if (stockAdj) bizNote = 'В окупаемость засчитано ' + this.som(stockAdj) + ' — товарный остаток с ликвидностью ' + C.sp.liq + '%.';
+    } else if (K === 'opt') {
+      const turn = (rev.slice(-3).reduce((s, r) => s + r * 0.8, 0) / 3 * 12) / 6500000;
+      sphMetrics = [{ label: 'Оборачиваемость оборотки', value: turn.toFixed(1).replace('.', ',') + ' раз/год', hint: 'сколько раз вложенные в товар деньги прокручиваются за год' }, { label: 'Дебиторка', value: this.som(lastRev * 0.12), hint: 'отгружено, но ещё не оплачено клиентами' }, beM, safM];
+      if (cash) bizNote = 'Прибыль считается только по оплаченным продажам: неоплаченная дебиторка не попадает в базу инвестора.';
+    } else {
+      const soldT = Z.sold.reduce((s, x) => s + x, 0);
+      sphMetrics = [
+        { label: 'Продано', value: this.fmt(soldT) + ' м²', hint: 'из ' + this.fmt(Z.area) + ' м² в объекте' },
+        { label: 'Распродано', value: Math.round(soldT / Z.area * 100) + '%', hint: 'осталось ' + this.fmt(Z.area - soldT) + ' м²' },
+        { label: 'Выручка от продаж', value: this.som(rev.reduce((s, x) => s + x, 0)), hint: 'по цене ' + this.som(Z.priceM2) + ' за м²' },
+        { label: 'Темп продаж', value: Math.round(Z.sold.slice(-3).reduce((s, x) => s + x, 0) / 3) + ' м²/мес', hint: 'в среднем за 3 месяца' }
+      ];
+      bizNote = 'На старте стройки результат отрицательный — убыток переносится, и инвестор начинает получать выплаты после его покрытия продажами.';
+    }
+
+    // ---- payouts table
+    const distStatus = { sales: 'Выплачено', stage: 'По этапу', end: 'К выплате в конце' };
+    const payRows = net.map((x, i) => {
+      const r = rows[i];
+      const done = i < N - 1;
+      let status = done ? 'Выплачено' : 'Начислено';
+      if (isB && C.sp.dist !== 'sales' && r.pay > 0) status = distStatus[C.sp.dist];
+      const green = status === 'Выплачено';
+      return {
+        month: this.mlabel(i).replace(/^./, (ch) => ch.toUpperCase()),
+        net: this.fmt(x), base: this.fmt(base[i]),
+        netStyle: 'padding: 14px 18px; border-bottom: 1px solid #EEEFEB; text-align: right; font-weight: 600; color: ' + (x < 0 ? '#B42318' : '#15171C') + ';',
+        carried: r.carried > 0 ? this.fmt(r.carried) : '—',
+        stage: stageName(r.stage), pay: sqm ? payFmt(r.pay) : this.fmt(r.pay), owner: this.fmt(x - r.pay),
+        status,
+        statusStyle: 'display: inline-block; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; ' + (green ? 'background: #E6F0EB; color: #14503B;' : 'background: #FCEFD9; color: #7A4A0C;')
+      };
+    });
+    const sumN = (a) => a.reduce((s, x) => s + x, 0);
+    const pays = rows.slice(0, N).map((r) => r.pay);
+    const payNote = isB
+      ? 'Строительство: убыток первых месяцев переносится, выплаты начинаются после его покрытия продажами. Режим выплат меняется в условиях инвестора.'
+      : 'Закрытые периоды заблокированы. Ручная корректировка — только через журнал изменений с комментарием. Инвестор видит эту же таблицу в своём кабинете.';
+
+    // ---- builder
+    const tplOpts = Z.templates.map((t) => ({
+      label: t.label, style: chip(C.tpl === t.k),
+      pick: () => set(Object.assign({ tpl: t.k, stages: t.stages.map((s) => Object.assign({}, s)) }, t.base ? { base: t.base } : {}))
+    }));
+    const baseDefs = [{ k: 'revenue', label: isB ? 'Продажи' : 'Выручка' }, { k: 'gross', label: Z.grossLabel }, { k: 'net', label: isB ? 'Результат объекта' : 'Чистая прибыль' }];
+    const baseOpts = baseDefs.map((b) => ({ label: b.label, style: segBtn(C.base === b.k) + ' flex: 1 1 auto;', pick: () => set({ base: b.k }) }));
+    const dedList = cats.map((c) => ({
+      name: c.n, checked: C.ded[c.k] !== false,
+      amount: c.v != null ? Math.round(c.v * 1000) / 10 + '% выручки' : this.fmtK(cv(c, rev[N - 1], N - 1)) + '/мес',
+      toggle: () => { const d = Object.assign({}, C.ded); d[c.k] = C.ded[c.k] === false; set({ ded: d }); }
+    }));
+
+    const updStage = (i, patch) => { const st = C.stages.map((s) => Object.assign({}, s)); Object.assign(st[i], patch); set({ stages: st, tpl: '' }); };
+    const blues = ['#2F5DA8', '#4A78C2', '#7F9FD6', '#A9BEE4'];
+    const stagesV = C.stages.map((st, i) => ({
+      num: i + 1, pct: st.pct, cond: st.cond, val: st.val,
+      showVal: st.cond !== 'forever',
+      unit: st.cond === 'return' ? '% от вложений' : 'мес',
+      hint: st.cond === 'return' ? '= ' + this.som(C.inv * st.val / 100) : '',
+      badgeStyle: 'min-height: 32px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 8px; font-size: 13px; font-weight: 800; color: ' + (i < 2 ? '#FFFFFF' : '#15171C') + '; background: ' + blues[Math.min(i, 3)] + ';',
+      canRemove: C.stages.length > 1,
+      setPct: (e) => updStage(i, { pct: Math.max(0, Number(e.target.value) || 0) }),
+      setVal: (e) => updStage(i, { val: Math.max(0, Number(e.target.value) || 0) }),
+      setCond: (e) => {
+        const cond = e.target.value;
+        const prevMax = C.stages.slice(0, i).reduce((m, s) => s.cond === 'return' ? Math.max(m, s.val) : m, 0);
+        updStage(i, { cond, val: cond === 'return' ? (prevMax ? prevMax + 50 : 100) : cond === 'months' ? 12 : 0 });
+      },
+      remove: () => set({ stages: C.stages.filter((_, j) => j !== i), tpl: '' })
+    }));
+    const addStage = () => {
+      const st = C.stages.map((s) => Object.assign({}, s));
+      const last = st[st.length - 1];
+      if (last.cond === 'forever') {
+        const prevMax = st.slice(0, -1).reduce((m, s) => s.cond === 'return' ? Math.max(m, s.val) : m, 0);
+        last.cond = 'return'; last.val = prevMax ? prevMax + 50 : 100;
+      }
+      st.push({ pct: Math.max(5, Math.round(last.pct / 2)), cond: 'forever', val: 0 });
+      set({ stages: st, tpl: '' });
+    };
+
+    const lossDefs = [
+      { k: 'carry', title: 'Переносить убыток', desc: 'Сначала убыток покрывается из будущей прибыли, потом считается доля' },
+      { k: 'none', title: 'Не переносить', desc: 'Каждый месяц считается отдельно, убыток просто без выплаты' },
+      { k: 'share', title: 'Инвестор участвует', desc: 'Его доля убытка уменьшает сумму, которую он вернул' }
+    ];
+    const lossOpts = lossDefs.map((o) => {
+      const on = C.loss === o.k;
+      return {
+        title: o.title, desc: o.desc, pick: () => set({ loss: o.k }),
+        style: 'flex: 1 1 200px; display: flex; gap: 10px; align-items: flex-start; padding: 14px; border-radius: 12px; cursor: pointer; background: ' + (on ? '#E8EEF8' : '#FFFFFF') + '; border: 2px solid ' + (on ? '#2F5DA8' : '#E3E5E0') + ';',
+        radioStyle: 'flex: none; width: 18px; height: 18px; border-radius: 99px; box-sizing: border-box; margin-top: 1px; border: ' + (on ? '6px solid #2F5DA8' : '2px solid #A9AEA5') + '; background: #FFFFFF;'
+      };
+    });
+    const periodDefs = [{ k: 'month', label: 'Месяц' }, { k: 'quarter', label: 'Квартал' }, { k: 'year', label: 'Год' }, { k: 'manual', label: 'Вручную' }];
+    const periodOpts = periodDefs.map((p) => ({ label: p.label, style: segBtn(C.period === p.k), pick: () => set({ period: p.k }) }));
+
+    // ---- sphere-only options
+    const opt = (o) => Object.assign({ isToggle: false, notToggle: true, isChoice: false, isNumber: false, hasEffect: !!o.effect, effect: o.effect || '', choices: [], value: 0, unit: '' }, o);
+    const tog = (key, title, desc, effect) => opt({ isToggle: true, notToggle: false, title, desc, effect, checked: !!C.sp[key], toggle: () => setSp({ [key]: !C.sp[key] }) });
+    const num = (key, title, desc, unit, effect) => opt({ isNumber: true, title, desc, unit, effect, value: C.sp[key], setValue: (e) => setSp({ [key]: Math.max(0, Number(e.target.value) || 0) }) });
+    const choice = (key, title, desc, list, effect) => opt({ isChoice: true, title, desc, effect, choices: list.map((c) => ({ label: c[1], style: segBtn(C.sp[key] === c[0]), pick: () => setSp({ [key]: c[0] }) })) });
+    let sphOpts;
+    if (K === 'coca') sphOpts = [
+      num('reserve', 'Резервный фонд на технику и ремонт', 'Процент прибыли откладывается до распределения: замена оборудования, косметический ремонт.', '% прибыли', reserve ? 'В октябре в резерв: ' + this.som((base[N - 1] / (1 - reserve / 100)) * reserve / 100) : ''),
+      tog('points', 'Отдельный учёт по каждой точке сети', 'У каждого кафе свои инвесторы, своя окупаемость и свой акт распределения.', C.sp.points ? 'Сейчас: Кафе №1 · данные других точек не смешиваются' : '')
+    ];
+    else if (K === 'kezek') sphOpts = [
+      choice('dir', 'Во что вложился инвестор', 'Можно вложиться не в весь салон, а в одно направление — доля считается только с его выручки.', [['all', 'Весь салон'], ['nails', 'Ногтевой'], ['hair', 'Парикмахерский'], ['cosm', 'Косметология']], dirShare < 1 ? 'Направление даёт ' + Math.round(dirShare * 100) + '% выручки салона' : ''),
+      num('reserve', 'Резерв на обновление оборудования', 'Кресла, лампы, стерилизаторы — откладывается до распределения.', '% прибыли', '')
+    ];
+    else if (K === 'nur') sphOpts = [
+      tog('stock', 'Засчитывать товарный остаток в окупаемость', 'Деньги, вложенные в товар на полках, не потеряны — учитываются по ликвидности.', stockAdj ? 'Засчитано: ' + this.som(stockAdj) : ''),
+      num('liq', 'Ликвидность остатка', 'Какую часть остатка реально вернуть при распродаже.', '%', '')
+    ];
+    else if (K === 'opt') sphOpts = [
+      tog('cash', 'Считать прибыль только по оплаченным продажам', 'Отгрузки в долг (дебиторка) не попадают в базу инвестора, пока клиент не оплатит.', cash ? 'Не учтено в октябре: ' + this.som(lastRev * 0.12) : ''),
+      tog('batch', 'Привязать деньги инвестора к партиям закупа', 'Инвестор видит, в какие партии ушли его деньги и какая маржа по каждой.', C.sp.batch ? 'Партий за октябрь: 14 · средняя маржа 20%' : '')
+    ];
+    else sphOpts = [
+      choice('dist', 'Когда выплачивать', 'В стройке прибыль появляется по мере продаж, поэтому выплаты привязываются к продажам или этапам.', [['sales', 'По факту продаж'], ['stage', 'По этапам стройки'], ['end', 'По завершении объекта']], ''),
+      tog('sqm', 'Выплата квартирами (м²)', 'Доля инвестора пересчитывается в квадратные метры по фиксированной цене.', sqm ? 'Начислено ≈ ' + (invGot / price).toFixed(1).replace('.', ',') + ' м²' : ''),
+      num('price', 'Цена м² для расчёта', 'Фиксируется в договоре с инвестором.', 'сом за м²', '')
+    ];
+
+    // ---- summary
+    const baseWord = { revenue: isB ? 'продаж' : 'выручки', gross: 'валовой прибыли', net: isB ? 'результата объекта' : 'чистой прибыли' }[C.base];
+    const parts = C.stages.map((st, i) => {
+      let s = (i === 0 ? '' : 'затем ') + st.pct + '%' + (i === 0 ? ' ' + baseWord : '');
+      if (st.cond === 'return') s += ', пока не получит ' + (st.val === 100 ? 'обратно всю сумму вложений' : st.val + '% от вложений') + ' (' + this.som(C.inv * st.val / 100) + ')';
+      else if (st.cond === 'months') s += ' в течение ' + st.val + ' мес.';
+      else s += ' бессрочно';
+      return s;
+    });
+    const lastSt = C.stages[C.stages.length - 1];
+    let summary = (C.invName || 'Инвестор') + ' получает ' + parts.join('; ') + '.';
+    if (lastSt.cond !== 'forever') summary += ' После этого выплаты прекращаются.';
+    if (K === 'kezek' && dirShare < 1) summary += ' Доля считается только с направления «' + { nails: 'Ногтевой сервис', hair: 'Парикмахерский зал', cosm: 'Косметология' }[C.sp.dir] + '».';
+    if (reserve) summary += ' Перед распределением ' + reserve + '% прибыли уходит в резервный фонд.';
+    if (cash) summary += ' Учитываются только оплаченные продажи.';
+    summary += ' ' + { carry: 'Убыток переносится и сначала покрывается из будущей прибыли.', none: 'Убыточные месяцы не переносятся.', share: 'Инвестор участвует в убытке пропорционально доле.' }[C.loss];
+    if (isB) summary += ' Выплаты — ' + { sales: 'по факту продаж', stage: 'по этапам стройки', end: 'по завершении объекта' }[C.sp.dist] + (sqm ? ', квартирами по ' + this.som(price) + ' за м²' : '') + '.';
+    else summary += ' Расчёт ' + { month: 'ежемесячно', quarter: 'ежеквартально', year: 'раз в год', manual: 'вручную, по решению владельца' }[C.period] + '.';
+    if (C.minPay > 0) summary += ' Минимальная выплата — ' + this.som(C.minPay) + ' в месяц.';
+    if (C.tax > 0) summary += ' С выплат удерживается налог ' + C.tax + '%.';
+
+    // ---- simulator
+    const T = Math.max(0, Number(C.test) || 0);
+    const sim = this.run(Array(120).fill(T), C.stages, C.inv, C.loss, C.minPay);
+    const simInv = this.firstIdx(sim.map((r) => r.cum), C.inv);
+    let c3 = 0; const simOwn = this.firstIdx(sim.map((r) => (c3 += T - r.pay)), C.own);
+    const simBiz = T > 0 && total > 0 ? Math.ceil(total / T) : -1;
+    const isNet = C.base === 'net';
+    const mTxt = (i) => i < 0 ? 'не окупится' : (i + 1) + ' мес';
+    const dot = (col) => 'width: 10px; height: 10px; border-radius: 3px; flex: none; background: ' + col + ';';
+    const simKpis = [
+      { label: (C.invName || 'Инвестор') + ' вернёт вложения', value: mTxt(simInv), dotStyle: dot('#2F5DA8') },
+      { label: isB ? 'Объект окупится' : 'Бизнес окупится', value: isNet ? (simBiz < 0 ? 'не окупится' : simBiz + ' мес') : 'нужна база «прибыль»', dotStyle: dot('#1D6B4F') },
+      { label: 'Владелец окупится', value: isNet ? mTxt(simOwn) : 'нужна база «прибыль»', dotStyle: dot('#E39A4F') }
+    ];
+    const groups = [];
+    sim.forEach((r, i) => {
+      const g = groups[groups.length - 1];
+      if (g && g.stage === r.stage) g.to = i; else groups.push({ stage: r.stage, from: i, to: i });
+    });
+    const simStages = groups.map((g, gi) => {
+      const ended = g.stage >= C.stages.length;
+      const pm = ended ? 0 : T * C.stages[g.stage].pct / 100;
+      const open = gi === groups.length - 1;
+      return {
+        label: ended ? 'Выплаты завершены' : 'Этап ' + (g.stage + 1) + ' · ' + C.stages[g.stage].pct + '%',
+        range: open ? 'с ' + (g.from + 1) + '-го мес и далее' : 'мес ' + (g.from + 1) + (g.to > g.from ? '–' + (g.to + 1) : ''),
+        inv: ended ? '0 сом/мес' : '≈ ' + (sqm ? (pm / price).toFixed(1).replace('.', ',') + ' м²/мес' : this.fmt(pm) + ' сом/мес'),
+        rest: (isB ? 'Объекту' : 'Бизнесу') + ' остаётся ≈ ' + this.som(T - pm) + ' в месяц'
+      };
+    });
+    const HZ = 48;
+    const timeline = groups.filter((g) => g.from < HZ).map((g) => {
+      const ended = g.stage >= C.stages.length;
+      const w = (Math.min(g.to, HZ - 1) - g.from + 1) / HZ * 100;
+      const col = ended ? '#D9DBD5' : blues[Math.min(g.stage, 3)];
+      const dark = !ended && g.stage < 2;
+      return {
+        short: w > 9 ? (ended ? 'стоп' : 'Э' + (g.stage + 1)) : '',
+        style: 'width: ' + w + '%; height: 100%; background: ' + col + '; color: ' + (dark ? '#FFFFFF' : '#15171C') + '; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; border-right: 2px solid #FFFFFF; box-sizing: border-box; overflow: hidden;'
+      };
+    });
+
+    const warnings = [];
+    C.stages.forEach((st, i) => { if (st.pct > 100) warnings.push('Этап ' + (i + 1) + ': доля больше 100%.'); });
+    let prevRet = 0;
+    C.stages.forEach((st, i) => {
+      if (st.cond === 'return') { if (st.val <= prevRet) warnings.push('Этап ' + (i + 1) + ': порог должен быть больше, чем у предыдущего этапа.'); prevRet = st.val; }
+    });
+    if (simInv < 0 && T > 0) warnings.push('При такой прибыли инвестор не вернёт вложения за 10 лет.');
+    const warnList = warnings.length
+      ? warnings.map((t) => ({ text: '⚠ ' + t, style: 'margin: 0; padding: 8px 10px; border-radius: 8px; background: #3A2A12; color: #F5C98A; font-size: 13px; font-weight: 600;' }))
+      : [{ text: 'Условия корректны', style: 'margin: 0; font-size: 13px; font-weight: 700; color: #8FD3B4;' }];
+
+    const d0 = { coca: 250000, kezek: 140000, nur: 120000, opt: 170000, build: 6000000 }[K];
+    const testChips = [0.6, 1, 1.6, 2.4].map((m) => Math.round(d0 * m / 10000) * 10000).map((v) => ({ label: this.fmtK(v), style: chip(T === v), pick: () => set({ test: v }) }));
+    const testWord = { revenue: isB ? 'сумма продаж' : 'выручка', gross: 'валовая прибыль', net: isB ? 'прибыль объекта' : 'чистая прибыль' }[C.base];
+
+    return {
+      products, tabs, productName: Z.label, bizName: Z.biz, invName: C.invName, sphereName: Z.sphere,
+      sphereLine: 'Сфера: ' + Z.sphere + ' · продукт ' + Z.label + ' · своя логика расчёта',
+      dashTitle: isB ? 'Окупаемость объекта' : 'Окупаемость бизнеса',
+      bizPctLabel: isB ? 'Объект окупился на' : 'Бизнес окупился на',
+      chartTitle: isB ? 'Результат объекта и выплаты по месяцам' : 'Чистая прибыль и выплаты по месяцам',
+      netColLabel: isB ? 'Результат' : 'Чистая прибыль',
+      isDash: S.tab === 'dash', isPay: S.tab === 'pay', isBuild: S.tab === 'build',
+      fcOpts: [3, 6, 12].map((v) => ({ label: v + ' мес', style: segBtn(C.fc === v), pick: () => set({ fc: v }) })),
+      plan: C.plan, setPlan: (e) => set({ plan: Math.max(1, Number(e.target.value) || 1) }),
+      kpis, levels, bars, invItems, purposes, sphMetrics,
+      hasBizNote: !!bizNote, bizNote,
+      bizPct: Math.round(bp) + '%', bizGotTxt: this.som(bizGot), totalTxt: this.som(total),
+      bizBarStyle: 'height: 100%; border-radius: 99px; background: #1D6B4F; width: ' + bp + '%;',
+      startLabel: this.mlabel(0),
+      bizFcLine: bizIdx < 0 ? 'при текущем темпе не окупится' : bizIdx < N ? 'окупилось за ' + (bizIdx + 1) + ' мес' : 'полная окупаемость: ' + this.mlabel(bizIdx) + ' · ' + (bizIdx + 1) + ' мес со старта',
+      payRows, payNote, totNet: this.fmt(sumN(net)), totBase: this.fmt(sumN(base)), totPay: sqm ? payFmt(sumN(pays)) : this.fmt(sumN(pays)), totOwn: this.fmt(sumN(net) - sumN(pays)),
+      tplOpts, inv: C.inv, own: C.own, cur: C.cur, isUsd: C.cur === 'USD',
+      setName: (e) => set({ invName: e.target.value }),
+      setInv: (e) => set({ inv: Math.max(0, Number(e.target.value) || 0) }),
+      setOwn: (e) => set({ own: Math.max(0, Number(e.target.value) || 0) }),
+      setCur: (e) => set({ cur: e.target.value }),
+      baseOpts, isNet, dedList,
+      baseNowTxt: 'База за октябрь: ' + this.som(base[N - 1]),
+      stagesV, addStage, lossOpts, periodOpts, showPeriod: !isB, sphOpts,
+      minPay: C.minPay, tax: C.tax,
+      setMin: (e) => set({ minPay: Math.max(0, Number(e.target.value) || 0) }),
+      setTax: (e) => set({ tax: Math.max(0, Number(e.target.value) || 0) }),
+      summary, warnings: warnList,
+      testLabel: 'Тестовая ' + testWord + ' в месяц, сом',
+      test: C.test, setTest: (e) => set({ test: Math.max(0, Number(e.target.value) || 0) }),
+      testChips, simKpis, simStages, timeline,
+      save: () => this.setState({ saved: true }), saved: S.saved
+    };
+  }
+}
+</script>
+</body>
+</html>

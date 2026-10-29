@@ -57,6 +57,16 @@ public interface IAuthApiService
     /// EmployeeAccessFlags). При ошибке валидации сервера бросает ApiException с текстом от сервера.</summary>
     Task<EmployeeInfoDto?> CreateEmployeeAsync(string email, string firstName, string lastName, string roleId, EmployeeAccessFlags? access = null, CancellationToken ct = default);
 
+    /// <summary>2026-10-28: создать сотрудника с дополнительными полями схемы (phone_number, track_number и т. п.). По умолчанию —
+    /// обычное создание без них (заглушки тестов не обязаны это реализовывать).</summary>
+    Task<EmployeeInfoDto?> CreateEmployeeWithExtrasAsync(string email, string firstName, string lastName, string roleId, EmployeeAccessFlags? access,
+        IReadOnlyDictionary<string, object?>? extraFields, CancellationToken ct = default) =>
+        CreateEmployeeAsync(email, firstName, lastName, roleId, access, ct);
+
+    /// <summary>2026-10-28: PATCH только изменённых полей сотрудника (имя, телефон, номер, роль, филиалы, флаги доступов).</summary>
+    Task<EmployeeInfoDto?> PatchEmployeeAsync(string employeeId, IReadOnlyDictionary<string, object?> changes, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     /// <summary>Удалить сотрудника на сервере по id.</summary>
     Task DeleteEmployeeAsync(string employeeId, CancellationToken ct = default);
 
@@ -69,6 +79,9 @@ public interface IAuthApiService
 
     /// <summary>Создать роль на сервере (форма "Новая роль": только "Название роли").</summary>
     Task<RoleInfoDto?> CreateRoleAsync(string name, CancellationToken ct = default);
+
+    /// <summary>2026-10-28: переименовать роль (PATCH users/roles/custom/{id}/).</summary>
+    Task<RoleInfoDto?> UpdateRoleAsync(string roleId, string name, CancellationToken ct = default) => throw new NotSupportedException();
 
     /// <summary>Удалить роль на сервере по id.</summary>
     Task DeleteRoleAsync(string roleId, CancellationToken ct = default);

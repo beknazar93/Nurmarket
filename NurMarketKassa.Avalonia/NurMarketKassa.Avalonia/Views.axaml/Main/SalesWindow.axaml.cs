@@ -1,4 +1,5 @@
-﻿using NurMarketKassa.AvaloniaHost.Services;
+﻿using NurMarketKassa.Core.Application;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Configuration;
 using NurMarketKassa.Services;
@@ -1295,8 +1296,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             if (string.IsNullOrWhiteSpace(_searchFilter)) { e.Accepted = true; return; }
             // Поиск и по номеру, и по товарам в чеке.
-            if (e.Item is SaleItem s) e.Accepted = s.ReceiptNumber?.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase) == true
-                                                   || s.ItemsSummary.Contains(_searchFilter, StringComparison.CurrentCultureIgnoreCase);
+            if (e.Item is SaleItem s) e.Accepted = SearchMatch.Matches(_searchFilter.Trim().TrimStart('№', '#'), s.ReceiptNumber, s.ItemsSummary); // 2026-10-29: единый поиск («№1115», слова товаров в любом порядке)
             else e.Accepted = false;
         }
 

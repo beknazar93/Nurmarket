@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
@@ -84,7 +85,7 @@ public sealed partial class PurchasesWindow
         s.Picker = new PurchasesSupplierPicker(_svc) { ShowAdd = false };
         s.Picker.SetSuppliers(_filterSupplier.All);
         s.Picker.Changed += async _ => await RecommendLoadAsync().ConfigureAwait(true);
-        s.Search = UiKit.Input(this, T("Поиск: название или штрихкод", "Издөө: аты же штрихкод", "Search: name or barcode", "Ara: ad veya barkod", "Qidirish: nomi yoki shtrix-kod"), 44);
+        s.Search = UiKit.Search(this, T("Поиск: название или штрихкод", "Издөө: аты же штрихкод", "Search: name or barcode", "Ara: ad veya barkod", "Qidirish: nomi yoki shtrix-kod"), 44);
         Avalonia.Automation.AutomationProperties.SetName(s.Search, s.Search.Watermark);
         s.Search.TextChanged += (_, _) => RecommendRender();
         var pick = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), Margin = new Thickness(0, 0, 0, 10) };
@@ -438,8 +439,7 @@ public sealed partial class PurchasesWindow
         var s = _recommend!;
         var q = (s.Search.Text ?? "").Trim();
         return s.Rows0.Where(r => (s.Filter switch { "need" => r.NeedsPurchase, "critical" => r.IsCritical, _ => true })
-                                  && (q.Length == 0 || r.Product.Name.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                                      || r.Product.Barcode.Contains(q, StringComparison.OrdinalIgnoreCase) || r.Product.Code.Contains(q, StringComparison.OrdinalIgnoreCase)));
+                                  && (q.Length == 0 || SearchMatch.Matches(q, r.Product.Name, r.Product.Barcode, r.Product.Code))); // 2026-10-29: единый поиск
     }
 
     private string RecommendColumns => _recommend?.Narrow == true ? "2.2*,0.8*,1*,1.2*,0,1.3*,1*,104" : "2.4*,0.8*,1*,1.2*,1.1*,1.3*,1*,110";

@@ -238,9 +238,14 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
         // Обоснование про «220 мс» выше неверно: обычная печать — 80–200 мс на символ, серия набиралась и у человека, а
         // обработанный KeyDown в Windows не даёт символу дойти до поля. В правимом поле символы не глушим — скан
         // там распознают окна по Enter после строгой серии (ProductEditDialog, склад, поиск кассы); вне полей — как раньше.
-        if (_fastRunLength >= MinFastRunToIntercept && e.Source is not TextBox { IsReadOnly: false })
+        // 2026-10-29: и по реальному фокусу окна, не только по e.Source — символ не глушим, если сейчас правится любое текстовое поле.
+        if (_fastRunLength >= MinFastRunToIntercept && !IsEditingText(e))
             e.Handled = true;
     }
+
+    private static bool IsEditingText(KeyEventArgs e) =>
+        e.Source is TextBox { IsReadOnly: false }
+        || (e.Source is Avalonia.Visual visual && TopLevel.GetTopLevel(visual)?.FocusManager?.GetFocusedElement() is TextBox { IsReadOnly: false });
 
     private static string? KeyToBarcodeChar(Key key, bool shift)
     {

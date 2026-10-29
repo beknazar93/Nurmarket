@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Globalization;
 using System.Text.Json;
 using Avalonia;
@@ -100,7 +101,7 @@ public sealed class DebtsView : UserControl
         Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
 
         var tools = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"), Margin = new Thickness(0, 0, 0, 12) };
-        _search = UiKit.Input(this, T("Поиск по имени или телефону…", "Аты же телефону боюнча издөө…", "Search by name or phone…", "Ad veya telefona göre ara…", "Ism yoki telefon bo'yicha qidirish…"), 44); // 2026-10-27, аудит владельца С-5: было 40 (цель нажатия)
+        _search = UiKit.Search(this, T("Поиск по имени или телефону…", "Аты же телефону боюнча издөө…", "Search by name or phone…", "Ad veya telefona göre ara…", "Ism yoki telefon bo'yicha qidirish…"), 44); // 2026-10-27, аудит владельца С-5: было 40 (цель нажатия)
         _search.TextChanged += (_, _) => Render();
         tools.Children.Add(_search);
         var byAmount = UiKit.Chip(this, T("По сумме", "Сумма боюнча", "By amount", "Tutara göre", "Summa bo'yicha"), true);
@@ -757,7 +758,7 @@ public sealed class DebtsView : UserControl
         var query = (_search.Text ?? "").Trim();
         var digits = new string(query.Where(char.IsDigit).ToArray());
         IEnumerable<Debtor> shown = all.Where(d => query.Length == 0
-            || d.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || SearchMatch.Matches(query, d.Name) // 2026-10-29: единый поиск
             || (digits.Length >= 3 && new string(d.Phone.Where(char.IsDigit).ToArray()).Contains(digits, StringComparison.Ordinal)));
         shown = _sort == "age" ? shown.OrderBy(d => d.Oldest) : shown.OrderByDescending(d => d.Total);
         foreach (var d in shown.Take(300))

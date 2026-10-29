@@ -443,10 +443,8 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         var exactHit = query.Length >= 4 ? InCatalog(ProductCodeLookup.FindLocal(query)?.Product) : null;
         IEnumerable<CatalogProductTileVm> source = string.IsNullOrEmpty(query)
             ? CatalogCacheService.Products
-            : CatalogCacheService.Products.Where(p =>
-                p.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                (p.Barcode?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Article?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            // 2026-10-29: единый поиск SearchMatch — слова в любом порядке, ё=е, код/артикул/бренд, раскладка и транслит («Asu» → «Асу»).
+            : NurMarketKassa.Core.Application.SearchMatch.Products(CatalogCacheService.Products, query, p =>
                 (extraSearch && query.Length >= 4 && (p.AlternateBarcodesRaw?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)) ||
                 (variantProductId != null && string.Equals(p.Id, variantProductId, StringComparison.OrdinalIgnoreCase)));
         source = _saleUnitFilter switch
@@ -655,6 +653,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         }
 
         // 2026-10-24, ТЗ «Склад» Б1: новая строка встаёт сверху — у кладовщика перед глазами последний скан, а не конец длинной накладной.
+        line.EnableAutoSale(); // 2026-10-28: ручной скан — цена продажи считается по наценке при вводе закупки
         ReceivingLines.Insert(0, line);
         ReceivingLineAdded?.Invoke(line);
     }
@@ -727,6 +726,9 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     /// Без обработчика (другие окна) — как раньше, без вопроса. false — приёмка не проводится.</summary>
     public Func<IReadOnlyList<ReceivingLineVm>, Task<bool>>? ConfirmSalePriceChanges { get; set; }
 
+    /// <summary>2026-10-29 (спека Fable): подтверждение перед «Провести», если у строк цена продажи ниже закупки. Без обработчика — без вопроса. false — приёмка не проводится.</summary>
+    public Func<IReadOnlyList<ReceivingLineVm>, Task<bool>>? ConfirmBelowCost { get; set; }
+
     /// <summary>2026-10-06 (О-70): строки приёмки проведены (для этикеток на принятые размеры).</summary>
     public event Action<IReadOnlyList<ReceivingLineVm>>? ReceivingPosted;
 
@@ -745,6 +747,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
         // 2026-10-24, ТЗ «Склад» Б1: сверху (возвращаем строку — окно ставит в неё курсор).
         var line = PurchaseReceivingService.FromTile(product, quantity);
+        line.EnableAutoSale(); // 2026-10-28: ручной выбор из списка — автонаценка
         ReceivingLines.Insert(0, line);
         return line;
     }
@@ -971,6 +974,12 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
                 + "\n\n" + string.Join("\n", shown));
             return;
         }
+
+        // 2026-10-29, спека Fable: цена продажи НИЖЕ закупки — «Провести» спрашивает подтверждение (маржа < 10 % — проводить можно без вопроса).
+        if (ConfirmBelowCost is { } askBelow
+            && lines.Where(l => l.IsBelowCost).ToList() is { Count: > 0 } below
+            && !await askBelow(below).ConfigureAwait(true))
+            return;
 
         // 2026-10-24, ТЗ «Склад» (Б1): меняются цены продажи у товаров со склада — короткое подтверждение со списком (окно задаёт обработчик).
         // 2026-10-25: подтверждение остаётся до постановки в очередь (это действие кассира, а не ожидание сервера).

@@ -439,6 +439,21 @@ public sealed partial class NurMarketApiClient : IDisposable
         "api/main/roles/",
     ];
 
+    /// <summary>2026-10-28, жалоба владельца «создание/удаление/правка ролей - неправильный API»: по схеме сервера (openapi 26.10)
+    /// список ролей - GET users/roles/, а создание (POST), правка (PUT/PATCH) и удаление (DELETE) - users/roles/custom/ и
+    /// users/roles/custom/{id}/. Раньше сначала шли users/roles/, users/company/roles/, main/roles/ - они для записи не предназначены.
+    /// Теперь адрес по схеме первый, прежние - запасные.</summary>
+    private static readonly string[] RoleWritePaths =
+    [
+        "api/users/roles/custom/",
+        "api/users/roles/",
+        "api/users/company/roles/",
+        "api/main/roles/",
+    ];
+
+    /// <summary>404 с JSON-телом ({"detail":"Not found."}) - сервер адрес нашёл, но объекта нет; другие адреса пробовать незачем.</summary>
+    private static bool IsObjectNotFound(ApiException ex) => ex.StatusCode == 404 && ex.Payload is { ValueKind: JsonValueKind.Object };
+
     public async Task<List<EmployeeInfoDto>?> GetEmployeesAsync(CancellationToken ct = default)
     {
         foreach (var path in EmployeeCandidatePaths)
@@ -446,7 +461,8 @@ public sealed partial class NurMarketApiClient : IDisposable
             JsonElement data;
             try
             {
-                data = await RequestAsync(HttpMethod.Get, path, null, null, ct).ConfigureAwait(false);
+                // 2026-10-28: страница по 200 (схема: count/next/results; page_size как у ListConsultantsAsync).
+                data = await RequestAsync(HttpMethod.Get, path, null, new Dictionary<string, string> { ["page_size"] = "200" }, ct).ConfigureAwait(false);
             }
             catch (ApiException ex) when (ex.StatusCode is 404 or 405)
             {
@@ -456,7 +472,32 @@ public sealed partial class NurMarketApiClient : IDisposable
             var employees = ParseEmployeeList(data);
             if (employees != null)
             {
+                // 2026-10-28, аудит: раньше читалась только первая страница — при сотрудниках больше размера страницы остальные
+                // «пропадали» (не видны в «Сотрудниках», «Загрузить с сайта», сверке кодов, именах актов склада; проверка удаления
+                // «ещё в списке» могла ошибиться). Идём по next до конца (не больше 30 страниц), повторы по id отбрасываем.
+                var seen = new HashSet<string>(employees.Where(e => e.Id != null).Select(e => e.Id!), StringComparer.OrdinalIgnoreCase);
+                var next = NextPageQuery(data);
+                for (var page = 0; page < 30 && next != null; page++)
+                {
+                    JsonElement more;
+                    try
+                    {
+                        more = await RequestAsync(HttpMethod.Get, path, null, next, ct).ConfigureAwait(false);
+                    }
+                    catch (ApiException ex) when (ex.StatusCode is 404)
+                    {
+                        break;
+                    }
+                    var extra = ParseEmployeeList(more);
+                    if (extra == null)
+                        break;
+                    foreach (var e in extra)
+                        if (e.Id == null || seen.Add(e.Id))
+                            employees.Add(e);
+                    next = NextPageQuery(more);
+                }
                 PosLogger.Log($"Employees loaded from {path}: {employees.Count}", "API");
+                EmployeeDirectory.Update(employees);
                 return employees;
             }
         }
@@ -481,8 +522,13 @@ public sealed partial class NurMarketApiClient : IDisposable
         "api/users/employees/",
     ];
 
-    public async Task<EmployeeInfoDto?> CreateEmployeeAsync(
-        string email, string firstName, string lastName, string roleId, EmployeeAccessFlags? access = null, CancellationToken ct = default)
+    public Task<EmployeeInfoDto?> CreateEmployeeAsync(
+        string email, string firstName, string lastName, string roleId, EmployeeAccessFlags? access = null, CancellationToken ct = default) =>
+        CreateEmployeeWithExtrasAsync(email, firstName, lastName, roleId, access, null, ct);
+
+    public async Task<EmployeeInfoDto?> CreateEmployeeWithExtrasAsync(
+        string email, string firstName, string lastName, string roleId, EmployeeAccessFlags? access,
+        IReadOnlyDictionary<string, object?>? extraFields, CancellationToken ct = default)
     {
         var body = new Dictionary<string, object>
         {
@@ -495,6 +541,12 @@ public sealed partial class NurMarketApiClient : IDisposable
         };
         foreach (var kv in (access ?? new EmployeeAccessFlags()).ToRequestFields())
             body[kv.Key] = kv.Value;
+        // 2026-10-28: телефон, номер и т. п. из формы «Новый сотрудник» (EmployeeCreate в схеме) перекрывают пустые значения.
+        if (extraFields != null)
+            foreach (var kv in extraFields)
+                if (kv.Value != null)
+                    body[kv.Key] = kv.Value;
+        EmployeeDirectory.Invalidate();
 
         foreach (var path in EmployeeCreatePaths)
         {
@@ -569,6 +621,48 @@ public sealed partial class NurMarketApiClient : IDisposable
         throw new ApiException("Не найден рабочий адрес API для изменения доступов сотрудника.", 404);
     }
 
+    /// <summary>2026-10-28: PATCH только переданных (изменённых) полей сотрудника — имя, телефон, номер, роль, филиалы, флаги.
+    /// Неизменённые поля не отправляются, поэтому правка на другом устройстве (программа владельца ↔ касса ↔ сайт ↔ мобилка)
+    /// не затирается. Адрес по схеме сервера — api/users/employees/{id}/ (PATCH), запасные — как у UpdateEmployeeAccessAsync.
+    /// Возвращает сотрудника из ответа (если сервер его вернул).</summary>
+    public async Task<EmployeeInfoDto?> PatchEmployeeAsync(string employeeId, IReadOnlyDictionary<string, object?> changes, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(employeeId))
+            throw new ApiException("Не указан сотрудник.", 400);
+        if (changes.Count == 0)
+            return null;
+        var body = changes.ToDictionary(kv => kv.Key, kv => kv.Value);
+        var id = Uri.EscapeDataString(employeeId.Trim());
+        string[] candidates =
+        [
+            $"api/users/employees/{id}/",
+            $"api/users/employees/{id}/update/",
+            $"api/users/employees/update/{id}/",
+        ];
+        foreach (var path in candidates)
+        {
+            try
+            {
+                var data = await RequestAsync(HttpMethod.Patch, path, body, null, ct).ConfigureAwait(false);
+                var flagCount = body.Keys.Count(k => k.StartsWith("can_", StringComparison.Ordinal));
+                PosLogger.Log($"Employee patched via {path}: fields {string.Join(",", body.Keys.Where(k => !k.StartsWith("can_", StringComparison.Ordinal)))}, access flags {flagCount}", "API");
+                EmployeeDirectory.Invalidate();
+                return ParseEmployeeList(WrapAsSingleElementArray(data))?.FirstOrDefault();
+            }
+            // 404 с JSON ({"detail":"Not found."}) - такого сотрудника нет (удалён на сайте), а не «адрес не найден»: пробовать другие адреса незачем.
+            catch (ApiException ex) when (ex.StatusCode == 404 && ex.Payload is { ValueKind: JsonValueKind.Object })
+            {
+                throw;
+            }
+            catch (ApiException ex) when (ex.StatusCode is 404 or 405)
+            {
+                continue;
+            }
+        }
+
+        throw new ApiException("Не найден рабочий адрес API для изменения сотрудника.", 404);
+    }
+
     /// <summary>2026-09-08: сервер отвечает "успехом" (2xx) на DELETE, но сотрудник иногда
     /// остаётся в списке (по докладу владельца — "удаляет, но при обновлении возвращается").
     /// Раз статус-код 2xx недостаточен как доказательство, перечитываем список сразу после
@@ -615,6 +709,7 @@ public sealed partial class NurMarketApiClient : IDisposable
                 409);
         }
 
+        EmployeeDirectory.Invalidate();
         PosLogger.Log($"Employee deleted via {deletedVia} (verified: no longer in the list)", "API");
     }
 
@@ -625,7 +720,8 @@ public sealed partial class NurMarketApiClient : IDisposable
             JsonElement data;
             try
             {
-                data = await RequestAsync(HttpMethod.Get, path, null, null, ct).ConfigureAwait(false);
+                // 2026-10-28: page_size — роли тоже отдаются страницами (схема: count/next/results).
+                data = await RequestAsync(HttpMethod.Get, path, null, new Dictionary<string, string> { ["page_size"] = "200" }, ct).ConfigureAwait(false);
             }
             catch (ApiException ex) when (ex.StatusCode is 404 or 405)
             {
@@ -651,7 +747,7 @@ public sealed partial class NurMarketApiClient : IDisposable
     {
         var body = new Dictionary<string, string> { ["name"] = name.Trim() };
 
-        foreach (var path in RoleCandidatePaths)
+        foreach (var path in RoleWritePaths)
         {
             JsonElement data;
             try
@@ -672,18 +768,48 @@ public sealed partial class NurMarketApiClient : IDisposable
         throw new ApiException("Не найден рабочий адрес API для создания роли.", 404);
     }
 
+    /// <summary>2026-10-28: переименовать роль - PATCH users/roles/custom/{id}/ {"name"} (по схеме сервера; в CustomRole других полей нет:
+    /// права роли в ней не хранятся, их задают флагами сотрудника).</summary>
+    public async Task<RoleInfoDto?> UpdateRoleAsync(string roleId, string name, CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, string> { ["name"] = name.Trim() };
+        foreach (var path in RoleWritePaths)
+        {
+            try
+            {
+                var data = await RequestAsync(HttpMethod.Patch, $"{path}{Uri.EscapeDataString(roleId)}/", body, null, ct).ConfigureAwait(false);
+                PosLogger.Log($"Role renamed via {path}{{id}}/", "API");
+                return ParseRoleList(WrapAsSingleElementArray(data))?.FirstOrDefault() ?? new RoleInfoDto { Id = roleId, Name = name.Trim() };
+            }
+            catch (ApiException ex) when (IsObjectNotFound(ex))
+            {
+                throw;
+            }
+            catch (ApiException ex) when (ex.StatusCode is 404 or 405)
+            {
+                continue;
+            }
+        }
+
+        throw new ApiException("Не найден рабочий адрес API для изменения роли.", 404);
+    }
+
     /// <summary>2026-09-08: та же проверка "после удаления", что и в DeleteEmployeeAsync —
     /// см. её комментарий.</summary>
     public async Task DeleteRoleAsync(string roleId, CancellationToken ct = default)
     {
         var deletedByPath = "";
-        foreach (var path in RoleCandidatePaths)
+        foreach (var path in RoleWritePaths)
         {
             try
             {
-                await RequestAsync(HttpMethod.Delete, $"{path}{roleId}/", null, null, ct).ConfigureAwait(false);
+                await RequestAsync(HttpMethod.Delete, $"{path}{Uri.EscapeDataString(roleId)}/", null, null, ct).ConfigureAwait(false);
                 deletedByPath = path;
                 break;
+            }
+            catch (ApiException ex) when (IsObjectNotFound(ex))
+            {
+                throw;
             }
             catch (ApiException ex) when (ex.StatusCode is 404 or 405)
             {
@@ -793,7 +919,7 @@ public sealed partial class NurMarketApiClient : IDisposable
                     ? null
                     : $"{firstName} {lastName}".Trim());
 
-            list.Add(new EmployeeInfoDto
+            var dto = new EmployeeInfoDto
             {
                 Id = ReadTopLevelStringAny(item, "id", "user_id", "uuid"),
                 FullName = fullName,
@@ -806,10 +932,56 @@ public sealed partial class NurMarketApiClient : IDisposable
                 RoleId = ReadTopLevelStringAny(item, "custom_role", "role_id"),
                 Password = ReadTopLevelStringAny(item, "password", "generated_password", "temp_password", "default_password"),
                 Access = ReadEmployeeAccessFlags(item),
-            });
+                // 2026-10-28: остальные поля схемы сотрудника (EmployeeUpdate/UserList).
+                FirstName = firstName,
+                LastName = lastName,
+                TrackNumber = ReadTopLevelString(item, "track_number"),
+                AvatarUrl = ReadTopLevelString(item, "avatar"),
+                RoleCode = ReadTopLevelString(item, "role"),
+                PrimaryBranchId = ReadTopLevelStringAny(item, "primary_branch_id", "primary_branch"),
+                BranchIds = ReadStringArray(item, "branch_ids"),
+            };
+            // 2026-10-28: поля сервера, которых нет в модели, сохраняем (round-trip: новые поля не теряются).
+            foreach (var prop in item.EnumerateObject())
+                if (!KnownEmployeeFields.Contains(prop.Name) && !prop.Name.StartsWith("can_", StringComparison.Ordinal))
+                    dto.Extra[prop.Name] = prop.Value.Clone();
+            list.Add(dto);
         }
 
         return list;
+    }
+
+    private static readonly HashSet<string> KnownEmployeeFields = new(StringComparer.Ordinal)
+    {
+        "id", "user_id", "uuid", "first_name", "firstName", "last_name", "lastName", "full_name", "fullName", "name", "fio",
+        "display_name", "email", "phone", "phone_number", "role_display", "role_name", "role", "position", "user_role",
+        "custom_role", "role_id", "password", "generated_password", "temp_password", "default_password", "track_number",
+        "avatar", "primary_branch_id", "primary_branch", "branch_ids",
+    };
+
+    private static List<string>? ReadStringArray(JsonElement obj, string name)
+    {
+        if (!obj.TryGetProperty(name, out var v) || v.ValueKind != JsonValueKind.Array)
+            return null;
+        return v.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).ToList();
+    }
+
+    /// <summary>2026-10-28: параметры запроса следующей страницы из поля next (ссылка) или null, если страниц больше нет.</summary>
+    private static Dictionary<string, string>? NextPageQuery(JsonElement data)
+    {
+        if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("next", out var nx) || nx.ValueKind != JsonValueKind.String)
+            return null;
+        var link = nx.GetString() ?? "";
+        var qi = link.IndexOf('?');
+        if (qi < 0)
+            return null;
+        var result = new Dictionary<string, string>();
+        foreach (var part in link[(qi + 1)..].Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var kv = part.Split('=', 2);
+            result[Uri.UnescapeDataString(kv[0])] = kv.Length > 1 ? Uri.UnescapeDataString(kv[1].Replace('+', ' ')) : "";
+        }
+        return result.Count == 0 ? null : result;
     }
 
     private static string MaskIdentifier(string? value)
@@ -918,8 +1090,23 @@ public sealed partial class NurMarketApiClient : IDisposable
     /// <summary>Доступы сотрудника (can_view_*) — подтверждено живым GET api/users/employees/
     /// (2026-09-21), см. doc-comment у EmployeeAccessFlags. Поля, которых нет в JSON (компания
     /// не покупала эту доп. услугу), ReadTopLevelBool честно читает как false.</summary>
+    private static bool? ReadOptionalBool(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False ? v.GetBoolean() : null;
+
     private static EmployeeAccessFlags ReadEmployeeAccessFlags(JsonElement item) => new()
     {
+        // 2026-10-28: поля схемы сервера; null — сервер не вернул (feature-detect, см. EmployeeAccessFlags).
+        CanViewSalary = ReadOptionalBool(item, "can_view_salary"),
+        CanEditSalary = ReadOptionalBool(item, "can_edit_salary"),
+        CanEditEmployees = ReadOptionalBool(item, "can_edit_employees"),
+        CanEditProducts = ReadOptionalBool(item, "can_edit_products"),
+        CanEditClients = ReadOptionalBool(item, "can_edit_clients"),
+        CanEditCashbox = ReadOptionalBool(item, "can_edit_cashbox"),
+        CanEditSettings = ReadOptionalBool(item, "can_edit_settings"),
+        CanEditProcurement = ReadOptionalBool(item, "can_edit_procurement"),
+        CanEditDocuments = ReadOptionalBool(item, "can_edit_documents"),
+        CanViewDebts = ReadOptionalBool(item, "can_view_debts"),
+        CanUsePos = ReadOptionalBool(item, "can_use_pos"),
         CanViewCashbox = ReadTopLevelBool(item, "can_view_cashbox"),
         CanViewAnalytics = ReadTopLevelBool(item, "can_view_analytics"),
         CanViewProducts = ReadTopLevelBool(item, "can_view_products"),

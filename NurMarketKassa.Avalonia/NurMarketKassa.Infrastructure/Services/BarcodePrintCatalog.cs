@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using NurMarketKassa.Models.Pos;
@@ -55,6 +56,14 @@ public static class BarcodePrintCatalog
     /// Скан штрихкода другой длины (12 ↔ 13 цифр) находит тот же товар, что нашла бы касса (ProductCodeLookup).</summary>
     public static List<CatalogProductTileVm> Search(IReadOnlyList<CatalogProductTileVm> source, string? query, BarcodeFilter filter, string? category)
     {
+        // 2026-10-29: единый поиск (SearchMatch) — ё=е, слова в любом порядке; если как набрано ничего нет — не та раскладка/транслит («Asu»→«Асу»).
+        var found = SearchCore(source, query, filter, category, false);
+        return found.Count == 0 && !string.IsNullOrWhiteSpace(query) ? SearchCore(source, query, filter, category, true) : found;
+    }
+
+    private static List<CatalogProductTileVm> SearchCore(IReadOnlyList<CatalogProductTileVm> source, string? query, BarcodeFilter filter, string? category, bool fuzzy)
+    {
+        var sq = SearchMatch.Prepare(query);
         var tokens = (query ?? "").Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
         string? exactId = null;
         var q = (query ?? "").Trim();
@@ -76,7 +85,7 @@ public static class BarcodePrintCatalog
                 if (has != (filter == BarcodeFilter.WithBarcode))
                     continue;
             }
-            if (tokens.Length > 0 && !(exactId != null && string.Equals(p.Id, exactId, StringComparison.OrdinalIgnoreCase)) && !MatchesAll(p, tokens))
+            if (tokens.Length > 0 && !(exactId != null && string.Equals(p.Id, exactId, StringComparison.OrdinalIgnoreCase)) && !(fuzzy ? sq.MatchesFuzzy(p.SearchKey) : (MatchesAll(p, tokens) || sq.Matches(p.SearchKey))))
                 continue;
             result.Add(p);
         }

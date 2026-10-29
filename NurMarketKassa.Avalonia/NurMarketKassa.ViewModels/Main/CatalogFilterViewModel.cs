@@ -115,7 +115,7 @@ public sealed class CatalogFilterViewModel : ViewModelBase
             : fallback;
 
     private static double? ParsePrice(string? value) =>
-        double.TryParse((value ?? "").Trim().Replace(',', '.'), NumberStyles.Any,
+        double.TryParse((value ?? "").Trim().Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite,
             CultureInfo.InvariantCulture, out var result) && result >= 0 ? result : null;
 
     private static string FormatPrice(double? value) =>

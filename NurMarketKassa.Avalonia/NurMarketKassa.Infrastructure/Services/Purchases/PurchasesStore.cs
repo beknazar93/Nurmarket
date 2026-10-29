@@ -41,7 +41,8 @@ public sealed class PurchaseOrder
     public List<PurchaseOrderLine> Lines { get; set; } = new();
     public List<string> ReceiptIds { get; set; } = new();
 
-    public double Total => Math.Round(Lines.Sum(l => l.Qty * l.Price), 2);
+    // 2026-10-28 (дробные цены): сумма заказа = сумма строк, каждая округлена до копеек по итогу (AwayFromZero)
+    public double Total => Math.Round(Lines.Sum(l => NurMarketKassa.Services.ReceivingPricing.LineTotal(l.Qty, l.Price)), 2, MidpointRounding.AwayFromZero);
 
     /// <summary>draft, sent, partial, received, cancelled.</summary>
     public string State

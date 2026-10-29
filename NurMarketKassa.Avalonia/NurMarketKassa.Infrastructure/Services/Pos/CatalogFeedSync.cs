@@ -18,8 +18,9 @@ namespace NurMarketKassa.Services;
 /// • 429 — пауза не меньше 30 секунд (ApiThrottle); сеть/5xx — пауза и тихий повтор;
 /// • курсор хранится в своём JSON (catalog_feed_cursor.json в папке данных программы: у кассы и у программы владельца он свой) вместе
 ///   с «ключом области» (аккаунт|филиал|адрес сервера): сменился аккаунт или филиал — начинаем с начала;
-/// • остаток из ленты НЕ применяется, когда включена локальная сеть касс или есть неотправленные офлайн-чеки: сервер ещё не знает этих
-///   продаж, и остаток «откатился» бы (полная загрузка делает это же вычитание через LanStockAdjuster; для ленты оно не подходит).
+/// • остаток из ленты НЕ применяется к товарам, у которых на этом ПК есть незавершённые операции (неотправленный офлайн-чек, продажа соседней
+///   кассы по LAN, правка остатка менее 90 с назад) — сервер ещё не знает этих продаж, и остаток «откатился» бы. 2026-10-29: решение по каждому
+///   товару (FeedStockGuard), а не одним выключателем на весь каталог, — остальные товары получают серверный остаток за период ленты.
 /// </summary>
 public sealed class CatalogFeedSync
 {
@@ -55,6 +56,7 @@ public sealed class CatalogFeedSync
     private readonly Func<string> _apiBaseUrl;
     private readonly Func<string> _accountKey;
     private readonly Func<bool> _allowStock;
+    private readonly Func<Func<string, bool>>? _stockGuardFactory;
 
     private bool _loaded;
     private string? _scope;
@@ -66,8 +68,12 @@ public sealed class CatalogFeedSync
 
     /// <param name="accountKey">Ключ аккаунта (LastCatalogUserKey): другой аккаунт — другой курсор.</param>
     /// <param name="allowStock">Можно ли применять остаток из ленты (см. описание класса).</param>
-    public CatalogFeedSync(ICatalogFeedApi api, Func<string> apiBaseUrl, Func<string> accountKey, Func<bool> allowStock)
+    /// <param name="stockGuardFactory">2026-10-29: на каждый проход ленты даёт предикат «остаток ЭТОГО товара из ленты применять можно»
+    /// (см. <see cref="FeedStockGuard"/>). null — прежнее поведение: решает только общий <paramref name="allowStock"/>.</param>
+    public CatalogFeedSync(ICatalogFeedApi api, Func<string> apiBaseUrl, Func<string> accountKey, Func<bool> allowStock,
+        Func<Func<string, bool>>? stockGuardFactory = null)
     {
+        _stockGuardFactory = stockGuardFactory;
         _api = api;
         _apiBaseUrl = apiBaseUrl;
         _accountKey = accountKey;
@@ -149,7 +155,7 @@ public sealed class CatalogFeedSync
 
                 if (page.Items.Count > 0 || page.DeletedIds.Count > 0)
                 {
-                    var r = Apply(page, _apiBaseUrl(), _allowStock());
+                    var r = Apply(page, _apiBaseUrl(), _allowStock(), _stockGuardFactory?.Invoke());
                     added += r.Added;
                     changed += r.Changed;
                     deleted += r.Deleted;
@@ -283,7 +289,8 @@ public sealed class CatalogFeedSync
 
     /// <summary>Применить страницу ленты к локальной базе. Карточка товара (есть название) — как при полной загрузке; без названия — только
     /// присланные поля (цена, закупка, опт, остаток) поверх записи из базы. Товар, которого нет локально и карточки нет, — просьба о полной загрузке.</summary>
-    public static ApplyOutcome Apply(CatalogFeedPage page, string apiBaseUrl, bool allowStock)
+    /// <param name="allowStockFor">2026-10-29: решение по товару (id → можно ли применить остаток из ленты); null — решает только allowStock.</param>
+    public static ApplyOutcome Apply(CatalogFeedPage page, string apiBaseUrl, bool allowStock, Func<string, bool>? allowStockFor = null)
     {
         var repo = LocalProductRepository.Instance;
         var tiles = new List<CatalogProductTileVm>();
@@ -293,6 +300,7 @@ public sealed class CatalogFeedSync
             var id = ProductCatalogMapper.TryId(item);
             if (string.IsNullOrEmpty(id))
                 continue;
+            var stockOk = allowStock && (allowStockFor?.Invoke(id) ?? true);
             if (HasName(item))
             {
                 var tile = ProductCatalogMapper.TryTile(item, apiBaseUrl);
@@ -304,7 +312,7 @@ public sealed class CatalogFeedSync
                 if (local is not null)
                     KeepLocalForAbsentFields(item, tile, local);
                 // Остаток из ленты нельзя — оставляем локальный (его уже уменьшили свои/соседние продажи).
-                if (!allowStock && local is not null)
+                if (!stockOk && local is not null)
                     StockSyncService.ApplyQuantityToTile(tile, local.Quantity, tile.MustWeigh);
                 tiles.Add(tile);
                 continue;
@@ -316,7 +324,7 @@ public sealed class CatalogFeedSync
                 price,
                 ReadMoney(item, "purchase_price"),
                 ReadMoney(item, "wholesale_price"),
-                allowStock ? ReadStock(item) : null));
+                stockOk ? ReadStock(item) : null));
         }
 
         PromotionRules.SaveIfDirty();
@@ -345,6 +353,38 @@ public sealed class CatalogFeedSync
 
         if (!item.TryGetProperty("plu", out _))
             tile.Plu = local.Plu;
+
+        // 2026-10-29 (приёмка 1.17.64, Б-1): сокращённая карточка ленты без штрихкода/артикула/кода затирала их пустыми —
+        // скан после прихода или правки цены не находил товар («Товар не найден» → дубль). Ключа нет — берём локальное значение;
+        // ключ пришёл (даже пустой) — применяется как пришло. Штрихкод у маппера берётся из barcode/sku/article/code/ean,
+        // поэтому «нет ключа штрихкода» = нет barcode, sku и ean (article/code могли подставить чужое значение).
+        if (!item.TryGetProperty("barcode", out _) && !item.TryGetProperty("sku", out _) && !item.TryGetProperty("ean", out _)
+            && !string.IsNullOrWhiteSpace(local.Barcode))
+            tile.Barcode = local.Barcode;
+        if (!item.TryGetProperty("article", out _) && !item.TryGetProperty("code", out _))
+            tile.Article = local.Article;
+        if (!item.TryGetProperty("code", out _))
+            tile.ProductCode = local.ProductCode;
+
+        // Остальные поля карточки, которых в сокращённой карточке нет (иначе форма редактирования стирала бы их при сохранении).
+        if (!item.TryGetProperty("purchase_price", out _))
+            tile.PurchasePrice = local.PurchasePrice;
+        if (!item.TryGetProperty("markup_percent", out _))
+            tile.MarkupPercent = local.MarkupPercent;
+        if (!item.TryGetProperty("description", out _))
+            tile.Description = local.Description;
+        if (!item.TryGetProperty("wholesale_price", out _))
+            tile.WholesalePrice = local.WholesalePrice;
+        if (!item.TryGetProperty("discount_percent", out _))
+            tile.DiscountPercent = local.DiscountPercent;
+        if (!item.TryGetProperty("country", out _))
+            tile.Country = local.Country;
+        if (!item.TryGetProperty("weight_kg", out _))
+            tile.WeightKg = local.WeightKg;
+        if (!item.TryGetProperty("category", out _))
+            tile.Category = local.Category;
+        if (!item.TryGetProperty("brand", out _))
+            tile.Brand = local.Brand;
     }
 
     private static bool HasName(JsonElement item)

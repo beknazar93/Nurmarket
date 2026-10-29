@@ -70,6 +70,7 @@
         <StreamGeometry x:Key="SiteOrdersIcon">M3,13 L6,4 H18 L21,13 V20 H3 Z M3,13 H8 L9.5,16 H14.5 L16,13 H21</StreamGeometry>
         <!-- 2026-10-06, редизайн меню: свои значки у пунктов, которые делили чужие (Прибыль/Финансы, Размеры/Аналитика,
              Убыток/Возвраты, Долги/Клиенты, Магазин в приложении/Маркетплейс); поиск и стрелка группы. -->
+        <StreamGeometry x:Key="InvestIcon">M3,17 L9,11 L13,15 L21,7 M14,7 H21 V14</StreamGeometry>
         <StreamGeometry x:Key="ProfitIcon">M5,7 A7,2.5 0 1 0 19,7 A7,2.5 0 1 0 5,7 M5,7 V12 A7,2.5 0 0 0 19,12 V7 M5,12 V17 A7,2.5 0 0 0 19,17 V12</StreamGeometry>
         <StreamGeometry x:Key="LossIcon">M3,7 L9,13 L13,9 L21,17 M21,17 H15 M21,17 V11</StreamGeometry>
         <StreamGeometry x:Key="SizesIcon">M8,3 L3,6 L5,10 L7,9 V21 H17 V9 L19,10 L21,6 L16,3 A4,4 0 0 1 8,3 Z</StreamGeometry>

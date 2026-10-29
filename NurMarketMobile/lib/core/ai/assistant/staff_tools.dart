@@ -43,7 +43,10 @@ class StaffPerson {
   final String id;
   final String name;
   final String role;
-  const StaffPerson(this.id, this.name, this.role);
+
+  /// 2026-10-28 (сотрудники): false — уволен (сервер отдаёт is_active=false); задачу такому не ставим, по имени предпочитаем работающих.
+  final bool active;
+  const StaffPerson(this.id, this.name, this.role, {this.active = true});
 }
 
 enum TaskState {
@@ -239,7 +242,7 @@ class RepoStaffSource implements StaffSource {
   Set<StaffCap> get caps => const {StaffCap.staff};
 
   @override
-  Future<List<StaffPerson>> staff() async => [for (final e in await repo.list()) StaffPerson(e.id, e.name, e.role)];
+  Future<List<StaffPerson>> staff() async => [for (final e in await repo.list()) StaffPerson(e.id, e.name, e.role, active: !e.dismissed)];
 
   Never _no() => throw UnsupportedError('Не реализовано в мобилке (пакет В7)');
   @override
@@ -648,7 +651,9 @@ class _StaffTools {
   Future<({StaffPerson? p, ToolResult? stop})> person(ToolEnv env, String name, Object? pick) async {
     if (name.isEmpty) return (p: null, stop: ToolResult(ToolStatus.clarify, _x('needStaff', env.lang)));
     final all = await src.staff();
-    final hits = all.where((e) => looseNameMatch(e.name, name) || productNameMatchesQuery(e.name, name)).toList();
+    var hits = all.where((e) => looseNameMatch(e.name, name) || productNameMatchesQuery(e.name, name)).toList();
+    // 2026-10-28 (сотрудники): тёзка среди уволенных не должен мешать — если есть работающие, берём только их
+    if (hits.any((e) => e.active)) hits = hits.where((e) => e.active).toList();
     if (hits.isEmpty) return (p: null, stop: ToolResult(ToolStatus.notFound, _x('staffNone', env.lang)));
     final n = _int(pick);
     if (n != null && n >= 1 && n <= hits.length) return (p: hits[n - 1], stop: null);

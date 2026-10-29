@@ -223,6 +223,10 @@ public static class SettingsCloudSync
             _pulling = false;
             Interlocked.Exchange(ref _lastFailureTicks, 0);
             _forcePushCodes = false;
+            // 2026-10-29: опрос общих настроек начинается заново для нового пользователя.
+            _companyFingerprint = null;
+            _companyEtag = null;
+            _applyPending = false;
         }
     }
 
@@ -306,6 +310,12 @@ public static class SettingsCloudSync
             var (companyDoc, companyAt) = await GetDocAsync(api, $"api/main/app-settings/{CompanyApp}/").ConfigureAwait(false);
             company = companyDoc;
             companyOk = true;
+            // 2026-10-29: отпечаток документа на момент получения — опрос на лету применяет только то, что изменилось после.
+            if (generation == _generation)
+            {
+                _companyFingerprint = Fingerprint(companyDoc.ToJsonString());
+                _companyEtag = null;
+            }
             if (AppMode.IsOwner && !company.ContainsKey(OwnerMergedMarkerKey))
             {
                 ownerFirstRun = true;
@@ -514,6 +524,184 @@ public static class SettingsCloudSync
     /// <summary>Настройки пришли с сервера и применены (окна могут обновить вид).</summary>
     public static event Action? Applied;
 
+    // ---------------------------------------------------------------- 2026-10-29: общие настройки компании «на лету»
+    // Жалоба «синхронизация кассы с админкой очень медленная», повторная приёмка Н-1: название магазина, реквизиты чека, правила скидок
+    // и удалений, коды и права сотрудников, купленные темы и функции доходили до работающей кассы только после перезапуска (облако
+    // читалось один раз за вход — PullOnceAsync). Теперь общий документ опрашивается раз в SyncCenter.CompanySettingsInterval (30 с ±15 %):
+    // запрос с If-None-Match (304 — ничего не менялось; сервер ETag ещё не отдаёт — сравниваем отпечаток документа и ничего не применяем).
+    // Правила безопасности те же, что у первого получения: грязные ключи (изменённые на этой кассе и ещё не отправленные) не затираются;
+    // ответ прежнего пользователя отбрасывается (поколение); версия кодов сотрудников — по ApplyEmployeeCodesAsync. Новое: пока на экране окно настроек, применение откладывается (поля страниц читаются при открытии: «Сохранить» с устаревшим
+    // полем вернул бы на сервер старое значение поверх правки владельца, а список сотрудников перерисовался бы под руками) — применим в течение
+    // 15 с после закрытия окна. Журнал — категория SETTINGS_SYNC.
+
+    /// <summary>Задаёт приложение: true — на экране окно настроек (применение настроек с сервера ждёт его закрытия).</summary>
+    public static Func<bool>? EditingProbe { get; set; }
+
+    private static readonly SemaphoreSlim RefreshGate = new(1, 1);
+    private static string? _companyEtag;
+    private static string? _companyFingerprint;
+    private static bool _applyPending;
+    private static int _pollStarted;
+    private static int _refreshFailures;
+
+    /// <summary>Запустить фоновый опрос общих настроек (один раз за запуск; вызывается после первого получения облака).</summary>
+    public static void StartCompanyPolling()
+    {
+        if (Interlocked.Exchange(ref _pollStarted, 1) != 0)
+            return;
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                try
+                {
+                    var delay = _applyPending
+                        ? TimeSpan.FromSeconds(15)
+                        : SyncCenter.Jitter(TimeSpan.FromTicks(SyncCenter.CompanySettingsInterval.Ticks * (1L << Math.Min(_refreshFailures, 3))));
+                    await Task.Delay(delay).ConfigureAwait(false);
+                    if (SyncCenter.ShouldPause())
+                        continue;
+                    await RefreshCompanyAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    PosLogger.Log($"SETTINGS_SYNC: сбой цикла: {ex.GetType().Name}: {ex.Message}", "SETTINGS_SYNC");
+                }
+            }
+        });
+    }
+
+    /// <summary>Крючок для <see cref="SyncCenter.ForceSyncAllAsync"/>: проверить общие настройки сейчас (ETag не используется — «Обновить» перечитывает).</summary>
+    public static Task RefreshCompanyNowAsync(CancellationToken ct) => RefreshCompanyAsync(ct, force: true);
+
+    private static string Fingerprint(string raw)
+    {
+        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(raw));
+        return Convert.ToBase64String(bytes);
+    }
+
+    private static async Task RefreshCompanyAsync(CancellationToken ct, bool force = false)
+    {
+        // Первое получение (PullCoreAsync) ещё не прошло или идёт — это его работа.
+        if (!_companyLoaded || _pulling || _codesMergeInProgress || _lastCompanyId is not { } companyId || Api is not { } api)
+            return;
+        if (!await RefreshGate.WaitAsync(0, ct).ConfigureAwait(false))
+            return;
+        try
+        {
+            var generation = _generation;
+            var owner = _pulledUser;
+            var useEtag = !force && !_applyPending ? _companyEtag : null;
+            var (data, status, etag) = await api.GetConditionalAsync($"api/main/app-settings/{CompanyApp}/", null, useEtag, ct, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+            _refreshFailures = 0;
+            SyncCenter.RecordSuccess("settings");
+            if (status == 304)
+                return;
+            var (company, _) = ParseDoc(data);
+            // Отпечаток — по смыслу документа (а не по тексту ответа): сервер может переставлять поля.
+            var fingerprint = Fingerprint(company.ToJsonString());
+            if (!_applyPending && fingerprint == _companyFingerprint)
+            {
+                _companyEtag = etag ?? _companyEtag;
+                return;
+            }
+            if (generation != _generation || (owner is not null && CurrentUserId() != owner))
+                return;
+
+            // Окно настроек на экране: не перерисовываем под руками и не даём «Сохранить» вернуть старые значения, применим позже.
+            if (EditingProbe is { } probe && SafeProbe(probe))
+            {
+                if (!_applyPending)
+                    PosLogger.Log("SETTINGS_SYNC: на сервере изменились общие настройки, но на экране окно настроек — применю после его закрытия.", "SETTINGS_SYNC");
+                _applyPending = true;
+                return;
+            }
+
+            var applied = new List<string>();
+            var codesChanged = false;
+            lock (Sync)
+            {
+                if (generation != _generation)
+                    return;
+                var dirtyNow = new HashSet<string>(_dirty);
+                _applying = true;
+                try
+                {
+                    applied.AddRange(Apply(company, CompanyKeys, dirtyNow));
+                    if (applied.Count > 0)
+                        UserPreferences.Instance.SaveToDisk();
+                }
+                finally
+                {
+                    _applying = false;
+                }
+                // Применённое — «уже отправленное»: иначе следующая отправка вернёт его на сервер как «изменение этой кассы».
+                if (applied.Count > 0)
+                    foreach (var (k, v) in Snapshot(applied))
+                        _lastCompany[k] = v;
+                _baseline = Snapshot(AllKeys);
+            }
+
+            // Коды сотрудников — по версии списка (на UI-потоке), те же правила, что при входе.
+            codesChanged = await ApplyEmployeeCodesAsync(api, company, companyId, generation).ConfigureAwait(false);
+            if (generation != _generation)
+                return;
+            lock (Sync)
+            {
+                if (codesChanged)
+                {
+                    foreach (var (k, v) in Snapshot(new[] { SecureCodesKey, CodesVersionKey, LegacyCodesKey }))
+                        _lastCompany[k] = v;
+                    applied.Add(LegacyCodesKey);
+                }
+                // Список этой кассы новее облачного — пусть уйдёт обычной отправкой (как при входе).
+                if (_forcePushCodes)
+                {
+                    _forcePushCodes = false;
+                    _lastCompany.Remove(LegacyCodesKey);
+                    _lastCompany.Remove(SecureCodesKey);
+                    _lastCompany.Remove(CodesVersionKey);
+                }
+                _codesKeptLocalOnly = false;
+                _baseline = Snapshot(AllKeys);
+            }
+
+            _companyFingerprint = fingerprint;
+            _companyEtag = etag;
+            _applyPending = false;
+            PosLogger.Log($"SETTINGS_SYNC: общие настройки обновлены без перезапуска, применено {applied.Count}" +
+                          $"{(applied.Count > 0 ? " (" + string.Join(", ", applied) + ")" : "")}.", "SETTINGS_SYNC");
+            if (applied.Count > 0)
+            {
+                if (applied.Contains("UnlockedPacks"))
+                    TariffGate.RaisePacksChanged();
+                if (applied.Contains("MarketSphereDetail"))
+                    MarketSpheres.RaiseChanged();
+                Applied?.Invoke();
+            }
+            await PushAsync().ConfigureAwait(false); // накопившиеся правки этой кассы, если были
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TimeoutException or InvalidDataException or JsonException)
+        {
+            // Сервер не ответил / 404 / 429: тихо, следующий такт позже (чем дольше сбой, тем реже — до 8×).
+            _refreshFailures = Math.Min(_refreshFailures + 1, 3);
+            PosLogger.Log($"SETTINGS_SYNC: опрос не удался ({ex.Message}) — повтор позже.", "SETTINGS_SYNC");
+        }
+        finally
+        {
+            RefreshGate.Release();
+        }
+    }
+
+    private static bool SafeProbe(Func<bool> probe)
+    {
+        try { return probe(); }
+        catch { return false; }
+    }
+
     /// <summary>2026-10-18, 6-й/7-й круг (К-3): «записи нет» (200 с settings: null или {}) — пустое облако, его можно
     /// заполнять; сбой (сеть, 404, 5xx, таймаут, ответ без поля settings) — исключение. 1.17.58 не отличала: любая ошибка общих
     /// настроек считалась пустым облаком, и касса заливала туда свои значения.</summary>
@@ -525,6 +713,12 @@ public static class SettingsCloudSync
         JsonElement data;
         // 2026-10-18, 7-й круг: 404 — тоже сбой (возможно, не тот адрес/сервер), пустое облако — только 200 с settings: null или {}.
         data = await api.RequestAsync(HttpMethod.Get, path, null, null, CancellationToken.None, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+        return ParseDoc(data);
+    }
+
+    /// <summary>2026-10-29: разбор ответа документа настроек (выделено из GetDocAsync — то же нужно опросу с ETag).</summary>
+    private static (JsonObject Settings, DateTimeOffset? UpdatedAt) ParseDoc(JsonElement data)
+    {
         if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("settings", out var s))
         {
             DateTimeOffset? at = null;

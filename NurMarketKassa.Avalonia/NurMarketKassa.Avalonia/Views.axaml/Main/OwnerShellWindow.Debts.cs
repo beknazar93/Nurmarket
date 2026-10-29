@@ -73,7 +73,8 @@ public partial class OwnerShellWindow
         }
         if (_debtsCardLoading && force)
             _debtsCardPending = true;
-        if (_debtsCardLoading || (!force && DateTime.UtcNow - _debtsCardAt < TimeSpan.FromMinutes(2)))
+        // 2026-10-29: быстрый список долгов не старше 60 с (было 2 мин) — «Сводка» обновляется каждые 30 с; один запрос.
+        if (_debtsCardLoading || (!force && DateTime.UtcNow - _debtsCardAt < TimeSpan.FromSeconds(60)))
             return;
         _debtsCardLoading = true;
         // 2026-10-20, живой аудит владельца (долги 225 858 / ≈ 245 858 / ≈ 245 857): общий фоновый точный расчёт — тот же, что раздел

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NurMarketKassa.Core.Application;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -348,7 +349,7 @@ public partial class ReceiptHistoryWindow : Window
         var query = (SearchBox.Text ?? "").Trim().TrimStart('№', '#').Trim();
         var visible = query.Length == 0
             ? _rows
-            : _rows.Where(r => r.Entry.SearchText.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+            : _rows.Where(r => SearchMatch.Matches(query, r.Entry.SearchText)).ToList(); // 2026-10-29: единый поиск
 
         var selectId = keepSelectedId ?? _selected?.Entry.Id;
         ReceiptsList.ItemsSource = visible;

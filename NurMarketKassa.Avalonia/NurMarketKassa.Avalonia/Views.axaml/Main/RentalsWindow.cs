@@ -734,6 +734,16 @@ internal static class UiKit
         return t;
     }
 
+    /// <summary>2026-10-29 (аудит поисков): поле поиска — обычное поле + крестик очистки (класс clearButton Fluent); Esc очищает текст
+    /// (SearchBoxEscape; пустое поле Esc не трогает — закрывает окно как раньше). Все поиски, собранные в коде, берут это поле.</summary>
+    public static TextBox Search(Control host, string watermark, double height = 44)
+    {
+        var t = Input(host, watermark, height);
+        t.Classes.Add("clearButton"); // Esc очищает — общий обработчик SearchBoxEscape
+        t.MaxLength = 120; // длинная вставка (абзац из мессенджера) не должна подвешивать поиск
+        return t;
+    }
+
     /// <summary>2026-10-27 (приёмка 26.10, Д-4): поле секрета (ключ ИИ, токен) — то же, что Input, но без выдачи значения через UI Automation, пока оно скрыто точками.</summary>
     public static TextBox SecretInput(Control host, string watermark, double height = 44)
     {

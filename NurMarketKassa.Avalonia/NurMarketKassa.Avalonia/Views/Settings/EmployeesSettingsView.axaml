@@ -68,6 +68,8 @@
                   Content="{DynamicResource employees.loadFromWeb}" Click="LoadFromWeb_Click"/>
         </StackPanel>
 
+        <!-- 2026-10-28: поиск по имени, почте и телефону (при десятках сотрудников список не пролистать). -->
+        <TextBox x:Name="EmployeeSearchBox" MinHeight="40" TextChanged="EmployeeSearch_TextChanged"/>
         <StackPanel x:Name="EmployeeListPanel" Spacing="8"/>
         <!-- Подложка обязательна. Этот текст — единственный на странице, кто висел прямо на
              фоне страницы, а он прозрачный (Border.SettingsContentHost), и под ним видны обои

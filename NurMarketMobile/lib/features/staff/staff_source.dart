@@ -40,7 +40,7 @@ class ApiStaffSource implements StaffSource {
     final p = _people;
     final at = _peopleAt;
     if (p != null && at != null && DateTime.now().difference(at) < const Duration(seconds: 60)) return p;
-    final list = [for (final e in await staffRepo.list()) StaffPerson(e.id, e.name, e.role)];
+    final list = [for (final e in await staffRepo.list()) StaffPerson(e.id, e.name, e.role, active: !e.dismissed)];
     _people = list;
     _peopleAt = DateTime.now();
     return list;

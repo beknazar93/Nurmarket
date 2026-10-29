@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -24,6 +25,9 @@ internal static class EmployeeAccessChecklist
         public required CheckBox Cashier, Shifts, Document;
         public required CheckBox MarketDiscount, MarketEditPrice, MarketDeleteCartItem, MarketEmployeeReturn;
         public required CheckBox MarketLabel, MarketScales, Whatsapp, Telegram, Instagram, Documents;
+        /// <summary>2026-10-28: флаги схемы сервера (редактирование, зарплата, долги, работа на кассе) — чекбокс есть, только если
+        /// сервер вернул это поле у сотрудника (feature-detect); при создании их нет.</summary>
+        public Dictionary<string, CheckBox> Extra { get; } = new();
     }
 
     public static (ScrollViewer View, Boxes Checkboxes) Build(EmployeeAccessFlags? initial = null)
@@ -93,6 +97,35 @@ internal static class EmployeeAccessChecklist
         panel.Children.Add(GroupHeader(Tr.T("Дополнительные услуги", "Кошумча кызматтар", "Add-on services", "Ek hizmetler", "Qo'shimcha xizmatlar")));
         panel.Children.Add(Row(boxes.MarketLabel, boxes.MarketScales, boxes.Whatsapp, boxes.Telegram, boxes.Instagram, boxes.Documents));
 
+        // 2026-10-28: поля из схемы сервера (EmployeeUpdate) и Б-16 (can_use_pos) — только если сервер их вернул.
+        var extra = new List<(string Key, string Label, bool? Value)>
+        {
+            ("use_pos", Tr.T("Работа на кассе (продажи, смены)", "Кассада иштөө (сатуу, сменалар)", "Work at the till (sales, shifts)", "Kasada çalışma (satış, vardiya)", "Kassada ishlash (sotuv, smenalar)"), flags.CanUsePos),
+            ("view_salary", Tr.T("Зарплата: просмотр", "Эмгек акы: көрүү", "Salary: view", "Maaş: görüntüleme", "Ish haqi: ko'rish"), flags.CanViewSalary),
+            ("edit_salary", Tr.T("Зарплата: редактирование", "Эмгек акы: түзөтүү", "Salary: edit", "Maaş: düzenleme", "Ish haqi: tahrirlash"), flags.CanEditSalary),
+            ("edit_employees", Tr.T("Сотрудники: редактирование", "Кызматкерлер: түзөтүү", "Employees: edit", "Personel: düzenleme", "Xodimlar: tahrirlash"), flags.CanEditEmployees),
+            ("edit_products", Tr.T("Склад: редактирование", "Склад: түзөтүү", "Warehouse: edit", "Depo: düzenleme", "Ombor: tahrirlash"), flags.CanEditProducts),
+            ("edit_clients", Tr.T("Клиенты: редактирование", "Кардарлар: түзөтүү", "Clients: edit", "Müşteriler: düzenleme", "Mijozlar: tahrirlash"), flags.CanEditClients),
+            ("edit_cashbox", Tr.T("Финансы: редактирование", "Финансы: түзөтүү", "Finance: edit", "Finans: düzenleme", "Moliya: tahrirlash"), flags.CanEditCashbox),
+            ("edit_settings", Tr.T("Настройки: редактирование", "Жөндөөлөр: түзөтүү", "Settings: edit", "Ayarlar: düzenleme", "Sozlamalar: tahrirlash"), flags.CanEditSettings),
+            ("edit_procurement", Tr.T("Закупки: редактирование", "Сатып алуулар: түзөтүү", "Purchasing: edit", "Satın alma: düzenleme", "Xaridlar: tahrirlash"), flags.CanEditProcurement),
+            ("edit_documents", Tr.T("Документы: редактирование", "Документтер: түзөтүү", "Documents: edit", "Belgeler: düzenleme", "Hujjatlar: tahrirlash"), flags.CanEditDocuments),
+            ("view_debts", Tr.T("Долги: просмотр", "Карыздар: көрүү", "Debts: view", "Borçlar: görüntüleme", "Qarzlar: ko'rish"), flags.CanViewDebts),
+        };
+        var extraBoxes = extra.Where(e => e.Value.HasValue).ToList();
+        if (extraBoxes.Count > 0)
+        {
+            panel.Children.Add(GroupHeader(Tr.T("Редактирование и зарплата", "Түзөтүү жана эмгек акы", "Editing and salary", "Düzenleme ve maaş", "Tahrirlash va ish haqi")));
+            var extraRow = new WrapPanel { Orientation = Orientation.Horizontal };
+            foreach (var e in extraBoxes)
+            {
+                var box = Check(e.Label, e.Value == true);
+                boxes.Extra[e.Key] = box;
+                extraRow.Children.Add(box);
+            }
+            panel.Children.Add(extraRow);
+        }
+
         var scroll = new ScrollViewer
         {
             Content = panel,
@@ -102,8 +135,21 @@ internal static class EmployeeAccessChecklist
         return (scroll, boxes);
     }
 
+    private static bool? ReadExtra(Boxes b, string key) => b.Extra.TryGetValue(key, out var c) ? c.IsChecked == true : null;
+
     public static EmployeeAccessFlags Read(Boxes b) => new()
     {
+        CanUsePos = ReadExtra(b, "use_pos"),
+        CanViewSalary = ReadExtra(b, "view_salary"),
+        CanEditSalary = ReadExtra(b, "edit_salary"),
+        CanEditEmployees = ReadExtra(b, "edit_employees"),
+        CanEditProducts = ReadExtra(b, "edit_products"),
+        CanEditClients = ReadExtra(b, "edit_clients"),
+        CanEditCashbox = ReadExtra(b, "edit_cashbox"),
+        CanEditSettings = ReadExtra(b, "edit_settings"),
+        CanEditProcurement = ReadExtra(b, "edit_procurement"),
+        CanEditDocuments = ReadExtra(b, "edit_documents"),
+        CanViewDebts = ReadExtra(b, "view_debts"),
         CanViewCashbox = b.Cashbox.IsChecked == true,
         CanViewAnalytics = b.Analytics.IsChecked == true,
         CanViewProducts = b.Products.IsChecked == true,

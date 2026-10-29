@@ -130,34 +130,34 @@ void main() {
   }
 
   group('П8: режимы сканера', () {
+    // 2026-10-29: полоса режимов заменена селектом ScanModeSelect (поле + нижний лист)
     for (final lang in ['ru', 'ky']) {
-      testWidgets('$lang, 360 dp: пять режимов, одинаковый шрифт, касание ≥ 48 dp, прокрутка', (t) async {
+      testWidgets('$lang, 360 dp: поле режима ≥ 48 dp, шесть пунктов в листе, выбор «Приёмка»', (t) async {
         _phone(t, scale: 1.3);
         final picked = <ScanMode>[];
         await t.pumpWidget(_app(
           Scaffold(
             backgroundColor: Colors.black,
-            body: Row(children: [Expanded(child: ScanModeBar(mode: ScanMode.sale, onSelect: picked.add))]),
+            body: Row(children: [Expanded(child: ScanModeSelect(mode: ScanMode.sale, onSelect: picked.add, onKassa: () {}))]),
           ),
           lang: lang,
         ));
         await t.pump();
         expect(t.takeException(), isNull);
         final l = lookupAppLocalizations(Locale(lang));
-        final labels = [l.toCheck, l.byLook, l.weighShort, l.checkPrice, l.receiving];
-        final sizes = <double>{};
-        for (final s in labels) {
-          sizes.add(t.widget<Text>(find.text(s)).style!.fontSize!);
-          final box = find.ancestor(of: find.text(s), matching: find.byType(GestureDetector)).first;
-          expect(t.getSize(box).height, greaterThanOrEqualTo(48), reason: s);
-          expect(t.getSize(box).width, greaterThanOrEqualTo(48), reason: s);
+        expect(t.getSize(find.byType(ScanModeSelect)).height, greaterThanOrEqualTo(48));
+        expect(find.byType(SingleChildScrollView), findsNothing, reason: 'горизонтальной прокрутки нет');
+        await t.tap(find.byType(ScanModeSelect));
+        await t.pumpAndSettle();
+        final inSheet = find.descendant(of: find.byType(BottomSheet), matching: find.byType(InkWell));
+        expect(inSheet, findsNWidgets(6));
+        for (final e in inSheet.evaluate()) {
+          expect(t.getSize(find.byElementPredicate((x) => x == e)).height, greaterThanOrEqualTo(48));
         }
-        expect(sizes.length, 1, reason: 'один размер шрифта у всех режимов');
-        expect(find.byType(SingleChildScrollView), findsOneWidget);
-        await t.ensureVisible(find.text(labels.last));
-        await t.pump();
-        await t.tap(find.text(labels.last));
+        await t.tap(find.descendant(of: find.byType(BottomSheet), matching: find.text(l.receiving)));
+        await t.pumpAndSettle();
         expect(picked, [ScanMode.receive]);
+        expect(t.takeException(), isNull);
       });
     }
   });

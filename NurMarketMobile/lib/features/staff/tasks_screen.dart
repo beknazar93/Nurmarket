@@ -141,7 +141,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
       final tasks = await ref.read(tasksRepoProvider).list(force: force);
       List<StaffPerson> people = const [];
       try {
-        people = [for (final e in await ref.read(staffRepoProvider).list()) StaffPerson(e.id, e.name, e.role)];
+        people = [for (final e in await ref.read(staffRepoProvider).list()) StaffPerson(e.id, e.name, e.role, active: !e.dismissed)];
       } on ApiException {
         // имена не пришли — карточки без исполнителя, список задач остаётся
       }
@@ -212,7 +212,8 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
         final who = await showModalBottomSheet<StaffPerson>(
           context: context,
           useSafeArea: true,
-          builder: (_) => _PeoplePicker(people: _people.values.toList(), current: t.assigneeId),
+          // 2026-10-28: уволенных исполнителями не предлагаем (текущий остаётся в списке)
+builder: (_) => _PeoplePicker(people: _people.values.where((p) => p.active || p.id == t.assigneeId).toList(), current: t.assigneeId),
         );
         if (who != null) await _run(() => repo.update(t.copyWith(assigneeId: who.id)));
       case _TaskAct.delete:
@@ -462,7 +463,7 @@ class _TaskFormState extends State<_TaskForm> {
               initialValue: _who,
               isExpanded: true,
               decoration: InputDecoration(hintText: l.stfAssigneeHint),
-              items: [for (final x in widget.people) DropdownMenuItem(value: x, child: Text(x.name, overflow: TextOverflow.ellipsis))],
+              items: [for (final x in widget.people.where((p) => p.active)) DropdownMenuItem(value: x, child: Text(x.name, overflow: TextOverflow.ellipsis))],
               onChanged: (v) => setState(() => _who = v),
             ),
             const SizedBox(height: 8),

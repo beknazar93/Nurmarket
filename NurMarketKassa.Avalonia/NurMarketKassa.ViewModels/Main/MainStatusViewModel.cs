@@ -64,24 +64,38 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         ServerOutageMonitor.StateChanged += OnServerStateChanged;
         ServerOutageMonitor.QueueFlushed += OnServerQueueFlushed;
         InfoToastRequested += OnInfoToastRequested;
+        SyncCenter.Changed += OnSyncCenterChanged;
         _dispatcher.Post(RefreshStatusToolTip);
     }
 
     // 2026-10-23 (аудит П-9): лёгкое уведомление «Корзина очищена» вместо окна — та же плашка под шапкой, что у связи (само исчезает).
     // Подписчика нет (нет главного окна) — вызывающий показывает обычное сообщение.
-    private static event Action<string>? InfoToastRequested;
+    private static event Action<string, bool>? InfoToastRequested;
 
-    /// <summary>Показать лёгкий тост под шапкой кассы. false — главное окно не слушает, нужен запасной путь.</summary>
-    public static bool TryShowInfoToast(string text)
+    /// <summary>Показать лёгкий тост под шапкой кассы. false — главное окно не слушает, нужен запасной путь.
+    /// 2026-10-28: warning=true — жёлтая плашка (кнопка «Обновить»: «Нет связи — показаны данные от …»), по умолчанию зелёная.</summary>
+    public static bool TryShowInfoToast(string text, bool warning = false)
     {
         var handler = InfoToastRequested;
         if (handler is null)
             return false;
-        handler(text);
+        handler(text, warning);
         return true;
     }
 
-    private void OnInfoToastRequested(string text) => _dispatcher.Post(() => ShowToast(text, recovery: true));
+    // 2026-10-29: время последней синхронизации в подсказке — не чаще раза в 3 с (циклы отмечаются каждые 8–20 с).
+    private long _lastSyncTipTick;
+
+    private void OnSyncCenterChanged()
+    {
+        var now = Environment.TickCount64;
+        if (now - Interlocked.Read(ref _lastSyncTipTick) < 3000)
+            return;
+        Interlocked.Exchange(ref _lastSyncTipTick, now);
+        _dispatcher.Post(RefreshStatusToolTip);
+    }
+
+    private void OnInfoToastRequested(string text, bool warning) => _dispatcher.Post(() => ShowToast(text, recovery: !warning));
 
     private void OnLanguageChanged() => _dispatcher.Post(() =>
     {
@@ -256,7 +270,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
                 $"The NurCRM server has not been responding since {sinceText}. The till works autonomously: sales are saved and will be sent automatically.",
                 $"NurCRM sunucusu {sinceText} saatinden beri yanıt vermiyor. Kasa otonom çalışıyor: satışlar kaydediliyor ve otomatik olarak gönderilecek.",
                 $"NurCRM serveri {sinceText} dan beri javob bermayapti. Kassa avtonom ishlayapti: sotuvlar saqlanadi va avtomatik ravishda yuboriladi.")
-                + errorText + queueLine;
+                + errorText + queueLine + SyncLine();
             return;
         }
 
@@ -266,7 +280,14 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
             : Tr.T("Нет связи с сервером NurCRM — продажи сохраняются в кассе.", "NurCRM сервери менен байланыш жок — сатуулар кассада сакталат.",
                 "No connection to the NurCRM server — sales are saved in the till.", "NurCRM sunucusuyla bağlantı yok — satışlar kasada kaydediliyor.",
                 "NurCRM serveri bilan aloqa yo'q — sotuvlar kassada saqlanadi."))
-            + queueLine;
+            + queueLine + SyncLine();
+    }
+
+    /// <summary>2026-10-29: «Синхронизация: HH:mm:ss · в очереди: N» — в подсказке индикатора связи (SyncCenter).</summary>
+    private static string SyncLine()
+    {
+        var line = SyncCenter.StatusLine();
+        return line.Length == 0 ? "" : "\n" + line;
     }
 
     private static int OfflinePendingSalesStoreSafeCount()
@@ -480,6 +501,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         ServerOutageMonitor.StateChanged -= OnServerStateChanged;
         ServerOutageMonitor.QueueFlushed -= OnServerQueueFlushed;
         InfoToastRequested -= OnInfoToastRequested;
+        SyncCenter.Changed -= OnSyncCenterChanged;
         _lifetimeCts.Cancel();
         _lifetimeCts.Dispose();
     }

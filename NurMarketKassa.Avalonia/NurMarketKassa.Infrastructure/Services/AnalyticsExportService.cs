@@ -79,6 +79,12 @@ public static class AnalyticsExportService
 
     private static string TitleByDay => Tr.T("Выручка по дням", "Күндөр боюнча түшүм", "Revenue by day", "Günlük ciro", "Kunlik tushum");
     private static string TitleTop => Tr.T("Топ товаров по сумме", "Сумма боюнча топ товарлар", "Top products by amount", "Tutara göre en çok satanlar", "Summa bo'yicha top mahsulotlar");
+
+    // 2026-10-28: «Топ товаров» показывает первые 20 строк, как раньше, но теперь подписано «первые 20 из N» (AnalyticsReportData.TopProductsTotal).
+    private const int TopRows = 20;
+    private static string TopOf(AnalyticsReportData d) => d.TopProductsTotal > TopRows
+        ? Tr.T($" — первые {TopRows} из {d.TopProductsTotal}", $" — алгачкы {TopRows} / {d.TopProductsTotal}", $" — first {TopRows} of {d.TopProductsTotal}", $" — ilk {TopRows} / {d.TopProductsTotal}", $" — birinchi {TopRows} / {d.TopProductsTotal}")
+        : "";
     private static string TitleStructure => Tr.T("Структура за период", "Мезгилдин түзүмү", "Period structure", "Dönem yapısı", "Davr tuzilmasi");
     private static string TitleAbcShare => Tr.T("Доля групп в выручке", "Түшүмдөгү топтордун үлүшү", "Group share of revenue", "Grupların ciro payı", "Guruhlarning tushumdagi ulushi");
     private static string TitleAbcSummary => Tr.T("ABC-анализ: сводка по группам", "ABC-анализ: топтор боюнча жыйынтык", "ABC analysis: group summary", "ABC analizi: grup özeti", "ABC tahlili: guruhlar bo'yicha xulosa");
@@ -189,7 +195,7 @@ public static class AnalyticsExportService
         linked.Add((TitleByDay, byDaySheet));
 
         // ---- Топ товаров
-        var topSheet = book.AddSheet(SheetTop, TitleTop, landscape: true);
+        var topSheet = book.AddSheet(SheetTop, TitleTop + TopOf(data), landscape: true);
         var top = topSheet.AddTable(
         [
             new XlColumn(ReportLabels.Number, XlKind.Index),
@@ -197,7 +203,7 @@ public static class AnalyticsExportService
             new XlColumn(LQuantity, XlKind.Quantity, XlTotal.Sum),
             new XlColumn(ReportLabels.WithUnit(LAmount, Currency), XlKind.Money, XlTotal.Sum),
         ],
-        data.TopProducts.Select((p, i) => new object?[] { i + 1, p.Name, p.Quantity, p.Sum }));
+        data.TopProducts.Take(TopRows).Select((p, i) => new object?[] { i + 1, p.Name, p.Quantity, p.Sum }));
         topSheet.AddBarChart(TitleTop, top, categoryColumn: 1, valueColumn: 3, maxPoints: 10, horizontal: true);
         linked.Add((TitleTop, topSheet));
 
@@ -493,7 +499,7 @@ public static class AnalyticsExportService
         }
 
         // 3. Топ товаров
-        doc.Heading1("3. " + SheetTop);
+        doc.Heading1("3. " + SheetTop + TopOf(data));
         if (data.TopProducts.Count > 0)
         {
             doc.Image(AnalyticsChartRenderer.RenderBars(TitleTop,
@@ -506,12 +512,12 @@ public static class AnalyticsExportService
                 new WColumn(LQuantity, 1.4, Numeric: true),
                 new WColumn(ReportLabels.WithUnit(LAmount, Currency), 1.8, Numeric: true),
             ],
-            data.TopProducts.Select((p, i) => new[]
+            data.TopProducts.Take(TopRows).Select((p, i) => new[]
             {
                 (i + 1).ToString(ReportFormat.Culture), p.Name, ReportFormat.Quantity(p.Quantity), ReportFormat.Money(p.Sum),
             }).ToList(),
-            ["", ReportLabels.Total, ReportFormat.Quantity(data.TopProducts.Sum(p => p.Quantity)),
-                ReportFormat.Money(data.TopProducts.Sum(p => p.Sum))]);
+            ["", ReportLabels.Total, ReportFormat.Quantity(data.TopProducts.Take(TopRows).Sum(p => p.Quantity)),
+                ReportFormat.Money(data.TopProducts.Take(TopRows).Sum(p => p.Sum))]);
 
         // 4. ABC
         doc.Heading1("4. " + Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"));

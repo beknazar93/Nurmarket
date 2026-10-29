@@ -111,6 +111,11 @@ public sealed class PermissionService : IPermissionService
             && (roleName.Equals("owner", StringComparison.OrdinalIgnoreCase) || roleName.Equals("admin", StringComparison.OrdinalIgnoreCase)))
             return true;
 
+        // 2026-10-28 (Б-16): сервер может явно закрыть работу на кассе сотруднику полем can_use_pos=false (у всех true). Владельца и
+        // админа это не касается (проверено выше). Поля нет (старый сервер) — прежнее поведение.
+        if (user.ValueKind == JsonValueKind.Object && user.TryGetProperty("can_use_pos", out var usePos) && usePos.ValueKind == JsonValueKind.False)
+            return false;
+
         var names = ExtractPermissionNames(payload);
         if (names.Contains(PosPermissions.ViewSettings) || names.Contains(permission))
             return true;

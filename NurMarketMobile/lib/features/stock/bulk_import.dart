@@ -15,101 +15,314 @@ import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/units.dart';
 import '../../core/util/ui.dart';
 import '../../l10n/app_localizations.dart';
 import '../admin/admin_receive.dart';
+import 'product_edit_repository.dart' show isWeightUnit;
+import 'unit_picker.dart';
 
 /// 13.10, владелец: «на складе нет создания товара и массовой загрузки товара — в мобилке». Массовая загрузка как
 /// «Массовая загрузка» кассы (BulkImportWindow): файл Excel (.xlsx) или CSV, либо вставка скопированного из Excel;
 /// столбцы находятся по заголовкам (в любом порядке), без заголовков — по порядку из шаблона. Товар с тем же штрихкодом
 /// не дублируется — прибавляется количество, обновляются цены (тем же путём, что приёмка без поставщика).
-class ImportRow {
-  final String name;
-  final String barcode;
-  final double price;
-  final double cost;
-  final double qty;
-  final String unit;
-  final String category;
-  const ImportRow({required this.name, this.barcode = '', this.price = 0, this.cost = 0, this.qty = 0, this.unit = 'шт', this.category = ''});
-  bool get valid => name.trim().isNotEmpty && price > 0;
+/// 2026-10-29: что не так со строкой — подсвечивается в списке; строку с ошибкой не загружаем, пока её не поправят.
 
-  ImportRow copyWith({String? name, String? category}) =>
-      ImportRow(name: name ?? this.name, barcode: barcode, price: price, cost: cost, qty: qty, unit: unit, category: category ?? this.category);
+enum RowProblem { noName, noPrice, badUnit, qtyWhole, qtyNegative, badBarcode }
+
+
+
+class ImportRow {
+
+  final String name;
+
+  final String barcode;
+
+  final double price;
+
+  final double cost;
+
+  final double qty;
+
+  final String unit;
+
+  final String category;
+
+
+
+  /// 2026-10-29: бренд (столбец «Бренд» или справочник NurCRM) — уходит в карточку нового товара.
+
+  final String brand;
+
+
+
+  /// 2026-10-29: единица распознана по каталогу units.dart (или выбрана руками, в том числе «своя»). Незнакомая единица из
+
+  /// файла («оп», «xyz») — ошибка строки: иначе она молча стала бы чужой единицей на складе и на кассе.
+
+  final bool unitOk;
+
+  const ImportRow({required this.name, this.barcode = '', this.price = 0, this.cost = 0, this.qty = 0, this.unit = 'шт', this.category = '', this.brand = '', this.unitOk = true});
+
+
+
+  /// Ошибки, из-за которых строка не загрузится: нет названия, цены, незнакомая единица, дробное количество у «шт», минус.
+
+  List<RowProblem> get problems => [
+
+    if (name.trim().isEmpty) RowProblem.noName,
+
+    if (price <= 0) RowProblem.noPrice,
+
+    if (!unitOk) RowProblem.badUnit,
+
+    if (qtyProblem(unit, qty) == QtyProblem.negative) RowProblem.qtyNegative,
+
+    if (qtyProblem(unit, qty) == QtyProblem.notWhole) RowProblem.qtyWhole,
+    if (!barcodeFieldOk(barcode)) RowProblem.badBarcode, // 2026-10-29: штрихкод — только 4–14 цифр
+
+  ];
+
+  bool get valid => problems.isEmpty;
+
+
+
+  /// Количество не указано: не ошибка (товар создаётся с остатком 0, у существующего меняются цены), но подсвечивается.
+
+  bool get noQty => qty == 0;
+
+
+
+  ImportRow copyWith({String? name, String? barcode, double? price, double? cost, double? qty, String? unit, String? category, String? brand, bool? unitOk}) => ImportRow(
+
+    name: name ?? this.name,
+
+    barcode: barcode ?? this.barcode,
+
+    price: price ?? this.price,
+
+    cost: cost ?? this.cost,
+
+    qty: qty ?? this.qty,
+
+    unit: unit ?? this.unit,
+
+    category: category ?? this.category,
+
+    brand: brand ?? this.brand,
+
+    unitOk: unitOk ?? this.unitOk,
+
+  );
+
+
 
   /// 2026-10-27: строка со штрихкодом, но без названия — название (и пустую категорию) берём из встроенного справочника NurCRM,
+
   /// без сети. Введённое в файле не затирается. Возвращает новые строки и сколько названий подставлено.
+
+  /// 2026-10-29: так же подставляются пустые категория и бренд (не затирая введённое).
+
   static Future<(List<ImportRow>, int)> fillNames(List<ImportRow> rows, GlobalProducts catalog) async {
+
     var filled = 0;
+
     final out = <ImportRow>[];
+
     for (final r in rows) {
-      if (r.name.trim().isNotEmpty || r.barcode.isEmpty) {
+
+      if (r.barcode.isEmpty || (r.name.trim().isNotEmpty && r.category.isNotEmpty && r.brand.isNotEmpty)) {
+
         out.add(r);
+
         continue;
+
       }
+
       final g = await catalog.local(r.barcode);
+
       if (g == null) {
+
         out.add(r);
+
         continue;
+
       }
-      filled++;
-      out.add(r.copyWith(name: g.name, category: r.category.isEmpty ? g.category : null));
+
+      final nameBlank = r.name.trim().isEmpty;
+
+      if (nameBlank) filled++;
+
+      out.add(
+
+        r.copyWith(
+
+          name: nameBlank ? g.name : null,
+
+          category: r.category.isEmpty && g.category.isNotEmpty ? g.category : null,
+
+          brand: r.brand.isEmpty && g.brand.isNotEmpty ? g.brand : null,
+
+        ),
+
+      );
+
     }
+
     return (out, filled);
+
   }
+
 }
 
+
+
 class BulkParser {
+  // 2026-10-29: названия столбцов на ru/ky/uz/en/tr (в нормальном виде — см. [_norm]: без точек и апострофов, нижний регистр).
+
   static const _fields = {
-    'name': ['название', 'наименование', 'товар', 'name', 'аталышы', 'nomi'],
-    'barcode': ['штрихкод', 'штрих-код', 'barcode', 'ean', 'код'],
-    'price': ['цена продажи', 'цена', 'продажа', 'price', 'сатуу баасы', 'розница'],
-    'cost': ['закупка', 'цена закупки', 'себестоимость', 'cost', 'purchase', 'сатып алуу'],
-    'qty': ['количество', 'кол-во', 'остаток', 'qty', 'quantity', 'саны'],
-    'unit': ['единица', 'ед.', 'ед', 'unit', 'бирдик'],
-    'category': ['категория', 'category', 'группа'],
+
+    'name': ['название', 'наименование', 'товар', 'name', 'аталышы', 'аты', 'nomi', 'nom', 'ad', 'ürün adı', 'urun adi', 'product', 'tovar'],
+
+    'barcode': ['штрихкод', 'штрих-код', 'штрих код', 'barcode', 'ean', 'код', 'shtrix kod', 'shtrixkod', 'barkod'],
+
+    'price': [
+
+      'цена продажи', 'цена', 'продажа', 'price', 'сатуу баасы', 'розница', 'баасы', 'баа', 'narx', 'sotuv narxi', 'sotish narxi', 'fiyat', 'satış fiyatı', 'satis fiyati', 'sale price',
+
+    ],
+
+    'cost': [
+
+      'закупка', 'цена закупки', 'закупочная цена', 'себестоимость', 'cost', 'purchase', 'сатып алуу', 'сатып алуу баасы', 'xarid', 'xarid narxi', 'alış', 'alış fiyatı', 'alis fiyati', 'purchase price',
+
+    ],
+
+    'qty': ['количество', 'кол-во', 'кол во', 'остаток', 'qty', 'quantity', 'саны', 'калдык', 'miqdor', 'soni', 'qoldiq', 'miktar', 'adet', 'stok', 'stock'],
+
+    'unit': ['единица', 'ед', 'ед изм', 'единица измерения', 'unit', 'бирдик', 'өлчөө бирдиги', 'өлчөм бирдиги', 'birlik', 'olchov birligi', 'birim', 'uom', 'measure'],
+
+    'category': ['категория', 'category', 'группа', 'категориясы', 'kategoriya', 'kategori'],
+
+    'brand': ['бренд', 'брэнд', 'brand', 'brend', 'marka'],
+
   };
+
   static const _defaultOrder = ['name', 'barcode', 'price', 'cost', 'qty', 'unit', 'category'];
 
-  static double _num(String s) => double.tryParse(s.replaceAll(RegExp(r'[\s ]'), '').replaceAll(',', '.')) ?? 0;
+
+
+  static String _norm(String s) => unitKey(s.replaceAll('\uFEFF', ''));
+
+
+
+  /// Число из ячейки: «12,75», «12.75», «1 250,5», «1.250,50». Пусто или не число — 0.
+
+  static double _num(String s) => parseNum(s) ?? 0;
+
+
 
   /// Строки таблицы → товары. Заголовок узнаём по названиям столбцов; нет заголовка — порядок шаблона.
+
   static List<ImportRow> parse(List<List<String>> table) {
+
     final rows = table.where((r) => r.any((c) => c.trim().isNotEmpty)).toList();
+
     if (rows.isEmpty) return [];
-    final header = rows.first.map((c) => c.trim().toLowerCase()).toList();
+
+    final header = rows.first.map(_norm).toList();
+
     final map = <String, int>{};
+
+    // точное совпадение важнее частичного: «цена закупки» не должна стать «ценой» — сначала у всех полей точное, потом начало слова
+
     for (final entry in _fields.entries) {
-      // точное совпадение важнее частичного: «цена закупки» не должна стать «ценой»
-      var i = header.indexWhere((h) => entry.value.contains(h));
-      if (i < 0) i = header.indexWhere((h) => h.isNotEmpty && entry.value.any((w) => h.startsWith(w)) && !map.values.contains(header.indexOf(h)));
-      if (i >= 0 && !map.values.contains(i)) map[entry.key] = i;
-    }
-    // 2026-10-27: файл «штрихкод + цена + количество» без столбца названий тоже с заголовком — названия подставит справочник NurCRM
-    final hasHeader = map.containsKey('name') || (map.containsKey('barcode') && map.length >= 2);
-    if (!hasHeader) {
-      for (var i = 0; i < _defaultOrder.length; i++) {
-        map[_defaultOrder[i]] = i;
-      }
-    }
-    String cell(List<String> r, String f) {
-      final i = map[f];
-      return i == null || i >= r.length ? '' : r[i].trim();
+
+      final i = header.indexWhere((h) => entry.value.contains(h) && !map.values.contains(header.indexOf(h)));
+
+      if (i >= 0) map[entry.key] = i;
+
     }
 
+    for (final entry in _fields.entries) {
+
+      if (map.containsKey(entry.key)) continue;
+
+      final i = header.indexWhere((h) => h.isNotEmpty && entry.value.any((w) => h.startsWith(w)) && !map.values.contains(header.indexOf(h)));
+
+      if (i >= 0) map[entry.key] = i;
+
+    }
+
+    // 2026-10-27: файл «штрихкод + цена + количество» без столбца названий тоже с заголовком — названия подставит справочник NurCRM
+
+    final hasHeader = map.containsKey('name') || (map.containsKey('barcode') && map.length >= 2);
+
+    if (!hasHeader) {
+
+      map.clear();
+
+      for (var i = 0; i < _defaultOrder.length; i++) {
+
+        map[_defaultOrder[i]] = i;
+
+      }
+
+    }
+
+    String cell(List<String> r, String f) {
+
+      final i = map[f];
+
+      return i == null || i >= r.length ? '' : r[i].trim();
+
+    }
+
+
+
     return [
-      for (final r in hasHeader ? rows.skip(1) : rows)
-        ImportRow(
-          name: cell(r, 'name'),
-          barcode: cell(r, 'barcode').replaceAll(RegExp(r'\.0+$'), ''),
-          price: _num(cell(r, 'price')),
-          cost: _num(cell(r, 'cost')),
-          qty: _num(cell(r, 'qty')),
-          unit: cell(r, 'unit').isEmpty ? 'шт' : cell(r, 'unit'),
-          category: cell(r, 'category'),
-        ),
+
+      for (final r in hasHeader ? rows.skip(1) : rows) _row(cell, r),
+
     ];
+
   }
+
+
+
+  static ImportRow _row(String Function(List<String>, String) cell, List<String> r) {
+
+    final rawUnit = cell(r, 'unit');
+
+    // пустая единица — «шт» (старые файлы без столбца); написание из каталога — к коду; незнакомое — ошибка строки
+
+    final def = unitOf(rawUnit);
+
+    return ImportRow(
+
+      name: cell(r, 'name'),
+
+      barcode: cell(r, 'barcode').replaceAll(RegExp(r'\.0+$'), '').replaceAll(RegExp(r'[\s\-]'), ''),
+
+      price: _num(cell(r, 'price')),
+
+      cost: _num(cell(r, 'cost')),
+
+      qty: _num(cell(r, 'qty')),
+
+      unit: rawUnit.isEmpty ? 'шт' : (def?.code ?? rawUnit),
+
+      unitOk: rawUnit.isEmpty || def != null,
+
+      category: cell(r, 'category'),
+
+      brand: cell(r, 'brand'),
+
+    );
+
+  }
+
+
 
   /// CSV или текст из Excel: разделитель — табуляция, «;» или «,» (что чаще в первой строке); кавычки учитываются.
   static List<List<String>> readText(String text) {
@@ -220,11 +433,17 @@ class BulkUploader {
 
   /// Новые строки файла: товары, что уже есть (по штрихкоду в любом написании, без штрихкода — по точному названию), и
   /// повторы внутри файла.
-  Future<void> prepare(AppDatabase db, List<ImportRow> rows) async {
-    existing.clear();
-    duplicates.clear();
-    uploaded.clear();
-    _lines.clear();
+  /// 2026-10-29: [keep] — пересчёт после правки строки: загруженные строки и созданные товары не забываются (иначе повтор
+  /// «Загрузить» создал бы их второй раз).
+  Future<void> prepare(AppDatabase db, List<ImportRow> rows, {bool keep = false}) async {
+    if (keep) {
+      duplicates.clear();
+    } else {
+      existing.clear();
+      duplicates.clear();
+      uploaded.clear();
+      _lines.clear();
+    }
     final first = <String, int>{};
     for (var i = 0; i < rows.length; i++) {
       final r = rows[i];
@@ -236,6 +455,7 @@ class BulkUploader {
         continue;
       }
       first[key] = i + 1;
+      if (uploaded.contains(r) || existing.containsKey(r)) continue; // уже загружена или товар известен — не ищем заново
       if (r.barcode.isNotEmpty) {
         final p = (await db.productByScan(r.barcode, allowWeightLabel: false))?.product;
         if (p != null) existing[r] = p.id;
@@ -244,6 +464,17 @@ class BulkUploader {
         if (same != null) existing[r] = same.id;
       }
     }
+  }
+
+  /// 2026-10-29: строку поправили (экран «Строка товара», массовые «Установить…») — новая строка занимает место старой,
+  /// а помнить о ней нужно то же: создан ли товар, загружена ли.
+  void replace(ImportRow old, ImportRow now, {bool keyChanged = false}) {
+    final id = existing.remove(old);
+    // сменили штрихкод или название — «уже есть» ищем заново (prepare), старый id к новой строке не относится
+    if (id != null && !keyChanged) existing[now] = id;
+    if (uploaded.remove(old)) uploaded.add(now);
+    duplicates.remove(old);
+    _lines.remove(old);
   }
 
   bool canUpload(ImportRow r) => r.valid && !duplicates.containsKey(r) && !uploaded.contains(r);
@@ -270,6 +501,9 @@ class BulkUploader {
               price: r.price,
               isNew: !existing.containsKey(r),
               category: r.category,
+              brand: r.brand,
+              // 2026-10-29: кг/г — весовой товар (is_weight + PLU), как «Новый товар»; раньше «кг» из файла создавался штучным
+              weight: isWeightUnit(r.unit),
             ),
           ),
       ];
@@ -318,6 +552,12 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
   late final BulkUploader _up = BulkUploader(ref.read(adminReceiveRepoProvider), ref.read(apiProvider));
   bool _busy = false;
 
+  /// 2026-10-29: отмеченные галочкой строки — к ним применяются «Установить единицу / цену / количество».
+  final Set<ImportRow> _sel = Set<ImportRow>.identity();
+
+  /// Итог последней загрузки: «Готово N, с ошибками M».
+  String? _result;
+
   Future<void> _setRows(List<ImportRow> parsed) async {
     final l = context.l;
     // 2026-10-27: названия по штрихкодам из встроенного справочника NurCRM (там, где в файле названия нет)
@@ -330,7 +570,87 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
     if (!mounted) return;
     if (rows.isEmpty) toast(context, l.bulkNothing, error: true);
     if (filled > 0) toast(context, l.globalBulkFilled(filled));
-    setState(() => _rows = rows);
+    setState(() {
+      _rows = rows;
+      _sel.clear();
+      _result = null;
+    });
+  }
+
+  /// 2026-10-29: заменить строки (правка одной или массовая операция). Загруженные не трогаем.
+  Future<void> _change(Map<ImportRow, ImportRow> changes) async {
+    var keyChanged = false;
+    final next = [
+      for (final r in _rows)
+        if (changes.containsKey(r) && !_up.uploaded.contains(r)) changes[r]! else r,
+    ];
+    for (final e in changes.entries) {
+      if (_up.uploaded.contains(e.key)) continue;
+      final key = e.key.barcode != e.value.barcode || e.key.name.trim().toLowerCase() != e.value.name.trim().toLowerCase();
+      keyChanged = keyChanged || key;
+      _up.replace(e.key, e.value, keyChanged: key);
+      if (_sel.remove(e.key)) _sel.add(e.value);
+    }
+    if (keyChanged) {
+      await _up.prepare(ref.read(databaseProvider), next, keep: true);
+      if (!mounted) return;
+    }
+    setState(() {
+      _rows = next;
+      _result = null;
+    });
+  }
+
+  Future<void> _editRow(ImportRow r) async {
+    if (_busy || _up.uploaded.contains(r)) return;
+    final now = await showModalBottomSheet<ImportRow>(
+      context: context,
+      isScrollControlled: true,
+      builder: (c) => _RowSheet(row: r),
+    );
+    if (now == null || !mounted) return;
+    await _change({r: now});
+  }
+
+  List<ImportRow> get _selected => [for (final r in _rows) if (_sel.contains(r) && !_up.uploaded.contains(r)) r];
+
+  Future<void> _massUnit() async {
+    final l = context.l;
+    var unit = 'шт';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, set) => AlertDialog(
+          title: Text(l.bkSetUnit),
+          content: SingleChildScrollView(child: UnitPicker(value: unit, onChanged: (u) => set(() => unit = u))),
+          actions: [
+            TextButton(style: TextButton.styleFrom(minimumSize: const Size(64, 48)), onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+            FilledButton(
+              key: const Key('bkMassApply'),
+              style: FilledButton.styleFrom(minimumSize: const Size(64, 48)),
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(l.bkApplyTo(_selected.length)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await _change({for (final r in _selected) r: r.copyWith(unit: unit, unitOk: true)});
+  }
+
+  Future<void> _massPrice() async {
+    final l = context.l;
+    final v = await askNumber(context, title: l.bkSetPrice, label: l.salePrice, suffix: l.som, ok: l.bkApplyTo(_selected.length));
+    if (v == null || v <= 0 || !mounted) return;
+    await _change({for (final r in _selected) r: r.copyWith(price: v)});
+  }
+
+  Future<void> _massQty() async {
+    final l = context.l;
+    final v = await askNumber(context, title: l.bkSetQty, label: l.quantityLabel, ok: l.bkApplyTo(_selected.length));
+    if (v == null || v < 0 || !mounted) return;
+    await _change({for (final r in _selected) r: r.copyWith(qty: v)});
   }
 
   Future<void> _pickFile() async {
@@ -356,7 +676,7 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
   Future<void> _template() async {
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/nurmarket-tovary.csv');
-    await file.writeAsString('﻿Название;Штрихкод;Цена продажи;Закупка;Количество;Единица;Категория\nКока-Кола 2л;5449000000996;170;130;12;шт;Напитки\n');
+    await file.writeAsString('﻿Название;Штрихкод;Цена продажи;Закупка;Количество;Единица;Категория\nКока-Кола 2л;5449000000996;170;130;12;шт;Напитки\nЯблоки;;120,5;90;12,5;кг;Фрукты\n');
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(file.path, mimeType: 'text/csv', name: 'nurmarket-tovary.csv')],
@@ -384,9 +704,24 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
     }
     if (!mounted) return;
     final done = _up.uploaded.length;
+    // 2026-10-29: «Готово N, с ошибками M» — M: строки с ошибкой (не загружены) и отказы сервера
+    final bad = _rows.where((r) => !r.valid).length + errors.length;
+    setState(() => _result = l.bkResult(done, bad));
     toast(context, errors.isEmpty ? l.bulkDone(done) : '${l.bulkDone(done)} · ${errors.take(2).join('; ')}', error: errors.isNotEmpty);
-    if (errors.isEmpty) Navigator.of(context).maybePop();
+    if (errors.isEmpty && bad == 0) Navigator.of(context).maybePop();
   }
+
+  String _problemText(AppLocalizations l, ImportRow r) => [
+    for (final p in r.problems)
+      switch (p) {
+        RowProblem.noName => l.bkErrName,
+        RowProblem.noPrice => l.bkErrPrice,
+        RowProblem.badUnit => l.bkErrUnit(r.unit),
+        RowProblem.qtyWhole => l.bkErrQtyWhole(qtyText(r.qty), r.unit),
+        RowProblem.qtyNegative => l.bkErrQtyNeg,
+        RowProblem.badBarcode => l.barcodeBadLen,
+      },
+  ].join('; ');
 
   @override
   Widget build(BuildContext context) {
@@ -401,6 +736,8 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
           Text(l.bulkHint, style: TextStyle(color: pal.textSoft, fontSize: 12.5)),
+          const SizedBox(height: 4),
+          Text(l.bkHintUnits, key: const Key('bkHintUnits'), style: TextStyle(color: pal.textSoft, fontSize: 12.5)),
           const SizedBox(height: 10),
           FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
@@ -409,16 +746,12 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
             label: Text(l.bulkPickFile),
           ),
           const SizedBox(height: 6),
-          Row(
+          // 2026-10-29: Wrap вместо Row — длинная надпись «Вставить скопированное из Excel» больше не обрезается (360 dp, шрифт 1,3)
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _busy ? null : _paste,
-                  icon: const Icon(Icons.content_paste_rounded, size: 18),
-                  label: Text(l.bulkPaste, maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-              ),
-              const SizedBox(width: 6),
+              OutlinedButton.icon(onPressed: _busy ? null : _paste, icon: const Icon(Icons.content_paste_rounded, size: 18), label: Text(l.bulkPaste)),
               OutlinedButton.icon(onPressed: _template, icon: const Icon(Icons.description_outlined, size: 18), label: Text(l.bulkTemplate)),
             ],
           ),
@@ -437,25 +770,71 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
             ),
             Text(_up.setStock ? l.pAStockSetHint : l.pAStockAddHint, style: TextStyle(color: pal.textSoft, fontSize: 12)),
             const SizedBox(height: 6),
+            // 2026-10-29: массовые операции над отмеченными строками (единица, цена, количество) и выбор «с ошибками»
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  key: const Key('bkSelectAll'),
+                  label: Text(l.bkSelectAll),
+                  onPressed: _busy ? null : () => setState(() => _sel..clear()..addAll(_rows.where((r) => !_up.uploaded.contains(r)))),
+                ),
+                ActionChip(
+                  key: const Key('bkSelectBad'),
+                  label: Text(l.bkSelectBad),
+                  onPressed: _busy ? null : () => setState(() => _sel..clear()..addAll(_rows.where((r) => !r.valid))),
+                ),
+                if (_sel.isNotEmpty) ActionChip(key: const Key('bkSelectNone'), label: Text(l.bkSelectNone), onPressed: () => setState(_sel.clear)),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 4),
+              child: Text(_selected.isEmpty ? l.bkSelectFirst : l.bkSelectedN(_selected.length), style: TextStyle(color: pal.textSoft, fontSize: 12)),
+            ),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                OutlinedButton(key: const Key('bkMassUnit'), style: OutlinedButton.styleFrom(minimumSize: const Size(64, 48)), onPressed: _busy || _selected.isEmpty ? null : _massUnit, child: Text(l.bkSetUnit)),
+                OutlinedButton(key: const Key('bkMassPrice'), style: OutlinedButton.styleFrom(minimumSize: const Size(64, 48)), onPressed: _busy || _selected.isEmpty ? null : _massPrice, child: Text(l.bkSetPrice)),
+                OutlinedButton(key: const Key('bkMassQty'), style: OutlinedButton.styleFrom(minimumSize: const Size(64, 48)), onPressed: _busy || _selected.isEmpty ? null : _massQty, child: Text(l.bkSetQty)),
+              ],
+            ),
+            const SizedBox(height: 6),
             for (final r in _rows.take(200))
               ListTile(
+                key: ValueKey('bkRow_${identityHashCode(r)}'),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
+                minLeadingWidth: 0,
+                onTap: _busy || _up.uploaded.contains(r) ? null : () => _editRow(r),
+                leading: Checkbox(
+                  value: _sel.contains(r),
+                  onChanged: _busy || _up.uploaded.contains(r) ? null : (v) => setState(() => v == true ? _sel.add(r) : _sel.remove(r)),
+                ),
                 title: Text(r.name.isEmpty ? '—' : r.name),
                 subtitle: Text(
                   !r.valid
-                      ? l.bulkBad
+                      ? _problemText(l, r)
                       : _up.duplicates.containsKey(r)
                       ? l.pADupRow(_up.duplicates[r]!)
                       : [
                           if (r.barcode.isNotEmpty) r.barcode,
                           '${qtyText(r.qty)} ${r.unit}',
+                          if (r.noQty) l.bkWarnQty,
                           if (r.category.isNotEmpty) r.category,
                           if (_up.uploaded.contains(r)) l.pAUploaded else if (_up.existing.containsKey(r)) l.bulkExists,
                         ].join(' · '),
                   style: TextStyle(color: r.valid && !_up.duplicates.containsKey(r) ? pal.textSoft : T.danger, fontSize: 12),
                 ),
                 trailing: Text(money(r.price), style: const TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            if (_result != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_result!, key: const Key('bkResult'), style: const TextStyle(fontWeight: FontWeight.w800)),
               ),
             const SizedBox(height: 10),
             if (_busy) LinearProgressIndicator(value: valid.isEmpty ? null : _up.uploaded.length / valid.length),
@@ -467,6 +846,127 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// 2026-10-29: «Строка товара» — поправить название, штрихкод, единицу, количество, закупку, цену и категорию одной строки файла.
+class _RowSheet extends StatefulWidget {
+  final ImportRow row;
+  const _RowSheet({required this.row});
+  @override
+  State<_RowSheet> createState() => _RowSheetState();
+}
+
+class _RowSheetState extends State<_RowSheet> {
+  static String _f(double v) => v == 0 ? '' : qtyText(v).replaceAll(RegExp('[ \u00A0\u202F]'), '');
+  late final _name = TextEditingController(text: widget.row.name);
+  late final _barcode = TextEditingController(text: widget.row.barcode);
+  late final _qty = TextEditingController(text: _f(widget.row.qty));
+  late final _cost = TextEditingController(text: _f(widget.row.cost));
+  late final _price = TextEditingController(text: _f(widget.row.price));
+  late final _category = TextEditingController(text: widget.row.category);
+  late String _unit = widget.row.unit;
+  bool _unitTouched = false;
+
+  @override
+  void dispose() {
+    for (final c in [_name, _barcode, _qty, _cost, _price, _category]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  ImportRow get _now => widget.row.copyWith(
+    name: _name.text.trim(),
+    barcode: _barcode.text.trim(),
+    unit: _unit,
+    unitOk: widget.row.unitOk || _unitTouched,
+    qty: parseNum(_qty.text) ?? 0,
+    cost: parseNum(_cost.text) ?? 0,
+    price: parseNum(_price.text) ?? 0,
+    category: _category.text.trim(),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final now = _now;
+    final problems = now.problems;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.viewInsetsOf(context).bottom + 16),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l.bkEditRow, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              FieldLabel(l.peName),
+              TextField(key: const Key('bkName'), controller: _name, textCapitalization: TextCapitalization.sentences, onChanged: (_) => setState(() {})),
+              FieldLabel(l.barcodeLabel),
+              TextField(key: const Key('bkBarcode'), controller: _barcode, keyboardType: TextInputType.number, inputFormatters: barcodeFormatters, onChanged: (_) => setState(() {})),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FieldLabel(l.purchasePrice),
+                        TextField(key: const Key('bkCost'), controller: _cost, keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (_) => setState(() {})),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FieldLabel(l.retailPrice),
+                        TextField(
+                          key: const Key('bkPrice'),
+                          controller: _price,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          onChanged: (_) => setState(() {}),
+                          decoration: InputDecoration(errorText: problems.contains(RowProblem.noPrice) ? l.bkErrPrice : null),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              FieldLabel(l.quantityLabel),
+              TextField(
+                key: const Key('bkQty'),
+                controller: _qty,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(suffixText: _unit, errorText: qtyErrorText(l, _unit, parseNum(_qty.text))),
+              ),
+              FieldLabel(l.unitLabel),
+              UnitPicker(
+                value: _unit,
+                onChanged: (u) => setState(() {
+                  _unit = u;
+                  _unitTouched = true;
+                }),
+              ),
+              if (problems.contains(RowProblem.badUnit))
+                Padding(padding: const EdgeInsets.only(top: 4), child: Text(l.bkErrUnit(_unit), style: const TextStyle(color: T.danger, fontSize: 12))),
+              FieldLabel(l.categoryLabel),
+              TextField(key: const Key('bkCategory'), controller: _category, textCapitalization: TextCapitalization.sentences),
+              const SizedBox(height: 14),
+              FilledButton(
+                key: const Key('bkRowSave'),
+                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                onPressed: () => Navigator.pop(context, _now),
+                child: Text(l.save),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

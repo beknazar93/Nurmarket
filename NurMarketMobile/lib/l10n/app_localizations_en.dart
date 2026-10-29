@@ -5839,4 +5839,563 @@ class AppLocalizationsEn extends AppLocalizations {
   String invUnitCheck(String inv, String item) {
     return 'Check · unit: the invoice says \"$inv\", the item uses \"$item\"';
   }
+
+  @override
+  String get empAdd => 'New employee';
+
+  @override
+  String get empCard => 'Employee card';
+
+  @override
+  String get empSectionData => 'Employee details';
+
+  @override
+  String get empSectionRights => 'Access rights';
+
+  @override
+  String get empFirstName => 'First name';
+
+  @override
+  String get empLastName => 'Last name';
+
+  @override
+  String get empMiddleName => 'Middle name';
+
+  @override
+  String get empEmail => 'Email (sign-in login)';
+
+  @override
+  String get empPhone => 'Phone';
+
+  @override
+  String get empTrack => 'Employee number';
+
+  @override
+  String get empRole => 'Position';
+
+  @override
+  String get empBirth => 'Date of birth';
+
+  @override
+  String get empHire => 'Hire date';
+
+  @override
+  String get empAddress => 'Address';
+
+  @override
+  String get empComment => 'Comment';
+
+  @override
+  String get empClearDate => 'Clear date';
+
+  @override
+  String get empRequired => 'Fill in this field';
+
+  @override
+  String get empEmailBad => 'Enter the full email, e.g. aibek@mail.kg';
+
+  @override
+  String get empPhoneBad => 'Phone: 9 to 15 digits, may start with +';
+
+  @override
+  String get empSaved => 'Employee saved.';
+
+  @override
+  String get empCreated => 'Employee added.';
+
+  @override
+  String get empNothingChanged => 'Nothing changed.';
+
+  @override
+  String get empSearch => 'Search: name, email, phone';
+
+  @override
+  String get empFilterActive => 'Working';
+
+  @override
+  String get empFilterDismissed => 'Dismissed';
+
+  @override
+  String get empDismissedTag => 'dismissed';
+
+  @override
+  String empCount(int n) {
+    return 'Employees: $n';
+  }
+
+  @override
+  String get empNothingFound => 'Nobody found.';
+
+  @override
+  String get empDismiss => 'Dismiss';
+
+  @override
+  String get empRestore => 'Restore';
+
+  @override
+  String empDismissAsk(String name) {
+    return 'Dismiss $name? They will no longer be able to sign in. Sales and shifts are kept.';
+  }
+
+  @override
+  String empRestoreAsk(String name) {
+    return 'Restore $name? They will be able to sign in again.';
+  }
+
+  @override
+  String get empDismissedDone => 'Employee dismissed.';
+
+  @override
+  String get empRestoredDone => 'Employee restored.';
+
+  @override
+  String get empDismissStill =>
+      'The server accepted the request, but the employee is still in the list. Remove them on app.nurcrm.kg.';
+
+  @override
+  String get empResetPwd => 'Reset password';
+
+  @override
+  String empResetAsk(String name) {
+    return 'Reset the password of $name? The old one stops working; the new one is shown once.';
+  }
+
+  @override
+  String get empPasswordTitle => 'Employee password';
+
+  @override
+  String empPasswordNote(String email) {
+    return 'Login: $email. The password is shown once — hand it to the employee now.';
+  }
+
+  @override
+  String get empCopy => 'Copy password';
+
+  @override
+  String get empCopied => 'Copied.';
+
+  @override
+  String get empFeatureMissing =>
+      'The server does not support this action yet.';
+
+  @override
+  String get empListDenied =>
+      'No \"Employees\" right — the list is unavailable. Ask the owner.';
+
+  @override
+  String get empErrBad =>
+      'The server did not accept the data. Check the fields.';
+
+  @override
+  String get empErrEmail => 'This email is already taken or invalid.';
+
+  @override
+  String get empErr403 => 'You have no right for this action. Ask the owner.';
+
+  @override
+  String get empErr404 =>
+      'Employee not found on the server — refresh the list.';
+
+  @override
+  String get empErr409 =>
+      'This employee already exists or the data changed. Refresh the list.';
+
+  @override
+  String get empErr429 => 'Too many requests. Wait a minute and retry.';
+
+  @override
+  String get empErr5xx =>
+      'Server error. Nothing was changed — try again later.';
+
+  @override
+  String get rightUsePos => 'Work at the till';
+
+  @override
+  String get rightSalaryView => 'Salary: view';
+
+  @override
+  String get rightSalaryEdit => 'Salary: pay out';
+
+  @override
+  String get rightEmployeesView => 'Employees: view';
+
+  @override
+  String get rightEmployeesEdit => 'Employees: edit';
+
+  @override
+  String get rightsReadOnly =>
+      'Rights are view-only: the owner or someone with \"Settings\" edits them.';
+
+  @override
+  String get unitNamePcs => 'Piece';
+
+  @override
+  String get unitNameKg => 'Kilogram';
+
+  @override
+  String get unitNameG => 'Gram';
+
+  @override
+  String get unitNameL => 'Litre';
+
+  @override
+  String get unitNameMl => 'Millilitre';
+
+  @override
+  String get unitNameM => 'Metre';
+
+  @override
+  String get unitNamePack => 'Pack';
+
+  @override
+  String get unitNamePair => 'Pair';
+
+  @override
+  String get unitNameSet => 'Set';
+
+  @override
+  String get unitCustom => 'Custom';
+
+  @override
+  String get unitCustomTitle => 'Custom unit';
+
+  @override
+  String get unitCustomHint => 'e.g. roll, bottle';
+
+  @override
+  String unitHintFrac(String name) {
+    return '$name: a fractional quantity is fine, e.g. 0.5';
+  }
+
+  @override
+  String unitHintWhole(String name) {
+    return '$name: whole quantity only';
+  }
+
+  @override
+  String get unitHintCustom => 'Custom unit: the quantity may be fractional';
+
+  @override
+  String nuQtyWhole(String unit, String qty) {
+    return 'For \"$unit\" the quantity must be a whole number (now $qty). Pick kg, l, m… or type a whole number.';
+  }
+
+  @override
+  String get nuQtyNegative => 'The quantity cannot be below zero.';
+
+  @override
+  String get nuPriceNeed => 'Enter the sale price';
+
+  @override
+  String get bkHintUnits =>
+      'Unit: шт, кг, г, л, мл, м, упак, пара, компл (also understood: piece, litre, pcs, kg, l, dona…). Price and quantity may be fractional: 12.75; 0.5.';
+
+  @override
+  String get bkErrName => 'no name';
+
+  @override
+  String get bkErrPrice => 'enter the sale price';
+
+  @override
+  String bkErrUnit(String unit) {
+    return 'unit \"$unit\" not recognised — pick pcs, kg, l…';
+  }
+
+  @override
+  String bkErrQtyWhole(String qty, String unit) {
+    return 'quantity $qty must be whole for \"$unit\"';
+  }
+
+  @override
+  String get bkErrQtyNeg => 'quantity below zero';
+
+  @override
+  String get bkWarnQty => 'no quantity — stock will be 0';
+
+  @override
+  String get bkSetUnit => 'Set unit';
+
+  @override
+  String get bkSetPrice => 'Set price';
+
+  @override
+  String get bkSetQty => 'Set quantity';
+
+  @override
+  String get bkSelectAll => 'Select all';
+
+  @override
+  String get bkSelectBad => 'With errors';
+
+  @override
+  String get bkSelectNone => 'Clear selection';
+
+  @override
+  String bkSelectedN(int n) {
+    return 'Rows selected: $n';
+  }
+
+  @override
+  String get bkSelectFirst => 'Tick rows to apply a change to many at once.';
+
+  @override
+  String bkApplyTo(int n) {
+    return 'Apply to $n';
+  }
+
+  @override
+  String get bkEditRow => 'Product row';
+
+  @override
+  String bkResult(int a, int b) {
+    return 'Done $a, with errors $b';
+  }
+
+  @override
+  String get barcodeDigitsHint => 'Digits only, 4 to 14';
+
+  @override
+  String get barcodeBadLen => 'The barcode is 4 to 14 digits, no letters';
+
+  @override
+  String get infK => 'K';
+
+  @override
+  String get infM => 'M';
+
+  @override
+  String get infB => 'B';
+
+  @override
+  String get infNoData => 'No data for this period';
+
+  @override
+  String get infNoDataHint => 'Pick another period or make some sales';
+
+  @override
+  String infUpdatedAt(String time) {
+    return 'Updated $time';
+  }
+
+  @override
+  String get infCompare => 'Compare with the previous period';
+
+  @override
+  String get infPeriodCustom => 'Custom';
+
+  @override
+  String get infVsYesterday => 'vs yesterday';
+
+  @override
+  String get infVsPrevWeek => 'vs last week';
+
+  @override
+  String get infVsPrevMonth => 'vs last month';
+
+  @override
+  String get infVsPrevPeriod => 'vs previous period';
+
+  @override
+  String infDeltaUpSem(String pct, String vs) {
+    return 'Up $pct % $vs';
+  }
+
+  @override
+  String infDeltaDownSem(String pct, String vs) {
+    return 'Down $pct % $vs';
+  }
+
+  @override
+  String infDeltaSameSem(String vs) {
+    return 'No change $vs';
+  }
+
+  @override
+  String get infDeltaNew => 'new';
+
+  @override
+  String get infOther => 'Other';
+
+  @override
+  String get infShare => 'Share';
+
+  @override
+  String infDescEmpty(String name) {
+    return '$name: no data';
+  }
+
+  @override
+  String infDescOne(String name, String label, String value, String unit) {
+    return '$name: $label — $value $unit';
+  }
+
+  @override
+  String infDescBars(
+    String name,
+    String max,
+    String unit,
+    String maxLabel,
+    String min,
+    String minLabel,
+    String total,
+  ) {
+    return '$name: highest $max $unit ($maxLabel), lowest $min $unit ($minLabel), total $total $unit';
+  }
+
+  @override
+  String get infHowCalc => 'How it is calculated';
+
+  @override
+  String get infHowRevenue =>
+      'Revenue is the sum of receipts with status \"paid\" and \"partially returned\" for the period, same as in the desktop program and on the site. Debt and cancelled receipts are not included.';
+
+  @override
+  String get infHowChecks =>
+      'Receipts — the number of paid receipts for the period (partially returned ones too).';
+
+  @override
+  String get infHowAvg =>
+      'Average receipt = revenue ÷ number of receipts for the period.';
+
+  @override
+  String get infHowProfit =>
+      'Profit = revenue − purchase cost of the goods sold (the server\'s gross profit). Store expenses are not included.';
+
+  @override
+  String get infHowShiftCash =>
+      'Expected in the drawer = opening cash + cash sales + cash debt payments + cash in − cash refunds − cash out. The figure comes from the server.';
+
+  @override
+  String get infHowDebts =>
+      'Debts — the amount customers currently owe the store (the server\'s debtor list).';
+
+  @override
+  String get infHowLow =>
+      'Running out — goods (not services) with stock below 10 or not above the product\'s own minimum stock.';
+
+  @override
+  String get infHowPayments =>
+      'Payment methods — how much of the revenue came as cash, card, transfer and debt; percentages are of the total of all methods.';
+
+  @override
+  String get infHowTop =>
+      'Top products — the goods with the highest revenue for the period; the bar is the share of the best product.';
+
+  @override
+  String get scanModeLabel => 'Mode';
+
+  @override
+  String get scanModeTitle => 'Scanner mode';
+
+  @override
+  String scanModeA11y(String mode) {
+    return 'Scanner mode: $mode. Tap to change';
+  }
+
+  @override
+  String get scanModeSaleSub => 'Scan — the item goes straight to the receipt';
+
+  @override
+  String get scanModeLookSub => 'Recognise an item by photo, no barcode';
+
+  @override
+  String get scanModeWeighSub => 'Weighed item: weight from the scale display';
+
+  @override
+  String get scanModeReceiveSub => 'Receive goods into stock';
+
+  @override
+  String get scanModeKassaSub => 'Barcodes go to the till over Wi-Fi';
+
+  @override
+  String get infNoDelta => '— n/a';
+
+  @override
+  String get infNoCompare => '— no comparison';
+
+  @override
+  String get infCompareShort => 'Compare';
+
+  @override
+  String get infLoadFailedTitle => 'Could not load';
+
+  @override
+  String infLoadFailedAt(String time) {
+    return 'No connection to the server. Showing data as of $time.';
+  }
+
+  @override
+  String get infLoadFailedNoData => 'No connection to the server.';
+
+  @override
+  String get infTapHint => 'Tap a bar for details';
+
+  @override
+  String get infTapRingHint => 'Tap a segment for details';
+
+  @override
+  String get infPrevBar => 'Previous period';
+
+  @override
+  String infOfPeriod(String pct) {
+    return '$pct % of the period';
+  }
+
+  @override
+  String get infHoursNote =>
+      'Revenue by hour: the server does not provide an hourly split yet — this section will appear later.';
+
+  @override
+  String get infExpensesNote =>
+      'Store expenses are not in the server report — showing revenue, cost of goods and profit.';
+
+  @override
+  String get infCost => 'Cost of goods';
+
+  @override
+  String infMargin(String pct) {
+    return 'Margin $pct %';
+  }
+
+  @override
+  String get infRevenueCostProfit => 'Revenue, cost and profit';
+
+  @override
+  String get infDebtConcTitle => 'Who owes the most';
+
+  @override
+  String infDebtConcLine(String pct) {
+    return 'The three largest debtors owe $pct % of the total';
+  }
+
+  @override
+  String get infDebtAgeNote =>
+      'Debt age: the server does not send debt dates — showing concentration by debtor.';
+
+  @override
+  String get infStockTitle => 'Stock levels';
+
+  @override
+  String get infStockOut => 'Out of stock';
+
+  @override
+  String get infStockLow => 'Running low';
+
+  @override
+  String get infStockOk => 'In stock';
+
+  @override
+  String get infPaidWith => 'Paid with';
+
+  @override
+  String get infTotalWord => 'Total';
+
+  @override
+  String get infShiftNoSales => 'No sales in this shift yet';
+
+  @override
+  String get infHowTitle => 'How this is calculated';
+
+  @override
+  String get infRangePick => 'Pick dates';
 }

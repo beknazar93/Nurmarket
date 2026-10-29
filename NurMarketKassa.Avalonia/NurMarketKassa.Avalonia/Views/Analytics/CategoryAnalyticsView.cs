@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -113,7 +114,7 @@ public sealed class CategoryAnalyticsView : UserControl
             var rows = _nodes.Select(n => (n.Id, n.Name, n.Depth)).Append((CategoryAnalyticsData.NoneId, NoneName, 0));
             foreach (var (id, name, depth) in rows)
             {
-                if (q.Length > 0 && name.IndexOf(q, StringComparison.CurrentCultureIgnoreCase) < 0)
+                if (q.Length > 0 && !SearchMatch.Matches(q, name)) // 2026-10-29: единый поиск
                     continue;
                 var box = new CheckBox { Content = name, IsChecked = _picked.Contains(id), MinHeight = 44, Margin = new Thickness(q.Length > 0 ? 0 : depth * 20, 0, 0, 0) };
                 var captured = id;

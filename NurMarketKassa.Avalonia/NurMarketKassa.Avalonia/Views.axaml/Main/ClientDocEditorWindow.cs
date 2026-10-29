@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -191,7 +192,7 @@ public sealed class ClientDocEditorWindow : Window
         var headBlock = new StackPanel { Spacing = 2, Margin = new Thickness(0, 0, 0, 10), Children = { head, _numberWarn } };
 
         // ── покупатель ──
-        _buyerSearch = UiKit.Input(this, T("Найти клиента: имя, телефон или ИНН", "Кардарды табуу: аты, телефону же ИНН", "Find a client: name, phone or TIN", "Müşteri bul: ad, telefon veya VKN", "Mijozni topish: ism, telefon yoki STIR"), 42);
+        _buyerSearch = UiKit.Search(this, T("Найти клиента: имя, телефон или ИНН", "Кардарды табуу: аты, телефону же ИНН", "Find a client: name, phone or TIN", "Müşteri bul: ad, telefon veya VKN", "Mijozni topish: ism, telefon yoki STIR"), 42);
         Avalonia.Automation.AutomationProperties.SetName(_buyerSearch, T("Поиск клиента", "Кардарды издөө", "Client search", "Müşteri ara", "Mijoz qidirish"));
         _buyerSearch.TextChanged += (_, _) => FillBuyerList();
         _buyerSearch.KeyDown += BuyerSearchKeyDown;
@@ -969,8 +970,7 @@ public sealed class ClientDocEditorWindow : Window
             return;
         }
         var digits = new string(q.Where(char.IsDigit).ToArray());
-        var found = _buyers.Where(b => b.Name.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                                       || b.Company.Contains(q, StringComparison.CurrentCultureIgnoreCase)
+        var found = _buyers.Where(b => SearchMatch.Matches(q, b.Name, b.Company) // 2026-10-29: единый поиск
                                        || (digits.Length >= 3 && (new string(b.Phone.Where(char.IsDigit).ToArray()).Contains(digits) || b.Inn.Contains(digits))))
             .Take(8).ToList();
         foreach (var b in found)
@@ -1065,8 +1065,7 @@ public sealed class ClientDocEditorWindow : Window
                                    || (p.Article is { Length: > 0 } a && string.Equals(a, q, StringComparison.OrdinalIgnoreCase))).ToList();
         if (exact.Count > 0)
             return exact.Take(max).ToList();
-        var words = q.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return all.Where(p => words.All(w => p.Title.Contains(w, StringComparison.CurrentCultureIgnoreCase)))
+        return SearchMatch.Products(all, q) // 2026-10-29: единый поиск (слова в любом порядке, ё=е, раскладка/транслит)
             .OrderByDescending(p => p.Title.StartsWith(q, StringComparison.CurrentCultureIgnoreCase))
             .ThenBy(p => p.Title.Length)
             .Take(max).ToList();
@@ -1947,7 +1946,7 @@ public sealed class ClientDocEditorWindow : Window
 
     // 2026-10-21 (ревью документов, мелочи): + предел 999 999 999 999,99 (сумма прописью и итоги не ломаются).
     private static bool TryNum(string? text, out double value) =>
-        double.TryParse((text ?? "").Trim().Replace(" ", "").Replace(" ", "").Replace(" ", "").Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out value)
+        double.TryParse((text ?? "").Trim().Replace(" ", "").Replace(" ", "").Replace(" ", "").Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out value)
         && double.IsFinite(value) && Math.Abs(value) <= MoneyWords.MaxAmount;
 
     private static void Res(AvaloniaObject target, AvaloniaProperty property, string key)

@@ -148,7 +148,7 @@ public sealed class StockAdjustDialog : Window
     }
 
     private double? ParsedQty() =>
-        double.TryParse((_qty.Text ?? "").Trim().Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= 0 ? v : null;
+        double.TryParse((_qty.Text ?? "").Trim().Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out var v) && v >= 0 ? v : null;
 
     private void UpdatePreview()
     {

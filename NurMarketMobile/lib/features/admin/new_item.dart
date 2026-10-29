@@ -14,6 +14,7 @@ import '../../core/ai/vision.dart';
 import '../../core/api/api_client.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/units.dart';
 import '../../core/util/barcode_generator.dart';
 import '../../core/util/photo_finder.dart';
 import '../../core/util/ui.dart';
@@ -22,7 +23,9 @@ import '../scan/scan_screen.dart';
 import '../scan/smart_camera.dart';
 import '../sale/cart.dart';
 import '../stock/barcode_label.dart';
+import '../stock/product_edit_repository.dart' show isWeightUnit;
 import '../stock/product_packages.dart';
+import '../stock/unit_picker.dart';
 import 'admin_receive.dart';
 import '../../core/util/audit.dart';
 import '../../core/ai/product_refs.dart';
@@ -51,6 +54,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
   final _price = TextEditingController();
   final _qty = TextEditingController(text: '0');
   String _unit = 'шт';
+  bool _submitted = false; // 2026-10-29: после первого «Сохранить» пустые обязательные поля подсвечиваются
 
   // 2026-10-27 (М4): «Продавать поштучно из упаковки» — цена упаковки = розничная цена, закупка упаковки = закупка
   late final PackFormController _pack = PackFormController(price: _price, cost: _cost);
@@ -103,17 +107,11 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
   late final AiScreenHandles _aiHandles = ref.read(aiHandlesProvider);
   late final AiHandle _aiHandle = AiHandle(fill: _aiFill, run: () => _aiSink.run(_save));
 
-  /// Единица из речи → одна из кнопок экрана (шт, кг, л, упак); null — не поняла.
+  /// Единица из речи → одна из кнопок экрана (каталог units.dart: шт, кг, г, л, мл, м, упак…); null — не поняла.
   static String? _aiUnit(String raw) {
     final u = foldText(raw).trim();
     if (u.isEmpty) return 'шт';
-    const map = {
-      'шт': 'шт', 'штук': 'шт', 'штука': 'шт', 'pcs': 'шт', 'piece': 'шт', 'dona': 'шт', 'adet': 'шт', 'даана': 'шт',
-      'кг': 'кг', 'килограмм': 'кг', 'kg': 'кг', 'kilogram': 'кг', 'килограм': 'кг',
-      'л': 'л', 'литр': 'л', 'l': 'л', 'litr': 'л', 'liter': 'л', 'litre': 'л',
-      'упак': 'упак', 'упаковка': 'упак', 'pack': 'упак', 'qadoq': 'упак', 'paket': 'упак',
-    };
-    return map[u];
+    return unitOf(u)?.code;
   }
 
   Future<HandleOutcome?> _aiFill(Map<String, dynamic> a) async {
@@ -555,14 +553,28 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
     final cost = parseNum(_cost.text) ?? 0;
     final price = parseNum(_price.text) ?? (_kind == 'service' ? 0 : ((cost * 1.3 / 5).ceil() * 5).toDouble());
     if (name.isEmpty || price <= 0) {
-      toast(context, l.salePrice, error: true);
+      setState(() => _submitted = true);
+      toast(context, name.isEmpty ? l.peNameNeed : l.nuPriceNeed, error: true);
       _aiSink.report(HandleOutcome.clarifyKey(name.isEmpty ? 'needProduct' : 'needPriceValue'));
       return;
     }
     if (_busy) return;
+    // 2026-10-29: штрихкод и доп. штрихкоды — 4–14 цифр
+    if (_kind != 'service' && (!barcodeFieldOk(_barcode.text) || _altCodes.any((a) => !barcodeFieldOk(a.code.text)))) {
+      toast(context, l.barcodeBadLen, error: true);
+      return;
+    }
+    // 2026-10-29: количество по единице — «шт» целое, «кг/л/м» можно с дробью (12,5); товар с упаковкой считается в упаковках
+    if (_kind == 'product' && _createdId == null) {
+      final qtyErr = qtyErrorText(l, _unit, parseNum(_qty.text) ?? 0, packed: _pack.enabled);
+      if (qtyErr != null) {
+        toast(context, qtyErr, error: true);
+        return;
+      }
+    }
     // 2026-10-27 (М4): поштучная продажа из упаковки — проверки до создания товара (штук целое ≥ 2, цена штуки, расхождение > 5 %)
     if (_kind == 'product' && _pack.enabled && _createdId == null) {
-      if (_unit == 'кг') {
+      if (isWeightUnit(_unit)) {
         toast(context, l.pkWeightBlocked, error: true);
         return;
       }
@@ -642,7 +654,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
           isNew: true,
         );
         // 2026-10-22 (мобилка, админ, П10): «кг» — весовой товар с PLU (весы печатают этикетку с этим кодом)
-        final weight = _unit == 'кг';
+        final weight = isWeightUnit(_unit); // 2026-10-29: кг и г — весовые (как карточка товара)
         final plu = weight && _createdId == null ? await repo.nextPluOr(_plu.text) : null;
         final id = await _createOnce(
           line,
@@ -733,9 +745,13 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
               children: [
                 Expanded(
                   child: TextField(
+                    key: const Key('newItemBarcode'),
                     controller: _barcode,
                     keyboardType: TextInputType.number,
+                    inputFormatters: barcodeFormatters,
                     onSubmitted: _lookup,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(helperText: l.barcodeDigitsHint, errorText: barcodeFieldOk(_barcode.text) ? null : l.barcodeBadLen),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -809,7 +825,13 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       FieldLabel(l.retailPrice),
-                      TextField(controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                      TextField(
+                        key: const Key('newItemPrice'),
+                        controller: _price,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(errorText: _submitted && (parseNum(_price.text) ?? 0) <= 0 && _kind != 'service' && (parseNum(_cost.text) ?? 0) <= 0 ? l.nuPriceNeed : null),
+                      ),
                     ],
                   ),
                 ),
@@ -817,38 +839,38 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
             ),
             const SizedBox(height: 8),
             MarginFields(cost: _cost, price: _price),
-            FieldLabel(l.wholesalePrice),
-            TextField(controller: _wholesale, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
-            ..._supplierSection(context),
-            ..._altSection(context),
-          ],
+          // 2026-10-29: количество и единица — сразу под ценой (раньше были внизу, после поставщика и доп. штрихкодов,
+          // и владелец их не находил). Единицы — общий каталог units.dart; «кг/л/м» — дробное количество, «шт» — целое.
           if (_kind == 'product') ...[
+            const SizedBox(height: 8),
             FieldLabel(l.quantityLabel),
-            TextField(controller: _qty, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+            ListenableBuilder(
+              listenable: Listenable.merge([_qty, _pack]),
+              builder: (c, _) => TextField(
+                key: const Key('newItemQty'),
+                controller: _qty,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(suffixText: _unit, errorText: qtyErrorText(l, _unit, parseNum(_qty.text), packed: _pack.enabled)),
+              ),
+            ),
+            FieldLabel(l.unitLabel),
+            UnitPicker(
+              value: _unit,
+              onChanged: (u) => setState(() {
+                _unit = u;
+                if (isWeightUnit(u)) _pack.setEnabled(false); // весовой товар нельзя продавать поштучно из упаковки
+              }),
+            ),
+            // 2026-10-29: подсказка про упаковки — рядом с переключателем (под выбором единицы), а не выше
             ListenableBuilder(
               listenable: _pack,
-              builder: (c, _) => _pack.enabled && _unit != 'кг'
+              builder: (c, _) => _pack.enabled && !isWeightUnit(_unit)
                   ? Padding(padding: const EdgeInsets.only(top: 4), child: Text(l.pkQtyInPacks, style: TextStyle(color: pal.textSoft, fontSize: 12)))
                   : const SizedBox.shrink(),
             ),
-            FieldLabel(l.unitLabel),
-            Wrap(
-              spacing: 6,
-              children: [
-                for (final u in ['шт', 'кг', 'л', 'упак'])
-                  ChoiceChip(
-                    label: Text(u),
-                    selected: _unit == u,
-                    onSelected: (_) => setState(() {
-                      _unit = u;
-                      if (u == 'кг') _pack.setEnabled(false); // весовой товар нельзя продавать поштучно из упаковки
-                    }),
-                  ),
-              ],
-            ),
             // 2026-10-27 (М4): упаковки — для любого штучного товара; остаток выше вводится в упаковках
-            PackSection(ctrl: _pack, blocked: _unit == 'кг'),
-            if (_unit == 'кг') ...[
+            PackSection(ctrl: _pack, blocked: isWeightUnit(_unit)),
+            if (isWeightUnit(_unit)) ...[
               FieldLabel(l.pAPluLabel),
               TextField(
                 controller: _plu,
@@ -856,6 +878,11 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
                 decoration: InputDecoration(hintText: l.pAPluHint),
               ),
             ],
+          ],
+            FieldLabel(l.wholesalePrice),
+            TextField(controller: _wholesale, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+            ..._supplierSection(context),
+            ..._altSection(context),
           ],
           if (clothes) ..._clothesSection(context),
           ..._photoSection(context),
@@ -952,6 +979,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
                 child: TextField(
                   controller: a.code,
                   keyboardType: TextInputType.number,
+                  inputFormatters: barcodeFormatters,
                   decoration: InputDecoration(hintText: l.barcodeLabel, isDense: true),
                 ),
               ),

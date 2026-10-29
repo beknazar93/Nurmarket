@@ -7,6 +7,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_client.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/ui/infographic/chart_logic.dart';
+import '../../core/ui/infographic/infographic_data.dart';
+import '../../core/ui/infographic/infographics.dart';
 import '../../core/util/ui.dart';
 
 /// 13.10, владелец: «ABC-анализ, диаграмма Парето и сводка — в мобилку». Цифры — из отчётов сервера, как у программы
@@ -152,6 +155,9 @@ Widget reportError(BuildContext context, Object? error, VoidCallback retry) => P
 
 // ================================================================== Сводка
 
+/// 2026-10-29 (владелец: «инфографику лучше», спека Fable 03-mobile-infographics): сводка на общих компонентах — период и
+/// «Сравнить», плитки с дельтой и мини-линией, выручка по дням (касание — карточка), кольцо способов оплаты, прибыль,
+/// топ-5. Цифры те же, что у программы владельца: отчёт сервера (выручка = оплаченные + с частичным возвратом).
 class SummaryScreen extends ConsumerStatefulWidget {
   const SummaryScreen({super.key});
   @override
@@ -160,7 +166,10 @@ class SummaryScreen extends ConsumerStatefulWidget {
 
 class _SummaryScreenState extends ConsumerState<SummaryScreen> {
   String _period = 'today';
-  Future<(SalesSummary, List<ProductSales>)>? _future;
+  (DateTime, DateTime)? _custom;
+  bool _compare = false;
+  Future<SummaryBundle>? _future;
+  SummaryBundle? _last;
 
   @override
   void initState() {
@@ -169,202 +178,142 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
   }
 
   void _load() {
-    final (from, to) = periodRange(_period == 'today' ? 'week' : _period); // по дням — хотя бы неделя
-    final (pf, pt) = periodRange(_period);
     final repo = ref.read(analyticsRepoProvider);
+    final f = loadSummaryBundle(repo, _period, custom: _custom, compare: _compare);
     setState(() {
-      _future = () async {
-        final s = await repo.sales(pf, pt);
-        final chart = _period == 'today' ? await repo.sales(from, to) : s;
-        final products = await repo.products(pf, pt);
-        return (SalesSummary(s.revenue, s.checks, s.avg, s.profit, chart.byDay, s.payments), products);
-      }();
+      _future = f;
     });
+    f.then((b) {
+      if (mounted && identical(_future, f)) _last = b;
+    }, onError: (_) {});
   }
+
+  Future<void> _pickPeriod(String v) async {
+    if (v == 'custom') {
+      final now = DateUtils.dateOnly(DateTime.now());
+      final r = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(now.year - 3),
+        lastDate: now,
+        initialDateRange: _custom == null ? null : DateTimeRange(start: _custom!.$1, end: _custom!.$2),
+        helpText: context.l.infRangePick,
+      );
+      if (r == null || !mounted) return;
+      _custom = (r.start, r.end);
+    }
+    _period = v;
+    _load();
+  }
+
+  static String _dm(DateTime x) => '${x.day.toString().padLeft(2, '0')}.${x.month.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
     final l = context.l;
     final pal = context.pal;
+    final customLabel = _period == 'custom' && _custom != null ? '${_dm(_custom!.$1)}–${_dm(_custom!.$2)}' : null;
     return Scaffold(
       appBar: ScreenTitle(l.summaryTitle),
       body: RefreshIndicator(
         onRefresh: () async => _load(),
-        child: FutureBuilder<(SalesSummary, List<ProductSales>)>(
+        child: FutureBuilder<SummaryBundle>(
           future: _future,
           builder: (c, snap) {
+            const gap = SizedBox(height: 12);
             final children = <Widget>[
-              periodChips(context, _period, (v) {
-                _period = v;
-                _load();
-              }),
+              PeriodBar(
+                period: _period,
+                onPeriod: _pickPeriod,
+                compare: _compare,
+                onCompare: (v) {
+                  _compare = v;
+                  _load();
+                },
+                customLabel: customLabel,
+              ),
+              gap,
             ];
             if (snap.connectionState != ConnectionState.done) {
-              children.add(
-                const Padding(
-                  padding: EdgeInsets.all(40),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              );
-            } else if (snap.hasError) {
-              children.add(reportError(context, snap.error, _load));
-            } else {
-              final (s, products) = snap.data!;
-              Widget kpi(String title, String value, {Color? color}) => Expanded(
-                child: Panel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: TextStyle(fontSize: 11.5, color: pal.textSoft)),
-                      Text(
-                        value,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: color),
-                      ),
-                    ],
-                  ),
-                ),
-              );
               children.addAll([
-                const SizedBox(height: 10),
-                Panel(
-                  color: T.navy,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(l.kpiRevenue, style: const TextStyle(color: Color(0xFFC7D2DB), fontSize: 12.5)),
-                      Text(
-                        '${money(s.revenue)} ${l.som}',
-                        style: const TextStyle(color: T.accent, fontSize: 28, fontWeight: FontWeight.w800),
-                      ),
-                    ],
-                  ),
+                KpiTile(label: l.kpiRevenue, hero: true),
+                gap,
+                InfoCardSkeleton(title: l.revenueByDay),
+                gap,
+                InfoCardSkeleton(title: l.paymentMethods),
+              ]);
+            } else if (snap.hasError) {
+              final e = snap.error;
+              children.add(InfoError(onRetry: _load, lastData: _last?.updatedAt, detail: e is ApiException ? e.message : null));
+            } else {
+              final b = snap.data!;
+              final s = b.current;
+              final vs = versusLabel(l, _period);
+              final p = b.previous;
+              KpiCompare cmp(double cur, double? prev) => KpiCompare(on: _compare, delta: _compare && p != null ? DeltaInfo.of(cur, prev) : null, vs: vs);
+              final days = b.chartDays;
+              final (best, _) = RevenueDayBars.marks(days);
+              final chartTotal = days.fold<double>(0, (a, d) => a + d.$2);
+              final bars = chartTotal <= 0 && s.revenue <= 0
+                  ? <ChartBar>[]
+                  : [for (final d in days) ChartBar(days.length > 14 ? '${d.$1.day}' : _dm(d.$1), _dm(d.$1), d.$2)];
+              final slices = [for (final e in s.payments.entries) Slice(e.key, paymentName(context, e.key), e.value)];
+              final topRows = (b.products.toList()..sort((x, y) => y.revenue.compareTo(x.revenue))).where((x) => x.revenue > 0).take(5).toList();
+              final topColors = ChartColors.assign([for (final x in topRows) x.name]);
+              final range = b.from == b.to ? _dm(b.from) : '${_dm(b.from)} – ${_dm(b.to)}';
+              children.addAll([
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text('$range · ${l.infUpdatedAt(TimeOfDay.fromDateTime(b.updatedAt).format(context))}', style: TextStyle(fontSize: 11.5, color: pal.textSoft)),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    kpi(l.kpiChecks, '${s.checks}'),
-                    const SizedBox(width: 6),
-                    kpi(l.kpiAvg, money(s.avg)),
-                    const SizedBox(width: 6),
-                    kpi(l.kpiProfit, money(s.profit), color: T.success),
-                  ],
+                const SizedBox(height: 6),
+                KpiTile(
+                  label: l.kpiRevenue,
+                  value: kpiMoney(context, s.revenue),
+                  unit: l.som,
+                  hero: true,
+                  how: l.infHowRevenue,
+                  compare: cmp(s.revenue, p?.revenue),
+                  spark: [for (final d in days) d.$2],
+                  sparkColor: T.accent,
                 ),
-                FieldLabel(l.revenueByDay),
-                Panel(
-                  child: s.byDay.isEmpty
-                      ? SizedBox(
-                          height: 150,
-                          child: Center(
-                            child: Text(l.noSalesPeriod, style: TextStyle(color: pal.textSoft)),
-                          ),
-                        )
-                      : RevenueDayBars(s.byDay),
+                gap,
+                KpiGrid([
+                  KpiTile(label: l.kpiChecks, value: '${s.checks}', how: l.infHowChecks, compare: cmp(s.checks.toDouble(), p?.checks.toDouble())),
+                  KpiTile(label: l.kpiAvg, value: kpiMoney(context, s.avg), unit: l.som, how: l.infHowAvg, compare: cmp(s.avg, p?.avg)),
+                  KpiTile(label: l.kpiProfit, value: kpiMoney(context, s.profit), unit: l.som, how: l.infHowProfit, compare: cmp(s.profit, p?.profit)),
+                ]),
+                gap,
+                BarChartCard(
+                  title: l.revenueByDay,
+                  subtitle: l.som,
+                  semanticsName: l.revenueByDay,
+                  unit: l.som,
+                  bars: bars,
+                  previous: _compare ? b.previousAligned : null,
+                  best: best,
+                  how: l.infHowRevenue,
                 ),
-                if (s.payments.isNotEmpty) ...[
-                  FieldLabel(l.paymentMethods),
-                  Panel(
-                    child: Column(
-                      children: () {
-                        // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — у каждого способа оплаты свой цвет (по ключу, не по порядку).
-                        final methods = s.payments.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-                        final colors = ChartColors.assign([for (final e in methods) e.key]);
-                        return [
-                          for (var i = 0; i < methods.length; i++)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 10,
-                                    height: 10,
-                                    margin: const EdgeInsets.only(right: 8),
-                                    decoration: BoxDecoration(color: colors[i], borderRadius: BorderRadius.circular(3)),
-                                  ),
-                                  SizedBox(width: 100, child: Text(paymentName(context, methods[i].key))),
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(6),
-                                      child: LinearProgressIndicator(
-                                        value: s.revenue <= 0 ? 0 : (methods[i].value / s.payments.values.fold(0.0, (a, b) => a + b)).clamp(0, 1).toDouble(),
-                                        minHeight: 10,
-                                        color: colors[i],
-                                        backgroundColor: pal.border,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    width: 90,
-                                    child: Text(
-                                      money(methods[i].value),
-                                      textAlign: TextAlign.right,
-                                      style: const TextStyle(fontWeight: FontWeight.w700),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ];
-                      }(),
-                    ),
-                  ),
-                ],
-                FieldLabel(l.topProducts),
-                if (products.isEmpty) Text(l.noSalesPeriod, style: TextStyle(color: pal.textSoft)),
-                // 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах» — у каждого товара свой цвет по названию (стабилен при смене
-                // сортировки и периода), полоса — доля от лучшего товара.
-                ...() {
-                  final top = (products.toList()..sort((a, b) => b.revenue.compareTo(a.revenue))).take(10).toList();
-                  final colors = ChartColors.assign([for (final p in top) p.name]);
-                  final topMax = top.fold(0.0, (m, p) => math.max(m, p.revenue));
-                  return [
-                    for (var i = 0; i < top.length; i++)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Panel(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 10,
-                                    height: 10,
-                                    margin: const EdgeInsets.only(right: 8),
-                                    decoration: BoxDecoration(color: colors[i], borderRadius: BorderRadius.circular(3)),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      top[i].name,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.w700),
-                                    ),
-                                  ),
-                                  Text('${qtyText(top[i].qty)} · ', style: TextStyle(color: pal.textSoft)),
-                                  Text(money(top[i].revenue), style: const TextStyle(fontWeight: FontWeight.w800)),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: topMax <= 0 ? 0 : (top[i].revenue / topMax).clamp(0, 1).toDouble(),
-                                  minHeight: 6,
-                                  color: colors[i],
-                                  backgroundColor: pal.border,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ];
-                }(),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(onPressed: () => context.push('/admin/abc'), icon: const Icon(Icons.bar_chart_rounded), label: Text(l.abcTitle)),
+                gap,
+                DonutCard(title: l.paymentMethods, subtitle: range, semanticsName: l.paymentMethods, unit: l.som, slices: slices, how: l.infHowPayments),
+                if (s.revenue > 0) ...[gap, _ProfitCard(b)],
+                gap,
+                InfoCard(
+                  title: l.topProducts,
+                  subtitle: l.som,
+                  how: l.infHowTop,
+                  child: topRows.isEmpty
+                      ? InfoEmpty(title: l.noSalesPeriod, hint: l.infNoDataHint)
+                      : TopBars(rows: [for (var i = 0; i < topRows.length; i++) TopBarRow(topRows[i].name, topRows[i].revenue, topColors[i])], unit: l.som),
+                ),
+                gap,
+                InfoNote(l.infHoursNote),
+                gap,
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                  onPressed: () => context.push('/admin/abc'),
+                  icon: const Icon(Icons.bar_chart_rounded),
+                  label: Text(l.abcTitle),
+                ),
               ]);
             }
             return ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: children);
@@ -375,9 +324,62 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
   }
 }
 
-/// 2026-10-26, владелец: «РАЗНЫЕ ЦВЕТА в диаграммах». Выручка по дням — ВРЕМЕННОЙ ряд: столбцы одного оттенка, но лучший день —
-/// акцентом (жёлтый), самый слабый — приглушённо, сегодня — контуром; под графиком легенда. Выделения — только когда есть что
-/// сравнивать (минимум два дня с продажами, значения не одинаковые; «самый слабый» — от трёх дней с продажами).
+/// Выручка → себестоимость → прибыль одной полосой (расходов магазина в отчёте сервера нет — честная заметка под ней).
+class _ProfitCard extends StatelessWidget {
+  final SummaryBundle b;
+  const _ProfitCard(this.b);
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pal = context.pal;
+    final rev = b.current.revenue;
+    final profit = b.current.profit;
+    final cost = b.cost;
+    final fr = rev <= 0 ? const <double>[] : [cost / rev, math.max(0, profit) / rev];
+    Widget line(Color c, String label, double v, {bool bold = false}) => ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 36),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(4)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(label, style: TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.w700 : FontWeight.w500)),
+          ),
+          Text('${money(v)} ${l.som}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, fontFeatures: [FontFeature.tabularFigures()])),
+        ],
+      ),
+    );
+    final margin = b.marginPercent;
+    return InfoCard(
+      title: l.kpiProfit,
+      subtitle: margin == null ? null : l.infMargin(margin.toStringAsFixed(1).replaceAll('.', ',')),
+      how: l.infHowProfit,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            container: true,
+            label: '${l.infRevenueCostProfit}: ${l.kpiRevenue} ${money(rev)} ${l.som}, ${l.infCost} ${money(cost)}, ${l.kpiProfit} ${money(profit)}',
+            child: SplitBar(fractions: fr, colors: [T.chartColors[7], pal.success]),
+          ),
+          const SizedBox(height: 6),
+          line(T.chartColors[1], l.kpiRevenue, rev, bold: true),
+          line(T.chartColors[7], l.infCost, cost),
+          line(pal.success, l.kpiProfit, profit, bold: true),
+          const SizedBox(height: 4),
+          InfoNote(l.infExpensesNote),
+        ],
+      ),
+    );
+  }
+}
+
+/// 2026-10-29: «Выручка по дням» — обёртка над [BarChartCard] для старых вызовов и тестов. [marks] и [baseColor] оставлены:
+/// лучший день считается так же, как раньше (минимум два дня с продажами, значения не одинаковые).
 class RevenueDayBars extends StatelessWidget {
   final List<(DateTime, double)> days;
 
@@ -409,105 +411,35 @@ class RevenueDayBars extends StatelessWidget {
     );
   }
 
-  /// Цвета: обычный столбец — тёмный (в тёмной теме — светло-серый, жёлтый зарезервирован под лучший день).
+  /// Цвет обычного столбца старого вида (оставлен для тестов и других экранов).
   static Color baseColor(bool dark) => dark ? const Color(0xFF9AA3B2) : T.navy;
 
   @override
   Widget build(BuildContext context) {
     final l = context.l;
-    final pal = context.pal;
-    final now = today ?? DateTime.now();
-    final max = days.map((d) => d.$2).fold(0.0, math.max);
-    final (best, worst) = marks(days);
-    final base = baseColor(pal.dark);
-    final todayIdx = [
-      for (var i = 0; i < days.length; i++)
-        if (DateUtils.isSameDay(days[i].$1, now)) i,
-    ];
-    Widget chip(Color fill, String text, {Color? border}) => Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: fill,
-            borderRadius: BorderRadius.circular(3),
-            border: border == null ? null : Border.all(color: border, width: 2),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(text, style: TextStyle(fontSize: 11.5, color: pal.textSoft)),
-      ],
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: 150,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              for (var i = 0; i < days.length; i++)
-                Expanded(
-                  child: Tooltip(
-                    message:
-                        '${days[i].$1.day}.${days[i].$1.month.toString().padLeft(2, '0')} · ${money(days[i].$2)}${best.contains(i) ? ' · ${l.chartBestDay}' : (worst.contains(i) ? ' · ${l.chartWorstDay}' : '')}',
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        () {
-                          final bar = Container(
-                            height: max <= 0 ? 2 : math.max(2, 120 * days[i].$2 / max),
-                            margin: todayIdx.contains(i) ? null : const EdgeInsets.symmetric(horizontal: 2),
-                            decoration: BoxDecoration(
-                              color: best.contains(i) ? T.accent : (worst.contains(i) ? base.withValues(alpha: .4) : base),
-                              borderRadius: BorderRadius.circular(4),
-                              // жёлтый столбец в светлой теме — тёмно-жёлтым контуром (жёлтый на белом 1,8:1)
-                              border: best.contains(i) && !pal.dark ? Border.all(color: const Color(0xFF8A6200), width: 1) : null,
-                            ),
-                          );
-                          // сегодня — кольцо цвета текста вокруг столбца (столбец тёмный, обычный контур на нём не виден)
-                          if (!todayIdx.contains(i)) return bar;
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 1),
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: pal.text, width: 1.5),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: bar,
-                          );
-                        }(),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${days[i].$1.day}',
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            color: todayIdx.contains(i) ? pal.text : pal.textSoft,
-                            fontWeight: todayIdx.contains(i) ? FontWeight.w800 : FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+    String dd(DateTime x) => '${x.day.toString().padLeft(2, '0')}.${x.month.toString().padLeft(2, '0')}';
+    final (best, _) = marks(days);
+    return BarChartCard(
+      title: l.revenueByDay,
+      subtitle: l.som,
+      semanticsName: l.revenueByDay,
+      unit: l.som,
+      bars: [for (final d in days) ChartBar(days.length > 14 ? '${d.$1.day}' : dd(d.$1), dd(d.$1), d.$2)],
+      best: best,
+      legendExtra: best.isEmpty
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(color: T.accent, borderRadius: BorderRadius.circular(3)),
                 ),
-            ],
-          ),
-        ),
-        if (best.isNotEmpty || worst.isNotEmpty || todayIdx.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 14,
-            runSpacing: 4,
-            children: [
-              if (best.isNotEmpty) chip(T.accent, l.chartBestDay, border: pal.dark ? null : const Color(0xFF8A6200)),
-              if (worst.isNotEmpty) chip(base.withValues(alpha: .4), l.chartWorstDay),
-              if (todayIdx.isNotEmpty) chip(Colors.transparent, l.periodToday, border: pal.text),
-            ],
-          ),
-        ],
-      ],
+                const SizedBox(width: 6),
+                Text(l.chartBestDay, style: TextStyle(fontSize: 11.5, color: context.pal.textSoft)),
+              ],
+            ),
     );
   }
 }

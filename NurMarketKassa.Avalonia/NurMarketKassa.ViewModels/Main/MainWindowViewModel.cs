@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using NurMarketKassa.Configuration;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Services;
@@ -32,6 +33,13 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _session = session;
         _updateCheck = updateCheck;
         _updateSettings = appSettings?.Updates;
+        // 2026-10-28: кнопка «Обновить» во всех видах кассы — недоступна, пока каталог и так грузится.
+        RefreshAllCommand = new AsyncRelayCommand(RefreshAllAsync, () => !Catalog.IsLoading);
+        Catalog.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(CatalogPanelViewModel.IsLoading))
+                (RefreshAllCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        };
         // 2026-10-06, стресс-тест без интернета: очередь дослана пачкой (значок в шапке — 0), а под чеком оставалось
         // «Чек сохранён, отправится автоматически. В очереди: 3». Очередь опустела — строка говорит, что чеки отправлены.
         Toolbar.Status.PropertyChanged += (_, e) =>
@@ -53,6 +61,88 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public CatalogPanelViewModel Catalog { get; }
     public BasketPanelViewModel Basket { get; }
     public SideMenuViewModel SideMenu { get; }
+
+    // ── 2026-10-28: кнопка «Обновить» (⟳) в каждом виде кассы и клавиша F5 — одна общая реализация ──────────────
+
+    /// <summary>Принудительно перечитать с сервера каталог (товары, цены, остатки) и состояние смены («Касса: N»).
+    /// Корзина и цены строк открытого чека не трогаются. Не чаще раза в 3 с; без связи — без ошибок, плашка «Нет связи».</summary>
+    public ICommand RefreshAllCommand { get; }
+
+    /// <summary>Обновить смену и «Касса: N» с сервера. Задаёт главное окно (там проверка смены); null — только каталог.</summary>
+    public Func<Task>? RefreshShiftAsync { get; set; }
+
+    private bool _isRefreshing;
+    private long _lastRefreshAllTick;
+
+    /// <summary>Идёт «Обновить»: значок ⟳ крутится.</summary>
+    public bool IsRefreshing
+    {
+        get => _isRefreshing;
+        private set => SetProperty(ref _isRefreshing, value);
+    }
+
+    private async Task RefreshAllAsync()
+    {
+        // Антидребезг: не чаще раза в 3 с (повторные нажатия и F5 молча игнорируются).
+        var now = Environment.TickCount64;
+        if (_lastRefreshAllTick != 0 && now - _lastRefreshAllTick < 3000)
+            return;
+        _lastRefreshAllTick = now;
+        IsRefreshing = true;
+        try
+        {
+            var shift = RefreshShiftAsync;
+            var shiftTask = Task.CompletedTask;
+            if (shift is not null)
+            {
+                try { shiftTask = shift(); }
+                catch (Exception ex) { PosLogger.Log($"REFRESH shift failed: {ex.Message}", "WARNING"); }
+            }
+
+            // 2026-10-29: общая принудительная синхронизация (настройки компании, права, очередь чеков) — SyncCenter; каталог и смену
+            // кнопка перечитывает сама (ниже), поэтому includeCatalog/includeShift = false. Не бросает.
+            var syncAll = SyncCenter.ForceSyncAllAsync(default, includeCatalog: false, includeShift: false);
+            var result = await Catalog.ForceRefreshAsync();
+            try { await syncAll; }
+            catch (Exception ex) { PosLogger.Log($"REFRESH sync-all failed: {ex.Message}", "WARNING"); }
+            try { await shiftTask; }
+            catch (Exception ex) { PosLogger.Log($"REFRESH shift failed: {ex.Message}", "WARNING"); }
+
+            var time = DateTime.Now.ToString("HH:mm");
+            string text;
+            if (result.Online)
+            {
+                text = Tr.T($"Обновлено: товаров {result.Total}, изменено {result.Changed} · {time}",
+                    $"Жаңыртылды: товарлар {result.Total}, өзгөргөнү {result.Changed} · {time}",
+                    $"Updated: {result.Total} products, {result.Changed} changed · {time}",
+                    $"Güncellendi: {result.Total} ürün, {result.Changed} değişti · {time}",
+                    $"Yangilandi: mahsulotlar {result.Total}, o'zgargani {result.Changed} · {time}");
+            }
+            else
+            {
+                var last = CatalogCacheService.LastSyncTime?.ToLocalTime().ToString("HH:mm");
+                text = last is null
+                    ? Tr.T("Нет связи — показаны сохранённые данные",
+                        "Байланыш жок — сакталган маалыматтар көрсөтүлдү",
+                        "No connection — showing saved data",
+                        "Bağlantı yok — kayıtlı veriler gösteriliyor",
+                        "Aloqa yo'q — saqlangan ma'lumotlar ko'rsatilmoqda")
+                    : Tr.T($"Нет связи — показаны данные от {last}",
+                        $"Байланыш жок — {last} учурундагы маалыматтар көрсөтүлдү",
+                        $"No connection — showing data from {last}",
+                        $"Bağlantı yok — {last} tarihli veriler gösteriliyor",
+                        $"Aloqa yo'q — {last} dagi ma'lumotlar ko'rsatilmoqda");
+            }
+
+            // Плашка под шапкой (не окно, фокус не берёт — сканер продолжает работать).
+            MainStatusViewModel.TryShowInfoToast(text, warning: !result.Online);
+        }
+        finally
+        {
+            _lastRefreshAllTick = Environment.TickCount64 == 0 ? 1 : Environment.TickCount64; // 3 с отсчитываются и от конца обновления
+            IsRefreshing = false;
+        }
+    }
 
     public bool IsSideMenuOpen
     {

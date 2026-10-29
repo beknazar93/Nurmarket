@@ -1778,6 +1778,695 @@
           "Kasada ödeme sürerken bir kod tarayın: «Ödeme sürüyor — bittikten sonra tarayın». 30 saniye sonra — «Kodun süresi doldu»."
         ]
       }
+    },
+    {
+      "id": "1.18.8/staff-card",
+      "version": "1.18.8",
+      "area": "other",
+      "severity": "important",
+      "title": {
+        "ru": "Сотрудники: карточка и новый сотрудник",
+        "ky": "Кызматкерлер: карта жана жаңы кызматкер",
+        "uz": "Xodimlar: karta va yangi xodim",
+        "en": "Staff: employee card and new employee",
+        "tr": "Çalışanlar: kart ve yeni çalışan"
+      },
+      "changed": {
+        "ru": "В «Сотрудниках» у каждого есть карточка: имя, фамилия, телефон, должность и другие поля, которые отдаёт сервер. Можно добавить нового сотрудника; пароль показывается один раз. Сохраняются только изменённые поля.",
+        "ky": "«Кызматкерлерде» ар бирине карта бар: аты, фамилиясы, телефону, кызматы жана сервер берген башка талаалар. Жаңы кызматкерди кошууга болот; сырсөз бир гана жолу көрсөтүлөт. Өзгөргөн талаалар гана сакталат.",
+        "uz": "«Xodimlar»da har birining kartasi bor: ism, familiya, telefon, lavozim va server bergan boshqa maydonlar. Yangi xodim qo'shish mumkin; parol faqat bir marta ko'rsatiladi. Faqat o'zgargan maydonlar saqlanadi.",
+        "en": "Each employee in Staff now has a card: first and last name, phone, position and other fields the server returns. You can add a new employee; the password is shown once. Only changed fields are saved.",
+        "tr": "Çalışanlar'da her çalışanın bir kartı var: ad, soyad, telefon, görev ve sunucunun verdiği diğer alanlar. Yeni çalışan eklenebilir; şifre yalnızca bir kez gösterilir. Yalnızca değişen alanlar kaydedilir."
+      },
+      "steps": {
+        "ru": [
+          "Откройте «Управление» → «Сотрудники и права» и нажмите на сотрудника.",
+          "Измените телефон и сохраните — в списке появится новый номер, остальные данные те же.",
+          "Нажмите «Новый сотрудник»: оставьте почту пустой — увидите «Заполните поле»; введите «aibek@» — «Введите почту полностью».",
+          "Создайте сотрудника с верными данными — появится окно с паролем. Запомните: закрыв его, пароль больше не увидеть.",
+          "Проверьте на экране 360 dp и с крупным шрифтом: ничего не обрезано."
+        ],
+        "ky": [
+          "«Башкаруу» → «Кызматкерлер жана укуктар» бөлүмүн ачып, кызматкерди басыңыз.",
+          "Телефонду өзгөртүп сактаңыз — тизмеде жаңы номер чыгат, калган маалымат өзгөрбөйт.",
+          "«Жаңы кызматкер» баскычын басыңыз: почтаны бош калтырсаңыз — «Талааны толтуруңуз»; «aibek@» жазсаңыз — «Почтаны толук жазыңыз».",
+          "Туура маалымат менен кызматкерди түзүңүз — сырсөз менен терезе чыгат. Жапкандан кийин сырсөздү кайра көрүүгө болбойт.",
+          "360 dp экранда жана чоң арипте текшериңиз: эч нерсе кесилбеши керек."
+        ],
+        "uz": [
+          "«Boshqaruv» → «Xodimlar va huquqlar» bo'limini oching va xodimni bosing.",
+          "Telefonni o'zgartirib saqlang — ro'yxatda yangi raqam chiqadi, boshqa ma'lumotlar o'zgarmaydi.",
+          "«Yangi xodim»ni bosing: pochtani bo'sh qoldiring — «Maydonni to'ldiring»; «aibek@» yozing — «Pochtani to'liq kiriting».",
+          "To'g'ri ma'lumot bilan xodim yarating — parolli oyna chiqadi. Yopgandan keyin parolni qayta ko'rib bo'lmaydi.",
+          "360 dp ekranda va katta shriftda tekshiring: hech narsa kesilmasligi kerak."
+        ],
+        "en": [
+          "Open Management → Staff and rights and tap an employee.",
+          "Change the phone and save — the list shows the new number, the other data stays the same.",
+          "Tap New employee: leave the email empty — \"Fill in this field\"; type \"aibek@\" — \"Enter the full email\".",
+          "Create an employee with valid data — a window with the password appears. Once closed, the password cannot be seen again.",
+          "Check on a 360 dp screen with a large font: nothing is cut off."
+        ],
+        "tr": [
+          "Yönetim → Çalışanlar ve haklar'ı açıp bir çalışana dokunun.",
+          "Telefonu değiştirip kaydedin; listede yeni numara görünür, diğer veriler aynı kalır.",
+          "Yeni çalışan'a dokunun: e-postayı boş bırakın — «Bu alanı doldurun»; «aibek@» yazın — «E-postayı tam girin».",
+          "Geçerli verilerle çalışan oluşturun; şifreli bir pencere çıkar. Kapatınca şifre bir daha görülemez.",
+          "360 dp ekranda ve büyük yazıyla kontrol edin: hiçbir şey kesilmemeli."
+        ]
+      }
+    },
+    {
+      "id": "1.18.8/staff-dismiss-search",
+      "version": "1.18.8",
+      "area": "other",
+      "severity": "important",
+      "title": {
+        "ru": "Сотрудники: увольнение, поиск, права",
+        "ky": "Кызматкерлер: бошотуу, издөө, укуктар",
+        "uz": "Xodimlar: bo'shatish, qidiruv, huquqlar",
+        "en": "Staff: dismissal, search, rights",
+        "tr": "Çalışanlar: işten çıkarma, arama, haklar"
+      },
+      "changed": {
+        "ru": "В списке есть поиск и счётчик (работает и при сотнях сотрудников). Сотрудника можно уволить и восстановить. Кассир без права видит карточку только для просмотра; ошибки сервера (403, 404, 409, 429, 500) объясняются понятными словами.",
+        "ky": "Тизмеде издөө жана эсептегич бар (жүздөгөн кызматкер болсо да иштейт). Кызматкерди бошотуп, кайра калыбына келтирүүгө болот. Укугу жок кассир картаны көрүү үчүн гана көрөт; сервер каталары (403, 404, 409, 429, 500) түшүнүктүү сөздөр менен айтылат.",
+        "uz": "Ro'yxatda qidiruv va hisoblagich bor (yuzlab xodim bo'lsa ham ishlaydi). Xodimni bo'shatish va tiklash mumkin. Huquqi yo'q kassir kartani faqat ko'ra oladi; server xatolari (403, 404, 409, 429, 500) tushunarli so'zlar bilan tushuntiriladi.",
+        "en": "The list has search and a counter (works with hundreds of employees). An employee can be dismissed and restored. A cashier without the right sees a view-only card; server errors (403, 404, 409, 429, 500) are explained in plain words.",
+        "tr": "Listede arama ve sayaç var (yüzlerce çalışanla da çalışır). Çalışan işten çıkarılıp geri alınabilir. Yetkisiz kasiyer kartı yalnızca görüntüler; sunucu hataları (403, 404, 409, 429, 500) anlaşılır sözlerle açıklanır."
+      },
+      "steps": {
+        "ru": [
+          "В «Сотрудниках» введите часть имени, почты или телефона — список сужается; сверху — «Сотрудников: N».",
+          "Откройте сотрудника → «Уволить» → подтвердите. В списке появится «уволен»; фильтр «Уволены» его показывает.",
+          "Откройте уволенного → «Восстановить» — он снова среди работающих.",
+          "Войдите кассиром без права «Сотрудники»: раздел недоступен; с правом «Настройки» — доступы можно менять, имя и телефон — нет.",
+          "Выключите интернет и нажмите «Сохранить» в карточке: понятное сообщение, данные не потеряны."
+        ],
+        "ky": [
+          "«Кызматкерлерде» атынын, почтанын же телефондун бир бөлүгүн жазыңыз — тизме кыскарат; жогорку жагында «Кызматкерлер: N».",
+          "Кызматкерди ачыңыз → «Бошотуу» → ырастаңыз. Тизмеде «бошотулган» чыгат; «Бошотулган» чыпкасы аны көрсөтөт.",
+          "Бошотулганды ачыңыз → «Калыбына келтирүү» — ал кайра иштегендердин арасында.",
+          "«Кызматкерлер» укугу жок кассир болуп кириңиз: бөлүм жеткиликсиз; «Жөндөөлөр» укугу менен — жеткиликтүүлүктү өзгөртүүгө болот, ат менен телефонду болбойт.",
+          "Интернетти өчүрүп, картада «Сактоо» басыңыз: түшүнүктүү билдирүү, маалымат жоголбойт."
+        ],
+        "uz": [
+          "«Xodimlar»da ism, pochta yoki telefonning bir qismini yozing — ro'yxat qisqaradi; tepada «Xodimlar: N».",
+          "Xodimni oching → «Bo'shatish» → tasdiqlang. Ro'yxatda «bo'shatilgan» chiqadi; «Bo'shatilgan» filtri uni ko'rsatadi.",
+          "Bo'shatilganni oching → «Tiklash» — u yana ishlayotganlar orasida.",
+          "«Xodimlar» huquqi yo'q kassir bilan kiring: bo'lim mavjud emas; «Sozlamalar» huquqi bilan — ruxsatlarni o'zgartirish mumkin, ism va telefonni emas.",
+          "Internetni o'chirib, kartada «Saqlash»ni bosing: tushunarli xabar, ma'lumot yo'qolmaydi."
+        ],
+        "en": [
+          "In Staff type part of a name, email or phone — the list narrows; at the top: \"Employees: N\".",
+          "Open an employee → Dismiss → confirm. The list shows \"dismissed\"; the Dismissed filter lists them.",
+          "Open a dismissed employee → Restore — they are among the working ones again.",
+          "Sign in as a cashier without the Employees right: the section is unavailable; with the Settings right you can change rights but not name or phone.",
+          "Turn the internet off and tap Save in a card: a clear message, nothing is lost."
+        ],
+        "tr": [
+          "Çalışanlar'da adın, e-postanın veya telefonun bir kısmını yazın; liste daralır; üstte «Çalışan sayısı: N».",
+          "Bir çalışanı açın → İşten çıkar → onaylayın. Listede «ayrıldı» görünür; «Ayrıldı» filtresi onu gösterir.",
+          "Ayrılmış çalışanı açın → Geri al; yeniden çalışanlar arasında olur.",
+          "«Çalışanlar» yetkisi olmayan kasiyerle girin: bölüm kapalı; «Ayarlar» yetkisiyle haklar değiştirilebilir, ad ve telefon değiştirilemez.",
+          "İnterneti kapatıp kartta Kaydet'e dokunun: anlaşılır bir mesaj, veri kaybolmaz."
+        ]
+      }
+    },
+    {
+      "id": "1.18.8/staff-ai-access-many",
+      "version": "1.18.8",
+      "area": "aikeys",
+      "severity": "normal",
+      "title": {
+        "ru": "«Доступ к ИИ» при большом составе",
+        "ky": "Көп кызматкер болгондо «ИИ жеткиликтүүлүгү»",
+        "uz": "Ko'p xodimda «AI ruxsati»",
+        "en": "AI access with a large staff",
+        "tr": "Kalabalık kadroda «Yapay zekâ erişimi»"
+      },
+      "changed": {
+        "ru": "В «Доступе к ИИ» появился поиск (когда сотрудников больше восьми), уволенные не предлагаются. По-прежнему ИИ можно разрешить не больше чем двум сотрудникам; владельцу и администратору он доступен всегда.",
+        "ky": "«ИИ жеткиликтүүлүгүндө» издөө пайда болду (кызматкер сегизден көп болсо), бошотулгандар сунушталбайт. Мурдагыдай ИИди экиден көп эмес кызматкерге уруксат берүүгө болот; ээси жана администратор үчүн ал дайыма жеткиликтүү.",
+        "uz": "«AI ruxsati»da qidiruv paydo bo'ldi (xodimlar sakkiztadan ko'p bo'lsa), bo'shatilganlar taklif qilinmaydi. Avvalgidek AIga ikkitadan ko'p bo'lmagan xodimga ruxsat berish mumkin; egasi va administrator uchun u doim ochiq.",
+        "en": "AI access now has search (when there are more than eight employees) and does not offer dismissed ones. AI can still be allowed for at most two employees; the owner and administrator always have it.",
+        "tr": "«Yapay zekâ erişimi»nde arama eklendi (sekizden fazla çalışan varsa), işten çıkanlar önerilmez. Yapay zekâ yine en fazla iki çalışana açılabilir; sahip ve yönetici için her zaman açıktır."
+      },
+      "steps": {
+        "ru": [
+          "Откройте «Профиль» → «Доступ к ИИ» (владельцем).",
+          "Найдите сотрудника через поиск и отметьте его — счётчик «2 из 2»; третьего выбрать нельзя, появится объяснение.",
+          "Нажмите «Сохранить», перезайдите: выбранные двое на месте.",
+          "Уволенного сотрудника в списке нет (если он был выбран раньше — остаётся с отметкой, её можно снять)."
+        ],
+        "ky": [
+          "Ээси катары «Профиль» → «ИИ жеткиликтүүлүгү» бөлүмүн ачыңыз.",
+          "Кызматкерди издөө аркылуу табып белгилеңиз — эсептегич «2 из 2»; үчүнчүнү тандоого болбойт, түшүндүрмө чыгат.",
+          "«Сактоо» басып, кайра кириңиз: тандалган экөө ордунда.",
+          "Бошотулган кызматкер тизмеде жок (мурда тандалган болсо — белги менен калат, аны алып салса болот)."
+        ],
+        "uz": [
+          "Egasi sifatida «Profil» → «AI ruxsati»ni oching.",
+          "Xodimni qidiruv orqali topib belgilang — hisoblagich «2 / 2»; uchinchisini tanlab bo'lmaydi, tushuntirish chiqadi.",
+          "«Saqlash»ni bosib, qayta kiring: tanlangan ikkitasi joyida.",
+          "Bo'shatilgan xodim ro'yxatda yo'q (oldin tanlangan bo'lsa — belgi bilan qoladi, uni olib tashlash mumkin)."
+        ],
+        "en": [
+          "As the owner open Profile → AI access.",
+          "Find an employee with search and tick them — the counter shows 2 of 2; a third cannot be picked and an explanation appears.",
+          "Tap Save and sign in again: the two chosen are still there.",
+          "A dismissed employee is not listed (if chosen earlier they stay ticked and can be unticked)."
+        ],
+        "tr": [
+          "Sahip olarak Profil → Yapay zekâ erişimi'ni açın.",
+          "Bir çalışanı aramayla bulup işaretleyin; sayaç 2/2 olur; üçüncüsü seçilemez, açıklama çıkar.",
+          "Kaydet'e dokunup yeniden girin: seçilen iki kişi yerinde.",
+          "İşten çıkan çalışan listede yok (daha önce seçildiyse işaretli kalır, işaret kaldırılabilir)."
+        ]
+      }
+    },
+    {
+      "id": "1.18.8/units-new-item",
+      "version": "1.18.8",
+      "area": "stock",
+      "severity": "money",
+      "title": {
+        "ru": "Новый товар: цена, количество и единица",
+        "ky": "Жаңы товар: баа, саны жана бирдик",
+        "uz": "Yangi mahsulot: narx, miqdor va birlik",
+        "en": "New product: price, quantity and unit",
+        "tr": "Yeni ürün: fiyat, miktar ve birim"
+      },
+      "changed": {
+        "ru": "В «Новом товаре» цена, количество и единица теперь сразу под названием (раньше были внизу). Единицы: шт, кг, г, л, мл, м, упак, пара, компл и «Своя». Для кг, г, л, мл, м количество можно дробное (0,5; 12,75), для шт, упак, пара — только целое. Кг и г делают товар весовым.",
+        "ky": "«Жаңы товарда» баа, саны жана бирдик эми аталыштын астында (мурун ылдыйда болчу). Бирдиктер: шт, кг, г, л, мл, м, упак, пара, компл жана «Башка». кг, г, л, мл, м үчүн сан бөлчөк болот (0,5; 12,75), шт, упак, пара үчүн — бүтүн гана. кг жана г товарды таразалуучу кылат.",
+        "uz": "«Yangi mahsulot»da narx, miqdor va birlik endi nomning tagida (avval pastda edi). Birliklar: шт, кг, г, л, мл, м, упак, пара, компл va «Boshqa». кг, г, л, мл, м uchun miqdor kasr bo'lishi mumkin (0,5; 12,75), шт, упак, пара uchun — faqat butun. кг va г mahsulotni tarozili qiladi.",
+        "en": "In \"New product\" the price, quantity and unit are now right under the name (they used to be at the bottom). Units: pcs, kg, g, l, ml, m, pack, pair, set and \"Custom\". For kg, g, l, ml, m the quantity may be fractional (0.5; 12.75), for pcs, pack, pair it must be whole. Kg and g make the product weighed.",
+        "tr": "\"Yeni ürün\" ekranında fiyat, miktar ve birim artık adın hemen altında (eskiden aşağıdaydı). Birimler: adet, kg, g, l, ml, m, paket, çift, takım ve \"Özel\". kg, g, l, ml, m için miktar ondalıklı olabilir (0,5; 12,75), adet, paket, çift için tam sayı olmalı. kg ve g ürünü tartılı yapar."
+      },
+      "steps": {
+        "ru": [
+          "Склад → «+» → Новый товар. Без прокрутки найдите «Количество» и кнопки единиц: они сразу под ценой.",
+          "Название «Огурцы», розница 12,75, единица «кг», количество 0,5 → «Сохранить». Откройте товар: цена 12,75, остаток 0,5 кг, товар весовой (у него есть PLU).",
+          "Новый товар с единицей «шт» и количеством 2,5: под полем красная подсказка «количество должно быть целым», «Сохранить» ничего не создаёт.",
+          "Смените единицу на «л» — подсказка пропала, товар сохраняется с остатком 2,5 л.",
+          "Нажмите «Своя», впишите «рулон» — товар создаётся с единицей «рулон».",
+          "Не вводите цену и нажмите «Сохранить»: подпись «Укажите цену продажи», товар не создан."
+        ],
+        "ky": [
+          "Кампа → «+» → Жаңы товар. Сүрүбөй эле «Саны» жана бирдик баскычтарын табыңыз: алар баанын астында.",
+          "Аталышы «Огурцы», чекене баа 12,75, бирдик «кг», саны 0,5 → «Сактоо». Товарды ачыңыз: баа 12,75, калдык 0,5 кг, товар таразалуучу (PLU бар).",
+          "«шт» бирдиги жана саны 2,5: талаанын астында кызыл эскертүү «саны бүтүн болушу керек», «Сактоо» эч нерсе түзбөйт.",
+          "Бирдикти «л» кылыңыз — эскертүү жоголот, товар 2,5 л калдык менен сакталат.",
+          "«Башка» басып, «рулон» жазыңыз — товар «рулон» бирдиги менен түзүлөт.",
+          "Баа жазбай «Сактоо» басыңыз: «Сатуу баасын жазыңыз» деген жазуу чыгат, товар түзүлбөйт."
+        ],
+        "uz": [
+          "Ombor → «+» → Yangi mahsulot. Aylantirmasdan «Miqdor» va birlik tugmalarini toping: ular narxning tagida.",
+          "Nomi «Огурцы», chakana narx 12,75, birlik «кг», miqdor 0,5 → «Saqlash». Mahsulotni oching: narx 12,75, qoldiq 0,5 kg, mahsulot tarozili (PLU bor).",
+          "Birlik «шт», miqdor 2,5: maydon ostida qizil izoh «miqdor butun bo'lishi kerak», «Saqlash» hech narsa yaratmaydi.",
+          "Birlikni «л» ga almashtiring — izoh yo'qoladi, mahsulot 2,5 l qoldiq bilan saqlanadi.",
+          "«Boshqa» ni bosib, «рулон» yozing — mahsulot «рулон» birligi bilan yaratiladi.",
+          "Narxni kiritmasdan «Saqlash» ni bosing: «Sotuv narxini kiriting» yozuvi chiqadi, mahsulot yaratilmaydi."
+        ],
+        "en": [
+          "Stock -> \"+\" -> New product. Without scrolling, find \"Quantity\" and the unit buttons: they are right under the price.",
+          "Name \"Cucumbers\", retail 12.75, unit \"kg\", quantity 0.5 -> \"Save\". Open the product: price 12.75, stock 0.5 kg, the product is weighed (it has a PLU).",
+          "New product with unit \"pcs\" and quantity 2.5: a red hint \"quantity must be a whole number\" under the field, \"Save\" creates nothing.",
+          "Switch the unit to \"l\": the hint disappears and the product saves with stock 2.5 l.",
+          "Tap \"Custom\", type \"roll\": the product is created with the unit \"roll\".",
+          "Leave the price empty and tap \"Save\": the label \"Enter the sale price\" shows and nothing is created."
+        ],
+        "tr": [
+          "Depo -> \"+\" -> Yeni ürün. Kaydırmadan \"Miktar\" ve birim düğmelerini bulun: fiyatın hemen altındalar.",
+          "Ad \"Salatalık\", perakende 12,75, birim \"kg\", miktar 0,5 -> \"Kaydet\". Ürünü açın: fiyat 12,75, stok 0,5 kg, ürün tartılı (PLU var).",
+          "Birim \"adet\", miktar 2,5: alanın altında kırmızı uyarı \"miktar tam sayı olmalı\", \"Kaydet\" hiçbir şey oluşturmaz.",
+          "Birimi \"l\" yapın: uyarı kaybolur, ürün 2,5 l stokla kaydedilir.",
+          "\"Özel\"e dokunun, \"rulo\" yazın: ürün \"rulo\" birimiyle oluşturulur.",
+          "Fiyatı boş bırakıp \"Kaydet\"e dokunun: \"Satış fiyatını girin\" yazısı çıkar, ürün oluşmaz."
+        ]
+      }
+    },
+    {
+      "id": "1.18.8/units-edit",
+      "version": "1.18.8",
+      "area": "stock",
+      "severity": "important",
+      "title": {
+        "ru": "Карточка товара: все единицы",
+        "ky": "Товар картасы: бардык бирдиктер",
+        "uz": "Mahsulot kartasi: barcha birliklar",
+        "en": "Product card: all units",
+        "tr": "Ürün kartı: tüm birimler"
+      },
+      "changed": {
+        "ru": "В карточке товара вместо четырёх единиц теперь тот же выбор, что в «Новом товаре»: шт, кг, г, л, мл, м, упак, пара, компл и «Своя», с подсказкой про дробное или целое количество.",
+        "ky": "Товар картасында төрт бирдиктин ордуна «Жаңы товардагыдай» тандоо: шт, кг, г, л, мл, м, упак, пара, компл жана «Башка», бөлчөк же бүтүн сан жөнүндө эскертүү менен.",
+        "uz": "Mahsulot kartasida to'rt birlik o'rniga endi «Yangi mahsulot»dagidek tanlov: шт, кг, г, л, мл, м, упак, пара, компл va «Boshqa», kasr yoki butun miqdor haqida izoh bilan.",
+        "en": "The product card now has the same unit choice as \"New product\" instead of four units: pcs, kg, g, l, ml, m, pack, pair, set and \"Custom\", with a hint about fractional or whole quantity.",
+        "tr": "Ürün kartında dört birim yerine artık \"Yeni ürün\" ile aynı seçim var: adet, kg, g, l, ml, m, paket, çift, takım ve \"Özel\"; ondalıklı veya tam sayı miktar ipucuyla."
+      },
+      "steps": {
+        "ru": [
+          "Склад → любой товар в штуках → карточка. Блок «Единица»: видны шт, кг, г, л, мл, м, упак, пара, компл, «Своя».",
+          "Выберите «л» → «Сохранить»: единица товара «л», на кассе товар продаётся как раньше (не весовой).",
+          "Выберите «кг»: блок «Поштучная продажа из упаковки» отключается, подсказка «Весовой товар нельзя продавать поштучно».",
+          "Верните «шт» → «Сохранить». Цена и остаток не изменились."
+        ],
+        "ky": [
+          "Кампа → ар кандай даана товар → карта. «Бирдик» блогунда: шт, кг, г, л, мл, м, упак, пара, компл, «Башка» көрүнөт.",
+          "«л» тандаңыз → «Сактоо»: товардын бирдиги «л», кассада мурункудай сатылат (таразалуучу эмес).",
+          "«кг» тандаңыз: «Таңгактан даана сатуу» блогу өчөт, «Таразалуучу товарды даана сатууга болбойт» деген эскертүү чыгат.",
+          "«шт» кайтарыңыз → «Сактоо». Баа жана калдык өзгөргөн жок."
+        ],
+        "uz": [
+          "Ombor → dona hisobidagi istalgan mahsulot → karta. «Birlik» blokida: шт, кг, г, л, мл, м, упак, пара, компл, «Boshqa» ko'rinadi.",
+          "«л» ni tanlang → «Saqlash»: mahsulot birligi «л», kassada avvalgidek sotiladi (tarozili emas).",
+          "«кг» ni tanlang: «Qadoqdan donalab sotish» bloki o'chadi, «Tarozili mahsulotni donalab sotib bo'lmaydi» izohi chiqadi.",
+          "«шт» ni qaytaring → «Saqlash». Narx va qoldiq o'zgarmadi."
+        ],
+        "en": [
+          "Stock -> any item counted in pieces -> its card. The \"Unit\" block shows pcs, kg, g, l, ml, m, pack, pair, set and \"Custom\".",
+          "Pick \"l\" -> \"Save\": the unit is \"l\" and the till sells it as before (not weighed).",
+          "Pick \"kg\": the \"Sell singles from a pack\" block turns off with the hint that a weighed item cannot be sold by the piece.",
+          "Switch back to \"pcs\" -> \"Save\". Price and stock are unchanged."
+        ],
+        "tr": [
+          "Depo -> adetle sayılan herhangi bir ürün -> kartı. \"Birim\" bölümünde adet, kg, g, l, ml, m, paket, çift, takım ve \"Özel\" görünür.",
+          "\"l\" seçin -> \"Kaydet\": ürün birimi \"l\", kasada eskisi gibi satılır (tartılı değil).",
+          "\"kg\" seçin: \"Paketten adet sat\" bölümü kapanır, tartılı ürünün adetle satılamayacağı ipucu çıkar.",
+          "Tekrar \"adet\" seçin -> \"Kaydet\". Fiyat ve stok değişmedi."
+        ]
+      }
+    },
+    {
+      "id": "1.18.8/units-bulk",
+      "version": "1.18.8",
+      "area": "stock",
+      "severity": "money",
+      "title": {
+        "ru": "Массовая загрузка: единица, цена и количество",
+        "ky": "Массалык жүктөө: бирдик, баа жана саны",
+        "uz": "Ommaviy yuklash: birlik, narx va miqdor",
+        "en": "Bulk upload: unit, price and quantity",
+        "tr": "Toplu yükleme: birim, fiyat ve miktar"
+      },
+      "changed": {
+        "ru": "Массовая загрузка понимает столбцы «Цена», «Количество», «Ед. изм.» на ru, ky, uz, en, tr. Единицы в любом написании (штука, pcs, дана, литр, kg, l) приводятся к шт, кг, л и другим. Дробные числа (12,75; 0,5; 1.250,50) читаются верно. Кг и г из файла создают весовой товар. Бренд и категория берутся из справочника NurCRM, если их нет в файле.",
+        "ky": "Массалык жүктөө «Баасы», «Саны», «Бирдик» мамычаларын ru, ky, uz, en, tr тилдеринде түшүнөт. Бирдиктер ар кандай жазылышта (штука, pcs, дана, литр, kg, l) шт, кг, л жана башкаларга келтирилет. Бөлчөк сандар (12,75; 0,5; 1.250,50) туура окулат. Файлдагы кг жана г таразалуучу товар түзөт. Бренд жана категория файлда жок болсо, NurCRM маалымдамасынан алынат.",
+        "uz": "Ommaviy yuklash «Narx», «Miqdor», «Birlik» ustunlarini ru, ky, uz, en, tr tillarida tushunadi. Birliklar har qanday yozuvda (штука, pcs, dona, litr, kg, l) шт, кг, л va boshqalarga keltiriladi. Kasr sonlar (12,75; 0,5; 1.250,50) to'g'ri o'qiladi. Fayldagi кг va г tarozili mahsulot yaratadi. Brend va kategoriya faylda bo'lmasa, NurCRM ma'lumotnomasidan olinadi.",
+        "en": "Bulk upload understands the columns \"Price\", \"Quantity\", \"Unit\" in ru, ky, uz, en and tr. Units in any spelling (piece, pcs, dona, litre, kg, l) are mapped to pcs, kg, l and the rest. Fractional numbers (12.75; 0.5; 1.250,50) are read correctly. Kg and g from the file create a weighed product. Brand and category come from the NurCRM catalog when the file has none.",
+        "tr": "Toplu yükleme \"Fiyat\", \"Miktar\", \"Birim\" sütunlarını ru, ky, uz, en ve tr dillerinde anlar. Birimler her yazımda (adet, pcs, dona, litre, kg, l) adet, kg, l ve diğerlerine çevrilir. Ondalıklı sayılar (12,75; 0,5; 1.250,50) doğru okunur. Dosyadaki kg ve g tartılı ürün oluşturur. Marka ve kategori dosyada yoksa NurCRM kataloğundan alınır."
+      },
+      "steps": {
+        "ru": [
+          "Склад → «Массовая загрузка» → «Шаблон» и откройте его: в нём строка «Яблоки … 12,5; кг».",
+          "Свой файл или вставка из Excel со столбцами: Название; Цена; Закупка; Количество; Ед. изм. — строки: «Молоко; 85; 70; 1,5; литр», «Яблоки; 120,5; 90; 12,5; Кг», «Вода; 15; 10; 24; штука».",
+          "В списке видны единицы «л», «кг», «шт» и количества 1,5, 12,5, 24. Все три строки без красных подсказок.",
+          "Нажмите «Загрузить». На складе: молоко 1,5 л (не весовое), яблоки 12,5 кг (весовые, с PLU), вода 24 шт; цены те же, что в файле.",
+          "Тот же файл на ky («Аталышы; Баасы; Саны; Бирдик») и uz («Nomi; Narx; Miqdor; Birlik») читается так же.",
+          "Строка со штрихкодом из справочника и без названия: название, категория и бренд подставляются, введённое в файле не меняется."
+        ],
+        "ky": [
+          "Кампа → «Массалык жүктөө» → «Шаблон» жана аны ачыңыз: ичинде «Яблоки … 12,5; кг» сапы бар.",
+          "Өз файлыңыз же Excel'ден коюу, мамычалар: Аталышы; Баасы; Сатып алуу; Саны; Бирдик — «Сүт; 85; 70; 1,5; литр», «Алма; 120,5; 90; 12,5; Кг», «Суу; 15; 10; 24; штука».",
+          "Тизмеде «л», «кг», «шт» жана 1,5, 12,5, 24 көрүнөт. Үч сапта тең кызыл эскертүү жок.",
+          "«Жүктөө» басыңыз. Кампада: сүт 1,5 л (таразалуучу эмес), алма 12,5 кг (таразалуучу, PLU менен), суу 24 шт; баалары файлдагыдай.",
+          "Ошол эле файл ky («Аталышы; Баасы; Саны; Бирдик») жана uz («Nomi; Narx; Miqdor; Birlik») тилинде да ошондой окулат.",
+          "Маалымдамадагы штрихкод бар, аталышы жок сап: аталышы, категориясы жана бренди коюлат, файлдагысы өзгөрбөйт."
+        ],
+        "uz": [
+          "Ombor → «Ommaviy yuklash» → «Shablon» va uni oching: ichida «Яблоки … 12,5; кг» qatori bor.",
+          "O'z faylingiz yoki Excel'dan qo'yish, ustunlar: Nomi; Narx; Xarid; Miqdor; Birlik — «Sut; 85; 70; 1,5; litr», «Olma; 120,5; 90; 12,5; Kg», «Suv; 15; 10; 24; dona».",
+          "Ro'yxatda «л», «кг», «шт» va 1,5, 12,5, 24 ko'rinadi. Uchala qatorda ham qizil izoh yo'q.",
+          "«Yuklash» ni bosing. Omborda: sut 1,5 l (tarozili emas), olma 12,5 kg (tarozili, PLU bilan), suv 24 dona; narxlar fayldagidek.",
+          "Xuddi shu fayl ky («Аталышы; Баасы; Саны; Бирдик») va uz («Nomi; Narx; Miqdor; Birlik») tilida ham shunday o'qiladi.",
+          "Ma'lumotnomadagi shtrix-kodli, nomi yo'q qator: nomi, kategoriyasi va brendi qo'yiladi, fayldagisi o'zgarmaydi."
+        ],
+        "en": [
+          "Stock -> \"Bulk upload\" -> \"Template\" and open it: it has a row \"Apples ... 12,5; кг\".",
+          "Your own file or a paste from Excel with columns: Name; Price; Cost; Quantity; Unit - rows \"Milk; 85; 70; 1.5; litre\", \"Apples; 120.5; 90; 12.5; Kg\", \"Water; 15; 10; 24; piece\".",
+          "The list shows the units \"л\", \"кг\", \"шт\" and quantities 1.5, 12.5, 24. None of the three rows has a red hint.",
+          "Tap \"Upload\". In stock: milk 1.5 l (not weighed), apples 12.5 kg (weighed, with PLU), water 24 pcs; prices match the file.",
+          "The same file in ky (\"Аталышы; Баасы; Саны; Бирдик\") and uz (\"Nomi; Narx; Miqdor; Birlik\") reads the same way.",
+          "A row with a catalog barcode and no name: name, category and brand are filled in, what the file has is not changed."
+        ],
+        "tr": [
+          "Depo -> \"Toplu yükleme\" -> \"Şablon\" ve açın: içinde \"Elma ... 12,5; кг\" satırı var.",
+          "Kendi dosyanız veya Excel'den yapıştırma, sütunlar: Ad; Fiyat; Alış; Miktar; Birim - satırlar \"Süt; 85; 70; 1,5; litre\", \"Elma; 120,5; 90; 12,5; Kg\", \"Su; 15; 10; 24; adet\".",
+          "Listede \"л\", \"кг\", \"шт\" birimleri ve 1,5, 12,5, 24 miktarları görünür. Üç satırda da kırmızı uyarı yok.",
+          "\"Yükle\"ye dokunun. Depoda: süt 1,5 l (tartılı değil), elma 12,5 kg (tartılı, PLU ile), su 24 adet; fiyatlar dosyadakiyle aynı.",
+          "Aynı dosya ky (\"Аталышы; Баасы; Саны; Бирдик\") ve uz (\"Nomi; Narx; Miqdor; Birlik\") dillerinde de aynı okunur.",
+          "Katalogda barkodu olan, adı olmayan satır: ad, kategori ve marka doldurulur, dosyadakiler değişmez."
+        ]
+      }
+    },
+    {
+      "id": "1.18.8/units-bulk-fix",
+      "version": "1.18.8",
+      "area": "stock",
+      "severity": "important",
+      "title": {
+        "ru": "Массовая загрузка: ошибки строк и «Установить…»",
+        "ky": "Массалык жүктөө: саптардагы каталар жана «Коюу…»",
+        "uz": "Ommaviy yuklash: qator xatolari va «O'rnatish…»",
+        "en": "Bulk upload: row errors and \"Set…\"",
+        "tr": "Toplu yükleme: satır hataları ve \"Ayarla…\""
+      },
+      "changed": {
+        "ru": "Строки с ошибкой подсвечены красным («укажите цену продажи», «единица … не распознана», «количество … должно быть целым для шт»). Строку можно поправить нажатием, а для многих строк сразу — «Установить единицу / цену / количество». После загрузки виден итог «Готово N, с ошибками M».",
+        "ky": "Каталуу саптар кызыл менен белгиленет («сатуу баасын жазыңыз», «… бирдиги таанылган жок», «шт үчүн саны бүтүн болушу керек»). Сапты басып оңдосо болот, ал эми көп сапка бирден — «Бирдикти / баа / санды коюу». Жүктөөдөн кийин «Даяр N, каталар менен M» чыгат.",
+        "uz": "Xatoli qatorlar qizil bilan belgilanadi («sotuv narxini kiriting», «… birligi tanilmadi», «шт uchun miqdor butun bo'lishi kerak»). Qatorni bosib tuzatish mumkin, ko'p qatorga birdan — «Birlikni / narxni / miqdorni o'rnatish». Yuklashdan keyin «Tayyor N, xatolar bilan M» ko'rinadi.",
+        "en": "Rows with errors are shown in red (\"enter the sale price\", \"unit … not recognised\", \"quantity … must be whole for pcs\"). Tap a row to fix it, or use \"Set unit / price / quantity\" for many rows at once. After the upload you see \"Done N, with errors M\".",
+        "tr": "Hatalı satırlar kırmızı gösterilir (\"satış fiyatını girin\", \"… birimi tanınmadı\", \"adet için miktar tam sayı olmalı\"). Satıra dokunup düzeltebilir veya çok satır için \"Birim / fiyat / miktar ayarla\"yı kullanabilirsiniz. Yüklemeden sonra \"Tamam N, hatalı M\" görünür."
+      },
+      "steps": {
+        "ru": [
+          "Вставьте из Excel три строки: «Хлеб; ; 10; 5; шт» (без цены), «Масло; 300; 250; 2,5; шт» (дробное «шт»), «Сыр; 500; 400; 1; xyz» (незнакомая единица).",
+          "Все три в списке красные: «укажите цену продажи», «количество 2,5 должно быть целым для «шт»», «единица «xyz» не распознана».",
+          "Нажмите «С ошибками» — отмечены 3 строки. «Установить цену» → 35 → применится ко всем отмеченным.",
+          "Снова «С ошибками» → отметьте только «Масло» → «Установить единицу» → «кг»: строка стала нормальной (2,5 кг).",
+          "Нажмите на «Сыр»: окно «Строка товара». Выберите «шт», «Сохранить» — строка нормальная.",
+          "«Загрузить» → внизу «Готово 3, с ошибками 0»; экран закрывается. Если оставить строку с ошибкой — «Готово 2, с ошибками 1», экран остаётся."
+        ],
+        "ky": [
+          "Excel'ден үч сап коюңуз: «Нан; ; 10; 5; шт» (баасыз), «Май; 300; 250; 2,5; шт» (бөлчөк «шт»), «Быйтыр; 500; 400; 1; xyz» (белгисиз бирдик).",
+          "Үчөө тең тизмеде кызыл: «сатуу баасын жазыңыз», «саны 2,5 «шт» үчүн бүтүн болушу керек», «xyz бирдиги таанылган жок».",
+          "«Каталуулар» басыңыз — 3 сап белгиленет. «Баа коюу» → 35 → белгиленгендерге колдонулат.",
+          "Дагы «Каталуулар» → «Май» гана белгилеңиз → «Бирдикти коюу» → «кг»: сап нормалдуу болду (2,5 кг).",
+          "«Быйтыр» сабын басыңыз: «Товар саны» терезеси. «шт» тандаңыз, «Сактоо» — сап нормалдуу.",
+          "«Жүктөө» → ылдыйда «Даяр 3, каталар менен 0»; экран жабылат. Катасы бар сапты калтырсаңыз — «Даяр 2, каталар менен 1», экран ачык калат."
+        ],
+        "uz": [
+          "Excel'dan uch qator qo'ying: «Non; ; 10; 5; шт» (narxsiz), «Yog'; 300; 250; 2,5; шт» (kasr «шт»), «Pishloq; 500; 400; 1; xyz» (noma'lum birlik).",
+          "Uchalasi ro'yxatda qizil: «sotuv narxini kiriting», «2,5 miqdor «шт» uchun butun bo'lishi kerak», «xyz birligi tanilmadi».",
+          "«Xatolilar» ni bosing — 3 qator belgilanadi. «Narxni o'rnatish» → 35 → belgilanganlarga qo'llanadi.",
+          "Yana «Xatolilar» → faqat «Yog'» ni belgilang → «Birlikni o'rnatish» → «кг»: qator normal bo'ldi (2,5 kg).",
+          "«Pishloq» ni bosing: «Mahsulot qatori» oynasi. «шт» ni tanlang, «Saqlash» — qator normal.",
+          "«Yuklash» → pastda «Tayyor 3, xatolar bilan 0»; ekran yopiladi. Xatoli qatorni qoldirsangiz — «Tayyor 2, xatolar bilan 1», ekran ochiq qoladi."
+        ],
+        "en": [
+          "Paste three rows from Excel: \"Bread; ; 10; 5; pcs\" (no price), \"Butter; 300; 250; 2.5; pcs\" (fractional pcs), \"Cheese; 500; 400; 1; xyz\" (unknown unit).",
+          "All three are red in the list: \"enter the sale price\", \"quantity 2.5 must be whole for pcs\", \"unit xyz not recognised\".",
+          "Tap \"With errors\": 3 rows are ticked. \"Set price\" -> 35 -> applied to every ticked row.",
+          "Tap \"With errors\" again, tick only \"Butter\" -> \"Set unit\" -> \"kg\": the row is fine now (2.5 kg).",
+          "Tap \"Cheese\": the \"Product row\" sheet opens. Pick \"pcs\", \"Save\": the row is fine.",
+          "\"Upload\" -> at the bottom \"Done 3, with errors 0\"; the screen closes. If you leave a row with an error: \"Done 2, with errors 1\" and the screen stays."
+        ],
+        "tr": [
+          "Excel'den üç satır yapıştırın: \"Ekmek; ; 10; 5; adet\" (fiyatsız), \"Tereyağı; 300; 250; 2,5; adet\" (ondalıklı adet), \"Peynir; 500; 400; 1; xyz\" (bilinmeyen birim).",
+          "Üçü de listede kırmızı: \"satış fiyatını girin\", \"2,5 miktarı adet için tam sayı olmalı\", \"xyz birimi tanınmadı\".",
+          "\"Hatalılar\"a dokunun: 3 satır işaretlenir. \"Fiyat ayarla\" -> 35 -> işaretlilerin hepsine uygulanır.",
+          "Tekrar \"Hatalılar\", yalnızca \"Tereyağı\"nı işaretleyin -> \"Birim ayarla\" -> \"kg\": satır artık normal (2,5 kg).",
+          "\"Peynir\"e dokunun: \"Ürün satırı\" penceresi açılır. \"adet\" seçin, \"Kaydet\": satır normal.",
+          "\"Yükle\" -> altta \"Tamam 3, hatalı 0\"; ekran kapanır. Hatalı bir satırı bırakırsanız: \"Tamam 2, hatalı 1\" ve ekran açık kalır."
+        ]
+      }
+    },
+    {
+      "id": "1.18.8/infographic-summary",
+      "version": "1.18.8",
+      "area": "other",
+      "severity": "money",
+      "title": {
+        "ru": "Сводка: плитки, диаграммы, «Сравнить»",
+        "ky": "Жыйынтык: плиткалар, диаграммалар, «Салыштыруу»",
+        "uz": "Xulosa: plitkalar, diagrammalar, «Solishtirish»",
+        "en": "Summary: tiles, charts, Compare",
+        "tr": "Özet: kutucuklar, grafikler, Karşılaştır"
+      },
+      "changed": {
+        "ru": "«Управление» → «Сводка» стала инфографикой: выбор периода (сегодня, неделя, месяц, свой) и «Сравнить с прошлым периодом», плитки с мини-линией и дельтой «▲ +12 %», выручка по дням (нажмите на столбец — карточка внизу), кольцо «Способы оплаты», прибыль и топ-5 товаров. Без «Сравнить» дельты нет («— н/д»). Выручку считает сервер (оплаченные и с частичным возвратом) — цифры те же, что в программе на компьютере.",
+        "ky": "«Башкаруу» → «Жыйынтык» инфографикага айланды: мезгил тандоо (бүгүн, апта, ай, өзүңүз), «Мурунку мөөнөт менен салыштыруу», мини-сызык жана «▲ +12 %» дельтасы бар плиткалар, күндөр боюнча түшүм (тилкени басыңыз — астынан карта чыгат), «Төлөм ыкмалары» шакеги, пайда жана топ-5 товар. «Салыштыруу» өчүк болсо дельта жок («— жок»). Түшүмдү сервер эсептейт (төлөнгөн жана жарым-жартылай кайтарылган) — сандар компьютердеги программадай.",
+        "uz": "«Boshqaruv» → «Xulosa» infografikaga aylandi: davr tanlash (bugun, hafta, oy, o'z davri) va «Oldingi davr bilan solishtirish», mini-chiziq va «▲ +12 %» deltali plitkalar, kunlar bo'yicha tushum (ustunni bosing — pastda karta chiqadi), «To'lov usullari» halqasi, foyda va top-5 mahsulot. «Solishtirish» o'chiq bo'lsa delta yo'q («— y/q»). Tushumni server hisoblaydi (to'langan va qisman qaytarilgan) — raqamlar kompyuterdagi dasturdagidek.",
+        "en": "Management → Summary is now an infographic: period picker (today, week, month, custom) and Compare with the previous period, tiles with a mini line and a \"▲ +12 %\" delta, revenue by day (tap a bar — a card appears below), the Payment methods ring, profit and the top 5 products. With Compare off there is no delta (\"— n/a\"). The server calculates revenue (paid plus partially returned), so the figures match the desktop program.",
+        "tr": "Yönetim → Özet artık bir infografik: dönem seçimi (bugün, hafta, ay, özel) ve Önceki dönemle karşılaştır, mini çizgi ve «▲ +12 %» farkı olan kutucuklar, günlere göre ciro (bir çubuğa dokunun — altta kart açılır), Ödeme yöntemleri halkası, kâr ve en çok satan 5 ürün. Karşılaştır kapalıyken fark yoktur («— yok»). Ciroyu sunucu hesaplar (ödenmiş ve kısmi iadeli), rakamlar bilgisayardaki programla aynıdır."
+      },
+      "steps": {
+        "ru": [
+          "Откройте «Управление» → «Сводка». Выберите «Неделя»: плитки «Выручка», «Чеков», «Средний чек», «Прибыль» — под каждой «— н/д».",
+          "Включите «Сравнить с прошлым периодом»: появятся «▲ +N %» зелёным или «▼ −N %» красным и «к прошлой неделе»; на диаграмме — серые тонкие столбцы прошлой недели.",
+          "Нажмите на столбец выручки: внизу карточка с датой, суммой и долей периода. Проведите пальцем по столбцам — карточка меняется. Нажмите ⓘ у «Выручка» — «Как это посчитано».",
+          "Сверьте «Выручка» и «Прибыль» за тот же период с программой владельца на компьютере — числа должны совпасть. Нажмите на сектор или строку кольца «Способы оплаты» — в центре сумма способа.",
+          "Выберите «Свой период» и два дня; затем выключите интернет и обновите — «Не удалось загрузить» со временем последних данных и «Повторить». Проверьте светлую и тёмную темы, шрифт 1,3 и экран 360 dp."
+        ],
+        "ky": [
+          "«Башкаруу» → «Жыйынтык» ачыңыз. «Апта» тандаңыз: «Түшүм», «Чектер», «Орточо чек», «Пайда» плиткалары — ар биринин астында «— жок».",
+          "«Мурунку мөөнөт менен салыштыруу» күйгүзүңүз: жашыл «▲ +N %» же кызыл «▼ −N %» жана «өткөн жумага салыштырмалуу» чыгат; диаграммада өткөн жумунун жука боз тилкелери.",
+          "Түшүм тилкесин басыңыз: астынан дата, сумма жана мезгилдин үлүшү менен карта чыгат. Тилкелер боюнча бармак жүргүзүңүз — карта өзгөрөт. «Түшүм» жанындагы ⓘ басыңыз — «Бул кантип эсептелген».",
+          "Ошол эле мезгил үчүн «Түшүм» жана «Пайда» санын компьютердеги ээсинин программасы менен салыштырыңыз — дал келиши керек. «Төлөм ыкмалары» шакегинин секторун басыңыз — ортосунда ыкманын суммасы.",
+          "«Өз мөөнөтү» жана эки күндү тандаңыз; кийин интернетти өчүрүп жаңыртыңыз — акыркы маалымат убактысы жана «Кайталоо» менен «Жүктөлгөн жок». Жарык жана караңгы теманы, 1,3 арипти жана 360 dp экранды текшериңиз."
+        ],
+        "uz": [
+          "«Boshqaruv» → «Xulosa»ni oching. «Hafta»ni tanlang: «Tushum», «Cheklar», «O'rtacha chek», «Foyda» plitkalari — har birining ostida «— y/q».",
+          "«Oldingi davr bilan solishtirish»ni yoqing: yashil «▲ +N %» yoki qizil «▼ −N %» va «o'tgan haftaga nisbatan» chiqadi; diagrammada o'tgan haftaning ingichka kulrang ustunlari.",
+          "Tushum ustunini bosing: pastda sana, summa va davr ulushi bilan karta chiqadi. Ustunlar bo'ylab barmoq yurgizing — karta almashadi. «Tushum» yonidagi ⓘ ni bosing — «Bu qanday hisoblangan».",
+          "Xuddi shu davr uchun «Tushum» va «Foyda»ni kompyuterdagi egasi dasturi bilan solishtiring — mos kelishi kerak. «To'lov usullari» halqasining sektorini bosing — markazda usul summasi.",
+          "«O'z davri» va ikki kunni tanlang; so'ng internetni o'chirib yangilang — oxirgi ma'lumot vaqti va «Qayta urinish» bilan «Yuklab bo'lmadi». Yorug' va qorong'i mavzu, 1,3 shrift va 360 dp ekranni tekshiring."
+        ],
+        "en": [
+          "Open Management → Summary. Choose Week: the Revenue, Receipts, Average receipt and Profit tiles each show \"— n/a\" below.",
+          "Turn on Compare with the previous period: \"▲ +N %\" in green or \"▼ −N %\" in red appear with \"vs last week\", and thin grey bars for the previous week show on the chart.",
+          "Tap a revenue bar: a card below shows the date, the amount and its share of the period. Drag a finger across the bars — the card follows. Tap the ⓘ next to Revenue — \"How this is calculated\".",
+          "Compare Revenue and Profit for the same period with the owner's program on the computer — the numbers must match. Tap a segment or a row of the Payment methods ring — the amount of that method shows in the centre.",
+          "Pick Custom and two days; then turn the internet off and refresh — \"Could not load\" with the time of the last data and Retry. Check light and dark themes, font 1.3 and a 360 dp screen."
+        ],
+        "tr": [
+          "Yönetim → Özet'i açın. Hafta'yı seçin: Ciro, Fiş, Ortalama fiş ve Kâr kutucuklarının altında «— yok» yazar.",
+          "Önceki dönemle karşılaştır'ı açın: yeşil «▲ +N %» veya kırmızı «▼ −N %» ve «geçen haftaya göre» görünür; grafikte geçen haftanın ince gri çubukları çıkar.",
+          "Bir ciro çubuğuna dokunun: altta tarih, tutar ve dönem payıyla bir kart açılır. Parmağınızı çubuklar üzerinde kaydırın — kart değişir. Ciro yanındaki ⓘ'ye dokunun — «Bu nasıl hesaplandı».",
+          "Aynı dönemin Ciro ve Kâr rakamlarını bilgisayardaki sahip programıyla karşılaştırın — aynı olmalı. Ödeme yöntemleri halkasının bir dilimine veya satırına dokunun — ortada o yöntemin tutarı görünür.",
+          "Özel'i ve iki günü seçin; sonra interneti kapatıp yenileyin — son veri saati ve Tekrar dene ile «Yüklenemedi». Açık ve koyu temayı, 1,3 yazı tipini ve 360 dp ekranı kontrol edin."
+        ]
+      }
+    },
+    {
+      "id": "1.18.8/infographic-shift",
+      "version": "1.18.8",
+      "area": "other",
+      "severity": "money",
+      "title": {
+        "ru": "Смена и Z-итог: «Чем платили» и «Деньги в ящике»",
+        "ky": "Смена жана Z-жыйынтык: «Эмне менен төлөндү» жана «Ящиктеги акча»",
+        "uz": "Smena va Z-yakun: «Nima bilan to'landi» va «Yashikdagi pul»",
+        "en": "Shift and Z report: Paid with and Cash in the drawer",
+        "tr": "Vardiya ve Z raporu: «Ödeme şekli» ve «Çekmecedeki para»"
+      },
+      "changed": {
+        "ru": "На главной в карточке смены — полоса «чем платили» (наличные, безнал, в долг) с процентами. На «Закрыть смену» и в Z-итоге вверху — «Чем платили» с суммами и «Деньги в ящике»: начало, наличные, внесения (+ зелёным), изъятия и возвраты наличными (− красным) и итог «Должно быть в кассе» — число сервера. Лента X/Z ниже осталась с пометками.",
+        "ky": "Башкы бетте смена карточкасында «эмне менен төлөндү» тилкеси (нак, накталай эмес, карызга) пайыздары менен. «Сменаны жабуу» жана Z-жыйынтыктын башында — суммалары менен «Эмне менен төлөндү» жана «Ящиктеги акча»: башталыш, нак, киргизүүлөр (+ жашыл), алуулар жана нак кайтаруулар (− кызыл) жана «Кассада болушу керек» жыйынтыгы — сервердин саны. Төмөндө X/Z тасмасы белгилери менен калды.",
+        "uz": "Bosh sahifada smena kartasida «nima bilan to'landi» chizig'i (naqd, naqd emas, qarzga) foizlari bilan. «Smenani yopish» va Z-yakunning tepasida — summalari bilan «Nima bilan to'landi» va «Yashikdagi pul»: boshlanish, naqd, kiritishlar (+ yashil), olishlar va naqd qaytarishlar (− qizil) va «Kassada bo'lishi kerak» jami — serverning soni. Pastda X/Z lentasi belgilari bilan qoldi.",
+        "en": "On the home screen the shift card has a \"paid with\" bar (cash, non-cash, on credit) with percentages. At the top of Close shift and the Z report there are Paid with (with amounts) and Cash in the drawer: opening, cash, cash in (+ green), cash out and cash refunds (− red) and the Expected in the drawer total — the server's figure. The X/Z tape below keeps its notes.",
+        "tr": "Ana ekranda vardiya kartında yüzdeli bir «ödeme şekli» çubuğu (nakit, nakitsiz, veresiye) var. Vardiyayı kapat ve Z raporunun üstünde tutarlı «Ödeme şekli» ve «Çekmecedeki para» görünür: açılış, nakit, girişler (+ yeşil), çıkışlar ve nakit iadeler (− kırmızı) ve «Kasada olması gereken» toplamı — sunucunun rakamı. Aşağıdaki X/Z fişi notlarıyla kaldı."
+      },
+      "steps": {
+        "ru": [
+          "Откройте смену, проведите продажу наличными и картой, одну в долг. На главной под суммой смены — полоса и «Наличные N %, Безнал N %, В долг N %».",
+          "Сделайте внесение и изъятие в «Внесение / изъятие». Нажмите «Закрыть смену».",
+          "Сверху: «Чем платили» с процентами и суммами и «Деньги в ящике»: внесение зелёным со знаком +, изъятие красным со знаком −, внизу «Должно быть в кассе».",
+          "Сравните «Должно быть в кассе» и «Выручка» с лентой ниже и с программой на компьютере — числа те же.",
+          "Закройте смену: в Z-итоге вверху те же два блока. Проверьте шрифт 1,3, тёмную тему, экран 360 dp и ky/uz."
+        ],
+        "ky": [
+          "Сменаны ачыңыз, накталай жана картага бир сатуу, бирин карызга жүргүзүңүз. Башкы бетте смена суммасынын астында тилке жана «Нак N %, Накталай эмес N %, Карызга N %».",
+          "«Киргизүү / алуу» бөлүмүндө киргизүү жана алуу жасаңыз. «Сменаны жабуу» басыңыз.",
+          "Жогору жакта: пайыздары жана суммалары менен «Эмне менен төлөндү» жана «Ящиктеги акча»: киргизүү жашыл + менен, алуу кызыл − менен, төмөндө «Кассада болушу керек».",
+          "«Кассада болушу керек» жана «Түшүм» санын төмөнкү тасма жана компьютердеги программа менен салыштырыңыз — сандар бирдей.",
+          "Сменаны жабыңыз: Z-жыйынтыктын башында ошол эле эки блок. 1,3 арип, караңгы тема, 360 dp экран жана ky/uz текшериңиз."
+        ],
+        "uz": [
+          "Smenani oching, naqd va kartaga bitta sotuv, bittasini qarzga o'tkazing. Bosh sahifada smena summasi ostida chiziq va «Naqd N %, Naqd emas N %, Qarzga N %».",
+          "«Kiritish / olish»da kiritish va olish qiling. «Smenani yopish»ni bosing.",
+          "Tepada: foiz va summalari bilan «Nima bilan to'landi» va «Yashikdagi pul»: kiritish yashil + bilan, olish qizil − bilan, pastda «Kassada bo'lishi kerak».",
+          "«Kassada bo'lishi kerak» va «Tushum»ni pastdagi lenta va kompyuterdagi dastur bilan solishtiring — raqamlar bir xil.",
+          "Smenani yoping: Z-yakunning tepasida xuddi shu ikki blok. 1,3 shrift, qorong'i mavzu, 360 dp ekran va ky/uz ni tekshiring."
+        ],
+        "en": [
+          "Open a shift and make a cash sale, a card sale and one on credit. On the home screen under the shift total there is a bar and \"Cash N %, Non-cash N %, On credit N %\".",
+          "Make a cash-in and a cash-out in Cash in / out. Tap Close shift.",
+          "At the top: Paid with (percentages and amounts) and Cash in the drawer: the cash-in in green with +, the cash-out in red with −, and Expected in the drawer at the bottom.",
+          "Compare Expected in the drawer and Revenue with the tape below and with the computer program — the numbers are the same.",
+          "Close the shift: the Z report has the same two blocks at the top. Check font 1.3, the dark theme, a 360 dp screen and ky/uz."
+        ],
+        "tr": [
+          "Bir vardiya açın; nakit, kartla ve bir veresiye satış yapın. Ana ekranda vardiya tutarının altında bir çubuk ve «Nakit N %, Nakitsiz N %, Veresiye N %» görünür.",
+          "«Para girişi / çıkışı»nda bir giriş ve bir çıkış yapın. Vardiyayı kapat'a dokunun.",
+          "Üstte: yüzdeli ve tutarlı «Ödeme şekli» ile «Çekmecedeki para»: giriş yeşil + ile, çıkış kırmızı − ile, altta «Kasada olması gereken».",
+          "«Kasada olması gereken» ve «Ciro»yu aşağıdaki fişle ve bilgisayardaki programla karşılaştırın — rakamlar aynı.",
+          "Vardiyayı kapatın: Z raporunda üstte aynı iki blok var. 1,3 yazı tipini, koyu temayı, 360 dp ekranı ve ky/uz'u kontrol edin."
+        ]
+      }
+    },
+    {
+      "id": "1.18.8/infographic-debts-stock",
+      "version": "1.18.8",
+      "area": "other",
+      "severity": "normal",
+      "title": {
+        "ru": "Долги: кто должен больше всех; Склад: полоса остатков",
+        "ky": "Карыздар: эң көп карыздар; Кампа: калдык тилкеси",
+        "uz": "Qarzlar: eng ko'p qarzdorlar; Ombor: qoldiq chizig'i",
+        "en": "Debts: who owes the most; Stock: the levels bar",
+        "tr": "Borçlar: en çok borcu olanlar; Depo: stok çubuğu"
+      },
+      "changed": {
+        "ru": "В «Долгах» вверху — карточка «Кто должен больше всех»: доля трёх крупнейших должников в общем долге, полоса и топ-5. Давность долга не показываем — сервер не присылает даты. В «Складе» над списком — полоса «нет в наличии / заканчивается / хватает»; нажмите на неё — откроется фильтр «Заканчивается». «Выручка по часам» и расходы магазина пока не показываем — у сервера нет таких данных (на экране об этом заметка).",
+        "ky": "«Карыздарда» жогорку жакта «Эң көп карыздар» картасы: эң чоң үч карызкордун жалпы карыздагы үлүшү, тилке жана топ-5. Карыздын мөөнөтүн көрсөтпөйбүз — сервер даталарды жөнөтпөйт. «Кампада» тизменин үстүндө «жок / түгөнүп баратат / жетиштүү» тилкеси; басыңыз — «Түгөнүп баратат» чыпкасы ачылат. «Саат боюнча түшүм» жана дүкөндүн чыгымдарын азырынча көрсөтпөйбүз — серверде мындай маалымат жок (экранда эскертме бар).",
+        "uz": "«Qarzlar»da tepada «Eng ko'p qarzdorlar» kartasi: eng katta uchta qarzdorning umumiy qarzdagi ulushi, chiziq va top-5. Qarz muddatini ko'rsatmaymiz — server sanalarni yubormaydi. «Ombor»da ro'yxat tepasida «mavjud emas / tugayapti / yetarli» chizig'i; bosing — «Tugayapti» filtri ochiladi. «Soatlar bo'yicha tushum» va do'kon xarajatlarini hozircha ko'rsatmaymiz — serverda bunday ma'lumot yo'q (ekranda eslatma bor).",
+        "en": "At the top of Debts there is a Who owes the most card: the share of the three largest debtors in the total debt, a bar and the top 5. Debt age is not shown because the server does not send dates. In Stock a bar above the list shows out of stock / running low / in stock; tap it to open the Running low filter. Revenue by hour and store expenses are not shown yet because the server has no such data (a note on screen says so).",
+        "tr": "Borçlar'ın üstünde «En çok borcu olanlar» kartı var: en büyük üç borçlunun toplam borçtaki payı, bir çubuk ve ilk 5. Sunucu tarih göndermediği için borç yaşı gösterilmez. Depo'da listenin üstünde «stokta yok / azalıyor / yeterli» çubuğu vardır; dokunun — «Azalıyor» filtresi açılır. «Saatlik ciro» ve mağaza giderleri henüz gösterilmez — sunucuda böyle veri yok (ekranda bununla ilgili not var)."
+      },
+      "steps": {
+        "ru": [
+          "Откройте «Долги»: вверху карточка «Кто должен больше всех» — «Три крупнейших должника — N % долга», красная полоса, пять строк с цветными полосками. Ниже — заметка про давность долга.",
+          "Введите в поиск часть имени — карточка скрывается, виден только найденный должник.",
+          "Откройте «Склад»: над списком полоса из трёх цветов и «Нет в наличии N · Заканчивается N · Хватает N». Нажмите на неё — список «Заканчивается».",
+          "Откройте «Сводка»: внизу заметка «Выручка по часам…» и расходы в карточке прибыли. Проверьте тёмную тему, шрифт 1,3 и экран 360 dp."
+        ],
+        "ky": [
+          "«Карыздарды» ачыңыз: жогоруда «Эң көп карыздар» картасы — «Эң чоң үч карызкор — карыздын N %», кызыл тилке, түстүү тилкелүү беш сап. Төмөндө — карыз мөөнөтү жөнүндө эскертме.",
+          "Издөөгө аттын бир бөлүгүн жазыңыз — карта жашырылат, табылган карызкор гана көрүнөт.",
+          "«Кампаны» ачыңыз: тизменин үстүндө үч түстүү тилке жана «Жок N · Түгөнүп баратат N · Жетиштүү N». Басыңыз — «Түгөнүп баратат» тизмеси.",
+          "«Жыйынтыкты» ачыңыз: төмөндө «Саат боюнча түшүм…» эскертмеси жана пайда картасында чыгымдар. Караңгы теманы, 1,3 арипти жана 360 dp экранды текшериңиз."
+        ],
+        "uz": [
+          "«Qarzlar»ni oching: tepada «Eng ko'p qarzdorlar» kartasi — «Eng katta uchta qarzdor — qarzning N %», qizil chiziq, rangli chiziqli besh qator. Pastda — qarz muddati haqida eslatma.",
+          "Qidiruvga ismning bir qismini yozing — karta yashirinadi, faqat topilgan qarzdor ko'rinadi.",
+          "«Ombor»ni oching: ro'yxat tepasida uch rangli chiziq va «Mavjud emas N · Tugayapti N · Yetarli N». Bosing — «Tugayapti» ro'yxati.",
+          "«Xulosa»ni oching: pastda «Soatlar bo'yicha tushum…» eslatmasi va foyda kartasida xarajatlar. Qorong'i mavzu, 1,3 shrift va 360 dp ekranni tekshiring."
+        ],
+        "en": [
+          "Open Debts: at the top the Who owes the most card — \"The three largest debtors owe N % of the total\", a red bar and five rows with coloured bars. Below is a note about debt age.",
+          "Type part of a name in the search — the card hides and only the matching debtor shows.",
+          "Open Stock: above the list there is a three-colour bar and \"Out of stock N · Running low N · In stock N\". Tap it — the Running low list opens.",
+          "Open Summary: at the bottom the Revenue by hour note and the expenses note in the profit card. Check the dark theme, font 1.3 and a 360 dp screen."
+        ],
+        "tr": [
+          "Borçlar'ı açın: üstte «En çok borcu olanlar» kartı — «En büyük üç borçlu toplamın %N'ini oluşturuyor», kırmızı çubuk ve renkli çubuklu beş satır. Altta borç yaşı notu var.",
+          "Aramaya bir ismin bir kısmını yazın — kart gizlenir, yalnızca bulunan borçlu görünür.",
+          "Depo'yu açın: listenin üstünde üç renkli çubuk ve «Stokta yok N · Azalıyor N · Yeterli N» var. Dokunun — «Azalıyor» listesi açılır.",
+          "Özet'i açın: altta «Saatlik ciro…» notu ve kâr kartında giderler notu var. Koyu temayı, 1,3 yazı tipini ve 360 dp ekranı kontrol edin."
+        ]
+      }
+    },
+    {
+      "id": "1.18.8/scanner-mode-selector",
+      "version": "1.18.8",
+      "area": "scanner",
+      "severity": "important",
+      "title": {
+        "ru": "Сканер: один выбор режима, режим запоминается",
+        "ky": "Сканер: режимди бир жерден тандоо, режим эстелет",
+        "uz": "Skaner: rejim bitta joydan tanlanadi, rejim eslab qolinadi",
+        "en": "Scanner: one mode picker, the mode is remembered",
+        "tr": "Tarayıcı: tek mod seçici, mod hatırlanır"
+      },
+      "changed": {
+        "ru": "Полоса режимов и отдельная кнопка «Сканер для кассы» заменены одним выбором «Режим»: нажмите — откроется список (Продажа, Цена, По виду, Весы, Приёмка, Сканер для кассы) с пояснением к каждому. Последний режим (продажа, цена, «Сканер для кассы») запоминается на телефоне.",
+        "ky": "Режимдер тилкеси жана өзүнчө «Касса үчүн сканер» баскычы бир «Режим» тандоосу менен алмашты: басыңыз — тизме ачылат (Сатуу, Баа, Көрүнүшү боюнча, Таразы, Кабыл алуу, Касса үчүн сканер), ар бирине түшүндүрмө менен. Акыркы режим (сатуу, баа, «Касса үчүн сканер») телефондо эстелет.",
+        "uz": "Rejimlar tasmasi va alohida «Kassa uchun skaner» tugmasi bitta «Rejim» tanloviga almashtirildi: bosing — ro'yxat ochiladi (Sotuv, Narx, Ko'rinish bo'yicha, Tarozi, Qabul, Kassa uchun skaner), har biriga izoh bilan. Oxirgi rejim (sotuv, narx, «Kassa uchun skaner») telefonda eslab qolinadi.",
+        "en": "The mode strip and the separate Scanner for the till button are replaced by one Mode picker: tap it to open a list (Sale, Price, By look, Weigh, Receiving, Scanner for the till) with a hint for each. The last mode (sale, price, Scanner for the till) is remembered on the phone.",
+        "tr": "Mod şeridi ve ayrı «Kasa için tarayıcı» düğmesi tek bir «Mod» seçicisiyle değiştirildi: dokunun, her biri açıklamalı liste açılır (Satış, Fiyat, Görünüşe göre, Tartı, Mal kabul, Kasa için tarayıcı). Son mod (satış, fiyat, «Kasa için tarayıcı») telefonda hatırlanır."
+      },
+      "steps": {
+        "ru": [
+          "Откройте сканер: сверху одна кнопка «Режим», полосы режимов и отдельной кнопки кассы нет.",
+          "Нажмите «Режим»: в списке Продажа, Цена, По виду, Весы, Приёмка, Сканер для кассы, под каждым — пояснение.",
+          "Выберите «Цена», закройте сканер и откройте снова — режим «Цена» остался.",
+          "Выберите «Продажа»: после перезапуска приложения сканер открывается в продаже.",
+          "Откройте сканер из приёмки: режим «Приёмка» задан явно и не сбивается запомненным."
+        ],
+        "ky": [
+          "Сканерди ачыңыз: үстүндө бир «Режим» баскычы, режимдер тилкеси жана кассанын өзүнчө баскычы жок.",
+          "«Режим» баскычын басыңыз: тизмеде Сатуу, Баа, Көрүнүшү боюнча, Таразы, Кабыл алуу, Касса үчүн сканер, ар биринин астында түшүндүрмө.",
+          "«Баа» режимин тандап, сканерди жаап кайра ачыңыз — «Баа» режими калды.",
+          "«Сатуу» режимин тандаңыз: колдонмону кайра иштеткенден кийин сканер сатууда ачылат.",
+          "Сканерди кабыл алуудан ачыңыз: «Кабыл алуу» режими түз берилет, эстелгени аны бузбайт."
+        ],
+        "uz": [
+          "Skanerni oching: tepada bitta «Rejim» tugmasi, rejimlar tasmasi va kassaning alohida tugmasi yo'q.",
+          "«Rejim»ni bosing: ro'yxatda Sotuv, Narx, Ko'rinish bo'yicha, Tarozi, Qabul, Kassa uchun skaner, har birining ostida izoh.",
+          "«Narx»ni tanlang, skanerni yoping va qayta oching — «Narx» rejimi saqlanib qolgan.",
+          "«Sotuv»ni tanlang: ilovani qayta ishga tushirgandan keyin skaner sotuvda ochiladi.",
+          "Skanerni qabul qilishdan oching: «Qabul» rejimi aniq berilgan va eslab qolingan rejim uni buzmaydi."
+        ],
+        "en": [
+          "Open the scanner: there is one Mode button on top, no mode strip and no separate till button.",
+          "Tap Mode: the list shows Sale, Price, By look, Weigh, Receiving, Scanner for the till, each with a hint.",
+          "Pick Price, close the scanner and open it again — Price mode is still on.",
+          "Pick Sale: after restarting the app the scanner opens in Sale.",
+          "Open the scanner from Receiving: Receiving is set explicitly and the remembered mode does not override it."
+        ],
+        "tr": [
+          "Tarayıcıyı açın: üstte tek bir «Mod» düğmesi var; mod şeridi ve ayrı kasa düğmesi yok.",
+          "«Mod»a dokunun: listede Satış, Fiyat, Görünüşe göre, Tartı, Mal kabul, Kasa için tarayıcı ve her birinin altında açıklama görünür.",
+          "«Fiyat»ı seçin, tarayıcıyı kapatıp yeniden açın; «Fiyat» modu korunur.",
+          "«Satış»ı seçin: uygulamayı yeniden başlatınca tarayıcı Satış'ta açılır.",
+          "Tarayıcıyı Mal kabul'den açın: «Mal kabul» açıkça verilir ve hatırlanan mod onu bozmaz."
+        ]
+      }
+    },
+    {
+      "id": "1.18.8/barcode-digits-only",
+      "version": "1.18.8",
+      "area": "stock",
+      "severity": "important",
+      "title": {
+        "ru": "Штрихкод: только цифры (4–14)",
+        "ky": "Штрихкод: цифралар гана (4–14)",
+        "uz": "Shtrixkod: faqat raqamlar (4–14)",
+        "en": "Barcode: digits only (4–14)",
+        "tr": "Barkod: yalnızca rakam (4–14)"
+      },
+      "changed": {
+        "ru": "Поля «Штрихкод» и «Доп. штрихкод» принимают только цифры (до 14): буквы, пробелы и дефисы отбрасываются и при наборе, и при вставке («487 000-115 9955» → 4870001159955). Пустой штрихкод допустим, короче 4 цифр — ошибка. Числа с разделителями («1.250,50», «1,250.50») в ценах и количестве читаются верно.",
+        "ky": "«Штрихкод» жана «Кошумча штрихкод» талаалары цифраларды гана кабыл алат (14кө чейин): тамгалар, боштуктар жана дефистер терүүдө да, чаптоодо да ташталат («487 000-115 9955» → 4870001159955). Бош штрихкод болот, 4 цифрадан кыска — ката. Баа менен санда бөлгүчтүү сандар («1.250,50», «1,250.50») туура окулат.",
+        "uz": "«Shtrixkod» va «Qo'shimcha shtrixkod» maydonlari faqat raqam qabul qiladi (14 gacha): harf, bo'sh joy va chiziqchalar terishda ham, qo'yishda ham tashlab yuboriladi («487 000-115 9955» → 4870001159955). Bo'sh shtrixkod mumkin, 4 raqamdan qisqasi — xato. Narx va miqdordagi ajratgichli sonlar («1.250,50», «1,250.50») to'g'ri o'qiladi.",
+        "en": "The Barcode and Extra barcode fields accept digits only (up to 14): letters, spaces and dashes are dropped both when typing and when pasting (\"487 000-115 9955\" becomes 4870001159955). An empty barcode is fine, fewer than 4 digits is an error. Numbers with separators (\"1.250,50\", \"1,250.50\") are read correctly in prices and quantities.",
+        "tr": "«Barkod» ve «Ek barkod» alanları yalnızca rakam kabul eder (en çok 14): harf, boşluk ve tireler yazarken de yapıştırırken de atılır («487 000-115 9955» → 4870001159955). Boş barkod olur, 4 rakamdan kısa olması hatadır. Fiyat ve miktarlarda ayraçlı sayılar («1.250,50», «1,250.50») doğru okunur."
+      },
+      "steps": {
+        "ru": [
+          "Откройте «Новый товар» и вставьте в «Штрихкод»: 487 000-115 9955 — останутся только цифры 4870001159955.",
+          "Наберите буквы — они не вводятся.",
+          "Введите 123 (меньше 4 цифр) и сохраните — выходит ошибка про штрихкод.",
+          "Оставьте штрихкод пустым и сохраните товар — это допустимо.",
+          "То же проверьте в «Доп. штрихкод» в карточке товара.",
+          "В цене введите 1.250,50 — читается как 1250,5."
+        ],
+        "ky": [
+          "«Жаңы товар» ачып, «Штрихкод» талаасына чаптаңыз: 487 000-115 9955 — цифралар гана калат: 4870001159955.",
+          "Тамга терип көрүңүз — киргизилбейт.",
+          "123 киргизип (4 цифрадан аз) сактаңыз — штрихкод боюнча ката чыгат.",
+          "Штрихкодду бош калтырып товарды сактаңыз — болот.",
+          "Ушуну товар карточкасындагы «Кошумча штрихкод» талаасында да текшериңиз.",
+          "Бааны 1.250,50 деп киргизиңиз — 1250,5 болуп окулат."
+        ],
+        "uz": [
+          "«Yangi tovar»ni ochib, «Shtrixkod»ga qo'ying: 487 000-115 9955 — faqat raqamlar qoladi: 4870001159955.",
+          "Harf terib ko'ring — kiritilmaydi.",
+          "123 kiriting (4 raqamdan kam) va saqlang — shtrixkod bo'yicha xato chiqadi.",
+          "Shtrixkodni bo'sh qoldirib tovarni saqlang — mumkin.",
+          "Buni tovar kartochkasidagi «Qo'shimcha shtrixkod»da ham tekshiring.",
+          "Narxga 1.250,50 kiriting — 1250,5 deb o'qiladi."
+        ],
+        "en": [
+          "Open New item and paste into Barcode: 487 000-115 9955 — only the digits 4870001159955 remain.",
+          "Type letters — they are not accepted.",
+          "Enter 123 (under 4 digits) and save — a barcode error appears.",
+          "Leave the barcode empty and save — that is allowed.",
+          "Check the same in Extra barcode on the product card.",
+          "Enter 1.250,50 as a price — it reads as 1250.5."
+        ],
+        "tr": [
+          "«Yeni ürün»ü açıp «Barkod»a yapıştırın: 487 000-115 9955 — yalnızca 4870001159955 rakamları kalır.",
+          "Harf yazın: kabul edilmez.",
+          "123 girin (4 rakamdan az) ve kaydedin; barkod hatası çıkar.",
+          "Barkodu boş bırakıp ürünü kaydedin; buna izin verilir.",
+          "Aynısını ürün kartındaki «Ek barkod»da da deneyin.",
+          "Fiyata 1.250,50 yazın; 1250,5 olarak okunur."
+        ]
+      }
     }
   ]
 }

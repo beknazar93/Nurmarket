@@ -1,4 +1,5 @@
-﻿using NurMarketKassa.Services;
+﻿using NurMarketKassa.Core.Application;
+using NurMarketKassa.Services;
 using NurMarketKassa.Models;
 using ChartPalette = NurMarketKassa.Core.Application.ChartPalette;
 using NurMarketKassa.Models.Pos;
@@ -1097,8 +1098,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             AllProductsGrid.ItemsSource = query.Length < 2
                 ? _allProductRows
                 : _allProductRows
-                    .Where(r => r.ProductName.Contains(query, StringComparison.OrdinalIgnoreCase)
-                                || r.Article.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    .Where(r => SearchMatch.Matches(query, r.ProductName, r.Article)) // 2026-10-29: единый поиск
                     .ToList();
         }
 

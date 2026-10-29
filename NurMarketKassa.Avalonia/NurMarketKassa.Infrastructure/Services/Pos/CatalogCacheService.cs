@@ -200,6 +200,10 @@ public static class CatalogCacheService
             ToastRequested?.Invoke(result.ErrorMessage, true);
     }
 
-    public static void PersistProductStock(string productId, double quantity, bool mustWeigh) =>
+    public static void PersistProductStock(string productId, double quantity, bool mustWeigh)
+    {
+        // 2026-10-29: остаток менялся здесь (продажа, ревизия, приход) — лента каталога ещё ~90 с его не перезаписывает (FeedStockGuard).
+        StockSyncService.MarkLocallyTouched(productId);
         Repository.UpdateStock(productId, quantity, mustWeigh);
+    }
 }

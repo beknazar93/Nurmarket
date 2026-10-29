@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -164,20 +165,25 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
     {
         NavPanel.Children.Clear();
         _navButtons.Clear();
-        var words = (query ?? "").Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // 2026-10-29: единый поиск — слова в любом порядке, ё=е, не та раскладка/транслит, если как набрано ничего нет.
+        var sq = SearchMatch.Prepare(query);
+        var words = sq.Tokens;
+        var fuzzy = false;
         bool Matches(KbArticle a)
         {
-            if (words.Length == 0)
+            if (sq.IsEmpty)
                 return true;
-            var hay = (a.Title + " " + a.Text + " " + string.Join(" ", a.Keywords) + " " + a.Section + " " + a.Group + " " + a.RussianSearch).ToLowerInvariant();
-            return words.All(hay.Contains);
+            var hay = SearchMatch.Normalize(a.Title + " " + a.Text + " " + string.Join(" ", a.Keywords) + " " + a.Section + " " + a.Group + " " + a.RussianSearch);
+            return fuzzy ? sq.MatchesFuzzy(hay) : sq.Matches(hay);
         }
+        if (!sq.IsEmpty && !_articles.Any(Matches))
+            fuzzy = true;
 
         var shown = 0;
         foreach (var bySection in _articles.Where(Matches).GroupBy(a => a.Section))
         {
             var sectionName = bySection.Key;
-            var isOpen = words.Length > 0 || sectionName == _openSection;
+            var isOpen = words.Count > 0 || sectionName == _openSection;
             var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
             header.Children.Add(new TextBlock
             {
@@ -227,7 +233,7 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
             string? lastGroup = null;
             foreach (var article in bySection)
             {
-                if (words.Length == 0 && article.Group.Length > 0 && article.Group != lastGroup)
+                if (words.Count == 0 && article.Group.Length > 0 && article.Group != lastGroup)
                     NavPanel.Children.Add(new TextBlock { Text = article.Group, Classes = { "navGroup" } });
                 lastGroup = article.Group;
 

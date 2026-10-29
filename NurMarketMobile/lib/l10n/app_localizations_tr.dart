@@ -5720,4 +5720,562 @@ class AppLocalizationsTr extends AppLocalizations {
   String invUnitCheck(String inv, String item) {
     return 'Kontrol edin · birim: faturada «$inv», üründe «$item»';
   }
+
+  @override
+  String get empAdd => 'Yeni çalışan';
+
+  @override
+  String get empCard => 'Çalışan kartı';
+
+  @override
+  String get empSectionData => 'Çalışan bilgileri';
+
+  @override
+  String get empSectionRights => 'Erişim hakları';
+
+  @override
+  String get empFirstName => 'Ad';
+
+  @override
+  String get empLastName => 'Soyad';
+
+  @override
+  String get empMiddleName => 'Baba adı';
+
+  @override
+  String get empEmail => 'E-posta (giriş adı)';
+
+  @override
+  String get empPhone => 'Telefon';
+
+  @override
+  String get empTrack => 'Çalışan numarası';
+
+  @override
+  String get empRole => 'Görev';
+
+  @override
+  String get empBirth => 'Doğum tarihi';
+
+  @override
+  String get empHire => 'İşe giriş tarihi';
+
+  @override
+  String get empAddress => 'Adres';
+
+  @override
+  String get empComment => 'Yorum';
+
+  @override
+  String get empClearDate => 'Tarihi temizle';
+
+  @override
+  String get empRequired => 'Bu alanı doldurun';
+
+  @override
+  String get empEmailBad => 'E-postayı tam girin, örn. aibek@mail.kg';
+
+  @override
+  String get empPhoneBad => 'Telefon: 9 ila 15 rakam, başında + olabilir';
+
+  @override
+  String get empSaved => 'Çalışan kaydedildi.';
+
+  @override
+  String get empCreated => 'Çalışan eklendi.';
+
+  @override
+  String get empNothingChanged => 'Hiçbir şey değişmedi.';
+
+  @override
+  String get empSearch => 'Ara: ad, e-posta, telefon';
+
+  @override
+  String get empFilterActive => 'Çalışıyor';
+
+  @override
+  String get empFilterDismissed => 'Ayrıldı';
+
+  @override
+  String get empDismissedTag => 'ayrıldı';
+
+  @override
+  String empCount(int n) {
+    return 'Çalışan sayısı: $n';
+  }
+
+  @override
+  String get empNothingFound => 'Kimse bulunamadı.';
+
+  @override
+  String get empDismiss => 'İşten çıkar';
+
+  @override
+  String get empRestore => 'Geri al';
+
+  @override
+  String empDismissAsk(String name) {
+    return '$name işten çıkarılsın mı? Artık giriş yapamaz. Satışlar ve vardiyalar saklanır.';
+  }
+
+  @override
+  String empRestoreAsk(String name) {
+    return '$name geri alınsın mı? Tekrar giriş yapabilir.';
+  }
+
+  @override
+  String get empDismissedDone => 'Çalışan işten çıkarıldı.';
+
+  @override
+  String get empRestoredDone => 'Çalışan geri alındı.';
+
+  @override
+  String get empDismissStill =>
+      'Sunucu isteği kabul etti ama çalışan listede kaldı. app.nurcrm.kg sitesinden silin.';
+
+  @override
+  String get empResetPwd => 'Şifreyi sıfırla';
+
+  @override
+  String empResetAsk(String name) {
+    return '$name şifresi sıfırlansın mı? Eski şifre çalışmaz, yenisi bir kez gösterilir.';
+  }
+
+  @override
+  String get empPasswordTitle => 'Çalışan şifresi';
+
+  @override
+  String empPasswordNote(String email) {
+    return 'Giriş adı: $email. Şifre yalnızca bir kez gösterilir; şimdi çalışana verin.';
+  }
+
+  @override
+  String get empCopy => 'Şifreyi kopyala';
+
+  @override
+  String get empCopied => 'Kopyalandı.';
+
+  @override
+  String get empFeatureMissing => 'Sunucu bu işlemi henüz desteklemiyor.';
+
+  @override
+  String get empListDenied =>
+      '«Çalışanlar» yetkisi yok; liste kullanılamıyor. Sahibine başvurun.';
+
+  @override
+  String get empErrBad =>
+      'Sunucu verileri kabul etmedi. Alanları kontrol edin.';
+
+  @override
+  String get empErrEmail => 'Bu e-posta kullanımda veya geçersiz.';
+
+  @override
+  String get empErr403 => 'Bu işlem için yetkiniz yok. Sahibine başvurun.';
+
+  @override
+  String get empErr404 => 'Çalışan sunucuda bulunamadı; listeyi yenileyin.';
+
+  @override
+  String get empErr409 =>
+      'Bu çalışan zaten var veya veriler değişti. Listeyi yenileyin.';
+
+  @override
+  String get empErr429 =>
+      'Çok fazla istek. Bir dakika bekleyip tekrar deneyin.';
+
+  @override
+  String get empErr5xx =>
+      'Sunucu hatası. Hiçbir şey değişmedi; daha sonra deneyin.';
+
+  @override
+  String get rightUsePos => 'Kasada çalışma';
+
+  @override
+  String get rightSalaryView => 'Maaş: görüntüleme';
+
+  @override
+  String get rightSalaryEdit => 'Maaş: ödeme';
+
+  @override
+  String get rightEmployeesView => 'Çalışanlar: görüntüleme';
+
+  @override
+  String get rightEmployeesEdit => 'Çalışanlar: düzenleme';
+
+  @override
+  String get rightsReadOnly =>
+      'Haklar yalnızca görüntülenir; sahibi veya «Ayarlar» yetkisi olan düzenler.';
+
+  @override
+  String get unitNamePcs => 'Adet';
+
+  @override
+  String get unitNameKg => 'Kilogram';
+
+  @override
+  String get unitNameG => 'Gram';
+
+  @override
+  String get unitNameL => 'Litre';
+
+  @override
+  String get unitNameMl => 'Mililitre';
+
+  @override
+  String get unitNameM => 'Metre';
+
+  @override
+  String get unitNamePack => 'Paket';
+
+  @override
+  String get unitNamePair => 'Çift';
+
+  @override
+  String get unitNameSet => 'Takım';
+
+  @override
+  String get unitCustom => 'Özel';
+
+  @override
+  String get unitCustomTitle => 'Özel birim';
+
+  @override
+  String get unitCustomHint => 'ör. rulo, şişe';
+
+  @override
+  String unitHintFrac(String name) {
+    return '$name: ondalıklı miktar olabilir, ör. 0,5';
+  }
+
+  @override
+  String unitHintWhole(String name) {
+    return '$name: yalnızca tam sayı';
+  }
+
+  @override
+  String get unitHintCustom => 'Özel birim: miktar ondalıklı olabilir';
+
+  @override
+  String nuQtyWhole(String unit, String qty) {
+    return '«$unit» için miktar tam sayı olmalı (şu an $qty). kg, l, m… seçin veya tam sayı yazın.';
+  }
+
+  @override
+  String get nuQtyNegative => 'Miktar sıfırdan küçük olamaz.';
+
+  @override
+  String get nuPriceNeed => 'Satış fiyatını girin';
+
+  @override
+  String get bkHintUnits =>
+      'Birim: шт, кг, г, л, мл, м, упак, пара, компл (adet, litre, pcs, kg, l, dona… da anlaşılır). Fiyat ve miktar ondalıklı olabilir: 12,75; 0,5.';
+
+  @override
+  String get bkErrName => 'ad yok';
+
+  @override
+  String get bkErrPrice => 'satış fiyatını girin';
+
+  @override
+  String bkErrUnit(String unit) {
+    return '«$unit» birimi tanınmadı — шт, кг, л… seçin';
+  }
+
+  @override
+  String bkErrQtyWhole(String qty, String unit) {
+    return '«$unit» için $qty miktarı tam sayı olmalı';
+  }
+
+  @override
+  String get bkErrQtyNeg => 'miktar sıfırdan küçük';
+
+  @override
+  String get bkWarnQty => 'miktar yok — stok 0 olacak';
+
+  @override
+  String get bkSetUnit => 'Birim ayarla';
+
+  @override
+  String get bkSetPrice => 'Fiyat ayarla';
+
+  @override
+  String get bkSetQty => 'Miktar ayarla';
+
+  @override
+  String get bkSelectAll => 'Tümünü seç';
+
+  @override
+  String get bkSelectBad => 'Hatalılar';
+
+  @override
+  String get bkSelectNone => 'Seçimi kaldır';
+
+  @override
+  String bkSelectedN(int n) {
+    return 'Seçilen satır: $n';
+  }
+
+  @override
+  String get bkSelectFirst =>
+      'Birçok satıra birden uygulamak için satırları işaretleyin.';
+
+  @override
+  String bkApplyTo(int n) {
+    return '$n satıra uygula';
+  }
+
+  @override
+  String get bkEditRow => 'Ürün satırı';
+
+  @override
+  String bkResult(int a, int b) {
+    return 'Tamam $a, hatalı $b';
+  }
+
+  @override
+  String get barcodeDigitsHint => 'Yalnızca rakam, 4 ile 14 arası';
+
+  @override
+  String get barcodeBadLen => 'Barkod 4 ile 14 rakam olmalı, harf olmaz';
+
+  @override
+  String get infK => 'bin';
+
+  @override
+  String get infM => 'Mn';
+
+  @override
+  String get infB => 'Mr';
+
+  @override
+  String get infNoData => 'Bu dönem için veri yok';
+
+  @override
+  String get infNoDataHint => 'Başka bir dönem seçin veya satış yapın';
+
+  @override
+  String infUpdatedAt(String time) {
+    return 'Güncellendi $time';
+  }
+
+  @override
+  String get infCompare => 'Önceki dönemle karşılaştır';
+
+  @override
+  String get infPeriodCustom => 'Özel';
+
+  @override
+  String get infVsYesterday => 'düne göre';
+
+  @override
+  String get infVsPrevWeek => 'geçen haftaya göre';
+
+  @override
+  String get infVsPrevMonth => 'geçen aya göre';
+
+  @override
+  String get infVsPrevPeriod => 'önceki döneme göre';
+
+  @override
+  String infDeltaUpSem(String pct, String vs) {
+    return '%$pct yüksek, $vs';
+  }
+
+  @override
+  String infDeltaDownSem(String pct, String vs) {
+    return '%$pct düşük, $vs';
+  }
+
+  @override
+  String infDeltaSameSem(String vs) {
+    return 'Değişiklik yok, $vs';
+  }
+
+  @override
+  String get infDeltaNew => 'yeni';
+
+  @override
+  String get infOther => 'Diğer';
+
+  @override
+  String get infShare => 'Pay';
+
+  @override
+  String infDescEmpty(String name) {
+    return '$name: veri yok';
+  }
+
+  @override
+  String infDescOne(String name, String label, String value, String unit) {
+    return '$name: $label — $value $unit';
+  }
+
+  @override
+  String infDescBars(
+    String name,
+    String max,
+    String unit,
+    String maxLabel,
+    String min,
+    String minLabel,
+    String total,
+  ) {
+    return '$name: en yüksek $max $unit ($maxLabel), en düşük $min $unit ($minLabel), toplam $total $unit';
+  }
+
+  @override
+  String get infHowCalc => 'Nasıl hesaplandı';
+
+  @override
+  String get infHowRevenue =>
+      'Ciro, dönemdeki «ödendi» ve «kısmi iade» durumundaki fişlerin toplamıdır; bilgisayardaki program ve sitedeki gibi. Veresiye ve iptal edilen fişler dahil değildir.';
+
+  @override
+  String get infHowChecks =>
+      'Fişler — dönemdeki ödenmiş fiş sayısı (kısmi iade olanlar da).';
+
+  @override
+  String get infHowAvg => 'Ortalama fiş = ciro ÷ dönemdeki fiş sayısı.';
+
+  @override
+  String get infHowProfit =>
+      'Kâr = ciro − satılan ürünlerin alış maliyeti (sunucunun brüt kârı). Mağaza giderleri dahil değildir.';
+
+  @override
+  String get infHowShiftCash =>
+      'Kasada olması gereken = açılış nakdi + nakit satışlar + nakit borç ödemeleri + girişler − nakit iadeler − çıkışlar. Rakamı sunucu verir.';
+
+  @override
+  String get infHowDebts =>
+      'Borçlar — müşterilerin şu anda mağazaya borçlu olduğu tutar (sunucudaki borçlu listesi).';
+
+  @override
+  String get infHowLow =>
+      'Azalıyor — stoğu 10\'un altında veya ürün için belirlenen asgari stoğu aşmayan ürünler (hizmetler hariç).';
+
+  @override
+  String get infHowPayments =>
+      'Ödeme yöntemleri — cironun ne kadarı nakit, kart, havale ve veresiye geldi; yüzdeler tüm yöntemlerin toplamına göredir.';
+
+  @override
+  String get infHowTop =>
+      'En çok satanlar — dönemde en yüksek ciro getiren ürünler; çubuk, en iyi ürüne oranıdır.';
+
+  @override
+  String get scanModeLabel => 'Mod';
+
+  @override
+  String get scanModeTitle => 'Tarayıcı modu';
+
+  @override
+  String scanModeA11y(String mode) {
+    return 'Tarayıcı modu: $mode. Değiştirmek için dokunun';
+  }
+
+  @override
+  String get scanModeSaleSub => 'Tarayın — ürün doğrudan fişe girer';
+
+  @override
+  String get scanModeLookSub => 'Barkodsuz, fotoğraftan ürünü tanıma';
+
+  @override
+  String get scanModeWeighSub => 'Tartılan ürün: ağırlık tartı ekranından';
+
+  @override
+  String get scanModeReceiveSub => 'Malı depoya kabul et';
+
+  @override
+  String get scanModeKassaSub => 'Barkodlar Wi-Fi ile kasaya gider';
+
+  @override
+  String get infNoDelta => '— yok';
+
+  @override
+  String get infNoCompare => '— karşılaştırma yok';
+
+  @override
+  String get infCompareShort => 'Karşılaştır';
+
+  @override
+  String get infLoadFailedTitle => 'Yüklenemedi';
+
+  @override
+  String infLoadFailedAt(String time) {
+    return 'Sunucuyla bağlantı yok. $time tarihli veriler gösteriliyor.';
+  }
+
+  @override
+  String get infLoadFailedNoData => 'Sunucuyla bağlantı yok.';
+
+  @override
+  String get infTapHint => 'Ayrıntı için çubuğa dokunun';
+
+  @override
+  String get infTapRingHint => 'Ayrıntı için dilime dokunun';
+
+  @override
+  String get infPrevBar => 'Önceki dönem';
+
+  @override
+  String infOfPeriod(String pct) {
+    return 'dönemin %$pct\'i';
+  }
+
+  @override
+  String get infHoursNote =>
+      'Saatlik ciro: sunucu henüz saatlik dökümü vermiyor — bölüm daha sonra eklenecek.';
+
+  @override
+  String get infExpensesNote =>
+      'Mağaza giderleri sunucu raporunda yok — ciro, maliyet ve kâr gösteriliyor.';
+
+  @override
+  String get infCost => 'Maliyet';
+
+  @override
+  String infMargin(String pct) {
+    return 'Kâr marjı %$pct';
+  }
+
+  @override
+  String get infRevenueCostProfit => 'Ciro, maliyet ve kâr';
+
+  @override
+  String get infDebtConcTitle => 'En çok borcu olanlar';
+
+  @override
+  String infDebtConcLine(String pct) {
+    return 'En büyük üç borçlu toplamın %$pct\'ini oluşturuyor';
+  }
+
+  @override
+  String get infDebtAgeNote =>
+      'Borç yaşı: sunucu borç tarihlerini göndermiyor — borçlulara göre yoğunlaşma gösteriliyor.';
+
+  @override
+  String get infStockTitle => 'Stok durumu';
+
+  @override
+  String get infStockOut => 'Stokta yok';
+
+  @override
+  String get infStockLow => 'Azalıyor';
+
+  @override
+  String get infStockOk => 'Yeterli';
+
+  @override
+  String get infPaidWith => 'Ödeme şekli';
+
+  @override
+  String get infTotalWord => 'Toplam';
+
+  @override
+  String get infShiftNoSales => 'Vardiyada henüz satış yok';
+
+  @override
+  String get infHowTitle => 'Bu nasıl hesaplandı';
+
+  @override
+  String get infRangePick => 'Tarih seç';
 }

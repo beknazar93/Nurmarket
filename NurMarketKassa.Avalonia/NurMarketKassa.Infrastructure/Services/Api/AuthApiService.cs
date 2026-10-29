@@ -54,6 +54,13 @@ public sealed class AuthApiService : IAuthApiService
     public Task<EmployeeInfoDto?> CreateEmployeeAsync(string email, string firstName, string lastName, string roleId, EmployeeAccessFlags? access = null, CancellationToken ct = default) =>
         _client.CreateEmployeeAsync(email, firstName, lastName, roleId, access, ct);
 
+    public Task<EmployeeInfoDto?> CreateEmployeeWithExtrasAsync(string email, string firstName, string lastName, string roleId, EmployeeAccessFlags? access,
+        IReadOnlyDictionary<string, object?>? extraFields, CancellationToken ct = default) =>
+        _client.CreateEmployeeWithExtrasAsync(email, firstName, lastName, roleId, access, extraFields, ct);
+
+    public Task<EmployeeInfoDto?> PatchEmployeeAsync(string employeeId, IReadOnlyDictionary<string, object?> changes, CancellationToken ct = default) =>
+        _client.PatchEmployeeAsync(employeeId, changes, ct);
+
     public Task DeleteEmployeeAsync(string employeeId, CancellationToken ct = default) =>
         _client.DeleteEmployeeAsync(employeeId, ct);
 
@@ -65,6 +72,9 @@ public sealed class AuthApiService : IAuthApiService
 
     public Task<RoleInfoDto?> CreateRoleAsync(string name, CancellationToken ct = default) =>
         _client.CreateRoleAsync(name, ct);
+
+    public Task<RoleInfoDto?> UpdateRoleAsync(string roleId, string name, CancellationToken ct = default) =>
+        _client.UpdateRoleAsync(roleId, name, ct);
 
     public Task DeleteRoleAsync(string roleId, CancellationToken ct = default) =>
         _client.DeleteRoleAsync(roleId, ct);

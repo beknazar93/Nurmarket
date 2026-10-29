@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
@@ -1064,7 +1065,7 @@ public sealed class SupplierCardView : UserControl
         }
         if (_products.Count > 8)
         {
-            var search = UiKit.Input(this, T("Поиск товара: название или код…", "Товар издөө: аталышы же коду…", "Find a product: name or code…", "Ürün ara: ad veya kod…", "Mahsulot qidirish: nomi yoki kodi…"), 40);
+            var search = UiKit.Search(this, T("Поиск товара: название или код…", "Товар издөө: аталышы же коду…", "Find a product: name or code…", "Ürün ara: ad veya kod…", "Mahsulot qidirish: nomi yoki kodi…"), 40);
             Avalonia.Automation.AutomationProperties.SetName(search, search.Watermark);
             search.Text = _productQuery;
             search.TextChanged += (_, _) =>
@@ -1091,8 +1092,7 @@ public sealed class SupplierCardView : UserControl
         // 2026-10-21: скан доп. штрихкода, 12 ↔ 13 цифр или размера — тот же товар, что нашла бы касса (ProductCodeLookup;
         // склад не находит товар по скану).
         var exactId = q.Length >= 4 ? ProductCodeLookup.FindLocal(q)?.Product.Id : null;
-        var shown = _products.Where(p => q.Length == 0 || p.Name.Contains(q, StringComparison.CurrentCultureIgnoreCase) || p.Code.Contains(q, StringComparison.OrdinalIgnoreCase)
-            || p.Article.Contains(q, StringComparison.OrdinalIgnoreCase)
+        var shown = _products.Where(p => q.Length == 0 || SearchMatch.Matches(q, p.Name, p.Code, p.Article) // 2026-10-29: единый поиск
             || (exactId != null && string.Equals(p.Id, exactId, StringComparison.OrdinalIgnoreCase))).Take(300).ToList();
         if (shown.Count == 0)
             return Soft(T("По этому запросу товаров нет.", "Бул сурам боюнча товар жок.", "No products match.", "Eşleşen ürün yok.", "Mos mahsulot yo'q."));

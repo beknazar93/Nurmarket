@@ -23,6 +23,7 @@ public partial class WarehouseWindow
         // 2026-10-25: подтверждение «Цена продажи изменится у K товаров» перед «Оприходовать» — до постановки в очередь
         // (обработчик ConfirmSalePriceChangesAsync был написан в пакете Б1, но к модели не подключён).
         _viewModel.ConfirmSalePriceChanges ??= ConfirmSalePriceChangesAsync;
+        _viewModel.ConfirmBelowCost ??= ConfirmBelowCostAsync; // 2026-10-29 (спека Fable)
         BackgroundReceivingQueue.Instance.JobFinished += OnReceivingQueueJobFinished;
         BackgroundReceivingQueue.Instance.CatalogRefreshed += OnReceivingQueueCatalogRefreshed;
         ReceivingCommitBusyText.Text = Tr.T("Оприходую…", "Кабыл алып жатам…", "Receiving…", "Stoğa alıyorum…", "Kirim qilyapman…");

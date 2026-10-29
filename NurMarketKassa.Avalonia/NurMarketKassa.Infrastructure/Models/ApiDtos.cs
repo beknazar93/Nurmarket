@@ -207,6 +207,22 @@ namespace NurMarketKassa.Models
         /// <summary>Текущие доступы (can_view_*) этого сотрудника — подтверждено живым GET
         /// api/users/employees/ (2026-09-21), см. doc-comment у EmployeeAccessFlags.</summary>
         public EmployeeAccessFlags Access { get; set; } = new();
+
+        // 2026-10-28: поля сотрудника из схемы сервера (EmployeeUpdate/UserList, openapi 26.10). Все необязательные: null — сервер
+        // поля не вернул (не придумываем и не затираем при сохранении).
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        /// <summary>track_number — «номер»-реквизит сотрудника (табельный/служебный номер), до 64 символов.</summary>
+        public string? TrackNumber { get; set; }
+        public string? AvatarUrl { get; set; }
+        /// <summary>role — код системной роли (owner/admin/rop/supervisor/salesperson); RoleName — подпись role_display.</summary>
+        public string? RoleCode { get; set; }
+        public string? PrimaryBranchId { get; set; }
+        public List<string>? BranchIds { get; set; }
+
+        /// <summary>2026-10-28: все остальные поля ответа сервера, которых нет в модели выше (round-trip: новые поля сервера не
+        /// теряются; PATCH шлёт только изменённые, поэтому чужие поля сервер не затирает).</summary>
+        public Dictionary<string, System.Text.Json.JsonElement> Extra { get; set; } = new();
     }
 
     /// <summary>2026-09-08: роль сотрудника — с app.nurcrm.kg, раздел "Сотрудники → Роли".
@@ -260,7 +276,36 @@ namespace NurMarketKassa.Models
         public bool CanViewInstagram { get; set; }
         public bool CanViewDocuments { get; set; }
 
-        public Dictionary<string, object> ToRequestFields() => new()
+        // 2026-10-28: флаги из схемы сервера (EmployeeUpdate, openapi 26.10). null — сервер не вернул (старый сервер / нет в схеме):
+        // в форме поле скрыто, в запрос не попадает (feature-detect). CanUsePos — по ТЗ Б-16 (у всех true; false закрывает смену и продажу).
+        public bool? CanViewSalary { get; set; }
+        public bool? CanEditSalary { get; set; }
+        public bool? CanEditEmployees { get; set; }
+        public bool? CanEditProducts { get; set; }
+        public bool? CanEditClients { get; set; }
+        public bool? CanEditCashbox { get; set; }
+        public bool? CanEditSettings { get; set; }
+        public bool? CanEditProcurement { get; set; }
+        public bool? CanEditDocuments { get; set; }
+        public bool? CanViewDebts { get; set; }
+        public bool? CanUsePos { get; set; }
+
+        /// <summary>2026-10-28: только изменившиеся флаги (PATCH не шлёт то, что владелец не трогал, и не затирает чужие правки
+        /// другим устройством). original == null — все поля.</summary>
+        public Dictionary<string, object> ChangedFields(EmployeeAccessFlags? original)
+        {
+            var now = ToRequestFields();
+            if (original is null)
+                return now;
+            var before = original.ToRequestFields();
+            var diff = new Dictionary<string, object>();
+            foreach (var kv in now)
+                if (!before.TryGetValue(kv.Key, out var old) || !Equals(old, kv.Value))
+                    diff[kv.Key] = kv.Value;
+            return diff;
+        }
+
+        public Dictionary<string, object> ToRequestFields() => new Dictionary<string, object>()
         {
             ["can_view_cashbox"] = CanViewCashbox,
             ["can_view_analytics"] = CanViewAnalytics,
@@ -285,6 +330,21 @@ namespace NurMarketKassa.Models
             ["can_view_telegram"] = CanViewTelegram,
             ["can_view_instagram"] = CanViewInstagram,
             ["can_view_documents"] = CanViewDocuments,
-        };
+        }.WithOptional("can_view_salary", CanViewSalary).WithOptional("can_edit_salary", CanEditSalary)
+         .WithOptional("can_edit_employees", CanEditEmployees).WithOptional("can_edit_products", CanEditProducts)
+         .WithOptional("can_edit_clients", CanEditClients).WithOptional("can_edit_cashbox", CanEditCashbox)
+         .WithOptional("can_edit_settings", CanEditSettings).WithOptional("can_edit_procurement", CanEditProcurement)
+         .WithOptional("can_edit_documents", CanEditDocuments).WithOptional("can_view_debts", CanViewDebts)
+         .WithOptional("can_use_pos", CanUsePos);
+    }
+
+    internal static class EmployeeFlagExtensions
+    {
+        public static Dictionary<string, object> WithOptional(this Dictionary<string, object> d, string key, bool? value)
+        {
+            if (value.HasValue)
+                d[key] = value.Value;
+            return d;
+        }
     }
 }

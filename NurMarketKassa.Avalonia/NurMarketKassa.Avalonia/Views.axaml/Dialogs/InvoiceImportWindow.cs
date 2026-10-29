@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
@@ -9,6 +10,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Avalonia.Threading;
 using NurMarketKassa.Models;
 using NurMarketKassa.Services;
@@ -82,6 +84,7 @@ public sealed class InvoiceImportWindow : Window
     private readonly Button _columns = new() { MinHeight = 44 };
     private InvoiceImportEntry? _duplicate;
     private DataGridColumn? _colName, _colBarcode, _colUnit;
+    private bool _barcodeEditing;
 
     public Result? Chosen { get; private set; }
 
@@ -337,13 +340,21 @@ public sealed class InvoiceImportWindow : Window
             CellTemplate = new FuncDataTemplate<InvoicePlanRow>((_, _) => RemoveCell(), supportsRecycling: false),
         });
 
+        // 2026-10-29: штрихкод в таблице накладной (правка у нового товара) — только цифры.
+        NurMarketKassa.AvaloniaHost.Views.Controls.BarcodeInput.Attach(this, tb => _barcodeEditing && tb.GetVisualAncestors().Contains(_grid));
         _grid.BeginningEdit += (_, e) =>
         {
+            _barcodeEditing = ReferenceEquals(e.Column, _colBarcode);
             // Название, штрихкод и единицу правим только у новых товаров (у найденного они живут в карточке товара).
             if (e.Row.DataContext is InvoicePlanRow row && (ReferenceEquals(e.Column, _colName) || ReferenceEquals(e.Column, _colBarcode) || ReferenceEquals(e.Column, _colUnit)) && row.IsFound)
                 e.Cancel = true;
         };
-        _grid.CellEditEnded += (_, _) => Dispatcher.UIThread.Post(RefreshSummary, DispatcherPriority.Background);
+        _grid.CellEditEnded += (_, e) =>
+        {
+            if (e.Row?.DataContext is InvoicePlanRow planRow)
+                planRow.Line.CommitText(); // 2026-10-28 (ДЕНЬГИ): сырой набранный текст цены («100.», «100,6») → нормальный показ («100,60») по выходу из ячейки
+            Dispatcher.UIThread.Post(RefreshSummary, DispatcherPriority.Background);
+        };
     }
 
     /// <summary>Статус строки (цвет по ключу темы) и, у «похожего» товара, кнопки «✓ Это он» и «≠ Другой товар» прямо в ячейке: на узком окне
@@ -547,7 +558,7 @@ public sealed class InvoiceImportWindow : Window
         var none = new PurchaseReceivingService.Supplier("", T("Без поставщика", "Жеткирүүчүсүз", "No supplier", "Tedarikçisiz", "Yetkazib beruvchisiz"));
         var items = new List<PurchaseReceivingService.Supplier> { none };
         items.AddRange(_req.Suppliers.Where(s => !string.IsNullOrEmpty(s.Id)
-            && (query.Length == 0 || s.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+            && (query.Length == 0 || SearchMatch.Matches(query, s.Name) // 2026-10-29: единый поиск
                 || (digits.Length >= 3 && new string((s.Phone ?? "").Where(char.IsDigit).ToArray()).Contains(digits, StringComparison.Ordinal))
                 || (digits.Length >= 6 && (s.Inn ?? "").Contains(digits, StringComparison.Ordinal)))));
         _supplierListSync = true;

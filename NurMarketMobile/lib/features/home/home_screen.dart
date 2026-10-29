@@ -7,6 +7,7 @@ import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/ui/infographic/infographics.dart' show PaymentSplit;
 import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
 import '../staff/staff_providers.dart' show myTasksProvider;
@@ -190,6 +191,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Text(l.checksCount(shift.shift?.salesCount ?? 0), style: const TextStyle(color: Color(0xFFC7D2DB), fontSize: 12)),
                   ],
                 ),
+                // 2026-10-29 (инфографика, спека Fable): чем платили в этой смене — полоса и проценты (нет продаж — не показываем).
+                if (shift.shift != null && (shift.shift!.cashSales + shift.shift!.nonCashSales + shift.shift!.debtSales) > 0) ...[
+                  const SizedBox(height: 12),
+                  PaymentSplit(cash: shift.shift!.cashSales, nonCash: shift.shift!.nonCashSales, debt: shift.shift!.debtSales, onDark: true),
+                ],
                 const SizedBox(height: 14),
                 if (shift.isOpen)
                   OutlinedButton(

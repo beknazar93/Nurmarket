@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
@@ -31,6 +32,7 @@ public partial class EmployeesSettingsView : UserControl
     public EmployeesSettingsView()
     {
         InitializeComponent();
+        EmployeeSearchBox.Watermark = Tr.T("Поиск: имя, почта, телефон", "Издөө: аты, почта, телефон", "Search: name, email, phone", "Ara: ad, e-posta, telefon", "Qidiruv: ism, email, telefon");
         RefreshList();
         // 2026-10-18, 6-й/7-й круг (П.3): облако этой компании пришло — список обновить (до этого чужой не показываем).
         // Подписка — только пока страница на экране.
@@ -103,6 +105,8 @@ public partial class EmployeesSettingsView : UserControl
 
     private static IAuthApiService? AuthApi => App.AppHost?.Services.GetService<IAuthApiService>();
 
+    private void EmployeeSearch_TextChanged(object? sender, TextChangedEventArgs e) => RefreshList();
+
     private void OnCloudApplied() => Avalonia.Threading.Dispatcher.UIThread.Post(RefreshList);
 
     private void RefreshList()
@@ -137,8 +141,19 @@ public partial class EmployeesSettingsView : UserControl
             });
             return;
         }
+        var needle = (EmployeeSearchBox.Text ?? "").Trim();
         foreach (var employee in UserPreferences.Instance.EmployeeAccessCodes.ToList())
+        {
+            // 2026-10-28: поиск по имени, почте и телефону (телефон — из последнего списка с сервера).
+            if (needle.Length > 0)
+            {
+                var info = EmployeeDirectory.TryGet(employee.ServerId);
+                var hay = $"{employee.Name} {employee.Email} {info?.Phone} {info?.RoleName}";
+                if (!SearchMatch.Matches(needle, hay)) // 2026-10-29: единый поиск (слова в любом порядке, раскладка)
+                    continue;
+            }
             EmployeeListPanel.Children.Add(BuildEmployeeRow(employee));
+        }
         // 2026-10-19, этап О7: пустой список — подсказка, что делать (раньше было пусто между кнопками и «Сохранить»).
         if (EmployeeListPanel.Children.Count == 0)
         {
@@ -195,6 +210,9 @@ public partial class EmployeesSettingsView : UserControl
             ? Tr.T(" · короткий код — замените на 6 цифр", " · кыска код — 6 цифрага алмаштырыңыз", " · short code — replace with 6 digits",
                 " · kısa kod — 6 haneli ile değiştirin", " · qisqa kod — 6 raqamga almashtiring")
             : "";
+        // 2026-10-28: роль и телефон из последнего списка с сервера (если он уже загружен).
+        var serverInfo = EmployeeDirectory.TryGet(employee.ServerId);
+        var infoLine = string.Join(" · ", new[] { serverInfo?.RoleName, serverInfo?.Phone }.Where(x => !string.IsNullOrWhiteSpace(x)));
         var subtitleText = new TextBlock
         {
             // 2026-10-18: кодов теперь пять (+ приём оплаты долга) — число берётся из EmployeeAccessGate.
@@ -210,7 +228,8 @@ public partial class EmployeesSettingsView : UserControl
                         "Shaxsiy kodlar yo'q — kod bilan amallar yopiq"))
                 : Tr.T($"Личные коды: {filledCount} из {EmployeeAccessGate.ActionCount}", $"Жеке коддор: {filledCount} / {EmployeeAccessGate.ActionCount}",
                     $"Personal codes: {filledCount} of {EmployeeAccessGate.ActionCount}", $"Kişisel kodlar: {filledCount} / {EmployeeAccessGate.ActionCount}",
-                    $"Shaxsiy kodlar: {filledCount} / {EmployeeAccessGate.ActionCount}")) + shortNote,
+                    $"Shaxsiy kodlar: {filledCount} / {EmployeeAccessGate.ActionCount}")) + shortNote
+                + (infoLine.Length > 0 ? "\n" + infoLine : ""),
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
         };
@@ -244,7 +263,23 @@ public partial class EmployeesSettingsView : UserControl
             async System.Threading.Tasks.Task DeleteOnServer()
             {
                 var authApi = AuthApi ?? throw new System.InvalidOperationException("API недоступен.");
-                await authApi.DeleteEmployeeAsync(employee.ServerId!);
+                // 2026-10-28, аудит: нельзя удалить самого себя (вошедшего) и владельца — иначе магазин остаётся без входа.
+                var me = NurMarketKassa.PosApp.CurrentUserId;
+                if (!string.IsNullOrWhiteSpace(me) && string.Equals(employee.ServerId, me, System.StringComparison.OrdinalIgnoreCase))
+                    throw new ApiException(Tr.T("Нельзя удалить сотрудника, под которым вы сейчас вошли.", "Азыр кирген кызматкериңизди өчүрүүгө болбойт.",
+                        "You cannot delete the employee you are signed in as.", "Şu anda giriş yaptığınız personeli silemezsiniz.", "Hozir kirgan xodimingizni o'chirib bo'lmaydi."), 409);
+                if (string.Equals(EmployeeDirectory.TryGet(employee.ServerId)?.RoleCode, "owner", System.StringComparison.OrdinalIgnoreCase))
+                    throw new ApiException(Tr.T("Владельца магазина удалить нельзя.", "Дүкөндүн ээсин өчүрүүгө болбойт.", "The store owner cannot be deleted.",
+                        "Mağaza sahibi silinemez.", "Do'kon egasini o'chirib bo'lmaydi."), 409);
+                try
+                {
+                    await authApi.DeleteEmployeeAsync(employee.ServerId!);
+                }
+                catch (ApiException ex) when (ex.StatusCode is 400 or 403 or 404 or 429 or >= 500)
+                {
+                    throw new ApiException(EmployeeApiMessages.Describe(ex), ex.StatusCode, ex.Payload);
+                }
+                ConsultantDirectory.Forget();
             }
 
             // 2026-10-18, повторное ревью: правка карточки повышает версию списка (облако не вернёт старое).
@@ -313,8 +348,27 @@ public partial class EmployeesSettingsView : UserControl
                 "Xodim kassada va saytda nima qila oladi"));
             AutomationProperties.SetName(accessButton, accessText + ": " + nameText.Text);
             accessButton.Click += (_, _) => _ = OpenAccessEditorAsync(employee);
-            Grid.SetColumn(accessButton, 1);
-            outer.Children.Add(accessButton);
+            // 2026-10-28: «Данные» — имя, телефон, номер, роль сотрудника (PATCH только изменённых полей).
+            var dataText = Tr.T("Данные", "Маалымат", "Details", "Bilgiler", "Ma'lumot");
+            var dataButton = new Button
+            {
+                Content = dataText,
+                Classes = { "SettingsCard" },
+                FontSize = 13,
+                FontWeight = Avalonia.Media.FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Margin = new Avalonia.Thickness(8, 0, 0, 0),
+                Padding = new Avalonia.Thickness(16, 0),
+            };
+            AutomationProperties.SetName(dataButton, dataText + ": " + nameText.Text);
+            dataButton.Click += (_, _) => _ = OpenDataEditorAsync(employee);
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+            buttons.Children.Add(dataButton);
+            buttons.Children.Add(accessButton);
+            Grid.SetColumn(buttons, 1);
+            outer.Children.Add(buttons);
         }
         else
         {
@@ -389,7 +443,16 @@ public partial class EmployeesSettingsView : UserControl
 
         try
         {
-            await authApi.UpdateEmployeeAccessAsync(employee.ServerId, dialog.AccessFlags);
+            // 2026-10-28: на сервер уходят только флаги, которые владелец изменил в окне (раньше - все 23: правка
+            // с другого устройства затиралась старым значением).
+            var changed = dialog.AccessFlags.ChangedFields(match.Access);
+            if (changed.Count == 0)
+            {
+                ShowLoadStatus(Tr.T("Доступы не менялись.", "Укуктар өзгөргөн жок.", "Permissions unchanged.", "Erişimler değişmedi.", "Huquqlar o'zgarmadi."), isError: false);
+                return;
+            }
+            await authApi.PatchEmployeeAsync(employee.ServerId, changed.ToDictionary(kv => kv.Key, kv => (object?)kv.Value));
+            ConsultantDirectory.Forget();
             ShowLoadStatus(
                 Tr.T($"Доступы «{employee.Name}» обновлены.", $"«{employee.Name}» укуктары жаңыртылды.",
                     $"Permissions for “{employee.Name}” updated.", $"«{employee.Name}» için erişimler güncellendi.",
@@ -398,7 +461,63 @@ public partial class EmployeesSettingsView : UserControl
         }
         catch (ApiException ex)
         {
-            ShowLoadStatus(ex.Message, isError: true);
+            ShowLoadStatus(EmployeeApiMessages.Describe(ex), isError: true);
+        }
+    }
+
+    /// <summary>2026-10-28: «Данные сотрудника» - свежая карточка с сервера, форма, PATCH только изменённых полей.</summary>
+    private async System.Threading.Tasks.Task OpenDataEditorAsync(EmployeeAccessCode employee)
+    {
+        var authApi = AuthApi;
+        if (authApi is null || employee.ServerId is null)
+            return;
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        EmployeeInfoDto? match;
+        try
+        {
+            match = (await authApi.GetEmployeesAsync())?.FirstOrDefault(e => e.Id == employee.ServerId);
+        }
+        catch (ApiException ex)
+        {
+            ShowLoadStatus(EmployeeApiMessages.Describe(ex), isError: true);
+            return;
+        }
+        if (match is null)
+        {
+            ShowLoadStatus(EmployeeApiMessages.Describe(new ApiException("", 404)), isError: true);
+            return;
+        }
+
+        var dialog = new EditEmployeeDialog(match, _roles);
+        if (PosDialogHost.Show(dialog, owner) != true)
+            return;
+        if (dialog.Changes.Count == 0)
+        {
+            ShowLoadStatus(Tr.T("Данные не менялись.", "Маалымат өзгөргөн жок.", "Nothing changed.", "Bilgiler değişmedi.", "Ma'lumot o'zgarmadi."), isError: false);
+            return;
+        }
+
+        try
+        {
+            var updated = await authApi.PatchEmployeeAsync(employee.ServerId, dialog.Changes);
+            // Имя в списке кассы - по ответу сервера (или по новым имени и фамилии).
+            var newName = updated?.FullName;
+            if (string.IsNullOrWhiteSpace(newName) && (dialog.Changes.ContainsKey("first_name") || dialog.Changes.ContainsKey("last_name")))
+                newName = $"{dialog.Changes.GetValueOrDefault("first_name") ?? match.FirstName} {dialog.Changes.GetValueOrDefault("last_name") ?? match.LastName}".Trim();
+            if (!string.IsNullOrWhiteSpace(newName) && newName != employee.Name)
+            {
+                employee.Name = newName;
+                EmployeeAccessGate.MarkCodesChanged();
+                UserPreferences.Instance.SaveToDisk();
+            }
+            ConsultantDirectory.Forget();
+            RefreshList();
+            ShowLoadStatus(Tr.T($"Данные «{employee.Name}» обновлены.", $"«{employee.Name}» маалыматы жаңыртылды.", $"Details of “{employee.Name}” updated.",
+                $"«{employee.Name}» bilgileri güncellendi.", $"«{employee.Name}» ma'lumotlari yangilandi."), isError: false);
+        }
+        catch (ApiException ex)
+        {
+            ShowLoadStatus(EmployeeApiMessages.Describe(ex), isError: true);
         }
     }
 
@@ -434,7 +553,13 @@ public partial class EmployeesSettingsView : UserControl
             if (authApi is null)
                 return;
 
-            var created = await authApi.CreateEmployeeAsync(dialog.Email, dialog.FirstName, dialog.LastName, dialog.RoleId, dialog.AccessFlags);
+            var extra = new Dictionary<string, object?>();
+            if (dialog.Phone.Length > 0)
+                extra["phone_number"] = dialog.Phone;
+            if (dialog.TrackNumber.Length > 0)
+                extra["track_number"] = dialog.TrackNumber;
+            var created = await authApi.CreateEmployeeWithExtrasAsync(dialog.Email, dialog.FirstName, dialog.LastName, dialog.RoleId, dialog.AccessFlags, extra);
+            ConsultantDirectory.Forget();
             var name = created?.FullName ?? $"{dialog.FirstName} {dialog.LastName}".Trim();
             UserPreferences.Instance.EmployeeAccessCodes.Add(new EmployeeAccessCode
             {
@@ -464,11 +589,11 @@ public partial class EmployeesSettingsView : UserControl
         {
             ShowLoadStatus(
                 Tr.T(
-                    $"Не удалось создать сотрудника на сервере: {ex.Message}",
-                    $"Кызматкерди серверде түзүү мүмкүн болгон жок: {ex.Message}",
-                    $"Couldn't create the employee on the server: {ex.Message}",
-                    $"Personel sunucuda oluşturulamadı: {ex.Message}",
-                    $"Xodimni serverda yaratib bo'lmadi: {ex.Message}"),
+                    $"Не удалось создать сотрудника на сервере: {EmployeeApiMessages.Describe(ex)}",
+                    $"Кызматкерди серверде түзүү мүмкүн болгон жок: {EmployeeApiMessages.Describe(ex)}",
+                    $"Couldn't create the employee on the server: {EmployeeApiMessages.Describe(ex)}",
+                    $"Personel sunucuda oluşturulamadı: {EmployeeApiMessages.Describe(ex)}",
+                    $"Xodimni serverda yaratib bo'lmadi: {EmployeeApiMessages.Describe(ex)}"),
                 isError: true);
         }
         finally
@@ -679,10 +804,49 @@ public partial class EmployeesSettingsView : UserControl
             IsVisible = !IsOwnerRole(role),
         };
         AutomationProperties.SetName(deleteButton, Tr.T("Удалить роль", "Ролду өчүрүү", "Delete role", "Rolü sil", "Rolni o'chirish") + " " + (role.Name ?? ""));
+        // 2026-10-28: «Изменить» - переименовать роль (PATCH users/roles/custom/{id}/).
+        var renameButton = new Button
+        {
+            Content = Tr.T("Изменить", "Өзгөртүү", "Rename", "Düzenle", "O'zgartirish"),
+            Classes = { "sec-outline" },
+            MinHeight = 32,
+            FontSize = 12.5,
+            Margin = new Avalonia.Thickness(0, 0, 8, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            IsVisible = !IsOwnerRole(role) && role.Id != null,
+        };
+        AutomationProperties.SetName(renameButton, Tr.T("Изменить роль", "Ролду өзгөртүү", "Rename role", "Rolü düzenle", "Rolni o'zgartirish") + " " + (role.Name ?? ""));
+        renameButton.Click += async (_, _) =>
+        {
+            var dlg = new SimpleInputDialog(
+                Tr.T("Изменить роль", "Ролду өзгөртүү", "Rename role", "Rolü düzenle", "Rolni o'zgartirish"),
+                Tr.T($"Новое название роли «{role.Name}»", $"«{role.Name}» ролунун жаңы аты", $"New name for the role “{role.Name}”", $"«{role.Name}» rolünün yeni adı", $"«{role.Name}» rolining yangi nomi"),
+                confirmText: Tr.T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"));
+            if (PosDialogHost.Show(dlg, TopLevel.GetTopLevel(this) as Window) != true)
+                return;
+            var newName = dlg.Result.Trim();
+            if (newName.Length == 0 || newName == role.Name || AuthApi is not { } api || role.Id is null)
+                return;
+            renameButton.IsEnabled = false;
+            try
+            {
+                var updated = await api.UpdateRoleAsync(role.Id, newName);
+                role.Name = updated?.Name ?? newName;
+                RefreshRolesList();
+            }
+            catch (System.Exception ex)
+            {
+                ShowRolesStatus(EmployeeApiMessages.DescribeRole(ex), isError: true);
+                renameButton.IsEnabled = true;
+            }
+        };
+        var roleButtons = new StackPanel { Orientation = Orientation.Horizontal };
+        roleButtons.Children.Add(renameButton);
+        roleButtons.Children.Add(deleteButton);
         Grid.SetColumn(nameText, 0);
-        Grid.SetColumn(deleteButton, 1);
+        Grid.SetColumn(roleButtons, 1);
         row.Children.Add(nameText);
-        row.Children.Add(deleteButton);
+        row.Children.Add(roleButtons);
 
         deleteButton.Click += async (_, _) =>
         {
@@ -712,19 +876,36 @@ public partial class EmployeesSettingsView : UserControl
                 if (authApi is null)
                     return;
 
+                // 2026-10-28: роль, назначенная сотрудникам, сервер не удаляет - сверяем заранее и называем, кому она назначена.
+                var assigned = (await authApi.GetEmployeesAsync())?.Where(x => x.RoleId == role.Id).ToList();
+                if (assigned is { Count: > 0 })
+                {
+                    var who = string.Join(", ", assigned.Take(5).Select(x => x.FullName ?? x.Email ?? "?")) + (assigned.Count > 5 ? "…" : "");
+                    ShowRolesStatus(
+                        Tr.T($"Роль «{roleName}» назначена сотрудникам ({assigned.Count}): {who}. Сначала переназначьте им другую роль (кнопка «Данные» у сотрудника), потом удалите роль.",
+                            $"«{roleName}» ролу кызматкерлерге дайындалган ({assigned.Count}): {who}. Адегенде аларга башка ролду дайындаңыз (кызматкердеги «Маалымат» баскычы), анан ролду өчүрүңүз.",
+                            $"The role “{roleName}” is assigned to {assigned.Count} employee(s): {who}. Reassign them to another role first (the employee's “Details” button), then delete the role.",
+                            $"«{roleName}» rolü {assigned.Count} personele atanmış: {who}. Önce onlara başka rol atayın (personelin «Bilgiler» düğmesi), sonra rolü silin.",
+                            $"«{roleName}» roli {assigned.Count} ta xodimga biriktirilgan: {who}. Avval ularga boshqa rol biriktiring (xodimning «Ma'lumot» tugmasi), keyin rolni o'chiring."),
+                        isError: true);
+                    deleteButton.IsEnabled = true;
+                    return;
+                }
+
                 await authApi.DeleteRoleAsync(role.Id);
                 _roles.Remove(role);
                 RefreshRolesList();
             }
             catch (System.Exception ex)
             {
+                var why = EmployeeApiMessages.DescribeRole(ex, deleting: true);
                 ShowRolesStatus(
                     Tr.T(
-                        $"Не удалось удалить роль: {ex.Message}",
-                        $"Ролду өчүрүү мүмкүн болгон жок: {ex.Message}",
-                        $"Couldn't delete the role: {ex.Message}",
-                        $"Rol silinemedi: {ex.Message}",
-                        $"Rolni o'chirib bo'lmadi: {ex.Message}"),
+                        $"Не удалось удалить роль: {why}",
+                        $"Ролду өчүрүү мүмкүн болгон жок: {why}",
+                        $"Couldn't delete the role: {why}",
+                        $"Rol silinemedi: {why}",
+                        $"Rolni o'chirib bo'lmadi: {why}"),
                     isError: true);
                 deleteButton.IsEnabled = true;
             }
@@ -776,11 +957,11 @@ public partial class EmployeesSettingsView : UserControl
         {
             ShowRolesStatus(
                 Tr.T(
-                    $"Не удалось создать роль: {ex.Message}",
-                    $"Ролду түзүү мүмкүн болгон жок: {ex.Message}",
-                    $"Couldn't create the role: {ex.Message}",
-                    $"Rol oluşturulamadı: {ex.Message}",
-                    $"Rolni yaratib bo'lmadi: {ex.Message}"),
+                    $"Не удалось создать роль: {EmployeeApiMessages.DescribeRole(ex)}",
+                    $"Ролду түзүү мүмкүн болгон жок: {EmployeeApiMessages.DescribeRole(ex)}",
+                    $"Couldn't create the role: {EmployeeApiMessages.DescribeRole(ex)}",
+                    $"Rol oluşturulamadı: {EmployeeApiMessages.DescribeRole(ex)}",
+                    $"Rolni yaratib bo'lmadi: {EmployeeApiMessages.DescribeRole(ex)}"),
                 isError: true);
         }
         finally

@@ -128,10 +128,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             return;
         }
 
-        var matches = CatalogCacheService.Products
-            .Where(p => p.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-                        || (p.Barcode ?? "").Contains(query, StringComparison.OrdinalIgnoreCase)
-                        || (p.Article ?? "").Contains(query, StringComparison.OrdinalIgnoreCase))
+        // 2026-10-29: единый поиск (слова в любом порядке, ё=е, раскладка/транслит «Asu»→«Асу»).
+        var matches = NurMarketKassa.Core.Application.SearchMatch.Products(CatalogCacheService.Products, query)
             // 2026-10-24, ТЗ «Склад» (Б1): при выбранном поставщике его товары (приходили раньше) идут первыми — со значком «поставщик».
             .OrderBy(p => IsSupplierProduct(p.Id) ? 0 : 1)
             .ThenBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
@@ -150,7 +148,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             return;
 
         if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'),
-                System.Globalization.NumberStyles.Any,
+                System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowLeadingWhite | System.Globalization.NumberStyles.AllowTrailingWhite,
                 System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
             quantity = 1;
 
@@ -217,7 +215,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         // скана в HandleScanInsideField), и только потом обрабатывается — введённое «Принято»/цена не теряется.
         ReceivingGrid.CommitEdit();
         if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'),
-                System.Globalization.NumberStyles.Any,
+                System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowLeadingWhite | System.Globalization.NumberStyles.AllowTrailingWhite,
                 System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
             quantity = 1;
 
@@ -293,6 +291,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         // 2026-10-24: колонки — по имени (RcvColBarcode), а не по номеру: «Наценка %» и «Изменение» сдвинули номера.
         if (ReferenceEquals(e.Column, RcvColBarcode) && line.Source != NurMarketKassa.Models.ReceivingSource.Unknown)
             e.Cancel = true;
+        _rcvBarcodeEditing = !e.Cancel && ReferenceEquals(e.Column, RcvColBarcode); // 2026-10-29: в правке штрихкода — только цифры (BarcodeInput)
     }
 
     /// <summary>Правка с одного нажатия. DataGrid входит в правку только по второму нажатию на уже
@@ -322,7 +321,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     private void ReceivingAddNew_Click(object? sender, RoutedEventArgs e)
     {
         if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'),
-                System.Globalization.NumberStyles.Any,
+                System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowLeadingWhite | System.Globalization.NumberStyles.AllowTrailingWhite,
                 System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
             quantity = 1;
 
@@ -333,6 +332,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             Quantity = quantity,
         };
         ReceivingGrid.CommitEdit();
+        line.EnableAutoSale(); // 2026-10-28: новый товар вручную — цена продажи сразу по наценке, как только введена закупка
         _viewModel.ReceivingLines.Insert(0, line); // 2026-10-24, ТЗ «Склад» (Б1): новая строка сверху
         ReceivingQuantityBox.Text = "1";
         RefreshReceivingSummary();
@@ -340,8 +340,13 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         Dispatcher.UIThread.Post(() => BeginReceivingEdit(line, RcvColName), DispatcherPriority.Background);
     }
 
-    private void ReceivingGrid_CellEditEnded(object? sender, DataGridCellEditEndedEventArgs e) =>
+    private void ReceivingGrid_CellEditEnded(object? sender, DataGridCellEditEndedEventArgs e)
+    {
+        // 2026-10-28 (ДЕНЬГИ): пока ячейка правилась, в ней жил сырой набранный текст («100.», «100,6»); по выходу — нормальный показ («100,60»).
+        if (e.Row?.DataContext is NurMarketKassa.Models.ReceivingLineVm line)
+            line.CommitText();
         RefreshReceivingSummary();
+    }
 
     private async void ReceivingPickFromList_Click(object? sender, RoutedEventArgs e)
     {
@@ -351,7 +356,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             return;
 
         if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'),
-                System.Globalization.NumberStyles.Any,
+                System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowLeadingWhite | System.Globalization.NumberStyles.AllowTrailingWhite,
                 System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
             quantity = 1;
 
@@ -389,27 +394,39 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     /// создано. Нужен до проведения — после него правки уже не отменить.</summary>
     private void RefreshReceivingSummary()
     {
-        var lines = _viewModel.ReceivingLines;
-        var created = lines.Count(l => l.IsNew);
+        // 2026-10-29, спека Fable: итоговая панель — Позиций · Штук · Сумма закупки · Выручка · Прибыль · Средняя наценка · флаги. Подписи (5 языков) — тут же.
+        var t = ReceivingPricing.Totals(_viewModel.ReceivingLines);
+        var som = " " + Tr.T("сом", "сом", "som", "som", "so'm");
+        SumPosCap.Text = Tr.T("Позиций", "Позициялар", "Items", "Kalem", "Pozitsiyalar");
+        SumQtyCap.Text = Tr.T("Штук", "Даана", "Pieces", "Adet", "Dona");
+        SumPurchaseCap.Text = Tr.T("Сумма закупки", "Сатып алуу суммасы", "Purchase total", "Alış tutarı", "Xarid summasi");
+        SumSaleCap.Text = Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum");
+        SumProfitCap.Text = Tr.T("Прибыль", "Пайда", "Profit", "Kâr", "Foyda");
+        SumMarkupCap.Text = Tr.T("Средняя наценка", "Орточо кошумча", "Average markup", "Ortalama kâr", "O'rtacha ustama");
+        SumPos.Text = t.Positions.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        SumQty.Text = t.Quantity.ToString("0.###", RuCulture);
+        SumPurchase.Text = MoneyText.Amount(t.Purchase) + som;
+        SumSale.Text = MoneyText.Amount(t.Sale) + som;
+        SumProfit.Text = (t.Profit >= 0 ? "+" : "−") + MoneyText.Amount(Math.Abs(t.Profit)) + som;
+        SumProfit.Classes.Set("ok", t.Profit >= 0);
+        SumProfit.Classes.Set("neg", t.Profit < 0);
+        SumMarkup.Text = t.AvgMarkup is { } avg ? avg.ToString("0.#", RuCulture) + " %" : "—";
 
-        var text = Tr.T("Позиций", "Позициялар", "Items", "Kalem", "Pozitsiyalar") + $": {lines.Count}"
-            + "   ·   " + Tr.T("единиц", "бирдик", "units", "adet", "birliklar")
-            + $": {lines.Sum(l => l.Quantity):0.###}"
-            + "   ·   " + Tr.T("на сумму", "суммасы", "total", "tutar", "summa")
-            // 2026-10-19, О9: сумма с разрядами («14 903», было «14903»).
-            + $": {lines.Sum(l => l.LineTotal).ToString("#,0.##", RuCulture)} " + Tr.T("сом", "сом", "som", "som", "so'm");
-
-        if (created > 0)
-            text += "   ·   " + Tr.T("новых товаров", "жаңы товар", "new products", "yeni ürün", "yangi mahsulotlar")
-                + $": {created}";
-
-        // 2026-10-24, ТЗ «Склад» (Б0/Б1): «подорожало: N» и кнопка «Обновить цены продажи (N)».
-        var raised = ReceivingPricing.CountRaised(lines);
-        if (raised > 0)
-            text += "   ·   " + Tr.T("подорожало", "кымбаттады", "price went up", "zamlandı", "qimmatlashdi") + $": {raised}";
+        SumFlagLowBox.IsVisible = t.LowCount > 0;
+        // Короткие флаги (рядом с KPI и кнопкой «Провести» места мало); полный смысл — в подсказке строки («⚠ маржа 8 % — мало», «⛔ ниже закупки»).
+        SumFlagLow.Text = Tr.T($"⚠ {t.LowCount} с малой маржой", $"⚠ аз маржа: {t.LowCount}", $"⚠ {t.LowCount} low margin", $"⚠ düşük marj: {t.LowCount}", $"⚠ kam marja: {t.LowCount}");
+        ToolTip.SetTip(SumFlagLowBox, Tr.T("Строки, где маржа меньше 10 %. Проводить можно.", "Маржасы 10 %дан аз саптар. Өткөрүүгө болот.", "Lines with a margin below 10%. You can still post.", "Marjı %10'un altındaki satırlar. Kaydedebilirsiniz.", "Marjasi 10 % dan kam qatorlar. O'tkazish mumkin."));
+        SumFlagBelowBox.IsVisible = t.BelowCount > 0;
+        SumFlagBelow.Text = Tr.T($"⛔ {t.BelowCount} ниже закупки", $"⛔ сатып алуудан төмөн: {t.BelowCount}", $"⛔ {t.BelowCount} below cost", $"⛔ alışın altında: {t.BelowCount}", $"⛔ xariddan past: {t.BelowCount}");
+        ToolTip.SetTip(SumFlagBelowBox, Tr.T("Цена продажи ниже закупки — «Провести» спросит подтверждение.", "Сатуу баасы сатып алуудан төмөн — «Өткөрүү» ырастоо суранат.", "The sale price is below cost — “Post” will ask for confirmation.", "Satış fiyatı alışın altında — «Kaydet» onay isteyecek.", "Sotuv narxi xariddan past — «O'tkazish» tasdiq so'raydi."));
+        // 2026-10-24, ТЗ «Склад» (Б0/Б1): «подорожало: N» и кнопка «Обновить цены продажи (N)»; новые товары — тоже мелкой подписью рядом с флагами.
+        var extra = new List<string>();
+        if (t.NewCount > 0)
+            extra.Add(Tr.T("новых товаров", "жаңы товар", "new products", "yeni ürün", "yangi mahsulotlar") + $": {t.NewCount}");
+        if (t.RaisedCount > 0)
+            extra.Add(Tr.T("подорожало", "кымбаттады", "price went up", "zamlandı", "qimmatlashdi") + $": {t.RaisedCount}");
         RefreshReceivingRaiseButton();
-
-        ReceivingSummaryText.Text = text;
+        ReceivingSummaryText.Text = string.Join("  ·  ", extra);
     }
 
     /// <summary>Строка журнала документов перемещения. Отдельный тип, потому что DataGrid
@@ -685,7 +702,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
 
         var rows = movements
             .Where(m => search.Length == 0 ||
-                        m.ProductName.Contains(search, StringComparison.OrdinalIgnoreCase))
+                        NurMarketKassa.Core.Application.SearchMatch.Matches(search, m.ProductName))
             .Select(m => new MovementRow
             {
                 WhenText = m.At.ToString("dd.MM.yyyy HH:mm"),
@@ -1213,7 +1230,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         await dialog.ShowDialog(this).ConfigureAwait(true);
     }
 
-    private void BulkImport_Click(object? sender, RoutedEventArgs e) => BulkImportWindow.Open(this);
+    private void BulkImport_Click(object? sender, RoutedEventArgs e) => BulkImportWizardWindow.Open(this);
 
     private async void BulkPriceTag_Click(object? sender, RoutedEventArgs e)
     {

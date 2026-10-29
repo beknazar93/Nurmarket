@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Globalization;
 using System.Text.Json;
 using Avalonia;
@@ -213,7 +214,7 @@ public sealed class ExchangeWindow : Window
         try
         {
             return CatalogCacheService.Products
-                .Where(p => !string.IsNullOrWhiteSpace(p.Title) && p.Title.Contains(text, StringComparison.CurrentCultureIgnoreCase))
+                .Where(p => !string.IsNullOrWhiteSpace(p.Title) && SearchMatch.Matches(text, p.Title, p.Barcode, p.Article)) // 2026-10-29: единый поиск
                 .OrderBy(p => p.Title).Take(8).ToList();
         }
         catch

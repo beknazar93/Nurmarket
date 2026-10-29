@@ -8,6 +8,9 @@ import '../../core/api/api_client.dart';
 import '../../core/providers.dart';
 import '../../core/sync/outbox_meta.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/ui/infographic/chart_logic.dart' show percentText;
+import '../../core/ui/infographic/infographic_data.dart' show concentration, topShares;
+import '../../core/ui/infographic/infographics.dart';
 import '../../core/util/ui.dart';
 import '../admin/admin_repository.dart' show DeletionRow;
 import '../admin/admin_screens.dart' show adminRepoProvider;
@@ -351,6 +354,11 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: l.clientSearch),
                   ),
+                  // 2026-10-29 (инфографика, спека Fable): концентрация долга вместо «давности» — сервер не присылает даты долгов.
+                  if (q.isEmpty && (_rows ?? []).length > 1) ...[
+                    const SizedBox(height: 12),
+                    _DebtConcentration(_rows!),
+                  ],
                   const SizedBox(height: 8),
                   if (rows.isEmpty)
                     Padding(
@@ -902,6 +910,43 @@ class _AcceptedBanner extends StatelessWidget {
           Icon(Icons.check_circle_rounded, color: pal.success),
           const SizedBox(width: 10),
           Expanded(child: Text(text, style: TextStyle(color: pal.success, fontWeight: FontWeight.w800, fontSize: 16))),
+        ],
+      ),
+    );
+  }
+}
+
+/// 2026-10-29 (инфографика, спека Fable): «Кто должен больше всех» — доля трёх крупнейших в общем долге, полоса и топ-5.
+class _DebtConcentration extends StatelessWidget {
+  final List<Debtor> rows;
+  const _DebtConcentration(this.rows);
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pal = context.pal;
+    final total = rows.fold<double>(0, (a, d) => a + d.debt);
+    final share = concentration([for (final d in rows) d.debt]);
+    final top = topShares([for (final d in rows) (d.name.isEmpty ? d.phone : d.name, d.debt)], n: 5);
+    final colors = ChartColors.assign([for (final r in top) r.key]);
+    if (top.isEmpty) return const SizedBox.shrink();
+    return InfoCard(
+      title: l.infDebtConcTitle,
+      subtitle: l.som,
+      how: l.infHowDebts,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l.infDebtConcLine(percentText(share, 1).replaceAll(' %', '')), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Semantics(
+            container: true,
+            label: '${l.infDebtConcLine(percentText(share, 1).replaceAll(' %', ''))}; ${l.debtorsTotal}: ${money(total)} ${l.som}',
+            child: InfoProgressBar(value: share, max: 1, color: pal.danger),
+          ),
+          const SizedBox(height: 10),
+          TopBars(rows: [for (var i = 0; i < top.length; i++) TopBarRow(top[i].key, top[i].value, colors[i])], unit: l.som),
+          const SizedBox(height: 8),
+          InfoNote(l.infDebtAgeNote),
         ],
       ),
     );

@@ -27,6 +27,42 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         _catalogApi = catalogApi;
         _settings = settings;
         _auditDb = auditDb;
+        // 2026-10-29: «Обновить» (SyncCenter.ForceSyncAllAsync) и сигнал «в чеках компании что-то изменилось» (RemoteSalesPulse) — тоже сюда.
+        SyncCenter.CatalogRefresher = ForceRefreshAsync;
+        RemoteSalesPulse.Detected += OnRemoteSalesDetected;
+    }
+
+    /// <summary>2026-10-29: принудительное обновление каталога и остатков: лента изменений (если есть), затем полная загрузка.
+    /// Полная загрузка идёт в фоне и UI не блокирует (запись плиток — через UiDispatcherHolder).</summary>
+    private async Task ForceRefreshAsync(CancellationToken ct)
+    {
+        EnsureFeedLoop();
+        if (_feed is { } feed && !OfflineModeHelper.SellLocally && !IsFullSyncRunning())
+        {
+            var generation = Volatile.Read(ref _accountGeneration);
+            var tick = await feed.TickAsync(() => generation == Volatile.Read(ref _accountGeneration) && !IsFullSyncRunning(), ct).ConfigureAwait(false);
+            if (tick.Applied)
+            {
+                TryLoadFromDatabase();
+                CatalogCacheService.NotifyCatalogChanged();
+            }
+        }
+
+        var result = await SyncCatalogFullAsync(ct).ConfigureAwait(false);
+        if (result.Success)
+            SyncCenter.RecordSuccess("catalog");
+    }
+
+    /// <summary>2026-10-29: в чеках компании появилось изменение (чужая продажа, возврат, отмена) — остатки перечитываются полной загрузкой, но
+    /// не чаще <see cref="SyncCenter.StockReloadMinSpacing"/> и не для «своей» продажи (остаток здесь уже уменьшен сразу).</summary>
+    private void OnRemoteSalesDetected(bool probablyOwn)
+    {
+        if (probablyOwn || OfflineModeHelper.SellLocally || IsFullSyncRunning())
+            return;
+        if (DateTime.UtcNow - _lastSuccessfulSyncUtc < SyncCenter.StockReloadMinSpacing)
+            return;
+        PosLogger.Log("SYNC: чужая продажа/возврат — перечитываю остатки каталога.", "SYNC");
+        _ = StartFullSync(CancellationToken.None, knownVersion: null);
     }
 
     public bool TryLoadFromDatabase()
@@ -91,6 +127,10 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
     private CatalogFeedSync? _feed;
     private int _feedStarted;
     private long _lastFeedFullSyncTicks;
+    private long _lastFeedOkTicks;
+
+    /// <summary>2026-10-29: лента отвечала (304 или изменения) в последние 90 с — «версия каталога» и полная загрузка по изменению версии не нужны.</summary>
+    private bool FeedHealthy => Interlocked.Read(ref _lastFeedOkTicks) is var t && t != 0 && DateTime.UtcNow.Ticks - t < TimeSpan.FromSeconds(90).Ticks;
 
     private void EnsureFeedLoop()
     {
@@ -103,8 +143,10 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             feedApi,
             () => _settings.ApiBaseUrl,
             () => UserPreferences.Instance.LastCatalogUserKey ?? "",
-            // Остаток из ленты — только когда нет локальной сети касс и неотправленных офлайн-чеков (иначе остаток «откатится»).
-            () => !UserPreferences.Instance.LanSyncEnabled && OfflinePendingSalesStore.PendingCount == 0);
+            // 2026-10-29: остаток из ленты решается по каждому товару (FeedStockGuard: нет неотправленных чеков/продаж соседей/недавних
+            // правок остатка на этом ПК), а не одним выключателем на весь каталог.
+            () => true,
+            FeedStockGuard.Create);
         _ = Task.Run(FeedLoopAsync);
     }
 
@@ -120,7 +162,8 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         {
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(ServerPriceContract.FeedIntervalSeconds)).ConfigureAwait(false);
+                // 2026-10-29: разброс ±15 % — несколько касс магазина не бьют в сервер в одну секунду.
+                await Task.Delay(SyncCenter.Jitter(TimeSpan.FromSeconds(ServerPriceContract.FeedIntervalSeconds))).ConfigureAwait(false);
                 var feed = _feed;
                 if (feed is null || !ServerPriceContract.CatalogFeedEnabled
                     || OfflineModeHelper.SellLocally || ServerOutageMonitor.IsOutage || IsFullSyncRunning())
@@ -128,6 +171,12 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
 
                 var generation = Volatile.Read(ref _accountGeneration);
                 var result = await feed.TickAsync(() => generation == Volatile.Read(ref _accountGeneration) && !IsFullSyncRunning()).ConfigureAwait(false);
+                if (result.Applied || result.Note == "304")
+                {
+                    Interlocked.Exchange(ref _lastFeedOkTicks, DateTime.UtcNow.Ticks);
+                    SyncCenter.RecordSuccess("feed");
+                }
+
                 if (result.Applied && generation == Volatile.Read(ref _accountGeneration))
                 {
                     // Плитки, поиск и «Склад» берут товары из базы: перечитать и сказать экранам.
@@ -210,6 +259,11 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         // Полной загрузки в этом запуске ещё не было (старт, смена аккаунта) или она была давно — всё.
         if (DateTime.UtcNow - lastFull >= FullReloadInterval)
             return await StartFullSync(cancellationToken, knownVersion: null).ConfigureAwait(false);
+
+        // 2026-10-29: лента изменений отвечает — изменения товаров уже в базе; запрос «версии» (раз в 2 мин) и полная загрузка по смене версии
+        // (каждая правка цены/товара меняла версию и гоняла весь каталог) не нужны. Страховка — полная загрузка раз в 15–30 мин (выше).
+        if (FeedHealthy)
+            return CatalogSyncResult.Ok(0, 0, 0);
 
         CatalogVersionInfo? remote;
         try
@@ -298,6 +352,16 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                 return CatalogSyncResult.Failed("Аккаунт сменился во время загрузки каталога.");
             }
 
+            // 2026-10-29: товар, остаток которого менялся на этом ПК за последние 90 с (своя продажа/возврат/ревизия), — остаток в снимке мог быть
+            // взят до того, как сервер учёл операцию: оставляем локальный (иначе «остаток откатывается» после продажи).
+            foreach (var vm in newList)
+            {
+                if (vm.Id is null || !StockSyncService.WasLocallyTouched(vm.Id, FeedStockGuard.LocalTouchWindow))
+                    continue;
+                if (LocalProductRepository.Instance.LoadTileCopy(vm.Id) is { } keep)
+                    StockSyncService.ApplyQuantityToTile(vm, keep.Quantity, vm.MustWeigh);
+            }
+
             // Продажи соседних касс, которых сервер ещё не знает, вычитаются из снимка до записи.
             NurMarketKassa.Services.Lan.LanStockAdjuster.AdjustSnapshot(newList, snapshotStartedUtc);
             var (added, changed, deleted) = LocalProductRepository.Instance.SyncReplaceAllWithDiff(newList);
@@ -333,6 +397,8 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                 _lastSuccessfulSyncUtc = DateTime.UtcNow;
                 _lastSuccessfulResult = okResult;
             }
+
+            SyncCenter.RecordSuccess("catalog");
 
             return okResult;
         }

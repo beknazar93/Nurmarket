@@ -136,12 +136,40 @@ public static class StockSyncService
         PosLogger.Log($"OverlayAgentStock: applied={applied}, map={qtyMap.Count}", "STOCK");
     }
 
+    // 2026-10-29: когда остаток товара последний раз менялся на этом ПК (продажа, возврат, ревизия, приход) — лента каталога
+    // не применяет к такому товару серверный остаток ещё ~90 с (FeedStockGuard): сервер мог не успеть учесть операцию.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> LocalTouches = new(StringComparer.OrdinalIgnoreCase);
+
+    internal static void MarkLocallyTouched(string productId)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+            return;
+        LocalTouches[productId.Trim()] = Environment.TickCount64;
+        Interlocked.Exchange(ref _lastAnyTouch, Environment.TickCount64);
+        if (LocalTouches.Count > 2000)
+            foreach (var kv in LocalTouches.Where(kv => Environment.TickCount64 - kv.Value > 600_000).ToList())
+                LocalTouches.TryRemove(kv.Key, out _);
+    }
+
+    private static long _lastAnyTouch;
+
+    /// <summary>2026-10-29: остаток какого-нибудь товара менялся на этом ПК за последнее время (признак «своя продажа» для RemoteSalesPulse).</summary>
+    public static bool LocalActivityWithin(TimeSpan window)
+    {
+        var at = Interlocked.Read(ref _lastAnyTouch);
+        return at != 0 && Environment.TickCount64 - at < window.TotalMilliseconds;
+    }
+
+    public static bool WasLocallyTouched(string productId, TimeSpan window) =>
+        LocalTouches.TryGetValue(productId, out var at) && Environment.TickCount64 - at < window.TotalMilliseconds;
+
     public static void DecrementLocalStock(string productId, double soldQty)
     {
         if (string.IsNullOrWhiteSpace(productId) || soldQty <= 0)
             return;
 
         var id = productId.Trim();
+        MarkLocallyTouched(id);
         foreach (var vm in CatalogCacheService.Products)
         {
             if (!string.Equals(vm.Id, id, StringComparison.OrdinalIgnoreCase))
@@ -201,6 +229,7 @@ public static class StockSyncService
                 if (!string.Equals(vm.Id, id, StringComparison.OrdinalIgnoreCase))
                     continue;
                 var next = vm.Quantity + qty;
+                MarkLocallyTouched(id);
                 expected[id] = next;
                 ApplyQuantityToTileOnUi(vm, next, vm.MustWeigh);
                 CatalogCacheService.PersistProductStock(id, next, vm.MustWeigh);

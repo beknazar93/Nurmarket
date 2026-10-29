@@ -9973,6 +9973,974 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Проверьте · единица: в накладной «{inv}», у товара «{item}»'**
   String invUnitCheck(String inv, String item);
+
+  /// No description provided for @empAdd.
+  ///
+  /// In ru, this message translates to:
+  /// **'Новый сотрудник'**
+  String get empAdd;
+
+  /// No description provided for @empCard.
+  ///
+  /// In ru, this message translates to:
+  /// **'Карточка сотрудника'**
+  String get empCard;
+
+  /// No description provided for @empSectionData.
+  ///
+  /// In ru, this message translates to:
+  /// **'Данные сотрудника'**
+  String get empSectionData;
+
+  /// No description provided for @empSectionRights.
+  ///
+  /// In ru, this message translates to:
+  /// **'Доступы'**
+  String get empSectionRights;
+
+  /// No description provided for @empFirstName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Имя'**
+  String get empFirstName;
+
+  /// No description provided for @empLastName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Фамилия'**
+  String get empLastName;
+
+  /// No description provided for @empMiddleName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отчество'**
+  String get empMiddleName;
+
+  /// No description provided for @empEmail.
+  ///
+  /// In ru, this message translates to:
+  /// **'Почта (логин для входа)'**
+  String get empEmail;
+
+  /// No description provided for @empPhone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Телефон'**
+  String get empPhone;
+
+  /// No description provided for @empTrack.
+  ///
+  /// In ru, this message translates to:
+  /// **'Номер сотрудника'**
+  String get empTrack;
+
+  /// No description provided for @empRole.
+  ///
+  /// In ru, this message translates to:
+  /// **'Должность'**
+  String get empRole;
+
+  /// No description provided for @empBirth.
+  ///
+  /// In ru, this message translates to:
+  /// **'Дата рождения'**
+  String get empBirth;
+
+  /// No description provided for @empHire.
+  ///
+  /// In ru, this message translates to:
+  /// **'Дата найма'**
+  String get empHire;
+
+  /// No description provided for @empAddress.
+  ///
+  /// In ru, this message translates to:
+  /// **'Адрес'**
+  String get empAddress;
+
+  /// No description provided for @empComment.
+  ///
+  /// In ru, this message translates to:
+  /// **'Комментарий'**
+  String get empComment;
+
+  /// No description provided for @empClearDate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Очистить дату'**
+  String get empClearDate;
+
+  /// No description provided for @empRequired.
+  ///
+  /// In ru, this message translates to:
+  /// **'Заполните поле'**
+  String get empRequired;
+
+  /// No description provided for @empEmailBad.
+  ///
+  /// In ru, this message translates to:
+  /// **'Введите почту полностью, например aibek@mail.kg'**
+  String get empEmailBad;
+
+  /// No description provided for @empPhoneBad.
+  ///
+  /// In ru, this message translates to:
+  /// **'Телефон: от 9 до 15 цифр, можно с «+»'**
+  String get empPhoneBad;
+
+  /// No description provided for @empSaved.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сотрудник сохранён.'**
+  String get empSaved;
+
+  /// No description provided for @empCreated.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сотрудник добавлен.'**
+  String get empCreated;
+
+  /// No description provided for @empNothingChanged.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ничего не изменено.'**
+  String get empNothingChanged;
+
+  /// No description provided for @empSearch.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поиск: имя, почта, телефон'**
+  String get empSearch;
+
+  /// No description provided for @empFilterActive.
+  ///
+  /// In ru, this message translates to:
+  /// **'Работают'**
+  String get empFilterActive;
+
+  /// No description provided for @empFilterDismissed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Уволены'**
+  String get empFilterDismissed;
+
+  /// No description provided for @empDismissedTag.
+  ///
+  /// In ru, this message translates to:
+  /// **'уволен'**
+  String get empDismissedTag;
+
+  /// No description provided for @empCount.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сотрудников: {n}'**
+  String empCount(int n);
+
+  /// No description provided for @empNothingFound.
+  ///
+  /// In ru, this message translates to:
+  /// **'Никого не найдено.'**
+  String get empNothingFound;
+
+  /// No description provided for @empDismiss.
+  ///
+  /// In ru, this message translates to:
+  /// **'Уволить'**
+  String get empDismiss;
+
+  /// No description provided for @empRestore.
+  ///
+  /// In ru, this message translates to:
+  /// **'Восстановить'**
+  String get empRestore;
+
+  /// No description provided for @empDismissAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Уволить {name}? Он больше не сможет войти в программу. Продажи и смены сохранятся.'**
+  String empDismissAsk(String name);
+
+  /// No description provided for @empRestoreAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Восстановить {name}? Он снова сможет войти в программу.'**
+  String empRestoreAsk(String name);
+
+  /// No description provided for @empDismissedDone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сотрудник уволен.'**
+  String get empDismissedDone;
+
+  /// No description provided for @empRestoredDone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сотрудник восстановлен.'**
+  String get empRestoredDone;
+
+  /// No description provided for @empDismissStill.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сервер принял запрос, но сотрудник остался в списке. Удалите его на сайте app.nurcrm.kg.'**
+  String get empDismissStill;
+
+  /// No description provided for @empResetPwd.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сбросить пароль'**
+  String get empResetPwd;
+
+  /// No description provided for @empResetAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сбросить пароль {name}? Старый пароль перестанет работать, новый покажем один раз.'**
+  String empResetAsk(String name);
+
+  /// No description provided for @empPasswordTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Пароль сотрудника'**
+  String get empPasswordTitle;
+
+  /// No description provided for @empPasswordNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Логин: {email}. Пароль показывается один раз — передайте его сотруднику сейчас.'**
+  String empPasswordNote(String email);
+
+  /// No description provided for @empCopy.
+  ///
+  /// In ru, this message translates to:
+  /// **'Копировать пароль'**
+  String get empCopy;
+
+  /// No description provided for @empCopied.
+  ///
+  /// In ru, this message translates to:
+  /// **'Скопировано.'**
+  String get empCopied;
+
+  /// No description provided for @empFeatureMissing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сервер пока не поддерживает это действие.'**
+  String get empFeatureMissing;
+
+  /// No description provided for @empListDenied.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет права «Сотрудники» — список недоступен. Обратитесь к владельцу.'**
+  String get empListDenied;
+
+  /// No description provided for @empErrBad.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сервер не принял данные. Проверьте поля.'**
+  String get empErrBad;
+
+  /// No description provided for @empErrEmail.
+  ///
+  /// In ru, this message translates to:
+  /// **'Эта почта уже занята или записана неверно.'**
+  String get empErrEmail;
+
+  /// No description provided for @empErr403.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет права на это действие. Обратитесь к владельцу.'**
+  String get empErr403;
+
+  /// No description provided for @empErr404.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сотрудник не найден на сервере — обновите список.'**
+  String get empErr404;
+
+  /// No description provided for @empErr409.
+  ///
+  /// In ru, this message translates to:
+  /// **'Такой сотрудник уже есть или данные успели измениться. Обновите список.'**
+  String get empErr409;
+
+  /// No description provided for @empErr429.
+  ///
+  /// In ru, this message translates to:
+  /// **'Слишком много запросов. Подождите минуту и повторите.'**
+  String get empErr429;
+
+  /// No description provided for @empErr5xx.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ошибка сервера. Данные не изменены — повторите позже.'**
+  String get empErr5xx;
+
+  /// No description provided for @rightUsePos.
+  ///
+  /// In ru, this message translates to:
+  /// **'Работа на кассе'**
+  String get rightUsePos;
+
+  /// No description provided for @rightSalaryView.
+  ///
+  /// In ru, this message translates to:
+  /// **'Зарплата: смотреть'**
+  String get rightSalaryView;
+
+  /// No description provided for @rightSalaryEdit.
+  ///
+  /// In ru, this message translates to:
+  /// **'Зарплата: выплачивать'**
+  String get rightSalaryEdit;
+
+  /// No description provided for @rightEmployeesView.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сотрудники: смотреть'**
+  String get rightEmployeesView;
+
+  /// No description provided for @rightEmployeesEdit.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сотрудники: править'**
+  String get rightEmployeesEdit;
+
+  /// No description provided for @rightsReadOnly.
+  ///
+  /// In ru, this message translates to:
+  /// **'Доступы можно только смотреть: правит их владелец или тот, у кого открыты «Настройки».'**
+  String get rightsReadOnly;
+
+  /// No description provided for @unitNamePcs.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штука'**
+  String get unitNamePcs;
+
+  /// No description provided for @unitNameKg.
+  ///
+  /// In ru, this message translates to:
+  /// **'Килограмм'**
+  String get unitNameKg;
+
+  /// No description provided for @unitNameG.
+  ///
+  /// In ru, this message translates to:
+  /// **'Грамм'**
+  String get unitNameG;
+
+  /// No description provided for @unitNameL.
+  ///
+  /// In ru, this message translates to:
+  /// **'Литр'**
+  String get unitNameL;
+
+  /// No description provided for @unitNameMl.
+  ///
+  /// In ru, this message translates to:
+  /// **'Миллилитр'**
+  String get unitNameMl;
+
+  /// No description provided for @unitNameM.
+  ///
+  /// In ru, this message translates to:
+  /// **'Метр'**
+  String get unitNameM;
+
+  /// No description provided for @unitNamePack.
+  ///
+  /// In ru, this message translates to:
+  /// **'Упаковка'**
+  String get unitNamePack;
+
+  /// No description provided for @unitNamePair.
+  ///
+  /// In ru, this message translates to:
+  /// **'Пара'**
+  String get unitNamePair;
+
+  /// No description provided for @unitNameSet.
+  ///
+  /// In ru, this message translates to:
+  /// **'Комплект'**
+  String get unitNameSet;
+
+  /// No description provided for @unitCustom.
+  ///
+  /// In ru, this message translates to:
+  /// **'Своя'**
+  String get unitCustom;
+
+  /// No description provided for @unitCustomTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Своя единица'**
+  String get unitCustomTitle;
+
+  /// No description provided for @unitCustomHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Например: рулон, бутылка'**
+  String get unitCustomHint;
+
+  /// No description provided for @unitHintFrac.
+  ///
+  /// In ru, this message translates to:
+  /// **'{name}: можно дробное количество, например 0,5'**
+  String unitHintFrac(String name);
+
+  /// No description provided for @unitHintWhole.
+  ///
+  /// In ru, this message translates to:
+  /// **'{name}: только целое количество'**
+  String unitHintWhole(String name);
+
+  /// No description provided for @unitHintCustom.
+  ///
+  /// In ru, this message translates to:
+  /// **'Своя единица: количество можно дробное'**
+  String get unitHintCustom;
+
+  /// No description provided for @nuQtyWhole.
+  ///
+  /// In ru, this message translates to:
+  /// **'Для «{unit}» количество должно быть целым (сейчас {qty}). Выберите кг, л, м… или впишите целое число.'**
+  String nuQtyWhole(String unit, String qty);
+
+  /// No description provided for @nuQtyNegative.
+  ///
+  /// In ru, this message translates to:
+  /// **'Количество не может быть меньше нуля.'**
+  String get nuQtyNegative;
+
+  /// No description provided for @nuPriceNeed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Укажите цену продажи'**
+  String get nuPriceNeed;
+
+  /// No description provided for @bkHintUnits.
+  ///
+  /// In ru, this message translates to:
+  /// **'Единица: шт, кг, г, л, мл, м, упак, пара, компл (понимаются и «штука», «литр», pcs, kg, l, дана, dona…). Цена и количество — можно дробные: 12,75; 0,5.'**
+  String get bkHintUnits;
+
+  /// No description provided for @bkErrName.
+  ///
+  /// In ru, this message translates to:
+  /// **'нет названия'**
+  String get bkErrName;
+
+  /// No description provided for @bkErrPrice.
+  ///
+  /// In ru, this message translates to:
+  /// **'укажите цену продажи'**
+  String get bkErrPrice;
+
+  /// No description provided for @bkErrUnit.
+  ///
+  /// In ru, this message translates to:
+  /// **'единица «{unit}» не распознана — выберите шт, кг, л…'**
+  String bkErrUnit(String unit);
+
+  /// No description provided for @bkErrQtyWhole.
+  ///
+  /// In ru, this message translates to:
+  /// **'количество {qty} должно быть целым для «{unit}»'**
+  String bkErrQtyWhole(String qty, String unit);
+
+  /// No description provided for @bkErrQtyNeg.
+  ///
+  /// In ru, this message translates to:
+  /// **'количество меньше нуля'**
+  String get bkErrQtyNeg;
+
+  /// No description provided for @bkWarnQty.
+  ///
+  /// In ru, this message translates to:
+  /// **'количество не указано — остаток 0'**
+  String get bkWarnQty;
+
+  /// No description provided for @bkSetUnit.
+  ///
+  /// In ru, this message translates to:
+  /// **'Установить единицу'**
+  String get bkSetUnit;
+
+  /// No description provided for @bkSetPrice.
+  ///
+  /// In ru, this message translates to:
+  /// **'Установить цену'**
+  String get bkSetPrice;
+
+  /// No description provided for @bkSetQty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Установить количество'**
+  String get bkSetQty;
+
+  /// No description provided for @bkSelectAll.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбрать все'**
+  String get bkSelectAll;
+
+  /// No description provided for @bkSelectBad.
+  ///
+  /// In ru, this message translates to:
+  /// **'С ошибками'**
+  String get bkSelectBad;
+
+  /// No description provided for @bkSelectNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Снять выбор'**
+  String get bkSelectNone;
+
+  /// No description provided for @bkSelectedN.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбрано строк: {n}'**
+  String bkSelectedN(int n);
+
+  /// No description provided for @bkSelectFirst.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отметьте строки галочками, чтобы применить ко многим сразу.'**
+  String get bkSelectFirst;
+
+  /// No description provided for @bkApplyTo.
+  ///
+  /// In ru, this message translates to:
+  /// **'Применить к {n}'**
+  String bkApplyTo(int n);
+
+  /// No description provided for @bkEditRow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Строка товара'**
+  String get bkEditRow;
+
+  /// No description provided for @bkResult.
+  ///
+  /// In ru, this message translates to:
+  /// **'Готово {a}, с ошибками {b}'**
+  String bkResult(int a, int b);
+
+  /// No description provided for @barcodeDigitsHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Только цифры, от 4 до 14'**
+  String get barcodeDigitsHint;
+
+  /// No description provided for @barcodeBadLen.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкод — от 4 до 14 цифр, без букв'**
+  String get barcodeBadLen;
+
+  /// No description provided for @infK.
+  ///
+  /// In ru, this message translates to:
+  /// **'тыс'**
+  String get infK;
+
+  /// No description provided for @infM.
+  ///
+  /// In ru, this message translates to:
+  /// **'млн'**
+  String get infM;
+
+  /// No description provided for @infB.
+  ///
+  /// In ru, this message translates to:
+  /// **'млрд'**
+  String get infB;
+
+  /// No description provided for @infNoData.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет данных за период'**
+  String get infNoData;
+
+  /// No description provided for @infNoDataHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выберите другой период или проведите продажи'**
+  String get infNoDataHint;
+
+  /// No description provided for @infUpdatedAt.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обновлено {time}'**
+  String infUpdatedAt(String time);
+
+  /// No description provided for @infCompare.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сравнить с прошлым периодом'**
+  String get infCompare;
+
+  /// No description provided for @infPeriodCustom.
+  ///
+  /// In ru, this message translates to:
+  /// **'Свой период'**
+  String get infPeriodCustom;
+
+  /// No description provided for @infVsYesterday.
+  ///
+  /// In ru, this message translates to:
+  /// **'к вчера'**
+  String get infVsYesterday;
+
+  /// No description provided for @infVsPrevWeek.
+  ///
+  /// In ru, this message translates to:
+  /// **'к прошлой неделе'**
+  String get infVsPrevWeek;
+
+  /// No description provided for @infVsPrevMonth.
+  ///
+  /// In ru, this message translates to:
+  /// **'к прошлому месяцу'**
+  String get infVsPrevMonth;
+
+  /// No description provided for @infVsPrevPeriod.
+  ///
+  /// In ru, this message translates to:
+  /// **'к прошлому периоду'**
+  String get infVsPrevPeriod;
+
+  /// No description provided for @infDeltaUpSem.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выше на {pct} % {vs}'**
+  String infDeltaUpSem(String pct, String vs);
+
+  /// No description provided for @infDeltaDownSem.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ниже на {pct} % {vs}'**
+  String infDeltaDownSem(String pct, String vs);
+
+  /// No description provided for @infDeltaSameSem.
+  ///
+  /// In ru, this message translates to:
+  /// **'Без изменений {vs}'**
+  String infDeltaSameSem(String vs);
+
+  /// No description provided for @infDeltaNew.
+  ///
+  /// In ru, this message translates to:
+  /// **'новое'**
+  String get infDeltaNew;
+
+  /// No description provided for @infOther.
+  ///
+  /// In ru, this message translates to:
+  /// **'Прочее'**
+  String get infOther;
+
+  /// No description provided for @infShare.
+  ///
+  /// In ru, this message translates to:
+  /// **'Доля'**
+  String get infShare;
+
+  /// No description provided for @infDescEmpty.
+  ///
+  /// In ru, this message translates to:
+  /// **'{name}: нет данных'**
+  String infDescEmpty(String name);
+
+  /// No description provided for @infDescOne.
+  ///
+  /// In ru, this message translates to:
+  /// **'{name}: {label} — {value} {unit}'**
+  String infDescOne(String name, String label, String value, String unit);
+
+  /// No description provided for @infDescBars.
+  ///
+  /// In ru, this message translates to:
+  /// **'{name}: максимум {max} {unit} ({maxLabel}), минимум {min} {unit} ({minLabel}), всего {total} {unit}'**
+  String infDescBars(
+    String name,
+    String max,
+    String unit,
+    String maxLabel,
+    String min,
+    String minLabel,
+    String total,
+  );
+
+  /// No description provided for @infHowCalc.
+  ///
+  /// In ru, this message translates to:
+  /// **'Как посчитано'**
+  String get infHowCalc;
+
+  /// No description provided for @infHowRevenue.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выручка — сумма чеков со статусом «оплачен» и «частичный возврат» за период, как в программе на компьютере и на сайте. Чеки в долг и отменённые сюда не входят.'**
+  String get infHowRevenue;
+
+  /// No description provided for @infHowChecks.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чеки — число оплаченных чеков за период (с частичным возвратом тоже).'**
+  String get infHowChecks;
+
+  /// No description provided for @infHowAvg.
+  ///
+  /// In ru, this message translates to:
+  /// **'Средний чек = выручка ÷ число чеков за период.'**
+  String get infHowAvg;
+
+  /// No description provided for @infHowProfit.
+  ///
+  /// In ru, this message translates to:
+  /// **'Прибыль = выручка − закупочная стоимость проданных товаров (валовая прибыль сервера). Расходы магазина сюда не входят.'**
+  String get infHowProfit;
+
+  /// No description provided for @infHowShiftCash.
+  ///
+  /// In ru, this message translates to:
+  /// **'Должно быть в кассе = наличные на начало + наличные продажи + оплата долгов наличными + внесения − возвраты наличными − изъятия. Число даёт сервер.'**
+  String get infHowShiftCash;
+
+  /// No description provided for @infHowDebts.
+  ///
+  /// In ru, this message translates to:
+  /// **'Долги — сумма, которую клиенты должны магазину сейчас (список должников сервера).'**
+  String get infHowDebts;
+
+  /// No description provided for @infHowLow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Заканчивается — товары (не услуги), у которых остаток меньше 10 или не больше минимального остатка, заданного для товара.'**
+  String get infHowLow;
+
+  /// No description provided for @infHowPayments.
+  ///
+  /// In ru, this message translates to:
+  /// **'Способы оплаты — сколько выручки пришло наличными, картой, переводом и в долг; проценты считаются от суммы всех способов.'**
+  String get infHowPayments;
+
+  /// No description provided for @infHowTop.
+  ///
+  /// In ru, this message translates to:
+  /// **'Топ товаров — товары с наибольшей выручкой за период; полоса — доля от лучшего товара.'**
+  String get infHowTop;
+
+  /// No description provided for @scanModeLabel.
+  ///
+  /// In ru, this message translates to:
+  /// **'Режим'**
+  String get scanModeLabel;
+
+  /// No description provided for @scanModeTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Режим сканера'**
+  String get scanModeTitle;
+
+  /// No description provided for @scanModeA11y.
+  ///
+  /// In ru, this message translates to:
+  /// **'Режим сканера: {mode}. Нажмите, чтобы выбрать'**
+  String scanModeA11y(String mode);
+
+  /// No description provided for @scanModeSaleSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сканируйте — товар сразу в чек'**
+  String get scanModeSaleSub;
+
+  /// No description provided for @scanModeLookSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Узнать товар по фото, без штрихкода'**
+  String get scanModeLookSub;
+
+  /// No description provided for @scanModeWeighSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Весовой товар: вес с табло весов'**
+  String get scanModeWeighSub;
+
+  /// No description provided for @scanModeReceiveSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Принять товар на склад'**
+  String get scanModeReceiveSub;
+
+  /// No description provided for @scanModeKassaSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкоды уходят на кассу по Wi-Fi'**
+  String get scanModeKassaSub;
+
+  /// No description provided for @infNoDelta.
+  ///
+  /// In ru, this message translates to:
+  /// **'— н/д'**
+  String get infNoDelta;
+
+  /// No description provided for @infNoCompare.
+  ///
+  /// In ru, this message translates to:
+  /// **'— сравнения нет'**
+  String get infNoCompare;
+
+  /// No description provided for @infCompareShort.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сравнить'**
+  String get infCompareShort;
+
+  /// No description provided for @infLoadFailedTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось загрузить'**
+  String get infLoadFailedTitle;
+
+  /// No description provided for @infLoadFailedAt.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи с сервером. Показаны данные на {time}.'**
+  String infLoadFailedAt(String time);
+
+  /// No description provided for @infLoadFailedNoData.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи с сервером.'**
+  String get infLoadFailedNoData;
+
+  /// No description provided for @infTapHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нажмите на столбец — подробности'**
+  String get infTapHint;
+
+  /// No description provided for @infTapRingHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нажмите на сектор — подробности'**
+  String get infTapRingHint;
+
+  /// No description provided for @infPrevBar.
+  ///
+  /// In ru, this message translates to:
+  /// **'Прошлый период'**
+  String get infPrevBar;
+
+  /// No description provided for @infOfPeriod.
+  ///
+  /// In ru, this message translates to:
+  /// **'{pct} % периода'**
+  String infOfPeriod(String pct);
+
+  /// No description provided for @infHoursNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выручка по часам: сервер пока не отдаёт разбивку по часам — раздел появится позже.'**
+  String get infHoursNote;
+
+  /// No description provided for @infExpensesNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Расходы магазина в отчёт сервера не входят — показаны выручка, себестоимость и прибыль.'**
+  String get infExpensesNote;
+
+  /// No description provided for @infCost.
+  ///
+  /// In ru, this message translates to:
+  /// **'Себестоимость'**
+  String get infCost;
+
+  /// No description provided for @infMargin.
+  ///
+  /// In ru, this message translates to:
+  /// **'Рентабельность {pct} %'**
+  String infMargin(String pct);
+
+  /// No description provided for @infRevenueCostProfit.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выручка, себестоимость и прибыль'**
+  String get infRevenueCostProfit;
+
+  /// No description provided for @infDebtConcTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Кто должен больше всех'**
+  String get infDebtConcTitle;
+
+  /// No description provided for @infDebtConcLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Три крупнейших должника — {pct} % долга'**
+  String infDebtConcLine(String pct);
+
+  /// No description provided for @infDebtAgeNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Давность долга: сервер не присылает даты долгов — показана концентрация по должникам.'**
+  String get infDebtAgeNote;
+
+  /// No description provided for @infStockTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Остатки на складе'**
+  String get infStockTitle;
+
+  /// No description provided for @infStockOut.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет в наличии'**
+  String get infStockOut;
+
+  /// No description provided for @infStockLow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Заканчивается'**
+  String get infStockLow;
+
+  /// No description provided for @infStockOk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Хватает'**
+  String get infStockOk;
+
+  /// No description provided for @infPaidWith.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чем платили'**
+  String get infPaidWith;
+
+  /// No description provided for @infTotalWord.
+  ///
+  /// In ru, this message translates to:
+  /// **'Всего'**
+  String get infTotalWord;
+
+  /// No description provided for @infShiftNoSales.
+  ///
+  /// In ru, this message translates to:
+  /// **'В смене пока нет продаж'**
+  String get infShiftNoSales;
+
+  /// No description provided for @infHowTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Как это посчитано'**
+  String get infHowTitle;
+
+  /// No description provided for @infRangePick.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбрать даты'**
+  String get infRangePick;
 }
 
 class _AppLocalizationsDelegate

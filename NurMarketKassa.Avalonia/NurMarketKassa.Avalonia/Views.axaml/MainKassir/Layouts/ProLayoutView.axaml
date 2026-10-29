@@ -214,10 +214,12 @@
         <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto">
             <Border Grid.Row="0" Background="{StaticResource ProRailBrush}" Padding="20,14,20,16"
                     BorderBrush="#1F2937" BorderThickness="0,1,0,0">
+                <!-- 2026-10-28: поиск + кнопка «Обновить» (каталог + смена, F5) справа. -->
+                <Grid ColumnDefinitions="*,8,Auto">
                 <Border Classes="lx-field pr-search">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <PathIcon Data="{StaticResource IconSearch}" Width="18" Height="18" Margin="0,0,12,0"/>
-                        <TextBox x:Name="ProductSearchBox" Grid.Column="1" Text="{Binding Catalog.SearchText}"
+                        <TextBox x:Name="ProductSearchBox" Classes="clearButton" MaxLength="120" Grid.Column="1" Text="{Binding Catalog.SearchText}"
                                  Watermark="{DynamicResource lx.proSearchWatermark}" FontSize="16"/>
                         <!-- 2026-10-20, проверка фильтров: «Фильтр» в раскладке (было только в «Классике») — число включённых условий,
                              в подсказке что включено; «✕» сбрасывает. Кнопки не берут фокус (скан — окну кассы). -->
@@ -240,6 +242,8 @@
                         </StackPanel>
                     </Grid>
                 </Border>
+                <ctl:RefreshButton Grid.Column="2"/>
+                </Grid>
             </Border>
 
             <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="20,10,20,6">
@@ -409,7 +413,7 @@
                 <Border Grid.Row="2" Classes="lx-field" MinHeight="40" Margin="0,0,0,4">
                     <Grid ColumnDefinitions="Auto,*">
                         <PathIcon Data="{StaticResource IconBarcode}" Margin="0,0,10,0"/>
-                        <TextBox Grid.Column="1" Text="{Binding Basket.BarcodeInput}" Watermark="{DynamicResource lx.scanWatermark}" FontSize="13">
+                        <TextBox x:Name="LayoutBarcodeInput" Grid.Column="1" Text="{Binding Basket.BarcodeInput}" Watermark="{DynamicResource lx.scanWatermark}" FontSize="13">
                             <TextBox.KeyBindings>
                                 <KeyBinding Gesture="Enter" Command="{Binding Basket.AddByBarcodeCommand}"/>
                             </TextBox.KeyBindings>

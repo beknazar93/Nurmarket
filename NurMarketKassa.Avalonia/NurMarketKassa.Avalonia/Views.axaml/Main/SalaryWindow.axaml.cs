@@ -72,6 +72,9 @@ public partial class SalaryWindow : Window, IOwnerSection
         GuideButton.Content = Tr.T("Как считается?", "Кантип эсептелет?", "How is it calculated?", "Nasıl hesaplanır?", "Qanday hisoblanadi?");
         AutomationProperties.SetName(GuideButton, GuideButton.Content as string);
         CloseButton.Content = Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish");
+        // 2026-10-28, владелец: «схема зарплат от чистой прибыли, от чистой маржи» — окно «Зарплата от прибыли».
+        ProfitPayButton.Content = Tr.T("Зарплата от прибыли", "Пайдадан эмгек акы", "Profit-based pay", "Kârdan maaş", "Foydadan ish haqi");
+        AutomationProperties.SetName(ProfitPayButton, ProfitPayButton.Content as string);
         ThisMonthButton.Content = Tr.T("Текущий месяц", "Ушул ай", "This month", "Bu ay", "Joriy oy");
         LastMonthButton.Content = Tr.T("Прошлый месяц", "Өткөн ай", "Last month", "Geçen ay", "O'tgan oy");
         Last7Button.Content = Tr.T("7 дней", "7 күн", "7 days", "7 gün", "7 kun");
@@ -123,6 +126,9 @@ public partial class SalaryWindow : Window, IOwnerSection
     }
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>2026-10-28: надбавка к зарплате от чистой маржи / чистой прибыли за выбранный период.</summary>
+    private void ProfitPay_Click(object? sender, RoutedEventArgs e) => ProfitPayWindow.Open(this, _from, _to);
 
     /// <summary>2026-10-19, этап О7: «Как считается?» — показать/скрыть пояснение.</summary>
     private void Guide_Click(object? sender, RoutedEventArgs e) => GuideBox.IsVisible = !GuideBox.IsVisible;
@@ -292,10 +298,13 @@ public partial class SalaryWindow : Window, IOwnerSection
         CardEmployeesValue.Text = ((int)Num(cards, "employees_with_profile")).ToString(Ru);
 
         var rows = new List<SalaryRow>();
+        double rowsCashier = 0, rowsConsultant = 0;
         if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("rows", out var list) && list.ValueKind == JsonValueKind.Array)
         {
             foreach (var r in list.EnumerateArray())
             {
+                rowsCashier += r.TryGetProperty("cashier_sales_period", out _) ? Num(r, "cashier_sales_period") : Num(r, "employee_sales_period");
+                rowsConsultant += Num(r, "consultant_sales_period");
                 // Строка помнит, за какой период посчитана (окно выплаты берёт период из строки).
                 var row = SalaryRow.From(r);
                 row.PeriodFrom = from;
@@ -303,6 +312,11 @@ public partial class SalaryWindow : Window, IOwnerSection
                 rows.Add(row);
             }
         }
+
+        // 2026-10-29 (приёмка 1.17.64, В-2): плитка «Продажи сотрудников» сервера равна сумме продаж кассиров и не включает чеки консультантов
+        // (40 000 + 170), а в строках они показаны — суммы расходились на 40 170. Плитка равна кассирам — добавляем консультантов, чтобы плитка = сумма строк.
+        if (rowsConsultant > 0.005 && Math.Abs(Num(cards, "total_employee_sales") - rowsCashier) < 0.01)
+            CardSalesValue.Text = Money(Num(cards, "total_employee_sales") + rowsConsultant) + " " + Som;
 
         rows = rows
             .OrderByDescending(r => r.Total)

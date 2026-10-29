@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using NurMarketKassa.Core.Application;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
 using Avalonia;
@@ -491,10 +492,7 @@ public sealed class ClientDocsView : UserControl
             list = list.Where(d => d.Kind == k);
         var q = (_search.Text ?? "").Trim();
         if (q.Length > 0)
-            list = list.Where(d => d.Number.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                                   || d.Client.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                                   || d.Phone.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                                   || d.Lines.Any(l => l.Name.Contains(q, StringComparison.CurrentCultureIgnoreCase)));
+            list = list.Where(d => SearchMatch.Matches(q, d.Number, d.Client, d.Phone, string.Join(" ", d.Lines.Select(l => l.Name)))); // 2026-10-29: единый поиск
         Shown = list.ToList();
 
         _rows.Children.Clear();

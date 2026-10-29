@@ -219,6 +219,44 @@ public sealed class AbcSectionView : UserControl
         private readonly StackPanel _pareto = new();
         private readonly StackPanel _paretoColumns = new();
 
+        // 2026-10-28, просьба владельца: диаграммы Парето показывали только первые 20 позиций — переключатель «Показать: 20 / 50 / 100 / все»
+        // (по умолчанию 20). Группы A/B/C считаются по всем позициям и от переключателя не зависят; при многих столбцах диаграмма
+        // прокручивается по горизонтали (ScrollViewer в BarChartRenderer). «Все» — не больше 1000 столбцов, иначе рисунок слишком тяжёлый.
+        private const int AllLimit = 1000;
+        private int _paretoLimit = 20;
+        private AnalyticsReportData.AbcSlice? _shownSlice;
+        private readonly StackPanel _limitRow = new() { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 0, 0, 8), IsVisible = false };
+
+        private void BuildLimitRow(int total)
+        {
+            _limitRow.Children.Clear();
+            _limitRow.IsVisible = total > 20;
+            if (total <= 20)
+                return;
+            _limitRow.Children.Add(new TextBlock
+            {
+                Text = Tr.T("Показать:", "Көрсөтүү:", "Show:", "Göster:", "Ko'rsatish:"),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 12,
+            });
+            var seg = new StackPanel { Orientation = Orientation.Horizontal };
+            foreach (var (limit, text) in new[] { (20, "20"), (50, "50"), (100, "100"), (AllLimit, Tr.T("Все", "Баары", "All", "Tümü", "Barchasi")) })
+            {
+                var b = NurMarketKassa.AvaloniaHost.Views.UiKit.Seg(text, _paretoLimit == limit);
+                b.MinHeight = 44;
+                b.MinWidth = 44;
+                var chosen = limit;
+                b.Click += (_, _) =>
+                {
+                    _paretoLimit = chosen;
+                    if (_shownSlice is { } slice)
+                        Show(slice);
+                };
+                seg.Children.Add(b);
+            }
+            _limitRow.Children.Add(NurMarketKassa.AvaloniaHost.Views.UiKit.Segment(seg));
+        }
+
         private readonly TextBlock _paretoColumnsTitle = new()
         {
             FontWeight = FontWeight.SemiBold,
@@ -352,7 +390,7 @@ public sealed class AbcSectionView : UserControl
             // ассортимента даёт почти всю выручку — насколько сильно?») одним взглядом, а
             // Парето и таблица уже уточняют, какие именно позиции за этим стоят.
             body.Children.Add(Card(_pyramidTitle, _pyramid));
-            body.Children.Add(Card(_paretoTitle, _paretoHint, _pareto));
+            body.Children.Add(Card(_paretoTitle, _paretoHint, new StackPanel { Children = { _limitRow, _pareto } }));
             body.Children.Add(Card(_paretoColumnsTitle, _paretoColumnsHint, _paretoColumns));
             body.Children.Add(Card(
                 new TextBlock
@@ -403,7 +441,9 @@ public sealed class AbcSectionView : UserControl
             // В срезе «по количеству» мера и есть количество — вторая такая же колонка мешала бы.
             _quantityColumn.IsVisible = money;
 
-            var shown = Math.Min(slice.Rows.Count, 20);
+            _shownSlice = slice;
+            BuildLimitRow(slice.Rows.Count);
+            var shown = Math.Min(slice.Rows.Count, _paretoLimit);
             // 2026-10-18, доводка О4: без слова «Парето» — простыми словами, что показывает диаграмма.
             _paretoTitle.Text = slice.Rows.Count > shown
                 ? Tr.T($"Вклад каждого — первые {shown} из {slice.Rows.Count}", $"Ар биринин салымы — алгачкы {shown} / {slice.Rows.Count}", $"Each item's contribution — top {shown} of {slice.Rows.Count}",

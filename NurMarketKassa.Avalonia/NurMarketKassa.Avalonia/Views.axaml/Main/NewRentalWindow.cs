@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using NurMarketKassa.Core.Application;
+using System.Globalization;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -430,7 +431,7 @@ public sealed class NewRentalWindow : Window
         try
         {
             found = CatalogCacheService.Products
-                .Where(p => !string.IsNullOrWhiteSpace(p.Title) && p.Title.Contains(text, StringComparison.CurrentCultureIgnoreCase))
+                .Where(p => !string.IsNullOrWhiteSpace(p.Title) && SearchMatch.Matches(text, p.Title, p.Barcode, p.Article)) // 2026-10-29: единый поиск
                 .OrderBy(p => p.Title).Take(8).ToList();
         }
         catch
@@ -570,7 +571,7 @@ public sealed class NewRentalWindow : Window
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
     private static double ParseMoney(string? s) =>
-        double.TryParse((s ?? "").Replace(" ", "").Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : 0;
+        double.TryParse((s ?? "").Replace(" ", "").Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : 0;
 
     private TextBlock Small(string text)
     {
@@ -689,7 +690,7 @@ public sealed class ReturnRentalWindow : Window
     }
 
     private double Penalty =>
-        double.TryParse((_penalty.Text ?? "").Replace(" ", "").Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var p) && p > 0 ? p : 0;
+        double.TryParse((_penalty.Text ?? "").Replace(" ", "").Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out var p) && p > 0 ? p : 0;
 
     /// <summary>Плитки состояния и итог: что вернуть клиенту.</summary>
     private void Refresh()

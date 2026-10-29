@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NurMarketKassa.Core.Application;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -618,8 +619,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         IEnumerable<ClientRow> source = _allClients;
         if (query.Length > 0)
             source = source.Where(c =>
-                c.FullName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-                || c.Phone.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                SearchMatch.Matches(query, c.FullName, c.Phone) // 2026-10-29: единый поиск
                 || (digits.Length >= 3 && new string(c.Phone.Where(char.IsDigit).ToArray()).Contains(digits, StringComparison.Ordinal)));
         if (_onlyDebtors)
             source = source.Where(c => c.HasDebt);

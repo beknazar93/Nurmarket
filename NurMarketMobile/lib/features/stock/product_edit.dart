@@ -23,6 +23,7 @@ import 'product_camera_tile.dart';
 import 'product_delete.dart';
 import 'product_edit_repository.dart';
 import 'product_packages.dart';
+import 'unit_picker.dart';
 
 // 2026-10-22 (мобилка, админ): владелец — «в мобилке нельзя редактировать товары на складе». Нажатие на товар склада
 // открывает карточку: название, цены, единица, категория, штрихкоды (основной + доп., скан камерой), минимальный
@@ -117,8 +118,6 @@ class ProductEditScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
-  static const _units = ['шт', 'кг', 'л', 'упак'];
-
   Map<String, dynamic>? _full;
   ProductDraft? _before;
   bool _loading = true;
@@ -290,6 +289,10 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
   void _addAlt(String code) {
     final c = code.trim();
     if (c.isEmpty || _alt.any((l) => ProductDraft.altCode(l) == c) || _barcode.text.trim() == c) return;
+    if (!barcodeFieldOk(c)) {
+      toast(context, context.l.barcodeBadLen, error: true); // 2026-10-29: только 4–14 цифр
+      return;
+    }
     _alt = [..._alt, c];
   }
 
@@ -311,6 +314,11 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
     if (b == null || d == null) return;
     if (d.name.isEmpty) {
       toast(context, l.peNameNeed, error: true);
+      return;
+    }
+    // 2026-10-29: штрихкод — 4–14 цифр
+    if (!barcodeFieldOk(d.barcode) || d.alt.any((a) => !barcodeFieldOk(ProductDraft.altCode(a)))) {
+      toast(context, l.barcodeBadLen, error: true);
       return;
     }
     // 2026-10-27 (аудит мобилки, В-2): явная аномалия цены — спросить до отправки на сервер (там её сразу увидит касса)
@@ -558,20 +566,13 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
           ),
           if (!canPrices) Padding(padding: const EdgeInsets.only(top: 4), child: Text(l.pePriceLocked, style: TextStyle(color: pal.textSoft, fontSize: 12))),
           FieldLabel(l.unitLabel),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final u in {..._units, _unit})
-                ChoiceChip(
-                  label: Text(u),
-                  selected: _unit == u,
-                  onSelected: (_) => setState(() {
-                    _unit = u;
-                    if (isWeightUnit(u)) _pack.setEnabled(false); // весовой товар нельзя продавать поштучно из упаковки
-                  }),
-                ),
-            ],
+          // 2026-10-29: единицы — общий каталог (шт, кг, г, л, мл, м, упак, пара, компл + своя); у кг/л/м количество дробное
+          UnitPicker(
+            value: _unit,
+            onChanged: (u) => setState(() {
+              _unit = u;
+              if (isWeightUnit(u)) _pack.setEnabled(false); // весовой товар нельзя продавать поштучно из упаковки
+            }),
           ),
           // 2026-10-27 (М4): поштучная продажа из упаковки — для любого штучного товара (не услуги)
           if (!isService) PackSection(ctrl: _pack, blocked: isWeightUnit(_unit)),
@@ -579,9 +580,14 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
           TextField(controller: _category, textCapitalization: TextCapitalization.sentences, onChanged: (_) => setState(() {})),
           FieldLabel(l.barcodeLabel),
           TextField(
+            key: const Key('editBarcode'),
             controller: _barcode,
+            keyboardType: TextInputType.number,
+            inputFormatters: barcodeFormatters,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
+              helperText: l.barcodeDigitsHint,
+              errorText: barcodeFieldOk(_barcode.text) ? null : l.barcodeBadLen,
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -627,6 +633,8 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
               Expanded(
                 child: TextField(
                   controller: _altInput,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: barcodeFormatters,
                   decoration: InputDecoration(hintText: l.altBarcodeAdd),
                   onSubmitted: (v) => setState(() {
                     _addAlt(v);

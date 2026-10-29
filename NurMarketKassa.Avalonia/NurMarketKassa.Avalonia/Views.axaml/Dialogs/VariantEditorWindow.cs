@@ -174,7 +174,7 @@ public sealed class VariantEditorWindow : Window
                 var i = Array.FindIndex(order, x => string.Equals(x, s, StringComparison.OrdinalIgnoreCase));
                 if (i >= 0)
                     return i;
-                return double.TryParse(s.Replace(',', '.'), NumberStyles.Any, Inv, out var n) ? 100 + n : 10_000;
+                return double.TryParse(s.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var n) ? 100 + n : 10_000;
             }
             foreach (var v in list.OrderBy(v => Rank(v.Size)).ThenBy(v => v.Size, StringComparer.OrdinalIgnoreCase).ThenBy(v => v.Color, StringComparer.CurrentCultureIgnoreCase))
                 AddRow(v);
@@ -209,7 +209,7 @@ public sealed class VariantEditorWindow : Window
     private void UpdateStockNote()
     {
         var sum = _items.Where(r => r.Active.IsChecked == true)
-            .Sum(r => double.TryParse(r.Qty.Text?.Replace(',', '.'), NumberStyles.Any, Inv, out var q) && q > 0 ? q : 0);
+            .Sum(r => double.TryParse(r.Qty.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var q) && q > 0 ? q : 0);
         var differs = _productStock is { } stock && _items.Count > 0 && Math.Abs(stock - sum) >= 0.0005;
         _stockNote.IsVisible = differs;
         if (!differs)
@@ -314,8 +314,8 @@ public sealed class VariantEditorWindow : Window
                 var color = row.Color.Text?.Trim() ?? "";
                 if (size.Length == 0 && color.Length == 0)
                     continue;
-                double? price = double.TryParse(row.Price.Text?.Replace(',', '.'), NumberStyles.Any, Inv, out var p) && p > 0 ? p : null;
-                double qty = double.TryParse(row.Qty.Text?.Replace(',', '.'), NumberStyles.Any, Inv, out var q) ? q : 0;
+                double? price = double.TryParse(row.Price.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var p) && p > 0 ? p : null;
+                double qty = double.TryParse(row.Qty.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var q) ? q : 0;
                 var dto = new ProductVariantDto
                 {
                     Id = row.Source.Id,
@@ -462,7 +462,7 @@ public sealed class VariantEditorWindow : Window
             return;
         }
 
-        static double Qty(Row r) => double.TryParse(r.Qty.Text?.Replace(',', '.'), NumberStyles.Any, Inv, out var q) && q > 0 ? Math.Ceiling(q) : 0;
+        static double Qty(Row r) => double.TryParse(r.Qty.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var q) && q > 0 ? Math.Ceiling(q) : 0;
         var byStock = (int)rows.Sum(Qty);
         var choice = await AskLabelCountAsync(byStock, rows.Count).ConfigureAwait(true);
         if (choice is null)
@@ -476,7 +476,7 @@ public sealed class VariantEditorWindow : Window
             var copies = choice == true ? (int)Qty(row) : 1;
             if (copies <= 0)
                 continue;
-            double price = double.TryParse(row.Price.Text?.Replace(',', '.'), NumberStyles.Any, Inv, out var p) && p > 0 ? p : _basePrice;
+            double price = double.TryParse(row.Price.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var p) && p > 0 ? p : _basePrice;
             var variantText = string.Join(", ", new[] { row.Size.Text?.Trim(), row.Color.Text?.Trim() }.Where(x => !string.IsNullOrWhiteSpace(x)));
             while (copies > 0)
             {

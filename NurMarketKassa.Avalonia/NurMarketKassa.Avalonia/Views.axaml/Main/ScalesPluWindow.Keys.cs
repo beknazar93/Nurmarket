@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -287,8 +288,8 @@ public partial class ScalesPluWindow
         var list = new ListBox { MinHeight = 220 };
         List<ScalePluRowVm> Filtered()
         {
-            var words = (search.Text ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            return _allRows.Where(r => words.All(w => (r.Name ?? "").Contains(w, StringComparison.CurrentCultureIgnoreCase) || r.PluText == w))
+            var plu = (search.Text ?? "").Trim();
+            return SearchMatch.Filter(_allRows, plu, r => SearchMatch.Key(r.Name, r.PluText)) // 2026-10-29: единый поиск (слова в любом порядке, ё=е, раскладка)
                 .OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
         }
         void Fill()

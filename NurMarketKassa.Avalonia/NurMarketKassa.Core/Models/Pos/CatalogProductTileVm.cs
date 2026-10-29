@@ -134,6 +134,25 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     public string Title { get; }
     public string PriceLine { get; }
 
+    // 2026-10-29 (аудит поиска): ключ для единого поиска (SearchMatch) — название, штрихкод, код, артикул, категория, бренд в нормальном виде.
+    // Считается один раз и пересчитывается, только если одно из полей заменили (проверка по ссылкам строк) — на 15 000 товаров поиск <100 мс.
+    private string? _searchKey;
+    private string? _skBarcode, _skArticle, _skCode, _skCategory, _skBrand;
+
+    public string SearchKey
+    {
+        get
+        {
+            if (_searchKey is null || !ReferenceEquals(_skBarcode, _barcode) || !ReferenceEquals(_skArticle, Article)
+                || !ReferenceEquals(_skCode, ProductCode) || !ReferenceEquals(_skCategory, Category) || !ReferenceEquals(_skBrand, Brand))
+            {
+                _skBarcode = _barcode; _skArticle = Article; _skCode = ProductCode; _skCategory = Category; _skBrand = Brand;
+                _searchKey = NurMarketKassa.Core.Application.SearchMatch.Key(Title, Id, _barcode, Article, ProductCode, Category, Brand);
+            }
+            return _searchKey;
+        }
+    }
+
     /// <summary>2026-10-22 (модалки, пакет 1, живой аудит): экранный диктор читал у плитки каталога имя класса
     /// «CatalogProductTileVm» (элемент списка без своего имени) — теперь название товара.</summary>
     public override string ToString() => Title;

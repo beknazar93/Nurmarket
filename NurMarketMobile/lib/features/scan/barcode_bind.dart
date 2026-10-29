@@ -189,6 +189,7 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
           controller: ctrl,
           autofocus: true,
           keyboardType: TextInputType.number,
+          inputFormatters: barcodeFormatters, // 2026-10-29: только цифры
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: 1.5),
           decoration: InputDecoration(labelText: l.barcodeLabel, hintText: l.bindManualHint),
           onSubmitted: (v) => Navigator.pop(c, v),

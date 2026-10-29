@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
@@ -178,8 +179,45 @@ public sealed partial class PurchasesWindow
         ToolTip.SetTip(s.FastNext, T("Курсор остаётся в поле скана, каждый скан прибавляет 1 к количеству.", "Курсор сканер талаасында калат, ар бир скан санга 1 кошот.",
             "The cursor stays in the scan field; every scan adds 1 to the quantity.", "İmleç okutma alanında kalır, her okutma miktara 1 ekler.", "Kursor skaner maydonida qoladi, har bir skan soniga 1 qo'shadi."));
         Avalonia.Automation.AutomationProperties.SetName(s.FastNext, s.FastNext.Content as string);
-        Grid.SetColumn(s.FastNext, 1);
-        tools.Children.Add(s.FastNext);
+        // 2026-10-28, владелец: одно общее поле «Наценка для всех, %» — цена продажи всех строк и следующих сканов = закупка × (1 + %); у ручной строки — «Как у всех».
+        var markupLabel = new TextBlock { Text = T("Наценка для всех, %", "Баарына кошумча, %", "Markup for all, %", "Tümü için kâr, %", "Hammasi uchun ustama, %"), VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold, Margin = new Thickness(12, 0, 0, 0) };
+        Use(markupLabel, TextBlock.ForegroundProperty, "BrushText");
+        var markupBox = UiKit.Input(this, "30", 44);
+        markupBox.Width = 84;
+        markupBox.HorizontalContentAlignment = HorizontalAlignment.Right;
+        markupBox.Margin = new Thickness(6, 0, 0, 0);
+        markupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", Ru);
+        Avalonia.Automation.AutomationProperties.SetName(markupBox, markupLabel.Text);
+        void MarkupCommit(bool persist)
+        {
+            if (CheckoutValidation.TryParseAmount(markupBox.Text, out var percent) == CheckoutValidation.AmountParse.Ok && percent <= 1000)
+                ReceivingMarkupSettingsStore.SetDefaultPercent(percent, persist);
+            else if (persist)
+                markupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", Ru);
+        }
+        markupBox.TextChanged += (_, _) => { if (markupBox.IsFocused) MarkupCommit(false); };
+        markupBox.LostFocus += (_, _) => MarkupCommit(true);
+        markupBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; MarkupCommit(true); s.Scan.Focus(); } };
+        Action markupChanged = null!;
+        markupChanged = () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (_receive != s)
+            {
+                ReceivingMarkupSettingsStore.Changed -= markupChanged; // приём закрыт — отписываемся
+                return;
+            }
+            var auto = ReceivingMarkupSettingsStore.Current.AutoEnabled;
+            markupBox.IsEnabled = auto;
+            if (!markupBox.IsFocused)
+                markupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", Ru);
+            if (auto)
+                ReceivingPricing.ApplyAutoToAll(s.Lines);
+            ReceiveRefresh();
+        });
+        ReceivingMarkupSettingsStore.Changed += markupChanged;
+        var fastBox = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { s.FastNext, markupLabel, markupBox } };
+        Grid.SetColumn(fastBox, 1);
+        tools.Children.Add(fastBox);
         var supplierGoods = s.SupplierGoods = UiKit.Ghost(this, ReceiveGoodsButtonText(s));
         supplierGoods.Height = 44;
         supplierGoods.Margin = new Thickness(8, 0, 0, 0);
@@ -242,23 +280,31 @@ public sealed partial class PurchasesWindow
         page.Children.Add(card);
 
         // Низ: итог и одна жёлтая «Оприходовать товары» (шаг 3 — окно «Подтверждение оплаты»).
-        var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(0, 12, 0, 0) };
+        var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"), Margin = new Thickness(0, 12, 0, 0) };
         Use(s.Footer, TextBlock.ForegroundProperty, "BrushText");
         footer.Children.Add(s.Footer);
+        // 2026-10-28: «Наценка…» — правила автонаценки (наценка по умолчанию, по категориям, округление); менять могут владелец и администратор.
+        var markupButton = UiKit.Ghost(this, T("Наценка…", "Кошумча %…", "Markup…", "Kâr oranı…", "Ustama…"));
+        markupButton.Height = 48;
+        markupButton.Margin = new Thickness(0, 0, 10, 0);
+        Avalonia.Automation.AutomationProperties.SetName(markupButton, T("Автоматическая наценка", "Автоматтык кошумча", "Automatic markup", "Otomatik kâr oranı", "Avtomatik ustama"));
+        markupButton.Click += async (_, _) => await new ReceivingMarkupDialog().ShowDialog(this).ConfigureAwait(true);
+        Grid.SetColumn(markupButton, 1);
+        footer.Children.Add(markupButton);
         // 2026-10-24, ТЗ «Склад» (Б2): «Обновить цены продажи (N)» — видна, пока есть строки с подорожанием и непоправленной продажей.
         s.Raise = UiKit.Ghost(this, "");
         s.Raise.Height = 48;
         s.Raise.Margin = new Thickness(0, 0, 10, 0);
         s.Raise.IsVisible = false;
         s.Raise.Click += async (_, _) => await ReceiveRaiseAsync(s).ConfigureAwait(true);
-        Grid.SetColumn(s.Raise, 1);
+        Grid.SetColumn(s.Raise, 2);
         footer.Children.Add(s.Raise);
         s.Post = UiKit.Primary(this, T("Оприходовать товары", "Товарларды кирешке алуу", "Post the goods", "Malları kaydet", "Tovarlarni kirim qilish"));
         s.Post.Height = 48;
         s.Post.Focusable = true;
         Avalonia.Automation.AutomationProperties.SetName(s.Post, s.Post.Content as string);
         s.Post.Click += async (_, _) => await ReceivePostAsync().ConfigureAwait(true);
-        Grid.SetColumn(s.Post, 2);
+        Grid.SetColumn(s.Post, 3);
         footer.Children.Add(s.Post);
         Grid.SetRow(footer, 6);
         page.Children.Add(footer);
@@ -459,9 +505,8 @@ public sealed partial class PurchasesWindow
         var q = text.Trim();
         if (q.Length < 2)
             return Enumerable.Empty<CatalogProductTileVm>();
-        return CatalogCacheService.Products.Where(p => p.Title.Contains(q, StringComparison.CurrentCultureIgnoreCase)
-                                                       || (p.Barcode ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
-                                                       || (p.Article ?? "").Contains(q, StringComparison.OrdinalIgnoreCase))
+        // 2026-10-29: единый поиск — слова в любом порядке, ё=е, «Asu»↔«Асу»↔«фыг».
+        return SearchMatch.Products(CatalogCacheService.Products, q)
             .OrderBy(p => firstIds is { Count: > 0 } && firstIds.Contains(p.Id) ? 0 : 1)
             .ThenBy(p => p.Title.StartsWith(q, StringComparison.CurrentCultureIgnoreCase) ? 0 : 1).ThenBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase).Take(8);
     }
@@ -530,6 +575,8 @@ public sealed partial class PurchasesWindow
         s.SuggestBox.IsVisible = false;
         var shown = s.RowMap.TryGetValue(line, out var parts);
         var index = s.Lines.IndexOf(line);
+        if (index < 0)
+            line.EnableAutoSale(); // 2026-10-28: новая строка вручную — цена продажи считается по наценке при вводе закупки
         if (index > 0)
             s.Lines.RemoveAt(index);
         if (index != 0)
@@ -705,7 +752,7 @@ public sealed partial class PurchasesWindow
 
     private Control ReceiveBuildGoodsPanel(ReceiveState s)
     {
-        s.GoodsSearch = UiKit.Input(this, T("Найти товар поставщика: название или штрихкод — Enter добавит первый",
+        s.GoodsSearch = UiKit.Search(this, T("Найти товар поставщика: название или штрихкод — Enter добавит первый",
             "Жеткирүүчүнүн товарын табуу: аталышы же штрихкод — Enter биринчисин кошот", "Find a supplier product: name or barcode — Enter adds the first",
             "Tedarikçi ürününü bul: ad veya barkod — Enter ilkini ekler", "Yetkazib beruvchi mahsulotini topish: nomi yoki shtrix-kod — Enter birinchisini qo'shadi"), 40);
         Avalonia.Automation.AutomationProperties.SetName(s.GoodsSearch, s.GoodsSearch.Watermark);
@@ -783,7 +830,7 @@ public sealed partial class PurchasesWindow
         var query = (s.GoodsSearch.Text ?? "").Trim();
         IEnumerable<SupplierGoodsRow> rows = s.GoodsRows;
         if (query.Length > 0)
-            rows = rows.Where(r => r.SearchKey.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+            rows = rows.Where(r => SearchMatch.Matches(query, r.SearchKey)); // 2026-10-29: единый поиск
         s.GoodsList.ItemsSource = rows.ToList();
     }
 
@@ -1010,14 +1057,15 @@ public sealed partial class PurchasesWindow
         s.Head.ColumnDefinitions = new ColumnDefinitions(ReceiveColumns);
         var heads = new[]
         {
-            T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq"), T("Количество", "Саны", "Quantity", "Miktar", "Miqdor"),
+            // 2026-10-29, жалоба «сделай понятно»: «На складе», «Принимаем», «Сумма закупки» — как в Склад → Приёмка.
+            T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), T("На складе", "Кампада", "In stock", "Depoda", "Omborda"), T("Принимаем", "Кабыл алабыз", "Receiving", "Alınıyor", "Qabul qilinadi"),
             T("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), T("Наценка %", "Кошумча %", "Markup %", "Kâr %", "Ustama %"),
-            T("Цена продажи", "Сатуу баасы", "Selling price", "Satış fiyatı", "Sotuv narxi"), T("Сумма", "Сумма", "Amount", "Tutar", "Summa"), "",
+            T("Цена продажи", "Сатуу баасы", "Selling price", "Satış fiyatı", "Sotuv narxi"), T("Сумма закупки", "Сатып алуу суммасы", "Purchase total", "Alış tutarı", "Xarid summasi"), "",
         };
         for (var i = 0; i < heads.Length; i++)
         {
             var t = new TextBlock { Text = heads[i], FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center,
-                TextAlignment = i is 1 or 6 ? TextAlignment.Right : TextAlignment.Left, IsVisible = !(s.Narrow && i == 1), MinWidth = i == 7 ? 44 : 0 };
+                TextAlignment = i is >= 1 and <= 6 ? TextAlignment.Right : TextAlignment.Left, IsVisible = !(s.Narrow && i == 1), MinWidth = i == 7 ? 44 : 0 };
             Use(t, TextBlock.ForegroundProperty, "BrushTextSoft");
             Grid.SetColumn(t, i);
             s.Head.Children.Add(t);
@@ -1038,6 +1086,9 @@ public sealed partial class PurchasesWindow
     }
 
     private static string ReceiveNum(double v) => v > 0 ? v.ToString("0.###", Ru) : "";
+
+    /// <summary>2026-10-28: цена в ячейке «100,60» (целая — «100»), не «100,6»; пусто для нуля.</summary>
+    private static string ReceiveMoney(double v) => v > 0 ? ReceivingLineVm.FormatPrice(v).Replace('.', ',') : "";
 
     private static string ReceiveMarkup(ReceivingLineVm line) => line.MarkupPercent is { } m ? m.ToString("0.##", Ru) : "";
 
@@ -1105,22 +1156,34 @@ public sealed partial class PurchasesWindow
 
         string Lbl(string ru, string ky, string en, string tr, string uz) => T(ru, ky, en, tr, uz) + " " + line.ProductName;
         var qty = ReceiveCellBox(ReceiveNum(line.Quantity), Lbl("Количество", "Саны", "Quantity", "Miktar", "Miqdor"));
-        var purchase = ReceiveCellBox(ReceiveNum(line.PurchasePrice), Lbl("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"));
+        var purchase = ReceiveCellBox(ReceiveMoney(line.PurchasePrice), Lbl("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"));
         var markup = ReceiveCellBox(ReceiveMarkup(line), Lbl("Наценка %", "Кошумча %", "Markup %", "Kâr %", "Ustama %"));
-        var sale = ReceiveCellBox(ReceiveNum(line.SalePrice), Lbl("Цена продажи", "Сатуу баасы", "Selling price", "Satış fiyatı", "Sotuv narxi"));
+        var sale = ReceiveCellBox(ReceiveMoney(line.SalePrice), Lbl("Цена продажи", "Сатуу баасы", "Selling price", "Satış fiyatı", "Sotuv narxi"));
         parts.Qty = qty;
         parts.Purchase = purchase;
         parts.Markup = markup;
         parts.Sale = sale;
         // Под закупкой — «▲ +12 %» (оранжевым) и «было 45,00»; под продажей — «маржа 4 %» (красным); значения те же, что в Склад → Приёмка (ReceivingLineVm).
-        var raiseText = new TextBlock { FontSize = 11.5, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
-        Use(raiseText, TextBlock.ForegroundProperty, "BrushWarning");
-        var prevText = new TextBlock { FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis };
-        Use(prevText, TextBlock.ForegroundProperty, "BrushTextSoft");
-        var lowText = new TextBlock { FontSize = 11, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
+        // 2026-10-29: под закупкой — «↑ дороже на 5 сом (+10 %)» красным / «↓ дешевле на 2 сом» зелёным / «без изменений», «новый товар» серым;
+        // под продажей — статус «авто (по общей наценке 30 %)» или «вручную · Как у всех», «прибыль 14 сом с шт.», красная пометка маржи.
+        var changeText = new TextBlock { FontSize = 11.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
+        Use(changeText, TextBlock.ForegroundProperty, "BrushTextSoft");
+        var profitText = new TextBlock { FontSize = 11, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
+        Use(profitText, TextBlock.ForegroundProperty, "BrushTextSoft");
+        var lowText = new TextBlock { FontSize = 11, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
         Use(lowText, TextBlock.ForegroundProperty, "BrushDanger");
-        var purchaseSub = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Height = 15, Margin = new Thickness(0, -2, 10, 0), HorizontalAlignment = HorizontalAlignment.Right, Children = { raiseText, prevText } };
-        var saleSub = new StackPanel { Orientation = Orientation.Horizontal, Height = 15, Margin = new Thickness(0, -2, 10, 0), HorizontalAlignment = HorizontalAlignment.Right, Children = { lowText } };
+        var purchaseSub = new StackPanel { Margin = new Thickness(0, -2, 10, 0), HorizontalAlignment = HorizontalAlignment.Stretch, Children = { changeText } };
+        var autoText = new TextBlock { FontSize = 11, FontWeight = FontWeight.SemiBold, Cursor = new Cursor(StandardCursorType.Hand), TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
+        Use(autoText, TextBlock.ForegroundProperty, "BrushAccent");
+        autoText.PointerPressed += (_, _) =>
+        {
+            if (line.ShowReturnButton)
+            {
+                line.ReturnToAuto();
+                ReceiveRefresh();
+            }
+        };
+        var saleSub = new StackPanel { Margin = new Thickness(0, -2, 10, 0), HorizontalAlignment = HorizontalAlignment.Stretch, Children = { autoText, profitText, lowText } };
         var sum = Cell(MoneyText.Som(line.LineTotal), "BrushText", 13.5, FontWeight.SemiBold);
         sum.TextAlignment = TextAlignment.Right;
 
@@ -1136,13 +1199,19 @@ public sealed partial class PurchasesWindow
                         b.Text = t;
                 }
                 Put(qty, ReceiveNum(line.Quantity));
-                Put(purchase, ReceiveNum(line.PurchasePrice));
+                Put(purchase, ReceiveMoney(line.PurchasePrice));
                 Put(markup, ReceiveMarkup(line));
-                Put(sale, ReceiveNum(line.SalePrice));
+                Put(sale, ReceiveMoney(line.SalePrice));
                 sum.Text = MoneyText.Som(line.LineTotal);
-                raiseText.Text = line.PurchaseRaiseText;
-                prevText.Text = line.PreviousPurchaseText;
+                changeText.Text = line.PurchaseChangeText + (line.PurchaseWasText.Length > 0 ? "\n" + line.PurchaseWasText : ""); // 2026-10-29 (спека Fable): «↑ дороже на 5 сом (+3 %)» + «было 145,00»
+                Use(changeText, TextBlock.ForegroundProperty, line.IsChangeUp ? "BrushDanger" : line.IsChangeDown ? "BrushSuccess" : "BrushTextSoft");
+                changeText.FontWeight = line.IsChangeUp || line.IsChangeDown ? FontWeight.SemiBold : FontWeight.Normal;
+                ToolTip.SetTip(changeText, line.PurchaseChangeHint);
+                profitText.Text = line.ProfitText;
                 lowText.Text = line.LowMarginText;
+                autoText.Text = line.CanReturnToAuto ? line.SaleStatusText + " · " + line.SaleButtonText : line.SaleStatusText; // «вручную · Как у всех» (нажатие возвращает)
+                ToolTip.SetTip(autoText, line.HasSaleMode ? line.SaleModeHint : null);
+                g.Background = line.IsBelowCost ? this.FindResource("BrushDangerSoft") as IBrush : line.IsLowMargin ? this.FindResource("BrushWarningSoft") as IBrush : null; // цена ниже закупки — красная строка, маржа мало — жёлтая
                 if (parts.Box is { } rowBox)
                     rowBox.Opacity = line.Quantity <= 0 ? 0.72 : 1;
             }
@@ -1163,11 +1232,13 @@ public sealed partial class PurchasesWindow
             line.Quantity = v;
             ReceiveRefresh();
         };
+        // 2026-10-28 (дробные цены, автонаценка): закупка и продажа разбираются общим правилом ReceivingLineVm (запятая/точка, 2 знака, без «1e3»);
+        // закупка пересчитывает цену продажи строки в режиме «авто», правка продажи переводит строку в «вручную».
         purchase.TextChanged += (_, _) =>
         {
-            if (parts.Syncing || !ReceiveReadCell(purchase, out var v))
+            if (parts.Syncing)
                 return;
-            line.PurchasePrice = v;
+            line.SetPurchaseText(purchase.Text);
             ReceiveRefresh();
         };
         markup.TextChanged += (_, _) =>
@@ -1182,13 +1253,13 @@ public sealed partial class PurchasesWindow
         };
         sale.TextChanged += (_, _) =>
         {
-            if (parts.Syncing || !ReceiveReadCell(sale, out var v))
+            if (parts.Syncing)
                 return;
-            line.SalePrice = v;
+            line.SetSaleText(sale.Text);
             ReceiveRefresh();
         };
         foreach (var cell in new[] { qty, purchase, markup, sale })
-            cell.LostFocus += (_, _) => Sync(false);
+            cell.LostFocus += (_, _) => { line.CommitText(); Sync(false); }; // 2026-10-28: сырой набранный текст → нормальный показ («100,60»)
 
         // Enter и Tab: «Название» → «Количество» → «Закупка» → «Цена продажи» → поле скана (наценку Enter пропускает, её правят мышью или Shift+Tab).
         void Chain(TextBox from, Func<TextBox?> next) => from.AddHandler(InputElement.KeyDownEvent, (_, e) =>
@@ -1330,9 +1401,11 @@ public sealed partial class PurchasesWindow
             ? s.Picker.Selected is null
                 ? T("Сканируйте товары или выберите поставщика (шаг 1).", "Товарларды сканерлеңиз же жеткирүүчүнү тандаңыз (1-кадам).", "Scan the products or choose a supplier (step 1).", "Ürünleri okutun veya tedarikçi seçin (1. adım).", "Mahsulotlarni skanerlang yoki yetkazib beruvchini tanlang (1-qadam).")
                 : T("Добавьте товары и впишите количество (шаг 2).", "Товарларды кошуп, санын жазыңыз (2-кадам).", "Add products and enter quantities (step 2).", "Ürün ekleyip miktar girin (2. adım).", "Mahsulot qo'shib, miqdorni kiriting (2-qadam).")
-            : T($"К оприходованию: {active.Count} поз. на {MoneyText.Som(active.Sum(l => l.LineTotal))}", $"Кирешке: {active.Count} поз., {MoneyText.Som(active.Sum(l => l.LineTotal))}",
-                $"To post: {active.Count} items, {MoneyText.Som(active.Sum(l => l.LineTotal))}", $"Kaydedilecek: {active.Count} kalem, {MoneyText.Som(active.Sum(l => l.LineTotal))}",
-                $"Kirim: {active.Count} poz., {MoneyText.Som(active.Sum(l => l.LineTotal))}") + raisedText
+            // 2026-10-29: «Позиций N · штук M · закупка на X сом · продажа на Y сом · прибыль Z сом»
+            : T("Позиций", "Позициялар", "Items", "Kalem", "Pozitsiyalar") + $": {active.Count} · " + T("штук", "даана", "pieces", "adet", "dona") + $": {active.Sum(l => l.Quantity).ToString("0.###", Ru)} · "
+              + T("закупка на", "сатып алуу", "purchase", "alış", "xarid") + " " + MoneyText.Som(active.Sum(l => l.LineTotal)) + " · "
+              + T("продажа на", "сатуу", "sale", "satış", "sotuv") + " " + MoneyText.Som(active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.SalePrice))) + " · "
+              + T("прибыль", "пайда", "profit", "kâr", "foyda") + " " + MoneyText.Som(active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.SalePrice)) - active.Sum(l => l.LineTotal)) + raisedText
               + (s.Picker.Selected is null ? T(" — выберите поставщика (шаг 1).", " — жеткирүүчүнү тандаңыз (1-кадам).", " — choose a supplier (step 1).", " — tedarikçi seçin (1. adım).", " — yetkazib beruvchini tanlang (1-qadam).") : "");
         // 2026-10-24 (Б2): «Обновить цены продажи (N)» — пока есть строки с подорожанием и непоправленной продажей.
         var raisable = PurchaseReceivingService.CountRaisableSalePrices(active);

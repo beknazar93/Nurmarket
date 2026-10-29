@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using NurMarketKassa.Core.Application;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using NurMarketKassa.AvaloniaHost.Services;
@@ -475,9 +476,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         {
             position++;
             var matches = string.IsNullOrWhiteSpace(_searchFilter)
-                || item.SaleId.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase)
+                || item.SaleId.Contains(_searchFilter.Trim(), StringComparison.OrdinalIgnoreCase)
                 || (!string.IsNullOrWhiteSpace(item.ReceiptNumber) &&
-                    item.ReceiptNumber.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase))
+                    item.ReceiptNumber.Contains(trimmedFilter, StringComparison.OrdinalIgnoreCase)) // 2026-10-29: «№1115» и «#1115» находят чек (раньше искали с символом №)
                 || (filterNumber is { } wanted && NurCrmReportsApi.ParseSaleNumber(item.ReceiptNumber) == wanted)
                 || (string.IsNullOrWhiteSpace(item.ReceiptNumber) &&
                     string.Equals(trimmedFilter, position.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));

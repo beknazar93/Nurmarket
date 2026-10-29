@@ -5855,4 +5855,561 @@ class AppLocalizationsRu extends AppLocalizations {
   String invUnitCheck(String inv, String item) {
     return 'Проверьте · единица: в накладной «$inv», у товара «$item»';
   }
+
+  @override
+  String get empAdd => 'Новый сотрудник';
+
+  @override
+  String get empCard => 'Карточка сотрудника';
+
+  @override
+  String get empSectionData => 'Данные сотрудника';
+
+  @override
+  String get empSectionRights => 'Доступы';
+
+  @override
+  String get empFirstName => 'Имя';
+
+  @override
+  String get empLastName => 'Фамилия';
+
+  @override
+  String get empMiddleName => 'Отчество';
+
+  @override
+  String get empEmail => 'Почта (логин для входа)';
+
+  @override
+  String get empPhone => 'Телефон';
+
+  @override
+  String get empTrack => 'Номер сотрудника';
+
+  @override
+  String get empRole => 'Должность';
+
+  @override
+  String get empBirth => 'Дата рождения';
+
+  @override
+  String get empHire => 'Дата найма';
+
+  @override
+  String get empAddress => 'Адрес';
+
+  @override
+  String get empComment => 'Комментарий';
+
+  @override
+  String get empClearDate => 'Очистить дату';
+
+  @override
+  String get empRequired => 'Заполните поле';
+
+  @override
+  String get empEmailBad => 'Введите почту полностью, например aibek@mail.kg';
+
+  @override
+  String get empPhoneBad => 'Телефон: от 9 до 15 цифр, можно с «+»';
+
+  @override
+  String get empSaved => 'Сотрудник сохранён.';
+
+  @override
+  String get empCreated => 'Сотрудник добавлен.';
+
+  @override
+  String get empNothingChanged => 'Ничего не изменено.';
+
+  @override
+  String get empSearch => 'Поиск: имя, почта, телефон';
+
+  @override
+  String get empFilterActive => 'Работают';
+
+  @override
+  String get empFilterDismissed => 'Уволены';
+
+  @override
+  String get empDismissedTag => 'уволен';
+
+  @override
+  String empCount(int n) {
+    return 'Сотрудников: $n';
+  }
+
+  @override
+  String get empNothingFound => 'Никого не найдено.';
+
+  @override
+  String get empDismiss => 'Уволить';
+
+  @override
+  String get empRestore => 'Восстановить';
+
+  @override
+  String empDismissAsk(String name) {
+    return 'Уволить $name? Он больше не сможет войти в программу. Продажи и смены сохранятся.';
+  }
+
+  @override
+  String empRestoreAsk(String name) {
+    return 'Восстановить $name? Он снова сможет войти в программу.';
+  }
+
+  @override
+  String get empDismissedDone => 'Сотрудник уволен.';
+
+  @override
+  String get empRestoredDone => 'Сотрудник восстановлен.';
+
+  @override
+  String get empDismissStill =>
+      'Сервер принял запрос, но сотрудник остался в списке. Удалите его на сайте app.nurcrm.kg.';
+
+  @override
+  String get empResetPwd => 'Сбросить пароль';
+
+  @override
+  String empResetAsk(String name) {
+    return 'Сбросить пароль $name? Старый пароль перестанет работать, новый покажем один раз.';
+  }
+
+  @override
+  String get empPasswordTitle => 'Пароль сотрудника';
+
+  @override
+  String empPasswordNote(String email) {
+    return 'Логин: $email. Пароль показывается один раз — передайте его сотруднику сейчас.';
+  }
+
+  @override
+  String get empCopy => 'Копировать пароль';
+
+  @override
+  String get empCopied => 'Скопировано.';
+
+  @override
+  String get empFeatureMissing => 'Сервер пока не поддерживает это действие.';
+
+  @override
+  String get empListDenied =>
+      'Нет права «Сотрудники» — список недоступен. Обратитесь к владельцу.';
+
+  @override
+  String get empErrBad => 'Сервер не принял данные. Проверьте поля.';
+
+  @override
+  String get empErrEmail => 'Эта почта уже занята или записана неверно.';
+
+  @override
+  String get empErr403 => 'Нет права на это действие. Обратитесь к владельцу.';
+
+  @override
+  String get empErr404 => 'Сотрудник не найден на сервере — обновите список.';
+
+  @override
+  String get empErr409 =>
+      'Такой сотрудник уже есть или данные успели измениться. Обновите список.';
+
+  @override
+  String get empErr429 =>
+      'Слишком много запросов. Подождите минуту и повторите.';
+
+  @override
+  String get empErr5xx =>
+      'Ошибка сервера. Данные не изменены — повторите позже.';
+
+  @override
+  String get rightUsePos => 'Работа на кассе';
+
+  @override
+  String get rightSalaryView => 'Зарплата: смотреть';
+
+  @override
+  String get rightSalaryEdit => 'Зарплата: выплачивать';
+
+  @override
+  String get rightEmployeesView => 'Сотрудники: смотреть';
+
+  @override
+  String get rightEmployeesEdit => 'Сотрудники: править';
+
+  @override
+  String get rightsReadOnly =>
+      'Доступы можно только смотреть: правит их владелец или тот, у кого открыты «Настройки».';
+
+  @override
+  String get unitNamePcs => 'Штука';
+
+  @override
+  String get unitNameKg => 'Килограмм';
+
+  @override
+  String get unitNameG => 'Грамм';
+
+  @override
+  String get unitNameL => 'Литр';
+
+  @override
+  String get unitNameMl => 'Миллилитр';
+
+  @override
+  String get unitNameM => 'Метр';
+
+  @override
+  String get unitNamePack => 'Упаковка';
+
+  @override
+  String get unitNamePair => 'Пара';
+
+  @override
+  String get unitNameSet => 'Комплект';
+
+  @override
+  String get unitCustom => 'Своя';
+
+  @override
+  String get unitCustomTitle => 'Своя единица';
+
+  @override
+  String get unitCustomHint => 'Например: рулон, бутылка';
+
+  @override
+  String unitHintFrac(String name) {
+    return '$name: можно дробное количество, например 0,5';
+  }
+
+  @override
+  String unitHintWhole(String name) {
+    return '$name: только целое количество';
+  }
+
+  @override
+  String get unitHintCustom => 'Своя единица: количество можно дробное';
+
+  @override
+  String nuQtyWhole(String unit, String qty) {
+    return 'Для «$unit» количество должно быть целым (сейчас $qty). Выберите кг, л, м… или впишите целое число.';
+  }
+
+  @override
+  String get nuQtyNegative => 'Количество не может быть меньше нуля.';
+
+  @override
+  String get nuPriceNeed => 'Укажите цену продажи';
+
+  @override
+  String get bkHintUnits =>
+      'Единица: шт, кг, г, л, мл, м, упак, пара, компл (понимаются и «штука», «литр», pcs, kg, l, дана, dona…). Цена и количество — можно дробные: 12,75; 0,5.';
+
+  @override
+  String get bkErrName => 'нет названия';
+
+  @override
+  String get bkErrPrice => 'укажите цену продажи';
+
+  @override
+  String bkErrUnit(String unit) {
+    return 'единица «$unit» не распознана — выберите шт, кг, л…';
+  }
+
+  @override
+  String bkErrQtyWhole(String qty, String unit) {
+    return 'количество $qty должно быть целым для «$unit»';
+  }
+
+  @override
+  String get bkErrQtyNeg => 'количество меньше нуля';
+
+  @override
+  String get bkWarnQty => 'количество не указано — остаток 0';
+
+  @override
+  String get bkSetUnit => 'Установить единицу';
+
+  @override
+  String get bkSetPrice => 'Установить цену';
+
+  @override
+  String get bkSetQty => 'Установить количество';
+
+  @override
+  String get bkSelectAll => 'Выбрать все';
+
+  @override
+  String get bkSelectBad => 'С ошибками';
+
+  @override
+  String get bkSelectNone => 'Снять выбор';
+
+  @override
+  String bkSelectedN(int n) {
+    return 'Выбрано строк: $n';
+  }
+
+  @override
+  String get bkSelectFirst =>
+      'Отметьте строки галочками, чтобы применить ко многим сразу.';
+
+  @override
+  String bkApplyTo(int n) {
+    return 'Применить к $n';
+  }
+
+  @override
+  String get bkEditRow => 'Строка товара';
+
+  @override
+  String bkResult(int a, int b) {
+    return 'Готово $a, с ошибками $b';
+  }
+
+  @override
+  String get barcodeDigitsHint => 'Только цифры, от 4 до 14';
+
+  @override
+  String get barcodeBadLen => 'Штрихкод — от 4 до 14 цифр, без букв';
+
+  @override
+  String get infK => 'тыс';
+
+  @override
+  String get infM => 'млн';
+
+  @override
+  String get infB => 'млрд';
+
+  @override
+  String get infNoData => 'Нет данных за период';
+
+  @override
+  String get infNoDataHint => 'Выберите другой период или проведите продажи';
+
+  @override
+  String infUpdatedAt(String time) {
+    return 'Обновлено $time';
+  }
+
+  @override
+  String get infCompare => 'Сравнить с прошлым периодом';
+
+  @override
+  String get infPeriodCustom => 'Свой период';
+
+  @override
+  String get infVsYesterday => 'к вчера';
+
+  @override
+  String get infVsPrevWeek => 'к прошлой неделе';
+
+  @override
+  String get infVsPrevMonth => 'к прошлому месяцу';
+
+  @override
+  String get infVsPrevPeriod => 'к прошлому периоду';
+
+  @override
+  String infDeltaUpSem(String pct, String vs) {
+    return 'Выше на $pct % $vs';
+  }
+
+  @override
+  String infDeltaDownSem(String pct, String vs) {
+    return 'Ниже на $pct % $vs';
+  }
+
+  @override
+  String infDeltaSameSem(String vs) {
+    return 'Без изменений $vs';
+  }
+
+  @override
+  String get infDeltaNew => 'новое';
+
+  @override
+  String get infOther => 'Прочее';
+
+  @override
+  String get infShare => 'Доля';
+
+  @override
+  String infDescEmpty(String name) {
+    return '$name: нет данных';
+  }
+
+  @override
+  String infDescOne(String name, String label, String value, String unit) {
+    return '$name: $label — $value $unit';
+  }
+
+  @override
+  String infDescBars(
+    String name,
+    String max,
+    String unit,
+    String maxLabel,
+    String min,
+    String minLabel,
+    String total,
+  ) {
+    return '$name: максимум $max $unit ($maxLabel), минимум $min $unit ($minLabel), всего $total $unit';
+  }
+
+  @override
+  String get infHowCalc => 'Как посчитано';
+
+  @override
+  String get infHowRevenue =>
+      'Выручка — сумма чеков со статусом «оплачен» и «частичный возврат» за период, как в программе на компьютере и на сайте. Чеки в долг и отменённые сюда не входят.';
+
+  @override
+  String get infHowChecks =>
+      'Чеки — число оплаченных чеков за период (с частичным возвратом тоже).';
+
+  @override
+  String get infHowAvg => 'Средний чек = выручка ÷ число чеков за период.';
+
+  @override
+  String get infHowProfit =>
+      'Прибыль = выручка − закупочная стоимость проданных товаров (валовая прибыль сервера). Расходы магазина сюда не входят.';
+
+  @override
+  String get infHowShiftCash =>
+      'Должно быть в кассе = наличные на начало + наличные продажи + оплата долгов наличными + внесения − возвраты наличными − изъятия. Число даёт сервер.';
+
+  @override
+  String get infHowDebts =>
+      'Долги — сумма, которую клиенты должны магазину сейчас (список должников сервера).';
+
+  @override
+  String get infHowLow =>
+      'Заканчивается — товары (не услуги), у которых остаток меньше 10 или не больше минимального остатка, заданного для товара.';
+
+  @override
+  String get infHowPayments =>
+      'Способы оплаты — сколько выручки пришло наличными, картой, переводом и в долг; проценты считаются от суммы всех способов.';
+
+  @override
+  String get infHowTop =>
+      'Топ товаров — товары с наибольшей выручкой за период; полоса — доля от лучшего товара.';
+
+  @override
+  String get scanModeLabel => 'Режим';
+
+  @override
+  String get scanModeTitle => 'Режим сканера';
+
+  @override
+  String scanModeA11y(String mode) {
+    return 'Режим сканера: $mode. Нажмите, чтобы выбрать';
+  }
+
+  @override
+  String get scanModeSaleSub => 'Сканируйте — товар сразу в чек';
+
+  @override
+  String get scanModeLookSub => 'Узнать товар по фото, без штрихкода';
+
+  @override
+  String get scanModeWeighSub => 'Весовой товар: вес с табло весов';
+
+  @override
+  String get scanModeReceiveSub => 'Принять товар на склад';
+
+  @override
+  String get scanModeKassaSub => 'Штрихкоды уходят на кассу по Wi-Fi';
+
+  @override
+  String get infNoDelta => '— н/д';
+
+  @override
+  String get infNoCompare => '— сравнения нет';
+
+  @override
+  String get infCompareShort => 'Сравнить';
+
+  @override
+  String get infLoadFailedTitle => 'Не удалось загрузить';
+
+  @override
+  String infLoadFailedAt(String time) {
+    return 'Нет связи с сервером. Показаны данные на $time.';
+  }
+
+  @override
+  String get infLoadFailedNoData => 'Нет связи с сервером.';
+
+  @override
+  String get infTapHint => 'Нажмите на столбец — подробности';
+
+  @override
+  String get infTapRingHint => 'Нажмите на сектор — подробности';
+
+  @override
+  String get infPrevBar => 'Прошлый период';
+
+  @override
+  String infOfPeriod(String pct) {
+    return '$pct % периода';
+  }
+
+  @override
+  String get infHoursNote =>
+      'Выручка по часам: сервер пока не отдаёт разбивку по часам — раздел появится позже.';
+
+  @override
+  String get infExpensesNote =>
+      'Расходы магазина в отчёт сервера не входят — показаны выручка, себестоимость и прибыль.';
+
+  @override
+  String get infCost => 'Себестоимость';
+
+  @override
+  String infMargin(String pct) {
+    return 'Рентабельность $pct %';
+  }
+
+  @override
+  String get infRevenueCostProfit => 'Выручка, себестоимость и прибыль';
+
+  @override
+  String get infDebtConcTitle => 'Кто должен больше всех';
+
+  @override
+  String infDebtConcLine(String pct) {
+    return 'Три крупнейших должника — $pct % долга';
+  }
+
+  @override
+  String get infDebtAgeNote =>
+      'Давность долга: сервер не присылает даты долгов — показана концентрация по должникам.';
+
+  @override
+  String get infStockTitle => 'Остатки на складе';
+
+  @override
+  String get infStockOut => 'Нет в наличии';
+
+  @override
+  String get infStockLow => 'Заканчивается';
+
+  @override
+  String get infStockOk => 'Хватает';
+
+  @override
+  String get infPaidWith => 'Чем платили';
+
+  @override
+  String get infTotalWord => 'Всего';
+
+  @override
+  String get infShiftNoSales => 'В смене пока нет продаж';
+
+  @override
+  String get infHowTitle => 'Как это посчитано';
+
+  @override
+  String get infRangePick => 'Выбрать даты';
 }

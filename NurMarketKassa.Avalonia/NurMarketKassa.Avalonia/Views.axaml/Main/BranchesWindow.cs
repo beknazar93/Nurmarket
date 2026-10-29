@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
@@ -106,7 +107,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
 
         // ── страница «Филиалы»
         var branchTools = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(0, 0, 0, 12) };
-        _branchSearch = UiKit.Input(this, T("Поиск: название, адрес, телефон, почта…", "Издөө: аталышы, дареги, телефону, почтасы…", "Search: name, address, phone, email…",
+        _branchSearch = UiKit.Search(this, T("Поиск: название, адрес, телефон, почта…", "Издөө: аталышы, дареги, телефону, почтасы…", "Search: name, address, phone, email…",
             "Ara: ad, adres, telefon, e-posta…", "Qidirish: nomi, manzil, telefon, pochta…"), 40);
         _branchSearch.TextChanged += (_, _) => RenderBranches();
         branchTools.Children.Add(_branchSearch);
@@ -149,7 +150,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
         directionSegment.Bind(Visual.IsVisibleProperty, _directionChips.GetObservable(Visual.IsVisibleProperty));
         filterRow.Children.Add(directionSegment);
         var transferTools = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(0, 0, 0, 12) };
-        _transferSearch = UiKit.Input(this, T("Поиск: номер, комментарий…", "Издөө: номер, комментарий…", "Search: number, comment…", "Ara: numara, yorum…", "Qidirish: raqam, izoh…"), 40);
+        _transferSearch = UiKit.Search(this, T("Поиск: номер, комментарий…", "Издөө: номер, комментарий…", "Search: number, comment…", "Ara: numara, yorum…", "Qidirish: raqam, izoh…"), 40);
         var searchTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         searchTimer.Tick += async (_, _) =>
         {
@@ -366,7 +367,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
         }
         var query = (_branchSearch.Text ?? "").Trim();
         var shown = _branches.Where(b => query.Length == 0
-            || new[] { b.Name, b.Code, b.Address, b.Phone, b.Email }.Any(x => x.Contains(query, StringComparison.CurrentCultureIgnoreCase))).ToList();
+            || SearchMatch.Matches(query, b.Name, b.Code, b.Address, b.Phone, b.Email)).ToList(); // 2026-10-29: единый поиск
         if (_branches.Count > 0 && shown.Count == 0)
         {
             _branchList.Children.Add(SectionCards.Empty(this, T("Ничего не найдено. Ищется по названию, коду, адресу, телефону и почте.", "Эч нерсе табылган жок. Аталышы, коду, дареги, телефону жана почтасы боюнча изделет.",
@@ -1203,7 +1204,7 @@ public sealed class BranchTransferDialog : Window
         panel.Children.Add(_date);
 
         panel.Children.Add(UiKit.Label(this, T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar")));
-        _search = UiKit.Input(this, T("Найти товар на складе отправителя: название или штрихкод", "Жөнөтүүчүнүн кампасынан товар издөө: аталышы же штрихкод",
+        _search = UiKit.Search(this, T("Найти товар на складе отправителя: название или штрихкод", "Жөнөтүүчүнүн кампасынан товар издөө: аталышы же штрихкод",
             "Find a product in the sender's stock: name or barcode", "Gönderenin deposunda ürün ara: ad veya barkod", "Jo'natuvchi omboridan mahsulot qidirish: nomi yoki shtrix-kod"), 44);
         var searchTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         searchTimer.Tick += async (_, _) =>
@@ -1438,7 +1439,7 @@ public sealed class BranchTransferDialog : Window
     }
 
     private static double ParseQty(string? text) =>
-        double.TryParse((text ?? "").Trim().Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : double.NaN;
+        double.TryParse((text ?? "").Trim().Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out var v) ? v : double.NaN;
 
     private void UpdateTotal()
     {

@@ -93,6 +93,21 @@ public static class LanStockAdjuster
         }
     }
 
+    /// <summary>2026-10-29: товары, которые соседи продали сверх известного серверу, — к ним лента каталога остаток не применяет (FeedStockGuard).</summary>
+    public static IReadOnlyCollection<string> PendingProductIds()
+    {
+        try
+        {
+            lock (Gate)
+                return Pending(SnapshotTime()).Keys.ToList();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"LAN: список товаров с продажами соседей не прочитан: {ex.Message}", "LAN");
+            throw; // FeedStockGuard при сбое вообще не применяет остатки ленты
+        }
+    }
+
     /// <summary>Сколько каждого товара продали соседи сверх того, что знает снимок.</summary>
     private static Dictionary<string, double> Pending(DateTime snapshotUtc)
     {

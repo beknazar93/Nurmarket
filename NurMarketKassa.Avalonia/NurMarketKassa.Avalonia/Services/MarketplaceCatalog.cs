@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -142,10 +143,8 @@ public sealed class MarketplaceItem
     {
         if (string.IsNullOrWhiteSpace(query))
             return true;
-        var q = query.Trim();
-        bool Has(string? s) => !string.IsNullOrEmpty(s) && s.Contains(q, StringComparison.CurrentCultureIgnoreCase);
-        return Has(Title) || Has(ShortDescription) || Has(LongDescription) || Has(Vendor) || Has(KindLabel)
-               || Tags.Any(Has) || Features.Any(Has);
+        // 2026-10-29: единый поиск (слова в любом порядке, ё=е, раскладка/транслит) — SearchMatch.
+        return SearchMatch.Matches(query, Title, ShortDescription, LongDescription, Vendor, KindLabel, string.Join(" ", Tags), string.Join(" ", Features));
     }
 }
 

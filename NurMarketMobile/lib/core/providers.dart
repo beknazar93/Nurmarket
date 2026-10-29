@@ -67,6 +67,12 @@ class SessionController extends Notifier<Session?> {
     return true;
   }
 
+  /// 2026-10-28 (сотрудники): «Имя Фамилия» из профиля; пусто — null (прежнее имя остаётся).
+  static String? _nameOf(Map<String, dynamic> u) {
+    final n = [str(u, 'first_name'), str(u, 'last_name')].whereType<String>().join(' ').trim();
+    return n.isNotEmpty ? n : str(u, 'full_name');
+  }
+
   /// Роль и доступы (can_view_*) из api/users/profile/. Без связи — остаются прежние.
   Future<void> refreshProfile() async {
     try {
@@ -78,6 +84,8 @@ class SessionController extends Notifier<Session?> {
       final s = cur.copyWith(
         // 2026-10-27: номер пользователя подгружается, если при входе профиль не загрузился (нужен для списка «Доступ к ИИ»)
         userId: cur.userId.isEmpty ? (str(u, 'id') ?? '') : cur.userId,
+        // 2026-10-28 (сотрудники): имя в шапке/чеках обновляется, если владелец поменял его на сайте или в карточке сотрудника
+        userName: _nameOf(u) ?? cur.userName,
         role: str(u, 'role_display') ?? str(u, 'role') ?? cur.role,
         isOwner: u['is_owner'] == true || str(u, 'role') == 'owner',
         perms: Session.extractPerms(profile),

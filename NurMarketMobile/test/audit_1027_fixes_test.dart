@@ -1,5 +1,5 @@
 // 2026-10-27: исправления по аудиту мобилки 27.10 — подтверждение аномальной цены (В-2), полоса режимов сканера и кнопка
-// «Сканер для кассы» (С-1), «касса не найдена» / отказ кассы (С-3, С-4), проверка связи только в Wi-Fi и реже (С-7).
+// «Сканер для кассы» (С-1; с 29.10 — селект режимов), «касса не найдена» / отказ кассы (С-3, С-4), проверка связи только в Wi-Fi и реже (С-7).
 // Сеть и сервер не трогаются: касса и API — подставные, база в памяти.
 import 'dart:convert';
 import 'dart:io';
@@ -357,66 +357,127 @@ void main() {
     expect(find.textContaining('48 '), findsNothing, reason: 'старый остаток не остался');
   });
 
-  // ------------------------------------------------------------------ С-1: полоса режимов сканера
+  // ------------------------------------------------------------------ С-1 (2026-10-29): селект режима сканера вместо полосы
+  // Полоса режимов и кнопка «Сканер для кассы» заменены полем «Режим: …» и нижним листом со списком (ScanModeSelect).
+  Widget selectHarness(List<String> events, {bool showKassa = true, String lang = 'ru', bool dark = false}) {
+    ScanMode mode = ScanMode.sale;
+    var kassa = false;
+    return _app(
+      StatefulBuilder(
+        builder: (c, set) => Container(
+          color: Colors.black,
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: const [SizedBox(width: 48, height: 48), Spacer(), SizedBox(width: 48, height: 48)]),
+              const SizedBox(height: 8),
+              ScanModeSelect(
+                mode: mode,
+                kassa: kassa,
+                showKassa: showKassa,
+                onSelect: (m) => set(() {
+                  mode = m;
+                  kassa = false;
+                  events.add(m.name);
+                }),
+                onKassa: () => set(() {
+                  kassa = true;
+                  events.add('kassa');
+                }),
+              ),
+            ],
+          ),
+        ),
+      ),
+      lang: lang,
+      dark: dark,
+    );
+  }
+
+  Finder inSheet(String text) => find.descendant(of: find.byType(BottomSheet), matching: find.text(text));
+
   for (final lang in ['ru', 'ky', 'uz']) {
     for (final scale in [1.0, 1.3]) {
-      testWidgets('полоса режимов и кнопка «Сканер для кассы»: $lang, 360 dp, шрифт $scale — без переполнений', (t) async {
-        _phone(t, scale: scale);
-        ScanMode picked = ScanMode.sale;
-        var kassaOn = false;
-        await t.pumpWidget(
-          _app(
-            StatefulBuilder(
-              builder: (c, set) => Container(
-                color: Colors.black,
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        const SizedBox(width: 48, height: 48),
-                        const SizedBox(width: 10),
-                        Expanded(child: ScanModeBar(mode: picked, onSelect: (m) => set(() => picked = m))),
-                        const SizedBox(width: 10),
-                        const SizedBox(width: 48, height: 48),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: KassaModeChip(label: c.l.klScannerMode, active: kassaOn, onTap: () => set(() => kassaOn = !kassaOn)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            lang: lang,
-          ),
-        );
-        await t.pumpAndSettle();
-        expect(t.takeException(), isNull);
-        final l = t.element(find.byType(ScanModeBar)).l;
-        // кнопка кассы — отдельной строкой, подпись целиком, высота ≥ 48
-        expect(find.text(l.klScannerMode), findsOneWidget);
-        expect(t.getSize(find.byType(KassaModeChip)).height, greaterThanOrEqualTo(48));
-        expect(_clipped(t), isEmpty, reason: 'обрезано: ${_clipped(t)}');
-        // все пять режимов есть в полосе; последний достижим прокруткой и нажимается
-        for (final label in [l.toCheck, l.byLook, l.weighShort, l.checkPrice, l.receiving]) {
-          expect(find.text(label), findsOneWidget, reason: label);
-        }
-        await t.ensureVisible(find.text(l.receiving));
-        await t.pumpAndSettle();
-        await t.tap(find.text(l.receiving));
-        await t.pump();
-        expect(picked, ScanMode.receive);
-        await t.tap(find.byType(KassaModeChip));
-        await t.pump();
-        expect(kassaOn, isTrue);
-      });
+      for (final dark in [false, true]) {
+        testWidgets('селект режимов: $lang, 360 dp, шрифт $scale, ${dark ? 'тёмная' : 'светлая'} — лист, каждый режим, без переполнений', (t) async {
+          _phone(t, scale: scale);
+          final events = <String>[];
+          await t.pumpWidget(selectHarness(events, lang: lang, dark: dark));
+          await t.pumpAndSettle();
+          expect(t.takeException(), isNull);
+          final l = t.element(find.byType(ScanModeSelect)).l;
+          // поле на всю ширину, высота ≥ 48, подпись целиком; никакой горизонтальной прокрутки
+          expect(t.getSize(find.byType(ScanModeSelect)).height, greaterThanOrEqualTo(48));
+          expect(t.getSize(find.byType(ScanModeSelect)).width, 360 - 28);
+          expect(find.byType(SingleChildScrollView), findsNothing);
+          expect(find.textContaining(l.scanModeLabel, findRichText: true), findsOneWidget);
+          expect(_clipped(t), isEmpty, reason: 'обрезано: ${_clipped(t)}');
+          expect(find.byType(BottomSheet), findsNothing);
+
+          for (final c in ScanChoice.values) {
+            await t.tap(find.byType(ScanModeSelect));
+            await t.pumpAndSettle();
+            expect(find.byType(BottomSheet), findsOneWidget, reason: 'лист открыт');
+            expect(t.takeException(), isNull);
+            // все шесть пунктов: название и описание, отметка ✓ у выбранного; ничего не обрезано
+            for (final x in ScanChoice.values) {
+              expect(inSheet(x.label(l)), findsOneWidget, reason: x.label(l));
+              expect(inSheet(x.sub(l)), findsOneWidget, reason: x.sub(l));
+            }
+            expect(find.descendant(of: find.byType(BottomSheet), matching: find.byIcon(Icons.check_rounded)), findsOneWidget);
+            expect(_clipped(t), isEmpty, reason: 'обрезано: ${_clipped(t)}');
+            // касание пункта ≥ 48 dp
+            final row = find.ancestor(of: inSheet(c.label(l)), matching: find.byType(InkWell)).first;
+            expect(t.getSize(row).height, greaterThanOrEqualTo(48));
+            await t.tap(inSheet(c.label(l)));
+            await t.pumpAndSettle();
+            expect(find.byType(BottomSheet), findsNothing, reason: 'выбор закрывает лист');
+            expect(events.last, c == ScanChoice.kassa ? 'kassa' : c.mode!.name);
+            expect(t.takeException(), isNull);
+          }
+          // в поле — «Сканер для кассы» (последний выбранный пункт); отметка ✓ — у него же
+          expect(find.textContaining(l.klScannerMode, findRichText: true), findsOneWidget);
+          await t.tap(find.byType(ScanModeSelect));
+          await t.pumpAndSettle();
+          expect(find.descendant(of: find.byType(BottomSheet), matching: find.byIcon(Icons.check_rounded)), findsOneWidget);
+          expect(t.getSemantics(find.byType(ScanModeSelect)), isNotNull);
+        });
+      }
     }
   }
+
+  testWidgets('селект режимов: без «Сканера для кассы» (ПК, сканер приёмки) в списке пять пунктов; нажатие вне листа ничего не выбирает', (t) async {
+    _phone(t);
+    final events = <String>[];
+    await t.pumpWidget(selectHarness(events, showKassa: false));
+    await t.pumpAndSettle();
+    final l = t.element(find.byType(ScanModeSelect)).l;
+    await t.tap(find.byType(ScanModeSelect));
+    await t.pumpAndSettle();
+    expect(inSheet(l.klScannerMode), findsNothing);
+    expect(inSheet(l.weighShort), findsOneWidget);
+    await t.tapAt(const Offset(180, 20)); // за листом — закрывает без выбора
+    await t.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(events, isEmpty);
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('режим сканера запоминается между запусками (ScanModeMemory)', (t) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await t.runAsync(() async {
+      expect(await ScanModeMemory.load(db), isNull, reason: 'первый запуск — ничего не сохранено');
+      await ScanModeMemory.save(db, ScanMode.price.name);
+      expect(await ScanModeMemory.load(db), 'price');
+      await ScanModeMemory.save(db, ScanModeMemory.kassa);
+      expect(await ScanModeMemory.load(db), 'kassa');
+      await ScanModeMemory.save(db, ScanMode.sale.name);
+      expect(await ScanModeMemory.load(db), 'sale');
+    });
+  });
 
   // ------------------------------------------------------------------ С-3 / С-4: касса не найдена, отказ
   group('панель «Сканер для кассы» и экран «Связь с кассой»', () {

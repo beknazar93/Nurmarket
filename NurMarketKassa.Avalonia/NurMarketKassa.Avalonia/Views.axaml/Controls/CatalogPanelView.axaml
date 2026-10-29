@@ -4,6 +4,7 @@
              xmlns:pos="using:NurMarketKassa.Models.Pos"
              xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
              xmlns:mainViews="using:NurMarketKassa.AvaloniaHost.Views"
+             xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.CatalogPanelView"
              x:DataType="vm:CatalogPanelViewModel"
              x:CompileBindings="True">
@@ -274,13 +275,14 @@
                         BorderThickness="1"
                         CornerRadius="12"
                         Padding="10,0">
-                    <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" HorizontalAlignment="Stretch">
                         <PathIcon Data="{StaticResource IconSearch}"
                                   Width="16" Height="16"
                                   Foreground="{DynamicResource BrushTextSoft}"
                                   VerticalAlignment="Center"
                                   Margin="0,0,8,0"/>
                         <TextBox x:Name="ProductSearchBox"
+                                 MaxLength="120"
                                  Grid.Column="1"
                                  Text="{Binding SearchText}"
                                  Watermark="{DynamicResource csh.catalog.searchWatermark}"
@@ -292,8 +294,19 @@
                                  VerticalContentAlignment="Center"
                                  HorizontalAlignment="Stretch"
                                  VerticalAlignment="Center"/>
-                        <!-- 2026-10-05, владелец (Android): «добавь сканер при поиске товара» — код с камеры уходит в поиск. -->
+                        <!-- 2026-10-29 (аудит поисков): крестик «очистить поиск» — виден, пока в поле есть текст (Esc в поле делает то же). -->
                         <Button Grid.Column="2"
+                                IsVisible="{Binding HasSearchText}"
+                                Command="{Binding ClearSearchCommand}"
+                                Focusable="False"
+                                Width="36" Height="42" Padding="0"
+                                Background="Transparent" BorderThickness="0"
+                                ToolTip.Tip="{DynamicResource csh.catalog.clearSearch}">
+                            <TextBlock Classes="mdl2" Text="&#xE711;" FontSize="14"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+                        <!-- 2026-10-05, владелец (Android): «добавь сканер при поиске товара» — код с камеры уходит в поиск. -->
+                        <Button Grid.Column="3"
                                 IsVisible="{OnPlatform False, Android=True}"
                                 Click="SearchCameraScan_Click"
                                 Focusable="False"
@@ -382,15 +395,8 @@
                             Content="✕"
                             Click="ResetFilter_Click"/>
                 </StackPanel>
-                <Button Grid.Column="3"
-                        Classes="main-ghost"
-                        Width="44" Height="44"
-                        Padding="0"
-                        Margin="8,0,0,0"
-                        ToolTip.Tip="{DynamicResource csh.catalog.refreshTooltip}"
-                        Command="{Binding RefreshCatalogCommand}">
-                    <PathIcon Data="{StaticResource IconRefresh}" Width="17" Height="17"/>
-                </Button>
+                <!-- 2026-10-28: общая кнопка «Обновить» (каталог + смена, F5) — та же во всех видах кассы (RefreshButton). -->
+                <ctl:RefreshButton Grid.Column="3" Margin="8,0,0,0"/>
             </Grid>
 
             <StackPanel Grid.Row="2" Margin="0,0,0,6" Spacing="4">

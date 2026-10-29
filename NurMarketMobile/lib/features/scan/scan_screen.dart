@@ -12,6 +12,7 @@ import '../../core/link/kassa_link.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
+import '../../l10n/app_localizations.dart';
 import '../sale/sale_screen.dart';
 import 'barcode_lookup.dart';
 import 'code_lookup.dart';
@@ -31,9 +32,10 @@ enum ScanMode { sale, price, receive, look, weigh }
 /// Сканер камерой (Т3): EAN-13/8, Code128, QR; непрерывный режим; фонарик.
 /// В режиме «Приёмка», открытом из экрана приёмки, возвращает штрихкоды через [Navigator.pop].
 class ScanScreen extends ConsumerStatefulWidget {
-  final ScanMode initial;
+  /// 2026-10-29: null — взять последний режим, запомненный на телефоне; задан явно (приёмка, ссылка `?mode=price`) — он и берётся.
+  final ScanMode? initial;
   final bool returnCodes;
-  const ScanScreen({super.key, this.initial = ScanMode.sale, this.returnCodes = false});
+  const ScanScreen({super.key, this.initial, this.returnCodes = false});
   @override
   ConsumerState<ScanScreen> createState() => _ScanScreenState();
 }
@@ -53,7 +55,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     // 2026-10-22 (аудит С-8): мелкий код — камера сама приближает (Android)
     autoZoom: true,
   );
-  late ScanMode _mode = widget.initial;
+  late ScanMode _mode = widget.initial ?? ScanMode.sale;
   Product? _found;
 
   /// 2026-10-22 (аудит С-1): повтор скана — по каждому коду отдельно ([ScanRepeat]).
@@ -83,6 +85,26 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     unawaited(CameraGate.warmUp());
     // правила весовых этикеток компании (префикс «сумма» у Rongta и т. п.)
     unawaited(ScaleRulesLoader.ensure(ref.read(databaseProvider), ref.read(apiProvider)).catchError((_) {}));
+    if (widget.initial == null && !widget.returnCodes) unawaited(_restoreMode());
+  }
+
+  /// 2026-10-29: режим сканера запоминается между запусками (продажа, цена, «Сканер для кассы»). Умная камера, весы и приёмка
+  /// открывают отдельный экран и режим сканера не меняют — их не запоминаем. Ссылка/приёмка с явным режимом сюда не заходят.
+  bool _modeTouched = false;
+
+  Future<void> _restoreMode() async {
+    final saved = await ScanModeMemory.load(ref.read(databaseProvider));
+    if (!mounted || _modeTouched || saved == null) return;
+    if (saved == ScanModeMemory.kassa) {
+      if (KassaLink.supported && !_kassa) _toggleKassa();
+    } else if (saved == ScanMode.price.name) {
+      setState(() => _mode = ScanMode.price);
+    }
+  }
+
+  void _remember(String value) {
+    if (widget.returnCodes) return;
+    unawaited(ScanModeMemory.save(ref.read(databaseProvider), value));
   }
 
   @override
@@ -160,6 +182,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
         _kassa = false;
         _kassaCtl = null;
       });
+      _remember(_mode.name);
       return;
     }
     final ctl = KassaScannerController(
@@ -172,6 +195,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       _kassaCtl = ctl;
     });
     unawaited(ctl.start());
+    _remember(ScanModeMemory.kassa);
   }
 
   /// Из панели «не настроено»: экран «Связь с кассой»; камера на это время отдана экрану QR.
@@ -437,70 +461,70 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
               child: SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(14),
-                  // 2026-10-27 (аудит мобилки, С-1, Н-1): «Сканер для кассы» вынесен отдельной строкой под полосу режимов —
-                  // в верхнем ряду он сжимал полосу («Весы» → «Вес», на 360 dp / ky видны два режима), а подпись режима обрезалась.
+                  // 2026-10-29: полоса режимов и отдельная кнопка «Сканер для кассы» заменены одним селектом «Режим: …» на всю
+                  // ширину (нижний лист со списком); кнопки «назад» и фонарик — отдельным рядом над ним.
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                  Row(
-                    children: [
-                      _Round(icon: Icons.close_rounded, label: l.a11yBack, onTap: _back),
-                      const SizedBox(width: 10),
-                      if (!widget.returnCodes && _kassa)
-                        // 2026-10-27: в режиме кассы полоса режимов продажи скрыта; название режима — на кнопке строкой ниже
-                        const Spacer()
-                      else if (!widget.returnCodes)
-                        Expanded(
-                          child: ScanModeBar(
-                            mode: _mode,
-                            // 2026-10-22 (аудит П7): долгое нажатие на «Весы» — префиксы этикеток весов компании
-                            onLongPress: (m) {
-                              if (m == ScanMode.weigh) _scalePrefixes();
-                            },
-                            onSelect: (m) {
-                              // 13.10, владелец: «умная камера при продаже где?» — «По виду»: снимок товара без штрихкода,
-                              // ИИ узнаёт его и находит в каталоге; камеру сканера на время снимка отдаём системной камере.
-                              // 2026-10-20, владелец: «ставить картошку… умной камерой сканирует вместе с показаниями весов».
-                              // 2026-10-22: «умная камера после сканера очень долго думает» и чёрный экран — сканер не
-                              // ждал, пока остановится, а умная камера уже включалась на ту же камеру. Теперь _handOver.
-                              if (m == ScanMode.weigh) {
-                                _handOver(() => weighForSale(context, ref));
-                              } else if (m == ScanMode.look) {
-                                _handOver(() => recognizeForSale(context, ref));
-                              } else if (m == ScanMode.receive) {
-                                // Вторая камера (сканер приёмки) не откроется, пока работает эта — останавливаем и включаем по возвращении.
-                                _handOver(() => context.push('/stock/receive'));
-                              } else {
-                                setState(() => _mode = m);
-                              }
-                            },
+                      Row(
+                        children: [
+                          _Round(icon: Icons.close_rounded, label: l.a11yBack, onTap: _back),
+                          const Spacer(),
+                          // 2026-10-22 (аудит С-9): состояние фонарика — от камеры; нет вспышки — кнопки нет
+                          ValueListenableBuilder(
+                            valueListenable: _camera,
+                            builder: (context, v, _) => v.torchState == TorchState.unavailable
+                                ? const SizedBox(width: 46)
+                                : _Round(
+                                    icon: v.torchState == TorchState.on ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                                    label: l.torchToggle,
+                                    onTap: () async {
+                                      try {
+                                        await _camera.toggleTorch();
+                                      } catch (_) {}
+                                    },
+                                  ),
                           ),
-                        )
-                      else
-                        const Spacer(),
-                      const SizedBox(width: 10),
-                      // 2026-10-22 (аудит С-9): состояние фонарика — от камеры; нет вспышки — кнопки нет
-                      ValueListenableBuilder(
-                        valueListenable: _camera,
-                        builder: (context, v, _) => v.torchState == TorchState.unavailable
-                            ? const SizedBox(width: 46)
-                            : _Round(
-                                icon: v.torchState == TorchState.on ? Icons.flash_on_rounded : Icons.flash_off_rounded,
-                                label: l.torchToggle,
-                                onTap: () async {
-                                  try {
-                                    await _camera.toggleTorch();
-                                  } catch (_) {}
-                                },
-                              ),
+                        ],
                       ),
-                    ],
-                  ),
-                      // 2026-10-27: переключатель «Сканер для кассы» — только в мобилке (Android/iOS), не в сканере приёмки
-                      if (KassaLink.supported && !widget.returnCodes) ...[
+                      if (!widget.returnCodes) ...[
                         const SizedBox(height: 8),
-                        Align(alignment: AlignmentDirectional.centerStart, child: KassaModeChip(label: l.klScannerMode, active: _kassa, onTap: _toggleKassa)),
+                        ScanModeSelect(
+                          mode: _mode,
+                          kassa: _kassa,
+                          // 2026-10-27: «Сканер для кассы» — только в мобилке (Android/iOS), не в сканере приёмки
+                          showKassa: KassaLink.supported,
+                          // 2026-10-22 (аудит П7): долгое нажатие на «Весы» — префиксы этикеток весов компании
+                          onLongPress: (m) {
+                            if (m == ScanMode.weigh) _scalePrefixes();
+                          },
+                          onKassa: () {
+                            _modeTouched = true;
+                            if (!_kassa) _toggleKassa();
+                          },
+                          onSelect: (m) {
+                            _modeTouched = true;
+                            // 2026-10-29: выбор любого другого режима выключает «Сканер для кассы» (раньше — повторным нажатием кнопки)
+                            if (_kassa) _toggleKassa();
+                            // 13.10, владелец: «умная камера при продаже где?» — «По виду»: снимок товара без штрихкода,
+                            // ИИ узнаёт его и находит в каталоге; камеру сканера на время снимка отдаём системной камере.
+                            // 2026-10-20, владелец: «ставить картошку… умной камерой сканирует вместе с показаниями весов».
+                            // 2026-10-22: «умная камера после сканера очень долго думает» и чёрный экран — сканер не
+                            // ждал, пока остановится, а умная камера уже включалась на ту же камеру. Теперь _handOver.
+                            if (m == ScanMode.weigh) {
+                              _handOver(() => weighForSale(context, ref));
+                            } else if (m == ScanMode.look) {
+                              _handOver(() => recognizeForSale(context, ref));
+                            } else if (m == ScanMode.receive) {
+                              // Вторая камера (сканер приёмки) не откроется, пока работает эта — останавливаем и включаем по возвращении.
+                              _handOver(() => context.push('/stock/receive'));
+                            } else {
+                              setState(() => _mode = m);
+                              _remember(m.name);
+                            }
+                          },
+                        ),
                       ],
                     ],
                   ),
@@ -652,107 +676,200 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   }
 }
 
-/// 2026-10-26 (живой аудит, П8, Н-2): полоса режимов сканера. Один размер шрифта у всех подписей (раньше FittedBox сжимал
-/// каждую по-своему), касание не меньше 48 × 48 dp; на узком экране (360 dp) полоса прокручивается по горизонтали, выбранный
-/// режим подводится в видимую часть.
-class ScanModeBar extends StatefulWidget {
-  final ScanMode mode;
-  final void Function(ScanMode mode) onSelect;
-  final void Function(ScanMode mode)? onLongPress;
-  const ScanModeBar({super.key, required this.mode, required this.onSelect, this.onLongPress});
+/// 2026-10-29: последний режим сканера (продажа, цена, «Сканер для кассы») — в настройках базы телефона.
+class ScanModeMemory {
+  static const key = 'scan.mode';
+  static const kassa = 'kassa';
+  static Future<String?> load(AppDatabase db) async {
+    try {
+      return await db.getSetting(key);
+    } catch (_) {
+      return null;
+    }
+  }
 
-  @override
-  State<ScanModeBar> createState() => _ScanModeBarState();
+  static Future<void> save(AppDatabase db, String value) async {
+    try {
+      await db.setSetting(key, value);
+    } catch (_) {}
+  }
 }
 
-class _ScanModeBarState extends State<ScanModeBar> {
-  // 2026-10-27 (аудит мобилки, С-1): на узком экране часть режимов за краем — край затемняется («тень»), видно, что полосу можно листать
-  final _ctl = ScrollController();
-  bool _more = false;
-  bool _less = false;
+/// Пункт списка режимов: пять режимов продажи и «Сканер для кассы».
+enum ScanChoice {
+  sale(ScanMode.sale, Icons.shopping_cart_checkout_rounded),
+  look(ScanMode.look, Icons.image_search_rounded),
+  weigh(ScanMode.weigh, Icons.scale_rounded),
+  price(ScanMode.price, Icons.price_check_rounded),
+  receive(ScanMode.receive, Icons.move_to_inbox_rounded),
+  kassa(null, Icons.point_of_sale_rounded);
 
-  @override
-  void initState() {
-    super.initState();
-    _ctl.addListener(_measure);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
-  }
+  final ScanMode? mode;
+  final IconData icon;
+  const ScanChoice(this.mode, this.icon);
 
-  @override
-  void dispose() {
-    _ctl.dispose();
-    super.dispose();
-  }
+  String label(AppLocalizations l) => switch (this) {
+    sale => l.toCheck,
+    look => l.byLook,
+    weigh => l.weighShort,
+    price => l.checkPrice,
+    receive => l.receiving,
+    kassa => l.klScannerMode,
+  };
 
-  void _measure() {
-    if (!mounted || !_ctl.hasClients) return;
-    final p = _ctl.position;
-    final more = p.extentAfter > 1, less = p.extentBefore > 1;
-    if (more != _more || less != _less) {
-      setState(() {
-        _more = more;
-        _less = less;
-      });
+  String sub(AppLocalizations l) => switch (this) {
+    sale => l.scanModeSaleSub,
+    look => l.scanModeLookSub,
+    weigh => l.scanModeWeighSub,
+    price => l.scanTileSub,
+    receive => l.scanModeReceiveSub,
+    kassa => l.scanModeKassaSub,
+  };
+}
+
+/// 2026-10-29: селект режима сканера вместо полосы вкладок и отдельной кнопки «Сканер для кассы»: поле «Режим: Весы ▾» на всю
+/// ширину (не ниже 48 dp, длинная подпись переносится, не обрезается) и нижний лист со списком — значок, название, описание,
+/// отметка выбранного. «Сканер для кассы» — шестой пункт списка (если [showKassa]); поле показывает его, пока он включён.
+class ScanModeSelect extends StatelessWidget {
+  final ScanMode mode;
+  final bool kassa;
+  final bool showKassa;
+  final void Function(ScanMode mode) onSelect;
+  final VoidCallback onKassa;
+  final void Function(ScanMode mode)? onLongPress;
+  const ScanModeSelect({super.key, required this.mode, required this.onSelect, required this.onKassa, this.kassa = false, this.showKassa = true, this.onLongPress});
+
+  ScanChoice get _current => kassa ? ScanChoice.kassa : ScanChoice.values.firstWhere((c) => c.mode == mode);
+
+  Future<void> _open(BuildContext context) async {
+    final picked = await showModalBottomSheet<ScanChoice>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: context.pal.panel,
+      builder: (c) => _ScanModeSheet(
+        current: _current,
+        showKassa: showKassa,
+        onLongPress: onLongPress == null
+            ? null
+            : (m) {
+                Navigator.pop(c);
+                onLongPress!(m);
+              },
+      ),
+    );
+    if (picked == null || !context.mounted) return;
+    if (picked == ScanChoice.kassa) {
+      onKassa();
+    } else {
+      onSelect(picked.mode!);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final l = context.l;
-    final mode = widget.mode, onSelect = widget.onSelect, onLongPress = widget.onLongPress;
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: camShade, borderRadius: BorderRadius.circular(14)),
-      child: NotificationListener<ScrollMetricsNotification>(
-        onNotification: (_) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
-          return false;
-        },
-        child: ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (r) => LinearGradient(
-            colors: [Color(_less ? 0x00FFFFFF : 0xFFFFFFFF), Colors.white, Colors.white, Color(_more ? 0x00FFFFFF : 0xFFFFFFFF)],
-            stops: const [0, .12, .88, 1],
-          ).createShader(r),
-          child: SingleChildScrollView(
-        controller: _ctl,
-        scrollDirection: Axis.horizontal,
-        child: Row(
+    final cur = _current;
+    final fg = kassa ? T.navy : Colors.white;
+    final name = cur.label(l);
+    return Semantics(
+      button: true,
+      label: l.scanModeA11y(name),
+      excludeSemantics: true,
+      child: Material(
+        color: kassa ? T.accent : camShade,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _open(context),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: Row(
+                children: [
+                  Icon(cur.icon, size: 20, color: fg),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: '${l.scanModeLabel}: ', style: TextStyle(fontWeight: FontWeight.w500, color: fg.withValues(alpha: .8))),
+                          TextSpan(text: name, style: TextStyle(fontWeight: FontWeight.w800, color: fg)),
+                        ],
+                      ),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(Icons.keyboard_arrow_down_rounded, size: 24, color: fg),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScanModeSheet extends StatelessWidget {
+  final ScanChoice current;
+  final bool showKassa;
+  final void Function(ScanMode mode)? onLongPress;
+  const _ScanModeSheet({required this.current, required this.showKassa, this.onLongPress});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pal = context.pal;
+    final items = [for (final c in ScanChoice.values) if (c != ScanChoice.kassa || showKassa) c];
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final (m, label) in [
-              (ScanMode.sale, l.toCheck),
-              (ScanMode.look, l.byLook),
-              (ScanMode.weigh, l.weighShort),
-              (ScanMode.price, l.checkPrice),
-              (ScanMode.receive, l.receiving),
-            ])
-              Builder(
-                builder: (itemContext) => Semantics(
-                  button: true,
-                  selected: mode == m,
-                  label: label,
-                  excludeSemantics: true,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onLongPress: onLongPress == null ? null : () => onLongPress(m),
-                    onTap: () {
-                      onSelect(m);
-                      if (itemContext.mounted) Scrollable.ensureVisible(itemContext, alignment: .5, duration: const Duration(milliseconds: 180));
-                    },
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(color: mode == m ? T.accent : Colors.transparent, borderRadius: BorderRadius.circular(10)),
-                      // не alignment у Container: он растягивал плашку на всю высоту экрана поверх камеры (13.10)
-                      child: Center(
-                        widthFactor: 1,
-                        heightFactor: 1,
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          softWrap: false,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: mode == m ? T.navy : Colors.white),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: Text(l.scanModeTitle, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: pal.text)),
+            ),
+            for (final c in items)
+              Semantics(
+                button: true,
+                selected: c == current,
+                label: '${c.label(l)}. ${c.sub(l)}',
+                excludeSemantics: true,
+                child: Material(
+                  color: c == current ? pal.accentSoft : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => Navigator.pop(context, c),
+                    onLongPress: c.mode == null || onLongPress == null ? null : () => onLongPress!(c.mode!),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 56),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(c.icon, size: 24, color: pal.price),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(c.label(l), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: pal.text)),
+                                  Text(c.sub(l), style: TextStyle(fontSize: 13, color: pal.textSoft)),
+                                ],
+                              ),
+                            ),
+                            if (c == current) ...[
+                              const SizedBox(width: 8),
+                              Icon(Icons.check_rounded, size: 24, color: pal.price),
+                            ],
+                          ],
                         ),
                       ),
                     ),
@@ -761,56 +878,9 @@ class _ScanModeBarState extends State<ScanModeBar> {
               ),
           ],
         ),
-          ),
-        ),
       ),
     );
   }
-}
-
-/// 2026-10-27 (аудит мобилки, С-1): кнопка режима «Сканер для кассы» — широкая, с подписью (в TalkBack и на экране), не меньше
-/// 48 dp по высоте; длинная подпись (ky/uz, шрифт 1,3) переносится на 2 строки, а не обрезается.
-class KassaModeChip extends StatelessWidget {
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  const KassaModeChip({super.key, required this.label, required this.active, required this.onTap});
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    toggled: active,
-    label: label,
-    excludeSemantics: true,
-    child: Material(
-      color: active ? T.accent : camShade,
-      borderRadius: BorderRadius.circular(24),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.point_of_sale_rounded, size: 20, color: active ? T.navy : Colors.white),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: active ? T.navy : Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 class _Round extends StatelessWidget {

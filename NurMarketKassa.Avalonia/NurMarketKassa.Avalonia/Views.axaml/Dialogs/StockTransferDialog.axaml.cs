@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using NurMarketKassa.Core.Application;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -187,7 +188,7 @@ public partial class StockTransferDialog : Window
         var to = EnsurePlace(ToBox.Text);
 
         // Пусто или не число — ноль, то есть «вес не указан»: запятую принимаем наравне с точкой.
-        if (!double.TryParse(WeightBox.Text?.Replace(',', '.').Trim(), NumberStyles.Any,
+        if (!double.TryParse(WeightBox.Text?.Replace(',', '.').Trim(), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite,
                 CultureInfo.InvariantCulture, out var weight) || weight < 0)
             weight = 0;
 
@@ -239,10 +240,7 @@ public partial class StockTransferDialog : Window
             return;
         }
 
-        var matches = CatalogCacheService.Products
-            .Where(p => p.Title.Contains(query, System.StringComparison.CurrentCultureIgnoreCase)
-                        || (p.Barcode ?? "").Contains(query, System.StringComparison.OrdinalIgnoreCase)
-                        || (p.Article ?? "").Contains(query, System.StringComparison.OrdinalIgnoreCase))
+        var matches = SearchMatch.Products(CatalogCacheService.Products, query) // 2026-10-29: единый поиск
             .OrderBy(p => p.Title, System.StringComparer.CurrentCultureIgnoreCase)
             .Take(6)
             .ToList();
@@ -283,7 +281,7 @@ public partial class StockTransferDialog : Window
 
     private double ReadQuantity()
     {
-        if (!double.TryParse(ItemQuantityBox.Text?.Replace(',', '.'), NumberStyles.Any,
+        if (!double.TryParse(ItemQuantityBox.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite,
                 CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
             quantity = 1;
         return quantity;
@@ -316,7 +314,7 @@ public partial class StockTransferDialog : Window
             return;
         ShowWarning(null);
 
-        if (!double.TryParse(ItemQuantityBox.Text?.Replace(',', '.'), NumberStyles.Any,
+        if (!double.TryParse(ItemQuantityBox.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite,
                 CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
             quantity = 1;
 
@@ -325,7 +323,7 @@ public partial class StockTransferDialog : Window
         // этикетка, артикул), а код, которого нет на этом компьютере, — ещё и на сервере (склад не находит товар по скану).
         var product = ProductCodeLookup.FindLocal(query)?.Product
                       ?? CatalogCacheService.Products.FirstOrDefault(p =>
-                          p.Title.Contains(query, System.StringComparison.OrdinalIgnoreCase));
+                          SearchMatch.Matches(query, p.Title));
         if (product is null && NurMarketKassa.AvaloniaHost.ViewModels.WarehouseViewModel.LooksLikeCode(query))
         {
             ItemSearchBox.Text = "";

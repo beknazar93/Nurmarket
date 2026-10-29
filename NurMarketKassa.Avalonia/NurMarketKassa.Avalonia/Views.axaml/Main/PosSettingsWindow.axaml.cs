@@ -180,6 +180,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             SettingsVm = settingsVm;
             DataContext = this;
             InitializeComponent();
+            // 2026-10-29: окно известно опросу общих настроек (SettingsCloudSync.EditingProbe) — см. HasUnsavedEdits.
+            lock (Instances)
+                Instances.Add(new WeakReference<PosSettingsWindow>(this));
             // 2026-10-23 (аудит Б-9): заголовок системной рамки — цветом темы кассы.
             NurMarketKassa.AvaloniaHost.Services.WindowChrome.Apply(this);
             this.FitToScreen();
@@ -511,7 +514,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 penaltySave.Stop();
                 var prefsNow = UserPreferences.Instance;
                 prefsNow.DebtLatePenaltyText = (DebtPenaltyBox.Text ?? "").Trim();
-                prefsNow.RentalLatePenaltyPerDay = double.TryParse((RentalPenaltyBox.Text ?? "").Trim().Replace(',', '.'), System.Globalization.NumberStyles.Any,
+                prefsNow.RentalLatePenaltyPerDay = double.TryParse((RentalPenaltyBox.Text ?? "").Trim().Replace(',', '.'), System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowLeadingWhite | System.Globalization.NumberStyles.AllowTrailingWhite,
                     System.Globalization.CultureInfo.InvariantCulture, out var perDay) && perDay > 0 ? perDay : 0;
                 prefsNow.SaveToDisk();
             };
@@ -601,6 +604,27 @@ namespace NurMarketKassa.AvaloniaHost.Views
             SidebarCloseButton.IsVisible = false;
             _embeddedSection = true; // 2026-10-27 (С-22): закрывает оболочка владельца — вопрос о несохранённом не задаём
         }
+
+        private static readonly List<WeakReference<PosSettingsWindow>> Instances = new();
+
+        /// <summary>2026-10-29: true — окно настроек сейчас на экране (само или разделом программы владельца). Пока так, настройки компании с
+        /// сервера (SettingsCloudSync.RefreshCompanyAsync) не применяются: поля страниц читаются при открытии, и «Сохранить» с устаревшим
+        /// полем вернул бы на сервер старое значение поверх новой правки владельца; список сотрудников тоже не должен перерисовываться под
+        /// руками. Применятся в течение 15 с после закрытия окна / ухода из раздела.</summary>
+        public static bool HasUnsavedEdits()
+        {
+            lock (Instances)
+            {
+                Instances.RemoveAll(w => !w.TryGetTarget(out _));
+                foreach (var w in Instances)
+                    if (w.TryGetTarget(out var win) && win.IsEffectivelyVisibleForSync())
+                        return true;
+            }
+            return false;
+        }
+
+        // Окно показано само или его содержимое встроено разделом программы владельца и сейчас на экране.
+        private bool IsEffectivelyVisibleForSync() => IsVisible || (Content is Avalonia.Visual v && v.IsEffectivelyVisible);
 
         private string? _dirtyBaseline;
         private bool _closeConfirmed;
@@ -1546,7 +1570,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // обнуляет программу молча; диапазон тот же, что при чтении файла настроек (0..100).
             if (double.TryParse(
                     (_operationsView.LoyaltyEarnPercentBox.Text ?? "").Trim().Replace(',', '.'),
-                    NumberStyles.Any,
+                    NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite,
                     CultureInfo.InvariantCulture,
                     out var loyaltyPercent))
             {

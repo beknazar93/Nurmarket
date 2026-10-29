@@ -87,7 +87,8 @@ public sealed class JobLine
     public int? FileRow { get; set; }
 
     [JsonIgnore] public bool IsNew => Source != ReceivingSource.Warehouse;
-    [JsonIgnore] public double LineTotal => Quantity * PurchasePrice;
+    // 2026-10-28: сумма строки с округлением до копеек по итогу — как в таблице приёмки (ReceivingPricing.LineTotal)
+    [JsonIgnore] public double LineTotal => ReceivingPricing.LineTotal(Quantity, PurchasePrice);
 
     public static JobLine From(ReceivingLineVm l) => new()
     {

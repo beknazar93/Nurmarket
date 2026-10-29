@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using NurMarketKassa.Services;
 using System;
 using System.Collections.Generic;
@@ -322,7 +323,7 @@ namespace NurMarketKassa.ViewModels
             ConsultantMatches.Clear();
             foreach (var c in _allConsultants)
             {
-                if (query.Length == 0 || c.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+                if (query.Length == 0 || SearchMatch.Matches(query, c.Name)) // 2026-10-29: единый поиск
                     ConsultantMatches.Add(c);
             }
             OnPropertyChanged(nameof(ConsultantListStatus));

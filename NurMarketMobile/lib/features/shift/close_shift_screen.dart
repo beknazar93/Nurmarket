@@ -12,6 +12,7 @@ import '../../core/util/ui.dart';
 import '../ops/ops_repository.dart' show OpsRepository;
 import '../ops/tape_doc.dart';
 import 'shift_doc.dart';
+import 'shift_infographic.dart';
 import 'shift_repository.dart';
 
 /// Закрыть смену (Т18): итоги смены, «должно быть в кассе», пересчёт наличных.
@@ -146,7 +147,7 @@ class _CloseShiftScreenState extends ConsumerState<CloseShiftScreen> {
         final router = GoRouter.of(context);
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (c) => TapeDocScreen(doc: doc, title: l.zReport, subtitle: l.shiftClosed, lockBack: true, onDone: () => Navigator.of(c).pop()),
+            builder: (c) => TapeDocScreen(doc: doc, title: l.zReport, subtitle: l.shiftClosed, lockBack: true, banner: ShiftInfographic(bd), onDone: () => Navigator.of(c).pop()),
           ),
         );
         router.go('/home');
@@ -252,7 +253,10 @@ class _CloseShiftScreenState extends ConsumerState<CloseShiftScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          // 2026-10-29 (инфографика, спека Fable): «Чем платили» и «Деньги в ящике» — с цветом и знаками; ниже — лента как была (с пометками).
           if (bd != null) ...[
+            ShiftInfographic(bd),
+            const SizedBox(height: 12),
             Panel(padding: const EdgeInsets.all(16), child: TapeItemsList(shiftSalesItems(l, bd))),
             const SizedBox(height: 8),
             Panel(padding: const EdgeInsets.all(16), child: TapeItemsList(shiftCashItems(l, bd))),

@@ -12,6 +12,8 @@ import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/product_picker.dart';
+import '../../core/ui/infographic/infographic_data.dart' show StockHealth;
+import '../../core/ui/infographic/infographics.dart' show SplitBar;
 import '../../core/util/ui.dart';
 import '../admin/admin_screens.dart';
 import '../scan/scan_screen.dart';
@@ -38,6 +40,8 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   List<Product> _list = [];
   Map<String, PiecePack> _packs = {}; // 2026-10-27 (М4): остаток товара с упаковкой — «12 пачек + 5 шт»
   Timer? _debounce;
+  // 2026-10-29 (инфографика, спека Fable): сколько товаров «нет / заканчивается / хватает» — по всему складу (без поиска и категории).
+  StockHealth? _health;
 
   @override
   void initState() {
@@ -169,6 +173,9 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   Future<void> _load() async {
     var list = await ref.read(databaseProvider).searchProducts(_q.text, category: _category, limit: 20000);
     list = list.where((p) => !p.isService).toList();
+    if (_q.text.trim().isEmpty && _category == null) {
+      _health = StockHealth.of([for (final p in list) (quantity: p.quantity, minQuantity: p.minQuantity, isService: false)]);
+    }
     if (_filter == 'low') list = list.where((p) => p.quantity > 0 && isLowStock(p.quantity, p.minQuantity)).toList(); // 2026-10-22 (мобилка, админ, П11)
     if (_filter == 'out') list = list.where((p) => p.quantity <= 0).toList();
     if (_filter == 'in') list = list.where((p) => p.quantity > 0).toList();
@@ -290,6 +297,17 @@ class _StockScreenState extends ConsumerState<StockScreen> {
             _load();
           },
         ),
+        if (_health != null && _health!.total > 0)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: _StockHealthStrip(
+              _health!,
+              onTap: () {
+                setState(() => _filter = _health!.runningOut > 0 ? 'low' : 'all');
+                _load();
+              },
+            ),
+          ),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async {
@@ -1112,4 +1130,54 @@ class _StockAction extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// 2026-10-29 (инфографика, спека Fable): остатки одной полосой — нет / заканчивается / хватает; касание открывает «Заканчивается».
+class _StockHealthStrip extends StatelessWidget {
+  final StockHealth h;
+  final VoidCallback onTap;
+  const _StockHealthStrip(this.h, {required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pal = context.pal;
+    final t = h.total.toDouble();
+    final colors = [pal.danger, T.chartColors[9], pal.success];
+    final names = [l.infStockOut, l.infStockLow, l.infStockOk];
+    final counts = [h.out, h.low, h.ok];
+    return Semantics(
+      container: true,
+      button: true,
+      label: '${l.infStockTitle}: ${[for (var i = 0; i < 3; i++) '${names[i]} ${counts[i]}'].join(', ')}',
+      child: ExcludeSemantics(
+        child: Panel(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SplitBar(fractions: [h.out / t, h.low / t, h.ok / t], colors: colors),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 14,
+                runSpacing: 2,
+                children: [
+                  for (var i = 0; i < 3; i++)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(width: 10, height: 10, decoration: BoxDecoration(color: colors[i], borderRadius: BorderRadius.circular(3))),
+                        const SizedBox(width: 6),
+                        Text('${names[i]} ${counts[i]}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: pal.textSoft)),
+                      ],
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

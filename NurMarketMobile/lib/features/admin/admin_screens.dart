@@ -15,6 +15,9 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
+import '../../core/ui/infographic/infographic_data.dart' show fillDays;
+import '../../core/ui/infographic/infographics.dart' show Sparkline;
+import 'analytics.dart' show analyticsRepoProvider;
 import 'admin_repository.dart';
 import 'admin_receive.dart';
 import '../../core/util/audit.dart';
@@ -45,6 +48,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   TodayStats? _today;
   double? _debts;
   int _low = 0;
+  // 2026-10-29 (инфографика, спека Fable): выручка за 7 дней — мини-линия на плитке «Выручка сегодня»; нет связи — без линии.
+  List<double>? _spark;
   // 2026-10-26 (живой аудит, П10): без связи плитка пишет «нет связи» и даёт «Повторить» (было «…» без пояснения).
   bool _todayFail = false;
   bool _debtsFail = false;
@@ -66,6 +71,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     try {
       final t = await ref.read(adminRepoProvider).today();
       if (mounted) setState(() => _today = t);
+      unawaited(_loadSpark());
     } on ApiException {
       // без связи — плитка покажет «нет связи» и «Повторить»
       if (mounted) setState(() => _todayFail = true);
@@ -75,6 +81,17 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       if (mounted) setState(() => _debts = d.fold<double>(0, (s, x) => s + x.debt));
     } on ApiException {
       if (mounted) setState(() => _debtsFail = true);
+    }
+  }
+
+  Future<void> _loadSpark() async {
+    try {
+      final today = DateUtils.dateOnly(DateTime.now());
+      final from = today.subtract(const Duration(days: 6));
+      final r = await ref.read(analyticsRepoProvider).sales(from, today);
+      if (mounted) setState(() => _spark = [for (final d in fillDays(r.byDay, from, today)) d.$2]);
+    } catch (_) {
+      // без линии — плитка остаётся как была
     }
   }
 
@@ -200,6 +217,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                       value: _today == null ? null : '${money(_today!.revenue)} ${l.som}',
                       failed: _todayFail && _today == null,
                       color: context.pal.price,
+                      spark: _spark,
                       onTap: () => context.push('/admin/summary'),
                       onRetry: _load,
                     ),
@@ -287,22 +305,31 @@ class AdminKpiTile extends StatelessWidget {
   final Color? color;
   final VoidCallback? onTap;
   final VoidCallback? onRetry;
-  const AdminKpiTile({super.key, required this.label, this.value, this.failed = false, this.color, this.onTap, this.onRetry});
+
+  /// 2026-10-29 (инфографика): мини-линия тренда справа сверху (7 точек и больше одной).
+  final List<double>? spark;
+  const AdminKpiTile({super.key, required this.label, this.value, this.failed = false, this.color, this.onTap, this.onRetry, this.spark});
 
   @override
   Widget build(BuildContext context) {
     final l = context.l;
     final pal = context.pal;
     final soft = TextStyle(fontSize: 12, color: pal.textSoft);
+    final showSpark = !failed && value != null && spark != null && spark!.length > 1;
     return Panel(
       onTap: onTap,
-      child: ConstrainedBox(
+      child: Stack(children: [
+        if (showSpark) Positioned(right: 0, top: 0, child: Sparkline(spark!, color: T.chartColors[0], width: 48, height: 24)),
+        ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 64),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: soft),
+            Padding(
+              padding: EdgeInsets.only(right: showSpark ? 52 : 0),
+              child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: soft),
+            ),
             const SizedBox(height: 4),
             if (failed)
               Wrap(
@@ -339,7 +366,8 @@ class AdminKpiTile extends StatelessWidget {
               ),
           ],
         ),
-      ),
+        ),
+      ]),
     );
   }
 }

@@ -60,6 +60,9 @@ class Session {
   static const viewSalaryFlag = 'can_view_salary';
   static const editSalaryFlag = 'can_edit_salary';
   static const viewEmployees = 'can_view_employees';
+  // 2026-10-28 (сотрудники): правка карточки сотрудника (EmployeeUpdate схемы) и допуск к работе на кассе (Б-16, пока не у всех серверов).
+  static const editEmployees = 'can_edit_employees';
+  static const usePos = 'can_use_pos';
 
   /// Разделы, которые сайт владельцу открывает всегда (PosPermissions.OwnerSections кассы).
   // 2026-10-26 (голос-управление, В7): и зарплата с сотрудниками — владельцу открыты всегда.
@@ -95,6 +98,10 @@ class Session {
 
   /// 2026-10-26 (голос-управление, В7): ставить задачи сотрудникам и видеть чужие (администратор или «Сотрудники»).
   bool get manageTasks => isAdmin || can(viewEmployees);
+
+  /// 2026-10-28 (сотрудники): менять личные данные, создавать и увольнять сотрудников — администратор или флаг «Правка сотрудников».
+  /// Права доступа (can_view_*) по-прежнему правит тот, кому открыты «Настройки» (как было).
+  bool get canEditStaff => isAdmin || can(editEmployees);
 
   /// Разделы, которым кроме [routePermission] нужны закупки (см. [canProcure]).
   static const _procureRoutes = {'/admin/receive', '/admin/purchase', '/admin/invoice'};
@@ -146,6 +153,8 @@ class Session {
     // 2026-10-22 (мобилка, админ, П9): уведомления — раздел управления (заказы, долги, остатки), раньше открывался всем.
     if (loc == '/admin' || loc == '/admin/notifications') return showAdmin;
     if (loc == '/admin/tasks') return manageTasks; // 2026-10-26 (голос-управление, В7)
+    // 2026-10-28 (сотрудники): список сотрудников сервер отдаёт по can_view_employees (Б-16), а права правят с «Настройками».
+    if (loc == '/admin/staff') return isAdmin || can(viewSettings) || can(viewEmployees);
     final p = routePermission(loc);
     if (p != null && !can(p)) return false;
     return !_procureRoutes.contains(loc) || canProcure;

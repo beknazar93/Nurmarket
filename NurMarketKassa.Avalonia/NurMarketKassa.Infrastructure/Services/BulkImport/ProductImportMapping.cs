@@ -104,7 +104,7 @@ public sealed class ProductImportMapping
         [ProductImportField.Category] = ["категория", "категории", "группа", "группатовара", "категориятовара", "раздел", "category", "group", "санат", "категориясы", "топ",
             "kategori", "kategoriya", "toifa", "guruh"],
         [ProductImportField.Unit] = ["единица", "ед", "едизм", "единицаизмерения", "единицы", "едизмерения", "unit", "uom", "өлчөмбирдиги", "өлчөм", "бирдик", "birim",
-            "birlik", "олчовбирлиги"],
+            "birlik", "олчовбирлиги", "бирдиги", "олчөмбирдиги", "olchovbirligi", "oʻlchovbirligi", "olchov", "unitofmeasure", "measure", "еденицаизмерения", "единицаизм", "изм"],
         [ProductImportField.Weight] = ["весовой", "весовойтовар", "весовые", "isweight", "weight", "weighted", "weighable", "byweight", "tartılı", "tartili", "vaznli"],
         [ProductImportField.Article] = ["артикул", "art", "код", "кодтовара", "article", "sku", "артикултовара", "kod", "ürünkodu", "urunkodu", "mahsulotkodi", "artikul"],
         [ProductImportField.Brand] = ["бренд", "марка", "производитель", "brand", "изготовитель", "marka", "brend", "üretici", "ishlabchiqaruvchi"],

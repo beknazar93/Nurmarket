@@ -1,3 +1,4 @@
+using NurMarketKassa.Core.Application;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
@@ -86,7 +87,7 @@ public sealed class SuppliersWindow : Window, IOwnerSection
 
         // Поиск и фильтр «Все / С долгом / Просрочено» (сегменты, выбранный тёмно-синий).
         var tools = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 12) };
-        _search = UiKit.Input(this, T("Поиск: название, телефон, ИНН…", "Издөө: аталышы, телефон, ИНН…", "Search: name, phone, tax ID…", "Ara: ad, telefon, vergi no…", "Qidirish: nomi, telefon, STIR…"), 44); // 2026-10-27, аудит владельца С-5: было 42 (цель нажатия)
+        _search = UiKit.Search(this, T("Поиск: название, телефон, ИНН…", "Издөө: аталышы, телефон, ИНН…", "Search: name, phone, tax ID…", "Ara: ad, telefon, vergi no…", "Qidirish: nomi, telefon, STIR…"), 44); // 2026-10-27, аудит владельца С-5: было 42 (цель нажатия)
         Avalonia.Automation.AutomationProperties.SetName(_search, _search.Watermark);
         _search.TextChanged += (_, _) => Render();
         tools.Children.Add(_search);
@@ -417,8 +418,7 @@ public sealed class SuppliersWindow : Window, IOwnerSection
         var query = (_search.Text ?? "").Trim();
         var digits = new string(query.Where(char.IsDigit).ToArray());
         IEnumerable<SupplierInfo> list = _suppliers.Where(s => query.Length == 0
-            || s.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-            || s.Llc.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+            || SearchMatch.Matches(query, s.Name, s.Llc) // 2026-10-29: единый поиск
             || (digits.Length >= 3 && (new string(s.Phone.Where(char.IsDigit).ToArray()).Contains(digits, StringComparison.Ordinal) || s.Inn.Contains(digits, StringComparison.Ordinal))));
         list = _filter switch
         {

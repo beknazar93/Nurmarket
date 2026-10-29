@@ -9,7 +9,9 @@ namespace NurMarketKassa.Services;
 /// <summary>Фоновая синхронизация офлайн-продаж и каталога (интервал 45 с).</summary>
 public sealed partial class SyncService : IDisposable
 {
-    private static readonly TimeSpan SyncInterval = TimeSpan.FromSeconds(45);
+    // 2026-10-29, «синхронизация очень медленная»: проход очереди и связи раз в 15 с (было 45; 30 вместо 90 на слабом ПК), чек, попавший в очередь,
+    // уходит сразу (OnQueueAppended). Запрос связи общий (SharedConnectivityCheck: только если минуту не было ответов сервера), очередь — локальная база.
+    private static TimeSpan SyncInterval => SyncCenter.QueueInterval;
 
     // Полная синхронизация каталога (2026-09-07): раз в 2 минуты (3 — в режиме слабого ПК), отдельно
     // от 45-секундного цикла проверки связи и отправки офлайн-продаж. Серверного признака версии
@@ -25,7 +27,7 @@ public sealed partial class SyncService : IDisposable
     // На слабых устройствах (см. UserPreferences.LowPerformanceMode) реже гоняем
     // полную синхронизацию каталога, чтобы не конкурировать с UI-потоком за CPU/диск.
     private static TimeSpan CurrentSyncInterval =>
-        UserPreferences.Instance.LowPerformanceMode ? TimeSpan.FromSeconds(90) : SyncInterval;
+        UserPreferences.Instance.LowPerformanceMode ? SyncInterval * 2 : SyncInterval;
 
     private readonly ISalesApiService _sales;
     private readonly IAuthApiService _auth;
@@ -133,7 +135,38 @@ public sealed partial class SyncService : IDisposable
 
         // 2026-09-29: сервер ожил после аварии — очередь досылается сразу, а не через 45 с.
         ServerOutageMonitor.Recovered += OnServerRecovered;
+        // 2026-10-29: чек попал в очередь — досылаем через несколько секунд, а не на следующем такте; «Обновить» (SyncCenter) тоже досылает сразу.
+        OfflinePendingSalesStore.Appended += OnQueueAppended;
+        SyncCenter.QueueFlusher = async ct =>
+        {
+            await ProbeNowAsync(ct).ConfigureAwait(false);
+            if (IsOnline)
+                await SyncPendingAsync(ct, waitForGate: true).ConfigureAwait(false);
+        };
         _loopTask = RunLoopAsync(_cts.Token);
+    }
+
+    private void OnQueueAppended()
+    {
+        if (_disposed || _autonomous.IsCurrentSessionAutonomous || ServerOutageMonitor.IsOutage)
+            return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // 5 с: исходная оплата, оборвавшаяся по таймауту, могла дойти до сервера — ReplayOfflineSaleAsync сверяет корзину по ключу.
+                await Task.Delay(TimeSpan.FromSeconds(5), _cts.Token).ConfigureAwait(false);
+                if (IsOnline && !ServerOutageMonitor.IsOutage)
+                    await SyncPendingAsync(_cts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Досылка очереди после продажи не удалась: {ex.Message}", "OFFLINE");
+            }
+        });
     }
 
     public async Task ProbeNowAsync(CancellationToken ct = default)
@@ -312,6 +345,8 @@ public sealed partial class SyncService : IDisposable
 
             if (IsOnline && pending.Count > 0)
                 await SyncBatchAsync(pending, ct).ConfigureAwait(false);
+            if (IsOnline)
+                SyncCenter.RecordSuccess("queue"); // 2026-10-29: «Синхронизация: HH:mm:ss» в подсказке индикатора связи
 
             // 2026-09-29: закрытия смен — ПОСЛЕ продаж (раньше шли первыми). Смена, закрытая в
             // аварии сервера, закрывается на сервере только когда её чеки уже там: закрой её
@@ -747,6 +782,7 @@ public sealed partial class SyncService : IDisposable
 
         _disposed = true;
         ServerOutageMonitor.Recovered -= OnServerRecovered;
+        OfflinePendingSalesStore.Appended -= OnQueueAppended;
 
         try { _cts.Cancel(); } catch { /* ignore */ }
 
